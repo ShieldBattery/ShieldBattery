@@ -123,9 +123,18 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
    - `%APPDATA%\ShieldBattery-Local\logs\shieldbattery.0.log` (+`.1`): `All players have joined` →
      `Readying lobby for start` → **`Forge: Game started`** = really in-game.
    - App log (`app.0.log`): `Game status updated to 'configuring'` → `'playing'`.
-4. Decisive finish: `Stop-Process` one `StarCraft.exe`. The other is credited the win; the result
-   reports (the killed DLL fails to send, then `Game failed to send result, retrying from the app` →
-   `Game result resent successfully` — the Electron fallback).
+4. Decisive finish — two paths:
+   - **Human graceful leave (reliable, needs a person at the keyboard).** Ask the user to leave the
+     match *through the in-game menu* (F10 / Menu → Quit/Leave Game → Yes) on the loser's window —
+     **not** by closing the window / Alt-F4 / killing the process. A graceful leave ends the game
+     normally on the opponent's side (no dropped-player dialog to hang on), so both DLLs report a
+     decisive result → clean winner-up/loser-down MMR. This is the way to get a real MMR delta in
+     this env (validated PR #1286, both 1v1 and 2v2). For **2v2**, the whole losing *team* must
+     leave: have the user leave both of one team's windows.
+   - **`Stop-Process` one `StarCraft.exe` (unattended fallback).** The other is *supposed* to be
+     credited the win, but in practice the survivor often hangs on BW's dropped-player dialog with no
+     human to dismiss it → both report `unknown` → game reconciles **disputed**, no MMR (see Known
+     issues). Use only when no human is available and you don't need the MMR delta.
 
 **Verify outcomes** — UI *and* DB (`docker exec shieldbattery-db-1 psql -U shieldbattery -d shieldbattery`):
 - `games`/`games_users` — a row with results for the match.
@@ -163,9 +172,35 @@ bits in here, and keep this lean:
     restart watchdog — healthy, ignore.)
   - Redis (:6380): a `sbthrottle:matchmaking~<userId>` key per queued user. The matcher's own queue
     is in-memory in server-rs, so no queue keys land in Redis.
-  - A formed match writes `matchmaking_completions` + `games`/`games_users` (none ⇒ no match yet).
-  - Equal-rated *unrated* players don't reliably match quickly in dev; prefer a lobby launch (T4
-    section) unless you're specifically exercising the matcher.
+  - A formed match writes `matchmaking_completions` (`completion_type='found'`, one row per player) —
+    this lands the instant the match forms, *before* the `games` row (created at game load). No
+    `found` rows ⇒ no match yet.
+  - Since the Rust matcher (PR #1286+), two equal/unrated players reliably match on the **first ~6s
+    search tick** (adaptive quality threshold relaxes for small queues), so going through real
+    matchmaking is dependable in dev now — no need to fall back to a lobby just to get a match.
+  - Mode selector on `/play/matchmaking` is **buttons** (`getByRole('button', {name:'2v2',
+    exact:true})`), not tabs. After a game, a **"Match results" dialog** stays open and silently
+    blocks the next Find match — close it with the **"Close dialog"** button (the bare "Close" role
+    is ambiguous with the window control) before re-queuing.
+  - server-rs restart watchdog: queue a player, kill the `cargo run` on :5556 and restart it (new
+    process → new `/matchmaker/token` UUID). Within ~10s Node logs `failed to fetch ... process
+    token — will retry` then `Rust matchmaker restart detected — surfacing failure`, ejects searching
+    players, and the client shows the **"Matchmaking error — interrupted due to a server error"**
+    dialog (the new `matchmakingServiceError`). Mid-match players are deliberately spared.
+  - Restored gauge: `curl -s localhost:5555/metrics | grep shieldbattery_matchmaker_queue_size`
+    (direct GET only — an `x-forwarded-for` header 403s) reflects live `queueEntries` per type; the
+    label disappears when the queue empties.
+
+- **2v2 matchmaking (T4, 4 clients).** Needs 4 distinct accounts/instances. Sessions 1–3 are
+  pre-configured; clone a 4th: copy `%APPDATA%\ShieldBattery-Local\{settings,scr-settings,CSettings}-session3.json`
+  to `-session4.json`, then launch `SB_SESSION=session4 ... --remote-debugging-port=9225`. Log all 4
+  in (claude-1/2/3/admin), select **2v2** on each, arm a ready-up clicker per client, queue all 4 →
+  the matcher splits them into two balanced teams (`config->'teams'` is `[[a,b],[c,d]]`; game is
+  `gameType: topVBottom`). The **race draft** then runs but **auto-completes**: each pick auto-locks
+  the player's provisional (queued) race after `DRAFT_PICK_TIME_MS`+2s (=17s), so you can leave it
+  untouched — no need to drive picks. Game loads + 4 `StarCraft.exe` launch. Clean finish: user
+  leaves *both* losing-team windows (graceful, see T4 step 4). Outcome: 2 win / 2 loss rows in
+  `games_users`, 4 `matchmaking_rating_changes` rows (type `2v2`), `assigned_matchup` like `pt-zz`.
 
 - **Channel user permissions (T3).** Three clients exercise delegation cleanly (owner + delegated
   moderator + target). Setup: c1 creates a channel via the chat-list **"Create channel"** button →
@@ -233,3 +268,14 @@ path before treating one as real; delete it once resolved.
   submit path's dup-key downgrade in the job's catch. (Symbols in
   `server/lib/games/game-result-service.ts`; grep `matchmaking_rating_changes_pkey` /
   `reconcileIncompleteResults` — line numbers drift.)
+
+- **Decisive-kill (`Stop-Process` one `StarCraft.exe`) often disputes when unattended** (seen
+  2026-06-16). The survivor hangs on BW's dropped-player dialog with no human to dismiss it (~2 min,
+  sometimes crash-looping `c000001d`) and never reports; the killed side reports `unknown` via the
+  Electron fallback → game reconciles **disputed** (both `unknown`) → **no `matchmaking_rating_changes`,
+  ratings unmoved**. **Resolved for runs with a human available:** a *graceful in-game leave* (F10 →
+  Quit/Leave) instead of a process kill ends the game normally and yields a clean winner-up/loser-down
+  MMR delta — validated for both 1v1 and 2v2 on PR #1286 (see T4 "Decisive finish" → human path).
+  So this is only a hazard for fully-unattended runs; when you need the MMR delta, get a human to
+  leave gracefully rather than killing the process. (The matcher-side writes — formation,
+  `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)

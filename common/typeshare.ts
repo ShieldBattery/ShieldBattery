@@ -12,6 +12,34 @@ export interface CheckAllowedNameResponse {
   reason?: RestrictedNameReason
 }
 
+/**
+ * All of the matchmaking types that we support. These values match the enum values used in the
+ * database.
+ */
+export enum MatchmakingType {
+  Match1v1 = '1v1',
+  Match1v1Fastest = '1v1fastest',
+  Match2v2 = '2v2',
+}
+
+/** A single player's entry in a match found message. */
+export interface MatchedPlayer {
+  id: TypeshareTypes.SbUserId
+  /**
+   * Base64-encoded JSON QueueTicket. Node.js stores this and sends it back
+   * via POST /matchmaker/requeue if the match fails to start.
+   */
+  ticket: string
+}
+
+/** Data carried by the [`PublishedMatchmakingMessage::MatchFound`] event. */
+export interface MatchFoundMessage {
+  mode: MatchmakingType
+  teamA: MatchedPlayer[]
+  teamB: MatchedPlayer[]
+  quality: number
+}
+
 export interface SbPermissions {
   editPermissions: boolean
   debug: boolean
@@ -45,19 +73,13 @@ export enum MapVisibility {
   Official = 'OFFICIAL',
 }
 
-/**
- * All of the matchmaking types that we support. These values match the enum values used in the
- * database.
- */
-export enum MatchmakingType {
-  Match1v1 = '1v1',
-  Match1v1Fastest = '1v1fastest',
-  Match2v2 = '2v2',
-}
+/** Messages published to the Redis `"matchmaking"` channel. */
+export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }
 
 export type PublishedMessage =
   | { type: 'news'; data: PublishedNewsMessage }
   | { type: 'user'; data: PublishedUserMessage }
+  | { type: 'matchmaking'; data: PublishedMatchmakingMessage }
 
 export type PublishedNewsMessage = { type: 'urgentMessageChanged'; data: undefined }
 

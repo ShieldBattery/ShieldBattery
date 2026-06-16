@@ -858,6 +858,14 @@ export interface DraftCancelEvent {
   type: 'draftCancel'
 }
 
+/**
+ * The matchmaking service encountered an unrecoverable error (e.g. the Rust matchmaker restarted).
+ * The player has been removed from the queue and must re-queue manually.
+ */
+export interface MatchmakingServiceErrorEvent {
+  type: 'matchmakingServiceError'
+}
+
 export enum DraftMessageType {
   // TODO(tec27): Unify with the base message types when we move everything to immer
   TextMessage = 'message',
@@ -897,6 +905,7 @@ export type MatchmakingEvent =
   | DraftCompletedEvent
   | DraftCancelEvent
   | DraftChatMessageEvent
+  | MatchmakingServiceErrorEvent
 
 /**
  * Describes the current status (enabled/disabled) of a particular MatchmakingType on the server.

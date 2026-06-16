@@ -44,4 +44,5 @@ WORKDIR /server
 COPY --from=builder /server/target/release/server ./
 
 USER server:server
+
 CMD ["/server/server"]
