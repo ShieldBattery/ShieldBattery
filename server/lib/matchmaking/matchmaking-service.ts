@@ -527,6 +527,9 @@ export class MatchmakingService {
       }
     } catch (err) {
       this.playerQueueData.delete(userId)
+      // We may have already added the player to the Rust queue (e.g. the token fetch failed after a
+      // successful queue); best-effort cancel it so we don't leave a ghost entry behind.
+      this.cancelPlayerInRust(userId)
       throw err
     }
 

@@ -200,6 +200,17 @@ describe('matchmaking/matchmaking-service', () => {
     await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
+  test('cancels the Rust queue entry when the token fetch fails after a successful queue', async () => {
+    // The queue starts idle, so the first queuer triggers a token fetch. If that fetch throws after
+    // the player was already added to the Rust queue, we must cancel them rather than leave a ghost.
+    asMockedFunction(rsGetProcessToken).mockRejectedValueOnce(new Error('boom'))
+
+    await expect(queuePlayer(USER_A, CLIENT_A)).rejects.toThrow('boom')
+
+    expect(rsQueuePlayer).toHaveBeenCalled()
+    expect(rsCancelPlayer).toHaveBeenCalledWith(USER_A)
+  })
+
   test('an idle-period restart does not falsely kick the next queuer', async () => {
     // Player A queues, establishing the baseline token, then cancels — emptying the queue and
     // stopping the watchdog.
