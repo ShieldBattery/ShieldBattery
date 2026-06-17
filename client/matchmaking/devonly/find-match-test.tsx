@@ -545,6 +545,7 @@ export function FindMatchListTest() {
           isSearching={isSearching}
           elapsedSecs={elapsed}
           disabled={selectedIds.size === 0 || inLobby}
+          waitingForMapPool={false}
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}
         />

@@ -1147,6 +1147,8 @@ interface QueueBarProps {
   isSearching: boolean
   elapsedSecs: number
   disabled: boolean
+  /** A selected type's map pool is still loading, so Find is temporarily disabled. */
+  waitingForMapPool: boolean
   onFindMatch: () => void
   onCancel: () => void
 }
@@ -1156,6 +1158,7 @@ export function QueueBar({
   isSearching,
   elapsedSecs,
   disabled,
+  waitingForMapPool,
   onFindMatch,
   onCancel,
 }: QueueBarProps) {
@@ -1177,6 +1180,13 @@ export function QueueBar({
           {mm}:{ss}
         </SearchingTimer>
       </>
+    )
+  } else if (waitingForMapPool) {
+    summaryContent = (
+      <QueueEmptyHint>
+        <MaterialIcon icon='info' size={18} />
+        {t('matchmaking.findMatch.loadingMapPool', 'Loading map pool…')}
+      </QueueEmptyHint>
     )
   } else if (disabled) {
     summaryContent = (
@@ -1322,6 +1332,21 @@ export function FindMatch() {
     ? new Set(searchInfo?.searchedTypes.keys() ?? [])
     : new Set(Array.from(selectedTypes).filter(isTypeEnabled))
 
+  // Whether we can build a valid queue request for a type yet. For a user who never configured the
+  // type the server sends `{}` prefs and handleFindMatch falls back to defaults — and pick (no-veto)
+  // modes default their map selection from the current map pool, which is fetched async on mount.
+  // Until that pool arrives we'd send an empty selection that the server rejects with InvalidMaps, so
+  // treat such a type as not-yet-ready and keep Find disabled (with a loading hint) rather than
+  // letting a fast click produce a spurious error.
+  const isTypeReadyToQueue = (type: MatchmakingType): boolean => {
+    const prefs = matchmakingPreferences.get(type)?.preferences
+    if (prefs && 'matchmakingType' in prefs) return true
+    return hasVetoes(type) || mapPools.get(type) !== undefined
+  }
+
+  const isWaitingForMapPool =
+    !isSearching && Array.from(effectiveSelectedTypes).some(type => !isTypeReadyToQueue(type))
+
   const getStatsForType = (type: MatchmakingType): RowStats => {
     const player = selfRankByType.get(type)
     if (!player || !season) {
@@ -1399,7 +1424,8 @@ export function FindMatch() {
   }
 
   const handleFindMatch = healthChecked(() => {
-    if (inLobby || isSubmitting || effectiveSelectedTypes.size === 0) return
+    // isWaitingForMapPool guards the Enter-key path too, which bypasses the (disabled) Find button.
+    if (inLobby || isSubmitting || isWaitingForMapPool || effectiveSelectedTypes.size === 0) return
 
     const allPrefs: MatchmakingPreferences[] = []
     for (const type of effectiveSelectedTypes) {
@@ -1486,7 +1512,8 @@ export function FindMatch() {
         race: getRaceForType(type),
       }))
 
-  const findMatchDisabled = effectiveSelectedTypes.size === 0 || inLobby || isSubmitting
+  const findMatchDisabled =
+    effectiveSelectedTypes.size === 0 || inLobby || isSubmitting || isWaitingForMapPool
 
   return (
     <PageRoot>
@@ -1564,6 +1591,7 @@ export function FindMatch() {
           isSearching={isSearching}
           elapsedSecs={elapsedSecs}
           disabled={findMatchDisabled}
+          waitingForMapPool={isWaitingForMapPool}
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}
         />

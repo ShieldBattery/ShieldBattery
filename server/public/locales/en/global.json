@@ -897,6 +897,7 @@
       },
       "goToLobby": "Go to lobby",
       "inLobbyBanner": "You’re in a lobby — matchmaking is unavailable while in a game lobby.",
+      "loadingMapPool": "Loading map pool…",
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
       "noScheduledWindow": "No scheduled window yet",
