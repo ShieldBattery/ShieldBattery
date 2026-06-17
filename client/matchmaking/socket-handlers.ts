@@ -162,8 +162,7 @@ const eventToAction: EventToActionMap = {
     logger.debug(`Matchmaking search started`)
     audioManager.playSound(AvailableSound.EnteredQueue)
     jotaiStore.set(currentSearchInfoAtom, {
-      matchmakingType: event.matchmakingType,
-      race: event.race,
+      searchedTypes: new Map(event.searchedTypes.map(s => [s.matchmakingType, s.race])),
       startTime: window.performance.now(),
     })
   },

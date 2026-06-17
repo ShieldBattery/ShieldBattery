@@ -4,8 +4,8 @@ import { RaceChar } from '../../common/races'
 import { JotaiStore } from '../jotai-store'
 
 export interface MatchmakingSearchInfo {
-  matchmakingType: MatchmakingType
-  race: RaceChar
+  /** Map from matchmaking type to the race selected for that type. */
+  searchedTypes: Map<MatchmakingType, RaceChar>
   /** The time when the search was started (as returned by `window.performance.now()`). */
   startTime: number
 }

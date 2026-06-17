@@ -165,8 +165,7 @@ bits in here, and keep this lean:
   (and gets deleted once resolved), not woven into a recipe.
 
 - **Matchmaking queue (T3).** Navigate each client to matchmaking by clicking `a[href="/play/"]`
-  (lands on `/play/matchmaking`); "Find match" enables once a default race is set; click it on both.
-  Confirm:
+  (lands on `/play/matchmaking`). Confirm:
   - UI: `document.body.innerText` matches `Searching`.
   - server-rs log: `POST /matchmaker` per find. (`GET /matchmaker/token` every ~5s is the Node→Rust
     restart watchdog — healthy, ignore.)
@@ -175,13 +174,33 @@ bits in here, and keep this lean:
   - A formed match writes `matchmaking_completions` (`completion_type='found'`, one row per player) —
     this lands the instant the match forms, *before* the `games` row (created at game load). No
     `found` rows ⇒ no match yet.
-  - Since the Rust matcher (PR #1286+), two equal/unrated players reliably match on the **first ~6s
-    search tick** (adaptive quality threshold relaxes for small queues), so going through real
-    matchmaking is dependable in dev now — no need to fall back to a lobby just to get a match.
-  - Mode selector on `/play/matchmaking` is **buttons** (`getByRole('button', {name:'2v2',
-    exact:true})`), not tabs. After a game, a **"Match results" dialog** stays open and silently
-    blocks the next Find match — close it with the **"Close dialog"** button (the bare "Close" role
-    is ambiguous with the window control) before re-queuing.
+  - Since the Rust matcher (PR #1286+), two players that are **rating-equal** match on the **first
+    ~6s tick** (adaptive threshold relaxes for small queues). The seeded accounts are *not* equal —
+    they carry real ratings from prior test games (e.g. 1567 vs 1327), and the quality formula
+    (unchanged since #1286) can stall a ~240-point gap for minutes. To force a fast clean match,
+    equalize first: `UPDATE matchmaking_ratings SET rating=1500, uncertainty=350, volatility=0.06
+    WHERE user_id IN (...) AND matchmaking_type='<mode>';` then queue.
+  - **Multi-queue UI (PR #1288+).** `/play/matchmaking` is a **multi-select checkbox list**, not
+    buttons/tabs: three `input[type=checkbox]` in fixed order **[0]=1v1, [1]=1v1 Fastest, [2]=2v2**.
+    Check one or more, then the single **"Find match"** button (`getByRole('button',{name:'Find
+    match',exact:true})`) queues for *all* checked types at once. A player checked for N types shows
+    `queue_size{matchmaking_type=...} 1` for **each** of those N (the `/metrics` gauge is the
+    cleanest multi-queue proof). When they match in one mode they're pulled from **all** their
+    queues (queue drains fully), and only the *matched* mode writes a `found` completion — the other
+    queued modes are abandoned with no completion. **Cancel**, by contrast, writes one
+    `cancel`/`disconnect` completion per queued type. After a game a **"Match results" dialog** stays
+    open and silently blocks the next Find match — close it with the **"Close dialog"** button before
+    re-queuing.
+  - **playwright-cli in this Electron app: drive clicks in-page, not via role/CSS `click`.** The
+    `click` command's actionability wait routinely times out here (login submit, checkboxes, Find
+    match). Reliable pattern: `eval "(()=>{const b=[...document.querySelectorAll('button')]
+    .find(b=>/^\s*Find match\s*$/.test(b.textContent)); if(b&&!b.disabled){b.click(); return 'ok'}
+    return 'no'})()"`. Two gotchas: (1) `eval` wraps input as `() => (<expr>)`, so a statement with
+    `;` is a SyntaxError — use a single-expression IIFE; (2) the checkboxes are MUI and re-render on
+    each toggle, so clicking several from one captured `querySelectorAll` array hits stale nodes and
+    toggles the wrong boxes — click **one index at a time, re-query each time, and verify+retry**.
+    For ready-up auto-clickers, `run-code`'s Node scope lacks `setTimeout` — poll with
+    `await page.waitForTimeout(250)`.
   - server-rs restart watchdog: queue a player, kill the `cargo run` on :5556 and restart it (new
     process → new `/matchmaker/token` UUID). Within ~10s Node logs `failed to fetch ... process
     token — will retry` then `Rust matchmaker restart detected — surfacing failure`, ejects searching
@@ -194,7 +213,8 @@ bits in here, and keep this lean:
 - **2v2 matchmaking (T4, 4 clients).** Needs 4 distinct accounts/instances. Sessions 1–3 are
   pre-configured; clone a 4th: copy `%APPDATA%\ShieldBattery-Local\{settings,scr-settings,CSettings}-session3.json`
   to `-session4.json`, then launch `SB_SESSION=session4 ... --remote-debugging-port=9225`. Log all 4
-  in (claude-1/2/3/admin), select **2v2** on each, arm a ready-up clicker per client, queue all 4 →
+  in (claude-1/2/3/admin), check the **2v2** box (checkbox idx 2; see multi-queue note above) on
+  each, arm a ready-up clicker per client, queue all 4 →
   the matcher splits them into two balanced teams (`config->'teams'` is `[[a,b],[c,d]]`; game is
   `gameType: topVBottom`). The **race draft** then runs but **auto-completes**: each pick auto-locks
   the player's provisional (queued) race after `DRAFT_PICK_TIME_MS`+2s (=17s), so you can leave it

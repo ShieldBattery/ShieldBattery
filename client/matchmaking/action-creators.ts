@@ -3,7 +3,6 @@ import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
-  defaultPreferences,
   DraftChatMessageRequest,
   DraftLockPickRequest,
   DraftProvisionalPickRequest,
@@ -34,43 +33,19 @@ import { clearMatchmakingState, hasAcceptedAtom } from './matchmaking-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export function findMatch<M extends MatchmakingType>(
-  {
-    matchmakingType,
-    preferences,
-  }: {
-    matchmakingType: M
-    preferences:
-      | Immutable<MatchmakingPreferences & { matchmakingType: M }>
-      | Record<string, never>
-      | undefined
-  },
+export function findMatch(
+  preferences: Immutable<MatchmakingPreferences[]>,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return abortableThunk(spec, async (dispatch, getState) => {
+  return abortableThunk(spec, async dispatch => {
     ipcRenderer.send('rallyPointRefreshPings')
-
-    const {
-      auth: { self },
-      mapPools: { byType: mapPoolByType },
-    } = getState()
-    const selfId = self!.user.id
-
-    const prefs =
-      !!preferences && 'race' in preferences
-        ? (preferences as Immutable<MatchmakingPreferences>)
-        : defaultPreferences(
-            matchmakingType,
-            selfId,
-            preferences?.mapPoolId ?? mapPoolByType.get(matchmakingType)?.id ?? 1,
-          )
 
     const findPromise = Promise.resolve().then(async () => {
       const identifiers = (await ipcRenderer.invoke('securityGetClientIds')) ?? []
 
       const body: FindMatchRequest = {
         clientId,
-        preferences: prefs as any,
+        preferences: preferences as any,
         identifiers,
       }
 
@@ -109,6 +84,12 @@ export function findMatch<M extends MatchmakingType>(
               'Your connection to the server was interrupted, please reconnect and try again.',
             )
             break
+          case MatchmakingServiceErrorCode.InvalidMaps:
+            message = i18n.t(
+              'matchmaking.findMatch.errors.invalidMaps',
+              'You must select at least one map in the settings for each chosen matchmaking type.',
+            )
+            break
           default:
             logger.error(
               `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,
@@ -129,9 +110,11 @@ export function findMatch<M extends MatchmakingType>(
 
     findPromise
       .then(() => {
-        // Load the current map pool in the store so we can download all of the maps in it as soon
-        // as the player queues.
-        dispatch(getCurrentMapPool(matchmakingType))
+        // Load the current map pools in the store so we can download all of the maps in them as
+        // soon as the player queues.
+        for (const pref of preferences) {
+          dispatch(getCurrentMapPool(pref.matchmakingType))
+        }
       })
       .catch(swallowNonBuiltins)
 

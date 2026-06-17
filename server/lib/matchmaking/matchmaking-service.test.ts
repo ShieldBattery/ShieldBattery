@@ -1,7 +1,11 @@
 import { register } from 'prom-client'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
-import { MatchmakingPreferences, MatchmakingType } from '../../../common/matchmaking'
+import {
+  MatchmakingCompletionType,
+  MatchmakingPreferences,
+  MatchmakingType,
+} from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { MatchFoundMessage } from '../../../common/typeshare'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -52,7 +56,7 @@ vi.mock('../maps/map-models', async () => ({
 
 import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
-import { getMatchmakingRating } from './models'
+import { getMatchmakingRating, insertMatchmakingCompletion } from './models'
 
 const MAP_ID: SbMapId = makeSbMapId('1')
 const SEASON = { id: 1, startDate: new Date(0), name: 'test', resetMmr: false } as any
@@ -122,7 +126,27 @@ describe('matchmaking/matchmaking-service', () => {
     const prefs = makePreferences()
     prefs.matchmakingType = MatchmakingType.Match1v1
     ;(prefs as any).userId = userId
-    await service.find(userId, clientId, [], prefs)
+    await service.find(userId, clientId, [], [prefs])
+  }
+
+  async function queueMultiPlayer(
+    userId: SbUserId,
+    clientId: string,
+    types: MatchmakingType[],
+  ): Promise<void> {
+    const allPrefs = types.map(type => {
+      const prefs = makePreferences()
+      prefs.matchmakingType = type
+      ;(prefs as any).userId = userId
+      return prefs
+    })
+    await service.find(userId, clientId, [], allPrefs)
+  }
+
+  function completionsFor(userId: SbUserId, completionType: MatchmakingCompletionType) {
+    return asMockedFunction(insertMatchmakingCompletion)
+      .mock.calls.map(call => call[0])
+      .filter(c => c.userId === userId && c.completionType === completionType)
   }
 
   beforeEach(() => {
@@ -379,5 +403,99 @@ describe('matchmaking/matchmaking-service', () => {
     // lead to an accept-timeout ban for a player who did nothing wrong).
     await expect(service.accept(USER_B)).resolves.toBeUndefined()
     await expect(service.accept(USER_A)).resolves.toBeUndefined()
+  })
+
+  test('queues a multiqueue player with per-mode ratings and a request per mode', async () => {
+    await queueMultiPlayer(USER_A, CLIENT_A, [
+      MatchmakingType.Match1v1,
+      MatchmakingType.Match1v1Fastest,
+    ])
+
+    // A single Rust queue call carries one rating entry per queued mode (Rust derives the queued
+    // mode set from these entries).
+    expect(rsQueuePlayer).toHaveBeenCalledTimes(1)
+    const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
+    expect(request.id).toBe(USER_A)
+    expect(request.modeRatings.map(r => r.mode).sort()).toEqual(
+      [MatchmakingType.Match1v1, MatchmakingType.Match1v1Fastest].sort(),
+    )
+
+    // Each queued mode records its own request.
+    const metrics = await register.getMetricsAsJSON()
+    const requested = metrics.find(
+      m => m.name === 'shieldbattery_matchmaker_matches_requested_total',
+    )
+    const byMode = new Map((requested?.values ?? []).map(v => [v.labels.matchmaking_type, v.value]))
+    expect(byMode.get(MatchmakingType.Match1v1)).toBe(1)
+    expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
+  })
+
+  test('matching in one mode abandons the others without recording their completions', async () => {
+    await queueMultiPlayer(USER_A, CLIENT_A, [
+      MatchmakingType.Match1v1,
+      MatchmakingType.Match1v1Fastest,
+    ])
+    await queueMultiPlayer(USER_B, CLIENT_B, [
+      MatchmakingType.Match1v1,
+      MatchmakingType.Match1v1Fastest,
+    ])
+
+    // The Rust matchmaker forms a 1v1 match; the players' other queued mode (Fastest) is abandoned.
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Only the matched mode records a "found" completion for each player — the abandoned Fastest
+    // search gets no terminal completion (it was superseded, not canceled).
+    for (const userId of [USER_A, USER_B]) {
+      const found = completionsFor(userId, MatchmakingCompletionType.Found)
+      expect(found.map(c => c.matchmakingType)).toEqual([MatchmakingType.Match1v1])
+    }
+
+    // The match-found counter ticks only for the matched mode.
+    const metrics = await register.getMetricsAsJSON()
+    const found = metrics.find(m => m.name === 'shieldbattery_matchmaker_matches_found_total')
+    expect(
+      (found?.values ?? []).find(
+        v => v.labels.matchmaking_type === MatchmakingType.Match1v1Fastest,
+      ),
+    ).toBeUndefined()
+
+    // Both players are in the match and can accept.
+    await expect(service.accept(USER_A)).resolves.toBeUndefined()
+    await expect(service.accept(USER_B)).resolves.toBeUndefined()
+  })
+
+  test('canceling a multiqueue search logs a completion for each queued mode', async () => {
+    await queueMultiPlayer(USER_A, CLIENT_A, [
+      MatchmakingType.Match1v1,
+      MatchmakingType.Match1v1Fastest,
+    ])
+
+    await service.cancel(USER_A)
+
+    // Canceling out of a multiqueue search records a cancel completion per queued mode.
+    const canceled = completionsFor(USER_A, MatchmakingCompletionType.Cancel)
+    expect(canceled.map(c => c.matchmakingType).sort()).toEqual(
+      [MatchmakingType.Match1v1, MatchmakingType.Match1v1Fastest].sort(),
+    )
+
+    // Each queued mode also records a canceled-request metric.
+    const metrics = await register.getMetricsAsJSON()
+    const cancelMetric = metrics.find(
+      m => m.name === 'shieldbattery_matchmaker_match_requests_canceled_total',
+    )
+    const byMode = new Map(
+      (cancelMetric?.values ?? []).map(v => [v.labels.matchmaking_type, v.value]),
+    )
+    expect(byMode.get(MatchmakingType.Match1v1)).toBe(1)
+    expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
   })
 })
