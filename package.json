@@ -283,7 +283,7 @@
     "terser-webpack-plugin": "^5.6.1",
     "ts-proto": "^2.11.8",
     "type-fest": "^5.7.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "unloader": "^0.8.3",
     "unplugin-swc": "^1.5.9",
     "urql": "^5.0.2",
