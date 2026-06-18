@@ -470,7 +470,11 @@ export class ChatApi {
     return await this.chatService.getChannelInfos(channelIds, ctx.session!.user.id)
   }
 
-  @httpGet('/:channelId(\\d+)')
+  // NOTE: @koa/router 15 (path-to-regexp v8) no longer supports inline regex path params, so the
+  // previous `:channelId(\\d+)` constraint is enforced by `getValidatedChannelId` instead. This
+  // route is registered after the literal `/batch-info` and `/joined-channels` routes, so those
+  // still match first.
+  @httpGet('/:channelId')
   @httpBefore(throttleMiddleware(channelRetrievalThrottle, ctx => String(ctx.session!.user.id)))
   async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
     const channelId = getValidatedChannelId(ctx)

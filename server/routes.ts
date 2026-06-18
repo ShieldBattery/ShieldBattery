@@ -69,7 +69,7 @@ export default function applyRoutes(
   })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
-  router.all('/api/:param*', send404)
+  router.all('/api{/*param}', send404)
 
   // common requests that we don't want to return the regular page for
   const crawlersDisabled = (process.env.SB_DISABLE_CRAWLERS ?? '').toLowerCase() === 'true'
@@ -130,7 +130,7 @@ export default function applyRoutes(
   // catch-all for the remainder, first tries static files, then if not found, renders the index and
   // expects the client to handle routing
   router.get(
-    '/:param*',
+    '{/*param}',
     koaConvert(koaStatic(path.join(__dirname, 'public'))),
     async (ctx: RouterContext) => {
       const initData: { serverConfig: ServerConfig; session?: ClientSessionInfo } = {

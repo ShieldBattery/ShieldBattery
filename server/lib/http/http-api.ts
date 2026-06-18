@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import Router, { RouterContext, RouterMiddleware } from '@koa/router'
 import { container, singleton } from 'tsyringe'
 import { Class, Constructor } from 'type-fest'
 import logger from '../logging/logger'
@@ -37,7 +37,7 @@ export function httpApi<T>(basePath: string) {
   }
 }
 
-export const classMiddlewareMetadata = new MetadataValue<Router.Middleware[], Constructor<unknown>>(
+export const classMiddlewareMetadata = new MetadataValue<RouterMiddleware[], Constructor<unknown>>(
   Symbol('httpApiClassMiddleware'),
 )
 
@@ -48,7 +48,7 @@ export const classMiddlewareMetadata = new MetadataValue<Router.Middleware[], Co
  * Class middleware will run *before* any route-specific middleware, similar to calling
  * `router.use(...)` before specifying routes.
  */
-export function httpBeforeAll<T>(...middleware: Router.Middleware[]) {
+export function httpBeforeAll<T>(...middleware: RouterMiddleware[]) {
   return function (target: Class<T>): void {
     classMiddlewareMetadata.set(target, middleware)
   }

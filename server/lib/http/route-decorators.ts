@@ -1,4 +1,4 @@
-import Router, { RouterContext } from '@koa/router'
+import { RouterContext, RouterMiddleware } from '@koa/router'
 import { PropKey, TypedMethodDecorator } from '../reflect/decorators'
 import { MetadataMapValue } from '../reflect/metadata'
 import { HttpMethod } from './http-method'
@@ -64,7 +64,7 @@ export function httpPatch(path: string) {
 
 export const routeMiddlewareMetadata = new MetadataMapValue<
   PropKey,
-  Router.Middleware[],
+  RouterMiddleware[],
   Record<string | symbol, unknown>
 >(Symbol('httpApiRouteMiddleware'))
 
@@ -72,9 +72,7 @@ export const routeMiddlewareMetadata = new MetadataMapValue<
  * Decorates a method to run the specified middleware functions before handling each request. This
  * should be used alongside one of the `http...` decorators, such as `httpGet` or `httpPost`.
  */
-export function httpBefore(
-  ...middleware: Router.Middleware[]
-): TypedMethodDecorator<HttpApiMethod> {
+export function httpBefore(...middleware: RouterMiddleware[]): TypedMethodDecorator<HttpApiMethod> {
   return function (target, propertyKey) {
     routeMiddlewareMetadata.setEntry(target, propertyKey, middleware)
   }
