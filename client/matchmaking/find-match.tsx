@@ -1306,6 +1306,7 @@ export function FindMatch() {
 
   useEffect(() => {
     if (!isSearching || !searchInfo) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time reset when a search stops
       setElapsedSecs(0)
       return undefined
     }

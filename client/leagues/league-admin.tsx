@@ -109,6 +109,7 @@ export function LeagueAdmin() {
     return { triggerRefresh }
   }, [triggerRefresh])
 
+  // eslint-disable-next-line react-hooks/purity -- current time is intentionally recomputed each render
   const curDate = Date.now()
 
   return (

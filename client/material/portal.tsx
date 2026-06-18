@@ -100,6 +100,7 @@ export function Portal({ onDismiss, open, className, children }: PortalProps) {
   const [onCaptureClick, onBubbleClick] = useDismissalClickHandler(onDismiss)
   const [onCaptureContextMenu, onBubbleContextMenu] = useDismissalClickHandler(onDismiss)
 
+  // eslint-disable-next-line react-hooks/immutability -- portalElem is an external DOM node we own; updating its class here is intentional
   portalElem.className = className ?? ''
 
   const descendantsRef = useRef<PortalContextValue[]>([])

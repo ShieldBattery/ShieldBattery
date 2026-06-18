@@ -121,7 +121,6 @@ export function Carousel({ children, infiniteListProps = {}, className }: Carous
 
   useLayoutEffect(() => {
     // TODO(tec27): Figure out the right fix for this (or delete this component)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     calcCarouselWidth()
     // Need to re-calculate carousel width when children changes in case they were dynamically added
   }, [calcCarouselWidth, children])

@@ -43,7 +43,7 @@ export class CredentialStorage {
   }
 
   store(token: string | undefined, storageType = CredentialStorageType.Auto): void {
-    let storage = sessionStorage
+    let storage: Storage
     switch (storageType) {
       case CredentialStorageType.Session:
         storage = sessionStorage

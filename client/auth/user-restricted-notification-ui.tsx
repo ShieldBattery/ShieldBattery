@@ -57,24 +57,23 @@ export function UserRestrictedNotificationUi({
   const reasonLabel = restrictionReasonToLabel(reason, t)
   const endText = longTimestamp.format(endTime)
 
-  let text = <></>
-  if (kind === RestrictionKind.Chat) {
-    text = (
-      <span>
-        <Trans t={t} i18nKey='auth.restriction.chat.notification'>
-          <div>
-            Your account has been restricted from sending chat messages for the following reason:
-          </div>
-          <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
-          <div>This restriction will end on:</div>
-          <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
-        </Trans>
-      </span>
-    )
-  } else {
+  if (kind !== RestrictionKind.Chat) {
     kind satisfies never
     return null
   }
+
+  const text = (
+    <span>
+      <Trans t={t} i18nKey='auth.restriction.chat.notification'>
+        <div>
+          Your account has been restricted from sending chat messages for the following reason:
+        </div>
+        <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
+        <div>This restriction will end on:</div>
+        <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
+      </Trans>
+    </span>
+  )
 
   return (
     <ActionlessNotification

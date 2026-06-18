@@ -486,7 +486,7 @@ async function doLaunch(
   try {
     await fsPromises.access(injectPath)
   } catch (err) {
-    throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`)
+    throw new Error(`Could not access/find shieldbattery dll at ${injectPath}`, { cause: err })
   }
 
   let { starcraftPath } = settings

@@ -215,6 +215,7 @@ export function FileBrowser({
         ? getDir(focusedPath)
         : rootFolderPath
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time initialization of the browser path
     setFileBrowserPath(initialPath)
   }, [fileBrowserPath, focusedPath, rootFolderPath])
 
@@ -227,6 +228,7 @@ export function FileBrowser({
       } else {
         // Focus first entry if nothing else is focused. Will be 'Up one directory' entry in all
         // non-root folders. In the root folder it will either be the first folder or a file.
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- focus first entry after a fresh load
         setFocusedPath(entries[0].path)
       }
     }

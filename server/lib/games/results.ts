@@ -147,7 +147,7 @@ export function reconcileResults(
       }
     }
 
-    let result: ReconciledResult = 'unknown'
+    let result: ReconciledResult
     if (victories > 0 && defeats > 0) {
       disputed = true
       if (victories > defeats) {

@@ -212,6 +212,7 @@ const rallyPointInitPromise = rallyPointService.initialize(
         throw new Error(
           'GOOGLE_APPLICATION_CREDENTIALS points to an invalid file: ' +
             process.env.GOOGLE_APPLICATION_CREDENTIALS,
+          { cause: err },
         )
       }
     }
