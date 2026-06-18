@@ -24,8 +24,8 @@ export const i18nextPromise = i18n
       loadPath: path.resolve(__dirname, '..', '/locales/{{lng}}/{{ns}}.json'),
     },
 
-    // Load the files synchronously
-    initImmediate: false,
+    // Load the files synchronously (i18next v26 renamed `initImmediate` to `initAsync`)
+    initAsync: false,
 
     // TODO(tec27): maybe we can use this? I don't think it sorts though
     saveMissing: false,
