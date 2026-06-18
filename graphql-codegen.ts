@@ -15,6 +15,9 @@ export default {
       config: {
         dedupeFragments: true,
         strictScalars: true,
+        // client-preset v6 defaults enums to 'string-literal' (type-only unions); we generate
+        // native TS enums so they remain usable as runtime values (e.g. RestrictedNameKind.Exact).
+        enumType: 'native',
 
         namingConvention: {
           enumValues: 'change-case-all#pascalCase',
