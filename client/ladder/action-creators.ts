@@ -93,12 +93,12 @@ export function searchCurrentSeasonRankings(
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
     const cacheKey: MatchmakingTypeAndSeasonId = `${matchmakingType}|undefined`
-    let { fetchTime: lastFetchTime, searchQuery: lastSearchQuery } =
+    const { fetchTime: cachedFetchTime, searchQuery: lastSearchQuery } =
       lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey) ?? {}
 
     if (
-      lastFetchTime !== undefined &&
-      fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
+      cachedFetchTime !== undefined &&
+      fetchTime - cachedFetchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
       lastSearchQuery === searchQuery
     ) {
       return
@@ -111,8 +111,7 @@ export function searchCurrentSeasonRankings(
       },
     )
 
-    ;({ fetchTime: lastFetchTime, searchQuery: lastSearchQuery } =
-      lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey) ?? {})
+    const lastFetchTime = lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey)?.fetchTime
 
     // Don't update the state if we aren't the last request outstanding
     if (fetchTime >= (lastFetchTime ?? 0)) {
@@ -144,12 +143,12 @@ export function searchPreviousSeasonRankings(
   return abortableThunk(spec, async dispatch => {
     const fetchTime = performance.now()
     const cacheKey: MatchmakingTypeAndSeasonId = `${matchmakingType}|${seasonId}`
-    let { fetchTime: lastFetchTime, searchQuery: lastSearchQuery } =
+    const { fetchTime: cachedFetchTime, searchQuery: lastSearchQuery } =
       lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey) ?? {}
 
     if (
-      lastFetchTime !== undefined &&
-      fetchTime - lastFetchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
+      cachedFetchTime !== undefined &&
+      fetchTime - cachedFetchTime < LADDER_RANKINGS_CACHE_TIME_MS &&
       lastSearchQuery === searchQuery
     ) {
       return
@@ -163,8 +162,7 @@ export function searchPreviousSeasonRankings(
       },
     )
 
-    ;({ fetchTime: lastFetchTime, searchQuery: lastSearchQuery } =
-      lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey) ?? {})
+    const lastFetchTime = lastSearchInfoByMatchmakingTypeAndSeasonId.get(cacheKey)?.fetchTime
 
     // Don't update the state if we aren't the last request outstanding
     if (fetchTime >= (lastFetchTime ?? 0)) {

@@ -39,7 +39,7 @@ export default async function readFolder(folderPath: string): Promise<FileBrowse
     )
   } catch (err) {
     if ((err as any).code === 'ENOENT') {
-      throw new Error('Filepath ' + folderPath + " doesn't exist")
+      throw new Error('Filepath ' + folderPath + " doesn't exist", { cause: err })
     }
     throw err
   }

@@ -183,6 +183,9 @@ const Label = styled.label<{ $disabled?: boolean }>`
     props.$disabled ? 'rgb(from var(--theme-on-surface) r g b / 0.38)' : 'var(--theme-on-surface)'};
 `
 
+// false positive: no-useless-assignment misfires on an exported generic component wrapped in
+// React.memo (the binding is used by importers)
+// eslint-disable-next-line no-useless-assignment
 export const RadioButton = React.memo(
   <T extends NonNullable<InputHTMLAttributes<HTMLInputElement>['value']>>({
     label,

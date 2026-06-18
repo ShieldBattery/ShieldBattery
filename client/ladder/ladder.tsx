@@ -188,6 +188,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
 
   const setSearchQueryRef = useValueAsRef(setSearchQuery)
   const debouncedSearchRef = useRef(
+    // eslint-disable-next-line react-hooks/refs -- ref is only read when the debounced handler fires, not during render
     debounce((searchQuery: string) => {
       // TODO(2Pac): Find out why the component gets re-rendered a bunch of times after updating the
       // location and see if there's anything we can do to stop that.

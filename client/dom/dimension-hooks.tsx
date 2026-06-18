@@ -89,7 +89,7 @@ export function useResizeObserver<T extends Element>(
           return entry
         }
 
-        let changed = false
+        let changed: boolean
 
         switch (options.box) {
           case 'device-pixel-content-box':
