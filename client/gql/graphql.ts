@@ -1,429 +1,16 @@
 /* eslint-disable */
-import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core'
-import * as Types from './types'
-export type Maybe<T> = T | null
-export type InputMaybe<T> = T | null | undefined
-export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] }
-export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> }
-export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> }
-export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = {
-  [_ in K]?: never
-}
+/** Internal type. DO NOT USE DIRECTLY. */
+type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] }
+/** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> =
   | T
   | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never }
-/** All built-in and custom scalars, mapped to their actual values */
-export type Scalars = {
-  ID: { input: string; output: string }
-  String: { input: string; output: string }
-  Boolean: { input: boolean; output: boolean }
-  Int: { input: number; output: number }
-  Float: { input: number; output: number }
-  /** Any of the possible race choices after random has been resolved. */
-  AssignedRace: { input: Types.AssignedRaceChar; output: Types.AssignedRaceChar }
-  /**
-   * Implement the DateTime<Utc> scalar
-   *
-   * The input/output is a string in RFC3339 format.
-   */
-  DateTime: { input: string; output: string }
-  /** The preset game ruleset that was selected (or UMS). */
-  GameType: { input: Types.GameType; output: Types.GameType }
-  /** The race configuration for a player in a map force (either a preset race or 'any' for selectable). */
-  MapForcePlayerRace: { input: Types.MapForcePlayerRace; output: Types.MapForcePlayerRace }
-  /** The privacy level for a map. This determines who can use the map for creating games. */
-  MapVisibility: { input: Types.MapVisibility; output: Types.MapVisibility }
-  /** All of the matchmaking types that we support. These values match the enum values used in the database. */
-  MatchmakingType: { input: Types.MatchmakingType; output: Types.MatchmakingType }
-  /** Any of the possible race choices that can be selected. */
-  Race: { input: Types.RaceChar; output: Types.RaceChar }
-  /** A map ID in the ShieldBattery system. */
-  SbMapId: { input: Types.SbMapId; output: Types.SbMapId }
-  /** A user ID in the ShieldBattery system. */
-  SbUserId: { input: Types.SbUserId; output: Types.SbUserId }
-  /**
-   * A UUID is a unique 128-bit number, stored as 16 octets. UUIDs are parsed as
-   * Strings within GraphQL. UUIDs are used to assign unique identifiers to
-   * entities without requiring a central allocating authority.
-   *
-   * # References
-   *
-   * * [Wikipedia: Universally Unique Identifier](http://en.wikipedia.org/wiki/Universally_unique_identifier)
-   * * [RFC4122: A Universally Unique Identifier (UUID) URN Namespace](http://tools.ietf.org/html/rfc4122)
-   */
-  UUID: { input: string; output: string }
-}
-
+import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core'
+import * as Types from './types'
 export type CreateSignupCodeInput = {
-  expiresAt: Scalars['DateTime']['input']
-  maxUses?: InputMaybe<Scalars['Int']['input']>
-  notes?: InputMaybe<Scalars['String']['input']>
-}
-
-export type CurrentUser = {
-  __typename?: 'CurrentUser'
-  acceptedPrivacyVersion: Scalars['Int']['output']
-  acceptedTermsVersion: Scalars['Int']['output']
-  acceptedUsePolicyVersion: Scalars['Int']['output']
-  canChangeDisplayName: Scalars['Boolean']['output']
-  email: Scalars['String']['output']
-  emailVerified: Scalars['Boolean']['output']
-  id: Scalars['SbUserId']['output']
-  /** When the user last changed their login name (for rate limiting display) */
-  lastLoginNameChange?: Maybe<Scalars['DateTime']['output']>
-  /** When the user last changed their display name (for rate limiting display) */
-  lastNameChange?: Maybe<Scalars['DateTime']['output']>
-  locale?: Maybe<Scalars['String']['output']>
-  /** The name the user logs in with (may differ from their display name). */
-  loginName: Scalars['String']['output']
-  /** The user's display name (may differ from their login name). */
-  name: Scalars['String']['output']
-  /** Number of display name change tokens available */
-  nameChangeTokens: Scalars['Int']['output']
-  nextDisplayNameChangeAllowedAt?: Maybe<Scalars['DateTime']['output']>
-  permissions: SbPermissions
-}
-
-export type DisplayNameAuditEntry = {
-  __typename?: 'DisplayNameAuditEntry'
-  changeReason?: Maybe<Scalars['String']['output']>
-  changedAt: Scalars['DateTime']['output']
-  changedByUser?: Maybe<SbUser>
-  id: Scalars['UUID']['output']
-  ipAddress?: Maybe<Scalars['String']['output']>
-  newName: Scalars['String']['output']
-  oldName: Scalars['String']['output']
-  sessionId?: Maybe<Scalars['String']['output']>
-  usedToken: Scalars['Boolean']['output']
-  userAgent?: Maybe<Scalars['String']['output']>
-  userId: Scalars['SbUserId']['output']
-}
-
-export type Game = {
-  __typename?: 'Game'
-  config: GameConfig
-  disputable: Scalars['Boolean']['output']
-  disputeRequested: Scalars['Boolean']['output']
-  disputeReviewed: Scalars['Boolean']['output']
-  gameLength?: Maybe<Scalars['Int']['output']>
-  id: Scalars['UUID']['output']
-  map: UploadedMap
-  results?: Maybe<Array<ReconciledPlayerResultEntry>>
-  routes?: Maybe<Array<GameRoute>>
-  startTime: Scalars['DateTime']['output']
-}
-
-export type GameConfig = GameConfigDataLobby | GameConfigDataMatchmaking
-
-export type GameConfigDataLobby = {
-  __typename?: 'GameConfigDataLobby'
-  gameSourceExtra: LobbyExtra
-  gameSubType: Scalars['Int']['output']
-  gameType: Scalars['GameType']['output']
-  teams: Array<Array<GamePlayer>>
-}
-
-export type GameConfigDataMatchmaking = {
-  __typename?: 'GameConfigDataMatchmaking'
-  gameSourceExtra: MatchmakingExtra
-  gameSubType: Scalars['Int']['output']
-  gameType: Scalars['GameType']['output']
-  teams: Array<Array<GamePlayer>>
-}
-
-export type GamePlayer = {
-  __typename?: 'GamePlayer'
-  isComputer: Scalars['Boolean']['output']
-  race: Scalars['Race']['output']
-  user?: Maybe<SbUser>
-}
-
-export type GameRoute = {
-  __typename?: 'GameRoute'
-  latency: Scalars['Float']['output']
-  p1: Scalars['Int']['output']
-  p2: Scalars['Int']['output']
-  server: Scalars['Int']['output']
-}
-
-export type League = {
-  __typename?: 'League'
-  badgeUrl?: Maybe<Scalars['String']['output']>
-  description: Scalars['String']['output']
-  endAt: Scalars['DateTime']['output']
-  id: Scalars['UUID']['output']
-  imageUrl?: Maybe<Scalars['String']['output']>
-  link?: Maybe<Scalars['String']['output']>
-  matchmakingType: Scalars['MatchmakingType']['output']
-  name: Scalars['String']['output']
-  rulesAndInfo?: Maybe<Scalars['String']['output']>
-  signupsAfter: Scalars['DateTime']['output']
-  startAt: Scalars['DateTime']['output']
-}
-
-export type LobbyExtra = {
-  __typename?: 'LobbyExtra'
-  turnRate?: Maybe<Scalars['Int']['output']>
-  useLegacyLimits?: Maybe<Scalars['Boolean']['output']>
-}
-
-export type LoginNameAuditEntry = {
-  __typename?: 'LoginNameAuditEntry'
-  changeReason?: Maybe<Scalars['String']['output']>
-  changedAt: Scalars['DateTime']['output']
-  changedByUser?: Maybe<SbUser>
-  id: Scalars['UUID']['output']
-  ipAddress?: Maybe<Scalars['String']['output']>
-  newLoginName: Scalars['String']['output']
-  oldLoginName: Scalars['String']['output']
-  sessionId?: Maybe<Scalars['String']['output']>
-  userAgent?: Maybe<Scalars['String']['output']>
-  userId: Scalars['SbUserId']['output']
-}
-
-export type MapFile = {
-  __typename?: 'MapFile'
-  format: Scalars['String']['output']
-  height: Scalars['Int']['output']
-  id: Scalars['String']['output']
-  image256Url: Scalars['String']['output']
-  image512Url: Scalars['String']['output']
-  image1024Url: Scalars['String']['output']
-  image2048Url: Scalars['String']['output']
-  imageVersion: Scalars['Int']['output']
-  isEud: Scalars['Boolean']['output']
-  originalDescription: Scalars['String']['output']
-  originalName: Scalars['String']['output']
-  parserVersion: Scalars['Int']['output']
-  slots: Scalars['Int']['output']
-  tileset: Scalars['Int']['output']
-  umsForces: Array<MapForce>
-  umsSlots: Scalars['Int']['output']
-  width: Scalars['Int']['output']
-}
-
-export type MapForce = {
-  __typename?: 'MapForce'
-  name: Scalars['String']['output']
-  players: Array<MapForcePlayer>
-  teamId: Scalars['Int']['output']
-}
-
-export type MapForcePlayer = {
-  __typename?: 'MapForcePlayer'
-  isComputer: Scalars['Boolean']['output']
-  playerId: Scalars['Int']['output']
-  race: Scalars['MapForcePlayerRace']['output']
-  typeId: Scalars['Int']['output']
-}
-
-export type MatchmakingExtra = {
-  matchmakingType: Scalars['MatchmakingType']['output']
-}
-
-export type MatchmakingExtra1V1Data = MatchmakingExtra & {
-  __typename?: 'MatchmakingExtra1V1Data'
-  matchmakingType: Scalars['MatchmakingType']['output']
-}
-
-export type MatchmakingExtra1V1FastestData = MatchmakingExtra & {
-  __typename?: 'MatchmakingExtra1V1FastestData'
-  matchmakingType: Scalars['MatchmakingType']['output']
-}
-
-export type MatchmakingExtra2V2Data = MatchmakingExtra & {
-  __typename?: 'MatchmakingExtra2V2Data'
-  matchmakingType: Scalars['MatchmakingType']['output']
-  /**
-   * The user Ids of players in the match, grouped into lists by party. Players not in a party
-   * will be in a list by themselves.
-   */
-  parties: Array<Array<Scalars['SbUserId']['output']>>
-}
-
-export type Mutation = {
-  __typename?: 'Mutation'
-  createSignupCode: SignupCode
-  newsCreatePost: NewsPost
-  /** Sets (or clears, if message is not provided) the urgent message at the top of the home page. */
-  newsSetUrgentMessage: Scalars['Boolean']['output']
-  userAddRestrictedName: NameRestriction
-  userDeleteRestrictedName: Scalars['Int']['output']
-  userTestRestrictedName?: Maybe<NameRestriction>
-  userUpdateCurrent: CurrentUser
-  userUpdatePermissions: SbUser
-}
-
-export type MutationCreateSignupCodeArgs = {
-  input: CreateSignupCodeInput
-}
-
-export type MutationNewsCreatePostArgs = {
-  post: NewsPostCreation
-}
-
-export type MutationNewsSetUrgentMessageArgs = {
-  message?: InputMaybe<UrgentMessageInput>
-}
-
-export type MutationUserAddRestrictedNameArgs = {
-  kind: RestrictedNameKind
-  pattern: Scalars['String']['input']
-  reason: RestrictedNameReason
-}
-
-export type MutationUserDeleteRestrictedNameArgs = {
-  id: Scalars['Int']['input']
-}
-
-export type MutationUserTestRestrictedNameArgs = {
-  name: Scalars['String']['input']
-}
-
-export type MutationUserUpdateCurrentArgs = {
-  changes: UpdateCurrentUserChanges
-  currentPassword: Scalars['String']['input']
-}
-
-export type MutationUserUpdatePermissionsArgs = {
-  permissions: SbPermissionsInput
-  userId: Scalars['SbUserId']['input']
-}
-
-export type NameRestriction = {
-  __typename?: 'NameRestriction'
-  createdAt: Scalars['DateTime']['output']
-  createdBy?: Maybe<SbUser>
-  id: Scalars['Int']['output']
-  kind: RestrictedNameKind
-  pattern: Scalars['String']['output']
-  reason: RestrictedNameReason
-}
-
-export type NewsPost = {
-  __typename?: 'NewsPost'
-  author?: Maybe<SbUser>
-  content: Scalars['String']['output']
-  coverImagePath?: Maybe<Scalars['String']['output']>
-  id: Scalars['UUID']['output']
-  publishedAt?: Maybe<Scalars['DateTime']['output']>
-  summary: Scalars['String']['output']
-  title: Scalars['String']['output']
-  updatedAt: Scalars['DateTime']['output']
-}
-
-export type NewsPostConnection = {
-  __typename?: 'NewsPostConnection'
-  /** A list of edges. */
-  edges: Array<NewsPostEdge>
-  /** A list of nodes. */
-  nodes: Array<NewsPost>
-  /** Information to aid in pagination. */
-  pageInfo: PageInfo
-}
-
-export type NewsPostCreation = {
-  authorId?: InputMaybe<Scalars['SbUserId']['input']>
-  content: Scalars['String']['input']
-  publishedAt?: InputMaybe<Scalars['DateTime']['input']>
-  summary: Scalars['String']['input']
-  title: Scalars['String']['input']
-}
-
-/** An edge in a connection. */
-export type NewsPostEdge = {
-  __typename?: 'NewsPostEdge'
-  /** A cursor for use in pagination */
-  cursor: Scalars['String']['output']
-  /** The item at the end of the edge */
-  node: NewsPost
-}
-
-/** Information about pagination in a connection */
-export type PageInfo = {
-  __typename?: 'PageInfo'
-  /** When paginating forwards, the cursor to continue. */
-  endCursor?: Maybe<Scalars['String']['output']>
-  /** When paginating forwards, are there more items? */
-  hasNextPage: Scalars['Boolean']['output']
-  /** When paginating backwards, are there more items? */
-  hasPreviousPage: Scalars['Boolean']['output']
-  /** When paginating backwards, the cursor to continue. */
-  startCursor?: Maybe<Scalars['String']['output']>
-}
-
-export type Query = {
-  __typename?: 'Query'
-  activeLeagues: Array<League>
-  currentUser?: Maybe<CurrentUser>
-  futureLeagues: Array<League>
-  game?: Maybe<Game>
-  liveGames: Array<Game>
-  newsPosts: NewsPostConnection
-  pastLeagues: Array<League>
-  restrictedNames: Array<NameRestriction>
-  signupCodes: Array<SignupCode>
-  urgentMessage?: Maybe<UrgentMessage>
-  user?: Maybe<SbUser>
-  userByDisplayName?: Maybe<SbUser>
-  userDisplayNameAuditHistory: Array<DisplayNameAuditEntry>
-  userLoginNameAuditHistory: Array<LoginNameAuditEntry>
-}
-
-export type QueryGameArgs = {
-  id: Scalars['UUID']['input']
-}
-
-export type QueryNewsPostsArgs = {
-  after?: InputMaybe<Scalars['String']['input']>
-  before?: InputMaybe<Scalars['String']['input']>
-  first?: InputMaybe<Scalars['Int']['input']>
-  includeUnpublished?: InputMaybe<Scalars['Boolean']['input']>
-  last?: InputMaybe<Scalars['Int']['input']>
-}
-
-export type QuerySignupCodesArgs = {
-  includeExhausted?: InputMaybe<Scalars['Boolean']['input']>
-}
-
-export type QueryUserArgs = {
-  id: Scalars['SbUserId']['input']
-}
-
-export type QueryUserByDisplayNameArgs = {
-  name: Scalars['String']['input']
-}
-
-export type QueryUserDisplayNameAuditHistoryArgs = {
-  limit?: InputMaybe<Scalars['Int']['input']>
-  offset?: InputMaybe<Scalars['Int']['input']>
-  userId: Scalars['SbUserId']['input']
-}
-
-export type QueryUserLoginNameAuditHistoryArgs = {
-  limit?: InputMaybe<Scalars['Int']['input']>
-  offset?: InputMaybe<Scalars['Int']['input']>
-  userId: Scalars['SbUserId']['input']
-}
-
-export type ReconciledPlayerResult = {
-  __typename?: 'ReconciledPlayerResult'
-  apm: Scalars['Int']['output']
-  race: Scalars['AssignedRace']['output']
-  result: ReconciledResult
-}
-
-export type ReconciledPlayerResultEntry = {
-  __typename?: 'ReconciledPlayerResultEntry'
-  id: Scalars['SbUserId']['output']
-  result: ReconciledPlayerResult
-}
-
-export enum ReconciledResult {
-  Draw = 'DRAW',
-  Loss = 'LOSS',
-  Unknown = 'UNKNOWN',
-  Win = 'WIN',
+  expiresAt: string
+  maxUses?: number | null | undefined
+  notes?: string | null | undefined
 }
 
 export enum RestrictedNameKind {
@@ -436,157 +23,76 @@ export enum RestrictedNameReason {
   Reserved = 'RESERVED',
 }
 
-export type SbPermissions = {
-  __typename?: 'SbPermissions'
-  banUsers: Scalars['Boolean']['output']
-  debug: Scalars['Boolean']['output']
-  editPermissions: Scalars['Boolean']['output']
-  /**
-   * The user ID these permissions are for. This is mainly so the client has a key for caching
-   * purposes, and is not generally used elsewhere.
-   */
-  id: Scalars['SbUserId']['output']
-  manageBugReports: Scalars['Boolean']['output']
-  manageLeagues: Scalars['Boolean']['output']
-  manageMapPools: Scalars['Boolean']['output']
-  manageMaps: Scalars['Boolean']['output']
-  manageMatchmakingSeasons: Scalars['Boolean']['output']
-  manageMatchmakingTimes: Scalars['Boolean']['output']
-  manageNews: Scalars['Boolean']['output']
-  manageRallyPointServers: Scalars['Boolean']['output']
-  manageRestrictedNames: Scalars['Boolean']['output']
-  manageSignupCodes: Scalars['Boolean']['output']
-  massDeleteMaps: Scalars['Boolean']['output']
-  moderateChatChannels: Scalars['Boolean']['output']
-}
-
 export type SbPermissionsInput = {
-  banUsers: Scalars['Boolean']['input']
-  debug: Scalars['Boolean']['input']
-  editPermissions: Scalars['Boolean']['input']
+  banUsers: boolean
+  debug: boolean
+  editPermissions: boolean
   /**
    * The user ID these permissions are for. This is mainly so the client has a key for caching
    * purposes, and is not generally used elsewhere.
    */
-  id: Scalars['SbUserId']['input']
-  manageBugReports: Scalars['Boolean']['input']
-  manageLeagues: Scalars['Boolean']['input']
-  manageMapPools: Scalars['Boolean']['input']
-  manageMaps: Scalars['Boolean']['input']
-  manageMatchmakingSeasons: Scalars['Boolean']['input']
-  manageMatchmakingTimes: Scalars['Boolean']['input']
-  manageNews: Scalars['Boolean']['input']
-  manageRallyPointServers: Scalars['Boolean']['input']
-  manageRestrictedNames: Scalars['Boolean']['input']
-  manageSignupCodes: Scalars['Boolean']['input']
-  massDeleteMaps: Scalars['Boolean']['input']
-  moderateChatChannels: Scalars['Boolean']['input']
-}
-
-export type SbUser = {
-  __typename?: 'SbUser'
-  id: Scalars['SbUserId']['output']
-  /** The user's display name (may differ from their login name). */
-  name: Scalars['String']['output']
-  permissions: SbPermissions
-}
-
-export type SignupCode = {
-  __typename?: 'SignupCode'
-  code: Scalars['String']['output']
-  createdAt: Scalars['DateTime']['output']
-  createdByUser?: Maybe<SbUser>
-  exhausted: Scalars['Boolean']['output']
-  expiresAt: Scalars['DateTime']['output']
-  id: Scalars['UUID']['output']
-  maxUses?: Maybe<Scalars['Int']['output']>
-  notes?: Maybe<Scalars['String']['output']>
-  uses: Scalars['Int']['output']
-}
-
-export type UpdateCurrentUserChanges = {
-  email?: InputMaybe<Scalars['String']['input']>
-  loginName?: InputMaybe<Scalars['String']['input']>
-  name?: InputMaybe<Scalars['String']['input']>
-  newPassword?: InputMaybe<Scalars['String']['input']>
-}
-
-export type UploadedMap = {
-  __typename?: 'UploadedMap'
-  description: Scalars['String']['output']
-  id: Scalars['SbMapId']['output']
-  mapFile: MapFile
-  name: Scalars['String']['output']
-  uploadDate: Scalars['DateTime']['output']
-  uploader: SbUser
-  visibility: Scalars['MapVisibility']['output']
-}
-
-export type UrgentMessage = {
-  __typename?: 'UrgentMessage'
-  id: Scalars['UUID']['output']
-  message: Scalars['String']['output']
-  /** The time the message was published (in UTC). This will serialize as an RFC 3339 string. */
-  publishedAt: Scalars['DateTime']['output']
-  title: Scalars['String']['output']
+  id: Types.SbUserId
+  manageBugReports: boolean
+  manageLeagues: boolean
+  manageMapPools: boolean
+  manageMaps: boolean
+  manageMatchmakingSeasons: boolean
+  manageMatchmakingTimes: boolean
+  manageNews: boolean
+  manageRallyPointServers: boolean
+  manageRestrictedNames: boolean
+  manageSignupCodes: boolean
+  massDeleteMaps: boolean
+  moderateChatChannels: boolean
 }
 
 export type UrgentMessageInput = {
-  message: Scalars['String']['input']
-  title: Scalars['String']['input']
+  message: string
+  title: string
 }
 
 export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never }>
 
 export type RestrictedNamesQuery = {
-  __typename?: 'Query'
   restrictedNames: Array<{
-    __typename?: 'NameRestriction'
     id: number
     pattern: string
     kind: RestrictedNameKind
     reason: RestrictedNameReason
     createdAt: string
-    createdBy?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+    createdBy: { id: Types.SbUserId } | null
   }>
 }
 
 export type DeleteRestrictedNameMutationVariables = Exact<{
-  id: Scalars['Int']['input']
+  id: number
 }>
 
-export type DeleteRestrictedNameMutation = {
-  __typename?: 'Mutation'
-  userDeleteRestrictedName: number
-}
+export type DeleteRestrictedNameMutation = { userDeleteRestrictedName: number }
 
 export type AddRestrictedNameMutationVariables = Exact<{
-  pattern: Scalars['String']['input']
+  pattern: string
   kind: RestrictedNameKind
   reason: RestrictedNameReason
 }>
 
 export type AddRestrictedNameMutation = {
-  __typename?: 'Mutation'
   userAddRestrictedName: {
-    __typename?: 'NameRestriction'
     id: number
     pattern: string
     kind: RestrictedNameKind
     reason: RestrictedNameReason
     createdAt: string
-    createdBy?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+    createdBy: { id: Types.SbUserId } | null
   }
 }
 
 export type TestRestrictedNameMutationVariables = Exact<{
-  name: Scalars['String']['input']
+  name: string
 }>
 
 export type TestRestrictedNameMutation = {
-  __typename?: 'Mutation'
-  userTestRestrictedName?: {
-    __typename?: 'NameRestriction'
+  userTestRestrictedName: {
     id: number
     pattern: string
     kind: RestrictedNameKind
@@ -595,22 +101,20 @@ export type TestRestrictedNameMutation = {
 }
 
 export type SignupCodesQueryVariables = Exact<{
-  includeExhausted?: InputMaybe<Scalars['Boolean']['input']>
+  includeExhausted?: boolean | null | undefined
 }>
 
 export type SignupCodesQuery = {
-  __typename?: 'Query'
   signupCodes: Array<{
-    __typename?: 'SignupCode'
     id: string
     code: string
     createdAt: string
     expiresAt: string
-    maxUses?: number | null
+    maxUses: number | null
     uses: number
     exhausted: boolean
-    notes?: string | null
-    createdByUser?: { __typename?: 'SbUser'; id: Types.SbUserId; name: string } | null
+    notes: string | null
+    createdByUser: { id: Types.SbUserId; name: string } | null
   }>
 }
 
@@ -619,37 +123,34 @@ export type CreateSignupCodeMutationVariables = Exact<{
 }>
 
 export type CreateSignupCodeMutation = {
-  __typename?: 'Mutation'
   createSignupCode: {
-    __typename?: 'SignupCode'
     id: string
     code: string
     createdAt: string
     expiresAt: string
-    maxUses?: number | null
+    maxUses: number | null
     uses: number
     exhausted: boolean
-    notes?: string | null
-    createdByUser?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+    notes: string | null
+    createdByUser: { id: Types.SbUserId } | null
   }
 }
 
 export type SetUrgentMessageMutationVariables = Exact<{
-  message?: InputMaybe<UrgentMessageInput>
+  message?: UrgentMessageInput | null | undefined
 }>
 
-export type SetUrgentMessageMutation = { __typename?: 'Mutation'; newsSetUrgentMessage: boolean }
+export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean }
 
 export type GamesPageContentQueryVariables = Exact<{ [key: string]: never }>
 
-export type GamesPageContentQuery = { __typename?: 'Query' } & {
+export type GamesPageContentQuery = {
   ' $fragmentRefs'?: { LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment }
 }
 
 export type LiveGames_FeedFragmentFragment = {
-  __typename?: 'Query'
   liveGames: Array<
-    { __typename?: 'Game'; id: string } & {
+    { id: string } & {
       ' $fragmentRefs'?: {
         LiveGames_FeedEntryFragmentFragment: LiveGames_FeedEntryFragmentFragment
       }
@@ -658,15 +159,12 @@ export type LiveGames_FeedFragmentFragment = {
 } & { ' $fragmentName'?: 'LiveGames_FeedFragmentFragment' }
 
 export type LiveGames_FeedEntryFragmentFragment = ({
-  __typename?: 'Game'
   id: string
   startTime: string
   map: {
-    __typename?: 'UploadedMap'
     id: Types.SbMapId
     name: string
     mapFile: {
-      __typename?: 'MapFile'
       id: string
       image256Url: string
       image512Url: string
@@ -681,18 +179,12 @@ export type LiveGames_FeedEntryFragmentFragment = ({
     | {
         __typename: 'GameConfigDataMatchmaking'
         gameSourceExtra:
-          | { __typename?: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
-          | {
-              __typename?: 'MatchmakingExtra1V1FastestData'
-              matchmakingType: Types.MatchmakingType
-            }
-          | { __typename?: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
         teams: Array<
           Array<
-            {
-              __typename?: 'GamePlayer'
-              user?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
-            } & {
+            { user: { id: Types.SbUserId } | null } & {
               ' $fragmentRefs'?: {
                 LiveGames_FeedEntryPlayersFragmentFragment: LiveGames_FeedEntryPlayersFragmentFragment
               }
@@ -707,20 +199,16 @@ export type LiveGames_FeedEntryFragmentFragment = ({
 }) & { ' $fragmentName'?: 'LiveGames_FeedEntryFragmentFragment' }
 
 export type LiveGames_FeedEntryPlayersFragmentFragment = {
-  __typename?: 'GamePlayer'
   race: Types.RaceChar
-  user?: { __typename?: 'SbUser'; id: Types.SbUserId; name: string } | null
+  user: { id: Types.SbUserId; name: string } | null
 } & { ' $fragmentName'?: 'LiveGames_FeedEntryPlayersFragmentFragment' }
 
 export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
-  __typename?: 'Game'
   id: string
   map: {
-    __typename?: 'UploadedMap'
     id: Types.SbMapId
     name: string
     mapFile: {
-      __typename?: 'MapFile'
       id: string
       image256Url: string
       image512Url: string
@@ -735,26 +223,20 @@ export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
     | {
         __typename: 'GameConfigDataMatchmaking'
         gameSourceExtra:
-          | { __typename?: 'MatchmakingExtra1V1Data'; matchmakingType: Types.MatchmakingType }
-          | {
-              __typename?: 'MatchmakingExtra1V1FastestData'
-              matchmakingType: Types.MatchmakingType
-            }
-          | { __typename?: 'MatchmakingExtra2V2Data'; matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
       }
 } & { ' $fragmentName'?: 'LiveGames_FeedEntryMapAndTypeFragmentFragment' }
 
 export type HomePageContentQueryVariables = Exact<{ [key: string]: never }>
 
 export type HomePageContentQuery = {
-  __typename?: 'Query'
-  urgentMessage?:
-    | ({ __typename?: 'UrgentMessage' } & {
-        ' $fragmentRefs'?: {
-          UrgentMessage_HomeDisplayFragmentFragment: UrgentMessage_HomeDisplayFragmentFragment
-        }
-      })
-    | null
+  urgentMessage: {
+    ' $fragmentRefs'?: {
+      UrgentMessage_HomeDisplayFragmentFragment: UrgentMessage_HomeDisplayFragmentFragment
+    }
+  } | null
 } & {
   ' $fragmentRefs'?: {
     LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment
@@ -763,29 +245,25 @@ export type HomePageContentQuery = {
 }
 
 export type UrgentMessage_HomeDisplayFragmentFragment = {
-  __typename?: 'UrgentMessage'
   id: string
   title: string
   message: string
 } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
-export type Leagues_LeagueBadgeFragmentFragment = {
-  __typename?: 'League'
-  name: string
-  badgeUrl?: string | null
-} & { ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment' }
+export type Leagues_LeagueBadgeFragmentFragment = { name: string; badgeUrl: string | null } & {
+  ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment'
+}
 
 export type Leagues_HomeFeedFragmentFragment = {
-  __typename?: 'Query'
   activeLeagues: Array<
-    { __typename?: 'League'; id: string } & {
+    { id: string } & {
       ' $fragmentRefs'?: {
         Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
       }
     }
   >
   futureLeagues: Array<
-    { __typename?: 'League'; id: string } & {
+    { id: string } & {
       ' $fragmentRefs'?: {
         Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
       }
@@ -794,7 +272,6 @@ export type Leagues_HomeFeedFragmentFragment = {
 } & { ' $fragmentName'?: 'Leagues_HomeFeedFragmentFragment' }
 
 export type Leagues_HomeFeedEntryFragmentFragment = ({
-  __typename?: 'League'
   id: string
   name: string
   matchmakingType: Types.MatchmakingType
@@ -805,135 +282,135 @@ export type Leagues_HomeFeedEntryFragmentFragment = ({
 }) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
 export type AccountSettings_CurrentUserFragment = {
-  __typename?: 'CurrentUser'
   id: Types.SbUserId
   name: string
   loginName: string
   email: string
   emailVerified: boolean
-  lastLoginNameChange?: string | null
-  lastNameChange?: string | null
+  lastLoginNameChange: string | null
+  lastNameChange: string | null
   nameChangeTokens: number
   canChangeDisplayName: boolean
-  nextDisplayNameChangeAllowedAt?: string | null
+  nextDisplayNameChangeAllowedAt: string | null
 } & { ' $fragmentName'?: 'AccountSettings_CurrentUserFragment' }
 
 export type AccountSettingsQueryVariables = Exact<{ [key: string]: never }>
 
 export type AccountSettingsQuery = {
-  __typename?: 'Query'
-  currentUser?:
-    | ({ __typename?: 'CurrentUser' } & {
-        ' $fragmentRefs'?: {
-          AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment
-        }
-      })
-    | null
+  currentUser: {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  } | null
 }
 
 export type AccountSettingsChangePasswordMutationVariables = Exact<{
-  currentPassword: Scalars['String']['input']
-  newPassword: Scalars['String']['input']
+  currentPassword: string
+  newPassword: string
 }>
 
 export type AccountSettingsChangePasswordMutation = {
-  __typename?: 'Mutation'
-  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
+  userUpdateCurrent: {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
 
 export type AccountSettingsChangeEmailMutationVariables = Exact<{
-  currentPassword: Scalars['String']['input']
-  email: Scalars['String']['input']
+  currentPassword: string
+  email: string
 }>
 
 export type AccountSettingsChangeEmailMutation = {
-  __typename?: 'Mutation'
-  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
+  userUpdateCurrent: {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
 
 export type AccountSettingsChangeDisplayNameMutationVariables = Exact<{
-  currentPassword: Scalars['String']['input']
-  name: Scalars['String']['input']
+  currentPassword: string
+  name: string
 }>
 
 export type AccountSettingsChangeDisplayNameMutation = {
-  __typename?: 'Mutation'
-  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
+  userUpdateCurrent: {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
 
 export type AccountSettingsChangeLoginNameMutationVariables = Exact<{
-  currentPassword: Scalars['String']['input']
-  loginName: Scalars['String']['input']
+  currentPassword: string
+  loginName: string
 }>
 
 export type AccountSettingsChangeLoginNameMutation = {
-  __typename?: 'Mutation'
-  userUpdateCurrent: { __typename?: 'CurrentUser' } & {
+  userUpdateCurrent: {
     ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
   }
 }
 
 export type UserNameAuditHistoryQueryVariables = Exact<{
-  userId: Scalars['SbUserId']['input']
-  displayNameLimit?: InputMaybe<Scalars['Int']['input']>
-  displayNameOffset?: InputMaybe<Scalars['Int']['input']>
-  loginNameLimit?: InputMaybe<Scalars['Int']['input']>
-  loginNameOffset?: InputMaybe<Scalars['Int']['input']>
+  userId: Types.SbUserId
+  displayNameLimit?: number | null | undefined
+  displayNameOffset?: number | null | undefined
+  loginNameLimit?: number | null | undefined
+  loginNameOffset?: number | null | undefined
 }>
 
 export type UserNameAuditHistoryQuery = {
-  __typename?: 'Query'
   userDisplayNameAuditHistory: Array<{
-    __typename?: 'DisplayNameAuditEntry'
     id: string
     oldName: string
     newName: string
     changedAt: string
-    changeReason?: string | null
-    ipAddress?: string | null
-    userAgent?: string | null
+    changeReason: string | null
+    ipAddress: string | null
+    userAgent: string | null
     usedToken: boolean
-    changedByUser?: { __typename?: 'SbUser'; id: Types.SbUserId } | null
+    changedByUser: { id: Types.SbUserId } | null
   }>
   userLoginNameAuditHistory: Array<{
-    __typename?: 'LoginNameAuditEntry'
     id: string
     oldLoginName: string
     newLoginName: string
     changedAt: string
-    changeReason?: string | null
-    ipAddress?: string | null
-    userAgent?: string | null
+    changeReason: string | null
+    ipAddress: string | null
+    userAgent: string | null
   }>
 }
 
 export type AdminUserProfileQueryVariables = Exact<{
-  userId: Scalars['SbUserId']['input']
-  includePermissions: Scalars['Boolean']['input']
+  userId: Types.SbUserId
+  includePermissions: boolean
 }>
 
 export type AdminUserProfileQuery = {
-  __typename?: 'Query'
-  user?:
-    | ({ __typename?: 'SbUser'; id: Types.SbUserId } & {
-        ' $fragmentRefs'?: {
-          AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
+  user:
+    | ({ id: Types.SbUserId } & {
+        id?: Types.SbUserId
+        permissions?: {
+          id: Types.SbUserId
+          editPermissions: boolean
+          debug: boolean
+          banUsers: boolean
+          manageLeagues: boolean
+          manageMaps: boolean
+          manageMapPools: boolean
+          manageMatchmakingTimes: boolean
+          manageMatchmakingSeasons: boolean
+          manageRallyPointServers: boolean
+          massDeleteMaps: boolean
+          moderateChatChannels: boolean
+          manageNews: boolean
+          manageBugReports: boolean
+          manageRestrictedNames: boolean
+          manageSignupCodes: boolean
         }
       })
     | null
 }
 
 export type AdminUserProfile_PermissionsFragment = {
-  __typename?: 'SbUser'
   id: Types.SbUserId
   permissions: {
-    __typename?: 'SbPermissions'
     id: Types.SbUserId
     editPermissions: boolean
     debug: boolean
@@ -954,13 +431,12 @@ export type AdminUserProfile_PermissionsFragment = {
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
 export type AdminUpdateUserPermissionsMutationVariables = Exact<{
-  userId: Scalars['SbUserId']['input']
+  userId: Types.SbUserId
   permissions: SbPermissionsInput
 }>
 
 export type AdminUpdateUserPermissionsMutation = {
-  __typename?: 'Mutation'
-  userUpdatePermissions: { __typename?: 'SbUser' } & {
+  userUpdatePermissions: {
     ' $fragmentRefs'?: {
       AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
     }
