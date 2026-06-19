@@ -1,4 +1,4 @@
-import archiver from 'archiver'
+import { ZipArchive } from 'archiver'
 import { BufferListStream } from 'bl'
 import crypto from 'crypto'
 import { app, BrowserWindow, dialog, Menu, protocol, screen, Session, shell } from 'electron'
@@ -524,7 +524,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       throw new Error('No log files could be collected')
     }
 
-    const zip = archiver('zip')
+    const zip = new ZipArchive()
     const result = new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
       pipeline(
         zip,
@@ -532,7 +532,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
           if (err) {
             reject(err)
           } else {
-            resolve(new Uint8Array(data))
+            resolve(new Uint8Array(data!))
           }
         }),
       ).catch((err: Error) => reject(err))
