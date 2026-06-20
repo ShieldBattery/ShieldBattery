@@ -1,4 +1,5 @@
 import got, { HTTPError } from 'got'
+import { SbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -10,6 +11,12 @@ export interface RsModeRating {
   rating: number
   /** Glicko-2 σ (uncertainty). null treated as 0 (fully certain). */
   uncertainty: number | null
+  /**
+   * The player's positive map selections for this mode, for "pick" modes only. The matchmaker uses
+   * these to avoid matching players who share no map (which would produce a match with no playable
+   * map). `null` for veto/fixed modes, which don't constrain matching on maps.
+   */
+  mapSelections: SbMapId[] | null
 }
 
 /** Sent to Rust when adding a player to the queue. */
