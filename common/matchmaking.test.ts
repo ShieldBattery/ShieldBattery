@@ -131,6 +131,16 @@ describe('common/matchmaking', () => {
       expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, undefined as any)).toBe('2v2')
     })
 
+    it('looks up labels by the expected i18n keys (kept extractable for i18next-parser)', () => {
+      // A `t` that echoes its key so we assert the exact key each mode resolves to.
+      const echoKey = ((key: string) => key) as any
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1, echoKey)).toBe('matchmaking.type.1v1')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, echoKey)).toBe(
+        'matchmaking.type.1v1fastest',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, echoKey)).toBe('matchmaking.type.2v2')
+    })
+
     it('provides alternate-race default data only for solo modes', () => {
       expect(defaultPreferenceData(MatchmakingType.Match1v1)).toEqual({
         useAlternateRace: false,

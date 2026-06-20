@@ -55,9 +55,13 @@ export interface MatchmakingModeInfo {
   mapSelectionStyle: MapSelectionStyle
   /** Whether players can pick an alternate race for mirror matchups (1v1-style modes only). */
   supportsAlternateRace: boolean
-  /** i18n key for the mode's display label. */
-  labelKey: string
-  /** Fallback English label; also used when no `t` function is available. */
+  /**
+   * Returns the mode's localized display label. Written as an inline `t()` call with a string-literal
+   * key so i18next-parser can statically extract it — a dynamic `t(key)` is invisible to the
+   * extractor, which (with `keepRemoved: false`) would drop the key from the catalog.
+   */
+  label: (t: TFunction) => string
+  /** English label for contexts without a `t` function. */
   defaultLabel: string
 }
 
@@ -74,7 +78,7 @@ export const MATCHMAKING_MODES = {
     teamSize: 1,
     mapSelectionStyle: 'veto',
     supportsAlternateRace: true,
-    labelKey: 'matchmaking.type.1v1',
+    label: t => t('matchmaking.type.1v1', '1v1'),
     defaultLabel: '1v1',
   },
   [MatchmakingType.Match1v1Fastest]: {
@@ -84,7 +88,7 @@ export const MATCHMAKING_MODES = {
     teamSize: 1,
     mapSelectionStyle: 'pick',
     supportsAlternateRace: true,
-    labelKey: 'matchmaking.type.1v1fastest',
+    label: t => t('matchmaking.type.1v1fastest', '1v1 Fastest'),
     defaultLabel: '1v1 Fastest',
   },
   [MatchmakingType.Match2v2]: {
@@ -94,7 +98,7 @@ export const MATCHMAKING_MODES = {
     teamSize: 2,
     mapSelectionStyle: 'veto',
     supportsAlternateRace: false,
-    labelKey: 'matchmaking.type.2v2',
+    label: t => t('matchmaking.type.2v2', '2v2'),
     defaultLabel: '2v2',
   },
 } satisfies Record<MatchmakingType, MatchmakingModeInfo>
@@ -105,8 +109,8 @@ export function getMatchmakingModeInfo(type: MatchmakingType): MatchmakingModeIn
 }
 
 export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): string {
-  const { labelKey, defaultLabel } = MATCHMAKING_MODES[type]
-  return t ? t(labelKey, defaultLabel) : defaultLabel
+  const mode = MATCHMAKING_MODES[type]
+  return t ? mode.label(t) : mode.defaultLabel
 }
 
 /**
