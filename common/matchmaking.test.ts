@@ -123,12 +123,14 @@ describe('common/matchmaking', () => {
       expect(isSoloType(MatchmakingType.Match2v2)).toBe(false)
     })
 
-    it('returns default labels without a t function', () => {
-      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1, undefined as any)).toBe('1v1')
-      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, undefined as any)).toBe(
+    it('renders the English label from the i18n default value', () => {
+      // A `t` that returns the default value (its second arg), like i18next with no translation loaded.
+      const useDefault = ((_key: string, defaultValue: string) => defaultValue) as any
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1, useDefault)).toBe('1v1')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, useDefault)).toBe(
         '1v1 Fastest',
       )
-      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, undefined as any)).toBe('2v2')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, useDefault)).toBe('2v2')
     })
 
     it('looks up labels by the expected i18n keys (kept extractable for i18next-parser)', () => {

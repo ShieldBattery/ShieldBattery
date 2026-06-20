@@ -61,8 +61,6 @@ export interface MatchmakingModeInfo {
    * extractor, which (with `keepRemoved: false`) would drop the key from the catalog.
    */
   label: (t: TFunction) => string
-  /** English label for contexts without a `t` function. */
-  defaultLabel: string
 }
 
 /**
@@ -79,7 +77,6 @@ export const MATCHMAKING_MODES = {
     mapSelectionStyle: 'veto',
     supportsAlternateRace: true,
     label: t => t('matchmaking.type.1v1', '1v1'),
-    defaultLabel: '1v1',
   },
   [MatchmakingType.Match1v1Fastest]: {
     type: MatchmakingType.Match1v1Fastest,
@@ -89,7 +86,6 @@ export const MATCHMAKING_MODES = {
     mapSelectionStyle: 'pick',
     supportsAlternateRace: true,
     label: t => t('matchmaking.type.1v1fastest', '1v1 Fastest'),
-    defaultLabel: '1v1 Fastest',
   },
   [MatchmakingType.Match2v2]: {
     type: MatchmakingType.Match2v2,
@@ -99,7 +95,6 @@ export const MATCHMAKING_MODES = {
     mapSelectionStyle: 'veto',
     supportsAlternateRace: false,
     label: t => t('matchmaking.type.2v2', '2v2'),
-    defaultLabel: '2v2',
   },
 } satisfies Record<MatchmakingType, MatchmakingModeInfo>
 
@@ -109,8 +104,7 @@ export function getMatchmakingModeInfo(type: MatchmakingType): MatchmakingModeIn
 }
 
 export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): string {
-  const mode = MATCHMAKING_MODES[type]
-  return t ? mode.label(t) : mode.defaultLabel
+  return MATCHMAKING_MODES[type].label(t)
 }
 
 /**
