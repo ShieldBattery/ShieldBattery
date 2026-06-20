@@ -1,18 +1,20 @@
 import { useAtomValue } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
-  MatchmakingDivision,
-  MatchmakingPreferences,
-  MatchmakingType,
   defaultPreferences,
+  getMatchmakingModeInfo,
   getTotalBonusPoolForSeason,
   hasVetoes,
+  MapSelectionStyle,
+  MatchmakingDivision,
   matchmakingDivisionToLabel,
+  MatchmakingPreferences,
+  MatchmakingType,
   matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { AssignedRaceChar, RaceChar } from '../../common/races'
@@ -31,10 +33,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
 import { bodySmall, labelMedium, labelSmall, sofiaSans, titleSmall } from '../styles/typography'
 import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
-import { Contents1v1 } from './find-1v1'
-import { Contents1v1Fastest } from './find-1v1-fastest'
-import { Contents2v2 } from './find-2v2'
-import { FindMatchFormRef } from './find-match-forms'
+import { FindMatchContent } from './find-match-content'
 import { currentSearchInfoAtom, isMatchmakingAtom } from './matchmaking-atoms'
 import { DivisionIcon } from './rank-icon'
 
@@ -743,7 +742,7 @@ export interface RowSummaryState {
   alternateRace: AssignedRaceChar
   mapSelectionCount: number
   mapPoolVetoLimit: number
-  isVetoMode: boolean
+  mapSelectionStyle: MapSelectionStyle
   poolChanged: boolean
 }
 
@@ -768,26 +767,39 @@ export function ModeSummary({ mode, summaryState }: ModeSummaryProps) {
         </SummaryRaceRow>
       ) : null}
 
-      {summaryState.mapPoolVetoLimit > 0 ? (
-        <SummaryMapRow>
-          <MaterialIcon icon='map' size={16} />
-          {summaryState.isVetoMode ? (
-            <MapCountLabel>
-              <MapCountNum>{summaryState.mapSelectionCount}</MapCountNum>
-              {t('matchmaking.findMatch.vetoedCount', ' / {{limit}} vetoed', {
-                limit: summaryState.mapPoolVetoLimit,
-              })}
-            </MapCountLabel>
-          ) : (
-            <MapCountLabel>
-              <MapCountNum>{summaryState.mapSelectionCount}</MapCountNum>
-              {t('matchmaking.findMatch.pickedCount', ' / {{limit}} picked', {
-                limit: summaryState.mapPoolVetoLimit,
-              })}
-            </MapCountLabel>
-          )}
-        </SummaryMapRow>
-      ) : null}
+      {(() => {
+        if (summaryState.mapSelectionStyle === 'fixed') {
+          return (
+            <SummaryMapRow>
+              <MaterialIcon icon='map' size={16} />
+              <MapCountLabel>{t('matchmaking.findMatch.fixedMap', 'Fixed map')}</MapCountLabel>
+            </SummaryMapRow>
+          )
+        }
+        if (summaryState.mapPoolVetoLimit <= 0) {
+          return null
+        }
+        return (
+          <SummaryMapRow>
+            <MaterialIcon icon='map' size={16} />
+            {summaryState.mapSelectionStyle === 'veto' ? (
+              <MapCountLabel>
+                <MapCountNum>{summaryState.mapSelectionCount}</MapCountNum>
+                {t('matchmaking.findMatch.vetoedCount', ' / {{limit}} vetoed', {
+                  limit: summaryState.mapPoolVetoLimit,
+                })}
+              </MapCountLabel>
+            ) : (
+              <MapCountLabel>
+                <MapCountNum>{summaryState.mapSelectionCount}</MapCountNum>
+                {t('matchmaking.findMatch.pickedCount', ' / {{limit}} picked', {
+                  limit: summaryState.mapPoolVetoLimit,
+                })}
+              </MapCountLabel>
+            )}
+          </SummaryMapRow>
+        )
+      })()}
 
       {summaryState.poolChanged ? (
         <PoolBadge>
@@ -970,20 +982,11 @@ const DrawerFoot = styled.div`
 interface SettingsDrawerProps {
   drawerType: MatchmakingType | null
   labelForType: (type: MatchmakingType) => string
-  formRefs: Record<MatchmakingType, React.RefObject<FindMatchFormRef | null>>
   onClose: () => void
 }
 
-export function SettingsDrawer({
-  drawerType,
-  labelForType,
-  formRefs,
-  onClose,
-}: SettingsDrawerProps) {
+export function SettingsDrawer({ drawerType, labelForType, onClose }: SettingsDrawerProps) {
   const { t } = useTranslation()
-  const groupForType = (type: MatchmakingType): '1v1' | '2v2' => {
-    return type === MatchmakingType.Match2v2 ? '2v2' : '1v1'
-  }
 
   return (
     <AnimatePresence>
@@ -1004,7 +1007,7 @@ export function SettingsDrawer({
             exit={{ x: '-100%' }}
             transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}>
             <DrawerHead>
-              <DrawerGroupBadge>{groupForType(drawerType)}</DrawerGroupBadge>
+              <DrawerGroupBadge>{getMatchmakingModeInfo(drawerType).format}</DrawerGroupBadge>
               <DrawerTitle>{labelForType(drawerType)}</DrawerTitle>
               <DrawerCloseBtn onClick={onClose} title={t('common.actions.close', 'Close')}>
                 <MaterialIcon icon='close' size={22} />
@@ -1012,36 +1015,7 @@ export function SettingsDrawer({
             </DrawerHead>
 
             <DrawerBody>
-              {(() => {
-                switch (drawerType) {
-                  case MatchmakingType.Match1v1:
-                    return (
-                      <Contents1v1
-                        formRef={formRefs[MatchmakingType.Match1v1]}
-                        onSubmit={() => {}}
-                        disabled={false}
-                      />
-                    )
-                  case MatchmakingType.Match1v1Fastest:
-                    return (
-                      <Contents1v1Fastest
-                        formRef={formRefs[MatchmakingType.Match1v1Fastest]}
-                        onSubmit={() => {}}
-                        disabled={false}
-                      />
-                    )
-                  case MatchmakingType.Match2v2:
-                    return (
-                      <Contents2v2
-                        formRef={formRefs[MatchmakingType.Match2v2]}
-                        onSubmit={() => {}}
-                        disabled={false}
-                      />
-                    )
-                  default:
-                    return drawerType satisfies never
-                }
-              })()}
+              <FindMatchContent key={drawerType} type={drawerType} disabled={false} />
             </DrawerBody>
 
             <DrawerFoot>
@@ -1273,15 +1247,6 @@ export function FindMatch() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [elapsedSecs, setElapsedSecs] = useState(0)
 
-  const formRef1v1 = useRef<FindMatchFormRef>(null)
-  const formRef1v1Fastest = useRef<FindMatchFormRef>(null)
-  const formRef2v2 = useRef<FindMatchFormRef>(null)
-  const formRefs: Record<MatchmakingType, React.RefObject<FindMatchFormRef | null>> = {
-    [MatchmakingType.Match1v1]: formRef1v1,
-    [MatchmakingType.Match1v1Fastest]: formRef1v1Fastest,
-    [MatchmakingType.Match2v2]: formRef2v2,
-  }
-
   // ─── Effects ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -1396,7 +1361,7 @@ export function FindMatch() {
       alternateRace,
       mapSelectionCount,
       mapPoolVetoLimit: mapPool?.maxVetoCount ?? 0,
-      isVetoMode: hasVetoes(type),
+      mapSelectionStyle: getMatchmakingModeInfo(type).mapSelectionStyle,
       poolChanged,
     }
   }
@@ -1603,7 +1568,6 @@ export function FindMatch() {
       <SettingsDrawer
         drawerType={drawerType}
         labelForType={labelForType}
-        formRefs={formRefs}
         onClose={() => setDrawerType(null)}
       />
     </PageRoot>
