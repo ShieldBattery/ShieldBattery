@@ -47,6 +47,11 @@ const ADAPTIVE_COMFORTABLE_MULTIPLIER: usize = 2;
 /// Seconds the quality threshold drops per player below the comfortable queue size.
 const ADAPTIVE_DECAY_PER_MISSING: f32 = 15.0;
 
+/// Identifies a map. Opaque to the matchmaker — only compared for equality when verifying that the
+/// players in a positive-selection mode share at least one map. Matches the string `SbMapId` used
+/// elsewhere in the codebase.
+pub type MapId = String;
+
 #[derive(Debug, Copy, Clone, PartialEq, Default)]
 pub struct PlayerModeRating {
     pub rating: f32,
@@ -61,6 +66,12 @@ pub struct Player {
     /// The set of keys *is* the set of modes the player is queued for: the queue entry's modes are
     /// derived from this map (see `create_entry_and_update_modes`).
     pub ratings: HashMap<MatchmakingType, PlayerModeRating>,
+    /// Per-mode positive map selections, present only for modes that use positive map selection
+    /// ("pick"). When every player in a candidate match carries selections for the mode, the match
+    /// is only formed if they share at least one map (see `find_matches_for_modes`); otherwise no
+    /// map could be chosen and the match would fail downstream. Veto/fixed modes have no entry here
+    /// and are unconstrained.
+    pub map_selections: HashMap<MatchmakingType, Vec<MapId>>,
     /// Latency tier (0 = great, 1 = fine, 2 = noticeable, 3 = bad). None treated as 0.
     pub latency_bucket: Option<u8>,
 }
@@ -176,6 +187,19 @@ fn get_team_rating(team: &[&QueueEntry], mode: MatchmakingType) -> f32 {
 /// side.
 fn get_win_probability(rating_a: f32, rating_b: f32) -> f32 {
     1.0 / (1.0 + 10.0f32.powf((rating_b - rating_a) / 400.0))
+}
+
+/// Returns whether every player's positive map selections share at least one common map. Used to
+/// avoid forming matches for positive-selection ("pick") modes where no single map satisfies
+/// everyone — such a match could not have its map chosen and would fail when it tried to start. An
+/// empty input (no players carry selections) is treated as having overlap, i.e. no constraint.
+fn selections_share_a_map(selections: &[&Vec<MapId>]) -> bool {
+    match selections.split_first() {
+        Some((first, rest)) => first
+            .iter()
+            .any(|map| rest.iter().all(|other| other.contains(map))),
+        None => true,
+    }
 }
 
 impl<T: QueueSelector> Matchmaker<T> {
@@ -320,6 +344,20 @@ impl<T: QueueSelector> Matchmaker<T> {
                 .combinations(mode.total_players())
                 // Calculate match quality
                 .filter_map(|queue_entries| {
+                    // For positive-selection ("pick") modes, every player carries their map
+                    // selections; reject any combination whose players share no map, since the
+                    // match map couldn't be chosen and the match would fail. Veto/fixed modes store
+                    // no selections, so this check is a no-op for them.
+                    let mode_selections: Vec<&Vec<MapId>> = queue_entries
+                        .iter()
+                        .filter_map(|q| q.player.map_selections.get(mode))
+                        .collect();
+                    if mode_selections.len() == queue_entries.len()
+                        && !selections_share_a_map(&mode_selections)
+                    {
+                        return None;
+                    }
+
                     let mut oldest_queue_time = queue_entries[0].queue_time;
                     let mut count = 0;
                     let mut mean = 0.0;
@@ -431,6 +469,7 @@ mod tests {
                     uncertainty: None,
                 },
             )]),
+            map_selections: HashMap::new(),
             latency_bucket: None,
         }
     }
@@ -452,6 +491,7 @@ mod tests {
                     )
                 })
                 .collect(),
+            map_selections: HashMap::new(),
             latency_bucket: None,
         }
     }
@@ -736,6 +776,7 @@ mod tests {
                         uncertainty: None,
                     },
                 )]),
+                map_selections: HashMap::new(),
                 latency_bucket: Some(2),
             })
             .unwrap();
@@ -749,6 +790,7 @@ mod tests {
                         uncertainty: None,
                     },
                 )]),
+                map_selections: HashMap::new(),
                 latency_bucket: Some(2),
             })
             .unwrap();
@@ -817,6 +859,7 @@ mod tests {
                     uncertainty: Some(350.0),
                 },
             )]),
+            map_selections: HashMap::new(),
             latency_bucket: None,
         };
         let certain = Player {
@@ -828,6 +871,7 @@ mod tests {
                     uncertainty: None,
                 },
             )]),
+            map_selections: HashMap::new(),
             latency_bucket: None,
         };
 
@@ -873,6 +917,7 @@ mod tests {
                     },
                 ),
             ]),
+            map_selections: HashMap::new(),
             latency_bucket: None,
         };
         let player_b = Player {
@@ -893,6 +938,7 @@ mod tests {
                     },
                 ),
             ]),
+            map_selections: HashMap::new(),
             latency_bucket: None,
         };
         matchmaker.insert_player(player_a).unwrap();
@@ -912,5 +958,77 @@ mod tests {
                 .iter()
                 .any(|m| m.mode == MatchmakingType::Match1v1Fastest)
         );
+    }
+
+    /// Builds a player queued for a single mode with the given positive map selections.
+    fn make_player_with_maps(
+        id: usize,
+        rating: f32,
+        mode: MatchmakingType,
+        maps: &[&str],
+    ) -> Player {
+        Player {
+            id,
+            ratings: HashMap::from([(
+                mode,
+                PlayerModeRating {
+                    rating,
+                    uncertainty: None,
+                },
+            )]),
+            map_selections: HashMap::from([(
+                mode,
+                maps.iter().map(|m| m.to_string()).collect(),
+            )]),
+            latency_bucket: None,
+        }
+    }
+
+    #[test]
+    fn pick_mode_does_not_match_disjoint_map_selections() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        matchmaker
+            .insert_player(make_player_with_maps(0, 1000.0, MatchmakingType::Match1v1, &["a"]))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_maps(1, 1000.0, MatchmakingType::Match1v1, &["b"]))
+            .unwrap();
+
+        // Even at the most lenient quality, players who share no map must not be matched (the match
+        // map could not be chosen and the match would fail to start).
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingType::Match1v1],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn pick_mode_matches_when_selections_share_a_map() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        matchmaker
+            .insert_player(make_player_with_maps(
+                0,
+                1000.0,
+                MatchmakingType::Match1v1,
+                &["a", "b"],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_maps(
+                1,
+                1000.0,
+                MatchmakingType::Match1v1,
+                &["b", "c"],
+            ))
+            .unwrap();
+
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingType::Match1v1],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert_eq!(result.len(), 1);
     }
 }

@@ -15,6 +15,7 @@ use axum::{Json, Router, extract::State, routing::post};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -63,6 +64,10 @@ struct PlayerModeRatingDto {
     mode: MatchmakingType,
     rating: f32,
     uncertainty: Option<f32>,
+    /// Positive map selections for this mode, present only for "pick" modes. Used by the matchmaker
+    /// to require that matched players share at least one map. `None`/absent for veto/fixed modes.
+    #[serde(default)]
+    map_selections: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -113,6 +118,35 @@ fn lock_matchmaker(
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Builds a [`Player`] from the per-mode DTOs received over the wire (or restored from a ticket),
+/// splitting them into the rating map and the positive-map-selection map.
+fn build_player(
+    id: usize,
+    mode_ratings: Vec<PlayerModeRatingDto>,
+    latency_bucket: Option<u8>,
+) -> Player {
+    let mut ratings = HashMap::new();
+    let mut map_selections = HashMap::new();
+    for r in mode_ratings {
+        ratings.insert(
+            r.mode,
+            PlayerModeRating {
+                rating: r.rating,
+                uncertainty: r.uncertainty,
+            },
+        );
+        if let Some(maps) = r.map_selections {
+            map_selections.insert(r.mode, maps);
+        }
+    }
+    Player {
+        id,
+        ratings,
+        map_selections,
+        latency_bucket,
+    }
+}
+
 fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Instant) -> String {
     let ticket = QueueTicket {
         id: entry.player.id,
@@ -124,6 +158,7 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
                 mode,
                 rating: r.rating,
                 uncertainty: r.uncertainty,
+                map_selections: entry.player.map_selections.get(&mode).cloned(),
             })
             .collect(),
         latency_bucket: entry.player.latency_bucket,
@@ -282,25 +317,9 @@ async fn insert_player(
     State(state): State<MatchmakingApiState>,
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
-    let ratings = payload
-        .mode_ratings
-        .into_iter()
-        .map(|r| {
-            (
-                r.mode,
-                PlayerModeRating {
-                    rating: r.rating,
-                    uncertainty: r.uncertainty,
-                },
-            )
-        })
-        .collect();
+    let player = build_player(payload.id, payload.mode_ratings, payload.latency_bucket);
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
-    matchmaker.insert_player(Player {
-        id: payload.id,
-        ratings,
-        latency_bucket: payload.latency_bucket,
-    })?;
+    matchmaker.insert_player(player)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -349,23 +368,7 @@ async fn requeue_player(
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
-        Player {
-            id: ticket.id,
-            ratings: ticket
-                .mode_ratings
-                .into_iter()
-                .map(|r| {
-                    (
-                        r.mode,
-                        PlayerModeRating {
-                            rating: r.rating,
-                            uncertainty: r.uncertainty,
-                        },
-                    )
-                })
-                .collect(),
-            latency_bucket: ticket.latency_bucket,
-        },
+        build_player(ticket.id, ticket.mode_ratings, ticket.latency_bucket),
         queue_time,
     ) {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
@@ -415,6 +418,7 @@ mod tests {
                         uncertainty: None,
                     },
                 )]),
+                map_selections: HashMap::new(),
                 latency_bucket: None,
             },
             modes: MatchmakingType::Match1v1.into(),
@@ -430,6 +434,7 @@ mod tests {
                         uncertainty: None,
                     },
                 )]),
+                map_selections: HashMap::new(),
                 latency_bucket: None,
             },
             modes: MatchmakingType::Match1v1.into(),
@@ -445,6 +450,7 @@ mod tests {
                         uncertainty: None,
                     },
                 )]),
+                map_selections: HashMap::new(),
                 latency_bucket: None,
             },
             modes: MatchmakingType::Match1v1.into(),

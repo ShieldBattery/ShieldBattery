@@ -286,6 +286,16 @@ async function pickMap(
     entities.map(e => e.mapSelections),
   )
 
+  // For "pick" modes the matchmaker only forms matches whose players share a map, so this should be
+  // non-empty; guard anyway (e.g. the map pool changed after the players queued) so we fail with a
+  // clean service error rather than an unexpected throw from randomItem on an empty pool.
+  if (!mapPool.size) {
+    throw new MatchmakingServiceError(
+      MatchmakingServiceErrorCode.InvalidMaps,
+      'No valid map for the match',
+    )
+  }
+
   const chosenMapId = randomItem(Array.from(mapPool))
   const mapInfo = await getMapInfos([chosenMapId])
 
@@ -508,6 +518,12 @@ export class MatchmakingService {
           mode: d.type,
           rating: d.mmr.rating,
           uncertainty: d.mmr.uncertainty,
+          // Only "pick" modes constrain matching on maps; the matchmaker uses these selections to
+          // avoid pairing players who share no map. Veto/fixed modes send null.
+          mapSelections:
+            getMatchmakingModeInfo(d.type).mapSelectionStyle === 'pick'
+              ? d.playerData.mapSelections.slice()
+              : null,
         })),
         latencyBucket: null, // TODO: populate from actual latency data
       })
