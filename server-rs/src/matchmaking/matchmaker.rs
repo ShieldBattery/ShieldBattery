@@ -976,10 +976,7 @@ mod tests {
                     uncertainty: None,
                 },
             )]),
-            map_selections: HashMap::from([(
-                mode,
-                maps.iter().map(|m| m.to_string()).collect(),
-            )]),
+            map_selections: HashMap::from([(mode, maps.iter().map(|m| m.to_string()).collect())]),
             latency_bucket: None,
         }
     }
@@ -988,10 +985,20 @@ mod tests {
     fn pick_mode_does_not_match_disjoint_map_selections() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
-            .insert_player(make_player_with_maps(0, 1000.0, MatchmakingType::Match1v1, &["a"]))
+            .insert_player(make_player_with_maps(
+                0,
+                1000.0,
+                MatchmakingType::Match1v1,
+                &["a"],
+            ))
             .unwrap();
         matchmaker
-            .insert_player(make_player_with_maps(1, 1000.0, MatchmakingType::Match1v1, &["b"]))
+            .insert_player(make_player_with_maps(
+                1,
+                1000.0,
+                MatchmakingType::Match1v1,
+                &["b"],
+            ))
             .unwrap();
 
         // Even at the most lenient quality, players who share no map must not be matched (the match
