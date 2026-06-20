@@ -1,15 +1,10 @@
 import { debounce } from 'lodash-es'
 import * as React from 'react'
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { concatWithoutDuplicates } from '../../common/data-structures/arrays'
 import { SbMapId } from '../../common/maps'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingType,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
 import {
   CreateMatchmakingMapPoolRequest,
   CreateMatchmakingMapPoolResponse,
@@ -29,7 +24,6 @@ import { fastOutSlowInShort } from '../material/curves'
 import { DateTimeTextField } from '../material/datetime-text-field'
 import { NumberTextField } from '../material/number-text-field'
 import { elevationPlus1 } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
@@ -50,6 +44,7 @@ import {
   titleLarge,
   titleMedium,
 } from '../styles/typography'
+import { MatchmakingTypeNav } from './matchmaking-type-nav'
 
 function getMapPoolsHistory(
   type: MatchmakingType,
@@ -217,17 +212,11 @@ const EmptyStateText = styled.p`
 `
 
 export function AdminMatchmakingMapPools() {
-  const { t } = useTranslation()
-
   const [activeTab, setActiveTab] = useState<MatchmakingType>(MatchmakingType.Match1v1)
 
   return (
     <Container>
-      <Tabs activeTab={activeTab} onChange={setActiveTab}>
-        {ALL_MATCHMAKING_TYPES.map(type => (
-          <TabItem key={type} text={matchmakingTypeToLabel(type, t)} value={type} />
-        ))}
-      </Tabs>
+      <MatchmakingTypeNav activeType={activeTab} onChange={setActiveTab} />
 
       <PageHeadline>Matchmaking map pools</PageHeadline>
 

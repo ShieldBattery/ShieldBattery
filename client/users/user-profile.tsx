@@ -6,7 +6,8 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
-import { ALL_MATCHMAKING_TYPES, MatchmakingSeasonJson, SeasonId } from '../../common/matchmaking'
+import { getMostActiveRankedTypes } from '../../common/ladder/ladder'
+import { MatchmakingSeasonJson, SeasonId } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -375,16 +376,14 @@ function SummaryPage({
       {hasAnyRanks && (
         <>
           <RankedSection>
-            {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
-              profile.ladder[matchmakingType] ? (
-                <UserRankDisplay
-                  key={matchmakingType}
-                  matchmakingType={matchmakingType}
-                  ladderPlayer={profile.ladder[matchmakingType]!}
-                  season={seasons.get(profile.seasonId)!}
-                />
-              ) : null,
-            )}
+            {getMostActiveRankedTypes(profile.ladder).map(matchmakingType => (
+              <UserRankDisplay
+                key={matchmakingType}
+                matchmakingType={matchmakingType}
+                ladderPlayer={profile.ladder[matchmakingType]!}
+                season={seasons.get(profile.seasonId)!}
+              />
+            ))}
           </RankedSection>
         </>
       )}

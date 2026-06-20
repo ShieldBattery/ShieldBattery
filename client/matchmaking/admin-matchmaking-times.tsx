@@ -1,13 +1,8 @@
 import * as React from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { concatWithoutDuplicates } from '../../common/data-structures/arrays'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingType,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
 import {
   AddMatchmakingTimeRequest,
   GetFutureMatchmakingTimesResponse,
@@ -22,7 +17,6 @@ import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { DateTimeTextField } from '../material/datetime-text-field'
 import { elevationPlus1 } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { LoadingDotsArea } from '../progress/dots'
@@ -32,6 +26,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, titleLarge, titleMedium } from '../styles/typography'
+import { MatchmakingTypeNav } from './matchmaking-type-nav'
 
 function getCurrentMatchmakingTime(
   type: MatchmakingType,
@@ -255,17 +250,11 @@ const EmptyStateText = styled.p`
 `
 
 export function AdminMatchmakingTimes() {
-  const { t } = useTranslation()
-
   const [activeTab, setActiveTab] = useState<MatchmakingType>(MatchmakingType.Match1v1)
 
   return (
     <Container>
-      <Tabs activeTab={activeTab} onChange={setActiveTab}>
-        {ALL_MATCHMAKING_TYPES.map(type => (
-          <TabItem key={type} text={matchmakingTypeToLabel(type, t)} value={type} />
-        ))}
-      </Tabs>
+      <MatchmakingTypeNav activeType={activeTab} onChange={setActiveTab} />
 
       <PageHeadline>Matchmaking times</PageHeadline>
 

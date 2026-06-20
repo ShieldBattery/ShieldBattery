@@ -17,7 +17,6 @@ import {
   getTotalBonusPoolForSeason,
   makeSeasonId,
   matchmakingDivisionToLabel,
-  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
@@ -28,6 +27,7 @@ import { Avatar } from '../avatars/avatar'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { JsonLocalStorageValue } from '../local-storage'
 import { getMatchmakingSeasons } from '../matchmaking/action-creators'
+import { MatchmakingTypeNav } from '../matchmaking/matchmaking-type-nav'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
@@ -36,7 +36,6 @@ import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indic
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { elevationPlus2 } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
@@ -87,13 +86,7 @@ const PageHeader = styled.div`
   align-items: center;
 `
 
-const TABS_MIN_WIDTH_PX =
-  ALL_MATCHMAKING_TYPES.length * 100 + (ALL_MATCHMAKING_TYPES.length - 1) * 24
-
-// NOTE(tec27): Using a container here instead of styling directly because styling it results in
-// TS not being able to figure out the generic param, so it doesn't like our tab change handler
 const TabsContainer = styled.div`
-  min-width: ${TABS_MIN_WIDTH_PX}px;
   flex-shrink: 0;
 `
 
@@ -327,20 +320,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
       <PageHeader>
         <TitleLarge>{t('ladder.pageHeadline', 'Ladder')}</TitleLarge>
         <TabsContainer>
-          <Tabs activeTab={matchmakingType} onChange={onTabChange}>
-            <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match1v1, t)}
-              value={MatchmakingType.Match1v1}
-            />
-            <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, t)}
-              value={MatchmakingType.Match1v1Fastest}
-            />
-            <TabItem
-              text={matchmakingTypeToLabel(MatchmakingType.Match2v2, t)}
-              value={MatchmakingType.Match2v2}
-            />
-          </Tabs>
+          <MatchmakingTypeNav activeType={matchmakingType} onChange={onTabChange} />
         </TabsContainer>
         {rankingsData ? (
           <LastUpdatedText title={longTimestamp.format(rankingsData.lastUpdated)}>

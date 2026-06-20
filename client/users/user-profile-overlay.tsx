@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
-  ALL_MATCHMAKING_TYPES,
+  LadderPlayer,
+  getMostActiveRankedTypes,
+  ladderPlayerToMatchmakingDivision,
+} from '../../common/ladder/ladder'
+import {
   MatchmakingSeasonJson,
   MatchmakingType,
   getTotalBonusPoolForSeason,
@@ -275,16 +278,14 @@ export function UserProfileOverlayContents({
             <div>
               <SectionHeader>{t('users.profileOverlay.ranked', 'Ranked')}</SectionHeader>
               <RankDisplaySection>
-                {ALL_MATCHMAKING_TYPES.map(matchmakingType =>
-                  profile.ladder[matchmakingType] ? (
-                    <RankDisplay
-                      key={matchmakingType}
-                      matchmakingType={matchmakingType}
-                      ladderPlayer={profile.ladder[matchmakingType]!}
-                      season={season!}
-                    />
-                  ) : null,
-                )}
+                {getMostActiveRankedTypes(profile.ladder).map(matchmakingType => (
+                  <RankDisplay
+                    key={matchmakingType}
+                    matchmakingType={matchmakingType}
+                    ladderPlayer={profile.ladder[matchmakingType]!}
+                    season={season!}
+                  />
+                ))}
               </RankDisplaySection>
             </div>
           ) : null}

@@ -39,6 +39,24 @@ export function ladderPlayerToMatchmakingDivision(
   }
 }
 
+/** The maximum number of per-mode rank cards to show on a user's profile (their most active). */
+export const MAX_PROFILE_RANKS_SHOWN = 4
+
+/**
+ * Returns the matchmaking types a user has a rank in, sorted by how active they've been (most games
+ * played first) and capped to `limit`. Used to show only a user's most relevant ranks rather than
+ * every mode they've touched, which would clutter the profile as more modes are added.
+ */
+export function getMostActiveRankedTypes(
+  ladder: Partial<Record<MatchmakingType, LadderPlayer>>,
+  limit = MAX_PROFILE_RANKS_SHOWN,
+): MatchmakingType[] {
+  return (Object.keys(ladder) as MatchmakingType[])
+    .filter(type => ladder[type])
+    .sort((a, b) => ladder[b]!.wins + ladder[b]!.losses - (ladder[a]!.wins + ladder[a]!.losses))
+    .slice(0, limit)
+}
+
 export enum LadderErrorCode {
   NotFound = 'NotFound',
   OnlyAllowedOnSelf = 'OnlyAllowedOnSelf',
