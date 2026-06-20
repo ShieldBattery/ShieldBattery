@@ -895,6 +895,8 @@
         "somethingWentWrong": "Something went wrong :(",
         "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
       },
+      "fixedMap": "Fixed map",
+      "fixedMapDescription": "This mode is always played on a fixed map.",
       "goToLobby": "Go to lobby",
       "inLobbyBanner": "You’re in a lobby — matchmaking is unavailable while in a game lobby.",
       "loadingMapPool": "Loading map pool…",

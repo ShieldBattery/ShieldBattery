@@ -3,8 +3,7 @@ import * as React from 'react'
 import { useCallback } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { MapInfoJson, SbMapId } from '../../common/maps'
-import { MatchmakingPreferences } from '../../common/matchmaking'
+import { SbMapId } from '../../common/maps'
 import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map-pools'
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -13,17 +12,6 @@ import { elevationPlus1 } from '../material/shadows'
 import { useValueAsRef } from '../react/state-hooks'
 import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
 import { RaceSelect } from './race-select'
-
-export interface FindMatchFormRef {
-  submit: () => void
-}
-
-export interface FindMatchContentsProps {
-  disabled: boolean
-  mapSelections?: Array<Immutable<MapInfoJson>>
-  formRef: React.Ref<FindMatchFormRef>
-  onSubmit: (prefs: Immutable<MatchmakingPreferences>) => void
-}
 
 export const SectionTitle = styled.div`
   ${bodyLarge};
@@ -299,5 +287,29 @@ export function MapSelectionControl({
       </MapSelections>
       {errorText ? <ErrorText>{errorText}</ErrorText> : undefined}
     </div>
+  )
+}
+
+/** Read-only display of the map(s) a fixed-map mode is always played on. */
+export function FixedMapDisplay({
+  mapPool,
+  className,
+}: {
+  mapPool: Immutable<MatchmakingMapPoolJson>
+  className?: string
+}) {
+  return (
+    <MapSelections className={className}>
+      {mapPool.maps.map(id => (
+        <SelectableMapContainer key={id} $disabled={true}>
+          <ReduxMapThumbnail
+            mapId={id}
+            showInfoLayer={true}
+            forceAspectRatio={1}
+            size={MAP_THUMB_SIZE_PX}
+          />
+        </SelectableMapContainer>
+      ))}
+    </MapSelections>
   )
 }

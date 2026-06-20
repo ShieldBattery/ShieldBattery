@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MatchmakingDivision, MatchmakingType } from '../../../common/matchmaking'
@@ -32,7 +32,6 @@ import {
   SettingsDrawer,
   TypeRow,
 } from '../find-match'
-import { FindMatchFormRef } from '../find-match-forms'
 
 // ─── Mock data types ──────────────────────────────────────────────────────────
 
@@ -330,7 +329,7 @@ function toRowSummaryState(mode: MockModeData, rowState: RowModeState): RowSumma
     alternateRace: rowState.alternateRace,
     mapSelectionCount: rowState.mapSelectionCount,
     mapPoolVetoLimit: mode.mapPool?.limit ?? 0,
-    isVetoMode: mode.mapPool?.vetoes ?? false,
+    mapSelectionStyle: (mode.mapPool?.vetoes ?? false) ? 'veto' : 'pick',
     poolChanged: mode.poolChanged,
   }
 }
@@ -360,15 +359,6 @@ export function FindMatchListTest() {
     const id = setInterval(() => setElapsed(e => e + 1), 1000)
     return () => clearInterval(id)
   }, [state.isSearching])
-
-  const formRef1v1 = useRef<FindMatchFormRef>(null)
-  const formRef1v1Fastest = useRef<FindMatchFormRef>(null)
-  const formRef2v2 = useRef<FindMatchFormRef>(null)
-  const formRefs: Record<MatchmakingType, React.RefObject<FindMatchFormRef | null>> = {
-    [MatchmakingType.Match1v1]: formRef1v1,
-    [MatchmakingType.Match1v1Fastest]: formRef1v1Fastest,
-    [MatchmakingType.Match2v2]: formRef2v2,
-  }
 
   const prefs1v1 = useAppSelector(
     s => s.matchmakingPreferences.byType.get(MatchmakingType.Match1v1)?.preferences as any,
@@ -556,7 +546,6 @@ export function FindMatchListTest() {
       <SettingsDrawer
         drawerType={drawerType}
         labelForType={_ => drawerModeData?.label ?? ''}
-        formRefs={formRefs}
         onClose={() => setDrawerModeId(null)}
       />
     </PageRoot>
