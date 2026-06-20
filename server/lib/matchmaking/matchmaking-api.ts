@@ -10,8 +10,8 @@ import {
   DraftProvisionalPickRequest,
   FindMatchRequest,
   GetMatchmakingBanStatusResponse,
+  getMatchmakingModeInfo,
   GetMatchmakingSeasonsResponse,
-  hasVetoes,
   MatchmakingSeasonsServiceErrorCode,
   MatchmakingServiceErrorCode,
   SeasonId,
@@ -157,7 +157,13 @@ export class MatchmakingApi {
         }
 
         const mapSelections = filterMapSelections(currentMapPool, pref.mapSelections)
-        if (!hasVetoes(pref.matchmakingType) && !mapSelections.length) {
+        // Only positive-pick modes require an explicit selection. Veto modes default to the whole
+        // pool when nothing is vetoed, and fixed modes ignore player selections entirely (the map is
+        // chosen automatically), so neither should be rejected for an empty selection.
+        if (
+          getMatchmakingModeInfo(pref.matchmakingType).mapSelectionStyle === 'pick' &&
+          !mapSelections.length
+        ) {
           throw new MatchmakingServiceError(
             MatchmakingServiceErrorCode.InvalidMaps,
             'No maps selected',

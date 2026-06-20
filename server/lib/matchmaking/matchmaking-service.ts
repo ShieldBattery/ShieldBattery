@@ -8,7 +8,7 @@ import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
-import { intersection, subtract, union } from '../../../common/data-structures/sets'
+import { subtract, union } from '../../../common/data-structures/sets'
 import {
   GameConfig,
   GameConfigPlayer,
@@ -18,9 +18,9 @@ import {
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
 import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
-import { MapInfo, SbMapId } from '../../../common/maps'
+import { MapInfo } from '../../../common/maps'
 import {
-  hasVetoes,
+  getMatchmakingModeInfo,
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingCompletionType,
   MatchmakingEvent,
@@ -77,6 +77,7 @@ import {
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { DraftState } from './draft-state'
+import { computeMatchMapCandidates } from './map-selections'
 import { MatchmakingBanService } from './matchmaking-ban-service'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import { MatchmakingSeasonsService } from './matchmaking-seasons'
@@ -279,48 +280,11 @@ async function pickMap(
     )
   }
 
-  const fullMapPool = new Set(currentMapPool.maps)
-  let mapPool = fullMapPool
-  if (hasVetoes(matchmakingType)) {
-    // The algorithm for selecting maps in a veto system is:
-    // 1) All players' map selections are treated as vetoes, and removed from the available map
-    //    pool. We also track how many times each map was vetoed.
-    // 2a) If any maps are remaining, select a random map from the remaining ones
-    // 2b) If no maps are remaining, select a random map from the least vetoed maps
-
-    const vetoCount = new Map<SbMapId, number>()
-    for (const e of entities) {
-      const mapSelections = e.mapSelections
-      mapPool = subtract(mapPool, mapSelections)
-      for (const map of mapSelections) {
-        vetoCount.set(map, (vetoCount.get(map) ?? 0) + 1)
-      }
-    }
-
-    if (!mapPool.size) {
-      // All available maps were vetoed, create a final pool from the least vetoed maps
-      // NOTE(tec27): We know since the whole pool was vetoed, each map in the pool will have an
-      // entry here, even though we didn't initialize the Map directly
-      const sortedByVetoCount = Array.from(vetoCount.entries()).sort((a, b) => a[1] - b[1])
-      const leastVetoCount = sortedByVetoCount[0][1]
-      let lastElem = 1
-      while (
-        lastElem < sortedByVetoCount.length &&
-        sortedByVetoCount[lastElem][1] <= leastVetoCount
-      ) {
-        lastElem += 1
-      }
-
-      mapPool = new Set(sortedByVetoCount.slice(0, lastElem).map(e => e[0]))
-    }
-  } else {
-    // For a positive map selection system, we just intersect all players' map selections to find
-    // the pool
-    for (const e of entities) {
-      const mapSelections = new Set(e.mapSelections)
-      mapPool = intersection(mapPool, mapSelections)
-    }
-  }
+  const mapPool = computeMatchMapCandidates(
+    getMatchmakingModeInfo(matchmakingType).mapSelectionStyle,
+    currentMapPool.maps,
+    entities.map(e => e.mapSelections),
+  )
 
   const chosenMapId = randomItem(Array.from(mapPool))
   const mapInfo = await getMapInfos([chosenMapId])
