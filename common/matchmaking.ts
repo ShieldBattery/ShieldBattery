@@ -20,17 +20,91 @@ export { MatchmakingType }
 
 export const ALL_MATCHMAKING_TYPES: ReadonlyArray<MatchmakingType> = Object.values(MatchmakingType)
 
+/** The team-size family a mode belongs to. The primary axis for grouping modes in the UI. */
+export type MatchmakingFormat = '1v1' | '2v2' | '3v3'
+
+/** The ruleset/map family of a mode within a format. */
+export type MatchmakingVariant = 'standard' | 'hunters' | 'bgh' | 'fastest'
+
+/**
+ * How players choose maps for a mode:
+ * - `veto`: players veto maps they don't want to play; the match map is chosen from what remains.
+ * - `pick`: players positively select maps they're willing to play; the match map is chosen from the
+ *   intersection of all players' selections.
+ * - `fixed`: the mode always plays a single map. The selection is made automatically and players
+ *   can't change it (handled internally like a `pick` with one forced map).
+ */
+export type MapSelectionStyle = 'veto' | 'pick' | 'fixed'
+
+/**
+ * Static, data-driven description of a matchmaking mode. This is the single source of truth for the
+ * per-mode properties that were previously hardcoded in `switch (MatchmakingType)` statements
+ * scattered across the codebase. UI and server code should read from here (and iterate
+ * `MATCHMAKING_MODES`) rather than switching on `MatchmakingType`, so that adding a mode is mostly a
+ * matter of adding an entry to the registry.
+ */
+export interface MatchmakingModeInfo {
+  type: MatchmakingType
+  /** Team-size family; the primary grouping axis in the UI. */
+  format: MatchmakingFormat
+  /** Ruleset/map family within the format. */
+  variant: MatchmakingVariant
+  /** Number of players per team. */
+  teamSize: number
+  /** How maps are chosen for this mode. */
+  mapSelectionStyle: MapSelectionStyle
+  /** Whether players can pick an alternate race for mirror matchups (1v1-style modes only). */
+  supportsAlternateRace: boolean
+  /**
+   * Returns the mode's localized display label. Written as an inline `t()` call with a string-literal
+   * key so i18next-parser can statically extract it — a dynamic `t(key)` is invisible to the
+   * extractor, which (with `keepRemoved: false`) would drop the key from the catalog.
+   */
+  label: (t: TFunction) => string
+}
+
+/**
+ * The registry of all matchmaking modes, keyed by `MatchmakingType`. The `satisfies` clause forces an
+ * entry for every `MatchmakingType`, so adding a value to the enum is a compile error until the new
+ * mode is described here.
+ */
+export const MATCHMAKING_MODES = {
+  [MatchmakingType.Match1v1]: {
+    type: MatchmakingType.Match1v1,
+    format: '1v1',
+    variant: 'standard',
+    teamSize: 1,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: true,
+    label: t => t('matchmaking.type.1v1', '1v1'),
+  },
+  [MatchmakingType.Match1v1Fastest]: {
+    type: MatchmakingType.Match1v1Fastest,
+    format: '1v1',
+    variant: 'fastest',
+    teamSize: 1,
+    mapSelectionStyle: 'pick',
+    supportsAlternateRace: true,
+    label: t => t('matchmaking.type.1v1fastest', '1v1 Fastest'),
+  },
+  [MatchmakingType.Match2v2]: {
+    type: MatchmakingType.Match2v2,
+    format: '2v2',
+    variant: 'standard',
+    teamSize: 2,
+    mapSelectionStyle: 'veto',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.2v2', '2v2'),
+  },
+} satisfies Record<MatchmakingType, MatchmakingModeInfo>
+
+/** Returns the static mode descriptor for a given `MatchmakingType`. */
+export function getMatchmakingModeInfo(type: MatchmakingType): MatchmakingModeInfo {
+  return MATCHMAKING_MODES[type]
+}
+
 export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): string {
-  switch (type) {
-    case MatchmakingType.Match1v1:
-      return t ? t('matchmaking.type.1v1', '1v1') : '1v1'
-    case MatchmakingType.Match1v1Fastest:
-      return t ? t('matchmaking.type.1v1fastest', '1v1 Fastest') : '1v1 Fastest'
-    case MatchmakingType.Match2v2:
-      return t ? t('matchmaking.type.2v2', '2v2') : '2v2'
-    default:
-      return assertUnreachable(type)
-  }
+  return MATCHMAKING_MODES[type].label(t)
 }
 
 /**
@@ -38,15 +112,15 @@ export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): str
  * e.g. select the maps you want to play on).
  */
 export function hasVetoes(type: MatchmakingType): boolean {
-  return type !== MatchmakingType.Match1v1Fastest
+  return MATCHMAKING_MODES[type].mapSelectionStyle === 'veto'
 }
 
 /**
- * Returns whether the matchmaking type is a 1v1 mode (which we have different division handling
- * for).
+ * Returns whether the matchmaking type is a solo (one player per team) mode, which we have different
+ * division handling for.
  */
 export function isSoloType(type: MatchmakingType): boolean {
-  return type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest
+  return MATCHMAKING_MODES[type].teamSize === 1
 }
 
 /**
@@ -508,13 +582,12 @@ export function getTotalBonusPoolForSeason(
 }
 
 /**
- * A Record of MatchmakingType -> the size of a team within a match.
+ * A Record of MatchmakingType -> the size of a team within a match. Derived from
+ * `MATCHMAKING_MODES`, which is the source of truth for team sizes.
  */
-export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = {
-  [MatchmakingType.Match1v1]: 1,
-  [MatchmakingType.Match1v1Fastest]: 1,
-  [MatchmakingType.Match2v2]: 2,
-}
+export const TEAM_SIZES: Readonly<Record<MatchmakingType, number>> = Object.fromEntries(
+  ALL_MATCHMAKING_TYPES.map(type => [type, MATCHMAKING_MODES[type].teamSize]),
+) as Record<MatchmakingType, number>
 
 export function isValidMatchmakingType(type: string) {
   return Object.values(MatchmakingType).includes(type as MatchmakingType)
@@ -733,18 +806,9 @@ export type PreferenceData = MatchmakingPreferences['data']
 export function defaultPreferenceData<M extends MatchmakingType>(
   matchmakingType: M,
 ): MatchmakingPreferencesOfType<M>['data'] {
-  switch (matchmakingType) {
-    case MatchmakingType.Match1v1:
-    case MatchmakingType.Match1v1Fastest:
-      return {
-        useAlternateRace: false,
-        alternateRace: 'z',
-      }
-    case MatchmakingType.Match2v2:
-      return {}
-    default:
-      return assertUnreachable(matchmakingType)
-  }
+  return MATCHMAKING_MODES[matchmakingType].supportsAlternateRace
+    ? { useAlternateRace: false, alternateRace: 'z' }
+    : {}
 }
 
 export function defaultPreferences<M extends MatchmakingType>(

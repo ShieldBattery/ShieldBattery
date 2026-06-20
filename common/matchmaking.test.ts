@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { MatchmakingDivision, pointsToMatchmakingDivisionAndBounds } from './matchmaking'
+import {
+  ALL_MATCHMAKING_TYPES,
+  defaultPreferenceData,
+  hasVetoes,
+  isSoloType,
+  MATCHMAKING_MODES,
+  MatchmakingDivision,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+  pointsToMatchmakingDivisionAndBounds,
+  TEAM_SIZES,
+} from './matchmaking'
 
 describe('common/matchmaking', () => {
   describe('pointsToMatchmakingDivisionAndBounds', () => {
@@ -83,6 +94,65 @@ describe('common/matchmaking', () => {
         6560 + 0.6 * 2400,
         6800 + 2400,
       ])
+    })
+  })
+
+  describe('mode descriptors', () => {
+    it('has an entry for every matchmaking type, keyed correctly', () => {
+      for (const type of ALL_MATCHMAKING_TYPES) {
+        expect(MATCHMAKING_MODES[type]).toBeDefined()
+        expect(MATCHMAKING_MODES[type].type).toBe(type)
+      }
+    })
+
+    it('derives TEAM_SIZES from the registry', () => {
+      expect(TEAM_SIZES[MatchmakingType.Match1v1]).toBe(1)
+      expect(TEAM_SIZES[MatchmakingType.Match1v1Fastest]).toBe(1)
+      expect(TEAM_SIZES[MatchmakingType.Match2v2]).toBe(2)
+    })
+
+    it('derives hasVetoes from map selection style', () => {
+      expect(hasVetoes(MatchmakingType.Match1v1)).toBe(true)
+      expect(hasVetoes(MatchmakingType.Match2v2)).toBe(true)
+      expect(hasVetoes(MatchmakingType.Match1v1Fastest)).toBe(false)
+    })
+
+    it('derives isSoloType from team size', () => {
+      expect(isSoloType(MatchmakingType.Match1v1)).toBe(true)
+      expect(isSoloType(MatchmakingType.Match1v1Fastest)).toBe(true)
+      expect(isSoloType(MatchmakingType.Match2v2)).toBe(false)
+    })
+
+    it('renders the English label from the i18n default value', () => {
+      // A `t` that returns the default value (its second arg), like i18next with no translation loaded.
+      const useDefault = ((_key: string, defaultValue: string) => defaultValue) as any
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1, useDefault)).toBe('1v1')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, useDefault)).toBe(
+        '1v1 Fastest',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, useDefault)).toBe('2v2')
+    })
+
+    it('looks up labels by the expected i18n keys (kept extractable for i18next-parser)', () => {
+      // A `t` that echoes its key so we assert the exact key each mode resolves to.
+      const echoKey = ((key: string) => key) as any
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1, echoKey)).toBe('matchmaking.type.1v1')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match1v1Fastest, echoKey)).toBe(
+        'matchmaking.type.1v1fastest',
+      )
+      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, echoKey)).toBe('matchmaking.type.2v2')
+    })
+
+    it('provides alternate-race default data only for solo modes', () => {
+      expect(defaultPreferenceData(MatchmakingType.Match1v1)).toEqual({
+        useAlternateRace: false,
+        alternateRace: 'z',
+      })
+      expect(defaultPreferenceData(MatchmakingType.Match1v1Fastest)).toEqual({
+        useAlternateRace: false,
+        alternateRace: 'z',
+      })
+      expect(defaultPreferenceData(MatchmakingType.Match2v2)).toEqual({})
     })
   })
 })
