@@ -12,6 +12,9 @@ contextBridge.exposeInMainWorld('SHIELDBATTERY_ELECTRON_API', {
     removeAllListeners: ipcRenderer.removeAllListeners.bind(ipcRenderer),
     removeListener: ipcRenderer.removeListener.bind(ipcRenderer),
   },
-  env: { ...process.env },
+  env: {
+    NODE_ENV: process.env.NODE_ENV,
+    SHIELDBATTERY_HOME: process.env.SHIELDBATTERY_HOME,
+  },
   webUtils,
 })
