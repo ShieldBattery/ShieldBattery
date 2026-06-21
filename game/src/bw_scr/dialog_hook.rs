@@ -128,6 +128,10 @@ unsafe extern "C" fn minimap_event_handler(
         let ret = orig(ctrl, event);
         // Init event
         if (*event).ty == 0xe && (*event).ext_type == 0x0 {
+            // Apply the user's saved minimap color/terrain toggles now that the minimap (and its
+            // associated globals) are initialized. Done after `orig` so it wins over any reset the
+            // game's own init does.
+            bw.restore_minimap_settings();
             // Replay / obs UI won't have the alliance / chat buttons show above
             // minimap unless explicitly shown.
             // But annoyingly they are not immediately hidden by the init event, but

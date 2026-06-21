@@ -1,6 +1,13 @@
 import { ReadonlyDeep } from 'type-fest'
 import { Announcer, ConsoleSkin, IngameSkin } from './blizz-settings'
-import { LocalSettings, ScrSettings, ShieldBatteryAppSettings, StartingFog } from './local-settings'
+import {
+  ColorPreset,
+  LocalSettings,
+  MinimapColorMode,
+  ScrSettings,
+  ShieldBatteryAppSettings,
+  StartingFog,
+} from './local-settings'
 
 export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
@@ -15,6 +22,9 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   gameWinHeight: undefined,
   quickOpenReplays: false,
   startingFog: StartingFog.ShowTerrainAndResources,
+  minimapColorMode: MinimapColorMode.Standard,
+  minimapTerrainHidden: false,
+  colorPreset: ColorPreset.LegacyDiplomacy,
   legacyCursorSizing: false,
   useCustomCursorSize: false,
   customCursorSize: 0.25,

@@ -670,6 +670,24 @@ impl GameState {
         match message {
             WindowMove(..) => (),
             ReplaySaved(..) => (),
+            MinimapSettings {
+                color_mode,
+                terrain_hidden,
+            } => {
+                // Sent on the ordered game-completion path (the game thread enqueues this before
+                // its results message, which gates `/game/finished`), so the app reliably persists
+                // it before shutdown rather than racing the bridge task against `/game/finished`.
+                return app_socket::send_message(
+                    &self.ws_send,
+                    "/game/minimapSettings",
+                    crate::app_messages::MinimapSettings {
+                        color_mode,
+                        terrain_hidden,
+                    },
+                )
+                .map(|_| ())
+                .boxed();
+            }
             Snp(snp) => {
                 return self.network.send_snp_message(snp).map(|_| ()).boxed();
             }

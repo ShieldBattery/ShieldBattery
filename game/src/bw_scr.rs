@@ -6,7 +6,7 @@ use std::os::windows::ffi::OsStringExt;
 use std::path::{Path, PathBuf};
 use std::ptr::{self, NonNull, null, null_mut};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicU32, AtomicUsize, Ordering};
 use std::time::Instant;
 
 use bw_dat::UnitId;
@@ -28,7 +28,9 @@ use shader_replaces::ShaderReplaces;
 pub use thiscall::Thiscall;
 
 use crate::GameThreadMessage;
-use crate::app_messages::{AtomicStartingFog, MapInfo, SbUserId, Settings, StartingFog};
+use crate::app_messages::{
+    AtomicStartingFog, MapInfo, MinimapColorMode, SbUserId, Settings, StartingFog,
+};
 use crate::bw::apm_stats::ApmStats;
 use crate::bw::players::StormPlayerId;
 use crate::bw::unit::{Unit, UnitIterator};
@@ -129,6 +131,10 @@ pub struct BwScr {
     main_palette: Value<*mut u8>,
     rgb_colors: Value<*mut [[f32; 0x4]; 0x8]>,
     use_rgb_colors: Value<u8>,
+    /// Shift+Tab minimap player-color cycle (0 = normal). Saved/restored across game launches.
+    minimap_color_mode: Option<Value<u8>>,
+    /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
+    minimap_terrain_hidden: Option<Value<u8>>,
     statres_icons: Value<*mut scr::DdsGrpSet>,
     cmdicons: Value<*mut scr::DdsGrpSet>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
@@ -248,6 +254,13 @@ pub struct BwScr {
     /// the values if it detects this.
     last_overlay_hd_value: AtomicBool,
     starting_fog: AtomicStartingFog,
+    /// Saved Shift+Tab minimap color mode to restore at the start of a game (from local settings).
+    saved_minimap_color_mode: AtomicU8,
+    /// Saved Tab minimap-terrain-hidden flag to restore at the start of a game (from local settings).
+    saved_minimap_terrain_hidden: AtomicBool,
+    /// Whether the saved minimap settings have already been applied this game (so we only restore
+    /// them once, letting in-game toggles afterwards stick).
+    minimap_settings_restored: AtomicBool,
     use_legacy_cursor_sizing: AtomicBool,
     use_custom_cursor_size: AtomicBool,
     custom_cursor_size: Mutex<f32>,
@@ -849,6 +862,16 @@ impl BwScr {
         let main_palette = analysis.main_palette().ok_or("main_palette")?;
         let rgb_colors = analysis.rgb_colors().ok_or("rgb_colors")?;
         let use_rgb_colors = analysis.use_rgb_colors().ok_or("use_rgb_colors")?;
+        // These two are non-fatal: if the analysis can't locate them we just lose the
+        // save/restore of the minimap color/terrain toggles rather than failing game launch.
+        let minimap_color_mode = analysis.minimap_color_mode();
+        if minimap_color_mode.is_none() {
+            warn!("Could not find minimap_color_mode global");
+        }
+        let minimap_terrain_hidden = analysis.minimap_terrain_hidden();
+        if minimap_terrain_hidden.is_none() {
+            warn!("Could not find minimap_terrain_hidden global");
+        }
         let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
         let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
         let screen_x = analysis.screen_x().ok_or("screen_x")?;
@@ -970,6 +993,8 @@ impl BwScr {
             main_palette: Value::new(ctx, main_palette),
             rgb_colors: Value::new(ctx, rgb_colors),
             use_rgb_colors: Value::new(ctx, use_rgb_colors),
+            minimap_color_mode: minimap_color_mode.map(|op| Value::new(ctx, op)),
+            minimap_terrain_hidden: minimap_terrain_hidden.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
             screen_x: Value::new(ctx, screen_x),
@@ -1074,6 +1099,9 @@ impl BwScr {
             is_hd_mode: [AtomicBool::new(true), AtomicBool::new(false)],
             last_overlay_hd_value: AtomicBool::new(false),
             starting_fog: AtomicStartingFog::new(StartingFog::Transparent),
+            saved_minimap_color_mode: AtomicU8::new(0),
+            saved_minimap_terrain_hidden: AtomicBool::new(false),
+            minimap_settings_restored: AtomicBool::new(false),
             use_legacy_cursor_sizing: AtomicBool::new(false),
             use_custom_cursor_size: AtomicBool::new(false),
             custom_cursor_size: Mutex::new(0.25),
@@ -2588,6 +2616,40 @@ impl BwScr {
         !self.game_results_sent.swap(true, Ordering::Relaxed)
     }
 
+    /// Reads the current Shift+Tab minimap player-color mode, or `None` if the global wasn't located
+    /// during analysis (or holds an unrecognized value). Only valid to call while a game is running.
+    pub fn read_minimap_color_mode(&self) -> Option<MinimapColorMode> {
+        self.minimap_color_mode
+            .as_ref()
+            .and_then(|value| MinimapColorMode::try_from(unsafe { value.resolve() }).ok())
+    }
+
+    /// Reads the current Tab minimap-terrain-hidden flag, or `None` if the global wasn't located
+    /// during analysis. Only valid to call while a game is running.
+    pub fn read_minimap_terrain_hidden(&self) -> Option<bool> {
+        self.minimap_terrain_hidden
+            .as_ref()
+            .map(|value| unsafe { value.resolve() != 0 })
+    }
+
+    /// Applies the saved minimap color/terrain toggle values (from local settings) to the game's
+    /// globals. Runs at most once per game; subsequent in-game toggles are left untouched. Should
+    /// be called from the minimap dialog's init event, once the globals are valid. Globals that
+    /// weren't located during analysis are skipped.
+    pub fn restore_minimap_settings(&self) {
+        if self.minimap_settings_restored.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        if let Some(value) = self.minimap_color_mode.as_ref() {
+            let mode = self.saved_minimap_color_mode.load(Ordering::Acquire);
+            unsafe { value.write(mode) };
+        }
+        if let Some(value) = self.minimap_terrain_hidden.as_ref() {
+            let hidden = self.saved_minimap_terrain_hidden.load(Ordering::Acquire);
+            unsafe { value.write(u8::from(hidden)) };
+        }
+    }
+
     /// Saves a replay to the specified path. The path should be a valid filesystem path.
     /// Returns true if the replay was saved successfully.
     pub fn save_replay(&self, path: &str) -> bool {
@@ -2776,6 +2838,16 @@ impl bw::Bw for BwScr {
             .get("startingFog")
             .and_then(|x| serde_json::from_value(x.clone()).ok())
             .unwrap_or_default();
+        let minimap_color_mode: MinimapColorMode = settings
+            .local
+            .get("minimapColorMode")
+            .and_then(|x| serde_json::from_value(x.clone()).ok())
+            .unwrap_or_default();
+        let minimap_terrain_hidden = settings
+            .local
+            .get("minimapTerrainHidden")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
         let visualize_network_stalls = settings
             .local
             .get("visualizeNetworkStalls")
@@ -2801,6 +2873,10 @@ impl bw::Bw for BwScr {
         self.is_carbot.store(is_carbot, Ordering::Release);
         self.show_skins.store(show_skins, Ordering::Release);
         self.starting_fog.store(starting_fog, Ordering::Release);
+        self.saved_minimap_color_mode
+            .store(minimap_color_mode as u8, Ordering::Release);
+        self.saved_minimap_terrain_hidden
+            .store(minimap_terrain_hidden, Ordering::Release);
         self.use_custom_cursor_size
             .store(use_custom_cursor_size, Ordering::Release);
         *self.custom_cursor_size.lock() = custom_cursor_size;

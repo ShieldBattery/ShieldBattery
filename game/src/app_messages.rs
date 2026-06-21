@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use atomic_enum::atomic_enum;
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::bw;
 use crate::bw::players::{AssignedRace, VictoryState};
@@ -29,6 +30,35 @@ pub enum StartingFog {
     Transparent,
     ShowResources,
     Legacy,
+}
+
+/// The minimap player-color mode, cycled in-game with Shift+Tab. The discriminants match the game's
+/// internal `minimap_color_mode` global so the enum can be read/written against it directly, and
+/// `serde_repr` (de)serializes it as that number across the wire and in local settings.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Serialize_repr, Deserialize_repr)]
+#[repr(u8)]
+pub enum MinimapColorMode {
+    /// Default SC:R player colors everywhere.
+    #[default]
+    Standard = 0,
+    /// Apply the user's color preset on the minimap only.
+    PresetOnMinimapOnly = 1,
+    /// Apply the user's color preset on both the minimap and the game view.
+    Preset = 2,
+}
+
+impl TryFrom<u8> for MinimapColorMode {
+    type Error = ();
+
+    /// Maps a raw `minimap_color_mode` global value to the enum, failing if it's unrecognized.
+    fn try_from(value: u8) -> Result<MinimapColorMode, Self::Error> {
+        match value {
+            0 => Ok(MinimapColorMode::Standard),
+            1 => Ok(MinimapColorMode::PresetOnMinimapOnly),
+            2 => Ok(MinimapColorMode::Preset),
+            _ => Err(()),
+        }
+    }
 }
 
 // app/common/game_status.js
@@ -90,6 +120,18 @@ pub struct WindowMove {
     pub y: i32,
     pub w: i32,
     pub h: i32,
+}
+
+/// Sent when a game exits to persist the minimap color/terrain toggles (Shift+Tab / Tab) that the
+/// user may have changed during play. Fields are omitted when the corresponding game global could
+/// not be located, so the previously-saved value is left untouched.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MinimapSettings {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color_mode: Option<MinimapColorMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub terrain_hidden: Option<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Deserialize)]

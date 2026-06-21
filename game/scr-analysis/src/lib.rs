@@ -583,6 +583,17 @@ impl<'e> Analysis<'e> {
         self.0.rgb_colors()
     }
 
+    /// The Shift+Tab minimap player-color cycle value (0 = normal colors, higher values recolor
+    /// allies/enemies/self on the minimap and game view).
+    pub fn minimap_color_mode(&mut self) -> Option<Operand<'e>> {
+        self.0.minimap_color_mode()
+    }
+
+    /// The Tab minimap-terrain toggle flag (nonzero = terrain is blanked instead of drawn).
+    pub fn minimap_terrain_hidden(&mut self) -> Option<Operand<'e>> {
+        self.0.minimap_terrain_hidden()
+    }
+
     pub fn decide_cursor_type(&mut self) -> Option<VirtualAddress> {
         self.0.decide_cursor_type()
     }

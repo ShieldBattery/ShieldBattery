@@ -10,22 +10,107 @@ import {
   IngameSkin,
 } from '../../../common/settings/blizz-settings'
 import {
+  ALL_COLOR_PRESETS,
+  ALL_MINIMAP_COLOR_MODES,
   ALL_STARTING_FOG,
+  ColorPreset,
+  getColorPresetColors,
+  getColorPresetLabel,
+  getMinimapColorModeLabel,
   getStartingFogLabel,
+  MinimapColorMode,
   StartingFog,
 } from '../../../common/settings/local-settings'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
+import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { labelSmall } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 
 const BonusSkinsCheckBox = styled(CheckBox)`
   margin-bottom: 8px;
 `
+
+const TeamColorsOverline = styled(SectionOverline)`
+  margin-bottom: 8px;
+`
+
+const PresetPreviewCard = styled(Card)`
+  margin-top: 12px;
+  align-self: flex-start;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const PresetPreviewLabel = styled.div`
+  ${labelSmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const PresetPreviewSwatches = styled.div`
+  display: flex;
+  gap: 16px;
+`
+
+const PresetPreviewEntry = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+`
+
+const PresetSwatch = styled.div<{ $color: string }>`
+  width: 40px;
+  height: 40px;
+
+  border-radius: 4px;
+  background-color: ${props => props.$color};
+  border: 2px solid var(--theme-outline);
+`
+
+const PresetSwatchLabel = styled.div`
+  ${labelSmall};
+  color: var(--theme-on-surface-variant);
+`
+
+function TeamColorPresetPreview({ preset }: { preset: ColorPreset }) {
+  const { t } = useTranslation()
+  const colors = getColorPresetColors(preset)
+  const entries = [
+    { color: colors.self, label: t('settings.game.gameplay.teamColors.preview.self', 'You') },
+    {
+      color: colors.allies,
+      label: t('settings.game.gameplay.teamColors.preview.allies', 'Allies'),
+    },
+    {
+      color: colors.enemies,
+      label: t('settings.game.gameplay.teamColors.preview.enemies', 'Enemies'),
+    },
+  ]
+
+  return (
+    <PresetPreviewCard>
+      <PresetPreviewLabel>
+        {t('settings.game.gameplay.teamColors.preview.title', 'Preview')}
+      </PresetPreviewLabel>
+      <PresetPreviewSwatches>
+        {entries.map(entry => (
+          <PresetPreviewEntry key={entry.label}>
+            <PresetSwatch $color={entry.color} />
+            <PresetSwatchLabel>{entry.label}</PresetSwatchLabel>
+          </PresetPreviewEntry>
+        ))}
+      </PresetPreviewSwatches>
+    </PresetPreviewCard>
+  )
+}
 
 interface GameplaySettingsModel {
   apmAlertOn: boolean
@@ -37,6 +122,9 @@ interface GameplaySettingsModel {
   consoleSkin: ConsoleSkin
   gameTimerOn: boolean
   minimapPosition: boolean
+  minimapColorMode: MinimapColorMode
+  minimapTerrainHidden: boolean
+  colorPreset: ColorPreset
   showBonusSkins: boolean
   selectedSkin: IngameSkin
   unitPortraits: number
@@ -69,6 +157,9 @@ export function GameplaySettings() {
       ...scrSettings,
       visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
       startingFog: localSettings.startingFog,
+      minimapColorMode: localSettings.minimapColorMode,
+      minimapTerrainHidden: localSettings.minimapTerrainHidden,
+      colorPreset: localSettings.colorPreset,
     },
     { apmAlertValue: validateApmValue() },
   )
@@ -102,6 +193,9 @@ export function GameplaySettings() {
         mergeLocalSettings(
           {
             startingFog: model.startingFog,
+            minimapColorMode: model.minimapColorMode,
+            minimapTerrainHidden: model.minimapTerrainHidden,
+            colorPreset: model.colorPreset,
           },
           {
             onSuccess: () => {},
@@ -147,6 +241,8 @@ export function GameplaySettings() {
               text={t('settings.game.gameplay.unitPortraits.disabled', 'Disabled')}
             />
           </Select>
+        </SectionContainer>
+        <SectionContainer>
           <Select
             {...bindCustom('minimapPosition')}
             label={t('settings.game.gameplay.minimapPosition.title', 'Minimap position')}
@@ -161,6 +257,19 @@ export function GameplaySettings() {
             />
           </Select>
           <Select
+            {...bindCustom('minimapTerrainHidden')}
+            label={t('settings.game.gameplay.minimapTerrain.title', 'Minimap terrain')}
+            tabIndex={0}>
+            <SelectOption
+              value={false}
+              text={t('settings.game.gameplay.minimapTerrain.shown', 'Shown')}
+            />
+            <SelectOption
+              value={true}
+              text={t('settings.game.gameplay.minimapTerrain.hidden', 'Hidden')}
+            />
+          </Select>
+          <Select
             {...bindCustom('startingFog')}
             label={t('settings.game.gameplay.startingFog.title', 'Starting fog of war')}
             tabIndex={0}>
@@ -168,6 +277,32 @@ export function GameplaySettings() {
               <SelectOption key={fog} value={fog} text={getStartingFogLabel(fog, t)} />
             ))}
           </Select>
+        </SectionContainer>
+        <SectionContainer>
+          <TeamColorsOverline>
+            {t('settings.game.gameplay.teamColors.title', 'Team colors')}
+          </TeamColorsOverline>
+          <Select
+            {...bindCustom('minimapColorMode')}
+            label={t('settings.game.gameplay.teamColors.label', 'Mode')}
+            tabIndex={0}>
+            {ALL_MINIMAP_COLOR_MODES.map(mode => (
+              <SelectOption key={mode} value={mode} text={getMinimapColorModeLabel(mode, t)} />
+            ))}
+          </Select>
+          <Select
+            {...bindCustom('colorPreset')}
+            label={t('settings.game.gameplay.colorPreset.title', 'Preset')}
+            tabIndex={0}
+            allowErrors={false}
+            disabled={getInputValue('minimapColorMode') === MinimapColorMode.Standard}>
+            {ALL_COLOR_PRESETS.map(preset => (
+              <SelectOption key={preset} value={preset} text={getColorPresetLabel(preset, t)} />
+            ))}
+          </Select>
+          {getInputValue('minimapColorMode') !== MinimapColorMode.Standard ? (
+            <TeamColorPresetPreview preset={getInputValue('colorPreset')} />
+          ) : null}
         </SectionContainer>
         <SectionContainer>
           <SectionOverline>

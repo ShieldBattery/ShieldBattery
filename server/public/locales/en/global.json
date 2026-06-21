@@ -1090,6 +1090,10 @@
         "apmValue": "APM value",
         "apmValueValidation": "Enter a value between 1 and 999",
         "colorCycling": "Enable color cycling",
+        "colorPreset": {
+          "legacyDiplomacy": "Legacy diplomacy",
+          "title": "Preset"
+        },
         "consoleSkins": {
           "20thAnniversary": "StarCraft 20th Anniversary",
           "blizzcon2017": "BlizzCon 2017",
@@ -1114,6 +1118,11 @@
           "standard": "Standard",
           "title": "Minimap position"
         },
+        "minimapTerrain": {
+          "hidden": "Hidden",
+          "shown": "Shown",
+          "title": "Minimap terrain"
+        },
         "showBonusSkins": "Show bonus skins",
         "skinsInfo": "Skins (must be purchased from Blizzard)",
         "startingFog": {
@@ -1121,6 +1130,21 @@
           "showResources": "Show resources",
           "showTerrainAndResources": "Show terrain and resources",
           "title": "Starting fog of war"
+        },
+        "teamColors": {
+          "label": "Mode",
+          "mode": {
+            "presetEverywhere": "Use preset everywhere",
+            "presetOnMinimap": "Use preset on minimap",
+            "standard": "Standard"
+          },
+          "preview": {
+            "allies": "Allies",
+            "enemies": "Enemies",
+            "self": "You",
+            "title": "Preview"
+          },
+          "title": "Team colors"
         },
         "title": "Gameplay",
         "unitPortraits": {

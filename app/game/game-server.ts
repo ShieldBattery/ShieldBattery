@@ -3,7 +3,7 @@ import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
-import { LocalSettings } from '../../common/settings/local-settings'
+import { ALL_MINIMAP_COLOR_MODES, LocalSettings } from '../../common/settings/local-settings'
 import log from '../logger'
 import { LocalSettingsManager } from '../settings'
 import { ActiveGameManager } from './active-game-manager'
@@ -131,6 +131,27 @@ export class GameServer {
           this.localSettings.merge(toMerge).catch(err => {
             log.error(`Error saving game window position: ${err.stack ?? err}`)
           })
+        }
+        break
+      case '/game/minimapSettings':
+        {
+          const { colorMode, terrainHidden } = payload
+
+          // Validate before persisting: this is a local websocket command boundary, and corrupt
+          // values would flow back into the UI and future game launches.
+          const toMerge: Partial<LocalSettings> = {}
+          if (ALL_MINIMAP_COLOR_MODES.includes(colorMode)) {
+            toMerge.minimapColorMode = colorMode
+          }
+          if (typeof terrainHidden === 'boolean') {
+            toMerge.minimapTerrainHidden = terrainHidden
+          }
+
+          if (Object.keys(toMerge).length > 0) {
+            this.localSettings.merge(toMerge).catch(err => {
+              log.error(`Error saving minimap settings: ${err.stack ?? err}`)
+            })
+          }
         }
         break
       default:

@@ -19,7 +19,7 @@ use lazy_static::lazy_static;
 use libc::c_void;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::app_messages::{GameSetupInfo, MapInfo, SbUserId, StartingFog};
+use crate::app_messages::{GameSetupInfo, MapInfo, MinimapColorMode, SbUserId, StartingFog};
 use crate::bw::players::{
     AllianceState, AssignedRace, BwPlayerId, FinalNetworkStatus, PlayerLoseType, PlayerResult,
     StormPlayerId, VictoryState,
@@ -105,6 +105,12 @@ pub enum GameThreadMessage {
     Results(GameThreadResults),
     NetworkStall(Duration),
     ReplaySaved(PathBuf),
+    /// Current minimap color/terrain toggle values, read once when the game loop ends so they can
+    /// be persisted to settings. Either field is `None` if its game global wasn't located.
+    MinimapSettings {
+        color_mode: Option<MinimapColorMode>,
+        terrain_hidden: Option<bool>,
+    },
     /// Request async task to write debug info to provided parameter.
     DebugInfoRequest(DebugInfoRequest),
 }
@@ -216,6 +222,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
+                save_minimap_settings();
                 send_game_results();
                 forge::hide_window();
             }
@@ -238,6 +245,21 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
         warn!("Tried to access player id mapping before it was set");
         &[]
     })
+}
+
+/// Reads the current minimap color/terrain toggle values and forwards them to the async thread so
+/// they can be persisted to settings. Should only be called from the game thread, after the game
+/// loop has ended (while the globals are still valid).
+fn save_minimap_settings() {
+    let bw = get_bw();
+    let color_mode = bw.read_minimap_color_mode();
+    let terrain_hidden = bw.read_minimap_terrain_hidden();
+    if color_mode.is_some() || terrain_hidden.is_some() {
+        send_game_msg_to_async(GameThreadMessage::MinimapSettings {
+            color_mode,
+            terrain_hidden,
+        });
+    }
 }
 
 /// Collects and forwards game results to the async thread if they haven't already been sent. Should

@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies.samase_scarf]
-git = "https://github.com/neivv/samase_scarf.git"
-rev = "4a289dbe34fa912b11a07e339af732c82e85e4bd"
+git = "https://github.com/tec27/samase_scarf.git"
+rev = "ebcbc02d93794778e4875f83b9744141d64089f4"
