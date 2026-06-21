@@ -110,21 +110,6 @@ export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): str
 /** All matchmaking formats, in the canonical order they should be presented in the UI. */
 export const MATCHMAKING_FORMATS: ReadonlyArray<MatchmakingFormat> = ['1v1', '2v2', '3v3']
 
-export function matchmakingVariantToLabel(variant: MatchmakingVariant, t: TFunction): string {
-  switch (variant) {
-    case 'standard':
-      return t('matchmaking.variant.standard', 'Standard')
-    case 'fastest':
-      return t('matchmaking.variant.fastest', 'Fastest')
-    case 'hunters':
-      return t('matchmaking.variant.hunters', 'Hunters')
-    case 'bgh':
-      return t('matchmaking.variant.bgh', 'BGH')
-    default:
-      return assertUnreachable(variant)
-  }
-}
-
 /** Returns the matchmaking types belonging to a given format, in canonical (enum) order. */
 export function getMatchmakingTypesForFormat(format: MatchmakingFormat): MatchmakingType[] {
   return ALL_MATCHMAKING_TYPES.filter(type => MATCHMAKING_MODES[type].format === format)

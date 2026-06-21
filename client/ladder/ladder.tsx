@@ -429,7 +429,12 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
         <ContentHeader>
           <ModeHeading>
             <ModeTitle>{matchmakingTypeToLabel(matchmakingType, t)}</ModeTitle>
-            <ModeSubtitle title={longTimestamp.format(rankingsData.lastUpdated)}>
+            <ModeSubtitle
+              title={
+                rankingsData.lastUpdated
+                  ? longTimestamp.format(rankingsData.lastUpdated)
+                  : undefined
+              }>
               {subtitle}
             </ModeSubtitle>
           </ModeHeading>

@@ -950,12 +950,6 @@
       "1v1": "1v1",
       "1v1fastest": "1v1 Fastest",
       "2v2": "2v2"
-    },
-    "variant": {
-      "bgh": "BGH",
-      "fastest": "Fastest",
-      "hunters": "Hunters",
-      "standard": "Standard"
     }
   },
   "material": {
