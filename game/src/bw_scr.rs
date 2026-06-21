@@ -1203,20 +1203,18 @@ impl BwScr {
                                     apm.action(unique_command_user as u8, command);
                                 }
                             match command {
-                                [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4 => {
-                                    if are_recorded_replay_commands == 0 {
+                                [commands::id::REPLAY_SEEK, rest @ ..] if rest.len() == 4
+                                    && are_recorded_replay_commands == 0 => {
                                         let frame = LittleEndian::read_u32(rest);
                                         let game = self.game();
                                         if (*game).frame_count > frame {
                                             self.is_replay_seeking.store(true, Ordering::Relaxed);
                                         }
                                     }
-                                }
-                                [commands::id::SYNC, ..] | [commands::id::NOP, ..] => {
-                                    if are_recorded_replay_commands == 0 {
+                                [commands::id::SYNC, ..] | [commands::id::NOP, ..]
+                                    if are_recorded_replay_commands == 0 => {
                                         sync_seen = true;
                                     }
-                                }
                                 _ => (),
                             }
                         }

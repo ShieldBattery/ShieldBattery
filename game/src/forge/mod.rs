@@ -105,10 +105,10 @@ unsafe extern "system" fn wnd_proc_scr(
                     }
                     return Some(0);
                 }
-                WM_USER => {
-                    if !IN_SIZE_MOVE_MENU_LOOP.load(Ordering::Relaxed)
-                        || with_forge(|f| !f.use_process_events)
-                    {
+                WM_USER
+                    if (!IN_SIZE_MOVE_MENU_LOOP.load(Ordering::Relaxed)
+                        || with_forge(|f| !f.use_process_events))
+                    => {
                         // If we're not using process_events yet, we need to make sure not to pass
                         // this message to SC:R's wndproc. It uses WM_USER as its way of getting
                         // process_events called during resize/context menu (like our timer below).
@@ -117,7 +117,6 @@ unsafe extern "system" fn wnd_proc_scr(
                         // locks.
                         return Some(0);
                     }
-                }
                 WM_ENTERSIZEMOVE | WM_ENTERMENULOOP => {
                     // These events signal that Windows is going to run its own event loop on our
                     // main thread, so we start a timer to ensure we keep making game loading
@@ -168,8 +167,8 @@ unsafe extern "system" fn wnd_proc_scr(
                     // main thread as long as the context menu is open
                     return Some(0);
                 }
-                WM_SYSCOMMAND => {
-                    if with_forge(|f| !f.game_started) {
+                WM_SYSCOMMAND
+                    if with_forge(|f| !f.game_started) => {
                         let message = wparam & 0xFFF0;
                         if message == SC_CLOSE {
                             // Ignore alt+f4 during loading, since we don't want the user to be able
@@ -185,14 +184,12 @@ unsafe extern "system" fn wnd_proc_scr(
                             return Some(0);
                         }
                     }
-                }
-                WM_CLOSE => {
+                WM_CLOSE
                     // Same as above, but for other potential reasons a close event might be sent
-                    if with_forge(|f| !f.game_started) {
+                    if with_forge(|f| !f.game_started) => {
                         debug!("Forge: Ignoring window close during loading");
                         return Some(0);
                     }
-                }
                 WM_HOTKEY | WM_TIMER => msg_timer(window, wparam),
                 WM_WINDOWPOSCHANGED => {
                     let new_pos = lparam as *const WINDOWPOS;
