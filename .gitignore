@@ -23,5 +23,5 @@ electron-builder.env
 
 CLAUDE.local.md
 .claude-scratch/
+.mcp.json
 
-.beads/
