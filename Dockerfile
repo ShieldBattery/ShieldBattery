@@ -15,8 +15,10 @@ WORKDIR /shieldbattery
 # application.
 ENV SB_SERVER_ONLY=1
 
-# Copy package files first for better caching
-COPY package.json pnpm-lock.yaml ./
+# Copy package files first for better caching. pnpm-workspace.yaml is required because it holds our
+# dependency `overrides` (and other pnpm settings); without it `pnpm install --frozen-lockfile` fails
+# with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH since the lockfile records overrides this stage can't see.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
   pnpm install --frozen-lockfile
 
