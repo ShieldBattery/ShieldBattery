@@ -1,3 +1,9 @@
+# necessary so electron-builder can grab the deps for this correctly
+# see: https://github.com/electron-userland/electron-builder/issues/6289#issuecomment-1042620422
+nodeLinker: hoisted
+# refuse to install package versions published less than a week ago (supply-chain protection)
+minimumReleaseAge: 10080
+
 overrides:
   '@types/node': 24.2.1
   '@types/unist': ^3.0.3

@@ -1,3 +1,8 @@
+# Use a shell emulator so POSIX script syntax (e.g. inline env vars) works on Windows
+shellEmulator: true
+# refuse to install package versions published less than a week ago (supply-chain protection)
+minimumReleaseAge: 10080
+
 overrides:
   '@types/node': 24.2.1
   '@types/koa': ^3.0.3
