@@ -1,30 +1,40 @@
 import { Immutable } from 'immer'
 import { debounce } from 'lodash-es'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
-import { ContextProp, TableBodyProps, TableComponents, TableVirtuoso } from 'react-virtuoso'
+import { useTranslation } from 'react-i18next'
+import {
+  ContextProp,
+  TableBodyProps,
+  TableComponents,
+  TableVirtuoso,
+  TableVirtuosoHandle,
+} from 'react-virtuoso'
 import styled from 'styled-components'
 import { useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LadderPlayer, ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
-  MatchmakingDivision,
-  MatchmakingSeasonJson,
-  MatchmakingType,
-  NUM_PLACEMENT_MATCHES,
-  SeasonId,
   getTotalBonusPoolForSeason,
   makeSeasonId,
+  MatchmakingDivision,
   matchmakingDivisionToLabel,
+  MatchmakingSeasonJson,
+  MatchmakingType,
+  matchmakingTypeToLabel,
+  NUM_PLACEMENT_MATCHES,
+  SeasonId,
 } from '../../common/matchmaking'
 import { RaceChar, raceCharToLabel } from '../../common/races'
 import { urlPath } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useTrackPageView } from '../analytics/analytics'
+import { useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
+import { useTargetVisibleInScrollParent } from '../dom/visibility-hooks'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { JsonLocalStorageValue } from '../local-storage'
 import { getMatchmakingSeasons } from '../matchmaking/action-creators'
 import { MatchmakingTypeNav } from '../matchmaking/matchmaking-type-nav'
@@ -35,23 +45,27 @@ import { Ripple } from '../material/ripple'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { elevationPlus2 } from '../material/shadows'
+import { elevationPlus1, elevationPlus2, elevationPlus3 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
-import { useStableCallback, useValueAsRef } from '../react/state-hooks'
+import { useValueAsRef } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { SearchInput, SearchInputHandle } from '../search/search-input'
 import { getRaceColor } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import {
-  TitleLarge,
   bodyLarge,
   bodyMedium,
+  labelLarge,
   labelMedium,
   singleLine,
+  sofiaSansCondensed,
+  TitleLarge,
+  titleLarge,
   titleMedium,
+  titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
@@ -65,45 +79,102 @@ import {
 const LadderPage = styled.div`
   width: 100%;
   height: 100%;
-  padding-top: 16px;
+
+  display: flex;
+  flex-direction: row;
+
+  overflow: hidden;
+`
+
+const Rail = styled.div`
+  flex-shrink: 0;
+  width: 224px;
+  height: 100%;
+  padding: 16px 12px;
 
   display: flex;
   flex-direction: column;
+  gap: 4px;
 
-  align-items: center;
-  overflow: hidden;
+  background-color: var(--theme-container-lowest);
+  border-right: 1px solid rgb(from var(--color-blue80) r g b / 0.07);
+  overflow-y: auto;
 `
 
-const PageHeader = styled.div`
-  position: relative;
-  width: 100%;
-  max-width: 848px;
-  padding: 8px 24px;
-  flex-shrink: 0;
+const RailTitle = styled(TitleLarge)`
+  padding: 0 12px 8px;
+`
+
+const SeasonSection = styled.div`
+  padding: 12px 4px 0;
 
   display: flex;
-  gap: 40px;
-  align-items: center;
+  flex-direction: column;
+  gap: 4px;
 `
 
-const TabsContainer = styled.div`
-  flex-shrink: 0;
-`
-
-const Content = styled.div`
-  width: 100%;
-  flex-grow: 1;
-  flex-shrink: 1;
-  overflow: hidden;
-`
-
-const LastUpdatedText = styled.div`
-  ${bodyMedium};
-  flex-grow: 1;
-  flex-shrink: 0;
+const RailEyebrow = styled.div`
+  ${labelMedium};
+  padding: 0 8px;
 
   color: var(--theme-on-surface-variant);
-  text-align: right;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+`
+
+const SeasonSelect = styled(Select)`
+  width: 100%;
+`
+
+const MainColumn = styled.div`
+  position: relative;
+  flex-grow: 1;
+  min-width: 0;
+  height: 100%;
+
+  display: flex;
+  flex-direction: column;
+`
+
+const ContentHeader = styled.div`
+  position: relative;
+  flex-shrink: 0;
+  padding: 16px 24px 12px;
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const ModeHeading = styled.div`
+  min-width: 0;
+`
+
+const ModeTitle = styled.div`
+  ${titleLarge};
+  ${singleLine};
+`
+
+const ModeSubtitle = styled.div`
+  ${bodyMedium};
+  margin-top: 2px;
+
+  color: var(--theme-on-surface-variant);
+`
+
+const HeaderSearchInput = styled(SearchInput)`
+  width: 220px;
+`
+
+const DivisionSelect = styled(Select)`
+  width: 148px;
+  flex-shrink: 0;
+`
+
+const ContentBody = styled.div`
+  position: relative;
+  flex-grow: 1;
+  min-height: 0;
 `
 
 const savedLadderTab = new JsonLocalStorageValue<MatchmakingType>('ladderTab')
@@ -136,6 +207,7 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
   useTrackPageView(urlPath`/ladder/${matchmakingType}`)
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const selfUser = useSelfUser()
   const seasons = useAppSelector(s => s.matchmakingSeasons.byId)
   const currentSeasonId = useAppSelector(s => s.matchmakingSeasons.currentSeasonId)
   const currentSeasonIdRef = useValueAsRef(currentSeasonId)
@@ -315,43 +387,114 @@ export function Ladder({ matchmakingType: routeType, seasonId }: LadderProps) {
     }
   }
 
+  const activeSeasonId = seasonId ?? currentSeasonId
+  const season = activeSeasonId ? seasons.get(activeSeasonId) : undefined
+
+  const subtitle = [
+    season?.name,
+    t('ladder.playerCount', '{{total}} players', { total: rankingsData.totalCount }),
+    rankingsData.lastUpdated
+      ? t('ladder.updatedText', 'Updated: {{timestamp}}', {
+          timestamp: shortTimestamp.format(rankingsData.lastUpdated),
+        })
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
   return (
     <LadderPage>
-      <PageHeader>
-        <TitleLarge>{t('ladder.pageHeadline', 'Ladder')}</TitleLarge>
-        <TabsContainer>
-          <MatchmakingTypeNav activeType={matchmakingType} onChange={onTabChange} />
-        </TabsContainer>
-        {rankingsData ? (
-          <LastUpdatedText title={longTimestamp.format(rankingsData.lastUpdated)}>
-            <Trans t={t} i18nKey='ladder.updatedText'>
-              Updated: {{ timestamp: shortTimestamp.format(rankingsData.lastUpdated) }}
-            </Trans>
-          </LastUpdatedText>
-        ) : null}
-        <ScrollDivider $show={!isAtTop} $showAt='bottom' />
-      </PageHeader>
-      <Content>
-        {rankingsData && currentSeasonId ? (
-          <LadderTable
-            {...rankingsData}
-            seasons={seasons}
-            season={seasonId ? seasons.get(seasonId) : seasons.get(currentSeasonId)}
-            onSeasonChange={onSeasonChange}
-            usersById={usersById}
-            lastError={lastError}
-            searchInputRef={searchInputRef}
+      <Rail>
+        <RailTitle>{t('ladder.pageHeadline', 'Ladder')}</RailTitle>
+        <MatchmakingTypeNav
+          label={t('ladder.modeLabel', 'Mode')}
+          activeType={matchmakingType}
+          onChange={onTabChange}
+        />
+        <FlexSpacer />
+        <SeasonSection>
+          <RailEyebrow>{t('ladder.season', 'Season')}</RailEyebrow>
+          <SeasonSelect
+            dense={true}
+            value={season?.id}
+            onChange={onSeasonChange}
+            allowErrors={false}>
+            {Array.from(seasons.values()).map(s => (
+              <SelectOption key={s.id} value={s.id} text={s.name} />
+            ))}
+          </SeasonSelect>
+        </SeasonSection>
+      </Rail>
+      <MainColumn>
+        <ContentHeader>
+          <ModeHeading>
+            <ModeTitle>{matchmakingTypeToLabel(matchmakingType, t)}</ModeTitle>
+            <ModeSubtitle title={longTimestamp.format(rankingsData.lastUpdated)}>
+              {subtitle}
+            </ModeSubtitle>
+          </ModeHeading>
+          <FlexSpacer />
+          <HeaderSearchInput
+            ref={searchInputRef}
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
-            filteredDivision={(filteredDivision || 'all') as DivisionFilter}
-            onFilteredDivisionChange={setFilteredDivision}
-            topNode={topNode}
-            bottomNode={bottomNode}
           />
-        ) : (
-          <LoadingDotsArea />
-        )}
-      </Content>
+          <DivisionSelect
+            dense={true}
+            label={t('ladder.division', 'Division')}
+            value={(filteredDivision || 'all') as DivisionFilter}
+            onChange={setFilteredDivision}
+            allowErrors={false}>
+            <SelectOption value={DivisionFilter.All} text={t('ladder.divisionGroup.all', 'All')} />
+            <SelectOption
+              value={DivisionFilter.Champion}
+              text={t('ladder.divisionGroup.champion', 'Champion')}
+            />
+            <SelectOption
+              value={DivisionFilter.Diamond}
+              text={t('ladder.divisionGroup.diamond', 'Diamond')}
+            />
+            <SelectOption
+              value={DivisionFilter.Platinum}
+              text={t('ladder.divisionGroup.platinum', 'Platinum')}
+            />
+            <SelectOption
+              value={DivisionFilter.Gold}
+              text={t('ladder.divisionGroup.gold', 'Gold')}
+            />
+            <SelectOption
+              value={DivisionFilter.Silver}
+              text={t('ladder.divisionGroup.silver', 'Silver')}
+            />
+            <SelectOption
+              value={DivisionFilter.Bronze}
+              text={t('ladder.divisionGroup.bronze', 'Bronze')}
+            />
+            <SelectOption
+              value={DivisionFilter.Unrated}
+              text={t('ladder.divisionGroup.unrated', 'Unrated')}
+            />
+          </DivisionSelect>
+          <ScrollDivider $show={!isAtTop} $showAt='bottom' />
+        </ContentHeader>
+        <ContentBody>
+          {rankingsData && currentSeasonId ? (
+            <LadderTable
+              {...rankingsData}
+              season={season}
+              usersById={usersById}
+              lastError={lastError}
+              searchQuery={searchQuery}
+              filteredDivision={(filteredDivision || 'all') as DivisionFilter}
+              selfUserId={selfUser?.id}
+              topNode={topNode}
+              bottomNode={bottomNode}
+            />
+          ) : (
+            <LoadingDotsArea />
+          )}
+        </ContentBody>
+      </MainColumn>
     </LadderPage>
   )
 }
@@ -365,35 +508,246 @@ const TableContainer = styled.div`
     NOTE(tec27): since we always have a scrollbar gutter, that effectively adds padding to the
     right side, so we need less there to make it even
   */
-  padding: 0 8px 0 24px;
+  padding: 0 8px 24px 24px;
 
   overflow-x: hidden;
   overflow-y: auto;
   scrollbar-gutter: stable;
 `
 
-const FiltersContainer = styled.div`
+const Podium = styled.div`
   width: 100%;
   max-width: 800px;
   margin: 16px auto 8px;
 
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  gap: 12px;
+`
+
+const RunnersUp = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+`
+
+const SpotlightCard = styled.button`
+  ${buttonReset};
+  ${elevationPlus1};
+
+  position: relative;
+  padding: 18px 22px;
+
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
+  background: linear-gradient(
+    120deg,
+    var(--color-blue30),
+    var(--color-blue20) 55%,
+    var(--color-purple30)
+  );
+`
+
+const SpotlightRank = styled.div`
+  ${sofiaSansCondensed};
+  flex-shrink: 0;
+
+  color: var(--theme-amber);
+  font-size: 54px;
+  line-height: 1;
+`
+
+const SpotlightIcon = styled(LadderPlayerIcon)`
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+`
+
+const SpotlightInfo = styled.div`
+  min-width: 0;
+  flex-grow: 1;
+`
+
+const SpotlightName = styled.div`
+  ${titleLarge};
+  ${singleLine};
+`
+
+const SpotlightMeta = styled.div`
+  ${bodyMedium};
+  margin-top: 6px;
+
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  color: var(--theme-on-surface-variant);
+`
+
+const SpotlightPoints = styled.div`
+  flex-shrink: 0;
+  text-align: right;
+`
+
+const SpotlightPointsValue = styled.div`
+  ${sofiaSansCondensed};
+
+  color: var(--theme-amber);
+  font-size: 38px;
+  line-height: 1;
+`
+
+const SpotlightPointsLabel = styled.span`
+  ${labelLarge};
+  color: var(--color-amber70);
+`
+
+const SpotlightMmr = styled.div`
+  ${bodyMedium};
+  margin-top: 6px;
+
+  color: var(--theme-on-surface-variant);
+`
+
+const RunnerUpCard = styled.button<{ $medalColor: string }>`
+  ${buttonReset};
+  ${elevationPlus1};
+
+  padding: 14px 16px;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  border: 1px solid ${props => `rgb(from ${props.$medalColor} r g b / 0.3)`};
+  border-radius: 8px;
+  text-align: left;
+  background: ${props =>
+    `linear-gradient(120deg, rgb(from ${props.$medalColor} r g b / 0.13), var(--theme-container-low) 70%)`};
+`
+
+const RunnerUpRank = styled.div<{ $medalColor: string }>`
+  ${sofiaSansCondensed};
+  flex-shrink: 0;
+  min-width: 28px;
+
+  color: ${props => props.$medalColor};
+  font-size: 30px;
+  line-height: 1;
+`
+
+const RunnerUpIcon = styled(LadderPlayerIcon)`
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+`
+
+const RunnerUpInfo = styled.div`
+  min-width: 0;
+  flex-grow: 1;
+`
+
+const RunnerUpName = styled.div`
+  ${titleSmall};
+  ${singleLine};
+`
+
+const RunnerUpPoints = styled.div`
+  flex-shrink: 0;
+  text-align: right;
+`
+
+const RunnerUpPointsValue = styled.div`
+  ${titleSmall};
+  color: var(--color-amber70);
+`
+
+const RunnerUpMmr = styled.div`
+  ${labelMedium};
+  margin-top: 2px;
+
+  color: var(--theme-on-surface-variant);
+`
+
+const DivisionLabelText = styled.span<{ $color: string }>`
+  ${labelLarge};
+  color: ${props => props.$color};
+`
+
+const RaceBadge = styled.span<{ $race: RaceChar }>`
+  ${labelMedium};
+  flex-shrink: 0;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+
+  border-radius: 4px;
+  background-color: ${props => getRaceColor(props.$race)};
+  color: var(--color-grey10);
+`
+
+const JumpButton = styled.button`
+  ${buttonReset};
+  ${elevationPlus3};
+
+  position: absolute;
+  right: 24px;
+  bottom: 22px;
+  z-index: 5;
+
+  height: 44px;
+  padding: 0 20px;
+
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+
+  border-radius: 22px;
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
+  font-weight: 600;
 `
 
-const StyledSearchInput = styled(SearchInput)`
-  width: 256px;
-`
+// There's no theme token for a bronze/copper tone, so we use the value from the design directly.
+const BRONZE_COLOR = '#cf9069'
 
-const SeasonSelect = styled(Select)`
-  width: 180px;
-`
+function getDivisionColor(division: MatchmakingDivision): string {
+  if (division === MatchmakingDivision.Champion) {
+    return 'var(--theme-amber)'
+  } else if (division.startsWith('diamond')) {
+    return 'var(--color-purple80)'
+  } else if (division.startsWith('platinum')) {
+    return 'var(--color-blue80)'
+  } else if (division.startsWith('gold')) {
+    return 'var(--color-amber80)'
+  } else if (division.startsWith('silver')) {
+    return 'var(--color-grey-blue80)'
+  } else if (division.startsWith('bronze')) {
+    return BRONZE_COLOR
+  } else {
+    return 'var(--theme-on-surface-variant)'
+  }
+}
 
-const DivisionSelect = styled(Select)`
-  width: 148px;
-`
+function getMostPlayedRace(player: Readonly<LadderPlayer>): RaceChar {
+  const raceStats: Array<[number, RaceChar]> = [
+    [player.pWins + player.pLosses, 'p'],
+    [player.tWins + player.tLosses, 't'],
+    [player.zWins + player.zLosses, 'z'],
+    [player.rWins + player.rLosses, 'r'],
+  ]
+  raceStats.sort((a, b) => b[0] - a[0])
+  return raceStats[0][1]
+}
 
 const TableRoot = styled.div`
   width: 100%;
@@ -409,7 +763,7 @@ const TableRoot = styled.div`
 
 const Table: TableComponents['Table'] = ({ context, ...rest }) => <TableRoot {...rest} />
 
-const RowContainer = styled.button<{ $isEven: boolean }>`
+const RowContainer = styled.button<{ $isEven: boolean; $isSelf: boolean }>`
   ${buttonReset};
 
   ${bodyLarge};
@@ -421,6 +775,14 @@ const RowContainer = styled.button<{ $isEven: boolean }>`
   align-items: center;
 
   --sb-ladder-row-height: 72px;
+
+  ${props =>
+    props.$isSelf
+      ? `
+    background-color: rgb(from var(--color-amber60) r g b / 0.1);
+    box-shadow: inset 3px 0 0 var(--theme-amber);
+  `
+      : ''}
 `
 
 const HEADER_STUCK_CLASS = 'sb-ladder-table-sticky-header'
@@ -572,35 +934,31 @@ export interface LadderTableProps {
   players?: ReadonlyArray<LadderPlayer>
   usersById: Immutable<Map<SbUserId, SbUser>>
   lastUpdated: number
-  seasons: Immutable<Map<SeasonId, MatchmakingSeasonJson>>
   season: MatchmakingSeasonJson | undefined
-  onSeasonChange: (seasonId: SeasonId) => void
   lastError?: Error
-  searchInputRef?: React.RefObject<SearchInputHandle | null>
   searchQuery: string
-  onSearchChange: (value: string) => void
   filteredDivision: DivisionFilter
-  onFilteredDivisionChange: (value: DivisionFilter) => void
+  selfUserId?: SbUserId
   topNode?: React.ReactNode
   bottomNode?: React.ReactNode
 }
 
 export function LadderTable(props: LadderTableProps) {
   const [containerElem, setContainerElem] = useState<HTMLDivElement | null>(null)
+  const virtuosoRef = useRef<TableVirtuosoHandle>(null)
+  // Whether the user's own row (tagged with `data-self-row`) is currently within the scroll viewport,
+  // used to hide the "jump to my rank" button when it's already on screen.
+  const isSelfRowVisible = useTargetVisibleInScrollParent(containerElem, '[data-self-row]')
 
   const {
     players,
     usersById,
     lastError,
     curTime,
-    seasons,
     season,
-    onSeasonChange,
-    searchInputRef,
     searchQuery,
-    onSearchChange,
     filteredDivision,
-    onFilteredDivisionChange,
+    selfUserId,
     topNode,
     bottomNode,
   } = props
@@ -614,13 +972,14 @@ export function LadderTable(props: LadderTableProps) {
     navigateToUserProfile(userId, username)
   }, [])
 
-  const renderRow = useStableCallback((index: number, player: LadderPlayer) => {
+  const renderRow = (index: number, player: LadderPlayer) => {
     const username = usersById.get(player.userId)?.name ?? ''
 
     return (
       <Row
         key={player.userId}
         isEven={index % 2 === 0}
+        isSelf={player.userId === selfUserId}
         player={player}
         username={username}
         curTime={curTime}
@@ -628,7 +987,7 @@ export function LadderTable(props: LadderTableProps) {
         onSelected={onRowSelected}
       />
     )
-  })
+  }
   const { t } = useTranslation()
   const emptyContent = lastError ? (
     <ErrorText>
@@ -715,88 +1074,178 @@ export function LadderTable(props: LadderTableProps) {
     }
   }, [players, filteredDivision, bonusPool])
 
+  // The podium (#1 spotlight + #2/#3 runners-up) is only meaningful for the unfiltered, full
+  // rankings; while searching or filtering by division we only have/show a subset.
+  const showPodium =
+    !searchQuery && filteredDivision === DivisionFilter.All && (players?.length ?? 0) >= 3
+
+  const selfIndex = selfUserId ? (data?.findIndex(p => p.userId === selfUserId) ?? -1) : -1
+  const onJumpToSelf = () => {
+    if (selfIndex >= 0) {
+      virtuosoRef.current?.scrollToIndex({ index: selfIndex, align: 'center' })
+    }
+  }
+
   return (
-    <TableContainer ref={setContainerElem}>
-      {topNode}
-      <FiltersContainer>
-        <StyledSearchInput
-          ref={searchInputRef}
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-        />
+    <>
+      <TableContainer ref={setContainerElem}>
+        {topNode}
+        {showPodium && players ? (
+          <Podium>
+            <SpotlightPlayer
+              player={players[0]}
+              username={usersById.get(players[0].userId)?.name ?? ''}
+              bonusPool={bonusPool}
+              onSelected={onRowSelected}
+            />
+            <RunnersUp>
+              <RunnerUpPlayer
+                place={2}
+                player={players[1]}
+                username={usersById.get(players[1].userId)?.name ?? ''}
+                bonusPool={bonusPool}
+                onSelected={onRowSelected}
+              />
+              <RunnerUpPlayer
+                place={3}
+                player={players[2]}
+                username={usersById.get(players[2].userId)?.name ?? ''}
+                bonusPool={bonusPool}
+                onSelected={onRowSelected}
+              />
+            </RunnersUp>
+          </Podium>
+        ) : null}
+        {topHeaderNode}
+        {containerElem && (data?.length ?? 0) > 0 ? (
+          <TableVirtuoso
+            ref={virtuosoRef}
+            className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
+            customScrollParent={containerElem}
+            fixedHeaderContent={Header}
+            components={{
+              Table,
+              // NOTE(tec27): virtuoso expects a table section here, even though it doesn't *really*
+              // care. Because of that though, the typings clash with what is acceptable for `ref`
+              // props, so we cast to `any` to get past that error
+              TableHead: HeaderRowContainer as any,
+              TableBody,
+              TableRow,
+              FillerRow,
+            }}
+            data={data}
+            itemContent={renderRow}
+          />
+        ) : (
+          emptyContent
+        )}
+        {bottomHeaderNode}
+        {bottomNode}
+      </TableContainer>
+      {selfIndex >= 0 && data && !isSelfRowVisible ? (
+        <JumpButton onClick={onJumpToSelf}>
+          <MaterialIcon icon='my_location' size={20} />
+          {t('ladder.jumpToMyRank', 'Jump to my rank · #{{rank}}', {
+            rank: data[selfIndex].rank,
+          })}
+        </JumpButton>
+      ) : null}
+    </>
+  )
+}
 
-        <FlexSpacer />
+interface PodiumPlayerProps {
+  player: Readonly<LadderPlayer>
+  username: string
+  bonusPool: number
+  onSelected: (userId: SbUserId, username: string) => void
+}
 
-        <SeasonSelect
-          dense={true}
-          label={t('ladder.season', 'Season')}
-          value={season?.id}
-          onChange={onSeasonChange}
-          allowErrors={false}>
-          {Array.from(seasons.values()).map(s => (
-            <SelectOption key={s.id} value={s.id} text={s.name} />
-          ))}
-        </SeasonSelect>
+// The Tooltip wraps its child in a `display: inherit` element that flex can stretch, so keep it from
+// growing/shrinking the way the bare icon wouldn't.
+const PodiumIconTooltip = styled(Tooltip)`
+  flex-shrink: 0;
+`
 
-        <DivisionSelect
-          dense={true}
-          label={t('ladder.division', 'Division')}
-          value={filteredDivision}
-          onChange={onFilteredDivisionChange}
-          allowErrors={false}>
-          <SelectOption value={DivisionFilter.All} text={t('ladder.divisionGroup.all', 'All')} />
-          <SelectOption
-            value={DivisionFilter.Champion}
-            text={t('ladder.divisionGroup.champion', 'Champion')}
-          />
-          <SelectOption
-            value={DivisionFilter.Diamond}
-            text={t('ladder.divisionGroup.diamond', 'Diamond')}
-          />
-          <SelectOption
-            value={DivisionFilter.Platinum}
-            text={t('ladder.divisionGroup.platinum', 'Platinum')}
-          />
-          <SelectOption value={DivisionFilter.Gold} text={t('ladder.divisionGroup.gold', 'Gold')} />
-          <SelectOption
-            value={DivisionFilter.Silver}
-            text={t('ladder.divisionGroup.silver', 'Silver')}
-          />
-          <SelectOption
-            value={DivisionFilter.Bronze}
-            text={t('ladder.divisionGroup.bronze', 'Bronze')}
-          />
-          <SelectOption
-            value={DivisionFilter.Unrated}
-            text={t('ladder.divisionGroup.unrated', 'Unrated')}
-          />
-        </DivisionSelect>
-      </FiltersContainer>
-      {topHeaderNode}
-      {containerElem && (data?.length ?? 0) > 0 ? (
-        <TableVirtuoso
-          className={isHeaderUnstuck ? '' : HEADER_STUCK_CLASS}
-          customScrollParent={containerElem}
-          fixedHeaderContent={Header}
-          components={{
-            Table,
-            // NOTE(tec27): virtuoso expects a table section here, even though it doesn't *really*
-            // care. Because of that though, the typings clash with what is acceptable for `ref`
-            // props, so we cast to `any` to get past that error
-            TableHead: HeaderRowContainer as any,
-            TableBody,
-            TableRow,
-            FillerRow,
-          }}
-          data={data}
-          itemContent={renderRow}
-        />
-      ) : (
-        emptyContent
-      )}
-      {bottomHeaderNode}
-      {bottomNode}
-    </TableContainer>
+function SpotlightPlayer({ player, username, bonusPool, onSelected }: PodiumPlayerProps) {
+  const { t } = useTranslation()
+  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+  const divisionLabel = matchmakingDivisionToLabel(division, t)
+  const race = getMostPlayedRace(player)
+  const isRated = player.lifetimeGames >= NUM_PLACEMENT_MATCHES
+
+  return (
+    <SpotlightCard onClick={() => onSelected(player.userId, username)}>
+      <SpotlightRank>#1</SpotlightRank>
+      <PodiumIconTooltip text={divisionLabel} position='bottom'>
+        <SpotlightIcon player={player} bonusPool={bonusPool} size={64} />
+      </PodiumIconTooltip>
+      <SpotlightInfo>
+        <SpotlightName>{username}</SpotlightName>
+        <SpotlightMeta>
+          <RaceBadge $race={race} title={raceCharToLabel(race, t)}>
+            {race.toUpperCase()}
+          </RaceBadge>
+          <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
+          <span>
+            · {player.wins} &ndash; {player.losses}
+          </span>
+        </SpotlightMeta>
+      </SpotlightInfo>
+      <FlexSpacer />
+      <SpotlightPoints>
+        <SpotlightPointsValue>
+          {Math.round(player.points).toLocaleString()}{' '}
+          <SpotlightPointsLabel>{t('ladder.pointsAbbrev', 'pts')}</SpotlightPointsLabel>
+        </SpotlightPointsValue>
+        {isRated ? (
+          <SpotlightMmr>
+            {t('ladder.mmrValue', '{{mmr}} MMR', {
+              mmr: Math.round(player.rating).toLocaleString(),
+            })}
+          </SpotlightMmr>
+        ) : null}
+      </SpotlightPoints>
+    </SpotlightCard>
+  )
+}
+
+const MEDAL_COLORS = ['var(--color-amber60)', 'var(--color-grey-blue80)', BRONZE_COLOR]
+
+function RunnerUpPlayer({
+  place,
+  player,
+  username,
+  bonusPool,
+  onSelected,
+}: PodiumPlayerProps & { place: number }) {
+  const { t } = useTranslation()
+  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+  const divisionLabel = matchmakingDivisionToLabel(division, t)
+  const medalColor = MEDAL_COLORS[place - 1] ?? MEDAL_COLORS[2]
+  const isRated = player.lifetimeGames >= NUM_PLACEMENT_MATCHES
+
+  return (
+    <RunnerUpCard $medalColor={medalColor} onClick={() => onSelected(player.userId, username)}>
+      <RunnerUpRank $medalColor={medalColor}>#{place}</RunnerUpRank>
+      <PodiumIconTooltip text={divisionLabel} position='bottom'>
+        <RunnerUpIcon player={player} bonusPool={bonusPool} size={44} />
+      </PodiumIconTooltip>
+      <RunnerUpInfo>
+        <RunnerUpName>{username}</RunnerUpName>
+        <DivisionLabelText $color={getDivisionColor(division)}>{divisionLabel}</DivisionLabelText>
+      </RunnerUpInfo>
+      <RunnerUpPoints>
+        <RunnerUpPointsValue>{Math.round(player.points).toLocaleString()}</RunnerUpPointsValue>
+        {isRated ? (
+          <RunnerUpMmr>
+            {t('ladder.mmrValue', '{{mmr}} MMR', {
+              mmr: Math.round(player.rating).toLocaleString(),
+            })}
+          </RunnerUpMmr>
+        ) : null}
+      </RunnerUpPoints>
+    </RunnerUpCard>
   )
 }
 
@@ -848,6 +1297,7 @@ const DivisionIcon = styled(LadderPlayerIcon)`
 
 interface RowProps {
   isEven: boolean
+  isSelf: boolean
   player: LadderPlayer
   username: string
   curTime: number
@@ -855,55 +1305,54 @@ interface RowProps {
   onSelected?: (userId: SbUserId, username: string) => void
 }
 
-const Row = React.memo(({ isEven, player, username, curTime, bonusPool, onSelected }: RowProps) => {
-  const { t } = useTranslation()
-  const onClick = useCallback(() => {
-    if (onSelected) {
-      onSelected(player.userId, username)
-    }
-  }, [onSelected, player, username])
-  const [buttonProps, rippleRef] = useButtonState({ onClick })
+const Row = React.memo(
+  ({ isEven, isSelf, player, username, curTime, bonusPool, onSelected }: RowProps) => {
+    const { t } = useTranslation()
+    const onClick = useCallback(() => {
+      if (onSelected) {
+        onSelected(player.userId, username)
+      }
+    }, [onSelected, player, username])
+    const [buttonProps, rippleRef] = useButtonState({ onClick })
 
-  const raceStats: Array<[number, RaceChar]> = [
-    [player.pWins + player.pLosses, 'p'],
-    [player.tWins + player.tLosses, 't'],
-    [player.zWins + player.zLosses, 'z'],
-    [player.rWins + player.rLosses, 'r'],
-  ]
-  raceStats.sort((a, b) => b[0] - a[0])
-  const mostPlayedRace = raceStats[0][1]
+    const mostPlayedRace = getMostPlayedRace(player)
 
-  const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
-  const divisionLabel = matchmakingDivisionToLabel(division, t)
+    const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
+    const divisionLabel = matchmakingDivisionToLabel(division, t)
 
-  return (
-    <RowContainer $isEven={isEven} {...buttonProps}>
-      <RankCell>
-        <Tooltip text={divisionLabel} position='bottom'>
-          <DivisionIcon player={player} bonusPool={bonusPool} size={44} />
-        </Tooltip>
-        <span>{player.rank}</span>
-      </RankCell>
-      <PlayerCell>
-        <StyledAvatar user={username} />
-        <PlayerNameAndRace>
-          <PlayerName>{username}</PlayerName>
-          <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
-        </PlayerNameAndRace>
-      </PlayerCell>
-      <PointsCell>{Math.round(player.points)}</PointsCell>
-      <RatingCell>
-        {player.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
-          Math.round(player.rating)
-        ) : (
-          <UnratedText>&mdash;</UnratedText>
-        )}
-      </RatingCell>
-      <WinLossCell>
-        {player.wins} &ndash; {player.losses}
-      </WinLossCell>
-      <LastPlayedCell>{narrowDuration.format(player.lastPlayedDate, curTime)}</LastPlayedCell>
-      <Ripple ref={rippleRef} />
-    </RowContainer>
-  )
-})
+    return (
+      <RowContainer
+        $isEven={isEven}
+        $isSelf={isSelf}
+        data-self-row={isSelf || undefined}
+        {...buttonProps}>
+        <RankCell>
+          <Tooltip text={divisionLabel} position='bottom'>
+            <DivisionIcon player={player} bonusPool={bonusPool} size={44} />
+          </Tooltip>
+          <span>{player.rank}</span>
+        </RankCell>
+        <PlayerCell>
+          <StyledAvatar user={username} />
+          <PlayerNameAndRace>
+            <PlayerName>{username}</PlayerName>
+            <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>
+          </PlayerNameAndRace>
+        </PlayerCell>
+        <PointsCell>{Math.round(player.points)}</PointsCell>
+        <RatingCell>
+          {player.lifetimeGames >= NUM_PLACEMENT_MATCHES ? (
+            Math.round(player.rating)
+          ) : (
+            <UnratedText>&mdash;</UnratedText>
+          )}
+        </RatingCell>
+        <WinLossCell>
+          {player.wins} &ndash; {player.losses}
+        </WinLossCell>
+        <LastPlayedCell>{narrowDuration.format(player.lastPlayedDate, curTime)}</LastPlayedCell>
+        <Ripple ref={rippleRef} />
+      </RowContainer>
+    )
+  },
+)

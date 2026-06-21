@@ -1,4 +1,3 @@
-import { useCallback, useMemo, useState } from 'react'
 import { LadderPlayer } from '../../../common/ladder/ladder'
 import { makeSeasonId, MatchmakingSeasonJson, MatchmakingType } from '../../../common/matchmaking'
 import { SbUser } from '../../../common/users/sb-user'
@@ -80,32 +79,18 @@ for (let i = 0; i < PLAYERS.length; i++) {
 }
 
 export function TableTest() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filteredDivision, setFilteredDivision] = useState('')
-  const players = useMemo(
-    () => PLAYERS.filter(p => usersById.get(p.userId)!.name.includes(searchQuery)),
-    [searchQuery],
-  )
-
-  const onSearchChange = useCallback((searchQuery: string) => {
-    setSearchQuery(searchQuery)
-  }, [])
-
   const now = useNow(60_000)
 
   return (
     <LadderTable
       lastUpdated={NOW}
-      players={players}
+      players={PLAYERS}
       usersById={usersById}
       curTime={now}
-      seasons={new Map([[SEASON.id, SEASON]])}
       season={SEASON}
-      onSeasonChange={() => {}}
-      searchQuery={searchQuery}
-      onSearchChange={onSearchChange}
-      filteredDivision={(filteredDivision || 'all') as DivisionFilter}
-      onFilteredDivisionChange={setFilteredDivision}
+      searchQuery=''
+      filteredDivision={DivisionFilter.All}
+      selfUserId={makeSbUserId(42)}
     />
   )
 }

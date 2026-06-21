@@ -107,7 +107,30 @@ function deleteMapPool(id: number, spec: RequestHandlingSpec): ThunkAction {
   })
 }
 
+const Root = styled.div`
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: row;
+
+  overflow: hidden;
+`
+
+const AdminRail = styled.div`
+  flex-shrink: 0;
+  width: 224px;
+  height: 100%;
+  padding: 16px 12px;
+
+  background-color: var(--theme-container-lowest);
+  border-right: 1px solid rgb(from var(--color-blue80) r g b / 0.07);
+  overflow-y: auto;
+`
+
 const Container = styled(CenteredContentContainer)`
+  flex: 1 1 auto;
+  min-width: 0;
   padding-block: 16px 8px;
 `
 
@@ -215,17 +238,21 @@ export function AdminMatchmakingMapPools() {
   const [activeTab, setActiveTab] = useState<MatchmakingType>(MatchmakingType.Match1v1)
 
   return (
-    <Container>
-      <MatchmakingTypeNav activeType={activeTab} onChange={setActiveTab} />
+    <Root>
+      <AdminRail>
+        <MatchmakingTypeNav label='Mode' activeType={activeTab} onChange={setActiveTab} />
+      </AdminRail>
 
-      <PageHeadline>Matchmaking map pools</PageHeadline>
+      <Container>
+        <PageHeadline>Matchmaking map pools</PageHeadline>
 
-      {/**
-       * Recreate this component when the active tab changes so it clears its local state (and the
-       * local state of its children components).
-       */}
-      <MapPools key={activeTab} activeTab={activeTab} />
-    </Container>
+        {/**
+         * Recreate this component when the active tab changes so it clears its local state (and the
+         * local state of its children components).
+         */}
+        <MapPools key={activeTab} activeTab={activeTab} />
+      </Container>
+    </Root>
   )
 }
 
