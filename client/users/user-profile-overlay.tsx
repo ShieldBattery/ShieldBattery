@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import {
   LadderPlayer,
-  getMostActiveRankedTypes,
+  getRankedTypesByActivity,
   ladderPlayerToMatchmakingDivision,
 } from '../../common/ladder/ladder'
 import {
@@ -34,6 +34,7 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
+import { ExpandableRankDisplays } from './expandable-rank-displays'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   month: 'long',
@@ -173,13 +174,6 @@ const HintText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const RankDisplaySection = styled.div`
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 8px;
-`
-
 // NOTE(tec27): We need to push this content down a level from the Popover so the hooks inside only
 // run when it's visible (otherwise we'd request all the user profiles once they e.g. appeared in
 // the user list)
@@ -223,7 +217,7 @@ export function UserProfileOverlayContents({
     }
   }, [dispatch, userId])
 
-  const hasAnyRanks = !!Object.keys(profile?.ladder ?? {}).length
+  const hasAnyRanks = getRankedTypesByActivity(profile?.ladder ?? {}).length > 0
   const longFormattedDate = longTimestamp.format(profile?.created)
 
   return (
@@ -277,16 +271,15 @@ export function UserProfileOverlayContents({
           {hasAnyRanks ? (
             <div>
               <SectionHeader>{t('users.profileOverlay.ranked', 'Ranked')}</SectionHeader>
-              <RankDisplaySection>
-                {getMostActiveRankedTypes(profile.ladder).map(matchmakingType => (
+              <ExpandableRankDisplays ladder={profile.ladder}>
+                {(matchmakingType, ladderPlayer) => (
                   <RankDisplay
-                    key={matchmakingType}
                     matchmakingType={matchmakingType}
-                    ladderPlayer={profile.ladder[matchmakingType]!}
+                    ladderPlayer={ladderPlayer}
                     season={season!}
                   />
-                ))}
-              </RankDisplaySection>
+                )}
+              </ExpandableRankDisplays>
             </div>
           ) : null}
         </>

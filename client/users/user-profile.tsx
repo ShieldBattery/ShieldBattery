@@ -6,7 +6,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
-import { getMostActiveRankedTypes } from '../../common/ladder/ladder'
+import { getRankedTypesByActivity } from '../../common/ladder/ladder'
 import { MatchmakingSeasonJson, SeasonId } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
@@ -35,6 +35,7 @@ import {
   navigateToUserProfile,
   viewUserProfile,
 } from './action-creators'
+import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { ConnectedMatchHistory } from './match-history'
 import { MiniMatchHistory } from './mini-match-history'
 import { UserProfileSeasons } from './user-profile-seasons'
@@ -295,19 +296,9 @@ const SectionOverline = styled.div`
   margin: 12px 24px;
 `
 
-const RankedSection = styled.div`
+const RankedSection = styled(ExpandableRankDisplays)`
   padding: 0 24px;
   margin-bottom: 48px;
-  &:empty {
-    // Don't add extra margin if the player only has ranks that are still in placements (and thus
-    // not shown)
-    margin-bottom: 0;
-  }
-
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
 `
 
 const TotalGamesSection = styled.div`
@@ -369,23 +360,20 @@ function SummaryPage({
     (a, b) => b.wins + b.losses - (a.wins + a.losses),
   )
 
-  const hasAnyRanks = !!Object.keys(profile.ladder).length
+  const hasAnyRanks = getRankedTypesByActivity(profile.ladder).length > 0
 
   return (
     <>
       {hasAnyRanks && (
-        <>
-          <RankedSection>
-            {getMostActiveRankedTypes(profile.ladder).map(matchmakingType => (
-              <UserRankDisplay
-                key={matchmakingType}
-                matchmakingType={matchmakingType}
-                ladderPlayer={profile.ladder[matchmakingType]!}
-                season={seasons.get(profile.seasonId)!}
-              />
-            ))}
-          </RankedSection>
-        </>
+        <RankedSection ladder={profile.ladder}>
+          {(matchmakingType, ladderPlayer) => (
+            <UserRankDisplay
+              matchmakingType={matchmakingType}
+              ladderPlayer={ladderPlayer}
+              season={seasons.get(profile.seasonId)!}
+            />
+          )}
+        </RankedSection>
       )}
 
       <SectionOverline>{t('users.profile.totalGames', 'Total games')}</SectionOverline>

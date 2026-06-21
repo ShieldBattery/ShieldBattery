@@ -1420,6 +1420,8 @@
       "rank": "Rank",
       "rating": "Rating",
       "record": "Record",
+      "showAllRanks": "Show all {{total}} ranks",
+      "showFewerRanks": "Show fewer",
       "tabs": {
         "admin": "Admin",
         "matchHistory": "Match history",
