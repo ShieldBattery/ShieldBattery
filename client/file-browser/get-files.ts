@@ -1,3 +1,4 @@
+import path from 'path'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { FileBrowserEntry, FileBrowserEntryType } from './file-browser-types'
 
@@ -19,19 +20,19 @@ export default async function readFolder(folderPath: string): Promise<FileBrowse
       entries.map(async entry => {
         const isFolder = entry.isDirectory
         const [name, extension] = isFolder ? [entry.name, ''] : splitExtension(entry.name)
-        const stats = await ipcRenderer.invoke('fsStat', folderPath + '\\' + entry.name)
-        const path = folderPath + '\\' + entry.name
+        const entryPath = path.join(folderPath, entry.name)
+        const stats = await ipcRenderer.invoke('fsStat', entryPath)
 
         return isFolder
           ? {
               type: FileBrowserEntryType.Folder,
               name,
-              path,
+              path: entryPath,
             }
           : {
               type: FileBrowserEntryType.File,
               name,
-              path,
+              path: entryPath,
               extension: extension.toLowerCase(),
               date: stats?.mtime ?? new Date(0),
             }
