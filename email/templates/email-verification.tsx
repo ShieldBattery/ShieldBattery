@@ -1,4 +1,4 @@
-import { Container, Section } from '@react-email/components'
+import { Container, Section } from 'react-email'
 import { TransWithoutContext as Trans } from 'react-i18next'
 import { EmailProps } from '../email-props'
 import { t } from '../i18n/i18next'

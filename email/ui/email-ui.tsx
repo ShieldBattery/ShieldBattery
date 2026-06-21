@@ -1,3 +1,4 @@
+import React from 'react'
 import {
   Body,
   Button,
@@ -11,8 +12,7 @@ import {
   Row,
   Section,
   Text,
-} from '@react-email/components'
-import React from 'react'
+} from 'react-email'
 import { TransWithoutContext as Trans } from 'react-i18next'
 import { blue60, blue99 } from '../../client/styles/colors'
 import { EmailProps } from '../email-props'
@@ -62,7 +62,7 @@ export function SbEmail(props: SbEmailProps) {
           }}
         />
       </Head>
-      <Preview>{props.preview}</Preview>
+      <Preview useTitleTag={false}>{props.preview}</Preview>
       <Body
         style={{
           padding: '16px',

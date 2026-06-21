@@ -1,0 +1,19 @@
+overrides:
+  '@types/node': 24.2.1
+  '@types/koa': ^3.0.3
+  '@types/react': ^19.2.17
+  '@types/react-dom': ^19.2.3
+  '@types/unist': ^3.0.3
+  parse5: 7.2.1
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@swc/core': true
+  bcrypt: true
+  core-js: true
+  core-js-pure: true
+  electron-winstaller: true
+  esbuild: true
+  pino-datadog-transport: true
+  protobufjs: true
+  sharp: true

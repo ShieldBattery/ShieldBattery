@@ -1,8 +1,8 @@
-import { render } from '@react-email/render'
 import fs from 'fs/promises'
 import { glob } from 'glob'
 import path from 'path'
 import React from 'react'
+import { render } from 'react-email'
 import { EmailProps } from './email-props'
 
 const OUTPUT_DIR = path.resolve(__dirname, '..', 'server', 'email')
