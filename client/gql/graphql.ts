@@ -1,256 +1,2797 @@
 /* eslint-disable */
 /** Internal type. DO NOT USE DIRECTLY. */
-type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] }
 /** Internal type. DO NOT USE DIRECTLY. */
-export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+export type Incremental<T> =
+  | T
+  | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never }
+import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core'
 import * as Types from './types'
-import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
 export type CreateSignupCodeInput = {
-  expiresAt: string;
-  maxUses?: number | null | undefined;
-  notes?: string | null | undefined;
-};
+  expiresAt: string
+  maxUses?: number | null | undefined
+  notes?: string | null | undefined
+}
 
 export enum RestrictedNameKind {
   Exact = 'EXACT',
-  Regex = 'REGEX'
+  Regex = 'REGEX',
 }
 
 export enum RestrictedNameReason {
   Profanity = 'PROFANITY',
-  Reserved = 'RESERVED'
+  Reserved = 'RESERVED',
 }
 
 export type SbPermissionsInput = {
-  banUsers: boolean;
-  debug: boolean;
-  editPermissions: boolean;
+  banUsers: boolean
+  debug: boolean
+  editPermissions: boolean
   /**
    * The user ID these permissions are for. This is mainly so the client has a key for caching
    * purposes, and is not generally used elsewhere.
    */
-  id: Types.SbUserId;
-  manageBugReports: boolean;
-  manageLeagues: boolean;
-  manageMapPools: boolean;
-  manageMaps: boolean;
-  manageMatchmakingSeasons: boolean;
-  manageMatchmakingTimes: boolean;
-  manageNews: boolean;
-  manageRallyPointServers: boolean;
-  manageRestrictedNames: boolean;
-  manageSignupCodes: boolean;
-  massDeleteMaps: boolean;
-  moderateChatChannels: boolean;
-};
+  id: Types.SbUserId
+  manageBugReports: boolean
+  manageLeagues: boolean
+  manageMapPools: boolean
+  manageMaps: boolean
+  manageMatchmakingSeasons: boolean
+  manageMatchmakingTimes: boolean
+  manageNews: boolean
+  manageRallyPointServers: boolean
+  manageRestrictedNames: boolean
+  manageSignupCodes: boolean
+  massDeleteMaps: boolean
+  moderateChatChannels: boolean
+}
 
 export type UrgentMessageInput = {
-  message: string;
-  title: string;
-};
+  message: string
+  title: string
+}
 
-export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never; }>;
+export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never }>
 
-
-export type RestrictedNamesQuery = { restrictedNames: Array<{ id: number, pattern: string, kind: RestrictedNameKind, reason: RestrictedNameReason, createdAt: string, createdBy: { id: Types.SbUserId } | null }> };
+export type RestrictedNamesQuery = {
+  restrictedNames: Array<{
+    id: number
+    pattern: string
+    kind: RestrictedNameKind
+    reason: RestrictedNameReason
+    createdAt: string
+    createdBy: { id: Types.SbUserId } | null
+  }>
+}
 
 export type DeleteRestrictedNameMutationVariables = Exact<{
-  id: number;
-}>;
+  id: number
+}>
 
-
-export type DeleteRestrictedNameMutation = { userDeleteRestrictedName: number };
+export type DeleteRestrictedNameMutation = { userDeleteRestrictedName: number }
 
 export type AddRestrictedNameMutationVariables = Exact<{
-  pattern: string;
-  kind: RestrictedNameKind;
-  reason: RestrictedNameReason;
-}>;
+  pattern: string
+  kind: RestrictedNameKind
+  reason: RestrictedNameReason
+}>
 
-
-export type AddRestrictedNameMutation = { userAddRestrictedName: { id: number, pattern: string, kind: RestrictedNameKind, reason: RestrictedNameReason, createdAt: string, createdBy: { id: Types.SbUserId } | null } };
+export type AddRestrictedNameMutation = {
+  userAddRestrictedName: {
+    id: number
+    pattern: string
+    kind: RestrictedNameKind
+    reason: RestrictedNameReason
+    createdAt: string
+    createdBy: { id: Types.SbUserId } | null
+  }
+}
 
 export type TestRestrictedNameMutationVariables = Exact<{
-  name: string;
-}>;
+  name: string
+}>
 
-
-export type TestRestrictedNameMutation = { userTestRestrictedName: { id: number, pattern: string, kind: RestrictedNameKind, reason: RestrictedNameReason } | null };
+export type TestRestrictedNameMutation = {
+  userTestRestrictedName: {
+    id: number
+    pattern: string
+    kind: RestrictedNameKind
+    reason: RestrictedNameReason
+  } | null
+}
 
 export type SignupCodesQueryVariables = Exact<{
-  includeExhausted?: boolean | null | undefined;
-}>;
+  includeExhausted?: boolean | null | undefined
+}>
 
-
-export type SignupCodesQuery = { signupCodes: Array<{ id: string, code: string, createdAt: string, expiresAt: string, maxUses: number | null, uses: number, exhausted: boolean, notes: string | null, createdByUser: { id: Types.SbUserId, name: string } | null }> };
+export type SignupCodesQuery = {
+  signupCodes: Array<{
+    id: string
+    code: string
+    createdAt: string
+    expiresAt: string
+    maxUses: number | null
+    uses: number
+    exhausted: boolean
+    notes: string | null
+    createdByUser: { id: Types.SbUserId; name: string } | null
+  }>
+}
 
 export type CreateSignupCodeMutationVariables = Exact<{
-  input: CreateSignupCodeInput;
-}>;
+  input: CreateSignupCodeInput
+}>
 
-
-export type CreateSignupCodeMutation = { createSignupCode: { id: string, code: string, createdAt: string, expiresAt: string, maxUses: number | null, uses: number, exhausted: boolean, notes: string | null, createdByUser: { id: Types.SbUserId } | null } };
+export type CreateSignupCodeMutation = {
+  createSignupCode: {
+    id: string
+    code: string
+    createdAt: string
+    expiresAt: string
+    maxUses: number | null
+    uses: number
+    exhausted: boolean
+    notes: string | null
+    createdByUser: { id: Types.SbUserId } | null
+  }
+}
 
 export type SetUrgentMessageMutationVariables = Exact<{
-  message?: UrgentMessageInput | null | undefined;
-}>;
+  message?: UrgentMessageInput | null | undefined
+}>
 
+export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean }
 
-export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean };
+export type GamesPageContentQueryVariables = Exact<{ [key: string]: never }>
 
-export type GamesPageContentQueryVariables = Exact<{ [key: string]: never; }>;
+export type GamesPageContentQuery = {
+  ' $fragmentRefs'?: { LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment }
+}
 
+export type LiveGames_FeedFragmentFragment = {
+  liveGames: Array<
+    { id: string } & {
+      ' $fragmentRefs'?: {
+        LiveGames_FeedEntryFragmentFragment: LiveGames_FeedEntryFragmentFragment
+      }
+    }
+  >
+} & { ' $fragmentName'?: 'LiveGames_FeedFragmentFragment' }
 
-export type GamesPageContentQuery = { ' $fragmentRefs'?: { 'LiveGames_FeedFragmentFragment': LiveGames_FeedFragmentFragment } };
-
-export type LiveGames_FeedFragmentFragment = { liveGames: Array<(
-    { id: string }
-    & { ' $fragmentRefs'?: { 'LiveGames_FeedEntryFragmentFragment': LiveGames_FeedEntryFragmentFragment } }
-  )> } & { ' $fragmentName'?: 'LiveGames_FeedFragmentFragment' };
-
-export type LiveGames_FeedEntryFragmentFragment = (
-  { id: string, startTime: string, map: { id: Types.SbMapId, name: string, mapFile: { id: string, image256Url: string, image512Url: string, image1024Url: string, image2048Url: string, width: number, height: number } }, config:
+export type LiveGames_FeedEntryFragmentFragment = ({
+  id: string
+  startTime: string
+  map: {
+    id: Types.SbMapId
+    name: string
+    mapFile: {
+      id: string
+      image256Url: string
+      image512Url: string
+      image1024Url: string
+      image2048Url: string
+      width: number
+      height: number
+    }
+  }
+  config:
     | { __typename: 'GameConfigDataLobby' }
-    | { __typename: 'GameConfigDataMatchmaking', gameSourceExtra:
-        | { matchmakingType: Types.MatchmakingType }
-        | { matchmakingType: Types.MatchmakingType }
-        | { matchmakingType: Types.MatchmakingType }
-      , teams: Array<Array<(
-        { user: { id: Types.SbUserId } | null }
-        & { ' $fragmentRefs'?: { 'LiveGames_FeedEntryPlayersFragmentFragment': LiveGames_FeedEntryPlayersFragmentFragment } }
-      )>> }
-   }
-  & { ' $fragmentRefs'?: { 'LiveGames_FeedEntryMapAndTypeFragmentFragment': LiveGames_FeedEntryMapAndTypeFragmentFragment } }
-) & { ' $fragmentName'?: 'LiveGames_FeedEntryFragmentFragment' };
+    | {
+        __typename: 'GameConfigDataMatchmaking'
+        gameSourceExtra:
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+        teams: Array<
+          Array<
+            { user: { id: Types.SbUserId } | null } & {
+              ' $fragmentRefs'?: {
+                LiveGames_FeedEntryPlayersFragmentFragment: LiveGames_FeedEntryPlayersFragmentFragment
+              }
+            }
+          >
+        >
+      }
+} & {
+  ' $fragmentRefs'?: {
+    LiveGames_FeedEntryMapAndTypeFragmentFragment: LiveGames_FeedEntryMapAndTypeFragmentFragment
+  }
+}) & { ' $fragmentName'?: 'LiveGames_FeedEntryFragmentFragment' }
 
-export type LiveGames_FeedEntryPlayersFragmentFragment = { race: Types.RaceChar, user: { id: Types.SbUserId, name: string } | null } & { ' $fragmentName'?: 'LiveGames_FeedEntryPlayersFragmentFragment' };
+export type LiveGames_FeedEntryPlayersFragmentFragment = {
+  race: Types.RaceChar
+  user: { id: Types.SbUserId; name: string } | null
+} & { ' $fragmentName'?: 'LiveGames_FeedEntryPlayersFragmentFragment' }
 
-export type LiveGames_FeedEntryMapAndTypeFragmentFragment = { id: string, map: { id: Types.SbMapId, name: string, mapFile: { id: string, image256Url: string, image512Url: string, image1024Url: string, image2048Url: string, width: number, height: number } }, config:
+export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
+  id: string
+  map: {
+    id: Types.SbMapId
+    name: string
+    mapFile: {
+      id: string
+      image256Url: string
+      image512Url: string
+      image1024Url: string
+      image2048Url: string
+      width: number
+      height: number
+    }
+  }
+  config:
     | { __typename: 'GameConfigDataLobby' }
-    | { __typename: 'GameConfigDataMatchmaking', gameSourceExtra:
-        | { matchmakingType: Types.MatchmakingType }
-        | { matchmakingType: Types.MatchmakingType }
-        | { matchmakingType: Types.MatchmakingType }
-       }
-   } & { ' $fragmentName'?: 'LiveGames_FeedEntryMapAndTypeFragmentFragment' };
+    | {
+        __typename: 'GameConfigDataMatchmaking'
+        gameSourceExtra:
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+      }
+} & { ' $fragmentName'?: 'LiveGames_FeedEntryMapAndTypeFragmentFragment' }
 
-export type HomePageContentQueryVariables = Exact<{ [key: string]: never; }>;
+export type HomePageContentQueryVariables = Exact<{ [key: string]: never }>
 
+export type HomePageContentQuery = {
+  urgentMessage: {
+    ' $fragmentRefs'?: {
+      UrgentMessage_HomeDisplayFragmentFragment: UrgentMessage_HomeDisplayFragmentFragment
+    }
+  } | null
+} & {
+  ' $fragmentRefs'?: {
+    LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment
+    Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment
+  }
+}
 
-export type HomePageContentQuery = (
-  { urgentMessage: { ' $fragmentRefs'?: { 'UrgentMessage_HomeDisplayFragmentFragment': UrgentMessage_HomeDisplayFragmentFragment } } | null }
-  & { ' $fragmentRefs'?: { 'LiveGames_FeedFragmentFragment': LiveGames_FeedFragmentFragment;'Leagues_HomeFeedFragmentFragment': Leagues_HomeFeedFragmentFragment } }
-);
+export type UrgentMessage_HomeDisplayFragmentFragment = {
+  id: string
+  title: string
+  message: string
+} & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' }
 
-export type UrgentMessage_HomeDisplayFragmentFragment = { id: string, title: string, message: string } & { ' $fragmentName'?: 'UrgentMessage_HomeDisplayFragmentFragment' };
+export type Leagues_LeagueBadgeFragmentFragment = { name: string; badgeUrl: string | null } & {
+  ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment'
+}
 
-export type Leagues_LeagueBadgeFragmentFragment = { name: string, badgeUrl: string | null } & { ' $fragmentName'?: 'Leagues_LeagueBadgeFragmentFragment' };
+export type Leagues_HomeFeedFragmentFragment = {
+  activeLeagues: Array<
+    { id: string } & {
+      ' $fragmentRefs'?: {
+        Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
+      }
+    }
+  >
+  futureLeagues: Array<
+    { id: string } & {
+      ' $fragmentRefs'?: {
+        Leagues_HomeFeedEntryFragmentFragment: Leagues_HomeFeedEntryFragmentFragment
+      }
+    }
+  >
+} & { ' $fragmentName'?: 'Leagues_HomeFeedFragmentFragment' }
 
-export type Leagues_HomeFeedFragmentFragment = { activeLeagues: Array<(
-    { id: string }
-    & { ' $fragmentRefs'?: { 'Leagues_HomeFeedEntryFragmentFragment': Leagues_HomeFeedEntryFragmentFragment } }
-  )>, futureLeagues: Array<(
-    { id: string }
-    & { ' $fragmentRefs'?: { 'Leagues_HomeFeedEntryFragmentFragment': Leagues_HomeFeedEntryFragmentFragment } }
-  )> } & { ' $fragmentName'?: 'Leagues_HomeFeedFragmentFragment' };
+export type Leagues_HomeFeedEntryFragmentFragment = ({
+  id: string
+  name: string
+  matchmakingType: Types.MatchmakingType
+  startAt: string
+  endAt: string
+} & {
+  ' $fragmentRefs'?: { Leagues_LeagueBadgeFragmentFragment: Leagues_LeagueBadgeFragmentFragment }
+}) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
 
-export type Leagues_HomeFeedEntryFragmentFragment = (
-  { id: string, name: string, matchmakingType: Types.MatchmakingType, startAt: string, endAt: string }
-  & { ' $fragmentRefs'?: { 'Leagues_LeagueBadgeFragmentFragment': Leagues_LeagueBadgeFragmentFragment } }
-) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' };
+export type AccountSettings_CurrentUserFragment = {
+  id: Types.SbUserId
+  name: string
+  loginName: string
+  email: string
+  emailVerified: boolean
+  lastLoginNameChange: string | null
+  lastNameChange: string | null
+  nameChangeTokens: number
+  canChangeDisplayName: boolean
+  nextDisplayNameChangeAllowedAt: string | null
+} & { ' $fragmentName'?: 'AccountSettings_CurrentUserFragment' }
 
-export type AccountSettings_CurrentUserFragment = { id: Types.SbUserId, name: string, loginName: string, email: string, emailVerified: boolean, lastLoginNameChange: string | null, lastNameChange: string | null, nameChangeTokens: number, canChangeDisplayName: boolean, nextDisplayNameChangeAllowedAt: string | null } & { ' $fragmentName'?: 'AccountSettings_CurrentUserFragment' };
+export type AccountSettingsQueryVariables = Exact<{ [key: string]: never }>
 
-export type AccountSettingsQueryVariables = Exact<{ [key: string]: never; }>;
-
-
-export type AccountSettingsQuery = { currentUser: { ' $fragmentRefs'?: { 'AccountSettings_CurrentUserFragment': AccountSettings_CurrentUserFragment } } | null };
+export type AccountSettingsQuery = {
+  currentUser: {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  } | null
+}
 
 export type AccountSettingsChangePasswordMutationVariables = Exact<{
-  currentPassword: string;
-  newPassword: string;
-}>;
+  currentPassword: string
+  newPassword: string
+}>
 
-
-export type AccountSettingsChangePasswordMutation = { userUpdateCurrent: { ' $fragmentRefs'?: { 'AccountSettings_CurrentUserFragment': AccountSettings_CurrentUserFragment } } };
+export type AccountSettingsChangePasswordMutation = {
+  userUpdateCurrent: {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  }
+}
 
 export type AccountSettingsChangeEmailMutationVariables = Exact<{
-  currentPassword: string;
-  email: string;
-}>;
+  currentPassword: string
+  email: string
+}>
 
-
-export type AccountSettingsChangeEmailMutation = { userUpdateCurrent: { ' $fragmentRefs'?: { 'AccountSettings_CurrentUserFragment': AccountSettings_CurrentUserFragment } } };
+export type AccountSettingsChangeEmailMutation = {
+  userUpdateCurrent: {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  }
+}
 
 export type AccountSettingsChangeDisplayNameMutationVariables = Exact<{
-  currentPassword: string;
-  name: string;
-}>;
+  currentPassword: string
+  name: string
+}>
 
-
-export type AccountSettingsChangeDisplayNameMutation = { userUpdateCurrent: { ' $fragmentRefs'?: { 'AccountSettings_CurrentUserFragment': AccountSettings_CurrentUserFragment } } };
+export type AccountSettingsChangeDisplayNameMutation = {
+  userUpdateCurrent: {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  }
+}
 
 export type AccountSettingsChangeLoginNameMutationVariables = Exact<{
-  currentPassword: string;
-  loginName: string;
-}>;
+  currentPassword: string
+  loginName: string
+}>
 
-
-export type AccountSettingsChangeLoginNameMutation = { userUpdateCurrent: { ' $fragmentRefs'?: { 'AccountSettings_CurrentUserFragment': AccountSettings_CurrentUserFragment } } };
+export type AccountSettingsChangeLoginNameMutation = {
+  userUpdateCurrent: {
+    ' $fragmentRefs'?: { AccountSettings_CurrentUserFragment: AccountSettings_CurrentUserFragment }
+  }
+}
 
 export type UserNameAuditHistoryQueryVariables = Exact<{
-  userId: Types.SbUserId;
-  displayNameLimit?: number | null | undefined;
-  displayNameOffset?: number | null | undefined;
-  loginNameLimit?: number | null | undefined;
-  loginNameOffset?: number | null | undefined;
-}>;
+  userId: Types.SbUserId
+  displayNameLimit?: number | null | undefined
+  displayNameOffset?: number | null | undefined
+  loginNameLimit?: number | null | undefined
+  loginNameOffset?: number | null | undefined
+}>
 
-
-export type UserNameAuditHistoryQuery = { userDisplayNameAuditHistory: Array<{ id: string, oldName: string, newName: string, changedAt: string, changeReason: string | null, ipAddress: string | null, userAgent: string | null, usedToken: boolean, changedByUser: { id: Types.SbUserId } | null }>, userLoginNameAuditHistory: Array<{ id: string, oldLoginName: string, newLoginName: string, changedAt: string, changeReason: string | null, ipAddress: string | null, userAgent: string | null }> };
+export type UserNameAuditHistoryQuery = {
+  userDisplayNameAuditHistory: Array<{
+    id: string
+    oldName: string
+    newName: string
+    changedAt: string
+    changeReason: string | null
+    ipAddress: string | null
+    userAgent: string | null
+    usedToken: boolean
+    changedByUser: { id: Types.SbUserId } | null
+  }>
+  userLoginNameAuditHistory: Array<{
+    id: string
+    oldLoginName: string
+    newLoginName: string
+    changedAt: string
+    changeReason: string | null
+    ipAddress: string | null
+    userAgent: string | null
+  }>
+}
 
 export type AdminUserProfileQueryVariables = Exact<{
-  userId: Types.SbUserId;
-  includePermissions: boolean;
-}>;
+  userId: Types.SbUserId
+  includePermissions: boolean
+}>
 
+export type AdminUserProfileQuery = {
+  user:
+    | ({ id: Types.SbUserId } & {
+        id?: Types.SbUserId
+        permissions?: {
+          id: Types.SbUserId
+          editPermissions: boolean
+          debug: boolean
+          banUsers: boolean
+          manageLeagues: boolean
+          manageMaps: boolean
+          manageMapPools: boolean
+          manageMatchmakingTimes: boolean
+          manageMatchmakingSeasons: boolean
+          manageRallyPointServers: boolean
+          massDeleteMaps: boolean
+          moderateChatChannels: boolean
+          manageNews: boolean
+          manageBugReports: boolean
+          manageRestrictedNames: boolean
+          manageSignupCodes: boolean
+        }
+      })
+    | null
+}
 
-export type AdminUserProfileQuery = { user: { id: Types.SbUserId } & { id?: Types.SbUserId, permissions?: { id: Types.SbUserId, editPermissions: boolean, debug: boolean, banUsers: boolean, manageLeagues: boolean, manageMaps: boolean, manageMapPools: boolean, manageMatchmakingTimes: boolean, manageMatchmakingSeasons: boolean, manageRallyPointServers: boolean, massDeleteMaps: boolean, moderateChatChannels: boolean, manageNews: boolean, manageBugReports: boolean, manageRestrictedNames: boolean, manageSignupCodes: boolean } } | null };
-
-export type AdminUserProfile_PermissionsFragment = { id: Types.SbUserId, permissions: { id: Types.SbUserId, editPermissions: boolean, debug: boolean, banUsers: boolean, manageLeagues: boolean, manageMaps: boolean, manageMapPools: boolean, manageMatchmakingTimes: boolean, manageMatchmakingSeasons: boolean, manageRallyPointServers: boolean, massDeleteMaps: boolean, moderateChatChannels: boolean, manageNews: boolean, manageBugReports: boolean, manageRestrictedNames: boolean, manageSignupCodes: boolean } } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' };
+export type AdminUserProfile_PermissionsFragment = {
+  id: Types.SbUserId
+  permissions: {
+    id: Types.SbUserId
+    editPermissions: boolean
+    debug: boolean
+    banUsers: boolean
+    manageLeagues: boolean
+    manageMaps: boolean
+    manageMapPools: boolean
+    manageMatchmakingTimes: boolean
+    manageMatchmakingSeasons: boolean
+    manageRallyPointServers: boolean
+    massDeleteMaps: boolean
+    moderateChatChannels: boolean
+    manageNews: boolean
+    manageBugReports: boolean
+    manageRestrictedNames: boolean
+    manageSignupCodes: boolean
+  }
+} & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
 export type AdminUpdateUserPermissionsMutationVariables = Exact<{
-  userId: Types.SbUserId;
-  permissions: SbPermissionsInput;
-}>;
+  userId: Types.SbUserId
+  permissions: SbPermissionsInput
+}>
 
+export type AdminUpdateUserPermissionsMutation = {
+  userUpdatePermissions: {
+    ' $fragmentRefs'?: {
+      AdminUserProfile_PermissionsFragment: AdminUserProfile_PermissionsFragment
+    }
+  }
+}
 
-export type AdminUpdateUserPermissionsMutation = { userUpdatePermissions: { ' $fragmentRefs'?: { 'AdminUserProfile_PermissionsFragment': AdminUserProfile_PermissionsFragment } } };
-
-export const LiveGames_FeedEntryPlayersFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GamePlayer"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"race"}}]}}]} as unknown as DocumentNode<LiveGames_FeedEntryPlayersFragmentFragment, unknown>;
-export const LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}}]}}]}}]}}]} as unknown as DocumentNode<LiveGames_FeedEntryMapAndTypeFragmentFragment, unknown>;
-export const LiveGames_FeedEntryFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}},{"kind":"Field","name":{"kind":"Name","value":"teams"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"}}]}}]}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GamePlayer"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"race"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}}]}}]}}]}}]} as unknown as DocumentNode<LiveGames_FeedEntryFragmentFragment, unknown>;
-export const LiveGames_FeedFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Query"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"liveGames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GamePlayer"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"race"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}},{"kind":"Field","name":{"kind":"Name","value":"teams"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"}}]}}]}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"}}]}}]} as unknown as DocumentNode<LiveGames_FeedFragmentFragment, unknown>;
-export const UrgentMessage_HomeDisplayFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UrgentMessage_HomeDisplayFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UrgentMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}}]} as unknown as DocumentNode<UrgentMessage_HomeDisplayFragmentFragment, unknown>;
-export const Leagues_LeagueBadgeFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"badgeUrl"}}]}}]} as unknown as DocumentNode<Leagues_LeagueBadgeFragmentFragment, unknown>;
-export const Leagues_HomeFeedEntryFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"badgeUrl"}}]}}]} as unknown as DocumentNode<Leagues_HomeFeedEntryFragmentFragment, unknown>;
-export const Leagues_HomeFeedFragmentFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_HomeFeedFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Query"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"activeLeagues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"futureLeagues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"badgeUrl"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"}}]}}]} as unknown as DocumentNode<Leagues_HomeFeedFragmentFragment, unknown>;
-export const AccountSettings_CurrentUserFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccountSettings_CurrentUser"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CurrentUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"loginName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"lastLoginNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"lastNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"nameChangeTokens"}},{"kind":"Field","name":{"kind":"Name","value":"canChangeDisplayName"}},{"kind":"Field","name":{"kind":"Name","value":"nextDisplayNameChangeAllowedAt"}}]}}]} as unknown as DocumentNode<AccountSettings_CurrentUserFragment, unknown>;
-export const AdminUserProfile_PermissionsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AdminUserProfile_Permissions"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SbUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"editPermissions"}},{"kind":"Field","name":{"kind":"Name","value":"debug"}},{"kind":"Field","name":{"kind":"Name","value":"banUsers"}},{"kind":"Field","name":{"kind":"Name","value":"manageLeagues"}},{"kind":"Field","name":{"kind":"Name","value":"manageMaps"}},{"kind":"Field","name":{"kind":"Name","value":"manageMapPools"}},{"kind":"Field","name":{"kind":"Name","value":"manageMatchmakingTimes"}},{"kind":"Field","name":{"kind":"Name","value":"manageMatchmakingSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"manageRallyPointServers"}},{"kind":"Field","name":{"kind":"Name","value":"massDeleteMaps"}},{"kind":"Field","name":{"kind":"Name","value":"moderateChatChannels"}},{"kind":"Field","name":{"kind":"Name","value":"manageNews"}},{"kind":"Field","name":{"kind":"Name","value":"manageBugReports"}},{"kind":"Field","name":{"kind":"Name","value":"manageRestrictedNames"}},{"kind":"Field","name":{"kind":"Name","value":"manageSignupCodes"}}]}}]}}]} as unknown as DocumentNode<AdminUserProfile_PermissionsFragment, unknown>;
-export const RestrictedNamesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"RestrictedNames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"restrictedNames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"pattern"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"reason"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<RestrictedNamesQuery, RestrictedNamesQueryVariables>;
-export const DeleteRestrictedNameDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteRestrictedName"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userDeleteRestrictedName"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}]}]}}]} as unknown as DocumentNode<DeleteRestrictedNameMutation, DeleteRestrictedNameMutationVariables>;
-export const AddRestrictedNameDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddRestrictedName"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"pattern"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"kind"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RestrictedNameKind"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"reason"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"RestrictedNameReason"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userAddRestrictedName"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"pattern"},"value":{"kind":"Variable","name":{"kind":"Name","value":"pattern"}}},{"kind":"Argument","name":{"kind":"Name","value":"kind"},"value":{"kind":"Variable","name":{"kind":"Name","value":"kind"}}},{"kind":"Argument","name":{"kind":"Name","value":"reason"},"value":{"kind":"Variable","name":{"kind":"Name","value":"reason"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"pattern"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"reason"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdBy"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<AddRestrictedNameMutation, AddRestrictedNameMutationVariables>;
-export const TestRestrictedNameDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"TestRestrictedName"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userTestRestrictedName"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"pattern"}},{"kind":"Field","name":{"kind":"Name","value":"kind"}},{"kind":"Field","name":{"kind":"Name","value":"reason"}}]}}]}}]} as unknown as DocumentNode<TestRestrictedNameMutation, TestRestrictedNameMutationVariables>;
-export const SignupCodesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"SignupCodes"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"includeExhausted"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"signupCodes"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"includeExhausted"},"value":{"kind":"Variable","name":{"kind":"Name","value":"includeExhausted"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdByUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"maxUses"}},{"kind":"Field","name":{"kind":"Name","value":"uses"}},{"kind":"Field","name":{"kind":"Name","value":"exhausted"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}}]}}]}}]} as unknown as DocumentNode<SignupCodesQuery, SignupCodesQueryVariables>;
-export const CreateSignupCodeDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CreateSignupCode"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CreateSignupCodeInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"createSignupCode"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdByUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"maxUses"}},{"kind":"Field","name":{"kind":"Name","value":"uses"}},{"kind":"Field","name":{"kind":"Name","value":"exhausted"}},{"kind":"Field","name":{"kind":"Name","value":"notes"}}]}}]}}]} as unknown as DocumentNode<CreateSignupCodeMutation, CreateSignupCodeMutationVariables>;
-export const SetUrgentMessageDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"SetUrgentMessage"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"message"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"UrgentMessageInput"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"newsSetUrgentMessage"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"message"},"value":{"kind":"Variable","name":{"kind":"Name","value":"message"}}}]}]}}]} as unknown as DocumentNode<SetUrgentMessageMutation, SetUrgentMessageMutationVariables>;
-export const GamesPageContentDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GamesPageContent"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GamePlayer"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"race"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}},{"kind":"Field","name":{"kind":"Name","value":"teams"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"}}]}}]}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Query"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"liveGames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"}}]}}]}}]} as unknown as DocumentNode<GamesPageContentQuery, GamesPageContentQueryVariables>;
-export const HomePageContentDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"HomePageContent"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"urgentMessage"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"UrgentMessage_HomeDisplayFragment"}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedFragment"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_HomeFeedFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GamePlayer"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"race"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}}]}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Game"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"startTime"}},{"kind":"Field","name":{"kind":"Name","value":"map"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"mapFile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"image256Url"}},{"kind":"Field","name":{"kind":"Name","value":"image512Url"}},{"kind":"Field","name":{"kind":"Name","value":"image1024Url"}},{"kind":"Field","name":{"kind":"Name","value":"image2048Url"}},{"kind":"Field","name":{"kind":"Name","value":"width"}},{"kind":"Field","name":{"kind":"Name","value":"height"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"config"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"GameConfigDataMatchmaking"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"gameSourceExtra"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}}]}},{"kind":"Field","name":{"kind":"Name","value":"teams"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryPlayersFragment"}}]}}]}}]}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryMapAndTypeFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"badgeUrl"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"League"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"matchmakingType"}},{"kind":"Field","name":{"kind":"Name","value":"startAt"}},{"kind":"Field","name":{"kind":"Name","value":"endAt"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_LeagueBadgeFragment"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"UrgentMessage_HomeDisplayFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"UrgentMessage"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"message"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"LiveGames_FeedFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Query"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"liveGames"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"LiveGames_FeedEntryFragment"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"Leagues_HomeFeedFragment"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Query"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"activeLeagues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"}}]}},{"kind":"Field","name":{"kind":"Name","value":"futureLeagues"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"Leagues_HomeFeedEntryFragment"}}]}}]}}]} as unknown as DocumentNode<HomePageContentQuery, HomePageContentQueryVariables>;
-export const AccountSettingsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AccountSettings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"currentUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"AccountSettings_CurrentUser"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccountSettings_CurrentUser"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CurrentUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"loginName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"lastLoginNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"lastNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"nameChangeTokens"}},{"kind":"Field","name":{"kind":"Name","value":"canChangeDisplayName"}},{"kind":"Field","name":{"kind":"Name","value":"nextDisplayNameChangeAllowedAt"}}]}}]} as unknown as DocumentNode<AccountSettingsQuery, AccountSettingsQueryVariables>;
-export const AccountSettingsChangePasswordDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AccountSettingsChangePassword"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"newPassword"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userUpdateCurrent"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"currentPassword"},"value":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}}},{"kind":"Argument","name":{"kind":"Name","value":"changes"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"newPassword"},"value":{"kind":"Variable","name":{"kind":"Name","value":"newPassword"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"AccountSettings_CurrentUser"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccountSettings_CurrentUser"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CurrentUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"loginName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"lastLoginNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"lastNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"nameChangeTokens"}},{"kind":"Field","name":{"kind":"Name","value":"canChangeDisplayName"}},{"kind":"Field","name":{"kind":"Name","value":"nextDisplayNameChangeAllowedAt"}}]}}]} as unknown as DocumentNode<AccountSettingsChangePasswordMutation, AccountSettingsChangePasswordMutationVariables>;
-export const AccountSettingsChangeEmailDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AccountSettingsChangeEmail"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"email"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userUpdateCurrent"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"currentPassword"},"value":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}}},{"kind":"Argument","name":{"kind":"Name","value":"changes"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"email"},"value":{"kind":"Variable","name":{"kind":"Name","value":"email"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"AccountSettings_CurrentUser"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccountSettings_CurrentUser"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CurrentUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"loginName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"lastLoginNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"lastNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"nameChangeTokens"}},{"kind":"Field","name":{"kind":"Name","value":"canChangeDisplayName"}},{"kind":"Field","name":{"kind":"Name","value":"nextDisplayNameChangeAllowedAt"}}]}}]} as unknown as DocumentNode<AccountSettingsChangeEmailMutation, AccountSettingsChangeEmailMutationVariables>;
-export const AccountSettingsChangeDisplayNameDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AccountSettingsChangeDisplayName"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userUpdateCurrent"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"currentPassword"},"value":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}}},{"kind":"Argument","name":{"kind":"Name","value":"changes"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"AccountSettings_CurrentUser"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccountSettings_CurrentUser"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CurrentUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"loginName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"lastLoginNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"lastNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"nameChangeTokens"}},{"kind":"Field","name":{"kind":"Name","value":"canChangeDisplayName"}},{"kind":"Field","name":{"kind":"Name","value":"nextDisplayNameChangeAllowedAt"}}]}}]} as unknown as DocumentNode<AccountSettingsChangeDisplayNameMutation, AccountSettingsChangeDisplayNameMutationVariables>;
-export const AccountSettingsChangeLoginNameDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AccountSettingsChangeLoginName"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"loginName"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userUpdateCurrent"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"currentPassword"},"value":{"kind":"Variable","name":{"kind":"Name","value":"currentPassword"}}},{"kind":"Argument","name":{"kind":"Name","value":"changes"},"value":{"kind":"ObjectValue","fields":[{"kind":"ObjectField","name":{"kind":"Name","value":"loginName"},"value":{"kind":"Variable","name":{"kind":"Name","value":"loginName"}}}]}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"AccountSettings_CurrentUser"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AccountSettings_CurrentUser"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"CurrentUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"loginName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"emailVerified"}},{"kind":"Field","name":{"kind":"Name","value":"lastLoginNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"lastNameChange"}},{"kind":"Field","name":{"kind":"Name","value":"nameChangeTokens"}},{"kind":"Field","name":{"kind":"Name","value":"canChangeDisplayName"}},{"kind":"Field","name":{"kind":"Name","value":"nextDisplayNameChangeAllowedAt"}}]}}]} as unknown as DocumentNode<AccountSettingsChangeLoginNameMutation, AccountSettingsChangeLoginNameMutationVariables>;
-export const UserNameAuditHistoryDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserNameAuditHistory"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SbUserId"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"displayNameLimit"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"displayNameOffset"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"loginNameLimit"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"loginNameOffset"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userDisplayNameAuditHistory"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"displayNameLimit"}}},{"kind":"Argument","name":{"kind":"Name","value":"offset"},"value":{"kind":"Variable","name":{"kind":"Name","value":"displayNameOffset"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"oldName"}},{"kind":"Field","name":{"kind":"Name","value":"newName"}},{"kind":"Field","name":{"kind":"Name","value":"changedAt"}},{"kind":"Field","name":{"kind":"Name","value":"changedByUser"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"changeReason"}},{"kind":"Field","name":{"kind":"Name","value":"ipAddress"}},{"kind":"Field","name":{"kind":"Name","value":"userAgent"}},{"kind":"Field","name":{"kind":"Name","value":"usedToken"}}]}},{"kind":"Field","name":{"kind":"Name","value":"userLoginNameAuditHistory"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}},{"kind":"Argument","name":{"kind":"Name","value":"limit"},"value":{"kind":"Variable","name":{"kind":"Name","value":"loginNameLimit"}}},{"kind":"Argument","name":{"kind":"Name","value":"offset"},"value":{"kind":"Variable","name":{"kind":"Name","value":"loginNameOffset"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"oldLoginName"}},{"kind":"Field","name":{"kind":"Name","value":"newLoginName"}},{"kind":"Field","name":{"kind":"Name","value":"changedAt"}},{"kind":"Field","name":{"kind":"Name","value":"changeReason"}},{"kind":"Field","name":{"kind":"Name","value":"ipAddress"}},{"kind":"Field","name":{"kind":"Name","value":"userAgent"}}]}}]}}]} as unknown as DocumentNode<UserNameAuditHistoryQuery, UserNameAuditHistoryQueryVariables>;
-export const AdminUserProfileDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"AdminUserProfile"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SbUserId"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"includePermissions"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"user"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"FragmentSpread","name":{"kind":"Name","value":"AdminUserProfile_Permissions"},"directives":[{"kind":"Directive","name":{"kind":"Name","value":"include"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"if"},"value":{"kind":"Variable","name":{"kind":"Name","value":"includePermissions"}}}]}]}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AdminUserProfile_Permissions"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SbUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"editPermissions"}},{"kind":"Field","name":{"kind":"Name","value":"debug"}},{"kind":"Field","name":{"kind":"Name","value":"banUsers"}},{"kind":"Field","name":{"kind":"Name","value":"manageLeagues"}},{"kind":"Field","name":{"kind":"Name","value":"manageMaps"}},{"kind":"Field","name":{"kind":"Name","value":"manageMapPools"}},{"kind":"Field","name":{"kind":"Name","value":"manageMatchmakingTimes"}},{"kind":"Field","name":{"kind":"Name","value":"manageMatchmakingSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"manageRallyPointServers"}},{"kind":"Field","name":{"kind":"Name","value":"massDeleteMaps"}},{"kind":"Field","name":{"kind":"Name","value":"moderateChatChannels"}},{"kind":"Field","name":{"kind":"Name","value":"manageNews"}},{"kind":"Field","name":{"kind":"Name","value":"manageBugReports"}},{"kind":"Field","name":{"kind":"Name","value":"manageRestrictedNames"}},{"kind":"Field","name":{"kind":"Name","value":"manageSignupCodes"}}]}}]}}]} as unknown as DocumentNode<AdminUserProfileQuery, AdminUserProfileQueryVariables>;
-export const AdminUpdateUserPermissionsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AdminUpdateUserPermissions"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"userId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SbUserId"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"permissions"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"SbPermissionsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userUpdatePermissions"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"userId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"userId"}}},{"kind":"Argument","name":{"kind":"Name","value":"permissions"},"value":{"kind":"Variable","name":{"kind":"Name","value":"permissions"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"AdminUserProfile_Permissions"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"AdminUserProfile_Permissions"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"SbUser"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"permissions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"editPermissions"}},{"kind":"Field","name":{"kind":"Name","value":"debug"}},{"kind":"Field","name":{"kind":"Name","value":"banUsers"}},{"kind":"Field","name":{"kind":"Name","value":"manageLeagues"}},{"kind":"Field","name":{"kind":"Name","value":"manageMaps"}},{"kind":"Field","name":{"kind":"Name","value":"manageMapPools"}},{"kind":"Field","name":{"kind":"Name","value":"manageMatchmakingTimes"}},{"kind":"Field","name":{"kind":"Name","value":"manageMatchmakingSeasons"}},{"kind":"Field","name":{"kind":"Name","value":"manageRallyPointServers"}},{"kind":"Field","name":{"kind":"Name","value":"massDeleteMaps"}},{"kind":"Field","name":{"kind":"Name","value":"moderateChatChannels"}},{"kind":"Field","name":{"kind":"Name","value":"manageNews"}},{"kind":"Field","name":{"kind":"Name","value":"manageBugReports"}},{"kind":"Field","name":{"kind":"Name","value":"manageRestrictedNames"}},{"kind":"Field","name":{"kind":"Name","value":"manageSignupCodes"}}]}}]}}]} as unknown as DocumentNode<AdminUpdateUserPermissionsMutation, AdminUpdateUserPermissionsMutationVariables>;
+export const LiveGames_FeedEntryPlayersFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_FeedEntryPlayersFragmentFragment, unknown>
+export const LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_FeedEntryMapAndTypeFragmentFragment, unknown>
+export const LiveGames_FeedEntryFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_FeedEntryFragmentFragment, unknown>
+export const LiveGames_FeedFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveGames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveGames_FeedFragmentFragment, unknown>
+export const UrgentMessage_HomeDisplayFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessage' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UrgentMessage_HomeDisplayFragmentFragment, unknown>
+export const Leagues_LeagueBadgeFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<Leagues_LeagueBadgeFragmentFragment, unknown>
+export const Leagues_HomeFeedEntryFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<Leagues_HomeFeedEntryFragmentFragment, unknown>
+export const Leagues_HomeFeedFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'activeLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'futureLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<Leagues_HomeFeedFragmentFragment, unknown>
+export const AccountSettings_CurrentUserFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AccountSettings_CurrentUserFragment, unknown>
+export const AdminUserProfile_PermissionsFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'permissions' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminUserProfile_PermissionsFragment, unknown>
+export const RestrictedNamesDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'RestrictedNames' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'restrictedNames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'pattern' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<RestrictedNamesQuery, RestrictedNamesQueryVariables>
+export const DeleteRestrictedNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'DeleteRestrictedName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userDeleteRestrictedName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<DeleteRestrictedNameMutation, DeleteRestrictedNameMutationVariables>
+export const AddRestrictedNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AddRestrictedName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'pattern' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'RestrictedNameKind' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'reason' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'RestrictedNameReason' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userAddRestrictedName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'pattern' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'pattern' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'kind' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'kind' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'reason' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'reason' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'pattern' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AddRestrictedNameMutation, AddRestrictedNameMutationVariables>
+export const TestRestrictedNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'TestRestrictedName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userTestRestrictedName' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'name' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'pattern' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'kind' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<TestRestrictedNameMutation, TestRestrictedNameMutationVariables>
+export const SignupCodesDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'SignupCodes' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'includeExhausted' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'signupCodes' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'includeExhausted' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'includeExhausted' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'code' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdByUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'expiresAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxUses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'uses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'exhausted' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'notes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<SignupCodesQuery, SignupCodesQueryVariables>
+export const CreateSignupCodeDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'CreateSignupCode' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'CreateSignupCodeInput' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'createSignupCode' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'input' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'code' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'createdByUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'expiresAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxUses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'uses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'exhausted' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'notes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<CreateSignupCodeMutation, CreateSignupCodeMutationVariables>
+export const SetUrgentMessageDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'SetUrgentMessage' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'message' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessageInput' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsSetUrgentMessage' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'message' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'message' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<SetUrgentMessageMutation, SetUrgentMessageMutationVariables>
+export const GamesPageContentDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'GamesPageContent' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveGames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<GamesPageContentQuery, GamesPageContentQueryVariables>
+export const HomePageContentDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'HomePageContent' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'urgentMessage' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+                },
+              ],
+            },
+          },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'GamePlayer' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+          { kind: 'Field', name: { kind: 'Name', value: 'race' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Game' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startTime' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'map' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'mapFile' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image512Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image1024Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'image2048Url' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'width' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'height' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'config' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                {
+                  kind: 'InlineFragment',
+                  typeCondition: {
+                    kind: 'NamedType',
+                    name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                  },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'gameSourceExtra' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                          ],
+                        },
+                      },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'teams' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'user' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'FragmentSpread',
+                              name: { kind: 'Name', value: 'LiveGames_FeedEntryPlayersFragment' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'FragmentSpread',
+            name: { kind: 'Name', value: 'LiveGames_FeedEntryMapAndTypeFragment' },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessage' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveGames_FeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveGames' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'activeLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'futureLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<HomePageContentQuery, HomePageContentQueryVariables>
+export const AccountSettingsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AccountSettings' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'currentUser' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AccountSettingsQuery, AccountSettingsQueryVariables>
+export const AccountSettingsChangePasswordDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AccountSettingsChangePassword' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'newPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'currentPassword' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'changes' },
+                value: {
+                  kind: 'ObjectValue',
+                  fields: [
+                    {
+                      kind: 'ObjectField',
+                      name: { kind: 'Name', value: 'newPassword' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'newPassword' } },
+                    },
+                  ],
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AccountSettingsChangePasswordMutation,
+  AccountSettingsChangePasswordMutationVariables
+>
+export const AccountSettingsChangeEmailDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AccountSettingsChangeEmail' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'email' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'currentPassword' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'changes' },
+                value: {
+                  kind: 'ObjectValue',
+                  fields: [
+                    {
+                      kind: 'ObjectField',
+                      name: { kind: 'Name', value: 'email' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'email' } },
+                    },
+                  ],
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AccountSettingsChangeEmailMutation,
+  AccountSettingsChangeEmailMutationVariables
+>
+export const AccountSettingsChangeDisplayNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AccountSettingsChangeDisplayName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'currentPassword' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'changes' },
+                value: {
+                  kind: 'ObjectValue',
+                  fields: [
+                    {
+                      kind: 'ObjectField',
+                      name: { kind: 'Name', value: 'name' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'name' } },
+                    },
+                  ],
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AccountSettingsChangeDisplayNameMutation,
+  AccountSettingsChangeDisplayNameMutationVariables
+>
+export const AccountSettingsChangeLoginNameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AccountSettingsChangeLoginName' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'loginName' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdateCurrent' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'currentPassword' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'currentPassword' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'changes' },
+                value: {
+                  kind: 'ObjectValue',
+                  fields: [
+                    {
+                      kind: 'ObjectField',
+                      name: { kind: 'Name', value: 'loginName' },
+                      value: { kind: 'Variable', name: { kind: 'Name', value: 'loginName' } },
+                    },
+                  ],
+                },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AccountSettings_CurrentUser' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'CurrentUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'loginName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'email' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'emailVerified' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastLoginNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'lastNameChange' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nameChangeTokens' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'canChangeDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'nextDisplayNameChangeAllowedAt' } },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AccountSettingsChangeLoginNameMutation,
+  AccountSettingsChangeLoginNameMutationVariables
+>
+export const UserNameAuditHistoryDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserNameAuditHistory' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameLimit' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameOffset' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameLimit' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameOffset' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userDisplayNameAuditHistory' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameLimit' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'offset' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'displayNameOffset' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'oldName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'newName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changedAt' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'changedByUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                { kind: 'Field', name: { kind: 'Name', value: 'changeReason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ipAddress' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userAgent' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'usedToken' } },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userLoginNameAuditHistory' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'limit' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameLimit' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'offset' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'loginNameOffset' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'oldLoginName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'newLoginName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'changeReason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ipAddress' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'userAgent' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserNameAuditHistoryQuery, UserNameAuditHistoryQueryVariables>
+export const AdminUserProfileDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminUserProfile' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'includePermissions' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+                  directives: [
+                    {
+                      kind: 'Directive',
+                      name: { kind: 'Name', value: 'include' },
+                      arguments: [
+                        {
+                          kind: 'Argument',
+                          name: { kind: 'Name', value: 'if' },
+                          value: {
+                            kind: 'Variable',
+                            name: { kind: 'Name', value: 'includePermissions' },
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'permissions' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminUserProfileQuery, AdminUserProfileQueryVariables>
+export const AdminUpdateUserPermissionsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminUpdateUserPermissions' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'permissions' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbPermissionsInput' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userUpdatePermissions' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'permissions' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'permissions' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'AdminUserProfile_Permissions' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUser' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'permissions' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'editPermissions' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'debug' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'banUsers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AdminUpdateUserPermissionsMutation,
+  AdminUpdateUserPermissionsMutationVariables
+>
