@@ -109,18 +109,26 @@ describe('common/matchmaking', () => {
       expect(TEAM_SIZES[MatchmakingType.Match1v1]).toBe(1)
       expect(TEAM_SIZES[MatchmakingType.Match1v1Fastest]).toBe(1)
       expect(TEAM_SIZES[MatchmakingType.Match2v2]).toBe(2)
+      expect(TEAM_SIZES[MatchmakingType.Match2v2Bgh]).toBe(2)
     })
 
     it('derives hasVetoes from map selection style', () => {
       expect(hasVetoes(MatchmakingType.Match1v1)).toBe(true)
       expect(hasVetoes(MatchmakingType.Match2v2)).toBe(true)
       expect(hasVetoes(MatchmakingType.Match1v1Fastest)).toBe(false)
+      // Fixed-map modes don't use vetoes.
+      expect(hasVetoes(MatchmakingType.Match2v2Bgh)).toBe(false)
+    })
+
+    it('marks the fixed-map mode with the fixed selection style', () => {
+      expect(MATCHMAKING_MODES[MatchmakingType.Match2v2Bgh].mapSelectionStyle).toBe('fixed')
     })
 
     it('derives isSoloType from team size', () => {
       expect(isSoloType(MatchmakingType.Match1v1)).toBe(true)
       expect(isSoloType(MatchmakingType.Match1v1Fastest)).toBe(true)
       expect(isSoloType(MatchmakingType.Match2v2)).toBe(false)
+      expect(isSoloType(MatchmakingType.Match2v2Bgh)).toBe(false)
     })
 
     it('renders the English label from the i18n default value', () => {
@@ -131,6 +139,7 @@ describe('common/matchmaking', () => {
         '1v1 Fastest',
       )
       expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, useDefault)).toBe('2v2')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2Bgh, useDefault)).toBe('2v2 BGH')
     })
 
     it('looks up labels by the expected i18n keys (kept extractable for i18next-parser)', () => {
@@ -141,6 +150,9 @@ describe('common/matchmaking', () => {
         'matchmaking.type.1v1fastest',
       )
       expect(matchmakingTypeToLabel(MatchmakingType.Match2v2, echoKey)).toBe('matchmaking.type.2v2')
+      expect(matchmakingTypeToLabel(MatchmakingType.Match2v2Bgh, echoKey)).toBe(
+        'matchmaking.type.2v2bgh',
+      )
     })
 
     it('provides alternate-race default data only for solo modes', () => {
@@ -153,6 +165,7 @@ describe('common/matchmaking', () => {
         alternateRace: 'z',
       })
       expect(defaultPreferenceData(MatchmakingType.Match2v2)).toEqual({})
+      expect(defaultPreferenceData(MatchmakingType.Match2v2Bgh)).toEqual({})
     })
   })
 })

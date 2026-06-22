@@ -96,6 +96,15 @@ export const MATCHMAKING_MODES = {
     supportsAlternateRace: false,
     label: t => t('matchmaking.type.2v2', '2v2'),
   },
+  [MatchmakingType.Match2v2Bgh]: {
+    type: MatchmakingType.Match2v2Bgh,
+    format: '2v2',
+    variant: 'bgh',
+    teamSize: 2,
+    mapSelectionStyle: 'fixed',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.2v2bgh', '2v2 BGH'),
+  },
 } satisfies Record<MatchmakingType, MatchmakingModeInfo>
 
 /** Returns the static mode descriptor for a given `MatchmakingType`. */
@@ -781,6 +790,11 @@ export type MatchmakingPreferences2v2 = BaseMatchmakingPreferences<
   Record<string, never>
 >
 
+export type MatchmakingPreferences2v2Bgh = BaseMatchmakingPreferences<
+  MatchmakingType.Match2v2Bgh,
+  Record<string, never>
+>
+
 // NOTE(tec27): At the moment we can share the data between 1v1 and 1v1Fastest but if need be we
 // could use a separate data type
 export type MatchmakingPreferences1v1Fastest = BaseMatchmakingPreferences<
@@ -797,6 +811,7 @@ export type MatchmakingPreferences =
   | MatchmakingPreferences1v1
   | MatchmakingPreferences1v1Fastest
   | MatchmakingPreferences2v2
+  | MatchmakingPreferences2v2Bgh
 
 export type PartialMatchmakingPreferences = SetRequired<
   Partial<MatchmakingPreferences>,

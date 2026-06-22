@@ -54,6 +54,9 @@ pub enum MatchmakingType {
     #[serde(rename = "2v2")]
     #[sqlx(rename = "2v2")]
     Match2v2,
+    #[serde(rename = "2v2bgh")]
+    #[sqlx(rename = "2v2bgh")]
+    Match2v2Bgh,
 }
 
 impl MatchmakingType {
@@ -62,6 +65,7 @@ impl MatchmakingType {
             MatchmakingType::Match1v1 => 1,
             MatchmakingType::Match1v1Fastest => 1,
             MatchmakingType::Match2v2 => 2,
+            MatchmakingType::Match2v2Bgh => 2,
         }
     }
 

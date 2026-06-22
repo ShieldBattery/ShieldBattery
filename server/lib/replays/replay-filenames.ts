@@ -32,6 +32,8 @@ function getGameTypeLabel(game: GameRecord): string {
         return '1v1F'
       case MatchmakingType.Match2v2:
         return '2v2'
+      case MatchmakingType.Match2v2Bgh:
+        return '2v2BGH'
       default:
         return 'Ranked'
     }

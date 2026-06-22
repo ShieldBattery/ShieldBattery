@@ -54,10 +54,15 @@ export interface MatchmakingExtra2v2 {
   parties: SbUserId[][]
 }
 
+export interface MatchmakingExtra2v2Bgh {
+  type: MatchmakingType.Match2v2Bgh
+}
+
 export type MatchmakingExtra =
   | MatchmakingExtra1v1
   | MatchmakingExtra1v1Fastest
   | MatchmakingExtra2v2
+  | MatchmakingExtra2v2Bgh
 
 export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
 

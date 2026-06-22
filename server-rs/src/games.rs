@@ -278,6 +278,17 @@ impl MatchmakingExtra2v2Data {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtra2v2BghData {}
+
+#[Object]
+impl MatchmakingExtra2v2BghData {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Match2v2Bgh
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::Interface)]
 #[graphql(field(name = "matchmaking_type", ty = "MatchmakingType"))]
 #[serde(tag = "type")]
@@ -288,6 +299,8 @@ pub enum MatchmakingExtra {
     Match1v1Fastest(MatchmakingExtra1v1FastestData),
     #[serde(rename = "2v2")]
     Match2v2(MatchmakingExtra2v2Data),
+    #[serde(rename = "2v2bgh")]
+    Match2v2Bgh(MatchmakingExtra2v2BghData),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::Union)]
