@@ -472,11 +472,7 @@ function RatedUserContent({
             ))}
           </Deltas>
         </IconAndDeltas>
-        <PointsBarView
-          points={points}
-          ref={pointsAnimScope}
-          style={{ '--sb-points-bar-scale': divPercent } as any}
-        />
+        <PointsBarView points={points} divPercent={divPercent} ref={pointsAnimScope} />
       </MatchmakingSide>
       {leagueValues.length > 0 ? (
         <LeagueSide>
@@ -728,19 +724,24 @@ const PointsLabel = styled(m.div)`
 
 interface PointsBarViewProps {
   points: MotionValue<number>
+  divPercent: MotionValue<number>
 }
 
-const PointsBarView = m.create(
-  forwardRef<HTMLDivElement, PointsBarViewProps>(({ points }, ref) => {
+// NOTE: This is a plain `forwardRef` (not `m.create`) on purpose. `PointsBarRoot` and `PointsLabel`
+// are already motion components, so they consume the `divPercent`/`points` MotionValues natively.
+// Wrapping the whole view in `m.create` instead caused motion to strip the `points` MotionValue
+// before it reached this component, crashing on `points.get()`.
+const PointsBarView = forwardRef<HTMLDivElement, PointsBarViewProps>(
+  ({ points, divPercent }, ref) => {
     const roundedPoints = useTransform(() => Math.round(points.get()))
 
     return (
-      <PointsBarRoot ref={ref}>
+      <PointsBarRoot ref={ref} style={{ '--sb-points-bar-scale': divPercent } as any}>
         <PointsBar />
         <PointsLabelMover>
           <PointsLabel>{roundedPoints}</PointsLabel>
         </PointsLabelMover>
       </PointsBarRoot>
     )
-  }),
+  },
 )
