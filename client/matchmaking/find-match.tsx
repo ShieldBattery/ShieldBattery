@@ -49,6 +49,7 @@ const REAL_MODES: RealModeData[] = [
   { type: MatchmakingType.Match1v1, group: '1v1', team: false },
   { type: MatchmakingType.Match1v1Fastest, group: '1v1', team: false },
   { type: MatchmakingType.Match2v2, group: '2v2', team: true },
+  { type: MatchmakingType.Match2v2Bgh, group: '2v2', team: true },
 ]
 
 const MODE_GROUPS: { id: '1v1' | '2v2'; label: string; hint: string }[] = [
@@ -1461,6 +1462,8 @@ export function FindMatch() {
         return t('matchmaking.findMatch.desc.1v1fastest', 'Solo · Fastest Map')
       case MatchmakingType.Match2v2:
         return t('matchmaking.findMatch.desc.2v2', 'Team · standard maps')
+      case MatchmakingType.Match2v2Bgh:
+        return t('matchmaking.findMatch.desc.2v2bgh', 'Team · Big Game Hunters')
       default:
         return type satisfies never
     }

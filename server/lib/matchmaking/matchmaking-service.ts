@@ -1035,6 +1035,11 @@ export class MatchmakingService {
           parties: entities.map(entity => Array.from(getPlayersFromEntity(entity), p => p.id)),
         }
         break
+      case MatchmakingType.Match2v2Bgh:
+        gameSourceExtra = {
+          type: match.type,
+        }
+        break
       default:
         gameSourceExtra = assertUnreachable(match.type)
     }
@@ -1048,6 +1053,7 @@ export class MatchmakingService {
         gameSubType = 0
         break
       case MatchmakingType.Match2v2:
+      case MatchmakingType.Match2v2Bgh:
         gameType = GameType.TopVsBottom
         gameSubType = TEAM_SIZES[match.type]
         break

@@ -197,6 +197,10 @@ type MatchmakingExtra1V1FastestData implements MatchmakingExtra {
 	matchmakingType: MatchmakingType!
 }
 
+type MatchmakingExtra2V2BghData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
 type MatchmakingExtra2V2Data implements MatchmakingExtra {
 	"""
 	The user Ids of players in the match, grouped into lists by party. Players not in a party
