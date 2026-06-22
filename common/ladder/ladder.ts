@@ -39,6 +39,25 @@ export function ladderPlayerToMatchmakingDivision(
   }
 }
 
+/** How many rank cards a user's profile shows before offering to expand to all of their modes. */
+export const DEFAULT_PROFILE_RANKS_SHOWN = 2
+
+/**
+ * Returns the matchmaking types a user has played at least one game in, sorted by how active they've
+ * been (most games played first). Used to show a user's ranks on their profile with the most relevant
+ * modes first; the profile shows only the first few by default and lets the user expand to the rest.
+ */
+export function getRankedTypesByActivity(
+  ladder: Partial<Record<MatchmakingType, LadderPlayer>>,
+): MatchmakingType[] {
+  return (Object.keys(ladder) as MatchmakingType[])
+    .filter(type => {
+      const player = ladder[type]
+      return player ? player.wins + player.losses > 0 : false
+    })
+    .sort((a, b) => ladder[b]!.wins + ladder[b]!.losses - (ladder[a]!.wins + ladder[a]!.losses))
+}
+
 export enum LadderErrorCode {
   NotFound = 'NotFound',
   OnlyAllowedOnSelf = 'OnlyAllowedOnSelf',

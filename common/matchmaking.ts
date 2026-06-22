@@ -107,6 +107,14 @@ export function matchmakingTypeToLabel(type: MatchmakingType, t: TFunction): str
   return MATCHMAKING_MODES[type].label(t)
 }
 
+/** All matchmaking formats, in the canonical order they should be presented in the UI. */
+export const MATCHMAKING_FORMATS: ReadonlyArray<MatchmakingFormat> = ['1v1', '2v2', '3v3']
+
+/** Returns the matchmaking types belonging to a given format, in canonical (enum) order. */
+export function getMatchmakingTypesForFormat(format: MatchmakingFormat): MatchmakingType[] {
+  return ALL_MATCHMAKING_TYPES.filter(type => MATCHMAKING_MODES[type].format === format)
+}
+
 /**
  * Returns whether or not a given `MatchmakingType` has vetoes (versus positive map selections,
  * e.g. select the maps you want to play on).

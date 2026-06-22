@@ -1,13 +1,8 @@
 import * as React from 'react'
 import { useCallback, useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { concatWithoutDuplicates } from '../../common/data-structures/arrays'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingType,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
 import {
   AddMatchmakingTimeRequest,
   GetFutureMatchmakingTimesResponse,
@@ -22,7 +17,6 @@ import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { DateTimeTextField } from '../material/datetime-text-field'
 import { elevationPlus1 } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { LoadingDotsArea } from '../progress/dots'
@@ -32,6 +26,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, titleLarge, titleMedium } from '../styles/typography'
+import { MatchmakingTypeNav } from './matchmaking-type-nav'
 
 function getCurrentMatchmakingTime(
   type: MatchmakingType,
@@ -110,7 +105,30 @@ function deleteMatchmakingTime(
   })
 }
 
+const Root = styled.div`
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: row;
+
+  overflow: hidden;
+`
+
+const AdminRail = styled.div`
+  flex-shrink: 0;
+  width: 224px;
+  height: 100%;
+  padding: 16px 12px;
+
+  background-color: var(--theme-container-lowest);
+  border-right: 1px solid rgb(from var(--color-blue80) r g b / 0.07);
+  overflow-y: auto;
+`
+
 const Container = styled(CenteredContentContainer)`
+  flex: 1 1 auto;
+  min-width: 0;
   padding-block: 16px 8px;
 `
 
@@ -255,30 +273,28 @@ const EmptyStateText = styled.p`
 `
 
 export function AdminMatchmakingTimes() {
-  const { t } = useTranslation()
-
   const [activeTab, setActiveTab] = useState<MatchmakingType>(MatchmakingType.Match1v1)
 
   return (
-    <Container>
-      <Tabs activeTab={activeTab} onChange={setActiveTab}>
-        {ALL_MATCHMAKING_TYPES.map(type => (
-          <TabItem key={type} text={matchmakingTypeToLabel(type, t)} value={type} />
-        ))}
-      </Tabs>
+    <Root>
+      <AdminRail>
+        <MatchmakingTypeNav label='Mode' activeType={activeTab} onChange={setActiveTab} />
+      </AdminRail>
 
-      <PageHeadline>Matchmaking times</PageHeadline>
+      <Container>
+        <PageHeadline>Matchmaking times</PageHeadline>
 
-      {/**
-       * Recreate this component when the active tab changes so it clears its local state (and the
-       * local state of its children components).
-       */}
-      <HistoryContainer key={activeTab}>
-        <FutureMatchmakingTimes activeTab={activeTab} />
-        <CurrentMatchmakingTime activeTab={activeTab} />
-        <PastMatchmakingTimes activeTab={activeTab} />
-      </HistoryContainer>
-    </Container>
+        {/**
+         * Recreate this component when the active tab changes so it clears its local state (and the
+         * local state of its children components).
+         */}
+        <HistoryContainer key={activeTab}>
+          <FutureMatchmakingTimes activeTab={activeTab} />
+          <CurrentMatchmakingTime activeTab={activeTab} />
+          <PastMatchmakingTimes activeTab={activeTab} />
+        </HistoryContainer>
+      </Container>
+    </Root>
   )
 }
 

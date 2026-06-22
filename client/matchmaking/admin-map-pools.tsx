@@ -1,15 +1,10 @@
 import { debounce } from 'lodash-es'
 import * as React from 'react'
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { concatWithoutDuplicates } from '../../common/data-structures/arrays'
 import { SbMapId } from '../../common/maps'
-import {
-  ALL_MATCHMAKING_TYPES,
-  MatchmakingType,
-  matchmakingTypeToLabel,
-} from '../../common/matchmaking'
+import { MatchmakingType } from '../../common/matchmaking'
 import {
   CreateMatchmakingMapPoolRequest,
   CreateMatchmakingMapPoolResponse,
@@ -29,7 +24,6 @@ import { fastOutSlowInShort } from '../material/curves'
 import { DateTimeTextField } from '../material/datetime-text-field'
 import { NumberTextField } from '../material/number-text-field'
 import { elevationPlus1 } from '../material/shadows'
-import { TabItem, Tabs } from '../material/tabs'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { useRefreshToken } from '../network/refresh-token'
@@ -50,6 +44,7 @@ import {
   titleLarge,
   titleMedium,
 } from '../styles/typography'
+import { MatchmakingTypeNav } from './matchmaking-type-nav'
 
 function getMapPoolsHistory(
   type: MatchmakingType,
@@ -112,7 +107,30 @@ function deleteMapPool(id: number, spec: RequestHandlingSpec): ThunkAction {
   })
 }
 
+const Root = styled.div`
+  width: 100%;
+  height: 100%;
+
+  display: flex;
+  flex-direction: row;
+
+  overflow: hidden;
+`
+
+const AdminRail = styled.div`
+  flex-shrink: 0;
+  width: 224px;
+  height: 100%;
+  padding: 16px 12px;
+
+  background-color: var(--theme-container-lowest);
+  border-right: 1px solid rgb(from var(--color-blue80) r g b / 0.07);
+  overflow-y: auto;
+`
+
 const Container = styled(CenteredContentContainer)`
+  flex: 1 1 auto;
+  min-width: 0;
   padding-block: 16px 8px;
 `
 
@@ -217,26 +235,24 @@ const EmptyStateText = styled.p`
 `
 
 export function AdminMatchmakingMapPools() {
-  const { t } = useTranslation()
-
   const [activeTab, setActiveTab] = useState<MatchmakingType>(MatchmakingType.Match1v1)
 
   return (
-    <Container>
-      <Tabs activeTab={activeTab} onChange={setActiveTab}>
-        {ALL_MATCHMAKING_TYPES.map(type => (
-          <TabItem key={type} text={matchmakingTypeToLabel(type, t)} value={type} />
-        ))}
-      </Tabs>
+    <Root>
+      <AdminRail>
+        <MatchmakingTypeNav label='Mode' activeType={activeTab} onChange={setActiveTab} />
+      </AdminRail>
 
-      <PageHeadline>Matchmaking map pools</PageHeadline>
+      <Container>
+        <PageHeadline>Matchmaking map pools</PageHeadline>
 
-      {/**
-       * Recreate this component when the active tab changes so it clears its local state (and the
-       * local state of its children components).
-       */}
-      <MapPools key={activeTab} activeTab={activeTab} />
-    </Container>
+        {/**
+         * Recreate this component when the active tab changes so it clears its local state (and the
+         * local state of its children components).
+         */}
+        <MapPools key={activeTab} activeTab={activeTab} />
+      </Container>
+    </Root>
   )
 }
 
