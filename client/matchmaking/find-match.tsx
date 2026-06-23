@@ -32,7 +32,7 @@ import { healthChecked } from '../starcraft/health-checked'
 import { bodySmall, labelMedium, labelSmall, sofiaSans, titleSmall } from '../styles/typography'
 import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
 import { FindMatchContent } from './find-match-content'
-import { currentSearchInfoAtom, isMatchmakingAtom } from './matchmaking-atoms'
+import { currentSearchInfoAtom, foundMatchAtom, isMatchmakingAtom } from './matchmaking-atoms'
 import { DivisionIcon } from './rank-icon'
 
 // ─── Static mode definitions ─────────────────────────────────────────────────
@@ -1118,6 +1118,7 @@ export interface QueueChipData {
 interface QueueBarProps {
   selectedChips: QueueChipData[]
   isSearching: boolean
+  isMatched: boolean
   elapsedSecs: number
   disabled: boolean
   onFindMatch: () => void
@@ -1127,6 +1128,7 @@ interface QueueBarProps {
 export function QueueBar({
   selectedChips,
   isSearching,
+  isMatched,
   elapsedSecs,
   disabled,
   onFindMatch,
@@ -1138,17 +1140,19 @@ export function QueueBar({
 
   let summaryContent: React.ReactNode
   if (isSearching) {
+    // Once a match is found (the accept dialog is up), the elapsed search time is no longer
+    // meaningful, so we hide it behind a placeholder — mirroring the gameplay activity widget.
     summaryContent = (
       <>
         <QueueSummaryHead>
-          {t(
-            'matchmaking.findMatch.searchingMessage',
-            'Searching for a match — widening MMR range · first match wins the queue',
-          )}
+          {isMatched
+            ? t('matchmaking.findMatch.matchFound', 'Match found!')
+            : t(
+                'matchmaking.findMatch.searchingMessage',
+                'Searching for a match — widening MMR range · first match wins the queue',
+              )}
         </QueueSummaryHead>
-        <SearchingTimer>
-          {mm}:{ss}
-        </SearchingTimer>
+        <SearchingTimer>{isMatched ? '…' : `${mm}:${ss}`}</SearchingTimer>
       </>
     )
   } else if (disabled) {
@@ -1220,6 +1224,7 @@ export function FindMatch() {
   // ─── Searching state (from Jotai atoms) ─────────────────────────────────────
   const isSearching = useAtomValue(isMatchmakingAtom)
   const searchInfo = useAtomValue(currentSearchInfoAtom)
+  const isMatched = !!useAtomValue(foundMatchAtom)
 
   // ─── Redux state ────────────────────────────────────────────────────────────
   const season = useAppSelector(s => s.selfRank.currentSeason)
@@ -1517,6 +1522,7 @@ export function FindMatch() {
         <QueueBar
           selectedChips={selectedChips}
           isSearching={isSearching}
+          isMatched={isMatched}
           elapsedSecs={elapsedSecs}
           disabled={findMatchDisabled}
           onFindMatch={handleFindMatch}
