@@ -193,6 +193,13 @@ export class MatchmakingApi {
       await Promise.all(
         preferences.map(pref => this.matchmakingPreferencesService.upsertPreferences(pref)),
       )
+      // Remember which modes were queued (clearing the rest) so the find-match page can restore this
+      // selection next session and across devices without the user re-checking each mode. Runs after
+      // the upserts so the queued types' rows are guaranteed to exist.
+      await this.matchmakingPreferencesService.setSelectedTypes(
+        ctx.session!.user.id,
+        preferences.map(pref => pref.matchmakingType),
+      )
     } catch (err) {
       logger.error({ err }, 'error saving matchmaking preferences after queueing')
     }

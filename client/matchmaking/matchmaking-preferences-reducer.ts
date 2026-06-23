@@ -5,6 +5,8 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface FetchedMatchmakingPreferences {
   preferences?: MatchmakingPreferences
+  /** Whether this type is part of the user's current find-match mode selection. */
+  selected?: boolean
   lastError?: FetchError
 }
 
@@ -18,10 +20,10 @@ const DEFAULT_STATE: Immutable<MatchmakingPreferencesState> = {
 
 export default immerKeyedReducer(DEFAULT_STATE, {
   ['@matchmaking/initPreferences'](state, action) {
-    const { preferences } = action.payload
+    const { preferences, selected } = action.payload
     const { type } = action.meta
 
-    state.byType.set(type, { preferences, lastError: undefined })
+    state.byType.set(type, { preferences, selected, lastError: undefined })
   },
 
   ['@matchmaking/updatePreferences'](state, action) {
@@ -36,7 +38,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    const { preferences } = action.payload
-    state.byType.set(type, { preferences })
+    const { preferences, selected } = action.payload
+    state.byType.set(type, { preferences, selected })
   },
 })

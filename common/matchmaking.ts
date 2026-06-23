@@ -853,6 +853,11 @@ export interface GetPreferencesResponse {
   preferences: MatchmakingPreferences
   currentMapPoolId: number
   mapInfos: MapInfoJson[]
+  /**
+   * Whether this type is part of the user's current find-match mode selection (i.e. it was in their
+   * most recent search). The find-match page seeds its default selection from these flags.
+   */
+  selected: boolean
 }
 
 export interface SearchedType {

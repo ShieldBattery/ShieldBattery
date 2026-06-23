@@ -17,6 +17,7 @@ import { ClientSocketsManager } from '../websockets/socket-groups'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import {
   getMatchmakingPreferences,
+  setSelectedMatchmakingTypes,
   upsertMatchmakingPreferences,
 } from './matchmaking-preferences-model'
 
@@ -57,9 +58,13 @@ export default class MatchmakingPreferencesService {
               const currentMapPool = await getCurrentMapPool(matchmakingType)
               // If the user has never saved preferences for this type, we synthesize defaults rather
               // than signalling "missing", so every read site can rely on a full preferences object.
+              // A synthesized default is never `selected` — only types the user has actually queued
+              // for get marked.
+              const stored = await getMatchmakingPreferences(c.userId, matchmakingType)
               const preferences =
-                (await getMatchmakingPreferences(c.userId, matchmakingType)) ??
+                stored?.preferences ??
                 buildDefaultPreferences(matchmakingType, c.userId, currentMapPool)
+              const selected = stored?.selected ?? false
 
               const mapInfos = currentMapPool
                 ? (
@@ -73,6 +78,7 @@ export default class MatchmakingPreferencesService {
                 preferences,
                 currentMapPoolId: currentMapPool?.id ?? 1,
                 mapInfos,
+                selected,
               }
             } catch (err) {
               logger.error({ err }, 'error retrieving user matchmaking preferences')
@@ -80,6 +86,7 @@ export default class MatchmakingPreferencesService {
                 preferences: buildDefaultPreferences(matchmakingType, c.userId, null),
                 currentMapPoolId: 1,
                 mapInfos: [],
+                selected: false,
               }
             }
           },
@@ -94,5 +101,14 @@ export default class MatchmakingPreferencesService {
    */
   upsertPreferences(preferences: PartialMatchmakingPreferences) {
     return upsertMatchmakingPreferences(preferences)
+  }
+
+  /**
+   * Marks exactly the given matchmaking types as the user's current selection (clearing the flag on
+   * the rest), so the find-match page can restore which modes they want to queue across sessions and
+   * devices. Callers should upsert the queued types' preferences first so their rows exist.
+   */
+  setSelectedTypes(userId: SbUserId, selectedTypes: ReadonlyArray<MatchmakingType>) {
+    return setSelectedMatchmakingTypes(userId, selectedTypes)
   }
 }
