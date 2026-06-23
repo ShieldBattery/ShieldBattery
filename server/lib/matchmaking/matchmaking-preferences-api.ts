@@ -54,7 +54,9 @@ export class MatchmakingPreferencesApi {
       }
     }
 
-    const preferences = await this.matchmakingPreferencesService.upsertPreferences({
+    // Editing settings doesn't change which modes are selected, so we just echo the stored
+    // `selected` flag back (the upsert leaves it untouched).
+    const { preferences, selected } = await this.matchmakingPreferencesService.upsertPreferences({
       userId: ctx.session!.user.id,
       matchmakingType: body.matchmakingType as any,
       race: body.race,
@@ -71,6 +73,7 @@ export class MatchmakingPreferencesApi {
       preferences,
       currentMapPoolId: currentMapPool.id,
       mapInfos,
+      selected,
     }
   }
 }

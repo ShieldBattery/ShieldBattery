@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
@@ -1248,6 +1248,28 @@ export function FindMatch() {
       dispatch(getCurrentMapPool(type))
     }
   }, [dispatch])
+
+  // Seed the mode selection from the user's persisted preferences (their most recent search), which
+  // are pushed on connect. We wait until every type's preferences have loaded so a slow-arriving type
+  // can't be dropped from the restored set, and only seed once so we never clobber the user's own
+  // in-page toggles once they start interacting.
+  const hasSeededSelection = useRef(false)
+  useEffect(() => {
+    if (hasSeededSelection.current) {
+      return
+    }
+    if (!ALL_MATCHMAKING_TYPES.every(type => matchmakingPreferences.get(type)?.preferences)) {
+      return
+    }
+    hasSeededSelection.current = true
+    const restored = new Set(
+      ALL_MATCHMAKING_TYPES.filter(type => matchmakingPreferences.get(type)?.selected),
+    )
+    if (restored.size > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time seed from persisted prefs
+      setSelectedTypes(restored)
+    }
+  }, [matchmakingPreferences])
 
   useEffect(() => {
     const abortController = new AbortController()
