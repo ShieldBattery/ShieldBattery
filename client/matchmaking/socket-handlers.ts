@@ -261,7 +261,7 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
 
   siteSocket.registerRoute(
     '/matchmakingPreferences/:userId/:matchmakingType',
-    (route: RouteInfo, event: GetPreferencesResponse | Record<string, undefined>) => {
+    (route: RouteInfo, event: GetPreferencesResponse) => {
       const type = route.params.matchmakingType as MatchmakingType
 
       dispatch((_, getState) => {

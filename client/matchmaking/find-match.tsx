@@ -6,10 +6,8 @@ import styled, { css, keyframes } from 'styled-components'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
 import {
   ALL_MATCHMAKING_TYPES,
-  defaultPreferences,
   getMatchmakingModeInfo,
   getTotalBonusPoolForSeason,
-  hasVetoes,
   MapSelectionStyle,
   MatchmakingDivision,
   matchmakingDivisionToLabel,
@@ -1122,8 +1120,6 @@ interface QueueBarProps {
   isSearching: boolean
   elapsedSecs: number
   disabled: boolean
-  /** A selected type's map pool is still loading, so Find is temporarily disabled. */
-  waitingForMapPool: boolean
   onFindMatch: () => void
   onCancel: () => void
 }
@@ -1133,7 +1129,6 @@ export function QueueBar({
   isSearching,
   elapsedSecs,
   disabled,
-  waitingForMapPool,
   onFindMatch,
   onCancel,
 }: QueueBarProps) {
@@ -1155,13 +1150,6 @@ export function QueueBar({
           {mm}:{ss}
         </SearchingTimer>
       </>
-    )
-  } else if (waitingForMapPool) {
-    summaryContent = (
-      <QueueEmptyHint>
-        <MaterialIcon icon='info' size={18} />
-        {t('matchmaking.findMatch.loadingMapPool', 'Loading map pool…')}
-      </QueueEmptyHint>
     )
   } else if (disabled) {
     summaryContent = (
@@ -1299,21 +1287,6 @@ export function FindMatch() {
     ? new Set(searchInfo?.searchedTypes.keys() ?? [])
     : new Set(Array.from(selectedTypes).filter(isTypeEnabled))
 
-  // Whether we can build a valid queue request for a type yet. For a user who never configured the
-  // type the server sends `{}` prefs and handleFindMatch falls back to defaults — and pick (no-veto)
-  // modes default their map selection from the current map pool, which is fetched async on mount.
-  // Until that pool arrives we'd send an empty selection that the server rejects with InvalidMaps, so
-  // treat such a type as not-yet-ready and keep Find disabled (with a loading hint) rather than
-  // letting a fast click produce a spurious error.
-  const isTypeReadyToQueue = (type: MatchmakingType): boolean => {
-    const prefs = matchmakingPreferences.get(type)?.preferences
-    if (prefs && 'matchmakingType' in prefs) return true
-    return hasVetoes(type) || mapPools.get(type) !== undefined
-  }
-
-  const isWaitingForMapPool =
-    !isSearching && Array.from(effectiveSelectedTypes).some(type => !isTypeReadyToQueue(type))
-
   const getStatsForType = (type: MatchmakingType): RowStats => {
     const player = selfRankByType.get(type)
     if (!player || !season) {
@@ -1339,18 +1312,17 @@ export function FindMatch() {
     let alternateRace: AssignedRaceChar = 'z'
     let mapSelectionCount = 0
 
-    if (prefs && 'race' in prefs) {
-      race = (prefs as MatchmakingPreferences).race ?? 'r'
-      mapSelectionCount = (prefs as MatchmakingPreferences).mapSelections?.length ?? 0
+    if (prefs) {
+      race = prefs.race ?? 'r'
+      mapSelectionCount = prefs.mapSelections?.length ?? 0
       if (
         (type === MatchmakingType.Match1v1 || type === MatchmakingType.Match1v1Fastest) &&
         race !== 'r'
       ) {
-        const data1v1 = (
-          prefs as MatchmakingPreferences & {
-            data: { useAlternateRace?: boolean; alternateRace?: AssignedRaceChar }
-          }
-        ).data
+        const data1v1 = prefs.data as {
+          useAlternateRace?: boolean
+          alternateRace?: AssignedRaceChar
+        }
         useAlternateRace = data1v1?.useAlternateRace ?? false
         alternateRace = data1v1?.alternateRace ?? 'z'
       }
@@ -1367,11 +1339,8 @@ export function FindMatch() {
     }
   }
 
-  const getRaceForType = (type: MatchmakingType): RaceChar => {
-    const prefs = matchmakingPreferences.get(type)?.preferences
-    if (prefs && 'race' in prefs) return (prefs as MatchmakingPreferences).race ?? 'r'
-    return 'r'
-  }
+  const getRaceForType = (type: MatchmakingType): RaceChar =>
+    matchmakingPreferences.get(type)?.preferences?.race ?? 'r'
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -1391,28 +1360,17 @@ export function FindMatch() {
   }
 
   const handleFindMatch = healthChecked(() => {
-    // isWaitingForMapPool guards the Enter-key path too, which bypasses the (disabled) Find button.
-    if (inLobby || isSubmitting || isWaitingForMapPool || effectiveSelectedTypes.size === 0) return
+    if (inLobby || isSubmitting || effectiveSelectedTypes.size === 0) return
 
     const allPrefs: MatchmakingPreferences[] = []
     for (const type of effectiveSelectedTypes) {
       const prefs = matchmakingPreferences.get(type)?.preferences
-      if (prefs && 'matchmakingType' in prefs) {
-        allPrefs.push(prefs as MatchmakingPreferences)
-      } else {
-        // The user has never saved preferences for this type, so the server sends `{}`. Fall back
-        // to defaults (random race, current map pool) so they can still queue — otherwise the Find
-        // match button would silently do nothing for a fresh account.
-        const pool = mapPools.get(type)
-        const defaults = defaultPreferences(type, selfUser.id, pool?.id ?? 1)
-        if (!hasVetoes(type)) {
-          // Pick modes (e.g. 1v1 Fastest) require at least one selected map; the server rejects an
-          // empty selection with InvalidMaps. Default to the entire pool ("happy to play any of
-          // these") so a fresh user who never opened the settings drawer can still queue.
-          defaults.mapSelections = pool ? [...pool.maps] : []
-        }
-        allPrefs.push(defaults as MatchmakingPreferences)
+      if (!prefs) {
+        // The preferences subscription seeds defaults for every type on connect, so this is
+        // effectively unreachable past app startup; bail rather than silently queueing a subset.
+        return
       }
+      allPrefs.push(prefs as MatchmakingPreferences)
     }
     if (allPrefs.length === 0) return
 
@@ -1481,8 +1439,7 @@ export function FindMatch() {
         race: getRaceForType(type),
       }))
 
-  const findMatchDisabled =
-    effectiveSelectedTypes.size === 0 || inLobby || isSubmitting || isWaitingForMapPool
+  const findMatchDisabled = effectiveSelectedTypes.size === 0 || inLobby || isSubmitting
 
   return (
     <PageRoot>
@@ -1560,7 +1517,6 @@ export function FindMatch() {
           isSearching={isSearching}
           elapsedSecs={elapsedSecs}
           disabled={findMatchDisabled}
-          waitingForMapPool={isWaitingForMapPool}
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}
         />

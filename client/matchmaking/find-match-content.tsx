@@ -220,14 +220,13 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
     s =>
       s.matchmakingPreferences.byType.get(type)?.preferences as
         | Immutable<MatchmakingPreferences>
-        | Record<string, never>
         | undefined,
   )
   const mapPoolOutdated = useAppSelector(
     s => s.matchmakingPreferences.byType.get(type)?.mapPoolOutdated ?? false,
   )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(type))
-  const prefsMapSelections = prefs && 'mapSelections' in prefs ? prefs.mapSelections : undefined
+  const prefsMapSelections = prefs?.mapSelections
   const mapSelections = useMemo(
     () => (prefsMapSelections ?? []).filter(id => !mapPool || mapPool.maps.includes(id)),
     [prefsMapSelections, mapPool],
@@ -240,9 +239,8 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
     return <LoadingDotsArea />
   }
 
-  const data =
-    'data' in prefs ? (prefs.data as Immutable<MatchmakingPreferencesData1v1>) : undefined
-  const race = 'race' in prefs ? (prefs.race ?? 'r') : 'r'
+  const data = prefs.data as Immutable<MatchmakingPreferencesData1v1> | undefined
+  const race = prefs.race ?? 'r'
 
   return (
     <FindMatchForm

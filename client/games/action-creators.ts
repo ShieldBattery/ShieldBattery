@@ -118,8 +118,9 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
     } = getState()
     const prefs = byType.get(matchmakingType)?.preferences
 
-    if (!prefs || !('matchmakingType' in prefs)) {
-      // TODO(tec27): Request them?
+    if (!prefs) {
+      // The preferences subscription seeds defaults for every type on connect, so this only happens
+      // if we haven't received that event yet.
       externalShowSnackbar(
         i18n.t(
           'matchmaking.findMatch.errors.searchAgainError',
@@ -130,7 +131,7 @@ export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): Thunk
       return
     }
 
-    // prefs is narrowed above but TS can't infer through Immutable union, so we cast
+    // TS can't infer the mutable element type through the Immutable store union, so we cast
     const typedPrefs = prefs as Immutable<MatchmakingPreferences>
 
     dispatch(

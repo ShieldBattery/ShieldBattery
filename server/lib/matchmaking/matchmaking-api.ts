@@ -23,6 +23,7 @@ import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
+import logger from '../logging/logger'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -33,6 +34,7 @@ import { validateRequest } from '../validation/joi-validator'
 import { filterMapSelections } from './map-selections'
 import { MatchmakingBanService } from './matchmaking-ban-service'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
+import MatchmakingPreferencesService from './matchmaking-preferences-service'
 import { MatchmakingSeasonsService, MatchmakingSeasonsServiceError } from './matchmaking-seasons'
 import { MatchmakingService } from './matchmaking-service'
 import { MatchmakingServiceError } from './matchmaking-service-error'
@@ -112,6 +114,7 @@ export class MatchmakingApi {
     private userIdManager: UserIdentifierManager,
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private matchmakingBanService: MatchmakingBanService,
+    private matchmakingPreferencesService: MatchmakingPreferencesService,
   ) {}
 
   @httpPost('/find')
@@ -180,6 +183,19 @@ export class MatchmakingApi {
       identifiers,
       processedPreferences,
     )
+
+    // Persist the preferences used for this search so they're pre-filled next session and usable for
+    // "search again" without the user having to open the settings drawer first. We store what the
+    // client sent (preserving their `mapPoolId`) rather than the pool-filtered version, so the
+    // "pool updated" indicator keeps working for users who queue without reviewing a new pool. A
+    // failure here shouldn't fail an already-successful queue.
+    try {
+      await Promise.all(
+        preferences.map(pref => this.matchmakingPreferencesService.upsertPreferences(pref)),
+      )
+    } catch (err) {
+      logger.error({ err }, 'error saving matchmaking preferences after queueing')
+    }
   }
 
   @httpDelete('/find')
