@@ -907,6 +907,7 @@
       "inLobbyBanner": "You’re in a lobby — matchmaking is unavailable while in a game lobby.",
       "mapPool": "Map pool",
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
+      "matchFound": "Match found!",
       "noScheduledWindow": "No scheduled window yet",
       "pickedCount": " / {{limit}} picked",
       "poolUpdated": "Pool updated",

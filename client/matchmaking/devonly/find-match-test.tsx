@@ -205,7 +205,13 @@ const MOCK_MODES: MockModeData[] = [
 
 // ─── Scenario state ───────────────────────────────────────────────────────────
 
-type Scenario = 'idle' | 'in-lobby' | 'some-disabled' | 'searching' | 'multi-searching'
+type Scenario =
+  | 'idle'
+  | 'in-lobby'
+  | 'some-disabled'
+  | 'searching'
+  | 'multi-searching'
+  | 'match-found'
 
 interface MockAvailability {
   nextStartDate?: Date
@@ -215,6 +221,7 @@ interface MockAvailability {
 interface ScenarioState {
   selectedIds: Set<MockModeId>
   isSearching: boolean
+  isMatched: boolean
   inLobby: boolean
   disabledModes: Map<MockModeId, MockAvailability>
 }
@@ -225,6 +232,7 @@ function buildScenario(scenario: Scenario): ScenarioState {
   const base: ScenarioState = {
     selectedIds: new Set(),
     isSearching: false,
+    isMatched: false,
     inLobby: false,
     disabledModes: new Map(),
   }
@@ -259,6 +267,13 @@ function buildScenario(scenario: Scenario): ScenarioState {
         ...base,
         selectedIds: new Set([MatchmakingType.Match1v1, '2v2hunters']),
         isSearching: true,
+      }
+    case 'match-found':
+      return {
+        ...base,
+        selectedIds: new Set([MatchmakingType.Match1v1]),
+        isSearching: true,
+        isMatched: true,
       }
     default:
       return base
@@ -342,6 +357,7 @@ const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: 'some-disabled', label: 'Some disabled' },
   { id: 'searching', label: 'Searching' },
   { id: 'multi-searching', label: 'Multi searching' },
+  { id: 'match-found', label: 'Match found' },
 ]
 
 export function FindMatchListTest() {
@@ -429,7 +445,7 @@ export function FindMatchListTest() {
     handleSetScenario('idle')
   }
 
-  const { selectedIds, isSearching, inLobby, disabledModes } = state
+  const { selectedIds, isSearching, isMatched, inLobby, disabledModes } = state
 
   const drawerModeData = drawerModeId ? (MOCK_MODES.find(m => m.id === drawerModeId) ?? null) : null
   let drawerType: MatchmakingType | null = null
@@ -533,6 +549,7 @@ export function FindMatchListTest() {
         <QueueBar
           selectedChips={selectedChips}
           isSearching={isSearching}
+          isMatched={isMatched}
           elapsedSecs={elapsed}
           disabled={selectedIds.size === 0 || inLobby}
           onFindMatch={handleFindMatch}
