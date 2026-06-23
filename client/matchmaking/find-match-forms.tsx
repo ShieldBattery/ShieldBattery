@@ -301,7 +301,10 @@ export function FixedMapDisplay({
   return (
     <MapSelections className={className}>
       {mapPool.maps.map(id => (
-        <SelectableMapContainer key={id} $disabled={true}>
+        // No `onClick`, so there's no selection/veto behavior here, but the thumbnail's own
+        // actions (preview, favorite, map details) should still work, so the container isn't
+        // marked as disabled.
+        <SelectableMapContainer key={id}>
           <ReduxMapThumbnail
             mapId={id}
             showInfoLayer={true}
