@@ -69,7 +69,6 @@ export class MatchmakingPreferencesApi {
 
     return {
       preferences,
-      mapPoolOutdated: false,
       currentMapPoolId: currentMapPool.id,
       mapInfos,
     }

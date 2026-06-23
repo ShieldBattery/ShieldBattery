@@ -5,7 +5,6 @@ import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface FetchedMatchmakingPreferences {
   preferences?: MatchmakingPreferences
-  mapPoolOutdated?: boolean
   lastError?: FetchError
 }
 
@@ -19,10 +18,10 @@ const DEFAULT_STATE: Immutable<MatchmakingPreferencesState> = {
 
 export default immerKeyedReducer(DEFAULT_STATE, {
   ['@matchmaking/initPreferences'](state, action) {
-    const { preferences, mapPoolOutdated } = action.payload
+    const { preferences } = action.payload
     const { type } = action.meta
 
-    state.byType.set(type, { preferences, mapPoolOutdated, lastError: undefined })
+    state.byType.set(type, { preferences, lastError: undefined })
   },
 
   ['@matchmaking/updatePreferences'](state, action) {
@@ -37,7 +36,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    const { preferences, mapPoolOutdated } = action.payload
-    state.byType.set(type, { preferences, mapPoolOutdated })
+    const { preferences } = action.payload
+    state.byType.set(type, { preferences })
   },
 })

@@ -222,9 +222,6 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
         | Immutable<MatchmakingPreferences>
         | undefined,
   )
-  const mapPoolOutdated = useAppSelector(
-    s => s.matchmakingPreferences.byType.get(type)?.mapPoolOutdated ?? false,
-  )
   const mapPool = useAppSelector(s => s.mapPools.byType.get(type))
   const prefsMapSelections = prefs?.mapSelections
   const mapSelections = useMemo(
@@ -238,6 +235,9 @@ export function FindMatchContent({ type, disabled }: FindMatchContentProps) {
   if (!prefs) {
     return <LoadingDotsArea />
   }
+
+  // Derived from the currently-loaded pool (see find-match.tsx) rather than a connect-time flag.
+  const mapPoolOutdated = !!mapPool && prefs.mapPoolId !== mapPool.id
 
   const data = prefs.data as Immutable<MatchmakingPreferencesData1v1> | undefined
   const race = prefs.race ?? 'r'

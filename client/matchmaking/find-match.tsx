@@ -1305,7 +1305,9 @@ export function FindMatch() {
   const getSummaryStateForType = (type: MatchmakingType): RowSummaryState => {
     const prefs = matchmakingPreferences.get(type)?.preferences
     const mapPool = mapPools.get(type)
-    const poolChanged = matchmakingPreferences.get(type)?.mapPoolOutdated ?? false
+    // Derived from the currently-loaded pool rather than a connect-time flag, so the badge refreshes
+    // whenever the page (re)fetches the pool — e.g. each time the user opens the Play screen.
+    const poolChanged = !!prefs && !!mapPool && prefs.mapPoolId !== mapPool.id
 
     let race: RaceChar = 'r'
     let useAlternateRace = false
