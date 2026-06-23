@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
@@ -1236,7 +1236,11 @@ export function FindMatch() {
   const lobbyName = useAppSelector(s => s.lobby.info.name)
 
   // ─── Local state ────────────────────────────────────────────────────────────
-  const [selectedTypes, setSelectedTypes] = useState<Set<MatchmakingType>>(new Set())
+  // The mode selection itself isn't stored here: it's derived from the persisted preferences (see
+  // `selectedTypes` below). We only keep an override for when the user changes the selection this
+  // session, so we never duplicate store data into state via a seeding effect.
+  const [selectedTypesOverride, setSelectedTypesOverride] =
+    useState<ReadonlySet<MatchmakingType> | null>(null)
   const [drawerType, setDrawerType] = useState<MatchmakingType | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [elapsedSecs, setElapsedSecs] = useState(0)
@@ -1248,28 +1252,6 @@ export function FindMatch() {
       dispatch(getCurrentMapPool(type))
     }
   }, [dispatch])
-
-  // Seed the mode selection from the user's persisted preferences (their most recent search), which
-  // are pushed on connect. We wait until every type's preferences have loaded so a slow-arriving type
-  // can't be dropped from the restored set, and only seed once so we never clobber the user's own
-  // in-page toggles once they start interacting.
-  const hasSeededSelection = useRef(false)
-  useEffect(() => {
-    if (hasSeededSelection.current) {
-      return
-    }
-    if (!ALL_MATCHMAKING_TYPES.every(type => matchmakingPreferences.get(type)?.preferences)) {
-      return
-    }
-    hasSeededSelection.current = true
-    const restored = new Set(
-      ALL_MATCHMAKING_TYPES.filter(type => matchmakingPreferences.get(type)?.selected),
-    )
-    if (restored.size > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time seed from persisted prefs
-      setSelectedTypes(restored)
-    }
-  }, [matchmakingPreferences])
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -1305,6 +1287,16 @@ export function FindMatch() {
 
   const isTypeEnabled = (type: MatchmakingType): boolean =>
     matchmakingStatus.get(type)?.enabled ?? false
+
+  // The persisted selection: the types flagged `selected` in the preferences pushed on connect (the
+  // user's most recent search). Deriving it from the store each render — rather than copying it into
+  // state — keeps it live and needs no seeding effect. Once the user toggles a mode this session,
+  // their override takes over; until then we show the persisted selection.
+  const persistedSelectedTypes = new Set<MatchmakingType>(
+    ALL_MATCHMAKING_TYPES.filter(type => matchmakingPreferences.get(type)?.selected),
+  )
+  const selectedTypes: ReadonlySet<MatchmakingType> =
+    selectedTypesOverride ?? persistedSelectedTypes
 
   // While searching, the effective selected types come from Jotai (server-authoritative). When not
   // searching, we filter out any types that are currently disabled: their rows can't be deselected
@@ -1375,12 +1367,10 @@ export function FindMatch() {
 
   const handleToggle = (type: MatchmakingType) => {
     if (isSearching) return
-    setSelectedTypes(prev => {
-      const next = new Set(prev)
-      if (next.has(type)) next.delete(type)
-      else next.add(type)
-      return next
-    })
+    const next = new Set(selectedTypes)
+    if (next.has(type)) next.delete(type)
+    else next.add(type)
+    setSelectedTypesOverride(next)
   }
 
   const handleOpenSettings = (type: MatchmakingType) => {
