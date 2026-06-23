@@ -25,6 +25,7 @@ import { getInstantaneousSelfRank } from '../ladder/action-creators'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
+import { zIndexSettings } from '../material/zindex'
 import { push } from '../navigation/routing'
 import { useNow } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -899,7 +900,7 @@ const DrawerScrim = styled(m.div)`
   position: fixed;
   inset: var(--sb-system-bar-height, 0) 0 0;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 100;
+  z-index: ${zIndexSettings - 1};
 `
 
 const DrawerPanel = styled(m.aside)`
@@ -912,7 +913,7 @@ const DrawerPanel = styled(m.aside)`
   background: var(--theme-container);
   border-right: 1px solid color-mix(in srgb, var(--theme-on-surface) 10%, transparent);
   box-shadow: 12px 0 48px rgba(0, 0, 0, 0.5);
-  z-index: 101;
+  z-index: ${zIndexSettings};
   display: flex;
   flex-direction: column;
   overflow: hidden;
