@@ -4,7 +4,7 @@ import { FetchError } from '../network/fetch-errors'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface FetchedMatchmakingPreferences {
-  preferences?: MatchmakingPreferences | Record<string, never>
+  preferences?: MatchmakingPreferences
   mapPoolOutdated?: boolean
   lastError?: FetchError
 }
@@ -22,11 +22,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const { preferences, mapPoolOutdated } = action.payload
     const { type } = action.meta
 
-    if (preferences) {
-      state.byType.set(type, { preferences, mapPoolOutdated, lastError: undefined })
-    } else {
-      state.byType.delete(type)
-    }
+    state.byType.set(type, { preferences, mapPoolOutdated, lastError: undefined })
   },
 
   ['@matchmaking/updatePreferences'](state, action) {

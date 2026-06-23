@@ -44,11 +44,12 @@ export interface GetCurrentMapPoolFailure extends BaseFetchFailure<'@matchmaking
 
 /**
  * Initialize the user's matchmaking preferences when they connect to the application. If they don't
- * have any preferences saved yet, the default values will be used.
+ * have any preferences saved yet, the server synthesizes defaults, so this always carries a full
+ * preferences object.
  */
 export interface InitPreferences {
   type: '@matchmaking/initPreferences'
-  payload: GetPreferencesResponse | Record<string, undefined>
+  payload: GetPreferencesResponse
   meta: { type: MatchmakingType }
 }
 
