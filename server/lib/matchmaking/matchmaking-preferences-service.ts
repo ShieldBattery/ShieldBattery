@@ -61,8 +61,6 @@ export default class MatchmakingPreferencesService {
                 (await getMatchmakingPreferences(c.userId, matchmakingType)) ??
                 buildDefaultPreferences(matchmakingType, c.userId, currentMapPool)
 
-              const mapPoolOutdated =
-                !!currentMapPool && preferences.mapPoolId !== currentMapPool.id
               const mapInfos = currentMapPool
                 ? (
                     await getMapInfos(
@@ -73,7 +71,6 @@ export default class MatchmakingPreferencesService {
 
               return {
                 preferences,
-                mapPoolOutdated,
                 currentMapPoolId: currentMapPool?.id ?? 1,
                 mapInfos,
               }
@@ -81,7 +78,6 @@ export default class MatchmakingPreferencesService {
               logger.error({ err }, 'error retrieving user matchmaking preferences')
               return {
                 preferences: buildDefaultPreferences(matchmakingType, c.userId, null),
-                mapPoolOutdated: false,
                 currentMapPoolId: 1,
                 mapInfos: [],
               }

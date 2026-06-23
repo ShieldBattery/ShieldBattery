@@ -851,7 +851,6 @@ export function defaultPreferences<M extends MatchmakingType>(
 
 export interface GetPreferencesResponse {
   preferences: MatchmakingPreferences
-  mapPoolOutdated: boolean
   currentMapPoolId: number
   mapInfos: MapInfoJson[]
 }
