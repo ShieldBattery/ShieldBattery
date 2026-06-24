@@ -319,6 +319,9 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
         "Exhausted all attempts to publish a formed match to Redis; exiting so the process \
          restarts with a fresh token and stranded players are ejected by the Node.js watchdog."
     );
+    // std::process::exit skips the periodic/Drop-based Datadog flush, so force the log above out to
+    // Datadog (stdout already has it synchronously) before terminating.
+    crate::telemetry::flush_datadog_logs().await;
     std::process::exit(1);
 }
 

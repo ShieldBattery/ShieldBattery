@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
@@ -20,6 +20,30 @@ const TAGS: &str = "version:0.1.0";
 const MAX_BATCH_SIZE: usize = 1000;
 const MAX_BATCH_DURATION: Duration = Duration::from_secs(5);
 const MAX_RETRIES: u8 = 3;
+
+/// How long [flush_datadog_logs] waits for the ingestor thread to drain the log channel into its
+/// queue before forcing a send. Logging is asynchronous (`on_event` -> channel -> thread -> queue),
+/// so a brief pause ensures a log emitted immediately before the flush is actually in the queue.
+const FLUSH_DRAIN_GRACE: Duration = Duration::from_millis(250);
+
+/// A clone of the running ingestor, stashed so a fatal shutdown path can force a synchronous flush
+/// of buffered logs before the process exits. The clone shares the underlying queue and HTTP client
+/// (both `Arc`-backed), so flushing through it drains the same buffer the layer is filling. `None`
+/// when Datadog logging isn't configured.
+static INGESTOR: OnceLock<DatadogIngestor> = OnceLock::new();
+
+/// Forces a best-effort, synchronous flush of any buffered Datadog logs. Intended for fatal paths
+/// that call [`std::process::exit`], which skips both the periodic flush and the Drop-based flush,
+/// so a log emitted just before exiting would otherwise never reach Datadog (it still reaches
+/// stdout synchronously). No-op when Datadog logging isn't configured.
+pub async fn flush_datadog_logs() {
+    let Some(ingestor) = INGESTOR.get() else {
+        return;
+    };
+    // Let the ingestor thread move any logs still sitting in the channel into its queue first.
+    tokio::time::sleep(FLUSH_DRAIN_GRACE).await;
+    ingestor.flush().await;
+}
 
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -101,6 +125,9 @@ pub struct DatadogLogLayer {
 impl DatadogLogLayer {
     pub fn new(options: DatadogOptions) -> Self {
         let ingestor = DatadogIngestor::new(options);
+        // Stash a clone (sharing the same queue + client) so a fatal shutdown can force a flush.
+        // Ignore the error if it's already set — only one layer is ever created per process.
+        let _ = INGESTOR.set(ingestor.clone());
 
         let (tx, mut rx) = unbounded_channel();
         let handle = std::thread::Builder::new()
