@@ -49,11 +49,17 @@ const REAL_MODES: RealModeData[] = [
   { type: MatchmakingType.Match1v1Fastest, group: '1v1', team: false },
   { type: MatchmakingType.Match2v2, group: '2v2', team: true },
   { type: MatchmakingType.Match2v2Bgh, group: '2v2', team: true },
+  { type: MatchmakingType.Match2v2Hunters, group: '2v2', team: true },
+  { type: MatchmakingType.Match2v2Fastest, group: '2v2', team: true },
+  { type: MatchmakingType.Match3v3Bgh, group: '3v3', team: true },
+  { type: MatchmakingType.Match3v3Hunters, group: '3v3', team: true },
+  { type: MatchmakingType.Match3v3Fastest, group: '3v3', team: true },
 ]
 
-const MODE_GROUPS: { id: '1v1' | '2v2'; label: string; hint: string }[] = [
+const MODE_GROUPS: { id: '1v1' | '2v2' | '3v3'; label: string; hint: string }[] = [
   { id: '1v1', label: '1v1', hint: 'Solo ranked · race locked before queue' },
   { id: '2v2', label: '2v2', hint: 'Team play · race drafted in-game' },
+  { id: '3v3', label: '3v3', hint: 'Team play · race drafted in-game' },
 ]
 
 // ─── Animations ───────────────────────────────────────────────────────────────
@@ -1442,6 +1448,16 @@ export function FindMatch() {
         return t('matchmaking.findMatch.desc.2v2', 'Team · standard maps')
       case MatchmakingType.Match2v2Bgh:
         return t('matchmaking.findMatch.desc.2v2bgh', 'Team · Big Game Hunters')
+      case MatchmakingType.Match2v2Hunters:
+        return t('matchmaking.findMatch.desc.2v2hunters', 'Team · Hunters')
+      case MatchmakingType.Match2v2Fastest:
+        return t('matchmaking.findMatch.desc.2v2fastest', 'Team · Fastest Map')
+      case MatchmakingType.Match3v3Bgh:
+        return t('matchmaking.findMatch.desc.3v3bgh', 'Team · Big Game Hunters')
+      case MatchmakingType.Match3v3Hunters:
+        return t('matchmaking.findMatch.desc.3v3hunters', 'Team · Hunters')
+      case MatchmakingType.Match3v3Fastest:
+        return t('matchmaking.findMatch.desc.3v3fastest', 'Team · Fastest Map')
       default:
         return type satisfies never
     }

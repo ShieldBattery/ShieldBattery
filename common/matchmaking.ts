@@ -105,6 +105,51 @@ export const MATCHMAKING_MODES = {
     supportsAlternateRace: false,
     label: t => t('matchmaking.type.2v2bgh', '2v2 BGH'),
   },
+  [MatchmakingType.Match2v2Hunters]: {
+    type: MatchmakingType.Match2v2Hunters,
+    format: '2v2',
+    variant: 'hunters',
+    teamSize: 2,
+    mapSelectionStyle: 'fixed',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.2v2hunters', '2v2 Hunters'),
+  },
+  [MatchmakingType.Match2v2Fastest]: {
+    type: MatchmakingType.Match2v2Fastest,
+    format: '2v2',
+    variant: 'fastest',
+    teamSize: 2,
+    mapSelectionStyle: 'pick',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.2v2fastest', '2v2 Fastest'),
+  },
+  [MatchmakingType.Match3v3Bgh]: {
+    type: MatchmakingType.Match3v3Bgh,
+    format: '3v3',
+    variant: 'bgh',
+    teamSize: 3,
+    mapSelectionStyle: 'fixed',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.3v3bgh', '3v3 BGH'),
+  },
+  [MatchmakingType.Match3v3Hunters]: {
+    type: MatchmakingType.Match3v3Hunters,
+    format: '3v3',
+    variant: 'hunters',
+    teamSize: 3,
+    mapSelectionStyle: 'fixed',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.3v3hunters', '3v3 Hunters'),
+  },
+  [MatchmakingType.Match3v3Fastest]: {
+    type: MatchmakingType.Match3v3Fastest,
+    format: '3v3',
+    variant: 'fastest',
+    teamSize: 3,
+    mapSelectionStyle: 'pick',
+    supportsAlternateRace: false,
+    label: t => t('matchmaking.type.3v3fastest', '3v3 Fastest'),
+  },
 } satisfies Record<MatchmakingType, MatchmakingModeInfo>
 
 /** Returns the static mode descriptor for a given `MatchmakingType`. */
@@ -795,6 +840,31 @@ export type MatchmakingPreferences2v2Bgh = BaseMatchmakingPreferences<
   Record<string, never>
 >
 
+export type MatchmakingPreferences2v2Hunters = BaseMatchmakingPreferences<
+  MatchmakingType.Match2v2Hunters,
+  Record<string, never>
+>
+
+export type MatchmakingPreferences2v2Fastest = BaseMatchmakingPreferences<
+  MatchmakingType.Match2v2Fastest,
+  Record<string, never>
+>
+
+export type MatchmakingPreferences3v3Bgh = BaseMatchmakingPreferences<
+  MatchmakingType.Match3v3Bgh,
+  Record<string, never>
+>
+
+export type MatchmakingPreferences3v3Hunters = BaseMatchmakingPreferences<
+  MatchmakingType.Match3v3Hunters,
+  Record<string, never>
+>
+
+export type MatchmakingPreferences3v3Fastest = BaseMatchmakingPreferences<
+  MatchmakingType.Match3v3Fastest,
+  Record<string, never>
+>
+
 // NOTE(tec27): At the moment we can share the data between 1v1 and 1v1Fastest but if need be we
 // could use a separate data type
 export type MatchmakingPreferences1v1Fastest = BaseMatchmakingPreferences<
@@ -812,6 +882,11 @@ export type MatchmakingPreferences =
   | MatchmakingPreferences1v1Fastest
   | MatchmakingPreferences2v2
   | MatchmakingPreferences2v2Bgh
+  | MatchmakingPreferences2v2Hunters
+  | MatchmakingPreferences2v2Fastest
+  | MatchmakingPreferences3v3Bgh
+  | MatchmakingPreferences3v3Hunters
+  | MatchmakingPreferences3v3Fastest
 
 export type PartialMatchmakingPreferences = SetRequired<
   Partial<MatchmakingPreferences>,

@@ -39,16 +39,19 @@ interface SeedAccount {
 }
 
 /**
- * The accounts to create. `claude-1`..`claude-3` line up with the SB_SESSION=session1..3 instances
- * documented in the dev-env / verify-app skills (one account per running app instance). Add more
- * here if a flow needs them; with more than 4 accounts you'll want to start the Node server with
- * SB_DISABLE_THROTTLING=1 so the account-creation throttle doesn't reject the burst.
+ * The accounts to create. `claude-1`..`claude-5` line up with the SB_SESSION=session1..5 instances
+ * documented in the dev-env / verify-app skills (one account per running app instance). Six accounts
+ * (admin + 1..5) is enough to fill a 3v3 match. Add more here if a flow needs them; with more than 4
+ * accounts you'll want to start the Node server with SB_DISABLE_THROTTLING=1 so the account-creation
+ * throttle doesn't reject the burst.
  */
 const ACCOUNTS: SeedAccount[] = [
   { username: 'claude-admin', email: 'claude-admin@example.org', admin: true },
   { username: 'claude-1', email: 'claude-1@example.org', admin: false },
   { username: 'claude-2', email: 'claude-2@example.org', admin: false },
   { username: 'claude-3', email: 'claude-3@example.org', admin: false },
+  { username: 'claude-4', email: 'claude-4@example.org', admin: false },
+  { username: 'claude-5', email: 'claude-5@example.org', admin: false },
 ]
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))

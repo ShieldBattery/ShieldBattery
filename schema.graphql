@@ -210,6 +210,26 @@ type MatchmakingExtra2V2Data implements MatchmakingExtra {
 	matchmakingType: MatchmakingType!
 }
 
+type MatchmakingExtra2V2FastestData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra2V2HuntersData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra3V3BghData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra3V3FastestData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
+type MatchmakingExtra3V3HuntersData implements MatchmakingExtra {
+	matchmakingType: MatchmakingType!
+}
+
 """
 All of the matchmaking types that we support. These values match the enum values used in the database.
 """

@@ -34,6 +34,16 @@ function getGameTypeLabel(game: GameRecord): string {
         return '2v2'
       case MatchmakingType.Match2v2Bgh:
         return '2v2BGH'
+      case MatchmakingType.Match2v2Hunters:
+        return '2v2H'
+      case MatchmakingType.Match2v2Fastest:
+        return '2v2F'
+      case MatchmakingType.Match3v3Bgh:
+        return '3v3BGH'
+      case MatchmakingType.Match3v3Hunters:
+        return '3v3H'
+      case MatchmakingType.Match3v3Fastest:
+        return '3v3F'
       default:
         return 'Ranked'
     }

@@ -183,6 +183,11 @@ export type LiveGames_FeedEntryFragmentFragment = ({
           | { matchmakingType: Types.MatchmakingType }
           | { matchmakingType: Types.MatchmakingType }
           | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
         teams: Array<
           Array<
             { user: { id: Types.SbUserId } | null } & {
@@ -224,6 +229,11 @@ export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
     | {
         __typename: 'GameConfigDataMatchmaking'
         gameSourceExtra:
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
+          | { matchmakingType: Types.MatchmakingType }
           | { matchmakingType: Types.MatchmakingType }
           | { matchmakingType: Types.MatchmakingType }
           | { matchmakingType: Types.MatchmakingType }

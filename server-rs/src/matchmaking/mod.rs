@@ -57,6 +57,21 @@ pub enum MatchmakingType {
     #[serde(rename = "2v2bgh")]
     #[sqlx(rename = "2v2bgh")]
     Match2v2Bgh,
+    #[serde(rename = "2v2hunters")]
+    #[sqlx(rename = "2v2hunters")]
+    Match2v2Hunters,
+    #[serde(rename = "2v2fastest")]
+    #[sqlx(rename = "2v2fastest")]
+    Match2v2Fastest,
+    #[serde(rename = "3v3bgh")]
+    #[sqlx(rename = "3v3bgh")]
+    Match3v3Bgh,
+    #[serde(rename = "3v3hunters")]
+    #[sqlx(rename = "3v3hunters")]
+    Match3v3Hunters,
+    #[serde(rename = "3v3fastest")]
+    #[sqlx(rename = "3v3fastest")]
+    Match3v3Fastest,
 }
 
 impl MatchmakingType {
@@ -66,6 +81,11 @@ impl MatchmakingType {
             MatchmakingType::Match1v1Fastest => 1,
             MatchmakingType::Match2v2 => 2,
             MatchmakingType::Match2v2Bgh => 2,
+            MatchmakingType::Match2v2Hunters => 2,
+            MatchmakingType::Match2v2Fastest => 2,
+            MatchmakingType::Match3v3Bgh => 3,
+            MatchmakingType::Match3v3Hunters => 3,
+            MatchmakingType::Match3v3Fastest => 3,
         }
     }
 
