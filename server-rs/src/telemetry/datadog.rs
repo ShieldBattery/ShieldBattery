@@ -26,23 +26,37 @@ const MAX_RETRIES: u8 = 3;
 /// so a brief pause ensures a log emitted immediately before the flush is actually in the queue.
 const FLUSH_DRAIN_GRACE: Duration = Duration::from_millis(250);
 
+/// Hard upper bound on how long [flush_datadog_logs] will spend trying to send. The ingestor's HTTP
+/// client has no request timeout, so without this an unreachable Datadog (likely in the same
+/// outage that triggered the flush) could block for OS-level TCP timeouts and delay the very
+/// process exit the caller is racing to reach.
+const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// A clone of the running ingestor, stashed so a fatal shutdown path can force a synchronous flush
 /// of buffered logs before the process exits. The clone shares the underlying queue and HTTP client
 /// (both `Arc`-backed), so flushing through it drains the same buffer the layer is filling. `None`
 /// when Datadog logging isn't configured.
 static INGESTOR: OnceLock<DatadogIngestor> = OnceLock::new();
 
-/// Forces a best-effort, synchronous flush of any buffered Datadog logs. Intended for fatal paths
-/// that call [`std::process::exit`], which skips both the periodic flush and the Drop-based flush,
-/// so a log emitted just before exiting would otherwise never reach Datadog (it still reaches
-/// stdout synchronously). No-op when Datadog logging isn't configured.
+/// Forces a best-effort, synchronous flush of any buffered Datadog logs, bounded by
+/// [FLUSH_TIMEOUT]. Intended for fatal paths that call [`std::process::exit`], which skips both the
+/// periodic flush and the Drop-based flush, so a log emitted just before exiting would otherwise
+/// never reach Datadog (it still reaches stdout synchronously). No-op when Datadog logging isn't
+/// configured.
 pub async fn flush_datadog_logs() {
     let Some(ingestor) = INGESTOR.get() else {
         return;
     };
     // Let the ingestor thread move any logs still sitting in the channel into its queue first.
     tokio::time::sleep(FLUSH_DRAIN_GRACE).await;
-    ingestor.flush().await;
+    // Bounded: this is best-effort and runs on a time-sensitive shutdown path, so we'd rather lose
+    // the log than hang the exit if Datadog is unreachable.
+    if tokio::time::timeout(FLUSH_TIMEOUT, ingestor.flush())
+        .await
+        .is_err()
+    {
+        tracing::warn!("Timed out flushing Datadog logs before exit");
+    }
 }
 
 #[allow(dead_code)]
