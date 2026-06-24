@@ -16,6 +16,8 @@ use crate::telemetry::datadog::{DatadogLogLayer, DatadogOptions};
 
 mod datadog;
 
+pub use datadog::flush_datadog_logs;
+
 /// Initialize a subscriber for tracing events. Note that [env_filter] will apply to *all* layers
 /// (e.g. anything it filters out will not be sent to Datadog or stdout).
 pub fn init_subscriber<Sink>(
