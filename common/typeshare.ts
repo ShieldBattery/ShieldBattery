@@ -21,6 +21,11 @@ export enum MatchmakingType {
   Match1v1Fastest = '1v1fastest',
   Match2v2 = '2v2',
   Match2v2Bgh = '2v2bgh',
+  Match2v2Hunters = '2v2hunters',
+  Match2v2Fastest = '2v2fastest',
+  Match3v3Bgh = '3v3bgh',
+  Match3v3Hunters = '3v3hunters',
+  Match3v3Fastest = '3v3fastest',
 }
 
 /** A single player's entry in a match found message. */

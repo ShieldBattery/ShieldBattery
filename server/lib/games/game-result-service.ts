@@ -378,7 +378,12 @@ export default class GameResultService {
           teams = [[userIds[0]], [userIds[1]]]
         } else if (
           gameSourceExtra.type === MatchmakingType.Match2v2 ||
-          gameSourceExtra.type === MatchmakingType.Match2v2Bgh
+          gameSourceExtra.type === MatchmakingType.Match2v2Bgh ||
+          gameSourceExtra.type === MatchmakingType.Match2v2Hunters ||
+          gameSourceExtra.type === MatchmakingType.Match2v2Fastest ||
+          gameSourceExtra.type === MatchmakingType.Match3v3Bgh ||
+          gameSourceExtra.type === MatchmakingType.Match3v3Hunters ||
+          gameSourceExtra.type === MatchmakingType.Match3v3Fastest
         ) {
           // TODO(tec27): Pass gameSourceExtra.parties info to rating change calculation
           teams = gameRecord.config.teams.map(t => t.map(p => p.id)) as [

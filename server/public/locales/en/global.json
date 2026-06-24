@@ -889,7 +889,12 @@
         "1v1": "Solo · standard maps",
         "1v1fastest": "Solo · Fastest Map",
         "2v2": "Team · standard maps",
-        "2v2bgh": "Team · Big Game Hunters"
+        "2v2bgh": "Team · Big Game Hunters",
+        "2v2fastest": "Team · Fastest Map",
+        "2v2hunters": "Team · Hunters",
+        "3v3bgh": "Team · Big Game Hunters",
+        "3v3fastest": "Team · Fastest Map",
+        "3v3hunters": "Team · Hunters"
       },
       "description": "Select a race to be used whenever your opponent has selected the same primary race.",
       "errors": {
@@ -951,7 +956,12 @@
       "1v1": "1v1",
       "1v1fastest": "1v1 Fastest",
       "2v2": "2v2",
-      "2v2bgh": "2v2 BGH"
+      "2v2bgh": "2v2 BGH",
+      "2v2fastest": "2v2 Fastest",
+      "2v2hunters": "2v2 Hunters",
+      "3v3bgh": "3v3 BGH",
+      "3v3fastest": "3v3 Fastest",
+      "3v3hunters": "3v3 Hunters"
     }
   },
   "material": {

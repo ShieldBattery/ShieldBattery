@@ -289,6 +289,61 @@ impl MatchmakingExtra2v2BghData {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtra2v2HuntersData {}
+
+#[Object]
+impl MatchmakingExtra2v2HuntersData {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Match2v2Hunters
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtra2v2FastestData {}
+
+#[Object]
+impl MatchmakingExtra2v2FastestData {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Match2v2Fastest
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtra3v3BghData {}
+
+#[Object]
+impl MatchmakingExtra3v3BghData {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Match3v3Bgh
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtra3v3HuntersData {}
+
+#[Object]
+impl MatchmakingExtra3v3HuntersData {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Match3v3Hunters
+    }
+}
+
+#[derive(Debug, Copy, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MatchmakingExtra3v3FastestData {}
+
+#[Object]
+impl MatchmakingExtra3v3FastestData {
+    async fn matchmaking_type(&self, _ctx: &async_graphql::Context<'_>) -> MatchmakingType {
+        MatchmakingType::Match3v3Fastest
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::Interface)]
 #[graphql(field(name = "matchmaking_type", ty = "MatchmakingType"))]
 #[serde(tag = "type")]
@@ -301,6 +356,16 @@ pub enum MatchmakingExtra {
     Match2v2(MatchmakingExtra2v2Data),
     #[serde(rename = "2v2bgh")]
     Match2v2Bgh(MatchmakingExtra2v2BghData),
+    #[serde(rename = "2v2hunters")]
+    Match2v2Hunters(MatchmakingExtra2v2HuntersData),
+    #[serde(rename = "2v2fastest")]
+    Match2v2Fastest(MatchmakingExtra2v2FastestData),
+    #[serde(rename = "3v3bgh")]
+    Match3v3Bgh(MatchmakingExtra3v3BghData),
+    #[serde(rename = "3v3hunters")]
+    Match3v3Hunters(MatchmakingExtra3v3HuntersData),
+    #[serde(rename = "3v3fastest")]
+    Match3v3Fastest(MatchmakingExtra3v3FastestData),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, async_graphql::Union)]

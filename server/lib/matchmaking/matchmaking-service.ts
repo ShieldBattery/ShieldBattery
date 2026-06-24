@@ -1036,6 +1036,11 @@ export class MatchmakingService {
         }
         break
       case MatchmakingType.Match2v2Bgh:
+      case MatchmakingType.Match2v2Hunters:
+      case MatchmakingType.Match2v2Fastest:
+      case MatchmakingType.Match3v3Bgh:
+      case MatchmakingType.Match3v3Hunters:
+      case MatchmakingType.Match3v3Fastest:
         gameSourceExtra = {
           type: match.type,
         }
@@ -1054,6 +1059,11 @@ export class MatchmakingService {
         break
       case MatchmakingType.Match2v2:
       case MatchmakingType.Match2v2Bgh:
+      case MatchmakingType.Match2v2Hunters:
+      case MatchmakingType.Match2v2Fastest:
+      case MatchmakingType.Match3v3Bgh:
+      case MatchmakingType.Match3v3Hunters:
+      case MatchmakingType.Match3v3Fastest:
         gameType = GameType.TopVsBottom
         gameSubType = TEAM_SIZES[match.type]
         break

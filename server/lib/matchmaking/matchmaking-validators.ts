@@ -45,6 +45,26 @@ export function matchmakingPreferencesValidator<
         .conditional('matchmakingType', {
           is: MatchmakingType.Match2v2Bgh,
           then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Match2v2Hunters,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Match2v2Fastest,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Match3v3Bgh,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Match3v3Hunters,
+          then: Joi.object<Record<string, never>>(),
+        })
+        .conditional('matchmakingType', {
+          is: MatchmakingType.Match3v3Fastest,
+          then: Joi.object<Record<string, never>>(),
         }),
     ),
   })

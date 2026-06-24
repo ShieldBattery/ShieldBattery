@@ -58,11 +58,36 @@ export interface MatchmakingExtra2v2Bgh {
   type: MatchmakingType.Match2v2Bgh
 }
 
+export interface MatchmakingExtra2v2Hunters {
+  type: MatchmakingType.Match2v2Hunters
+}
+
+export interface MatchmakingExtra2v2Fastest {
+  type: MatchmakingType.Match2v2Fastest
+}
+
+export interface MatchmakingExtra3v3Bgh {
+  type: MatchmakingType.Match3v3Bgh
+}
+
+export interface MatchmakingExtra3v3Hunters {
+  type: MatchmakingType.Match3v3Hunters
+}
+
+export interface MatchmakingExtra3v3Fastest {
+  type: MatchmakingType.Match3v3Fastest
+}
+
 export type MatchmakingExtra =
   | MatchmakingExtra1v1
   | MatchmakingExtra1v1Fastest
   | MatchmakingExtra2v2
   | MatchmakingExtra2v2Bgh
+  | MatchmakingExtra2v2Hunters
+  | MatchmakingExtra2v2Fastest
+  | MatchmakingExtra3v3Bgh
+  | MatchmakingExtra3v3Hunters
+  | MatchmakingExtra3v3Fastest
 
 export type MatchmakingGameConfig = BaseGameConfig<GameSource.Matchmaking, MatchmakingExtra>
 
