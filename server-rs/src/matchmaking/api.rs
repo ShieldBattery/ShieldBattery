@@ -30,6 +30,15 @@ const MIN_QUALITY: f32 = -30.0;
 /// How often the matchmaker searches for new matches.
 const SEARCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(6);
 
+/// How many times to attempt publishing a formed match to Redis before treating the failure as
+/// fatal. A formed match has already been removed from the queue, so a few quick retries are worth
+/// it to ride out a transient Redis blip before resorting to the process exit in
+/// [publish_match_or_exit].
+const MAX_PUBLISH_ATTEMPTS: u32 = 3;
+
+/// Delay between the publish attempts counted by [MAX_PUBLISH_ATTEMPTS].
+const PUBLISH_RETRY_DELAY: Duration = Duration::from_millis(200);
+
 #[derive(Serialize)]
 struct ApiError {
     code: &'static str,
@@ -269,18 +278,48 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
                 quality: m.quality,
             });
 
-            if let Err(e) = redis_pool.publish(event).await {
-                tracing::error!("Failed to publish match event to Redis: {e:?}");
-                // The match is already removed from the Rust queue but was never delivered to
-                // Node.js. Affected players will appear stuck: they believe they're still
-                // searching but are no longer in the queue. This is an unresolved gap — Phase 3
-                // must define a recovery path. One option: treat a Redis publish error as fatal
-                // and restart the process so the process fingerprint changes; Node.js then detects
-                // the restart via the stale-ticket path and surfaces "matchmaking failed" to the
-                // affected players.
+            publish_match_or_exit(&redis_pool, event).await;
+        }
+    }
+}
+
+/// Publishes a formed-match event to Redis, retrying briefly before giving up. If every attempt
+/// fails, the match is irrecoverably lost: its players were already removed from the queue (so the
+/// search loop won't re-form their match) but Node.js never learned of the match, so they would
+/// believe they are still searching forever.
+///
+/// Rather than strand them, we exit the process. The `restart: unless-stopped` policy brings
+/// server-rs back with a fresh `process_token`, which the Node.js watchdog detects (token change,
+/// or the unreachable window during the restart) and uses to eject — and surface a failure to —
+/// every searching player, including the ones from this lost match. They can then immediately
+/// requeue. This is drastic, but a persistent inability to reach Redis means matchmaking can't
+/// function anyway, and a clean restart is the only way to restore consistency between the Rust
+/// queue and Node.js.
+///
+/// NOTE: this must exit the *process*, not panic. A panic here is caught by [supervise_search_loop]
+/// and only restarts the search task within the same process, leaving `process_token` unchanged —
+/// so the watchdog would never fire and the stranded players would stay stranded.
+async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmakingMessage) {
+    for attempt in 1..=MAX_PUBLISH_ATTEMPTS {
+        match redis_pool.publish(event.clone()).await {
+            Ok(()) => return,
+            Err(e) => {
+                tracing::error!(
+                    "Failed to publish match event to Redis \
+                     (attempt {attempt}/{MAX_PUBLISH_ATTEMPTS}): {e:?}"
+                );
+                if attempt < MAX_PUBLISH_ATTEMPTS {
+                    tokio::time::sleep(PUBLISH_RETRY_DELAY).await;
+                }
             }
         }
     }
+
+    tracing::error!(
+        "Exhausted all attempts to publish a formed match to Redis; exiting so the process \
+         restarts with a fresh token and stranded players are ejected by the Node.js watchdog."
+    );
+    std::process::exit(1);
 }
 
 #[derive(Serialize)]
