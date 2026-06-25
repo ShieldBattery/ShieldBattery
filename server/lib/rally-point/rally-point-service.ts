@@ -263,6 +263,17 @@ export class RallyPointService {
   }
 
   /**
+   * Returns the client's most recently reported pings (round-trip ms) to each rally-point server,
+   * as `[serverId, ping]` pairs. Empty if the client hasn't reported any pings yet. These are the
+   * same values `createBestRoute` uses to pick a server, so the matchmaker can feed them to the
+   * Rust matchmaker to estimate the latency a candidate match would actually have.
+   */
+  getPingsForClient(client: ClientSocketsGroup): Array<[serverId: number, ping: number]> {
+    const pingMap = this.clientPings.get(client)
+    return pingMap ? Array.from(pingMap) : []
+  }
+
+  /**
    * Returns a promise that resolves when the specified client has at least one reported ping result
    * for a rally-point server.
    */

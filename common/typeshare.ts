@@ -52,7 +52,10 @@ export interface MatchFoundMessage {
   /** Effective team ratings used to compute `win_probability`. */
   teamARating: number
   teamBRating: number
-  /** Highest latency bucket among the matched players (raw latency input to `quality`). */
+  /**
+   * Estimated one-way latency (ms) of the match's worst pairwise link, computed from the
+   * players' rally-point server pings (raw latency input to `quality`).
+   */
   maxLatency: number
 }
 

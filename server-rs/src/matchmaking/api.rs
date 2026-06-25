@@ -86,7 +86,12 @@ struct QueueRequest {
     /// Per-mode ratings. One entry per queued mode; the set of modes the player queues for is
     /// derived from these entries.
     mode_ratings: Vec<PlayerModeRatingDto>,
-    latency_bucket: Option<u8>,
+    /// The player's most recent round-trip pings (ms) to each rally-point server, as
+    /// `[server_id, ping]` pairs. Used to estimate a candidate match's latency (see
+    /// [`crate::matchmaking::matchmaker::match_latency`]). May be empty if the client hasn't
+    /// measured any pings yet.
+    #[serde(default)]
+    server_pings: Vec<(u32, f32)>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -103,7 +108,9 @@ struct QueueTicket {
     /// modes) on requeue.
     mode_ratings: Vec<PlayerModeRatingDto>,
     queue_time: u64,
-    latency_bucket: Option<u8>,
+    /// Per-server pings preserved from queue time, as `[server_id, ping]` pairs. Reused as-is on
+    /// requeue rather than re-measured (a requeue is rare and the pings are still a good estimate).
+    server_pings: Vec<(u32, f32)>,
     process_token: Uuid,
 }
 
@@ -132,7 +139,7 @@ fn lock_matchmaker(
 fn build_player(
     id: usize,
     mode_ratings: Vec<PlayerModeRatingDto>,
-    latency_bucket: Option<u8>,
+    server_pings: Vec<(u32, f32)>,
 ) -> Player {
     let mut ratings = HashMap::new();
     let mut map_selections = HashMap::new();
@@ -152,7 +159,7 @@ fn build_player(
         id,
         ratings,
         map_selections,
-        latency_bucket,
+        server_pings: server_pings.into_iter().collect(),
     }
 }
 
@@ -170,7 +177,12 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
                 map_selections: entry.player.map_selections.get(&mode).cloned(),
             })
             .collect(),
-        latency_bucket: entry.player.latency_bucket,
+        server_pings: entry
+            .player
+            .server_pings
+            .iter()
+            .map(|(&server, &ping)| (server, ping))
+            .collect(),
         queue_time: entry
             .queue_time
             .duration_since(matchmaker_start)
@@ -364,7 +376,7 @@ async fn insert_player(
     State(state): State<MatchmakingApiState>,
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
-    let player = build_player(payload.id, payload.mode_ratings, payload.latency_bucket);
+    let player = build_player(payload.id, payload.mode_ratings, payload.server_pings);
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     matchmaker.insert_player(player)?;
     Ok(StatusCode::NO_CONTENT)
@@ -415,7 +427,7 @@ async fn requeue_player(
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
-        build_player(ticket.id, ticket.mode_ratings, ticket.latency_bucket),
+        build_player(ticket.id, ticket.mode_ratings, ticket.server_pings),
         queue_time,
     ) {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
@@ -466,7 +478,7 @@ mod tests {
                     },
                 )]),
                 map_selections: HashMap::new(),
-                latency_bucket: None,
+                server_pings: HashMap::new(),
             },
             modes: MatchmakingType::Match1v1.into(),
         };
@@ -482,7 +494,7 @@ mod tests {
                     },
                 )]),
                 map_selections: HashMap::new(),
-                latency_bucket: None,
+                server_pings: HashMap::new(),
             },
             modes: MatchmakingType::Match1v1.into(),
         };
@@ -498,7 +510,7 @@ mod tests {
                     },
                 )]),
                 map_selections: HashMap::new(),
-                latency_bucket: None,
+                server_pings: HashMap::new(),
             },
             modes: MatchmakingType::Match1v1.into(),
         };

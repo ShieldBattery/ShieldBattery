@@ -110,6 +110,7 @@ describe('matchmaking/matchmaking-service', () => {
   let banUser: ReturnType<typeof vi.fn>
   let clientSockets: Map<SbUserId, ClientSocketsGroup>
   let gameLoader: { loadGame: ReturnType<typeof vi.fn> }
+  let rallyPointService: { getPingsForClient: ReturnType<typeof vi.fn> }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
 
   function createFakeClient(userId: SbUserId, clientId: string): ClientSocketsGroup {
@@ -190,6 +191,8 @@ describe('matchmaking/matchmaking-service', () => {
         redisHandler = handler
       }),
     }
+    // Defaults to "no pings reported yet"; individual tests override to exercise latency capture.
+    rallyPointService = { getPingsForClient: vi.fn().mockReturnValue([]) }
 
     asMockedFunction(getMatchmakingRating).mockImplementation(async (userId: SbUserId) =>
       makeMmr(userId),
@@ -212,6 +215,7 @@ describe('matchmaking/matchmaking-service', () => {
       matchmakingBanService as any,
       restrictionService as any,
       redisSubscriber as any,
+      rallyPointService as any,
     )
   })
 
@@ -506,6 +510,24 @@ describe('matchmaking/matchmaking-service', () => {
     const byMode = new Map((requested?.values ?? []).map(v => [v.labels.matchmaking_type, v.value]))
     expect(byMode.get(MatchmakingType.Match1v1)).toBe(1)
     expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
+  })
+
+  test("forwards the client's rally-point pings to the matchmaker so it can estimate latency", async () => {
+    // Latency is a property of a match, not a player, so the matchmaker can't compute it from one
+    // player alone — we hand it this client's per-server pings and let it derive a candidate match's
+    // latency by reproducing route selection. Verify those pings are read from the rally-point
+    // service for the queuing client and passed straight through.
+    const pings: Array<[number, number]> = [
+      [1, 24],
+      [2, 80],
+    ]
+    rallyPointService.getPingsForClient.mockReturnValue(pings)
+
+    await queuePlayer(USER_A, CLIENT_A)
+
+    expect(rallyPointService.getPingsForClient).toHaveBeenCalledWith(clientSockets.get(USER_A))
+    const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
+    expect(request.serverPings).toEqual(pings)
   })
 
   test('matching in one mode abandons the others without recording their completions', async () => {

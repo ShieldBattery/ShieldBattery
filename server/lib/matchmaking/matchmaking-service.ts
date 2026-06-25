@@ -64,6 +64,7 @@ import {
   insertMatchmakingMatchFormation,
   MatchmakingRating,
 } from '../matchmaking/models'
+import { RallyPointService } from '../rally-point/rally-point-service'
 import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
@@ -420,6 +421,7 @@ export class MatchmakingService {
     private matchmakingBanService: MatchmakingBanService,
     private restrictionService: RestrictionService,
     private redisSubscriber: RedisSubscriber,
+    private rallyPointService: RallyPointService,
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
@@ -541,7 +543,12 @@ export class MatchmakingService {
               ? d.playerData.mapSelections.slice()
               : null,
         })),
-        latencyBucket: null, // TODO: populate from actual latency data
+        // The matchmaker can't reason about latency from a single player in isolation — the latency
+        // of a match depends on which rally-point server gets chosen, which is a function of *all*
+        // the matched players' pings. So we hand it this client's raw per-server pings and let it
+        // reproduce the route selection per candidate match (see `match_latency` in Rust). Empty if
+        // the client hasn't measured any pings yet.
+        serverPings: this.rallyPointService.getPingsForClient(clientSockets),
       })
       if (this.lastKnownProcessToken === undefined) {
         this.lastKnownProcessToken = await rsGetProcessToken()

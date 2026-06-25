@@ -17,7 +17,7 @@ fn bench_1v1(c: &mut Criterion) {
             },
         )]),
         map_selections: HashMap::new(),
-        latency_bucket: None,
+        server_pings: HashMap::new(),
     }) {
         matchmaker.insert_player(player).unwrap();
     }
@@ -38,7 +38,7 @@ fn bench_2v2(c: &mut Criterion) {
             },
         )]),
         map_selections: HashMap::new(),
-        latency_bucket: None,
+        server_pings: HashMap::new(),
     }) {
         matchmaker.insert_player(player).unwrap();
     }

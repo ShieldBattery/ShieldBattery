@@ -112,8 +112,45 @@ SELECT
   round((percentile_cont(0.5) WITHIN GROUP (ORDER BY quality))::numeric, 1) AS median_quality,
   round(avg(skill_variance)::numeric, 0) AS avg_skill_variance,
   round(avg(abs(0.5 - win_probability))::numeric, 3) AS avg_winprob_imbalance,
-  round(avg(max_latency)::numeric, 2) AS avg_max_latency
+  -- max_latency is the estimated one-way latency (ms) of the match's worst pairwise link.
+  round(avg(max_latency)::numeric, 2) AS avg_max_latency_ms
 FROM matchmaking_match_formations
+GROUP BY matchmaking_type
+ORDER BY matchmaking_type;
+```
+
+## Predicted vs. actual match latency
+
+Validates the latency input to the quality formula before trusting `WEIGHT_LATENCY`. The matcher
+estimates a match's latency at *queue time* from each player's rally-point pings (stored as
+`match_formations.max_latency`, the worst pairwise one-way link). When the game actually launches, the
+game loader re-picks routes from *fresh* pings and records the real per-pair latency in `games.routes`
+— so the worst actual route latency is the ground truth for what the matcher predicted. A small
+`avg_bias_ms` / `median_abs_error_ms` means the queue-time estimate is trustworthy and the latency
+weight can be tuned against it; a large error means pings drift too much between queue and launch for
+the term to be reliable.
+
+```sql
+WITH paired AS (
+  SELECT
+    f.matchmaking_type,
+    f.max_latency AS predicted_ms,
+    -- Worst actual one-way link, mirroring how max_latency takes the max across pairs.
+    (SELECT max((r->>'latency')::real) FROM unnest(g.routes) AS r) AS actual_ms
+  FROM matchmaking_match_formations f
+  JOIN games g ON g.id = f.game_id
+  WHERE g.routes IS NOT NULL AND array_length(g.routes, 1) > 0
+)
+SELECT
+  matchmaking_type,
+  count(*) AS games,
+  round(avg(predicted_ms)::numeric, 1) AS avg_predicted_ms,
+  round(avg(actual_ms)::numeric, 1) AS avg_actual_ms,
+  -- Signed: positive means the game ended up laggier than the matcher predicted.
+  round(avg(actual_ms - predicted_ms)::numeric, 1) AS avg_bias_ms,
+  round((percentile_cont(0.5)
+    WITHIN GROUP (ORDER BY abs(actual_ms - predicted_ms)))::numeric, 1) AS median_abs_error_ms
+FROM paired
 GROUP BY matchmaking_type
 ORDER BY matchmaking_type;
 ```
