@@ -1,4 +1,5 @@
 import { register } from 'prom-client'
+import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
@@ -57,7 +58,11 @@ vi.mock('../maps/map-models', async () => ({
 
 import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
-import { getMatchmakingRating, insertMatchmakingCompletion } from './models'
+import {
+  getMatchmakingRating,
+  insertMatchmakingCompletion,
+  insertMatchmakingMatchFormation,
+} from './models'
 
 const MAP_ID: SbMapId = makeSbMapId('1')
 const SEASON = { id: 1, startDate: new Date(0), name: 'test', resetMmr: false } as any
@@ -66,6 +71,7 @@ const USER_A = makeSbUserId(1)
 const USER_B = makeSbUserId(2)
 const CLIENT_A = 'CLIENT_A'
 const CLIENT_B = 'CLIENT_B'
+const GAME_ID = 'game-1'
 
 function makePreferences(): MatchmakingPreferences {
   return {
@@ -103,6 +109,7 @@ describe('matchmaking/matchmaking-service', () => {
   let activityRegistry: GameplayActivityRegistry
   let banUser: ReturnType<typeof vi.fn>
   let clientSockets: Map<SbUserId, ClientSocketsGroup>
+  let gameLoader: { loadGame: ReturnType<typeof vi.fn> }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
 
   function createFakeClient(userId: SbUserId, clientId: string): ClientSocketsGroup {
@@ -165,6 +172,9 @@ describe('matchmaking/matchmaking-service', () => {
       [USER_A, createFakeClient(USER_A, CLIENT_A)],
       [USER_B, createFakeClient(USER_B, CLIENT_B)],
     ])
+    // Defaults to a never-resolving load so tests that only exercise earlier phases (accept, etc.)
+    // behave as before; tests that need a completed load override this with a resolved result.
+    gameLoader = { loadGame: vi.fn().mockReturnValue(new Promise<never>(() => {})) }
 
     const userSocketsManager = { on: vi.fn(), getById: vi.fn() }
     const clientSocketsManager = {
@@ -195,7 +205,7 @@ describe('matchmaking/matchmaking-service', () => {
       clientSocketsManager as any,
       matchmakingStatus as any,
       activityRegistry,
-      {} as any,
+      gameLoader as any,
       matchmakingSeasonsService as any,
       clock,
       userIdentifierManager as any,
@@ -346,6 +356,53 @@ describe('matchmaking/matchmaking-service', () => {
     expect(errorPublishedFor(USER_B)).toBe(false)
     expect(banUser).not.toHaveBeenCalled()
     expect(rsCancelPlayer).not.toHaveBeenCalled()
+  })
+
+  test('records the match formation telemetry keyed by the loaded game id', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 12.5,
+        skillVariance: 30000,
+        winProbability: 0.42,
+        teamARating: 1500,
+        teamBRating: 1600,
+        maxLatency: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Both players accept, so the match runs through map selection and a successful game load.
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    // The matchmaker's formation decision is persisted exactly once, keyed by the game it produced
+    // and carrying the quality breakdown from the matchFound event verbatim.
+    expect(insertMatchmakingMatchFormation).toHaveBeenCalledTimes(1)
+    expect(insertMatchmakingMatchFormation).toHaveBeenCalledWith({
+      gameId: GAME_ID,
+      matchmakingType: MatchmakingType.Match1v1,
+      quality: 12.5,
+      skillVariance: 30000,
+      winProbability: 0.42,
+      teamARating: 1500,
+      teamBRating: 1600,
+      maxLatency: 1,
+    })
   })
 
   test('counts a found match once, not once per matched player', async () => {
