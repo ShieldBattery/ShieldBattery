@@ -28,7 +28,17 @@ pub struct MatchFoundMessage {
     pub mode: MatchmakingType,
     pub team_a: Vec<MatchedPlayer>,
     pub team_b: Vec<MatchedPlayer>,
+    /// Overall match-quality score (in seconds of wait) the match formed at.
     pub quality: f32,
+    /// Variance of the matched players' effective ratings (raw skill-spread input to `quality`).
+    pub skill_variance: f32,
+    /// Win probability of team A vs team B (0.5 == perfectly balanced).
+    pub win_probability: f32,
+    /// Effective team ratings used to compute `win_probability`.
+    pub team_a_rating: f32,
+    pub team_b_rating: f32,
+    /// Highest latency bucket among the matched players (raw latency input to `quality`).
+    pub max_latency: f32,
 }
 
 /// Messages published to the Redis `"matchmaking"` channel.

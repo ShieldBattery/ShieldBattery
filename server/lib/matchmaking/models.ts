@@ -661,26 +661,74 @@ function fromDbMatchmakingCompletion(
     completionType: result.completion_type,
     searchTimeMillis: result.search_time_millis,
     completionTime: result.completion_time,
+    rating: result.rating ?? undefined,
   }
 }
 
 export async function insertMatchmakingCompletion(
   completion: Omit<MatchmakingCompletion, 'id'>,
 ): Promise<MatchmakingCompletion> {
-  const { userId, matchmakingType, completionType, searchTimeMillis, completionTime } = completion
+  const { userId, matchmakingType, completionType, searchTimeMillis, completionTime, rating } =
+    completion
 
   const { client, done } = await db()
   try {
     const result = await client.query<DbMatchmakingCompletion>(sql`
       INSERT INTO matchmaking_completions
-        (user_id, matchmaking_type, completion_type, search_time_millis, completion_time)
+        (user_id, matchmaking_type, completion_type, search_time_millis, completion_time, rating)
       VALUES
         (${userId}, ${matchmakingType}, ${completionType}, ${Math.round(searchTimeMillis)},
-          ${completionTime})
+          ${completionTime}, ${rating ?? null})
       RETURNING *
     `)
 
     return fromDbMatchmakingCompletion(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
+/**
+ * The matchmaker's formation decision for a single matchmaking game: the quality score the match
+ * formed at, plus the raw (unweighted) inputs that fed it. Keyed by game so it can be joined to the
+ * game's actual outcome for calibrating the quality weights. See the `matchmaking_match_formations`
+ * migration.
+ */
+export interface MatchmakingMatchFormation {
+  gameId: string
+  matchmakingType: MatchmakingType
+  /** Overall quality score (in seconds of wait) the match formed at. */
+  quality: number
+  /** Variance of the matched players' effective ratings (raw skill-spread input to quality). */
+  skillVariance: number
+  /** Win probability of team A vs team B from the matchmaker's logistic (0.5 == balanced). */
+  winProbability: number
+  /** Effective team ratings used to compute `winProbability`. */
+  teamARating: number
+  teamBRating: number
+  /** Highest latency bucket among the matched players (raw latency input to quality). */
+  maxLatency: number
+}
+
+/**
+ * Records the matchmaker's formation decision for a game. Best-effort telemetry for calibration; a
+ * failure here must not affect the game itself, so callers should not block game flow on it.
+ */
+export async function insertMatchmakingMatchFormation(
+  formation: Readonly<MatchmakingMatchFormation>,
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      INSERT INTO matchmaking_match_formations
+        (game_id, matchmaking_type, quality, skill_variance, win_probability,
+          team_a_rating, team_b_rating, max_latency)
+      VALUES
+        (${formation.gameId}, ${formation.matchmakingType}, ${formation.quality},
+          ${formation.skillVariance}, ${formation.winProbability}, ${formation.teamARating},
+          ${formation.teamBRating}, ${formation.maxLatency})
+    `)
   } finally {
     done()
   }

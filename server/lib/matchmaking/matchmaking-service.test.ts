@@ -42,6 +42,7 @@ vi.mock('./models', () => ({
   getMatchmakingRating: vi.fn(),
   createInitialMatchmakingRating: vi.fn(),
   insertMatchmakingCompletion: vi.fn().mockResolvedValue(undefined),
+  insertMatchmakingMatchFormation: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('./matchmaking-map-pools-models', async () => ({
@@ -296,6 +297,11 @@ describe('matchmaking/matchmaking-service', () => {
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
         quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -321,6 +327,11 @@ describe('matchmaking/matchmaking-service', () => {
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
         quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -348,6 +359,11 @@ describe('matchmaking/matchmaking-service', () => {
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
         quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -390,6 +406,11 @@ describe('matchmaking/matchmaking-service', () => {
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
         quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)
@@ -448,6 +469,11 @@ describe('matchmaking/matchmaking-service', () => {
         teamA: [{ id: USER_A, ticket: 'ticket-a' }],
         teamB: [{ id: USER_B, ticket: 'ticket-b' }],
         quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
       },
     })
     await vi.advanceTimersByTimeAsync(0)

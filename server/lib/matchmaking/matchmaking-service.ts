@@ -61,6 +61,7 @@ import {
   createInitialMatchmakingRating,
   getMatchmakingRating,
   insertMatchmakingCompletion,
+  insertMatchmakingMatchFormation,
   MatchmakingRating,
 } from '../matchmaking/models'
 import { RedisSubscriber } from '../redis/redis'
@@ -104,6 +105,20 @@ interface PlayerQueueData {
   queuedAt: number
 }
 
+/**
+ * The matchmaker's quality breakdown for a formed match (from the Rust `matchFound` event), carried
+ * on the in-memory match until the game loads so it can be persisted keyed by the resulting game id
+ * (see `insertMatchmakingMatchFormation`).
+ */
+interface MatchFormationTelemetry {
+  quality: number
+  skillVariance: number
+  winProbability: number
+  teamARating: number
+  teamBRating: number
+  maxLatency: number
+}
+
 class Match {
   private acceptTimeStart: number
   private acceptPromises = new Map<SbUserId, Deferred<void>>()
@@ -120,6 +135,7 @@ class Match {
     readonly id: string,
     readonly type: MatchmakingType,
     readonly teams: Immutable<MatchmakingEntity[][]>,
+    readonly formation: MatchFormationTelemetry,
     private publisher: TypedPublisher<ReadonlyDeep<MatchmakingEvent>>,
   ) {
     for (const entities of teams) {
@@ -1117,6 +1133,15 @@ export class MatchmakingService {
       )
     }
 
+    // Record the matchmaker's formation decision keyed by the game it produced, so it can later be
+    // joined to the game's actual outcome for calibration. Best-effort: a failure here must not
+    // affect game flow.
+    insertMatchmakingMatchFormation({
+      gameId: loadResult.value.gameId,
+      matchmakingType: match.type,
+      ...match.formation,
+    }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
+
     for (const player of match.players()) {
       this.queueEntries.delete(player.id)
     }
@@ -1203,7 +1228,20 @@ export class MatchmakingService {
       this.requeueTickets.set(userId, entry.ticket)
     }
 
-    const matchInfo = new Match(nanoid(), event.mode, [teamA, teamB], this.publisher)
+    const matchInfo = new Match(
+      nanoid(),
+      event.mode,
+      [teamA, teamB],
+      {
+        quality: event.quality,
+        skillVariance: event.skillVariance,
+        winProbability: event.winProbability,
+        teamARating: event.teamARating,
+        teamBRating: event.teamBRating,
+        maxLatency: event.maxLatency,
+      },
+      this.publisher,
+    )
     this.matches.set(matchInfo.id, matchInfo)
 
     for (const entities of [teamA, teamB]) {
@@ -1230,6 +1268,7 @@ export class MatchmakingService {
             completionType: MatchmakingCompletionType.Found,
             searchTimeMillis,
             completionTime,
+            rating: data?.types.get(event.mode)?.playerData.rating,
           }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
         }
 
@@ -1418,13 +1457,14 @@ export class MatchmakingService {
             ? MatchmakingCompletionType.Disconnect
             : MatchmakingCompletionType.Cancel
 
-          for (const [type] of data.types) {
+          for (const [type, typeData] of data.types) {
             insertMatchmakingCompletion({
               userId: client.userId,
               matchmakingType: type,
               completionType,
               searchTimeMillis,
               completionTime,
+              rating: typeData.playerData.rating,
             }).catch(err => logger.error({ err }, 'error while logging matchmaking completion'))
 
             this.matchSearchTimeMetric
