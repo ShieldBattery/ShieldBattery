@@ -118,8 +118,11 @@ pub struct Match {
     /// quality score, before `WEIGHT_RATING_VARIANCE` is applied. Persisted as match-formation
     /// telemetry so the weights can later be calibrated against real game outcomes.
     pub skill_variance: f32,
-    /// Win probability of team A vs team B from the matchmaker's own logistic (no uncertainty
-    /// term). 0.5 means a perfectly balanced match.
+    /// Win probability of team A vs team B from the matchmaker's logistic, computed over effective
+    /// (uncertainty-discounted) ratings — see [`get_team_rating`]/[`effective_rating`]. Uncertainty
+    /// is folded in via the effective rating rather than a separate σ-weight, so this differs from
+    /// the Glicko-2 rating update's σ-weighted expected score (the comparison this telemetry
+    /// enables). 0.5 means a perfectly balanced match.
     pub win_probability: f32,
     /// Effective team ratings (see [`get_team_rating`]) used to compute `win_probability`.
     pub team_a_rating: f32,
