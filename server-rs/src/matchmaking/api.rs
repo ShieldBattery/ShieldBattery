@@ -276,6 +276,11 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
                 team_a: m.team_a.iter().map(make_matched_player).collect(),
                 team_b: m.team_b.iter().map(make_matched_player).collect(),
                 quality: m.quality,
+                skill_variance: m.skill_variance,
+                win_probability: m.win_probability,
+                team_a_rating: m.team_a_rating,
+                team_b_rating: m.team_b_rating,
+                max_latency: m.max_latency,
             });
 
             publish_match_or_exit(&redis_pool, event).await;
@@ -506,12 +511,22 @@ mod tests {
                 team_a: vec![player0.clone()],
                 team_b: vec![player1],
                 quality: 10.0,
+                skill_variance: 0.0,
+                win_probability: 0.5,
+                team_a_rating: 1000.0,
+                team_b_rating: 1000.0,
+                max_latency: 0.0,
             },
             Match {
                 mode: MatchmakingType::Match1v1,
                 team_a: vec![player0],
                 team_b: vec![player2],
                 quality: 5.0,
+                skill_variance: 0.0,
+                win_probability: 0.5,
+                team_a_rating: 1000.0,
+                team_b_rating: 1000.0,
+                max_latency: 0.0,
             },
         ];
 

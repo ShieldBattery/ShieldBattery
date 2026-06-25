@@ -114,6 +114,22 @@ pub struct Match {
     pub team_a: Vec<QueueEntry>,
     pub team_b: Vec<QueueEntry>,
     pub quality: f32,
+    /// Variance of the matched players' effective ratings — the raw skill-spread input to the
+    /// quality score, before `WEIGHT_RATING_VARIANCE` is applied. Persisted as match-formation
+    /// telemetry so the weights can later be calibrated against real game outcomes.
+    pub skill_variance: f32,
+    /// Win probability of team A vs team B from the matchmaker's logistic, computed over effective
+    /// (uncertainty-discounted) ratings — see [`get_team_rating`]/[`effective_rating`]. Uncertainty
+    /// is folded in via the effective rating rather than a separate σ-weight, so this differs from
+    /// the Glicko-2 rating update's σ-weighted expected score (the comparison this telemetry
+    /// enables). 0.5 means a perfectly balanced match.
+    pub win_probability: f32,
+    /// Effective team ratings (see [`get_team_rating`]) used to compute `win_probability`.
+    pub team_a_rating: f32,
+    pub team_b_rating: f32,
+    /// Highest latency bucket among the matched players — the raw latency input to the quality
+    /// score, before `WEIGHT_LATENCY` is applied.
+    pub max_latency: f32,
 }
 
 pub trait QueueSelector {
@@ -425,6 +441,11 @@ impl<T: QueueSelector> Matchmaker<T> {
                             team_a: team_a.into_iter().cloned().collect(),
                             team_b: team_b.into_iter().cloned().collect(),
                             quality,
+                            skill_variance: variance,
+                            win_probability: win_prob,
+                            team_a_rating: rating_a,
+                            team_b_rating: rating_b,
+                            max_latency,
                         })
                     } else {
                         None

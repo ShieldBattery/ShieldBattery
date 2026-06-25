@@ -134,12 +134,18 @@ function createRoutes(players: ISet<Slot>): Promise<RouteResult[]> {
   )
 }
 
+/** Resolved value of a successful `GameLoader.loadGame`. */
+export interface GameLoadResult {
+  /** The ID of the game record that was created and successfully loaded. */
+  gameId: string
+}
+
 const createLoadingData = Record({
   gameSource: GameSource.Lobby,
   players: ISet<Slot>(),
   finishedPlayers: ISet<SbUserId>(),
   abortController: null as unknown as AbortController,
-  deferred: null as unknown as Deferred<Result<void, GameLoaderError>>,
+  deferred: null as unknown as Deferred<Result<GameLoadResult, GameLoaderError>>,
   signal: null as unknown as AbortSignal,
 })
 
@@ -313,8 +319,8 @@ export class GameLoader {
     gameConfig,
     ratings,
     signal,
-  }: GameLoadRequest): AsyncResult<void, GameLoaderError> {
-    const gameLoaded = createDeferred<Result<void, GameLoaderError>>()
+  }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
+    const gameLoaded = createDeferred<Result<GameLoadResult, GameLoaderError>>()
 
     this.gameLoadRequestsTotalMetric.labels(gameConfig.gameSource).inc()
 
@@ -437,7 +443,7 @@ export class GameLoader {
 
       this.recentlyLoadedGames.add(gameId)
       this.loadingGames = this.loadingGames.delete(gameId)
-      loadingData.deferred.resolve(Result.ok())
+      loadingData.deferred.resolve(Result.ok({ gameId }))
 
       setTimeout(() => {
         this.recentlyLoadedGames.delete(gameId)

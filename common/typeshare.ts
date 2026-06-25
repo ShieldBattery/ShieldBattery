@@ -43,7 +43,17 @@ export interface MatchFoundMessage {
   mode: MatchmakingType
   teamA: MatchedPlayer[]
   teamB: MatchedPlayer[]
+  /** Overall match-quality score (in seconds of wait) the match formed at. */
   quality: number
+  /** Variance of the matched players' effective ratings (raw skill-spread input to `quality`). */
+  skillVariance: number
+  /** Win probability of team A vs team B (0.5 == perfectly balanced). */
+  winProbability: number
+  /** Effective team ratings used to compute `win_probability`. */
+  teamARating: number
+  teamBRating: number
+  /** Highest latency bucket among the matched players (raw latency input to `quality`). */
+  maxLatency: number
 }
 
 export interface SbPermissions {

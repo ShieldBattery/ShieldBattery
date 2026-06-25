@@ -18,6 +18,132 @@ FROM matchmaking_completions
 GROUP BY matchmaking_type;
 ```
 
+# Matchmaker calibration
+
+These queries are for evaluating how well the matchmaker's predictions and quality formula hold up
+against real outcomes, so weight/formula changes can be made from data rather than guesswork. The
+first two run on data we've always had (`matchmaking_rating_changes.probability`); the rest depend on
+the `matchmaking_match_formations` table and `matchmaking_completions.rating`, which are only
+populated for games/searches that happened **after** that migration, so they'll be empty until enough
+new data accumulates.
+
+## Rating prediction reliability (predicted vs. actual win rate)
+
+Buckets every per-player, per-game predicted win probability and compares the average prediction in
+each bucket to the actual win rate. A well-calibrated model has `predicted_win_rate ≈
+actual_win_rate` in every row. Systematic gaps (e.g. favorites winning more/less than predicted) mean
+the rating→win-probability mapping needs tuning. Note each 1v1 game contributes two rows (one per
+player, with complementary probabilities); team games contribute one row per player.
+
+```sql
+SELECT
+  width_bucket(probability, 0, 1, 10) AS bucket,
+  round(min(probability)::numeric, 3) AS min_p,
+  round(max(probability)::numeric, 3) AS max_p,
+  count(*) AS predictions,
+  round(avg(probability)::numeric, 4) AS predicted_win_rate,
+  round(avg((outcome = 'win')::int)::numeric, 4) AS actual_win_rate
+FROM matchmaking_rating_changes
+-- Optionally restrict to one mode, e.g.:  WHERE matchmaking_type = '1v1'
+GROUP BY bucket
+ORDER BY bucket;
+```
+
+## Prediction accuracy score (Brier score + log loss) per mode
+
+Single-number summaries of prediction quality per mode, useful for tracking calibration over time or
+comparing modes. Lower is better for both. A Brier score of 0.25 / log loss of ~0.693 is what you'd
+get from always predicting 0.5 (no skill information), so values meaningfully below that mean the
+ratings carry real predictive signal.
+
+```sql
+SELECT
+  matchmaking_type,
+  count(*) AS predictions,
+  round(avg(power(probability - (outcome = 'win')::int, 2))::numeric, 4) AS brier_score,
+  round(avg(
+    -1 * (
+      (outcome = 'win')::int * ln(greatest(probability, 1e-15)) +
+      (1 - (outcome = 'win')::int) * ln(greatest(1 - probability, 1e-15))
+    )
+  )::numeric, 4) AS log_loss
+FROM matchmaking_rating_changes
+GROUP BY matchmaking_type
+ORDER BY matchmaking_type;
+```
+
+## Match balance vs. game length (does "balanced" produce closer games?)
+
+Tests the core assumption behind the quality formula: that matches the matchmaker considers balanced
+actually play out as longer, closer games. Buckets formed matches by how far their predicted win
+probability was from a 50/50 split and shows the median game length per bucket. If the formula is
+working, more-balanced matches (lower `avg_imbalance`) should trend toward longer median games.
+Because game length is heavily mode-dependent (Fastest/BGH games are short by nature), filter to a
+single mode for a meaningful comparison.
+
+```sql
+SELECT
+  width_bucket(abs(0.5 - f.win_probability), 0, 0.5, 5) AS imbalance_bucket,
+  count(*) AS games,
+  round(avg(abs(0.5 - f.win_probability))::numeric, 3) AS avg_imbalance,
+  round(
+    ((percentile_cont(0.5) WITHIN GROUP (ORDER BY g.game_length)) / 60000.0)::numeric, 1
+  ) AS median_minutes
+FROM matchmaking_match_formations f
+JOIN games g ON g.id = f.game_id
+WHERE g.game_length IS NOT NULL
+  AND f.matchmaking_type = '1v1'
+GROUP BY imbalance_bucket
+ORDER BY imbalance_bucket;
+```
+
+## Distribution of formed-match quality and its components
+
+A health check on what the matchmaker is actually shipping: how negative the quality scores are (how
+often the adaptive low-population threshold is carrying matches), and how much each penalty term
+(skill spread, win-probability imbalance, latency) contributes on average. Useful before changing any
+of the `WEIGHT_*` constants in `server-rs/src/matchmaking/matchmaker.rs`.
+
+```sql
+SELECT
+  matchmaking_type,
+  count(*) AS matches,
+  round(avg(quality)::numeric, 1) AS avg_quality,
+  round((percentile_cont(0.5) WITHIN GROUP (ORDER BY quality))::numeric, 1) AS median_quality,
+  round(avg(skill_variance)::numeric, 0) AS avg_skill_variance,
+  round(avg(abs(0.5 - win_probability))::numeric, 3) AS avg_winprob_imbalance,
+  round(avg(max_latency)::numeric, 2) AS avg_max_latency
+FROM matchmaking_match_formations
+GROUP BY matchmaking_type
+ORDER BY matchmaking_type;
+```
+
+## Queue health by skill band (search time + abandonment rate)
+
+Uses the rating captured at queue time to show where matchmaking is painful: which skill bands wait
+longest and give up most often. High `abandon_rate` or `median_found_secs` in a band points to a
+population/quality-threshold problem for that band rather than the matchmaker overall.
+
+```sql
+SELECT
+  matchmaking_type,
+  width_bucket(rating, 1000, 2500, 6) AS rating_band,
+  count(*) FILTER (WHERE completion_type = 'found') AS found,
+  count(*) FILTER (WHERE completion_type IN ('cancel', 'disconnect')) AS abandoned,
+  round(
+    count(*) FILTER (WHERE completion_type IN ('cancel', 'disconnect'))::numeric /
+      greatest(count(*), 1), 3
+  ) AS abandon_rate,
+  round(
+    (percentile_cont(0.5) WITHIN GROUP (ORDER BY search_time_millis)
+      FILTER (WHERE completion_type = 'found') / 1000.0)::numeric, 1
+  ) AS median_found_secs
+FROM matchmaking_completions
+WHERE rating IS NOT NULL
+GROUP BY matchmaking_type, rating_band
+ORDER BY matchmaking_type, rating_band;
+```
+
 ## Recent game rally-point routes + estimated latency, 1 route per row
 
 Change the first common table expression to select the game entries you care about.

@@ -1152,6 +1152,12 @@ export interface MatchmakingCompletion {
   completionType: MatchmakingCompletionType
   searchTimeMillis: number
   completionTime: Date
+  /**
+   * The user's rating in this matchmaking type at the time they queued. Lets queue-health analysis
+   * (search/cancel times, abandonment) be sliced by skill band. `undefined` for historical rows
+   * recorded before this was captured.
+   */
+  rating?: number
 }
 
 export enum MatchmakingServiceErrorCode {
