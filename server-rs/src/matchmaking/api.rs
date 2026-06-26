@@ -88,8 +88,9 @@ struct QueueRequest {
     mode_ratings: Vec<PlayerModeRatingDto>,
     /// The player's most recent round-trip pings (ms) to each rally-point server, as
     /// `[server_id, ping]` pairs. Used to estimate a candidate match's latency (see
-    /// [`crate::matchmaking::matchmaker::match_latency`]). May be empty if the client hasn't
-    /// measured any pings yet.
+    /// [`crate::matchmaking::matchmaker::match_latency`]). The Node.js side waits for the client to
+    /// measure its pings before enqueuing, so this is normally populated; an empty list is tolerated
+    /// and yields no latency penalty.
     #[serde(default)]
     server_pings: Vec<(u32, f32)>,
 }

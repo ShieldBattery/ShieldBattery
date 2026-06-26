@@ -491,6 +491,13 @@ export class MatchmakingService {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
 
+    // Latency is now an input to match-finding: the matchmaker estimates a candidate match's latency
+    // from the players' rally-point pings (see `serverPings` below), so we don't enqueue a player
+    // until their client has actually measured those pings. Measuring is quick and the client kicks
+    // it off when the player hits "find match", so this normally resolves right away; run it
+    // alongside the MMR loads rather than serially.
+    const pingResultPromise = this.rallyPointService.waitForPingResult(clientSockets)
+
     // Load MMR for all queued types in parallel
     const typeDataEntries = await Promise.all(
       allPreferences.map(async pref => {
@@ -506,6 +513,9 @@ export class MatchmakingService {
         return { type, race, mmr, playerData }
       }),
     )
+
+    // Don't enter the queue until the client has reported its rally-point pings (see above).
+    await pingResultPromise
 
     // Store the full player data and queue entry for use when the match event arrives from Rust.
     // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
@@ -546,8 +556,8 @@ export class MatchmakingService {
         // The matchmaker can't reason about latency from a single player in isolation — the latency
         // of a match depends on which rally-point server gets chosen, which is a function of *all*
         // the matched players' pings. So we hand it this client's raw per-server pings and let it
-        // reproduce the route selection per candidate match (see `match_latency` in Rust). Empty if
-        // the client hasn't measured any pings yet.
+        // reproduce the route selection per candidate match (see `match_latency` in Rust). We waited
+        // for a ping result above, so these are populated.
         serverPings: this.rallyPointService.getPingsForClient(clientSockets),
       })
       if (this.lastKnownProcessToken === undefined) {

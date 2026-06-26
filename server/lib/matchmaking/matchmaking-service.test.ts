@@ -1,6 +1,7 @@
 import { register } from 'prom-client'
 import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import createDeferred from '../../../common/async/deferred'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
   MatchmakingCompletionType,
@@ -110,7 +111,10 @@ describe('matchmaking/matchmaking-service', () => {
   let banUser: ReturnType<typeof vi.fn>
   let clientSockets: Map<SbUserId, ClientSocketsGroup>
   let gameLoader: { loadGame: ReturnType<typeof vi.fn> }
-  let rallyPointService: { getPingsForClient: ReturnType<typeof vi.fn> }
+  let rallyPointService: {
+    getPingsForClient: ReturnType<typeof vi.fn>
+    waitForPingResult: ReturnType<typeof vi.fn>
+  }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
 
   function createFakeClient(userId: SbUserId, clientId: string): ClientSocketsGroup {
@@ -192,7 +196,11 @@ describe('matchmaking/matchmaking-service', () => {
       }),
     }
     // Defaults to "no pings reported yet"; individual tests override to exercise latency capture.
-    rallyPointService = { getPingsForClient: vi.fn().mockReturnValue([]) }
+    // `waitForPingResult` resolves immediately by default so queueing isn't gated in most tests.
+    rallyPointService = {
+      getPingsForClient: vi.fn().mockReturnValue([]),
+      waitForPingResult: vi.fn().mockResolvedValue(undefined),
+    }
 
     asMockedFunction(getMatchmakingRating).mockImplementation(async (userId: SbUserId) =>
       makeMmr(userId),
@@ -528,6 +536,27 @@ describe('matchmaking/matchmaking-service', () => {
     expect(rallyPointService.getPingsForClient).toHaveBeenCalledWith(clientSockets.get(USER_A))
     const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
     expect(request.serverPings).toEqual(pings)
+  })
+
+  test('waits for the client to measure its pings before queueing', async () => {
+    // Latency is now a match-finding factor, so a player must have measured their rally-point pings
+    // before they're put in the queue. Hold the ping result and verify the player isn't queued in
+    // Rust until it resolves.
+    const pingDeferred = createDeferred<void>()
+    rallyPointService.waitForPingResult.mockReturnValue(pingDeferred)
+
+    const queued = queuePlayer(USER_A, CLIENT_A)
+    // Flush the microtask chain up to the (still-pending) ping wait. rsQueuePlayer can't fire while
+    // the ping result is outstanding, so this assertion holds regardless of how far we've flushed.
+    for (let i = 0; i < 20; i++) {
+      await Promise.resolve()
+    }
+    expect(rallyPointService.waitForPingResult).toHaveBeenCalledWith(clientSockets.get(USER_A))
+    expect(rsQueuePlayer).not.toHaveBeenCalled()
+
+    pingDeferred.resolve()
+    await queued
+    expect(rsQueuePlayer).toHaveBeenCalledTimes(1)
   })
 
   test('matching in one mode abandons the others without recording their completions', async () => {
