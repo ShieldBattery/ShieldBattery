@@ -50,6 +50,25 @@ pub enum PublishedMatchmakingMessage {
     MatchFound(MatchFoundMessage),
 }
 
+/// Error codes the matchmaking HTTP API returns in the `code` field of its JSON error bodies. This
+/// is the single source of truth for the set of codes; it's shared with the Node.js client via
+/// typeshare so both sides agree on the exact strings (rather than the client re-declaring them).
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[typeshare]
+pub enum RsMatchmakerErrorCode {
+    /// The player is already in the queue.
+    AlreadyInQueue,
+    /// The queue request listed no modes to search for.
+    NoModesSelected,
+    /// The player was not found in the queue (e.g. cancel/requeue for someone already removed).
+    NotFound,
+    /// A requeue ticket was malformed and couldn't be decoded.
+    InvalidTicket,
+    /// A requeue ticket was issued by a previous process — server-rs has restarted since.
+    StaleTicket,
+}
+
 /// All of the matchmaking types that we support. These values match the enum values used in the
 /// database.
 #[typeshare]

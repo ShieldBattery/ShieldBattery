@@ -17,18 +17,19 @@ import { FakeClock } from '../time/testing/fake-clock'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import {
-  RS_ERROR_CODES,
   rsCancelPlayer,
+  RsClientErrorCode,
   rsGetProcessToken,
   RsMatchmakerError,
+  RsMatchmakerErrorCode,
   rsQueuePlayer,
   rsRequeuePlayer,
 } from './matchmaker-rs-client'
 import { MatchmakingService } from './matchmaking-service'
 import { getMatchmakingUserPath } from './matchmaking-socket-paths'
 
-// We only mock the network functions of the Rust client; the error type and codes stay real so
-// `instanceof` / code checks behave like production.
+// We only mock the network functions of the Rust client; the error type and codes stay real so the
+// service's `code` checks behave like production.
 vi.mock('./matchmaker-rs-client', async () => {
   const actual =
     await vi.importActual<typeof import('./matchmaker-rs-client')>('./matchmaker-rs-client')
@@ -206,10 +207,10 @@ describe('matchmaking/matchmaking-service', () => {
     asMockedFunction(getMatchmakingRating).mockImplementation(async (userId: SbUserId) =>
       makeMmr(userId),
     )
-    asMockedFunction(rsQueuePlayer).mockResolvedValue(undefined)
-    asMockedFunction(rsCancelPlayer).mockResolvedValue(undefined)
-    asMockedFunction(rsRequeuePlayer).mockResolvedValue(undefined)
-    asMockedFunction(rsGetProcessToken).mockResolvedValue('token-1')
+    asMockedFunction(rsQueuePlayer).mockResolvedValue(Result.ok())
+    asMockedFunction(rsCancelPlayer).mockResolvedValue(Result.ok())
+    asMockedFunction(rsRequeuePlayer).mockResolvedValue(Result.ok())
+    asMockedFunction(rsGetProcessToken).mockResolvedValue(Result.ok('token-1'))
 
     service = new MatchmakingService(
       publisher as unknown as TypedPublisher<any>,
@@ -235,10 +236,15 @@ describe('matchmaking/matchmaking-service', () => {
 
   test('recovers from an orphaned Rust queue entry by canceling and retrying once', async () => {
     asMockedFunction(rsQueuePlayer)
-      .mockRejectedValueOnce(
-        new RsMatchmakerError(409, RS_ERROR_CODES.alreadyInQueue, 'Player is already in the queue'),
+      .mockResolvedValueOnce(
+        Result.error(
+          new RsMatchmakerError(
+            RsMatchmakerErrorCode.AlreadyInQueue,
+            'Player is already in the queue',
+          ),
+        ),
       )
-      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(Result.ok())
 
     await queuePlayer(USER_A, CLIENT_A)
 
@@ -249,9 +255,11 @@ describe('matchmaking/matchmaking-service', () => {
   })
 
   test('cancels the Rust queue entry when the token fetch fails after a successful queue', async () => {
-    // The queue starts idle, so the first queuer triggers a token fetch. If that fetch throws after
+    // The queue starts idle, so the first queuer triggers a token fetch. If that fetch fails after
     // the player was already added to the Rust queue, we must cancel them rather than leave a ghost.
-    asMockedFunction(rsGetProcessToken).mockRejectedValueOnce(new Error('boom'))
+    asMockedFunction(rsGetProcessToken).mockResolvedValueOnce(
+      Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')),
+    )
 
     await expect(queuePlayer(USER_A, CLIENT_A)).rejects.toThrow('boom')
 
@@ -269,7 +277,7 @@ describe('matchmaking/matchmaking-service', () => {
     await vi.advanceTimersByTimeAsync(5000)
 
     // server-rs restarts while the queue is idle (new process token).
-    asMockedFunction(rsGetProcessToken).mockResolvedValue('token-2')
+    asMockedFunction(rsGetProcessToken).mockResolvedValue(Result.ok('token-2'))
 
     // Player B queues against the new process and the watchdog re-baselines to token-2.
     await queuePlayer(USER_B, CLIENT_B)
@@ -283,7 +291,9 @@ describe('matchmaking/matchmaking-service', () => {
   test('tolerates a single transient token-fetch failure, ejecting only after two in a row', async () => {
     await queuePlayer(USER_A, CLIENT_A)
 
-    asMockedFunction(rsGetProcessToken).mockRejectedValue(new Error('boom'))
+    asMockedFunction(rsGetProcessToken).mockResolvedValue(
+      Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')),
+    )
 
     // First failure: do not eject.
     await vi.advanceTimersByTimeAsync(5000)
@@ -299,7 +309,9 @@ describe('matchmaking/matchmaking-service', () => {
   test('a single failure followed by a success resets the failure counter', async () => {
     await queuePlayer(USER_A, CLIENT_A)
 
-    asMockedFunction(rsGetProcessToken).mockRejectedValueOnce(new Error('boom'))
+    asMockedFunction(rsGetProcessToken).mockResolvedValueOnce(
+      Result.error(new RsMatchmakerError(RsClientErrorCode.ServiceUnavailable, 'boom')),
+    )
     await vi.advanceTimersByTimeAsync(5000) // failure 1
     await vi.advanceTimersByTimeAsync(5000) // success, resets counter
 
@@ -360,7 +372,7 @@ describe('matchmaking/matchmaking-service', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     // Both players are now in a match (accept phase). server-rs restarts.
-    asMockedFunction(rsGetProcessToken).mockResolvedValue('token-2')
+    asMockedFunction(rsGetProcessToken).mockResolvedValue(Result.ok('token-2'))
     asMockedFunction(rsCancelPlayer).mockClear()
     await vi.advanceTimersByTimeAsync(5000)
 
@@ -454,10 +466,10 @@ describe('matchmaking/matchmaking-service', () => {
     // queueSoloPlayer. The Rust search loop runs independently, so a match referencing B can arrive
     // as soon as B is in the Rust queue — before queueSoloPlayer finishes. B's queue entry must
     // already exist so handleMatchFound can set its matchId.
-    let resolveBQueue: (() => void) | undefined
+    let resolveBQueue: ((result: Result<void, RsMatchmakerError>) => void) | undefined
     asMockedFunction(rsQueuePlayer).mockImplementationOnce(
       () =>
-        new Promise<void>(resolve => {
+        new Promise<Result<void, RsMatchmakerError>>(resolve => {
           resolveBQueue = resolve
         }),
     )
@@ -486,7 +498,7 @@ describe('matchmaking/matchmaking-service', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     // B's queue call now returns and queueSoloPlayer completes.
-    resolveBQueue!()
+    resolveBQueue!(Result.ok())
     await bQueuePromise
     await vi.advanceTimersByTimeAsync(0)
 

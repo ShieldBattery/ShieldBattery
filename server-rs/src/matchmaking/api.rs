@@ -3,6 +3,7 @@ use crate::matchmaking::matchmaker::{
 };
 use crate::matchmaking::{
     MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
+    RsMatchmakerErrorCode,
 };
 use crate::redis::RedisPool;
 use crate::state::AppState;
@@ -41,7 +42,7 @@ const PUBLISH_RETRY_DELAY: Duration = Duration::from_millis(200);
 
 #[derive(Serialize)]
 struct ApiError {
-    code: &'static str,
+    code: RsMatchmakerErrorCode,
     message: &'static str,
 }
 
@@ -51,14 +52,14 @@ impl IntoResponse for MatchmakerError {
             MatchmakerError::AlreadyInQueue(_) => (
                 StatusCode::CONFLICT,
                 ApiError {
-                    code: "alreadyInQueue",
+                    code: RsMatchmakerErrorCode::AlreadyInQueue,
                     message: "Player is already in the queue",
                 },
             ),
             MatchmakerError::NoModesSelected => (
                 StatusCode::BAD_REQUEST,
                 ApiError {
-                    code: "noModesSelected",
+                    code: RsMatchmakerErrorCode::NoModesSelected,
                     message: "Must queue for at least one mode",
                 },
             ),
@@ -393,7 +394,7 @@ async fn requeue_player(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ApiError {
-                    code: "invalidTicket",
+                    code: RsMatchmakerErrorCode::InvalidTicket,
                     message: "Ticket is malformed",
                 }),
             )
@@ -406,7 +407,7 @@ async fn requeue_player(
             return (
                 StatusCode::BAD_REQUEST,
                 Json(ApiError {
-                    code: "invalidTicket",
+                    code: RsMatchmakerErrorCode::InvalidTicket,
                     message: "Ticket is malformed",
                 }),
             )
@@ -418,7 +419,7 @@ async fn requeue_player(
         return (
             StatusCode::GONE,
             Json(ApiError {
-                code: "staleTicket",
+                code: RsMatchmakerErrorCode::StaleTicket,
                 message: "Server restarted since ticket was issued",
             }),
         )
@@ -447,7 +448,7 @@ async fn cancel(
         (
             StatusCode::NOT_FOUND,
             Json(ApiError {
-                code: "notFound",
+                code: RsMatchmakerErrorCode::NotFound,
                 message: "Player is not in the queue",
             }),
         )
