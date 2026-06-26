@@ -6,6 +6,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
+import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { subtract, union } from '../../../common/data-structures/sets'
@@ -281,6 +282,12 @@ interface QueueEntry {
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
 
+// How long to wait for a queuing client to report its rally-point pings before giving up. The client
+// kicks off measurement when the player hits "find match" and it normally completes in well under a
+// second; this is just a safety net so a client that can't reach *any* rally-point server gets a
+// clear error instead of hanging in the queue forever (see `queueSoloPlayer`).
+const PING_RESULT_TIMEOUT_MS = 10 * 1000
+
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
@@ -514,8 +521,24 @@ export class MatchmakingService {
       }),
     )
 
-    // Don't enter the queue until the client has reported its rally-point pings (see above).
-    await pingResultPromise
+    // Don't enter the queue until the client has reported its rally-point pings (see above). Bound
+    // the wait: if the client can't reach any rally-point server its pings never arrive and this
+    // promise would otherwise never resolve, leaving the player registered as an active gameplay
+    // client with no queue entry. Time out into a clear error instead so `find`'s catch unregisters
+    // them and the client surfaces the failure.
+    try {
+      await rejectOnTimeout(
+        pingResultPromise,
+        PING_RESULT_TIMEOUT_MS,
+        'timed out waiting for rally-point pings',
+      )
+    } catch (err) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.PingMeasurementFailed,
+        "Couldn't measure your connection to the game servers, please try again",
+        { cause: err },
+      )
+    }
 
     // Store the full player data and queue entry for use when the match event arrives from Rust.
     // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a

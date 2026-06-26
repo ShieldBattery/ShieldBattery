@@ -6,6 +6,7 @@ import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
   MatchmakingCompletionType,
   MatchmakingPreferences,
+  MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -557,6 +558,26 @@ describe('matchmaking/matchmaking-service', () => {
     pingDeferred.resolve()
     await queued
     expect(rsQueuePlayer).toHaveBeenCalledTimes(1)
+  })
+
+  test('fails with a clear error if the client never measures its pings', async () => {
+    // If a client can't reach any rally-point server its pings never arrive. The wait must be
+    // bounded so the player isn't left registered as an active gameplay client with no queue entry
+    // and no error — they should get a clear failure and be released from the activity registry.
+    rallyPointService.waitForPingResult.mockReturnValue(createDeferred<void>())
+
+    const queued = queuePlayer(USER_A, CLIENT_A).then(
+      () => undefined,
+      err => err,
+    )
+    // Let the pre-timeout work run, then trip the ping-result timeout.
+    await vi.advanceTimersByTimeAsync(11 * 1000)
+
+    const err = await queued
+    expect(err?.code).toBe(MatchmakingServiceErrorCode.PingMeasurementFailed)
+    expect(rsQueuePlayer).not.toHaveBeenCalled()
+    // Released from the registry so the player can retry rather than being stuck "in a game".
+    expect(activityRegistry.getClientForUser(USER_A)).toBeUndefined()
   })
 
   test('matching in one mode abandons the others without recording their completions', async () => {
