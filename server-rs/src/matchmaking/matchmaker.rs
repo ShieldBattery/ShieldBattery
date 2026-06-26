@@ -11,12 +11,20 @@ use crate::matchmaking::MatchmakingType;
 Match quality is expressed in seconds of wait time: a positive value means the match is good
 enough to form right now, a negative value means it needs more wait time to become acceptable.
 
-    quality = wait_time − (W_var * skill_variance + W_prob * win_prob_diff + W_lat * max_latency)
+    quality = wait_time − (W_var * skill_variance + W_prob * win_prob_diff
+                           + W_lat * latency_value(max_latency))
 
 Where:
     - W_var  = "How many seconds I would wait for a 1-unit improvement in skill variance"
     - W_prob = "How many seconds I would wait for a 1-unit improvement in win-probability balance"
-    - W_lat  = "How many seconds I would wait for a 1-unit improvement in latency bucket"
+    - W_lat  = "How many seconds I would wait to drop a match's latency by one turn-rate step"
+
+`max_latency` is the estimated one-way latency (in milliseconds) of the candidate match's worst
+pairwise link, derived from each player's rally-point server pings (see [`match_latency`]). Latency
+only changes the play experience in discrete jumps — the game holds a fixed turn rate / input buffer
+until latency crosses a threshold, so anything under ~100ms one-way plays identically. The quality
+formula therefore penalizes `latency_value(max_latency)` (a count of turn-rate steps) rather than
+raw milliseconds (see [`latency_value`]).
 
 Skill variance is computed over each player's *effective rating* (rating − k*σ), so newly-placed
 players with high uncertainty contribute less variance and match more freely until their rating
@@ -32,7 +40,12 @@ https://www.youtube.com/watch?v=Q8BX0nXfPjY
 
 const WEIGHT_RATING_VARIANCE: f32 = 0.005;
 const WEIGHT_WIN_PROB: f32 = 50.0;
-const WEIGHT_LATENCY: f32 = 5.0;
+/// Seconds of wait time we'll trade to drop a match's latency by one turn-rate step (one unit of
+/// [`latency_value`]). Latency below the first step (~100ms one-way) plays identically, so this only
+/// bites once a match would force the game onto a slower turn rate / longer input buffer. The
+/// match-formation telemetry records the raw `max_latency` (in ms) so this can be tuned against real
+/// game outcomes.
+const WEIGHT_LATENCY: f32 = 30.0;
 
 /// How many σ below their mean rating a player's effective rating is.
 /// Controls how strongly uncertainty drags down effective rating.
@@ -72,8 +85,13 @@ pub struct Player {
     /// map could be chosen and the match would fail downstream. Veto/fixed modes have no entry here
     /// and are unconstrained.
     pub map_selections: HashMap<MatchmakingType, Vec<MapId>>,
-    /// Latency tier (0 = great, 1 = fine, 2 = noticeable, 3 = bad). None treated as 0.
-    pub latency_bucket: Option<u8>,
+    /// Most recently reported round-trip ping (ms) from this player to each rally-point server,
+    /// keyed by server id. The matchmaker uses these to estimate a candidate match's latency by
+    /// reproducing the route selection the game server performs at launch (see [`match_latency`]).
+    /// Players are required to have measured their pings before queueing (the Node.js side waits for
+    /// a ping result before enqueuing), so this is normally non-empty; a player carrying no pings
+    /// contributes no latency information and matches involving them are not penalized.
+    pub server_pings: HashMap<u32, f32>,
 }
 
 /// Returns the conservative skill estimate: the player's rating minus k standard deviations.
@@ -82,6 +100,45 @@ pub struct Player {
 fn effective_rating(player: &Player, mode: MatchmakingType) -> f32 {
     let mode_rating = player.ratings.get(&mode).copied().unwrap_or_default();
     mode_rating.rating - UNCERTAINTY_K * mode_rating.uncertainty.unwrap_or(0.0)
+}
+
+/// Estimates the one-way latency (ms) of a candidate match by reproducing the route selection the
+/// game server performs at launch. The game meshes players with one rally-point route per pair,
+/// choosing for each pair the server that minimizes their combined round-trip ping (see
+/// `RallyPointService::createBestRoute` on the Node.js side); that pair's estimated one-way latency
+/// is `combined / 2`. A lockstep game is bottlenecked by its slowest link, so the match's latency
+/// is the maximum across all pairs.
+///
+/// Players measure their pings before queueing, so every player normally carries ping data. A pair
+/// can still fail to share a commonly-pinged server (each reached a disjoint subset of servers); such
+/// pairs are skipped rather than treated as infinite latency, and a match with no shared data at all
+/// yields 0.
+fn match_latency(entries: &[&QueueEntry]) -> f32 {
+    let mut worst = 0.0f32;
+    for (i, a) in entries.iter().enumerate() {
+        let a_pings = &a.player.server_pings;
+        for b in &entries[i + 1..] {
+            let b_pings = &b.player.server_pings;
+            let best_combined = a_pings
+                .iter()
+                .filter_map(|(server, &ping_a)| b_pings.get(server).map(|&ping_b| ping_a + ping_b))
+                .fold(f32::INFINITY, f32::min);
+            if best_combined.is_finite() {
+                worst = worst.max(best_combined / 2.0);
+            }
+        }
+    }
+    worst
+}
+
+/// Converts an estimated one-way latency (ms) into the number of turn-rate "steps" it costs — the
+/// form the quality formula actually penalizes (see [`WEIGHT_LATENCY`]). Network latency only changes
+/// the play experience in discrete jumps: StarCraft holds a fixed turn rate / input buffer until
+/// latency crosses a threshold, then drops to a slower one. So a 30ms match and a 100ms match are
+/// equivalent, while a 200ms match is meaningfully worse. This reproduces the game's turn-rate
+/// selection (`ceil(latency * 0.9 / 30)`), clamped so the first ~100ms one-way costs nothing (0).
+fn latency_value(latency_ms: f32) -> f32 {
+    (latency_ms * 0.9 / 30.0).ceil().max(3.0) - 3.0
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -127,8 +184,10 @@ pub struct Match {
     /// Effective team ratings (see [`get_team_rating`]) used to compute `win_probability`.
     pub team_a_rating: f32,
     pub team_b_rating: f32,
-    /// Highest latency bucket among the matched players — the raw latency input to the quality
-    /// score, before `WEIGHT_LATENCY` is applied.
+    /// Estimated one-way latency (ms) of the match's worst pairwise link (see [`match_latency`]).
+    /// Recorded in raw milliseconds for calibration (it joins against the launch-time route latency
+    /// in `games.routes`); the quality score itself penalizes `latency_value(max_latency)` weighted
+    /// by `WEIGHT_LATENCY`, not these raw ms.
     pub max_latency: f32,
 }
 
@@ -425,14 +484,11 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let win_prob = get_win_probability(rating_a, rating_b);
                     let win_prob_diff = (0.5 - win_prob).abs();
 
-                    let max_latency = queue_entries
-                        .iter()
-                        .map(|q| q.player.latency_bucket.unwrap_or(0) as f32)
-                        .fold(0.0f32, f32::max);
+                    let max_latency = match_latency(&queue_entries);
                     let quality = wait_time.as_secs_f32()
                         - (WEIGHT_RATING_VARIANCE * variance
                             + WEIGHT_WIN_PROB * win_prob_diff
-                            + WEIGHT_LATENCY * max_latency);
+                            + WEIGHT_LATENCY * latency_value(max_latency));
 
                     // Filter any matches that are too low quality
                     if quality >= effective_min {
@@ -491,7 +547,7 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::new(),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         }
     }
 
@@ -513,7 +569,7 @@ mod tests {
                 })
                 .collect(),
             map_selections: HashMap::new(),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         }
     }
 
@@ -784,64 +840,72 @@ mod tests {
         );
     }
 
+    /// Builds a player rated for `mode` with the given round-trip pings (`[server_id, ping_ms]`).
+    fn make_player_with_pings(id: usize, mode: MatchmakingType, pings: &[(u32, f32)]) -> Player {
+        Player {
+            server_pings: pings.iter().copied().collect(),
+            ..make_player(id, 1000.0, mode)
+        }
+    }
+
+    #[test]
+    fn latency_value_buckets_by_turn_rate_step() {
+        // Latency only matters once it crosses a turn-rate threshold: everything up to ~100ms one-way
+        // is free (value 0), then each ~33ms step above that adds one unit.
+        assert_eq!(latency_value(0.0), 0.0);
+        assert_eq!(latency_value(90.0), 0.0);
+        assert_eq!(latency_value(110.0), 1.0);
+        assert_eq!(latency_value(160.0), 2.0);
+        assert_eq!(latency_value(250.0), 5.0);
+    }
+
     #[test]
     fn find_matches_with_latency_penalty() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        // Both players ping rally-point server 0 at 200ms round-trip. The match's only pair shares
+        // that server, so combined = 400ms and estimated one-way latency = 200ms.
         matchmaker
-            .insert_player(Player {
-                id: 0,
-                ratings: HashMap::from([(
-                    MatchmakingType::Match1v1,
-                    PlayerModeRating {
-                        rating: 1000.0,
-                        uncertainty: None,
-                    },
-                )]),
-                map_selections: HashMap::new(),
-                latency_bucket: Some(2),
-            })
+            .insert_player(make_player_with_pings(
+                0,
+                MatchmakingType::Match1v1,
+                &[(0, 200.0)],
+            ))
             .unwrap();
         matchmaker
-            .insert_player(Player {
-                id: 1,
-                ratings: HashMap::from([(
-                    MatchmakingType::Match1v1,
-                    PlayerModeRating {
-                        rating: 1000.0,
-                        uncertainty: None,
-                    },
-                )]),
-                map_selections: HashMap::new(),
-                latency_bucket: Some(2),
-            })
+            .insert_player(make_player_with_pings(
+                1,
+                MatchmakingType::Match1v1,
+                &[(0, 200.0)],
+            ))
             .unwrap();
 
         // At t=0 with no wait time: quality = 0 - (variance_penalty + win_prob_penalty + latency_penalty)
         // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0.
-        // max_latency_bucket = 2. WEIGHT_LATENCY = 5.0. Latency penalty = 5.0 * 2 = 10.0.
-        // Quality ≈ 0 - 10.0 = -10.0.
+        // max_latency = 200ms (one-way). latency_value(200) = 3, WEIGHT_LATENCY = 30.0, so the
+        // latency penalty = 30.0 * 3 = 90.0. Quality ≈ 0 - 90.0 = -90.0.
         //
         // The adaptive threshold: with 2 players in queue and comfortable_size=4 (2 * 2),
         // effective_min = min_quality - ADAPTIVE_DECAY_PER_MISSING * 2
         //               = min_quality - 15.0 * 2 = min_quality - 30.0.
         //
-        // To ensure effective_min > -10.0, we need min_quality > 20.0. Use 25.0:
-        // effective_min = 25.0 - 30.0 = -5.0 > -10.0 → match rejected.
+        // To ensure effective_min > -90.0, we need min_quality > -60.0. Use -55.0:
+        // effective_min = -55.0 - 30.0 = -85.0 > -90.0 → match rejected.
         let result_strict =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], 25.0, Instant::now());
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -55.0, Instant::now());
         assert!(
             result_strict.is_empty(),
-            "expected no match when effective_min (-5.0) exceeds quality (-10.0) with latency bucket 2"
+            "expected no match when effective_min (-85.0) exceeds quality (-90.0) at 200ms latency"
         );
 
-        // With min_quality = -15.0: effective_min = -15.0 - 30.0 = -45.0 < -10.0 → match forms.
+        // With min_quality = -65.0: effective_min = -65.0 - 30.0 = -95.0 < -90.0 → match forms.
         let result_lenient =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -15.0, Instant::now());
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -65.0, Instant::now());
         assert_eq!(result_lenient.len(), 1);
+        assert_eq!(result_lenient[0].max_latency, 200.0);
     }
 
     #[test]
-    fn find_matches_no_latency_bucket_treated_as_zero() {
+    fn find_matches_no_ping_data_treated_as_zero() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
@@ -850,15 +914,119 @@ mod tests {
             .insert_player(make_player(1, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
 
-        // Both players have no latency data — treated as bucket 0, penalty = 0.
-        // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0.
-        // Quality ≈ 0. Should appear at min_quality = f32::NEG_INFINITY.
+        // Defensive: players are required to have pings before queueing, but if a player somehow
+        // carries none, latency is unknown and no penalty is applied rather than blocking the match.
+        // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0. Quality ≈ 0.
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingType::Match1v1],
             f32::NEG_INFINITY,
             Instant::now(),
         );
         assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 0.0);
+    }
+
+    #[test]
+    fn latency_picks_lowest_combined_server() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        // Player 0 is closest to server 1, player 1 is closest to server 2, but the cheapest server
+        // they *share* is server 0 (combined 80ms → 40ms one-way). The lopsided servers must not be
+        // chosen since the other player pings them poorly.
+        matchmaker
+            .insert_player(make_player_with_pings(
+                0,
+                MatchmakingType::Match1v1,
+                &[(0, 40.0), (1, 10.0), (2, 500.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                1,
+                MatchmakingType::Match1v1,
+                &[(0, 40.0), (1, 500.0), (2, 10.0)],
+            ))
+            .unwrap();
+
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingType::Match1v1],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 40.0);
+    }
+
+    #[test]
+    fn latency_no_shared_server_has_no_penalty() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        // The players have pings, but to disjoint servers — no route can be estimated, so latency is
+        // treated as unknown (0) rather than infinite.
+        matchmaker
+            .insert_player(make_player_with_pings(
+                0,
+                MatchmakingType::Match1v1,
+                &[(1, 20.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                1,
+                MatchmakingType::Match1v1,
+                &[(2, 20.0)],
+            ))
+            .unwrap();
+
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingType::Match1v1],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 0.0);
+    }
+
+    #[test]
+    fn latency_team_mode_uses_worst_pair_across_all_pairs() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        // A 2v2 has six pairwise links. Three players ping server 0 at 20ms; player 2 pings it at
+        // 200ms. The worst link is therefore any pair involving player 2: (20 + 200) / 2 = 110ms.
+        // Latency is independent of how the matcher splits the teams — it's the worst pair overall.
+        matchmaker
+            .insert_player(make_player_with_pings(
+                0,
+                MatchmakingType::Match2v2,
+                &[(0, 20.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                1,
+                MatchmakingType::Match2v2,
+                &[(0, 20.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                2,
+                MatchmakingType::Match2v2,
+                &[(0, 200.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                3,
+                MatchmakingType::Match2v2,
+                &[(0, 20.0)],
+            ))
+            .unwrap();
+
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingType::Match2v2],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 110.0);
     }
 
     #[test]
@@ -881,7 +1049,7 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::new(),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         };
         let certain = Player {
             id: 1,
@@ -893,7 +1061,7 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::new(),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         };
 
         let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
@@ -939,7 +1107,7 @@ mod tests {
                 ),
             ]),
             map_selections: HashMap::new(),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         };
         let player_b = Player {
             id: 1,
@@ -960,7 +1128,7 @@ mod tests {
                 ),
             ]),
             map_selections: HashMap::new(),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         };
         matchmaker.insert_player(player_a).unwrap();
         matchmaker.insert_player(player_b).unwrap();
@@ -998,7 +1166,7 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::from([(mode, maps.iter().map(|m| m.to_string()).collect())]),
-            latency_bucket: None,
+            server_pings: HashMap::new(),
         }
     }
 

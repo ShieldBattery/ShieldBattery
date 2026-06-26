@@ -6,6 +6,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
+import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { subtract, union } from '../../../common/data-structures/sets'
@@ -64,6 +65,7 @@ import {
   insertMatchmakingMatchFormation,
   MatchmakingRating,
 } from '../matchmaking/models'
+import { RallyPointService } from '../rally-point/rally-point-service'
 import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
@@ -280,6 +282,12 @@ interface QueueEntry {
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
 
+// How long to wait for a queuing client to report its rally-point pings before giving up. The client
+// kicks off measurement when the player hits "find match" and it normally completes in well under a
+// second; this is just a safety net so a client that can't reach *any* rally-point server gets a
+// clear error instead of hanging in the queue forever (see `queueSoloPlayer`).
+const PING_RESULT_TIMEOUT_MS = 10 * 1000
+
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
@@ -420,6 +428,7 @@ export class MatchmakingService {
     private matchmakingBanService: MatchmakingBanService,
     private restrictionService: RestrictionService,
     private redisSubscriber: RedisSubscriber,
+    private rallyPointService: RallyPointService,
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
@@ -489,6 +498,13 @@ export class MatchmakingService {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
 
+    // Latency is now an input to match-finding: the matchmaker estimates a candidate match's latency
+    // from the players' rally-point pings (see `serverPings` below), so we don't enqueue a player
+    // until their client has actually measured those pings. Measuring is quick and the client kicks
+    // it off when the player hits "find match", so this normally resolves right away; run it
+    // alongside the MMR loads rather than serially.
+    const pingResultPromise = this.rallyPointService.waitForPingResult(clientSockets)
+
     // Load MMR for all queued types in parallel
     const typeDataEntries = await Promise.all(
       allPreferences.map(async pref => {
@@ -504,6 +520,25 @@ export class MatchmakingService {
         return { type, race, mmr, playerData }
       }),
     )
+
+    // Don't enter the queue until the client has reported its rally-point pings (see above). Bound
+    // the wait: if the client can't reach any rally-point server its pings never arrive and this
+    // promise would otherwise never resolve, leaving the player registered as an active gameplay
+    // client with no queue entry. Time out into a clear error instead so `find`'s catch unregisters
+    // them and the client surfaces the failure.
+    try {
+      await rejectOnTimeout(
+        pingResultPromise,
+        PING_RESULT_TIMEOUT_MS,
+        'timed out waiting for rally-point pings',
+      )
+    } catch (err) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.PingMeasurementFailed,
+        "Couldn't measure your connection to the game servers, please try again",
+        { cause: err },
+      )
+    }
 
     // Store the full player data and queue entry for use when the match event arrives from Rust.
     // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
@@ -541,7 +576,12 @@ export class MatchmakingService {
               ? d.playerData.mapSelections.slice()
               : null,
         })),
-        latencyBucket: null, // TODO: populate from actual latency data
+        // The matchmaker can't reason about latency from a single player in isolation — the latency
+        // of a match depends on which rally-point server gets chosen, which is a function of *all*
+        // the matched players' pings. So we hand it this client's raw per-server pings and let it
+        // reproduce the route selection per candidate match (see `match_latency` in Rust). We waited
+        // for a ping result above, so these are populated.
+        serverPings: this.rallyPointService.getPingsForClient(clientSockets),
       })
       if (this.lastKnownProcessToken === undefined) {
         this.lastKnownProcessToken = await rsGetProcessToken()

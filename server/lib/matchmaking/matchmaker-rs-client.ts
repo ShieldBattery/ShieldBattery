@@ -27,7 +27,14 @@ export interface RsQueueRequest {
    * entries, so there must be exactly one per type the player is queuing for.
    */
   modeRatings: RsModeRating[]
-  latencyBucket: number | null
+  /**
+   * The player's most recent round-trip pings (ms) to each rally-point server, as
+   * `[serverId, ping]` pairs. The matchmaker estimates a candidate match's latency from these by
+   * reproducing the route selection done at game launch (it picks, per pair, the server minimizing
+   * their combined ping). The service waits for a ping result before queueing, so this is normally
+   * populated; an empty list is tolerated and yields no latency penalty.
+   */
+  serverPings: Array<[serverId: number, ping: number]>
 }
 
 /** Error response body returned by the Rust API on 4xx responses. */
