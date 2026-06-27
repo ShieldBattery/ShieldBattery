@@ -7,6 +7,7 @@ use typeshare::typeshare;
 use crate::users::SbUserId;
 
 pub mod api;
+pub mod config;
 pub mod matchmaker;
 mod metrics;
 
