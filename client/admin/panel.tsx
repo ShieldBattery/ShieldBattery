@@ -15,6 +15,9 @@ const LoadableMapManager = IS_ELECTRON
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
+const LoadableMatchmakingConfig = React.lazy(async () => ({
+  default: (await import('./matchmaking-config')).AdminMatchmakingConfig,
+}))
 const LoadableMatchmakingSeasons = React.lazy(async () => ({
   default: (await import('./matchmaking-seasons')).AdminMatchmakingSeasons,
 }))
@@ -53,6 +56,12 @@ export default function AdminPanel() {
       'Manage maps',
     ],
     ['/admin/map-pools', perms?.manageMapPools, LoadableMapPools, 'Manage matchmaking map pools'],
+    [
+      '/admin/matchmaking-config',
+      perms?.manageMatchmaking,
+      LoadableMatchmakingConfig,
+      'Manage matchmaking config',
+    ],
     [
       '/admin/matchmaking-seasons',
       perms?.manageMatchmakingSeasons,
