@@ -117,3 +117,21 @@ export type PublishedUserMessage =
         email: string
       }
     }
+
+/**
+ * Error codes the matchmaking HTTP API returns in the `code` field of its JSON error bodies. This
+ * is the single source of truth for the set of codes; it's shared with the Node.js client via
+ * typeshare so both sides agree on the exact strings (rather than the client re-declaring them).
+ */
+export enum RsMatchmakerErrorCode {
+  /** The player is already in the queue. */
+  AlreadyInQueue = 'alreadyInQueue',
+  /** The queue request listed no modes to search for. */
+  NoModesSelected = 'noModesSelected',
+  /** The player was not found in the queue (e.g. cancel/requeue for someone already removed). */
+  NotFound = 'notFound',
+  /** A requeue ticket was malformed and couldn't be decoded. */
+  InvalidTicket = 'invalidTicket',
+  /** A requeue ticket was issued by a previous process — server-rs has restarted since. */
+  StaleTicket = 'staleTicket',
+}
