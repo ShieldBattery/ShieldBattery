@@ -66,6 +66,7 @@ export interface SbPermissions {
   manageLeagues: boolean
   manageMaps: boolean
   manageMapPools: boolean
+  manageMatchmaking: boolean
   manageMatchmakingSeasons: boolean
   manageMatchmakingTimes: boolean
   manageRallyPointServers: boolean

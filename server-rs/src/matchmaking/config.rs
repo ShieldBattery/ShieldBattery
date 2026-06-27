@@ -14,7 +14,8 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use serde::Deserialize;
+use async_graphql::{InputObject, SimpleObject};
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use sqlx::types::Json;
 
@@ -140,39 +141,46 @@ fn clamp_duration(seconds: Option<f64>, min: u64, max: u64) -> Option<Duration> 
 }
 
 /// Stored (JSON) form of [`MatchmakerConfig`]: every field optional so the row carries only the
-/// overrides an admin set. Unknown fields are ignored (forward-compatible).
-#[derive(Debug, Default, Deserialize)]
+/// overrides an admin set. Unknown fields are ignored (forward-compatible). This is the exact shape
+/// of the `matchmaking_config.config` JSONB column; the admin module builds and reads it.
+#[derive(Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", default)]
-struct StoredConfig {
-    search_interval_seconds: Option<f64>,
-    max_players_examined: Option<i64>,
-    global: StoredModeConfig,
+pub struct StoredConfig {
+    pub search_interval_seconds: Option<f64>,
+    pub max_players_examined: Option<i32>,
+    pub global: ModeConfigOverrides,
     // Keyed by the mode's stored string name rather than `MatchmakingType` so an unknown key doesn't
     // fail the entire deserialize (see `from_stored`); the keys are resolved to modes there.
-    per_mode: HashMap<String, StoredModeConfig>,
+    pub per_mode: HashMap<String, ModeConfigOverrides>,
 }
 
 /// Parses a stored per-mode key (e.g. `"3v3bgh"`) into a [`MatchmakingType`], or `None` if it doesn't
 /// match a known mode. Uses serde so the accepted names stay in lockstep with the enum's renames.
-fn parse_mode_key(key: &str) -> Option<MatchmakingType> {
+pub(crate) fn parse_mode_key(key: &str) -> Option<MatchmakingType> {
     serde_json::from_value(serde_json::Value::String(key.to_owned())).ok()
 }
 
-/// Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides.
-#[derive(Debug, Default, Clone, Deserialize)]
+/// Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides. Doubles as the GraphQL
+/// `MatchmakerModeConfigOverrides` (output) / `MatchmakerModeConfigOverridesInput` (input) type, so
+/// the admin form sends and receives exactly the shape that is persisted.
+#[derive(Debug, Default, Clone, Deserialize, Serialize, SimpleObject, InputObject)]
 #[serde(rename_all = "camelCase", default)]
-struct StoredModeConfig {
-    weight_rating_variance: Option<f32>,
-    weight_win_prob: Option<f32>,
-    weight_latency: Option<f32>,
-    uncertainty_k: Option<f32>,
-    min_quality: Option<f32>,
-    adaptive_comfortable_multiplier: Option<i64>,
-    adaptive_decay_per_missing: Option<f32>,
-    population_half_life_seconds: Option<f64>,
+#[graphql(
+    name = "MatchmakerModeConfigOverrides",
+    input_name = "MatchmakerModeConfigOverridesInput"
+)]
+pub struct ModeConfigOverrides {
+    pub weight_rating_variance: Option<f32>,
+    pub weight_win_prob: Option<f32>,
+    pub weight_latency: Option<f32>,
+    pub uncertainty_k: Option<f32>,
+    pub min_quality: Option<f32>,
+    pub adaptive_comfortable_multiplier: Option<i32>,
+    pub adaptive_decay_per_missing: Option<f32>,
+    pub population_half_life_seconds: Option<f64>,
 }
 
-impl StoredModeConfig {
+impl ModeConfigOverrides {
     /// Resolves this sparse override onto `base`, clamping every field to its valid range.
     fn resolve_onto(&self, base: ModeConfig) -> ModeConfig {
         ModeConfig {
@@ -214,25 +222,33 @@ fn clamp_f32(value: Option<f32>, base: f32, min: f32, max: f32) -> f32 {
         .clamp(min, max)
 }
 
-/// Loads the current matchmaker config from the database. Any failure (missing row, unparseable
-/// JSON, DB error) falls back to the built-in defaults and logs — matchmaking must keep running.
-pub async fn load_matchmaker_config(db: &PgPool) -> MatchmakerConfig {
+/// Reads the raw stored config overrides from the database, returning an empty (all-defaults)
+/// config on any failure (missing row, unparseable JSON, DB error) — with a log. This is the exact
+/// shape the admin tools read and write; [`load_matchmaker_config`] resolves it into the runtime
+/// config the matchmaker uses.
+pub async fn load_stored_config(db: &PgPool) -> StoredConfig {
     match sqlx::query!(
         r#"SELECT config as "config: Json<StoredConfig>" FROM matchmaking_config WHERE id = 1"#
     )
     .fetch_optional(db)
     .await
     {
-        Ok(Some(row)) => MatchmakerConfig::from_stored(row.config.0),
+        Ok(Some(row)) => row.config.0,
         Ok(None) => {
             tracing::info!("no matchmaking_config row found; using built-in matchmaker defaults");
-            MatchmakerConfig::default()
+            StoredConfig::default()
         }
         Err(e) => {
             tracing::error!("failed to load matchmaking_config, using built-in defaults: {e:?}");
-            MatchmakerConfig::default()
+            StoredConfig::default()
         }
     }
+}
+
+/// Loads the current matchmaker config from the database, resolved into the runtime form the
+/// matchmaker uses (see [`load_stored_config`] for the failure behaviour).
+pub async fn load_matchmaker_config(db: &PgPool) -> MatchmakerConfig {
+    MatchmakerConfig::from_stored(load_stored_config(db).await)
 }
 
 #[cfg(test)]

@@ -14,6 +14,7 @@ function convertFromDb(props: DbPermissions): SbPermissions {
     manageLeagues: props.manage_leagues,
     manageMaps: props.manage_maps,
     manageMapPools: props.manage_map_pools,
+    manageMatchmaking: props.manage_matchmaking,
     manageMatchmakingSeasons: props.manage_matchmaking_seasons,
     manageMatchmakingTimes: props.manage_matchmaking_times,
     manageRallyPointServers: props.manage_rally_point_servers,
@@ -42,9 +43,9 @@ export async function createPermissions(
 export async function getPermissions(userId: SbUserId): Promise<SbPermissions | undefined> {
   const query = sql`
     SELECT user_id, edit_permissions, debug, ban_users, manage_leagues, manage_maps,
-        manage_map_pools, mass_delete_maps, manage_matchmaking_times, manage_rally_point_servers,
-        moderate_chat_channels, manage_matchmaking_seasons, manage_news, manage_bug_reports,
-        manage_restricted_names, manage_signup_codes
+        manage_map_pools, mass_delete_maps, manage_matchmaking, manage_matchmaking_times,
+        manage_rally_point_servers, moderate_chat_channels, manage_matchmaking_seasons, manage_news,
+        manage_bug_reports, manage_restricted_names, manage_signup_codes
     FROM permissions
     WHERE user_id = ${userId};
   `
@@ -71,6 +72,7 @@ export async function updatePermissions(
       manage_leagues = ${!!perms.manageLeagues},
       manage_maps = ${!!perms.manageMaps},
       manage_map_pools = ${!!perms.manageMapPools},
+      manage_matchmaking = ${!!perms.manageMatchmaking},
       mass_delete_maps = ${!!perms.massDeleteMaps},
       manage_matchmaking_times = ${!!perms.manageMatchmakingTimes},
       manage_rally_point_servers = ${!!perms.manageRallyPointServers},

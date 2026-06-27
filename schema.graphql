@@ -185,6 +185,87 @@ The privacy level for a map. This determines who can use the map for creating ga
 """
 scalar MapVisibility
 
+"""
+The built-in default knob values, returned alongside the stored overrides so the admin UI can
+show each field's effective default as a placeholder / reset target.
+"""
+type MatchmakerConfigDefaults {
+	searchIntervalSeconds: Float!
+	maxPlayersExamined: Int!
+	weightRatingVariance: Float!
+	weightWinProb: Float!
+	weightLatency: Float!
+	uncertaintyK: Float!
+	minQuality: Float!
+	adaptiveComfortableMultiplier: Int!
+	adaptiveDecayPerMissing: Float!
+	populationHalfLifeSeconds: Float!
+}
+
+input MatchmakerConfigInput {
+	searchIntervalSeconds: Float
+	maxPlayersExamined: Int
+	global: MatchmakerModeConfigOverridesInput!
+	perMode: [MatchmakerPerModeOverrideInput!]!
+}
+
+"""
+The current matchmaker config: the stored overrides plus the built-in defaults.
+"""
+type MatchmakerConfigView {
+	searchIntervalSeconds: Float
+	maxPlayersExamined: Int
+	global: MatchmakerModeConfigOverrides!
+	perMode: [MatchmakerPerModeOverride!]!
+	defaults: MatchmakerConfigDefaults!
+}
+
+"""
+Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides. Doubles as the GraphQL
+`MatchmakerModeConfigOverrides` (output) / `MatchmakerModeConfigOverridesInput` (input) type, so
+the admin form sends and receives exactly the shape that is persisted.
+"""
+type MatchmakerModeConfigOverrides {
+	weightRatingVariance: Float
+	weightWinProb: Float
+	weightLatency: Float
+	uncertaintyK: Float
+	minQuality: Float
+	adaptiveComfortableMultiplier: Int
+	adaptiveDecayPerMissing: Float
+	populationHalfLifeSeconds: Float
+}
+
+"""
+Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides. Doubles as the GraphQL
+`MatchmakerModeConfigOverrides` (output) / `MatchmakerModeConfigOverridesInput` (input) type, so
+the admin form sends and receives exactly the shape that is persisted.
+"""
+input MatchmakerModeConfigOverridesInput {
+	weightRatingVariance: Float
+	weightWinProb: Float
+	weightLatency: Float
+	uncertaintyK: Float
+	minQuality: Float
+	adaptiveComfortableMultiplier: Int
+	adaptiveDecayPerMissing: Float
+	populationHalfLifeSeconds: Float
+}
+
+"""
+A per-mode override entry. (The stored form is a `mode -> overrides` map; GraphQL has no native
+map type, so it's exposed as a list keyed by `matchmakingType`.)
+"""
+type MatchmakerPerModeOverride {
+	matchmakingType: MatchmakingType!
+	config: MatchmakerModeConfigOverrides!
+}
+
+input MatchmakerPerModeOverrideInput {
+	matchmakingType: MatchmakingType!
+	config: MatchmakerModeConfigOverridesInput!
+}
+
 interface MatchmakingExtra {
 	matchmakingType: MatchmakingType!
 }
@@ -247,6 +328,12 @@ type Mutation {
 	userDeleteRestrictedName(id: Int!): Int!
 	userTestRestrictedName(name: String!): NameRestriction
 	createSignupCode(input: CreateSignupCodeInput!): SignupCode!
+	"""
+	Replaces the matchmaker config. Writes the row, appends to `matchmaking_config_history`, and
+	hot-reloads the live config so the change takes effect within one search tick. Out-of-range
+	values are clamped when the config is loaded, so this won't fail on a bad number.
+	"""
+	updateMatchmakingConfig(config: MatchmakerConfigInput!): MatchmakerConfigView!
 }
 
 type NameRestriction {
@@ -343,6 +430,10 @@ type Query {
 	userLoginNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [LoginNameAuditEntry!]!
 	userDisplayNameAuditHistory(userId: SbUserId!, limit: Int, offset: Int): [DisplayNameAuditEntry!]!
 	signupCodes(includeExhausted: Boolean): [SignupCode!]!
+	"""
+	The current matchmaker config: stored overrides plus the built-in defaults.
+	"""
+	matchmakingConfig: MatchmakerConfigView!
 }
 
 """
@@ -395,6 +486,7 @@ type SbPermissions {
 	manageLeagues: Boolean!
 	manageMaps: Boolean!
 	manageMapPools: Boolean!
+	manageMatchmaking: Boolean!
 	manageMatchmakingSeasons: Boolean!
 	manageMatchmakingTimes: Boolean!
 	manageRallyPointServers: Boolean!
@@ -418,6 +510,7 @@ input SbPermissionsInput {
 	manageLeagues: Boolean!
 	manageMaps: Boolean!
 	manageMapPools: Boolean!
+	manageMatchmaking: Boolean!
 	manageMatchmakingSeasons: Boolean!
 	manageMatchmakingTimes: Boolean!
 	manageRallyPointServers: Boolean!

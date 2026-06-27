@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO matchmaking_config_history (config, changed_by) VALUES ($1, $2)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "dc53d246ea48bb9454b19fb35fa2495f92c5bb0c9477b407e20b402b01c5f5b4"
+}

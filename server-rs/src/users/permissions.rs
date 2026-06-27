@@ -27,6 +27,7 @@ pub struct SbPermissions {
     pub manage_leagues: bool,
     pub manage_maps: bool,
     pub manage_map_pools: bool,
+    pub manage_matchmaking: bool,
     pub manage_matchmaking_seasons: bool,
     pub manage_matchmaking_times: bool,
     pub manage_rally_point_servers: bool,
@@ -47,6 +48,7 @@ pub enum RequiredPermission {
     ManageLeagues,
     ManageMaps,
     ManageMapPools,
+    ManageMatchmaking,
     ManageMatchmakingSeasons,
     ManageMatchmakingTimes,
     ManageRallyPointServers,
@@ -67,6 +69,7 @@ impl RequiredPermission {
             Self::ManageLeagues => permissions.manage_leagues,
             Self::ManageMaps => permissions.manage_maps,
             Self::ManageMapPools => permissions.manage_map_pools,
+            Self::ManageMatchmaking => permissions.manage_matchmaking,
             Self::ManageMatchmakingSeasons => permissions.manage_matchmaking_seasons,
             Self::ManageMatchmakingTimes => permissions.manage_matchmaking_times,
             Self::ManageRallyPointServers => permissions.manage_rally_point_servers,
@@ -110,10 +113,10 @@ impl Loader<SbUserId> for PermissionsLoader {
         Ok(sqlx::query!(
             r#"
                     SELECT user_id as "user_id: SbUserId", edit_permissions, debug, ban_users,
-                        manage_leagues, manage_maps, manage_map_pools, manage_matchmaking_seasons,
-                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
-                        moderate_chat_channels, manage_news, manage_bug_reports,
-                        manage_restricted_names, manage_signup_codes
+                        manage_leagues, manage_maps, manage_map_pools, manage_matchmaking,
+                        manage_matchmaking_seasons, manage_matchmaking_times,
+                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
+                        manage_news, manage_bug_reports, manage_restricted_names, manage_signup_codes
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -131,6 +134,7 @@ impl Loader<SbUserId> for PermissionsLoader {
                     manage_leagues: r.manage_leagues,
                     manage_maps: r.manage_maps,
                     manage_map_pools: r.manage_map_pools,
+                    manage_matchmaking: r.manage_matchmaking,
                     manage_matchmaking_seasons: r.manage_matchmaking_seasons,
                     manage_matchmaking_times: r.manage_matchmaking_times,
                     manage_rally_point_servers: r.manage_rally_point_servers,

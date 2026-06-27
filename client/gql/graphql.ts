@@ -36,6 +36,7 @@ export type SbPermissionsInput = {
   manageLeagues: boolean
   manageMapPools: boolean
   manageMaps: boolean
+  manageMatchmaking: boolean
   manageMatchmakingSeasons: boolean
   manageMatchmakingTimes: boolean
   manageNews: boolean
@@ -406,6 +407,7 @@ export type AdminUserProfileQuery = {
           manageLeagues: boolean
           manageMaps: boolean
           manageMapPools: boolean
+          manageMatchmaking: boolean
           manageMatchmakingTimes: boolean
           manageMatchmakingSeasons: boolean
           manageRallyPointServers: boolean
@@ -430,6 +432,7 @@ export type AdminUserProfile_PermissionsFragment = {
     manageLeagues: boolean
     manageMaps: boolean
     manageMapPools: boolean
+    manageMatchmaking: boolean
     manageMatchmakingTimes: boolean
     manageMatchmakingSeasons: boolean
     manageRallyPointServers: boolean
@@ -1159,6 +1162,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
@@ -2691,6 +2695,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
@@ -2785,6 +2790,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageLeagues' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMapPools' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },

@@ -7,6 +7,7 @@ use tokio::io;
 
 use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
+use crate::matchmaking::admin::{MatchmakingConfigMutation, MatchmakingConfigQuery};
 use crate::news::{NewsMutation, NewsQuery};
 use crate::users::{UsersMutation, UsersQuery};
 
@@ -14,10 +15,16 @@ pub type SbSchema = Schema<Query, Mutation, EmptySubscription>;
 pub type SbSchemaBuilder = SchemaBuilder<Query, Mutation, EmptySubscription>;
 
 #[derive(MergedObject, Default)]
-pub struct Query(GamesQuery, LeaguesQuery, NewsQuery, UsersQuery);
+pub struct Query(
+    GamesQuery,
+    LeaguesQuery,
+    NewsQuery,
+    UsersQuery,
+    MatchmakingConfigQuery,
+);
 
 #[derive(MergedObject, Default)]
-pub struct Mutation(NewsMutation, UsersMutation);
+pub struct Mutation(NewsMutation, UsersMutation, MatchmakingConfigMutation);
 
 pub fn build_schema() -> SbSchemaBuilder {
     Schema::build(Query::default(), Mutation::default(), EmptySubscription)

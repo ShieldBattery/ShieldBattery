@@ -123,6 +123,13 @@ pub async fn create_app(
 
     let name_checker = NameChecker::new(db_pool.clone());
 
+    // Load the runtime matchmaker config from the DB into a swappable handle shared by the search
+    // loop (reads it each tick) and the admin GraphQL mutation (rewrites + hot-reloads it). Falls
+    // back to built-in defaults if the row is missing/unparseable.
+    let matchmaker_config = Arc::new(ArcSwap::from_pointee(
+        load_matchmaker_config(&db_pool).await,
+    ));
+
     let schema = build_schema()
         .extension(Tracing)
         .extension(ErrorLoggerExtension)
@@ -132,6 +139,7 @@ pub async fn create_app(
         .data(mailgun.clone())
         .data(file_store.clone())
         .data(name_checker.clone())
+        .data(matchmaker_config.clone())
         .module(MapsModule::new(db_pool.clone()))
         .module(GamesModule::new(db_pool.clone()))
         .module(NewsModule::new(db_pool.clone()))
@@ -160,11 +168,6 @@ pub async fn create_app(
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
-    // Load the runtime matchmaker config from the DB into a swappable handle the search loop reads
-    // each tick. Falls back to built-in defaults if the row is missing/unparseable.
-    let matchmaker_config = Arc::new(ArcSwap::from_pointee(
-        load_matchmaker_config(&db_pool).await,
-    ));
     let matchmaker_router = create_matchmaking_api(redis_pool.clone(), matchmaker_config)
         .layer(middleware::from_fn(only_unforwarded_clients));
 

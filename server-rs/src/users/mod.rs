@@ -1177,10 +1177,10 @@ impl CurrentUserRepo {
                 SbPermissions,
                 r#"
                     SELECT user_id as "id", edit_permissions, debug, ban_users, manage_leagues,
-                        manage_maps, manage_map_pools, manage_matchmaking_seasons,
-                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
-                        moderate_chat_channels, manage_news, manage_bug_reports,
-                        manage_restricted_names, manage_signup_codes
+                        manage_maps, manage_map_pools, manage_matchmaking,
+                        manage_matchmaking_seasons, manage_matchmaking_times,
+                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
+                        manage_news, manage_bug_reports, manage_restricted_names, manage_signup_codes
                     FROM permissions
                     WHERE user_id = $1
                 "#,
