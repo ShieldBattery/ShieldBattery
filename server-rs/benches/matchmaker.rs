@@ -1,12 +1,14 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Instant;
 
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use server::matchmaking::MatchmakingType;
+use server::matchmaking::config::MatchmakerConfig;
 use server::matchmaking::matchmaker::{Matchmaker, Player, PlayerModeRating};
 
 fn bench_1v1(c: &mut Criterion) {
-    let mut matchmaker = Matchmaker::new(16);
+    let mut matchmaker = Matchmaker::new(Arc::new(MatchmakerConfig::default()));
     for player in (0..1000).map(|n| Player {
         id: n,
         ratings: HashMap::from([(
@@ -22,12 +24,12 @@ fn bench_1v1(c: &mut Criterion) {
         matchmaker.insert_player(player).unwrap();
     }
     c.bench_function("find_matches_1v1", |b| {
-        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
+        b.iter(|| black_box(matchmaker.find_matches(Instant::now())));
     });
 }
 
 fn bench_2v2(c: &mut Criterion) {
-    let mut matchmaker = Matchmaker::new(16);
+    let mut matchmaker = Matchmaker::new(Arc::new(MatchmakerConfig::default()));
     for player in (0..1000).map(|n| Player {
         id: n,
         ratings: HashMap::from([(
@@ -43,7 +45,7 @@ fn bench_2v2(c: &mut Criterion) {
         matchmaker.insert_player(player).unwrap();
     }
     c.bench_function("find_matches_2v2", |b| {
-        b.iter(|| black_box(matchmaker.find_matches(f32::NEG_INFINITY, Instant::now())));
+        b.iter(|| black_box(matchmaker.find_matches(Instant::now())));
     });
 }
 

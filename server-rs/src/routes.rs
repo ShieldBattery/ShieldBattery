@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use arc_swap::ArcSwap;
 use async_graphql::extensions::Tracing;
 use async_graphql::http::ALL_WEBSOCKET_PROTOCOLS;
 use async_graphql_axum::{GraphQLProtocol, GraphQLRequest, GraphQLResponse, GraphQLWebSocket};
@@ -41,6 +42,7 @@ use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
 use crate::maps::MapsModule;
 use crate::matchmaking::api::create_matchmaking_api;
+use crate::matchmaking::config::load_matchmaker_config;
 use crate::news::NewsModule;
 use crate::redis::RedisPool;
 use crate::schema::{SbSchema, build_schema};
@@ -158,7 +160,12 @@ pub async fn create_app(
         .route("/", get(|| async move { metric_handle.render() }))
         .layer(middleware::from_fn(only_unforwarded_clients));
     let names_router = create_names_api().layer(middleware::from_fn(only_unforwarded_clients));
-    let matchmaker_router = create_matchmaking_api(redis_pool.clone())
+    // Load the runtime matchmaker config from the DB into a swappable handle the search loop reads
+    // each tick. Falls back to built-in defaults if the row is missing/unparseable.
+    let matchmaker_config = Arc::new(ArcSwap::from_pointee(
+        load_matchmaker_config(&db_pool).await,
+    ));
+    let matchmaker_router = create_matchmaking_api(redis_pool.clone(), matchmaker_config)
         .layer(middleware::from_fn(only_unforwarded_clients));
 
     let app_state = AppState {
