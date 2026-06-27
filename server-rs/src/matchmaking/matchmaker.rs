@@ -71,10 +71,26 @@ const ADAPTIVE_DECAY_PER_MISSING: f32 = 15.0;
 /// [`Matchmaker::update_population_estimates`]).
 const POPULATION_WINDOW: Duration = Duration::from_secs(60);
 
-/// EWMA smoothing factor for the population estimate, in (0, 1). Lower means smoother / slower to
-/// react. 0.25 over 60s windows gives a roughly 2.4-minute half-life, so a single drained window
-/// barely moves the estimate but a genuine dead hour relaxes the threshold within a few minutes.
-const POPULATION_ALPHA: f32 = 0.25;
+/// Half-life of the population estimate: the time a mode's estimate takes to decay halfway toward a
+/// lower level once the queue goes quiet (and, symmetrically, to climb halfway toward a higher one).
+///
+/// This is the knob that controls how reactive the adaptive threshold is, and it wants to be *long*.
+/// A matched player vanishes from the queue for the length of a game (~15-20 minutes for BW) before
+/// requeueing, so the estimate has to remember the population across at least one game-and-requeue
+/// cycle or it would forget the active player base mid-game and spuriously relax the threshold. A
+/// half-life around a game length also smooths over the multi-minute lulls that are normal even at
+/// peak hours, while still relaxing the threshold over the better part of an hour during a genuinely
+/// dead period. [`POPULATION_WINDOW`] only sets the sampling granularity; this sets the time
+/// constant. (The previous value — inherited verbatim from the old TS matchmaker, where it was an
+/// admittedly arbitrary placeholder — was a ~2.4-minute half-life, far too twitchy.)
+const POPULATION_HALF_LIFE: Duration = Duration::from_secs(20 * 60);
+
+/// Per-window EWMA blend factor derived from [`POPULATION_HALF_LIFE`] and [`POPULATION_WINDOW`]:
+/// `alpha = 1 - 0.5^(window / half_life)`, i.e. the fraction of a window's peak folded into the
+/// estimate each fold, chosen so the estimate halves over exactly one half-life of idle windows.
+fn population_alpha() -> f32 {
+    1.0 - 0.5_f32.powf(POPULATION_WINDOW.as_secs_f32() / POPULATION_HALF_LIFE.as_secs_f32())
+}
 
 /// Identifies a map. Opaque to the matchmaker — only compared for equality when verifying that the
 /// players in a positive-selection mode share at least one map. Matches the string `SbMapId` used
@@ -406,8 +422,8 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// Folds any elapsed sampling windows into the smoothed per-mode population estimate. The search
     /// loop calls this once per tick; for each whole [`POPULATION_WINDOW`] that has passed since the
     /// last fold, that window's peak concurrent queue size is blended into an exponential moving
-    /// average (factor [`POPULATION_ALPHA`]) and the peak is reset to the live queue size for the
-    /// next window.
+    /// average (factor [`population_alpha`], derived from [`POPULATION_HALF_LIFE`]) and the peak is
+    /// reset to the live queue size for the next window.
     ///
     /// Sampling the *window peak* rather than the instantaneous queue size is the whole point: the
     /// matchmaker removes every match it forms each tick, so the instantaneous size sits near the
@@ -415,13 +431,14 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// captures the players who passed through the window, and the EWMA decays toward 0 across idle
     /// windows so the threshold still relaxes during a genuine dead hour.
     pub fn update_population_estimates(&mut self, now: Instant) {
+        let alpha = population_alpha();
         while now.duration_since(self.population_window_start) >= POPULATION_WINDOW {
             for mode in MatchmakingType::iter() {
                 let peak = self.population_peak.get(&mode).copied().unwrap_or(0) as f32;
                 match self.population_estimate.entry(mode) {
                     std::collections::hash_map::Entry::Occupied(mut e) => {
                         let v = e.get_mut();
-                        *v = peak * POPULATION_ALPHA + (1.0 - POPULATION_ALPHA) * *v;
+                        *v = peak * alpha + (1.0 - alpha) * *v;
                     }
                     // Seed straight from the first non-empty window so the estimate converges at once
                     // instead of crawling up from 0 over several windows after a (re)start.
@@ -1410,10 +1427,33 @@ mod tests {
         mm.update_population_estimates(start + 2 * POPULATION_WINDOW);
         assert!((mm.population_estimate[&mode] - 4.0).abs() < 1e-4);
 
-        // Subsequent idle windows have peak 0 and decay the estimate by (1 - alpha) = 0.75 each.
+        // Subsequent idle windows have peak 0 and decay the estimate by the per-window retention
+        // factor (1 - alpha) each, where alpha is derived from POPULATION_HALF_LIFE.
+        let retention = 1.0 - population_alpha();
         mm.update_population_estimates(start + 3 * POPULATION_WINDOW);
-        assert!((mm.population_estimate[&mode] - 3.0).abs() < 1e-4); // 4.0 * 0.75
+        assert!((mm.population_estimate[&mode] - 4.0 * retention).abs() < 1e-4);
         mm.update_population_estimates(start + 4 * POPULATION_WINDOW);
-        assert!((mm.population_estimate[&mode] - 2.25).abs() < 1e-4); // 3.0 * 0.75
+        assert!((mm.population_estimate[&mode] - 4.0 * retention * retention).abs() < 1e-4);
+    }
+
+    #[test]
+    fn population_half_life_matches_decay() {
+        // One half-life of idle windows should decay the estimate to half. Guards against
+        // POPULATION_HALF_LIFE and POPULATION_WINDOW drifting out of the alpha derivation.
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1;
+        let start = mm.start();
+
+        mm.population_estimate.insert(mode, 8.0);
+        // Park the window start so exactly the windows we fold below have elapsed.
+        let windows = (POPULATION_HALF_LIFE.as_secs() / POPULATION_WINDOW.as_secs()) as u32;
+        for w in 1..=windows {
+            mm.update_population_estimates(start + w * POPULATION_WINDOW);
+        }
+        assert!(
+            (mm.population_estimate[&mode] - 4.0).abs() < 1e-3,
+            "after one half-life of idle windows the estimate should halve, got {}",
+            mm.population_estimate[&mode]
+        );
     }
 }
