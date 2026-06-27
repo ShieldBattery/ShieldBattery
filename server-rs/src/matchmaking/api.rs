@@ -3,7 +3,7 @@ use crate::matchmaking::matchmaker::{
 };
 use crate::matchmaking::{
     MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
-    RsMatchmakerErrorCode,
+    RsMatchmakerErrorCode, metrics,
 };
 use crate::redis::RedisPool;
 use crate::state::AppState;
@@ -259,16 +259,20 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     loop {
         interval.tick().await;
 
+        let tick_start = Instant::now();
+
         // Find matches and immediately remove matched players while still holding the lock,
         // eliminating the window where a cancel+requeue could slip in between the two operations
         // and have the fresh queue entry incorrectly removed.
         let selected = {
-            let now = Instant::now();
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
             // Roll the population estimate forward before searching so the adaptive quality threshold
             // reflects recent population rather than the post-drain residual queue size.
-            matchmaker.update_population_estimates(now);
-            let matches = matchmaker.find_matches(MIN_QUALITY, now);
+            matchmaker.update_population_estimates(tick_start);
+            // Sample the per-mode gauges here — after the population roll-forward, before the drain
+            // below — so they reflect everyone waiting this tick rather than the unmatched residual.
+            metrics::sample_queue_state(&matchmaker, MIN_QUALITY);
+            let matches = matchmaker.find_matches(MIN_QUALITY, tick_start);
             let selected = deduplicate_matches(matches);
             for m in &selected {
                 for entry in m.team_a.iter().chain(m.team_b.iter()) {
@@ -278,12 +282,16 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
             selected
         };
 
+        metrics::record_search_tick_duration(tick_start.elapsed());
+
         if selected.is_empty() {
             continue;
         }
 
         // Publish one event per selected match
         for m in selected {
+            metrics::record_match_formed(&m, tick_start);
+
             let make_matched_player = |entry: &QueueEntry| MatchedPlayer {
                 id: SbUserId::from(entry.player.id as i32),
                 ticket: build_ticket(entry, &state.process_token, matchmaker_start),
@@ -327,6 +335,7 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
         match redis_pool.publish(event.clone()).await {
             Ok(()) => return,
             Err(e) => {
+                metrics::record_publish_failure();
                 tracing::error!(
                     "Failed to publish match event to Redis \
                      (attempt {attempt}/{MAX_PUBLISH_ATTEMPTS}): {e:?}"
@@ -361,6 +370,8 @@ async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<Pro
 }
 
 pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
+    metrics::describe_metrics();
+
     let state = MatchmakingApiState {
         matchmaker: Arc::new(Mutex::new(Matchmaker::new(16))),
         process_token: Uuid::new_v4(),
@@ -382,9 +393,15 @@ async fn insert_player(
     State(state): State<MatchmakingApiState>,
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
+    let modes: Vec<MatchmakingType> = payload.mode_ratings.iter().map(|r| r.mode).collect();
     let player = build_player(payload.id, payload.mode_ratings, payload.server_pings);
-    let mut matchmaker = lock_matchmaker(&state.matchmaker);
-    matchmaker.insert_player(player)?;
+    {
+        let mut matchmaker = lock_matchmaker(&state.matchmaker);
+        matchmaker.insert_player(player)?;
+    }
+    for mode in modes {
+        metrics::record_player_queued(mode);
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -430,13 +447,19 @@ async fn requeue_player(
             .into_response();
     }
 
+    let modes: Vec<MatchmakingType> = ticket.mode_ratings.iter().map(|r| r.mode).collect();
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
         build_player(ticket.id, ticket.mode_ratings, ticket.server_pings),
         queue_time,
     ) {
-        Ok(_) => StatusCode::NO_CONTENT.into_response(),
+        Ok(_) => {
+            for mode in modes {
+                metrics::record_player_requeued(mode);
+            }
+            StatusCode::NO_CONTENT.into_response()
+        }
         Err(e) => e.into_response(),
     }
 }

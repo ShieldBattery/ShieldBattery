@@ -456,10 +456,23 @@ impl<T: QueueSelector> Matchmaker<T> {
         }
     }
 
+    /// The number of players currently queued for `mode` (0 if none). This is the live,
+    /// instantaneous size, which the matchmaker drains each tick — see [`Self::population_estimate`]
+    /// for the smoothed measure the adaptive threshold actually uses.
+    pub fn queue_size(&self, mode: MatchmakingType) -> usize {
+        self.queue_sizes.get(&mode).copied().unwrap_or(0)
+    }
+
+    /// The current smoothed (EWMA) population estimate for `mode`, or `None` until the first sampling
+    /// window has folded (see [`Self::update_population_estimates`]).
+    pub fn population_estimate(&self, mode: MatchmakingType) -> Option<f32> {
+        self.population_estimate.get(&mode).copied()
+    }
+
     /// The minimum quality a match in `mode` must reach to form right now. Equal to `min_quality`
     /// when the mode's smoothed population is comfortable, and relaxed by [`ADAPTIVE_DECAY_PER_MISSING`]
     /// seconds per player below the comfortable population so matches still form when few are around.
-    fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
+    pub fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
         let comfortable = (mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER) as f32;
         // Until the first window folds (e.g. the first minute after a restart) the smoothed estimate
         // is absent; fall back to the current window's peak so a healthy queue isn't mistaken for zero
