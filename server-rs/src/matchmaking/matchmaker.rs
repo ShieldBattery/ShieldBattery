@@ -444,7 +444,16 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// seconds per player below the comfortable population so matches still form when few are around.
     fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
         let comfortable = (mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER) as f32;
-        let population = self.population_estimate.get(&mode).copied().unwrap_or(0.0);
+        // Until the first window folds (e.g. the first minute after a restart) the smoothed estimate
+        // is absent; fall back to the current window's peak so a healthy queue isn't mistaken for zero
+        // population and maximally relaxed. Using the peak rather than the live size keeps this
+        // drain-resistant, matching the smoothed path.
+        let population = self
+            .population_estimate
+            .get(&mode)
+            .copied()
+            .or_else(|| self.population_peak.get(&mode).map(|&p| p as f32))
+            .unwrap_or(0.0);
         if population < comfortable {
             min_quality - ADAPTIVE_DECAY_PER_MISSING * (comfortable - population)
         } else {
@@ -1328,6 +1337,27 @@ mod tests {
         // Persistently low population → partial relaxation (1 player short of comfortable).
         mm.population_estimate.insert(mode, 3.0);
         assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0 - 15.0 * 1.0);
+    }
+
+    #[test]
+    fn population_falls_back_to_window_peak_before_first_fold() {
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1; // comfortable 4
+
+        // A healthy queue forms right after a (re)start, before any window has folded — the smoothed
+        // estimate is still absent. The threshold must not relax: a full queue is not low population.
+        for i in 0..6 {
+            mm.insert_player(make_player(i, 1500.0, mode)).unwrap();
+        }
+        assert!(!mm.population_estimate.contains_key(&mode));
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+
+        // Draining the queue during the warmup window must not relax it either — the peak holds.
+        for i in 0..4 {
+            mm.remove_player(i);
+        }
+        assert_eq!(mm.queue_sizes.get(&mode), Some(&2));
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
     }
 
     #[test]
