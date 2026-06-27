@@ -263,8 +263,12 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // eliminating the window where a cancel+requeue could slip in between the two operations
         // and have the fresh queue entry incorrectly removed.
         let selected = {
+            let now = Instant::now();
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
-            let matches = matchmaker.find_matches(MIN_QUALITY, Instant::now());
+            // Roll the population estimate forward before searching so the adaptive quality threshold
+            // reflects recent population rather than the post-drain residual queue size.
+            matchmaker.update_population_estimates(now);
+            let matches = matchmaker.find_matches(MIN_QUALITY, now);
             let selected = deduplicate_matches(matches);
             for m in &selected {
                 for entry in m.team_a.iter().chain(m.team_b.iter()) {

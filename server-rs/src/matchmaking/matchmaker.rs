@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Instant};
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use enumset::EnumSet;
 use itertools::Itertools;
@@ -30,9 +33,12 @@ Skill variance is computed over each player's *effective rating* (rating − k*�
 players with high uncertainty contribute less variance and match more freely until their rating
 stabilizes.
 
-The minimum acceptable quality (min_quality) is adaptive: when the queue is smaller than a
-comfortable threshold it is relaxed by ADAPTIVE_DECAY_PER_MISSING seconds per missing player,
-ensuring matches can still form in low-population conditions.
+The minimum acceptable quality (min_quality) is adaptive: when a mode's *smoothed population
+estimate* is below a comfortable threshold it is relaxed by ADAPTIVE_DECAY_PER_MISSING seconds per
+missing player, ensuring matches can still form in low-population conditions. The estimate is a
+time-smoothed (EWMA) measure of how many players have been around recently — deliberately *not* the
+instantaneous queue size, which the matchmaker drains to its unmatched residual every tick and would
+therefore read as "low population" even at peak hours (see [`update_population_estimates`]).
 
 See also Menke's talk for background on this scoring approach:
 https://www.youtube.com/watch?v=Q8BX0nXfPjY
@@ -52,13 +58,39 @@ const WEIGHT_LATENCY: f32 = 30.0;
 /// k=1.0 → 68% confidence lower bound. k=2.0 → 95% lower bound.
 const UNCERTAINTY_K: f32 = 1.0;
 
-/// Queue size at or above which the full MIN_QUALITY threshold applies.
-/// Below this, the threshold decays by ADAPTIVE_DECAY_PER_MISSING per missing player.
-/// This multiplier is applied to mode.total_players() so it scales with mode size.
+/// Smoothed population (see [`Matchmaker::update_population_estimates`]) at or above which the full
+/// MIN_QUALITY threshold applies. Below this, the threshold decays by ADAPTIVE_DECAY_PER_MISSING per
+/// missing player. This multiplier is applied to mode.total_players() so it scales with mode size.
 const ADAPTIVE_COMFORTABLE_MULTIPLIER: usize = 2;
 
-/// Seconds the quality threshold drops per player below the comfortable queue size.
+/// Seconds the quality threshold drops per player below the comfortable population.
 const ADAPTIVE_DECAY_PER_MISSING: f32 = 15.0;
+
+/// Length of one population-sampling window. At each boundary the window's peak concurrent queue size
+/// is folded into the smoothed per-mode population estimate (see
+/// [`Matchmaker::update_population_estimates`]).
+const POPULATION_WINDOW: Duration = Duration::from_secs(60);
+
+/// Half-life of the population estimate: the time a mode's estimate takes to decay halfway toward a
+/// lower level once the queue goes quiet (and, symmetrically, to climb halfway toward a higher one).
+///
+/// This is the knob that controls how reactive the adaptive threshold is, and it wants to be *long*.
+/// A matched player vanishes from the queue for the length of a game (~15-20 minutes for BW) before
+/// requeueing, so the estimate has to remember the population across at least one game-and-requeue
+/// cycle or it would forget the active player base mid-game and spuriously relax the threshold. A
+/// half-life around a game length also smooths over the multi-minute lulls that are normal even at
+/// peak hours, while still relaxing the threshold over the better part of an hour during a genuinely
+/// dead period. [`POPULATION_WINDOW`] only sets the sampling granularity; this sets the time
+/// constant. (The previous value — inherited verbatim from the old TS matchmaker, where it was an
+/// admittedly arbitrary placeholder — was a ~2.4-minute half-life, far too twitchy.)
+const POPULATION_HALF_LIFE: Duration = Duration::from_secs(20 * 60);
+
+/// Per-window EWMA blend factor derived from [`POPULATION_HALF_LIFE`] and [`POPULATION_WINDOW`]:
+/// `alpha = 1 - 0.5^(window / half_life)`, i.e. the fraction of a window's peak folded into the
+/// estimate each fold, chosen so the estimate halves over exactly one half-life of idle windows.
+fn population_alpha() -> f32 {
+    1.0 - 0.5_f32.powf(POPULATION_WINDOW.as_secs_f32() / POPULATION_HALF_LIFE.as_secs_f32())
+}
 
 /// Identifies a map. Opaque to the matchmaker — only compared for equality when verifying that the
 /// players in a positive-selection mode share at least one map. Matches the string `SbMapId` used
@@ -154,6 +186,16 @@ pub struct Matchmaker<T: QueueSelector> {
     max_players_examined: usize,
     queue: Vec<QueueEntry>,
     queue_sizes: HashMap<MatchmakingType, usize>,
+    /// Smoothed (EWMA) estimate of how many players have recently been queued for each mode, used to
+    /// relax the quality threshold in low population. Updated once per [`POPULATION_WINDOW`] by
+    /// [`Matchmaker::update_population_estimates`]; absent until the first non-empty window seeds it.
+    population_estimate: HashMap<MatchmakingType, f32>,
+    /// Peak concurrent queue size per mode observed within the current (not-yet-folded) sampling
+    /// window. Raised as players join; folded into `population_estimate` and reset to the live size
+    /// at each window boundary.
+    population_peak: HashMap<MatchmakingType, usize>,
+    /// Start of the current sampling window, advanced by whole [`POPULATION_WINDOW`]s as they elapse.
+    population_window_start: Instant,
     queue_selector: T,
 }
 
@@ -279,11 +321,15 @@ fn selections_share_a_map(selections: &[&Vec<MapId>]) -> bool {
 
 impl<T: QueueSelector> Matchmaker<T> {
     fn with_queue_selector(max_players_examined: usize, queue_selector: T) -> Matchmaker<T> {
+        let start = Instant::now();
         Self {
-            start: Instant::now(),
+            start,
             max_players_examined,
             queue: Vec::new(),
             queue_sizes: HashMap::new(),
+            population_estimate: HashMap::new(),
+            population_peak: HashMap::new(),
+            population_window_start: start,
             queue_selector,
         }
     }
@@ -345,10 +391,16 @@ impl<T: QueueSelector> Matchmaker<T> {
         };
 
         for mode in entry.modes.iter() {
-            self.queue_sizes
-                .entry(mode)
-                .and_modify(|n| *n += 1)
-                .or_insert(1);
+            let size = {
+                let n = self.queue_sizes.entry(mode).or_insert(0);
+                *n += 1;
+                *n
+            };
+            // Raise the current window's high-water mark. The population estimate samples this peak
+            // rather than the instantaneous size so it isn't dragged down by the matchmaker draining
+            // the queue between windows.
+            let peak = self.population_peak.entry(mode).or_insert(0);
+            *peak = (*peak).max(size);
         }
 
         Ok(entry)
@@ -364,6 +416,65 @@ impl<T: QueueSelector> Matchmaker<T> {
             Some(entry.player)
         } else {
             None
+        }
+    }
+
+    /// Folds any elapsed sampling windows into the smoothed per-mode population estimate. The search
+    /// loop calls this once per tick; for each whole [`POPULATION_WINDOW`] that has passed since the
+    /// last fold, that window's peak concurrent queue size is blended into an exponential moving
+    /// average (factor [`population_alpha`], derived from [`POPULATION_HALF_LIFE`]) and the peak is
+    /// reset to the live queue size for the next window.
+    ///
+    /// Sampling the *window peak* rather than the instantaneous queue size is the whole point: the
+    /// matchmaker removes every match it forms each tick, so the instantaneous size sits near the
+    /// unmatched residual almost always and would read as low population even at peak hours. The peak
+    /// captures the players who passed through the window, and the EWMA decays toward 0 across idle
+    /// windows so the threshold still relaxes during a genuine dead hour.
+    pub fn update_population_estimates(&mut self, now: Instant) {
+        let alpha = population_alpha();
+        while now.duration_since(self.population_window_start) >= POPULATION_WINDOW {
+            for mode in MatchmakingType::iter() {
+                let peak = self.population_peak.get(&mode).copied().unwrap_or(0) as f32;
+                match self.population_estimate.entry(mode) {
+                    std::collections::hash_map::Entry::Occupied(mut e) => {
+                        let v = e.get_mut();
+                        *v = peak * alpha + (1.0 - alpha) * *v;
+                    }
+                    // Seed straight from the first non-empty window so the estimate converges at once
+                    // instead of crawling up from 0 over several windows after a (re)start.
+                    std::collections::hash_map::Entry::Vacant(e) => {
+                        if peak > 0.0 {
+                            e.insert(peak);
+                        }
+                    }
+                }
+                // The next window's peak starts at the live size; it can only rise from there.
+                let live = self.queue_sizes.get(&mode).copied().unwrap_or(0);
+                self.population_peak.insert(mode, live);
+            }
+            self.population_window_start += POPULATION_WINDOW;
+        }
+    }
+
+    /// The minimum quality a match in `mode` must reach to form right now. Equal to `min_quality`
+    /// when the mode's smoothed population is comfortable, and relaxed by [`ADAPTIVE_DECAY_PER_MISSING`]
+    /// seconds per player below the comfortable population so matches still form when few are around.
+    fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
+        let comfortable = (mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER) as f32;
+        // Until the first window folds (e.g. the first minute after a restart) the smoothed estimate
+        // is absent; fall back to the current window's peak so a healthy queue isn't mistaken for zero
+        // population and maximally relaxed. Using the peak rather than the live size keeps this
+        // drain-resistant, matching the smoothed path.
+        let population = self
+            .population_estimate
+            .get(&mode)
+            .copied()
+            .or_else(|| self.population_peak.get(&mode).map(|&p| p as f32))
+            .unwrap_or(0.0);
+        if population < comfortable {
+            min_quality - ADAPTIVE_DECAY_PER_MISSING * (comfortable - population)
+        } else {
+            min_quality
         }
     }
 
@@ -396,13 +507,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                 continue;
             }
 
-            let comfortable_size = mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER;
-            let queue_size = self.queue_sizes.get(mode).copied().unwrap_or(0);
-            let effective_min = if queue_size < comfortable_size {
-                min_quality - ADAPTIVE_DECAY_PER_MISSING * (comfortable_size - queue_size) as f32
-            } else {
-                min_quality
-            };
+            let effective_min = self.effective_min_quality(*mode, min_quality);
 
             // Only look at players queued for this mode
             let mode_queue = self.queue.iter().filter(|e| e.modes.contains(*mode));
@@ -879,27 +984,29 @@ mod tests {
             ))
             .unwrap();
 
+        // Seed a comfortable population so the adaptive relaxation is inactive and effective_min ==
+        // min_quality; this test exercises the latency penalty in isolation (the adaptive threshold
+        // has its own tests below).
+        matchmaker
+            .population_estimate
+            .insert(MatchmakingType::Match1v1, 100.0);
+
         // At t=0 with no wait time: quality = 0 - (variance_penalty + win_prob_penalty + latency_penalty)
         // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0.
         // max_latency = 200ms (one-way). latency_value(200) = 3, WEIGHT_LATENCY = 30.0, so the
         // latency penalty = 30.0 * 3 = 90.0. Quality ≈ 0 - 90.0 = -90.0.
         //
-        // The adaptive threshold: with 2 players in queue and comfortable_size=4 (2 * 2),
-        // effective_min = min_quality - ADAPTIVE_DECAY_PER_MISSING * 2
-        //               = min_quality - 15.0 * 2 = min_quality - 30.0.
-        //
-        // To ensure effective_min > -90.0, we need min_quality > -60.0. Use -55.0:
-        // effective_min = -55.0 - 30.0 = -85.0 > -90.0 → match rejected.
+        // min_quality = -85.0 → quality (-90.0) < effective_min (-85.0) → match rejected.
         let result_strict =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -55.0, Instant::now());
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -85.0, Instant::now());
         assert!(
             result_strict.is_empty(),
-            "expected no match when effective_min (-85.0) exceeds quality (-90.0) at 200ms latency"
+            "expected no match when min_quality (-85.0) exceeds quality (-90.0) at 200ms latency"
         );
 
-        // With min_quality = -65.0: effective_min = -65.0 - 30.0 = -95.0 < -90.0 → match forms.
+        // min_quality = -95.0 → quality (-90.0) >= effective_min (-95.0) → match forms.
         let result_lenient =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -65.0, Instant::now());
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -95.0, Instant::now());
         assert_eq!(result_lenient.len(), 1);
         assert_eq!(result_lenient[0].max_latency, 200.0);
     }
@@ -1226,5 +1333,127 @@ mod tests {
             Instant::now(),
         );
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn effective_min_relaxes_only_when_smoothed_population_low() {
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1; // total_players 2 → comfortable 4
+
+        // No population history yet: treated as 0 → maximally relaxed.
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0 - 15.0 * 4.0);
+
+        // Comfortably populated → no relaxation.
+        mm.population_estimate.insert(mode, 10.0);
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+
+        // Exactly at the comfortable line → no relaxation.
+        mm.population_estimate.insert(mode, 4.0);
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+
+        // Persistently low population → partial relaxation (1 player short of comfortable).
+        mm.population_estimate.insert(mode, 3.0);
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0 - 15.0 * 1.0);
+    }
+
+    #[test]
+    fn population_falls_back_to_window_peak_before_first_fold() {
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1; // comfortable 4
+
+        // A healthy queue forms right after a (re)start, before any window has folded — the smoothed
+        // estimate is still absent. The threshold must not relax: a full queue is not low population.
+        for i in 0..6 {
+            mm.insert_player(make_player(i, 1500.0, mode)).unwrap();
+        }
+        assert!(!mm.population_estimate.contains_key(&mode));
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+
+        // Draining the queue during the warmup window must not relax it either — the peak holds.
+        for i in 0..4 {
+            mm.remove_player(i);
+        }
+        assert_eq!(mm.queue_sizes.get(&mode), Some(&2));
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+    }
+
+    #[test]
+    fn population_estimate_uses_window_peak_not_instantaneous() {
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1; // comfortable 4
+        let start = mm.start();
+
+        // A healthy burst of players queue during the first window (peak 8, well above comfortable).
+        for i in 0..8 {
+            mm.insert_player(make_player(i, 1500.0, mode)).unwrap();
+        }
+        assert_eq!(mm.queue_sizes.get(&mode), Some(&8));
+
+        // Fold the first window: the estimate seeds directly to the window peak.
+        mm.update_population_estimates(start + POPULATION_WINDOW);
+        assert_eq!(mm.population_estimate.get(&mode).copied(), Some(8.0));
+
+        // The matchmaker drains most of the queue (3 matches formed, 6 players removed), leaving 2 —
+        // below the comfortable size of 4.
+        for i in 0..6 {
+            mm.remove_player(i);
+        }
+        assert_eq!(mm.queue_sizes.get(&mode), Some(&2));
+
+        // Despite the instantaneous queue being below comfortable, the smoothed population is still
+        // high, so the threshold stays strict. Keying off the instantaneous size — the old bug —
+        // would relax it here even though the population is healthy.
+        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+    }
+
+    #[test]
+    fn population_estimate_decays_across_idle_windows() {
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1;
+        let start = mm.start();
+
+        // 4 players present during the first window.
+        for i in 0..4 {
+            mm.insert_player(make_player(i, 1500.0, mode)).unwrap();
+        }
+        mm.update_population_estimates(start + POPULATION_WINDOW);
+        assert_eq!(mm.population_estimate.get(&mode).copied(), Some(4.0));
+
+        // Everyone leaves. The boundary carried the live size (4) into the next window's peak, so the
+        // following fold still sees them (they were present at window start) and the estimate holds.
+        for i in 0..4 {
+            mm.remove_player(i);
+        }
+        mm.update_population_estimates(start + 2 * POPULATION_WINDOW);
+        assert!((mm.population_estimate[&mode] - 4.0).abs() < 1e-4);
+
+        // Subsequent idle windows have peak 0 and decay the estimate by the per-window retention
+        // factor (1 - alpha) each, where alpha is derived from POPULATION_HALF_LIFE.
+        let retention = 1.0 - population_alpha();
+        mm.update_population_estimates(start + 3 * POPULATION_WINDOW);
+        assert!((mm.population_estimate[&mode] - 4.0 * retention).abs() < 1e-4);
+        mm.update_population_estimates(start + 4 * POPULATION_WINDOW);
+        assert!((mm.population_estimate[&mode] - 4.0 * retention * retention).abs() < 1e-4);
+    }
+
+    #[test]
+    fn population_half_life_matches_decay() {
+        // One half-life of idle windows should decay the estimate to half. Guards against
+        // POPULATION_HALF_LIFE and POPULATION_WINDOW drifting out of the alpha derivation.
+        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mode = MatchmakingType::Match1v1;
+        let start = mm.start();
+
+        mm.population_estimate.insert(mode, 8.0);
+        // Park the window start so exactly the windows we fold below have elapsed.
+        let windows = (POPULATION_HALF_LIFE.as_secs() / POPULATION_WINDOW.as_secs()) as u32;
+        for w in 1..=windows {
+            mm.update_population_estimates(start + w * POPULATION_WINDOW);
+        }
+        assert!(
+            (mm.population_estimate[&mode] - 4.0).abs() < 1e-3,
+            "after one half-life of idle windows the estimate should halve, got {}",
+            mm.population_estimate[&mode]
+        );
     }
 }
