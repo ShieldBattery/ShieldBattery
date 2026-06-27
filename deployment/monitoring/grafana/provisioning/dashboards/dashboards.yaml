@@ -1,0 +1,16 @@
+# Loads any dashboard JSON mounted under /var/lib/grafana/dashboards (see docker-compose.yml) into a
+# "ShieldBattery" folder. allowUiUpdates lets you tweak a dashboard in the Grafana UI; export the
+# JSON back into deployment/monitoring/grafana/dashboards/ to persist the change in the repo.
+apiVersion: 1
+
+providers:
+  - name: ShieldBattery
+    orgId: 1
+    folder: ShieldBattery
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

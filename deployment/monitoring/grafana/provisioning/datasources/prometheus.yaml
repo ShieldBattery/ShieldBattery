@@ -1,0 +1,14 @@
+# Provisions the Prometheus datasource the matchmaking-health dashboard references by uid. Grafana
+# and Prometheus share the tailscale container's network namespace (network_mode: service:tailscale
+# in docker-compose.yml), so Prometheus is reachable at localhost:9090.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://localhost:9090
+    # Don't clobber an existing default datasource — the dashboard references this one by uid.
+    isDefault: false
+    editable: true
