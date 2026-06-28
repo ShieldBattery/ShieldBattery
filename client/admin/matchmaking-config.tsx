@@ -198,17 +198,18 @@ type ConfigData = NonNullable<AdminMatchmakingConfigQueryType['matchmakingConfig
 /** Input strings keyed by knob field name. An empty string means "no override" for that field. */
 type KnobInputs = Record<string, string>
 
-function numToStr(value: number | null | undefined): string {
-  return value === null || value === undefined ? '' : String(value)
+/**
+ * Formats a knob number for display, trimming f32 float noise. Every knob is an `f32` server-side,
+ * so a value like `0.005` round-trips through JSON as `0.004999999888241291`; trimming to 6
+ * significant digits restores the intended number. 6 digits is lossless for every knob's range, and
+ * since the form re-parses with `Number()` a trimmed value round-trips back to the same stored f32.
+ */
+function formatNumber(value: number): string {
+  return String(Number(value.toPrecision(6)))
 }
 
-/**
- * Formats a default value for display. The defaults come from `f32` knobs, so a value like `0.005`
- * round-trips through JSON as `0.004999999888241291`; trimming to 6 significant digits restores the
- * intended number without showing float noise.
- */
-function formatDefault(value: number): string {
-  return String(Number(value.toPrecision(6)))
+function numToStr(value: number | null | undefined): string {
+  return value === null || value === undefined ? '' : formatNumber(value)
 }
 
 /** Maps an overrides object from the API (numbers/nulls) to the form's string inputs. */
@@ -267,7 +268,7 @@ function KnobInput({
   const label =
     placeholder === undefined
       ? field.label
-      : `${field.label} (default ${formatDefault(placeholder)})`
+      : `${field.label} (default ${formatNumber(placeholder)})`
   return (
     <TextField
       label={label}
