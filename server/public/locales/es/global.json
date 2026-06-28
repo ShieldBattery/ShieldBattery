@@ -142,6 +142,11 @@
                     "showResources": "Mostrar recursos",
                     "title": "Comienza la niebla de guerra",
                     "showTerrainAndResources": "Mostrar terreno y recursos"
+                },
+                "teamColors": {
+                    "mode": {
+                        "standard": "Estándar"
+                    }
                 }
             },
             "input": {
@@ -511,7 +516,9 @@
             "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
             "unratedText": "Sin calificación",
-            "goToLobby": "Ir al lobby"
+            "goToLobby": "Ir al lobby",
+            "matchFound": "¡Partido encontrado!",
+            "rank": "Rango"
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar."
@@ -668,6 +675,13 @@
                 "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente.",
                 "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de la insignia es {{fileSize}}.",
                 "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo del banner es {{fileSize}}."
+            },
+            "permissions": {
+                "joinedDate": "Se unió a {{date}}"
+            },
+            "tabs": {
+                "general": "General",
+                "permissions": "Permisos"
             }
         },
         "whispers": {
@@ -726,6 +740,13 @@
         },
         "launchingGameDialog": {
             "title": "Iniciando el juego…"
+        },
+        "filters": {
+            "duration": {
+                "all": "Todo"
+            },
+            "mapName": "Nombre del mapa",
+            "ranked": "Clasificado"
         }
     },
     "gameDetails": {
@@ -1347,6 +1368,9 @@
         },
         "liveGames": {
             "title": "Partidas en vivo"
+        },
+        "list": {
+            "noMatchingGames": "Nada de juegos de combinación."
         }
     },
     "home": {

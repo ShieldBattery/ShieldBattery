@@ -101,6 +101,11 @@
                     "showResources": "显示资源",
                     "title": "初始战争迷雾",
                     "showTerrainAndResources": "显示地形和资源"
+                },
+                "teamColors": {
+                    "mode": {
+                        "standard": "标准"
+                    }
                 }
             },
             "input": {
@@ -505,7 +510,9 @@
             "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。",
             "mapSelectionDescription": "请选择你想要进行游戏的地图。系统只会从你选择的地图中进行匹配。",
             "unratedText": "无评分",
-            "goToLobby": "前往房间"
+            "goToLobby": "前往房间",
+            "matchFound": "匹配成功！",
+            "rank": "排名"
         },
         "postMatchDialog": {
             "rating": "评分",
@@ -598,6 +605,13 @@
         },
         "launchingGameDialog": {
             "title": "正在启动游戏…"
+        },
+        "filters": {
+            "duration": {
+                "all": "全部"
+            },
+            "mapName": "地图名称",
+            "ranked": "排位"
         }
     },
     "chat": {
@@ -704,6 +718,13 @@
                 "inappropriateImageErrorMessage": "选的图片不合适，请换一张。",
                 "badgeMaxFileSizeErrorMessage": "徽章文件的最大大小为 {{fileSize}}。",
                 "bannerMaxFileSizeErrorMessage": "横幅文件的最大大小为 {{fileSize}}。"
+            },
+            "permissions": {
+                "joinedDate": "加入日期{{date}}"
+            },
+            "tabs": {
+                "general": "将军",
+                "permissions": "权限"
             }
         },
         "whispers": {
@@ -1290,6 +1311,9 @@
         },
         "liveGames": {
             "title": "进行中的比赛"
+        },
+        "list": {
+            "noMatchingGames": "没有符合条件的对局。"
         }
     },
     "social": {

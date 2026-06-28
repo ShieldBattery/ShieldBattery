@@ -102,6 +102,11 @@
                     "showResources": "Показать ресурсы",
                     "title": "Начальный туман войны",
                     "showTerrainAndResources": "Показать местность и ресурсы"
+                },
+                "teamColors": {
+                    "mode": {
+                        "standard": "Стандарт"
+                    }
                 }
             },
             "sound": {
@@ -482,7 +487,9 @@
             "vetoDescriptionWithOverlap_many": "Вето до {{count}} карт. Карты, на которые наложено вето, будут выбираться значительно реже, чем другие карты.",
             "mapSelectionDescription": "Выберите карты, на которых вы хотите играть. Будут выбраны только отмеченные карты.",
             "unratedText": "Нет рейтинга",
-            "goToLobby": "Перейти в лобби"
+            "goToLobby": "Перейти в лобби",
+            "matchFound": "Матч найден!",
+            "rank": "Ранг"
         },
         "disabledCard": {
             "days": "Дни",
@@ -724,6 +731,13 @@
         },
         "launchingGameDialog": {
             "title": "Запуск игры…"
+        },
+        "filters": {
+            "duration": {
+                "all": "Все"
+            },
+            "mapName": "Название карты",
+            "ranked": "Рейтинг"
         }
     },
     "gameDetails": {
@@ -960,6 +974,13 @@
                 "inappropriateImageErrorMessage": "Выбранное изображение неприемлемо. Пожалуйста, выберите другое.",
                 "badgeMaxFileSizeErrorMessage": "Максимальный размер файла значка — {{fileSize}}.",
                 "bannerMaxFileSizeErrorMessage": "Максимальный размер файла баннера — {{fileSize}}."
+            },
+            "permissions": {
+                "joinedDate": "Присоединился {{date}}"
+            },
+            "tabs": {
+                "general": "Генерал",
+                "permissions": "Разрешения"
             }
         },
         "whispers": {
@@ -1306,6 +1327,9 @@
         },
         "liveGames": {
             "title": "Игры в прямом эфире"
+        },
+        "list": {
+            "noMatchingGames": "Нет подходящих игр."
         }
     },
     "social": {

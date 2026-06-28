@@ -98,7 +98,12 @@
                     "title": "초기 안개 설정",
                     "showTerrainAndResources": "지형 및 자원 표시"
                 },
-                "apmAlertHeader": "APM 경고"
+                "apmAlertHeader": "APM 경고",
+                "teamColors": {
+                    "mode": {
+                        "standard": "기본 위치"
+                    }
+                }
             },
             "input": {
                 "mouseScrollSpeed": "마우스 스크롤 속도",
@@ -495,7 +500,9 @@
             "vetoDescriptionWithOverlap_other": "최대 {{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다른 맵보다 훨씬 적게 선택됩니다.",
             "mapSelectionDescription": "플레이할 맵을 선택하세요. 선택한 맵만 사용됩니다.",
             "unratedText": "레이팅 없음",
-            "goToLobby": "로비로 이동"
+            "goToLobby": "로비로 이동",
+            "matchFound": "경기 찾음!",
+            "rank": "순위"
         },
         "match": {
             "gameFailedToLoad": "게임 로딩에 실패했습니다."
@@ -598,6 +605,13 @@
         },
         "launchingGameDialog": {
             "title": "게임 실행 중…"
+        },
+        "filters": {
+            "duration": {
+                "all": "모두"
+            },
+            "mapName": "맵 이름",
+            "ranked": "랭크전"
         }
     },
     "lobbies": {
@@ -788,6 +802,13 @@
                 "inappropriateImageErrorMessage": "선택한 이미지는 부적절해요. 다른 이미지를 선택해 주세요.",
                 "badgeMaxFileSizeErrorMessage": "배지 파일의 최대 크기는 {{fileSize}}입니다.",
                 "bannerMaxFileSizeErrorMessage": "배너 파일의 최대 크기는 {{fileSize}}입니다."
+            },
+            "permissions": {
+                "joinedDate": "{{date}}에 가입함"
+            },
+            "tabs": {
+                "general": "일반",
+                "permissions": "권한"
             }
         },
         "whispers": {
@@ -1290,6 +1311,9 @@
         },
         "liveGames": {
             "title": "진행 중인 경기"
+        },
+        "list": {
+            "noMatchingGames": "일치하는 게임이 없습니다."
         }
     },
     "social": {

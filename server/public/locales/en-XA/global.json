@@ -39,7 +39,9 @@
             "back": "$🗡Back🗡!",
             "zoomOut": "$🗡Zoom out🗡!",
             "zoomIn": "$🗡Zoom in🗡!",
-            "copy": "$🗡Copy🗡!"
+            "copy": "$🗡Copy🗡!",
+            "done": "$🗡Done🗡!",
+            "reset": "$🗡Reset🗡!"
         },
         "lists": {
             "empty": "$🗡Nothing to see here🗡!"
@@ -99,7 +101,31 @@
                     "title": "$🗡Starting fog of war🗡!",
                     "showTerrainAndResources": "$🗡Show terrain and resources🗡!"
                 },
-                "apmAlertHeader": "$🗡APM alert🗡!"
+                "apmAlertHeader": "$🗡APM alert🗡!",
+                "colorPreset": {
+                    "legacyDiplomacy": "$🗡Legacy diplomacy🗡!",
+                    "title": "$🗡Preset🗡!"
+                },
+                "minimapTerrain": {
+                    "hidden": "$🗡Hidden🗡!",
+                    "shown": "$🗡Shown🗡!",
+                    "title": "$🗡Minimap terrain🗡!"
+                },
+                "teamColors": {
+                    "label": "$🗡Mode🗡!",
+                    "mode": {
+                        "presetEverywhere": "$🗡Use preset everywhere🗡!",
+                        "standard": "$🗡Standard🗡!",
+                        "presetOnMinimap": "$🗡Use preset on minimap🗡!"
+                    },
+                    "preview": {
+                        "allies": "$🗡Allies🗡!",
+                        "enemies": "$🗡Enemies🗡!",
+                        "self": "$🗡You🗡!",
+                        "title": "$🗡Preview🗡!"
+                    },
+                    "title": "$🗡Team colors🗡!"
+                }
             },
             "input": {
                 "customMouseSensitivity": "$🗡Custom mouse sensitivity🗡!",
@@ -456,7 +482,12 @@
         "activity": {
             "title": "$🗡Ladder🗡!"
         },
-        "season": "$🗡Season🗡!"
+        "season": "$🗡Season🗡!",
+        "jumpToMyRank": "$🗡Jump to my rank · #{{rank}}🗡!",
+        "mmrValue": "$🗡{{mmr}} MMR🗡!",
+        "modeLabel": "$🗡Mode🗡!",
+        "playerCount": "$🗡{{total}} players🗡!",
+        "pointsAbbrev": "$🗡pts🗡!"
     },
     "matchmaking": {
         "division": {
@@ -471,7 +502,13 @@
         "type": {
             "1v1": "$🗡1v1🗡!",
             "2v2": "$🗡2v2🗡!",
-            "1v1fastest": "$🗡1v1 Fastest🗡!"
+            "1v1fastest": "$🗡1v1 Fastest🗡!",
+            "2v2bgh": "$🗡2v2 BGH🗡!",
+            "2v2fastest": "$🗡2v2 Fastest🗡!",
+            "2v2hunters": "$🗡2v2 Hunters🗡!",
+            "3v3bgh": "$🗡3v3 BGH🗡!",
+            "3v3fastest": "$🗡3v3 Fastest🗡!",
+            "3v3hunters": "$🗡3v3 Hunters🗡!"
         },
         "acceptMatch": {
             "body": "$🗡All players must ready up for the match to start.🗡!",
@@ -500,7 +537,9 @@
                 "somethingWentWrong": "$🗡Something went wrong :(🗡!",
                 "matchmakingDisabled": "$🗡Matchmaking is currently disabled🗡!",
                 "searchAgainError": "$🗡There was a problem searching for a match🗡!",
-                "userOffline": "$🗡Your connection to the server was interrupted, please reconnect and try again.🗡!"
+                "userOffline": "$🗡Your connection to the server was interrupted, please reconnect and try again.🗡!",
+                "invalidMaps": "$🗡You must select at least one map in the settings for each chosen matchmaking type.🗡!",
+                "pingMeasurementFailed": "$🗡Couldn't measure your connection to the game servers. Please check your connection and try again.🗡!"
             },
             "mapPool": "$🗡Map pool🗡!",
             "race": "$🗡Race🗡!",
@@ -515,8 +554,35 @@
             "vetoDescriptionNoOverlap_one": "$🗡Veto up to {{count}} map. Vetoed maps will never be selected for play.🗡!",
             "vetoDescriptionNoOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!",
             "mapSelectionDescription": "$🗡Select the maps you would like to play on. Only selected maps will be chosen.🗡!",
-            "unratedText": "$🗡No rating🗡!",
-            "goToLobby": "$🗡Go to lobby🗡!"
+            "unratedText": "$🗡Unrated🗡!",
+            "goToLobby": "$🗡Go to lobby🗡!",
+            "desc": {
+                "1v1fastest": "$🗡Solo · Fastest Map🗡!",
+                "2v2": "$🗡Team · standard maps🗡!",
+                "2v2bgh": "$🗡Team · Big Game Hunters🗡!",
+                "2v2fastest": "$🗡Team · Fastest Map🗡!",
+                "2v2hunters": "$🗡Team · Hunters🗡!",
+                "1v1": "$🗡Solo · standard maps🗡!",
+                "3v3bgh": "$🗡Team · Big Game Hunters🗡!",
+                "3v3fastest": "$🗡Team · Fastest Map🗡!",
+                "3v3hunters": "$🗡Team · Hunters🗡!"
+            },
+            "cancelSearch": "$🗡Cancel search🗡!",
+            "fixedMap": "$🗡Fixed map🗡!",
+            "searchingMessage": "$🗡Searching for a match — widening MMR range · first match wins the queue🗡!",
+            "selectAtLeastOne": "$🗡Select at least one matchmaking type to start a queue.🗡!",
+            "settingsTitle": "$🗡Settings — {{label}}🗡!",
+            "subtitle": "$🗡Choose one or more matchmaking types — we’ll queue for them all at once.🗡!",
+            "unavailable": "$🗡Unavailable🗡!",
+            "vetoedCount": " $🗡 / {{limit}} vetoed🗡!",
+            "fixedMapDescription": "$🗡This mode is always played on a fixed map.🗡!",
+            "inLobbyBanner": "$🗡You’re in a lobby — matchmaking is unavailable while in a game lobby.🗡!",
+            "matchFound": "$🗡Match found!🗡!",
+            "noScheduledWindow": "$🗡No scheduled window yet🗡!",
+            "pickedCount": " $🗡 / {{limit}} picked🗡!",
+            "poolUpdated": "$🗡Pool updated🗡!",
+            "rank": "$🗡Rank🗡!",
+            "readyToQueue": "$🗡Ready to queue🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!"
@@ -554,6 +620,10 @@
             "anonymizedName5": "$🗡Unstable Ursadon🗡!",
             "chatMessageError": "$🗡Couldn't send chat message🗡!",
             "lockInError": "$🗡Couldn't lock in race🗡!"
+        },
+        "serviceError": {
+            "dialogTitle": "$🗡Matchmaking error🗡!",
+            "removedFromQueue": "$🗡Matchmaking was interrupted due to a server error. Please re-queue to find a match.🗡!"
         }
     },
     "chat": {
@@ -660,7 +730,39 @@
                 "saveErrorMessage": "$🗡Something went wrong while saving the settings🗡!",
                 "inappropriateImageErrorMessage": "$🗡The selected image is inappropriate. Please select a different image.🗡!",
                 "badgeMaxFileSizeErrorMessage": "$🗡The maximum badge file size is {{fileSize}}.🗡!",
-                "bannerMaxFileSizeErrorMessage": "$🗡The maximum banner file size is {{fileSize}}.🗡!"
+                "bannerMaxFileSizeErrorMessage": "$🗡The maximum banner file size is {{fileSize}}.🗡!",
+                "changeBadge": "$🗡Change badge🗡!",
+                "changeBanner": "$🗡Change banner🗡!",
+                "removeBadge": "$🗡Remove badge🗡!",
+                "removeBanner": "$🗡Remove banner🗡!",
+                "uploadBadge": "$🗡Upload badge🗡!",
+                "uploadBanner": "$🗡Upload banner🗡!"
+            },
+            "permissions": {
+                "ban": "$🗡Can ban users🗡!",
+                "banShort": "$🗡Ban🗡!",
+                "changeTopic": "$🗡Can change topic🗡!",
+                "changeTopicShort": "$🗡Change topic🗡!",
+                "editPermissions": "$🗡Can edit permissions🗡!",
+                "editPermissionsShort": "$🗡Edit permissions🗡!",
+                "kick": "$🗡Can kick users🗡!",
+                "kickShort": "$🗡Kick🗡!",
+                "loadError": "$🗡Failed to load users.🗡!",
+                "noSearchResults": "$🗡No users match your search🗡!",
+                "owner": "$🗡Owner🗡!",
+                "saveError": "$🗡Failed to save permissions🗡!",
+                "togglePrivate": "$🗡Can toggle private status🗡!",
+                "togglePrivateShort": "$🗡Toggle private🗡!",
+                "editTitle": "$🗡Edit permissions for {{name}}🗡!",
+                "joinedDate": "$🗡Joined {{date}}🗡!",
+                "noUsers": "$🗡This channel has no other members🗡!"
+            },
+            "tabs": {
+                "general": "$🗡General🗡!",
+                "permissions": "$🗡Permissions🗡!"
+            },
+            "users": {
+                "title": "$🗡Users🗡!"
             }
         },
         "whispers": {
@@ -719,6 +821,30 @@
         },
         "launchingGameDialog": {
             "title": "$🗡Launching game…🗡!"
+        },
+        "filters": {
+            "advanced": "$🗡Advanced🗡!",
+            "custom": "$🗡Custom🗡!",
+            "duration": {
+                "10to20": "$🗡10-20min🗡!",
+                "over30": "$🗡Over 30min🗡!",
+                "all": "$🗡All🗡!",
+                "under10": "$🗡Under 10min🗡!",
+                "20to30": "$🗡20-30min🗡!"
+            },
+            "format": "$🗡Format🗡!",
+            "label": "$🗡Filters🗡!",
+            "mapName": "$🗡Map name🗡!",
+            "matchup": "$🗡Matchup🗡!",
+            "playerName": "$🗡Player name🗡!",
+            "ranked": "$🗡Ranked🗡!",
+            "sort": {
+                "latest": "$🗡Latest first🗡!",
+                "longest": "$🗡Longest first🗡!",
+                "oldest": "$🗡Oldest first🗡!",
+                "shortest": "$🗡Shortest first🗡!"
+            },
+            "vs": "$🗡vs🗡!"
         }
     },
     "gameDetails": {
@@ -1089,7 +1215,9 @@
                 "stats": "$🗡Stats🗡!",
                 "summary": "$🗡Summary🗡!"
             },
-            "totalGames": "$🗡Total games🗡!"
+            "totalGames": "$🗡Total games🗡!",
+            "showAllRanks": "$🗡Show all {{total}} ranks🗡!",
+            "showFewerRanks": "$🗡Show fewer🗡!"
         },
         "profileOverlay": {
             "info": "$🗡Info🗡!",
@@ -1250,7 +1378,16 @@
             },
             "noPlayers": "$🗡No matching players.🗡!",
             "leagueEndedError": "$🗡Couldn't join because the league has already ended🗡!",
-            "leagueJoined": "$🗡League joined🗡!"
+            "leagueJoined": "$🗡League joined🗡!",
+            "adminActions": "$🗡Admin actions🗡!",
+            "banned": "$🗡Banned🗡!",
+            "banUser": "$🗡Ban {{name}}🗡!",
+            "unbanUser": "$🗡Unban {{name}}🗡!",
+            "userBanned": "$🗡This user has been banned from the league🗡!",
+            "userBannedError": "$🗡Error banning user🗡!",
+            "userBannedSuccess": "$🗡User banned🗡!",
+            "userUnbannedError": "$🗡Error unbanning user🗡!",
+            "userUnbannedSuccess": "$🗡User unbanned🗡!"
         },
         "list": {
             "ends": "$🗡Ends {{endDate}}🗡!",
@@ -1266,10 +1403,15 @@
             "noLeagues": "$🗡No matching leagues🗡!",
             "manageLeagues": "$🗡Manage leagues🗡!",
             "runningNow": "$🗡Running now!🗡!",
-            "viewAll": "$🗡View all leagues🗡!"
+            "viewAll": "$🗡View all leagues🗡!",
+            "banned": "$🗡Banned🗡!"
         },
         "activity": {
             "title": "$🗡Leagues🗡!"
+        },
+        "notifications": {
+            "ban": "$🗡You have been banned from the <1>{{leagueName}}</1> league.🗡!",
+            "unban": "$🗡Your ban from the <1>{{leagueName}}</1> league has been lifted.🗡!"
         }
     },
     "rootErrorBoundary": {
@@ -1298,6 +1440,10 @@
         },
         "liveGames": {
             "title": "$🗡Live games🗡!"
+        },
+        "list": {
+            "noMatchingGames": "$🗡No matching games.🗡!",
+            "retrievingError": "$🗡There was an error retrieving the games.🗡!"
         }
     },
     "social": {
