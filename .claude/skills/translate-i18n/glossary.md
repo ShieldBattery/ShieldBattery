@@ -87,4 +87,11 @@ consistent. (Seed — extend over time.)
 - Rank → 순위; tier/grade → 등급 (both already used in-file).
 
 ### zh-Hans
-- _(add decisions here)_
+- Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
+  register, not stiff).
+- **"Play" (the game action) → 开始游戏, never 播放.** 播放 means media playback (video/audio/replay)
+  — wrong for the main PLAY button / playing a game. (Same trap for any "play": pick the game sense.)
+- Map names kept in recognized English forms: Fastest, Hunters, Big Game Hunters, BGH (matches the
+  in-game term export and Chinese community usage). Team sizes use the `1v1`/`2v2`/`3v3` format.
+- In-file term renderings to match: queue→队列, matchmaking→匹配, map pool→地图池, veto→否决,
+  ladder→天梯, ranked→排位.
