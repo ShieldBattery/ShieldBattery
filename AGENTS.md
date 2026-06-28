@@ -116,6 +116,15 @@ game\build.bat x86_64          # Debug 64-bit
   - Don't wrap event handlers or inline functions in these hooks
 - Use `$`-prefixed props for styled-components: `$disabled`, `$focused`
 - Theme in `client/styles/colors.ts`, typography in `client/styles/typography.ts`
+- **Always style text with the typography tokens from `client/styles/typography.ts`** — compose the
+  `css` token (e.g. `${bodyMedium}`, `${titleLarge}`) or render the styled component (e.g.
+  `<BodyMedium>`). Do **not** hand-roll `font`/`font-size`/`font-weight`/`line-height`/`letter-spacing`
+  for text, and never reference made-up font CSS vars like `var(--font-body)` (no such vars exist —
+  the global font family comes from the `inter` token applied in `client/styles/global.ts`). For a
+  non-standard size/weight, still build on the nearest token and override only the differing property
+  (e.g. `${titleMedium}; font-size: 20px;`). Bare one-off font declarations are reserved for genuinely
+  exceptional cases (e.g. oversized display numerals), and even those should compose a font-family
+  token (`inter`/`sofiaSans`/`sofiaSansCondensed`) rather than a raw `font-family`.
 - Use `motion` library for animations, `react-i18next` for translations
 - Development test pages in `devonly/` folders (accessible at `/dev`)
 

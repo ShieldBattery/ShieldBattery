@@ -30,7 +30,18 @@ import { push } from '../navigation/routing'
 import { useNow } from '../react/date-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
-import { bodySmall, labelMedium, labelSmall, sofiaSans, titleSmall } from '../styles/typography'
+import {
+  bodyMedium,
+  bodySmall,
+  inter,
+  labelMedium,
+  labelSmall,
+  singleLine,
+  sofiaSans,
+  titleLarge,
+  titleMedium,
+  titleSmall,
+} from '../styles/typography'
 import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
 import { FindMatchContent } from './find-match-content'
 import { currentSearchInfoAtom, foundMatchAtom, isMatchmakingAtom } from './matchmaking-atoms'
@@ -100,10 +111,7 @@ export const PageHead = styled.div`
 `
 
 export const PageTitle = styled.h1`
-  ${sofiaSans};
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  ${titleLarge};
   color: var(--theme-on-surface);
   margin: 0;
 `
@@ -124,6 +132,7 @@ export const SeasonLabel = styled.div`
 // ─── Lobby banner ─────────────────────────────────────────────────────────────
 
 export const LobbyBanner = styled.div`
+  ${bodyMedium};
   display: flex;
   align-items: center;
   gap: 12px;
@@ -132,7 +141,6 @@ export const LobbyBanner = styled.div`
   border: 1px solid color-mix(in srgb, var(--theme-on-surface) 12%, transparent);
   border-radius: 8px;
   color: var(--theme-on-surface-variant);
-  font-size: 14px;
 `
 
 export const LobbyBannerText = styled.span`
@@ -166,7 +174,7 @@ export const GroupHead = styled.div`
 `
 
 export const GroupLabel = styled.span`
-  font: 600 11px / 1 var(--font-body, sans-serif);
+  ${labelSmall};
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--theme-on-surface-variant);
@@ -180,7 +188,7 @@ export const GroupDivider = styled.span`
 `
 
 export const GroupHint = styled.span`
-  font: 400 11px / 1 var(--font-body, sans-serif);
+  ${bodySmall};
   color: var(--theme-on-surface-variant);
   opacity: 0.6;
   white-space: nowrap;
@@ -312,11 +320,9 @@ const RowTitleMain = styled.div`
 `
 
 const RowModeName = styled.h3`
-  ${sofiaSans};
+  ${titleMedium};
   margin: 0;
   font-size: 20px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
   color: var(--theme-on-surface);
   white-space: nowrap;
 
@@ -396,7 +402,12 @@ const StatCell = styled.div<{ $unranked?: boolean }>`
 `
 
 const StatLabel = styled.span`
-  font: 600 9px / 1 var(--font-body, sans-serif);
+  // A 9px micro-label, smaller than any typography token, so it builds on the inter font token
+  // directly with an explicit size.
+  ${inter};
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--color-grey-blue60);
@@ -443,11 +454,9 @@ const SmallDivisionIcon = styled(DivisionIcon)`
 `
 
 const StatRankLabel = styled.span`
-  font: 500 12px / 1.1 var(--font-body, sans-serif);
+  ${labelMedium};
+  ${singleLine};
   color: var(--color-grey-blue95);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 `
 
 const BonusValue = styled.span<{ $zero: boolean }>`
@@ -477,7 +486,7 @@ const UnavailableBlock = styled.div`
 `
 
 const UnavailableLabel = styled.span`
-  font: 600 11px / 1 var(--font-body, sans-serif);
+  ${labelSmall};
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: var(--theme-on-surface-variant);
@@ -496,13 +505,13 @@ const UnavailableCountdown = styled.span`
 
 // Summary column
 const SummaryBlock = styled.div`
+  ${bodySmall};
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   row-gap: 4px;
   column-gap: 10px;
   color: var(--theme-on-surface-variant);
-  font-size: 13px;
   justify-self: start;
 
   pointer-events: none;
@@ -551,7 +560,7 @@ const MapCountLabel = styled.span`
 `
 
 const MapCountNum = styled.strong`
-  font-family: var(--font-display, sans-serif);
+  ${sofiaSans};
   font-weight: 600;
   color: var(--color-grey99);
   font-feature-settings: 'tnum';
@@ -565,7 +574,11 @@ const PoolBadge = styled.span`
   border-radius: 10px;
   background: color-mix(in srgb, var(--theme-amber) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--theme-amber) 40%, transparent);
-  font: 600 10px / 1.1 var(--font-body, sans-serif);
+  // A 10px badge, smaller than any typography token, so it builds on the inter font token directly.
+  ${inter};
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.1;
   letter-spacing: 0.3px;
   text-transform: uppercase;
   color: var(--theme-amber);
@@ -935,14 +948,9 @@ const DrawerHead = styled.div`
   flex-shrink: 0;
 `
 
-const DrawerGroupBadge = styled(GroupBadge)`
-  font-size: 11px;
-`
-
 const DrawerTitle = styled.div`
-  ${sofiaSans};
+  ${titleMedium};
   font-size: 22px;
-  font-weight: 700;
   color: var(--theme-on-surface);
   flex: 1;
 `
@@ -1013,7 +1021,7 @@ export function SettingsDrawer({ drawerType, labelForType, onClose }: SettingsDr
             exit={{ x: '-100%' }}
             transition={{ duration: 0.28, ease: [0.2, 0, 0, 1] }}>
             <DrawerHead>
-              <DrawerGroupBadge>{getMatchmakingModeInfo(drawerType).format}</DrawerGroupBadge>
+              <GroupBadge>{getMatchmakingModeInfo(drawerType).format}</GroupBadge>
               <DrawerTitle>{labelForType(drawerType)}</DrawerTitle>
               <DrawerCloseBtn onClick={onClose} title={t('common.actions.close', 'Close')}>
                 <MaterialIcon icon='close' size={22} />
@@ -1073,11 +1081,11 @@ const QueueSummaryHead = styled.div`
 `
 
 const QueueEmptyHint = styled.div`
+  ${bodySmall};
   display: flex;
   align-items: center;
   gap: 10px;
   color: var(--theme-on-surface-variant);
-  font-size: 13px;
 `
 
 const QueueChips = styled.div`
@@ -1095,8 +1103,7 @@ const QueueChip = styled.span`
   border-radius: 4px;
   background: color-mix(in srgb, var(--theme-primary) 20%, transparent);
   color: var(--color-blue90);
-  font: 500 11px / 1 var(--font-body, sans-serif);
-  letter-spacing: 0.4px;
+  ${labelSmall};
 `
 
 const SearchingTimer = styled.div`
