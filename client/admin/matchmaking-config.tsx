@@ -338,6 +338,7 @@ export function AdminMatchmakingConfig() {
         config={data.matchmakingConfig}
         saving={saving}
         onSave={onSave}
+        onEdit={() => setSaved(false)}
         onReset={() => {
           setErrorMessage(undefined)
           setSaved(false)
@@ -352,11 +353,13 @@ function ConfigForm({
   config,
   saving,
   onSave,
+  onEdit,
   onReset,
 }: {
   config: ConfigData
   saving: boolean
   onSave: (input: MatchmakerConfigInput) => void
+  onEdit: () => void
   onReset: () => void
 }) {
   const defaults = config.defaults as unknown as Record<string, number>
@@ -375,12 +378,24 @@ function ConfigForm({
     return map
   })
 
-  const setPerModeField = (type: MatchmakingType, key: string, value: string) =>
+  // Editing any field invalidates the "Saved" banner, so it can't keep claiming the live matchmaker
+  // matches what's on screen once there are unsaved changes.
+  const setOperationalField = (key: string, value: string) => {
+    onEdit()
+    setOperational(prev => ({ ...prev, [key]: value }))
+  }
+  const setGlobalField = (key: string, value: string) => {
+    onEdit()
+    setGlobal(prev => ({ ...prev, [key]: value }))
+  }
+  const setPerModeField = (type: MatchmakingType, key: string, value: string) => {
+    onEdit()
     setPerMode(prev => {
       const next = new Map(prev)
       next.set(type, { ...(next.get(type) ?? {}), [key]: value })
       return next
     })
+  }
 
   const handleSave = () => {
     const search = operational.searchIntervalSeconds.trim()
@@ -405,7 +420,7 @@ function ConfigForm({
             field={field}
             value={operational[field.key] ?? ''}
             placeholder={defaults[field.key]}
-            onChange={value => setOperational(prev => ({ ...prev, [field.key]: value }))}
+            onChange={value => setOperationalField(field.key, value)}
             disabled={saving}
           />
         ))}
@@ -419,7 +434,7 @@ function ConfigForm({
             field={field}
             value={global[field.key] ?? ''}
             placeholder={defaults[field.key]}
-            onChange={value => setGlobal(prev => ({ ...prev, [field.key]: value }))}
+            onChange={value => setGlobalField(field.key, value)}
             disabled={saving}
           />
         ))}
