@@ -923,7 +923,7 @@
       "subtitle": "选择一种或多种匹配类型 — 我们将同时为所有所选类型进行匹配。",
       "title": "开始匹配",
       "unavailable": "不可用",
-      "unratedText": "无评分",
+      "unratedText": "未定级",
       "updated": "更新",
       "useAlternateRace": "使用第二种族以避免镜像对抗",
       "vetoDescriptionNoOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图将永远不会用于进行游戏。",
