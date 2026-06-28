@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE matchmaking_config SET config = $1, updated_at = now(), updated_by = $2 WHERE id = 1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2ef188eb9416f69de5aaf2fb71bdbc9afcde9a5a2385c52d4b6876953ad754b3"
+}

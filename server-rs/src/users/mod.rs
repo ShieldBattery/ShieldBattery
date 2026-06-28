@@ -785,15 +785,16 @@ impl UsersMutation {
                     manage_leagues = $5,
                     manage_maps = $6,
                     manage_map_pools = $7,
-                    manage_matchmaking_seasons = $8,
-                    manage_matchmaking_times = $9,
-                    manage_rally_point_servers = $10,
-                    mass_delete_maps = $11,
-                    moderate_chat_channels = $12,
-                    manage_news = $13,
-                    manage_bug_reports = $14,
-                    manage_restricted_names = $15,
-                    manage_signup_codes = $16
+                    manage_matchmaking = $8,
+                    manage_matchmaking_seasons = $9,
+                    manage_matchmaking_times = $10,
+                    manage_rally_point_servers = $11,
+                    mass_delete_maps = $12,
+                    moderate_chat_channels = $13,
+                    manage_news = $14,
+                    manage_bug_reports = $15,
+                    manage_restricted_names = $16,
+                    manage_signup_codes = $17
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -803,6 +804,7 @@ impl UsersMutation {
             permissions.manage_leagues,
             permissions.manage_maps,
             permissions.manage_map_pools,
+            permissions.manage_matchmaking,
             permissions.manage_matchmaking_seasons,
             permissions.manage_matchmaking_times,
             permissions.manage_rally_point_servers,
@@ -1177,10 +1179,10 @@ impl CurrentUserRepo {
                 SbPermissions,
                 r#"
                     SELECT user_id as "id", edit_permissions, debug, ban_users, manage_leagues,
-                        manage_maps, manage_map_pools, manage_matchmaking_seasons,
-                        manage_matchmaking_times, manage_rally_point_servers, mass_delete_maps,
-                        moderate_chat_channels, manage_news, manage_bug_reports,
-                        manage_restricted_names, manage_signup_codes
+                        manage_maps, manage_map_pools, manage_matchmaking,
+                        manage_matchmaking_seasons, manage_matchmaking_times,
+                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
+                        manage_news, manage_bug_reports, manage_restricted_names, manage_signup_codes
                     FROM permissions
                     WHERE user_id = $1
                 "#,
