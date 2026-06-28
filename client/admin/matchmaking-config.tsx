@@ -202,6 +202,15 @@ function numToStr(value: number | null | undefined): string {
   return value === null || value === undefined ? '' : String(value)
 }
 
+/**
+ * Formats a default value for display. The defaults come from `f32` knobs, so a value like `0.005`
+ * round-trips through JSON as `0.004999999888241291`; trimming to 6 significant digits restores the
+ * intended number without showing float noise.
+ */
+function formatDefault(value: number): string {
+  return String(Number(value.toPrecision(6)))
+}
+
 /** Maps an overrides object from the API (numbers/nulls) to the form's string inputs. */
 function toInputs(
   overrides: Record<string, number | null | undefined> | null | undefined,
@@ -251,9 +260,17 @@ function KnobInput({
   onChange: (value: string) => void
   disabled: boolean
 }) {
+  // Fold the default into the floating label rather than using a native placeholder: a floating
+  // label rests in the same spot the placeholder occupies, so showing both overlaps them. As the
+  // label, the default stays visible at rest and once a value is entered the label floats up,
+  // keeping the default alongside the override.
+  const label =
+    placeholder === undefined
+      ? field.label
+      : `${field.label} (default ${formatDefault(placeholder)})`
   return (
     <TextField
-      label={field.label}
+      label={label}
       floatingLabel={true}
       dense={true}
       type='number'
@@ -264,7 +281,7 @@ function KnobInput({
       inputProps={{
         tabIndex: 0,
         step: field.int ? 1 : 'any',
-        placeholder: placeholder === undefined ? 'default' : `default ${placeholder}`,
+        'aria-label': field.label,
         title: field.hint,
       }}
     />
