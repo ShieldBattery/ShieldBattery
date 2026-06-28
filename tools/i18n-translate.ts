@@ -210,6 +210,20 @@ export function tokensEqual(a: string, b: string): boolean {
   return ta.length === tb.length && ta.every((t, i) => t === tb[i])
 }
 
+/**
+ * The English source form to token-validate a target plural category against. English has only `one`
+ * and `other`, so the `one` category maps to `en.one` and every other category (few/many/other/zero/
+ * two) maps to `en.other` — falling back to whichever form exists. This matters when `en.one` and
+ * `en.other` carry different tokens (e.g. `one: "a member"` vs `other: "{{count}} members"`).
+ */
+export function enReferenceForCategory(
+  cat: PluralCategory,
+  enOne: string | undefined,
+  enOther: string | undefined,
+): string {
+  return cat === 'one' ? (enOne ?? enOther ?? '') : (enOther ?? enOne ?? '')
+}
+
 // --- Plan / diff -------------------------------------------------------------
 
 interface SingleItem {
@@ -371,13 +385,13 @@ function cmdApply(lang: string, resultFile: string): void {
         errors.push(`"${key}": plural key expects an object of { ${item.required.join(', ')} }`)
         continue
       }
-      const reference = item.en.other ?? item.en.one ?? ''
       for (const cat of item.required) {
         const form = (value as Record<string, string>)[cat]
         if (typeof form !== 'string') {
           errors.push(`"${key}": missing required plural form "${cat}"`)
           continue
         }
+        const reference = enReferenceForCategory(cat, item.en.one, item.en.other)
         if (!tokensEqual(reference, form)) {
           errors.push(
             `"${key}" (${cat}): interpolation/tag mismatch — en has [${extractTokens(reference).join(', ')}], translation has [${extractTokens(form).join(', ')}]`,
@@ -518,13 +532,17 @@ function cmdFix(lang: string, resultFile: string): void {
         errors.push(`"${key}": not a plural base in \`en\` (pass a plural object only for plurals)`)
         continue
       }
-      const reference = enFlat.get(`${key}_other`) ?? enFlat.get(`${key}_one`) ?? ''
       for (const cat of required) {
         const form = (value as Record<string, string>)[cat]
         if (typeof form !== 'string') {
           errors.push(`"${key}": missing required plural form "${cat}"`)
           continue
         }
+        const reference = enReferenceForCategory(
+          cat,
+          enFlat.get(`${key}_one`),
+          enFlat.get(`${key}_other`),
+        )
         if (!tokensEqual(reference, form)) {
           errors.push(
             `"${key}" (${cat}): interpolation/tag mismatch — en has [${extractTokens(reference).join(', ')}], translation has [${extractTokens(form).join(', ')}]`,

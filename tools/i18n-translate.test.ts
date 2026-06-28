@@ -8,6 +8,7 @@ import {
   buildPlan,
   compareKeys,
   deleteDeep,
+  enReferenceForCategory,
   extractTokens,
   findSourcePluralBases,
   findStale,
@@ -60,6 +61,25 @@ describe('extractTokens / tokensEqual', () => {
     expect(tokensEqual('{{count}} members', 'members')).toBe(false)
     expect(tokensEqual('{{a}}', '{{b}}')).toBe(false)
     expect(tokensEqual('<1>x</1>', '<2>x</2>')).toBe(false)
+  })
+})
+
+describe('enReferenceForCategory', () => {
+  // English with divergent tokens between the one and other forms.
+  const enOne = 'a member'
+  const enOther = '{{count}} members'
+
+  test('one validates against en.one; other plural categories against en.other', () => {
+    expect(enReferenceForCategory('one', enOne, enOther)).toBe('a member')
+    expect(enReferenceForCategory('other', enOne, enOther)).toBe('{{count}} members')
+    expect(enReferenceForCategory('few', enOne, enOther)).toBe('{{count}} members')
+    expect(enReferenceForCategory('many', enOne, enOther)).toBe('{{count}} members')
+  })
+
+  test('falls back to whichever form exists', () => {
+    expect(enReferenceForCategory('one', undefined, enOther)).toBe('{{count}} members')
+    expect(enReferenceForCategory('other', enOne, undefined)).toBe('a member')
+    expect(enReferenceForCategory('one', undefined, undefined)).toBe('')
   })
 })
 
