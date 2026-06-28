@@ -127,7 +127,7 @@ const OPERATIONAL_KNOBS: KnobField[] = [
   {
     key: 'searchIntervalSeconds',
     label: 'Search interval (s)',
-    hint: 'How often the matcher runs (1…60). Applies after a server restart.',
+    hint: 'How often the matcher runs, in seconds (1…60)',
   },
   {
     key: 'maxPlayersExamined',
@@ -279,7 +279,7 @@ export function AdminMatchmakingConfig() {
   })
   const [{ fetching: saving }, updateConfig] = useMutation(UpdateMatchmakingConfigMutation)
 
-  // Bumped on save/reset; used as the form's `key` so it remounts and re-seeds from the latest data.
+  // Bumped on Reset; used as the form's `key` so it remounts and re-seeds from the latest data.
   const [formVersion, setFormVersion] = useState(0)
   const [errorMessage, setErrorMessage] = useState<string>()
   const [saved, setSaved] = useState(false)
@@ -310,8 +310,11 @@ export function AdminMatchmakingConfig() {
           setErrorMessage(result.error.message)
           setSaved(false)
         } else {
+          // Don't remount the form here: the stored config isn't normalized on write, so the form
+          // already shows exactly what was saved. Remounting would re-seed from `data`, which is
+          // still the pre-save value until the async `refetch` lands — visibly reverting the just-
+          // saved fields. The refetch keeps `data` current so a later Reset baselines correctly.
           setSaved(true)
-          setFormVersion(v => v + 1)
           refetch({ requestPolicy: 'network-only' })
         }
       })
@@ -323,8 +326,8 @@ export function AdminMatchmakingConfig() {
       <PageHeadline>Matchmaking config</PageHeadline>
       <HelpText>
         Tunes the live matchmaker. Leave a field blank to use its default (shown as a placeholder).
-        Out-of-range values are clamped on save, and changes take effect within a few seconds — no
-        restart needed (except the search interval).
+        The live matchmaker clamps each value to a safe range, and changes take effect on the next
+        search tick — no restart needed.
       </HelpText>
 
       {errorMessage ? <ErrorText>{errorMessage}</ErrorText> : null}
