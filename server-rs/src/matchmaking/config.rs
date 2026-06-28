@@ -99,7 +99,10 @@ impl MatchmakerConfig {
         }
     }
 
-    fn from_stored(stored: StoredConfig) -> Self {
+    /// Resolves a stored override set into the runtime config. Infallible (out-of-range values are
+    /// clamped, unknown mode keys dropped), so the admin write path can reload from exactly what it
+    /// persisted rather than re-reading the DB (whose loader silently falls back to defaults).
+    pub(crate) fn from_stored(stored: &StoredConfig) -> Self {
         let global = stored.global.resolve_onto(ModeConfig::default());
         // Per-mode overrides layer on top of the *resolved global*, so a mode that overrides only one
         // field inherits the rest of the global config (including its overrides). An unrecognized mode
@@ -248,7 +251,7 @@ pub async fn load_stored_config(db: &PgPool) -> StoredConfig {
 /// Loads the current matchmaker config from the database, resolved into the runtime form the
 /// matchmaker uses (see [`load_stored_config`] for the failure behaviour).
 pub async fn load_matchmaker_config(db: &PgPool) -> MatchmakerConfig {
-    MatchmakerConfig::from_stored(load_stored_config(db).await)
+    MatchmakerConfig::from_stored(&load_stored_config(db).await)
 }
 
 #[cfg(test)]
@@ -256,7 +259,7 @@ mod tests {
     use super::*;
 
     fn parse(json: &str) -> MatchmakerConfig {
-        MatchmakerConfig::from_stored(serde_json::from_str(json).unwrap())
+        MatchmakerConfig::from_stored(&serde_json::from_str(json).unwrap())
     }
 
     #[test]

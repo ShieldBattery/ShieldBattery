@@ -14,8 +14,8 @@ use sqlx::PgPool;
 use crate::graphql::errors::graphql_error;
 use crate::matchmaking::MatchmakingType;
 use crate::matchmaking::config::{
-    MatchmakerConfig, ModeConfig, ModeConfigOverrides, StoredConfig, load_matchmaker_config,
-    load_stored_config, parse_mode_key,
+    MatchmakerConfig, ModeConfig, ModeConfigOverrides, StoredConfig, load_stored_config,
+    parse_mode_key,
 };
 use crate::users::CurrentUser;
 use crate::users::permissions::RequiredPermission;
@@ -158,26 +158,48 @@ impl MatchmakingConfigMutation {
         let stored = stored_from_input(config);
         let json = serde_json::to_value(&stored)
             .map_err(|e| graphql_error("INTERNAL_SERVER_ERROR", format!("bad config: {e}")))?;
+        // Resolve the live config from exactly what we're about to persist, so the in-memory swap can
+        // never disagree with the row. (Re-reading via `load_matchmaker_config` would silently fall
+        // back to defaults on a transient read error, leaving the live matchmaker on defaults while
+        // this mutation reports success.) Building it up front is infallible; we only swap it in after
+        // the write commits.
+        let live = MatchmakerConfig::from_stored(&stored);
 
-        sqlx::query!(
+        // The row write and its audit row must land together: a committed config change always has a
+        // matching history entry, and a failed audit insert rolls the config back rather than leaving
+        // the persisted state ahead of the audit trail.
+        let mut tx = db.begin().await?;
+        let updated = sqlx::query!(
             "UPDATE matchmaking_config SET config = $1, updated_at = now(), updated_by = $2 \
              WHERE id = 1",
             json,
             changed_by.map(|id| id.0),
         )
-        .execute(db)
+        .execute(&mut *tx)
         .await?;
+        if updated.rows_affected() != 1 {
+            // The singleton row is seeded by the migration, so its absence is an invariant violation,
+            // not an expected outcome — fail loudly rather than silently writing nothing.
+            return Err(graphql_error(
+                "INTERNAL_SERVER_ERROR",
+                "matchmaking_config row is missing",
+            ));
+        }
 
         sqlx::query!(
             "INSERT INTO matchmaking_config_history (config, changed_by) VALUES ($1, $2)",
             json,
             changed_by.map(|id| id.0),
         )
-        .execute(db)
+        .execute(&mut *tx)
         .await?;
 
-        // Hot-reload the live config from the DB so the search loop picks it up on the next tick.
-        handle.store(Arc::new(load_matchmaker_config(db).await));
+        tx.commit().await?;
+
+        // Only now that the row + audit are durably committed do we swap the live config the search
+        // loop reads, so a rolled-back write never takes effect in-process. The change is picked up on
+        // the next tick.
+        handle.store(Arc::new(live));
 
         Ok(view_from_stored(stored))
     }
@@ -229,5 +251,41 @@ mod tests {
             view.per_mode[0].config.adaptive_decay_per_missing,
             Some(25.0)
         );
+    }
+
+    #[test]
+    fn view_drops_overrides_for_unknown_mode_keys() {
+        // A per-mode override keyed by a renamed/removed mode (or one written by a newer server) is
+        // dropped from the view rather than failing the read or surfacing an invalid mode — matching
+        // the tolerance `from_stored` applies to the live config.
+        let stored = StoredConfig {
+            search_interval_seconds: None,
+            max_players_examined: None,
+            global: ModeConfigOverrides::default(),
+            per_mode: std::collections::HashMap::from([
+                (
+                    "4v4chaos".to_owned(),
+                    ModeConfigOverrides {
+                        min_quality: Some(10.0),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "3v3bgh".to_owned(),
+                    ModeConfigOverrides {
+                        weight_win_prob: Some(75.0),
+                        ..Default::default()
+                    },
+                ),
+            ]),
+        };
+
+        let view = view_from_stored(stored);
+        assert_eq!(view.per_mode.len(), 1);
+        assert_eq!(
+            view.per_mode[0].matchmaking_type,
+            MatchmakingType::Match3v3Bgh
+        );
+        assert_eq!(view.per_mode[0].config.weight_win_prob, Some(75.0));
     }
 }
