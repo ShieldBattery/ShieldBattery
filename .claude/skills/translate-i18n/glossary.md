@@ -42,7 +42,7 @@ would actually talk — while staying clear and readable. Keep the register cons
 | Language | Register | Notes |
 | --- | --- | --- |
 | `es` (Spanish) | Informal **tú** | Gaming-community standard; avoid "usted". |
-| `ru` (Russian) | Informal **ты** | Standard for gaming UIs; keep it natural, not stiff. |
+| `ru` (Russian) | Formal **Вы** | The existing file is consistently formal Вы (~58×); match it — Russian UIs commonly use Вы and it doesn't read as stiff. |
 | `ko` (Korean) | Friendly polite **해요체** | Prefer the warmer 해요 over stiff 합니다/honorific-heavy phrasing; don't go full banmal in UI. |
 | `zh-Hans` (Chinese, Simplified) | Conversational/standard | Natural Mainland phrasing; avoid overly formal wording. |
 
@@ -64,10 +64,23 @@ Beyond the Blizzard `terms/` data, record ad-hoc decisions here as you make them
 consistent. (Seed — extend over time.)
 
 ### es
-- _(add decisions here)_
+- Register: informal **tú** (matches the existing file: Introduce, Selecciona, tu instalación).
+- Team sizes use the **`1x1` / `2x2` / `3x3`** format (the `x` convention, per the term export).
+- Map names kept in recognized English forms: **Fastest, Hunters, Big Game Hunters, BGH** (the export
+  keeps "Fastest" English).
+- In-file term renderings to match: matchmaking→Emparejamiento, map pool→Grupo de mapas, queue→cola,
+  ladder→escalera, veto→vetar/vetado, ban→banear, kick→expulsar, unrated→Sin clasificar.
 
 ### ru
-- _(add decisions here)_
+- Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
+- **Plurals need all four CLDR forms — one/few/many/other.** The file historically had only
+  one/few/many; the `other` form is the fraction case = the genitive-singular form (e.g. userCount
+  `other` = `{{count}} участника`, same ending as `few`; maxLength `other` = `{{count}} символа`, same
+  as `one`). Preserve existing one/few/many and add `other`.
+- Type labels kept English (the export keeps `1v1 Fastest` fully Latin): **2v2 Fastest / BGH /
+  Hunters**. Solo→Соло, Team→Команда in the descriptions.
+- In-file term renderings to match: matchmaking→матчмейкинг, map pool→Пул карт, queue→очередь,
+  veto→Вето, ban→забанить, kick→кикнуть, unrated→Без рейтинга.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
