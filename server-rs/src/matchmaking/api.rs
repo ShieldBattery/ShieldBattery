@@ -1,3 +1,4 @@
+use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
     Match, Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
 };
@@ -8,6 +9,7 @@ use crate::matchmaking::{
 use crate::redis::RedisPool;
 use crate::state::AppState;
 use crate::users::SbUserId;
+use arc_swap::ArcSwap;
 use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -22,14 +24,6 @@ use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 use super::matchmaker::MatchmakerError;
-
-/// Minimum quality score a match must reach before it is published. The matchmaker applies an
-/// adaptive threshold that lowers this automatically when the queue is below a comfortable size,
-/// so matches can still form during low-population periods.
-const MIN_QUALITY: f32 = -30.0;
-
-/// How often the matchmaker searches for new matches.
-const SEARCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(6);
 
 /// How many times to attempt publishing a formed match to Redis before treating the failure as
 /// fatal. A formed match has already been removed from the queue, so a few quick retries are worth
@@ -121,6 +115,10 @@ type SharedMatchmaker = Arc<Mutex<Matchmaker<RandomQueueSelector>>>;
 #[derive(Clone)]
 struct MatchmakingApiState {
     matchmaker: SharedMatchmaker,
+    /// The live, swappable matchmaker configuration. The search loop reads it each tick and pushes
+    /// it into the matchmaker, so an admin edit (which replaces the pointee — separate change) takes
+    /// effect without a restart.
+    config: Arc<ArcSwap<MatchmakerConfig>>,
     process_token: Uuid,
 }
 
@@ -252,7 +250,9 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     // Capture the epoch once — it never changes for the lifetime of this process.
     let matchmaker_start = lock_matchmaker(&state.matchmaker).start();
 
-    let mut interval = tokio::time::interval(SEARCH_INTERVAL);
+    // The search cadence is read once at startup. The formula/threshold knobs hot-reload each tick
+    // (below), but changing the interval would mean rebuilding this timer, so it takes a restart.
+    let mut interval = tokio::time::interval(state.config.load().search_interval);
     // The first tick fires immediately; skip it so the first real search happens after one interval.
     interval.tick().await;
 
@@ -266,13 +266,15 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // and have the fresh queue entry incorrectly removed.
         let selected = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
+            // Push the latest config into the matchmaker so an admin edit takes effect this tick.
+            matchmaker.set_config(state.config.load_full());
             // Roll the population estimate forward before searching so the adaptive quality threshold
             // reflects recent population rather than the post-drain residual queue size.
             matchmaker.update_population_estimates(tick_start);
             // Sample the per-mode gauges here — after the population roll-forward, before the drain
             // below — so they reflect everyone waiting this tick rather than the unmatched residual.
-            metrics::sample_queue_state(&matchmaker, MIN_QUALITY);
-            let matches = matchmaker.find_matches(MIN_QUALITY, tick_start);
+            metrics::sample_queue_state(&matchmaker);
+            let matches = matchmaker.find_matches(tick_start);
             let selected = deduplicate_matches(matches);
             for m in &selected {
                 for entry in m.team_a.iter().chain(m.team_b.iter()) {
@@ -369,11 +371,15 @@ async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<Pro
     })
 }
 
-pub fn create_matchmaking_api(redis_pool: RedisPool) -> Router<AppState> {
+pub fn create_matchmaking_api(
+    redis_pool: RedisPool,
+    config: Arc<ArcSwap<MatchmakerConfig>>,
+) -> Router<AppState> {
     metrics::describe_metrics();
 
     let state = MatchmakingApiState {
-        matchmaker: Arc::new(Mutex::new(Matchmaker::new(16))),
+        matchmaker: Arc::new(Mutex::new(Matchmaker::new(config.load_full()))),
+        config,
         process_token: Uuid::new_v4(),
     };
 

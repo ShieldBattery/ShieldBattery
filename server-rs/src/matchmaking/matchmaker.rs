@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -9,6 +10,7 @@ use rand::{Rng, seq::SliceRandom};
 use strum::IntoEnumIterator;
 
 use crate::matchmaking::MatchmakingType;
+use crate::matchmaking::config::MatchmakerConfig;
 
 /*
 Match quality is expressed in seconds of wait time: a positive value means the match is good
@@ -46,52 +48,18 @@ See also Menke's talk for background on this scoring approach:
 https://www.youtube.com/watch?v=Q8BX0nXfPjY
 */
 
-const WEIGHT_RATING_VARIANCE: f32 = 0.005;
-const WEIGHT_WIN_PROB: f32 = 50.0;
-/// Seconds of wait time we'll trade to drop a match's latency by one turn-rate step (one unit of
-/// [`latency_value`]). Latency below the first step (~100ms one-way) plays identically, so this only
-/// bites once a match would force the game onto a slower turn rate / longer input buffer. The
-/// match-formation telemetry records the raw `max_latency` (in ms) so this can be tuned against real
-/// game outcomes.
-const WEIGHT_LATENCY: f32 = 30.0;
-
-/// How many σ below their mean rating a player's effective rating is.
-/// Controls how strongly uncertainty drags down effective rating.
-/// k=1.0 → 68% confidence lower bound. k=2.0 → 95% lower bound.
-const UNCERTAINTY_K: f32 = 1.0;
-
-/// Smoothed population (see [`Matchmaker::update_population_estimates`]) at or above which the full
-/// MIN_QUALITY threshold applies. Below this, the threshold decays by ADAPTIVE_DECAY_PER_MISSING per
-/// missing player. This multiplier is applied to mode.total_players() so it scales with mode size.
-const ADAPTIVE_COMFORTABLE_MULTIPLIER: usize = 2;
-
-/// Seconds the quality threshold drops per player below the comfortable population.
-const ADAPTIVE_DECAY_PER_MISSING: f32 = 15.0;
-
 /// Length of one population-sampling window. At each boundary the window's peak concurrent queue size
 /// is folded into the smoothed per-mode population estimate (see
-/// [`Matchmaker::update_population_estimates`]).
+/// [`Matchmaker::update_population_estimates`]). This sets the sampling granularity only; the EWMA
+/// time constant is the per-mode, runtime-configurable `population_half_life` (see
+/// [`crate::matchmaking::config::ModeConfig`]).
 const POPULATION_WINDOW: Duration = Duration::from_secs(60);
 
-/// Half-life of the population estimate: the time a mode's estimate takes to decay halfway toward a
-/// lower level once the queue goes quiet (and, symmetrically, to climb halfway toward a higher one).
-///
-/// This is the knob that controls how reactive the adaptive threshold is, and it wants to be *long*.
-/// A matched player vanishes from the queue for the length of a game (~15-20 minutes for BW) before
-/// requeueing, so the estimate has to remember the population across at least one game-and-requeue
-/// cycle or it would forget the active player base mid-game and spuriously relax the threshold. A
-/// half-life around a game length also smooths over the multi-minute lulls that are normal even at
-/// peak hours, while still relaxing the threshold over the better part of an hour during a genuinely
-/// dead period. [`POPULATION_WINDOW`] only sets the sampling granularity; this sets the time
-/// constant. (The previous value — inherited verbatim from the old TS matchmaker, where it was an
-/// admittedly arbitrary placeholder — was a ~2.4-minute half-life, far too twitchy.)
-const POPULATION_HALF_LIFE: Duration = Duration::from_secs(20 * 60);
-
-/// Per-window EWMA blend factor derived from [`POPULATION_HALF_LIFE`] and [`POPULATION_WINDOW`]:
+/// Per-window EWMA blend factor for a given half-life and sampling window:
 /// `alpha = 1 - 0.5^(window / half_life)`, i.e. the fraction of a window's peak folded into the
-/// estimate each fold, chosen so the estimate halves over exactly one half-life of idle windows.
-fn population_alpha() -> f32 {
-    1.0 - 0.5_f32.powf(POPULATION_WINDOW.as_secs_f32() / POPULATION_HALF_LIFE.as_secs_f32())
+/// estimate each fold, chosen so the estimate halves over exactly one `half_life` of idle windows.
+fn ewma_alpha(half_life: Duration, window: Duration) -> f32 {
+    1.0 - 0.5_f32.powf(window.as_secs_f32() / half_life.as_secs_f32())
 }
 
 /// Identifies a map. Opaque to the matchmaker — only compared for equality when verifying that the
@@ -128,12 +96,12 @@ pub struct Player {
     pub server_pings: HashMap<u32, f32>,
 }
 
-/// Returns the conservative skill estimate: the player's rating minus k standard deviations.
-/// A player with high uncertainty will have a lower effective rating, meaning they can match
-/// against a wider range of opponents without the quality formula penalizing the match.
-fn effective_rating(player: &Player, mode: MatchmakingType) -> f32 {
+/// Returns the conservative skill estimate: the player's rating minus `uncertainty_k` standard
+/// deviations. A player with high uncertainty will have a lower effective rating, meaning they can
+/// match against a wider range of opponents without the quality formula penalizing the match.
+fn effective_rating(player: &Player, mode: MatchmakingType, uncertainty_k: f32) -> f32 {
     let mode_rating = player.ratings.get(&mode).copied().unwrap_or_default();
-    mode_rating.rating - UNCERTAINTY_K * mode_rating.uncertainty.unwrap_or(0.0)
+    mode_rating.rating - uncertainty_k * mode_rating.uncertainty.unwrap_or(0.0)
 }
 
 /// Estimates the one-way latency (ms) of a candidate match by reproducing the route selection the
@@ -180,7 +148,8 @@ fn match_latency(entries: &[&QueueEntry]) -> Option<f32> {
 }
 
 /// Converts an estimated one-way latency (ms) into the number of turn-rate "steps" it costs — the
-/// form the quality formula actually penalizes (see [`WEIGHT_LATENCY`]). Network latency only changes
+/// form the quality formula actually penalizes (weighted by the configurable `weight_latency`).
+/// Network latency only changes
 /// the play experience in discrete jumps: StarCraft holds a fixed turn rate / input buffer until
 /// latency crosses a threshold, then drops to a slower one. So a 30ms match and a 100ms match are
 /// equivalent, while a 200ms match is meaningfully worse. This reproduces the game's turn-rate
@@ -199,7 +168,10 @@ pub struct QueueEntry {
 #[derive(Debug, Clone)]
 pub struct Matchmaker<T: QueueSelector> {
     start: Instant,
-    max_players_examined: usize,
+    /// Runtime-tunable configuration (weights, adaptive-threshold knobs, max players examined). Read
+    /// fresh on each search tick and replaceable via [`Matchmaker::set_config`] so an admin change
+    /// takes effect without a restart.
+    config: Arc<MatchmakerConfig>,
     queue: Vec<QueueEntry>,
     queue_sizes: HashMap<MatchmakingType, usize>,
     /// Smoothed (EWMA) estimate of how many players have recently been queued for each mode, used to
@@ -290,8 +262,8 @@ impl QueueSelector for RandomQueueSelector {
 }
 
 impl Matchmaker<RandomQueueSelector> {
-    pub fn new(max_players_examined: usize) -> Matchmaker<RandomQueueSelector> {
-        Matchmaker::with_queue_selector(max_players_examined, RandomQueueSelector)
+    pub fn new(config: Arc<MatchmakerConfig>) -> Matchmaker<RandomQueueSelector> {
+        Matchmaker::with_queue_selector(config, RandomQueueSelector)
     }
 }
 
@@ -299,14 +271,14 @@ impl Matchmaker<RandomQueueSelector> {
 /// weight things such that more skilled players influence the resulting rating more than less
 /// skilled ones. Note that this differs from how we determine this in rating change calculations,
 /// because this method would be inflationary there.
-fn get_team_rating(team: &[&QueueEntry], mode: MatchmakingType) -> f32 {
+fn get_team_rating(team: &[&QueueEntry], mode: MatchmakingType, uncertainty_k: f32) -> f32 {
     if team.len() == 1 {
-        effective_rating(&team[0].player, mode)
+        effective_rating(&team[0].player, mode, uncertainty_k)
     } else {
         let sum: f32 = team
             .iter()
             .map(|q| {
-                let r = effective_rating(&q.player, mode);
+                let r = effective_rating(&q.player, mode, uncertainty_k);
                 r * r
             })
             .sum();
@@ -336,11 +308,11 @@ fn selections_share_a_map(selections: &[&Vec<MapId>]) -> bool {
 }
 
 impl<T: QueueSelector> Matchmaker<T> {
-    fn with_queue_selector(max_players_examined: usize, queue_selector: T) -> Matchmaker<T> {
+    fn with_queue_selector(config: Arc<MatchmakerConfig>, queue_selector: T) -> Matchmaker<T> {
         let start = Instant::now();
         Self {
             start,
-            max_players_examined,
+            config,
             queue: Vec::new(),
             queue_sizes: HashMap::new(),
             population_estimate: HashMap::new(),
@@ -348,6 +320,12 @@ impl<T: QueueSelector> Matchmaker<T> {
             population_window_start: start,
             queue_selector,
         }
+    }
+
+    /// Replaces the active configuration (e.g. after an admin edits the matchmaker knobs). Takes
+    /// effect on the next search tick; the queue and population history are untouched.
+    pub fn set_config(&mut self, config: Arc<MatchmakerConfig>) {
+        self.config = config;
     }
 
     /// Returns the instant at which this matchmaker was created. Queue times in serialized tickets
@@ -438,8 +416,8 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// Folds any elapsed sampling windows into the smoothed per-mode population estimate. The search
     /// loop calls this once per tick; for each whole [`POPULATION_WINDOW`] that has passed since the
     /// last fold, that window's peak concurrent queue size is blended into an exponential moving
-    /// average (factor [`population_alpha`], derived from [`POPULATION_HALF_LIFE`]) and the peak is
-    /// reset to the live queue size for the next window.
+    /// average (factor [`ewma_alpha`], derived from each mode's configured `population_half_life`) and
+    /// the peak is reset to the live queue size for the next window.
     ///
     /// Sampling the *window peak* rather than the instantaneous queue size is the whole point: the
     /// matchmaker removes every match it forms each tick, so the instantaneous size sits near the
@@ -447,9 +425,12 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// captures the players who passed through the window, and the EWMA decays toward 0 across idle
     /// windows so the threshold still relaxes during a genuine dead hour.
     pub fn update_population_estimates(&mut self, now: Instant) {
-        let alpha = population_alpha();
         while now.duration_since(self.population_window_start) >= POPULATION_WINDOW {
             for mode in MatchmakingType::iter() {
+                let alpha = ewma_alpha(
+                    self.config.for_mode(mode).population_half_life,
+                    POPULATION_WINDOW,
+                );
                 let peak = self.population_peak.get(&mode).copied().unwrap_or(0) as f32;
                 match self.population_estimate.entry(mode) {
                     std::collections::hash_map::Entry::Occupied(mut e) => {
@@ -485,11 +466,13 @@ impl<T: QueueSelector> Matchmaker<T> {
         self.population_estimate.get(&mode).copied()
     }
 
-    /// The minimum quality a match in `mode` must reach to form right now. Equal to `min_quality`
-    /// when the mode's smoothed population is comfortable, and relaxed by [`ADAPTIVE_DECAY_PER_MISSING`]
-    /// seconds per player below the comfortable population so matches still form when few are around.
-    pub fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
-        let comfortable = (mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER) as f32;
+    /// The minimum quality a match in `mode` must reach to form right now. Equal to the mode's
+    /// configured `min_quality` when its smoothed population is comfortable, and relaxed by
+    /// `adaptive_decay_per_missing` seconds per player below the comfortable population so matches
+    /// still form when few are around.
+    pub fn effective_min_quality(&self, mode: MatchmakingType) -> f32 {
+        let cfg = self.config.for_mode(mode);
+        let comfortable = (mode.total_players() * cfg.adaptive_comfortable_multiplier) as f32;
         // Until the first window folds (e.g. the first minute after a restart) the smoothed estimate
         // is absent; fall back to the current window's peak so a healthy queue isn't mistaken for zero
         // population and maximally relaxed. Using the peak rather than the live size keeps this
@@ -501,31 +484,26 @@ impl<T: QueueSelector> Matchmaker<T> {
             .or_else(|| self.population_peak.get(&mode).map(|&p| p as f32))
             .unwrap_or(0.0);
         if population < comfortable {
-            min_quality - ADAPTIVE_DECAY_PER_MISSING * (comfortable - population)
+            cfg.min_quality - cfg.adaptive_decay_per_missing * (comfortable - population)
         } else {
-            min_quality
+            cfg.min_quality
         }
     }
 
     /// Finds matches for all modes, returning a Vec the proposed matches. Matches will be returned
     /// ordered by [MatchmakingType] and then the value of that match (so "better" matches will
-    /// appear first). Only matches of at least `min_quality` quality will be returned.
-    pub fn find_matches(&self, min_quality: f32, now: Instant) -> Vec<Match> {
+    /// appear first). Only matches reaching each mode's adaptive minimum quality are returned.
+    pub fn find_matches(&self, now: Instant) -> Vec<Match> {
         let mut modes = MatchmakingType::iter().collect::<Vec<_>>();
         modes.shuffle(&mut rand::rng());
-        self.find_matches_for_modes(&modes, min_quality, now)
+        self.find_matches_for_modes(&modes, now)
     }
 
     /// Finds matches for the given [MatchmakingType]s, returning a Vec of the proposed matches.
     /// Matches will be returned ordered by [MatchmakingType] (in the order given) and then the
-    /// value of that match (so "better" matches will appear first). Only matches of at least
-    /// `min_quality` quality will be returned.
-    pub fn find_matches_for_modes(
-        &self,
-        modes: &[MatchmakingType],
-        min_quality: f32,
-        now: Instant,
-    ) -> Vec<Match> {
+    /// value of that match (so "better" matches will appear first). Only matches reaching each mode's
+    /// adaptive minimum quality (see [`Self::effective_min_quality`]) are returned.
+    pub fn find_matches_for_modes(&self, modes: &[MatchmakingType], now: Instant) -> Vec<Match> {
         let mut matches = Vec::new();
 
         for mode in modes {
@@ -536,7 +514,8 @@ impl<T: QueueSelector> Matchmaker<T> {
                 continue;
             }
 
-            let effective_min = self.effective_min_quality(*mode, min_quality);
+            let mode_cfg = self.config.for_mode(*mode);
+            let effective_min = self.effective_min_quality(*mode);
 
             // Only look at players queued for this mode
             let mode_queue = self.queue.iter().filter(|e| e.modes.contains(*mode));
@@ -544,7 +523,7 @@ impl<T: QueueSelector> Matchmaker<T> {
             // matches we need to examine
             let selected = self
                 .queue_selector
-                .select(mode_queue, self.max_players_examined);
+                .select(mode_queue, self.config.max_players_examined);
 
             let mode_matches = selected
                 .iter()
@@ -586,7 +565,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                         }
                         // Calculate variance with Welford's algorithm over effective ratings
                         count += 1;
-                        let r = effective_rating(&q.player, *mode);
+                        let r = effective_rating(&q.player, *mode, mode_cfg.uncertainty_k);
                         let delta = r - mean;
                         mean += delta / count as f32;
                         m2 += delta * (r - mean);
@@ -610,8 +589,10 @@ impl<T: QueueSelector> Matchmaker<T> {
                                     .copied()
                                     .collect::<Vec<_>>();
 
-                                let rating_a = get_team_rating(&team_a, *mode);
-                                let rating_b = get_team_rating(&team_b, *mode);
+                                let rating_a =
+                                    get_team_rating(&team_a, *mode, mode_cfg.uncertainty_k);
+                                let rating_b =
+                                    get_team_rating(&team_b, *mode, mode_cfg.uncertainty_k);
 
                                 ((rating_a - rating_b).abs(), team_a, team_b)
                             })
@@ -621,15 +602,15 @@ impl<T: QueueSelector> Matchmaker<T> {
                     };
 
                     // Calculate the win probability for team_a vs team_b
-                    let rating_a = get_team_rating(&team_a, *mode);
-                    let rating_b = get_team_rating(&team_b, *mode);
+                    let rating_a = get_team_rating(&team_a, *mode, mode_cfg.uncertainty_k);
+                    let rating_b = get_team_rating(&team_b, *mode, mode_cfg.uncertainty_k);
                     let win_prob = get_win_probability(rating_a, rating_b);
                     let win_prob_diff = (0.5 - win_prob).abs();
 
                     let quality = wait_time.as_secs_f32()
-                        - (WEIGHT_RATING_VARIANCE * variance
-                            + WEIGHT_WIN_PROB * win_prob_diff
-                            + WEIGHT_LATENCY * latency_value(max_latency));
+                        - (mode_cfg.weight_rating_variance * variance
+                            + mode_cfg.weight_win_prob * win_prob_diff
+                            + mode_cfg.weight_latency * latency_value(max_latency));
 
                     // Filter any matches that are too low quality
                     if quality >= effective_min {
@@ -661,8 +642,33 @@ impl<T: QueueSelector> Matchmaker<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::matchmaking::config::ModeConfig;
     use std::collections::HashMap;
     use std::time::Duration;
+
+    /// Built-in defaults (min_quality −30, today's weights). Used by tests that exercise the adaptive
+    /// threshold itself.
+    fn default_config() -> Arc<MatchmakerConfig> {
+        Arc::new(MatchmakerConfig::default())
+    }
+
+    /// A config whose `min_quality` is so low it never blocks a match, so tests can exercise the
+    /// matching/teaming/latency logic without the quality threshold getting in the way (the old
+    /// behaviour of passing `f32::NEG_INFINITY` as the threshold).
+    fn permissive_config() -> Arc<MatchmakerConfig> {
+        Arc::new(MatchmakerConfig::from_global(ModeConfig {
+            min_quality: f32::NEG_INFINITY,
+            ..Default::default()
+        }))
+    }
+
+    /// A config with a specific global `min_quality` and defaults otherwise.
+    fn config_with_min_quality(min_quality: f32) -> Arc<MatchmakerConfig> {
+        Arc::new(MatchmakerConfig::from_global(ModeConfig {
+            min_quality,
+            ..Default::default()
+        }))
+    }
 
     /// A [QueueSelector] that just takes the front `amount` players from the queue.
     pub struct TestQueueSelector;
@@ -716,22 +722,21 @@ mod tests {
 
     #[test]
     fn not_enough_players() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert!(result.is_empty());
     }
 
     #[test]
     fn exact_number_of_players() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
@@ -744,11 +749,8 @@ mod tests {
             Some(&2)
         );
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].mode, MatchmakingType::Match1v1);
         assert_eq!(
@@ -771,7 +773,8 @@ mod tests {
 
     #[test]
     fn finds_all_modes_in_order() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_multi_player(
                 0,
@@ -789,7 +792,6 @@ mod tests {
 
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingType::Match1v1Fastest, MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
             Instant::now(),
         );
         assert_eq!(result.len(), 2);
@@ -834,7 +836,8 @@ mod tests {
     #[test]
     fn requeue() {
         let start = Instant::now();
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
@@ -847,11 +850,8 @@ mod tests {
             Some(&2)
         );
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].mode, MatchmakingType::Match1v1);
         assert_eq!(
@@ -874,7 +874,8 @@ mod tests {
 
     #[test]
     fn insert_player_new_player_succeeds() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         let result = matchmaker.insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1));
         assert!(result.is_ok());
         assert_eq!(
@@ -885,7 +886,8 @@ mod tests {
 
     #[test]
     fn insert_player_duplicate_fails() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
@@ -900,7 +902,8 @@ mod tests {
 
     #[test]
     fn requeue_duplicate_fails() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
@@ -964,7 +967,7 @@ mod tests {
         // Simulate what api.rs does: take an Instant, convert to millis relative to matchmaker.start
         // (as stored in the ticket), then convert back. The round-trip should not lose more than
         // 1ms of precision.
-        let matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let matchmaker = Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         let original = Instant::now();
         let millis = original.duration_since(matchmaker.start()).as_millis() as u64;
         let recovered = matchmaker.start() + Duration::from_millis(millis);
@@ -1002,7 +1005,8 @@ mod tests {
 
     #[test]
     fn find_matches_with_latency_penalty() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(config_with_min_quality(-85.0), TestQueueSelector);
         // Both players ping rally-point server 0 at 200ms round-trip. The match's only pair shares
         // that server, so combined = 400ms and estimated one-way latency = 200ms.
         matchmaker
@@ -1034,22 +1038,24 @@ mod tests {
         //
         // min_quality = -85.0 → quality (-90.0) < effective_min (-85.0) → match rejected.
         let result_strict =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -85.0, Instant::now());
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert!(
             result_strict.is_empty(),
             "expected no match when min_quality (-85.0) exceeds quality (-90.0) at 200ms latency"
         );
 
         // min_quality = -95.0 → quality (-90.0) >= effective_min (-95.0) → match forms.
+        matchmaker.set_config(config_with_min_quality(-95.0));
         let result_lenient =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], -95.0, Instant::now());
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result_lenient.len(), 1);
         assert_eq!(result_lenient[0].max_latency, 200.0);
     }
 
     #[test]
     fn find_matches_no_ping_data_treated_as_zero() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
             .unwrap();
@@ -1060,18 +1066,16 @@ mod tests {
         // Defensive: players are required to have pings before queueing, but if a player somehow
         // carries none, latency is unknown and no penalty is applied rather than blocking the match.
         // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0. Quality ≈ 0.
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].max_latency, 0.0);
     }
 
     #[test]
     fn latency_picks_lowest_combined_server() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         // Player 0 is closest to server 1, player 1 is closest to server 2, but the cheapest server
         // they *share* is server 0 (combined 80ms → 40ms one-way). The lopsided servers must not be
         // chosen since the other player pings them poorly.
@@ -1090,18 +1094,16 @@ mod tests {
             ))
             .unwrap();
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].max_latency, 40.0);
     }
 
     #[test]
     fn latency_no_shared_server_rejects_match() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         // Both players have pings, but to disjoint servers. The game loader's `createBestRoute` could
         // not pick a server both can use, so the launch would fail; the matchmaker must not form this
         // match (even at the most lenient quality threshold) rather than repeatedly matching the same
@@ -1121,11 +1123,8 @@ mod tests {
             ))
             .unwrap();
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert!(
             result.is_empty(),
             "expected no match when players share no pinged rally-point server",
@@ -1134,7 +1133,8 @@ mod tests {
 
     #[test]
     fn latency_unrouteable_pair_rejects_team_match() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         // A 2v2 where three players share server 0 but player 2 only pinged server 1. Every team
         // split still leaves at least one pair involving player 2 with no shared server, so the match
         // is unrouteable regardless of how teams are formed and must be rejected.
@@ -1167,11 +1167,8 @@ mod tests {
             ))
             .unwrap();
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match2v2],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
         assert!(
             result.is_empty(),
             "expected no match when a player pair shares no pinged rally-point server",
@@ -1180,7 +1177,8 @@ mod tests {
 
     #[test]
     fn latency_team_mode_uses_worst_pair_across_all_pairs() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         // A 2v2 has six pairwise links. Three players ping server 0 at 20ms; player 2 pings it at
         // 200ms. The worst link is therefore any pair involving player 2: (20 + 200) / 2 = 110ms.
         // Latency is independent of how the matcher splits the teams — it's the worst pair overall.
@@ -1213,11 +1211,8 @@ mod tests {
             ))
             .unwrap();
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match2v2],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].max_latency, 110.0);
     }
@@ -1257,15 +1252,11 @@ mod tests {
             server_pings: HashMap::new(),
         };
 
-        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut mm = Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         mm.insert_player(uncertain).unwrap();
         mm.insert_player(certain).unwrap();
 
-        let result = mm.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result = mm.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result.len(), 1);
         // Quality is significantly negative at t=0 due to variance penalty from σ=350
         assert!(
@@ -1280,7 +1271,8 @@ mod tests {
         // Player A queued for 1v1 (rating 1500) and Fastest (rating 500)
         // Player B queued for 1v1 (rating 1500) and Fastest (rating 500)
         // They should match in both modes with near-zero quality penalty (equal ratings)
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         let player_a = Player {
             id: 0,
             ratings: HashMap::from([
@@ -1329,7 +1321,6 @@ mod tests {
         // Both modes match. With equal ratings in each mode, quality penalty is near zero.
         let result = matchmaker.find_matches_for_modes(
             &[MatchmakingType::Match1v1, MatchmakingType::Match1v1Fastest],
-            f32::NEG_INFINITY,
             Instant::now(),
         );
         assert_eq!(result.len(), 2);
@@ -1365,7 +1356,8 @@ mod tests {
 
     #[test]
     fn pick_mode_does_not_match_disjoint_map_selections() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player_with_maps(
                 0,
@@ -1385,17 +1377,15 @@ mod tests {
 
         // Even at the most lenient quality, players who share no map must not be matched (the match
         // map could not be chosen and the match would fail to start).
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert!(result.is_empty());
     }
 
     #[test]
     fn pick_mode_matches_when_selections_share_a_map() {
-        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         matchmaker
             .insert_player(make_player_with_maps(
                 0,
@@ -1413,38 +1403,35 @@ mod tests {
             ))
             .unwrap();
 
-        let result = matchmaker.find_matches_for_modes(
-            &[MatchmakingType::Match1v1],
-            f32::NEG_INFINITY,
-            Instant::now(),
-        );
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
         assert_eq!(result.len(), 1);
     }
 
     #[test]
     fn effective_min_relaxes_only_when_smoothed_population_low() {
-        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut mm = Matchmaker::with_queue_selector(default_config(), TestQueueSelector);
         let mode = MatchmakingType::Match1v1; // total_players 2 → comfortable 4
 
         // No population history yet: treated as 0 → maximally relaxed.
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0 - 15.0 * 4.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0 - 15.0 * 4.0);
 
         // Comfortably populated → no relaxation.
         mm.population_estimate.insert(mode, 10.0);
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0);
 
         // Exactly at the comfortable line → no relaxation.
         mm.population_estimate.insert(mode, 4.0);
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0);
 
         // Persistently low population → partial relaxation (1 player short of comfortable).
         mm.population_estimate.insert(mode, 3.0);
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0 - 15.0 * 1.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0 - 15.0 * 1.0);
     }
 
     #[test]
     fn population_falls_back_to_window_peak_before_first_fold() {
-        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut mm = Matchmaker::with_queue_selector(default_config(), TestQueueSelector);
         let mode = MatchmakingType::Match1v1; // comfortable 4
 
         // A healthy queue forms right after a (re)start, before any window has folded — the smoothed
@@ -1453,19 +1440,19 @@ mod tests {
             mm.insert_player(make_player(i, 1500.0, mode)).unwrap();
         }
         assert!(!mm.population_estimate.contains_key(&mode));
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0);
 
         // Draining the queue during the warmup window must not relax it either — the peak holds.
         for i in 0..4 {
             mm.remove_player(i);
         }
         assert_eq!(mm.queue_sizes.get(&mode), Some(&2));
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0);
     }
 
     #[test]
     fn population_estimate_uses_window_peak_not_instantaneous() {
-        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut mm = Matchmaker::with_queue_selector(default_config(), TestQueueSelector);
         let mode = MatchmakingType::Match1v1; // comfortable 4
         let start = mm.start();
 
@@ -1489,12 +1476,12 @@ mod tests {
         // Despite the instantaneous queue being below comfortable, the smoothed population is still
         // high, so the threshold stays strict. Keying off the instantaneous size — the old bug —
         // would relax it here even though the population is healthy.
-        assert_eq!(mm.effective_min_quality(mode, -30.0), -30.0);
+        assert_eq!(mm.effective_min_quality(mode), -30.0);
     }
 
     #[test]
     fn population_estimate_decays_across_idle_windows() {
-        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        let mut mm = Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         let mode = MatchmakingType::Match1v1;
         let start = mm.start();
 
@@ -1514,8 +1501,12 @@ mod tests {
         assert!((mm.population_estimate[&mode] - 4.0).abs() < 1e-4);
 
         // Subsequent idle windows have peak 0 and decay the estimate by the per-window retention
-        // factor (1 - alpha) each, where alpha is derived from POPULATION_HALF_LIFE.
-        let retention = 1.0 - population_alpha();
+        // factor (1 - alpha) each, where alpha is derived from the mode's population half-life.
+        let retention = 1.0
+            - ewma_alpha(
+                ModeConfig::default().population_half_life,
+                POPULATION_WINDOW,
+            );
         mm.update_population_estimates(start + 3 * POPULATION_WINDOW);
         assert!((mm.population_estimate[&mode] - 4.0 * retention).abs() < 1e-4);
         mm.update_population_estimates(start + 4 * POPULATION_WINDOW);
@@ -1524,15 +1515,16 @@ mod tests {
 
     #[test]
     fn population_half_life_matches_decay() {
-        // One half-life of idle windows should decay the estimate to half. Guards against
-        // POPULATION_HALF_LIFE and POPULATION_WINDOW drifting out of the alpha derivation.
-        let mut mm = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        // One half-life of idle windows should decay the estimate to half. Guards against the
+        // half-life and POPULATION_WINDOW drifting out of the alpha derivation.
+        let mut mm = Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
         let mode = MatchmakingType::Match1v1;
+        let half_life = ModeConfig::default().population_half_life;
         let start = mm.start();
 
         mm.population_estimate.insert(mode, 8.0);
         // Park the window start so exactly the windows we fold below have elapsed.
-        let windows = (POPULATION_HALF_LIFE.as_secs() / POPULATION_WINDOW.as_secs()) as u32;
+        let windows = (half_life.as_secs() / POPULATION_WINDOW.as_secs()) as u32;
         for w in 1..=windows {
             mm.update_population_estimates(start + w * POPULATION_WINDOW);
         }

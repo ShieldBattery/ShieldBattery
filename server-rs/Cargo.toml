@@ -21,6 +21,7 @@ name = "matchmaker"
 harness = false
 
 [dependencies]
+arc-swap = "1"
 async-graphql = { version = "7.0", features = [
   "chrono",
   "dataloader",

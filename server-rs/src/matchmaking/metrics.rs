@@ -97,7 +97,7 @@ pub fn describe_metrics() {
 /// Samples the per-mode queue gauges. Call once per search tick while holding the matchmaker lock,
 /// after the population estimate has been rolled forward and *before* the queue is drained, so the
 /// gauges reflect everyone waiting this tick rather than the post-drain residual.
-pub fn sample_queue_state<T: QueueSelector>(matchmaker: &Matchmaker<T>, min_quality: f32) {
+pub fn sample_queue_state<T: QueueSelector>(matchmaker: &Matchmaker<T>) {
     for mode in MatchmakingType::iter() {
         let label = mode.as_str();
         ::metrics::gauge!(QUEUE_SIZE, "mode" => label).set(matchmaker.queue_size(mode) as f64);
@@ -107,7 +107,7 @@ pub fn sample_queue_state<T: QueueSelector>(matchmaker: &Matchmaker<T>, min_qual
             ::metrics::gauge!(POPULATION_ESTIMATE, "mode" => label).set(estimate as f64);
         }
         ::metrics::gauge!(EFFECTIVE_MIN_QUALITY, "mode" => label)
-            .set(matchmaker.effective_min_quality(mode, min_quality) as f64);
+            .set(matchmaker.effective_min_quality(mode) as f64);
     }
 }
 

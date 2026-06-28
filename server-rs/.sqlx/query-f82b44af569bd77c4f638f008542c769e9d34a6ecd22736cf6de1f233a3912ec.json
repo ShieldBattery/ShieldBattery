@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT config as \"config: Json<StoredConfig>\" FROM matchmaking_config WHERE id = 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "config: Json<StoredConfig>",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f82b44af569bd77c4f638f008542c769e9d34a6ecd22736cf6de1f233a3912ec"
+}
