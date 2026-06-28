@@ -102,7 +102,8 @@ ORDER BY imbalance_bucket;
 A health check on what the matchmaker is actually shipping: how negative the quality scores are (how
 often the adaptive low-population threshold is carrying matches), and how much each penalty term
 (skill spread, win-probability imbalance, latency) contributes on average. Useful before changing any
-of the `WEIGHT_*` constants in `server-rs/src/matchmaking/matchmaker.rs`.
+of the `WEIGHT_*` constants in `server-rs/src/matchmaking/matchmaker.rs`. Scoped to matches that
+actually launched (`game_id IS NOT NULL`); the failed-to-start query below breaks down the rest.
 
 ```sql
 SELECT
@@ -115,6 +116,7 @@ SELECT
   -- max_latency is the estimated one-way latency (ms) of the match's worst pairwise link.
   round(avg(max_latency)::numeric, 2) AS avg_max_latency_ms
 FROM matchmaking_match_formations
+WHERE game_id IS NOT NULL
 GROUP BY matchmaking_type
 ORDER BY matchmaking_type;
 ```
@@ -204,32 +206,77 @@ GROUP BY matchmaking_type
 ORDER BY matchmaking_type;
 ```
 
-## Formed matches that never produced a completed game (failed-to-start proxy)
+## Formed-match start outcomes per mode (launched vs. failed by phase)
 
-A match that the matchmaker formed but that never resulted in a finished game — the players were
-removed from the queue, a game was created, but no results ever came back (failed to load, everyone
-bailed during the draft, etc.). A rising `never_completed_rate` for a mode points at a launch/draft
-problem rather than a matching one. Legacy `games.results` rows can be `{}` instead of an array, so
-the array shape is guarded explicitly.
+Of the matches the matchmaker actually formed, how many launched versus fell apart before the game
+started, broken down by the phase they failed in (`accepting` = ready-up declines/timeouts,
+`drafting` = race draft canceled, `loading` = game failed to load). A rising `failed_to_start_rate`
+for a mode points at a launch/draft problem rather than a matching one; which phase dominates says
+where to look. This is the durable counterpart to the live
+`shieldbattery_matchmaker_match_failed_total{phase=...}` counter.
+
+```sql
+SELECT
+  matchmaking_type,
+  count(*) AS formed,
+  count(*) FILTER (WHERE game_id IS NOT NULL) AS launched,
+  count(*) FILTER (WHERE fail_phase = 'accepting') AS failed_accepting,
+  count(*) FILTER (WHERE fail_phase = 'drafting') AS failed_drafting,
+  count(*) FILTER (WHERE fail_phase = 'loading') AS failed_loading,
+  round(
+    count(*) FILTER (WHERE fail_phase IS NOT NULL)::numeric / greatest(count(*), 1), 3
+  ) AS failed_to_start_rate
+FROM matchmaking_match_formations
+GROUP BY matchmaking_type
+ORDER BY matchmaking_type;
+```
+
+## What kind of matches fail to start (decision inputs of failed vs. launched)
+
+Joins each formed match's outcome back to the matchmaker decision that produced it, so a failed-start
+cohort can be compared to the launched one on the exact quality/win-probability/latency inputs. If, say,
+`loading` failures skew toward a much higher `avg_max_latency_ms` than launched matches, the problem is
+networking rather than the matcher; if failed matches cluster at very negative `avg_quality`, the
+adaptive threshold is forming matches nobody sticks around for.
+
+```sql
+SELECT
+  matchmaking_type,
+  CASE WHEN game_id IS NOT NULL THEN 'launched' ELSE fail_phase END AS outcome,
+  count(*) AS matches,
+  round(avg(quality)::numeric, 1) AS avg_quality,
+  round(avg(abs(0.5 - win_probability))::numeric, 3) AS avg_winprob_imbalance,
+  round(avg(max_latency)::numeric, 1) AS avg_max_latency_ms
+FROM matchmaking_match_formations
+GROUP BY matchmaking_type, outcome
+ORDER BY matchmaking_type, outcome;
+```
+
+## Launched matches that produced no game result
+
+The post-launch counterpart to the failed-to-start query: a match that loaded into a game, but that
+game never recorded a result (it crashed, everyone quit before it counted, etc.). A rising
+`no_result_rate` points at in-game problems rather than the matchmaker or the launch funnel. Scoped to
+launched matches (`game_id IS NOT NULL`); legacy `games.results` rows can be `{}` instead of an array,
+so the array shape is guarded explicitly.
 
 ```sql
 SELECT
   f.matchmaking_type,
-  count(*) AS formed,
+  count(*) AS launched,
   count(*) FILTER (
-    WHERE g.id IS NULL
-       OR jsonb_typeof(g.results) <> 'array'
+    WHERE jsonb_typeof(g.results) <> 'array'
        OR jsonb_array_length(g.results) = 0
-  ) AS never_completed,
+  ) AS no_result,
   round(
     count(*) FILTER (
-      WHERE g.id IS NULL
-         OR jsonb_typeof(g.results) <> 'array'
+      WHERE jsonb_typeof(g.results) <> 'array'
          OR jsonb_array_length(g.results) = 0
     )::numeric / greatest(count(*), 1), 3
-  ) AS never_completed_rate
+  ) AS no_result_rate
 FROM matchmaking_match_formations f
-LEFT JOIN games g ON g.id = f.game_id
+JOIN games g ON g.id = f.game_id
+WHERE f.game_id IS NOT NULL
 GROUP BY f.matchmaking_type
 ORDER BY f.matchmaking_type;
 ```

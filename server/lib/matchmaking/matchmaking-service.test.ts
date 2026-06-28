@@ -12,6 +12,7 @@ import {
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { MatchFoundMessage } from '../../../common/typeshare'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { BaseGameLoaderError, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { FakeClock } from '../time/testing/fake-clock'
 import { ClientSocketsGroup } from '../websockets/socket-groups'
@@ -420,6 +421,55 @@ describe('matchmaking/matchmaking-service', () => {
     expect(insertMatchmakingMatchFormation).toHaveBeenCalledTimes(1)
     expect(insertMatchmakingMatchFormation).toHaveBeenCalledWith({
       gameId: GAME_ID,
+      matchmakingType: MatchmakingType.Match1v1,
+      quality: 12.5,
+      skillVariance: 30000,
+      winProbability: 0.42,
+      teamARating: 1500,
+      teamBRating: 1600,
+      maxLatency: 1,
+    })
+  })
+
+  test('records the match formation telemetry for a match that fails to start', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    // The game fails to load, so the match falls apart in the 'loading' phase.
+    gameLoader.loadGame.mockResolvedValue(
+      Result.error(new BaseGameLoaderError(GameLoadErrorType.Internal, 'game load failed')),
+    )
+
+    await queuePlayer(USER_A, CLIENT_A)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 12.5,
+        skillVariance: 30000,
+        winProbability: 0.42,
+        teamARating: 1500,
+        teamBRating: 1600,
+        maxLatency: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Both players accept; the match then runs through to the (failing) game load.
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    // The failed match's formation decision is persisted exactly once, keyed by the phase it fell
+    // apart in (no game id) and carrying the same quality breakdown a launched match would.
+    expect(insertMatchmakingMatchFormation).toHaveBeenCalledTimes(1)
+    expect(insertMatchmakingMatchFormation).toHaveBeenCalledWith({
+      failPhase: 'loading',
       matchmakingType: MatchmakingType.Match1v1,
       quality: 12.5,
       skillVariance: 30000,

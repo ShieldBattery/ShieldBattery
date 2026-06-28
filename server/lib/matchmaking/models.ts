@@ -688,14 +688,21 @@ export async function insertMatchmakingCompletion(
   }
 }
 
+/** The phase a formed match fell apart in when it failed to start. Mirrors the matchmaking service's
+ * own `phase` tracking and the failure metric's `phase` label. */
+export type MatchmakingMatchFailPhase = 'accepting' | 'drafting' | 'loading'
+
 /**
- * The matchmaker's formation decision for a single matchmaking game: the quality score the match
- * formed at, plus the raw (unweighted) inputs that fed it. Keyed by game so it can be joined to the
- * game's actual outcome for calibrating the quality weights. See the `matchmaking_match_formations`
- * migration.
+ * The matchmaker's formation decision for a single formed match: the quality score the match formed
+ * at, plus the raw (unweighted) inputs that fed it. Recorded for every formed match, whether it
+ * launched or failed to start:
+ *   - launched: `gameId` set, so it can be joined to the game's actual outcome for calibrating the
+ *     quality weights.
+ *   - failed to start: `failPhase` set (and no game), so failed cohorts carry the same decision inputs
+ *     and can be analyzed by the phase they fell apart in.
+ * See the `matchmaking_match_formations` migration.
  */
-export interface MatchmakingMatchFormation {
-  gameId: string
+export type MatchmakingMatchFormation = {
   matchmakingType: MatchmakingType
   /** Overall quality score (in seconds of wait) the match formed at. */
   quality: number
@@ -711,11 +718,15 @@ export interface MatchmakingMatchFormation {
    * rally-point server pings (raw latency input to quality).
    */
   maxLatency: number
-}
+} & (
+  | { gameId: string; failPhase?: never }
+  | { gameId?: never; failPhase: MatchmakingMatchFailPhase }
+)
 
 /**
- * Records the matchmaker's formation decision for a game. Best-effort telemetry for calibration; a
- * failure here must not affect the game itself, so callers should not block game flow on it.
+ * Records the matchmaker's formation decision for a formed match (launched or failed-to-start).
+ * Best-effort telemetry for calibration and failure analysis; a failure here must not affect game
+ * flow, so callers should not block on it.
  */
 export async function insertMatchmakingMatchFormation(
   formation: Readonly<MatchmakingMatchFormation>,
@@ -725,12 +736,12 @@ export async function insertMatchmakingMatchFormation(
   try {
     await client.query(sql`
       INSERT INTO matchmaking_match_formations
-        (game_id, matchmaking_type, quality, skill_variance, win_probability,
+        (game_id, fail_phase, matchmaking_type, quality, skill_variance, win_probability,
           team_a_rating, team_b_rating, max_latency)
       VALUES
-        (${formation.gameId}, ${formation.matchmakingType}, ${formation.quality},
-          ${formation.skillVariance}, ${formation.winProbability}, ${formation.teamARating},
-          ${formation.teamBRating}, ${formation.maxLatency})
+        (${formation.gameId ?? null}, ${formation.failPhase ?? null}, ${formation.matchmakingType},
+          ${formation.quality}, ${formation.skillVariance}, ${formation.winProbability},
+          ${formation.teamARating}, ${formation.teamBRating}, ${formation.maxLatency})
     `)
   } finally {
     done()
