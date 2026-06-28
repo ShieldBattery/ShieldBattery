@@ -53,12 +53,21 @@ services:
       - ./google-fake-credentials.json:/google-fake-credentials.json:ro
       - uploaded_files:/home/node/shieldbattery/server/uploaded_files:rw
 
+    # Wait for the one-shot migration container to *finish* (not just start) so the server never
+    # serves requests against a half-migrated DB. Without this, an early request that touches a
+    # column/table added by one of the last migrations (e.g. the admin-account signup writing
+    # manage_matchmaking) can 500 before migrations have applied that far.
     depends_on:
-      - _app-server-build
-      - db
-      - mailgun
-      - migration
-      - redis
+      _app-server-build:
+        condition: service_started
+      db:
+        condition: service_started
+      mailgun:
+        condition: service_started
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
 
   server-rs:
     build:
@@ -89,11 +98,17 @@ services:
       - SB_JWT_SECRET=SuperSecretJwtKey
       - SB_SESSION_TTL=2592000
       - SB_FILE_STORE={"filesystem":{"path":"server/uploaded_files"}}
+    # See the app-server note above: wait for migrations to complete so server-rs reads the real
+    # matchmaking_config row at startup instead of falling back to built-in defaults.
     depends_on:
-      - db
-      - mailgun
-      - migration
-      - redis
+      db:
+        condition: service_started
+      mailgun:
+        condition: service_started
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
     volumes:
       - uploaded_files:/server/uploaded_files:rw
 
