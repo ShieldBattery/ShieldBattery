@@ -10,6 +10,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use async_graphql::{Context, InputObject, Object, Result, SimpleObject};
 use sqlx::PgPool;
+use tokio::sync::Mutex;
 
 use crate::graphql::errors::graphql_error;
 use crate::matchmaking::MatchmakingType;
@@ -19,6 +20,13 @@ use crate::matchmaking::config::{
 };
 use crate::users::CurrentUser;
 use crate::users::permissions::RequiredPermission;
+
+/// Serializes config writes within this process so the live [`ArcSwap`] swap stays ordered with the
+/// DB commit. The singleton row lock already serializes the commits, but the swap happens after
+/// commit and outside that lock — so without this, two concurrent writers could commit A then B yet
+/// swap B then A, leaving the live config on A while the row holds B until the next write/restart.
+/// Admin config writes are rare, so a single global lock is fine.
+static CONFIG_WRITE_LOCK: Mutex<()> = Mutex::const_new(());
 
 /// The built-in default knob values, returned alongside the stored overrides so the admin UI can
 /// show each field's effective default as a placeholder / reset target.
@@ -164,6 +172,10 @@ impl MatchmakingConfigMutation {
         // this mutation reports success.) Building it up front is infallible; we only swap it in after
         // the write commits.
         let live = MatchmakerConfig::from_stored(&stored);
+
+        // Serialize the whole write+swap against other admin writes so the swap order matches the
+        // commit order (see [`CONFIG_WRITE_LOCK`]); held until after `handle.store` below.
+        let _write_guard = CONFIG_WRITE_LOCK.lock().await;
 
         // The row write and its audit row must land together: a committed config change always has a
         // matching history entry, and a failed audit insert rolls the config back rather than leaving

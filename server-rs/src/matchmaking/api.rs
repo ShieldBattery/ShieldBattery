@@ -250,9 +250,10 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     // Capture the epoch once — it never changes for the lifetime of this process.
     let matchmaker_start = lock_matchmaker(&state.matchmaker).start();
 
-    // The search cadence is read once at startup. The formula/threshold knobs hot-reload each tick
-    // (below), but changing the interval would mean rebuilding this timer, so it takes a restart.
-    let mut interval = tokio::time::interval(state.config.load().search_interval);
+    // The search cadence starts from the current config and hot-reloads like the other knobs: the
+    // timer is rebuilt below whenever an admin changes `search_interval`.
+    let mut search_interval = state.config.load().search_interval;
+    let mut interval = tokio::time::interval(search_interval);
     // The first tick fires immediately; skip it so the first real search happens after one interval.
     interval.tick().await;
 
@@ -261,13 +262,23 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
 
         let tick_start = Instant::now();
 
+        // Load the config once for this tick. If the cadence changed, rebuild the timer so
+        // `searchIntervalSeconds` takes effect without a restart, like the formula/threshold knobs.
+        let config = state.config.load_full();
+        if config.search_interval != search_interval {
+            search_interval = config.search_interval;
+            interval = tokio::time::interval(search_interval);
+            // Drop the immediate first tick so the new cadence applies from the next iteration.
+            interval.tick().await;
+        }
+
         // Find matches and immediately remove matched players while still holding the lock,
         // eliminating the window where a cancel+requeue could slip in between the two operations
         // and have the fresh queue entry incorrectly removed.
         let selected = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
             // Push the latest config into the matchmaker so an admin edit takes effect this tick.
-            matchmaker.set_config(state.config.load_full());
+            matchmaker.set_config(config);
             // Roll the population estimate forward before searching so the adaptive quality threshold
             // reflects recent population rather than the post-drain residual queue size.
             matchmaker.update_population_estimates(tick_start);
