@@ -1,1400 +1,1522 @@
 {
-    "common": {
-        "validators": {
-            "required": "Requerido",
-            "maxLength_one": "Introduce como máximo {{count}} carácter",
-            "maxLength_many": "Introduce como máximo {{count}} de caracteres",
-            "maxLength_other": "Introduce como máximo {{count}} caracteres",
-            "minLength_one": "Introduce al menos {{count}} carácter",
-            "minLength_many": "Introduce al menos {{count}} de caracteres",
-            "minLength_other": "Introduce al menos {{count}} caracteres",
-            "validatorError": "Ocurrió un error desconocido al validar este campo"
-        },
-        "actions": {
-            "cancel": "Cancelar",
-            "okay": "Aceptar",
-            "save": "Guardar",
-            "join": "Únete",
-            "view": "Ver",
-            "hide": "Esconder",
-            "refresh": "Actualizar",
-            "search": "Buscar",
-            "show": "Mostrar",
-            "apply": "Aplicar",
-            "remove": "Eliminar",
-            "previous": "Anterior",
-            "next": "Siguiente",
-            "clear": "Claro",
-            "start": "Comenzar",
-            "decline": "Rechazar",
-            "accept": "Aceptar",
-            "block": "Bloquear",
-            "unblock": "Desbloquear",
-            "stop": "Para",
-            "test": "Probar",
-            "edit": "Editar",
-            "reveal": "Revelar",
-            "submit": "Enviar",
-            "close": "Cerrar",
-            "read": "Leer",
-            "download": "Descargar",
-            "back": "Volver",
-            "zoomIn": "Acercar",
-            "zoomOut": "Alejar",
-            "copy": "Copiar"
-        },
-        "lists": {
-            "empty": "Nada que ver aquí"
-        },
-        "loading": {
-            "username": "Cargando el nombre de usuario…",
-            "channelName": "Cargando el nombre del canal…"
-        }
+  "auth": {
+    "emailValidator": {
+      "pattern": "Ingresa una dirección de correo electrónico válida",
+      "required": "Ingresa una dirección de correo electrónico"
     },
-    "settings": {
-        "close": "Cerrar configuraciones",
-        "game": {
-            "starcraft": {
-                "title": "StarCraft",
-                "browseManually": "Navegar manualmente",
-                "currentPathLabel": "Ruta de juego actual:",
-                "detectionFailed": "Error al detectar la ruta de instalación. Asegúrate de tener instalado StarCraft: Remastered e inténtalo de nuevo, o configura la ruta manualmente.",
-                "detectPath": "Detectar instalación",
-                "pathValid": "Esta ruta del juego parece ser una instalación válida.",
-                "instructions": {
-                    "advanced": "Si la detección falla, puede configurar la ruta manualmente. Haz clic en el botón a continuación y selecciona el directorio que contiene tu instalación de StarCraft: Remastered.",
-                    "description": "ShieldBattery requiere una instalación válida y actualizada de StarCraft: Remastered. Haga clic en el botón a continuación para detectar automáticamente la carpeta de instalación."
-                },
-                "pathInvalid": "Esta ruta no apunta a una instalación válida de StarCraft: Remastered. Asegúrese de que su instalación esté actualizada o pruebe con una ruta diferente.",
-                "devOnlySettings": "Configuración solo para desarrolladores",
-                "launch64Bit": "Iniciar ejecutable de 64 bits",
-                "disableHd": "No cargar gráficos HD (se bloquea si se cambia a HD en el juego)"
-            },
-            "title": "Juego",
-            "video": {
-                "enableVerticalSync": "Habilitar sincronización vertical",
-                "environmentEffects": "Efectos ambientales",
-                "pillarbox": "Pillarbox (relación de aspecto 4:3)",
-                "realTimeLighting": "Iluminación en tiempo real",
-                "sdGraphicsFilter": "Filtro de gráficos SD",
-                "shadowStacking": "Apilamiento de sombras",
-                "showFps": "Mostrar FPS",
-                "smoothUnitTurning": "Giro suave de la unidad",
-                "displayMode": {
-                    "fullscreen": "Pantalla completa",
-                    "title": "Modo de visualización",
-                    "windowed": "Modo de ventana",
-                    "windowedFullscreen": "Modo de ventana (pantalla completa)"
-                },
-                "fpsLimit": "límite de FPS",
-                "hdGraphics": "Gráficos de alta definición",
-                "title": "Video",
-                "customFpsLimit": "Límite de FPS personalizado",
-                "monitor": "Monitor",
-                "monitorItem": "Monitor {{index}} - {{label}}",
-                "primaryMonitor": "Predeterminado (monitor principal)"
-            },
-            "gameplay": {
-                "apmAlert": "Alerta cuando APM cae por debajo",
-                "apmColorText": "Color del texto",
-                "apmDisplay": "Muestra de APM",
-                "apmSound": "Reproducir sonido",
-                "apmValue": "Valor APM",
-                "apmValueValidation": "Introduzca un valor entre 1 y 999",
-                "colorCycling": "Habilitar ciclo de color",
-                "consoleSkins": {
-                    "20thAnniversary": "20.º aniversario de StarCraft",
-                    "blizzcon2017": "BlizzCon 2017",
-                    "blizzcon2018": "BlizzCon 2018",
-                    "default": "Por defecto",
-                    "krcGold": "Oro - Orquesta 2019",
-                    "krcSilver": "Plata - Orquesta 2019",
-                    "title": "Máscara de consola",
-                    "warcraft3": "Botín de WarCraft 3"
-                },
-                "devOnlySettings": "Configuración solo para desarrolladores",
-                "gameTimer": "Temporizador de juego",
-                "ingameSkins": {
-                    "carbot": "Carbot",
-                    "none": "Ninguno",
-                    "preorder": "Hacer un pedido",
-                    "title": "Máscara dentro del juego"
-                },
-                "latency": "Mostrar latencia",
-                "minimapPosition": {
-                    "bottomLeft": "Esquina izquierda inferior",
-                    "standard": "Estándar",
-                    "title": "Posición del minimapa"
-                },
-                "showBonusSkins": "Mostrar máscaras de bonificación",
-                "skinsInfo": "Máscaras (deben comprarse en Blizzard)",
-                "title": "Gameplay",
-                "unitPortraits": {
-                    "animated": "Animado",
-                    "disabled": "Desactivado",
-                    "still": "Fija",
-                    "title": "Retratos"
-                },
-                "visualizeNetworkStalls": "Visualizar los bloqueos de la red",
-                "apmAlertHeader": "Alerta APM",
-                "startingFog": {
-                    "legacy": "Legado",
-                    "showResources": "Mostrar recursos",
-                    "title": "Comienza la niebla de guerra",
-                    "showTerrainAndResources": "Mostrar terreno y recursos"
-                },
-                "teamColors": {
-                    "mode": {
-                        "standard": "Estándar"
-                    }
-                }
-            },
-            "input": {
-                "mouseSensitivity": "Sensibilidad del ratón",
-                "title": "Aporte",
-                "hardwareCursor": "Cursores de hardware",
-                "customMouseSensitivity": "Sensibilidad personalizada del mouse",
-                "keyboardScrollSpeed": "Velocidad de desplazamiento del teclado",
-                "lockCursor": "Bloquear el cursor en la ventana",
-                "mouseScaling": "Usar la escala del mouse",
-                "mouseScrollSpeed": "Velocidad de desplazamiento del ratón",
-                "legacyCursorSizingTooltip": "Utiliza los tamaños de cursor originales de StarCraft: Remastered, que tienen escalas inconsistentes a resoluciones más altas.",
-                "customCursorSizeLargest": "Más grande",
-                "customCursorSizeSmallest": "Más pequeño",
-                "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
-                "legacyCursorSizing": "Usar tamaño de cursor heredado",
-                "legacySettingsDescription": "Estas configuraciones existen por motivos de compatibilidad con StarCraft: Remastered, pero no se aconseja activarlas ya que pueden causar problemas de rendimiento.",
-                "legacySettingsHeader": "Configuración heredada",
-                "useCustomCursorSize": "Usar tamaño de cursor personalizado"
-            },
-            "sound": {
-                "announcer": {
-                    "default": "Por defecto",
-                    "heyJini": "Hola jini",
-                    "info": "Paquetes (deben comprarse en Blizzard)",
-                    "kimJungmin": "Kim Jungmin",
-                    "title": "Locutor",
-                    "umJaeKyung": "Um Jae Kyung",
-                    "jeonYongJun": "Jeon Yongjun",
-                    "umJeonKim": "Um, Jeon, Kim Trio"
-                },
-                "gameSubtitles": "Subtítulos del juego",
-                "backgroundSounds": "El sonido se reproduce mientras está en segundo plano",
-                "cinematicSubtitles": "Subtítulos cinematográficos",
-                "gameSounds": "Sonidos del juego",
-                "music": "Música",
-                "musicVolume": "Volumen de la música",
-                "originalVoiceOvers": "Locuciones originales de la unidad",
-                "soundVolume": "Volumen de sonido",
-                "title": "Sonido",
-                "unitAcknowledgements": "Reconocimientos de la unidad",
-                "unitSpeech": "Discurso de la unidad",
-                "buildingSounds": "Construyendo sonidos"
-            }
-        },
-        "app": {
-            "system": {
-                "title": "Sistema",
-                "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
-                "startMinimized": "Iniciar minimizado",
-                "startupOverline": "Puesta en marcha",
-                "filesOverline": "Archivos",
-                "replayQuickOpen": "Inicie los replays abiertos con ShieldBattery inmediatamente sin vista previa"
-            },
-            "title": "Aplicación",
-            "sound": {
-                "masterVolume": "Volumen principal",
-                "title": "Sonido"
-            }
-        },
-        "errors": {
-            "save": "Hubo un problema al guardar la configuración."
-        },
-        "user": {
-            "language": {
-                "title": "Idioma",
-                "selectLanguage": "Selecciona un idioma"
-            },
-            "title": "Usuario",
-            "account": {
-                "authenticationHeader": "Autenticación",
-                "changeEmail": {
-                    "dialogTitle": "Cambiar e-mail",
-                    "patternError": "Introduzca una dirección de correo electrónico válida",
-                    "requiredError": "Introduzca una dirección de correo electrónico",
-                    "success": "El correo electrónico se cambió correctamente."
-                },
-                "changePassword": {
-                    "dialogTitle": "Cambiar la contraseña",
-                    "success": "Contraseña cambiada con éxito."
-                },
-                "displayName": "Nombre para mostrar",
-                "email": "Correo electrónico",
-                "error": "Hubo un problema al recuperar su información de usuario.",
-                "invalidCurrentPassword": "La contraseña actual es incorrecta",
-                "label": "Cuenta",
-                "loginName": "Nombre de inicio de sesión",
-                "networkError": "Error de red: {{errorMessage}}",
-                "changePasswordButton": "Cambiar la contraseña",
-                "confirmNewPassword": "Confirmar nueva contraseña",
-                "currentPassword": "Contraseña actual",
-                "newPassword": "Nueva contraseña",
-                "passwordValidator": {
-                    "confirm": "Ingrese una contraseña coincidente",
-                    "current": "introduce tu contraseña actual",
-                    "new": "Introduzca una nueva contraseña"
-                },
-                "unknownError": "Algo salió mal, inténtalo de nuevo más tarde.",
-                "emailUnverified": "No verificado",
-                "emailVerified": "Verificado",
-                "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} día.",
-                "loginNameCooldown_many": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
-                "loginNameCooldown_other": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
-                "loginNameUnavailable": "El nombre de inicio de sesión no está disponible",
-                "rateLimited": "Solo puedes cambiar tu nombre de inicio de sesión una vez cada 30 días.",
-                "changeLoginName": {
-                    "dialogTitle": "Cambiar nombre de inicio de sesión",
-                    "success": "Nombre de inicio de sesión cambiado con éxito."
-                },
-                "displayNameCooldown_one": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} día.",
-                "displayNameCooldown_many": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
-                "displayNameCooldown_other": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
-                "changeDisplayName": {
-                    "dialogTitle": "Cambiar nombre para mostrar",
-                    "success": "Nombre para mostrar cambiado con éxito."
-                },
-                "displayNameChangeInfo": "Los nombres para mostrar se pueden cambiar una vez cada 60 días. Los cambios de mayúsculas no cuentan para el límite de cambios de nombre.",
-                "displayNameUnavailable": "El nombre para mostrar no está disponible",
-                "loginNameChangeInfo": "El nombre de inicio de sesión solo se puede cambiar cada 30 días."
-            }
-        },
-        "activity": {
-            "title": "Ajustes (Alt + S)"
-        }
+    "emailVerification": {
+      "codeLabel": "Código de verificación",
+      "codeRequired": "Ingresa tu código de verificación",
+      "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo nos ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
+      "instructions": "Ingresa el código de verificación enviado a <2>{{email}}</2>.",
+      "resend": "Reenvía el correo",
+      "resendText": "¿No ves el correo?",
+      "resent": "¡Correo de verificación reenviado!",
+      "submitError": "Hubo un problema al verificar tu correo. Intenta de nuevo más tarde.",
+      "title": "Verifica tu correo electrónico.",
+      "verify": "Verificar"
     },
-    "auth": {
-        "userErrorDisplay": {
-            "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
-            "genericError": "Ocurrió un error: {{errorMessage}}",
-            "invalidCredentials": "Nombre de usuario o contraseña incorrectos",
-            "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
-            "noConnectionErrorMessage": "No se pudo conectar al servidor. Revisa tu conexión a internet y vuelve a intentarlo.",
-            "sessionExpired": "Sesión expirada",
-            "usernameTaken": "El nombre de usuario no está disponible.",
-            "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
-            "banWithoutReason": "Sin razón especificada",
-            "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",
-            "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para evitar este límite."
-        },
-        "usernameValidator": {
-            "pattern": "El nombre de usuario contiene caracteres inválidos",
-            "required": "Ingresa un nombre de usuario",
-            "notAvailable": "El nombre de usuario no está disponible",
-            "availabilityError": "Hubo un problema al verificar la disponibilidad del nombre de usuario",
-            "unavailable": "El nombre de usuario no está disponible"
-        },
-        "emailValidator": {
-            "pattern": "Ingresa una dirección de correo electrónico válida",
-            "required": "Ingresa una dirección de correo electrónico"
-        },
-        "emailVerification": {
-            "title": "Verifica tu correo electrónico.",
-            "codeLabel": "Código de verificación",
-            "codeRequired": "Ingresa tu código de verificación",
-            "explanation": "Tu dirección de correo electrónico no ha sido verificada. Verificar tu correo nos ayuda a mantener tu cuenta segura y nos permite asistirte si olvidas tu información de inicio de sesión.",
-            "instructions": "Ingresa el código de verificación enviado a <2>{{email}}</2>.",
-            "resend": "Reenvía el correo",
-            "resendText": "¿No ves el correo?",
-            "resent": "¡Correo de verificación reenviado!",
-            "submitError": "Hubo un problema al verificar tu correo. Intenta de nuevo más tarde.",
-            "verify": "Verificar"
-        },
-        "forgot": {
-            "backToLogin": "Volver al inicio de sesión",
-            "password": {
-                "sendResetEmail": "Envía el correo de reinicio",
-                "title": "Solicitar restablecimiento de contraseña",
-                "username": "Nombre de usuario",
-                "emailAddress": "Dirección de correo electrónico",
-                "alreadyHaveCodeLink": "¿Ya tienes un código?",
-                "explanationText": "Ingresa la dirección de correo y el nombre de usuario asociados a tu cuenta. Te enviaremos un correo con un código de reinicio para que pongas una nueva contraseña."
-            },
-            "reset": {
-                "confirmPassword": "Confirmar nueva contraseña",
-                "newPassword": "Nueva contraseña",
-                "passwordCode": "Código de reinicio",
-                "setNewPassword": "Establecer nueva contraseña",
-                "successMessage": "Tu contraseña ha sido restablecida.",
-                "title": "Restablecer contraseña",
-                "continueToLogin": "Continúa para iniciar sesión",
-                "explanationText": "Recibirás un correo con un código de reinicio. Ingresa ese código aquí junto con tu nueva contraseña."
-            },
-            "user": {
-                "enterEmail": "Ingresa la dirección de correo electrónico asociada a tu cuenta. Te enviaremos un correo con todos los nombres de usuario vinculados a esa dirección (si hay alguno).",
-                "recoverUsername": "Recuperar nombre de usuario",
-                "successMessage": "Deberías recibir un correo en breve con todos los nombres de usuario asociados a esa dirección de correo (si hay alguno).",
-                "title": "Recupera tu nombre de usuario",
-                "emailAddress": "Dirección de correo electrónico"
-            }
-        },
-        "login": {
-            "forgotPassword": "Restablecer contraseña",
-            "forgotUsername": "Recuperar nombre de usuario",
-            "rememberMe": "Recuerdame",
-            "title": "Inicia sesión en ShieldBattery",
-            "logIn": "Iniciar sesión",
-            "password": "Contraseña",
-            "username": "Nombre de usuario",
-            "createAccountLinkText": "¿No tienes una cuenta? <1>Crea una cuenta</1>"
-        },
-        "noPermissionsPage": {
-            "body": "No tienes suficientes permisos para acceder a esta página."
-        },
-        "passwordValidator": {
-            "confirm": "Confirma tu contraseña",
-            "matching": "Ingresa una contraseña que coincida",
-            "required": "Ingresa una contraseña",
-            "resetCode": "Ingresa tu código de reinicio de contraseña"
-        },
-        "signup": {
-            "ageConfirmation": "Certifico que tengo 13 años o más",
-            "alreadyHaveAccount": "¿Ya tienes una cuenta? <1>Inicia sesión</1>",
-            "confirmPassword": "Confirma la contraseña",
-            "createAccount": "Crea cuenta",
-            "readAndAgree": "He leído y estoy de acuerdo con los <2>Términos de Servicio</2>, <5>Uso Aceptable</5> y <8>Política de Privacidad</8>",
-            "title": "Crea cuenta",
-            "emailAddress": "Dirección de correo electrónico",
-            "password": "Contraseña",
-            "username": "Nombre de usuario",
-            "haveSignupCodeLink": "¿Tienes un código de registro?",
-            "signupCode": "Código de registro (opcional)"
-        },
-        "language": {
-            "changeErrorHeader": "Error al cambiar el idioma",
-            "changeErrorMessage": "Algo salió mal al cambiar el idioma"
-        },
-        "restriction": {
-            "chat": {
-                "notification": "<0>Tu cuenta ha sido restringida para enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
-            }
-        },
-        "randomCodeValidator": {
-            "codePattern": "Código inválido. Debe tener este formato: {{example}}."
-        }
+    "forgot": {
+      "backToLogin": "Volver al inicio de sesión",
+      "password": {
+        "alreadyHaveCodeLink": "¿Ya tienes un código?",
+        "emailAddress": "Dirección de correo electrónico",
+        "explanationText": "Ingresa la dirección de correo y el nombre de usuario asociados a tu cuenta. Te enviaremos un correo con un código de reinicio para que pongas una nueva contraseña.",
+        "sendResetEmail": "Envía el correo de reinicio",
+        "title": "Solicitar restablecimiento de contraseña",
+        "username": "Nombre de usuario"
+      },
+      "reset": {
+        "confirmPassword": "Confirmar nueva contraseña",
+        "continueToLogin": "Continúa para iniciar sesión",
+        "explanationText": "Recibirás un correo con un código de reinicio. Ingresa ese código aquí junto con tu nueva contraseña.",
+        "newPassword": "Nueva contraseña",
+        "passwordCode": "Código de reinicio",
+        "setNewPassword": "Establecer nueva contraseña",
+        "successMessage": "Tu contraseña ha sido restablecida.",
+        "title": "Restablecer contraseña"
+      },
+      "user": {
+        "emailAddress": "Dirección de correo electrónico",
+        "enterEmail": "Ingresa la dirección de correo electrónico asociada a tu cuenta. Te enviaremos un correo con todos los nombres de usuario vinculados a esa dirección (si hay alguno).",
+        "recoverUsername": "Recuperar nombre de usuario",
+        "successMessage": "Deberías recibir un correo en breve con todos los nombres de usuario asociados a esa dirección de correo (si hay alguno).",
+        "title": "Recupera tu nombre de usuario"
+      }
     },
-    "landing": {
-        "faq": {
-            "hotkeyCustomizationAnswer": "Sí, soportamos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas. Si quieres usar teclas personalizadas, lanza StarCraft: Remastered a través del lanzador de Blizzard y personalízalas allí primero. Después de hacerlo, los futuros lanzamientos a través de ShieldBattery usarán esas teclas.",
-            "hotkeyCustomizationQuestion": "¿Se permite o se proporciona la personalización de teclas de acceso rápido?",
-            "isShieldBatteryFreeQuestion": "¿ShieldBattery cuesta algo? ¿Cómo puedo apoyar el proyecto?",
-            "linuxSupportAnswer": "<0>Esto no es algo que tengamos soporte oficial en este momento.</0><1>Sin embargo, hay una integración de ShieldBattery con Wine hecha por la comunidad. Mira nuestro <2>Discord</2> para aprender a usar ShieldBattery en Wine.</1>",
-            "officialSupportAnswer": "No, ShieldBattery es un proyecto desarrollado por miembros apasionados de la comunidad y no cuenta con apoyo ni reconocimiento oficial de Blizzard.",
-            "officialSupportQuestion": "¿Se desarrolló ShieldBattery con el apoyo de Blizzard?",
-            "openSourceAnswer": "<0>Sí. Puedes acceder a nuestro repositorio principal y a los diferentes proyectos adicionales que hemos escrito y separado en sus propios repositorios en nuestra <2>página de GitHub</2>.</0><1>Siempre necesitamos más colaboradores, así que si crees que puedes ayudar, ¡échale un vistazo!</1>",
-            "openSourceQuestion": "¿El proyecto es de código abierto?",
-            "reportIssuesAnswer": "La forma más fácil de reportar bugs o problemas es a través de nuestro <2>Discord</2>. Si te sientes cómodo haciéndolo, también puedes reportar problemas en nuestro <5>GitHub</5>.",
-            "reportIssuesQuestion": "¿Cómo puedo reportar errores o problemas?",
-            "supportedStarcraftVersionAnswer": "ShieldBattery es compatible con la última versión de StarCraft: Remastered. Puedes descargar la versión gratuita de StarCraft: Remastered desde el <2>sitio oficial de Blizzard</2>, o instalarla a través del lanzador de Blizzard. Cualquier complemento comprado (como gráficos HD) se podrá usar en ShieldBattery.",
-            "supportedStarcraftVersionQuestion": "¿Qué versión de StarCraft soporta ShieldBattery?",
-            "systemRequirementsAnswer": "<0>Nuestros requisitos del sistema están principalmente basados en los de <2>StarCraft: Remastered</2>, pero en resumen:</0><1><0>Una computadora con Windows 10 o superior</0><1>2GB de RAM</1><2>NVIDIA GeForce 6800 (256MB) o ATI Radeon X1600 Pro (256MB) o mejor</2><3>Una instalación de StarCraft: Remastered, actualizada a la última versión</3></1>",
-            "systemRequirementsQuestion": "¿Cuáles son los requisitos del sistema para jugar en ShieldBattery?",
-            "title": "Preguntas Frecuentes",
-            "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?",
-            "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es totalmente gratis para usar!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si quieres ayudarnos a cubrir esos costos, te lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>"
-        },
-        "bottomLinks": {
-            "privacyPolicy": "Política de Privacidad",
-            "termsOfService": "Términos de Servicio",
-            "acceptableUsePolicy": "Política de Uso Aceptable",
-            "faq": "Preguntas Frecuentes"
-        },
-        "splash": {
-            "blurb": "ShieldBattery es un servidor comunitario que apoya a los clientes oficiales de StarCraft: Remastered. Descarga nuestro lanzador para acceder a emparejamientos 1x1 y en equipo, mejor netcode, lanzamiento rápido de replays y más.",
-            "gameCount": "<0></0><1>partidas jugadas</1>",
-            "disclaimerText": "StarCraft es una marca registrada de Blizzard Entertainment, Inc. ShieldBattery es desarrollado únicamente por miembros de la comunidad, sin afiliación con Blizzard, y no está oficialmente respaldado ni apoyado por Blizzard.",
-            "subtitle": "La plataforma comunitaria premier de StarCraft 1"
-        }
+    "language": {
+      "changeErrorHeader": "Error al cambiar el idioma",
+      "changeErrorMessage": "Algo salió mal al cambiar el idioma"
     },
-    "ladder": {
-        "pointsHeader": "Puntos",
-        "division": "División",
-        "divisionGroup": {
-            "all": "Todo",
-            "bronze": "Bronce",
-            "champion": "Campeón",
-            "diamond": "Diamante",
-            "gold": "Oro",
-            "platinum": "Platino",
-            "silver": "Plata",
-            "unrated": "Sin clasificar"
-        },
-        "errorRetrievingRankings": "Ocurrió un error al obtener la clasificación actual.",
-        "lastPlayedHeader": "Última partida jugada",
-        "mmrHeader": "MMR",
-        "noMatchingPlayers": "No hay jugadores disponibles.",
-        "pageHeadline": "Clasificatoria",
-        "playerHeader": "Jugador",
-        "rankHeader": "Rango",
-        "updatedText": "Actualizado: {{timestamp}}",
-        "winLossHeader": "Victoria/derrota",
-        "activity": {
-            "title": "Clasificatoria"
-        },
-        "season": "Temporada"
+    "login": {
+      "createAccountLinkText": "¿No tienes una cuenta? <1>Crea una cuenta</1>",
+      "forgotPassword": "Restablecer contraseña",
+      "forgotUsername": "Recuperar nombre de usuario",
+      "logIn": "Iniciar sesión",
+      "password": "Contraseña",
+      "rememberMe": "Recuerdame",
+      "title": "Inicia sesión en ShieldBattery",
+      "username": "Nombre de usuario"
     },
-    "clientDownload": {
-        "andMore": "¡Y más!",
-        "blurb": "Descargue el cliente ShieldBattery para:",
-        "downloadClient": "Descargar cliente",
-        "playGames": "Jugar partidas",
-        "supportProjectText": "¿Quieres apoyar el proyecto?",
-        "watchReplays": "Mira replays",
-        "download": "Descargar",
-        "onlyInApp": "Esta función solo está disponible en la app."
+    "noPermissionsPage": {
+      "body": "No tienes suficientes permisos para acceder a esta página."
     },
-    "comingSoon": {
-        "subtitle": "Ayuda a financiar el desarrollo de ShieldBattery",
-        "headline": "¡Esta función llegará pronto!"
+    "passwordValidator": {
+      "confirm": "Confirma tu contraseña",
+      "matching": "Ingresa una contraseña que coincida",
+      "required": "Ingresa una contraseña",
+      "resetCode": "Ingresa tu código de reinicio de contraseña"
     },
-    "matchmaking": {
-        "division": {
-            "bronze": "Bronce {{level}}",
-            "champion": "Campeón",
-            "diamond": "Diamante {{level}}",
-            "gold": "Oro {{level}}",
-            "platinum": "Platino {{level}}",
-            "silver": "Plata {{level}}",
-            "unrated": "Sin clasificar"
-        },
-        "type": {
-            "1v1": "1x1",
-            "2v2": "2x2",
-            "1v1fastest": "1x1 Fastest"
-        },
-        "acceptMatch": {
-            "failedToAccept": "No se pudo aceptar",
-            "matchFound": "Partido encontrado",
-            "readyUp": "Listo",
-            "removedFromQueue": "No te preparaste a tiempo y te quitaron de la cola.",
-            "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…",
-            "body": "Todos los jugadores deben prepararse para que comience el partido."
-        },
-        "disabledCard": {
-            "days": "Días",
-            "description": "El emparejamiento a veces se cierra por mantenimiento y desarrollo, y actualmente está deshabilitado. El próximo período de emparejamiento es:",
-            "hours": "Horas",
-            "minutes": "Minutos",
-            "seconds": "Segundos",
-            "soon": "Pronto™",
-            "title": "Emparejamiento deshabilitado",
-            "nextDateRange": "<0>{{nextStartDate}}</0><1>a</1><2>{{nextEndDate}}</2>"
-        },
-        "findMatch": {
-            "alternateRace": "Raza alternativa",
-            "bonusPool": "Grupo de bonificación",
-            "description": "Seleccione una raza para usarla siempre que su oponente haya seleccionado la misma raza principal.",
-            "errors": {
-                "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
-                "dialogTitle": "Error al buscar un partido",
-                "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
-                "somethingWentWrong": "Algo salió mal :(",
-                "searchAgainError": "Hubo un problema al buscar un partido",
-                "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
-            },
-            "mapPool": "Grupo de mapas",
-            "rating": "Clasificación",
-            "title": "Encontrar partido",
-            "updated": "Actualizado",
-            "useAlternateRace": "Usa una raza alternativa para evitar enfrentamientos espejo",
-            "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>",
-            "race": "Raza",
-            "vetoDescriptionNoOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados nunca se seleccionarán para jugar.",
-            "vetoDescriptionNoOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados nunca se seleccionarán para jugar.",
-            "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
-            "vetoDescriptionWithOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
-            "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
-            "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
-            "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
-            "unratedText": "Sin calificación",
-            "goToLobby": "Ir al lobby",
-            "matchFound": "¡Partido encontrado!",
-            "rank": "Rango"
-        },
-        "match": {
-            "gameFailedToLoad": "El juego no se ha podido cargar."
-        },
-        "postMatchDialog": {
-            "leagues": "Ligas",
-            "matchmaking": "Emparejamiento",
-            "points": "Puntos",
-            "rating": "Clasificación",
-            "searchAgain": "Busca de nuevo",
-            "title": "Resultados del partido",
-            "watchReplay": "Ver replay"
-        },
-        "activity": {
-            "title": "Emparejamiento"
-        },
-        "bannedDialog": {
-            "bannedFor": "Estás baneado por:",
-            "description": "Has sido baneado temporalmente del emparejamiento por no prepararte o no unirte a las partidas.",
-            "title": "Baneado del emparejamiento"
-        },
-        "draftScreen": {
-            "anonymizedName0": "Rhynadonte oxidado",
-            "anonymizedName1": "Bengalaas audaz",
-            "anonymizedName2": "Escántido sigiloso",
-            "anonymizedName3": "Kakaru perspicaz",
-            "anonymizedName4": "Ragnasaurio despiadado",
-            "anonymizedName5": "Ursadón inestable",
-            "chatMessageError": "No se pudo enviar el mensaje de chat",
-            "lockInError": "No se pudo segurar la raza",
-            "lockInRaceButton": "Segurar",
-            "pickerText": {
-                "myTurn": "Estás eligiendo…",
-                "opponentTurn": "{{name}} está eligiendo…",
-                "teammateTurn": "<0></0> está eligiendo…"
-            },
-            "pickSubtext": "Elige {{num}}"
-        }
+    "randomCodeValidator": {
+      "codePattern": "Código inválido. Debe tener este formato: {{example}}."
     },
-    "clientUpdate": {
-        "overlay": {
-            "errorBody": "Hubo un error al descargar la actualización. Reinicia y prueba de nuevo, o visita <2>nuestro sitio web</2> para descargar la última versión.",
-            "errorTitle": "Error al descargar la actualización",
-            "newUpdateDownloading": "Se está descargando una nueva actualización. Por favor, espera a que se complete la descarga para continuar.",
-            "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalar. Reinicia la aplicación para continuar.",
-            "noErrorTitle": "Actualización disponible",
-            "restartNow": "Reinicia ahora",
-            "progress": "{{transferred}} / {{total}} a {{perSecond}}/s"
-        }
+    "restriction": {
+      "chat": {
+        "notification": "<0>Tu cuenta ha sido restringida para enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
+      }
     },
-    "chat": {
-        "channelInfo": {
-            "notFound": "Este canal no se pudo encontrar. Puede que no exista o que alguien más lo haya recreado.",
-            "defaultError": "Ocurrió un error: {{statusText}}",
-            "genericError": "Error al obtener info del canal para #{{channelName}}: {{errorMessage}}"
-        },
-        "channelInfoCard": {
-            "adminView": "Vista de administrador",
-            "joined": "Unido",
-            "moreActions": "Más acciones",
-            "noDescription": "Este canal no tiene descripción.",
-            "private": "Este canal es privado y necesitas una invitación para unirte.",
-            "userCount_one": "{{count}} miembro",
-            "userCount_many": "{{count}} de miembros",
-            "userCount_other": "{{count}} miembros"
-        },
-        "channelList": {
-            "createChannel": "Crea canal",
-            "noMatchingChannels": "No hay canales de chat coincidentes.",
-            "pageHeadline": "Canales de chat",
-            "retrievingError": "Hubo un error al recuperar los canales de chat.",
-            "browseChannels": "Explorar canales"
-        },
-        "channelMenu": {
-            "kickingError": "Error al expulsar {{user.name}}",
-            "userKicked": "{{user}} fue expulsado",
-            "banAction": "Banear {{user}}",
-            "kickAction": "Expulsar {{user}}"
-        },
-        "channelName": {
-            "deletedChannel": "canal-borrado"
-        },
-        "channelValidator": {
-            "pattern": "El nombre del canal contiene caracteres inválidos",
-            "required": "Ingresa un nombre de canal"
-        },
-        "createChannel": {
-            "bannedError": "Estás baneado de este canal.",
-            "channelName": "Nombre del canal",
-            "createAction": "Crea canal",
-            "defaultError": "Ocurrió un error al crear el canal.",
-            "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
-            "title": "Crea canal"
-        },
-        "events": {
-            "ban": "Has sido baneado de {{channelName}}.",
-            "kick": "Has sido expulsado de {{channelName}}."
-        },
-        "joinChannel": {
-            "bannedError": "Estás baneado de #{{channelName}}",
-            "genericError": "Ocurrió un error al unirte a #{{channelName}}",
-            "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro."
-        },
-        "messageLayout": {
-            "banUser": "<0><0></0></0> ha sido baneado del canal",
-            "joinChannel": "<0><0></0></0> se ha unido al canal",
-            "kickUser": "<0><0></0></0> ha sido expulsado del canal",
-            "leaveChannel": "<0><0></0></0> ha salido del canal",
-            "newChannelOwner": "<0><0></0></0> es el nuevo dueño del canal",
-            "selfJoinChannel": "Te uniste <2><0></0></2>"
-        },
-        "banUser": {
-            "banAction": "Prohíbe {{user}}",
-            "banReason": "Razón de baneo (opcional)",
-            "dialogTitle": "¿Banear {{user}}?",
-            "successMessage": "{{user}} fue baneado"
-        },
-        "banUserErrorDisplay": {
-            "defaultError": "Ocurrió un error: {{statusText}}",
-            "genericError": "Error al banear {{user}}: {{errorMessage}}",
-            "moderateChannelModerator": "No puedes banear a otro moderador",
-            "moderateChannelOwner": "No puedes banear al dueño del canal",
-            "noPermissions": "No tienes suficientes permisos para banear a este usuario",
-            "notInChannel": "El usuario que intentas banear no está en este canal"
-        },
-        "messageMenu": {
-            "deleteError": "Error al eliminar el mensaje",
-            "messageDeleted": "Mensaje eliminado"
-        },
-        "navEntry": {
-            "leaveChannel": "Salir del canal"
-        },
-        "userList": {
-            "active": "Activo",
-            "idle": "Inactivo",
-            "offline": "Desconectado"
-        },
-        "channelHeader": {
-            "actionItems": {
-                "leaveChannel": "Salir del canal",
-                "channelSettings": "Configuración del canal",
-                "hideBanner": "Ocultar banner"
-            },
-            "moreActions": "Más acciones",
-            "errors": {
-                "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
-            }
-        },
-        "channelSettings": {
-            "general": {
-                "descriptionLabel": "Descripción",
-                "topicLabel": "Tema",
-                "saveErrorMessage": "Algo salió mal al guardar la configuración",
-                "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente.",
-                "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de la insignia es {{fileSize}}.",
-                "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo del banner es {{fileSize}}."
-            },
-            "permissions": {
-                "joinedDate": "Se unió a {{date}}"
-            },
-            "tabs": {
-                "general": "General",
-                "permissions": "Permisos"
-            }
-        },
-        "whispers": {
-            "startWhisperButton": "Iniciar un susurro"
-        }
+    "signup": {
+      "ageConfirmation": "Certifico que tengo 13 años o más",
+      "alreadyHaveAccount": "¿Ya tienes una cuenta? <1>Inicia sesión</1>",
+      "confirmPassword": "Confirma la contraseña",
+      "createAccount": "Crea cuenta",
+      "emailAddress": "Dirección de correo electrónico",
+      "haveSignupCodeLink": "¿Tienes un código de registro?",
+      "password": "Contraseña",
+      "readAndAgree": "He leído y estoy de acuerdo con los <2>Términos de Servicio</2>, <5>Uso Aceptable</5> y <8>Política de Privacidad</8>",
+      "signupCode": "Código de registro (opcional)",
+      "title": "Crea cuenta",
+      "username": "Nombre de usuario"
     },
-    "fileBrowser": {
-        "rootFolder": "Carpeta raíz",
-        "upOneDirectory": "Sube un directorio"
+    "userErrorDisplay": {
+      "accountBanned": "Esta cuenta ha sido baneada.<1><0>Razón:</0><1>{{banReason}}</1></1><2>El baneo expirará en {{expireTime}}.</2>",
+      "banWithoutReason": "Sin razón especificada",
+      "defaultError": "Ocurrió un error: {{status}} {{statusText}}",
+      "genericError": "Ocurrió un error: {{errorMessage}}",
+      "invalidCode": "El código proporcionado es inválido. Puede que haya expirado.",
+      "invalidCredentials": "Nombre de usuario o contraseña incorrectos",
+      "machineBanned": "Esta máquina tiene prohibido crear nuevas cuentas.",
+      "noConnectionErrorMessage": "No se pudo conectar al servidor. Revisa tu conexión a internet y vuelve a intentarlo.",
+      "sessionExpired": "Sesión expirada",
+      "tooManyAccounts": "Esta máquina ha alcanzado el límite de cuentas creadas. Si tienes un código de registro, puedes ingresarlo para evitar este límite.",
+      "usernameTaken": "El nombre de usuario no está disponible."
     },
-    "game": {
-        "gameSource": {
-            "custom": "Juego personalizado",
-            "ranked": "Clasificatoria {{matchmakingType}}"
-        },
-        "gameType": {
-            "captureTheFlag": "Captura la bandera",
-            "freeForAll": "Todos contra todos",
-            "greed": "Avaricia",
-            "melee": "Melee",
-            "oneOnOne": "Uno contra uno",
-            "topVsBottom": "Arriba contra abajo",
-            "unknown": "Desconocido",
-            "useMapSettings": "Usar configuración del mapa",
-            "slaughter": "Masacre",
-            "suddenDeath": "Muerte súbita",
-            "teamCaptureTheFlag": "Captura la bandera en equipo",
-            "teamMelee": "Melé en equipos",
-            "teamFreeForAll": "Todos contra todos en equipos"
-        },
-        "mapName": {
-            "unknown": "Mapa desconocido"
-        },
-        "playerName": {
-            "computer": "Computadora",
-            "unknown": "Jugador desconocido"
-        },
-        "race": {
-            "protoss": "Protoss",
-            "random": "Aleatorio",
-            "terran": "Terran",
-            "zerg": "Zerg"
-        },
-        "results": {
-            "draw": "Empate",
-            "loss": "Derrota",
-            "unknown": "Desconocido",
-            "win": "Victoria",
-            "lossShort": "D",
-            "winShort": "V"
-        },
-        "teamName": {
-            "bottom": "Abajo",
-            "number": "Equipo {{teamNumber}}",
-            "top": "Arriba"
-        },
-        "launchingGameDialog": {
-            "title": "Iniciando el juego…"
-        },
-        "filters": {
-            "duration": {
-                "all": "Todo"
-            },
-            "mapName": "Nombre del mapa",
-            "ranked": "Clasificado"
-        }
+    "usernameValidator": {
+      "availabilityError": "Hubo un problema al verificar la disponibilidad del nombre de usuario",
+      "notAvailable": "El nombre de usuario no está disponible",
+      "pattern": "El nombre de usuario contiene caracteres inválidos",
+      "required": "Ingresa un nombre de usuario",
+      "unavailable": "El nombre de usuario no está disponible"
+    }
+  },
+  "bugReport": {
+    "details": "Detalles",
+    "detailsDescription": "Por favor, describe el bug y proporciona tantos detalles como sea posible sobre lo que estabas haciendo cuando ocurrió el bug.",
+    "detailsRequired": "Los reportes de bugs deben incluir detalles.",
+    "error": "Error: {{errorMessage}}",
+    "logUploadDescription": "Tu reporte de errores incluirá los registros de ShieldBattery de tu máquina para ayudar a diagnosticar el problema. Los registros pueden mantenerse por hasta 30 días y solo son visibles para el personal de ShieldBattery.",
+    "reportSubmitted": "Informe de errores enviado.",
+    "title": "Reporta un bug"
+  },
+  "chat": {
+    "banUser": {
+      "banAction": "Prohíbe {{user}}",
+      "banReason": "Razón de baneo (opcional)",
+      "dialogTitle": "¿Banear {{user}}?",
+      "successMessage": "{{user}} fue baneado"
     },
-    "gameDetails": {
-        "buttonCopyLink": "Copia el enlace al juego",
-        "buttonSearchAgain": "Busca de nuevo",
-        "errorLoading": "Hubo un problema al cargar este juego.",
-        "headlineDefault": "Resultados",
-        "headlineDefeat": "¡Derrota!",
-        "headlineDraw": "¡Empate!",
-        "headlineInProgress": "En curso…",
-        "headlineVictory": "¡Victoria!",
-        "infoDate": "Fecha",
-        "infoDuration": "Duración",
-        "infoGameType": "Tipo",
-        "summary": {
-            "pointsBonus": "Bono",
-            "rp": "RP",
-            "pointsBase": "Base",
-            "mmr": "MMR"
-        },
-        "tabBuildOrders": "Órdenes de construcción",
-        "tabStats": "Estadísticas",
-        "tabSummary": "Resumen",
-        "statusFinal": "Final",
-        "statusLive": "En vivo",
-        "debugInfo": {
-            "clientResult": {
-                "defeat": "Derrota",
-                "playing": "En partida",
-                "victory": "Victoria",
-                "disconnected": "Desconectado"
-            },
-            "detailedResults": "Resultados Individuales Detallados",
-            "hasReport": "Ha reportado",
-            "reportedResults": "Resumen de Informes Individuales",
-            "latency": "Latencia (ms)",
-            "player1": "Jugador 1",
-            "player2": "Jugador 2",
-            "reportedAt": "Reportado el",
-            "reportedResult": "Resultado",
-            "reportedTime": "Duración informada",
-            "routes": "Rutas de Red",
-            "server": "Servidor",
-            "title": "Información de Depuración",
-            "player": "Jugador",
-            "reportedAPM": "APM",
-            "reportedPlayer": "Jugador",
-            "reportedRace": "Raza",
-            "reportTitle": "Informe de <1></1>:",
-            "downloadReplay": "Descargar replay",
-            "replay": "Replay"
-        },
-        "buttonCopyGameId": "Copiar ID",
-        "buttonDownloadReplay": "Descargar replay",
-        "buttonWatchReplayLoading": "Cargando…",
-        "buttonWatchReplay": "Ver replay"
+    "banUserErrorDisplay": {
+      "defaultError": "Ocurrió un error: {{statusText}}",
+      "genericError": "Error al banear {{user}}: {{errorMessage}}",
+      "moderateChannelModerator": "No puedes banear a otro moderador",
+      "moderateChannelOwner": "No puedes banear al dueño del canal",
+      "noPermissions": "No tienes suficientes permisos para banear a este usuario",
+      "notInChannel": "El usuario que intentas banear no está en este canal"
     },
-    "messaging": {
-        "blockedMessage": "Mensaje bloqueado",
-        "mention": "Mención",
-        "newDayMessage": "Día cambiado a <2>{{day}}</2>",
-        "sendMessage": "Enviar un mensaje",
-        "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}",
-        "searchWithGoogle": "Buscar con Google"
+    "channelHeader": {
+      "actionItems": {
+        "channelSettings": "Configuración del canal",
+        "hideBanner": "Ocultar banner",
+        "leaveChannel": "Salir del canal"
+      },
+      "errors": {
+        "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
+      },
+      "moreActions": "Más acciones"
     },
-    "policy": {
-        "acceptableUse": "Uso aceptable",
-        "policyUpdateNotification": "Se ha actualizado <2>{{label}}</2> de ShieldBattery.",
-        "privacyPolicy": "Política de privacidad",
-        "termsOfService": "Términos de servicio",
-        "acceptableUseAllCaps": "Política de uso aceptable",
-        "privacyPolicyAllCaps": "Política de privacidad",
-        "termsOfServiceAllCaps": "Términos de servicio"
+    "channelInfo": {
+      "defaultError": "Ocurrió un error: {{statusText}}",
+      "genericError": "Error al obtener info del canal para #{{channelName}}: {{errorMessage}}",
+      "notFound": "Este canal no se pudo encontrar. Puede que no exista o que alguien más lo haya recreado."
     },
-    "replays": {
-        "local": {
-            "duration": "Duración: {{durationStr}}",
-            "gameType": "Tipo de juego: {{gameTypeLabel}}",
-            "loadingError": "Hubo un problema al cargar el replay",
-            "rootFolderName": "Replays",
-            "title": "Replays locales",
-            "watchReplay": "Ver Replay"
-        },
-        "activity": {
-            "title": "Replays"
-        },
-        "loading": {
-            "dialogTitle": "Cargando replay…",
-            "errorGeneric": "Algo salió mal al cargar el replay.",
-            "initFailureBody": "No se pudo cargar el replay seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
-            "initFailureTitle": "Error al cargar el replay"
-        },
-        "replayInfoDialog": {
-            "title": "Información de replay",
-            "watch": "Mirar"
-        },
-        "fileDropError": "Hubo un problema al abrir el replay",
-        "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
-        "watch": {
-            "errorTitle": "Error al cargar el replay",
-            "errorBody": "Hubo un problema al descargar o cargar el replay. Por favor, inténtalo de nuevo más tarde."
-        }
+    "channelInfoCard": {
+      "adminView": "Vista de administrador",
+      "joined": "Unido",
+      "moreActions": "Más acciones",
+      "noDescription": "Este canal no tiene descripción.",
+      "private": "Este canal es privado y necesitas una invitación para unirte.",
+      "userCount_one": "{{count}} miembro",
+      "userCount_many": "{{count}} de miembros",
+      "userCount_other": "{{count}} miembros"
     },
-    "user": {
-        "miniMatchHistory": {
-            "noGameSelected": "Ningún juego seleccionado",
-            "viewDetails": "Ver detalles",
-            "viewFullHistory": "Ver el historial completo de partidas"
-        },
-        "matchHistory": {
-            "noMatchingGames": "Nada de juegos de combinación.",
-            "retrievingError": "Se produjo un error al recuperar el historial de partidos."
-        },
-        "seasons": {
-            "noMatchingGames": "{{user}} no ha jugado ningún partido en temporadas anteriores.",
-            "retrievingError": "Se produjo un error al recuperar el historial de clasificación."
-        }
+    "channelList": {
+      "browseChannels": "Explorar canales",
+      "createChannel": "Crea canal",
+      "noMatchingChannels": "No hay canales de chat coincidentes.",
+      "pageHeadline": "Canales de chat",
+      "retrievingError": "Hubo un error al recuperar los canales de chat."
     },
-    "windowControls": {
-        "close": "Cerrar",
-        "maximizeRestore": "Maximizar/Restaurar",
-        "minimize": "Minimizar"
+    "channelMenu": {
+      "banAction": "Banear {{user}}",
+      "kickAction": "Expulsar {{user}}",
+      "kickingError": "Error al expulsar {{user.name}}",
+      "userKicked": "{{user}} fue expulsado"
     },
-    "maps": {
-        "details": {
-            "editDescription": "Editar Descripción",
-            "mapDescription": "Descripción del mapa",
-            "mapDescriptionRequired": "Introduzca una descripción del mapa",
-            "mapName": "Nombre del mapa",
-            "mapNameRequired": "Introduce un nombre de mapa",
-            "players": "Jugadores: {{playerSize}}",
-            "size": "Tamaño: {{width}}x{{height}}",
-            "tileset": "Tileset: {{tilesetName}}",
-            "title": "Detalles del mapa",
-            "editName": "Editar nombre"
-        },
-        "local": {
-            "documentsFolder": "Carpeta de documentos",
-            "programFolder": "Carpeta del programa",
-            "title": "Mapas locales",
-            "uploadMapError": "Ocurrió un error al cargar el mapa.",
-            "mapFileSizeErrorMessage": "El tamaño del archivo del mapa excede el tamaño máximo permitido de {{fileSize}}.",
-            "uploadMapErrorTitle": "Error al subir el mapa"
-        },
-        "server": {
-            "browseLocal": "Explorar mapas locales",
-            "favorites": {
-                "added": "Añadido a favoritos",
-                "addedError": "Ocurrió un error al añadir a favoritos",
-                "removed": "Eliminado de favoritos",
-                "removedError": "Ocurrió un error al eliminar de favoritos",
-                "error": "Se produjo un error al recuperar tus mapas favoritos."
-            },
-            "noCommunityMaps": "Aún no se han hecho públicos mapas de la comunidad.",
-            "noOfficialMaps": "Aún no se han subido mapas oficiales.",
-            "noUploadedMaps": "No has subido ningún mapa. Puede cargar un mapa haciendo clic en el botón de exploración a continuación.",
-            "regenerateError": "Ocurrió un error al regenerar imágenes",
-            "tab": {
-                "community": "Comunidad",
-                "myMaps": "Mis mapas",
-                "official": "Oficial"
-            },
-            "noResults": "No hay resultados.",
-            "allMaps": "Todos los mapas",
-            "error": "Se produjo un error al recuperar los mapas.",
-            "sortMaps": {
-                "title": "Ordenar mapas",
-                "option": {
-                    "dateUploaded": "Fecha de carga",
-                    "name": "Nombre",
-                    "numberOfPlayers": "Número de jugadores"
-                }
-            },
-            "thumbnailSize": {
-                "option": {
-                    "large": "Grande",
-                    "medium": "Medio",
-                    "small": "Pequeño"
-                },
-                "title": "Tamaño de miniatura de imagen"
-            },
-            "filterOptions": {
-                "section": {
-                    "numberOfPlayers": "Número de jugadores",
-                    "tileset": "Conjunto de fichas"
-                },
-                "title": "Opciones de filtro",
-                "numberOfPlayers": "{{numPlayers}} jugadores"
-            },
-            "regenerated": "Imágenes regeneradas",
-            "uploadedMap": "Mapa subido",
-            "noUploadedMapsWeb": "No has subido ningún mapa.",
-            "favoriteMaps": "Mapas favoritos",
-            "removeError": "Ocurrió un error al eliminar el mapa"
-        },
-        "thumbnail": {
-            "addToFavorites": "Añadir a favoritos",
-            "mapActions": "Acciones de mapa",
-            "regenerateImage": "Regenerar imagen",
-            "removeFromFavorites": "Quitar de favoritos",
-            "showMapPreview": "Mostrar vista previa del mapa",
-            "viewMapDetails": "Ver detalles del mapa",
-            "noMapPreview": "Vista previa del mapa no disponible",
-            "downloadMap": "Descargar"
-        },
-        "activity": {
-            "title": "Mapas"
-        },
-        "mapSelect": {
-            "browseMaps": "Explorar mapas"
-        },
-        "tileset": {
-            "ashworld": "Mundo de ceniza",
-            "badlands": "Páramos",
-            "desert": "Desierto",
-            "ice": "Hielo",
-            "installation": "Instalación",
-            "jungleWorld": "Mundo de la jungla",
-            "spacePlatform": "Plataforma espacial",
-            "twilight": "Crepúsculo"
-        }
+    "channelName": {
+      "deletedChannel": "canal-borrado"
     },
-    "material": {
-        "dialog": {
-            "closeDialog": "Cerrar cuadro de diálogo"
-        },
-        "passwordField": {
-            "hide": "Ocultar contraseña",
-            "show": "Mostrar contraseña"
-        },
-        "datetimeTextField": {
-            "pickerButtonLabel": "Mostrar selector"
-        }
+    "channelSettings": {
+      "general": {
+        "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de la insignia es {{fileSize}}.",
+        "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo del banner es {{fileSize}}.",
+        "changeBadge": "Cambiar insignia",
+        "changeBanner": "Cambiar banner",
+        "descriptionLabel": "Descripción",
+        "inappropriateImageErrorMessage": "La imagen seleccionada no es apropiada. Seleccione una imagen diferente.",
+        "removeBadge": "Quitar insignia",
+        "removeBanner": "Quitar banner",
+        "saveErrorMessage": "Algo salió mal al guardar la configuración",
+        "topicLabel": "Tema",
+        "uploadBadge": "Subir insignia",
+        "uploadBanner": "Subir banner"
+      },
+      "permissions": {
+        "ban": "Puede banear usuarios",
+        "banShort": "Banear",
+        "changeTopic": "Puede cambiar el tema",
+        "changeTopicShort": "Cambiar tema",
+        "editPermissions": "Puede editar permisos",
+        "editPermissionsShort": "Editar permisos",
+        "editTitle": "Editar permisos de {{name}}",
+        "joinedDate": "Se unió el {{date}}",
+        "kick": "Puede expulsar usuarios",
+        "kickShort": "Expulsar",
+        "loadError": "No se pudieron cargar los usuarios.",
+        "noSearchResults": "Ningún usuario coincide con tu búsqueda",
+        "noUsers": "Este canal no tiene otros miembros",
+        "owner": "Propietario",
+        "saveError": "No se pudieron guardar los permisos",
+        "togglePrivate": "Puede cambiar el estado privado",
+        "togglePrivateShort": "Cambiar privado"
+      },
+      "tabs": {
+        "general": "General",
+        "permissions": "Permisos"
+      },
+      "users": {
+        "title": "Usuarios"
+      }
     },
-    "navigation": {
-        "copyLink": {
-            "copiedText": "¡Copiado!",
-            "defaultText": "Copiar link"
-        },
-        "externalLink": {
-            "alwaysTrust": "Confía siempre en este dominio",
-            "dialogText": "<0>Este enlace lo llevará a un sitio fuera de ShieldBattery:</0><1>{{link}}</1><2>¿Está seguro de que desea ir allí?</2>",
-            "openLink": "Abrir enlace",
-            "title": "Enlace externo"
-        },
-        "leftNav": {
-            "chatChannels": "Canales de chat",
-            "logOut": "Cerrar sesión",
-            "viewProfile": "Ver perfil",
-            "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
-            "whispers": "Susurros",
-            "reportBug": "Reportar un error",
-            "logOutErrorMessage": "Algo salió mal. Por favor, intenta de nuevo más tarde.",
-            "logOutErrorTitle": "Error al cerrar sesión"
-        },
-        "bar": {
-            "home": "Hogar",
-            "play": "Jugar",
-            "userMenu": "Menú de usuario",
-            "appMenu": "Menú"
-        }
+    "channelValidator": {
+      "pattern": "El nombre del canal contiene caracteres inválidos",
+      "required": "Ingresa un nombre de canal"
     },
-    "notifications": {
-        "activityButton": {
-            "read": "Notificaciones (Alt + N)",
-            "unread": "Notificaciones - no leídas (Alt + N)"
-        },
-        "errors": {
-            "markRead": "Ocurrió un error al marcar una notificación como leída",
-            "clear": "Se produjo un error al borrar las notificaciones"
-        },
-        "list": {
-            "title": "Notificaciones"
-        },
-        "popup": {
-            "markAsRead": "Marcar como leído"
-        }
+    "createChannel": {
+      "bannedError": "Estás baneado de este canal.",
+      "channelName": "Nombre del canal",
+      "createAction": "Crea canal",
+      "defaultError": "Ocurrió un error al crear el canal.",
+      "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
+      "title": "Crea canal"
     },
-    "starcraft": {
-        "shieldbatteryHealth": {
-            "bottomContents": "Si puede, informar estos como falsos positivos a su proveedor de antivirus ayudará a que esto deje de suceder también para otros usuarios.",
-            "middleContents": "Esto es a menudo el resultado de que el software antivirus instalado toma medidas sobre los falsos positivos. Es posible que deba agregar excepciones para estos archivos o indicarle al software que los elimine de la cuarentena. También puede intentar reinstalar ShieldBattery.",
-            "noProblems": "Su instalación local ahora está libre de problemas.",
-            "rescanFiles": "Volver a escanear archivos",
-            "title": "Problemas de instalación detectados",
-            "topContents": "Hemos detectado que faltan o se han modificado los siguientes archivos de ShieldBattery:"
-        },
-        "starcraftHealth": {
-            "header": "Los siguientes problemas deben corregirse antes de poder jugar juegos en ShieldBattery:",
-            "installPathContents": "Tu configuración de ruta de StarCraft no apunta a una instalación válida. Corrija el valor en <2>Configuración</2>. Si no tienes el juego instalado, puedes descargarlo fácilmente desde el <5><0>Battle.net</0></5>. Es posible que deba reiniciar ShieldBattery después de la instalación.",
-            "noProblems": "Su instalación local ahora está libre de problemas.",
-            "starcraftVersionContents": "Tu instalación de StarCraft no está actualizada. ShieldBattery admite instalaciones de la última versión remasterizada. Instale la <2><0>última versión</0></2> y reinicie ShieldBattery.",
-            "title": "Problemas de instalación detectados"
-        }
+    "events": {
+      "ban": "Has sido baneado de {{channelName}}.",
+      "kick": "Has sido expulsado de {{channelName}}."
+    },
+    "joinChannel": {
+      "bannedError": "Estás baneado de #{{channelName}}",
+      "genericError": "Ocurrió un error al unirte a #{{channelName}}",
+      "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro."
+    },
+    "messageLayout": {
+      "banUser": "<0><0></0></0> ha sido baneado del canal",
+      "joinChannel": "<0><0></0></0> se ha unido al canal",
+      "kickUser": "<0><0></0></0> ha sido expulsado del canal",
+      "leaveChannel": "<0><0></0></0> ha salido del canal",
+      "newChannelOwner": "<0><0></0></0> es el nuevo dueño del canal",
+      "selfJoinChannel": "Te uniste <2><0></0></2>"
+    },
+    "messageMenu": {
+      "deleteError": "Error al eliminar el mensaje",
+      "messageDeleted": "Mensaje eliminado"
+    },
+    "navEntry": {
+      "leaveChannel": "Salir del canal"
+    },
+    "userList": {
+      "active": "Activo",
+      "idle": "Inactivo",
+      "offline": "Desconectado"
     },
     "whispers": {
-        "createWhisper": {
-            "error": "Error: {{errorMessage}}",
-            "title": "Enviar un mensaje",
-            "username": "Nombre de usuario",
-            "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
-            "usernameRequired": "Introduzca un nombre de usuario"
-        },
-        "errors": {
-            "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
-            "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
-            "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
-            "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
-            "openSession": "Error al abrir susurro al usuario: {{errorMessage}}",
-            "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
-            "unknownError": "Error desconocido",
-            "userNotFound": "Usuario no encontrado",
-            "userChatRestricted": "Actualmente tienes restringido el envío de mensajes de chat"
-        },
-        "navEntry": {
-            "closeWhisper": "Cerrar susurro"
-        }
-    },
-    "users": {
-        "contextMenu": {
-            "addFriend": "Agregar amigo",
-            "friendRemoved": "Amigo eliminado",
-            "friendRequestAccepted": "Solicitud de amistad aceptada",
-            "friendRequestRemoved": "Solicitud de amistad eliminada",
-            "friendRequestSent": "Solicitud de amistad enviada",
-            "loadingUsers": "Cargando usuario…",
-            "removeFriend": "Eliminar amigo",
-            "removeFriendRequest": "Eliminar solicitud de amistad",
-            "userBlocked": "Usuario bloqueado",
-            "userUnblocked": "Usuario desbloqueado",
-            "viewProfile": "Ver perfil",
-            "whisper": "Susurro",
-            "copyUserId": "Copiar ID"
-        },
-        "errors": {
-            "friendsList": {
-                "blockedByUser": "has sido bloqueado por este usuario",
-                "errorAcceptingFriendRequest": "Error al aceptar la solicitud de amistad",
-                "errorBlockingUser": "Error al bloquear usuario",
-                "errorDecliningFriendRequest": "Error al rechazar la solicitud de amistad",
-                "errorRemovingFriend": "Error al eliminar amigo",
-                "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
-                "errorSendingFriendRequest": "Error al enviar solicitud de amistad",
-                "errorUnblockingUser": "Error al desbloquear usuario",
-                "invalidSelfAction": "no puedes realizar esta acción en ti mismo",
-                "limitReached": "ha alcanzado la cantidad máxima de amigos o bloques, elimine algunos para agregar más",
-                "noMatchingEntry": "no se encontró ninguna entrada coincidente"
-            },
-            "profile": {
-                "loadUser": "Hubo un problema al cargar este usuario."
-            }
-        },
-        "friendsList": {
-            "friendStart": "Ahora eres amigo de <2>{{user}}</2>.",
-            "receivedFriendRequest": "<0>{{user}}</0> te envió una solicitud de amistad."
-        },
-        "profile": {
-            "achievements": "Logros",
-            "latestGames": "Últimos juegos",
-            "points": "Puntos",
-            "rank": "Rango",
-            "rating": "Clasificación",
-            "record": "Registro",
-            "tabs": {
-                "admin": "Administración",
-                "matchHistory": "Historial de partidos",
-                "season": "Temporadas",
-                "stats": "Estadísticas",
-                "summary": "Resumen"
-            },
-            "totalGames": "Juegos totales"
-        },
-        "profileOverlay": {
-            "info": "Información",
-            "joined": "Se unió a {{date}}",
-            "ranked": "Clasificado",
-            "rightClick": "Haga clic derecho en el usuario para más acciones",
-            "viewProfile": "Ver perfil"
-        },
-        "titles": {
-            "novice": "Principiante"
-        },
-        "restrictions": {
-            "reason": {
-                "disruptive_behavior": "Conducta disruptiva",
-                "harassment": "Acoso",
-                "hate_speech": "Discurso de odio",
-                "other": "Otros",
-                "spam": "Spam",
-                "toxicity": "Toxicidad"
-            }
-        },
-        "admin": {
-            "nameHistory": {
-                "title": "Historial de nombres",
-                "userHistory": "Historial de nombres",
-                "loginNameChanges": "Cambios de nombre de inicio de sesión",
-                "noDisplayNameHistory": "No se encontraron cambios de nombre para mostrar.",
-                "displayNameChanges": "Cambios de nombre para mostrar",
-                "noLoginNameHistory": "No se encontraron cambios de nombre de inicio de sesión.",
-                "usedToken": "Token de cambio de nombre usado"
-            },
-            "permissions": {
-                "title": "Permisos"
-            },
-            "ipAddresses": {
-                "title": "Direcciones IP"
-            },
-            "punishments": {
-                "title": "Sanciones"
-            }
-        }
-    },
-    "lobbies": {
-        "createLobby": {
-            "backToList": "Volver a la lista",
-            "lobbyNameRequired": "Ingrese un nombre de lobby",
-            "mapRequired": "Selecciona un mapa para jugar",
-            "selectMap": "Seleccionar mapa",
-            "title": "Crear lobby",
-            "gameSubTypeHeader": "Equipos",
-            "gameSubTypeOption": "{{numTeams}} equipos",
-            "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
-            "gameTypeHeader": "Tipo de juego",
-            "lobbyName": "Nombre del lobby",
-            "advancedSettings": "Ajustes avanzados",
-            "turnRate": "Ritmo de turno",
-            "turnRateAuto": "Auto",
-            "turnRateDynamic": "Dinámico (No recomendado)",
-            "useLegacyLimits": "Usar límite de unidad heredado",
-            "lobbyNameInvalidCharacters": "El nombre del lobby contiene caracteres no válidos"
-        },
-        "errors": {
-            "alreadyInLobby": "Ya estás en otro lobby.",
-            "load": "Hubo un problema al cargar este lobby"
-        },
-        "events": {
-            "banned": "Has sido expulsado del lobby.",
-            "kicked": "Te han echado del lobby."
-        },
-        "joinLobby": {
-            "noOpenLobbies": "No hay lobbies abiertos",
-            "title": "Unirse al lobby",
-            "noActiveLobbies": "No hay lobbies activos",
-            "openSlotCount_one": "{{count}} ranura abierta",
-            "openSlotCount_many": "{{count}} de ranuras abiertas",
-            "openSlotCount_other": "{{count}} ranuras abiertas",
-            "action": "Unirse al lobby",
-            "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
-            "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado"
-        },
-        "lobby": {
-            "gameType": "Tipo de juego",
-            "leaveLobby": "Salir del lobby",
-            "startGame": "Empezar juego",
-            "turnRate": "Ritmo de turno",
-            "turnRateAuto": "Auto",
-            "turnRateDynamic": "Dinámico",
-            "unitLimit": "Límite de unidad",
-            "unitLimitExtended": "Extendido",
-            "unitLimitLegacy": "Legado"
-        },
-        "messageLayout": {
-            "banPlayer": "<0><0></0></0> se prohibió del lobby",
-            "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada",
-            "countdownStarted": "La cuenta regresiva del juego ha comenzado",
-            "gameInitializationCanceled": "La inicialización del juego ha sido cancelada",
-            "hostChange": "<0><0></0></0> ahora es el anfitrión",
-            "joinLobby": "<0><0></0></0> se ha unido al lobby",
-            "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
-            "leaveLobby": "<0><0></0></0> ha salido del lobby",
-            "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>.",
-            "gameInitializationCanceledMultiple": "La inicialización del juego ha sido cancelada porque los siguientes jugadores no pudieron cargar:<1></1>",
-            "gameInitializationCanceledSingle": "La inicialización del juego se ha cancelado porque <2><0></0></2> no pudo cargar."
-        },
-        "slots": {
-            "closeSlot": "Cerrar ranura",
-            "kickPlayer": "Expulsar {{user}}",
-            "makeObserver": "Hacer observador",
-            "makePlayer": "Hacer jugador",
-            "name": "Cerrado",
-            "open": "Abierto",
-            "openSlot": "Ranura abierta",
-            "removeComputer": "Quitar computadora",
-            "slotActions": "Acciones de tragamonedas",
-            "addComputer": "Agregar computadora",
-            "banPlayer": "Banear {{user}}",
-            "banUnnamedPlayer": "Banear jugador",
-            "kickUnnamedPlayer": "Expulsar jugador"
-        },
-        "state": {
-            "exists": "Actualmente no estás en este lobby. ¿Únete?",
-            "nonexistent": "El lobby no existe. ¿Crearlo?",
-            "started": "Este lobby ya ha comenzado y no se puede unir."
-        },
-        "activity": {
-            "title": "Lobbies ({{lobbyCount}})"
-        }
-    },
-    "leagues": {
-        "explainer": {
-            "description": "¡Las ligas son una nueva forma de competir por premios, clasificar para entradas a torneos y más!",
-            "howLeaguesWork": "Cómo funcionan las ligas",
-            "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!",
-            "joinTitle": "Unirse.",
-            "playDescription": "Una vez que ha comenzado una liga, todos los juegos de escalera que juegues te otorgarán puntos para la clasificación de la liga junto con tu clasificación de escalera normal. ¡Consulta la tabla de clasificación en la página de la liga para ver cómo te va!",
-            "winDescription": "Después de que termine una liga, la tabla de clasificación estará disponible para que los organizadores distribuyan premios y recompensas. Consulte la página de información de la liga para obtener más detalles.",
-            "winTitle": "¡Ganar!",
-            "playTitle": "Jugar."
-        },
-        "leagueDetails": {
-            "about": "Acerca de",
-            "copyLink": "Copiar enlace a la liga",
-            "dateText": "{{startDate}} a {{endDate}}",
-            "goBack": "Volver a la lista",
-            "info": "Información",
-            "joined": "Unido",
-            "joinError": "No pude unirme a la liga: {{errorMessage}}",
-            "leaderboard": "Tabla de clasificación",
-            "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
-            "leaderBoardHeader": {
-                "lastPlayed": "Juego anterior",
-                "player": "Jugador",
-                "points": "Puntos",
-                "rank": "Rango",
-                "winLoss": "Victorias/perdidas"
-            },
-            "leagueEndedError": "No pude unirme porque la liga ya terminó",
-            "leagueJoined": "Se unió a la liga",
-            "noPlayers": "No hay jugadores coincidentes.",
-            "notFound": "Liga no encontrada",
-            "retrieveError": "Hubo un error al recuperar esta liga: {{errorMessage}}",
-            "rulesAndInfo": "Reglas e información"
-        },
-        "list": {
-            "acceptingSignups": "Aceptar registros",
-            "currentlyRunning": "Actualmente en ejecución",
-            "ends": "Finaliza {{endDate}}",
-            "finished": "Finalizado",
-            "howDoLeaguesWork": "¿Cómo funcionan las ligas?",
-            "joined": "Unido",
-            "loadingError": "Error al cargar ligas",
-            "manageLeagues": "Administrar ligas",
-            "noLeagues": "Sin ligas coincidentes",
-            "pageHeadline": "Ligas",
-            "starts": "Comienza {{startDate}}",
-            "viewInfo": "Ver información",
-            "runningNow": "¡Corriendo ahora!",
-            "viewAll": "Ver todas las ligas"
-        },
-        "activity": {
-            "title": "Ligas"
-        }
-    },
-    "rootErrorBoundary": {
-        "reloadApp": "Recargar aplicación",
-        "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
-        "title": "Algo salió mal :("
-    },
-    "forms": {
-        "fileInput": {
-            "chooseFile": "Elige archivo",
-            "noFileSelected": "No se ha seleccionado ningún archivo"
-        }
-    },
-    "bugReport": {
-        "details": "Detalles",
-        "detailsDescription": "Por favor, describe el bug y proporciona tantos detalles como sea posible sobre lo que estabas haciendo cuando ocurrió el bug.",
-        "detailsRequired": "Los reportes de bugs deben incluir detalles.",
-        "error": "Error: {{errorMessage}}",
-        "logUploadDescription": "Tu reporte de errores incluirá los registros de ShieldBattery de tu máquina para ayudar a diagnosticar el problema. Los registros pueden mantenerse por hasta 30 días y solo son visibles para el personal de ShieldBattery.",
-        "reportSubmitted": "Informe de errores enviado.",
-        "title": "Reporta un bug"
-    },
-    "social": {
-        "chat": {
-            "label": "Charlar",
-            "loadingChannelsError": "Error al cargar los canales de chat",
-            "loadingWhispersError": "Error al cargar los susurros"
-        },
-        "friends": {
-            "label": "Amigos ({{friendCount}})"
-        },
-        "sidebar": {
-            "pinTooltip": "Fijar barra lateral",
-            "unpinTooltip": "Desfijar barra lateral",
-            "buttonTooltip": "Activa social (ALT + H)"
-        },
-        "friendsList": {
-            "loadingUsername": "Cargando nombre de usuario…",
-            "tabs": {
-                "addFriends": "Agregar amigos",
-                "friendsList": "Lista de amigos",
-                "socialSettings": "Configuraciones sociales"
-            },
-            "title": {
-                "addFriends": "Agregar amigos",
-                "friends": "Amigos"
-            },
-            "header": {
-                "incoming": "Entrante",
-                "offline": "Desconectado",
-                "online": "Conectado",
-                "outgoing": "Saliente"
-            }
-        },
-        "errors": {
-            "friendsList": {
-                "errorAcceptingFriendRequest": "Error al aceptar la solicitud de amistad",
-                "errorDecliningFriendRequest": "Error al rechazar la solicitud de amistad",
-                "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
-                "load": "Error al cargar la lista de amigos"
-            }
-        }
-    },
-    "games": {
-        "activity": {
-            "title": "Partidas"
-        },
-        "liveGames": {
-            "title": "Partidas en vivo"
-        },
-        "list": {
-            "noMatchingGames": "Nada de juegos de combinación."
-        }
-    },
-    "home": {
-        "supportTitle": "Apoya el proyecto",
-        "latestNewsTitle": "Últimas noticias"
-    },
-    "network": {
-        "notConnectedText": "No conectado"
-    },
-    "gameplayActivity": {
-        "lobby": {
-            "slotsLabel": "Espacios:",
-            "viewLobby": "Ver lobby",
-            "slotCount": "{{takenSlots}} / {{totalSlots}}"
-        },
-        "matchmaking": {
-            "searching": "Buscando un partido…",
-            "matchFound": "¡Partido encontrado!"
-        }
-    },
-    "map": {
-        "download": {
-            "dialogTitle": "Descargando mapa…",
-            "urlError": "Hubo un problema al obtener el enlace de descarga. Por favor, inténtalo de nuevo más tarde."
-        }
+      "startWhisperButton": "Iniciar un susurro"
     }
+  },
+  "clientDownload": {
+    "andMore": "¡Y más!",
+    "blurb": "Descargue el cliente ShieldBattery para:",
+    "download": "Descargar",
+    "downloadClient": "Descargar cliente",
+    "onlyInApp": "Esta función solo está disponible en la app.",
+    "playGames": "Jugar partidas",
+    "supportProjectText": "¿Quieres apoyar el proyecto?",
+    "watchReplays": "Mira replays"
+  },
+  "clientUpdate": {
+    "overlay": {
+      "errorBody": "Hubo un error al descargar la actualización. Reinicia y prueba de nuevo, o visita <2>nuestro sitio web</2> para descargar la última versión.",
+      "errorTitle": "Error al descargar la actualización",
+      "newUpdateDownloading": "Se está descargando una nueva actualización. Por favor, espera a que se complete la descarga para continuar.",
+      "newUpdateReady": "Se ha descargado una nueva actualización y está lista para instalar. Reinicia la aplicación para continuar.",
+      "noErrorTitle": "Actualización disponible",
+      "progress": "{{transferred}} / {{total}} a {{perSecond}}/s",
+      "restartNow": "Reinicia ahora"
+    }
+  },
+  "comingSoon": {
+    "headline": "¡Esta función llegará pronto!",
+    "subtitle": "Ayuda a financiar el desarrollo de ShieldBattery"
+  },
+  "common": {
+    "actions": {
+      "accept": "Aceptar",
+      "apply": "Aplicar",
+      "back": "Volver",
+      "block": "Bloquear",
+      "cancel": "Cancelar",
+      "clear": "Claro",
+      "close": "Cerrar",
+      "copy": "Copiar",
+      "decline": "Rechazar",
+      "done": "Listo",
+      "download": "Descargar",
+      "edit": "Editar",
+      "hide": "Esconder",
+      "join": "Únete",
+      "next": "Siguiente",
+      "okay": "Aceptar",
+      "previous": "Anterior",
+      "read": "Leer",
+      "refresh": "Actualizar",
+      "remove": "Eliminar",
+      "reset": "Restablecer",
+      "reveal": "Revelar",
+      "save": "Guardar",
+      "search": "Buscar",
+      "show": "Mostrar",
+      "start": "Comenzar",
+      "stop": "Para",
+      "submit": "Enviar",
+      "test": "Probar",
+      "unblock": "Desbloquear",
+      "view": "Ver",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar"
+    },
+    "lists": {
+      "empty": "Nada que ver aquí"
+    },
+    "loading": {
+      "channelName": "Cargando el nombre del canal…",
+      "username": "Cargando el nombre de usuario…"
+    },
+    "validators": {
+      "maxLength_one": "Introduce como máximo {{count}} carácter",
+      "maxLength_many": "Introduce como máximo {{count}} de caracteres",
+      "maxLength_other": "Introduce como máximo {{count}} caracteres",
+      "minLength_one": "Introduce al menos {{count}} carácter",
+      "minLength_many": "Introduce al menos {{count}} de caracteres",
+      "minLength_other": "Introduce al menos {{count}} caracteres",
+      "required": "Requerido",
+      "validatorError": "Ocurrió un error desconocido al validar este campo"
+    }
+  },
+  "fileBrowser": {
+    "rootFolder": "Carpeta raíz",
+    "upOneDirectory": "Sube un directorio"
+  },
+  "forms": {
+    "fileInput": {
+      "chooseFile": "Elige archivo",
+      "noFileSelected": "No se ha seleccionado ningún archivo"
+    }
+  },
+  "game": {
+    "filters": {
+      "advanced": "Avanzado",
+      "custom": "Personalizado",
+      "duration": {
+        "10to20": "10-20 min",
+        "20to30": "20-30 min",
+        "all": "Todas",
+        "over30": "Más de 30 min",
+        "under10": "Menos de 10 min"
+      },
+      "format": "Formato",
+      "label": "Filtros",
+      "mapName": "Nombre del mapa",
+      "matchup": "Enfrentamiento",
+      "playerName": "Nombre del jugador",
+      "ranked": "Clasificatoria",
+      "sort": {
+        "latest": "Más recientes primero",
+        "longest": "Más largas primero",
+        "oldest": "Más antiguas primero",
+        "shortest": "Más cortas primero"
+      },
+      "vs": "vs"
+    },
+    "gameSource": {
+      "custom": "Juego personalizado",
+      "ranked": "Clasificatoria {{matchmakingType}}"
+    },
+    "gameType": {
+      "captureTheFlag": "Captura la bandera",
+      "freeForAll": "Todos contra todos",
+      "greed": "Avaricia",
+      "melee": "Melee",
+      "oneOnOne": "Uno contra uno",
+      "slaughter": "Masacre",
+      "suddenDeath": "Muerte súbita",
+      "teamCaptureTheFlag": "Captura la bandera en equipo",
+      "teamFreeForAll": "Todos contra todos en equipos",
+      "teamMelee": "Melé en equipos",
+      "topVsBottom": "Arriba contra abajo",
+      "unknown": "Desconocido",
+      "useMapSettings": "Usar configuración del mapa"
+    },
+    "launchingGameDialog": {
+      "title": "Iniciando el juego…"
+    },
+    "mapName": {
+      "unknown": "Mapa desconocido"
+    },
+    "playerName": {
+      "computer": "Computadora",
+      "unknown": "Jugador desconocido"
+    },
+    "race": {
+      "protoss": "Protoss",
+      "random": "Aleatorio",
+      "terran": "Terran",
+      "zerg": "Zerg"
+    },
+    "results": {
+      "draw": "Empate",
+      "loss": "Derrota",
+      "lossShort": "D",
+      "unknown": "Desconocido",
+      "win": "Victoria",
+      "winShort": "V"
+    },
+    "teamName": {
+      "bottom": "Abajo",
+      "number": "Equipo {{teamNumber}}",
+      "top": "Arriba"
+    }
+  },
+  "gameDetails": {
+    "buttonCopyGameId": "Copiar ID",
+    "buttonCopyLink": "Copia el enlace al juego",
+    "buttonDownloadReplay": "Descargar replay",
+    "buttonSearchAgain": "Busca de nuevo",
+    "buttonWatchReplay": "Ver replay",
+    "buttonWatchReplayLoading": "Cargando…",
+    "debugInfo": {
+      "clientResult": {
+        "defeat": "Derrota",
+        "disconnected": "Desconectado",
+        "playing": "En partida",
+        "victory": "Victoria"
+      },
+      "detailedResults": "Resultados Individuales Detallados",
+      "downloadReplay": "Descargar replay",
+      "hasReport": "Ha reportado",
+      "latency": "Latencia (ms)",
+      "player": "Jugador",
+      "player1": "Jugador 1",
+      "player2": "Jugador 2",
+      "replay": "Replay",
+      "reportedAPM": "APM",
+      "reportedAt": "Reportado el",
+      "reportedPlayer": "Jugador",
+      "reportedRace": "Raza",
+      "reportedResult": "Resultado",
+      "reportedResults": "Resumen de Informes Individuales",
+      "reportedTime": "Duración informada",
+      "reportTitle": "Informe de <1></1>:",
+      "routes": "Rutas de Red",
+      "server": "Servidor",
+      "title": "Información de Depuración"
+    },
+    "errorLoading": "Hubo un problema al cargar este juego.",
+    "headlineDefault": "Resultados",
+    "headlineDefeat": "¡Derrota!",
+    "headlineDraw": "¡Empate!",
+    "headlineInProgress": "En curso…",
+    "headlineVictory": "¡Victoria!",
+    "infoDate": "Fecha",
+    "infoDuration": "Duración",
+    "infoGameType": "Tipo",
+    "statusFinal": "Final",
+    "statusLive": "En vivo",
+    "summary": {
+      "mmr": "MMR",
+      "pointsBase": "Base",
+      "pointsBonus": "Bono",
+      "rp": "RP"
+    },
+    "tabBuildOrders": "Órdenes de construcción",
+    "tabStats": "Estadísticas",
+    "tabSummary": "Resumen"
+  },
+  "gameplayActivity": {
+    "lobby": {
+      "slotCount": "{{takenSlots}} / {{totalSlots}}",
+      "slotsLabel": "Espacios:",
+      "viewLobby": "Ver lobby"
+    },
+    "matchmaking": {
+      "matchFound": "¡Partido encontrado!",
+      "searching": "Buscando un partido…"
+    }
+  },
+  "games": {
+    "activity": {
+      "title": "Partidas"
+    },
+    "list": {
+      "noMatchingGames": "No hay partidas que coincidan.",
+      "retrievingError": "Hubo un error al obtener las partidas."
+    },
+    "liveGames": {
+      "title": "Partidas en vivo"
+    }
+  },
+  "home": {
+    "latestNewsTitle": "Últimas noticias",
+    "supportTitle": "Apoya el proyecto"
+  },
+  "ladder": {
+    "activity": {
+      "title": "Clasificatoria"
+    },
+    "division": "División",
+    "divisionGroup": {
+      "all": "Todo",
+      "bronze": "Bronce",
+      "champion": "Campeón",
+      "diamond": "Diamante",
+      "gold": "Oro",
+      "platinum": "Platino",
+      "silver": "Plata",
+      "unrated": "Sin clasificar"
+    },
+    "errorRetrievingRankings": "Ocurrió un error al obtener la clasificación actual.",
+    "jumpToMyRank": "Ir a mi posición · #{{rank}}",
+    "lastPlayedHeader": "Última partida jugada",
+    "mmrHeader": "MMR",
+    "mmrValue": "{{mmr}} MMR",
+    "modeLabel": "Modo",
+    "noMatchingPlayers": "No hay jugadores disponibles.",
+    "pageHeadline": "Clasificatoria",
+    "playerCount": "{{total}} jugadores",
+    "playerHeader": "Jugador",
+    "pointsAbbrev": "pts",
+    "pointsHeader": "Puntos",
+    "rankHeader": "Rango",
+    "season": "Temporada",
+    "updatedText": "Actualizado: {{timestamp}}",
+    "winLossHeader": "Victoria/derrota"
+  },
+  "landing": {
+    "bottomLinks": {
+      "acceptableUsePolicy": "Política de Uso Aceptable",
+      "faq": "Preguntas Frecuentes",
+      "privacyPolicy": "Política de Privacidad",
+      "termsOfService": "Términos de Servicio"
+    },
+    "faq": {
+      "hotkeyCustomizationAnswer": "Sí, soportamos teclas de acceso rápido personalizadas, pero actualmente no tenemos un editor de teclas. Si quieres usar teclas personalizadas, lanza StarCraft: Remastered a través del lanzador de Blizzard y personalízalas allí primero. Después de hacerlo, los futuros lanzamientos a través de ShieldBattery usarán esas teclas.",
+      "hotkeyCustomizationQuestion": "¿Se permite o se proporciona la personalización de teclas de acceso rápido?",
+      "isShieldBatteryFreeAnswer": "<0>¡ShieldBattery es totalmente gratis para usar!</0><1>Sin embargo, nos cuesta tiempo y dinero alojar y desarrollar ShieldBattery. Si quieres ayudarnos a cubrir esos costos, te lo agradeceríamos mucho. Hemos establecido varias formas de contribuir:</1>",
+      "isShieldBatteryFreeQuestion": "¿ShieldBattery cuesta algo? ¿Cómo puedo apoyar el proyecto?",
+      "linuxSupportAnswer": "<0>Esto no es algo que tengamos soporte oficial en este momento.</0><1>Sin embargo, hay una integración de ShieldBattery con Wine hecha por la comunidad. Mira nuestro <2>Discord</2> para aprender a usar ShieldBattery en Wine.</1>",
+      "linuxSupportQuestion": "¿ShieldBattery funciona en Linux o OS X?",
+      "officialSupportAnswer": "No, ShieldBattery es un proyecto desarrollado por miembros apasionados de la comunidad y no cuenta con apoyo ni reconocimiento oficial de Blizzard.",
+      "officialSupportQuestion": "¿Se desarrolló ShieldBattery con el apoyo de Blizzard?",
+      "openSourceAnswer": "<0>Sí. Puedes acceder a nuestro repositorio principal y a los diferentes proyectos adicionales que hemos escrito y separado en sus propios repositorios en nuestra <2>página de GitHub</2>.</0><1>Siempre necesitamos más colaboradores, así que si crees que puedes ayudar, ¡échale un vistazo!</1>",
+      "openSourceQuestion": "¿El proyecto es de código abierto?",
+      "reportIssuesAnswer": "La forma más fácil de reportar bugs o problemas es a través de nuestro <2>Discord</2>. Si te sientes cómodo haciéndolo, también puedes reportar problemas en nuestro <5>GitHub</5>.",
+      "reportIssuesQuestion": "¿Cómo puedo reportar errores o problemas?",
+      "supportedStarcraftVersionAnswer": "ShieldBattery es compatible con la última versión de StarCraft: Remastered. Puedes descargar la versión gratuita de StarCraft: Remastered desde el <2>sitio oficial de Blizzard</2>, o instalarla a través del lanzador de Blizzard. Cualquier complemento comprado (como gráficos HD) se podrá usar en ShieldBattery.",
+      "supportedStarcraftVersionQuestion": "¿Qué versión de StarCraft soporta ShieldBattery?",
+      "systemRequirementsAnswer": "<0>Nuestros requisitos del sistema están principalmente basados en los de <2>StarCraft: Remastered</2>, pero en resumen:</0><1><0>Una computadora con Windows 10 o superior</0><1>2GB de RAM</1><2>NVIDIA GeForce 6800 (256MB) o ATI Radeon X1600 Pro (256MB) o mejor</2><3>Una instalación de StarCraft: Remastered, actualizada a la última versión</3></1>",
+      "systemRequirementsQuestion": "¿Cuáles son los requisitos del sistema para jugar en ShieldBattery?",
+      "title": "Preguntas Frecuentes"
+    },
+    "splash": {
+      "blurb": "ShieldBattery es un servidor comunitario que apoya a los clientes oficiales de StarCraft: Remastered. Descarga nuestro lanzador para acceder a emparejamientos 1x1 y en equipo, mejor netcode, lanzamiento rápido de replays y más.",
+      "disclaimerText": "StarCraft es una marca registrada de Blizzard Entertainment, Inc. ShieldBattery es desarrollado únicamente por miembros de la comunidad, sin afiliación con Blizzard, y no está oficialmente respaldado ni apoyado por Blizzard.",
+      "gameCount": "<0></0><1>partidas jugadas</1>",
+      "subtitle": "La plataforma comunitaria premier de StarCraft 1"
+    }
+  },
+  "leagues": {
+    "activity": {
+      "title": "Ligas"
+    },
+    "explainer": {
+      "description": "¡Las ligas son una nueva forma de competir por premios, clasificar para entradas a torneos y más!",
+      "howLeaguesWork": "Cómo funcionan las ligas",
+      "joinDescription": "Encuentra una liga que se esté ejecutando actualmente o que acepte inscripciones en el formato que te gustaría jugar. Algunas ligas pueden tener diferentes requisitos, reglas o calificaciones, ¡así que asegúrese de leer la información antes de unirse!",
+      "joinTitle": "Unirse.",
+      "playDescription": "Una vez que ha comenzado una liga, todos los juegos de escalera que juegues te otorgarán puntos para la clasificación de la liga junto con tu clasificación de escalera normal. ¡Consulta la tabla de clasificación en la página de la liga para ver cómo te va!",
+      "playTitle": "Jugar.",
+      "winDescription": "Después de que termine una liga, la tabla de clasificación estará disponible para que los organizadores distribuyan premios y recompensas. Consulte la página de información de la liga para obtener más detalles.",
+      "winTitle": "¡Ganar!"
+    },
+    "leagueDetails": {
+      "about": "Acerca de",
+      "adminActions": "Acciones de administrador",
+      "banned": "Baneado",
+      "banUser": "Banear a {{name}}",
+      "copyLink": "Copiar enlace a la liga",
+      "dateText": "{{startDate}} a {{endDate}}",
+      "goBack": "Volver a la lista",
+      "info": "Información",
+      "joined": "Unido",
+      "joinError": "No pude unirme a la liga: {{errorMessage}}",
+      "leaderboard": "Tabla de clasificación",
+      "leaderboardError": "Hubo un problema al recuperar la tabla de posiciones: {{errorMessage}}",
+      "leaderBoardHeader": {
+        "lastPlayed": "Juego anterior",
+        "player": "Jugador",
+        "points": "Puntos",
+        "rank": "Rango",
+        "winLoss": "Victorias/perdidas"
+      },
+      "leagueEndedError": "No pude unirme porque la liga ya terminó",
+      "leagueJoined": "Se unió a la liga",
+      "noPlayers": "No hay jugadores coincidentes.",
+      "notFound": "Liga no encontrada",
+      "retrieveError": "Hubo un error al recuperar esta liga: {{errorMessage}}",
+      "rulesAndInfo": "Reglas e información",
+      "unbanUser": "Desbanear a {{name}}",
+      "userBanned": "Este usuario ha sido baneado de la liga",
+      "userBannedError": "Error al banear al usuario",
+      "userBannedSuccess": "Usuario baneado",
+      "userUnbannedError": "Error al desbanear al usuario",
+      "userUnbannedSuccess": "Usuario desbaneado"
+    },
+    "list": {
+      "acceptingSignups": "Aceptar registros",
+      "banned": "Baneado",
+      "currentlyRunning": "Actualmente en ejecución",
+      "ends": "Finaliza {{endDate}}",
+      "finished": "Finalizado",
+      "howDoLeaguesWork": "¿Cómo funcionan las ligas?",
+      "joined": "Unido",
+      "loadingError": "Error al cargar ligas",
+      "manageLeagues": "Administrar ligas",
+      "noLeagues": "Sin ligas coincidentes",
+      "pageHeadline": "Ligas",
+      "runningNow": "¡Corriendo ahora!",
+      "starts": "Comienza {{startDate}}",
+      "viewAll": "Ver todas las ligas",
+      "viewInfo": "Ver información"
+    },
+    "notifications": {
+      "ban": "Has sido baneado de la liga <1>{{leagueName}}</1>.",
+      "unban": "Se ha levantado tu baneo de la liga <1>{{leagueName}}</1>."
+    }
+  },
+  "lobbies": {
+    "activity": {
+      "title": "Lobbies ({{lobbyCount}})"
+    },
+    "createLobby": {
+      "advancedSettings": "Ajustes avanzados",
+      "backToList": "Volver a la lista",
+      "gameSubTypeHeader": "Equipos",
+      "gameSubTypeOption": "{{numTeams}} equipos",
+      "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
+      "gameTypeHeader": "Tipo de juego",
+      "lobbyName": "Nombre del lobby",
+      "lobbyNameInvalidCharacters": "El nombre del lobby contiene caracteres no válidos",
+      "lobbyNameRequired": "Ingrese un nombre de lobby",
+      "mapRequired": "Selecciona un mapa para jugar",
+      "selectMap": "Seleccionar mapa",
+      "title": "Crear lobby",
+      "turnRate": "Ritmo de turno",
+      "turnRateAuto": "Auto",
+      "turnRateDynamic": "Dinámico (No recomendado)",
+      "useLegacyLimits": "Usar límite de unidad heredado"
+    },
+    "errors": {
+      "alreadyInLobby": "Ya estás en otro lobby.",
+      "load": "Hubo un problema al cargar este lobby"
+    },
+    "events": {
+      "banned": "Has sido expulsado del lobby.",
+      "kicked": "Te han echado del lobby."
+    },
+    "joinLobby": {
+      "action": "Unirse al lobby",
+      "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
+      "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
+      "noActiveLobbies": "No hay lobbies activos",
+      "noOpenLobbies": "No hay lobbies abiertos",
+      "openSlotCount_one": "{{count}} ranura abierta",
+      "openSlotCount_many": "{{count}} de ranuras abiertas",
+      "openSlotCount_other": "{{count}} ranuras abiertas",
+      "title": "Unirse al lobby"
+    },
+    "lobby": {
+      "gameType": "Tipo de juego",
+      "leaveLobby": "Salir del lobby",
+      "startGame": "Empezar juego",
+      "turnRate": "Ritmo de turno",
+      "turnRateAuto": "Auto",
+      "turnRateDynamic": "Dinámico",
+      "unitLimit": "Límite de unidad",
+      "unitLimitExtended": "Extendido",
+      "unitLimitLegacy": "Legado"
+    },
+    "messageLayout": {
+      "banPlayer": "<0><0></0></0> se prohibió del lobby",
+      "countdownCanceled": "La cuenta regresiva del juego ha sido cancelada",
+      "countdownStarted": "La cuenta regresiva del juego ha comenzado",
+      "gameInitializationCanceled": "La inicialización del juego ha sido cancelada",
+      "gameInitializationCanceledMultiple": "La inicialización del juego ha sido cancelada porque los siguientes jugadores no pudieron cargar:<1></1>",
+      "gameInitializationCanceledSingle": "La inicialización del juego se ha cancelado porque <2><0></0></2> no pudo cargar.",
+      "hostChange": "<0><0></0></0> ahora es el anfitrión",
+      "joinLobby": "<0><0></0></0> se ha unido al lobby",
+      "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
+      "leaveLobby": "<0><0></0></0> ha salido del lobby",
+      "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
+    },
+    "slots": {
+      "addComputer": "Agregar computadora",
+      "banPlayer": "Banear {{user}}",
+      "banUnnamedPlayer": "Banear jugador",
+      "closeSlot": "Cerrar ranura",
+      "kickPlayer": "Expulsar {{user}}",
+      "kickUnnamedPlayer": "Expulsar jugador",
+      "makeObserver": "Hacer observador",
+      "makePlayer": "Hacer jugador",
+      "name": "Cerrado",
+      "open": "Abierto",
+      "openSlot": "Ranura abierta",
+      "removeComputer": "Quitar computadora",
+      "slotActions": "Acciones de tragamonedas"
+    },
+    "state": {
+      "exists": "Actualmente no estás en este lobby. ¿Únete?",
+      "nonexistent": "El lobby no existe. ¿Crearlo?",
+      "started": "Este lobby ya ha comenzado y no se puede unir."
+    }
+  },
+  "map": {
+    "download": {
+      "dialogTitle": "Descargando mapa…",
+      "urlError": "Hubo un problema al obtener el enlace de descarga. Por favor, inténtalo de nuevo más tarde."
+    }
+  },
+  "maps": {
+    "activity": {
+      "title": "Mapas"
+    },
+    "details": {
+      "editDescription": "Editar Descripción",
+      "editName": "Editar nombre",
+      "mapDescription": "Descripción del mapa",
+      "mapDescriptionRequired": "Introduzca una descripción del mapa",
+      "mapName": "Nombre del mapa",
+      "mapNameRequired": "Introduce un nombre de mapa",
+      "players": "Jugadores: {{playerSize}}",
+      "size": "Tamaño: {{width}}x{{height}}",
+      "tileset": "Tileset: {{tilesetName}}",
+      "title": "Detalles del mapa"
+    },
+    "local": {
+      "documentsFolder": "Carpeta de documentos",
+      "mapFileSizeErrorMessage": "El tamaño del archivo del mapa excede el tamaño máximo permitido de {{fileSize}}.",
+      "programFolder": "Carpeta del programa",
+      "title": "Mapas locales",
+      "uploadMapError": "Ocurrió un error al cargar el mapa.",
+      "uploadMapErrorTitle": "Error al subir el mapa"
+    },
+    "mapSelect": {
+      "browseMaps": "Explorar mapas"
+    },
+    "server": {
+      "allMaps": "Todos los mapas",
+      "browseLocal": "Explorar mapas locales",
+      "error": "Se produjo un error al recuperar los mapas.",
+      "favoriteMaps": "Mapas favoritos",
+      "favorites": {
+        "added": "Añadido a favoritos",
+        "addedError": "Ocurrió un error al añadir a favoritos",
+        "error": "Se produjo un error al recuperar tus mapas favoritos.",
+        "removed": "Eliminado de favoritos",
+        "removedError": "Ocurrió un error al eliminar de favoritos"
+      },
+      "filterOptions": {
+        "numberOfPlayers": "{{numPlayers}} jugadores",
+        "section": {
+          "numberOfPlayers": "Número de jugadores",
+          "tileset": "Conjunto de fichas"
+        },
+        "title": "Opciones de filtro"
+      },
+      "noCommunityMaps": "Aún no se han hecho públicos mapas de la comunidad.",
+      "noOfficialMaps": "Aún no se han subido mapas oficiales.",
+      "noResults": "No hay resultados.",
+      "noUploadedMaps": "No has subido ningún mapa. Puede cargar un mapa haciendo clic en el botón de exploración a continuación.",
+      "noUploadedMapsWeb": "No has subido ningún mapa.",
+      "regenerated": "Imágenes regeneradas",
+      "regenerateError": "Ocurrió un error al regenerar imágenes",
+      "removeError": "Ocurrió un error al eliminar el mapa",
+      "sortMaps": {
+        "option": {
+          "dateUploaded": "Fecha de carga",
+          "name": "Nombre",
+          "numberOfPlayers": "Número de jugadores"
+        },
+        "title": "Ordenar mapas"
+      },
+      "tab": {
+        "community": "Comunidad",
+        "myMaps": "Mis mapas",
+        "official": "Oficial"
+      },
+      "thumbnailSize": {
+        "option": {
+          "large": "Grande",
+          "medium": "Medio",
+          "small": "Pequeño"
+        },
+        "title": "Tamaño de miniatura de imagen"
+      },
+      "uploadedMap": "Mapa subido"
+    },
+    "thumbnail": {
+      "addToFavorites": "Añadir a favoritos",
+      "downloadMap": "Descargar",
+      "mapActions": "Acciones de mapa",
+      "noMapPreview": "Vista previa del mapa no disponible",
+      "regenerateImage": "Regenerar imagen",
+      "removeFromFavorites": "Quitar de favoritos",
+      "showMapPreview": "Mostrar vista previa del mapa",
+      "viewMapDetails": "Ver detalles del mapa"
+    },
+    "tileset": {
+      "ashworld": "Mundo de ceniza",
+      "badlands": "Páramos",
+      "desert": "Desierto",
+      "ice": "Hielo",
+      "installation": "Instalación",
+      "jungleWorld": "Mundo de la jungla",
+      "spacePlatform": "Plataforma espacial",
+      "twilight": "Crepúsculo"
+    }
+  },
+  "matchmaking": {
+    "acceptMatch": {
+      "body": "Todos los jugadores deben prepararse para que comience el partido.",
+      "failedToAccept": "No se pudo aceptar",
+      "matchFound": "Partido encontrado",
+      "readyUp": "Listo",
+      "removedFromQueue": "No te preparaste a tiempo y te quitaron de la cola.",
+      "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…"
+    },
+    "activity": {
+      "title": "Emparejamiento"
+    },
+    "bannedDialog": {
+      "bannedFor": "Estás baneado por:",
+      "description": "Has sido baneado temporalmente del emparejamiento por no prepararte o no unirte a las partidas.",
+      "title": "Baneado del emparejamiento"
+    },
+    "disabledCard": {
+      "days": "Días",
+      "description": "El emparejamiento a veces se cierra por mantenimiento y desarrollo, y actualmente está deshabilitado. El próximo período de emparejamiento es:",
+      "hours": "Horas",
+      "minutes": "Minutos",
+      "nextDateRange": "<0>{{nextStartDate}}</0><1>a</1><2>{{nextEndDate}}</2>",
+      "seconds": "Segundos",
+      "soon": "Pronto™",
+      "title": "Emparejamiento deshabilitado"
+    },
+    "division": {
+      "bronze": "Bronce {{level}}",
+      "champion": "Campeón",
+      "diamond": "Diamante {{level}}",
+      "gold": "Oro {{level}}",
+      "platinum": "Platino {{level}}",
+      "silver": "Plata {{level}}",
+      "unrated": "Sin clasificar"
+    },
+    "draftScreen": {
+      "anonymizedName0": "Rhynadonte oxidado",
+      "anonymizedName1": "Bengalaas audaz",
+      "anonymizedName2": "Escántido sigiloso",
+      "anonymizedName3": "Kakaru perspicaz",
+      "anonymizedName4": "Ragnasaurio despiadado",
+      "anonymizedName5": "Ursadón inestable",
+      "chatMessageError": "No se pudo enviar el mensaje de chat",
+      "lockInError": "No se pudo segurar la raza",
+      "lockInRaceButton": "Segurar",
+      "pickerText": {
+        "myTurn": "Estás eligiendo…",
+        "opponentTurn": "{{name}} está eligiendo…",
+        "teammateTurn": "<0></0> está eligiendo…"
+      },
+      "pickSubtext": "Elige {{num}}"
+    },
+    "findMatch": {
+      "alternateRace": "Raza alternativa",
+      "bonusPool": "Grupo de bonificación",
+      "cancelSearch": "Cancelar búsqueda",
+      "desc": {
+        "1v1": "Individual · mapas estándar",
+        "1v1fastest": "Individual · mapa Fastest",
+        "2v2": "Equipo · mapas estándar",
+        "2v2bgh": "Equipo · Big Game Hunters",
+        "2v2fastest": "Equipo · mapa Fastest",
+        "2v2hunters": "Equipo · Hunters",
+        "3v3bgh": "Equipo · Big Game Hunters",
+        "3v3fastest": "Equipo · mapa Fastest",
+        "3v3hunters": "Equipo · Hunters"
+      },
+      "description": "Seleccione una raza para usarla siempre que su oponente haya seleccionado la misma raza principal.",
+      "errors": {
+        "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
+        "dialogTitle": "Error al buscar un partido",
+        "invalidMaps": "Debes seleccionar al menos un mapa en los ajustes para cada tipo de emparejamiento elegido.",
+        "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
+        "pingMeasurementFailed": "No se pudo medir tu conexión con los servidores de juego. Comprueba tu conexión e inténtalo de nuevo.",
+        "searchAgainError": "Hubo un problema al buscar un partido",
+        "somethingWentWrong": "Algo salió mal :(",
+        "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
+      },
+      "fixedMap": "Mapa fijo",
+      "fixedMapDescription": "Este modo siempre se juega en un mapa fijo.",
+      "goToLobby": "Ir al lobby",
+      "inLobbyBanner": "Estás en un lobby — el emparejamiento no está disponible mientras estás en un lobby de juego.",
+      "mapPool": "Grupo de mapas",
+      "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
+      "matchFound": "¡Partida encontrada!",
+      "noScheduledWindow": "Aún no hay franja programada",
+      "pickedCount": " / {{limit}} elegidos",
+      "poolUpdated": "Grupo actualizado",
+      "race": "Raza",
+      "rank": "Rango",
+      "rating": "Clasificación",
+      "readyToQueue": "Listo para buscar",
+      "searchingMessage": "Buscando partida — ampliando el rango de MMR · se tomará la primera partida encontrada",
+      "selectAtLeastOne": "Selecciona al menos un tipo de emparejamiento para empezar a buscar.",
+      "settingsTitle": "Ajustes — {{label}}",
+      "subtitle": "Elige uno o más tipos de emparejamiento — buscaremos en todos a la vez.",
+      "title": "Encontrar partido",
+      "unavailable": "No disponible",
+      "unratedText": "Sin clasificar",
+      "updated": "Actualizado",
+      "useAlternateRace": "Usa una raza alternativa para evitar enfrentamientos espejo",
+      "vetoDescriptionNoOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados nunca se seleccionarán para jugar.",
+      "vetoDescriptionNoOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+      "vetoDescriptionNoOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados nunca se seleccionarán para jugar.",
+      "vetoDescriptionWithOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+      "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+      "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
+      "vetoedCount": " / {{limit}} vetados",
+      "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>"
+    },
+    "match": {
+      "gameFailedToLoad": "El juego no se ha podido cargar."
+    },
+    "postMatchDialog": {
+      "leagues": "Ligas",
+      "matchmaking": "Emparejamiento",
+      "points": "Puntos",
+      "rating": "Clasificación",
+      "searchAgain": "Busca de nuevo",
+      "title": "Resultados del partido",
+      "watchReplay": "Ver replay"
+    },
+    "serviceError": {
+      "dialogTitle": "Error de emparejamiento",
+      "removedFromQueue": "El emparejamiento se interrumpió por un error del servidor. Vuelve a buscar para encontrar una partida."
+    },
+    "type": {
+      "1v1": "1x1",
+      "1v1fastest": "1x1 Fastest",
+      "2v2": "2x2",
+      "2v2bgh": "2x2 BGH",
+      "2v2fastest": "2x2 Fastest",
+      "2v2hunters": "2x2 Hunters",
+      "3v3bgh": "3x3 BGH",
+      "3v3fastest": "3x3 Fastest",
+      "3v3hunters": "3x3 Hunters"
+    }
+  },
+  "material": {
+    "datetimeTextField": {
+      "pickerButtonLabel": "Mostrar selector"
+    },
+    "dialog": {
+      "closeDialog": "Cerrar cuadro de diálogo"
+    },
+    "passwordField": {
+      "hide": "Ocultar contraseña",
+      "show": "Mostrar contraseña"
+    }
+  },
+  "messaging": {
+    "blockedMessage": "Mensaje bloqueado",
+    "mention": "Mención",
+    "newDayMessage": "Día cambiado a <2>{{day}}</2>",
+    "searchWithGoogle": "Buscar con Google",
+    "sendMessage": "Enviar un mensaje",
+    "sendMessageChatRestricted": "Restringido de enviar mensajes hasta {{date}}"
+  },
+  "navigation": {
+    "bar": {
+      "appMenu": "Menú",
+      "home": "Hogar",
+      "play": "Jugar",
+      "userMenu": "Menú de usuario"
+    },
+    "copyLink": {
+      "copiedText": "¡Copiado!",
+      "defaultText": "Copiar link"
+    },
+    "externalLink": {
+      "alwaysTrust": "Confía siempre en este dominio",
+      "dialogText": "<0>Este enlace lo llevará a un sitio fuera de ShieldBattery:</0><1>{{link}}</1><2>¿Está seguro de que desea ir allí?</2>",
+      "openLink": "Abrir enlace",
+      "title": "Enlace externo"
+    },
+    "leftNav": {
+      "chatChannels": "Canales de chat",
+      "logOut": "Cerrar sesión",
+      "logOutErrorMessage": "Algo salió mal. Por favor, intenta de nuevo más tarde.",
+      "logOutErrorTitle": "Error al cerrar sesión",
+      "reportBug": "Reportar un error",
+      "viewProfile": "Ver perfil",
+      "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
+      "whispers": "Susurros"
+    }
+  },
+  "network": {
+    "notConnectedText": "No conectado"
+  },
+  "notifications": {
+    "activityButton": {
+      "read": "Notificaciones (Alt + N)",
+      "unread": "Notificaciones - no leídas (Alt + N)"
+    },
+    "errors": {
+      "clear": "Se produjo un error al borrar las notificaciones",
+      "markRead": "Ocurrió un error al marcar una notificación como leída"
+    },
+    "list": {
+      "title": "Notificaciones"
+    },
+    "popup": {
+      "markAsRead": "Marcar como leído"
+    }
+  },
+  "policy": {
+    "acceptableUse": "Uso aceptable",
+    "acceptableUseAllCaps": "Política de uso aceptable",
+    "policyUpdateNotification": "Se ha actualizado <2>{{label}}</2> de ShieldBattery.",
+    "privacyPolicy": "Política de privacidad",
+    "privacyPolicyAllCaps": "Política de privacidad",
+    "termsOfService": "Términos de servicio",
+    "termsOfServiceAllCaps": "Términos de servicio"
+  },
+  "replays": {
+    "activity": {
+      "title": "Replays"
+    },
+    "fileDropError": "Hubo un problema al abrir el replay",
+    "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
+    "loading": {
+      "dialogTitle": "Cargando replay…",
+      "errorGeneric": "Algo salió mal al cargar el replay.",
+      "initFailureBody": "No se pudo cargar el replay seleccionada. Es posible que esté corrupto o que haya sido creado por una versión de StarCraft más nueva que la admitida actualmente.",
+      "initFailureTitle": "Error al cargar el replay"
+    },
+    "local": {
+      "duration": "Duración: {{durationStr}}",
+      "gameType": "Tipo de juego: {{gameTypeLabel}}",
+      "loadingError": "Hubo un problema al cargar el replay",
+      "rootFolderName": "Replays",
+      "title": "Replays locales",
+      "watchReplay": "Ver Replay"
+    },
+    "replayInfoDialog": {
+      "title": "Información de replay",
+      "watch": "Mirar"
+    },
+    "watch": {
+      "errorBody": "Hubo un problema al descargar o cargar el replay. Por favor, inténtalo de nuevo más tarde.",
+      "errorTitle": "Error al cargar el replay"
+    }
+  },
+  "rootErrorBoundary": {
+    "contents": "Infórmanos de este problema en nuestro <2>Discord</2>.",
+    "reloadApp": "Recargar aplicación",
+    "title": "Algo salió mal :("
+  },
+  "settings": {
+    "activity": {
+      "title": "Ajustes (Alt + S)"
+    },
+    "app": {
+      "sound": {
+        "masterVolume": "Volumen principal",
+        "title": "Sonido"
+      },
+      "system": {
+        "filesOverline": "Archivos",
+        "replayQuickOpen": "Inicie los replays abiertos con ShieldBattery inmediatamente sin vista previa",
+        "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
+        "startMinimized": "Iniciar minimizado",
+        "startupOverline": "Puesta en marcha",
+        "title": "Sistema"
+      },
+      "title": "Aplicación"
+    },
+    "close": "Cerrar configuraciones",
+    "errors": {
+      "save": "Hubo un problema al guardar la configuración."
+    },
+    "game": {
+      "gameplay": {
+        "apmAlert": "Alerta cuando APM cae por debajo",
+        "apmAlertHeader": "Alerta APM",
+        "apmColorText": "Color del texto",
+        "apmDisplay": "Muestra de APM",
+        "apmSound": "Reproducir sonido",
+        "apmValue": "Valor APM",
+        "apmValueValidation": "Introduzca un valor entre 1 y 999",
+        "colorCycling": "Habilitar ciclo de color",
+        "colorPreset": {
+          "legacyDiplomacy": "Diplomacia clásica",
+          "title": "Preajuste"
+        },
+        "consoleSkins": {
+          "20thAnniversary": "20.º aniversario de StarCraft",
+          "blizzcon2017": "BlizzCon 2017",
+          "blizzcon2018": "BlizzCon 2018",
+          "default": "Por defecto",
+          "krcGold": "Oro - Orquesta 2019",
+          "krcSilver": "Plata - Orquesta 2019",
+          "title": "Máscara de consola",
+          "warcraft3": "Botín de WarCraft 3"
+        },
+        "devOnlySettings": "Configuración solo para desarrolladores",
+        "gameTimer": "Temporizador de juego",
+        "ingameSkins": {
+          "carbot": "Carbot",
+          "none": "Ninguno",
+          "preorder": "Hacer un pedido",
+          "title": "Máscara dentro del juego"
+        },
+        "latency": "Mostrar latencia",
+        "minimapPosition": {
+          "bottomLeft": "Esquina izquierda inferior",
+          "standard": "Estándar",
+          "title": "Posición del minimapa"
+        },
+        "minimapTerrain": {
+          "hidden": "Oculto",
+          "shown": "Visible",
+          "title": "Terreno del minimapa"
+        },
+        "showBonusSkins": "Mostrar máscaras de bonificación",
+        "skinsInfo": "Máscaras (deben comprarse en Blizzard)",
+        "startingFog": {
+          "legacy": "Legado",
+          "showResources": "Mostrar recursos",
+          "showTerrainAndResources": "Mostrar terreno y recursos",
+          "title": "Comienza la niebla de guerra"
+        },
+        "teamColors": {
+          "label": "Modo",
+          "mode": {
+            "presetEverywhere": "Usar preajuste en todas partes",
+            "presetOnMinimap": "Usar preajuste en el minimapa",
+            "standard": "Estándar"
+          },
+          "preview": {
+            "allies": "Aliados",
+            "enemies": "Enemigos",
+            "self": "Tú",
+            "title": "Vista previa"
+          },
+          "title": "Colores de equipo"
+        },
+        "title": "Gameplay",
+        "unitPortraits": {
+          "animated": "Animado",
+          "disabled": "Desactivado",
+          "still": "Fija",
+          "title": "Retratos"
+        },
+        "visualizeNetworkStalls": "Visualizar los bloqueos de la red"
+      },
+      "input": {
+        "customCursorSizeLargest": "Más grande",
+        "customCursorSizeSmallest": "Más pequeño",
+        "customMouseSensitivity": "Sensibilidad personalizada del mouse",
+        "hardwareCursor": "Cursores de hardware",
+        "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
+        "keyboardScrollSpeed": "Velocidad de desplazamiento del teclado",
+        "legacyCursorSizing": "Usar tamaño de cursor heredado",
+        "legacyCursorSizingTooltip": "Utiliza los tamaños de cursor originales de StarCraft: Remastered, que tienen escalas inconsistentes a resoluciones más altas.",
+        "legacySettingsDescription": "Estas configuraciones existen por motivos de compatibilidad con StarCraft: Remastered, pero no se aconseja activarlas ya que pueden causar problemas de rendimiento.",
+        "legacySettingsHeader": "Configuración heredada",
+        "lockCursor": "Bloquear el cursor en la ventana",
+        "mouseScaling": "Usar la escala del mouse",
+        "mouseScrollSpeed": "Velocidad de desplazamiento del ratón",
+        "mouseSensitivity": "Sensibilidad del ratón",
+        "title": "Aporte",
+        "useCustomCursorSize": "Usar tamaño de cursor personalizado"
+      },
+      "sound": {
+        "announcer": {
+          "default": "Por defecto",
+          "heyJini": "Hola jini",
+          "info": "Paquetes (deben comprarse en Blizzard)",
+          "jeonYongJun": "Jeon Yongjun",
+          "kimJungmin": "Kim Jungmin",
+          "title": "Locutor",
+          "umJaeKyung": "Um Jae Kyung",
+          "umJeonKim": "Um, Jeon, Kim Trio"
+        },
+        "backgroundSounds": "El sonido se reproduce mientras está en segundo plano",
+        "buildingSounds": "Construyendo sonidos",
+        "cinematicSubtitles": "Subtítulos cinematográficos",
+        "gameSounds": "Sonidos del juego",
+        "gameSubtitles": "Subtítulos del juego",
+        "music": "Música",
+        "musicVolume": "Volumen de la música",
+        "originalVoiceOvers": "Locuciones originales de la unidad",
+        "soundVolume": "Volumen de sonido",
+        "title": "Sonido",
+        "unitAcknowledgements": "Reconocimientos de la unidad",
+        "unitSpeech": "Discurso de la unidad"
+      },
+      "starcraft": {
+        "browseManually": "Navegar manualmente",
+        "currentPathLabel": "Ruta de juego actual:",
+        "detectionFailed": "Error al detectar la ruta de instalación. Asegúrate de tener instalado StarCraft: Remastered e inténtalo de nuevo, o configura la ruta manualmente.",
+        "detectPath": "Detectar instalación",
+        "devOnlySettings": "Configuración solo para desarrolladores",
+        "disableHd": "No cargar gráficos HD (se bloquea si se cambia a HD en el juego)",
+        "instructions": {
+          "advanced": "Si la detección falla, puede configurar la ruta manualmente. Haz clic en el botón a continuación y selecciona el directorio que contiene tu instalación de StarCraft: Remastered.",
+          "description": "ShieldBattery requiere una instalación válida y actualizada de StarCraft: Remastered. Haga clic en el botón a continuación para detectar automáticamente la carpeta de instalación."
+        },
+        "launch64Bit": "Iniciar ejecutable de 64 bits",
+        "pathInvalid": "Esta ruta no apunta a una instalación válida de StarCraft: Remastered. Asegúrese de que su instalación esté actualizada o pruebe con una ruta diferente.",
+        "pathValid": "Esta ruta del juego parece ser una instalación válida.",
+        "title": "StarCraft"
+      },
+      "title": "Juego",
+      "video": {
+        "customFpsLimit": "Límite de FPS personalizado",
+        "displayMode": {
+          "fullscreen": "Pantalla completa",
+          "title": "Modo de visualización",
+          "windowed": "Modo de ventana",
+          "windowedFullscreen": "Modo de ventana (pantalla completa)"
+        },
+        "enableVerticalSync": "Habilitar sincronización vertical",
+        "environmentEffects": "Efectos ambientales",
+        "fpsLimit": "límite de FPS",
+        "hdGraphics": "Gráficos de alta definición",
+        "monitor": "Monitor",
+        "monitorItem": "Monitor {{index}} - {{label}}",
+        "pillarbox": "Pillarbox (relación de aspecto 4:3)",
+        "primaryMonitor": "Predeterminado (monitor principal)",
+        "realTimeLighting": "Iluminación en tiempo real",
+        "sdGraphicsFilter": "Filtro de gráficos SD",
+        "shadowStacking": "Apilamiento de sombras",
+        "showFps": "Mostrar FPS",
+        "smoothUnitTurning": "Giro suave de la unidad",
+        "title": "Video"
+      }
+    },
+    "user": {
+      "account": {
+        "authenticationHeader": "Autenticación",
+        "changeDisplayName": {
+          "dialogTitle": "Cambiar nombre para mostrar",
+          "success": "Nombre para mostrar cambiado con éxito."
+        },
+        "changeEmail": {
+          "dialogTitle": "Cambiar e-mail",
+          "patternError": "Introduzca una dirección de correo electrónico válida",
+          "requiredError": "Introduzca una dirección de correo electrónico",
+          "success": "El correo electrónico se cambió correctamente."
+        },
+        "changeLoginName": {
+          "dialogTitle": "Cambiar nombre de inicio de sesión",
+          "success": "Nombre de inicio de sesión cambiado con éxito."
+        },
+        "changePassword": {
+          "dialogTitle": "Cambiar la contraseña",
+          "success": "Contraseña cambiada con éxito."
+        },
+        "changePasswordButton": "Cambiar la contraseña",
+        "confirmNewPassword": "Confirmar nueva contraseña",
+        "currentPassword": "Contraseña actual",
+        "displayName": "Nombre para mostrar",
+        "displayNameChangeInfo": "Los nombres para mostrar se pueden cambiar una vez cada 60 días. Los cambios de mayúsculas no cuentan para el límite de cambios de nombre.",
+        "displayNameCooldown_one": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} día.",
+        "displayNameCooldown_many": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
+        "displayNameCooldown_other": "Has cambiado tu nombre para mostrar demasiado recientemente. Podrás cambiar tu nombre para mostrar de nuevo en {{count}} días.",
+        "displayNameUnavailable": "El nombre para mostrar no está disponible",
+        "email": "Correo electrónico",
+        "emailUnverified": "No verificado",
+        "emailVerified": "Verificado",
+        "error": "Hubo un problema al recuperar su información de usuario.",
+        "invalidCurrentPassword": "La contraseña actual es incorrecta",
+        "label": "Cuenta",
+        "loginName": "Nombre de inicio de sesión",
+        "loginNameChangeInfo": "El nombre de inicio de sesión solo se puede cambiar cada 30 días.",
+        "loginNameCooldown_one": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} día.",
+        "loginNameCooldown_many": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
+        "loginNameCooldown_other": "Has cambiado tu nombre demasiado recientemente. Podrás cambiar tu nombre de inicio de sesión de nuevo en {{count}} días.",
+        "loginNameUnavailable": "El nombre de inicio de sesión no está disponible",
+        "networkError": "Error de red: {{errorMessage}}",
+        "newPassword": "Nueva contraseña",
+        "passwordValidator": {
+          "confirm": "Ingrese una contraseña coincidente",
+          "current": "introduce tu contraseña actual",
+          "new": "Introduzca una nueva contraseña"
+        },
+        "rateLimited": "Solo puedes cambiar tu nombre de inicio de sesión una vez cada 30 días.",
+        "unknownError": "Algo salió mal, inténtalo de nuevo más tarde."
+      },
+      "language": {
+        "selectLanguage": "Selecciona un idioma",
+        "title": "Idioma"
+      },
+      "title": "Usuario"
+    }
+  },
+  "social": {
+    "chat": {
+      "label": "Charlar",
+      "loadingChannelsError": "Error al cargar los canales de chat",
+      "loadingWhispersError": "Error al cargar los susurros"
+    },
+    "errors": {
+      "friendsList": {
+        "errorAcceptingFriendRequest": "Error al aceptar la solicitud de amistad",
+        "errorDecliningFriendRequest": "Error al rechazar la solicitud de amistad",
+        "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
+        "load": "Error al cargar la lista de amigos"
+      }
+    },
+    "friends": {
+      "label": "Amigos ({{friendCount}})"
+    },
+    "friendsList": {
+      "header": {
+        "incoming": "Entrante",
+        "offline": "Desconectado",
+        "online": "Conectado",
+        "outgoing": "Saliente"
+      },
+      "loadingUsername": "Cargando nombre de usuario…",
+      "tabs": {
+        "addFriends": "Agregar amigos",
+        "friendsList": "Lista de amigos",
+        "socialSettings": "Configuraciones sociales"
+      },
+      "title": {
+        "addFriends": "Agregar amigos",
+        "friends": "Amigos"
+      }
+    },
+    "sidebar": {
+      "buttonTooltip": "Activa social (ALT + H)",
+      "pinTooltip": "Fijar barra lateral",
+      "unpinTooltip": "Desfijar barra lateral"
+    }
+  },
+  "starcraft": {
+    "shieldbatteryHealth": {
+      "bottomContents": "Si puede, informar estos como falsos positivos a su proveedor de antivirus ayudará a que esto deje de suceder también para otros usuarios.",
+      "middleContents": "Esto es a menudo el resultado de que el software antivirus instalado toma medidas sobre los falsos positivos. Es posible que deba agregar excepciones para estos archivos o indicarle al software que los elimine de la cuarentena. También puede intentar reinstalar ShieldBattery.",
+      "noProblems": "Su instalación local ahora está libre de problemas.",
+      "rescanFiles": "Volver a escanear archivos",
+      "title": "Problemas de instalación detectados",
+      "topContents": "Hemos detectado que faltan o se han modificado los siguientes archivos de ShieldBattery:"
+    },
+    "starcraftHealth": {
+      "header": "Los siguientes problemas deben corregirse antes de poder jugar juegos en ShieldBattery:",
+      "installPathContents": "Tu configuración de ruta de StarCraft no apunta a una instalación válida. Corrija el valor en <2>Configuración</2>. Si no tienes el juego instalado, puedes descargarlo fácilmente desde el <5><0>Battle.net</0></5>. Es posible que deba reiniciar ShieldBattery después de la instalación.",
+      "noProblems": "Su instalación local ahora está libre de problemas.",
+      "starcraftVersionContents": "Tu instalación de StarCraft no está actualizada. ShieldBattery admite instalaciones de la última versión remasterizada. Instale la <2><0>última versión</0></2> y reinicie ShieldBattery.",
+      "title": "Problemas de instalación detectados"
+    }
+  },
+  "user": {
+    "matchHistory": {
+      "noMatchingGames": "Nada de juegos de combinación.",
+      "retrievingError": "Se produjo un error al recuperar el historial de partidos."
+    },
+    "miniMatchHistory": {
+      "noGameSelected": "Ningún juego seleccionado",
+      "viewDetails": "Ver detalles",
+      "viewFullHistory": "Ver el historial completo de partidas"
+    },
+    "seasons": {
+      "noMatchingGames": "{{user}} no ha jugado ningún partido en temporadas anteriores.",
+      "retrievingError": "Se produjo un error al recuperar el historial de clasificación."
+    }
+  },
+  "users": {
+    "admin": {
+      "ipAddresses": {
+        "title": "Direcciones IP"
+      },
+      "nameHistory": {
+        "displayNameChanges": "Cambios de nombre para mostrar",
+        "loginNameChanges": "Cambios de nombre de inicio de sesión",
+        "noDisplayNameHistory": "No se encontraron cambios de nombre para mostrar.",
+        "noLoginNameHistory": "No se encontraron cambios de nombre de inicio de sesión.",
+        "title": "Historial de nombres",
+        "usedToken": "Token de cambio de nombre usado",
+        "userHistory": "Historial de nombres"
+      },
+      "permissions": {
+        "title": "Permisos"
+      },
+      "punishments": {
+        "title": "Sanciones"
+      }
+    },
+    "contextMenu": {
+      "addFriend": "Agregar amigo",
+      "copyUserId": "Copiar ID",
+      "friendRemoved": "Amigo eliminado",
+      "friendRequestAccepted": "Solicitud de amistad aceptada",
+      "friendRequestRemoved": "Solicitud de amistad eliminada",
+      "friendRequestSent": "Solicitud de amistad enviada",
+      "loadingUsers": "Cargando usuario…",
+      "removeFriend": "Eliminar amigo",
+      "removeFriendRequest": "Eliminar solicitud de amistad",
+      "userBlocked": "Usuario bloqueado",
+      "userUnblocked": "Usuario desbloqueado",
+      "viewProfile": "Ver perfil",
+      "whisper": "Susurro"
+    },
+    "errors": {
+      "friendsList": {
+        "blockedByUser": "has sido bloqueado por este usuario",
+        "errorAcceptingFriendRequest": "Error al aceptar la solicitud de amistad",
+        "errorBlockingUser": "Error al bloquear usuario",
+        "errorDecliningFriendRequest": "Error al rechazar la solicitud de amistad",
+        "errorRemovingFriend": "Error al eliminar amigo",
+        "errorRemovingFriendRequest": "Error al eliminar la solicitud de amistad",
+        "errorSendingFriendRequest": "Error al enviar solicitud de amistad",
+        "errorUnblockingUser": "Error al desbloquear usuario",
+        "invalidSelfAction": "no puedes realizar esta acción en ti mismo",
+        "limitReached": "ha alcanzado la cantidad máxima de amigos o bloques, elimine algunos para agregar más",
+        "noMatchingEntry": "no se encontró ninguna entrada coincidente"
+      },
+      "profile": {
+        "loadUser": "Hubo un problema al cargar este usuario."
+      }
+    },
+    "friendsList": {
+      "friendStart": "Ahora eres amigo de <2>{{user}}</2>.",
+      "receivedFriendRequest": "<0>{{user}}</0> te envió una solicitud de amistad."
+    },
+    "profile": {
+      "achievements": "Logros",
+      "latestGames": "Últimos juegos",
+      "points": "Puntos",
+      "rank": "Rango",
+      "rating": "Clasificación",
+      "record": "Registro",
+      "showAllRanks": "Mostrar los {{total}} rangos",
+      "showFewerRanks": "Mostrar menos",
+      "tabs": {
+        "admin": "Administración",
+        "matchHistory": "Historial de partidos",
+        "season": "Temporadas",
+        "stats": "Estadísticas",
+        "summary": "Resumen"
+      },
+      "totalGames": "Juegos totales"
+    },
+    "profileOverlay": {
+      "info": "Información",
+      "joined": "Se unió a {{date}}",
+      "ranked": "Clasificado",
+      "rightClick": "Haga clic derecho en el usuario para más acciones",
+      "viewProfile": "Ver perfil"
+    },
+    "restrictions": {
+      "reason": {
+        "disruptive_behavior": "Conducta disruptiva",
+        "harassment": "Acoso",
+        "hate_speech": "Discurso de odio",
+        "other": "Otros",
+        "spam": "Spam",
+        "toxicity": "Toxicidad"
+      }
+    },
+    "titles": {
+      "novice": "Principiante"
+    }
+  },
+  "whispers": {
+    "createWhisper": {
+      "error": "Error: {{errorMessage}}",
+      "title": "Enviar un mensaje",
+      "username": "Nombre de usuario",
+      "usernamePattern": "Nombre de usuario contiene caracteres inválidos",
+      "usernameRequired": "Introduzca un nombre de usuario"
+    },
+    "errors": {
+      "cantWhisperYourself": "No puedes susurrarte a ti mismo.",
+      "invalidAction": "Debe tener una sesión de susurro activa con un usuario para recuperar el historial de mensajes",
+      "loadingHistory": "Error al cargar el historial de mensajes: {{errorMessage}}",
+      "noSelfMessaging": "No puedes enviarte mensajes a ti mismo",
+      "openSession": "Error al abrir susurro al usuario: {{errorMessage}}",
+      "sendingMessage": "Error al enviar mensaje: {{errorMessage}}",
+      "unknownError": "Error desconocido",
+      "userChatRestricted": "Actualmente tienes restringido el envío de mensajes de chat",
+      "userNotFound": "Usuario no encontrado"
+    },
+    "navEntry": {
+      "closeWhisper": "Cerrar susurro"
+    }
+  },
+  "windowControls": {
+    "close": "Cerrar",
+    "maximizeRestore": "Maximizar/Restaurar",
+    "minimize": "Minimizar"
+  }
 }
