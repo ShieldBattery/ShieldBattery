@@ -44,6 +44,7 @@
     "gen-translations:app": "i18next",
     "gen-translations:email": "i18next -c email/i18next-parser.config.json",
     "gen-typeshare": "typeshare ./server-rs --lang=typescript --output-file=common/typeshare.ts && prettier --write common/typeshare.ts",
+    "i18n": "node -r ./babel-register tools/i18n-translate.ts",
     "installall": "cd app && pnpm install && cd .. && pnpm install",
     "lint": "eslint .",
     "local-dev": "run-pty local-dev.json",
