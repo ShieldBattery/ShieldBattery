@@ -27,7 +27,9 @@ pairwise link, derived from each player's rally-point server pings (see [`match_
 only changes the play experience in discrete jumps — the game holds a fixed turn rate / input buffer
 until latency crosses a threshold, so anything under ~100ms one-way plays identically. The quality
 formula therefore penalizes `latency_value(max_latency)` (a count of turn-rate steps) rather than
-raw milliseconds (see [`latency_value`]).
+raw milliseconds (see [`latency_value`]). Routeability is a hard constraint rather than a penalty: a
+candidate where any player pair shares no pinged rally-point server is rejected outright, since the
+game loader couldn't build a route for it and the launch would fail (see [`match_latency`]).
 
 Skill variance is computed over each player's *effective rating* (rating − k*σ), so newly-placed
 players with high uncertainty contribute less variance and match more freely until their rating
@@ -135,32 +137,46 @@ fn effective_rating(player: &Player, mode: MatchmakingType) -> f32 {
 }
 
 /// Estimates the one-way latency (ms) of a candidate match by reproducing the route selection the
-/// game server performs at launch. The game meshes players with one rally-point route per pair,
-/// choosing for each pair the server that minimizes their combined round-trip ping (see
-/// `RallyPointService::createBestRoute` on the Node.js side); that pair's estimated one-way latency
-/// is `combined / 2`. A lockstep game is bottlenecked by its slowest link, so the match's latency
-/// is the maximum across all pairs.
+/// game server performs at launch, or returns `None` if the match is *unrouteable* and must be
+/// rejected. The game meshes players with one rally-point route per pair, choosing for each pair the
+/// server that minimizes their combined round-trip ping (see `RallyPointService::createBestRoute` on
+/// the Node.js side); that pair's estimated one-way latency is `combined / 2`. A lockstep game is
+/// bottlenecked by its slowest link, so the match's latency is the maximum across all pairs.
+///
+/// `createBestRoute` can only build a route when both players pinged a common server; if their pings
+/// are disjoint it throws and the launch fails. So a pair where both players carry ping data but
+/// share no server makes the whole match unrouteable, and we return `None` so the caller rejects it
+/// rather than forming a match that can't launch.
 ///
 /// Players measure their pings before queueing, so every player normally carries ping data. A pair
-/// can still fail to share a commonly-pinged server (each reached a disjoint subset of servers); such
-/// pairs are skipped rather than treated as infinite latency, and a match with no shared data at all
-/// yields 0.
-fn match_latency(entries: &[&QueueEntry]) -> f32 {
+/// where one side carries *no* pings at all is a defensive degenerate case (the loader would also
+/// fail it, but it shouldn't occur in practice); rather than wedge such a player out of matchmaking
+/// entirely we skip the pair, contributing no latency information instead of blocking the match.
+fn match_latency(entries: &[&QueueEntry]) -> Option<f32> {
     let mut worst = 0.0f32;
     for (i, a) in entries.iter().enumerate() {
         let a_pings = &a.player.server_pings;
         for b in &entries[i + 1..] {
             let b_pings = &b.player.server_pings;
+            // A pair with no ping data on either side carries no routing information; don't block on
+            // it (see the doc comment above).
+            if a_pings.is_empty() || b_pings.is_empty() {
+                continue;
+            }
             let best_combined = a_pings
                 .iter()
                 .filter_map(|(server, &ping_a)| b_pings.get(server).map(|&ping_b| ping_a + ping_b))
                 .fold(f32::INFINITY, f32::min);
             if best_combined.is_finite() {
                 worst = worst.max(best_combined / 2.0);
+            } else {
+                // Both players pinged servers but share none: the loader can't route this pair, so
+                // the whole match is unrouteable.
+                return None;
             }
         }
     }
-    worst
+    Some(worst)
 }
 
 /// Converts an estimated one-way latency (ms) into the number of turn-rate "steps" it costs — the
@@ -456,10 +472,23 @@ impl<T: QueueSelector> Matchmaker<T> {
         }
     }
 
+    /// The number of players currently queued for `mode` (0 if none). This is the live,
+    /// instantaneous size, which the matchmaker drains each tick — see [`Self::population_estimate`]
+    /// for the smoothed measure the adaptive threshold actually uses.
+    pub fn queue_size(&self, mode: MatchmakingType) -> usize {
+        self.queue_sizes.get(&mode).copied().unwrap_or(0)
+    }
+
+    /// The current smoothed (EWMA) population estimate for `mode`, or `None` until the first sampling
+    /// window has folded (see [`Self::update_population_estimates`]).
+    pub fn population_estimate(&self, mode: MatchmakingType) -> Option<f32> {
+        self.population_estimate.get(&mode).copied()
+    }
+
     /// The minimum quality a match in `mode` must reach to form right now. Equal to `min_quality`
     /// when the mode's smoothed population is comfortable, and relaxed by [`ADAPTIVE_DECAY_PER_MISSING`]
     /// seconds per player below the comfortable population so matches still form when few are around.
-    fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
+    pub fn effective_min_quality(&self, mode: MatchmakingType, min_quality: f32) -> f32 {
         let comfortable = (mode.total_players() * ADAPTIVE_COMFORTABLE_MULTIPLIER) as f32;
         // Until the first window folds (e.g. the first minute after a restart) the smoothed estimate
         // is absent; fall back to the current window's peak so a healthy queue isn't mistaken for zero
@@ -538,6 +567,14 @@ impl<T: QueueSelector> Matchmaker<T> {
                         return None;
                     }
 
+                    // Reject candidates the game loader couldn't route. If any player pair pinged
+                    // servers but shares none, `RallyPointService.createBestRoute` would fail to pick
+                    // a server both can use and the launch would fail. Scoring such a match instead
+                    // of rejecting it lets a low-population queue repeatedly form the same impossible
+                    // pair, send it through accept/load, fail, and requeue it. Computed here so the
+                    // value can be reused for the quality score below.
+                    let max_latency = match_latency(&queue_entries)?;
+
                     let mut oldest_queue_time = queue_entries[0].queue_time;
                     let mut count = 0;
                     let mut mean = 0.0;
@@ -589,7 +626,6 @@ impl<T: QueueSelector> Matchmaker<T> {
                     let win_prob = get_win_probability(rating_a, rating_b);
                     let win_prob_diff = (0.5 - win_prob).abs();
 
-                    let max_latency = match_latency(&queue_entries);
                     let quality = wait_time.as_secs_f32()
                         - (WEIGHT_RATING_VARIANCE * variance
                             + WEIGHT_WIN_PROB * win_prob_diff
@@ -1064,10 +1100,12 @@ mod tests {
     }
 
     #[test]
-    fn latency_no_shared_server_has_no_penalty() {
+    fn latency_no_shared_server_rejects_match() {
         let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
-        // The players have pings, but to disjoint servers — no route can be estimated, so latency is
-        // treated as unknown (0) rather than infinite.
+        // Both players have pings, but to disjoint servers. The game loader's `createBestRoute` could
+        // not pick a server both can use, so the launch would fail; the matchmaker must not form this
+        // match (even at the most lenient quality threshold) rather than repeatedly matching the same
+        // impossible pair and failing to launch.
         matchmaker
             .insert_player(make_player_with_pings(
                 0,
@@ -1088,8 +1126,56 @@ mod tests {
             f32::NEG_INFINITY,
             Instant::now(),
         );
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].max_latency, 0.0);
+        assert!(
+            result.is_empty(),
+            "expected no match when players share no pinged rally-point server",
+        );
+    }
+
+    #[test]
+    fn latency_unrouteable_pair_rejects_team_match() {
+        let mut matchmaker = Matchmaker::with_queue_selector(16, TestQueueSelector);
+        // A 2v2 where three players share server 0 but player 2 only pinged server 1. Every team
+        // split still leaves at least one pair involving player 2 with no shared server, so the match
+        // is unrouteable regardless of how teams are formed and must be rejected.
+        matchmaker
+            .insert_player(make_player_with_pings(
+                0,
+                MatchmakingType::Match2v2,
+                &[(0, 20.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                1,
+                MatchmakingType::Match2v2,
+                &[(0, 20.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                2,
+                MatchmakingType::Match2v2,
+                &[(1, 20.0)],
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_pings(
+                3,
+                MatchmakingType::Match2v2,
+                &[(0, 20.0)],
+            ))
+            .unwrap();
+
+        let result = matchmaker.find_matches_for_modes(
+            &[MatchmakingType::Match2v2],
+            f32::NEG_INFINITY,
+            Instant::now(),
+        );
+        assert!(
+            result.is_empty(),
+            "expected no match when a player pair shares no pinged rally-point server",
+        );
     }
 
     #[test]

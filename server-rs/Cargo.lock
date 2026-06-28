@@ -4119,6 +4119,7 @@ dependencies = [
  "ipnetwork",
  "itertools 0.14.0",
  "jsonwebtoken",
+ "metrics",
  "mobc",
  "mobc-redis",
  "mockito",

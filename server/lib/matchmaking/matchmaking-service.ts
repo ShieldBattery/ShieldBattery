@@ -413,6 +413,18 @@ export class MatchmakingService {
     help: 'Duration of a matchmaking search in seconds',
     buckets: exponentialBuckets(1, 1.75, 20),
   })
+  private matchLaunchedMetric = new Counter({
+    name: 'shieldbattery_matchmaker_match_launched_total',
+    labelNames: ['matchmaking_type'],
+    help: 'Total number of formed matches that made it all the way to game load',
+  })
+  private matchFailedMetric = new Counter({
+    name: 'shieldbattery_matchmaker_match_failed_total',
+    // `phase` is where the match fell apart: 'accepting' (ready-up declines/timeouts/disconnects),
+    // 'drafting' (race draft canceled), or 'loading' (game failed to load).
+    labelNames: ['matchmaking_type', 'phase'],
+    help: 'Total number of formed matches that failed before launching, by phase',
+  })
 
   // Injecting this many is fine!
   // eslint-disable-next-line max-params
@@ -854,10 +866,16 @@ export class MatchmakingService {
 
       phase = 'loading'
       await this.doGameLoad(match, mapInfo)
+
+      this.matchLaunchedMetric.labels(match.type).inc()
     } catch (err: any) {
       if (!isAbortError(err) && !(err instanceof MatchmakingServiceError)) {
         logger.error({ err }, 'error while processing match')
       }
+
+      // `phase` is the stage the match was in when it threw, so this records *where* formed matches
+      // fall apart — `accepting` failures are the ready-up funnel dropouts.
+      this.matchFailedMetric.labels(match.type, phase).inc()
 
       const [toKick, toBan, toRequeue] = match.getKicksBansAndRequeues()
 

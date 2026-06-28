@@ -8,6 +8,7 @@ use crate::users::SbUserId;
 
 pub mod api;
 pub mod matchmaker;
+mod metrics;
 
 /// A single player's entry in a match found message.
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -122,6 +123,23 @@ impl MatchmakingType {
     pub fn total_players(&self) -> usize {
         self.team_size() * 2
     }
+
+    /// A stable, lowercase string identifier for this mode, matching its serde/DB name. Used as a
+    /// Prometheus label value (`mode="2v2bgh"`), so it must stay in sync with the `#[serde(rename)]`
+    /// attributes above.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            MatchmakingType::Match1v1 => "1v1",
+            MatchmakingType::Match1v1Fastest => "1v1fastest",
+            MatchmakingType::Match2v2 => "2v2",
+            MatchmakingType::Match2v2Bgh => "2v2bgh",
+            MatchmakingType::Match2v2Hunters => "2v2hunters",
+            MatchmakingType::Match2v2Fastest => "2v2fastest",
+            MatchmakingType::Match3v3Bgh => "3v3bgh",
+            MatchmakingType::Match3v3Hunters => "3v3hunters",
+            MatchmakingType::Match3v3Fastest => "3v3fastest",
+        }
+    }
 }
 
 scalar!(
@@ -129,3 +147,25 @@ scalar!(
     "MatchmakingType",
     "All of the matchmaking types that we support. These values match the enum values used in the database."
 );
+
+#[cfg(test)]
+mod tests {
+    use strum::IntoEnumIterator;
+
+    use super::MatchmakingType;
+
+    #[test]
+    fn as_str_matches_serde_rename() {
+        // `as_str` is used as a Prometheus label and must stay identical to the serde/DB name. This
+        // catches a new mode (or a rename) that updates the serde attribute but forgets `as_str`.
+        for mode in MatchmakingType::iter() {
+            let serde = serde_json::to_string(&mode).unwrap();
+            let serde = serde.trim_matches('"');
+            assert_eq!(
+                mode.as_str(),
+                serde,
+                "as_str() drifted from the serde rename for {mode:?}"
+            );
+        }
+    }
+}

@@ -181,6 +181,97 @@ GROUP BY matchmaking_type, rating_band
 ORDER BY matchmaking_type, rating_band;
 ```
 
+## Search outcome breakdown per mode (found vs. abandoned)
+
+The top of the funnel: of all searches that ended, how many found a match versus were canceled or
+disconnected, per mode. A low `found_rate` for a mode is the clearest single signal that it's
+population-starved (people give up before a match forms). Pair this with the live
+`matchmaker_population_estimate` gauge to tell "nobody's queuing" apart from "they queue but can't be
+matched".
+
+```sql
+SELECT
+  matchmaking_type,
+  count(*) AS searches,
+  count(*) FILTER (WHERE completion_type = 'found') AS found,
+  count(*) FILTER (WHERE completion_type = 'cancel') AS canceled,
+  count(*) FILTER (WHERE completion_type = 'disconnect') AS disconnected,
+  round(
+    count(*) FILTER (WHERE completion_type = 'found')::numeric / greatest(count(*), 1), 3
+  ) AS found_rate
+FROM matchmaking_completions
+GROUP BY matchmaking_type
+ORDER BY matchmaking_type;
+```
+
+## Formed matches that never produced a completed game (failed-to-start proxy)
+
+A match that the matchmaker formed but that never resulted in a finished game — the players were
+removed from the queue, a game was created, but no results ever came back (failed to load, everyone
+bailed during the draft, etc.). A rising `never_completed_rate` for a mode points at a launch/draft
+problem rather than a matching one. Legacy `games.results` rows can be `{}` instead of an array, so
+the array shape is guarded explicitly.
+
+```sql
+SELECT
+  f.matchmaking_type,
+  count(*) AS formed,
+  count(*) FILTER (
+    WHERE g.id IS NULL
+       OR jsonb_typeof(g.results) <> 'array'
+       OR jsonb_array_length(g.results) = 0
+  ) AS never_completed,
+  round(
+    count(*) FILTER (
+      WHERE g.id IS NULL
+         OR jsonb_typeof(g.results) <> 'array'
+         OR jsonb_array_length(g.results) = 0
+    )::numeric / greatest(count(*), 1), 3
+  ) AS never_completed_rate
+FROM matchmaking_match_formations f
+LEFT JOIN games g ON g.id = f.game_id
+GROUP BY f.matchmaking_type
+ORDER BY f.matchmaking_type;
+```
+
+## Matchmaking volume by hour of day (UTC) per mode
+
+When each mode is actually alive. Useful for deciding matchmaking-times windows and for reading the
+population gauges in context (a dead 03:00 UTC hour relaxing the threshold is expected, the same at
+peak is not). Hours are UTC, matching how the database stores timestamps.
+
+```sql
+SELECT
+  config->'gameSourceExtra'->>'type' AS matchmaking_type,
+  extract(hour FROM start_time)::int AS hour_utc,
+  count(*) AS games
+FROM games
+WHERE config->>'gameSource' = 'MATCHMAKING'
+  AND start_time >= now() - INTERVAL '30 days'
+GROUP BY matchmaking_type, hour_utc
+ORDER BY matchmaking_type, hour_utc;
+```
+
+## Formed-match balance trend over time per mode
+
+The "Distribution of formed-match quality" query above is a point-in-time snapshot; this is the same
+idea as a daily time series, so a weight/threshold change's effect on balance can be watched over the
+days after it ships. Filter to a single mode when eyeballing a specific change.
+
+```sql
+SELECT
+  f.matchmaking_type,
+  date_trunc('day', g.start_time)::date AS day,
+  count(*) AS matches,
+  round(avg(abs(0.5 - f.win_probability))::numeric, 3) AS avg_winprob_imbalance,
+  round(avg(f.quality)::numeric, 1) AS avg_quality
+FROM matchmaking_match_formations f
+JOIN games g ON g.id = f.game_id
+WHERE g.start_time >= now() - INTERVAL '30 days'
+GROUP BY f.matchmaking_type, day
+ORDER BY f.matchmaking_type, day;
+```
+
 ## Recent game rally-point routes + estimated latency, 1 route per row
 
 Change the first common table expression to select the game entries you care about.
