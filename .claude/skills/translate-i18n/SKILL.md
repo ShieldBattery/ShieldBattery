@@ -43,6 +43,7 @@ pnpm run i18n plan <lang> <planFile>       # write the to-translate work list as
 pnpm run i18n apply <lang> <resultFile>    # validate + merge translations for MISSING keys (writes nothing on error)
 pnpm run i18n fix <lang> <resultFile>      # validate + overwrite EXISTING translations (quality/register fixes)
 pnpm run i18n terms <lang> <query>         # look up Blizzard-matched glossary terms (matches source or target)
+pnpm run i18n stale [lang] [outFile]       # find translations whose English source changed (use --since <ref>)
 pnpm run i18n prune <lang>                 # delete orphan keys no longer present in `en`
 pnpm run i18n normalize <lang>             # reformat (indent/sort) only, no content change
 pnpm run i18n check <lang>                 # read-only audit: remaining work, orphans, token drift, format
@@ -239,6 +240,46 @@ flags **token drift in pre-existing translations** — strings already in the fi
 don't match `en` (often leftover MT mistakes). Worth fixing those too while you're here.
 
 Then move to the next language and repeat from step 1.
+
+## Keeping translations in sync when English changes
+
+`plan`/`apply` handle **missing** keys and `prune` handles **orphans**, but neither catches a key
+whose **English wording was reworded** while the translation stayed behind — the translation is still
+present and structurally valid, just translated from the old English. `check`'s token drift won't see
+it either (the `{{vars}}` didn't change). That's what `stale` is for.
+
+`stale` compares the English source at a git ref against now (parsing the JSON, so reformatting
+doesn't matter) and reports keys where English changed but the target didn't:
+
+```bash
+pnpm run i18n stale                       # summary: stale count per language (since merge-base w/ origin/master)
+pnpm run i18n stale ko                    # detail for one language: old vs new English + the stale translation
+pnpm run i18n stale ko /tmp/stale-ko.json # also write a work list to re-translate
+pnpm run i18n stale ko --since v1.2.0     # compare against any ref (tag/commit/branch) for a full back-audit
+```
+
+Default base ref is the merge-base with `origin/master` (i.e. "what this branch changed"); pass
+`--since <ref>` for a wider audit. It exits non-zero when anything is stale, so it gates in CI.
+
+**Re-translation loop** (reuses `fix`): `stale <lang> <outFile>` writes items with `enOld`, `enNew`,
+`required` (for plurals), and the current stale `current` value. Re-translate each from `enNew` (use
+`enOld`→`current` to see what the old translation said), write a `fix` result file, and run
+`pnpm run i18n fix <lang> <file>`. Then `stale` is clean again.
+
+### CI sketch
+
+Add a job that fails a PR when English strings change without the translations being updated — this is
+what removes the "hope the author remembered" dependency:
+
+```yaml
+# .github/workflows/i18n-stale.yml (sketch)
+- run: git fetch origin master
+- run: pnpm run i18n stale --since origin/master
+# non-zero exit fails the job; the log lists exactly which keys/languages are stale.
+```
+
+(For a softer touch, run it as a non-blocking step that posts the stale list as a PR comment instead
+of failing.)
 
 ## Notes
 

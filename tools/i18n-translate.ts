@@ -21,6 +21,7 @@
  *   pnpm run i18n apply <lang> <resultFile>    # validate + merge translations for missing keys
  *   pnpm run i18n fix <lang> <resultFile>      # validate + overwrite existing translations (quality fixes)
  *   pnpm run i18n terms <lang> <query>         # look up Blizzard-matched glossary terms
+ *   pnpm run i18n stale [lang] [outFile]       # find translations whose English source changed (--since <ref>)
  *   pnpm run i18n prune <lang>                 # delete orphan keys no longer present in `en`
  *   pnpm run i18n normalize <lang>             # reformat (indent/sort) to match `en`, no content change
  *   pnpm run i18n check <lang>                 # read-only audit (orphans, plurals, token drift)
@@ -28,6 +29,7 @@
  * Languages come from common/i18n.ts (`en` is the source and is never a target).
  */
 
+import { execFileSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { ALL_TRANSLATION_LANGUAGES, TranslationLanguage } from '../common/i18n'
@@ -633,6 +635,215 @@ function cmdTerms(lang: string, query: string): void {
   }
 }
 
+// --- Stale detection (git) ---------------------------------------------------
+//
+// Finds translations that are present and structurally valid but were made against an OLDER English
+// source — i.e. the English wording changed and the target language wasn't re-translated. None of the
+// other commands catch this (plan = missing, prune = orphans, check = token drift only). We detect it
+// by parsing the JSON at a base git ref and comparing values, so sorting/reformatting is irrelevant.
+
+const LOCALES_REL = 'server/public/locales'
+
+function git(gitArgs: string[]): string {
+  return execFileSync('git', gitArgs, { cwd: REPO_ROOT, encoding: 'utf8' }).trim()
+}
+
+function refExists(ref: string): boolean {
+  try {
+    execFileSync('git', ['rev-parse', '--verify', '--quiet', ref], {
+      cwd: REPO_ROOT,
+      stdio: 'ignore',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The English source ref to compare against. `--since` is used verbatim; otherwise the merge-base. */
+function resolveBaseRef(since: string | undefined): string {
+  if (since) {
+    if (!refExists(since)) {
+      console.error(`--since ref "${since}" doesn't resolve to a commit.`)
+      process.exit(1)
+    }
+    return since
+  }
+  const mainRef = ['origin/master', 'master', 'origin/main', 'main'].find(refExists)
+  if (!mainRef) {
+    console.error(
+      'Could not find a main branch ref (origin/master, master, …). Pass --since <ref>.',
+    )
+    process.exit(1)
+  }
+  try {
+    return git(['merge-base', 'HEAD', mainRef])
+  } catch {
+    return mainRef
+  }
+}
+
+/** Reads a locale file as it existed at `ref`, or null if it didn't exist there. */
+function readLocaleAtRef(lang: string, ref: string): LocaleObject | null {
+  try {
+    const content = execFileSync(
+      'git',
+      ['show', `${ref}:${LOCALES_REL}/${lang}/${NAMESPACE}.json`],
+      {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+      },
+    )
+    return JSON.parse(content) as LocaleObject
+  } catch {
+    return null
+  }
+}
+
+interface StaleSingle {
+  key: string
+  type: 'single'
+  enOld: string
+  enNew: string
+  current: string
+}
+interface StalePlural {
+  key: string
+  type: 'plural'
+  enOld: { one?: string; other?: string }
+  enNew: { one?: string; other?: string }
+  required: PluralCategory[]
+  current: { [cat: string]: string }
+}
+type StaleItem = StaleSingle | StalePlural
+
+/**
+ * A key is stale when its English value changed between `baseRef` and now, but the target's value did
+ * NOT change over the same range (and the target still has it). Plural groups are reported per base.
+ */
+function computeStale(lang: string, baseRef: string): StaleItem[] {
+  const enBase = flatten(readLocaleAtRef(SOURCE_LANG, baseRef) ?? {})
+  const enNow = flatten(readLocale(SOURCE_LANG))
+  const tgtBase = flatten(readLocaleAtRef(lang, baseRef) ?? {})
+  const tgtNow = flatten(readLocale(lang))
+  const pluralBases = findSourcePluralBases(enNow)
+  const required = pluralCategoriesFor(lang)
+
+  const items: StaleItem[] = []
+  const handledPluralBases = new Set<string>()
+
+  for (const [key, enNowVal] of enNow) {
+    const enBaseVal = enBase.get(key)
+    // Only care about *changed* English (skip newly added keys — those are `plan`'s job).
+    if (enBaseVal === undefined || enBaseVal === enNowVal) continue
+
+    const split = splitPlural(key)
+    if (split && pluralBases.has(split.base)) {
+      const base = split.base
+      if (handledPluralBases.has(base)) continue
+      handledPluralBases.add(base)
+      const formsExistNow = required.some(cat => tgtNow.has(`${base}_${cat}`))
+      const anyFormChanged = required.some(
+        cat => tgtBase.get(`${base}_${cat}`) !== tgtNow.get(`${base}_${cat}`),
+      )
+      if (formsExistNow && !anyFormChanged) {
+        const current: { [cat: string]: string } = {}
+        for (const cat of required) {
+          const v = tgtNow.get(`${base}_${cat}`)
+          if (v !== undefined) current[cat] = v
+        }
+        items.push({
+          key: base,
+          type: 'plural',
+          enOld: { one: enBase.get(`${base}_one`), other: enBase.get(`${base}_other`) },
+          enNew: { one: enNow.get(`${base}_one`), other: enNow.get(`${base}_other`) },
+          required,
+          current,
+        })
+      }
+    } else {
+      const current = tgtNow.get(key)
+      if (current !== undefined && tgtBase.get(key) === current) {
+        items.push({ key, type: 'single', enOld: enBaseVal, enNew: enNowVal, current })
+      }
+    }
+  }
+
+  items.sort((a, b) => a.key.localeCompare(b.key))
+  return items
+}
+
+function staleDetail(lang: string, baseRef: string, outFile?: string): void {
+  const items = computeStale(lang, baseRef)
+  console.log(`Stale check for "${lang}" (English changed since ${baseRef.slice(0, 12)}):`)
+  if (!items.length) {
+    console.log('  ✓ no stale translations')
+    return
+  }
+  console.log(`  ${items.length} stale translation(s) — English changed but ${lang} did not:\n`)
+  for (const item of items) {
+    if (item.type === 'single') {
+      console.log(`  - ${item.key}`)
+      console.log(`      en:  "${item.enOld}" → "${item.enNew}"`)
+      console.log(`      ${lang}: "${item.current}"  (unchanged — needs review)`)
+    } else {
+      console.log(`  - ${item.key} (plural)`)
+      console.log(`      en (other): "${item.enOld.other ?? ''}" → "${item.enNew.other ?? ''}"`)
+      console.log(`      ${lang}: ${JSON.stringify(item.current)}  (unchanged — needs review)`)
+    }
+  }
+  if (outFile) {
+    fs.writeFileSync(
+      outFile,
+      JSON.stringify({ lang, since: baseRef, items }, null, 2) + '\n',
+      'utf8',
+    )
+    console.log(`\nWrote ${items.length} item(s) to ${outFile} (re-translate, then \`fix\`).`)
+  }
+  process.exitCode = 1
+}
+
+function staleSummary(baseRef: string): void {
+  console.log(`Stale translations (English changed since ${baseRef.slice(0, 12)}):\n`)
+  console.log('lang      stale')
+  console.log('--------  -----')
+  let total = 0
+  for (const lang of TARGET_LANGUAGES) {
+    const n = computeStale(lang, baseRef).length
+    total += n
+    console.log(`${lang.padEnd(8)}  ${n}`)
+  }
+  if (total) {
+    console.log(
+      `\n${total} stale translation(s). Run \`stale <lang> <outFile>\` for details + a work list.`,
+    )
+    process.exitCode = 1
+  } else {
+    console.log('\n✓ all languages up to date with the English source')
+  }
+}
+
+function cmdStale(args: string[]): void {
+  let since: string | undefined
+  const positionals: string[] = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--since') {
+      since = args[++i]
+    } else {
+      positionals.push(args[i])
+    }
+  }
+  const baseRef = resolveBaseRef(since)
+  const lang = positionals[0]
+  if (lang) {
+    assertTargetLang(lang)
+    staleDetail(lang, baseRef, positionals[1])
+  } else {
+    staleSummary(baseRef)
+  }
+}
+
 function assertTargetLang(lang: string): void {
   if (!(TARGET_LANGUAGES as readonly string[]).includes(lang)) {
     console.error(
@@ -664,6 +875,9 @@ function main(): void {
     case 'terms':
       cmdTerms(rest[0], rest[1])
       break
+    case 'stale':
+      cmdStale(rest)
+      break
     case 'prune':
       cmdPrune(rest[0])
       break
@@ -675,15 +889,16 @@ function main(): void {
       break
     default:
       console.error(
-        'usage: i18n <status|plan|apply|fix|terms|prune|normalize|check> [args]\n' +
-          '  status                     overview of missing/orphan counts per language\n' +
-          '  plan <lang> [outFile]      write the to-translate work list as JSON\n' +
-          '  apply <lang> <resultFile>  validate + merge translations for MISSING keys\n' +
-          '  fix <lang> <resultFile>    validate + overwrite EXISTING translations (quality/register fixes)\n' +
-          '  terms <lang> <query>       look up Blizzard-matched glossary terms (source or target)\n' +
-          '  prune <lang>               delete orphan keys no longer present in `en`\n' +
-          '  normalize <lang>           rewrite formatting (indent/sort) to match `en`, no content change\n' +
-          '  check <lang>               read-only audit (orphans, plurals, token drift, format)',
+        'usage: i18n <status|plan|apply|fix|terms|stale|prune|normalize|check> [args]\n' +
+          '  status                       overview of missing/orphan counts per language\n' +
+          '  plan <lang> [outFile]        write the to-translate work list as JSON\n' +
+          '  apply <lang> <resultFile>    validate + merge translations for MISSING keys\n' +
+          '  fix <lang> <resultFile>      validate + overwrite EXISTING translations (quality/register fixes)\n' +
+          '  terms <lang> <query>         look up Blizzard-matched glossary terms (source or target)\n' +
+          '  stale [lang] [outFile]       find translations whose English source changed (use --since <ref>)\n' +
+          '  prune <lang>                 delete orphan keys no longer present in `en`\n' +
+          '  normalize <lang>             rewrite formatting (indent/sort) to match `en`, no content change\n' +
+          '  check <lang>                 read-only audit (orphans, plurals, token drift, format)',
       )
       process.exit(1)
   }
