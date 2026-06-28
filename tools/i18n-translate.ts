@@ -77,7 +77,7 @@ function getPluralSuffixPosition(key: string): number {
   return PLURAL_SUFFIX_ORDER.findIndex(suffix => key.endsWith(suffix))
 }
 
-function compareKeys(a: string, b: string): number {
+export function compareKeys(a: string, b: string): number {
   const singularA = getSingularForm(a)
   const singularB = getSingularForm(b)
   if (singularA === singularB) {
@@ -91,7 +91,7 @@ function compareKeys(a: string, b: string): number {
  * trailing newline. This reproduces what `i18next-parser` (sort: true, lineEnding: lf) writes for
  * `en`, so applying changes never reformats the whole file.
  */
-function serializeLocale(obj: LocaleObject): string {
+export function serializeLocale(obj: LocaleObject): string {
   const sortRec = (value: string | LocaleObject): string | LocaleObject => {
     if (typeof value === 'string') return value
     const out: LocaleObject = {}
@@ -109,7 +109,7 @@ function writeLocale(lang: string, obj: LocaleObject): void {
 
 // --- Flatten / unflatten -----------------------------------------------------
 
-function flatten(
+export function flatten(
   obj: LocaleObject,
   prefix = '',
   out = new Map<string, string>(),
@@ -125,7 +125,7 @@ function flatten(
   return out
 }
 
-function setDeep(obj: LocaleObject, dottedKey: string, value: string): void {
+export function setDeep(obj: LocaleObject, dottedKey: string, value: string): void {
   const parts = dottedKey.split('.')
   let cursor = obj
   for (let i = 0; i < parts.length - 1; i++) {
@@ -138,7 +138,7 @@ function setDeep(obj: LocaleObject, dottedKey: string, value: string): void {
   cursor[parts[parts.length - 1]] = value
 }
 
-function deleteDeep(obj: LocaleObject, dottedKey: string): void {
+export function deleteDeep(obj: LocaleObject, dottedKey: string): void {
   const parts = dottedKey.split('.')
   const stack: LocaleObject[] = []
   let cursor = obj
@@ -163,14 +163,14 @@ function deleteDeep(obj: LocaleObject, dottedKey: string): void {
 
 // --- Plural handling ---------------------------------------------------------
 
-function pluralCategoriesFor(lang: string): PluralCategory[] {
+export function pluralCategoriesFor(lang: string): PluralCategory[] {
   const cats = new Intl.PluralRules(lang, { type: 'cardinal' }).resolvedOptions().pluralCategories
   // Keep our canonical ordering for stable output.
   return ALL_PLURAL_CATEGORIES.filter(c => cats.includes(c))
 }
 
 /** Splits a flat key into `{ base, category }` if it ends in a plural suffix, else null. */
-function splitPlural(key: string): { base: string; category: PluralCategory } | null {
+export function splitPlural(key: string): { base: string; category: PluralCategory } | null {
   for (const cat of ALL_PLURAL_CATEGORIES) {
     const suffix = `_${cat}`
     if (key.endsWith(suffix)) {
@@ -185,7 +185,7 @@ function splitPlural(key: string): { base: string; category: PluralCategory } | 
  * `_one` and `_other` forms (English's exact cardinal categories) — this avoids misclassifying an
  * ordinary key that merely ends in e.g. `_other`.
  */
-function findSourcePluralBases(enFlat: Map<string, string>): Set<string> {
+export function findSourcePluralBases(enFlat: Map<string, string>): Set<string> {
   const bases = new Set<string>()
   for (const key of enFlat.keys()) {
     const split = splitPlural(key)
@@ -199,12 +199,12 @@ function findSourcePluralBases(enFlat: Map<string, string>): Set<string> {
 // --- Token (interpolation + Trans tag) extraction ----------------------------
 
 /** Extracts the multiset of `{{var}}` interpolations and `<n>`/`</n>` Trans tags from a value. */
-function extractTokens(value: string): string[] {
+export function extractTokens(value: string): string[] {
   const tokens = value.match(/\{\{[^}]+\}\}|<\/?[^>]+>/g) ?? []
   return tokens.slice().sort()
 }
 
-function tokensEqual(a: string, b: string): boolean {
+export function tokensEqual(a: string, b: string): boolean {
   const ta = extractTokens(a)
   const tb = extractTokens(b)
   return ta.length === tb.length && ta.every((t, i) => t === tb[i])
@@ -232,8 +232,15 @@ interface Plan {
 }
 
 function computePlan(lang: string): Plan {
-  const enFlat = flatten(readLocale(SOURCE_LANG))
-  const targetFlat = flatten(readLocale(lang))
+  return buildPlan(flatten(readLocale(SOURCE_LANG)), flatten(readLocale(lang)), lang)
+}
+
+/** Pure core of `computePlan`: the missing-key diff over already-flattened locale maps. */
+export function buildPlan(
+  enFlat: Map<string, string>,
+  targetFlat: Map<string, string>,
+  lang: string,
+): Plan {
   const pluralBases = findSourcePluralBases(enFlat)
   const required = pluralCategoriesFor(lang)
 
@@ -272,8 +279,15 @@ function computePlan(lang: string): Plan {
 
 /** Keys present in the target that no longer correspond to anything in `en` (plural-aware). */
 function computeOrphans(lang: string): string[] {
-  const enFlat = flatten(readLocale(SOURCE_LANG))
-  const targetFlat = flatten(readLocale(lang))
+  return buildOrphans(flatten(readLocale(SOURCE_LANG)), flatten(readLocale(lang)), lang)
+}
+
+/** Pure core of `computeOrphans` over already-flattened locale maps. */
+export function buildOrphans(
+  enFlat: Map<string, string>,
+  targetFlat: Map<string, string>,
+  lang: string,
+): string[] {
   const pluralBases = findSourcePluralBases(enFlat)
   const required = new Set(pluralCategoriesFor(lang))
 
@@ -550,7 +564,7 @@ function cmdFix(lang: string, resultFile: string): void {
 // --- CSV terms lookup --------------------------------------------------------
 
 /** Minimal RFC-4180-ish CSV parser: handles quoted fields, escaped `""`, embedded commas/newlines. */
-function parseCsv(text: string): string[][] {
+export function parseCsv(text: string): string[][] {
   const rows: string[][] = []
   let row: string[] = []
   let field = ''
@@ -723,10 +737,23 @@ type StaleItem = StaleSingle | StalePlural
  * NOT change over the same range (and the target still has it). Plural groups are reported per base.
  */
 function computeStale(lang: string, baseRef: string): StaleItem[] {
-  const enBase = flatten(readLocaleAtRef(SOURCE_LANG, baseRef) ?? {})
-  const enNow = flatten(readLocale(SOURCE_LANG))
-  const tgtBase = flatten(readLocaleAtRef(lang, baseRef) ?? {})
-  const tgtNow = flatten(readLocale(lang))
+  return findStale(
+    flatten(readLocaleAtRef(SOURCE_LANG, baseRef) ?? {}),
+    flatten(readLocale(SOURCE_LANG)),
+    flatten(readLocaleAtRef(lang, baseRef) ?? {}),
+    flatten(readLocale(lang)),
+    lang,
+  )
+}
+
+/** Pure core of `computeStale`: the changed-English-but-unchanged-translation diff over flat maps. */
+export function findStale(
+  enBase: Map<string, string>,
+  enNow: Map<string, string>,
+  tgtBase: Map<string, string>,
+  tgtNow: Map<string, string>,
+  lang: string,
+): StaleItem[] {
   const pluralBases = findSourcePluralBases(enNow)
   const required = pluralCategoriesFor(lang)
 
@@ -904,4 +931,7 @@ function main(): void {
   }
 }
 
-main()
+// Only run the CLI when invoked directly (e.g. via `pnpm run i18n`), not when imported by tests.
+if (typeof require !== 'undefined' && require.main === module) {
+  main()
+}

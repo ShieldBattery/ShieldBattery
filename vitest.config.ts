@@ -37,7 +37,11 @@ export default defineConfig({
         test: {
           name: 'server',
           environment: 'node',
-          include: ['server/**/*.test.{js,ts,tsx}', 'common/**/*.test.{js,ts,tsx}'],
+          include: [
+            'server/**/*.test.{js,ts,tsx}',
+            'common/**/*.test.{js,ts,tsx}',
+            'tools/**/*.test.{js,ts,tsx}',
+          ],
           exclude: ['server/public/**'],
           setupFiles: ['core-js/proposals/reflect-metadata'],
         },
