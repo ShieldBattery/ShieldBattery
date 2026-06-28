@@ -79,7 +79,9 @@ consistent. (Seed — extend over time.)
 - Team sizes use the colon format: `1v1`→`1:1`, `2v2`→`2:2`, `3v3`→`3:3` (matches the in-game
   `1v1 Fastest`→`1:1 빨무`).
 - **Fastest / Fastest Map → 빨무 / 빨무 맵** (community slang for money/fast maps; in `terms` as 빨무).
-- **Hunters → 헌터스**, **Big Game Hunters → 빅 게임 헌터스**, **BGH** kept as-is (recognized acronym).
+- **Hunters → 헌터** (the community drops the trailing 스 — 헌터스 is technically correct but reads as
+  non-native; Koreans habitually drop the last syllable). **Big Game Hunters → 빅 게임 헌터스**,
+  **BGH** kept as-is (recognized acronym).
 - **veto → 거부** (래더 "맵 거부"), **matchup → 종족전**, **ladder → 래더**, **queue → 대기열**,
   **map pool → 맵 풀**, **MMR → MMR** (kept).
 - Rank → 순위; tier/grade → 등급 (both already used in-file).
