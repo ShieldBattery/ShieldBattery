@@ -68,7 +68,7 @@ const REAL_MODES: RealModeData[] = [
 ]
 
 const MODE_GROUPS: { id: '1v1' | '2v2' | '3v3'; label: string; hint: string }[] = [
-  { id: '1v1', label: '1v1', hint: 'Solo ranked · race locked before queue' },
+  { id: '1v1', label: '1v1', hint: 'Solo · race locked when searching' },
   { id: '2v2', label: '2v2', hint: 'Team play · race drafted in-game' },
   { id: '3v3', label: '3v3', hint: 'Team play · race drafted in-game' },
 ]
@@ -1161,10 +1161,7 @@ export function QueueBar({
         <QueueSummaryHead>
           {isMatched
             ? t('matchmaking.findMatch.matchFound', 'Match found!')
-            : t(
-                'matchmaking.findMatch.searchingMessage',
-                'Searching for a match — widening MMR range · first match wins the queue',
-              )}
+            : t('matchmaking.findMatch.searchingMessage', 'Searching for a match…')}
         </QueueSummaryHead>
         <SearchingTimer>{isMatched ? '…' : `${mm}:${ss}`}</SearchingTimer>
       </>
@@ -1175,7 +1172,7 @@ export function QueueBar({
         <MaterialIcon icon='info' size={18} />
         {t(
           'matchmaking.findMatch.selectAtLeastOne',
-          'Select at least one matchmaking type to start a queue.',
+          'Select at least one matchmaking type to start searching.',
         )}
       </QueueEmptyHint>
     )
@@ -1448,11 +1445,11 @@ export function FindMatch() {
   const descForType = (type: MatchmakingType): string => {
     switch (type) {
       case MatchmakingType.Match1v1:
-        return t('matchmaking.findMatch.desc.1v1', 'Solo · standard maps')
+        return t('matchmaking.findMatch.desc.1v1', 'Solo · Standard maps')
       case MatchmakingType.Match1v1Fastest:
         return t('matchmaking.findMatch.desc.1v1fastest', 'Solo · Fastest Map')
       case MatchmakingType.Match2v2:
-        return t('matchmaking.findMatch.desc.2v2', 'Team · standard maps')
+        return t('matchmaking.findMatch.desc.2v2', 'Team · Standard maps')
       case MatchmakingType.Match2v2Bgh:
         return t('matchmaking.findMatch.desc.2v2bgh', 'Team · Big Game Hunters')
       case MatchmakingType.Match2v2Hunters:

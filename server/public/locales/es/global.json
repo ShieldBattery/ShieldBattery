@@ -925,7 +925,7 @@
       "rank": "Rango",
       "rating": "Clasificación",
       "readyToQueue": "Listo para buscar",
-      "searchingMessage": "Buscando partida — ampliando el rango de MMR · se tomará la primera partida encontrada",
+      "searchingMessage": "Buscando partida…",
       "selectAtLeastOne": "Selecciona al menos un tipo de emparejamiento para empezar a buscar.",
       "settingsTitle": "Ajustes — {{label}}",
       "subtitle": "Elige uno o más tipos de emparejamiento — buscaremos en todos a la vez.",

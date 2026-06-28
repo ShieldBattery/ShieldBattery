@@ -917,7 +917,7 @@
       "rank": "排名",
       "rating": "评分",
       "readyToQueue": "准备匹配",
-      "searchingMessage": "正在匹配 — 正在扩大 MMR 范围 · 以最先匹配到的对局为准",
+      "searchingMessage": "正在匹配…",
       "selectAtLeastOne": "请至少选择一种匹配类型以开始匹配。",
       "settingsTitle": "设置 — {{label}}",
       "subtitle": "选择一种或多种匹配类型 — 我们将同时为所有所选类型进行匹配。",
