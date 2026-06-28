@@ -101,11 +101,20 @@ impl MatchmakerConfig {
     fn from_stored(stored: StoredConfig) -> Self {
         let global = stored.global.resolve_onto(ModeConfig::default());
         // Per-mode overrides layer on top of the *resolved global*, so a mode that overrides only one
-        // field inherits the rest of the global config (including its overrides).
+        // field inherits the rest of the global config (including its overrides). An unrecognized mode
+        // key (e.g. a removed/renamed mode, or one written by a newer server) is dropped with a log
+        // rather than failing the whole parse — losing one mode's override is far better than silently
+        // reverting *every* knob to defaults.
         let per_mode = stored
             .per_mode
             .iter()
-            .map(|(mode, over)| (*mode, over.resolve_onto(global)))
+            .filter_map(|(key, over)| match parse_mode_key(key) {
+                Some(mode) => Some((mode, over.resolve_onto(global))),
+                None => {
+                    tracing::warn!("ignoring matchmaking_config override for unknown mode {key:?}");
+                    None
+                }
+            })
             .collect();
 
         Self {
@@ -138,7 +147,15 @@ struct StoredConfig {
     search_interval_seconds: Option<f64>,
     max_players_examined: Option<i64>,
     global: StoredModeConfig,
-    per_mode: HashMap<MatchmakingType, StoredModeConfig>,
+    // Keyed by the mode's stored string name rather than `MatchmakingType` so an unknown key doesn't
+    // fail the entire deserialize (see `from_stored`); the keys are resolved to modes there.
+    per_mode: HashMap<String, StoredModeConfig>,
+}
+
+/// Parses a stored per-mode key (e.g. `"3v3bgh"`) into a [`MatchmakingType`], or `None` if it doesn't
+/// match a known mode. Uses serde so the accepted names stay in lockstep with the enum's renames.
+fn parse_mode_key(key: &str) -> Option<MatchmakingType> {
+    serde_json::from_value(serde_json::Value::String(key.to_owned())).ok()
 }
 
 /// Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides.
@@ -245,6 +262,22 @@ mod tests {
             *cfg.for_mode(MatchmakingType::Match1v1),
             ModeConfig::default()
         );
+    }
+
+    #[test]
+    fn unknown_per_mode_key_dropped_without_losing_the_rest() {
+        // A bogus/renamed mode key must not nuke the whole config: the global override and any valid
+        // per-mode override still apply, the unknown key is simply ignored.
+        let cfg = parse(
+            r#"{
+                "global": {"minQuality": -45},
+                "perMode": {"4v4chaos": {"minQuality": 10}, "3v3bgh": {"weightWinProb": 75}}
+            }"#,
+        );
+        assert_eq!(cfg.for_mode(MatchmakingType::Match1v1).min_quality, -45.0);
+        let team = cfg.for_mode(MatchmakingType::Match3v3Bgh);
+        assert_eq!(team.min_quality, -45.0);
+        assert_eq!(team.weight_win_prob, 75.0);
     }
 
     #[test]

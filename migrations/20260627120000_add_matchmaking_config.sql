@@ -8,7 +8,6 @@
 --   {
 --     "searchIntervalSeconds": <number>,
 --     "maxPlayersExamined": <number>,
---     "populationWindowSeconds": <number>,
 --     "global": { <per-mode knob overrides> },
 --     "perMode": { "<matchmaking_type>": { <per-mode knob overrides> } }
 --   }
