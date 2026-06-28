@@ -464,7 +464,6 @@
         "type": {
             "1v1": "1x1",
             "2v2": "2x2",
-            "3v3": "3x3",
             "1v1fastest": "1x1 Fastest"
         },
         "acceptMatch": {
@@ -486,22 +485,18 @@
             "nextDateRange": "<0>{{nextStartDate}}</0><1>a</1><2>{{nextEndDate}}</2>"
         },
         "findMatch": {
-            "action": "Encontrar pareja",
             "alternateRace": "Raza alternativa",
-            "bonusPoints": "{{bonusAvailable}} puntos",
             "bonusPool": "Grupo de bonificación",
             "description": "Seleccione una raza para usarla siempre que su oponente haya seleccionado la misma raza principal.",
             "errors": {
                 "alreadyInGame": "Ya estás en un juego, buscando una partida o en un lobby personalizado",
                 "dialogTitle": "Error al buscar un partido",
-                "loadingRank": "Hubo un problema al cargar tu rango actual.",
                 "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
                 "somethingWentWrong": "Algo salió mal :(",
                 "searchAgainError": "Hubo un problema al buscar un partido",
                 "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
             },
             "mapPool": "Grupo de mapas",
-            "points": "Puntos",
             "rating": "Clasificación",
             "title": "Encontrar partido",
             "updated": "Actualizado",
@@ -516,8 +511,7 @@
             "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
             "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
             "unratedText": "Sin calificación",
-            "goToLobby": "Ir al lobby",
-            "lobbyDisabledText": "No puedes usar emparejamiento mientras estés en un lobby."
+            "goToLobby": "Ir al lobby"
         },
         "match": {
             "gameFailedToLoad": "El juego no se ha podido cargar."

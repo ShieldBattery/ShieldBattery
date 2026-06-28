@@ -471,7 +471,6 @@
         "type": {
             "1v1": "$🗡1v1🗡!",
             "2v2": "$🗡2v2🗡!",
-            "3v3": "$🗡3v3🗡!",
             "1v1fastest": "$🗡1v1 Fastest🗡!"
         },
         "acceptMatch": {
@@ -493,21 +492,17 @@
             "nextDateRange": "$🗡<0>{{nextStartDate}}</0><1>to</1><2>{{nextEndDate}}</2>🗡!"
         },
         "findMatch": {
-            "action": "$🗡Find match🗡!",
             "alternateRace": "$🗡Alternate race🗡!",
-            "bonusPoints": "$🗡{{bonusAvailable}} points🗡!",
             "bonusPool": "$🗡Bonus pool🗡!",
             "errors": {
                 "alreadyInGame": "$🗡You are already in a game, searching for a match, or in a custom lobby🗡!",
                 "dialogTitle": "$🗡Error searching for a match🗡!",
-                "loadingRank": "$🗡There was a problem loading your current rank.🗡!",
                 "somethingWentWrong": "$🗡Something went wrong :(🗡!",
                 "matchmakingDisabled": "$🗡Matchmaking is currently disabled🗡!",
                 "searchAgainError": "$🗡There was a problem searching for a match🗡!",
                 "userOffline": "$🗡Your connection to the server was interrupted, please reconnect and try again.🗡!"
             },
             "mapPool": "$🗡Map pool🗡!",
-            "points": "$🗡Points🗡!",
             "race": "$🗡Race🗡!",
             "rating": "$🗡Rating🗡!",
             "title": "$🗡Find match🗡!",
@@ -521,8 +516,7 @@
             "vetoDescriptionNoOverlap_other": "$🗡Veto up to {{count}} maps. Vetoed maps will never be selected for play.🗡!",
             "mapSelectionDescription": "$🗡Select the maps you would like to play on. Only selected maps will be chosen.🗡!",
             "unratedText": "$🗡No rating🗡!",
-            "goToLobby": "$🗡Go to lobby🗡!",
-            "lobbyDisabledText": "$🗡You can't use matchmaking while in a lobby.🗡!"
+            "goToLobby": "$🗡Go to lobby🗡!"
         },
         "match": {
             "gameFailedToLoad": "$🗡The game has failed to load.🗡!"

@@ -473,34 +473,29 @@
             "removedFromQueue": "제시간에 준비 완료하지 않아 대기열에서 제외되었습니다."
         },
         "findMatch": {
-            "bonusPoints": "{{bonusAvailable}} 포인트",
             "bonusPool": "보너스 포인트 풀",
             "rating": "레이팅",
             "title": "경기 검색",
             "updated": "업데이트됨",
             "useAlternateRace": "동족전을 피하기 위해 대체 종족 사용",
             "vetoesLeft": "<0>남은 맵 밴 횟수: </0><1>{{vetoesLeft}}</1>",
-            "action": "경기 찾기",
             "alternateRace": "부종족",
             "description": "상대가 동일한 종족을 선택할 때마다 사용할 종족을 선택합니다.",
             "errors": {
                 "alreadyInGame": "이미 게임 중이거나 매치를 검색 중이거나 사용자 지정 로비에 있습니다",
                 "dialogTitle": "게임 검색 오류",
-                "loadingRank": "현재 등급 정보를 불러오는 데 문제가 발생했습니다.",
                 "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
                 "somethingWentWrong": "문제가 발생했습니다 :(",
                 "searchAgainError": "경기 검색 중 문제가 발생했습니다",
                 "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결한 후 시도해 주세요."
             },
             "mapPool": "맵 풀",
-            "points": "점수",
             "race": "종족",
             "vetoDescriptionNoOverlap_other": "{{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다시 선택되지 않습니다.",
             "vetoDescriptionWithOverlap_other": "최대 {{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다른 맵보다 훨씬 적게 선택됩니다.",
             "mapSelectionDescription": "플레이할 맵을 선택하세요. 선택한 맵만 사용됩니다.",
             "unratedText": "레이팅 없음",
-            "goToLobby": "로비로 이동",
-            "lobbyDisabledText": "로비에 있는 동안에는 매치메이킹을 사용할 수 없습니다."
+            "goToLobby": "로비로 이동"
         },
         "match": {
             "gameFailedToLoad": "게임 로딩에 실패했습니다."
@@ -527,7 +522,6 @@
         "type": {
             "1v1": "1:1",
             "2v2": "2:2",
-            "3v3": "3:3",
             "1v1fastest": "1:1 빨무"
         },
         "activity": {
