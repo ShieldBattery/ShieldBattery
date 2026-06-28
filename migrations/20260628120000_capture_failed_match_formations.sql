@@ -28,3 +28,11 @@ ALTER TABLE matchmaking_match_formations
 
 ALTER TABLE matchmaking_match_formations
   ADD CONSTRAINT matchmaking_match_formations_game_id_key UNIQUE (game_id);
+
+-- Enforce the launched XOR failed invariant at the DB level: exactly one of game_id / fail_phase is
+-- set, so a row is either a launched match (joinable to its game) or a failed-to-start match (tagged
+-- with the phase it fell apart in) — never both or neither. Mirrors the TS union that guards the two
+-- insert call sites, and keeps the `outcome` queries honest even if a future caller gets it wrong.
+ALTER TABLE matchmaking_match_formations
+  ADD CONSTRAINT matchmaking_match_formations_outcome_check
+  CHECK (num_nonnulls(game_id, fail_phase) = 1);

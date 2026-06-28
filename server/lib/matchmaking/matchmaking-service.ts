@@ -866,9 +866,20 @@ export class MatchmakingService {
       await match.runDraft(activeClients, mapInfo)
 
       phase = 'loading'
-      await this.doGameLoad(match, mapInfo)
+      const gameId = await this.doGameLoad(match, mapInfo)
 
       this.matchLaunchedMetric.labels(match.type).inc()
+
+      // Record the matchmaker's formation decision keyed by the game it produced, so it can later be
+      // joined to the game's actual outcome for calibration (the failed-to-start counterpart is
+      // recorded in the catch below). Done here, only once `doGameLoad` has fully succeeded, so the
+      // launch and failure inserts stay mutually exclusive by construction. Best-effort: a failure
+      // here must not affect game flow.
+      insertMatchmakingMatchFormation({
+        gameId,
+        matchmakingType: match.type,
+        ...match.formation,
+      }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
     } catch (err: any) {
       if (!isAbortError(err) && !(err instanceof MatchmakingServiceError)) {
         logger.error({ err }, 'error while processing match')
@@ -1207,15 +1218,6 @@ export class MatchmakingService {
       )
     }
 
-    // Record the matchmaker's formation decision keyed by the game it produced, so it can later be
-    // joined to the game's actual outcome for calibration (the failed-to-start counterpart is recorded
-    // in `runMatch`'s catch). Best-effort: a failure here must not affect game flow.
-    insertMatchmakingMatchFormation({
-      gameId: loadResult.value.gameId,
-      matchmakingType: match.type,
-      ...match.formation,
-    }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
-
     for (const player of match.players()) {
       this.queueEntries.delete(player.id)
     }
@@ -1224,6 +1226,8 @@ export class MatchmakingService {
       // TODO(tec27): Should this be maintained until the client reports game exit instead?
       this.unregisterActivity(client.userId)
     }
+
+    return loadResult.value.gameId
   }
 
   private handleRsMatchEvent(message: PublishedMatchmakingMessage): void {
