@@ -64,6 +64,7 @@ import {
   getMatchmakingRating,
   insertMatchmakingCompletion,
   insertMatchmakingMatchFormation,
+  MatchmakingMatchFailPhase,
   MatchmakingRating,
 } from '../matchmaking/models'
 import { RallyPointService } from '../rally-point/rally-point-service'
@@ -110,8 +111,8 @@ interface PlayerQueueData {
 
 /**
  * The matchmaker's quality breakdown for a formed match (from the Rust `matchFound` event), carried
- * on the in-memory match until the game loads so it can be persisted keyed by the resulting game id
- * (see `insertMatchmakingMatchFormation`).
+ * on the in-memory match until it resolves so it can be persisted — keyed by the resulting game id if
+ * it launches, or by the phase it failed in if it doesn't (see `insertMatchmakingMatchFormation`).
  */
 interface MatchFormationTelemetry {
   quality: number
@@ -820,7 +821,7 @@ export class MatchmakingService {
 
   private async runMatch(matchId: string) {
     const match = this.matches.get(matchId)!
-    let phase: 'accepting' | 'drafting' | 'loading' = 'accepting'
+    let phase: MatchmakingMatchFailPhase = 'accepting'
 
     const activeClients = new Map<SbUserId, ClientSocketsGroup>()
 
@@ -876,6 +877,15 @@ export class MatchmakingService {
       // `phase` is the stage the match was in when it threw, so this records *where* formed matches
       // fall apart — `accepting` failures are the ready-up funnel dropouts.
       this.matchFailedMetric.labels(match.type, phase).inc()
+
+      // Persist the formation decision for this failed-to-start match, mirroring the launch path below
+      // so failed cohorts carry the same quality/win-prob/rating/latency inputs (keyed by the phase it
+      // fell apart in, since there's no game id). Best-effort: a failure here must not affect flow.
+      insertMatchmakingMatchFormation({
+        failPhase: phase,
+        matchmakingType: match.type,
+        ...match.formation,
+      }).catch(err => logger.error({ err }, 'error while logging matchmaking match formation'))
 
       const [toKick, toBan, toRequeue] = match.getKicksBansAndRequeues()
 
@@ -1198,8 +1208,8 @@ export class MatchmakingService {
     }
 
     // Record the matchmaker's formation decision keyed by the game it produced, so it can later be
-    // joined to the game's actual outcome for calibration. Best-effort: a failure here must not
-    // affect game flow.
+    // joined to the game's actual outcome for calibration (the failed-to-start counterpart is recorded
+    // in `runMatch`'s catch). Best-effort: a failure here must not affect game flow.
     insertMatchmakingMatchFormation({
       gameId: loadResult.value.gameId,
       matchmakingType: match.type,
