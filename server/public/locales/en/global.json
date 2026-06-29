@@ -297,7 +297,6 @@
       "close": "Close",
       "copy": "Copy",
       "decline": "Decline",
-      "done": "Done",
       "download": "Download",
       "edit": "Edit",
       "hide": "Hide",
@@ -915,7 +914,7 @@
       "mapSelectionDescription": "Select the maps you would like to play on. Only selected maps will be chosen.",
       "matchFound": "Match found!",
       "noScheduledWindow": "No scheduled window yet",
-      "pickedCount": " / {{limit}} picked",
+      "pickedCount": "{{selected}} / {{limit}} picked",
       "poolUpdated": "Pool updated",
       "race": "Race",
       "rank": "Rank",
@@ -934,7 +933,7 @@
       "vetoDescriptionNoOverlap_other": "Veto up to {{count}} maps. Vetoed maps will never be selected for play.",
       "vetoDescriptionWithOverlap_one": "Veto up to {{count}} map. Vetoed maps will be chosen significantly less often than other maps.",
       "vetoDescriptionWithOverlap_other": "Veto up to {{count}} maps. Vetoed maps will be chosen significantly less often than other maps.",
-      "vetoedCount": " / {{limit}} vetoed",
+      "vetoedCount": "{{selected}} / {{limit}} vetoed",
       "vetoesLeft": "<0>Vetoes left: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {

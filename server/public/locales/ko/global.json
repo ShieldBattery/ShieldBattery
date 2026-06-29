@@ -296,7 +296,6 @@
       "close": "닫기",
       "copy": "복사",
       "decline": "거절해",
-      "done": "완료",
       "download": "다운로드",
       "edit": "편집",
       "hide": "숨기기",
@@ -911,7 +910,7 @@
       "mapSelectionDescription": "플레이할 맵을 선택하세요. 선택한 맵만 사용됩니다.",
       "matchFound": "상대를 찾았습니다!",
       "noScheduledWindow": "아직 예정된 시간대가 없습니다",
-      "pickedCount": " / {{limit}} 선택됨",
+      "pickedCount": "{{selected}} / {{limit}} 선택됨",
       "poolUpdated": "맵 풀 업데이트됨",
       "race": "종족",
       "rank": "순위",
@@ -928,7 +927,7 @@
       "useAlternateRace": "동족전을 피하기 위해 대체 종족 사용",
       "vetoDescriptionNoOverlap_other": "{{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다시 선택되지 않습니다.",
       "vetoDescriptionWithOverlap_other": "최대 {{count}}개의 맵을 밴할 수 있습니다. 밴된 맵은 다른 맵보다 훨씬 적게 선택됩니다.",
-      "vetoedCount": " / {{limit}} 거부됨",
+      "vetoedCount": "{{selected}} / {{limit}} 거부됨",
       "vetoesLeft": "<0>남은 맵 밴 횟수: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {
