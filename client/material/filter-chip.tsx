@@ -84,6 +84,16 @@ const DropdownIcon = styled(MaterialIcon)<{ $open: boolean }>`
 
 const StyledMenuList = styled(MenuList)`
   --sb-menu-min-width: 112px;
+
+  /*
+   * Filter dropdowns only hold short single-select rows, so let each row's hover/selected highlight
+   * (and click target) run almost to the menu's edges instead of sitting inset, and give the row
+   * text a bit more breathing room on the trailing edge.
+   */
+  & button {
+    margin-inline: 2px;
+    padding-right: 16px;
+  }
 `
 
 export interface FilterChipProps {

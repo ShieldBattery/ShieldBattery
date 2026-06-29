@@ -8,7 +8,7 @@ import { MatchmakingMapPoolJson } from '../../common/matchmaking/matchmaking-map
 import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { elevationPlus1 } from '../material/shadows'
+import { elevationPlus1, elevationPlus3 } from '../material/shadows'
 import { useValueAsRef } from '../react/state-hooks'
 import { bodyLarge, bodyMedium, titleSmall } from '../styles/typography'
 import { RaceSelect } from './race-select'
@@ -85,9 +85,24 @@ export const SelectableMapContainer = styled.div<{ $selected?: boolean; $disable
   }
 `
 
+// Floats at the bottom of the (scrollable) settings drawer so the remaining veto count stays visible
+// while the user scrolls through the map pool vetoing maps, rather than being stuck below the grid.
 const VetoStatus = styled.div`
   ${titleSmall};
+  ${elevationPlus3};
+
+  position: sticky;
+  bottom: 16px;
+
+  width: fit-content;
   margin-top: 24px;
+  margin-left: auto;
+  padding: 8px 16px;
+
+  border-radius: 999px;
+  background: var(--theme-container-highest);
+  border: 1px solid color-mix(in srgb, var(--theme-on-surface) 12%, transparent);
+  white-space: nowrap;
 `
 
 const VetoStatusLabel = styled.span`

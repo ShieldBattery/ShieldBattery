@@ -298,7 +298,6 @@
       "close": "Cerrar",
       "copy": "Copiar",
       "decline": "Rechazar",
-      "done": "Listo",
       "download": "Descargar",
       "edit": "Editar",
       "hide": "Esconder",
@@ -919,7 +918,7 @@
       "mapSelectionDescription": "Selecciona los mapas en los que te gustaría jugar. Solo se elegirán los mapas seleccionados.",
       "matchFound": "¡Partida encontrada!",
       "noScheduledWindow": "Aún no hay franja programada",
-      "pickedCount": " / {{limit}} elegidos",
+      "pickedCount": "{{selected}} / {{limit}} elegidos",
       "poolUpdated": "Grupo actualizado",
       "race": "Raza",
       "rank": "Rango",
@@ -940,7 +939,7 @@
       "vetoDescriptionWithOverlap_one": "Veto hasta {{count}} mapa. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
       "vetoDescriptionWithOverlap_many": "Veto hasta {{count}} de mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
       "vetoDescriptionWithOverlap_other": "Veto hasta {{count}} mapas. Los mapas vetados se elegirán con mucha menos frecuencia que otros mapas.",
-      "vetoedCount": " / {{limit}} vetados",
+      "vetoedCount": "{{selected}} / {{limit}} vetados",
       "vetoesLeft": "<0>Vetos restantes: </0><1>{{vetoesLeft}}</1>"
     },
     "match": {

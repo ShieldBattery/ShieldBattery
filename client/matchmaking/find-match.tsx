@@ -33,7 +33,6 @@ import { healthChecked } from '../starcraft/health-checked'
 import {
   bodyMedium,
   bodySmall,
-  inter,
   labelMedium,
   labelSmall,
   singleLine,
@@ -407,13 +406,8 @@ const StatCell = styled.div<{ $unranked?: boolean }>`
 `
 
 const StatLabel = styled.span`
-  // A 9px micro-label, smaller than any typography token, so it builds on the inter font token
-  // directly with an explicit size.
-  ${inter};
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.8px;
+  ${labelSmall};
+  ${singleLine};
   text-transform: uppercase;
   color: var(--color-grey-blue60);
 
@@ -559,15 +553,9 @@ const SummaryMapRow = styled.span`
 `
 
 const MapCountLabel = styled.span`
-  ${labelSmall};
+  ${labelMedium};
   text-transform: uppercase;
   letter-spacing: 0.4px;
-`
-
-const MapCountNum = styled.strong`
-  ${sofiaSans};
-  font-weight: 600;
-  color: var(--color-grey99);
   font-feature-settings: 'tnum';
 `
 
@@ -575,16 +563,11 @@ const PoolBadge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px 2px 5px;
+  padding: 2px 8px 2px 6px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--theme-amber) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--theme-amber) 40%, transparent);
-  // A 10px badge, smaller than any typography token, so it builds on the inter font token directly.
-  ${inter};
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: 0.3px;
+  ${labelSmall};
   text-transform: uppercase;
   color: var(--theme-amber);
   white-space: nowrap;
@@ -808,15 +791,15 @@ export function ModeSummary({ mode, summaryState }: ModeSummaryProps) {
             <MaterialIcon icon='map' size={16} />
             {summaryState.mapSelectionStyle === 'veto' ? (
               <MapCountLabel>
-                <MapCountNum>{summaryState.mapSelectionCount}</MapCountNum>
-                {t('matchmaking.findMatch.vetoedCount', ' / {{limit}} vetoed', {
+                {t('matchmaking.findMatch.vetoedCount', '{{selected}} / {{limit}} vetoed', {
+                  selected: summaryState.mapSelectionCount,
                   limit: summaryState.mapPoolVetoLimit,
                 })}
               </MapCountLabel>
             ) : (
               <MapCountLabel>
-                <MapCountNum>{summaryState.mapSelectionCount}</MapCountNum>
-                {t('matchmaking.findMatch.pickedCount', ' / {{limit}} picked', {
+                {t('matchmaking.findMatch.pickedCount', '{{selected}} / {{limit}} picked', {
+                  selected: summaryState.mapSelectionCount,
                   limit: summaryState.mapPoolVetoLimit,
                 })}
               </MapCountLabel>
@@ -987,17 +970,6 @@ const DrawerBody = styled.div`
   padding: 16px 8px 24px;
 `
 
-const DrawerFoot = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 14px 24px;
-  border-top: 1px solid color-mix(in srgb, var(--theme-on-surface) 10%, transparent);
-  background: var(--theme-container-low);
-  flex-shrink: 0;
-`
-
 interface SettingsDrawerProps {
   drawerType: MatchmakingType | null
   labelForType: (type: MatchmakingType) => string
@@ -1036,10 +1008,6 @@ export function SettingsDrawer({ drawerType, labelForType, onClose }: SettingsDr
             <DrawerBody>
               <FindMatchContent key={drawerType} type={drawerType} disabled={false} />
             </DrawerBody>
-
-            <DrawerFoot>
-              <TextButton label={t('common.actions.done', 'Done')} onClick={onClose} />
-            </DrawerFoot>
           </DrawerPanel>
         </>
       ) : null}

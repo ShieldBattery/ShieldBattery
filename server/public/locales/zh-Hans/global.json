@@ -296,7 +296,6 @@
       "close": "关闭",
       "copy": "复制",
       "decline": "拒绝",
-      "done": "完成",
       "download": "下载",
       "edit": "编辑",
       "hide": "隐藏",
@@ -911,7 +910,7 @@
       "mapSelectionDescription": "请选择你想要进行游戏的地图。系统只会从你选择的地图中进行匹配。",
       "matchFound": "匹配成功！",
       "noScheduledWindow": "暂无预定时段",
-      "pickedCount": " / {{limit}} 已选",
+      "pickedCount": "{{selected}} / {{limit}} 已选",
       "poolUpdated": "地图池已更新",
       "race": "种族",
       "rank": "排名",
@@ -928,7 +927,7 @@
       "useAlternateRace": "使用第二种族以避免镜像对抗",
       "vetoDescriptionNoOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图将永远不会用于进行游戏。",
       "vetoDescriptionWithOverlap_other": "您可以否决最多{{count}}张地图。被否决的地图被选择的几率将会大大降低。",
-      "vetoedCount": " / {{limit}} 已否决",
+      "vetoedCount": "{{selected}} / {{limit}} 已否决",
       "vetoesLeft": "<0>剩余否决权：</0><1>{{vetoesLeft}}</1>"
     },
     "match": {
