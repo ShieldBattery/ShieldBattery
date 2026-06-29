@@ -217,6 +217,7 @@ export class LobbyApi {
 - **DI (tsyringe):** `@singleton()`, `@inject()` (rarely needed: `delay(() => Dep)` for circular deps)
 - **Sockets:** `ClientSocketsManager`, `UserSocketsManager` with `.subscribe(path)`
 - **Database:** `withDbClient()`, `transact()` for transactions; use `Dbify<T>` from `server/lib/db/types.ts` for query result types (converts camelCase interfaces to snake_case DB columns)
+- **Avoid per-item DB query fan-out:** Don't run a separate query per element of a collection (e.g. `Promise.all(items.map(i => dbQuery(i)))` or a `for` loop that opens a new client each iteration). Each query grabs its own pool connection, so a large/variable collection can exhaust the pool and starve unrelated requests. Prefer a single set-based statement (e.g. a multi-row upsert with `sqlConcat`, or `WHERE id = ANY(...)`); if you must issue them one at a time, share a single connection via `withDbClient`/`transact` and `withClient`.
 - **Models organization:** Functions that update a table belong in that table's models file, not the new feature's models
 - **Redis:** Session storage, pub/sub between server and server-rs
 - **Errors:** `CodedError` with `makeErrorConverterMiddleware()` for HTTP mapping

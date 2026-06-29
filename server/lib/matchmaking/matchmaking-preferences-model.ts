@@ -5,8 +5,8 @@ import {
   PartialMatchmakingPreferences,
 } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import db from '../db'
-import { sql } from '../db/sql'
+import db, { DbClient } from '../db'
+import { sql, sqlConcat } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbMatchmakingPreferences = Dbify<MatchmakingPreferences> & { selected: boolean }
@@ -74,6 +74,44 @@ export async function upsertMatchmakingPreferences({
 }
 
 /**
+ * Upserts a batch of *complete* matchmaking preferences in a single statement. Unlike
+ * `upsertMatchmakingPreferences` (which merges partial updates with the previous values), this
+ * overwrites every column, so callers must pass full preferences — as the queue path does. Used to
+ * persist all of a user's queued types at once without fanning out one query (and thus one pool
+ * connection) per type. Pass `withClient` to run inside an existing transaction.
+ */
+export async function upsertManyMatchmakingPreferences(
+  preferences: ReadonlyArray<MatchmakingPreferences>,
+  withClient?: DbClient,
+): Promise<void> {
+  if (!preferences.length) {
+    return
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const rows = preferences.map(
+      p =>
+        sql`(${p.userId}, ${p.matchmakingType}, ${p.race}, ${p.mapPoolId}, ${p.mapSelections},
+          ${p.data})`,
+    )
+    await client.query(sql`
+      INSERT INTO matchmaking_preferences AS mp
+        (user_id, matchmaking_type, race, map_pool_id, map_selections, data)
+      VALUES ${sqlConcat(', ', rows)}
+      ON CONFLICT (user_id, matchmaking_type)
+      DO UPDATE SET
+        race = EXCLUDED.race,
+        map_pool_id = EXCLUDED.map_pool_id,
+        map_selections = EXCLUDED.map_selections,
+        data = EXCLUDED.data;
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
  * Retrieve the latest `MatchmakingPreferences` for a user for a particular matchmaking type, or
  * `null` if they haven't set any yet.
  */
@@ -103,8 +141,9 @@ export async function getMatchmakingPreferences(
 export async function setSelectedMatchmakingTypes(
   userId: SbUserId,
   selectedTypes: ReadonlyArray<MatchmakingType>,
+  withClient?: DbClient,
 ): Promise<void> {
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     await client.query(sql`
       UPDATE matchmaking_preferences
