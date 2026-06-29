@@ -1,4 +1,4 @@
-use rand::{RngCore, rng};
+use rand::{Rng, rng};
 
 // NOTE(tec27): If you change this, make sure to change the TS version as well.
 /// Characters used in random verification codes sent through email.

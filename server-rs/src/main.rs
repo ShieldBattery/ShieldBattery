@@ -5,8 +5,6 @@ use axum::ServiceExt;
 use axum::extract::Request;
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
-use mobc_redis::RedisConnectionManager;
-use mobc_redis::redis;
 use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 
@@ -64,10 +62,8 @@ async fn main() -> eyre::Result<()> {
         .wrap_err("Failed to connect to Postgres")?;
 
     let redis_host = format!("redis://{}:{}", settings.redis.host, settings.redis.port);
-    let redis_client = redis::Client::open(redis_host.clone())
+    let redis_pool = RedisPool::new(&redis_host)
         .wrap_err_with(|| format!("Failed to open Redis server at {redis_host}"))?;
-    let redis_manager = RedisConnectionManager::new(redis_client);
-    let redis_pool = RedisPool::new(mobc::Pool::builder().build(redis_manager));
 
     let addr_string = format!("{}:{}", settings.app_host, settings.app_port);
     let addr = addr_string

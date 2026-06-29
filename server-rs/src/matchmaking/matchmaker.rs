@@ -6,7 +6,7 @@ use std::{
 
 use enumset::EnumSet;
 use itertools::Itertools;
-use rand::{Rng, seq::SliceRandom};
+use rand::{RngExt, seq::SliceRandom};
 use strum::IntoEnumIterator;
 
 use crate::matchmaking::MatchmakingType;

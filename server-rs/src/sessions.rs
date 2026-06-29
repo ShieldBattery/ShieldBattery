@@ -11,8 +11,8 @@ use axum::response::{IntoResponse, Response};
 use axum_extra::TypedHeader;
 use axum_extra::headers::Authorization;
 use axum_extra::headers::authorization::Bearer;
+use deadpool_redis::redis::AsyncCommands;
 use jsonwebtoken::DecodingKey;
-use mobc_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 

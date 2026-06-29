@@ -17,8 +17,8 @@ use chrono::serde::ts_milliseconds_option;
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
+use deadpool_redis::redis::AsyncCommands;
 use ipnetwork::IpNetwork;
-use mobc_redis::redis::AsyncCommands;
 use names::{
     NameChecker, NameRestriction, RestrictedNameKind, RestrictedNameReason,
     create_case_insensitive_regex,

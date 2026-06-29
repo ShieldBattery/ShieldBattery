@@ -2,7 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use std::hint::black_box;
+
+use criterion::{Criterion, criterion_group, criterion_main};
 use server::matchmaking::MatchmakingType;
 use server::matchmaking::config::MatchmakerConfig;
 use server::matchmaking::matchmaker::{Matchmaker, Player, PlayerModeRating};

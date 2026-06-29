@@ -1,19 +1,23 @@
 use crate::pubsub::PublishedMessage;
 use color_eyre::Result;
 use color_eyre::eyre::WrapErr;
-use mobc::Connection;
-use mobc_redis::RedisConnectionManager;
-use mobc_redis::redis::AsyncCommands;
+use deadpool_redis::redis::AsyncCommands;
+use deadpool_redis::{Config, Connection, Pool, Runtime};
 
 #[derive(Clone)]
-pub struct RedisPool(mobc::Pool<RedisConnectionManager>);
+pub struct RedisPool(Pool);
 
 impl RedisPool {
-    pub fn new(pool: mobc::Pool<RedisConnectionManager>) -> Self {
-        Self(pool)
+    /// Creates a new pool of connections to the Redis server at the given URL (e.g.
+    /// `redis://host:port`).
+    pub fn new(url: &str) -> Result<Self> {
+        let pool = Config::from_url(url)
+            .create_pool(Some(Runtime::Tokio1))
+            .wrap_err("Failed to create Redis connection pool")?;
+        Ok(Self(pool))
     }
 
-    pub async fn get(&self) -> Result<Connection<RedisConnectionManager>> {
+    pub async fn get(&self) -> Result<Connection> {
         self.0
             .get()
             .await

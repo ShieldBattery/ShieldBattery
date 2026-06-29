@@ -8,7 +8,7 @@ use async_graphql::{Result, SimpleObject};
 use chrono::{DateTime, Utc};
 use color_eyre::eyre;
 use color_eyre::eyre::WrapErr;
-use mobc_redis::redis::AsyncCommands;
+use deadpool_redis::redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
 use typeshare::typeshare;

@@ -6,87 +6,189 @@
       {
         "ordinal": 0,
         "name": "user_id: SbUserId",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "user_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "edit_permissions",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "edit_permissions"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "debug",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "debug"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "ban_users",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "ban_users"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "manage_leagues",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_leagues"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "manage_maps",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_maps"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "manage_map_pools",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_map_pools"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "manage_matchmaking",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_matchmaking"
+          }
+        }
       },
       {
         "ordinal": 8,
         "name": "manage_matchmaking_seasons",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_matchmaking_seasons"
+          }
+        }
       },
       {
         "ordinal": 9,
         "name": "manage_matchmaking_times",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_matchmaking_times"
+          }
+        }
       },
       {
         "ordinal": 10,
         "name": "manage_rally_point_servers",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_rally_point_servers"
+          }
+        }
       },
       {
         "ordinal": 11,
         "name": "mass_delete_maps",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "mass_delete_maps"
+          }
+        }
       },
       {
         "ordinal": 12,
         "name": "moderate_chat_channels",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "moderate_chat_channels"
+          }
+        }
       },
       {
         "ordinal": 13,
         "name": "manage_news",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_news"
+          }
+        }
       },
       {
         "ordinal": 14,
         "name": "manage_bug_reports",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_bug_reports"
+          }
+        }
       },
       {
         "ordinal": 15,
         "name": "manage_restricted_names",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_restricted_names"
+          }
+        }
       },
       {
         "ordinal": 16,
         "name": "manage_signup_codes",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_signup_codes"
+          }
+        }
       }
     ],
     "parameters": {

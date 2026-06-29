@@ -6,7 +6,13 @@
       {
         "ordinal": 0,
         "name": "config: Json<StoredConfig>",
-        "type_info": "Jsonb"
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_config",
+            "name": "config"
+          }
+        }
       }
     ],
     "parameters": {

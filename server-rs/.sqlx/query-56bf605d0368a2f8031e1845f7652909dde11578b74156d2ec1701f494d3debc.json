@@ -6,67 +6,145 @@
       {
         "ordinal": 0,
         "name": "hash: _",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "hash"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "extension",
-        "type_info": "Bpchar"
+        "type_info": "Bpchar",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "extension"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "title",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "title"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "description",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "description"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "width",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "width"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "height",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "height"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "tileset",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "tileset"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "players_melee",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "players_melee"
+          }
+        }
       },
       {
         "ordinal": 8,
         "name": "players_ums",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "players_ums"
+          }
+        }
       },
       {
         "ordinal": 9,
         "name": "lobby_init_data: _",
-        "type_info": "Jsonb"
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "lobby_init_data"
+          }
+        }
       },
       {
         "ordinal": 10,
         "name": "is_eud",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "is_eud"
+          }
+        }
       },
       {
         "ordinal": 11,
         "name": "parser_version",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "parser_version"
+          }
+        }
       },
       {
         "ordinal": 12,
         "name": "image_version",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "maps",
+            "name": "image_version"
+          }
+        }
       }
     ],
     "parameters": {
