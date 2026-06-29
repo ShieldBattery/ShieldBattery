@@ -2,13 +2,15 @@
 FROM ghcr.io/shieldbattery/shieldbattery/base:sqlx-tools AS rust-tools
 
 # Install dependencies in a separate stage for better caching
-FROM node:24-alpine AS deps
+FROM node:24-bookworm-slim AS deps
 RUN corepack enable
-# By default, `alpine` images don't have necessary tools to install native add-ons, so we use the
+# By default, `slim` images don't have the necessary tools to install native add-ons, so we use the
 # multistage build to install the necessary tools, and build the dependencies which will then be
 # copied over to the next stage (this stage will be discarded, along with the installed tools, to
 # make the image lighter).
-RUN apk add --no-cache python3 make g++ git cmake
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  python3 make g++ git cmake \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /shieldbattery
 # Ensure that we don't spend time installing dependencies that are only needed for the client
@@ -36,7 +38,7 @@ RUN pnpm prune --prod
 
 
 # Setup the actual image
-FROM node:24-alpine
+FROM node:24-bookworm-slim
 
 # Run pnpm once so we ensure it gets installed by corepack during the container build
 RUN corepack enable && pnpm --version
@@ -45,17 +47,16 @@ ENV NODE_ENV=production
 # Tell the server not to try and run webpack
 ENV SB_PREBUILT_ASSETS=true
 
-# Also, we need python to execute some python scripts (e.g. `s3cmd`).
-RUN apk add --no-cache bash logrotate jq python3 py-pip s3cmd
-
-# Install the dependencies of the `s3cmd` python script (--break-system-packages because otherwise
-# we'd need a virtualenv, which is overkill since we're not using python for anything else)
-RUN pip3 install python-dateutil --break-system-packages
+# We need python to execute some python scripts (e.g. `s3cmd`). The `s3cmd` package pulls in its own
+# Python dependencies (including python-dateutil).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  bash logrotate jq python3 s3cmd \
+  && rm -rf /var/lib/apt/lists/*
 
 # Set up log rotation
 COPY --from=builder /shieldbattery/server/deployment_files/logrotate.conf /etc/logrotate.d/shieldbattery
 
-# Give the logrotate status file to the node user since that's what crond will be running under
+# Give the logrotate status file to the node user since the entrypoint runs logrotate as that user.
 RUN touch /var/lib/logrotate.status && chown node:node /var/lib/logrotate.status
 
 # Set the user to `node` for any subsequent `RUN` and `CMD` instructions

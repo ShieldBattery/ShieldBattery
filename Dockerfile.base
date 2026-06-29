@@ -1,15 +1,14 @@
 # Base image with sqlx-cli pre-installed
 # This can be built and pushed to GitHub Container Registry for use in CI
-FROM rust:alpine AS sqlx-base
-
-RUN apk add --no-cache musl-dev
+FROM rust:slim-bookworm AS sqlx-base
 
 # Install sqlx-cli with specific version for reproducibility
 RUN cargo install sqlx-cli --version 0.9.0 --no-default-features --features postgres --root ./
 
 # Create a minimal runtime image with sqlx-cli
-FROM alpine:latest AS sqlx-runtime
-RUN apk add --no-cache ca-certificates
+FROM debian:bookworm-slim AS sqlx-runtime
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 COPY --from=sqlx-base /bin/sqlx /usr/local/bin/sqlx
 
 # Verify installation
