@@ -13,6 +13,34 @@ export type CreateSignupCodeInput = {
   notes?: string | null | undefined
 }
 
+export type MatchmakerConfigInput = {
+  global: MatchmakerModeConfigOverridesInput
+  maxPlayersExamined?: number | null | undefined
+  perMode: Array<MatchmakerPerModeOverrideInput>
+  searchIntervalSeconds?: number | null | undefined
+}
+
+/**
+ * Stored (JSON) form of [`ModeConfig`]: a sparse set of knob overrides. Doubles as the GraphQL
+ * `MatchmakerModeConfigOverrides` (output) / `MatchmakerModeConfigOverridesInput` (input) type, so
+ * the admin form sends and receives exactly the shape that is persisted.
+ */
+export type MatchmakerModeConfigOverridesInput = {
+  adaptiveComfortableMultiplier?: number | null | undefined
+  adaptiveDecayPerMissing?: number | null | undefined
+  minQuality?: number | null | undefined
+  populationHalfLifeSeconds?: number | null | undefined
+  uncertaintyK?: number | null | undefined
+  weightLatency?: number | null | undefined
+  weightRatingVariance?: number | null | undefined
+  weightWinProb?: number | null | undefined
+}
+
+export type MatchmakerPerModeOverrideInput = {
+  config: MatchmakerModeConfigOverridesInput
+  matchmakingType: Types.MatchmakingType
+}
+
 export enum RestrictedNameKind {
   Exact = 'EXACT',
   Regex = 'REGEX',
@@ -50,6 +78,62 @@ export type SbPermissionsInput = {
 export type UrgentMessageInput = {
   message: string
   title: string
+}
+
+export type AdminMatchmakingConfigQueryVariables = Exact<{ [key: string]: never }>
+
+export type AdminMatchmakingConfigQuery = {
+  matchmakingConfig: {
+    searchIntervalSeconds: number | null
+    maxPlayersExamined: number | null
+    global: {
+      weightRatingVariance: number | null
+      weightWinProb: number | null
+      weightLatency: number | null
+      uncertaintyK: number | null
+      minQuality: number | null
+      adaptiveComfortableMultiplier: number | null
+      adaptiveDecayPerMissing: number | null
+      populationHalfLifeSeconds: number | null
+    }
+    perMode: Array<{
+      matchmakingType: Types.MatchmakingType
+      config: {
+        weightRatingVariance: number | null
+        weightWinProb: number | null
+        weightLatency: number | null
+        uncertaintyK: number | null
+        minQuality: number | null
+        adaptiveComfortableMultiplier: number | null
+        adaptiveDecayPerMissing: number | null
+        populationHalfLifeSeconds: number | null
+      }
+    }>
+    defaults: {
+      searchIntervalSeconds: number
+      maxPlayersExamined: number
+      weightRatingVariance: number
+      weightWinProb: number
+      weightLatency: number
+      uncertaintyK: number
+      minQuality: number
+      adaptiveComfortableMultiplier: number
+      adaptiveDecayPerMissing: number
+      populationHalfLifeSeconds: number
+    }
+  }
+}
+
+export type AdminUpdateMatchmakingConfigMutationVariables = Exact<{
+  config: MatchmakerConfigInput
+}>
+
+export type AdminUpdateMatchmakingConfigMutation = {
+  updateMatchmakingConfig: {
+    searchIntervalSeconds: number | null
+    maxPlayersExamined: number | null
+    global: { minQuality: number | null }
+  }
 }
 
 export type RestrictedNamesQueryVariables = Exact<{ [key: string]: never }>
@@ -1180,6 +1264,167 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<AdminUserProfile_PermissionsFragment, unknown>
+export const AdminMatchmakingConfigDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminMatchmakingConfig' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'matchmakingConfig' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'searchIntervalSeconds' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxPlayersExamined' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'global' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightRatingVariance' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'adaptiveComfortableMultiplier' },
+                      },
+                      { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'perMode' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'config' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'weightRatingVariance' },
+                            },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'adaptiveComfortableMultiplier' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'adaptiveDecayPerMissing' },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'populationHalfLifeSeconds' },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'defaults' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'searchIntervalSeconds' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'maxPlayersExamined' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightRatingVariance' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightWinProb' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'weightLatency' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'uncertaintyK' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'minQuality' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'adaptiveComfortableMultiplier' },
+                      },
+                      { kind: 'Field', name: { kind: 'Name', value: 'adaptiveDecayPerMissing' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'populationHalfLifeSeconds' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminMatchmakingConfigQuery, AdminMatchmakingConfigQueryVariables>
+export const AdminUpdateMatchmakingConfigDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminUpdateMatchmakingConfig' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'config' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakerConfigInput' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'updateMatchmakingConfig' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'config' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'config' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'searchIntervalSeconds' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxPlayersExamined' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'global' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'minQuality' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  AdminUpdateMatchmakingConfigMutation,
+  AdminUpdateMatchmakingConfigMutationVariables
+>
 export const RestrictedNamesDocument = {
   kind: 'Document',
   definitions: [
