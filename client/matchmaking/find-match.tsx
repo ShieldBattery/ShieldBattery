@@ -1,4 +1,4 @@
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { AnimatePresence, m } from 'motion/react'
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -44,7 +44,12 @@ import {
 } from '../styles/typography'
 import { cancelFindMatch, findMatch, getCurrentMapPool } from './action-creators'
 import { FindMatchContent } from './find-match-content'
-import { currentSearchInfoAtom, foundMatchAtom, isMatchmakingAtom } from './matchmaking-atoms'
+import {
+  currentSearchInfoAtom,
+  findMatchSelectionAtom,
+  foundMatchAtom,
+  isMatchmakingAtom,
+} from './matchmaking-atoms'
 import { DivisionIcon } from './rank-icon'
 
 // ─── Static mode definitions ─────────────────────────────────────────────────
@@ -1248,10 +1253,11 @@ export function FindMatch() {
 
   // ─── Local state ────────────────────────────────────────────────────────────
   // The mode selection itself isn't stored here: it's derived from the persisted preferences (see
-  // `selectedTypes` below). We only keep an override for when the user changes the selection this
-  // session, so we never duplicate store data into state via a seeding effect.
-  const [selectedTypesOverride, setSelectedTypesOverride] =
-    useState<ReadonlySet<MatchmakingType> | null>(null)
+  // `selectedTypes` below). We only keep an override (in a Jotai atom, so it survives navigating
+  // away and back) for when the user changes the selection this session, so we never duplicate store
+  // data into state via a seeding effect.
+  const sessionSelection = useAtomValue(findMatchSelectionAtom)
+  const setSessionSelection = useSetAtom(findMatchSelectionAtom)
   const [drawerType, setDrawerType] = useState<MatchmakingType | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [elapsedSecs, setElapsedSecs] = useState(0)
@@ -1306,8 +1312,11 @@ export function FindMatch() {
   const persistedSelectedTypes = new Set<MatchmakingType>(
     ALL_MATCHMAKING_TYPES.filter(type => matchmakingPreferences.get(type)?.selected),
   )
-  const selectedTypes: ReadonlySet<MatchmakingType> =
-    selectedTypesOverride ?? persistedSelectedTypes
+  // Only honor the session override if it belongs to the current user (it's a global atom that
+  // outlives a logout), otherwise fall back to this user's persisted selection.
+  const sessionSelectedTypes =
+    sessionSelection?.userId === selfUser.id ? sessionSelection.types : undefined
+  const selectedTypes: ReadonlySet<MatchmakingType> = sessionSelectedTypes ?? persistedSelectedTypes
 
   // While searching, the effective selected types come from Jotai (server-authoritative). When not
   // searching, we filter out any types that are currently disabled: their rows can't be deselected
@@ -1381,7 +1390,7 @@ export function FindMatch() {
     const next = new Set(selectedTypes)
     if (next.has(type)) next.delete(type)
     else next.add(type)
-    setSelectedTypesOverride(next)
+    setSessionSelection({ userId: selfUser.id, types: next })
   }
 
   const handleOpenSettings = (type: MatchmakingType) => {
