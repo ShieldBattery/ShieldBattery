@@ -19,6 +19,8 @@ import {
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
 import { ALL_RACE_CHARS } from '../../../common/races'
+import { withDbClient } from '../db'
+import transact from '../db/transaction'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { httpApi, httpBeforeAll } from '../http/http-api'
@@ -150,9 +152,13 @@ export class MatchmakingApi {
       )
     }
 
-    const processedPreferences = await Promise.all(
-      preferences.map(async pref => {
-        const currentMapPool = await getCurrentMapPool(pref.matchmakingType)
+    // Validate and normalize each type's preferences against its current map pool. We do this on a
+    // single shared connection rather than fanning out one query per type, which could grab more
+    // pool connections than we have and starve other work.
+    const processedPreferences = await withDbClient(async client => {
+      const processed: typeof preferences = []
+      for (const pref of preferences) {
+        const currentMapPool = await getCurrentMapPool(pref.matchmakingType, client)
         if (!currentMapPool) {
           throw new MatchmakingServiceError(
             MatchmakingServiceErrorCode.InvalidMapPool,
@@ -174,9 +180,10 @@ export class MatchmakingApi {
           )
         }
 
-        return { ...pref, mapSelections }
-      }),
-    )
+        processed.push({ ...pref, mapSelections })
+      }
+      return processed
+    })
 
     await this.matchmakingService.find(
       ctx.session!.user.id,
@@ -191,16 +198,19 @@ export class MatchmakingApi {
     // "pool updated" indicator keeps working for users who queue without reviewing a new pool. A
     // failure here shouldn't fail an already-successful queue.
     try {
-      await Promise.all(
-        preferences.map(pref => this.matchmakingPreferencesService.upsertPreferences(pref)),
-      )
-      // Remember which modes were queued (clearing the rest) so the find-match page can restore this
-      // selection next session and across devices without the user re-checking each mode. Runs after
-      // the upserts so the queued types' rows are guaranteed to exist.
-      await this.matchmakingPreferencesService.setSelectedTypes(
-        ctx.session!.user.id,
-        preferences.map(pref => pref.matchmakingType),
-      )
+      await transact(async client => {
+        // A single bulk upsert (rather than one query per type) so a many-type queue doesn't grab a
+        // pool connection per type.
+        await this.matchmakingPreferencesService.upsertManyPreferences(preferences, client)
+        // Remember which modes were queued (clearing the rest) so the find-match page can restore
+        // this selection next session and across devices without the user re-checking each mode.
+        // Runs after the upserts so the queued types' rows are guaranteed to exist.
+        await this.matchmakingPreferencesService.setSelectedTypes(
+          ctx.session!.user.id,
+          preferences.map(pref => pref.matchmakingType),
+          client,
+        )
+      })
     } catch (err) {
       logger.error({ err }, 'error saving matchmaking preferences after queueing')
     }

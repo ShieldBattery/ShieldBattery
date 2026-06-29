@@ -11,6 +11,7 @@ import {
 } from '../../../common/matchmaking'
 import { MatchmakingMapPool } from '../../../common/matchmaking/matchmaking-map-pools'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { DbClient } from '../db'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { ClientSocketsManager } from '../websockets/socket-groups'
@@ -18,6 +19,7 @@ import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import {
   getMatchmakingPreferences,
   setSelectedMatchmakingTypes,
+  upsertManyMatchmakingPreferences,
   upsertMatchmakingPreferences,
 } from './matchmaking-preferences-model'
 
@@ -104,11 +106,25 @@ export default class MatchmakingPreferencesService {
   }
 
   /**
+   * Upserts a batch of complete preferences in a single statement (see
+   * `upsertManyMatchmakingPreferences`). Used by the queue path to persist every queued type at once
+   * without a per-type query fan-out. Pass `withClient` to run inside a transaction.
+   */
+  upsertManyPreferences(preferences: ReadonlyArray<MatchmakingPreferences>, withClient?: DbClient) {
+    return upsertManyMatchmakingPreferences(preferences, withClient)
+  }
+
+  /**
    * Marks exactly the given matchmaking types as the user's current selection (clearing the flag on
    * the rest), so the find-match page can restore which modes they want to queue across sessions and
-   * devices. Callers should upsert the queued types' preferences first so their rows exist.
+   * devices. Callers should upsert the queued types' preferences first so their rows exist. Pass
+   * `withClient` to run inside a transaction.
    */
-  setSelectedTypes(userId: SbUserId, selectedTypes: ReadonlyArray<MatchmakingType>) {
-    return setSelectedMatchmakingTypes(userId, selectedTypes)
+  setSelectedTypes(
+    userId: SbUserId,
+    selectedTypes: ReadonlyArray<MatchmakingType>,
+    withClient?: DbClient,
+  ) {
+    return setSelectedMatchmakingTypes(userId, selectedTypes, withClient)
   }
 }
