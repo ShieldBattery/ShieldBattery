@@ -7,6 +7,9 @@ import { LoadingDotsArea } from '../progress/dots'
 const LoadableBugReports = React.lazy(async () => ({
   default: (await import('../bugs/admin-bug-reports')).AdminBugReports,
 }))
+const LoadableGameReports = React.lazy(async () => ({
+  default: (await import('../games/admin-game-reports')).AdminGameReports,
+}))
 const LoadableMapManager = IS_ELECTRON
   ? React.lazy(async () => ({
       default: (await import('./map-manager')).AdminMapManager,
@@ -49,6 +52,7 @@ export default function AdminPanel() {
     ]
   > = [
     ['/admin/bug-reports', perms?.manageBugReports, LoadableBugReports, 'Manage bug reports'],
+    ['/admin/game-reports', perms?.manageGameReports, LoadableGameReports, 'Manage game reports'],
     [
       '/admin/map-manager',
       perms?.manageMaps || perms?.massDeleteMaps,

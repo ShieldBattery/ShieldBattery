@@ -1,0 +1,148 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT id, game_id, reporter_id as \"reporter_id: _\",\n                    reported_user_id as \"reported_user_id: _\", reason, details, created_at,\n                    resolved_at, resolver_id as \"resolver_id: _\", resolution, resolution_notes\n                FROM game_reports\n                WHERE id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "game_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "game_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "reporter_id: _",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "reporter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "reported_user_id: _",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "reported_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "reason",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "reason"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "details",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "details"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "resolved_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "resolved_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "resolver_id: _",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "resolver_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "resolution",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "resolution"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "resolution_notes",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "resolution_notes"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "0c79f1823f8901d630c188892df792fb296772c9f680a4abfd5ba82db3679506"
+}

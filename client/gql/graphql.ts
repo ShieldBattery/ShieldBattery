@@ -13,6 +13,13 @@ export type CreateSignupCodeInput = {
   notes?: string | null | undefined
 }
 
+export type GameReportFilter = {
+  /** Include already-resolved reports. Defaults to false (unresolved queue only). */
+  includeResolved?: boolean | null | undefined
+  /** Restrict to reports filed against this user (the "reports against" moderation view). */
+  reportedUserId?: Types.SbUserId | null | undefined
+}
+
 /**
  * Why a player was reported. Stored in the `reason` TEXT column (not a PG enum) so the vocabulary
  * stays a code-only change; the DB string form is defined by [`GameReportReason::to_db`].
@@ -31,6 +38,22 @@ export enum GameReportReason {
   Griefing = 'GRIEFING',
   /** Anything else; the details field is required for this reason. */
   Other = 'OTHER',
+}
+
+/**
+ * The outcome of resolving a report. `Dismissed` (unfounded / insufficient evidence) is kept
+ * distinct from `Abusive` (the report itself was bad-faith) so the two never get conflated in the
+ * reporter-credibility stats. Stored in the `resolution` TEXT column.
+ */
+export enum GameReportResolution {
+  /** The report itself was bad-faith (false reporting, harassment-by-report). */
+  Abusive = 'ABUSIVE',
+  /** The report was valid and action was taken. */
+  Actioned = 'ACTIONED',
+  /** Unfounded or insufficient evidence. */
+  Dismissed = 'DISMISSED',
+  /** A valid duplicate of another report for the same target/game. */
+  Duplicate = 'DUPLICATE',
 }
 
 export type MatchmakerConfigInput = {
@@ -254,6 +277,82 @@ export type SetUrgentMessageMutationVariables = Exact<{
 }>
 
 export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean }
+
+export type AdminGameReportsListQueryVariables = Exact<{
+  filter?: GameReportFilter | null | undefined
+  first?: number | null | undefined
+}>
+
+export type AdminGameReportsListQuery = {
+  gameReports: {
+    edges: Array<{
+      node: {
+        id: string
+        reason: GameReportReason
+        details: string | null
+        createdAt: string
+        resolvedAt: string | null
+        resolution: GameReportResolution | null
+        reporter: { id: Types.SbUserId } | null
+        reportedUser: { id: Types.SbUserId } | null
+      }
+    }>
+    pageInfo: { hasNextPage: boolean }
+  }
+}
+
+export type AdminGameReportQueryVariables = Exact<{
+  id: string
+}>
+
+export type AdminGameReportQuery = {
+  gameReport: {
+    id: string
+    reason: GameReportReason
+    details: string | null
+    createdAt: string
+    resolvedAt: string | null
+    resolution: GameReportResolution | null
+    resolutionNotes: string | null
+    reporter: { id: Types.SbUserId; name: string } | null
+    reportedUser: { id: Types.SbUserId; name: string } | null
+    resolver: { id: Types.SbUserId } | null
+    game: { id: string } | null
+    replay: { replayFileId: string; hash: string; url: string } | null
+    reporterStats: {
+      total: number
+      actioned: number
+      dismissed: number
+      abusive: number
+      duplicate: number
+      pending: number
+    }
+    reportedUserStats: {
+      total: number
+      actioned: number
+      dismissed: number
+      abusive: number
+      duplicate: number
+      pending: number
+    }
+  } | null
+}
+
+export type ResolveGameReportMutationVariables = Exact<{
+  id: string
+  resolution: GameReportResolution
+  notes?: string | null | undefined
+}>
+
+export type ResolveGameReportMutation = {
+  resolveGameReport: {
+    id: string
+    resolvedAt: string | null
+    resolution: GameReportResolution | null
+    resolutionNotes: string | null
+    resolver: { id: Types.SbUserId } | null
+  }
+}
 
 export type GamesPageContentQueryVariables = Exact<{ [key: string]: never }>
 
@@ -1807,6 +1906,310 @@ export const SetUrgentMessageDocument = {
     },
   ],
 } as unknown as DocumentNode<SetUrgentMessageMutation, SetUrgentMessageMutationVariables>
+export const AdminGameReportsListDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminGameReportsList' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'filter' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'GameReportFilter' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'gameReports' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'filter' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'filter' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'details' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'resolution' } },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'reporter' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'Field',
+                              name: { kind: 'Name', value: 'reportedUser' },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                                ],
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'pageInfo' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'hasNextPage' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminGameReportsListQuery, AdminGameReportsListQueryVariables>
+export const AdminGameReportDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminGameReport' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'gameReport' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'details' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolution' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolutionNotes' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'reporter' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'reportedUser' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'resolver' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'game' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'replay' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'replayFileId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'hash' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'url' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'reporterStats' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'total' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'actioned' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'dismissed' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'abusive' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'duplicate' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'pending' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'reportedUserStats' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'total' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'actioned' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'dismissed' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'abusive' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'duplicate' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'pending' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminGameReportQuery, AdminGameReportQueryVariables>
+export const ResolveGameReportDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ResolveGameReport' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'resolution' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'GameReportResolution' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'notes' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'resolveGameReport' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'resolution' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'resolution' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'notes' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'notes' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolution' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'resolutionNotes' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'resolver' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<ResolveGameReportMutation, ResolveGameReportMutationVariables>
 export const GamesPageContentDocument = {
   kind: 'Document',
   definitions: [

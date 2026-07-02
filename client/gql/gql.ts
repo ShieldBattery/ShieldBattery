@@ -23,6 +23,9 @@ type Documents = {
   '\n  query SignupCodes($includeExhausted: Boolean) {\n    signupCodes(includeExhausted: $includeExhausted) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n        name\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n': typeof types.SignupCodesDocument
   '\n  mutation CreateSignupCode($input: CreateSignupCodeInput!) {\n    createSignupCode(input: $input) {\n      id\n      code\n      createdAt\n      createdByUser {\n        id\n      }\n      expiresAt\n      maxUses\n      uses\n      exhausted\n      notes\n    }\n  }\n': typeof types.CreateSignupCodeDocument
   '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n': typeof types.SetUrgentMessageDocument
+  '\n  query AdminGameReportsList($filter: GameReportFilter, $first: Int) {\n    gameReports(filter: $filter, first: $first) {\n      edges {\n        node {\n          id\n          reason\n          details\n          createdAt\n          resolvedAt\n          resolution\n          reporter {\n            id\n          }\n          reportedUser {\n            id\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n      }\n    }\n  }\n': typeof types.AdminGameReportsListDocument
+  '\n  query AdminGameReport($id: UUID!) {\n    gameReport(id: $id) {\n      id\n      reason\n      details\n      createdAt\n      resolvedAt\n      resolution\n      resolutionNotes\n      reporter {\n        id\n        name\n      }\n      reportedUser {\n        id\n        name\n      }\n      resolver {\n        id\n      }\n      game {\n        id\n      }\n      replay {\n        replayFileId\n        hash\n        url\n      }\n      reporterStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n      reportedUserStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n    }\n  }\n': typeof types.AdminGameReportDocument
+  '\n  mutation ResolveGameReport(\n    $id: UUID!\n    $resolution: GameReportResolution!\n    $notes: String\n  ) {\n    resolveGameReport(id: $id, resolution: $resolution, notes: $notes) {\n      id\n      resolvedAt\n      resolution\n      resolutionNotes\n      resolver {\n        id\n      }\n    }\n  }\n': typeof types.ResolveGameReportDocument
   '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n': typeof types.GamesPageContentDocument
   '\n  fragment LiveGames_FeedFragment on Query {\n    liveGames {\n      id\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n': typeof types.LiveGames_FeedFragmentFragmentDoc
   '\n  fragment LiveGames_FeedEntryFragment on Game {\n    id\n    startTime\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n        image1024Url\n        image2048Url\n        width\n        height\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n        teams {\n          user {\n            id\n          }\n          ...LiveGames_FeedEntryPlayersFragment\n        }\n      }\n    }\n\n    ...LiveGames_FeedEntryMapAndTypeFragment\n  }\n': typeof types.LiveGames_FeedEntryFragmentFragmentDoc
@@ -64,6 +67,12 @@ const documents: Documents = {
     types.CreateSignupCodeDocument,
   '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n':
     types.SetUrgentMessageDocument,
+  '\n  query AdminGameReportsList($filter: GameReportFilter, $first: Int) {\n    gameReports(filter: $filter, first: $first) {\n      edges {\n        node {\n          id\n          reason\n          details\n          createdAt\n          resolvedAt\n          resolution\n          reporter {\n            id\n          }\n          reportedUser {\n            id\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n      }\n    }\n  }\n':
+    types.AdminGameReportsListDocument,
+  '\n  query AdminGameReport($id: UUID!) {\n    gameReport(id: $id) {\n      id\n      reason\n      details\n      createdAt\n      resolvedAt\n      resolution\n      resolutionNotes\n      reporter {\n        id\n        name\n      }\n      reportedUser {\n        id\n        name\n      }\n      resolver {\n        id\n      }\n      game {\n        id\n      }\n      replay {\n        replayFileId\n        hash\n        url\n      }\n      reporterStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n      reportedUserStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n    }\n  }\n':
+    types.AdminGameReportDocument,
+  '\n  mutation ResolveGameReport(\n    $id: UUID!\n    $resolution: GameReportResolution!\n    $notes: String\n  ) {\n    resolveGameReport(id: $id, resolution: $resolution, notes: $notes) {\n      id\n      resolvedAt\n      resolution\n      resolutionNotes\n      resolver {\n        id\n      }\n    }\n  }\n':
+    types.ResolveGameReportDocument,
   '\n  query GamesPageContent {\n    ...LiveGames_FeedFragment\n  }\n':
     types.GamesPageContentDocument,
   '\n  fragment LiveGames_FeedFragment on Query {\n    liveGames {\n      id\n      ...LiveGames_FeedEntryFragment\n    }\n  }\n':
@@ -176,6 +185,24 @@ export function graphql(
 export function graphql(
   source: '\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n',
 ): (typeof documents)['\n  mutation SetUrgentMessage($message: UrgentMessageInput) {\n    newsSetUrgentMessage(message: $message)\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminGameReportsList($filter: GameReportFilter, $first: Int) {\n    gameReports(filter: $filter, first: $first) {\n      edges {\n        node {\n          id\n          reason\n          details\n          createdAt\n          resolvedAt\n          resolution\n          reporter {\n            id\n          }\n          reportedUser {\n            id\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminGameReportsList($filter: GameReportFilter, $first: Int) {\n    gameReports(filter: $filter, first: $first) {\n      edges {\n        node {\n          id\n          reason\n          details\n          createdAt\n          resolvedAt\n          resolution\n          reporter {\n            id\n          }\n          reportedUser {\n            id\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminGameReport($id: UUID!) {\n    gameReport(id: $id) {\n      id\n      reason\n      details\n      createdAt\n      resolvedAt\n      resolution\n      resolutionNotes\n      reporter {\n        id\n        name\n      }\n      reportedUser {\n        id\n        name\n      }\n      resolver {\n        id\n      }\n      game {\n        id\n      }\n      replay {\n        replayFileId\n        hash\n        url\n      }\n      reporterStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n      reportedUserStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminGameReport($id: UUID!) {\n    gameReport(id: $id) {\n      id\n      reason\n      details\n      createdAt\n      resolvedAt\n      resolution\n      resolutionNotes\n      reporter {\n        id\n        name\n      }\n      reportedUser {\n        id\n        name\n      }\n      resolver {\n        id\n      }\n      game {\n        id\n      }\n      replay {\n        replayFileId\n        hash\n        url\n      }\n      reporterStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n      reportedUserStats {\n        total\n        actioned\n        dismissed\n        abusive\n        duplicate\n        pending\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation ResolveGameReport(\n    $id: UUID!\n    $resolution: GameReportResolution!\n    $notes: String\n  ) {\n    resolveGameReport(id: $id, resolution: $resolution, notes: $notes) {\n      id\n      resolvedAt\n      resolution\n      resolutionNotes\n      resolver {\n        id\n      }\n    }\n  }\n',
+): (typeof documents)['\n  mutation ResolveGameReport(\n    $id: UUID!\n    $resolution: GameReportResolution!\n    $notes: String\n  ) {\n    resolveGameReport(id: $id, resolution: $resolution, notes: $notes) {\n      id\n      resolvedAt\n      resolution\n      resolutionNotes\n      resolver {\n        id\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
