@@ -281,6 +281,7 @@ export type SetUrgentMessageMutation = { newsSetUrgentMessage: boolean }
 export type AdminGameReportsListQueryVariables = Exact<{
   filter?: GameReportFilter | null | undefined
   first?: number | null | undefined
+  after?: string | null | undefined
 }>
 
 export type AdminGameReportsListQuery = {
@@ -297,7 +298,7 @@ export type AdminGameReportsListQuery = {
         reportedUser: { id: Types.SbUserId } | null
       }
     }>
-    pageInfo: { hasNextPage: boolean }
+    pageInfo: { hasNextPage: boolean; endCursor: string | null }
   }
 }
 
@@ -1924,6 +1925,11 @@ export const AdminGameReportsListDocument = {
           variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
         },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
       ],
       selectionSet: {
         kind: 'SelectionSet',
@@ -1941,6 +1947,11 @@ export const AdminGameReportsListDocument = {
                 kind: 'Argument',
                 name: { kind: 'Name', value: 'first' },
                 value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'after' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
               },
             ],
             selectionSet: {
@@ -1995,7 +2006,10 @@ export const AdminGameReportsListDocument = {
                   name: { kind: 'Name', value: 'pageInfo' },
                   selectionSet: {
                     kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'hasNextPage' } }],
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'hasNextPage' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'endCursor' } },
+                    ],
                   },
                 },
               ],

@@ -22,8 +22,8 @@ import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 
 const AdminGameReportsListQuery = graphql(/* GraphQL */ `
-  query AdminGameReportsList($filter: GameReportFilter, $first: Int) {
-    gameReports(filter: $filter, first: $first) {
+  query AdminGameReportsList($filter: GameReportFilter, $first: Int, $after: String) {
+    gameReports(filter: $filter, first: $first, after: $after) {
       edges {
         node {
           id
@@ -42,6 +42,7 @@ const AdminGameReportsListQuery = graphql(/* GraphQL */ `
       }
       pageInfo {
         hasNextPage
+        endCursor
       }
     }
   }
@@ -241,8 +242,10 @@ const ResolvedCell = styled(TableCell)`
   justify-content: flex-end;
 `
 
-const LoadMore = styled(OutlinedButton)`
-  margin: 12px 0;
+const LoadMoreRow = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 12px;
 `
 
 export function AdminGameReports() {
@@ -254,36 +257,41 @@ export function AdminGameReports() {
   )
 }
 
+const PAGE_SIZE = 50
+
 function AdminGameReportsList() {
   const [includeResolved, setIncludeResolved] = useState(false)
-  const [pageSize, setPageSize] = useState(50)
+  // One `after` cursor per loaded page (the first page has none). We page with cursors rather than
+  // growing `first`, because the server clamps `first` to 100 — an ever-growing page size would
+  // silently stop returning new rows past that.
+  const [pageCursors, setPageCursors] = useState<Array<string | null>>([null])
+  // Bumped on refresh to re-mount the pages and force a fresh fetch.
+  const [refreshToken, setRefreshToken] = useState(0)
 
-  const [{ data, fetching, error }, reexecute] = useQuery({
-    query: AdminGameReportsListQuery,
-    variables: { filter: { includeResolved }, first: pageSize },
-  })
-
-  const reports = data?.gameReports.edges.map(e => e.node) ?? []
-  const hasNextPage = data?.gameReports.pageInfo.hasNextPage ?? false
+  const resetToFirstPage = () => setPageCursors([null])
 
   return (
     <Content>
       <HeadlineAndButton>
         <PageHeadline>Game reports</PageHeadline>
-        {fetching ? <LoadingDotsArea /> : null}
         <ButtonWithCheckBox>
           <CheckBox
             label='Include resolved'
             checked={includeResolved}
-            onChange={() => setIncludeResolved(!includeResolved)}
+            onChange={() => {
+              setIncludeResolved(v => !v)
+              resetToFirstPage()
+            }}
           />
           <FilledButton
             label='Refresh'
-            onClick={() => reexecute({ requestPolicy: 'network-only' })}
+            onClick={() => {
+              resetToFirstPage()
+              setRefreshToken(t => t + 1)
+            }}
           />
         </ButtonWithCheckBox>
       </HeadlineAndButton>
-      {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
       <ReportTable>
         <TableHeader>
           <DateCell>Date</DateCell>
@@ -293,27 +301,68 @@ function AdminGameReportsList() {
           <DetailsCell>Details</DetailsCell>
           <ResolvedCell>Resolved</ResolvedCell>
         </TableHeader>
-        {reports.map(r => (
-          <TableRow key={r.id} onClick={() => push(urlPath`/admin/game-reports/${r.id}`)}>
-            <DateCell>
-              <NarrowDuration to={new Date(r.createdAt)} />
-            </DateCell>
-            <UserCell>
-              <ConnectedUsername userId={r.reporter!.id} />
-            </UserCell>
-            <UserCell>
-              <ConnectedUsername userId={r.reportedUser!.id} />
-            </UserCell>
-            <ReasonCell>{reasonToLabel(r.reason)}</ReasonCell>
-            <DetailsCell>{r.details}</DetailsCell>
-            <ResolvedCell>{r.resolvedAt ? <MaterialIcon icon='check' /> : null}</ResolvedCell>
-          </TableRow>
+        {pageCursors.map((cursor, i) => (
+          <GameReportsPage
+            key={`${refreshToken}:${cursor ?? 'first'}`}
+            includeResolved={includeResolved}
+            after={cursor}
+            isLastPage={i === pageCursors.length - 1}
+            onLoadMore={endCursor => setPageCursors(prev => [...prev, endCursor])}
+          />
         ))}
       </ReportTable>
-      {hasNextPage ? (
-        <LoadMore label='Load more' onClick={() => setPageSize(pageSize + 50)} />
-      ) : null}
     </Content>
+  )
+}
+
+function GameReportsPage({
+  includeResolved,
+  after,
+  isLastPage,
+  onLoadMore,
+}: {
+  includeResolved: boolean
+  after: string | null
+  isLastPage: boolean
+  onLoadMore: (endCursor: string) => void
+}) {
+  const [{ data, fetching, error }] = useQuery({
+    query: AdminGameReportsListQuery,
+    variables: { filter: { includeResolved }, first: PAGE_SIZE, after: after ?? undefined },
+    // Show cached rows immediately but always revalidate, so Refresh (and returning from a
+    // resolve) reflects server state.
+    requestPolicy: 'cache-and-network',
+  })
+
+  const reports = data?.gameReports.edges.map(e => e.node) ?? []
+  const pageInfo = data?.gameReports.pageInfo
+
+  return (
+    <>
+      {reports.map(r => (
+        <TableRow key={r.id} onClick={() => push(urlPath`/admin/game-reports/${r.id}`)}>
+          <DateCell>
+            <NarrowDuration to={new Date(r.createdAt)} />
+          </DateCell>
+          <UserCell>
+            {r.reporter ? <ConnectedUsername userId={r.reporter.id} /> : 'Unknown user'}
+          </UserCell>
+          <UserCell>
+            {r.reportedUser ? <ConnectedUsername userId={r.reportedUser.id} /> : 'Unknown user'}
+          </UserCell>
+          <ReasonCell>{reasonToLabel(r.reason)}</ReasonCell>
+          <DetailsCell>{r.details}</DetailsCell>
+          <ResolvedCell>{r.resolvedAt ? <MaterialIcon icon='check' /> : null}</ResolvedCell>
+        </TableRow>
+      ))}
+      {fetching && !data ? <LoadingDotsArea /> : null}
+      {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
+      {isLastPage && pageInfo?.hasNextPage && pageInfo.endCursor ? (
+        <LoadMoreRow>
+          <OutlinedButton label='Load more' onClick={() => onLoadMore(pageInfo.endCursor!)} />
+        </LoadMoreRow>
+      ) : null}
+    </>
   )
 }
 
@@ -440,7 +489,7 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
           <Item>
             <ItemLabel>Reporter:</ItemLabel>
             <ItemValue>
-              <ConnectedUsername userId={report.reporter!.id} />
+              {report.reporter ? <ConnectedUsername userId={report.reporter.id} /> : 'Unknown user'}
             </ItemValue>
           </Item>
           <Item>
@@ -450,7 +499,11 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
           <Item>
             <ItemLabel>Reported player:</ItemLabel>
             <ItemValue>
-              <ConnectedUsername userId={report.reportedUser!.id} />
+              {report.reportedUser ? (
+                <ConnectedUsername userId={report.reportedUser.id} />
+              ) : (
+                'Unknown user'
+              )}
             </ItemValue>
           </Item>
           <Item>
@@ -537,17 +590,17 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
                   <DetailsValue>{report.resolutionNotes}</DetailsValue>
                 </Item>
               ) : null}
-              <Item>
-                <ItemLabel>Restrict reporting:</ItemLabel>
-                <ItemValue>
-                  <Link
-                    href={urlPath`/users/${report.reporter!.id}/${
-                      report.reporter!.name
-                    }/admin/punishments`}>
-                    Restrict this reporter
-                  </Link>
-                </ItemValue>
-              </Item>
+              {report.reporter ? (
+                <Item>
+                  <ItemLabel>Restrict reporting:</ItemLabel>
+                  <ItemValue>
+                    <Link
+                      href={urlPath`/users/${report.reporter.id}/${report.reporter.name}/admin/punishments`}>
+                      Restrict this reporter
+                    </Link>
+                  </ItemValue>
+                </Item>
+              ) : null}
             </>
           ) : (
             <>
