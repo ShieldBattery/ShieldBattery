@@ -404,10 +404,12 @@ Apply disconnects through the native synced pass `apply_pending_player_leaves`. 
 **`pending_leave_reason`** — an `int32[12]` at `0x11CEF28` (stride 4, slots 0..0xB, immediately
 before `net_players` @ `0x11CEF58`) — and runs `process_ingame_player_leave` / `handle_player_leave`
 for any nonzero slot (`0x40000006` = dropped → `strPLAYER_WAS_DROPPED`, other nonzero = left →
-`strPLAYER_LEFT`), then clears it. ⚠️ **`pending_leave_reason` is not exposed by samase_scarf
-today** (§6) — resolve it via a dedicated analyzer anchored inside `apply_pending_player_leaves`
-(base = its loop pointer, ~`0x7507e9`), **not** as a fixed delta from `net_players` (that violates
-the §6 no-fixed-delta rule and would read/write the wrong live memory on a future patch).
+`strPLAYER_LEFT`), then clears it. ✅ **`pending_leave_reason` is now exposed by samase_scarf**
+(pinned rev `8f2e353b`) as `analysis.pending_leave_reason()` → an `Operand` giving the array-base
+constant address (not a `Mem32[..]` deref; same convention as `force_colors`), resolving on 32- and
+64-bit with stride 4. It is resolved by signature (three matcher rules cover the 32-bit codegen
+variance where the drain loop is inlined/factored) — **not** as a fixed delta from `net_players`, so
+it stays correct across patches.
 
 **To drop a QUIC peer:** write the reason to `pending_leave_reason[slot]`. Because the drain runs
 in the synced window, it's deterministic **as long as every client sets the same slot+reason on the
@@ -536,14 +538,15 @@ what each one is.
 The byte `advance_turn_timer` tests to advance a sim frame is `is_multiplayer` — earlier RE notes
 called it `turns_ready_this_step`, but it is the same global (§2), not a separate per-step flag.
 
-⚠️ **Gap status (updated 2026-07-01):**
+**Gap status (updated 2026-07-02): all samase gaps CLOSED.**
 
-1. **`pending_leave_reason` (§5.8) is not exposed by the samase_scarf fork** — STILL OPEN. It needs a
-   dedicated analyzer (anchor inside `apply_pending_player_leaves`, base = its loop pointer
-   ~`0x7507e9`). Do **not** resolve it as a fixed delta from `net_players`. Until it lands, the IN
-   replacement can still call the native `apply_pending_player_leaves` inside the RNG window (parity
-   with native drop handling); the *server-agreed* deterministic-leave write (`pending_leave_reason[slot]`
-   on an agreed turn) is what's blocked on it.
+1. ✅ **CLOSED (2026-07-02).** `pending_leave_reason` (§5.8) is now exposed by the samase_scarf fork
+   (pinned rev `8f2e353b`) and surfaced as `scr_analysis::Analysis::pending_leave_reason()` → the
+   `int32[0xc]` array-base `Operand`. It resolves by signature on 32- and 64-bit (three matcher rules
+   handle the inlined/factored drain-loop codegen variance), not as a fixed delta from `net_players`.
+   The IN replacement can now do the *server-agreed* deterministic-leave write
+   (`pending_leave_reason[slot]` on an agreed turn) and drain it via `apply_pending_player_leaves`
+   inside the RNG window — no more native-parity interim needed.
 2. ✅ **CLOSED (2026-07-01).** The turn-networking symbols are now wired through
    `game/scr-analysis/src/lib.rs`: `send_turn_message`, `receive_storm_turns`, `storm_receive_turns`,
    `get_outstanding_turn_count`, `flush_local_turns_to_latency_depth`, `flush_outgoing_command_turn`,

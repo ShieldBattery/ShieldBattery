@@ -10,9 +10,21 @@ consume is documented in `../rally-point2/docs/architecture.md` and its `client/
 - **Scope B — all transport on rp2, no rally-point v1.** In-game *and* lobby turns leave Storm via
   the seam. Storm's **join/session handshake** packets still originate in Storm, but they surface to
   us through the existing SNP provider (`snp.rs::send_packet`), and the plan is to reroute them off
-  that shim onto an rp2 **reliable/opaque channel** instead of rally-point v1 UDP. End state: one
-  QUIC connection, v1 + the UDP socket gone, Storm's join *bookkeeping* retained. (Full Storm removal
-  — replacing join with direct state-setup calls — is a later, optional step "C".)
+  that shim onto an rp2 **reliable/opaque channel** instead of rally-point v1 UDP. B's end state: one
+  QUIC connection, v1 + the UDP socket gone, Storm's join *bookkeeping* retained as an intermediate
+  step.
+- **Scope C — full Storm removal — IS the committed end state, not optional (decided 2026-07-02).**
+  We do not want Storm bookkeeping left in the tree. B is the stepping stone that gets transport
+  working with native join still running; C then replaces join with direct state-setup calls so *we*
+  assign the BW network ("storm") id (from the rp2/coordinator roster) instead of reading it back
+  from Storm. That collapses the rp2-slot ↔ storm-id translation into a single id, and lets all the
+  Storm-reading go away (the `storm_players` name/flags reads in `game_state.rs`, the
+  `StormIdChanged` guard, the flags-as-join-complete signal). C is sequenced *after* B only for risk
+  reasons — reproducing everything native join sets up (player structs, id tables, provider state,
+  whatever `init_network_player_info` and the id-table writes touch) is the large, desync-sensitive
+  part — not because it's discretionary. When starting C, enumerate those Storm-populated fields
+  first (from `init_network_player_info` + the `net_player_to_game`/`net_player_to_unique` writes) so
+  nothing is left implicitly depending on Storm.
 - **Lobby turns ride the reliable control stream**, not the datagram turn path. In-game turns ride
   datagrams (`Payload` with `game_frame_count`); lobby turns are control-stream frames
   (`game_frame_count = None`).
@@ -122,12 +134,17 @@ it). The token's slot is the rp2 slot; the BW arrays are indexed by storm id.
   in-game latency knob must not desync expectation vs reality (dev-note gotcha #2 / guide §5.3).
 
 ### 6. Still-open / blocked
-- **`pending_leave_reason` samase analyzer** (guide §6 gap #1) — not exposed yet; blocks the
-  *server-agreed deterministic* leave write. Interim: call native `apply_pending_player_leaves`
-  (parity). Ping the samase owner to add the analyzer (anchor inside `apply_pending_player_leaves`,
-  ~`0x7507e9`; **not** a fixed delta from `net_players`).
-- **Synced player-leave determinism** and **reconnect/failover (D11)** are open designs — don't
-  invent leave/reconnect handling at the seam unilaterally.
+- ✅ **`pending_leave_reason` samase analyzer — LANDED (2026-07-02, samase pin `8f2e353b`).** Exposed
+  as `scr_analysis::Analysis::pending_leave_reason()` → the `int32[0xc]` array-base `Operand` (storm-id
+  indexed, stride 4, both widths; `0` = none, `0x40000006` = dropped, other nonzero = left). The
+  server-agreed deterministic-leave write is now unblocked; the native-parity interim is no longer
+  needed. Self-test cross-check: its base should sit `0x30` (== 12×4) below `net_players` — both
+  resolve independently via samase, so compare them at startup rather than deriving one from the other.
+- **Synced player-leave determinism** (agreeing *which turn* + identical per-slot apply order and
+  RNG state across all clients, including clients that never detected the drop locally — guide §5.8)
+  and **reconnect/failover (D11)** are still open *designs* — the analyzer unblocks the write, but the
+  consensus/ordering protocol is the relay/coordinator's job; don't invent leave/reconnect handling
+  at the seam unilaterally.
 
 ## Security notes (done here; keep these invariants)
 
