@@ -13,6 +13,26 @@ export type CreateSignupCodeInput = {
   notes?: string | null | undefined
 }
 
+/**
+ * Why a player was reported. Stored in the `reason` TEXT column (not a PG enum) so the vocabulary
+ * stays a code-only change; the DB string form is defined by [`GameReportReason::to_db`].
+ */
+export enum GameReportReason {
+  /**
+   * Left the game mid-match (mostly relevant for allies in team games). Note this is distinct
+   * from queue dodging, which is handled automatically by matchmaking bans.
+   */
+  Abandoning = 'ABANDONING',
+  /** Harassment, hate speech, or toxicity in game chat. */
+  AbusiveChat = 'ABUSIVE_CHAT',
+  /** Any mechanism of unfair advantage: hacks, third-party tools, or game/map exploit abuse. */
+  Cheating = 'CHEATING',
+  /** Stayed in the game but sabotaged it: feeding, intentional losing, AFK, refusing to play. */
+  Griefing = 'GRIEFING',
+  /** Anything else; the details field is required for this reason. */
+  Other = 'OTHER',
+}
+
 export type MatchmakerConfigInput = {
   global: MatchmakerModeConfigOverridesInput
   maxPlayersExamined?: number | null | undefined
@@ -39,6 +59,13 @@ export type MatchmakerModeConfigOverridesInput = {
 export type MatchmakerPerModeOverrideInput = {
   config: MatchmakerModeConfigOverridesInput
   matchmakingType: Types.MatchmakingType
+}
+
+export type ReportGameInput = {
+  details?: string | null | undefined
+  gameId: string
+  reason: GameReportReason
+  reportedUserId: Types.SbUserId
 }
 
 export enum RestrictedNameKind {
@@ -326,6 +353,12 @@ export type LiveGames_FeedEntryMapAndTypeFragmentFragment = {
           | { matchmakingType: Types.MatchmakingType }
       }
 } & { ' $fragmentName'?: 'LiveGames_FeedEntryMapAndTypeFragmentFragment' }
+
+export type ReportGameMutationVariables = Exact<{
+  input: ReportGameInput
+}>
+
+export type ReportGameMutation = { reportGame: { id: string } }
 
 export type HomePageContentQueryVariables = Exact<{ [key: string]: never }>
 
@@ -2004,6 +2037,46 @@ export const GamesPageContentDocument = {
     },
   ],
 } as unknown as DocumentNode<GamesPageContentQuery, GamesPageContentQueryVariables>
+export const ReportGameDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ReportGame' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ReportGameInput' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'reportGame' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'input' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'input' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<ReportGameMutation, ReportGameMutationVariables>
 export const HomePageContentDocument = {
   kind: 'Document',
   definitions: [

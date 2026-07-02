@@ -425,6 +425,7 @@
     "buttonCopyGameId": "ID 복사",
     "buttonCopyLink": "게임 링크 복사하기",
     "buttonDownloadReplay": "리플레이 다운로드",
+    "buttonReport": "신고",
     "buttonSearchAgain": "다시 검색",
     "buttonWatchReplay": "리플레이 보기",
     "buttonWatchReplayLoading": "로딩 중…",
@@ -486,6 +487,30 @@
       "matchFound": "경기 찾음!",
       "searching": "경기 검색 중…"
     }
+  },
+  "gameReport": {
+    "alreadyReported": "이 게임에서 해당 플레이어를 이미 신고했습니다.",
+    "description": "이 게임에서 규칙을 위반한 플레이어를 신고합니다. 신고 내용은 ShieldBattery 스태프가 검토합니다.",
+    "details": "세부 정보",
+    "detailsOptional": "세부 정보 (선택 사항)",
+    "detailsRequiredForOther": "무슨 일이 있었는지 설명해 주세요.",
+    "error": "신고를 제출하는 중 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
+    "rateLimited": "최근 너무 많은 신고를 제출했습니다. 나중에 다시 시도해 주세요.",
+    "reason": {
+      "abandoning": "게임 이탈",
+      "abusiveChat": "채팅 욕설",
+      "cheating": "치트 또는 익스플로잇 사용",
+      "griefing": "고의적 방해",
+      "other": "기타"
+    },
+    "reasonLabel": "사유",
+    "reasonRequired": "사유를 선택해 주세요.",
+    "reportedUser": "플레이어",
+    "reportedUserRequired": "신고할 플레이어를 선택해 주세요.",
+    "restricted": "현재 신고가 제한되어 있습니다.",
+    "submitted": "신고가 접수되었습니다.",
+    "title": "플레이어 신고",
+    "unknownPlayer": "알 수 없는 플레이어"
   },
   "games": {
     "activity": {
