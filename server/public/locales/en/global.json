@@ -493,10 +493,12 @@
   },
   "gameReport": {
     "alreadyReported": "You've already reported this player for this game.",
+    "badRequest": "Your report could not be submitted. Please check the details and try again.",
     "description": "Report a player for breaking the rules in this game. Reports are reviewed by ShieldBattery staff.",
     "details": "Details",
     "detailsOptional": "Details (optional)",
     "detailsRequiredForOther": "Please describe what happened.",
+    "detailsTooLong": "Details must be {{max}} characters or fewer.",
     "error": "Something went wrong submitting your report. Please try again later.",
     "rateLimited": "You've filed too many reports recently. Please try again later.",
     "reason": {

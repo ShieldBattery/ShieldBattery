@@ -41,6 +41,9 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
+/** Keep in sync with MAX_DETAILS_LEN on the server (game_reports.rs). */
+const MAX_DETAILS_LENGTH = 5000
+
 interface ReportGameFormModel {
   reportedUserId?: SbUserId
   reason?: GameReportReason
@@ -82,6 +85,11 @@ export function ReportGameDialog({
           if (model.reason === GameReportReason.Other && !value.trim()) {
             return t('gameReport.detailsRequiredForOther', 'Please describe what happened.')
           }
+          if (value.length > MAX_DETAILS_LENGTH) {
+            return t('gameReport.detailsTooLong', 'Details must be {{max}} characters or fewer.', {
+              max: MAX_DETAILS_LENGTH,
+            })
+          }
           return undefined
         },
       },
@@ -117,6 +125,13 @@ export function ReportGameDialog({
                 t(
                   'gameReport.rateLimited',
                   "You've filed too many reports recently. Please try again later.",
+                ),
+              )
+            } else if (code === 'BAD_REQUEST') {
+              setErrorMessage(
+                t(
+                  'gameReport.badRequest',
+                  'Your report could not be submitted. Please check the details and try again.',
                 ),
               )
             } else {

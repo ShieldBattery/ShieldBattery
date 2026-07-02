@@ -496,10 +496,12 @@
   },
   "gameReport": {
     "alreadyReported": "Ya reportaste a este jugador por esta partida.",
+    "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",
     "description": "Reporta a un jugador por incumplir las reglas en esta partida. El equipo de ShieldBattery revisa los reportes.",
     "details": "Detalles",
     "detailsOptional": "Detalles (opcional)",
     "detailsRequiredForOther": "Describe qué pasó.",
+    "detailsTooLong": "Los detalles no pueden superar los {{max}} caracteres.",
     "error": "Algo salió mal al enviar tu reporte. Inténtalo de nuevo más tarde.",
     "rateLimited": "Has enviado demasiados reportes recientemente. Inténtalo de nuevo más tarde.",
     "reason": {

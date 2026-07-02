@@ -490,10 +490,12 @@
   },
   "gameReport": {
     "alreadyReported": "이 게임에서 해당 플레이어를 이미 신고했습니다.",
+    "badRequest": "신고를 제출할 수 없습니다. 세부 정보를 확인한 후 다시 시도해 주세요.",
     "description": "이 게임에서 규칙을 위반한 플레이어를 신고합니다. 신고 내용은 ShieldBattery 스태프가 검토합니다.",
     "details": "세부 정보",
     "detailsOptional": "세부 정보 (선택 사항)",
     "detailsRequiredForOther": "무슨 일이 있었는지 설명해 주세요.",
+    "detailsTooLong": "세부 정보는 {{max}}자 이하여야 합니다.",
     "error": "신고를 제출하는 중 문제가 발생했습니다. 나중에 다시 시도해 주세요.",
     "rateLimited": "최근 너무 많은 신고를 제출했습니다. 나중에 다시 시도해 주세요.",
     "reason": {
