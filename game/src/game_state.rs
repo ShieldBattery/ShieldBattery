@@ -29,6 +29,7 @@ use crate::forge;
 use crate::game_thread::{
     self, GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
 };
+use crate::netcode_v2;
 use crate::network_manager::{
     GameStateToNetworkMessage, NetworkError, NetworkManager, NetworkToGameStateMessage,
 };
@@ -110,7 +111,7 @@ impl IncompleteInit {
 pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
-    /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app (WS-F).
+    /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app.
     /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
     SetNetcodeV2Setup(Box<NetcodeV2Setup>),
     SetLocalUser(SbUser),
@@ -295,6 +296,10 @@ impl GameState {
 
         let network = self.network.clone();
         let allow_start = self.wait_can_start_game().boxed();
+        // Consumed below (before the network is declared ready) to stand up the rally-point2 seam.
+        // `None` on the legacy path — the app hasn't sent `netcodeV2Setup` — in which case the seam
+        // hooks stay inactive and native networking runs.
+        let netcode_v2_setup = self.netcode_v2_setup.take();
 
         self.init_main_thread
             .send(())
@@ -356,6 +361,18 @@ impl GameState {
             net_game_info_set_future
                 .await
                 .map_err(GameInitError::NetworkInit)?;
+
+            // Netcode v2 (rally-point2): if the app handed us a session, stand up the QUIC seam
+            // before the network is declared ready. On a dial failure, fall back to native
+            // networking for this session rather than failing the game — with no live session the
+            // seam hooks pass through to the original functions.
+            if let Some(setup) = netcode_v2_setup {
+                match netcode_v2::establish_session(&setup).await {
+                    Ok(()) => info!("Netcode v2 session established"),
+                    Err(e) => error!("Netcode v2 session setup failed; using native networking: {e}"),
+                }
+            }
+
             network_ready_future
                 .await
                 .map_err(GameInitError::NetworkInit)?;
@@ -1272,6 +1289,16 @@ impl InitInProgress {
                         .user_id
                         .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
                     debug!("Player {} received storm id {}", name, storm_id.0);
+                    if sb_user_id == self.local_user.id {
+                        // Map our own rp2 slot (from the signed token) to the storm id BW just
+                        // assigned us, so the seam's local echo delivers our own turns into the sim.
+                        // `with_seam` is a no-op when there is no rally-point2 session. Remote
+                        // players' rp2 slots need an authoritative roster from the coordinator's
+                        // session response, which isn't plumbed through yet; until it lands only the
+                        // local mapping is wired, so a live multi-client seam game can't route peer
+                        // turns yet, but the local round-trip self-test can.
+                        netcode_v2::with_seam(|s| s.map_local_storm(storm_id));
+                    }
                     self.joined_players.push(JoinedPlayer {
                         name: name.to_string(),
                         storm_id,

@@ -78,6 +78,39 @@ impl<'a> Iterator for IterCommands<'a> {
     }
 }
 
+/// Strips the native latency / turn-rate control commands (`0x55` set-latency, `0x5f` set-turn-rate,
+/// `0x66` dynamic-turn-rate) from an assembled turn buffer, preserving every other command
+/// (including the inline `0x37` sync command and the `0x5` keep-alive) in order.
+///
+/// The netcode v2 seam owns the latency buffer out-of-band via relay directives, and it pins
+/// `builtin_turn_latency` / turn rate. If these in-stream commands were
+/// allowed through they would ride `process_commands` → `recompute_turn_durations` and rewrite the
+/// pinned globals mid-game (a user clicking the in-game latency knob, or a DTR re-issue), diverging
+/// expectation from the relay-driven reality. Every client strips its own outbound turn identically,
+/// so the command simply never reaches any sim — the knob becomes a no-op rather than a desync.
+///
+/// Returns `Cow::Borrowed` (no allocation) when the buffer contains none of them, which is the
+/// overwhelmingly common per-turn case.
+pub fn strip_control_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<'a, [u8]> {
+    let is_control = |cmd: &[u8]| {
+        matches!(
+            cmd.first(),
+            Some(&id::SET_LATENCY | &id::SET_TURN_RATE | &id::SET_NETWORK_SPEED)
+        )
+    };
+    // First pass: bail out with a borrow if there's nothing to strip.
+    if !iter_commands(input, command_lengths).any(is_control) {
+        return Cow::Borrowed(input);
+    }
+    let mut buffer = Vec::with_capacity(input.len());
+    for command in iter_commands(input, command_lengths) {
+        if !is_control(command) {
+            buffer.extend_from_slice(command);
+        }
+    }
+    Cow::Owned(buffer)
+}
+
 /// Removes invalid commands that aren't caught by BW.
 pub fn filter_invalid_commands<'a>(
     input: &'a [u8],
@@ -288,6 +321,44 @@ mod test {
         assert_eq!(iter.next().unwrap(), &[0x20, 0xff, 0xff]);
         assert_eq!(iter.next().unwrap(), &[0x32, 0xff]);
         assert!(iter.next().is_none());
+    }
+
+    // The shared LENGTHS fixture marks 0x55/0x5f as variable (`!0`), so these strip tests use a
+    // table with the real fixed lengths for the control commands (0x55/0x5f = 2, 0x66 = 4).
+    fn strip_lengths() -> Vec<u32> {
+        let mut lengths = vec![1u32; 256];
+        lengths[0x20] = 3; // move
+        lengths[0x37] = 2; // sync
+        lengths[id::SET_LATENCY as usize] = 2; // 0x55
+        lengths[id::SET_TURN_RATE as usize] = 2; // 0x5f
+        lengths[id::SET_NETWORK_SPEED as usize] = 4; // 0x66
+        lengths[id::NOP as usize] = 1; // 0x05 keep-alive
+        lengths
+    }
+
+    #[test]
+    fn strip_control_commands_removes_latency_and_turn_rate() {
+        let lengths = strip_lengths();
+        let data = &[
+            0x20, 0xaa, 0xbb, //       move -> kept
+            0x55, 0x02, //             set-latency -> stripped
+            0x37, 0xcc, //             sync -> kept (must survive)
+            0x5f, 0x18, //             set-turn-rate -> stripped
+            0x66, 0x01, 0x02, 0x03, // dynamic-turn-rate -> stripped
+            0x05, //                   keep-alive -> kept
+        ];
+        let expected = &[0x20, 0xaa, 0xbb, 0x37, 0xcc, 0x05];
+        assert_eq!(&*strip_control_commands(data, &lengths), expected);
+    }
+
+    #[test]
+    fn strip_control_commands_borrows_when_nothing_to_strip() {
+        let lengths = strip_lengths();
+        let data = &[0x20, 0xaa, 0xbb, 0x37, 0xcc, 0x05];
+        assert!(matches!(
+            strip_control_commands(data, &lengths),
+            Cow::Borrowed(_)
+        ));
     }
 
     #[test]

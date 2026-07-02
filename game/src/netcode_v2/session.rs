@@ -17,7 +17,7 @@ use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials}
 use crate::app_messages::NetcodeV2Setup;
 use crate::recurse_checked_mutex::Mutex;
 
-/// The latency floor to start the pipe at (guide §4: the built-in latency is natively 2). A due
+/// The latency floor to start the pipe at (the built-in latency is natively 2). A due
 /// [`BufferDirective`](rally_point_client::proto::messages::BufferDirective) from the relay resizes
 /// it from there.
 const INITIAL_LATENCY_TURNS: u32 = 2;
@@ -53,7 +53,7 @@ pub struct NetcodeV2Session {
 /// The current game's session, reached from the BW/sync thread via [`with_seam`] and created on the
 /// async thread by [`establish_session`]. Recurse-checked so a hook that re-enters (the IN hook's
 /// leave pass can reach the OUT hook) gets `None` instead of deadlocking — but the lock discipline
-/// (§ IN hook docs) is to not hold it across such calls in the first place.
+/// is to not hold it across such calls in the first place.
 static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 
 /// Builds the QUIC session from the launch handoff and stores it for the hooks. Call on the Tokio
@@ -84,8 +84,8 @@ pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionErro
 
     let (driver, channels) = LinkDriver::new(link);
     // Service the link on the DLL's async runtime. `run` returning `Err` means the link failed,
-    // which is effectively this player dropping; reconnect/failover (D11) is deferred, so for now
-    // the session just ends and the hooks stop finding a seam (the caller falls back to native).
+    // which is effectively this player dropping; reconnect/failover is deferred, so for now the
+    // session just ends and the hooks stop finding a seam (the caller falls back to native).
     tokio::spawn(async move {
         match driver.run().await {
             Ok(()) => debug!("netcode v2 link closed cleanly"),

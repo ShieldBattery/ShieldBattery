@@ -1,62 +1,49 @@
 //! The netcode v2 (rally-point2) game seam.
 //!
-//! This module owns the ShieldBattery side of the three-hook turn/command seam described in
-//! `scr-netcode-replacement-guide.md` §5.1 and the build plan (`netcode-v2-build-plan.md`, WS-A). It
-//! replaces Storm's UDP turn transport wholesale with a QUIC link to a home relay, driven by the
-//! `rally-point-client` crate.
+//! This module owns the ShieldBattery side of the three-hook turn/command seam that replaces Storm's
+//! UDP turn transport wholesale with a QUIC link to a home relay, driven by the `rally-point-client`
+//! crate. The hooks themselves live in `bw_scr.rs`; this module owns the game-thread state they
+//! operate on and the async setup that stands up a session.
 //!
-//! ## What's here today
+//! ## The three hooks (in `bw_scr.rs`) and how they use this module
+//!
+//! 1. **OUT** — hooks `send_turn_message`, which hands us the fully-assembled local turn
+//!    `(buffer_ptr, len)` on the BW/sync thread. The hook calls [`SeamState::submit_local_turn`] to
+//!    enqueue it. The driver assigns the transport `seq` and the relay binds the `slot`, so both are
+//!    left zero.
+//! 2. **IN** — *fully replaces* `receive_storm_turns` (never calls the original, so its obfuscated
+//!    inner routine that memsets the arrays never runs). The hook calls [`SeamState::receive_turns`]
+//!    (drains the inbound channel, gates on all required slots being present); when it returns
+//!    `true`, it iterates [`SeamState::dispatch_buffers`] to fill
+//!    `player_turns[]`/`player_turns_size[]`/`net_player_flags[]` (setting `0x10000|0x20000` on each
+//!    ready slot), then runs the synced-leave pass **after releasing the seam lock** (the leave pass
+//!    can re-enter the OUT hook). The dispatched bytes are owned here as refcounted `Bytes`, valid
+//!    until the next receive.
+//! 3. **PIPE** — *fully replaces* `flush_local_turns_to_latency_depth`, driving the flush loop
+//!    against [`SeamState::outstanding_turns`] and [`SeamState::latency_turns`] rather than the
+//!    native in-flight count (which goes degenerate-0 once Storm's counters stop advancing).
+//!
+//! ## What's here
 //!
 //! - [`credentials`]: the security boundary — turning the launch handoff into an `Identity` + a
-//!   pinned TLS trust store (done; unit-tested).
-//! - [`SeamState`]: the game-thread-owned state the three hooks operate on — the turn channels to
-//!   the Tokio-side [`LinkDriver`](rally_point_client::LinkDriver), the latency-buffer
+//!   pinned TLS trust store.
+//! - [`SeamState`]: the game-thread-owned state the hooks operate on — the turn channels to the
+//!   Tokio-side [`LinkDriver`](rally_point_client::LinkDriver), the latency-buffer
 //!   [`DirectiveTracker`], the slot↔storm-id map, and the PIPE-hook in-flight turn counter.
+//! - [`session`]: [`establish_session`] (dial the relay, spawn the driver, stash the seam) and
+//!   [`with_seam`] (the hooks' accessor to the live seam).
 //!
-//! ## What remains (the seam wiring — for the next dev)
-//!
-//! The three hooks and the async handoff are **not yet installed**. The intended shape, grounded in
-//! the binary (verified in the 12409 BNDB) and the decisions locked with the team:
-//!
-//! 1. **OUT** — replace/hook `send_turn_message` (guide §5.1). On the BW/sync thread it hands us the
-//!    assembled turn `(buffer_ptr, len)`; call [`SeamState::submit_local_turn`] to enqueue it. The
-//!    driver assigns `seq` and the relay binds `slot`, so we leave both zero.
-//! 2. **IN** — *fully replace* `receive_storm_turns` (guide §5.1, and the BNDB annotation at
-//!    `0x73f4e0`). Do **not** call the original (that runs `storm_receive_turns`, which memsets our
-//!    arrays). Instead call [`SeamState::receive_turns`] (it drains the inbound channel, maps each
-//!    `Payload`'s `slot` to its storm id, and gates on all required slots being present); if it
-//!    returns `true`, iterate [`SeamState::dispatch_buffers`] to write
-//!    `player_turns[]`/`player_turns_size[]`/`net_player_flags[]` (setting `0x10000|0x20000` on
-//!    each ready slot), reproduce the synced-leave pass (`set_rng_enable(1)` →
-//!    `apply_pending_player_leaves` → `set_rng_enable(orig)`) **after releasing the seam lock**
-//!    (the leave pass can re-enter our OUT hook), and return `1`; if it returns `false`, return `0`
-//!    to stall. The dispatched bytes are owned by [`SeamState`] as refcounted `Bytes`, valid until
-//!    the next receive (guide §5.4 #4).
-//! 3. **PIPE** — replace `flush_local_turns_to_latency_depth` outright (guide §5.1 PIPE; the
-//!    native `get_outstanding_turn_count` goes degenerate-0 once Storm's counters stop advancing).
-//!    Drive the flush loop against [`SeamState::outstanding_turns`] and the seam's own latency
-//!    target (from the [`DirectiveTracker`]), not `builtin_turn_latency + net_user_latency`.
-//!
-//! The BW-thread ⇄ Tokio-thread handoff is [`rally_point_client::TurnChannels`] (tokio `mpsc`,
-//! whose `try_send`/`try_recv` are sync and safe to call from the BW thread). The Tokio side runs
-//! [`rally_point_client::LinkDriver::run`] on the DLL's existing async runtime; build the endpoint
-//! with [`credentials::bind_endpoint`], dial with `ClientEndpoint::connect`, then
-//! `LinkDriver::new(link)` and hand [`SeamState`] the returned channels.
-//!
-//! Also outstanding (tracked in the handoff summary): the self-test before committing a game to the
-//! transport (guide §5.5), offset plausibility gates + native fallback (guide §6), suppressing the
-//! native latency knob / turn-rate commands (dev note gotcha #2), and the `pending_leave_reason`
-//! analyzer (guide §5.8 / §6 — a samase gap).
+//! The BW-thread ⇄ Tokio-thread handoff is [`rally_point_client::TurnChannels`] (tokio `mpsc`, whose
+//! `try_send`/`try_recv` are sync and safe to call from the BW thread). The Tokio side runs
+//! [`rally_point_client::LinkDriver::run`] on the DLL's existing async runtime.
 
-// The seam's public surface is consumed by the three hooks in `bw_scr.rs`, which are not installed
-// yet (tracked in the handoff summary / guide §5.1). Until they are, these items are legitimately
-// unused; the allow keeps the scaffold warning-free without hiding real dead code elsewhere. Remove
-// it once the hooks are wired.
-#![allow(dead_code, unused_imports)]
+// A few teardown/accessor helpers are wired but not yet called (e.g. `clear_session` — no game-end
+// teardown hooked yet; `storm_id_for_slot` / `local_slot_id` accessors), and remote slot↔storm
+// mapping awaits an authoritative roster from the coordinator. The narrow allow covers those without
+// hiding dead code elsewhere.
+#![allow(dead_code)]
 
 mod credentials;
-
-pub use credentials::{CredentialError, RelayTarget, SessionCredentials, bind_endpoint};
 
 use std::collections::VecDeque;
 
@@ -64,11 +51,14 @@ use bytes::Bytes;
 use rally_point_client::DirectiveTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::{BufferDirective, Payload};
+use rally_point_client::proto::messages::Payload;
 
 mod session;
 
-pub use session::{NetcodeV2Session, SessionError, establish_session, with_seam};
+// The seam is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
+// (`establish_session`), so only these two are re-exported. The credential/session types stay
+// internal to their submodules.
+pub use session::{establish_session, with_seam};
 
 use crate::bw;
 use crate::bw::players::StormPlayerId;
@@ -83,12 +73,12 @@ pub struct SeamState {
     /// peers' turns the relay forwarded, tagged by source slot.
     channels: TurnChannels,
     /// Collapses the authority relay's redundant, out-of-order latency-buffer directive stream into
-    /// at-most-one change per decision, surfaced at its apply frame (D9).
+    /// at-most-one change per decision, surfaced at its apply frame.
     directives: DirectiveTracker,
     /// The latency buffer (in turns) currently in force — the PIPE hook keeps this many turns in
-    /// flight. Starts at the built-in floor; a due [`BufferDirective`] resizes it (no native
-    /// `[0,2]` cap upward — see dev note gotcha #2 / guide §5.3 — but floored at 1 locally, see
-    /// [`apply_due_directive`](Self::apply_due_directive)).
+    /// flight. Starts at the built-in floor; a due [`BufferDirective`] resizes it, with no upward cap
+    /// (the relay owns latency) but floored at 1 locally — see
+    /// [`apply_due_directive`](Self::apply_due_directive).
     latency_turns: u32,
     /// rally-point2 slot → BW storm id. `None` until learned during lobby join (native join
     /// assigns storm ids in join order, so the map starts empty).
@@ -104,13 +94,14 @@ pub struct SeamState {
     /// Per-storm-slot FIFO of turns waiting to be dispatched, in arrival order. A remote slot's
     /// turns arrive already per-slot seq-ordered from the driver; the local slot's own turns are
     /// echoed in here at submit time — the relay forwards each turn to every slot *except* its
-    /// sender ([`routing`], D-fanout), so our turns never come back over `inbound`, and echoing is
-    /// what keeps local commands on the same latency delay as everyone else's (guide §5.4 #3).
+    /// sender, so our turns never come back over `inbound`, and echoing is what keeps local commands
+    /// on the same latency delay as everyone else's (lockstep requires our own commands to execute
+    /// on the same turn as our peers see them).
     inbound_queues: [VecDeque<Bytes>; bw::MAX_STORM_PLAYERS],
     /// The command bytes for the turn currently being dispatched, per storm slot. Owned here (as
     /// refcounted [`Bytes`]) so the pointers written into `player_turns[]` stay valid through the
-    /// whole `step_network` dispatch (guide §5.4 #4); replaced on the next successful receive,
-    /// never freed mid-dispatch.
+    /// whole `step_network` dispatch; replaced on the next successful receive, never freed
+    /// mid-dispatch.
     current_dispatch: [Option<Bytes>; bw::MAX_STORM_PLAYERS],
     /// Which storm slots must supply a turn before a step is ready to dispatch. Set as slots are
     /// mapped during join; a synced leave clears one (so the sim stops waiting on a departed peer).
@@ -120,7 +111,7 @@ pub struct SeamState {
 impl SeamState {
     /// Builds seam state around the channels a running [`LinkDriver`](rally_point_client::LinkDriver)
     /// handed back. `local_slot` is this client's origin slot; `initial_latency_turns` is the
-    /// built-in floor to start the pipe at (guide §4, natively 2).
+    /// built-in floor to start the pipe at (natively 2).
     pub fn new(channels: TurnChannels, local_slot: SlotId, initial_latency_turns: u32) -> Self {
         Self {
             channels,
@@ -154,6 +145,15 @@ impl SeamState {
         }
     }
 
+    /// Records this client's own rp2 slot ↔ storm id mapping, learned when our storm id solidifies
+    /// during join. The local slot comes from the signed token (not the join order), so this is the
+    /// one mapping we can always make correctly; it's what makes the local echo
+    /// ([`submit_local_turn`](Self::submit_local_turn)) deliver our own turns into the sim.
+    pub fn map_local_storm(&mut self, storm_id: StormPlayerId) {
+        let slot = self.local_slot;
+        self.map_slot(slot, storm_id);
+    }
+
     /// Looks up the BW storm id for a rally-point2 slot, if mapped.
     pub fn storm_id_for_slot(&self, slot: SlotId) -> Option<StormPlayerId> {
         self.slot_to_storm.get(slot.0 as usize).copied().flatten()
@@ -161,8 +161,8 @@ impl SeamState {
 
     /// OUT hook body: hand a fully-assembled local turn to the driver. `commands` is the native
     /// SC:R command bytes from `send_turn_message` (keep-alive + sync already baked in). `frame` is
-    /// the executable-turn index for an in-game turn, or `None` for a lobby turn (guide §5.1 dev
-    /// note gotcha #1: leave it `None` only for lobby turns).
+    /// the executable-turn index for an in-game turn, or `None` for a lobby turn (the consensus
+    /// coordinate the relay preserves; leave it `None` only for lobby turns).
     ///
     /// Returns `false` if the channel to the driver is closed or full (the driver died or the game
     /// stalled) — the caller decides how to surface that (stall UI / teardown). `seq` and `slot`
@@ -180,9 +180,9 @@ impl SeamState {
             Ok(()) => {
                 // Echo our own turn into our dispatch queue: the relay fans out to peers only, so
                 // this is the sole path by which our commands reach the local sim — and it keeps
-                // them on the same latency delay as everyone else's (guide §5.4 #3). Only on a
-                // successful send: if the turn never left, executing it locally would desync us
-                // from peers who never saw it (the session is tearing down at that point anyway).
+                // them on the same latency delay as everyone else's. Only on a successful send: if
+                // the turn never left, executing it locally would desync us from peers who never saw
+                // it (the session is tearing down at that point anyway).
                 if let Some(local_storm) = self.storm_id_for_slot(self.local_slot)
                     && let Some(queue) = self.inbound_queues.get_mut(local_storm.0 as usize)
                 {
@@ -197,7 +197,7 @@ impl SeamState {
 
     /// Drains every inbound turn currently available from the driver into the per-slot queues,
     /// feeding each turn's [`BufferDirective`] to the latency tracker as it goes. Never blocks.
-    /// `next_frame` is the frame the game is about to simulate (guide §5.3 / D9).
+    /// `next_frame` is the frame the game is about to simulate.
     fn drain_inbound(&mut self, next_frame: u32) {
         while let Ok(payload) = self.channels.inbound.try_recv() {
             if let Some(directive) = &payload.buffer_directive {
@@ -221,9 +221,10 @@ impl SeamState {
     ///
     /// Returns `true` when a full turn is ready to dispatch (every required slot present), `false`
     /// to stall. On a stall **nothing is consumed**, so a later call re-checks once the missing
-    /// turns arrive — the caller returns 0 from `receive_storm_turns` to hold the sim (guide §3
-    /// "return value = the gate"). After a `true`, read [`dispatch_buffers`](Self::dispatch_buffers)
-    /// to fill `player_turns[]`, then call [`apply_due_directive`](Self::apply_due_directive).
+    /// turns arrive — the caller returns 0 from `receive_storm_turns` to hold the sim (that return
+    /// value is the all-players-present gate). After a `true`, read
+    /// [`dispatch_buffers`](Self::dispatch_buffers) to fill `player_turns[]`, then call
+    /// [`apply_due_directive`](Self::apply_due_directive).
     pub fn receive_turns(&mut self, next_frame: u32) -> bool {
         self.drain_inbound(next_frame);
         let ready = (0..bw::MAX_STORM_PLAYERS)
@@ -243,9 +244,9 @@ impl SeamState {
     }
 
     /// The command buffers to dispatch this step: `(storm id, command bytes)` for each ready slot.
-    /// Valid until the next [`receive_turns`](Self::receive_turns) (guide §5.4 #4). The IN hook
-    /// writes each entry's pointer/length into `player_turns[]`/`player_turns_size[]` and sets the
-    /// `0x10000 | 0x20000` present+ready flags on that slot.
+    /// Valid until the next [`receive_turns`](Self::receive_turns). The IN hook writes each entry's
+    /// pointer/length into `player_turns[]`/`player_turns_size[]` and sets the `0x10000 | 0x20000`
+    /// present+ready flags on that slot.
     pub fn dispatch_buffers(&self) -> impl Iterator<Item = (StormPlayerId, &[u8])> {
         self.current_dispatch
             .iter()
@@ -254,8 +255,8 @@ impl SeamState {
     }
 
     /// Marks a storm slot as departed: it no longer gates step readiness, and its queued and
-    /// in-dispatch bytes are dropped. Called from the synced leave pass when a peer leaves/drops
-    /// (guide §5.8) so the sim stops waiting on a slot that will never send another turn.
+    /// in-dispatch bytes are dropped. Called from the synced leave pass when a peer leaves/drops so
+    /// the sim stops waiting on a slot that will never send another turn.
     pub fn mark_slot_left(&mut self, storm_id: StormPlayerId) {
         let storm = storm_id.0 as usize;
         if let Some(req) = self.required.get_mut(storm) {
@@ -282,9 +283,8 @@ impl SeamState {
         }
     }
 
-    /// PIPE hook input: local turns in flight. Replaces the native
-    /// `get_outstanding_turn_count`, which goes degenerate once Storm's counters stop advancing
-    /// (guide §5.1 PIPE).
+    /// PIPE hook input: local turns in flight. Replaces the native `get_outstanding_turn_count`,
+    /// which goes degenerate once Storm's counters stop advancing.
     pub fn outstanding_turns(&self) -> u32 {
         self.turns_in_flight
     }
@@ -315,6 +315,7 @@ impl SeamState {
 #[cfg(test)]
 mod tests {
     use rally_point_client::TurnChannels;
+    use rally_point_client::proto::messages::BufferDirective;
     use tokio::sync::mpsc;
 
     use super::*;
