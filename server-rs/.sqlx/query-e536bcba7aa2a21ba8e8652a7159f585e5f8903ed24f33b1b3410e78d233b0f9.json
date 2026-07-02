@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT rf.id AS \"id!\", rf.hash AS \"hash!\"\n                FROM replay_files rf\n                JOIN games_users gu ON gu.replay_file_id = rf.id\n                WHERE gu.game_id = $1\n                ORDER BY (rf.header->>'frames')::int DESC NULLS LAST\n                LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "replay_files",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "hash!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "replay_files",
+            "name": "hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "e536bcba7aa2a21ba8e8652a7159f585e5f8903ed24f33b1b3410e78d233b0f9"
+}

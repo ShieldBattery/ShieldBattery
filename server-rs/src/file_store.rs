@@ -43,6 +43,29 @@ impl FileStore {
             FileStore::Spaces(store) => store.signed_url_with_expiry(filename, expires_in).await,
         }
     }
+
+    /// Returns a signed URL that, when fetched, downloads the file as an attachment with the given
+    /// `download_filename` (via `Content-Disposition`) rather than serving it inline under its
+    /// storage key.
+    pub async fn signed_url_with_disposition(
+        &self,
+        filename: &str,
+        download_filename: &str,
+        expires_in: Duration,
+    ) -> eyre::Result<String> {
+        match self {
+            FileStore::Local(store) => {
+                store
+                    .signed_url_with_disposition(filename, download_filename, expires_in)
+                    .await
+            }
+            FileStore::Spaces(store) => {
+                store
+                    .signed_url_with_disposition(filename, download_filename, expires_in)
+                    .await
+            }
+        }
+    }
 }
 
 trait FileStoreImpl {
@@ -51,6 +74,12 @@ trait FileStoreImpl {
     async fn signed_url_with_expiry(
         &self,
         filename: &str,
+        expires_in: Duration,
+    ) -> eyre::Result<String>;
+    async fn signed_url_with_disposition(
+        &self,
+        filename: &str,
+        download_filename: &str,
         expires_in: Duration,
     ) -> eyre::Result<String>;
 }
@@ -157,6 +186,16 @@ impl FileStoreImpl for LocalFileStore {
         filename: &str,
         _expires_in: Duration,
     ) -> eyre::Result<String> {
+        self.signed_url(filename).await
+    }
+
+    async fn signed_url_with_disposition(
+        &self,
+        filename: &str,
+        _download_filename: &str,
+        _expires_in: Duration,
+    ) -> eyre::Result<String> {
+        // The dev file store can't set response headers; the filename is only cosmetic here.
         self.signed_url(filename).await
     }
 }
@@ -271,6 +310,33 @@ impl FileStoreImpl for SpacesFileStore {
             .get_object()
             .bucket(&self.bucket)
             .key(&normalized)
+            .presigned(PresigningConfig::expires_in(expires_in)?)
+            .await?;
+
+        let url = req.uri();
+
+        if let Some(cdn_host) = &self.cdn_host {
+            let mut url = Url::parse(url).wrap_err("Invalid URL")?;
+            url.set_host(Some(cdn_host)).wrap_err("Invalid CDN host")?;
+            Ok(url.to_string())
+        } else {
+            Ok(url.to_owned())
+        }
+    }
+
+    async fn signed_url_with_disposition(
+        &self,
+        filename: &str,
+        download_filename: &str,
+        expires_in: Duration,
+    ) -> eyre::Result<String> {
+        let normalized = self.normalize_path(filename)?;
+        let req = self
+            .client
+            .get_object()
+            .bucket(&self.bucket)
+            .key(&normalized)
+            .response_content_disposition(format!("attachment; filename=\"{download_filename}\""))
             .presigned(PresigningConfig::expires_in(expires_in)?)
             .await?;
 

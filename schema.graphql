@@ -98,6 +98,155 @@ type GamePlayer {
 	user: SbUser
 }
 
+type GameReport {
+	id: UUID!
+	reason: GameReportReason!
+	details: String
+	createdAt: DateTime!
+	resolvedAt: DateTime
+	resolution: GameReportResolution
+	resolutionNotes: String
+	reporter: SbUser
+	reportedUser: SbUser
+	resolver: SbUser
+	"""
+	The reported game, so the admin UI can show context and link to it.
+	"""
+	game: Game
+	"""
+	The best (longest) replay for this game, if one was uploaded, as a signed download URL plus
+	the file id + hash the client needs to cache and watch it. Admin-only via the query guard,
+	so this deliberately skips the per-user replay ACLs the public game endpoint applies.
+	"""
+	replay: GameReportReplay
+	"""
+	Credibility context for the reporter: how their past reports have resolved. Derived stats,
+	not a stored score.
+	"""
+	reporterStats: GameReportUserStats!
+	"""
+	The mirror of `reporter_stats` for the reported user — surfaces reports filed *against* them
+	(also catches brigading, where several reporters pile onto one player).
+	"""
+	reportedUserStats: GameReportUserStats!
+}
+
+type GameReportConnection {
+	"""
+	Information to aid in pagination.
+	"""
+	pageInfo: PageInfo!
+	"""
+	A list of edges.
+	"""
+	edges: [GameReportEdge!]!
+	"""
+	A list of nodes.
+	"""
+	nodes: [GameReport!]!
+}
+
+"""
+An edge in a connection.
+"""
+type GameReportEdge {
+	"""
+	The item at the end of the edge
+	"""
+	node: GameReport!
+	"""
+	A cursor for use in pagination
+	"""
+	cursor: String!
+}
+
+input GameReportFilter {
+	"""
+	Include already-resolved reports. Defaults to false (unresolved queue only).
+	"""
+	includeResolved: Boolean
+	"""
+	Restrict to reports filed against this user (the "reports against" moderation view).
+	"""
+	reportedUserId: SbUserId
+}
+
+"""
+Why a player was reported. Stored in the `reason` TEXT column (not a PG enum) so the vocabulary
+stays a code-only change; the DB string form is defined by [`GameReportReason::to_db`].
+"""
+enum GameReportReason {
+	"""
+	Any mechanism of unfair advantage: hacks, third-party tools, or game/map exploit abuse.
+	"""
+	CHEATING
+	"""
+	Left the game mid-match (mostly relevant for allies in team games). Note this is distinct
+	from queue dodging, which is handled automatically by matchmaking bans.
+	"""
+	ABANDONING
+	"""
+	Stayed in the game but sabotaged it: feeding, intentional losing, AFK, refusing to play.
+	"""
+	GRIEFING
+	"""
+	Harassment, hate speech, or toxicity in game chat.
+	"""
+	ABUSIVE_CHAT
+	"""
+	Anything else; the details field is required for this reason.
+	"""
+	OTHER
+}
+
+type GameReportReplay {
+	replayFileId: UUID!
+	"""
+	Hex-encoded SHA-256 of the replay file; matches `GameReplayInfo.hash` on the client.
+	"""
+	hash: String!
+	"""
+	Signed URL for downloading the replay.
+	"""
+	url: String!
+}
+
+"""
+The outcome of resolving a report. `Dismissed` (unfounded / insufficient evidence) is kept
+distinct from `Abusive` (the report itself was bad-faith) so the two never get conflated in the
+reporter-credibility stats. Stored in the `resolution` TEXT column.
+"""
+enum GameReportResolution {
+	"""
+	The report was valid and action was taken.
+	"""
+	ACTIONED
+	"""
+	Unfounded or insufficient evidence.
+	"""
+	DISMISSED
+	"""
+	The report itself was bad-faith (false reporting, harassment-by-report).
+	"""
+	ABUSIVE
+	"""
+	A valid duplicate of another report for the same target/game.
+	"""
+	DUPLICATE
+}
+
+"""
+A count of how a user's reports (as reporter or as reported) have resolved.
+"""
+type GameReportUserStats {
+	total: Int!
+	actioned: Int!
+	dismissed: Int!
+	abusive: Int!
+	duplicate: Int!
+	pending: Int!
+}
+
 type GameRoute {
 	p1: Int!
 	p2: Int!
@@ -317,6 +466,16 @@ All of the matchmaking types that we support. These values match the enum values
 scalar MatchmakingType
 
 type Mutation {
+	"""
+	Files a report against another player from a game both users participated in. Any logged-in
+	user may call this (subject to the reporting restriction and the per-hour cap).
+	"""
+	reportGame(input: ReportGameInput!): GameReport!
+	"""
+	Resolves a report with an outcome (which feeds the credibility stats). Idempotency is
+	enforced: a report can only be resolved once.
+	"""
+	resolveGameReport(id: UUID!, resolution: GameReportResolution!, notes: String): GameReport!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	"""
 	Sets (or clears, if message is not provided) the urgent message at the top of the home page.
@@ -416,6 +575,11 @@ type PageInfo {
 }
 
 type Query {
+	"""
+	Lists game reports for moderation. Unresolved-only by default (newest first); pass
+	`includeResolved` to see everything, or `reportedUserId` to see reports against one player.
+	"""
+	gameReports(filter: GameReportFilter, after: String, before: String, first: Int, last: Int): GameReportConnection!
 	game(id: UUID!): Game
 	liveGames: [Game!]!
 	activeLeagues: [League!]!
@@ -457,6 +621,13 @@ enum ReconciledResult {
 	LOSS
 	DRAW
 	UNKNOWN
+}
+
+input ReportGameInput {
+	gameId: UUID!
+	reportedUserId: SbUserId!
+	reason: GameReportReason!
+	details: String
 }
 
 enum RestrictedNameKind {

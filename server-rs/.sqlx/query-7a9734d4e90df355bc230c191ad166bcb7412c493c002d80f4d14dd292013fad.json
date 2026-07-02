@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    COALESCE(bool_or(user_id = $2), false) AS \"reporter_played!\",\n                    COALESCE(bool_or(user_id = $3), false) AS \"reported_played!\"\n                FROM games_users\n                WHERE game_id = $1 AND user_id IN ($2, $3)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reporter_played!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "reported_played!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "7a9734d4e90df355bc230c191ad166bcb7412c493c002d80f4d14dd292013fad"
+}
