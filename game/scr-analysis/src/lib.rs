@@ -533,6 +533,18 @@ impl<'e> Analysis<'e> {
         self.0.apply_pending_player_leaves()
     }
 
+    /// Base of the per-slot pending-leave mailbox: an `int32[0xc]` indexed by storm player id
+    /// (stride 4 on both 32- and 64-bit). `0` = no pending leave; nonzero = a reason code awaiting
+    /// application (`0x40000006` = dropped, other nonzero = left). [`apply_pending_player_leaves`]
+    /// drains it (running the leave handler and clearing the slot back to `0`) once per applied
+    /// turn inside the synced-RNG window. To drop a peer, write the reason into the slot on a
+    /// server-agreed turn — the write must be identical across clients (it mutates game state in the
+    /// synced-RNG window, so divergence desyncs). This is the constant array-base address, not a
+    /// `Mem32[..]` deref. See guide §5.8.
+    pub fn pending_leave_reason(&mut self) -> Option<Operand<'e>> {
+        self.0.pending_leave_reason()
+    }
+
     /// Per-slot pointer to each slot's command bytes for the executable turn. We fill this from our
     /// own buffers in the receive seam. See guide §3.
     pub fn player_turns(&mut self) -> Option<Operand<'e>> {
