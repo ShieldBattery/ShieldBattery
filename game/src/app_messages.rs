@@ -431,8 +431,8 @@ pub struct RallyPointServer {
 /// panic message — prints a redaction marker instead of the secret.
 ///
 /// This is defense-in-depth for the netcode v2 credential handoff: the client's per-session Ed25519
-/// private key (D6) is handed to the DLL at launch and must stay inside trusted local process
-/// memory. `Deserialize` is derived so it drops straight in as a JSON string field.
+/// private key is handed to the DLL at launch and must stay inside trusted local process memory.
+/// `Deserialize` is derived so it drops straight in as a JSON string field.
 ///
 /// NOTE(security): this redacts the *log/format* leak vector only. The plaintext still lives in the
 /// `String` until dropped; true zeroization-on-drop is a follow-up (would need the `zeroize` crate).
@@ -476,10 +476,10 @@ pub struct NetcodeV2Relay {
     pub cert: String,
 }
 
-/// The netcode v2 launch handoff (WS-F → game DLL): everything one client needs to authorize a
-/// single game session against its home relay. The app generates the per-session Ed25519 keypair
-/// (D6), requests a coordinator-signed token embedding the public half, and forwards both here with
-/// the relay endpoints — see netcode-v2-build-plan.md §"launch handoff".
+/// The netcode v2 launch handoff (app → game DLL): everything one client needs to authorize a
+/// single game session against its home relay. The app generates the per-session Ed25519 keypair,
+/// requests a coordinator-signed token embedding the public half, and forwards both here with the
+/// relay endpoints.
 ///
 /// The token already carries session / slot / tenant / expiry, so those are not duplicated here;
 /// the DLL decodes the token (`SignedToken::decode`) rather than trusting separately-sent copies.
@@ -493,7 +493,7 @@ pub struct NetcodeV2Setup {
     pub client_private_key: Secret,
     /// The home relay this client dials.
     pub home_relay: NetcodeV2Relay,
-    /// Optional backup relay for failover (D11). Carried now so the descriptor shape is stable;
-    /// unused until the reconnect/resync mechanism lands.
+    /// Optional backup relay for failover. Carried now so the descriptor shape is stable; unused
+    /// until the reconnect/resync mechanism lands.
     pub backup_relay: Option<NetcodeV2Relay>,
 }

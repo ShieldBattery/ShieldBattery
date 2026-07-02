@@ -1,5 +1,15 @@
 # Netcode v2 (rally-point2) — game integration handoff
 
+> **Slice 3 landed (2026-07-02): the three BW hooks + session wiring are installed.** The
+> unsafe BW-thread seam is now wired end-to-end and builds/clippy-clean/unit-tests-green on i686,
+> but it is **inert in production** — the app doesn't send `netcodeV2Setup` yet (WS-F), so no session
+> is ever established and all three hooks pass through to the original native functions. See
+> **"Slice 3 — what landed"** below for exactly what's wired, the safe-by-default design, and the
+> two gaps that still block a *live* seam game (remote roster mapping + in-game pipe bootstrap).
+> **Decision (2026-07-02): seam symbol resolution is a hard launch error, not a native fallback** —
+> full cutover to rally-point2, all clients on one netcode, so a build that can't resolve the seam
+> must not run.
+
 Status as of 2026-07-01, branch `rp2-integration`. This picks up where the first integration slice
 (commit `bd6e86129`) left off. Read alongside `scr-netcode-replacement-guide.md` (the seam RE) and
 `netcode-v2-build-plan.md` (WS-A). rally-point2 is pinned as a git dependency; the client API you
@@ -59,6 +69,89 @@ returns 0 to stall. After `true`, iterate `dispatch_buffers()` → `(storm_id, &
 `player_turns[]`. **Local echo:** the relay fans out to peers only (never the sender), so
 `submit_local_turn` also queues our own turn into our slot — that's the sole path our commands reach
 the local sim, and it keeps them on the same latency delay as everyone else's (guide §5.4 #3).
+
+## Slice 3 — what landed (2026-07-02)
+
+All in `game/`, branch `rp2-integration`. Builds i686, `cargo clippy --all-targets` clean, unit
+tests green (seam engine 8 + credentials 6 + new command-strip 2).
+
+- **Session call site** (`game_state.rs::init_game`): consumes the stashed `netcode_v2_setup` and
+  `await`s `netcode_v2::establish_session` before the network is declared ready. On a dial error it
+  logs and falls back to native for the session (with no session, the hooks pass through).
+  `netcode_v2_setup` is `None` in production today → this whole block is skipped.
+- **Offset resolution is required** (`bw_scr.rs::resolve_netcode_v2`): all 10 seam symbols
+  (`send_turn_message`, `receive_storm_turns`, `flush_local_turns_to_latency_depth`,
+  `flush_outgoing_command_turn`, `apply_pending_player_leaves`, `player_turns`, `player_turns_size`,
+  `game_frame_count`, `pending_leave_reason`, plus the reused `net_player_flags`/`enable_rng`)
+  resolve at launch or launch fails naming the missing one — cut over rather than degrade. No runtime
+  plausibility gate: the samase analysis is reliable (it finds a symbol or it doesn't, which the
+  hard-fail catches), so the earlier plausibility/self-test gating was dropped as dead weight once
+  verified working in-game.
+- **Three hooks** (`bw_scr.rs`, installed together only because resolution is required): OUT
+  `send_turn_message` → `submit_local_turn` (control commands stripped first); IN full-replace
+  `receive_storm_turns` (fills the three arrays, runs the synced leave pass after releasing the seam
+  lock, `mark_local_turn_executed` once per step); PIPE full-replace
+  `flush_local_turns_to_latency_depth` off the seam's `latency_turns`/`outstanding_turns`. **Each
+  hook is gated `has_game_started() && with_seam(..).is_some()`; otherwise it calls `orig`** — so
+  lobby stays native and a no-session game is byte-for-byte the legacy path. OUT arg order
+  (`buffer_ptr`, `len`) reconfirmed against the 12409 LLIL call site (`0x74e2b0`).
+- **Local slot mapping** (`game_state.rs::update_bw_slots`): maps our own rp2 slot (from the token)
+  → our storm id via `SeamState::map_local_storm` when our storm id solidifies.
+- **Control-command suppression** (`bw::commands::strip_control_commands`): the OUT hook strips
+  `0x55`/`0x5f`/`0x66` before submitting so they can't rewrite the pinned globals.
+- **Synced leave pass** (`BwScr::run_seam_leave_pass`): reproduces `set_rng_enable(1)` →
+  `apply_pending_player_leaves` → restore, and reports drained slots to `mark_slot_left`.
+
+**Two gaps still block a *live* seam game (both already-open items, deferred by design):**
+1. **Remote slot↔storm mapping.** `NetcodeV2Setup` carries only *our* token/slot; there's no per-peer
+   rp2 slot, so only the local slot is mapped. Peer turns arrive tagged with unmapped slots and are
+   dropped → a real multi-client seam game can't route peer turns until the authoritative rp2 roster
+   source lands (scope C). The local echo round-trip (self-test) does work.
+2. **In-game pipe bootstrap.** With the lobby gated native, the seam's pipe is empty at the
+   lobby→game transition; the first in-game receive stalls → `network_ready = 0` → PIPE flush skipped
+   → deadlock. Native pre-seeds via the lobby's unconditional flush. Whoever activates the seam
+   in-game must seed `latency_turns` turns at the transition (or run PIPE once independent of
+   `network_ready`). Only reachable with an active session, so deferred to activation. (Documented in
+   a `NOTE(netcode-v2 bootstrap)` at the IN hook.)
+
+## Activating the seam end-to-end — the overview (2026-07-02)
+
+The DLL seam is done; the seam stays inert until a `netcodeV2Setup` message arrives, which needs the
+control plane wired. Rough shape of what's left (not a detailed plan):
+
+**rally-point2 services — mostly *run*, not *build*.** The coordinator already exposes
+`POST /session/create` (app server → `{tenant, players:[{slot, client_pubkey}]}` → `{session,
+home_relay, tokens:[{slot, …}], backup}`) and `GET /relay/control` (relay enrolls); the relay
+exists. For a dev/loopback test it's a matter of *running* a local coordinator + relay (D5's local
+loopback), enrolling the SB server as a tenant, and pointing the SB server at it. Production adds the
+already-tracked hardening (relay-identity binding / mTLS, app-server auth on `/session/create`,
+Fargate/coordinator deployment) — build-plan §WS-C/D/G, not this repo.
+
+**SB server — WS-E (new code, `server/`).** Become a coordinator tenant. At game setup, collect each
+player's per-session client pubkey (from the app, see WS-F), `POST /session/create`, and hand each
+client its own `PlayerToken` + relay endpoints (+ the **full slot roster** from `tokens[]`). Parallels
+today's `rally-point-service.ts` / `rally-point-api.ts`, which mint v1 routes — this mints a session
+instead. The session response's `tokens: Vec<PlayerToken>` (each with its `slot`) **is** the
+authoritative roster that closes the DLL's remote slot↔storm gap.
+
+**Electron app — WS-F (new code, `app/`).** Generate the per-session Ed25519 keypair, send the pubkey
+up so the server can request the token (ordering: keypair → pubkey to server → server calls
+coordinator → token back), then forward `{token, client_private_key, home_relay, backup_relay}` to the
+game DLL as `netcodeV2Setup` over the app socket. Parallels the existing route handoff in
+`active-game-manager.ts` / `rally-point-manager.ts`.
+
+**Wire-type addition.** `NetcodeV2Setup` (`game/src/app_messages.rs`) currently carries only our own
+token + key + relays. To close the remote-mapping gap it also needs the **slot roster** (each peer's
+rp2 slot ↔ SB user/player), so `update_bw_slots` can map every peer's slot to its storm id, not just
+our own. Add it to the message + the app sender + `SeamState::map_slot` wiring.
+
+**Two DLL gaps to finish at activation** (see the code `NOTE`s and "Slice 3" gaps above): remote
+slot mapping (unblocked by the roster above) and in-game pipe bootstrap-seeding at the lobby→game
+transition.
+
+Smallest path to a *live* seam test: run a local loopback coordinator+relay → minimal WS-E + WS-F →
+`NetcodeV2Setup` roster field + remote `map_slot` → bootstrap seeding. Until then the DLL seam is
+installed, inert, and regression-verified on the native path.
 
 ## What's next (in rough order)
 
