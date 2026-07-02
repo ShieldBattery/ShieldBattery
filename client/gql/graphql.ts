@@ -61,6 +61,7 @@ export type SbPermissionsInput = {
    */
   id: Types.SbUserId
   manageBugReports: boolean
+  manageGameReports: boolean
   manageLeagues: boolean
   manageMapPools: boolean
   manageMaps: boolean
@@ -499,6 +500,7 @@ export type AdminUserProfileQuery = {
           moderateChatChannels: boolean
           manageNews: boolean
           manageBugReports: boolean
+          manageGameReports: boolean
           manageRestrictedNames: boolean
           manageSignupCodes: boolean
         }
@@ -524,6 +526,7 @@ export type AdminUserProfile_PermissionsFragment = {
     moderateChatChannels: boolean
     manageNews: boolean
     manageBugReports: boolean
+    manageGameReports: boolean
     manageRestrictedNames: boolean
     manageSignupCodes: boolean
   }
@@ -1254,6 +1257,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageGameReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
               ],
@@ -2948,6 +2952,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageGameReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
               ],
@@ -3043,6 +3048,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageBugReports' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageGameReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
               ],

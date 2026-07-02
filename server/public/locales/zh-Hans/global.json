@@ -73,6 +73,9 @@
     "restriction": {
       "chat": {
         "notification": "<0>你的账户因以下原因被限制发送聊天消息：</0><1>{{reasonLabel}}</1><2>该限制将于以下时间结束：</2><3>{{endText}}</3>"
+      },
+      "reporting": {
+        "notification": "<0>你的账户因以下原因被限制举报玩家：</0><1>{{reasonLabel}}</1><2>该限制将于以下时间结束：</2><3>{{endText}}</3>"
       }
     },
     "signup": {

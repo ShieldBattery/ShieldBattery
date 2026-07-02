@@ -73,6 +73,9 @@
     "restriction": {
       "chat": {
         "notification": "<0>Tu cuenta ha sido restringida para enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
+      },
+      "reporting": {
+        "notification": "<0>Tu cuenta ha sido restringida para reportar jugadores por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
       }
     },
     "signup": {

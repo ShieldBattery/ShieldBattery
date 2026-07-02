@@ -73,6 +73,9 @@
     "restriction": {
       "chat": {
         "notification": "<0>채팅 메시지 전송이 다음 사유로 제한되었습니다:</0><1>{{reasonLabel}}</1><2>제한은 다음 날짜에 해제됩니다:</2><3>{{endText}}</3>"
+      },
+      "reporting": {
+        "notification": "<0>플레이어 신고가 다음 사유로 제한되었습니다:</0><1>{{reasonLabel}}</1><2>제한은 다음 날짜에 해제됩니다:</2><3>{{endText}}</3>"
       }
     },
     "signup": {

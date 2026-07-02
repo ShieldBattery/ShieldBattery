@@ -72,6 +72,7 @@ const PermissionsFragment = graphql(/* GraphQL */ `
       moderateChatChannels
       manageNews
       manageBugReports
+      manageGameReports
       manageRestrictedNames
       manageSignupCodes
     }
@@ -243,6 +244,12 @@ function PermissionsEditor({
           <CheckBox
             {...bindCheckable('manageBugReports')}
             label='Manage bug reports'
+            inputProps={inputProps}
+            disabled={fetching}
+          />
+          <CheckBox
+            {...bindCheckable('manageGameReports')}
+            label='Manage game reports'
             inputProps={inputProps}
             disabled={fetching}
           />

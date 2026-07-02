@@ -2,6 +2,7 @@ import { TFunction } from 'i18next'
 
 export enum RestrictionKind {
   Chat = 'chat',
+  Reporting = 'reporting',
 }
 
 export const ALL_RESTRICTION_KINDS: ReadonlyArray<RestrictionKind> = Object.values(RestrictionKind)
