@@ -17,8 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameResultsReport,
-    GameSetupInfo, LobbyPlayerId, MapForce, MapInfo, NetworkStallInfo, PlayerInfo, Route, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    GameSetupInfo, LobbyPlayerId, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, PlayerInfo,
+    Route, SbUser, SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -50,6 +50,12 @@ pub struct GameState {
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
     can_start_game: AwaitableTaskState,
+    /// Netcode v2 credentials + relay endpoints, if the app sent them (`netcodeV2Setup`). Stashed
+    /// here for the rally-point2 seam to consume during network init. `None` on the legacy
+    /// (rally-point v1 / Storm) path, which is unaffected by its presence or absence.
+    // TODO(netcode-v2): thread this into NetworkManager so the seam builds an `Identity` +
+    // `ClientEndpoint` from it (see `netcode_v2::credentials`) and dials the home relay.
+    netcode_v2_setup: Option<Box<NetcodeV2Setup>>,
 }
 
 enum AwaitableTaskState<T = ()> {
@@ -100,6 +106,9 @@ impl IncompleteInit {
 pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
+    /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app (WS-F).
+    /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
+    SetNetcodeV2Setup(Box<NetcodeV2Setup>),
     SetLocalUser(SbUser),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
@@ -568,6 +577,12 @@ impl GameState {
             }
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
+            }
+            SetNetcodeV2Setup(setup) => {
+                // SECURITY: `setup` holds the per-session private key; never log its contents.
+                // `NetcodeV2Setup`'s `Debug` redacts the key, but don't `{:?}` it here regardless.
+                debug!("Received netcode v2 setup for the home relay");
+                self.netcode_v2_setup = Some(setup);
             }
             SetServerConfig(config) => {
                 self.set_server_config(config);
@@ -1683,6 +1698,7 @@ pub async fn create_future(
         running_game: None,
         async_stop,
         can_start_game: AwaitableTaskState::Incomplete(Vec::new()),
+        netcode_v2_setup: None,
     };
     loop {
         let message = select! {

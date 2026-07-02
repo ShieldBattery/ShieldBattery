@@ -425,3 +425,75 @@ pub struct RallyPointServer {
     pub description: String,
     pub id: u32,
 }
+
+/// A string whose contents must never appear in logs or error output. Wraps a value (e.g. a
+/// base64-encoded private key) so an accidental `{:?}` — via `debug!`, an error `context`, or a
+/// panic message — prints a redaction marker instead of the secret.
+///
+/// This is defense-in-depth for the netcode v2 credential handoff: the client's per-session Ed25519
+/// private key (D6) is handed to the DLL at launch and must stay inside trusted local process
+/// memory. `Deserialize` is derived so it drops straight in as a JSON string field.
+///
+/// NOTE(security): this redacts the *log/format* leak vector only. The plaintext still lives in the
+/// `String` until dropped; true zeroization-on-drop is a follow-up (would need the `zeroize` crate).
+#[derive(Clone, Deserialize)]
+#[serde(transparent)]
+pub struct Secret(String);
+
+impl Secret {
+    /// Borrows the secret. Callers must not log or format the returned value.
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+
+    /// Test-only constructor (the real path is `Deserialize` from the app's JSON).
+    #[cfg(test)]
+    pub fn from_base64_for_test(value: &str) -> Self {
+        Secret(value.to_owned())
+    }
+}
+
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Secret(<redacted>)")
+    }
+}
+
+/// One relay's reachable endpoint plus the TLS material to trust it. Direct dual-stack IPs (D3)
+/// rule out a public CA, so the relay's leaf cert is pinned: the coordinator hands it to the app in
+/// the session descriptor, the app forwards it here, and it seeds the client's trust roots
+/// (architecture.md, "Client → relay trust").
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetcodeV2Relay {
+    pub address4: Option<String>,
+    pub address6: Option<String>,
+    pub port: u16,
+    /// TLS server name checked against the certificate the relay presents.
+    pub server_name: String,
+    /// base64 (standard, padded) of the relay's leaf certificate in DER form, pinned into the
+    /// client's `RootCertStore`.
+    pub cert: String,
+}
+
+/// The netcode v2 launch handoff (WS-F → game DLL): everything one client needs to authorize a
+/// single game session against its home relay. The app generates the per-session Ed25519 keypair
+/// (D6), requests a coordinator-signed token embedding the public half, and forwards both here with
+/// the relay endpoints — see netcode-v2-build-plan.md §"launch handoff".
+///
+/// The token already carries session / slot / tenant / expiry, so those are not duplicated here;
+/// the DLL decodes the token (`SignedToken::decode`) rather than trusting separately-sent copies.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetcodeV2Setup {
+    /// base64 (standard, padded) of the coordinator-signed `SignedToken` (`SignedToken::encode()`).
+    pub token: String,
+    /// base64 (standard, padded) of the PKCS#8 v2 Ed25519 private key the app generated for this
+    /// session. Redacted from all logging via [`Secret`].
+    pub client_private_key: Secret,
+    /// The home relay this client dials.
+    pub home_relay: NetcodeV2Relay,
+    /// Optional backup relay for failover (D11). Carried now so the descriptor shape is stable;
+    /// unused until the reconnect/resync mechanism lands.
+    pub backup_relay: Option<NetcodeV2Relay>,
+}
