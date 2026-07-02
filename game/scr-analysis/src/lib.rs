@@ -483,6 +483,85 @@ impl<'e> Analysis<'e> {
         self.0.net_user_latency()
     }
 
+    // --- Netcode v2 turn/command seam (see scr-netcode-replacement-guide.md §5.1). ---
+    // These expose the turn-send / turn-receive / latency-pipe surface so the rally-point2
+    // QUIC transport can be interposed above Storm. samase_scarf resolves each of these; they
+    // were simply not surfaced through this wrapper before.
+
+    /// OUT hook: `send_turn_message` hands us the fully-assembled local turn (keep-alive + sync
+    /// already baked in) just before it crosses into Storm. See guide §5.1 (OUT).
+    pub fn send_turn_message(&mut self) -> Option<VirtualAddress> {
+        self.0.send_turn_message()
+    }
+
+    /// IN hook (wrapper level): `receive_storm_turns` fills `player_turns[]` / `player_turns_size[]`
+    /// / `net_player_flags[]` and runs the synced player-leave pass. Replacing this wholesale (not
+    /// calling orig) is the receive seam. See guide §5.1 (IN).
+    pub fn receive_storm_turns(&mut self) -> Option<VirtualAddress> {
+        self.0.receive_storm_turns()
+    }
+
+    /// The obfuscated inner routine `receive_storm_turns` calls to do the array fill/readiness work.
+    /// Exposed for plausibility-checking the resolved wrapper; the seam replaces the wrapper, not
+    /// this. See guide §5.1 (IN) / §5.5 (anti-tamper).
+    pub fn storm_receive_turns(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_receive_turns()
+    }
+
+    /// PIPE hook: `get_outstanding_turn_count` returns `sent_seq - executed_seq`. Bypassing Storm
+    /// makes it return a degenerate 0 (unbounded flush), so it must be replaced. See guide §5.1
+    /// (PIPE).
+    pub fn get_outstanding_turn_count(&mut self) -> Option<VirtualAddress> {
+        self.0.get_outstanding_turn_count()
+    }
+
+    /// The native latency pipe loop. Replacing this outright is the preferred PIPE strategy (avoids
+    /// the degenerate-0 trap in `get_outstanding_turn_count`). See guide §5.1 (PIPE) / §5.2.
+    pub fn flush_local_turns_to_latency_depth(&mut self) -> Option<VirtualAddress> {
+        self.0.flush_local_turns_to_latency_depth()
+    }
+
+    /// One turn's flush (keep-alive seed + `send_turn_message` + sync append). Exposed for
+    /// plausibility-checking / self-test. See guide §2.
+    pub fn flush_outgoing_command_turn(&mut self) -> Option<VirtualAddress> {
+        self.0.flush_outgoing_command_turn()
+    }
+
+    /// The synced player-leave pass our `receive_storm_turns` replacement must reproduce inside the
+    /// `set_rng_enable(1)` window. See guide §5.8.
+    pub fn apply_pending_player_leaves(&mut self) -> Option<VirtualAddress> {
+        self.0.apply_pending_player_leaves()
+    }
+
+    /// Per-slot pointer to each slot's command bytes for the executable turn. We fill this from our
+    /// own buffers in the receive seam. See guide §3.
+    pub fn player_turns(&mut self) -> Option<Operand<'e>> {
+        self.0.player_turns()
+    }
+
+    /// Per-slot command byte length, parallel to [`player_turns`](Self::player_turns).
+    pub fn player_turns_size(&mut self) -> Option<Operand<'e>> {
+        self.0.player_turns_size()
+    }
+
+    /// Whether `net_user_latency` + the sync checksum apply. Read by the native latency pipe. See
+    /// guide §4.
+    pub fn sync_active(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_active()
+    }
+
+    /// Built-in/proto turn latency (the pipe-depth floor, natively 2). We may override it. See
+    /// guide §4 / §5.3.
+    pub fn builtin_turn_latency(&mut self) -> Option<Operand<'e>> {
+        self.0.builtin_turn_latency()
+    }
+
+    /// Global executable-turn index (`step_network` increments once per executed turn; 1 turn =
+    /// 1 frame). Used as the consensus coordinate stamped onto in-game turns. See guide §2 / §5.1.
+    pub fn game_frame_count(&mut self) -> Option<Operand<'e>> {
+        self.0.game_frame_count()
+    }
+
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
         self.0.net_format_turn_rate()
     }

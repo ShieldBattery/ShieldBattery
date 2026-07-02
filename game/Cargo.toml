@@ -21,6 +21,9 @@ lto = true
 [dependencies]
 arrayvec = "0.7"
 atomic_enum = "0.3"
+# Decodes the base64-wrapped rally-point2 credentials (token / client key / relay cert) handed
+# over at launch. Already in the tree transitively; pinned here as a direct dep.
+base64 = "0.22"
 bytemuck = { version = "1.23", features = ["derive"] }
 byteorder = "1.3"
 bytes = "1.10"
@@ -119,6 +122,16 @@ rev = "2d1adbae09d75bdaa2af65b0af12760740cd3d2b"
 git = "https://github.com/neivv/aise.git"
 rev = "257f4dc1dbff1719f80c96db81fe026e1144b680"
 features = ["scr-only"]
+
+# Netcode v2 client transport (QUIC via rally-point2). Pinned to a SHA per the Phase-0 cross-repo
+# decision (netcode-v2-build-plan.md §0): no crates.io publish for a single internal consumer, and
+# the pin is bumped only at integration. The crate is `unsafe`-free and CI-built for
+# `i686-pc-windows-msvc`. We consume its re-exported quinn/rustls/proto rather than depending on
+# those directly, so the game DLL and the transport can never drift on quinn/rustls/ALPN versions
+# (version skew is rejected at the TLS handshake by design).
+[dependencies.rally-point-client]
+git = "https://github.com/ShieldBattery/rally-point2.git"
+rev = "e8916614e0b8f6749113f92cd1f55815228350b9"
 
 [build-dependencies]
 anyhow = "1.0"

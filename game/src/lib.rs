@@ -55,6 +55,7 @@ mod forge;
 mod game_state;
 mod game_thread;
 mod netcode;
+mod netcode_v2;
 mod network_manager;
 mod proto;
 mod rally_point;

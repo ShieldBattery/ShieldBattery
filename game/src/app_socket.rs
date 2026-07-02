@@ -153,7 +153,14 @@ enum MessageResult {
 fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError> {
     let message: Message = serde_json::from_str(&text).context(("Invalid message", &*text))?;
     let payload = message.payload.unwrap_or(serde_json::Value::Null);
-    debug!("Received message: '{}':\n'{}'", message.command, payload);
+    // SECURITY: `netcodeV2Setup` carries the client's per-session private key. Never log its
+    // payload (and never fold it into the `context(&*text)` error strings below either — those
+    // messages take the parsed sub-value, not the raw text, for this command).
+    if message.command == "netcodeV2Setup" {
+        debug!("Received message: '{}' (payload redacted)", message.command);
+    } else {
+        debug!("Received message: '{}':\n'{}'", message.command, payload);
+    }
     match &*message.command {
         "settings" => {
             let settings = serde_json::from_value(payload).context(("Invalid settings", &*text))?;
@@ -180,6 +187,16 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
         "routes" => {
             let routes = serde_json::from_value(payload).context(("Invalid routes", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))
+        }
+        "netcodeV2Setup" => {
+            // SECURITY: pass an empty input string to `context`, not `&*text` — the raw text holds
+            // the private key and must not reach an error message or log line.
+            let setup = serde_json::from_value(payload)
+                .context(("Invalid netcode v2 setup", ""))
+                .map(Box::new)?;
+            Ok(MessageResult::Game(GameStateMessage::SetNetcodeV2Setup(
+                setup,
+            )))
         }
         "setupGame" => {
             let setup = serde_json::from_value(payload).context(("Invalid game setup", &*text))?;
