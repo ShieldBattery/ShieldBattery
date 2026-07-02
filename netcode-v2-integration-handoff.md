@@ -30,11 +30,23 @@ consume is documented in `../rally-point2/docs/architecture.md` and its `client/
 | App-socket parse | `game/src/app_socket.rs` (`netcodeV2Setup`) | ✅ payload redacted from logs + error ctx |
 | GameState plumbing | `game/src/game_state.rs` (`SetNetcodeV2Setup`, `netcode_v2_setup`) | ✅ non-gating stash |
 | Identity + TLS trust | `game/src/netcode_v2/credentials.rs` | ✅ pinned-cert, fail-closed, unit-tested |
-| Seam state scaffold | `game/src/netcode_v2/mod.rs` (`SeamState`) | ✅ types + handoff + directive tracking; hook bodies TODO |
+| Seam turn engine | `game/src/netcode_v2/mod.rs` (`SeamState`) | ✅ per-slot assembly, owned dispatch buffers, local echo, readiness gate, directive/pipe tracking; unit-tested |
+| Async dial + handoff | `game/src/netcode_v2/session.rs` (`establish_session`, `with_seam`) | ✅ creds→bind→dial-in-order (home, then backup)→spawn `LinkDriver`→store `SeamState` in a recurse-checked global |
 
-**Nothing is hooked yet** — the live netcode path is unchanged. `SeamState` and the credential
-builder are not yet called by anything (hence the module-level `#![allow(dead_code)]`, to be removed
-when the hooks land).
+**Nothing is hooked yet** — the live netcode path is unchanged. `establish_session` is not called
+from the init flow, and the three BW hooks that would drive `SeamState`/`with_seam` aren't installed
+(hence the module-level `#![allow(dead_code)]`, to be removed when the hooks land). The engine and
+async side are done and tested; what remains is the unsafe BW-thread wiring, which needs a live game
+to self-test — see steps 2–4.
+
+**The seam turn engine (`SeamState`) — what the IN hook calls.** `receive_turns(next_frame)` drains
+the inbound channel into per-slot FIFOs, and returns `true` only when every *required* slot (each
+mapped slot; a synced leave clears one via `mark_slot_left`) has a turn queued — popping exactly one
+turn per slot into owned `Bytes` dispatch buffers. On `false`, nothing is consumed and the IN hook
+returns 0 to stall. After `true`, iterate `dispatch_buffers()` → `(storm_id, &[u8])` to fill
+`player_turns[]`. **Local echo:** the relay fans out to peers only (never the sender), so
+`submit_local_turn` also queues our own turn into our slot — that's the sole path our commands reach
+the local sim, and it keeps them on the same latency delay as everyone else's (guide §5.4 #3).
 
 ## What's next (in rough order)
 
@@ -46,45 +58,43 @@ embedding the public half, and forwards token + key + relay endpoints over the a
 `netcodeV2Setup` message (camelCase fields matching `app_messages.rs::NetcodeV2Setup`). Follow the
 existing `setRoutes` flow in `app/game/game-server.ts` / `active-game-manager.ts` as the template.
 
-### 1. Async setup: dial the relay, spawn the driver
-On the DLL's existing Tokio runtime (see `lib.rs::async_thread` / `ASYNC_RUNTIME`), when a
-`NetcodeV2Setup` is present:
-```rust
-let creds = netcode_v2::SessionCredentials::from_setup(&setup)?;   // pure, done
-let endpoint = netcode_v2::bind_endpoint(creds.roots)?;            // needs the runtime, done
-// `creds.home.addrs` is v6-first, v4 after; family availability is a dial-time question,
-// so try each in order and use the first that connects (same idea as v1's family racing).
-let link = try_addrs_in_order(&endpoint, &creds.home.addrs, &creds.home.server_name, &creds.identity).await?;
-let (driver, channels) = rally_point_client::LinkDriver::new(link);
-tokio::spawn(driver.run());                                        // Tokio half of the seam
-// hand `channels` + local_slot + initial latency to SeamState::new, store where the BW hooks reach it.
-```
-`endpoint`/`ClientEndpoint` must stay alive for the session (it owns the UDP socket). Decide where
-`SeamState` lives so the BW-thread hooks can reach it (a `Mutex`/`RecurseCheckedMutex` global in
-`bw_scr.rs`, like the other hook state). `driver.run()`'s `Err` return = link failure = treat as the
-player dropping (no reconnect yet — D11).
+### 1. ✅ Async setup: dial the relay, spawn the driver — DONE (`netcode_v2/session.rs`)
+`establish_session(&NetcodeV2Setup)` runs on the DLL's Tokio runtime and does the full sequence:
+build credentials, `bind_endpoint`, dial the home relay trying each address in order (v6 then v4)
+and falling back to the backup relay, `LinkDriver::new` + `tokio::spawn(driver.run())`, then store a
+`SeamState` in a recurse-checked global. The `ClientEndpoint` is kept alive for the session inside
+`NetcodeV2Session` (it owns the UDP socket). `driver.run()`'s `Err` = link failure = player dropping;
+logged, no reconnect yet (D11). **The remaining wiring for this step is the call site:** consume the
+stashed `GameState.netcode_v2_setup` during init (before `network_ready_future` completes) and
+`await establish_session`; on `Err`, fall back to the legacy path for the session (don't fail the
+game). The BW hooks reach the seam via `netcode_v2::with_seam(|seam| …)`.
 
-### 2. Install the three hooks (`bw_scr.rs`)
-Resolve the addresses from the newly-exposed `scr_analysis::Analysis` getters, declare hooks in the
-`hooks` module (`whack_hooks!`), install like the existing `StepNetwork`/`StepIo` examples. Bodies:
+### 2. Install the three hooks (`bw_scr.rs`) — the unverified part; gate it
+Resolve the addresses from the `scr_analysis::Analysis` getters, declare hooks in the `hooks` module
+(`whack_hooks!`), install like the existing `StepNetwork`/`StepIo` examples. **Gate activation on the
+startup self-test + offset plausibility (step 4): if either fails, don't install/activate the seam
+hooks and run native networking for the session** (guide §5.5/§6). All three hook bodies reach the
+seam through `with_seam(|seam| …)`, which returns `None` (→ fall back to native behavior) when there
+is no session or on a re-entrant call. Bodies:
 
 - **OUT — `send_turn_message`.** Hand the assembled `(buffer_ptr, len)` to
-  `SeamState::submit_local_turn(commands, frame)`. `frame = Some(game_frame_count)` in-game, `None`
-  in lobby. (For lobby turns the client crate must divert them to the reliable control stream — see
-  §4 below; today `submit_local_turn` only pushes the datagram `outbound` channel.)
-- **IN — full-replace `receive_storm_turns`.** Do **not** call orig. Loop `SeamState::try_recv_turn()`,
-  feed each `payload.buffer_directive` to `observe_directive(_, next_frame)`, map `payload.slot →
-  storm id`, write `player_turns[storm]` / `player_turns_size[storm]` / `net_player_flags[storm] |=
-  0x10000|0x20000`. **Own the command buffers in `SeamState`** (they must outlive the whole
-  `step_network` dispatch — guide §5.4 #4; don't point at freed channel memory). Then
-  `apply_due_directive(next_frame)`, run `set_rng_enable(1) → apply_pending_player_leaves →
-  set_rng_enable(orig)`, and return readiness (all required slots present ? 1 : 0). When a network
-  step executes, call `mark_local_turn_executed()` **exactly once for the step** — one *local* turn
-  leaves the pipe per step, NOT one per per-slot payload you dispatched (per-slot calls would peg
-  `outstanding_turns()` at 0 and make the PIPE loop flush unboundedly; see the method docs).
-- **PIPE — replace `flush_local_turns_to_latency_depth`.** Loop `while outstanding_turns() <
-  latency_turns() { flush one turn }` using `SeamState`, not the native
-  `builtin_turn_latency + net_user_latency`.
+  `with_seam(|s| s.submit_local_turn(commands, frame))`. `frame = Some(game_frame_count)` in-game,
+  `None` in lobby. (Lobby turns still need the reliable control stream — §4; today
+  `submit_local_turn` only pushes the datagram `outbound` channel.)
+- **IN — full-replace `receive_storm_turns`.** Do **not** call orig. In one `with_seam` call:
+  `if s.receive_turns(next_frame)` then iterate `s.dispatch_buffers()` → `(storm_id, &[u8])`, writing
+  `player_turns[storm]` / `player_turns_size[storm]` / `net_player_flags[storm] |= 0x10000|0x20000`;
+  also `s.apply_due_directive(next_frame)` and `s.mark_local_turn_executed()` **once for the step**.
+  Return that bool as readiness (1 = dispatch, 0 = stall). The dispatched `Bytes` are owned by the
+  seam and valid until the next `receive_turns` (guide §5.4 #4). **Then, after the `with_seam` closure
+  returns (lock released),** run the synced leave pass `set_rng_enable(1) →
+  apply_pending_player_leaves → set_rng_enable(orig)` — release first because the leave pass can issue
+  commands that re-enter the OUT hook, which would re-lock the seam. On a detected leave, a separate
+  short `with_seam(|s| s.mark_slot_left(storm))` drops that slot from the readiness set.
+- **PIPE — replace `flush_local_turns_to_latency_depth`.** Loop `while
+  with_seam(|s| s.outstanding_turns()) < with_seam(|s| s.latency_turns()) { flush one turn }` — i.e.
+  drive the flush off the seam's counters, not the native `builtin_turn_latency + net_user_latency`
+  (coalesce into a single `with_seam` read per iteration in practice).
 
 ### 3. slot ↔ storm-id mapping
 Native join assigns storm ids in join order, so the map is learned during lobby init. Populate
