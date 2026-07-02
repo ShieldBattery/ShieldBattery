@@ -1,7 +1,8 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use async_graphql::connection::{Connection, Edge, query};
-use async_graphql::dataloader::DataLoader;
+use async_graphql::dataloader::{DataLoader, Loader};
 use async_graphql::{
     ComplexObject, Context, InputObject, Object, Result, SchemaBuilder, SimpleObject,
 };
@@ -38,7 +39,12 @@ impl GameReportsModule {
 
 impl SchemaBuilderModule for GameReportsModule {
     fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
-        builder.data(GameReportsRepo::new(self.db_pool.clone()))
+        builder
+            .data(GameReportsRepo::new(self.db_pool.clone()))
+            .data(DataLoader::new(
+                GameReportStatsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
     }
 }
 
@@ -197,24 +203,29 @@ impl GameReport {
 
     /// Credibility context for the reporter: how their past reports have resolved. Derived stats,
     /// not a stored score. Guarded directly (see `replay`) so it isn't reachable off the
-    /// unguarded `report_game` mutation response.
+    /// unguarded `report_game` mutation response. Batched via a DataLoader so a list of reports
+    /// doesn't fan out one query per row.
     #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn reporter_stats(&self, ctx: &Context<'_>) -> Result<GameReportUserStats> {
-        Ok(ctx
-            .data::<GameReportsRepo>()?
-            .load_reporter_stats(self.reporter_id)
-            .await?)
+        let stats = ctx
+            .data::<DataLoader<GameReportStatsLoader>>()?
+            .load_one(self.reporter_id)
+            .await?
+            .unwrap_or_default();
+        Ok(stats.as_reporter)
     }
 
     /// The mirror of `reporter_stats` for the reported user — surfaces reports filed *against* them
     /// (also catches brigading, where several reporters pile onto one player). Guarded directly
-    /// (see `replay`).
+    /// (see `replay`), batched via the same DataLoader.
     #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn reported_user_stats(&self, ctx: &Context<'_>) -> Result<GameReportUserStats> {
-        Ok(ctx
-            .data::<GameReportsRepo>()?
-            .load_reported_user_stats(self.reported_user_id)
-            .await?)
+        let stats = ctx
+            .data::<DataLoader<GameReportStatsLoader>>()?
+            .load_one(self.reported_user_id)
+            .await?
+            .unwrap_or_default();
+        Ok(stats.as_reported)
     }
 }
 
@@ -228,7 +239,7 @@ pub struct GameReportReplay {
 }
 
 /// A count of how a user's reports (as reporter or as reported) have resolved.
-#[derive(SimpleObject)]
+#[derive(SimpleObject, Clone, Default)]
 pub struct GameReportUserStats {
     pub total: i64,
     pub actioned: i64,
@@ -618,65 +629,6 @@ impl GameReportsRepo {
         Ok(row.map(|r| (r.id, r.hash)))
     }
 
-    async fn load_reporter_stats(&self, user_id: SbUserId) -> eyre::Result<GameReportUserStats> {
-        let row = sqlx::query!(
-            r#"
-                SELECT
-                    COUNT(*) AS "total!",
-                    COUNT(*) FILTER (WHERE resolution = 'actioned') AS "actioned!",
-                    COUNT(*) FILTER (WHERE resolution = 'dismissed') AS "dismissed!",
-                    COUNT(*) FILTER (WHERE resolution = 'abusive') AS "abusive!",
-                    COUNT(*) FILTER (WHERE resolution = 'duplicate') AS "duplicate!",
-                    COUNT(*) FILTER (WHERE resolved_at IS NULL) AS "pending!"
-                FROM game_reports
-                WHERE reporter_id = $1
-            "#,
-            user_id.0,
-        )
-        .fetch_one(&self.db)
-        .await
-        .wrap_err("Failed to load reporter stats")?;
-        Ok(GameReportUserStats {
-            total: row.total,
-            actioned: row.actioned,
-            dismissed: row.dismissed,
-            abusive: row.abusive,
-            duplicate: row.duplicate,
-            pending: row.pending,
-        })
-    }
-
-    async fn load_reported_user_stats(
-        &self,
-        user_id: SbUserId,
-    ) -> eyre::Result<GameReportUserStats> {
-        let row = sqlx::query!(
-            r#"
-                SELECT
-                    COUNT(*) AS "total!",
-                    COUNT(*) FILTER (WHERE resolution = 'actioned') AS "actioned!",
-                    COUNT(*) FILTER (WHERE resolution = 'dismissed') AS "dismissed!",
-                    COUNT(*) FILTER (WHERE resolution = 'abusive') AS "abusive!",
-                    COUNT(*) FILTER (WHERE resolution = 'duplicate') AS "duplicate!",
-                    COUNT(*) FILTER (WHERE resolved_at IS NULL) AS "pending!"
-                FROM game_reports
-                WHERE reported_user_id = $1
-            "#,
-            user_id.0,
-        )
-        .fetch_one(&self.db)
-        .await
-        .wrap_err("Failed to load reported-user stats")?;
-        Ok(GameReportUserStats {
-            total: row.total,
-            actioned: row.actioned,
-            dismissed: row.dismissed,
-            abusive: row.abusive,
-            duplicate: row.duplicate,
-            pending: row.pending,
-        })
-    }
-
     /// Keyset-paginated report list. Ordering is always newest-first; `inverted` (backward
     /// pagination via `last`/`before`) fetches the window closest to the `before` cursor and then
     /// re-orders it to match. Returns `(has_prev_page, has_next_page, reports)`.
@@ -767,4 +719,93 @@ fn hex_encode(bytes: &[u8]) -> String {
             let _ = write!(acc, "{b:02x}");
             acc
         })
+}
+
+/// A user's report-credibility stats in both roles, loaded together.
+#[derive(Clone, Default)]
+pub struct UserReportStats {
+    as_reporter: GameReportUserStats,
+    as_reported: GameReportUserStats,
+}
+
+/// Batches `reporterStats` / `reportedUserStats` across the reports in a request so the list view
+/// resolves them with two grouped queries instead of one query per row (per AGENTS.md's
+/// no-per-item-fan-out rule).
+pub struct GameReportStatsLoader {
+    db: PgPool,
+}
+
+impl GameReportStatsLoader {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+impl Loader<SbUserId> for GameReportStatsLoader {
+    type Value = UserReportStats;
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, UserReportStats>> {
+        let mut stats: HashMap<SbUserId, UserReportStats> = HashMap::new();
+
+        let reporter_rows = sqlx::query!(
+            r#"
+                SELECT
+                    reporter_id AS "user_id!: SbUserId",
+                    COUNT(*) AS "total!",
+                    COUNT(*) FILTER (WHERE resolution = 'actioned') AS "actioned!",
+                    COUNT(*) FILTER (WHERE resolution = 'dismissed') AS "dismissed!",
+                    COUNT(*) FILTER (WHERE resolution = 'abusive') AS "abusive!",
+                    COUNT(*) FILTER (WHERE resolution = 'duplicate') AS "duplicate!",
+                    COUNT(*) FILTER (WHERE resolved_at IS NULL) AS "pending!"
+                FROM game_reports
+                WHERE reporter_id = ANY($1)
+                GROUP BY reporter_id
+            "#,
+            keys as _,
+        )
+        .fetch_all(&self.db)
+        .await?;
+        for row in reporter_rows {
+            stats.entry(row.user_id).or_default().as_reporter = GameReportUserStats {
+                total: row.total,
+                actioned: row.actioned,
+                dismissed: row.dismissed,
+                abusive: row.abusive,
+                duplicate: row.duplicate,
+                pending: row.pending,
+            };
+        }
+
+        let reported_rows = sqlx::query!(
+            r#"
+                SELECT
+                    reported_user_id AS "user_id!: SbUserId",
+                    COUNT(*) AS "total!",
+                    COUNT(*) FILTER (WHERE resolution = 'actioned') AS "actioned!",
+                    COUNT(*) FILTER (WHERE resolution = 'dismissed') AS "dismissed!",
+                    COUNT(*) FILTER (WHERE resolution = 'abusive') AS "abusive!",
+                    COUNT(*) FILTER (WHERE resolution = 'duplicate') AS "duplicate!",
+                    COUNT(*) FILTER (WHERE resolved_at IS NULL) AS "pending!"
+                FROM game_reports
+                WHERE reported_user_id = ANY($1)
+                GROUP BY reported_user_id
+            "#,
+            keys as _,
+        )
+        .fetch_all(&self.db)
+        .await?;
+        for row in reported_rows {
+            stats.entry(row.user_id).or_default().as_reported = GameReportUserStats {
+                total: row.total,
+                actioned: row.actioned,
+                dismissed: row.dismissed,
+                abusive: row.abusive,
+                duplicate: row.duplicate,
+                pending: row.pending,
+            };
+        }
+
+        Ok(stats)
+    }
 }

@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    reported_user_id AS \"user_id!: SbUserId\",\n                    COUNT(*) AS \"total!\",\n                    COUNT(*) FILTER (WHERE resolution = 'actioned') AS \"actioned!\",\n                    COUNT(*) FILTER (WHERE resolution = 'dismissed') AS \"dismissed!\",\n                    COUNT(*) FILTER (WHERE resolution = 'abusive') AS \"abusive!\",\n                    COUNT(*) FILTER (WHERE resolution = 'duplicate') AS \"duplicate!\",\n                    COUNT(*) FILTER (WHERE resolved_at IS NULL) AS \"pending!\"\n                FROM game_reports\n                WHERE reported_user_id = ANY($1)\n                GROUP BY reported_user_id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id!: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "reported_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "actioned!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "dismissed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "abusive!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "duplicate!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "pending!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4Array"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "12a150aa7c6f19680313028da6f17cad7b268b9a57501e48cedbb62cbbd0d140"
+}

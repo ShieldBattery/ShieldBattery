@@ -124,13 +124,14 @@ type GameReport {
 	"""
 	Credibility context for the reporter: how their past reports have resolved. Derived stats,
 	not a stored score. Guarded directly (see `replay`) so it isn't reachable off the
-	unguarded `report_game` mutation response.
+	unguarded `report_game` mutation response. Batched via a DataLoader so a list of reports
+	doesn't fan out one query per row.
 	"""
 	reporterStats: GameReportUserStats!
 	"""
 	The mirror of `reporter_stats` for the reported user — surfaces reports filed *against* them
 	(also catches brigading, where several reporters pile onto one player). Guarded directly
-	(see `replay`).
+	(see `replay`), batched via the same DataLoader.
 	"""
 	reportedUserStats: GameReportUserStats!
 }
