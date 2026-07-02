@@ -65,26 +65,27 @@ export function ReportGameDialog({
   const [{ fetching }, reportGame] = useMutation(ReportGameMutation)
   const [errorMessage, setErrorMessage] = useState<string>()
 
-  const { submit, bindCustom, bindInput, getInputValue, form } = useForm<ReportGameFormModel>(
-    {
-      // Pre-select the only opponent when there's just one (e.g. a 1v1).
-      reportedUserId: reportedUserCandidates.length === 1 ? reportedUserCandidates[0] : undefined,
-      reason: undefined,
-      details: '',
-    },
-    {
-      reportedUserId: required(t =>
-        t('gameReport.reportedUserRequired', 'Please choose a player to report.'),
-      ),
-      reason: required(t => t('gameReport.reasonRequired', 'Please choose a reason.')),
-      details: (value, model, _dirty, t) => {
-        if (model.reason === GameReportReason.Other && !value.trim()) {
-          return t('gameReport.detailsRequiredForOther', 'Please describe what happened.')
-        }
-        return undefined
+  const { submit, bindCustom, bindInput, getInputValue, setInputValue, form } =
+    useForm<ReportGameFormModel>(
+      {
+        // Pre-select the only opponent when there's just one (e.g. a 1v1).
+        reportedUserId: reportedUserCandidates.length === 1 ? reportedUserCandidates[0] : undefined,
+        reason: undefined,
+        details: '',
       },
-    },
-  )
+      {
+        reportedUserId: required(t =>
+          t('gameReport.reportedUserRequired', 'Please choose a player to report.'),
+        ),
+        reason: required(t => t('gameReport.reasonRequired', 'Please choose a reason.')),
+        details: (value, model, _dirty, t) => {
+          if (model.reason === GameReportReason.Other && !value.trim()) {
+            return t('gameReport.detailsRequiredForOther', 'Please describe what happened.')
+          }
+          return undefined
+        },
+      },
+    )
 
   useFormCallbacks(form, {
     onSubmit: model => {
@@ -196,7 +197,14 @@ export function ReportGameDialog({
             {...bindCustom('reason')}
             label={t('gameReport.reasonLabel', 'Reason')}
             tabIndex={0}
-            disabled={fetching}>
+            disabled={fetching}
+            onChange={value => {
+              bindCustom('reason').onChange(value)
+              // `details` is only required for the Other reason, and the form re-validates just the
+              // dirty fields on change — so re-touch `details` to clear a stale "required" error
+              // when the reason switches to one that doesn't need it.
+              setInputValue('details', getInputValue('details'))
+            }}>
             {reasonOptions.map(([value, label]) => (
               <SelectOption key={value} value={value} text={label} />
             ))}
