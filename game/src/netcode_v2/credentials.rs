@@ -67,11 +67,16 @@ quick_error! {
     }
 }
 
-/// A resolved relay the client can dial: its address plus the TLS server name to validate its
-/// certificate against.
+/// A resolved relay the client can dial: its candidate addresses plus the TLS server name to
+/// validate its certificate against.
 #[derive(Clone, Debug)]
 pub struct RelayTarget {
-    pub addr: SocketAddr,
+    /// Candidate addresses in dial-preference order: IPv6 first (the deployment is IPv6-primary,
+    /// D3), then IPv4. Never empty. Which family actually works is a connectivity question only
+    /// answerable at dial time, so the dialer should try these in order and use the first that
+    /// connects — a client with a broken v6 route must still reach the relay over v4 (the v1 path
+    /// races both families the same way).
+    pub addrs: Vec<SocketAddr>,
     pub server_name: String,
 }
 
@@ -143,33 +148,37 @@ fn add_relay_cert(
         .map_err(|_| CredentialError::Cert)
 }
 
-/// Resolves the address to dial for a relay, preferring IPv6 (the deployment is IPv6-primary, D3)
-/// and falling back to IPv4. The client endpoint is dual-stack and maps an IPv4 target to its
-/// v4-mapped form internally, so either family is dialable.
+/// Resolves the addresses to dial for a relay, in preference order (IPv6 first — the deployment
+/// is IPv6-primary, D3 — then IPv4). Both families are kept: family availability can only be
+/// judged at dial time, so nothing is discarded here. A present-but-malformed address is an error
+/// (a coordinator handing out garbage should surface loudly), and a relay with no address at all
+/// is rejected. The client endpoint is dual-stack and maps an IPv4 target to its v4-mapped form
+/// internally, so either family is dialable.
 fn resolve_relay(relay: &NetcodeV2Relay) -> Result<RelayTarget, CredentialError> {
-    let ip = pick_relay_ip(relay)?;
+    let mut addrs = Vec::new();
+    for address in [&relay.address6, &relay.address4].into_iter().flatten() {
+        let ip = address
+            .parse::<IpAddr>()
+            .map_err(CredentialError::RelayAddress)?;
+        addrs.push(SocketAddr::new(ip, relay.port));
+    }
+    if addrs.is_empty() {
+        return Err(CredentialError::NoRelayAddress);
+    }
     Ok(RelayTarget {
-        addr: SocketAddr::new(ip, relay.port),
+        addrs,
         server_name: relay.server_name.clone(),
     })
 }
 
-fn pick_relay_ip(relay: &NetcodeV2Relay) -> Result<IpAddr, CredentialError> {
-    if let Some(v6) = &relay.address6 {
-        return v6
-            .parse::<IpAddr>()
-            .map_err(CredentialError::RelayAddress);
-    }
-    if let Some(v4) = &relay.address4 {
-        return v4
-            .parse::<IpAddr>()
-            .map_err(CredentialError::RelayAddress);
-    }
-    Err(CredentialError::NoRelayAddress)
-}
-
 #[cfg(test)]
 mod tests {
+    use rally_point_client::proto::control::TenantId;
+    use rally_point_client::proto::ids::{SessionId, SlotId};
+    use rally_point_client::proto::token::{
+        ClientPublicKey, ExpiresAt, KeyId, Signature, TokenClaims,
+    };
+
     use super::*;
     use crate::app_messages::Secret;
 
@@ -183,6 +192,20 @@ mod tests {
         }
     }
 
+    /// A structurally valid token (decodes fine; the signature is garbage, but decoding doesn't
+    /// verify it — the relay does, by design).
+    fn decodable_token_b64() -> String {
+        let claims = TokenClaims::new(
+            TenantId("tenant".to_owned()),
+            SessionId(1),
+            SlotId(0),
+            ExpiresAt(u64::MAX),
+            ClientPublicKey([0; 32]),
+        );
+        let token = SignedToken::from_parts(KeyId("kid".to_owned()), claims, Signature([0; 64]));
+        BASE64_STANDARD.encode(token.encode().unwrap())
+    }
+
     fn setup(home: NetcodeV2Relay) -> NetcodeV2Setup {
         NetcodeV2Setup {
             token: BASE64_STANDARD.encode([0u8; 4]),
@@ -193,17 +216,23 @@ mod tests {
     }
 
     #[test]
-    fn prefers_ipv6_then_falls_back_to_ipv4() {
+    fn both_address_families_are_kept_in_v6_first_order() {
+        // Family availability is decided at dial time, so resolving must not discard either
+        // address — just order them v6-first.
         let both = relay(Some("203.0.113.7"), Some("2001:db8::1"), "");
+        let target = resolve_relay(&both).unwrap();
         assert_eq!(
-            pick_relay_ip(&both).unwrap(),
-            "2001:db8::1".parse::<IpAddr>().unwrap()
+            target.addrs,
+            vec![
+                "[2001:db8::1]:14900".parse::<SocketAddr>().unwrap(),
+                "203.0.113.7:14900".parse::<SocketAddr>().unwrap(),
+            ]
         );
 
         let v4_only = relay(Some("203.0.113.7"), None, "");
         assert_eq!(
-            pick_relay_ip(&v4_only).unwrap(),
-            "203.0.113.7".parse::<IpAddr>().unwrap()
+            resolve_relay(&v4_only).unwrap().addrs,
+            vec!["203.0.113.7:14900".parse::<SocketAddr>().unwrap()]
         );
     }
 
@@ -211,7 +240,7 @@ mod tests {
     fn a_relay_with_no_address_is_rejected() {
         let none = relay(None, None, "");
         assert!(matches!(
-            pick_relay_ip(&none),
+            resolve_relay(&none),
             Err(CredentialError::NoRelayAddress)
         ));
     }
@@ -220,7 +249,15 @@ mod tests {
     fn a_malformed_relay_address_is_rejected_not_ignored() {
         let bad = relay(Some("not-an-ip"), None, "");
         assert!(matches!(
-            pick_relay_ip(&bad),
+            resolve_relay(&bad),
+            Err(CredentialError::RelayAddress(_))
+        ));
+
+        // Even with a valid v4 present, a malformed v6 is a coordinator bug and must surface
+        // loudly rather than be silently skipped.
+        let bad_v6 = relay(Some("203.0.113.7"), Some(""), "");
+        assert!(matches!(
+            resolve_relay(&bad_v6),
             Err(CredentialError::RelayAddress(_))
         ));
     }
@@ -254,14 +291,26 @@ mod tests {
     }
 
     #[test]
+    fn a_malformed_token_is_rejected() {
+        // Valid base64, but the bytes are not a well-formed SignedToken.
+        let s = setup(relay(Some("203.0.113.7"), None, ""));
+        assert!(matches!(
+            SessionCredentials::from_setup(&s),
+            Err(CredentialError::Token)
+        ));
+    }
+
+    #[test]
     fn a_garbage_private_key_is_rejected() {
-        // A short but valid-base64 blob that is not a PKCS#8 Ed25519 key must be rejected as a key
-        // error (after the token decodes), never accepted.
+        // A valid-base64 blob that is not a PKCS#8 Ed25519 key must be rejected as a *key* error.
+        // The token is genuinely decodable so the key path is actually exercised (a bad token
+        // would short-circuit first and leave the key check untested).
         let mut s = setup(relay(Some("203.0.113.7"), None, ""));
-        // Make the token decode far enough to reach the key step; a 4-byte token fails decode
-        // first, so this asserts the token path specifically is reached before the key path only
-        // if token is valid. Here we accept either a Token or Key error is a rejection.
+        s.token = decodable_token_b64();
         s.client_private_key = Secret::from_base64_for_test(&BASE64_STANDARD.encode([1u8; 8]));
-        assert!(SessionCredentials::from_setup(&s).is_err());
+        assert!(matches!(
+            SessionCredentials::from_setup(&s),
+            Err(CredentialError::Key)
+        ));
     }
 }

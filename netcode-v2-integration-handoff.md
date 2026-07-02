@@ -38,13 +38,23 @@ when the hooks land).
 
 ## What's next (in rough order)
 
+### 0. App-side sender (WS-F) — does not exist yet
+Nothing on the TypeScript side sends `netcodeV2Setup` (zero references outside `game/`). The DLL's
+`GameState.netcode_v2_setup` stays `None` — and the whole seam silently never activates — until the
+Electron app: generates the per-session Ed25519 keypair (D6), requests a coordinator-signed token
+embedding the public half, and forwards token + key + relay endpoints over the app socket as a
+`netcodeV2Setup` message (camelCase fields matching `app_messages.rs::NetcodeV2Setup`). Follow the
+existing `setRoutes` flow in `app/game/game-server.ts` / `active-game-manager.ts` as the template.
+
 ### 1. Async setup: dial the relay, spawn the driver
 On the DLL's existing Tokio runtime (see `lib.rs::async_thread` / `ASYNC_RUNTIME`), when a
 `NetcodeV2Setup` is present:
 ```rust
 let creds = netcode_v2::SessionCredentials::from_setup(&setup)?;   // pure, done
 let endpoint = netcode_v2::bind_endpoint(creds.roots)?;            // needs the runtime, done
-let link = endpoint.connect(creds.home.addr, &creds.home.server_name, &creds.identity).await?;
+// `creds.home.addrs` is v6-first, v4 after; family availability is a dial-time question,
+// so try each in order and use the first that connects (same idea as v1's family racing).
+let link = try_addrs_in_order(&endpoint, &creds.home.addrs, &creds.home.server_name, &creds.identity).await?;
 let (driver, channels) = rally_point_client::LinkDriver::new(link);
 tokio::spawn(driver.run());                                        // Tokio half of the seam
 // hand `channels` + local_slot + initial latency to SeamState::new, store where the BW hooks reach it.
@@ -68,8 +78,10 @@ Resolve the addresses from the newly-exposed `scr_analysis::Analysis` getters, d
   0x10000|0x20000`. **Own the command buffers in `SeamState`** (they must outlive the whole
   `step_network` dispatch — guide §5.4 #4; don't point at freed channel memory). Then
   `apply_due_directive(next_frame)`, run `set_rng_enable(1) → apply_pending_player_leaves →
-  set_rng_enable(orig)`, and return readiness (all required slots present ? 1 : 0). Call
-  `mark_turn_executed()` per dispatched turn to advance the PIPE cursor.
+  set_rng_enable(orig)`, and return readiness (all required slots present ? 1 : 0). When a network
+  step executes, call `mark_local_turn_executed()` **exactly once for the step** — one *local* turn
+  leaves the pipe per step, NOT one per per-slot payload you dispatched (per-slot calls would peg
+  `outstanding_turns()` at 0 and make the PIPE loop flush unboundedly; see the method docs).
 - **PIPE — replace `flush_local_turns_to_latency_depth`.** Loop `while outstanding_turns() <
   latency_turns() { flush one turn }` using `SeamState`, not the native
   `builtin_turn_latency + net_user_latency`.
@@ -109,9 +121,12 @@ it). The token's slot is the rp2 slot; the BW arrays are indexed by storm id.
 
 ## Security notes (done here; keep these invariants)
 
-- **Private key never logged.** `Secret` redacts `Debug`; `app_socket` special-cases `netcodeV2Setup`
-  to keep the raw payload out of both the debug log and the `context()` error string. If you add new
-  error paths that touch the setup, do **not** format the key. (Plaintext still lives in memory until
+- **Private key never logged.** `Secret` redacts `Debug`; `app_socket` redacts by mechanism via the
+  `SENSITIVE_COMMANDS` list — for commands on it, the raw message text, the payload debug log, the
+  `context()` error input, *and* serde's own error message (which can echo mistyped field values)
+  are all redacted, including on the pre-parse "Invalid message" path. Add any new secret-bearing
+  command to `SENSITIVE_COMMANDS` and all of that applies automatically; if you add new error paths
+  that touch the setup elsewhere, still do **not** format the key. (Plaintext lives in memory until
   drop — zeroization-on-drop is a noted follow-up needing the `zeroize` crate.)
 - **TLS trust is pinned + fail-closed.** `SessionCredentials::from_setup` trusts only the relay leaf
   cert(s) the coordinator sent — no webpki roots, no system roots, no accept-any. An empty/malformed

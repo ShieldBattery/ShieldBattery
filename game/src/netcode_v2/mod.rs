@@ -11,7 +11,7 @@
 //!   pinned TLS trust store (done; unit-tested).
 //! - [`SeamState`]: the game-thread-owned state the three hooks operate on — the turn channels to
 //!   the Tokio-side [`LinkDriver`](rally_point_client::LinkDriver), the latency-buffer
-//!   [`DirectiveTracker`], the slot↔storm-id map, and the PIPE-hook turn counters.
+//!   [`DirectiveTracker`], the slot↔storm-id map, and the PIPE-hook in-flight turn counter.
 //!
 //! ## What remains (the seam wiring — for the next dev)
 //!
@@ -60,12 +60,8 @@ use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{BufferDirective, Payload};
 
-/// Number of BW net-player slots. Mirrors `bw_scr::NET_PLAYER_COUNT`.
-const NET_PLAYER_COUNT: usize = 12;
-
-/// No mapping from a rally-point2 slot to a BW storm id yet. Slots are learned during lobby join
-/// (native join assigns storm ids in join order), so the map starts empty.
-const STORM_ID_UNMAPPED: u8 = 0xff;
+use crate::bw;
+use crate::bw::players::StormPlayerId;
 
 /// The game-thread-owned state the three hooks operate on.
 ///
@@ -81,48 +77,52 @@ pub struct SeamState {
     directives: DirectiveTracker,
     /// The latency buffer (in turns) currently in force — the PIPE hook keeps this many turns in
     /// flight. Starts at the built-in floor; a due [`BufferDirective`] resizes it (no native
-    /// `[0,2]` cap — see dev note gotcha #2 / guide §5.3).
+    /// `[0,2]` cap upward — see dev note gotcha #2 / guide §5.3 — but floored at 1 locally, see
+    /// [`apply_due_directive`](Self::apply_due_directive)).
     latency_turns: u32,
-    /// rally-point2 slot → BW storm id. `STORM_ID_UNMAPPED` until learned during lobby join.
-    slot_to_storm: [u8; NET_PLAYER_COUNT],
+    /// rally-point2 slot → BW storm id. `None` until learned during lobby join (native join
+    /// assigns storm ids in join order, so the map starts empty).
+    slot_to_storm: [Option<StormPlayerId>; bw::MAX_STORM_PLAYERS],
     /// Local origin slot (which slot our own outbound turns belong to). The relay rebinds the wire
     /// `slot` from the token regardless; this is for our own bookkeeping/echo.
-    local_slot: u8,
-    /// Turns handed to the driver so far (the send cursor). PIPE-hook numerator.
-    turns_sent: u32,
-    /// Turns dispatched into the sim so far (the execute cursor). PIPE-hook subtrahend.
-    turns_executed: u32,
+    local_slot: SlotId,
+    /// Local turns handed to the driver but not yet executed by the sim — the PIPE hook keeps
+    /// this at the latency target. Up on [`submit_local_turn`](Self::submit_local_turn), down on
+    /// [`mark_local_turn_executed`](Self::mark_local_turn_executed); a single counter so the two
+    /// events can never be miscounted against each other.
+    turns_in_flight: u32,
 }
 
 impl SeamState {
     /// Builds seam state around the channels a running [`LinkDriver`](rally_point_client::LinkDriver)
     /// handed back. `local_slot` is this client's origin slot; `initial_latency_turns` is the
     /// built-in floor to start the pipe at (guide §4, natively 2).
-    pub fn new(channels: TurnChannels, local_slot: u8, initial_latency_turns: u32) -> Self {
+    pub fn new(channels: TurnChannels, local_slot: SlotId, initial_latency_turns: u32) -> Self {
         Self {
             channels,
             directives: DirectiveTracker::new(),
-            latency_turns: initial_latency_turns,
-            slot_to_storm: [STORM_ID_UNMAPPED; NET_PLAYER_COUNT],
+            latency_turns: initial_latency_turns.max(1),
+            slot_to_storm: [None; bw::MAX_STORM_PLAYERS],
             local_slot,
-            turns_sent: 0,
-            turns_executed: 0,
+            turns_in_flight: 0,
         }
     }
 
     /// Records the rally-point2 slot ↔ BW storm id mapping learned during lobby join.
-    pub fn map_slot(&mut self, slot: u8, storm_id: u8) {
-        if let Some(entry) = self.slot_to_storm.get_mut(slot as usize) {
-            *entry = storm_id;
+    ///
+    /// rp2 slots are coordinator-bounded (≤ 7), so an out-of-range slot can't occur short of a
+    /// protocol bug; assert in debug so one would surface loudly rather than as a mapping that
+    /// silently never resolves.
+    pub fn map_slot(&mut self, slot: SlotId, storm_id: StormPlayerId) {
+        debug_assert!((slot.0 as usize) < bw::MAX_STORM_PLAYERS, "rp2 slot out of range: {slot:?}");
+        if let Some(entry) = self.slot_to_storm.get_mut(slot.0 as usize) {
+            *entry = Some(storm_id);
         }
     }
 
     /// Looks up the BW storm id for a rally-point2 slot, if mapped.
-    pub fn storm_id_for_slot(&self, slot: u8) -> Option<u8> {
-        self.slot_to_storm
-            .get(slot as usize)
-            .copied()
-            .filter(|&id| id != STORM_ID_UNMAPPED)
+    pub fn storm_id_for_slot(&self, slot: SlotId) -> Option<StormPlayerId> {
+        self.slot_to_storm.get(slot.0 as usize).copied().flatten()
     }
 
     /// OUT hook body: hand a fully-assembled local turn to the driver. `commands` is the native
@@ -143,7 +143,7 @@ impl SeamState {
         };
         match self.channels.outbound.try_send(payload) {
             Ok(()) => {
-                self.turns_sent = self.turns_sent.wrapping_add(1);
+                self.turns_in_flight = self.turns_in_flight.saturating_add(1);
                 true
             }
             Err(_) => false,
@@ -168,17 +168,22 @@ impl SeamState {
 
     /// Applies any latency-buffer change due at `next_frame`, updating the pipe target the PIPE hook
     /// enforces. Call once per simulation step, after draining/observing that step's turns.
+    ///
+    /// Floored at 1: the relay's decision logic is documented to keep `buffer_turns >= 1`, but
+    /// that bound is not enforced on the wire, and a 0 target would permanently stop the PIPE
+    /// loop (`outstanding < 0` is never true for a `u32`) — a lockstep deadlock. Don't trust a
+    /// remote invariant to prevent a local deadlock.
     pub fn apply_due_directive(&mut self, next_frame: u32) {
         if let Some(directive) = self.directives.take_due(next_frame) {
-            self.latency_turns = directive.buffer_turns;
+            self.latency_turns = directive.buffer_turns.max(1);
         }
     }
 
-    /// PIPE hook input: turns in flight (`sent - executed`). Replaces the native
+    /// PIPE hook input: local turns in flight. Replaces the native
     /// `get_outstanding_turn_count`, which goes degenerate once Storm's counters stop advancing
-    /// (guide §5.1 PIPE). Saturating so a transient ordering never underflows.
+    /// (guide §5.1 PIPE).
     pub fn outstanding_turns(&self) -> u32 {
-        self.turns_sent.saturating_sub(self.turns_executed)
+        self.turns_in_flight
     }
 
     /// The latency buffer (in turns) the pipe should currently maintain.
@@ -186,13 +191,20 @@ impl SeamState {
         self.latency_turns
     }
 
-    /// Advances the execute cursor after a turn has been dispatched into the sim (the IN/step path).
-    pub fn mark_turn_executed(&mut self) {
-        self.turns_executed = self.turns_executed.wrapping_add(1);
+    /// Takes one local turn out of flight after the sim executes a network step.
+    ///
+    /// Call this **exactly once per executed network step** — one *local* turn leaves the pipe
+    /// per step — NOT once per peer [`Payload`] dispatched. In an N-player game the IN hook
+    /// drains N per-slot payloads per step; counting each of those here would drive
+    /// [`outstanding_turns`](Self::outstanding_turns) to 0 and make the PIPE loop flush
+    /// unboundedly (the exact degenerate-0 failure this counter replaces). Saturating so a
+    /// spurious extra call never underflows.
+    pub fn mark_local_turn_executed(&mut self) {
+        self.turns_in_flight = self.turns_in_flight.saturating_sub(1);
     }
 
     /// The local origin slot, as a typed [`SlotId`] for the transport layer.
     pub fn local_slot_id(&self) -> SlotId {
-        SlotId(self.local_slot)
+        self.local_slot
     }
 }

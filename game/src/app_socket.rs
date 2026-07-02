@@ -150,49 +150,93 @@ enum MessageResult {
     Stop,
 }
 
+/// Commands whose payloads carry secrets (e.g. `netcodeV2Setup`'s per-session private key).
+/// For these, neither the raw message text nor serde's own error output (which can embed
+/// mistyped field *values*) may reach a log line or error string. Add any new secret-bearing
+/// command here and redaction applies everywhere in `handle_app_message` automatically.
+const SENSITIVE_COMMANDS: &[&str] = &["netcodeV2Setup"];
+
+const REDACTED: &str = "<payload redacted>";
+
+/// Reduces a serde error to its category and position, dropping the message body. serde errors
+/// embed the unexpected *value* (e.g. `invalid type: string "..."`), which for a sensitive
+/// payload can be the secret itself (a misplaced key string echoed back verbatim).
+fn sanitize_serde_error(e: serde_json::Error) -> serde_json::Error {
+    use serde::de::Error;
+    serde_json::Error::custom(format!(
+        "{:?} error at line {} column {}",
+        e.classify(),
+        e.line(),
+        e.column(),
+    ))
+}
+
+/// Parses one command's payload, redacting both the raw input and serde's error message for
+/// sensitive commands.
+fn parse_payload<T: serde::de::DeserializeOwned>(
+    payload: serde_json::Value,
+    context: &'static str,
+    err_input: &str,
+    sensitive: bool,
+) -> Result<T, HandleMessageError> {
+    Ok(serde_json::from_value(payload)
+        .map_err(|e| if sensitive { sanitize_serde_error(e) } else { e })
+        .context((context, err_input))?)
+}
+
 fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError> {
-    let message: Message = serde_json::from_str(&text).context(("Invalid message", &*text))?;
+    // The command isn't known until the envelope parses, so redact the envelope-parse error for
+    // any text that even mentions a sensitive command (over-redacting a message that merely
+    // contains the name is fine; leaking a secret is not).
+    let text_sensitive = SENSITIVE_COMMANDS.iter().any(|&c| text.contains(c));
+    let message: Message = serde_json::from_str(&text)
+        .map_err(|e| {
+            if text_sensitive {
+                sanitize_serde_error(e)
+            } else {
+                e
+            }
+        })
+        .context((
+            "Invalid message",
+            if text_sensitive { REDACTED } else { &*text },
+        ))?;
+    let sensitive = SENSITIVE_COMMANDS.contains(&&*message.command);
+    let err_input: &str = if sensitive { REDACTED } else { &text };
     let payload = message.payload.unwrap_or(serde_json::Value::Null);
-    // SECURITY: `netcodeV2Setup` carries the client's per-session private key. Never log its
-    // payload (and never fold it into the `context(&*text)` error strings below either — those
-    // messages take the parsed sub-value, not the raw text, for this command).
-    if message.command == "netcodeV2Setup" {
-        debug!("Received message: '{}' (payload redacted)", message.command);
+    if sensitive {
+        debug!("Received message: '{}' ({REDACTED})", message.command);
     } else {
         debug!("Received message: '{}':\n'{}'", message.command, payload);
     }
     match &*message.command {
         "settings" => {
-            let settings = serde_json::from_value(payload).context(("Invalid settings", &*text))?;
+            let settings = parse_payload(payload, "Invalid settings", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetSettings(settings)))
         }
         "localUser" => {
-            let user = serde_json::from_value(payload).context(("Invalid local user", &*text))?;
+            let user = parse_payload(payload, "Invalid local user", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetLocalUser(user)))
         }
         "serverConfig" => {
-            let config =
-                serde_json::from_value(payload).context(("Invalid server config", &*text))?;
+            let config = parse_payload(payload, "Invalid server config", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetServerConfig(
                 config,
             )))
         }
         "routes" => {
-            let routes = serde_json::from_value(payload).context(("Invalid routes", &*text))?;
+            let routes = parse_payload(payload, "Invalid routes", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))
         }
         "netcodeV2Setup" => {
-            // SECURITY: pass an empty input string to `context`, not `&*text` — the raw text holds
-            // the private key and must not reach an error message or log line.
-            let setup = serde_json::from_value(payload)
-                .context(("Invalid netcode v2 setup", ""))
+            let setup = parse_payload(payload, "Invalid netcode v2 setup", err_input, sensitive)
                 .map(Box::new)?;
             Ok(MessageResult::Game(GameStateMessage::SetNetcodeV2Setup(
                 setup,
             )))
         }
         "setupGame" => {
-            let setup = serde_json::from_value(payload).context(("Invalid game setup", &*text))?;
+            let setup = parse_payload(payload, "Invalid game setup", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
         "startWhenReady" => Ok(MessageResult::Game(GameStateMessage::StartWhenReady)),
