@@ -168,8 +168,11 @@ impl GameReport {
     }
 
     /// The best (longest) replay for this game, if one was uploaded, as a signed download URL plus
-    /// the file id + hash the client needs to cache and watch it. Admin-only via the query guard,
-    /// so this deliberately skips the per-user replay ACLs the public game endpoint applies.
+    /// the file id + hash the client needs to cache and watch it. Guarded directly (not just via
+    /// the query) because `report_game` returns a `GameReport` to any logged-in user and field
+    /// guards aren't transitive — without this, a non-admin could select it off the mutation
+    /// response and get a signed URL that skips the per-user replay ACLs.
+    #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn replay(&self, ctx: &Context<'_>) -> Result<Option<GameReportReplay>> {
         let repo = ctx.data::<GameReportsRepo>()?;
         let Some((replay_file_id, hash)) = repo.load_best_replay(self.game_id).await? else {
@@ -193,7 +196,9 @@ impl GameReport {
     }
 
     /// Credibility context for the reporter: how their past reports have resolved. Derived stats,
-    /// not a stored score.
+    /// not a stored score. Guarded directly (see `replay`) so it isn't reachable off the
+    /// unguarded `report_game` mutation response.
+    #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn reporter_stats(&self, ctx: &Context<'_>) -> Result<GameReportUserStats> {
         Ok(ctx
             .data::<GameReportsRepo>()?
@@ -202,7 +207,9 @@ impl GameReport {
     }
 
     /// The mirror of `reporter_stats` for the reported user — surfaces reports filed *against* them
-    /// (also catches brigading, where several reporters pile onto one player).
+    /// (also catches brigading, where several reporters pile onto one player). Guarded directly
+    /// (see `replay`).
+    #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn reported_user_stats(&self, ctx: &Context<'_>) -> Result<GameReportUserStats> {
         Ok(ctx
             .data::<GameReportsRepo>()?
