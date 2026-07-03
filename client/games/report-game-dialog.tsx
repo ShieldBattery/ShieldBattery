@@ -217,8 +217,12 @@ export function ReportGameDialog({
               bindCustom('reason').onChange(value)
               // `details` is only required for the Other reason, and the form re-validates just the
               // dirty fields on change — so re-touch `details` to clear a stale "required" error
-              // when the reason switches to one that doesn't need it.
-              setInputValue('details', getInputValue('details'))
+              // (e.g. left by a submit attempt) when the reason switches to one that doesn't need
+              // it. Skipped when switching *to* Other, since re-touching would mark `details` dirty
+              // and surface the required error before the user has typed anything.
+              if (value !== GameReportReason.Other) {
+                setInputValue('details', getInputValue('details'))
+              }
             }}>
             {reasonOptions.map(([value, label]) => (
               <SelectOption key={value} value={value} text={label} />
