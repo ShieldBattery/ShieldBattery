@@ -12,7 +12,7 @@ use sqlx::{PgPool, QueryBuilder};
 use uuid::Uuid;
 
 use crate::file_store::FileStore;
-use crate::games::{Game, GamesRepo};
+use crate::games::{Game, GamesLoader};
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::users::permissions::RequiredPermission;
@@ -43,6 +43,10 @@ impl SchemaBuilderModule for GameReportsModule {
             .data(GameReportsRepo::new(self.db_pool.clone()))
             .data(DataLoader::new(
                 GameReportStatsLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                BestReplayLoader::new(self.db_pool.clone()),
                 tokio::spawn,
             ))
     }
@@ -169,10 +173,11 @@ impl GameReport {
 
     /// The reported game, so the admin UI can show context and link to it.
     async fn game(&self, ctx: &Context<'_>) -> Result<Option<Game>> {
-        // One `load_one` query per report — fine for the single-report detail view (the only
-        // current caller), but this needs a batched `GamesLoader` before it's ever selected on a
-        // `game_reports` list row, or a page would fan out one query per row (see AGENTS.md).
-        let game = ctx.data::<GamesRepo>()?.load_one(self.game_id).await?;
+        // Batched via a DataLoader so a list of reports doesn't fan out one query per row.
+        let game = ctx
+            .data::<DataLoader<GamesLoader>>()?
+            .load_one(self.game_id)
+            .await?;
         Ok(game.map(|g| g.into()))
     }
 
@@ -183,11 +188,13 @@ impl GameReport {
     /// response and get a signed URL that skips the per-user replay ACLs.
     #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn replay(&self, ctx: &Context<'_>) -> Result<Option<GameReportReplay>> {
-        // Like `game`, this runs per report (a `load_best_replay` query plus a signed-URL mint) and
-        // is meant for the single-report detail view; batch it via a DataLoader before ever
-        // selecting it on a `game_reports` list row.
-        let repo = ctx.data::<GameReportsRepo>()?;
-        let Some((replay_file_id, hash)) = repo.load_best_replay(self.game_id).await? else {
+        // The replay lookup is batched via a DataLoader (like `game`); the signed-URL mint stays
+        // per-row since it's local crypto, not a DB query.
+        let Some((replay_file_id, hash)) = ctx
+            .data::<DataLoader<BestReplayLoader>>()?
+            .load_one(self.game_id)
+            .await?
+        else {
             return Ok(None);
         };
 
@@ -617,24 +624,6 @@ impl GameReportsRepo {
         Ok(exists)
     }
 
-    async fn load_best_replay(&self, game_id: Uuid) -> eyre::Result<Option<(Uuid, Vec<u8>)>> {
-        let row = sqlx::query!(
-            r#"
-                SELECT rf.id AS "id!", rf.hash AS "hash!"
-                FROM replay_files rf
-                JOIN games_users gu ON gu.replay_file_id = rf.id
-                WHERE gu.game_id = $1
-                ORDER BY (rf.header->>'frames')::int DESC NULLS LAST
-                LIMIT 1
-            "#,
-            game_id,
-        )
-        .fetch_optional(&self.db)
-        .await
-        .wrap_err("Failed to load best replay")?;
-        Ok(row.map(|r| (r.id, r.hash)))
-    }
-
     /// Keyset-paginated report list. Ordering is always newest-first; `inverted` (backward
     /// pagination via `last`/`before`) fetches the window closest to the `before` cursor and then
     /// re-orders it to match. Returns `(has_prev_page, has_next_page, reports)`.
@@ -725,6 +714,44 @@ fn hex_encode(bytes: &[u8]) -> String {
             let _ = write!(acc, "{b:02x}");
             acc
         })
+}
+
+/// Batches the best-(longest-)replay lookup for the `replay` field across the reports in a
+/// request, keyed by game id, so a list of reports resolves it with one grouped query instead of
+/// one per row (per AGENTS.md's no-per-item-fan-out rule). Yields `(replay_file_id, hash)`.
+pub struct BestReplayLoader {
+    db: PgPool,
+}
+
+impl BestReplayLoader {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+impl Loader<Uuid> for BestReplayLoader {
+    type Value = (Uuid, Vec<u8>);
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, Self::Value>> {
+        let rows = sqlx::query!(
+            r#"
+                SELECT DISTINCT ON (gu.game_id)
+                    gu.game_id AS "game_id!", rf.id AS "id!", rf.hash AS "hash!"
+                FROM replay_files rf
+                JOIN games_users gu ON gu.replay_file_id = rf.id
+                WHERE gu.game_id = ANY($1)
+                ORDER BY gu.game_id, (rf.header->>'frames')::int DESC NULLS LAST
+            "#,
+            keys,
+        )
+        .fetch_all(&self.db)
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.game_id, (r.id, r.hash)))
+            .collect())
+    }
 }
 
 /// A user's report-credibility stats in both roles, loaded together.

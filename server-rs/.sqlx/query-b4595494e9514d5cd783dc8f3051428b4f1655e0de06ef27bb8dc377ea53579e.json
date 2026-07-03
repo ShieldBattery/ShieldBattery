@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, start_time, map_id as \"map_id: _\", config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length, results as \"results: _\", routes as \"routes: _\"\n            FROM games WHERE id = $1\n            ",
+  "query": "\n            SELECT id, start_time, map_id as \"map_id: _\", config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length, results as \"results: _\", routes as \"routes: _\"\n            FROM games WHERE id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -116,7 +116,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "UuidArray"
       ]
     },
     "nullable": [
@@ -132,5 +132,5 @@
       true
     ]
   },
-  "hash": "101b63ac4d92ff06e21b4d474a57792a37c071e6065536a153cb1897e11a069e"
+  "hash": "b4595494e9514d5cd783dc8f3051428b4f1655e0de06ef27bb8dc377ea53579e"
 }
