@@ -352,15 +352,20 @@ impl GameReportsMutation {
             return Err(graphql_error("BAD_REQUEST", "You can't report yourself"));
         }
 
-        if matches!(input.reason, GameReportReason::Other)
-            && input.details.as_ref().is_none_or(|d| d.trim().is_empty())
-        {
+        // Normalize details up front — trim, then treat whitespace-only as absent — so validation
+        // sees exactly what gets stored and the column is consistently NULL vs non-empty text.
+        let details = input
+            .details
+            .map(|d| d.trim().to_owned())
+            .filter(|d| !d.is_empty());
+
+        if matches!(input.reason, GameReportReason::Other) && details.is_none() {
             return Err(graphql_error(
                 "BAD_REQUEST",
                 "Details are required when the reason is Other",
             ));
         }
-        if let Some(details) = &input.details
+        if let Some(details) = &details
             && details.len() > MAX_DETAILS_LEN
         {
             return Err(graphql_error("BAD_REQUEST", "Details are too long"));
@@ -398,7 +403,6 @@ impl GameReportsMutation {
             ));
         }
 
-        let details = input.details.map(|d| d.trim().to_owned());
         let report = repo
             .create_report(
                 input.game_id,
