@@ -169,6 +169,9 @@ impl GameReport {
 
     /// The reported game, so the admin UI can show context and link to it.
     async fn game(&self, ctx: &Context<'_>) -> Result<Option<Game>> {
+        // One `load_one` query per report — fine for the single-report detail view (the only
+        // current caller), but this needs a batched `GamesLoader` before it's ever selected on a
+        // `game_reports` list row, or a page would fan out one query per row (see AGENTS.md).
         let game = ctx.data::<GamesRepo>()?.load_one(self.game_id).await?;
         Ok(game.map(|g| g.into()))
     }
@@ -180,6 +183,9 @@ impl GameReport {
     /// response and get a signed URL that skips the per-user replay ACLs.
     #[graphql(guard = RequiredPermission::ManageGameReports)]
     async fn replay(&self, ctx: &Context<'_>) -> Result<Option<GameReportReplay>> {
+        // Like `game`, this runs per report (a `load_best_replay` query plus a signed-URL mint) and
+        // is meant for the single-report detail view; batch it via a DataLoader before ever
+        // selecting it on a `game_reports` list row.
         let repo = ctx.data::<GameReportsRepo>()?;
         let Some((replay_file_id, hash)) = repo.load_best_replay(self.game_id).await? else {
             return Ok(None);
