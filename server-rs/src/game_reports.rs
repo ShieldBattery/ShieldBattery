@@ -278,7 +278,10 @@ pub struct GameReportFilter {
     pub reported_user_id: Option<SbUserId>,
 }
 
-/// Maximum length of the free-text details field, matching the bug-report limit.
+/// Maximum length of the free-text details field in Unicode chars (not bytes — the client
+/// validates in UTF-16 code units, which is always >= the char count, so counting chars here
+/// guarantees anything the client accepts is accepted server-side too). The number matches the
+/// bug-report limit.
 const MAX_DETAILS_LEN: usize = 5000;
 
 #[derive(Default)]
@@ -366,7 +369,7 @@ impl GameReportsMutation {
             ));
         }
         if let Some(details) = &details
-            && details.len() > MAX_DETAILS_LEN
+            && details.chars().count() > MAX_DETAILS_LEN
         {
             return Err(graphql_error("BAD_REQUEST", "Details are too long"));
         }
