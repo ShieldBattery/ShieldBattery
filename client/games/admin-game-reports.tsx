@@ -173,6 +173,11 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
+const NotFoundText = styled.div`
+  ${bodyLarge};
+  color: var(--theme-on-surface-variant);
+`
+
 const ReportTable = styled.div`
   width: 100%;
   border: 1px solid var(--theme-outline-variant);
@@ -650,6 +655,11 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
             </>
           )}
         </Items>
+      ) : null}
+      {!report && !fetching && !error ? (
+        // The detail view is deep-linkable, and a stale/bad id resolves to a null report rather
+        // than an error, so show explicit feedback instead of an empty page.
+        <NotFoundText>No report found with this ID.</NotFoundText>
       ) : null}
     </Content>
   )
