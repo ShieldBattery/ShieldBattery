@@ -85,7 +85,8 @@ export function ReportGameDialog({
           if (model.reason === GameReportReason.Other && !value.trim()) {
             return t('gameReport.detailsRequiredForOther', 'Please describe what happened.')
           }
-          if (value.length > MAX_DETAILS_LENGTH) {
+          // Count code points (not UTF-16 units) to match the server's chars().count() exactly.
+          if ([...value].length > MAX_DETAILS_LENGTH) {
             return t('gameReport.detailsTooLong', 'Details must be {{max}} characters or fewer.', {
               max: MAX_DETAILS_LENGTH,
             })
