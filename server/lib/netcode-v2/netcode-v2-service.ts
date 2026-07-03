@@ -1,6 +1,5 @@
 import got from 'got'
 import { X509Certificate } from 'node:crypto'
-import fs from 'node:fs'
 import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
 import { raceAbort } from '../../../common/async/abort-signals'
@@ -27,16 +26,18 @@ interface CoordinatorSessionRequest {
   players: Array<{ slot: number; client_pubkey: number[] }>
 }
 
-interface CoordinatorRelayPeer {
+interface CoordinatorRelayEndpoint {
   relay_id: number
   /** The relay's public address as `ip:port` (IPv6 addresses are bracketed). */
   relay_addr: string
+  /** DER of the TLS leaf certificate the relay serves; clients pin exactly this cert. */
+  cert_der: number[]
 }
 
 interface CoordinatorSessionResponse {
   session: number
-  home_relay: CoordinatorRelayPeer
-  backup_relay: CoordinatorRelayPeer
+  home_relay: CoordinatorRelayEndpoint
+  backup_relay: CoordinatorRelayEndpoint
   tokens: Array<{ slot: number; token: number[] }>
   bounds: { min: number; max: number }
 }
@@ -44,15 +45,6 @@ interface CoordinatorSessionResponse {
 interface NetcodeV2Config {
   coordinatorUrl: string
   tenant: string
-  /**
-   * base64 (standard, padded) DER of the relay leaf certificate clients should pin.
-   *
-   * NOTE(netcode-v2): this is a dev-loopback interim. The coordinator's session response carries
-   * only each relay's address today, not its TLS certificate, so the cert is server config shared
-   * by every relay (fine for a loopback where there's one relay with a known cert). Once the
-   * coordinator conveys per-relay certs in the session response, this moves there.
-   */
-  relayCert: string
   /** TLS server name clients validate the relay certificate against. */
   relayServerName: string
 }
@@ -64,30 +56,26 @@ function loadConfigFromEnv(): NetcodeV2Config | undefined {
   }
 
   const tenant = process.env.SB_RP2_TENANT
-  const relayCertPath = process.env.SB_RP2_RELAY_CERT
-  if (!tenant || !relayCertPath) {
-    throw new Error(
-      'SB_RP2_COORDINATOR_URL is set but SB_RP2_TENANT or SB_RP2_RELAY_CERT is missing',
-    )
+  if (!tenant) {
+    throw new Error('SB_RP2_COORDINATOR_URL is set but SB_RP2_TENANT is missing')
   }
-
-  // Parsing through X509Certificate validates the cert at startup, rather than letting a corrupt
-  // file surface later as TLS pin failures inside every game client
-  const relayCert = new X509Certificate(fs.readFileSync(relayCertPath))
 
   return {
     coordinatorUrl,
     tenant,
-    relayCert: relayCert.raw.toString('base64'),
     relayServerName: process.env.SB_RP2_RELAY_SERVER_NAME ?? 'localhost',
   }
 }
 
 /**
- * Parses a Rust `SocketAddr` display string (`ip:port`, with IPv6 addresses bracketed) into the
- * relay endpoint shape clients dial.
+ * Converts a coordinator relay endpoint (a Rust `SocketAddr` display string — `ip:port`, with
+ * IPv6 addresses bracketed — plus the relay's cert DER) into the relay endpoint shape clients
+ * dial.
  */
-function relayPeerToInfo(peer: CoordinatorRelayPeer, config: NetcodeV2Config): NetcodeV2RelayInfo {
+function relayEndpointToInfo(
+  peer: CoordinatorRelayEndpoint,
+  config: NetcodeV2Config,
+): NetcodeV2RelayInfo {
   const addr = peer.relay_addr
   let host: string
   let port: number
@@ -105,12 +93,25 @@ function relayPeerToInfo(peer: CoordinatorRelayPeer, config: NetcodeV2Config): N
     throw new NetcodeV2ServiceError(`coordinator returned an unparseable relay address: ${addr}`)
   }
 
+  // Parsing through X509Certificate validates the cert here, rather than letting a corrupt one
+  // surface later as TLS pin failures inside every game client
+  const certDer = Buffer.from(peer.cert_der)
+  try {
+    // eslint-disable-next-line no-new
+    new X509Certificate(certDer)
+  } catch (err) {
+    throw new NetcodeV2ServiceError(
+      `coordinator returned an unparseable cert for relay ${peer.relay_id}`,
+      { cause: err },
+    )
+  }
+
   return {
     address4: family === 4 ? host : undefined,
     address6: family === 6 ? host : undefined,
     port,
     serverName: config.relayServerName,
-    cert: config.relayCert,
+    cert: certDer.toString('base64'),
   }
 }
 
@@ -119,8 +120,9 @@ function relayPeerToInfo(peer: CoordinatorRelayPeer, config: NetcodeV2Config): N
  * public key during game loading, requests a session from the coordinator, and produces the
  * per-player handoff (token + relays + roster) the game loader publishes to clients.
  *
- * Enabled by setting `SB_RP2_COORDINATOR_URL` (plus `SB_RP2_TENANT` and `SB_RP2_RELAY_CERT`, a
- * path to the relay's leaf certificate PEM). When disabled, games load exactly as before.
+ * Enabled by setting `SB_RP2_COORDINATOR_URL` (plus `SB_RP2_TENANT`). The relay certificates
+ * clients pin come from the coordinator's session response, per relay. When disabled, games load
+ * exactly as before.
  */
 @singleton()
 export class NetcodeV2Service {
@@ -211,11 +213,11 @@ export class NetcodeV2Service {
           `(home relay ${session.home_relay.relay_id})`,
       )
 
-      const homeRelay = relayPeerToInfo(session.home_relay, config)
+      const homeRelay = relayEndpointToInfo(session.home_relay, config)
       // A backup equal to the home relay means only one relay was available; skip it in that case.
       const backupRelay =
         session.backup_relay.relay_id !== session.home_relay.relay_id
-          ? relayPeerToInfo(session.backup_relay, config)
+          ? relayEndpointToInfo(session.backup_relay, config)
           : undefined
 
       const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))

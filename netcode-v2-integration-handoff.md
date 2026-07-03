@@ -172,10 +172,10 @@ the target it should converge to is the "Final form" section above.
 
 **Server (WS-E), new `server/lib/netcode-v2/netcode-v2-service.ts`:**
 - Config from env: `SB_RP2_COORDINATOR_URL` (presence enables), `SB_RP2_TENANT`,
-  `SB_RP2_RELAY_CERT` (path to the relay's leaf cert PEM — parsed/validated via `X509Certificate`
-  at startup, pinned into every client's setup; interim until the coordinator conveys per-relay
-  certs), `SB_RP2_RELAY_SERVER_NAME` (default `localhost`).
-- `GameLoader.doGameLoad` (when enabled + >1 human + ≤8 participants): publishes
+  `SB_RP2_RELAY_SERVER_NAME` (default `localhost`). Relay certs are no longer server config:
+  each session response carries `cert_der` per relay (validated via `X509Certificate` before
+  being handed to clients). `SB_RP2_RELAY_CERT` is gone.
+- `GameLoader.doGameLoad` (when enabled + >1 human + ≤12 participants): publishes
   `setGameConfig` with `useNetcodeV2: true` → each client submits its per-session pubkey via
   `PUT /api/1/games/:gameId/netcodeV2Pubkey` (participants only — enforced via
   `GameLoader.isLoadingForUser`) → `NetcodeV2Service.createSessionForGame` awaits all pubkeys
@@ -184,8 +184,8 @@ the target it should converge to is the "Final form" section above.
   as `setNetcodeV2Setup` per player, **always before `startWhenReady`** (the DLL consumes the
   setup when its init starts). Cleanup (`discardGame`) runs on session create, load success, and
   cancel.
-- >8 participants (8 players + observers) falls back to legacy netcode with a warning — the
-  coordinator caps slots at 7 (`MAX_SLOT`); see rp2 asks below.
+- >12 participants falls back to legacy netcode with a warning — the coordinator caps slots at
+  11 (`MAX_SLOT`, BW's 12 network participants), so this only triggers on malformed configs.
 
 **Client renderer (`client/active-game/socket-handlers.ts`):** on `setGameConfig` with
 `useNetcodeV2`, asks the app for the session pubkey (IPC `activeGameGenNetcodeV2Keys`) and submits
@@ -225,32 +225,40 @@ no-op, retry hardening, plus cleanups) — 9 fixed, 1 deferred (see latency note
   gating (WS-E "client-version homogeneity") is the real answer.
 
 **rally-point2 asks (blocking the live loopback test, coordinate with that team):**
-1. **Tenant enrollment in the coordinator binary.** `coordinator/src/main.rs` builds
-   `tenant::new_store()` **empty** and has no enroll flag/API — a stock coordinator 400s every
-   `/session/create` with TenantNotFound. Needs a dev flag (e.g. `--tenant/--kid`, generating or
-   accepting a signing key and printing the pubkey for the relay's `--tenant-pubkey`), mirroring
-   the relay's dev-key generation.
-2. **Relay cert in the session response.** `SessionResponse.home_relay`/`backup_relay` carry only
-   `relay_id` + `relay_addr`; the client must pin the relay's leaf cert, so today it rides SB
-   server config (`SB_RP2_RELAY_CERT`). The coordinator should convey each relay's cert (it could
-   collect it at enrollment).
-3. **Raise `MAX_SLOT` (7 → 11).** BW supports 12 network participants (8 players + 4 observers);
-   the current cap forces observer-carrying lobbies onto legacy netcode.
+1. ✅ **Tenant enrollment in the coordinator binary — DONE** (rp2 `8dcddda`). The coordinator now
+   takes `--dev-tenant` (enrolls the tenant at startup; defaults `--tenant sb-dev` /
+   `--kid dev-key-1`, matching the relay, with 1..=6 buffer bounds) and logs the verifying key
+   as hex for the relay's `--tenant-pubkey`. `--tenant-key <hex-or-file>` pins a hex-encoded
+   PKCS#8 keypair so the pubkey survives restarts; without it a fresh keypair is generated and
+   its PKCS#8 hex logged for pinning next run. Verified live: coordinator + relay
+   (`--coordinator-url`) up, `POST /session/create` for `sb-dev` returns 200 with two signed
+   tokens; unknown tenant still 400s.
+2. ✅ **Relay cert in the session response — DONE** (rp2 `d5b5732`). The relay reports its
+   client-edge leaf cert (DER) in its enroll Hello; the coordinator records it and session
+   responses carry home/backup relays as `RelayEndpoint {relay_id, relay_addr, cert_der}`. SB
+   server consumes it per relay (validated via `X509Certificate`); `SB_RP2_RELAY_CERT` is
+   deleted. Verified live: the `cert_der` in a real session response parses as the relay's
+   self-signed `DNS:localhost` cert.
+3. ✅ **Raise `MAX_SLOT` (7 → 11) — DONE** (rp2 `d5b5732`). Coordinator-side validation only (the
+   relay never had a slot cap). Verified live with a 12-player `/session/create` → 12 tokens. SB
+   game-loader cap raised 8 → 12 to match.
 4. **Opaque session/lobby `ControlFrame` kind** (pre-existing ask, unchanged — needed for scope
    B's lobby-turns-on-reliable-stream).
 
-**Dev loopback runbook (once rp2 ask #1 lands):** run `rally-point-coordinator`
-(`--allow-insecure-control` + the new tenant flag) and `rally-point-relay` (`--cert/--key` a
-known PEM pair, `--tenant-pubkey` from the coordinator's tenant key, `--coordinator-url`), then
-start the SB server with `SB_RP2_COORDINATOR_URL/SB_RP2_TENANT/SB_RP2_RELAY_CERT` pointing at
-them, and load a 2-player game (two clients on one machine work). Watch for "netcode v2 session
-established" in the game logs, then the in-game turn flow through the seam.
+**Dev loopback runbook (unblocked — rp2 asks #1–#3 landed):** run `rally-point-coordinator`
+(`--allow-insecure-control --dev-tenant`, optionally `--tenant-key` to pin the key) and
+`rally-point-relay` (`--tenant-pubkey` = the hex pubkey the coordinator logs at startup,
+`--coordinator-url` + `--relay-id`; no cert flags needed — the relay self-signs and its cert
+reaches clients through the coordinator's session response), then start the SB server with
+`SB_RP2_COORDINATOR_URL`/`SB_RP2_TENANT` pointing at them, and load a 2-player game (two clients
+on one machine work). Watch for "netcode v2 session established" in the game logs, then the
+in-game turn flow through the seam.
 
 ## What's next (in rough order)
 
 ### 0. ✅ Control plane (WS-E + WS-F) + roster + bootstrap seeding — DONE (slice 4)
-See "Slice 4 — what landed". The smallest path to a *live* seam test is now: land rp2 ask #1
-(coordinator tenant enrollment), then run the dev loopback runbook above.
+See "Slice 4 — what landed". rp2 ask #1 (coordinator tenant enrollment) has landed, so the
+smallest path to a *live* seam test is now just running the dev loopback runbook above.
 
 ### 1. ✅ Async setup: dial the relay, spawn the driver — DONE (`netcode_v2/session.rs`)
 `establish_session(&NetcodeV2Setup)` runs on the DLL's Tokio runtime and does the full sequence:

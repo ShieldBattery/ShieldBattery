@@ -733,12 +733,11 @@ export class GameLoader {
       }
 
       // Netcode v2 only makes sense with multiple network participants; single-human games have
-      // no peers to relay turns between. The coordinator also caps sessions at 8 slots today, so
-      // larger participant sets (8 players + observers) fall back to legacy netcode rather than
-      // failing to load. TODO(netcode-v2): ask the rally-point2 team to raise the coordinator's
-      // MAX_SLOT so observer-carrying lobbies fit (BW supports 12 network participants).
+      // no peers to relay turns between. The coordinator caps sessions at BW's 12 network
+      // participants (8 players + 4 observers); anything larger falls back to legacy netcode
+      // rather than failing to load.
       const useNetcodeV2 =
-        this.netcodeV2Service.isEnabled() && hasMultipleHumans && players.size <= 8
+        this.netcodeV2Service.isEnabled() && hasMultipleHumans && players.size <= 12
       if (this.netcodeV2Service.isEnabled() && hasMultipleHumans && !useNetcodeV2) {
         log.warn(
           `game ${gameId} has ${players.size} participants, too many for a netcode v2 session; ` +
