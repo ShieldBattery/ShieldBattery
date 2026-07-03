@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT EXISTS(\n                    SELECT 1 FROM user_restrictions\n                    WHERE user_id = $1 AND kind = 'reporting'::restriction_kind\n                        AND start_time <= NOW() AND end_time > NOW()\n                ) AS \"exists!\"\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d65f43ac08cbdad8e6bfe20518fbad89ebd1c7cc6bd4f3005d60154a3f2d6fac"
+}

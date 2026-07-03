@@ -506,7 +506,8 @@ impl GameReportsRepo {
             r#"
                 SELECT EXISTS(
                     SELECT 1 FROM user_restrictions
-                    WHERE user_id = $1 AND kind = 'reporting'::restriction_kind AND end_time > NOW()
+                    WHERE user_id = $1 AND kind = 'reporting'::restriction_kind
+                        AND start_time <= NOW() AND end_time > NOW()
                 ) AS "exists!"
             "#,
             user_id.0,
