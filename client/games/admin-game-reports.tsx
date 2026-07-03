@@ -1,9 +1,11 @@
+import { ResultOf } from '@graphql-typed-document-node/core'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
-import { Link, Route, Switch } from 'wouter'
+import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { urlPath } from '../../common/urls'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { graphql } from '../gql'
 import { GameReportReason, GameReportResolution } from '../gql/graphql'
@@ -11,15 +13,18 @@ import { longTimestamp, NarrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { FilledButton, OutlinedButton } from '../material/button'
+import { Card } from '../material/card'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { watchReplayFromUrl } from '../replays/action-creators'
+import { ContainerLevel, containerStyles } from '../styles/colors'
 import { selectableTextContainer } from '../styles/text-selection'
-import { bodyLarge, titleLarge, titleMedium } from '../styles/typography'
+import { bodyLarge, bodyMedium, labelMedium, titleLarge, titleMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
+import { getGameResultsUrl } from './action-creators'
 
 const AdminGameReportsListQuery = graphql(/* GraphQL */ `
   query AdminGameReportsList($filter: GameReportFilter, $first: Int, $after: String) {
@@ -320,6 +325,19 @@ function AdminGameReportsList() {
   )
 }
 
+/**
+ * A username inside a clickable table row. Clicks on the name (and clicks inside the profile
+ * overlay it opens, which bubble here through the React tree) shouldn't trigger the row's
+ * navigation.
+ */
+function RowUsername({ userId }: { userId: SbUserId }) {
+  return (
+    <span onClick={e => e.stopPropagation()}>
+      <ConnectedUsername userId={userId} />
+    </span>
+  )
+}
+
 function GameReportsPage({
   includeResolved,
   after,
@@ -350,10 +368,10 @@ function GameReportsPage({
             <NarrowDuration to={new Date(r.createdAt)} />
           </DateCell>
           <UserCell>
-            {r.reporter ? <ConnectedUsername userId={r.reporter.id} /> : 'Unknown user'}
+            {r.reporter ? <RowUsername userId={r.reporter.id} /> : 'Unknown user'}
           </UserCell>
           <UserCell>
-            {r.reportedUser ? <ConnectedUsername userId={r.reportedUser.id} /> : 'Unknown user'}
+            {r.reportedUser ? <RowUsername userId={r.reportedUser.id} /> : 'Unknown user'}
           </UserCell>
           <ReasonCell>{reasonToLabel(r.reason)}</ReasonCell>
           <DetailsCell>{r.details}</DetailsCell>
@@ -371,47 +389,179 @@ function GameReportsPage({
   )
 }
 
-const Items = styled.div`
+const DetailsRoot = styled.div`
   ${selectableTextContainer};
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+
+  padding-bottom: 24px;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 304px;
+  gap: 16px;
+  align-items: start;
 `
 
-const Item = styled.div`
-  justify-content: flex-start;
+const CardColumn = styled.div`
   display: flex;
+  flex-direction: column;
   gap: 16px;
 `
 
-const ItemLabel = styled.div`
-  ${titleMedium};
-  width: 160px;
-  flex: 0 0 auto;
-  text-align: right;
+const SectionCard = styled(Card)`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 `
 
-const ItemValue = styled.div`
-  ${bodyLarge};
+const Section = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+const SectionLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const ReportHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+`
+
+const ReasonTitle = styled.div`
+  ${titleLarge};
+`
+
+const SubmittedAt = styled.div`
+  ${bodyMedium};
+  margin-top: 2px;
+  color: var(--theme-on-surface-variant);
+`
+
+const StatusChip = styled.div<{ $resolved: boolean }>`
+  ${labelMedium};
+
+  height: 24px;
+  padding: 0 12px;
+
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  color: ${props => (props.$resolved ? 'var(--theme-positive)' : 'var(--theme-amber)')};
 `
 
 const DetailsValue = styled.pre`
   ${bodyLarge};
 
   margin: 0;
-  padding: 8px 0 8px 8px;
+  padding: 4px 0 4px 12px;
 
-  border-left: 1px solid var(--theme-outline-variant);
+  border-left: 2px solid var(--theme-outline-variant);
   font-family: inherit;
+  overflow-wrap: anywhere;
   white-space: pre-line;
 `
 
-const ResolveActions = styled.div`
+const ActionRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
 `
+
+const MutedText = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const ResolveTitle = styled.div`
+  ${titleMedium};
+`
+
+const ResolvedHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
+const ResolvedIcon = styled(MaterialIcon)`
+  color: var(--theme-positive);
+`
+
+const ResolvedOutcome = styled.div`
+  ${titleMedium};
+`
+
+const RoleLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+  text-transform: uppercase;
+`
+
+const SideCardName = styled.div`
+  ${titleMedium};
+`
+
+const StatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+`
+
+const StatTile = styled.div`
+  ${containerStyles(ContainerLevel.Normal)};
+
+  padding: 8px 4px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+
+  border-radius: 4px;
+`
+
+const StatValue = styled.div<{ $color: string }>`
+  ${titleMedium};
+  color: ${props => props.$color};
+`
+
+const StatLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+function Stat({
+  label,
+  value,
+  accent,
+}: {
+  label: string
+  value: number
+  /** Tint applied when the value is nonzero, for stats that are a signal for this user. */
+  accent?: 'negative' | 'amber'
+}) {
+  let color = 'var(--theme-on-surface)'
+  if (value === 0) {
+    color = 'var(--theme-on-surface-variant)'
+  } else if (accent === 'negative') {
+    color = 'var(--theme-negative)'
+  } else if (accent === 'amber') {
+    color = 'var(--theme-amber)'
+  }
+
+  return (
+    <StatTile>
+      <StatValue $color={color}>{value}</StatValue>
+      <StatLabel>{label}</StatLabel>
+    </StatTile>
+  )
+}
 
 interface GameReportUserStats {
   total: number
@@ -422,41 +572,73 @@ interface GameReportUserStats {
   pending: number
 }
 
-function formatStats(stats: GameReportUserStats): string {
+function ReportUserCard({
+  role,
+  statsLabel,
+  user,
+  stats,
+  highlight,
+}: {
+  role: string
+  statsLabel: string
+  user: { id: SbUserId } | null | undefined
+  stats: GameReportUserStats
+  /**
+   * The credibility signal for this user: prior actioned reports against a reported player, or
+   * prior abusive reports from a reporter. Tinted when nonzero.
+   */
+  highlight: 'actioned' | 'abusive'
+}) {
   return (
-    `${stats.total} total — ${stats.actioned} actioned, ${stats.dismissed} dismissed, ` +
-    `${stats.abusive} abusive, ${stats.duplicate} duplicate, ${stats.pending} pending`
+    <SectionCard>
+      <div>
+        <RoleLabel>{role}</RoleLabel>
+        <SideCardName>
+          {user ? <ConnectedUsername userId={user.id} /> : <MutedText>Unknown user</MutedText>}
+        </SideCardName>
+      </div>
+      <Section>
+        <SectionLabel>{statsLabel}</SectionLabel>
+        <StatsGrid>
+          <Stat label='Total' value={stats.total} />
+          <Stat label='Pending' value={stats.pending} />
+          <Stat
+            label='Actioned'
+            value={stats.actioned}
+            accent={highlight === 'actioned' ? 'negative' : undefined}
+          />
+          <Stat label='Dismissed' value={stats.dismissed} />
+          <Stat
+            label='Abusive'
+            value={stats.abusive}
+            accent={highlight === 'abusive' ? 'amber' : undefined}
+          />
+          <Stat label='Duplicate' value={stats.duplicate} />
+        </StatsGrid>
+      </Section>
+    </SectionCard>
   )
 }
 
-function AdminGameReportView({ params: { reportId } }: { params: { reportId: string } }) {
+type AdminGameReport = NonNullable<ResultOf<typeof AdminGameReportQuery>['gameReport']>
+
+function GameReportDetails({
+  report,
+  resolving,
+  onResolve,
+}: {
+  report: AdminGameReport
+  resolving: boolean
+  onResolve: (resolution: GameReportResolution, notes: string | undefined) => void
+}) {
   const dispatch = useAppDispatch()
   const [notes, setNotes] = useState('')
-
-  const [{ data, fetching, error }, reexecute] = useQuery({
-    query: AdminGameReportQuery,
-    variables: { id: reportId },
-  })
-  const [{ fetching: resolving, error: resolveError }, resolveGameReport] =
-    useMutation(ResolveGameReportMutation)
-
-  const report = data?.gameReport
-
-  const onResolve = (resolution: GameReportResolution) => {
-    resolveGameReport({ id: reportId, resolution, notes: notes.trim() ? notes.trim() : undefined })
-      .then(result => {
-        if (!result.error) {
-          reexecute({ requestPolicy: 'network-only' })
-        }
-      })
-      .catch(swallowNonBuiltins)
-  }
+  const { game, replay, reporter } = report
 
   const onWatchReplay = () => {
-    if (!report?.replay || !report.game || !IS_ELECTRON) {
+    if (!replay || !game || !IS_ELECTRON) {
       return
     }
-    const { replay, game } = report
     dispatch(
       watchReplayFromUrl(
         { gameId: game.id, id: replay.replayFileId, url: replay.url, hash: replay.hash },
@@ -477,6 +659,196 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
     )
   }
 
+  const resolve = (resolution: GameReportResolution) =>
+    onResolve(resolution, notes.trim() ? notes.trim() : undefined)
+
+  let statusLabel = 'Pending'
+  if (report.resolvedAt) {
+    statusLabel = report.resolution ? resolutionToLabel(report.resolution) : 'Resolved'
+  }
+
+  return (
+    <DetailsRoot>
+      <CardColumn>
+        <SectionCard>
+          <ReportHeader>
+            <div>
+              <ReasonTitle>{reasonToLabel(report.reason)}</ReasonTitle>
+              <SubmittedAt>
+                Submitted {longTimestamp.format(new Date(report.createdAt))}
+              </SubmittedAt>
+            </div>
+            <StatusChip $resolved={!!report.resolvedAt}>
+              <MaterialIcon icon={report.resolvedAt ? 'check_circle' : 'schedule'} size={16} />
+              {statusLabel}
+            </StatusChip>
+          </ReportHeader>
+
+          {report.details ? (
+            <Section>
+              <SectionLabel>Details</SectionLabel>
+              <DetailsValue>{report.details}</DetailsValue>
+            </Section>
+          ) : null}
+
+          <Section>
+            <SectionLabel>Evidence</SectionLabel>
+            {game || replay ? (
+              <ActionRow>
+                {game ? (
+                  <OutlinedButton
+                    label='View game'
+                    iconStart={<MaterialIcon icon='sports_esports' />}
+                    onClick={() => push(getGameResultsUrl(game.id))}
+                  />
+                ) : null}
+                {replay ? (
+                  <>
+                    <OutlinedButton
+                      label='Download replay'
+                      iconStart={<MaterialIcon icon='download' />}
+                      onClick={() => {
+                        const a = document.createElement('a')
+                        a.href = replay.url
+                        a.target = '_blank'
+                        a.click()
+                      }}
+                    />
+                    {IS_ELECTRON ? (
+                      <OutlinedButton
+                        label='Watch replay'
+                        iconStart={<MaterialIcon icon='play_circle' />}
+                        onClick={onWatchReplay}
+                      />
+                    ) : null}
+                  </>
+                ) : null}
+              </ActionRow>
+            ) : null}
+            {!game ? <MutedText>Game record not available.</MutedText> : null}
+            {!replay ? <MutedText>No replay available.</MutedText> : null}
+          </Section>
+        </SectionCard>
+
+        <SectionCard>
+          {report.resolvedAt ? (
+            <>
+              <ResolvedHeader>
+                <ResolvedIcon icon='check_circle' size={24} />
+                <div>
+                  <ResolvedOutcome>
+                    {report.resolution ? resolutionToLabel(report.resolution) : 'Resolved'}
+                  </ResolvedOutcome>
+                  <MutedText>
+                    Resolved by{' '}
+                    {report.resolver ? (
+                      <ConnectedUsername userId={report.resolver.id} />
+                    ) : (
+                      'unknown user'
+                    )}{' '}
+                    · {longTimestamp.format(new Date(report.resolvedAt))}
+                  </MutedText>
+                </div>
+              </ResolvedHeader>
+              {report.resolutionNotes ? (
+                <Section>
+                  <SectionLabel>Notes</SectionLabel>
+                  <DetailsValue>{report.resolutionNotes}</DetailsValue>
+                </Section>
+              ) : null}
+              {reporter ? (
+                <ActionRow>
+                  <OutlinedButton
+                    label='Restrict this reporter'
+                    iconStart={<MaterialIcon icon='gavel' />}
+                    onClick={() =>
+                      push(urlPath`/users/${reporter.id}/${reporter.name}/admin/punishments`)
+                    }
+                  />
+                </ActionRow>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <ResolveTitle>Resolve this report</ResolveTitle>
+              <TextField
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                label='Notes (optional)'
+                allowErrors={false}
+                floatingLabel={true}
+                multiline={true}
+                rows={2}
+                maxRows={6}
+                disabled={resolving}
+              />
+              <ActionRow>
+                <FilledButton
+                  label='Actioned'
+                  disabled={resolving}
+                  onClick={() => resolve(GameReportResolution.Actioned)}
+                />
+                <OutlinedButton
+                  label='Dismissed'
+                  disabled={resolving}
+                  onClick={() => resolve(GameReportResolution.Dismissed)}
+                />
+                <OutlinedButton
+                  label='Abusive report'
+                  disabled={resolving}
+                  onClick={() => resolve(GameReportResolution.Abusive)}
+                />
+                <OutlinedButton
+                  label='Duplicate'
+                  disabled={resolving}
+                  onClick={() => resolve(GameReportResolution.Duplicate)}
+                />
+              </ActionRow>
+            </>
+          )}
+        </SectionCard>
+      </CardColumn>
+
+      <CardColumn>
+        <ReportUserCard
+          role='Reported player'
+          statsLabel='Reports received'
+          user={report.reportedUser}
+          stats={report.reportedUserStats}
+          highlight='actioned'
+        />
+        <ReportUserCard
+          role='Reporter'
+          statsLabel='Reports filed'
+          user={reporter}
+          stats={report.reporterStats}
+          highlight='abusive'
+        />
+      </CardColumn>
+    </DetailsRoot>
+  )
+}
+
+function AdminGameReportView({ params: { reportId } }: { params: { reportId: string } }) {
+  const [{ data, fetching, error }, reexecute] = useQuery({
+    query: AdminGameReportQuery,
+    variables: { id: reportId },
+  })
+  const [{ fetching: resolving, error: resolveError }, resolveGameReport] =
+    useMutation(ResolveGameReportMutation)
+
+  const report = data?.gameReport
+
+  const onResolve = (resolution: GameReportResolution, notes: string | undefined) => {
+    resolveGameReport({ id: reportId, resolution, notes })
+      .then(result => {
+        if (!result.error) {
+          reexecute({ requestPolicy: 'network-only' })
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
   return (
     <Content>
       <HeadlineAndButton>
@@ -490,171 +862,7 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
       {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
       {resolveError ? <ErrorText>Error resolving: {resolveError.message}</ErrorText> : null}
       {report ? (
-        <Items>
-          <Item>
-            <ItemLabel>Reporter:</ItemLabel>
-            <ItemValue>
-              {report.reporter ? <ConnectedUsername userId={report.reporter.id} /> : 'Unknown user'}
-            </ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Reporter history:</ItemLabel>
-            <ItemValue>{formatStats(report.reporterStats)}</ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Reported player:</ItemLabel>
-            <ItemValue>
-              {report.reportedUser ? (
-                <ConnectedUsername userId={report.reportedUser.id} />
-              ) : (
-                'Unknown user'
-              )}
-            </ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Reports against:</ItemLabel>
-            <ItemValue>{formatStats(report.reportedUserStats)}</ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Reason:</ItemLabel>
-            <ItemValue>{reasonToLabel(report.reason)}</ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Submitted at:</ItemLabel>
-            <ItemValue>{longTimestamp.format(new Date(report.createdAt))}</ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Game:</ItemLabel>
-            <ItemValue>
-              {report.game ? (
-                <Link href={urlPath`/games/${report.game.id}`}>View game</Link>
-              ) : (
-                'Game not found'
-              )}
-            </ItemValue>
-          </Item>
-          <Item>
-            <ItemLabel>Replay:</ItemLabel>
-            <ItemValue>
-              {report.replay ? (
-                <ResolveActions>
-                  <OutlinedButton
-                    label='Download replay'
-                    iconStart={<MaterialIcon icon='download' />}
-                    onClick={() => {
-                      const a = document.createElement('a')
-                      a.href = report.replay!.url
-                      a.target = '_blank'
-                      a.click()
-                    }}
-                  />
-                  {IS_ELECTRON ? (
-                    <OutlinedButton
-                      label='Watch replay'
-                      iconStart={<MaterialIcon icon='play_circle' />}
-                      onClick={onWatchReplay}
-                    />
-                  ) : null}
-                </ResolveActions>
-              ) : (
-                'No replay available'
-              )}
-            </ItemValue>
-          </Item>
-          {report.details ? (
-            <Item>
-              <ItemLabel>Details:</ItemLabel>
-              <DetailsValue>{report.details}</DetailsValue>
-            </Item>
-          ) : null}
-          {report.resolvedAt ? (
-            <>
-              <Item>
-                <ItemLabel>Resolved at:</ItemLabel>
-                <ItemValue>{longTimestamp.format(new Date(report.resolvedAt))}</ItemValue>
-              </Item>
-              <Item>
-                <ItemLabel>Outcome:</ItemLabel>
-                <ItemValue>
-                  {report.resolution ? resolutionToLabel(report.resolution) : '—'}
-                </ItemValue>
-              </Item>
-              <Item>
-                <ItemLabel>Resolved by:</ItemLabel>
-                <ItemValue>
-                  {report.resolver ? (
-                    <ConnectedUsername userId={report.resolver.id} />
-                  ) : (
-                    'Unknown user'
-                  )}
-                </ItemValue>
-              </Item>
-              {report.resolutionNotes ? (
-                <Item>
-                  <ItemLabel>Resolution notes:</ItemLabel>
-                  <DetailsValue>{report.resolutionNotes}</DetailsValue>
-                </Item>
-              ) : null}
-              {report.reporter ? (
-                <Item>
-                  <ItemLabel>Restrict reporting:</ItemLabel>
-                  <ItemValue>
-                    <Link
-                      href={urlPath`/users/${report.reporter.id}/${report.reporter.name}/admin/punishments`}>
-                      Restrict this reporter
-                    </Link>
-                  </ItemValue>
-                </Item>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <Item>
-                <ItemLabel>Resolution notes:</ItemLabel>
-                <ItemValue>
-                  <TextField
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    label='Notes (optional)'
-                    allowErrors={false}
-                    floatingLabel={true}
-                    multiline={true}
-                    rows={2}
-                    maxRows={6}
-                    disabled={resolving}
-                  />
-                </ItemValue>
-              </Item>
-              <Item>
-                <ItemLabel>Resolve as:</ItemLabel>
-                <ItemValue>
-                  <ResolveActions>
-                    <FilledButton
-                      label='Actioned'
-                      disabled={resolving}
-                      onClick={() => onResolve(GameReportResolution.Actioned)}
-                    />
-                    <OutlinedButton
-                      label='Dismissed'
-                      disabled={resolving}
-                      onClick={() => onResolve(GameReportResolution.Dismissed)}
-                    />
-                    <OutlinedButton
-                      label='Abusive report'
-                      disabled={resolving}
-                      onClick={() => onResolve(GameReportResolution.Abusive)}
-                    />
-                    <OutlinedButton
-                      label='Duplicate'
-                      disabled={resolving}
-                      onClick={() => onResolve(GameReportResolution.Duplicate)}
-                    />
-                  </ResolveActions>
-                </ItemValue>
-              </Item>
-            </>
-          )}
-        </Items>
+        <GameReportDetails report={report} resolving={resolving} onResolve={onResolve} />
       ) : null}
       {!report && !fetching && !error ? (
         // The detail view is deep-linkable, and a stale/bad id resolves to a null report rather
