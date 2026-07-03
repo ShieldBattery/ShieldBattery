@@ -19,6 +19,7 @@ import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
@@ -304,6 +305,7 @@ export class GameLoader {
     private publisher: TypedPublisher<GameLoaderEvent>,
     private activityRegistry: GameplayActivityRegistry,
     private restrictionService: RestrictionService,
+    private netcodeV2Service: NetcodeV2Service,
   ) {}
 
   /**
@@ -440,6 +442,7 @@ export class GameLoader {
       for (const client of activeClients) {
         client.unsubscribe(gameUserPath(gameId, client.userId))
       }
+      this.netcodeV2Service.discardGame(gameId)
 
       this.recentlyLoadedGames.add(gameId)
       this.loadingGames = this.loadingGames.delete(gameId)
@@ -508,6 +511,7 @@ export class GameLoader {
       })
 
     this.loadingGames = this.loadingGames.delete(gameId)
+    this.netcodeV2Service.discardGame(gameId)
     loadingData.abortController.abort()
     loadingData.deferred.resolve(Result.error(reason))
 
@@ -524,6 +528,11 @@ export class GameLoader {
 
   isLoading(gameId: string) {
     return this.loadingGames.has(gameId)
+  }
+
+  /** Returns whether `gameId` is currently loading with `userId` as one of its participants. */
+  isLoadingForUser(gameId: string, userId: SbUserId): boolean {
+    return !!this.loadingGames.get(gameId)?.players.some(p => p.userId === userId)
   }
 
   private doGameLoad({
@@ -723,6 +732,20 @@ export class GameLoader {
         }
       }
 
+      // Netcode v2 only makes sense with multiple network participants; single-human games have
+      // no peers to relay turns between. The coordinator also caps sessions at 8 slots today, so
+      // larger participant sets (8 players + observers) fall back to legacy netcode rather than
+      // failing to load. TODO(netcode-v2): ask the rally-point2 team to raise the coordinator's
+      // MAX_SLOT so observer-carrying lobbies fit (BW supports 12 network participants).
+      const useNetcodeV2 =
+        this.netcodeV2Service.isEnabled() && hasMultipleHumans && players.size <= 8
+      if (this.netcodeV2Service.isEnabled() && hasMultipleHumans && !useNetcodeV2) {
+        log.warn(
+          `game ${gameId} has ${players.size} participants, too many for a netcode v2 session; ` +
+            `using legacy netcode`,
+        )
+      }
+
       const generalSetup = getGeneralGameSetup({
         gameConfig,
         playerInfos,
@@ -741,6 +764,7 @@ export class GameLoader {
           gameId,
           setup: {
             ...generalSetup,
+            useNetcodeV2,
             resultCode: resultCodes.get(userId)!,
             isChatRestricted: restrictionsSet.has(userId),
           },
@@ -790,6 +814,38 @@ export class GameLoader {
           gameId,
           routes: [],
         })
+      }
+
+      if (useNetcodeV2) {
+        // Assign each participant a rally-point2 slot, wait for their per-session pubkeys, and
+        // request the session from the coordinator. Each player gets their own token plus the
+        // relay endpoints and the full slot roster. This must complete (and be published) before
+        // `startWhenReady`: the game process consumes the setup when its game init starts.
+        const slots = [...players].map((p, slot) => ({ slot, userId: p.userId! }))
+        const [setups, setupsError] = (
+          await Result.fromAsyncCatching(
+            this.netcodeV2Service.createSessionForGame({ gameId, slots, signal }),
+          )
+        ).toTuple()
+        if (setupsError) {
+          return Result.error(
+            new BaseGameLoaderError(
+              GameLoadErrorType.Internal,
+              'error creating netcode v2 session',
+              {
+                cause: setupsError,
+              },
+            ),
+          )
+        }
+
+        for (const [userId, setup] of setups) {
+          this.publisher.publish(gameUserPath(gameId, userId), {
+            type: 'setNetcodeV2Setup',
+            gameId,
+            setup,
+          })
+        }
       }
 
       if (signal.aborted) {

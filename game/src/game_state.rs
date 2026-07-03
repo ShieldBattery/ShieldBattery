@@ -1289,15 +1289,29 @@ impl InitInProgress {
                         .user_id
                         .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
                     debug!("Player {} received storm id {}", name, storm_id.0);
+                    // Record the rally-point2 slot ↔ storm id mapping as each player's storm id
+                    // solidifies, so the seam can attribute their turns. Our own slot comes from
+                    // the signed token (the one source we can always trust); peers resolve through
+                    // the coordinator's session roster carried in the launch handoff. `with_seam`
+                    // is a no-op when there is no rally-point2 session.
                     if sb_user_id == self.local_user.id {
-                        // Map our own rp2 slot (from the signed token) to the storm id BW just
-                        // assigned us, so the seam's local echo delivers our own turns into the sim.
-                        // `with_seam` is a no-op when there is no rally-point2 session. Remote
-                        // players' rp2 slots need an authoritative roster from the coordinator's
-                        // session response, which isn't plumbed through yet; until it lands only the
-                        // local mapping is wired, so a live multi-client seam game can't route peer
-                        // turns yet, but the local round-trip self-test can.
-                        netcode_v2::with_seam(|s| s.map_local_storm(storm_id));
+                        netcode_v2::with_seam(|s| {
+                            // Cross-check the two slot authorities: a server-side divergence
+                            // between token minting and roster construction would otherwise
+                            // surface only as a silent mid-game stall.
+                            if let Some(roster_slot) = s.roster_slot_for_user(sb_user_id)
+                                && roster_slot != s.local_slot_id()
+                            {
+                                error!(
+                                    "netcode v2 roster assigns us slot {roster_slot:?} but our \
+                                     token says {:?}; peer turn routing will disagree",
+                                    s.local_slot_id(),
+                                );
+                            }
+                            s.map_local_storm(storm_id);
+                        });
+                    } else {
+                        netcode_v2::with_seam(|s| s.map_storm_for_user(sb_user_id, storm_id));
                     }
                     self.joined_players.push(JoinedPlayer {
                         name: name.to_string(),

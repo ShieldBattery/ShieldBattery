@@ -73,10 +73,55 @@ export default function ({
         // state is cleared on every reconnect, so make sure it's loaded before launching (falling
         // back to whatever's cached rather than stalling the launch).
         dispatch(ensureRelationshipsLoaded(buildAndSend))
+
+        // Ask the app for this session's netcode v2 public key (the private half stays in the
+        // app) and submit it so the server can request our session token from the coordinator.
+        // The invoke returns undefined outside Electron (like every other invoke here) — no game
+        // can launch there anyway, so nothing to submit. Terminal failures are reported as a load
+        // error so the game doesn't hang until the loader timeout.
+        const genKeysPromise = setup.useNetcodeV2
+          ? ipcRenderer.invoke('activeGameGenNetcodeV2Keys', gameId)
+          : undefined
+        if (genKeysPromise) {
+          genKeysPromise
+            .then(async pubkey => {
+              if (!pubkey) {
+                throw new Error('no active game to generate netcode v2 keys for')
+              }
+              // Retry transient failures — a single blip here would otherwise cancel the load
+              // for every player in the game
+              let lastError: unknown
+              for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                  await fetchJson(apiUrl`games/${gameId}/netcodeV2Pubkey`, {
+                    method: 'put',
+                    body: JSON.stringify({ pubkey }),
+                    signal: AbortSignal.timeout(5000),
+                  })
+                  return
+                } catch (err) {
+                  lastError = err
+                  await new Promise(resolve => setTimeout(resolve, 500))
+                }
+              }
+              throw lastError
+            })
+            .catch(err => {
+              logger.error(`Error submitting netcode v2 pubkey: ${err?.stack ?? err}`)
+              fetchJson(apiUrl`games/${gameId}/status`, {
+                method: 'put',
+                body: JSON.stringify({ status: stringToStatus('error') }),
+                signal: AbortSignal.timeout(2000),
+              }).catch(swallowNonBuiltins)
+            })
+        }
       }
     },
     setRoutes(_, { routes, gameId }) {
       ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
+    },
+    setNetcodeV2Setup(_, { gameId, setup }) {
+      ipcRenderer.invoke('activeGameSetNetcodeV2Setup', gameId, setup)?.catch(swallowNonBuiltins)
     },
     startWhenReady(_, { gameId }) {
       ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)

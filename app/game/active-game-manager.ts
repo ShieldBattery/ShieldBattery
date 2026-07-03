@@ -13,12 +13,14 @@ import {
   isReplayMapInfo,
 } from '../../common/games/game-launch-config'
 import { GameStatus, ReportedGameStatus, statusToString } from '../../common/games/game-status'
+import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
+import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
 
 // Overrides the default rally-point bind port in the game. Not recommended for use outside of
 // specific development testing, as it can cause game processes to conflict with each other.
@@ -36,6 +38,16 @@ interface ActiveGameInfo {
   promise?: Promise<any>
   config?: GameLaunchConfig
   routes?: GameRoute[]
+  /**
+   * The per-session netcode v2 keypair, generated on request during loading. The private key is
+   * held here (never sent to the server) until it's merged into the game process handoff.
+   */
+  netcodeV2Keys?: NetcodeV2KeyPair
+  /**
+   * The complete netcode v2 handoff for the game process (server setup + local private key). For
+   * games using netcode v2 this must be delivered before `setupGame`.
+   */
+  netcodeV2Setup?: NetcodeV2Setup
   /**
    * Whether or not this game instance has been told it can start.
    */
@@ -184,8 +196,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       },
       err => this.handleGameLaunchError(gameId, err),
     )
+    // The netcode v2 keypair and session handoff are strictly per-game — carrying them over from
+    // a previous (hung) game would reuse its keypair and could satisfy the new game's setup gate
+    // with the old game's session.
+    const carried = current?.id === gameId ? current : undefined
     this.activeGame = {
       ...current,
+      netcodeV2Keys: carried?.netcodeV2Keys,
+      netcodeV2Setup: carried?.netcodeV2Setup,
       id: gameId,
       promise: activeGamePromise,
       config,
@@ -223,12 +241,78 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
     this.setStatus(GameStatus.Launching)
 
-    // `setGameRoutes` can be called before `setGameConfig`, in which case the config won't be set
-    // yet; we also don't send the routes, since the game couldn't be connected in that case either.
-    if (current && current.config) {
-      this.emit('gameCommand', gameId, 'routes', routes)
-      this.emit('gameCommand', gameId, 'setupGame', current.config.setup)
+    this.maybeSendGameSetup(this.activeGame)
+  }
+
+  /**
+   * Generates (or returns the already-generated) per-session netcode v2 keypair for the active
+   * game, returning the base64 raw public key, or null if `gameId` is not the active game. The
+   * private key never leaves this process except in the game-process handoff.
+   */
+  generateNetcodeV2Keys(gameId: string): string | null {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got generateNetcodeV2Keys for ${gameId}, but it is not the active game`)
+      return null
     }
+
+    if (!this.activeGame.netcodeV2Keys) {
+      this.activeGame.netcodeV2Keys = generateNetcodeV2KeyPair()
+    }
+    return this.activeGame.netcodeV2Keys.publicKey
+  }
+
+  /**
+   * Delivers the server's netcode v2 session handoff. Merged with the locally-held private key,
+   * it's forwarded to the game process ahead of its game setup.
+   */
+  setNetcodeV2Setup(gameId: string, setup: NetcodeV2ServerSetup) {
+    const current = this.activeGame
+    if (!current || current.id !== gameId) {
+      log.verbose(`Got setNetcodeV2Setup for ${gameId}, but it is not the active game`)
+      return
+    }
+    const keys = current.netcodeV2Keys
+    if (!keys) {
+      // The server can only have gotten a token for a pubkey we generated, so this indicates a
+      // server/client flow bug rather than an expected state. Quit the (already-launched) game
+      // process rather than leaving it orphaned on the loading screen.
+      this.emit('gameCommand', gameId, 'quit')
+      this.setStatus(
+        GameStatus.Error,
+        new Error('Received netcode v2 setup before keys were generated'),
+      )
+      this.activeGame = null
+      return
+    }
+
+    current.netcodeV2Setup = { ...setup, clientPrivateKey: keys.privateKey }
+    this.maybeSendGameSetup(current)
+  }
+
+  /**
+   * Sends the game setup command (preceded by everything it depends on) once every input has
+   * arrived: the config and routes always, plus the netcode v2 handoff for games using it. The
+   * game process consumes the netcode v2 setup when its game init starts, so it must be delivered
+   * before `setupGame`.
+   *
+   * May fire before the game process has connected — those sends go nowhere, and
+   * `handleGameConnected` re-runs this once the process is ready. Takes the game explicitly (not
+   * `this.activeGame`) so callers that suspended across an await operate on the game they
+   * captured, not one that replaced it in the meantime.
+   */
+  private maybeSendGameSetup(game: ActiveGameInfo) {
+    if (!game.config || !game.routes) {
+      return
+    }
+    if (game.config.setup.useNetcodeV2 && !game.netcodeV2Setup) {
+      return
+    }
+
+    this.emit('gameCommand', game.id, 'routes', game.routes)
+    if (game.netcodeV2Setup) {
+      this.emit('gameCommand', game.id, 'netcodeV2Setup', game.netcodeV2Setup)
+    }
+    this.emit('gameCommand', game.id, 'setupGame', game.config.setup)
   }
 
   /** Tells a particular game instance that it is okay to begin (starting actual gameplay). */
@@ -282,10 +366,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       monitorBounds,
     })
 
-    if (game.routes) {
-      this.emit('gameCommand', id, 'routes', game.routes)
-      this.emit('gameCommand', id, 'setupGame', config.setup)
-    }
+    this.maybeSendGameSetup(game)
 
     // If the `startWhenReady` command was already sent by this point, it means it was sent while
     // the game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.

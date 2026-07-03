@@ -2283,15 +2283,12 @@ impl BwScr {
     /// required slot is ready, fill `player_turns[]` / `player_turns_size[]` / `net_player_flags[]`
     /// and run the synced leave pass. Never calls the original.
     ///
-    /// NOTE(netcode-v2 bootstrap): the seam is gated to in-game only (`game_started`), so the lobby
-    /// runs fully native (native join is retained for now). That leaves an unsolved bootstrap gap for
-    /// when the seam is *actually activated* for a live game: at the lobby→game transition the seam's
-    /// pipe is empty, so the first in-game receive stalls → `network_ready = 0` → `step_network`
-    /// skips the PIPE flush → deadlock. Native avoids this because the lobby's unconditional flush
-    /// pre-seeds the pipe. Before a live in-game seam run, seed `latency_turns` turns into the seam at
-    /// the transition (or run the PIPE flush once independent of `network_ready`). This is only
-    /// reachable once a session is active, which also needs the still-open remote slot↔storm roster
-    /// mapping, so it's deferred to that activation work rather than fixed blind here.
+    /// The seam is gated to in-game only (`game_started`), so the lobby runs fully native (native
+    /// join is retained for now) and the seam's pipe is empty at the lobby→game transition — the
+    /// first in-game receive would stall forever (`network_ready = 0` → `step_network` skips the
+    /// PIPE flush → deadlock; native avoids this because the lobby's unconditional flush pre-seeds
+    /// the pipe). [`seed_netcode_v2_pipe`](Self::seed_netcode_v2_pipe) closes that gap by running
+    /// the PIPE fill once at the transition.
     unsafe fn netcode_v2_receive_turns(&self) -> SeamReceive {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
@@ -2366,6 +2363,21 @@ impl BwScr {
                     true
                 }
             }
+        }
+    }
+
+    /// Seeds the seam's pipe at the lobby→game transition. The lobby is gated native, so nothing
+    /// has primed the seam when the game starts: the first in-game receive would stall waiting for
+    /// turns no one has sent, and the PIPE flush that would send them only runs once the network is
+    /// ready — a lockstep deadlock. Native pre-seeds via the lobby's unconditional flush; this is
+    /// the seam's equivalent, running the PIPE fill once, unconditionally, from the game thread
+    /// right after `set_game_started`. Every client seeds its own `latency_turns` turns, which
+    /// reach peers via the relay fan-out (and ourselves via the local echo), so everyone's first
+    /// receive finds a full turn queued. No-op when there is no live session (the lobby's native
+    /// flush already primed the native pipe).
+    pub fn seed_netcode_v2_pipe(&self) {
+        unsafe {
+            self.netcode_v2_flush_pipe();
         }
     }
 

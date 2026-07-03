@@ -9,6 +9,7 @@
 //! session simply sits here unused (the legacy transport still runs).
 
 use quick_error::quick_error;
+use rally_point_client::proto::ids::SlotId;
 use rally_point_client::transport::Link;
 use rally_point_client::{ClientEndpoint, DialError, Identity, LinkDriver};
 
@@ -93,7 +94,12 @@ pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionErro
         }
     });
 
-    let seam = SeamState::new(channels, local_slot, INITIAL_LATENCY_TURNS);
+    let roster = setup
+        .roster
+        .iter()
+        .map(|entry| (SlotId(entry.slot), entry.user_id))
+        .collect();
+    let seam = SeamState::new(channels, local_slot, INITIAL_LATENCY_TURNS, roster);
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             _endpoint: endpoint,

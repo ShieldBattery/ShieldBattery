@@ -9,6 +9,7 @@ import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameLaunchConfig, GameRoute } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
+import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
 import { MapExtension } from './maps'
 import { ResolvedRallyPointServer } from './rally-point'
@@ -74,8 +75,19 @@ interface IpcInvokeables {
    * `gameId`.
    */
   activeGameClearConfig: (gameId: string) => void
+  /**
+   * Generates the per-session Ed25519 keypair for a netcode v2 game and returns the base64 raw
+   * public key (to be submitted to the server), or null if `gameId` is not the active game. The
+   * private key stays in the main process until it's handed to the game process at launch.
+   */
+  activeGameGenNetcodeV2Keys: (gameId: string) => string | null
   activeGameStartWhenReady: (gameId: string) => void
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
+  /**
+   * Delivers the server's netcode v2 session handoff (token/relays/roster); the main process
+   * merges in the locally-held private key and forwards it to the game process.
+   */
+  activeGameSetNetcodeV2Setup: (gameId: string, setup: NetcodeV2ServerSetup) => void
   activeGameSetRoutes: (gameId: string, routes: GameRoute[]) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>

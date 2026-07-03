@@ -720,6 +720,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('activeGameSetRoutes', (event, gameId, routes) =>
     activeGameManager.setGameRoutes(gameId, routes),
   )
+  ipcMain.handle('activeGameGenNetcodeV2Keys', (event, gameId) =>
+    activeGameManager.generateNetcodeV2Keys(gameId),
+  )
+  ipcMain.handle('activeGameSetNetcodeV2Setup', (event, gameId, setup) =>
+    activeGameManager.setNetcodeV2Setup(gameId, setup),
+  )
   ipcMain.handle('bugReportCollectFiles', async () => {
     const tempDir = await mkdtemp(path.join(tmpdir(), 'sbat-'))
     const logsDir = path.join(getUserDataPath(), 'logs')

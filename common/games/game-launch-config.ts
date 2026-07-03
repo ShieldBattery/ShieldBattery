@@ -86,6 +86,13 @@ export interface GameSetup {
   useLegacyLimits?: boolean
   seed: number
   /**
+   * Whether this game uses netcode v2 (rally-point2). When set, each client must generate a
+   * per-session keypair and submit its public key to the server during loading; the server
+   * responds with a `setNetcodeV2Setup` event carrying the session token/relays/roster, which
+   * must be delivered to the game process before its game setup.
+   */
+  useNetcodeV2?: boolean
+  /**
    * The code used to submit results for this game to the server. This is secret and unique per
    * player in the game. In certain cases (when observing, or when watching a replay), a result
    * code may not be given, meaning no result is to be reported.

@@ -212,6 +212,7 @@ mod tests {
             client_private_key: Secret::from_base64_for_test(&BASE64_STANDARD.encode([0u8; 4])),
             home_relay: home,
             backup_relay: None,
+            roster: Vec::new(),
         }
     }
 
@@ -297,6 +298,42 @@ mod tests {
         assert!(matches!(
             SessionCredentials::from_setup(&s),
             Err(CredentialError::Token)
+        ));
+    }
+
+    #[test]
+    fn the_apps_pkcs8_v2_layout_is_accepted() {
+        // The Electron app can't produce ring's PKCS#8 v2 form via Node's crypto API, so it
+        // assembles the 85-byte v2 document itself (app/game/netcode-v2-keys.ts, tested against
+        // the same RFC 8032 §7.1 vector). This asserts ring accepts exactly that byte layout —
+        // if either side's template drifts, one of the two tests breaks.
+        const RFC8032_SEED: [u8; 32] = [
+            0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec,
+            0x2c, 0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03,
+            0x1c, 0xae, 0x7f, 0x60,
+        ];
+        const RFC8032_PUBLIC: [u8; 32] = [
+            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64,
+            0x07, 0x3a, 0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68,
+            0xf7, 0x07, 0x51, 0x1a,
+        ];
+        let mut doc = Vec::new();
+        doc.extend_from_slice(&[
+            0x30, 0x53, 0x02, 0x01, 0x01, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22,
+            0x04, 0x20,
+        ]);
+        doc.extend_from_slice(&RFC8032_SEED);
+        doc.extend_from_slice(&[0xa1, 0x23, 0x03, 0x21, 0x00]);
+        doc.extend_from_slice(&RFC8032_PUBLIC);
+
+        let mut s = setup(relay(Some("203.0.113.7"), None, ""));
+        s.token = decodable_token_b64();
+        s.client_private_key = Secret::from_base64_for_test(&BASE64_STANDARD.encode(&doc));
+        // The cert is empty (invalid), so success on the key path shows up as a *cert* error —
+        // reaching it means the token and key both decoded.
+        assert!(matches!(
+            SessionCredentials::from_setup(&s),
+            Err(CredentialError::Cert)
         ));
     }
 

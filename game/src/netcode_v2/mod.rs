@@ -37,10 +37,8 @@
 //! `try_send`/`try_recv` are sync and safe to call from the BW thread). The Tokio side runs
 //! [`rally_point_client::LinkDriver::run`] on the DLL's existing async runtime.
 
-// A few teardown/accessor helpers are wired but not yet called (e.g. `clear_session` — no game-end
-// teardown hooked yet; `storm_id_for_slot` / `local_slot_id` accessors), and remote slot↔storm
-// mapping awaits an authoritative roster from the coordinator. The narrow allow covers those without
-// hiding dead code elsewhere.
+// `clear_session` is wired but not yet called (no game-end teardown hooked yet). The narrow allow
+// covers it without hiding dead code elsewhere.
 #![allow(dead_code)]
 
 mod credentials;
@@ -60,6 +58,7 @@ mod session;
 // internal to their submodules.
 pub use session::{establish_session, with_seam};
 
+use crate::app_messages::SbUserId;
 use crate::bw;
 use crate::bw::players::StormPlayerId;
 
@@ -83,6 +82,10 @@ pub struct SeamState {
     /// rally-point2 slot → BW storm id. `None` until learned during lobby join (native join
     /// assigns storm ids in join order, so the map starts empty).
     slot_to_storm: [Option<StormPlayerId>; bw::MAX_STORM_PLAYERS],
+    /// The session's slot roster from the coordinator (via the launch handoff): which SB user
+    /// occupies each rp2 slot. Consulted as storm ids solidify during join to map each *peer's*
+    /// slot; our own slot comes from the signed token instead ([`map_local_storm`](Self::map_local_storm)).
+    roster: Vec<(SlotId, SbUserId)>,
     /// Local origin slot (which slot our own outbound turns belong to). The relay rebinds the wire
     /// `slot` from the token regardless; this is for our own bookkeeping/echo.
     local_slot: SlotId,
@@ -111,13 +114,20 @@ pub struct SeamState {
 impl SeamState {
     /// Builds seam state around the channels a running [`LinkDriver`](rally_point_client::LinkDriver)
     /// handed back. `local_slot` is this client's origin slot; `initial_latency_turns` is the
-    /// built-in floor to start the pipe at (natively 2).
-    pub fn new(channels: TurnChannels, local_slot: SlotId, initial_latency_turns: u32) -> Self {
+    /// built-in floor to start the pipe at (natively 2); `roster` is the coordinator's slot↔user
+    /// pairing for every session participant.
+    pub fn new(
+        channels: TurnChannels,
+        local_slot: SlotId,
+        initial_latency_turns: u32,
+        roster: Vec<(SlotId, SbUserId)>,
+    ) -> Self {
         Self {
             channels,
             directives: DirectiveTracker::new(),
             latency_turns: initial_latency_turns.max(1),
             slot_to_storm: [None; bw::MAX_STORM_PLAYERS],
+            roster,
             local_slot,
             turns_in_flight: 0,
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
@@ -152,6 +162,26 @@ impl SeamState {
     pub fn map_local_storm(&mut self, storm_id: StormPlayerId) {
         let slot = self.local_slot;
         self.map_slot(slot, storm_id);
+    }
+
+    /// Records a *peer's* rp2 slot ↔ storm id mapping by resolving the user through the session
+    /// roster, as that player's storm id solidifies during join. A user missing from the roster is
+    /// logged and skipped (e.g. an observer outside the rp2 session) — their turns simply can't be
+    /// routed through the seam.
+    pub fn map_storm_for_user(&mut self, user: SbUserId, storm_id: StormPlayerId) {
+        let Some(slot) = self.roster_slot_for_user(user) else {
+            warn!("netcode v2: user {user} has no slot in the session roster; not mapping");
+            return;
+        };
+        self.map_slot(slot, storm_id);
+    }
+
+    /// Looks up a user's rp2 slot in the session roster, if the roster names them.
+    pub fn roster_slot_for_user(&self, user: SbUserId) -> Option<SlotId> {
+        self.roster
+            .iter()
+            .find(|&&(_, u)| u == user)
+            .map(|&(slot, _)| slot)
     }
 
     /// Looks up the BW storm id for a rally-point2 slot, if mapped.
@@ -325,6 +355,9 @@ mod tests {
     const LOCAL_STORM: StormPlayerId = StormPlayerId(3);
     const PEER_STORM: StormPlayerId = StormPlayerId(5);
 
+    const LOCAL_USER: SbUserId = SbUserId(11);
+    const PEER_USER: SbUserId = SbUserId(22);
+
     /// Builds a SeamState wired to test channels. Returns the state, a sender to inject peer turns
     /// on `inbound`, and the outbound receiver to observe/keep-alive what we submit. Both far ends
     /// are returned so the channels stay open (dropping them would close the seam's ends).
@@ -335,7 +368,8 @@ mod tests {
             outbound: out_tx,
             inbound: in_rx,
         };
-        (SeamState::new(channels, LOCAL_SLOT, 2), in_tx, out_rx)
+        let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
+        (SeamState::new(channels, LOCAL_SLOT, 2, roster), in_tx, out_rx)
     }
 
     fn peer_turn(slot: SlotId, commands: &[u8]) -> Payload {
@@ -363,9 +397,31 @@ mod tests {
             outbound: out_tx,
             inbound: in_rx,
         };
-        let state = SeamState::new(channels, LOCAL_SLOT, 0);
+        let state = SeamState::new(channels, LOCAL_SLOT, 0, Vec::new());
         assert_eq!(state.latency_turns(), 1);
         drop(out_rx);
+    }
+
+    #[test]
+    fn roster_maps_a_peers_slot_by_user() {
+        let (mut state, in_tx, _out_rx) = seam();
+        // A peer's storm id solidifies during join; the roster resolves their user to their slot.
+        state.map_storm_for_user(PEER_USER, PEER_STORM);
+
+        in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
+        assert!(state.receive_turns(0), "mapped peer slot should gate + dispatch");
+        assert_eq!(dispatched(&state), vec![(PEER_STORM, b"peer".to_vec())]);
+    }
+
+    #[test]
+    fn user_missing_from_roster_is_skipped_not_mapped() {
+        let (mut state, _in_tx, _out_rx) = seam();
+        state.map_storm_for_user(SbUserId(99), PEER_STORM);
+        // No mapping was recorded: the slot doesn't gate readiness...
+        assert!(state.receive_turns(0), "unmapped slot must not stall the step");
+        // ...and no storm id was attached to any roster slot.
+        assert_eq!(state.storm_id_for_slot(PEER_SLOT), None);
+        assert_eq!(state.storm_id_for_slot(LOCAL_SLOT), None);
     }
 
     #[test]

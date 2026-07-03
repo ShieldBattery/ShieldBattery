@@ -480,6 +480,20 @@ pub struct NetcodeV2Relay {
     pub cert: String,
 }
 
+/// One entry of the session's slot roster: which ShieldBattery user occupies a rally-point2 slot.
+/// The coordinator's session response is the authoritative source (its `tokens[]` carry one slot
+/// per player); the server resolves each slot back to the user it requested it for and the app
+/// forwards the full pairing here, so the seam can map every peer's rp2 slot — not just our own —
+/// to the BW network id that player is assigned during join.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetcodeV2RosterEntry {
+    /// The player's rally-point2 slot within the session.
+    pub slot: u8,
+    /// The ShieldBattery user occupying that slot.
+    pub user_id: SbUserId,
+}
+
 /// The netcode v2 launch handoff (app → game DLL): everything one client needs to authorize a
 /// single game session against its home relay. The app generates the per-session Ed25519 keypair,
 /// requests a coordinator-signed token embedding the public half, and forwards both here with the
@@ -500,4 +514,7 @@ pub struct NetcodeV2Setup {
     /// Optional backup relay for failover. Carried now so the descriptor shape is stable; unused
     /// until the reconnect/resync mechanism lands.
     pub backup_relay: Option<NetcodeV2Relay>,
+    /// The session's full slot roster (every player, including ourselves). Our own slot still comes
+    /// from the signed token — this list exists to map the *other* players' slots.
+    pub roster: Vec<NetcodeV2RosterEntry>,
 }
