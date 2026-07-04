@@ -793,8 +793,9 @@ impl UsersMutation {
                     moderate_chat_channels = $13,
                     manage_news = $14,
                     manage_bug_reports = $15,
-                    manage_restricted_names = $16,
-                    manage_signup_codes = $17
+                    manage_game_reports = $16,
+                    manage_restricted_names = $17,
+                    manage_signup_codes = $18
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -812,6 +813,7 @@ impl UsersMutation {
             permissions.moderate_chat_channels,
             permissions.manage_news,
             permissions.manage_bug_reports,
+            permissions.manage_game_reports,
             permissions.manage_restricted_names,
             permissions.manage_signup_codes,
         )
@@ -1182,7 +1184,8 @@ impl CurrentUserRepo {
                         manage_maps, manage_map_pools, manage_matchmaking,
                         manage_matchmaking_seasons, manage_matchmaking_times,
                         manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
-                        manage_news, manage_bug_reports, manage_restricted_names, manage_signup_codes
+                        manage_news, manage_bug_reports, manage_game_reports,
+                        manage_restricted_names, manage_signup_codes
                     FROM permissions
                     WHERE user_id = $1
                 "#,

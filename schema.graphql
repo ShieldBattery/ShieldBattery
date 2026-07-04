@@ -494,6 +494,7 @@ type SbPermissions {
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
 	manageBugReports: Boolean!
+	manageGameReports: Boolean!
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
 }
@@ -518,6 +519,7 @@ input SbPermissionsInput {
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
 	manageBugReports: Boolean!
+	manageGameReports: Boolean!
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
 }

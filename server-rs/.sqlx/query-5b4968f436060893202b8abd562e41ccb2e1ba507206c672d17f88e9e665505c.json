@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT user_id as \"user_id: SbUserId\", edit_permissions, debug, ban_users,\n                        manage_leagues, manage_maps, manage_map_pools, manage_matchmaking,\n                        manage_matchmaking_seasons, manage_matchmaking_times,\n                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,\n                        manage_news, manage_bug_reports, manage_restricted_names, manage_signup_codes\n                    FROM permissions\n                    WHERE user_id = ANY($1)\n            ",
+  "query": "\n                    SELECT user_id as \"user_id: SbUserId\", edit_permissions, debug, ban_users,\n                        manage_leagues, manage_maps, manage_map_pools, manage_matchmaking,\n                        manage_matchmaking_seasons, manage_matchmaking_times,\n                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,\n                        manage_news, manage_bug_reports, manage_game_reports,\n                        manage_restricted_names, manage_signup_codes\n                    FROM permissions\n                    WHERE user_id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -170,6 +170,17 @@
       },
       {
         "ordinal": 15,
+        "name": "manage_game_reports",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "permissions",
+            "name": "manage_game_reports"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
         "name": "manage_restricted_names",
         "type_info": "Bool",
         "origin": {
@@ -180,7 +191,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 17,
         "name": "manage_signup_codes",
         "type_info": "Bool",
         "origin": {
@@ -213,8 +224,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "b90278f88fdbb99bdea065042ff1982be70e13da18c95434f43f1715c880d8a5"
+  "hash": "5b4968f436060893202b8abd562e41ccb2e1ba507206c672d17f88e9e665505c"
 }

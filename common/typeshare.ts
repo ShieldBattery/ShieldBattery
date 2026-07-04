@@ -74,6 +74,7 @@ export interface SbPermissions {
   moderateChatChannels: boolean
   manageNews: boolean
   manageBugReports: boolean
+  manageGameReports: boolean
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
 }

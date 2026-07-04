@@ -30,6 +30,8 @@ function kindToIcon(kind: RestrictionKind): string {
   switch (kind) {
     case RestrictionKind.Chat:
       return 'comments_disabled'
+    case RestrictionKind.Reporting:
+      return 'flag'
     default:
       return kind satisfies never
   }
@@ -57,23 +59,40 @@ export function UserRestrictedNotificationUi({
   const reasonLabel = restrictionReasonToLabel(reason, t)
   const endText = longTimestamp.format(endTime)
 
-  if (kind !== RestrictionKind.Chat) {
-    kind satisfies never
-    return null
+  let text: React.ReactNode
+  switch (kind) {
+    case RestrictionKind.Chat:
+      text = (
+        <span>
+          <Trans t={t} i18nKey='auth.restriction.chat.notification'>
+            <div>
+              Your account has been restricted from sending chat messages for the following reason:
+            </div>
+            <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
+            <div>This restriction will end on:</div>
+            <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
+          </Trans>
+        </span>
+      )
+      break
+    case RestrictionKind.Reporting:
+      text = (
+        <span>
+          <Trans t={t} i18nKey='auth.restriction.reporting.notification'>
+            <div>
+              Your account has been restricted from reporting players for the following reason:
+            </div>
+            <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
+            <div>This restriction will end on:</div>
+            <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
+          </Trans>
+        </span>
+      )
+      break
+    default:
+      kind satisfies never
+      return null
   }
-
-  const text = (
-    <span>
-      <Trans t={t} i18nKey='auth.restriction.chat.notification'>
-        <div>
-          Your account has been restricted from sending chat messages for the following reason:
-        </div>
-        <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
-        <div>This restriction will end on:</div>
-        <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
-      </Trans>
-    </span>
-  )
 
   return (
     <ActionlessNotification
