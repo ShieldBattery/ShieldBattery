@@ -37,6 +37,7 @@ use tracing::Span;
 use crate::configuration::{Env, Settings};
 use crate::email::MailgunClient;
 use crate::file_store::file_store_from_config;
+use crate::game_reports::GameReportsModule;
 use crate::games::GamesModule;
 use crate::graphql::errors::ErrorLoggerExtension;
 use crate::graphql::schema_builder::SchemaBuilderModuleExt;
@@ -142,6 +143,7 @@ pub async fn create_app(
         .data(matchmaker_config.clone())
         .module(MapsModule::new(db_pool.clone()))
         .module(GamesModule::new(db_pool.clone()))
+        .module(GameReportsModule::new(db_pool.clone()))
         .module(NewsModule::new(db_pool.clone()))
         .module(UsersModule::new(db_pool.clone(), redis_pool.clone()))
         .limit_depth(if settings.env == Env::Production {

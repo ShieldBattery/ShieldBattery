@@ -1,5 +1,10 @@
+use std::collections::HashMap;
+
+use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{
-    ComplexObject, Object, OutputType, SchemaBuilder, SimpleObject, dataloader::DataLoader, scalar,
+    ComplexObject, Object, OutputType, SchemaBuilder, SimpleObject,
+    dataloader::{DataLoader, Loader},
+    scalar,
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, Context as _};
@@ -26,7 +31,12 @@ impl GamesModule {
 
 impl SchemaBuilderModule for GamesModule {
     fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
-        builder.data(GamesRepo::new(self.db_pool.clone()))
+        builder
+            .data(GamesRepo::new(self.db_pool.clone()))
+            .data(DataLoader::new(
+                GamesLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
     }
 }
 
@@ -40,8 +50,7 @@ impl GamesQuery {
         ctx: &async_graphql::Context<'_>,
         id: Uuid,
     ) -> async_graphql::Result<Option<Game>> {
-        let repo = ctx.data::<GamesRepo>()?;
-        let game = repo.load_one(id).await?;
+        let game = ctx.data::<DataLoader<GamesLoader>>()?.load_one(id).await?;
         Ok(game.map(|g| g.into()))
     }
 
@@ -393,22 +402,6 @@ impl GamesRepo {
         Self { db }
     }
 
-    pub async fn load_one(&self, id: Uuid) -> eyre::Result<Option<DbGame>> {
-        sqlx::query_as!(
-            DbGame,
-            r#"
-            SELECT id, start_time, map_id as "map_id: _", config as "config: _",
-                disputable, dispute_requested, dispute_reviewed,
-                game_length, results as "results: _", routes as "routes: _"
-            FROM games WHERE id = $1
-            "#,
-            id
-        )
-        .fetch_optional(&self.db)
-        .await
-        .wrap_err("Failed to load game")
-    }
-
     pub async fn load_live_games(&self) -> eyre::Result<Vec<DbGame>> {
         sqlx::query_as!(
             DbGame,
@@ -429,5 +422,40 @@ impl GamesRepo {
         .fetch_all(&self.db)
         .await
         .wrap_err("Failed to load live games")
+    }
+}
+
+/// Batches by-id game loads across a request so fields that resolve a game per row (e.g. `game` on
+/// a `gameReports` page) issue one grouped query instead of fanning out one query per row (per
+/// AGENTS.md's no-per-item-fan-out rule).
+pub struct GamesLoader {
+    db: PgPool,
+}
+
+impl GamesLoader {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+impl Loader<Uuid> for GamesLoader {
+    type Value = DbGame;
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[Uuid]) -> Result<HashMap<Uuid, DbGame>, Self::Error> {
+        Ok(sqlx::query_as!(
+            DbGame,
+            r#"
+            SELECT id, start_time, map_id as "map_id: _", config as "config: _",
+                disputable, dispute_requested, dispute_reviewed,
+                game_length, results as "results: _", routes as "routes: _"
+            FROM games WHERE id = ANY($1)
+            "#,
+            keys
+        )
+        .fetch(&self.db)
+        .map_ok(|g| (g.id, g))
+        .try_collect()
+        .await?)
     }
 }

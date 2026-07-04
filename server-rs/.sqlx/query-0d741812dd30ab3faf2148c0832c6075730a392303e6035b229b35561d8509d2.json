@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT DISTINCT ON (gu.game_id)\n                    gu.game_id AS \"game_id!\", rf.id AS \"id!\", rf.hash AS \"hash!\"\n                FROM replay_files rf\n                JOIN games_users gu ON gu.replay_file_id = rf.id\n                WHERE gu.game_id = ANY($1)\n                ORDER BY gu.game_id, (rf.header->>'frames')::int DESC NULLS LAST\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "game_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "games_users",
+            "name": "game_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "replay_files",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "hash!",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "replay_files",
+            "name": "hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "0d741812dd30ab3faf2148c0832c6075730a392303e6035b229b35561d8509d2"
+}
