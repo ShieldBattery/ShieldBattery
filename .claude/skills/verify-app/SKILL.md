@@ -124,17 +124,22 @@ step), or use a role/name locator when the text is stable (`getByRole('button', 
 Log instance 1 in as `claude-1` and instance 2 as `claude-2`, then exercise the interaction from
 both sides.
 
-> **Log each instance in deliberately, one step at a time** — click "Log in", *wait for the form
-> overlay to actually render* (`eval "!!document.querySelector('input[name=username]')"` → `true`)
-> before filling, then submit. A fast fire-and-forget helper that logs both instances in back-to-back
-> races the second renderer and can pop a transient `Error / Gone` (410) dialog. If that happens,
-> close the dialog (click its exact `× Close` ref from a snapshot — the role locator `Close` is
-> ambiguous with the window control) and redo the login. If `click` on the "Log in" button or the
-> ref-based fill stays flaky on the second instance, drive it in-page: click via
-> `eval "[...document.querySelectorAll('button')].find(e=>/^\s*Log in\s*$/.test(e.textContent))?.click()"`
-> and set inputs with the native value setter
-> (`Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set` + dispatch
-> `input`/`change`) — the most reliable across both instances in practice.
+> **Login recipe — the plain role-locator sequence is reliable on every instance.** Per instance,
+> one at a time (don't fire-and-forget-race them):
+> ```bash
+> playwright-cli -s=cN click "getByRole('button', { name: 'Log in' })"   # opens the form overlay
+> sleep 2                                                                 # let the overlay render
+> playwright-cli -s=cN fill 'input[name="username"]' claude-N
+> playwright-cli -s=cN fill 'input[name="password"]' shieldbattery
+> playwright-cli -s=cN click "getByTestId('submit-button')"
+> ```
+> Then confirm: `eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"` →
+> e.g. `"claude-1Novice"`. No native-value-setter fallback is needed on later instances.
+> **Do NOT click "Log in" via an `eval` that finds the button by text and calls `.click()`** — that
+> silently does *not* fire the React handler (the form never opens, `input[name=username]` stays
+> absent). Use the `getByRole` locator (or a `snapshot` ref click) instead. If a rare transient
+> `Error / Gone` (410) dialog pops, close it via its exact `× Close` ref from a snapshot (the role
+> locator `Close` is ambiguous with the window control) and redo the login.
 
 Examples:
 
@@ -175,19 +180,26 @@ playwright-cli -s=c1 click "getByTestId('create-lobby-submit')"   # → /lobbies
 
 # c2 joins by matching the row text, then clicking that specific entry
 playwright-cli -s=c2 click "getByTestId('nav-play-button')"
+# `nav-play-button` opens the LAST-USED play tab, which per account may be Matchmaking, not Lobbies —
+# so click the "Lobbies (N)" tab first, then the entry. (Harmless if already on Lobbies.)
+playwright-cli -s=c2 eval "[...document.querySelectorAll('button')].find(e=>/^Lobbies/.test(e.textContent||''))?.click(), 'x'"
 playwright-cli -s=c2 eval "[...document.querySelectorAll('[data-testid=lobby-list-entry]')].find(e=>e.textContent.includes('my-test-lobby'))?.click(), 'joined'"
 
 # c1 starts once c2 is in a slot
 playwright-cli -s=c1 click "getByTestId('start-game-button')"
 ```
 
+> **3+ players / a bigger map:** the map's slot count caps the lobby (an 8-slot map gives 8
+> `lobby-slot`s); open slots just aren't participants, so a 3-human melee on a big map starts fine.
+> Confirm who's in via `eval "[...document.querySelectorAll('[data-testid=lobby-slot]')].map(e=>e.textContent).filter(t=>/claude/.test(t))"`.
+
 Then poll for the game to reach `playing` (next section). A launched game needs a **fresh debug DLL
 in `game/dist`** (`game\build.bat`) — a stale one crashes at start (see verify-pr T4).
 
 ## Waiting for the game to reach a state (poll in the foreground)
 
-Launching a game is slow — StarCraft starts, the DLL injects, and (on netcode v2) the relay is
-dialed — so `gameClient.status.state` walks `configuring` → `playing` over ~30–60s, and the result
+Launching a game is slow — StarCraft starts, the DLL injects, and game networking is established —
+so `gameClient.status.state` walks `configuring` → `playing` over ~30–60s, and the result
 path later moves `playing` → `resultSent`/`finished`. Don't guess a fixed sleep; poll the state.
 
 **Poll with a bounded *foreground* loop, one short `eval` at a time** — do **not** wrap a long
@@ -215,9 +227,8 @@ Poll both instances in the same loop for a two-client game. If the session does 
 - **Redux state (dev builds)**: the store is exposed as `window.__sbReduxStore` (dev bundles
   only), so app state is one eval away — e.g.
   `playwright-cli -s=c1 eval "JSON.stringify(window.__sbReduxStore.getState().gameClient)"`.
-  Game-relevant: `gameClient.status` is the full `ReportedGameStatus`, incl.
-  `networkStatus.transport` (`'netcodeV2' | 'native'`, plus `fallbackFrom`/`error` when a netcode
-  v2 dial failed) — assert on this instead of grepping the game DLL log.
+  Game-relevant: `gameClient.status` is the full `ReportedGameStatus` (state, error,
+  `networkStatus`, …) — assert on this instead of grepping the game DLL log.
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
   `queryGameState(gameId)`, `forceLeave(gameId, slot)`, `forceQuit(gameId)`, and
   `screenshot(gameId)` for driving/inspecting a running game over CDP (a release DLL doesn't
