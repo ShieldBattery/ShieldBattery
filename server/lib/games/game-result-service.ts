@@ -1,7 +1,7 @@
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { GameSource } from '../../../common/games/configuration'
+import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import {
   GameRecord,
@@ -65,6 +65,34 @@ import { TypedPublisher } from '../websockets/typed-publisher'
 import { getGameRecord } from './game-models'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
+
+/**
+ * Determines the team groupings used to validate that only one team wins a game, or `null` if no
+ * such validation should occur.
+ *
+ * This is only meaningful when alliances are locked (in-game alliance changes disabled), so the
+ * config's starting teams remain authoritative at game end. When alliances aren't locked, players
+ * can change alliances mid-game, so two players who started on different teams could legitimately
+ * ally and co-win; those games are left to other dispute signals instead.
+ *
+ * Records created before `lockedAlliances` existed won't have it set, so we fall back to
+ * `gameSource === GameSource.Matchmaking` (matchmaking has always locked alliances).
+ *
+ * If alliances are locked but the config has no determinable teams (a free-for-all melee with
+ * more than 2 players), each player is treated as their own team, which still limits the game to a
+ * single winner.
+ */
+export function getValidationTeams(
+  config: GameConfig,
+  humans: ReadonlyArray<SbUserId>,
+): SbUserId[][] | null {
+  const alliancesLocked = config.lockedAlliances ?? config.gameSource === GameSource.Matchmaking
+  if (!alliancesLocked) {
+    return null
+  }
+
+  return getTeamsFromConfig(config)?.map(team => team.map(p => p.id)) ?? humans.map(id => [id])
+}
 
 /** How often the reconciliation job should run. */
 const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
@@ -311,18 +339,7 @@ export default class GameResultService {
       return
     }
 
-    // Determine the team grouping used to validate that only one team wins. This is only meaningful
-    // for matchmaking, where alliances are locked (disableAllianceChanges), so the config's starting
-    // teams are authoritative at game end. In lobby/custom games players can change alliances
-    // mid-game, so two players who started on different teams could legitimately ally and co-win;
-    // those are left to other dispute signals instead. If a matchmaking config has no determinable
-    // teams (a free-for-all melee with >2 players), each player is their own team, which still limits
-    // the game to a single winner.
-    const validationTeams =
-      gameRecord.config.gameSource === GameSource.Matchmaking
-        ? (getTeamsFromConfig(gameRecord.config)?.map(team => team.map(p => p.id)) ??
-          humans.map(id => [id]))
-        : null
+    const validationTeams = getValidationTeams(gameRecord.config, humans)
     const reconciled = reconcileResults(humans, currentResults, validationTeams)
     const reconcileDate = new Date(this.clock.now())
     await transact(async client => {

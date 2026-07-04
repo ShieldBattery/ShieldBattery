@@ -249,6 +249,7 @@ function getGeneralGameSetup({
       turnRate,
       userLatency,
       useLegacyLimits: gameConfig.gameSourceExtra?.useLegacyLimits,
+      disableAllianceChanges: gameConfig.lockedAlliances,
     }
   } else if (gameConfig.gameSource === GameSource.Matchmaking) {
     return {
@@ -261,7 +262,9 @@ function getGeneralGameSetup({
       host: playerInfos[0],
       users,
       ratings,
-      disableAllianceChanges: true,
+      // Matchmaking always locks alliances; fall back to that if a caller ever constructs a
+      // matchmaking config without setting the field explicitly.
+      disableAllianceChanges: gameConfig.lockedAlliances ?? true,
       seed,
       turnRate,
       userLatency,

@@ -1179,6 +1179,7 @@ export class MatchmakingService {
       gameSource: GameSource.Matchmaking,
       gameSourceExtra,
       teams,
+      lockedAlliances: true,
     }
 
     const ratings = match.teams.flatMap(team =>

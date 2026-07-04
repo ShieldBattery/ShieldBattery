@@ -24,6 +24,15 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
   gameType: GameType
   gameSubType: number
   teams: GameConfigPlayer[][]
+  /**
+   * Whether in-game alliance changes are disabled for this game, meaning the teams above remain
+   * authoritative for the whole game (no player can leave or join a team after starting). Result
+   * reconciliation uses this to enforce that only one team can win.
+   *
+   * Records created before this field existed won't have it set; readers should fall back to
+   * `gameSource === GameSource.Matchmaking`, since matchmaking has always locked alliances.
+   */
+  lockedAlliances?: boolean
 }
 
 export type LobbyGameConfig = SetOptional<
