@@ -47,6 +47,13 @@ interface NetcodeV2Config {
   tenant: string
   /** TLS server name clients validate the relay certificate against. */
   relayServerName: string
+  /**
+   * Dev/testing knob: slot numbers that should dial the backup relay as home instead of the true
+   * home relay (their true home becomes the fallback instead), so cross-relay games can be
+   * exercised without a real network split between players. No effect on a session that only got
+   * a single relay. Configured via SB_RP2_SPLIT_RELAYS (comma-separated slot numbers).
+   */
+  splitRelaySlots?: Set<number>
 }
 
 function loadConfigFromEnv(): NetcodeV2Config | undefined {
@@ -60,10 +67,21 @@ function loadConfigFromEnv(): NetcodeV2Config | undefined {
     throw new Error('SB_RP2_COORDINATOR_URL is set but SB_RP2_TENANT is missing')
   }
 
+  const splitRelaysRaw = process.env.SB_RP2_SPLIT_RELAYS
+  const splitRelaySlots = splitRelaysRaw
+    ? new Set(
+        splitRelaysRaw
+          .split(',')
+          .map(s => Number(s.trim()))
+          .filter(slot => Number.isInteger(slot)),
+      )
+    : undefined
+
   return {
     coordinatorUrl,
     tenant,
     relayServerName: process.env.SB_RP2_RELAY_SERVER_NAME ?? 'localhost',
+    splitRelaySlots,
   }
 }
 
@@ -221,16 +239,39 @@ export class NetcodeV2Service {
           : undefined
 
       const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
+      const swappedSlots = backupRelay
+        ? slots.map(s => s.slot).filter(slot => config.splitRelaySlots?.has(slot))
+        : []
+      if (swappedSlots.length > 0) {
+        log.info(
+          `netcode v2 dev split-relays active for game ${gameId}: slot(s) ` +
+            `${swappedSlots.join(', ')} dialing backup relay as home`,
+        )
+      }
+      const swappedSlotSet = new Set(swappedSlots)
+
       const result = new Map<SbUserId, NetcodeV2ServerSetup>()
       for (const { slot, token } of session.tokens) {
         const userId = userBySlot.get(slot)
         if (userId === undefined) {
           throw new NetcodeV2ServiceError(`coordinator returned a token for unknown slot ${slot}`)
         }
+
+        // Dev/testing knob: for the slots listed in SB_RP2_SPLIT_RELAYS, swap home and backup so
+        // that player's client dials the backup relay first instead of the true home relay (its
+        // true home becomes the fallback). Lets us exercise cross-relay games in dev without
+        // needing a real network split between players.
+        let slotHomeRelay = homeRelay
+        let slotBackupRelay = backupRelay
+        if (backupRelay && swappedSlotSet.has(slot)) {
+          slotHomeRelay = backupRelay
+          slotBackupRelay = homeRelay
+        }
+
         result.set(userId, {
           token: Buffer.from(token).toString('base64'),
-          homeRelay,
-          backupRelay,
+          homeRelay: slotHomeRelay,
+          backupRelay: slotBackupRelay,
           roster: slots,
         })
       }

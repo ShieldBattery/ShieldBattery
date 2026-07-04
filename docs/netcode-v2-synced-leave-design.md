@@ -866,3 +866,86 @@ synced turn-stream command and turns keep flowing while paused, so the seam *sho
 unchanged — but nobody has proven pause/unpause through the v2 transport (and the §16a `0x54`
 handshake shows quit-adjacent flows have surprising native structure). Verify in a live 2-player
 game: pause, chat while paused, unpause, confirm no stall/desync.
+
+## 18. Cross-relay propagation — BUILT + LIVE-PROVEN (2026-07-04)
+
+The §5/§9/§10 cross-relay machinery landed in rally-point2 (branch `synced-leave`, commits
+`5aa759f` mesh leave propagation, `139c6ad` mesh cert pinning) and passed the two-relay
+three-player live proof. What was built, and where the implementation corrected this document:
+
+**Transport: a mesh control stream, and SlotDeparted is a broadcast.** Each relay-pair's QUIC
+connection now carries one bidirectional reliable stream (mesh ALPN `rp2-mesh/3` → `/4`; the
+dialer opens it after its hello and writes an empty establishment frame — QUIC doesn't surface a
+bidi stream to the peer until the opener writes). It carries length-prefixed `MeshControlFrame`s
+(`{session, oneof {SlotDeparted, LeaveDirective}}`), sharing the client edge's framing and size
+cap. `SlotDeparted {slot, optional last_frame, reason}` is **broadcast to every link serving the
+session**, not routed to "the" authority: `Authority` is just `SelfRelay|Peer` (no peer id), and
+the broadcast is exactly what makes every relay hold the departure record §10's handoff needs.
+The authority ingests it and authors the one `LeaveDirective`, which is likewise broadcast to
+every link; each relay caches it (dedup by slot) and pushes it down its own local survivors'
+control streams. No echo: a received directive is never re-broadcast.
+
+**§4's apply-frame formula, corrected: `apply_at = departed_last_frame + 1`, full stop** (the
+session frame only as the fallback when the slot never framed). The `max(last, session_frame)`
+formula was *value-identical* in every reachable state — `session_frame()` is a min over
+slots-with-frames, and while the departed slot is still in the map the min can't exceed its
+frame — but it silently depended on that presence. On a relay where the slot's state was removed,
+a survivors-only min can EXCEED the departed frame (survivors' send stamps lead execution by the
+buffer depth before they stall), and a max would schedule the leave past the stall point a
+survivor can actually reach — an unreachable apply frame, i.e. a permanent stall. Survivors park
+at exactly `departed_last + 1`, which is therefore always the right and reachable answer.
+
+**Departed slots leave the live roster on every relay — and there is no leave retirement.** Only
+the home relay used to `remove_slot`; on every other relay the departed slot's frozen frame would
+pin `session_frame()` forever (freezing the buffer directive's dwell clock and retirement — the
+D9 machinery would stop adapting for the rest of any cross-relay game after one leave).
+`note_departure` now snapshots the frame into the departure record and removes the slot from the
+live map on every relay, and departed slots can't resurrect via late frames or stale conditions
+samples. The §10 "retire once session_frame ≥ apply_at" idea was **dropped entirely**: send
+stamps lead execution, so that predicate is true both when everyone applied the leave and when
+everyone is stalled waiting for it — a predicate true in both states can't gate re-delivery.
+Instead: push once at decision time, re-push unconditionally on authority promotion and on mesh
+link (re)join. Every consumer dedups by slot, so redundancy is free (≤ slot count, rare events).
+
+**§10 handoff, as built:** promotion re-broadcasts every cached directive **verbatim** (the
+apply frame is never recomputed — survivors that applied it did so at that exact frame; clients
+also debug_assert same-apply-per-slot) and decides fresh only for a recorded departure whose
+directive never escaped the dead authority (in which case no client applied one, so a fresh frame
+is safe). Departure records and directive caches deliberately survive demotion.
+
+**Mesh cert pinning (`139c6ad`)** — pre-existing blocker the proof flushed out: relays self-sign
+dev certs, clients pin them via the session response, but the mesh dialer validated against
+generic roots → two real relays could never mesh (`BadSignature` on every dial; all prior mesh
+tests shared in-process certs). `RelayPeer` in the session descriptor now carries the peer's
+enrolled `cert_der` and the dialer pins exactly that cert (configured roots only as an
+old-coordinator fallback). The cert is part of the dial identity: a peer re-enrolling with a
+fresh cert retargets the dial supervisor like an address change.
+
+**Live proof (two relays, three players, loopback).** SB side: `SB_RP2_SPLIT_RELAYS=1,2` (new
+dev knob in netcode-v2-service.ts) homes slots 1,2 on the backup relay — relay1 got slot 0 and
+authority, relay2 got slots 1,2; mesh link established via the descriptor-pinned certs; turns
+crossed both directions. Proven, all with zero relay WARN/ERROR and clean game logs:
+- *Peer-homed drop:* forceQuit slot 2 (relay2) → link death detected → `SlotDeparted` crossed
+  the mesh → relay1 decided (~340µs after detection; reason dropped, `leave_seq=1`) → directive
+  reached the relay1 survivor locally and the relay2 survivor back across the mesh → **both
+  flipped the slot to `required:false` and played on synced**.
+- *Authority-homed drop:* fresh game; forceQuit slot 0 (relay1's own client) → local decision →
+  directive crossed the mesh → both relay2 survivors applied.
+- *Promotion with cached leave:* relay1's roster emptied → relay2 promoted logging
+  `rebroadcast_leaves=1` (the cached directive re-pushed verbatim, live).
+- *Post-promotion decision:* forceQuit slot 1 → relay2 (now authority) decided with
+  `leave_seq=2` — numbering correctly continued above the observed seq.
+- *Real result:* the last survivor got Victory and reached `resultSent`.
+
+**Remaining manual check (needs a human):** an F10 quit from a *peer-homed* client while others
+play on — the LeaveIntent → non-authority home relay → mesh `SlotDeparted(reason=left)` →
+authority path. Both halves are individually proven (intent→announce same-relay in the §16 proof;
+announce→mesh→decision→fan-out in this one) and the code path is the same `announce_departure`
+call, but the composed flavor hasn't run live. Thirty seconds with F10 when convenient.
+
+**Victory-dialog observation (not a bug):** the clean-leave intent fires when `run_game_loop`
+returns, but a natural Victory leaves the loop running at the in-game victory dialog until the
+player clicks through (results are collected and sent by the separate victory-detection path
+meanwhile — `resultSent` does not imply loop end). An unattended winner therefore exits via the
+drop path when its process ends, which is harmless — but worth remembering when reading logs:
+"no intent from the winner" is the dialog, not a regression.
