@@ -532,6 +532,9 @@
     },
     "liveGames": {
       "title": "Live games"
+    },
+    "reporting": {
+      "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair."
     }
   },
   "home": {

@@ -535,6 +535,9 @@
     },
     "liveGames": {
       "title": "Partidas en vivo"
+    },
+    "reporting": {
+      "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa."
     }
   },
   "home": {

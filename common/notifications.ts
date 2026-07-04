@@ -21,6 +21,8 @@ export enum NotificationType {
   LeagueBan = 'leagueBan',
   /** A user has been unbanned from a league. */
   LeagueUnban = 'leagueUnban',
+  /** Action was taken against a player this user reported. */
+  GameReportActioned = 'gameReportActioned',
 }
 
 export type SbNotification =
@@ -31,6 +33,7 @@ export type SbNotification =
   | UserRestrictedNotification
   | LeagueBanNotification
   | LeagueUnbanNotification
+  | GameReportActionedNotification
 
 export interface BaseNotification {
   /**
@@ -87,6 +90,14 @@ export interface LeagueBanNotification extends BaseNotification {
 export interface LeagueUnbanNotification extends BaseNotification {
   type: NotificationType.LeagueUnban
   leagueName: string
+}
+
+/**
+ * Tells a reporter that a player they reported was punished. Carries no details about the player,
+ * game, or punishment on purpose (anti-retaliation).
+ */
+export interface GameReportActionedNotification extends BaseNotification {
+  type: NotificationType.GameReportActioned
 }
 
 export type NotificationEvent =

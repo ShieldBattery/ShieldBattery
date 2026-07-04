@@ -529,6 +529,9 @@
     },
     "liveGames": {
       "title": "进行中的比赛"
+    },
+    "reporting": {
+      "actionedNotification": "我们已对您举报的一名玩家采取了处理措施。感谢您帮助维护公平的社区环境。"
     }
   },
   "home": {

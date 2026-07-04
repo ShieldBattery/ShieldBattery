@@ -8,13 +8,16 @@ use async_graphql::{
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, WrapErr, eyre};
+use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, QueryBuilder};
+use typeshare::typeshare;
 use uuid::Uuid;
 
 use crate::file_store::FileStore;
 use crate::games::{Game, GamesLoader};
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
+use crate::redis::RedisPool;
 use crate::users::permissions::RequiredPermission;
 use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
 
@@ -126,6 +129,34 @@ impl GameReportResolution {
             other => return Err(eyre!("unknown game report resolution: {other}")),
         })
     }
+}
+
+/// Messages published to Node (via Redis pub/sub) about game-report events. Node turns these into
+/// user-facing notifications (and later shares the same channel with the Discord webhook). This is
+/// deliberately kept as pub/sub rather than a direct write so the notification/webhook machinery
+/// stays in Node, where the rest of it lives.
+#[typeshare]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "data", rename_all = "camelCase")]
+pub enum PublishedGameReportMessage {
+    /// A new report was filed. Node fires the moderation Discord webhook (the same way bug reports
+    /// do); the payload carries what the webhook message needs so Node only has to resolve the two
+    /// usernames.
+    #[serde(rename_all = "camelCase")]
+    ReportCreated {
+        report_id: Uuid,
+        reporter_id: SbUserId,
+        reported_user_id: SbUserId,
+        /// The DB reason string (e.g. `"cheating"`); Node maps it to a label.
+        reason: String,
+        details: Option<String>,
+    },
+    /// A report was resolved as `Actioned`. The listed users — the actioned report's reporter plus
+    /// the reporters of any sibling reports (same game + target) that were resolved as `Duplicate` —
+    /// should be told that a player they reported was punished. Content stays deliberately vague on
+    /// the Node side (no names, no game link) as an anti-retaliation measure.
+    #[serde(rename_all = "camelCase")]
+    ReportActioned { reporter_ids: Vec<SbUserId> },
 }
 
 #[derive(SimpleObject)]
@@ -422,15 +453,30 @@ impl GameReportsMutation {
             )
             .await?;
 
-        // TODO(#game-reporting): publish a "report created" pubsub message so Node can fire the
-        // Discord webhook (shares plumbing with the planned reporter-notification feature).
-
-        report.ok_or_else(|| {
+        let report = report.ok_or_else(|| {
             graphql_error(
                 "ALREADY_REPORTED",
                 "You've already reported this player for this game",
             )
-        })
+        })?;
+
+        // Let Node fire the moderation Discord webhook (the webhook notifier lives there). Best-
+        // effort: a failed publish shouldn't fail the report.
+        if let Err(err) = ctx
+            .data::<RedisPool>()?
+            .publish(PublishedGameReportMessage::ReportCreated {
+                report_id: report.id,
+                reporter_id: report.reporter_id,
+                reported_user_id: report.reported_user_id,
+                reason: report.reason.to_db().to_owned(),
+                details: report.details.clone(),
+            })
+            .await
+        {
+            tracing::error!("failed to publish game report created message: {err:?}");
+        }
+
+        Ok(report)
     }
 
     /// Resolves a report with an outcome (which feeds the credibility stats). Idempotency is
@@ -448,19 +494,42 @@ impl GameReportsMutation {
         };
 
         let repo = ctx.data::<GameReportsRepo>()?;
-        match repo.resolve_report(id, user.id, resolution, notes).await? {
-            Some(report) => Ok(report),
+        let report = match repo.resolve_report(id, user.id, resolution, notes).await? {
+            Some(report) => report,
             None => {
-                if repo.report_exists(id).await? {
+                return if repo.report_exists(id).await? {
                     Err(graphql_error(
                         "ALREADY_RESOLVED",
                         "That report has already been resolved",
                     ))
                 } else {
                     Err(graphql_error("NOT_FOUND", "Report not found"))
+                };
+            }
+        };
+
+        // Notify the reporters whose report led to a punishment. This covers the report just
+        // actioned, and — when this resolution is `Actioned` — the reporters of any sibling reports
+        // (same game + target) already resolved as `Duplicate`, since they made an equally good
+        // report. Resolving a report as `Duplicate` after its sibling was actioned notifies that
+        // reporter too. This is strictly best-effort: the resolution has already committed, so
+        // neither computing the recipients nor publishing must fail the mutation (otherwise the
+        // client sees an error for an action that succeeded, and a retry hits ALREADY_RESOLVED).
+        match repo.reporters_to_notify(&report, resolution).await {
+            Ok(reporter_ids) if !reporter_ids.is_empty() => {
+                if let Err(err) = ctx
+                    .data::<RedisPool>()?
+                    .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
+                    .await
+                {
+                    tracing::error!("failed to publish game report notification: {err:?}");
                 }
             }
+            Ok(_) => {}
+            Err(err) => tracing::error!("failed to compute reporters to notify: {err:?}"),
         }
+
+        Ok(report)
     }
 }
 
@@ -625,6 +694,77 @@ impl GameReportsRepo {
         .wrap_err("Failed to resolve game report")?;
 
         row.map(Self::to_report).transpose()
+    }
+
+    /// Computes which reporters should be notified that action was taken, for a report that was
+    /// just resolved with `resolution`:
+    /// - `Actioned`: this report's reporter, plus — only if this is the *first* actioned report for
+    ///   this game + target — the reporters of any sibling reports already resolved as `Duplicate`.
+    ///   The "first actioned" guard means actioning a second sibling doesn't re-notify the same
+    ///   duplicate reporters (they were notified when the first sibling was actioned).
+    /// - `Duplicate`: this report's reporter, but only if a sibling report was resolved as
+    ///   `Actioned` (so a duplicate of an actioned report gets the same feel-good notification).
+    /// - Anything else: nobody.
+    ///
+    /// The unique `(reporter_id, game_id, reported_user_id)` constraint guarantees each reporter
+    /// appears at most once, so the returned ids are already distinct — and the guards above ensure
+    /// a given reporter is notified at most once across the whole resolution sequence.
+    async fn reporters_to_notify(
+        &self,
+        report: &GameReport,
+        resolution: GameReportResolution,
+    ) -> eyre::Result<Vec<SbUserId>> {
+        match resolution {
+            GameReportResolution::Actioned => sqlx::query_scalar!(
+                r#"
+                    SELECT reporter_id AS "reporter_id!: SbUserId"
+                    FROM game_reports
+                    WHERE game_id = $1 AND reported_user_id = $2
+                        AND (
+                            id = $3
+                            OR (
+                                resolution = 'duplicate'
+                                -- Only fold in duplicate siblings when this is the first actioned
+                                -- report; a later actioned sibling would otherwise re-notify them.
+                                AND NOT EXISTS (
+                                    SELECT 1 FROM game_reports other
+                                    WHERE other.game_id = $1 AND other.reported_user_id = $2
+                                        AND other.id != $3 AND other.resolution = 'actioned'
+                                )
+                            )
+                        )
+                "#,
+                report.game_id,
+                report.reported_user_id.0,
+                report.id,
+            )
+            .fetch_all(&self.db)
+            .await
+            .wrap_err("Failed to load reporters to notify"),
+            GameReportResolution::Duplicate => {
+                let has_actioned_sibling = sqlx::query_scalar!(
+                    r#"
+                        SELECT EXISTS(
+                            SELECT 1 FROM game_reports
+                            WHERE game_id = $1 AND reported_user_id = $2
+                                AND id != $3 AND resolution = 'actioned'
+                        ) AS "exists!"
+                    "#,
+                    report.game_id,
+                    report.reported_user_id.0,
+                    report.id,
+                )
+                .fetch_one(&self.db)
+                .await
+                .wrap_err("Failed to check for an actioned sibling report")?;
+                Ok(if has_actioned_sibling {
+                    vec![report.reporter_id]
+                } else {
+                    Vec::new()
+                })
+            }
+            _ => Ok(Vec::new()),
+        }
     }
 
     async fn load_one(&self, id: Uuid) -> eyre::Result<Option<GameReport>> {

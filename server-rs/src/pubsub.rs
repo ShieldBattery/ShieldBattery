@@ -1,6 +1,6 @@
 use crate::{
-    matchmaking::PublishedMatchmakingMessage, news::PublishedNewsMessage,
-    users::PublishedUserMessage,
+    game_reports::PublishedGameReportMessage, matchmaking::PublishedMatchmakingMessage,
+    news::PublishedNewsMessage, users::PublishedUserMessage,
 };
 use serde::{Deserialize, Serialize};
 use typeshare::typeshare;
@@ -12,6 +12,7 @@ pub enum PublishedMessage {
     News(PublishedNewsMessage),
     User(PublishedUserMessage),
     Matchmaking(PublishedMatchmakingMessage),
+    GameReport(PublishedGameReportMessage),
 }
 
 impl PublishedMessage {
@@ -21,6 +22,7 @@ impl PublishedMessage {
             Self::News(_) => "news",
             Self::User(_) => "user",
             Self::Matchmaking(_) => "matchmaking",
+            Self::GameReport(_) => "gameReport",
         }
     }
 }
@@ -40,5 +42,11 @@ impl From<PublishedUserMessage> for PublishedMessage {
 impl From<PublishedMatchmakingMessage> for PublishedMessage {
     fn from(value: PublishedMatchmakingMessage) -> Self {
         Self::Matchmaking(value)
+    }
+}
+
+impl From<PublishedGameReportMessage> for PublishedMessage {
+    fn from(value: PublishedGameReportMessage) -> Self {
+        Self::GameReport(value)
     }
 }
