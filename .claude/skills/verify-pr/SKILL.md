@@ -274,6 +274,45 @@ bits in here, and keep this lean:
   `unknown` → MMR block skipped) still writes it — a cheap way to validate the matchup write without
   engineering a clean win.
 
+- **Game results page navigation.** `/games/:id` routes take a **pretty ID** (base64url UUID, 22
+  chars), not the raw UUID — a raw UUID crashes the route ("Invalid pretty ID") into the app error
+  screen (recover: click "Reload app"). Encode:
+  `node -e "console.log(Buffer.from('<uuid-no-dashes>','hex').toString('base64').replace(/\+/g,'-').replace(/\//g,'_').substring(0,22))"`.
+  Navigate with the pushState IIFE (below), give it ~2.5s to lazy-load.
+
+- **GraphQL API as a specific user.** The URQL client authenticates to :5556/gql with a **JWT
+  Bearer header**, not cookies — a bare in-page `fetch(..., {credentials:'include'})` from the
+  `shieldbattery://` origin runs **anonymous** (silently! you'll get FORBIDDEN and misattribute
+  it). Grab the token from the client's storage and attach it:
+  `const k=Object.keys(sessionStorage).concat(Object.keys(localStorage)).filter(k=>k.includes('sbjwt')); const jwt=sessionStorage.getItem(k[0])??localStorage.getItem(k[0])`
+  → `fetch('http://localhost:5556/gql',{method:'POST',headers:{'content-type':'application/json','Authorization':'Bearer '+jwt},body:JSON.stringify({query,variables})})`.
+  Ideal for guard/negative tests (typed error codes land in `errors[0].extensions.code`). Note
+  `playwright-cli eval` wraps input as `() => (<expr>)` — statements with `;` are a SyntaxError;
+  use a single-expression IIFE (async IIFE works; returned promises are awaited).
+
+- **Game reporting (T3, reporter + admin clients).** Needs a finished game both seeded users played
+  (the dev DB usually has one; else play a lobby game first). Reporter side: results page →
+  `flagReport` button (participants only — non-participants see no button) → dialog: Player select
+  lists the *other* humans; picking **Other** flips Details to required with a live error; submit →
+  "Report submitted." snackbar → row in `game_reports` (reasons stored snake_case: `griefing`,
+  `abandoning`...). Re-report same target → "You've already reported this player for this game."
+  Admin side: grant via the **Manage game reports** checkbox (`/users/:id/:name/admin`, save via
+  `button[data-test=save-permissions-button]`), **reload the client** to pick up own-permission
+  changes, then `/admin/game-reports`: list defaults to unresolved-only ("Include resolved"
+  checkbox), row click → detail with per-user credibility stat tiles, View game/Download/
+  Watch replay (Watch launches SC:R with the replay — real T4-ish signal; kill SC after),
+  notes + one of 4 resolve buttons → `resolved_at`/`resolver_id`/`resolution` in DB, and a
+  "Restrict this reporter" button (resolved reports only) → punishments page where kind
+  `reporting` + a **future end-time**
+  (fill the datetime-local via playwright `fill`, not the native setter — form state misses it)
+  applies a `user_restrictions` row; the reporter gets a live notification and further submits get
+  "You are currently restricted from reporting." Server edge codes (test via JWT fetch as the
+  reporter): self-report/target-not-in-game → `BAD_REQUEST`, nonexistent-game/reporter-not-in-game
+  → `FORBIDDEN`, ≥10 reports in the last hour → `RATE_LIMITED` (synthesize rows:
+  `INSERT INTO game_reports (game_id, reporter_id, reported_user_id, reason) SELECT id, <uid>, <target>, 'griefing' FROM games ... LIMIT n` —
+  participation isn't DB-enforced; delete after). In dev the replay URL has **no
+  Content-Disposition** (Local FileStore can't set headers — documented, not a bug; Spaces sets it).
+
 ### Known issues / open questions (prune when resolved)
 
 Unconfirmed oddities seen during verification — heads-ups, not asserted bugs. Reproduce on a clean

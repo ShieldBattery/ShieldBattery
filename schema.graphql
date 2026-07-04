@@ -581,6 +581,10 @@ type PageInfo {
 
 type Query {
 	"""
+	Fetches a single report by id, for the admin detail view.
+	"""
+	gameReport(id: UUID!): GameReport
+	"""
 	Lists game reports for moderation. Unresolved-only by default (newest first); pass
 	`includeResolved` to see everything, or `reportedUserId` to see reports against one player.
 	"""

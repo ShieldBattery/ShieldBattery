@@ -289,6 +289,12 @@ pub struct GameReportsQuery;
 
 #[Object]
 impl GameReportsQuery {
+    /// Fetches a single report by id, for the admin detail view.
+    #[graphql(guard = RequiredPermission::ManageGameReports)]
+    async fn game_report(&self, ctx: &Context<'_>, id: Uuid) -> Result<Option<GameReport>> {
+        Ok(ctx.data::<GameReportsRepo>()?.load_one(id).await?)
+    }
+
     /// Lists game reports for moderation. Unresolved-only by default (newest first); pass
     /// `includeResolved` to see everything, or `reportedUserId` to see reports against one player.
     #[graphql(guard = RequiredPermission::ManageGameReports)]
@@ -617,6 +623,25 @@ impl GameReportsRepo {
         .fetch_optional(&self.db)
         .await
         .wrap_err("Failed to resolve game report")?;
+
+        row.map(Self::to_report).transpose()
+    }
+
+    async fn load_one(&self, id: Uuid) -> eyre::Result<Option<GameReport>> {
+        let row = sqlx::query_as!(
+            DbGameReport,
+            r#"
+                SELECT id, game_id, reporter_id as "reporter_id: _",
+                    reported_user_id as "reported_user_id: _", reason, details, created_at,
+                    resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+                FROM game_reports
+                WHERE id = $1
+            "#,
+            id,
+        )
+        .fetch_optional(&self.db)
+        .await
+        .wrap_err("Failed to load game report")?;
 
         row.map(Self::to_report).transpose()
     }

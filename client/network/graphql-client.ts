@@ -65,6 +65,8 @@ const cacheKeys: KeyingConfig = {
   GameConfigDataLobby: NON_KEYED_EMBEDDED,
   GameConfigDataMatchmaking: NON_KEYED_EMBEDDED,
   GamePlayer: NON_KEYED_EMBEDDED,
+  GameReportReplay: NON_KEYED_EMBEDDED,
+  GameReportUserStats: NON_KEYED_EMBEDDED,
   GameRoute: NON_KEYED_EMBEDDED,
   MapForce: NON_KEYED_EMBEDDED,
   MapForcePlayer: NON_KEYED_EMBEDDED,
