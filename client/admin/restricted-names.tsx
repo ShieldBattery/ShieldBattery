@@ -237,7 +237,7 @@ function RestrictedNameEntry({
   fetching: boolean
 }) {
   return (
-    <RestrictedNameEntryRoot data-test='restricted-name-row' data-pattern={pattern}>
+    <RestrictedNameEntryRoot data-testid='restricted-name-row' data-pattern={pattern}>
       {confirmDelete ? (
         <>
           <BodyLarge>Are you sure you want to delete this restricted name?</BodyLarge>
@@ -378,7 +378,7 @@ function AddForm() {
         testName='add-restricted-name-button'
       />
       {data ? (
-        <AddedConfirmation data-test='added-confirmation'>
+        <AddedConfirmation data-testid='added-confirmation'>
           <AllowedIcon icon='check_circle' />
           <span>Pattern added</span>
         </AddedConfirmation>

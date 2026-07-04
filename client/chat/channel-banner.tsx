@@ -26,7 +26,7 @@ export const ChannelBannerContainer = styled.div`
 export function ChannelBanner({ src, testName }: { src: string; testName?: string }) {
   return (
     <ChannelBannerContainer>
-      <img src={src} alt='' draggable={false} data-test={testName} />
+      <img src={src} alt='' draggable={false} data-testid={testName} />
     </ChannelBannerContainer>
   )
 }

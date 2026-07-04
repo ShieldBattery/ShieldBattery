@@ -569,7 +569,7 @@ function AppBarUser({
     <UserButton
       {...buttonProps}
       ref={ref}
-      data-test='app-bar-user-button'
+      data-testid='app-bar-user-button'
       aria-label={t('navigation.bar.userMenu', 'User menu')}>
       <UserButtonAvatarContainer>
         <UserButtonAvatar userId={user.id} />
@@ -876,7 +876,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <LiveUsersContext.Provider value={liveUsers}>
-      <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned} data-test='main-layout'>
+      <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned} data-testid='main-layout'>
         <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
         {children}
         {isLoggedIn ? (

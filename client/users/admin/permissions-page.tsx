@@ -161,7 +161,7 @@ function PermissionsEditor({
   return (
     <>
       {errorMessage ? <LoadingError>{errorMessage}</LoadingError> : null}
-      <form noValidate={true} onSubmit={submit} data-test='permissions-form'>
+      <form noValidate={true} onSubmit={submit} data-testid='permissions-form'>
         <PermissionsGrid>
           <CheckBox
             {...bindCheckable('editPermissions')}

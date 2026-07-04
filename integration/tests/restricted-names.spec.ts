@@ -23,7 +23,7 @@ test('restricted names block signup', async ({ context, page }) => {
   await loginPage.navigateTo()
   await loginPage.fillLoginForm(ADMIN_USERNAME, ADMIN_PASSWORD)
   await loginPage.clickLogInButton()
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
 
   // 2) Navigate to the Restricted Names admin page
   await page.goto('/admin/restricted-names')
@@ -35,18 +35,18 @@ test('restricted names block signup', async ({ context, page }) => {
   // 4) Add a restricted name for an exact match on the first name
   await page.fill('input[name="pattern"]', name1)
   await page.click('input[name="kind"][value="EXACT"]')
-  await page.click('[data-test=add-restricted-name-button]')
-  await page.waitForSelector('[data-test=added-confirmation]')
+  await page.click('[data-testid=add-restricted-name-button]')
+  await page.waitForSelector('[data-testid=added-confirmation]')
 
   // 5) Add a restricted name for a pattern match on the second name being the full string
   await page.fill('input[name="pattern"]', `^${name2}$`)
   await page.click('input[name="kind"][value="REGEX"]')
-  await page.click('[data-test=add-restricted-name-button]')
-  await page.waitForSelector('[data-test=added-confirmation]')
+  await page.click('[data-testid=add-restricted-name-button]')
+  await page.waitForSelector('[data-testid=added-confirmation]')
 
-  await page.click('[data-test=refresh-restricted-names-button]')
-  await page.waitForSelector(`[data-test=restricted-name-row][data-pattern="${name1}" i]`)
-  await page.waitForSelector(`[data-test=restricted-name-row][data-pattern="^${name2}$" i]`)
+  await page.click('[data-testid=refresh-restricted-names-button]')
+  await page.waitForSelector(`[data-testid=restricted-name-row][data-pattern="${name1}" i]`)
+  await page.waitForSelector(`[data-testid=restricted-name-row][data-pattern="^${name2}$" i]`)
 
   // 6) Log out and go to the signup page
   await clearLocalState({ context, page })
@@ -59,10 +59,10 @@ test('restricted names block signup', async ({ context, page }) => {
   await page.fill('input[name="confirmPassword"]', 'password123')
   await page.check('input[name="ageConfirmation"]')
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
-  await page.click('[data-test=submit-button]')
+  await page.click('[data-testid=submit-button]')
   // TODO(tec27): Would be nice to make this less dependent on exact content/translation
   await expect(
-    page.locator('[data-test=validation-error]', { hasText: /username is not available/i }),
+    page.locator('[data-testid=validation-error]', { hasText: /username is not available/i }),
   ).toBeVisible()
 
   // 8) Check that putting in the second name is disallowed because it is restricted
@@ -73,12 +73,12 @@ test('restricted names block signup', async ({ context, page }) => {
   await page.fill('input[name="confirmPassword"]', 'password123')
   await page.check('input[name="ageConfirmation"]')
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
-  await page.click('[data-test=submit-button]')
+  await page.click('[data-testid=submit-button]')
   // TODO(tec27): Would be nice to make this less dependent on exact content/translation
   await expect(
-    page.locator('[data-test=validation-error]', { hasText: /username is not available/i }),
+    page.locator('[data-testid=validation-error]', { hasText: /username is not available/i }),
   ).toBeVisible()
 
   await page.fill('input[name="username"]', name2 + 'x')
-  await expect(page.locator('[data-test=validation-error]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=validation-error]')).toHaveCount(0)
 })

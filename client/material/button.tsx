@@ -446,7 +446,7 @@ export function FilledButton({
       title={title}
       type={type}
       name={name}
-      data-test={testName}
+      data-testid={testName}
       {...buttonProps}>
       {children}
       <Label>
@@ -596,7 +596,7 @@ export function TextButton({
       title={title}
       type={type}
       name={name}
-      data-test={testName}
+      data-testid={testName}
       {...buttonProps}>
       <Label>
         {iconStart ? <IconContainer>{iconStart}</IconContainer> : null}
@@ -693,7 +693,7 @@ export function IconButton({
       title={title}
       type={type}
       name={name}
-      data-test={testName}
+      data-testid={testName}
       aria-label={ariaLabel}
       {...buttonProps}>
       {typeof icon === 'string' ? <MaterialIcon icon={icon} /> : icon}

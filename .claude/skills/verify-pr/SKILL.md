@@ -315,7 +315,7 @@ bits in here, and keep this lean:
   "Report submitted." snackbar → row in `game_reports` (reasons stored snake_case: `griefing`,
   `abandoning`...). Re-report same target → "You've already reported this player for this game."
   Admin side: grant via the **Manage game reports** checkbox (`/users/:id/:name/admin`, save via
-  `button[data-test=save-permissions-button]`), **reload the client** to pick up own-permission
+  `button[data-testid=save-permissions-button]`), **reload the client** to pick up own-permission
   changes, then `/admin/game-reports`: list defaults to unresolved-only ("Include resolved"
   checkbox), row click → detail with per-user credibility stat tiles, View game/Download/
   Watch replay (Watch launches SC:R with the replay — real T4-ish signal; kill SC after),
@@ -358,7 +358,7 @@ bits in here, and keep this lean:
     shell-arg `fill` silently drops everything past the first newline. Cover upload:
     `page.setInputFiles('input[type=file]', <jpg>)` → POST `/api/1/news/images` → sharded pair
     under `server/uploaded_files/news-images/` (full + `_0.5x`). Inline image upload:
-    `page.setInputFiles('[data-test=news-inline-image-file-input]', path)` (pass Windows paths via
+    `page.setInputFiles('[data-testid=news-inline-image-file-input]', path)` (pass Windows paths via
     `String.raw` — double-backslash escapes get eaten through bash quoting and the call silently
     no-ops). Save = button matching /save changes/i, disabled while an upload is in flight; success
     shows a "saved" snackbar in `body.innerText`. Every mutation writes one `news_post_edits` row

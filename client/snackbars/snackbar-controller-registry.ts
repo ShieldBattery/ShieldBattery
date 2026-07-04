@@ -8,7 +8,7 @@ export interface SnackbarOptions {
    * An optional signal that can be used to dismiss the snackbar before its duration is complete.
    */
   signal?: AbortSignal
-  /** A value that will be set as `data-test` on the snackbar element. */
+  /** A value that will be set as `data-testid` on the snackbar element. */
   testName?: string
 }
 

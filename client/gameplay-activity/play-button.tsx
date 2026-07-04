@@ -222,7 +222,7 @@ function PlayButtonDisplay({
   return (
     <Link href={targetPath} asChild={true}>
       <Root
-        data-test='nav-play-button'
+        data-testid='nav-play-button'
         draggable={false}
         animate={isBreathing ? 'animate' : undefined}
         whileHover='hover'

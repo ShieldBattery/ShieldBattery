@@ -23,7 +23,7 @@ test('recover username after signing up', async ({ context, page }) => {
     email,
   })
 
-  await page.waitForSelector('[data-test=notifications-button]')
+  await page.waitForSelector('[data-testid=notifications-button]')
 
   // Clear local state to simulate a fresh session
   await clearLocalState({ context, page })
@@ -34,10 +34,10 @@ test('recover username after signing up', async ({ context, page }) => {
 
   // Fill in the email address and submit the form
   await page.fill('input[name="email"]', email)
-  await page.click('[data-test=submit-button]')
+  await page.click('[data-testid=submit-button]')
 
   // Wait for the success message
-  await page.waitForSelector('[data-test=recover-username-success]')
+  await page.waitForSelector('[data-testid=recover-username-success]')
 
   // Check the sent email for the recovered username
   const emails = await sentEmailChecker.retrieveSentEmails(email)

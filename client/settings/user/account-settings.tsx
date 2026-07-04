@@ -305,7 +305,7 @@ export function AccountSettings() {
               type='file'
               accept='image/*'
               onChange={onAvatarFileSelected}
-              data-test='avatar-file-input'
+              data-testid='avatar-file-input'
             />
             <FilledButton
               label={
@@ -318,7 +318,7 @@ export function AccountSettings() {
               testName='upload-avatar-button'
             />
             {avatarRestriction ? (
-              <AvatarRestrictionText data-test='avatar-upload-restricted-text'>
+              <AvatarRestrictionText data-testid='avatar-upload-restricted-text'>
                 {t('settings.user.account.avatar.uploadRestricted', {
                   defaultValue: 'Restricted from uploading avatars until {{date}}',
                   date: longTimestamp.format(avatarRestriction.endTime),
@@ -404,21 +404,21 @@ export function AccountSettings() {
                   <Tooltip
                     text={t('settings.user.account.emailVerified', 'Verified')}
                     position='bottom'>
-                    <VerifiedIcon data-test='email-verified-icon' />
+                    <VerifiedIcon data-testid='email-verified-icon' />
                   </Tooltip>
                 ) : (
                   <Tooltip
                     text={t('settings.user.account.emailUnverified', 'Unverified')}
                     position='bottom'>
-                    <UnverifiedIcon data-test='email-unverified-icon' />
+                    <UnverifiedIcon data-testid='email-unverified-icon' />
                   </Tooltip>
                 )}
                 <EmailItem>
-                  <BodyLarge data-test='account-email-text'>{emailText}</BodyLarge>
+                  <BodyLarge data-testid='account-email-text'>{emailText}</BodyLarge>
                   <BodyMedium>
                     <a
                       href='#'
-                      data-test='reveal-email-link'
+                      data-testid='reveal-email-link'
                       onClick={e => {
                         setEmailRevealed(r => !r)
                         e.preventDefault()

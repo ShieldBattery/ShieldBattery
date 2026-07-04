@@ -231,7 +231,7 @@ function MainLayoutRoute() {
         <AppRoutes
           container={
             <MainLayoutContent
-              data-test='main-layout-content'
+              data-testid='main-layout-content'
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.3, ease: 'linear', delay: 0.1 }}

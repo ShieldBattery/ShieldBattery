@@ -251,7 +251,7 @@ export function NewsFeed({
   if (posts.length > 0) {
     body = (
       <Root>
-        <OneUpEntry data-test='news-feed-primary' post={primary} />
+        <OneUpEntry data-testid='news-feed-primary' post={primary} />
 
         {twoUp.length > 0 ? (
           <TwoUpEntries>
@@ -279,12 +279,12 @@ export function NewsFeed({
   return (
     <HomeSection>
       <SectionHeader>
-        <HomeSectionTitle data-test='latest-news-title'>
+        <HomeSectionTitle data-testid='latest-news-title'>
           {t('home.latestNewsTitle', 'Latest news')}
         </HomeSectionTitle>
         <HeaderLinks>
           {perms?.manageNews ? (
-            <HeaderLink href='/admin/news' data-test='manage-news-link'>
+            <HeaderLink href='/admin/news' data-testid='manage-news-link'>
               {t('news.manageNews', 'Manage news')}
             </HeaderLink>
           ) : null}
@@ -306,7 +306,7 @@ function NewsPreview({
 }: {
   post: NewsFeedPost
   className?: string
-  'data-test'?: string
+  'data-testid'?: string
 }) {
   const [buttonProps, rippleRef] = useButtonState({})
 

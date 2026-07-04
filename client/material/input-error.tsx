@@ -55,7 +55,7 @@ export function InputError(props: InputErrorProps) {
           <ErrorText
             key='error'
             ref={nodeRef}
-            data-test='validation-error'
+            data-testid='validation-error'
             variants={errorVariants}
             initial='initial'
             animate='visible'

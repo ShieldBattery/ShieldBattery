@@ -349,7 +349,7 @@ export function SocialSidebar({
 
   if (actuallyPinned) {
     return (
-      <RootPinned className={className} $visible={visible} data-test='social-sidebar'>
+      <RootPinned className={className} $visible={visible} data-testid='social-sidebar'>
         {content}
       </RootPinned>
     )
@@ -378,7 +378,7 @@ export function SocialSidebar({
             <RootOverlay
               key='sidebar'
               className={className}
-              data-test='social-sidebar'
+              data-testid='social-sidebar'
               variants={{
                 initial: { x: '100%' },
                 animate: { x: '0%' },
@@ -767,7 +767,7 @@ function Entry({
       onContextMenu={onContextMenu}>
       {icon ? <EntryIcon>{icon}</EntryIcon> : null}
       {needsAttention ? <AttentionIndicator /> : null}
-      <EntryText ref={textRef} title={isOverflowing ? title : undefined} data-test='entry-text'>
+      <EntryText ref={textRef} title={isOverflowing ? title : undefined} data-testid='entry-text'>
         {children}
       </EntryText>
       {button ? <EntryButton>{button}</EntryButton> : null}

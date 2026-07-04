@@ -56,7 +56,7 @@ export function OpenSlot({
   }
 
   return (
-    <Slot data-test='lobby-slot'>
+    <Slot data-testid='lobby-slot'>
       <SlotLeft>
         <SlotProfileOpen
           onMouseEnter={() => setIsHovered(true)}

@@ -145,7 +145,7 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
             label={label ?? t('forms.fileInput.chooseFile', 'Choose file')}
             disabled={disabled}
             tabIndex={-1}>
-            <input ref={inputRef} data-test={testName} {...internalInputProps} />
+            <input ref={inputRef} data-testid={testName} {...internalInputProps} />
           </StyledFilledButton>
 
           {showFileName && fileName && <FileName>{fileName}</FileName>}

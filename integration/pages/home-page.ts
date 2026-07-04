@@ -7,15 +7,15 @@ export class HomePage extends SocialSidebar {
   }
 
   latestNewsTitleLocator(): Locator {
-    return this.page.locator('[data-test=latest-news-title]')
+    return this.page.locator('[data-testid=latest-news-title]')
   }
 
   newsFeedPrimaryLocator(): Locator {
-    return this.page.locator('[data-test=news-feed-primary]')
+    return this.page.locator('[data-testid=news-feed-primary]')
   }
 
   newsPostTitleLocator(): Locator {
-    return this.page.locator('[data-test=news-post-title]')
+    return this.page.locator('[data-testid=news-post-title]')
   }
 
   async goToJoinedChatChannel(channelName: string): Promise<void> {

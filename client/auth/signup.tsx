@@ -190,7 +190,7 @@ export function Signup() {
           <SignupCodeLink
             href='#'
             onClick={() => setShowCodeInput(true)}
-            data-test='have-signup-code-link'>
+            data-testid='have-signup-code-link'>
             {t('auth.signup.haveSignupCodeLink', 'Have a signup code?')}
           </SignupCodeLink>
         )}

@@ -188,7 +188,7 @@ export function FilterChip({
         $highlighted={isHighlighted}
         $hasLeadingIcon={!!showLeadingIcon}
         $hasTrailingIcon={hasMenu}
-        data-test={testName}
+        data-testid={testName}
         {...buttonProps}>
         {showLeadingIcon ? <IconContainer>{leadingIcon}</IconContainer> : null}
         <ChipLabel>{label}</ChipLabel>

@@ -33,7 +33,7 @@ test('password reset flow', async ({ context, page }) => {
     password,
     email,
   })
-  await page.waitForSelector('[data-test=notifications-button]')
+  await page.waitForSelector('[data-testid=notifications-button]')
 
   // Step 2: Log out
   await clearLocalState({ context, page })
@@ -43,8 +43,8 @@ test('password reset flow', async ({ context, page }) => {
   await page.goto('/forgot-password')
   await page.fill('input[name="email"]', email)
   await page.fill('input[name="username"]', username)
-  await page.click('[data-test=submit-button]')
-  await page.waitForSelector('[data-test=reset-password-form]')
+  await page.click('[data-testid=submit-button]')
+  await page.waitForSelector('[data-testid=reset-password-form]')
 
   // Step 4: Check the sent emails to retrieve the code
   const emails = await sentEmailChecker.retrieveSentEmails(email)
@@ -57,18 +57,18 @@ test('password reset flow', async ({ context, page }) => {
   await page.fill('input[name="code"]', '33333-33333')
   await page.fill('input[name="password"]', newPassword)
   await page.fill('input[name="confirmPassword"]', newPassword)
-  await page.click('[data-test=submit-button]')
-  await page.waitForSelector('[data-test=errors-container] [data-test=invalid-code-text]')
+  await page.click('[data-testid=submit-button]')
+  await page.waitForSelector('[data-testid=errors-container] [data-testid=invalid-code-text]')
 
   // Step 6: Enter the correct code
   await page.fill('input[name="code"]', resetCode)
   await page.fill('input[name="password"]', newPassword)
   await page.fill('input[name="confirmPassword"]', newPassword)
-  await page.click('[data-test=submit-button]')
+  await page.click('[data-testid=submit-button]')
 
-  await page.click('[data-test=continue-to-login]')
+  await page.click('[data-testid=continue-to-login]')
 
   // Step 7: Log in with the new password
   await loginPage.loginWith(username, newPassword)
-  await page.waitForSelector('[data-test=notifications-button]')
+  await page.waitForSelector('[data-testid=notifications-button]')
 })

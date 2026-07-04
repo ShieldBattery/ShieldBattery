@@ -30,18 +30,18 @@ test('change display name successfully and verify it appears in settings and app
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Verify original name appears in app bar initially
-  await expect(page.locator('[data-test="app-bar-user-button"]')).toContainText(originalUsername)
+  await expect(page.locator('[data-testid="app-bar-user-button"]')).toContainText(originalUsername)
 
   // Navigate to account settings
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   // Click the edit display name button
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
 
   // Fill in the change display name form
   await page.fill('input[name="currentPassword"]', 'password123')
@@ -49,11 +49,11 @@ test('change display name successfully and verify it appears in settings and app
 
   // Submit the form
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // Verify dialog closes
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toHaveCount(0)
 
   // Verify the display name changed in the settings UI
   await expect(
@@ -61,9 +61,9 @@ test('change display name successfully and verify it appears in settings and app
   ).toBeVisible()
 
   // Close settings and verify the new display name appears in the app bar
-  await page.click('[data-test=close-settings]')
+  await page.click('[data-testid=close-settings]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
-  await expect(page.locator('[data-test="app-bar-user-button"]')).toContainText(newDisplayName)
+  await expect(page.locator('[data-testid="app-bar-user-button"]')).toContainText(newDisplayName)
 })
 
 test('cannot change display name again within 60 days (rate limiting)', async ({ page }) => {
@@ -80,29 +80,29 @@ test('cannot change display name again within 60 days (rate limiting)', async ({
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Navigate to account settings
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   // First change - should succeed
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
   await page.fill('input[name="currentPassword"]', 'password123')
   await page.fill('input[name="name"]', secondDisplayName)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toHaveCount(0)
 
   // Try to change again immediately - should show cooldown message in dialog
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
 
   // Should see cooldown message in the dialog
   await expect(
     page
-      .locator('[data-test=change-display-name-dialog]')
+      .locator('[data-testid=change-display-name-dialog]')
       .locator('text=/You can change your display name again in \\d+ day/'),
   ).toBeVisible()
 
@@ -110,18 +110,18 @@ test('cannot change display name again within 60 days (rate limiting)', async ({
   await page.fill('input[name="currentPassword"]', 'password123')
   await page.fill('input[name="name"]', thirdDisplayName)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // Should see rate limited error message
   await expect(
-    page.locator('[data-test=change-display-name-dialog]', {
+    page.locator('[data-testid=change-display-name-dialog]', {
       hasText: 'You have changed your display name too recently',
     }),
   ).toBeVisible()
 
   // Dialog should remain open
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toBeVisible()
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toBeVisible()
 })
 
 test('cannot change display name to restricted name', async ({ page }) => {
@@ -137,32 +137,32 @@ test('cannot change display name to restricted name', async ({ page }) => {
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Navigate to account settings
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   // Try to change to the restricted name (set up in global setup)
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
   await page.fill('input[name="currentPassword"]', 'password123')
   await page.fill('input[name="name"]', RESTRICTED_TEST_NAME)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // Should see an error about display name not being available
   // Note: Check for any validation error first, then check the specific text
-  await expect(page.locator('[data-test=validation-error]')).toBeVisible()
+  await expect(page.locator('[data-testid=validation-error]')).toBeVisible()
 
   // Check if it's the expected error text
   await expect(
-    page.locator('[data-test=validation-error]', { hasText: /not available|unavailable|taken/i }),
+    page.locator('[data-testid=validation-error]', { hasText: /not available|unavailable|taken/i }),
   ).toBeVisible()
 
   // Dialog should remain open
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toBeVisible()
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toBeVisible()
 })
 
 test('cannot change display name with wrong password', async ({ page }) => {
@@ -178,28 +178,28 @@ test('cannot change display name with wrong password', async ({ page }) => {
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Navigate to account settings
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   // Try to change with wrong password
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
   await page.fill('input[name="currentPassword"]', 'wrongpassword')
   await page.fill('input[name="name"]', newDisplayName)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // Should see an error about current password being incorrect
   await expect(
-    page.locator('[data-test=validation-error]', { hasText: /current password is incorrect/i }),
+    page.locator('[data-testid=validation-error]', { hasText: /current password is incorrect/i }),
   ).toBeVisible()
 
   // Dialog should remain open
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toBeVisible()
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toBeVisible()
 })
 
 test('cannot change display name to existing username', async ({ page }) => {
@@ -214,7 +214,7 @@ test('cannot change display name to existing username', async ({ page }) => {
     email: firstEmail,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
 
   // Logout and create second user
   await clearLocalState({ context: page.context(), page })
@@ -228,32 +228,32 @@ test('cannot change display name to existing username', async ({ page }) => {
     email: secondEmail,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Navigate to account settings
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   // Try to change to the first user's username
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
   await page.fill('input[name="currentPassword"]', 'password456')
   await page.fill('input[name="name"]', firstUsername)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // Should see an error about display name not being available
   // Note: Check for any validation error first, then check the specific text
-  await expect(page.locator('[data-test=validation-error]')).toBeVisible()
+  await expect(page.locator('[data-testid=validation-error]')).toBeVisible()
 
   // Check if it's the expected error text
   await expect(
-    page.locator('[data-test=validation-error]', { hasText: /not available/i }),
+    page.locator('[data-testid=validation-error]', { hasText: /not available/i }),
   ).toBeVisible()
 
   // Dialog should remain open
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toBeVisible()
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toBeVisible()
 })
 
 test('capitalization-only changes are allowed without cooldown', async ({ page }) => {
@@ -268,34 +268,34 @@ test('capitalization-only changes are allowed without cooldown', async ({ page }
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Navigate to account settings
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   // First change to a completely different name
   const differentName = generateUsername() + 'a' // Add 'a' to ensure it's different when capitalized
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
   await page.fill('input[name="currentPassword"]', 'password123')
   await page.fill('input[name="name"]', differentName)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toHaveCount(0)
 
   // Immediately try to change to capitalized version - should work despite cooldown
   const capitalizedName = differentName.toUpperCase()
-  await page.click('[data-test=edit-display-name-button]')
+  await page.click('[data-testid=edit-display-name-button]')
   await page.fill('input[name="currentPassword"]', 'password123')
   await page.fill('input[name="name"]', capitalizedName)
   await page.click(
-    '[data-test=change-display-name-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-display-name-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // Should succeed without rate limiting error
-  await expect(page.locator('[data-test=change-display-name-dialog]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=change-display-name-dialog]')).toHaveCount(0)
 
   // Verify the display name changed to the capitalized version
   await expect(

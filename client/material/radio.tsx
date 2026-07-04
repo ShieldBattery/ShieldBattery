@@ -221,7 +221,7 @@ export const RadioButton = React.memo(
         <Label htmlFor={id} $disabled={disabled}>
           {label}
         </Label>
-        <input {...inputProps} {...internalInputProps} data-test={testName} />
+        <input {...inputProps} {...internalInputProps} data-testid={testName} />
       </RadioButtonContainer>
     )
   },

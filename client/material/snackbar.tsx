@@ -75,7 +75,7 @@ export function Snackbar({
   const { t } = useTranslation()
 
   return (
-    <Root className={className} data-test={testName}>
+    <Root className={className} data-testid={testName}>
       <Message>{message}</Message>
       <Buttons>
         {actionLabel ? <ActionButton label={actionLabel} onClick={onAction} /> : undefined}

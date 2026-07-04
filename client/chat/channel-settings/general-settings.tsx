@@ -239,7 +239,7 @@ function GeneralSettingsForm({
   return (
     <Root>
       {errorMessage ? (
-        <ErrorText data-test='channel-settings-error-message'>{errorMessage}</ErrorText>
+        <ErrorText data-testid='channel-settings-error-message'>{errorMessage}</ErrorText>
       ) : null}
 
       <Content>

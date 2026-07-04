@@ -392,7 +392,7 @@ export function TextField({
           $multiline={multiline}
           $leadingIconsLength={leadingIcons.length}
           $trailingIconsLength={trailingIcons.length}
-          data-test={testName}
+          data-testid={testName}
           {...inputProps}
           {...internalInputProps}
         />

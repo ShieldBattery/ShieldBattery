@@ -72,7 +72,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
   const { t } = useTranslation()
 
   return (
-    <ListEntryRoot onClick={() => onClick(lobby)} data-test='lobby-list-entry'>
+    <ListEntryRoot onClick={() => onClick(lobby)} data-testid='lobby-list-entry'>
       <Info>
         <TitleLarge>{lobby.name}</TitleLarge>
         <TitleMedium>{lobby.host.name}</TitleMedium>

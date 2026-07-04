@@ -167,7 +167,7 @@ function BanHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUserJson }
   }, [userId, dispatch])
 
   return (
-    <AdminSection data-test='ban-history-section'>
+    <AdminSection data-testid='ban-history-section'>
       <TitleLarge>Ban history</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {banHistory === undefined ? (
@@ -345,7 +345,7 @@ function RestrictionHistory({ user, selfUser }: { user: SbUser; selfUser: SelfUs
   }, [userId, dispatch])
 
   return (
-    <AdminSection data-test='restriction-history-section'>
+    <AdminSection data-testid='restriction-history-section'>
       <TitleLarge>Restriction history</TitleLarge>
       {requestError ? <LoadingError>{requestError.message}</LoadingError> : null}
       {restrictionHistory === undefined ? (

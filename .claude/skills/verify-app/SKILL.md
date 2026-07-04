@@ -94,7 +94,7 @@ playwright-cli -s=c2 snapshot
 
 The app boots to the **home screen, logged out**. Click the **"Log in"** button in the top app bar
 to open the login form (it's an overlay — the URL stays `shieldbattery://app/`, it does not navigate
-to `/login`). Then fill the form (standard `name` inputs + `data-test` submit) and check the
+to `/login`). Then fill the form (standard `name` inputs + `submit-button` test id) and check the
 logged-in marker:
 
 ```bash
@@ -102,18 +102,18 @@ logged-in marker:
 playwright-cli -s=c1 click "getByRole('button', { name: 'Log in' })"
 playwright-cli -s=c1 fill 'input[name="username"]' claude-1
 playwright-cli -s=c1 fill 'input[name="password"]' shieldbattery
-playwright-cli -s=c1 click 'button[data-test="submit-button"]'
+playwright-cli -s=c1 click "getByTestId('submit-button')"
 # Logged-in marker (also carries the name+rank, e.g. "claude-1Novice"):
-playwright-cli -s=c1 eval "document.querySelector('[data-test=app-bar-user-button]')?.textContent"
+playwright-cli -s=c1 eval "document.querySelector('[data-testid=app-bar-user-button]')?.textContent"
 ```
 
 Seeded accounts are email-verified, so the verification dialog won't block you. Finding elements:
-prefer the app's `data-test` attributes via a **CSS attribute selector** — `[data-test='name']`
-(or `input[data-test='name']`). Do **not** use Playwright's `getByTestId('name')` here: it resolves
-`data-testid` by default and this app uses `data-test`, so `getByTestId` silently matches nothing.
-For elements without a `data-test`, take a `snapshot` first to get a ref (refs are ephemeral — they
-regenerate each snapshot, so re-snapshot per step), or use a role/name locator when the text is
-stable (`getByRole('button', { name: '…' })`).
+the app tags hooks with `data-testid` (Playwright's default test-id attribute), so
+`getByTestId('name')` resolves them directly in both playwright-cli and the `integration/` suite —
+prefer it. A `[data-testid='name']` CSS attribute selector works too, and is what you need inside an
+`eval` (e.g. `document.querySelector('[data-testid=…]')`). For elements without a test id, take a
+`snapshot` first to get a ref (refs are ephemeral — they regenerate each snapshot, so re-snapshot per
+step), or use a role/name locator when the text is stable (`getByRole('button', { name: '…' })`).
 
 **Benign console noise** (don't chase these): a `410 (Gone)` on `/api/1/sessions` while logged out
 (it's the "do I have a session?" probe), an Electron insecure-CSP warning, and a Mantine
@@ -150,10 +150,10 @@ Examples:
 This is the **lobby** path to getting two clients in-game — `c1` hosts a custom lobby, `c2` joins,
 `c1` starts. (Matchmaking is a *separate* path with its own ready-up/ban mechanics — not covered
 here; see the **verify-pr** skill's T4 game-launch tier for that.) The lobby → in-game path carries
-`data-test` attributes so you don't have to snapshot-scrape ephemeral refs at each step. Target them
-with `[data-test='…']` CSS selectors (**not** `getByTestId` — see the Log in section):
+`data-testid` hooks so you don't have to snapshot-scrape ephemeral refs at each step. Target them
+with `getByTestId('…')` (or a `[data-testid='…']` selector inside an `eval`):
 
-| `data-test` | Element | Screen |
+| test id | Element | Screen |
 | --- | --- | --- |
 | `nav-play-button` | The big Play button | home |
 | `create-lobby-button` | Opens the create-lobby form | `/play/lobbies` |
@@ -168,17 +168,17 @@ Both accounts logged in (see Two-client flows). Host on `c1`, join on `c2`, star
 
 ```bash
 # c1 hosts
-playwright-cli -s=c1 click "[data-test=nav-play-button]"          # → /play/lobbies
-playwright-cli -s=c1 click "[data-test=create-lobby-button]"      # → create form (remembers last map/name)
-playwright-cli -s=c1 fill  "input[data-test=lobby-name-input]" my-test-lobby
-playwright-cli -s=c1 click "[data-test=create-lobby-submit]"      # → /lobbies/my-test-lobby (host in lobby)
+playwright-cli -s=c1 click "getByTestId('nav-play-button')"       # → /play/lobbies
+playwright-cli -s=c1 click "getByTestId('create-lobby-button')"   # → create form (remembers last map/name)
+playwright-cli -s=c1 fill  "getByTestId('lobby-name-input')" my-test-lobby
+playwright-cli -s=c1 click "getByTestId('create-lobby-submit')"   # → /lobbies/my-test-lobby (host in lobby)
 
 # c2 joins by matching the row text, then clicking that specific entry
-playwright-cli -s=c2 click "[data-test=nav-play-button]"
-playwright-cli -s=c2 eval "[...document.querySelectorAll('[data-test=lobby-list-entry]')].find(e=>e.textContent.includes('my-test-lobby'))?.click(), 'joined'"
+playwright-cli -s=c2 click "getByTestId('nav-play-button')"
+playwright-cli -s=c2 eval "[...document.querySelectorAll('[data-testid=lobby-list-entry]')].find(e=>e.textContent.includes('my-test-lobby'))?.click(), 'joined'"
 
 # c1 starts once c2 is in a slot
-playwright-cli -s=c1 click "[data-test=start-game-button]"
+playwright-cli -s=c1 click "getByTestId('start-game-button')"
 ```
 
 Then poll for the game to reach `playing` (next section). A launched game needs a **fresh debug DLL

@@ -18,9 +18,9 @@ export class LoginPage {
     this.inputPassword = page.locator('input[name="password"]')
     this.inputRememberMe = page.locator('input[name="rememberMe"]')
 
-    this.buttonLogIn = page.locator('button[data-test="submit-button"]')
+    this.buttonLogIn = page.locator('button[data-testid="submit-button"]')
 
-    this.errorMessage = page.locator('div[data-test="errors-container"]')
+    this.errorMessage = page.locator('div[data-testid="errors-container"]')
   }
 
   async loginWith(username: string, password: string): Promise<void> {

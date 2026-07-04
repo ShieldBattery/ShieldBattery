@@ -26,20 +26,20 @@ test('change language for logged out user and verify it persists', async ({ page
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Open settings
-  await page.click('[data-test=settings-button]')
+  await page.click('[data-testid=settings-button]')
 
   // Navigate to language settings (should be the default page for logged out users)
-  await expect(page.locator(`[data-test=${UserSettingsPage.Language}-nav-entry]`)).toBeVisible()
+  await expect(page.locator(`[data-testid=${UserSettingsPage.Language}-nav-entry]`)).toBeVisible()
 
   // Verify we're on the language settings page
-  await expect(page.locator(`[data-test=${TranslationLanguage.English}-button]`)).toBeVisible()
+  await expect(page.locator(`[data-testid=${TranslationLanguage.English}-button]`)).toBeVisible()
 
   // Check that English is initially selected (default language)
-  const englishRadio = page.locator(`[data-test=${TranslationLanguage.English}-button]`)
+  const englishRadio = page.locator(`[data-testid=${TranslationLanguage.English}-button]`)
   await expect(englishRadio).toBeChecked()
 
   // Change language to Spanish
-  const spanishRadio = page.locator(`[data-test=${TranslationLanguage.Spanish}-button]`)
+  const spanishRadio = page.locator(`[data-testid=${TranslationLanguage.Spanish}-button]`)
   await spanishRadio.click()
 
   // Wait for the language change to take effect
@@ -50,8 +50,8 @@ test('change language for logged out user and verify it persists', async ({ page
   await expect(englishRadio).not.toBeChecked()
 
   // Reopen settings to verify the language selection persisted
-  await page.click('[data-test=close-settings]')
-  await page.click('[data-test=settings-button]')
+  await page.click('[data-testid=close-settings]')
+  await page.click('[data-testid=settings-button]')
   await expect(spanishRadio).toBeChecked()
   await expect(englishRadio).not.toBeChecked()
 })
@@ -69,22 +69,22 @@ test('change language for logged in user and verify it persists', async ({ conte
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Open settings
-  await page.click('[data-test=settings-button]')
+  await page.click('[data-testid=settings-button]')
 
   // Navigate to language settings
-  await page.click(`[data-test=${UserSettingsPage.Language}-nav-entry]`)
-  await expect(page.locator(`[data-test=${TranslationLanguage.English}-button]`)).toBeVisible()
+  await page.click(`[data-testid=${UserSettingsPage.Language}-nav-entry]`)
+  await expect(page.locator(`[data-testid=${TranslationLanguage.English}-button]`)).toBeVisible()
 
   // Check that English is initially selected (default language)
-  const englishRadio = page.locator(`[data-test=${TranslationLanguage.English}-button]`)
+  const englishRadio = page.locator(`[data-testid=${TranslationLanguage.English}-button]`)
   await expect(englishRadio).toBeChecked()
 
   // Change language to Korean
-  const koreanRadio = page.locator(`[data-test=${TranslationLanguage.Korean}-button]`)
+  const koreanRadio = page.locator(`[data-testid=${TranslationLanguage.Korean}-button]`)
   await koreanRadio.click()
 
   // Wait for the language change to take effect
@@ -95,17 +95,17 @@ test('change language for logged in user and verify it persists', async ({ conte
   await expect(englishRadio).not.toBeChecked()
 
   // Close settings and verify the language change is reflected in the UI
-  await page.click('[data-test=close-settings]')
+  await page.click('[data-testid=close-settings]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Reopen settings to verify the language selection persisted
-  await page.click('[data-test=settings-button]')
-  await page.click(`[data-test=${UserSettingsPage.Language}-nav-entry]`)
+  await page.click('[data-testid=settings-button]')
+  await page.click(`[data-testid=${UserSettingsPage.Language}-nav-entry]`)
   await expect(koreanRadio).toBeChecked()
   await expect(englishRadio).not.toBeChecked()
 
   // Test that the language persists after logout and login
-  await page.click('[data-test=close-settings]')
+  await page.click('[data-testid=close-settings]')
 
   // Logout
   await clearLocalState({ context, page })
@@ -116,12 +116,12 @@ test('change language for logged in user and verify it persists', async ({ conte
   await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
 
   // Verify we're logged in
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
   // Verify language setting persisted
-  await page.click('[data-test=settings-button]')
-  await page.click(`[data-test=${UserSettingsPage.Language}-nav-entry]`)
+  await page.click('[data-testid=settings-button]')
+  await page.click(`[data-testid=${UserSettingsPage.Language}-nav-entry]`)
   await expect(koreanRadio).toBeChecked()
   await expect(englishRadio).not.toBeChecked()
 })
