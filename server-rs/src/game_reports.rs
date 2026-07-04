@@ -692,14 +692,17 @@ impl GameReportsRepo {
 
     /// Computes which reporters should be notified that action was taken, for a report that was
     /// just resolved with `resolution`:
-    /// - `Actioned`: this report's reporter, plus the reporters of any sibling reports (same game +
-    ///   target) already resolved as `Duplicate`.
+    /// - `Actioned`: this report's reporter, plus — only if this is the *first* actioned report for
+    ///   this game + target — the reporters of any sibling reports already resolved as `Duplicate`.
+    ///   The "first actioned" guard means actioning a second sibling doesn't re-notify the same
+    ///   duplicate reporters (they were notified when the first sibling was actioned).
     /// - `Duplicate`: this report's reporter, but only if a sibling report was resolved as
     ///   `Actioned` (so a duplicate of an actioned report gets the same feel-good notification).
     /// - Anything else: nobody.
     ///
     /// The unique `(reporter_id, game_id, reported_user_id)` constraint guarantees each reporter
-    /// appears at most once, so the returned ids are already distinct.
+    /// appears at most once, so the returned ids are already distinct — and the guards above ensure
+    /// a given reporter is notified at most once across the whole resolution sequence.
     async fn reporters_to_notify(
         &self,
         report: &GameReport,
@@ -711,7 +714,19 @@ impl GameReportsRepo {
                     SELECT reporter_id AS "reporter_id!: SbUserId"
                     FROM game_reports
                     WHERE game_id = $1 AND reported_user_id = $2
-                        AND (id = $3 OR resolution = 'duplicate')
+                        AND (
+                            id = $3
+                            OR (
+                                resolution = 'duplicate'
+                                -- Only fold in duplicate siblings when this is the first actioned
+                                -- report; a later actioned sibling would otherwise re-notify them.
+                                AND NOT EXISTS (
+                                    SELECT 1 FROM game_reports other
+                                    WHERE other.game_id = $1 AND other.reported_user_id = $2
+                                        AND other.id != $3 AND other.resolution = 'actioned'
+                                )
+                            )
+                        )
                 "#,
                 report.game_id,
                 report.reported_user_id.0,

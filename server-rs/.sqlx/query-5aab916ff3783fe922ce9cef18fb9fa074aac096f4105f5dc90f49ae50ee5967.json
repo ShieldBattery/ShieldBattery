@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT reporter_id AS \"reporter_id!: SbUserId\"\n                    FROM game_reports\n                    WHERE game_id = $1 AND reported_user_id = $2\n                        AND (\n                            id = $3\n                            OR (\n                                resolution = 'duplicate'\n                                -- Only fold in duplicate siblings when this is the first actioned\n                                -- report; a later actioned sibling would otherwise re-notify them.\n                                AND NOT EXISTS (\n                                    SELECT 1 FROM game_reports other\n                                    WHERE other.game_id = $1 AND other.reported_user_id = $2\n                                        AND other.id != $3 AND other.resolution = 'actioned'\n                                )\n                            )\n                        )\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "reporter_id!: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "reporter_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5aab916ff3783fe922ce9cef18fb9fa074aac096f4105f5dc90f49ae50ee5967"
+}
