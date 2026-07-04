@@ -188,6 +188,21 @@ export interface MatchmakingResultsEvent {
   season: MatchmakingSeasonJson
 }
 
+/**
+ * Request to nullify the matchmaking/league points for a game (an admin action taken after an
+ * actioned game report). Refunds points lost by everyone who played *except* the punished
+ * player(s), for the current season only.
+ */
+export interface NullifyGamePointsRequest {
+  /** The players to exclude from the refund (i.e. the punished player(s)). */
+  punishedUserIds: SbUserId[]
+}
+
+export interface NullifyGamePointsResponse {
+  /** The players whose points were restored, and how much was restored to each. */
+  refundedUsers: Array<{ userId: SbUserId; pointsRefunded: number }>
+}
+
 export function getGameDurationString(durationMs: number): string {
   const timeSec = Math.floor(durationMs / 1000)
   const hours = Math.floor(timeSec / 3600)

@@ -4,7 +4,8 @@ import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { urlPath } from '../../common/urls'
+import { NullifyGamePointsRequest, NullifyGamePointsResponse } from '../../common/games/games'
+import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { graphql } from '../gql'
@@ -17,6 +18,8 @@ import { Card } from '../material/card'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { watchReplayFromUrl } from '../replays/action-creators'
@@ -131,6 +134,15 @@ function reasonToLabel(reason: GameReportReason): string {
     default:
       return reason satisfies never
   }
+}
+
+/** Friendly messages for the `code`s the nullify-points endpoint can return. */
+const REFUND_ERROR_MESSAGES: Record<string, string> = {
+  gameNotFound: 'Game not found.',
+  notCurrentSeason: 'Only current-season games can have their points refunded.',
+  notRefundable: 'This game has no matchmaking points to refund.',
+  invalidPlayers: 'The reported player did not participate in this game.',
+  alreadyRefunded: "This game's points have already been refunded.",
 }
 
 function resolutionToLabel(resolution: GameReportResolution): string {
@@ -662,6 +674,40 @@ function GameReportDetails({
   const resolve = (resolution: GameReportResolution) =>
     onResolve(resolution, notes.trim() ? notes.trim() : undefined)
 
+  const [refunding, setRefunding] = useState(false)
+  const onRefundPoints = () => {
+    if (!game || !report.reportedUser) {
+      return
+    }
+    setRefunding(true)
+    fetchJson<NullifyGamePointsResponse>(apiUrl`games/${game.id}/nullify-points`, {
+      method: 'POST',
+      body: encodeBodyAsParams<NullifyGamePointsRequest>({
+        // Exclude the reported (punished) player; everyone else who lost points is refunded.
+        punishedUserIds: [report.reportedUser.id],
+      }),
+    })
+      .then(result => {
+        setRefunding(false)
+        dispatch(
+          openSimpleDialog(
+            'Points refunded',
+            result.refundedUsers.length
+              ? `Refunded points to ${result.refundedUsers.length} player(s) for this game.`
+              : 'No players had points to refund for this game.',
+            false,
+          ),
+        )
+      })
+      .catch(err => {
+        setRefunding(false)
+        const message =
+          (isFetchError(err) && err.code && REFUND_ERROR_MESSAGES[err.code]) ||
+          'There was a problem refunding points for this game.'
+        dispatch(openSimpleDialog('Refund failed', message, false))
+      })
+  }
+
   let statusLabel = 'Pending'
   if (report.resolvedAt) {
     statusLabel = report.resolution ? resolutionToLabel(report.resolution) : 'Resolved'
@@ -756,15 +802,25 @@ function GameReportDetails({
                   <DetailsValue>{report.resolutionNotes}</DetailsValue>
                 </Section>
               ) : null}
-              {reporter ? (
+              {reporter || game ? (
                 <ActionRow>
-                  <OutlinedButton
-                    label='Restrict this reporter'
-                    iconStart={<MaterialIcon icon='gavel' />}
-                    onClick={() =>
-                      push(urlPath`/users/${reporter.id}/${reporter.name}/admin/punishments`)
-                    }
-                  />
+                  {reporter ? (
+                    <OutlinedButton
+                      label='Restrict this reporter'
+                      iconStart={<MaterialIcon icon='gavel' />}
+                      onClick={() =>
+                        push(urlPath`/users/${reporter.id}/${reporter.name}/admin/punishments`)
+                      }
+                    />
+                  ) : null}
+                  {game && report.reportedUser ? (
+                    <OutlinedButton
+                      label='Refund game points'
+                      iconStart={<MaterialIcon icon='paid' />}
+                      disabled={refunding}
+                      onClick={onRefundPoints}
+                    />
+                  ) : null}
                 </ActionRow>
               ) : null}
             </>
