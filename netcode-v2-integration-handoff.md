@@ -320,6 +320,51 @@ leave/reconnect work), #4 app-side screenshots (Electron `desktopCapturer`, no D
 three should build on the slice-5 patterns (`debug_control` for #2/#3; the `networkStatus`-style
 relay for anything new that's prod-safe).
 
+## Slice 6 — what landed (2026-07-04): debug/queryState (§7 #2) + the Seam→TurnState rename
+
+> **Naming note for readers of the sections above:** older sections refer to `SeamState` /
+> `with_seam` / "the seam turn engine". Those identifiers were renamed this slice (below); the
+> *concept* — the three-hook interposition point — is still called "the seam" in the RE guide and
+> in prose here, but the code no longer uses the word.
+
+- **`Seam*` identifiers renamed across `game/`** (review feedback: RE-doc jargon is not a type
+  name; types are named for what they hold). `SeamState` → `TurnState`, `with_seam` →
+  `with_turn_state`, `NetcodeV2Session.seam` → `turn_state`, `run_seam_leave_pass` →
+  `run_synced_leave_pass`, `SeamSend`/`SeamReceive` (bw_scr) → `TurnSendOutcome`/
+  `TurnReceiveOutcome`. Comments across the crate reworded to "turn state / turn transport / turn
+  hooks"; one deliberate "seam" survives in the `netcode_v2/mod.rs` module doc describing the hook
+  boundary itself. Related style rule now in force: comments must stand on their own — no
+  project-narrative framing, no cross-context jargon (e.g. `common/` types don't mention "netcode
+  v2 turn seam").
+- **`debug/queryState` (§7 #2) — DEBUG-ONLY, live-verified.** `DebugControlCommand::QueryState`
+  (`debug_control.rs`) → game_state calls `with_turn_state(|s| s.debug_snapshot())` (safe from the
+  async thread: the recurse-checked mutex blocks cross-thread, only same-thread re-entry gets
+  `None`) → replies on `/game/debug/state` with `{turnState: null | {localSlot, latencyTurns,
+  outstandingTurns, slots: [{slot, userId, stormId|null, required, queuedTurns, hasDispatch}]}}`.
+  `TurnState::debug_snapshot()` is a pure read and degrades (never panics) on indices the arrays
+  can't track. Release compile-out re-proven with the `compile_error!` probe, both directions.
+- **App-side sender (defense in depth, per the §7 split):** `activeGameDebugQueryState` IPC is
+  registered **only when `isDev || SB_SESSION`**; `ActiveGameManager.debugQueryState` correlates
+  replies FIFO-per-game with a 5s timeout (a release DLL never recognizes `debugControl`, so
+  timeout = "not a debug build"), and pending queries are rejected on game teardown. Types in
+  `common/games/game-debug.ts`.
+- **Verifier surface:** dev bundles expose `window.__sbDebugGame.queryGameState()` next to
+  `__sbReduxStore` — the whole assertion is one CDP eval returning the parsed snapshot.
+- **Live-verified (2026-07-04):** 2-player loopback per the runbook (claude-1/claude-2, relay
+  `--listen 127.0.0.1:14900`, coordinator at `http://[::1]:14910`): both clients `playing` with
+  `networkStatus.transport === 'netcodeV2'`, then `queryGameState()` on each returned consistent
+  live state — c1 `{localSlot: 0, latencyTurns: 2, outstandingTurns: 2}`, c2 `{localSlot: 1, …}`,
+  both rosters mapped slot 0↔storm 0↔user A / slot 1↔storm 1↔user B, all slots `required` with
+  turns flowing (`hasDispatch: true`). Also note: relay `--relay-id` is **numeric** (`--relay-id 1`;
+  a string id fails arg parsing).
+- **Verified:** 63 Rust tests + clippy `-D warnings` clean; typecheck/lint clean; 85 TS tests in
+  the touched areas; compile-out probe both directions; live CDP assertions above.
+
+**§7 remaining after slice 6:** #3 forced scenarios (leave/desync/buffer injection via new
+`DebugControlCommand` variants — note anything that must touch BW memory, e.g. writing
+`pending_leave_reason`, has to execute on the **game thread**, not the async thread that handles
+`debugControl`; route it like the existing game-thread requests), #4 app-side screenshots.
+
 ## What's next (in rough order)
 
 ### 0. ✅ Control plane (WS-E + WS-F) + roster + bootstrap seeding — DONE (slice 4)
