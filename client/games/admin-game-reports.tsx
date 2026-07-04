@@ -195,6 +195,19 @@ const NotFoundText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const RefundConfirmation = styled.div`
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
+`
+
+const RefundWarning = styled.div`
+  ${bodyMedium};
+  margin-bottom: 12px;
+  color: var(--theme-on-surface-variant);
+`
+
 const ReportTable = styled.div`
   width: 100%;
   border: 1px solid var(--theme-outline-variant);
@@ -675,15 +688,21 @@ function GameReportDetails({
     onResolve(resolution, notes.trim() ? notes.trim() : undefined)
 
   const [refunding, setRefunding] = useState(false)
+  const [confirmingRefund, setConfirmingRefund] = useState(false)
   const onRefundPoints = () => {
     if (!game || !report.reportedUser) {
       return
     }
+    setConfirmingRefund(false)
     setRefunding(true)
     fetchJson<NullifyGamePointsResponse>(apiUrl`games/${game.id}/nullify-points`, {
       method: 'POST',
       body: encodeBodyAsParams<NullifyGamePointsRequest>({
-        // Exclude the reported (punished) player; everyone else who lost points is refunded.
+        // Only the reported player is excluded. The endpoint accepts multiple punished ids, but this
+        // report knows about a single target — if a game had several punished players reported
+        // separately, the others would (wrongly) be refunded, and the per-game idempotency lock means
+        // that can't be corrected. The confirmation copy spells this out; a punished-set picker is a
+        // possible follow-up (see the sibling-report handling in issue #1335).
         punishedUserIds: [report.reportedUser.id],
       }),
     })
@@ -816,11 +835,33 @@ function GameReportDetails({
                     <OutlinedButton
                       label='Refund game points'
                       iconStart={<MaterialIcon icon='paid' />}
-                      disabled={refunding}
-                      onClick={onRefundPoints}
+                      disabled={refunding || confirmingRefund}
+                      onClick={() => setConfirmingRefund(true)}
                     />
                   ) : null}
                 </ActionRow>
+              ) : null}
+              {confirmingRefund && game && report.reportedUser ? (
+                <RefundConfirmation>
+                  <RefundWarning>
+                    This refunds the ranked and league points that everyone{' '}
+                    <b>except {report.reportedUser.name}</b> lost in this game. Only{' '}
+                    {report.reportedUser.name} is excluded — if other players in this game were also
+                    punished, their points will be refunded too. This can't be undone.
+                  </RefundWarning>
+                  <ActionRow>
+                    <OutlinedButton
+                      label='Cancel'
+                      disabled={refunding}
+                      onClick={() => setConfirmingRefund(false)}
+                    />
+                    <FilledButton
+                      label='Refund points'
+                      disabled={refunding}
+                      onClick={onRefundPoints}
+                    />
+                  </ActionRow>
+                </RefundConfirmation>
               ) : null}
             </>
           ) : (
