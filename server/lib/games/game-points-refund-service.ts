@@ -111,6 +111,16 @@ export class GamePointsRefundService {
     const mmRefunds = mmChanges.filter(c => !punished.has(c.userId) && c.pointsChange < 0)
     const leagueRefunds = leagueChanges.filter(c => !punished.has(c.userId) && c.pointsChange < 0)
 
+    // Nothing to refund (e.g. the only players who lost points are the punished ones). Bail without
+    // recording a refund — otherwise the per-game idempotency row would mark the game refunded and
+    // lock out a later, legitimate refund (e.g. after correcting the punished-player set).
+    if (!mmRefunds.length && !leagueRefunds.length) {
+      throw new GamePointsRefundServiceError(
+        GamePointsRefundErrorCode.NotRefundable,
+        'No players lost points in this game that can be refunded',
+      )
+    }
+
     const details: GamePointsRefundDetail[] = mmRefunds.map(c => ({
       userId: c.userId,
       matchmakingType: c.matchmakingType,

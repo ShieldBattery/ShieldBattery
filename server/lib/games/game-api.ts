@@ -212,8 +212,11 @@ export class GameApi {
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
       body: Joi.object<NullifyGamePointsRequest>({
-        // A 3v3 is the largest matchmaking game, so at most 6 punished players; keep a little slack.
-        punishedUserIds: Joi.array().items(joiUserId()).min(1).max(8).required(),
+        // `.single()` because the client sends this via `encodeBodyAsParams`, which serializes a
+        // one-element array as a single `punishedUserIds=<id>` param that the body parser decodes as
+        // a scalar (the usual convention here — see user-api.ts / chat-api.ts). A 3v3 is the largest
+        // matchmaking game, so at most 6 punished players; keep a little slack.
+        punishedUserIds: Joi.array().items(joiUserId()).single().min(1).max(8).required(),
       }),
     })
 

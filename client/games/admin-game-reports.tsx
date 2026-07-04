@@ -140,7 +140,7 @@ function reasonToLabel(reason: GameReportReason): string {
 const REFUND_ERROR_MESSAGES: Record<string, string> = {
   gameNotFound: 'Game not found.',
   notCurrentSeason: 'Only current-season games can have their points refunded.',
-  notRefundable: 'This game has no matchmaking points to refund.',
+  notRefundable: 'This game has no lost ranked points to refund.',
   invalidPlayers: 'The reported player did not participate in this game.',
   alreadyRefunded: "This game's points have already been refunded.",
 }
@@ -692,10 +692,7 @@ function GameReportDetails({
         dispatch(
           openSimpleDialog(
             'Points refunded',
-            result.refundedUsers.length
-              ? `Refunded points to ${result.refundedUsers.length} player(s) for this game.`
-              : 'No players had points to refund for this game.',
-            false,
+            `Refunded points to ${result.refundedUsers.length} player(s) for this game.`,
           ),
         )
       })
@@ -704,7 +701,7 @@ function GameReportDetails({
         const message =
           (isFetchError(err) && err.code && REFUND_ERROR_MESSAGES[err.code]) ||
           'There was a problem refunding points for this game.'
-        dispatch(openSimpleDialog('Refund failed', message, false))
+        dispatch(openSimpleDialog('Refund failed', message))
       })
   }
 
@@ -813,7 +810,9 @@ function GameReportDetails({
                       }
                     />
                   ) : null}
-                  {game && report.reportedUser ? (
+                  {game &&
+                  report.reportedUser &&
+                  report.resolution === GameReportResolution.Actioned ? (
                     <OutlinedButton
                       label='Refund game points'
                       iconStart={<MaterialIcon icon='paid' />}
