@@ -3,10 +3,15 @@ import { app, screen } from 'electron'
 import { Set } from 'immutable'
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { getErrorStack } from '../../common/errors'
-import { GameDebugState } from '../../common/games/game-debug'
+import {
+  GameDebugScreenshot,
+  GameDebugScreenshotReply,
+  GameDebugState,
+} from '../../common/games/game-debug'
 import {
   GameLaunchConfig,
   GameRoute,
@@ -36,9 +41,12 @@ const RALLY_POINT_PORT = Number(process.env.SB_RALLY_POINT_PORT ?? 0)
 // How long to wait for a `/game/debug/state` reply before giving up. A release DLL doesn't
 // recognize `debugControl` at all, so a query to one never gets a reply and always times out.
 const DEBUG_QUERY_TIMEOUT_MS = 5000
+// Screenshot capture + PNG encoding is heavier than a state snapshot, so it gets a longer timeout.
+// Same "release DLL never replies" semantics as `DEBUG_QUERY_TIMEOUT_MS` apply.
+const DEBUG_SCREENSHOT_TIMEOUT_MS = 10000
 
-interface PendingDebugQuery {
-  resolve: (state: GameDebugState) => void
+interface PendingDebugReply<T> {
+  resolve: (payload: T) => void
   reject: (err: Error) => void
   timer: ReturnType<typeof setTimeout>
 }
@@ -132,7 +140,9 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   private activeGame: ActiveGameInfo | null = null
   private serverPort = 0
   /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
-  private pendingDebugQueries = new Map<string, PendingDebugQuery[]>()
+  private pendingDebugQueries = new Map<string, PendingDebugReply<GameDebugState>[]>()
+  /** FIFO queues of pending `debugScreenshot` requests, keyed by game ID. */
+  private pendingDebugScreenshots = new Map<string, PendingDebugReply<GameDebugScreenshotReply>[]>()
 
   constructor(
     private mapStore: MapStore,
@@ -451,57 +461,19 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       )
     }
 
-    return new Promise<GameDebugState>((resolve, reject) => {
-      const entry: PendingDebugQuery = {
-        resolve,
-        reject,
-        timer: setTimeout(() => {
-          this.removePendingDebugQuery(id, entry)
-          reject(
-            new Error(
-              `Timed out waiting for debug state from game ${id} ` +
-                '(it may not be a debug build)',
-            ),
-          )
-        }, DEBUG_QUERY_TIMEOUT_MS),
-      }
-
-      const queue = this.pendingDebugQueries.get(id) ?? []
-      queue.push(entry)
-      this.pendingDebugQueries.set(id, queue)
-
-      this.emit('gameCommand', id, 'debugControl', { type: 'queryState' })
-    })
+    const result = this.enqueuePendingDebugReply(
+      this.pendingDebugQueries,
+      id,
+      DEBUG_QUERY_TIMEOUT_MS,
+      `Timed out waiting for debug state from game ${id} (it may not be a debug build)`,
+    )
+    this.emit('gameCommand', id, 'debugControl', { type: 'queryState' })
+    return result
   }
 
   /** Resolves the oldest pending `debugQueryState` request for `gameId`, if any. */
   handleDebugState(gameId: string, payload: GameDebugState) {
-    const queue = this.pendingDebugQueries.get(gameId)
-    const entry = queue?.shift()
-    if (!entry) {
-      log.verbose(`Got debug state for ${gameId} but no query was pending`)
-      return
-    }
-    if (queue!.length === 0) {
-      this.pendingDebugQueries.delete(gameId)
-    }
-
-    clearTimeout(entry.timer)
-    entry.resolve(payload)
-  }
-
-  private removePendingDebugQuery(gameId: string, entry: PendingDebugQuery) {
-    const queue = this.pendingDebugQueries.get(gameId)
-    if (!queue) {
-      return
-    }
-    const index = queue.indexOf(entry)
-    if (index !== -1) {
-      queue.splice(index, 1)
-    }
-    if (queue.length === 0) {
-      this.pendingDebugQueries.delete(gameId)
-    }
+    this.resolvePendingDebugReply(this.pendingDebugQueries, gameId, payload, 'debug state')
   }
 
   /**
@@ -518,16 +490,127 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', gameId, 'debugControl', { type: 'forceLeave', slot })
   }
 
-  /** Rejects and clears any pending `debugQueryState` requests for `gameId`. */
-  private rejectPendingDebugQueries(gameId: string, reason: string) {
-    const queue = this.pendingDebugQueries.get(gameId)
+  /**
+   * Captures a screenshot from the active game process (debug game builds only). Defaults
+   * `gameId` to the current active game, rejecting if there isn't one or it doesn't match. Rejects
+   * on a {@link DEBUG_SCREENSHOT_TIMEOUT_MS} timeout since a build that doesn't support the
+   * underlying `debugControl` command never replies, and rejects if the DLL reports a capture
+   * error. On success, decodes the PNG and writes it to a file in the OS temp dir, resolving its
+   * path and dimensions.
+   */
+  async debugScreenshot(gameId?: string): Promise<GameDebugScreenshot> {
+    const id = gameId ?? this.activeGame?.id
+    if (!id || !this.activeGame || this.activeGame.id !== id) {
+      throw new Error(
+        gameId
+          ? `No active game matching '${gameId}' to screenshot`
+          : 'No active game to screenshot',
+      )
+    }
+
+    const replyPromise = this.enqueuePendingDebugReply(
+      this.pendingDebugScreenshots,
+      id,
+      DEBUG_SCREENSHOT_TIMEOUT_MS,
+      `Timed out waiting for debug screenshot from game ${id} (it may not be a debug build)`,
+    )
+    this.emit('gameCommand', id, 'debugControl', { type: 'screenshot' })
+    const reply = await replyPromise
+
+    if (!reply.screenshot) {
+      throw new Error(reply.error ?? 'Game process reported a screenshot capture error')
+    }
+
+    const { width, height, pngBase64 } = reply.screenshot
+    const filePath = path.join(os.tmpdir(), `sb-game-screenshot-${id}-${Date.now()}.png`)
+    await fsPromises.writeFile(filePath, Buffer.from(pngBase64, 'base64'))
+
+    return { path: filePath, width, height }
+  }
+
+  /** Resolves the oldest pending `debugScreenshot` request for `gameId`, if any. */
+  handleDebugScreenshot(gameId: string, payload: GameDebugScreenshotReply) {
+    this.resolvePendingDebugReply(this.pendingDebugScreenshots, gameId, payload, 'debug screenshot')
+  }
+
+  /**
+   * Registers a pending debug reply for `gameId` in `map`, returning a promise that resolves when
+   * a matching reply arrives (via {@link resolvePendingDebugReply}) or rejects after `timeoutMs`
+   * with `timeoutMessage`, or on game teardown (via {@link rejectPendingDebugQueries}).
+   */
+  private enqueuePendingDebugReply<T>(
+    map: Map<string, PendingDebugReply<T>[]>,
+    gameId: string,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const entry: PendingDebugReply<T> = {
+        resolve,
+        reject,
+        timer: setTimeout(() => {
+          this.removePendingDebugReply(map, gameId, entry)
+          reject(new Error(timeoutMessage))
+        }, timeoutMs),
+      }
+
+      const queue = map.get(gameId) ?? []
+      queue.push(entry)
+      map.set(gameId, queue)
+    })
+  }
+
+  /** Resolves the oldest pending entry for `gameId` in `map`, if any. */
+  private resolvePendingDebugReply<T>(
+    map: Map<string, PendingDebugReply<T>[]>,
+    gameId: string,
+    payload: T,
+    logLabel: string,
+  ) {
+    const queue = map.get(gameId)
+    const entry = queue?.shift()
+    if (!entry) {
+      log.verbose(`Got ${logLabel} for ${gameId} but none was pending`)
+      return
+    }
+    if (queue!.length === 0) {
+      map.delete(gameId)
+    }
+
+    clearTimeout(entry.timer)
+    entry.resolve(payload)
+  }
+
+  private removePendingDebugReply<T>(
+    map: Map<string, PendingDebugReply<T>[]>,
+    gameId: string,
+    entry: PendingDebugReply<T>,
+  ) {
+    const queue = map.get(gameId)
     if (!queue) {
       return
     }
-    this.pendingDebugQueries.delete(gameId)
-    for (const entry of queue) {
-      clearTimeout(entry.timer)
-      entry.reject(new Error(reason))
+    const index = queue.indexOf(entry)
+    if (index !== -1) {
+      queue.splice(index, 1)
+    }
+    if (queue.length === 0) {
+      map.delete(gameId)
+    }
+  }
+
+  /** Rejects and clears any pending debug queries or screenshots for `gameId`. */
+  private rejectPendingDebugQueries(gameId: string, reason: string) {
+    for (const map of [this.pendingDebugQueries, this.pendingDebugScreenshots]) {
+      const queue = map.get(gameId)
+      if (!queue) {
+        continue
+      }
+      map.delete(gameId)
+      for (const entry of queue) {
+        clearTimeout(entry.timer)
+        entry.reject(new Error(reason))
+      }
     }
   }
 

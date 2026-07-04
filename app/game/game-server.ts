@@ -122,6 +122,9 @@ export class GameServer {
       case '/game/debug/state':
         this.activeGameManager.handleDebugState(gameId, payload)
         break
+      case '/game/debug/screenshot':
+        this.activeGameManager.handleDebugScreenshot(gameId, payload)
+        break
       case '/game/windowMove':
         {
           const { x, y, w, h } = payload

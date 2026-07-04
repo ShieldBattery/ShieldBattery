@@ -7,7 +7,7 @@ import type {
 } from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
-import { GameDebugState } from './games/game-debug'
+import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig, GameRoute } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
@@ -82,6 +82,12 @@ interface IpcInvokeables {
    * this rejects on a timeout rather than hanging forever.
    */
   activeGameDebugQueryState: (gameId?: string) => GameDebugState
+  /**
+   * Captures a screenshot from the active game process's debug build (debug game builds only).
+   * Only registered in development (`isDev`); on a build that doesn't support it the request is
+   * never acknowledged, so this rejects on a timeout rather than hanging forever.
+   */
+  activeGameDebugScreenshot: (gameId?: string) => GameDebugScreenshot
   /**
    * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
    * builds only). Only registered in development (`isDev`). Fire-and-forget: there's no reply, so

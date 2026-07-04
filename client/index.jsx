@@ -133,6 +133,7 @@ rootElemPromise
           new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
         forceLeave: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameForceLeave', gameId, slot),
+        screenshot: gameId => new TypedIpcRenderer().invoke('activeGameDebugScreenshot', gameId),
       }
     }
     registerDispatch(reduxStore.dispatch)

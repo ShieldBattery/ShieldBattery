@@ -761,6 +761,28 @@ impl GameState {
                         // Fire-and-forget: the injection applies on the game thread's next receive;
                         // verify via queryState. No reply.
                     }
+                    DebugControlCommand::Screenshot => {
+                        let ws_send = self.ws_send.clone();
+                        return async move {
+                            let response =
+                                match tokio::task::spawn_blocking(crate::debug_control::capture_screenshot)
+                                    .await
+                                {
+                                    Ok(response) => response,
+                                    Err(e) => crate::debug_control::DebugScreenshotResponse {
+                                        screenshot: None,
+                                        error: Some(format!("screenshot task failed: {e}")),
+                                    },
+                                };
+                            let _ = app_socket::send_message(
+                                &ws_send,
+                                "/game/debug/screenshot",
+                                response,
+                            )
+                            .await;
+                        }
+                        .boxed();
+                    }
                 }
             }
         }

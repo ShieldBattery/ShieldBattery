@@ -733,6 +733,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameDebugQueryState', (event, gameId) =>
       activeGameManager.debugQueryState(gameId),
     )
+    ipcMain.handle('activeGameDebugScreenshot', (event, gameId) =>
+      activeGameManager.debugScreenshot(gameId),
+    )
     ipcMain.handle('activeGameForceLeave', (event, gameId, slot) =>
       activeGameManager.forceGameLeave(gameId, slot),
     )
