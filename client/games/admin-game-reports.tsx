@@ -1081,9 +1081,8 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
   })
   const [{ fetching: resolving, error: resolveError }, resolveGameReport] =
     useMutation(ResolveGameReportMutation)
-  const [{ fetching: resolvingSiblings }, resolveSiblingReports] = useMutation(
-    ResolveSiblingReportsMutation,
-  )
+  const [{ fetching: resolvingSiblings, error: resolveSiblingsError }, resolveSiblingReports] =
+    useMutation(ResolveSiblingReportsMutation)
 
   const report = data?.gameReport
 
@@ -1119,6 +1118,9 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
       </HeadlineAndButton>
       {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
       {resolveError ? <ErrorText>Error resolving: {resolveError.message}</ErrorText> : null}
+      {resolveSiblingsError ? (
+        <ErrorText>Error resolving pending reports: {resolveSiblingsError.message}</ErrorText>
+      ) : null}
       {report ? (
         <GameReportDetails
           report={report}
