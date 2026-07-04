@@ -116,6 +116,9 @@ export class GameServer {
       case '/game/replayUploaded':
         this.activeGameManager.handleReplayUploaded(gameId)
         break
+      case '/game/networkStatus':
+        this.activeGameManager.handleNetworkStatus(gameId, payload)
+        break
       case '/game/windowMove':
         {
           const { x, y, w, h } = payload

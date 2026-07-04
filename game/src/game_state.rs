@@ -17,8 +17,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameResultsReport,
-    GameSetupInfo, LobbyPlayerId, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, PlayerInfo,
-    Route, SbUser, SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    GameSetupInfo, LobbyPlayerId, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo,
+    NetworkStatus, NetworkTransport, PlayerInfo, Route, SbUser, SbUserId, ServerConfig, Settings,
+    SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -126,6 +127,10 @@ pub enum GameStateMessage {
     Network(NetworkToGameStateMessage),
     CleanupQuit,
     QuitIfNotStarted,
+    /// Debug/verification control surface command (see `crate::debug_control`); absent from
+    /// release builds.
+    #[cfg(debug_assertions)]
+    DebugControl(crate::debug_control::DebugControlCommand),
 }
 
 quick_error! {
@@ -291,6 +296,7 @@ impl GameState {
 
         let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
+        let ws_send = self.ws_send.clone();
 
         let network_send = self.network_send.clone();
 
@@ -367,10 +373,32 @@ impl GameState {
             // networking for this session rather than failing the game — with no live session the
             // seam hooks pass through to the original functions.
             if let Some(setup) = netcode_v2_setup {
-                match netcode_v2::establish_session(&setup).await {
-                    Ok(()) => info!("Netcode v2 session established"),
-                    Err(e) => error!("Netcode v2 session setup failed; using native networking: {e}"),
-                }
+                let status = match netcode_v2::establish_session(&setup).await {
+                    Ok(()) => {
+                        info!("Netcode v2 session established");
+                        NetworkStatus {
+                            transport: NetworkTransport::NetcodeV2,
+                            fallback_from: None,
+                            error: None,
+                        }
+                    }
+                    Err(e) => {
+                        error!("Netcode v2 session setup failed; using native networking: {e}");
+                        NetworkStatus {
+                            transport: NetworkTransport::Native,
+                            fallback_from: Some(NetworkTransport::NetcodeV2),
+                            error: Some(e.to_string()),
+                        }
+                    }
+                };
+                let _ = app_socket::send_message(&ws_send, "/game/networkStatus", status).await;
+            } else {
+                let status = NetworkStatus {
+                    transport: NetworkTransport::Native,
+                    fallback_from: None,
+                    error: None,
+                };
+                let _ = app_socket::send_message(&ws_send, "/game/networkStatus", status).await;
             }
 
             network_ready_future
@@ -704,6 +732,17 @@ impl GameState {
                     // Not cleaning up (that is, saving user settings or anything)
                     // since we didn't start in the first place
                     self.async_stop.cancel();
+                }
+            }
+            #[cfg(debug_assertions)]
+            DebugControl(cmd) => {
+                use crate::debug_control::DebugControlCommand;
+                match cmd {
+                    DebugControlCommand::Ping => {
+                        return app_socket::send_message(&self.ws_send, "/game/debug/pong", ())
+                            .map(|_| ())
+                            .boxed();
+                    }
                 }
             }
         }

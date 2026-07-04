@@ -31,19 +31,32 @@ prove a component *looks* right, nothing more. To verify that something *works*,
 
 ## Launch the app with a debugging port
 
-Electron exposes a CDP endpoint when launched with `--remote-debugging-port`. Run it as a
-**background** process. Use a distinct `SB_SESSION` (separate settings + session storage, so a
-second instance can be logged in as a different account) and a distinct port per instance:
+Electron exposes a CDP endpoint when launched with `--remote-debugging-port`. Use a distinct
+`SB_SESSION` (separate settings + session storage, so a second instance can be logged in as a
+different account) and a distinct port per instance.
 
-```bash
-# Instance 1 (background)
-env -u ELECTRON_RUN_AS_NODE SB_HOT=1 SB_SESSION=session1 npx electron app --remote-debugging-port=9222
+**Launch with PowerShell `Start-Process -PassThru` and record the PID** — do NOT launch via
+`npx electron` (or bash + the electron binary) as a background task. Every wrapper layer (npx,
+pnpm, Git Bash's `env`/MSYS exec emulation) breaks the Windows process tree, so `TaskStop` kills
+only the wrapper and the real `electron.exe` survives as an orphaned, visible window (verified:
+even a direct-binary bash launch orphans). `Start-Process` returns the *actual* electron PID, and
+`Stop-Process` on it takes down the whole app, Chromium children included:
 
-# Instance 2 — only for multi-client flows (background)
-env -u ELECTRON_RUN_AS_NODE SB_HOT=1 SB_SESSION=session2 npx electron app --remote-debugging-port=9223
+```powershell
+# Instance 1 (PowerShell tool — returns immediately, app runs detached; SAVE the PID)
+Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
+$env:SB_HOT='1'; $env:SB_SESSION='session1'
+$p = Start-Process -FilePath 'node_modules\electron\dist\electron.exe' `
+  -ArgumentList 'app','--remote-debugging-port=9222' -PassThru; "PID: $($p.Id)"
+
+# Instance 2 — only for multi-client flows: SB_SESSION='session2', port 9223, save its PID too
 ```
 
-> **`env -u ELECTRON_RUN_AS_NODE` is mandatory when launching from an agent tool.** VS Code runs its
+Sanity check the PID took the port: `netstat -ano | findstr :9222` → the LISTENING line's PID
+must match what `Start-Process` returned.
+
+> **Stripping `ELECTRON_RUN_AS_NODE` is mandatory when launching from an agent tool** (the
+> `Remove-Item Env:` above; in bash it's `env -u ELECTRON_RUN_AS_NODE`). VS Code runs its
 > extension host (which the Claude Code extension and its Bash/PowerShell tools live under) by
 > spawning the Electron binary with `ELECTRON_RUN_AS_NODE=1`, and that var is inherited by everything
 > the tools launch. Left set, the freshly-spawned `electron.exe` runs as plain Node and dies with
@@ -130,6 +143,12 @@ Examples:
 
 ## Reading what happened
 
+- **Redux state (dev builds)**: the store is exposed as `window.__sbReduxStore` (dev bundles
+  only), so app state is one eval away — e.g.
+  `playwright-cli -s=c1 eval "JSON.stringify(window.__sbReduxStore.getState().gameClient)"`.
+  Game-relevant: `gameClient.status` is the full `ReportedGameStatus`, incl.
+  `networkStatus.transport` (`'netcodeV2' | 'native'`, plus `fallbackFrom`/`error` when a netcode
+  v2 dial failed) — assert on this instead of grepping the game DLL log.
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
 - **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app.0.log` — shared across instances, so grep by
   the message you expect rather than assuming ordering.
@@ -145,6 +164,27 @@ started** — the Electron instances, any game process still running, and any se
 you spun up for this verification (see the dev-env skill's Stopping section — including the caveat
 that `TaskStop` on a `pnpm` task can orphan the child, so confirm ports are actually free). Only
 leave something running if you'll reuse it in the same session. Leave Docker running.
+
+**Closing the Electron instances: `Stop-Process` the PIDs you saved at launch, then verify.**
+This is why the launch section captures the PID via `Start-Process -PassThru` — killing that PID
+reliably takes down the whole app (Chromium children included). `TaskStop` on a wrapper task
+(npx/pnpm/bash) does NOT work: it kills the wrapper and orphans the real `electron.exe` with its
+window still open (verified the hard way — the user had to close them manually).
+
+```powershell
+Stop-Process -Id <pid1>,<pid2> -Force
+```
+
+Always verify, whichever path you took — the CDP ports are the ground truth (and the recovery
+route if you lost a PID: the LISTENING line's last column is the PID to `taskkill //F //PID`):
+
+```bash
+netstat -ano | grep -E ':(9222|9223)\s' | grep LISTENING   # empty = actually gone
+```
+
+Don't `taskkill //IM electron.exe` — it's imprecise (other Electron-based dev tools may be
+running); the saved PID / CDP port identifies exactly the instance you launched. A game process
+the app spawned (`StarCraft.exe`) dies separately: `taskkill //F //IM StarCraft.exe`.
 
 ## When the browser is enough
 

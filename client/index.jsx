@@ -122,6 +122,11 @@ const initAudioPromise = audioManager.initialize()
 rootElemPromise
   .then(async elem => {
     const reduxStore = createStore(ReduxDevTools)
+    if (__WEBPACK_ENV.NODE_ENV !== 'production') {
+      // Expose the store for dev verification tooling (CDP-driven assertions on app state);
+      // compiled out of production bundles.
+      window.__sbReduxStore = reduxStore
+    }
     registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()
 

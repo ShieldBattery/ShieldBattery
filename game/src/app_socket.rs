@@ -249,6 +249,16 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
         "startWhenReady" => Ok(MessageResult::Game(GameStateMessage::StartWhenReady)),
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
+        #[cfg(debug_assertions)]
+        "debugControl" => {
+            let cmd = parse_payload(
+                payload,
+                "Invalid debug control command",
+                err_input,
+                sensitive,
+            )?;
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(cmd)))
+        }
         _ => Err(HandleMessageError::UnknownCommand(message.command)),
     }
 }
@@ -302,5 +312,29 @@ pub fn send_message<'a, T: serde::Serialize>(
             Some(o) => send.send(o).await.map_err(|_| ()),
             None => Err(()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::debug_control::DebugControlCommand;
+
+    #[test]
+    fn debug_control_ping_dispatches_to_game_state() {
+        let result =
+            handle_app_message(r#"{"command":"debugControl","payload":{"type":"ping"}}"#.into());
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::Ping
+            )))
+        ));
+    }
+
+    #[test]
+    fn unknown_command_still_errors() {
+        let result = handle_app_message(r#"{"command":"notARealCommand","payload":null}"#.into());
+        assert!(matches!(result, Err(HandleMessageError::UnknownCommand(_))));
     }
 }

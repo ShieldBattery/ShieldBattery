@@ -12,7 +12,12 @@ import {
   isReplayLaunchConfig,
   isReplayMapInfo,
 } from '../../common/games/game-launch-config'
-import { GameStatus, ReportedGameStatus, statusToString } from '../../common/games/game-status'
+import {
+  GameNetworkStatus,
+  GameStatus,
+  ReportedGameStatus,
+  statusToString,
+} from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
@@ -74,6 +79,11 @@ interface ActiveGameInfo {
    * Whether or not the replay was successfully uploaded to the server by the game process.
    */
   replayUploaded?: boolean
+  /**
+   * Which turn transport the game ended up using, reported once via `/game/networkStatus` during
+   * game init.
+   */
+  networkStatus?: GameNetworkStatus
 }
 
 function isGameConfig(
@@ -127,6 +137,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         state: statusToString(game.status?.state ?? GameStatus.Unknown),
         extra: game.status?.extra,
         isReplay: game.config ? isReplayLaunchConfig(game.config) : false,
+        networkStatus: game.networkStatus,
       }
     } else {
       return null
@@ -205,6 +216,9 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       ...current,
       netcodeV2Keys: carried?.netcodeV2Keys,
       netcodeV2Setup: carried?.netcodeV2Setup,
+      // A fresh launch's transport is unknown until the new game's init reports it; this also
+      // applies when relaunching the same game id, so don't carry it over from `current` either.
+      networkStatus: undefined,
       id: gameId,
       promise: activeGamePromise,
       config,
@@ -396,6 +410,15 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       return
     }
     this.setStatus(GameStatus.Playing)
+  }
+
+  handleNetworkStatus(gameId: string, info: GameNetworkStatus) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+    log.verbose(`Game network status: ${JSON.stringify(info)}`)
+    this.activeGame.networkStatus = info
+    this.emit('gameStatus', this.getStatus()!)
   }
 
   handleGameResult(

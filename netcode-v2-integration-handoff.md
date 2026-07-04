@@ -255,13 +255,70 @@ injects `game/dist/shieldbattery.dll`, which only `game\build.bat` refreshes —
 to native networking).
 
 **Dev loopback runbook (verified working):** run `rally-point-coordinator`
-(`--allow-insecure-control --dev-tenant`, optionally `--tenant-key` to pin the key) and
-`rally-point-relay` (`--tenant-pubkey` = the hex pubkey the coordinator logs at startup,
-`--coordinator-url` + `--relay-id`; no cert flags needed — the relay self-signs and its cert
-reaches clients through the coordinator's session response), then start the SB server with
-`SB_RP2_COORDINATOR_URL`/`SB_RP2_TENANT` pointing at them, and load a 2-player game (two clients
-on one machine work). Watch for "netcode v2 session established" in the game logs, then the
-in-game turn flow through the seam.
+(`--allow-insecure-control --dev-tenant`, optionally `--tenant-key` to pin the key; passing
+`--bootstrap-secret <s>` instead of `--allow-insecure-control` also works — give the relay the
+matching `--coordinator-secret <s>`) and `rally-point-relay` (`--tenant-pubkey` = the hex pubkey
+the coordinator logs at startup, `--coordinator-url` + `--relay-id`; no cert flags needed — the
+relay self-signs and its cert reaches clients through the coordinator's session response), then
+start the SB server with `SB_RP2_COORDINATOR_URL`/`SB_RP2_TENANT` pointing at them, and load a
+2-player game (two clients on one machine work). Watch for "netcode v2 session established" in
+the game logs — or, as of slice 5, assert `networkStatus.transport === 'netcodeV2'` from the
+renderer Redux state over CDP (see slice 5 below), then the in-game turn flow through the seam.
+
+**Two Windows loopback gotchas (cost one failed run each, 2026-07-04):**
+- **Give the relay `--listen 127.0.0.1:14900` explicitly.** Its default `[::]` UDP bind is
+  IPv6-*only* on Windows, and the session response then advertises `127.0.0.1` — so the client's
+  v4 dial times out in silence (relay logs nothing, DLL logs `dial timed out after 10s`, game
+  falls back to native). The same applies to the coordinator: it binds `[::]:14910`, so point the
+  relay and `SB_RP2_COORDINATOR_URL` at `http://[::1]:14910`, not `127.0.0.1`.
+- The relay dial failure is *visible in Redux now* (`networkStatus: {transport: 'native',
+  fallbackFrom: 'netcodeV2', error: 'netcode v2 relay could not be dialed: …'}`) — check that
+  before grepping anything.
+
+## Slice 5 — what landed (2026-07-04): game observability, first slice (§7 items #1 + scaffold)
+
+The first slice of the §7 verification-tooling task. Verified live end-to-end (below). All
+tests/lints green: 59 Rust tests, 858 TS tests, clippy/typecheck/lint clean.
+
+- **`/game/networkStatus` DLL→app event (SHIPS IN PROD — safe subset).**
+  `app_messages.rs::{NetworkTransport, NetworkStatus}`; sent once from `init_game` when the
+  transport choice settles: `{transport: 'netcodeV2'}` on session established, `{transport:
+  'native', fallbackFrom: 'netcodeV2', error}` on dial failure, `{transport: 'native'}` on the
+  no-setup (legacy/replay) path. Same trust boundary as `/game/start`.
+- **App relay into `GameStatus`:** `game-server.ts` routes it to
+  `ActiveGameManager.handleNetworkStatus`, which stores it on the active game and re-emits
+  `gameStatus`; `ReportedGameStatus` (common/games/game-status.ts, new `GameNetworkStatus` type)
+  now carries `networkStatus` on **every** status report for the game, so a verifier can assert
+  it at any later moment (e.g. once `playing`). Reset explicitly in `setGameConfig` so a
+  relaunch can't show a stale transport. Renderer gets it for free via the existing
+  `@active-game/status` → `state.gameClient.status.networkStatus`.
+- **Dev-only Redux exposure for verifiers:** `client/index.jsx` sets `window.__sbReduxStore`
+  (non-production bundles only), so CDP assertions are one `eval` — no fiber-walking, no log
+  grepping.
+- **`debug_control` scaffold (DEBUG-ONLY, the §7 security split, enforced):**
+  `#[cfg(debug_assertions)] mod debug_control` (game/src/debug_control.rs) with one `Ping`
+  command → `/game/debug/pong` reply, plus the cfg-gated `"debugControl"` dispatch arm in
+  `app_socket.rs` and a cfg-gated `GameStateMessage::DebugControl` variant — the full
+  command→game_state→reply round-trip pattern that §7 #2 (queryState) and #3 (forced scenarios)
+  should extend. Unit-tested. No app-side sender exists yet; when one is added it must be
+  dev-gated (`isDev`/`SB_SESSION`) as defense in depth.
+- **Release compile-out: PROVEN, and don't re-verify it by string-grepping.** Method that works:
+  drop `#[cfg(debug_assertions)] compile_error!(…)` into lib.rs — `cargo check --release` must
+  pass (assertions off ⇒ the whole debug surface is excluded) and `cargo check` must fail
+  (positive control); then remove the probe. Method that **lies**: grepping the release DLL for
+  command strings — release codegen materializes even *shipping* literals (e.g.
+  `/game/setupProgress`) as immediate stores in .text, so absence proves nothing.
+- **Live-verified (2026-07-04):** 2-player loopback (runbook above, claude-1/claude-2): both
+  renderers asserted `state.gameClient.status.networkStatus.transport === 'netcodeV2'` over CDP
+  while the game was `playing`, relay authorized slots 0/1. The **fallback event was live-verified
+  too** (the first run hit the IPv6 bind gotcha: Redux showed `{transport: 'native', fallbackFrom:
+  'netcodeV2', error: 'dial timed out…'}` — the new event diagnosed its own test run).
+
+**§7 remaining:** #2 `debug/queryState` (seam snapshot: readiness set, per-slot storm ids, buffer,
+turn counts), #3 forced scenarios (leave/desync/buffer injection — the power tool for §6's
+leave/reconnect work), #4 app-side screenshots (Electron `desktopCapturer`, no DLL change). All
+three should build on the slice-5 patterns (`debug_control` for #2/#3; the `networkStatus`-style
+relay for anything new that's prod-safe).
 
 ## What's next (in rough order)
 
@@ -346,9 +403,12 @@ resolution replaced it; samase either finds a symbol or it doesn't). Control-com
     then drain). Closing this = the coordinated-leave write above, which also lets the remaining
     client skip the dialog on a *clean* quit (native BW shows it only on unclean drops).
 
-### 7. Game observability + debug-control channel (verification tooling) — NEXT TASK, unassigned
+### 7. Game observability + debug-control channel (verification tooling) — IN PROGRESS
+> **First slice landed 2026-07-04 — see "Slice 5 — what landed" above** (#1's transport event +
+> the `debug_control` scaffold + the release compile-out proof + live CDP verification). Remaining
+> here: #2 (queryState), #3 (forced scenarios), #4 (screenshots).
 
-**This is the recommended next task, meant to be picked up by a different developer.** It's
+**This task can be picked up by a different developer.** It's
 tooling, not netcode — independent of the still-open leave/reconnect designs (#6), can proceed in
 parallel, and will directly *help* verify #6's work once it lands. It came out of the 2026-07-03
 live-loopback session: verifying in-game behavior today is log-grep-only (you scrape

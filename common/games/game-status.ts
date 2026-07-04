@@ -78,9 +78,27 @@ export function stringToStatus(str: GameStatusString): GameStatus {
   }
 }
 
+export type GameNetworkTransport = 'netcodeV2' | 'native'
+
+/**
+ * Which turn transport a running game ended up on, as reported by the game client once the
+ * choice settles during game init. `fallbackFrom`/`error` are set when a transport was requested
+ * but could not be established.
+ */
+export interface GameNetworkStatus {
+  transport: GameNetworkTransport
+  fallbackFrom?: GameNetworkTransport
+  error?: string
+}
+
 export interface ReportedGameStatus {
   id: string
   state: GameStatusString
   extra?: any
   isReplay: boolean
+  /**
+   * Which turn transport the game ended up using, reported once via `/game/networkStatus` during
+   * game init and carried on every subsequent status report for the game.
+   */
+  networkStatus?: GameNetworkStatus
 }

@@ -167,6 +167,29 @@ pub struct NetworkStallInfo {
     pub median: u32,
 }
 
+/// Which turn transport a game session runs on, reported to the app via `/game/networkStatus`.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NetworkTransport {
+    /// The rally-point2 QUIC seam (netcode v2).
+    NetcodeV2,
+    /// The native Storm + rally-point v1 path.
+    Native,
+}
+
+/// Payload of `/game/networkStatus` (game DLL -> app): sent once during game init when the
+/// transport choice settles, so external tooling can assert on it instead of grepping logs.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkStatus {
+    pub transport: NetworkTransport,
+    /// Set when a different transport was requested but establishing it failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fallback_from: Option<NetworkTransport>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct GameResults {
     pub time_ms: u64,
@@ -517,4 +540,38 @@ pub struct NetcodeV2Setup {
     /// The session's full slot roster (every player, including ourselves). Our own slot still comes
     /// from the signed token — this list exists to map the *other* players' slots.
     pub roster: Vec<NetcodeV2RosterEntry>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_status_serializes_camel_case_with_fallback() {
+        let status = NetworkStatus {
+            transport: NetworkTransport::Native,
+            fallback_from: Some(NetworkTransport::NetcodeV2),
+            error: Some("dial timed out".to_owned()),
+        };
+        let json = serde_json::to_value(&status).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "transport": "native",
+                "fallbackFrom": "netcodeV2",
+                "error": "dial timed out",
+            })
+        );
+    }
+
+    #[test]
+    fn network_status_omits_none_fields() {
+        let status = NetworkStatus {
+            transport: NetworkTransport::NetcodeV2,
+            fallback_from: None,
+            error: None,
+        };
+        let json = serde_json::to_value(&status).unwrap();
+        assert_eq!(json, serde_json::json!({ "transport": "netcodeV2" }));
+    }
 }
