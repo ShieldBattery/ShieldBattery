@@ -1,8 +1,11 @@
-import { KeyObject, createPublicKey, verify as verifyEd25519 } from 'node:crypto'
+import got from 'got'
+import { verify as verifyEd25519 } from 'node:crypto'
 import { NetcodeV2DepartureNotification } from '../../../common/games/netcode-v2'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import log from '../logging/logger'
 import { recordUserDeparture } from '../models/games-users'
+import { loadConfigFromEnv } from './netcode-v2-service'
+import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -15,33 +18,28 @@ const SIGNATURE_MESSAGE_PREFIX = 'rp2-webhook-v1:'
 /** How far a webhook's `x-rp2-timestamp` may drift from now before it's rejected as stale/replayed. */
 const REPLAY_WINDOW_MS = 5 * 60 * 1000
 
-const HEX_PUBKEY_PATTERN = /^[0-9a-f]{64}$/i
-
-/**
- * Parses the rp2 tenant's Ed25519 public key out of its `SB_RP2_TENANT_PUBKEY` hex form (64 hex
- * chars, the same format the rp2 dev coordinator prints for relays) into a `KeyObject`. Node's
- * `crypto` has no direct "raw Ed25519 public key" import, so this goes through a JWK
- * (`OKP`/`Ed25519`) construction, which only needs the raw key re-encoded as base64url.
- */
-export function parseTenantPublicKeyHex(hex: string | undefined): KeyObject | undefined {
-  if (!hex) {
-    return undefined
-  }
-  if (!HEX_PUBKEY_PATTERN.test(hex)) {
-    log.error(
-      'SB_RP2_TENANT_PUBKEY is set but is not 64 hex characters; departures webhook is disabled',
-    )
-    return undefined
-  }
-
-  const rawKey = Buffer.from(hex, 'hex')
-  return createPublicKey({
-    key: { kty: 'OKP', crv: 'Ed25519', x: rawKey.toString('base64url') },
-    format: 'jwk',
-  })
+interface TenantPubkeyResponse {
+  kid: string
+  publicKey: string
 }
 
-const TENANT_PUBLIC_KEY = parseTenantPublicKeyHex(process.env.SB_RP2_TENANT_PUBKEY)
+/** Fetches the rp2 tenant's current webhook-signing public key (hex) from the coordinator. */
+async function fetchTenantPubkeyHex(): Promise<string> {
+  const config = loadConfigFromEnv()
+  if (!config) {
+    throw new Error('netcode v2 is not configured')
+  }
+
+  const response = await got
+    .get(`${config.coordinatorUrl}/tenant/${encodeURIComponent(config.tenant)}/pubkey`, {
+      timeout: { request: 10000 },
+    })
+    .json<TenantPubkeyResponse>()
+
+  return response.publicKey
+}
+
+const tenantPubkeyCache = new TenantPubkeyCache(fetchTenantPubkeyHex)
 
 /**
  * Gates a departures webhook call before anything else runs (including body validation): returns
@@ -50,20 +48,29 @@ const TENANT_PUBLIC_KEY = parseTenantPublicKeyHex(process.env.SB_RP2_TENANT_PUBK
  *
  * Auth is an Ed25519 signature over the request rather than a shared secret — the coordinator
  * signs each delivery attempt with its per-tenant signing key (the same one it uses for player
- * session tokens), so the app server verifies with the public half and holds no secret at all. The
- * signed message is `"rp2-webhook-v1:" + <x-rp2-timestamp> + ":" + <raw request body bytes>`; the
- * timestamp also bounds how old a captured request can be before it's rejected as a replay.
+ * session tokens), so the app server verifies with the public half and holds no secret of its own.
+ * That public key isn't local config — it's fetched from the coordinator
+ * (`GET /tenant/:tenant/pubkey`) on first use and cached, with a rate-limited re-fetch on a
+ * verification failure to pick up rotation (see `tenant-pubkey-cache.ts`). The signed message is
+ * `"rp2-webhook-v1:" + <x-rp2-timestamp> + ":" + <raw request body bytes>`; the timestamp also
+ * bounds how old a captured request can be before it's rejected as a replay.
  *
- * `SB_RP2_TENANT_PUBKEY` unset (or malformed) means the feature is off and this always returns 404
- * — which also means this must run, and be respected, before any body validation that could
- * otherwise leak the endpoint's existence (or its expected shape) to an unauthenticated caller.
+ * Netcode v2 not being configured (`SB_RP2_COORDINATOR_URL`/`SB_RP2_TENANT`) means the feature is
+ * off and this always returns 404 — which also means this must run, and be respected, before any
+ * body validation that could otherwise leak the endpoint's existence (or its expected shape) to an
+ * unauthenticated caller. A key-fetch failure (coordinator down/timeout) is treated the same as an
+ * unverifiable signature (401), not a crash — the next call retries.
+ *
+ * `pubkeyCache` defaults to the module's shared cache; tests inject their own to avoid network
+ * calls and exercise rotation/rate-limit behavior directly.
  */
-export function checkDepartureWebhookAuth(
+export async function checkDepartureWebhookAuth(
   timestampHeader: string,
   signatureHeader: string,
   rawBody: Buffer,
-): DepartureWebhookAuthStatus | null {
-  if (!TENANT_PUBLIC_KEY) {
+  pubkeyCache: TenantPubkeyCache = tenantPubkeyCache,
+): Promise<DepartureWebhookAuthStatus | null> {
+  if (!loadConfigFromEnv()) {
     return 404
   }
 
@@ -88,11 +95,22 @@ export function checkDepartureWebhookAuth(
     rawBody,
   ])
 
-  if (!verifyEd25519(null, message, TENANT_PUBLIC_KEY, signature)) {
+  const key = await pubkeyCache.getKey()
+  if (!key) {
     return 401
   }
+  if (verifyEd25519(null, message, key, signature)) {
+    return null
+  }
 
-  return null
+  // The cached key didn't verify — could be legitimate coordinator-side rotation. Re-fetch once
+  // (rate-limited) and retry before giving up.
+  const refreshedKey = await pubkeyCache.refetchAfterVerificationFailure()
+  if (refreshedKey && verifyEd25519(null, message, refreshedKey, signature)) {
+    return null
+  }
+
+  return 401
 }
 
 /**

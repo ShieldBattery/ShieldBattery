@@ -44,7 +44,7 @@ interface CoordinatorSessionResponse {
   bounds: { min: number; max: number }
 }
 
-interface NetcodeV2Config {
+export interface NetcodeV2Config {
   coordinatorUrl: string
   tenant: string
   /** TLS server name clients validate the relay certificate against. */
@@ -58,7 +58,13 @@ interface NetcodeV2Config {
   splitRelaySlots?: Set<number>
 }
 
-function loadConfigFromEnv(): NetcodeV2Config | undefined {
+/**
+ * Loads netcode v2's coordinator config from the environment. Exported so other modules that need
+ * to talk to the same coordinator (e.g. the departures webhook's tenant pubkey fetch) share this
+ * as their one source of truth for `coordinatorUrl`/`tenant`, rather than re-reading the env vars
+ * themselves.
+ */
+export function loadConfigFromEnv(): NetcodeV2Config | undefined {
   const coordinatorUrl = process.env.SB_RP2_COORDINATOR_URL
   if (!coordinatorUrl) {
     return undefined

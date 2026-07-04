@@ -58,12 +58,12 @@ export function registerDepartureWebhookRoutes(router: KoaRouter) {
     throttleMiddleware(departuresThrottle, ctx => String(ctx.ip)),
     departureBody,
     async ctx => {
-      // Auth/feature-gate first, and strictly before body validation: an unset/malformed pubkey
-      // must 404 regardless of what was POSTed, and a bad signature must not get a
+      // Auth/feature-gate first, and strictly before body validation: netcode v2 not being
+      // configured must 404 regardless of what was POSTed, and a bad signature must not get a
       // validation-error oracle into the expected body shape. This needs the raw body bytes (not
       // the parsed JSON), which `departureBody` above already captured as `ctx.request.rawBody`;
       // that's still just *reading* the body, so it doesn't jump the auth-before-validation order.
-      const authStatus = checkDepartureWebhookAuth(
+      const authStatus = await checkDepartureWebhookAuth(
         ctx.get('x-rp2-timestamp'),
         ctx.get('x-rp2-signature'),
         Buffer.from(ctx.request.rawBody ?? '', 'utf8'),

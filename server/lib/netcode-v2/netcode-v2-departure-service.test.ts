@@ -1,18 +1,14 @@
-import {
-  KeyObject,
-  generateKeyPairSync,
-  sign as signEd25519,
-  verify as verifyEd25519,
-} from 'node:crypto'
+import { KeyObject, generateKeyPairSync, sign as signEd25519 } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { NetcodeV2DepartureNotification } from '../../../common/games/netcode-v2'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { recordUserDeparture } from '../models/games-users'
 import {
-  parseTenantPublicKeyHex,
+  checkDepartureWebhookAuth,
   recordDepartureNotification,
 } from './netcode-v2-departure-service'
+import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
 vi.mock('../models/games-users', () => ({
   recordUserDeparture: vi.fn(),
@@ -20,7 +16,7 @@ vi.mock('../models/games-users', () => ({
 
 const GAME_ID = '11111111-2222-4333-8444-555555555555'
 
-/** Raw 32-byte Ed25519 public key, hex-encoded — the `SB_RP2_TENANT_PUBKEY` format. */
+/** Raw 32-byte Ed25519 public key, hex-encoded — the wire format the coordinator returns. */
 function rawPublicKeyHex(publicKey: KeyObject): string {
   return (publicKey.export({ type: 'spki', format: 'der' }) as Buffer).subarray(-32).toString('hex')
 }
@@ -47,30 +43,8 @@ function makeNotification(
   }
 }
 
-describe('netcode-v2/parseTenantPublicKeyHex', () => {
-  test('returns undefined when the value is undefined', () => {
-    expect(parseTenantPublicKeyHex(undefined)).toBeUndefined()
-  })
-
-  test('returns undefined when the value is not 64 hex characters', () => {
-    expect(parseTenantPublicKeyHex('not-hex')).toBeUndefined()
-  })
-
-  test('parses a valid hex key into a KeyObject that verifies the matching private key', () => {
-    const { publicKey, privateKey } = generateKeyPairSync('ed25519')
-
-    const parsed = parseTenantPublicKeyHex(rawPublicKeyHex(publicKey))
-    expect(parsed).toBeDefined()
-
-    const message = Buffer.from('hello')
-    const signature = signEd25519(null, message, privateKey)
-    expect(verifyEd25519(null, message, parsed!, signature)).toBe(true)
-  })
-})
-
 describe('netcode-v2/checkDepartureWebhookAuth', () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519')
-  const otherKeypair = generateKeyPairSync('ed25519')
   const pubkeyHex = rawPublicKeyHex(publicKey)
   const rawBody = Buffer.from('{"tenant":"sb-dev"}', 'utf8')
 
@@ -78,91 +52,148 @@ describe('netcode-v2/checkDepartureWebhookAuth', () => {
     vi.unstubAllEnvs()
   })
 
-  // `checkDepartureWebhookAuth` reads `SB_RP2_TENANT_PUBKEY` into a module-level constant at
-  // import time (deliberately not per-call), so exercising each pubkey scenario needs a fresh
-  // module instance loaded with that env value already in place.
-  async function checkAuthWithPubkey(hex: string | undefined) {
-    vi.stubEnv('SB_RP2_TENANT_PUBKEY', hex)
-    vi.resetModules()
-    return (await import('./netcode-v2-departure-service')).checkDepartureWebhookAuth
+  /** Stubs netcode v2 as configured (coordinator URL + tenant), as `loadConfigFromEnv` expects. */
+  function configureNetcodeV2() {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
+    vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
   }
 
-  test('returns 404 when no pubkey is configured, regardless of the headers', async () => {
-    const checkAuth = await checkAuthWithPubkey(undefined)
+  test('returns 404 when netcode v2 is not configured, regardless of the headers', async () => {
+    vi.stubEnv('SB_RP2_COORDINATOR_URL', undefined)
+    const cache = new TenantPubkeyCache(vi.fn())
 
     const timestamp = String(Date.now())
     const signature = signWebhookRequest(privateKey, timestamp, rawBody)
 
-    expect(checkAuth(timestamp, signature, rawBody)).toBe(404)
-    expect(checkAuth('', '', rawBody)).toBe(404)
-  })
-
-  test('returns 404 when the configured pubkey is malformed (not 64 hex chars)', async () => {
-    const checkAuth = await checkAuthWithPubkey('not-hex')
-
-    const timestamp = String(Date.now())
-    const signature = signWebhookRequest(privateKey, timestamp, rawBody)
-
-    expect(checkAuth(timestamp, signature, rawBody)).toBe(404)
+    expect(await checkDepartureWebhookAuth(timestamp, signature, rawBody, cache)).toBe(404)
+    expect(await checkDepartureWebhookAuth('', '', rawBody, cache)).toBe(404)
   })
 
   test('returns 401 when the timestamp header is missing or not a decimal integer', async () => {
-    const checkAuth = await checkAuthWithPubkey(pubkeyHex)
+    configureNetcodeV2()
+    const cache = new TenantPubkeyCache(vi.fn().mockResolvedValue(pubkeyHex))
 
     const timestamp = String(Date.now())
     const signature = signWebhookRequest(privateKey, timestamp, rawBody)
 
-    expect(checkAuth('', signature, rawBody)).toBe(401)
-    expect(checkAuth('not-a-number', signature, rawBody)).toBe(401)
-    expect(checkAuth('-100', signature, rawBody)).toBe(401)
+    expect(await checkDepartureWebhookAuth('', signature, rawBody, cache)).toBe(401)
+    expect(await checkDepartureWebhookAuth('not-a-number', signature, rawBody, cache)).toBe(401)
+    expect(await checkDepartureWebhookAuth('-100', signature, rawBody, cache)).toBe(401)
   })
 
   test('returns 401 when the timestamp is outside the replay window', async () => {
-    const checkAuth = await checkAuthWithPubkey(pubkeyHex)
+    configureNetcodeV2()
+    const cache = new TenantPubkeyCache(vi.fn().mockResolvedValue(pubkeyHex))
 
     const staleTimestamp = String(Date.now() - 6 * 60 * 1000)
     const signature = signWebhookRequest(privateKey, staleTimestamp, rawBody)
 
-    expect(checkAuth(staleTimestamp, signature, rawBody)).toBe(401)
+    expect(await checkDepartureWebhookAuth(staleTimestamp, signature, rawBody, cache)).toBe(401)
   })
 
   test('returns 401 when the signature header is missing or not 64 bytes of base64', async () => {
-    const checkAuth = await checkAuthWithPubkey(pubkeyHex)
+    configureNetcodeV2()
+    const cache = new TenantPubkeyCache(vi.fn().mockResolvedValue(pubkeyHex))
 
     const timestamp = String(Date.now())
 
-    expect(checkAuth(timestamp, '', rawBody)).toBe(401)
-    expect(checkAuth(timestamp, 'not-valid-base64!!!', rawBody)).toBe(401)
-    expect(checkAuth(timestamp, Buffer.alloc(63).toString('base64'), rawBody)).toBe(401)
-  })
-
-  test('returns 401 when the signature does not verify against the configured pubkey', async () => {
-    const checkAuth = await checkAuthWithPubkey(pubkeyHex)
-
-    const timestamp = String(Date.now())
-    // Signed with a different keypair than the one whose public half is configured.
-    const signature = signWebhookRequest(otherKeypair.privateKey, timestamp, rawBody)
-
-    expect(checkAuth(timestamp, signature, rawBody)).toBe(401)
+    expect(await checkDepartureWebhookAuth(timestamp, '', rawBody, cache)).toBe(401)
+    expect(await checkDepartureWebhookAuth(timestamp, 'not-valid-base64!!!', rawBody, cache)).toBe(
+      401,
+    )
+    expect(
+      await checkDepartureWebhookAuth(
+        timestamp,
+        Buffer.alloc(63).toString('base64'),
+        rawBody,
+        cache,
+      ),
+    ).toBe(401)
   })
 
   test('returns 401 when the signature does not cover the actual raw body (tampered)', async () => {
-    const checkAuth = await checkAuthWithPubkey(pubkeyHex)
+    configureNetcodeV2()
+    const cache = new TenantPubkeyCache(vi.fn().mockResolvedValue(pubkeyHex))
 
     const timestamp = String(Date.now())
     const signature = signWebhookRequest(privateKey, timestamp, rawBody)
     const tamperedBody = Buffer.from('{"tenant":"someone-else"}', 'utf8')
 
-    expect(checkAuth(timestamp, signature, tamperedBody)).toBe(401)
+    expect(await checkDepartureWebhookAuth(timestamp, signature, tamperedBody, cache)).toBe(401)
   })
 
-  test('returns null on a valid, fresh, correctly-signed request', async () => {
-    const checkAuth = await checkAuthWithPubkey(pubkeyHex)
+  test('returns 401 when the key fetch fails (coordinator down/timeout)', async () => {
+    configureNetcodeV2()
+    const cache = new TenantPubkeyCache(vi.fn().mockRejectedValue(new Error('boom')))
 
     const timestamp = String(Date.now())
     const signature = signWebhookRequest(privateKey, timestamp, rawBody)
 
-    expect(checkAuth(timestamp, signature, rawBody)).toBeNull()
+    expect(await checkDepartureWebhookAuth(timestamp, signature, rawBody, cache)).toBe(401)
+  })
+
+  test('returns null on a valid, fresh, correctly-signed request (fetches the key on first use)', async () => {
+    configureNetcodeV2()
+    const fetchPubkeyHex = vi.fn().mockResolvedValue(pubkeyHex)
+    const cache = new TenantPubkeyCache(fetchPubkeyHex)
+
+    const timestamp = String(Date.now())
+    const signature = signWebhookRequest(privateKey, timestamp, rawBody)
+
+    expect(await checkDepartureWebhookAuth(timestamp, signature, rawBody, cache)).toBeNull()
+    expect(fetchPubkeyHex).toHaveBeenCalledTimes(1)
+  })
+
+  test('returns 401 when the signature does not verify against the fetched pubkey', async () => {
+    configureNetcodeV2()
+    const otherKeypair = generateKeyPairSync('ed25519')
+    const cache = new TenantPubkeyCache(vi.fn().mockResolvedValue(pubkeyHex))
+
+    const timestamp = String(Date.now())
+    // Signed with a different keypair than the one the coordinator "returns".
+    const signature = signWebhookRequest(otherKeypair.privateKey, timestamp, rawBody)
+
+    expect(await checkDepartureWebhookAuth(timestamp, signature, rawBody, cache)).toBe(401)
+  })
+
+  test('rotation: re-fetches once and re-verifies when the cached key no longer matches', async () => {
+    configureNetcodeV2()
+    const rotatedKeypair = generateKeyPairSync('ed25519')
+    const fetchPubkeyHex = vi
+      .fn()
+      .mockResolvedValueOnce(pubkeyHex)
+      .mockResolvedValueOnce(rawPublicKeyHex(rotatedKeypair.publicKey))
+    const cache = new TenantPubkeyCache(fetchPubkeyHex)
+    // Prime the cache with the "old" (soon to be stale) key.
+    await cache.getKey()
+
+    const timestamp = String(Date.now())
+    // Signed with the *new* (rotated) key — verification against the stale cached key fails first.
+    const signature = signWebhookRequest(rotatedKeypair.privateKey, timestamp, rawBody)
+
+    expect(await checkDepartureWebhookAuth(timestamp, signature, rawBody, cache)).toBeNull()
+    expect(fetchPubkeyHex).toHaveBeenCalledTimes(2)
+  })
+
+  test('re-fetch rate limit: a second verification failure within the cooldown does not re-fetch', async () => {
+    configureNetcodeV2()
+    const attackerKeypair = generateKeyPairSync('ed25519')
+    const fetchPubkeyHex = vi.fn().mockResolvedValue(pubkeyHex)
+    const cache = new TenantPubkeyCache(fetchPubkeyHex)
+    await cache.getKey() // primes the cache: one fetch so far
+
+    const timestamp = String(Date.now())
+    const badSignature = signWebhookRequest(attackerKeypair.privateKey, timestamp, rawBody)
+
+    // First garbage signature: fails against the cached key, triggers one rate-limited re-fetch
+    // attempt (which returns the same key, so it still fails).
+    expect(await checkDepartureWebhookAuth(timestamp, badSignature, rawBody, cache)).toBe(401)
+    expect(fetchPubkeyHex).toHaveBeenCalledTimes(2)
+
+    // A second garbage signature immediately after is well inside the 30s cooldown — must not
+    // trigger another request to the coordinator.
+    expect(await checkDepartureWebhookAuth(timestamp, badSignature, rawBody, cache)).toBe(401)
+    expect(fetchPubkeyHex).toHaveBeenCalledTimes(2)
   })
 })
 
