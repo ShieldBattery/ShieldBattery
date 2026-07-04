@@ -491,6 +491,23 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Tells the active game process to quit abruptly (debug game builds only, but the underlying
+   * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
+   * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,
+   * because the game thread is blocked inside the game loop) — so it does NOT run BW's exit cleanup
+   * or save settings. Routes through the app so this manager tears down its own state cleanly,
+   * unlike an external process kill. Fire-and-forget.
+   */
+  forceQuitGame(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got forceQuitGame for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'quit')
+  }
+
+  /**
    * Captures a screenshot from the active game process (debug game builds only). Defaults
    * `gameId` to the current active game, rejecting if there isn't one or it doesn't match. Rejects
    * on a {@link DEBUG_SCREENSHOT_TIMEOUT_MS} timeout since a build that doesn't support the

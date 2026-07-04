@@ -96,6 +96,12 @@ interface IpcInvokeables {
    */
   activeGameForceLeave: (gameId: string, slot: number) => void
   /**
+   * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
+   * save; the only teardown that works mid-game). Only registered in development (`isDev`).
+   * Fire-and-forget: there's no reply.
+   */
+  activeGameForceQuit: (gameId: string) => void
+  /**
    * Generates the per-session Ed25519 keypair for a netcode v2 game and returns the base64 raw
    * public key (to be submitted to the server), or null if `gameId` is not the active game. The
    * private key stays in the main process until it's handed to the game process at launch.
