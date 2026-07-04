@@ -1003,3 +1003,125 @@ local-only* rather than fall into the dead native path. Simplest v1 is therefore
 victory dialog End-Mission-only (drop the networked-continue option); the solo-sandbox version is a
 nicer stretch gated on that local-only transition. Either way this is cleanup, orthogonal to the
 notification correctness above.
+
+## 20. Departure notification — relay → coordinator → app server (design, 2026-07-04)
+
+The concrete design for §19's decision: get "player X departed mid-game, left vs dropped" to the
+app server, with the app server ignoring/reclassifying any departure for a game+player it already
+holds a terminal result for. Three legs, each riding or minimally extending something that already
+exists. No game-DLL change (per §19).
+
+**Correlation ids — the tenant's names go on the wire at session create.** The coordinator's
+`SessionRequest` gains `external_id: Option<String>` (ShieldBattery sets its `gameId`) and
+`PlayerHandoff` gains `external_ref: Option<String>` (the `SbUserId`, stringified). The coordinator
+stores both in its per-session setup record and echoes them in the webhook, so the notification
+arrives at the app server **self-describing** — no app-server-side session→game map has to survive
+restarts or span processes (today the netcode-v2 service deliberately retains nothing after
+`createSessionForGame` returns, and that stays true). Optional fields; the control protos don't
+`deny_unknown_fields`, so old/new peers interop.
+
+**Leg 1 — relay → coordinator, on the existing control WebSocket.** New up-frame variant
+`RelayToCoordinator::Departure { tenant, session, slot, kind, reason, leave_seq }`, where
+`kind ∈ {left, dropped}` is mapped at the relay (`reason == LEAVE_REASON_DROPPED` → dropped, else
+left — the relay owns those constants; the raw `reason` rides along for debugging). **Fire on the
+directive-cache insert**: a relay sends exactly one Departure per (session, slot), at the moment a
+`LeaveDirective` for that slot first enters its consensus cache — that is `decide_leave` success on
+the authority, `observe_leave` first-insert on every other relay (mesh broadcast and
+reconcile-on-join both funnel through it). Every relay serving the session reports independently
+and the coordinator dedups, so the notification survives any single relay's coordinator link being
+down (the same redundancy-plus-dedup philosophy as §18's re-push rule). The sender is an unbounded
+mpsc drained by `connect_and_stream`'s select loop; the channel rides across reconnects, so a
+departure decided while the coordinator is restarting is delivered on redial, not lost.
+
+**Leg 2 — coordinator → tenant, a webhook POST.** The coordinator gains per-tenant notify config —
+`notify_url` + `notify_secret` (dev: `--dev-notify-url`/`--dev-notify-secret` alongside
+`--dev-tenant`; unset = notifications off, everything else unchanged). On a Departure frame the
+coordinator dedups by (tenant, session, slot) in memory, enriches with the stored
+`external_id`/`external_ref`, and POSTs JSON (snake_case, like the rest of the control plane):
+`{ tenant, session, external_id, slot, external_ref, kind, reason, leave_seq }` with
+`Authorization: Bearer <notify_secret>`, retrying on non-2xx/connect failure with capped backoff
+(~6 attempts over ~1 min, then warn and drop — the consumer is an *optimization feed*, §19's
+correctness rule makes a lost webhook degrade to today's behavior). Delivery is at-least-once
+(coordinator restart forgets the dedup set; a late reconcile-driven Departure can re-fire) — the
+app server end is idempotent, so redundancy is free. This is the coordinator's first tenant-push
+channel; per-tenant *inbound* auth on `/session/create` remains the separate, already-tracked open
+item.
+
+**Leg 3 — app server ingest + classification.** New machine-caller endpoint
+`POST /api/1/netcode-v2/departures` — no login (the caller is the coordinator), gated by
+`Authorization: Bearer <SB_RP2_NOTIFY_SECRET>` (env; unset = endpoint rejects, feature off) plus an
+IP throttle, mirroring the results2 "secret-bearing machine caller" precedent. Handler:
+
+1. Parse `external_id` → gameId, `external_ref` → userId; unknown game/user → log + 204 (don't
+   oracle).
+2. **The §19 rule, enforced in SQL:** record the departure with a conditional UPDATE on
+   `games_users` — `SET departure_kind, departure_time WHERE game_id/user_id match AND
+   reported_results IS NULL AND result IS NULL AND departure_kind IS NULL`. Zero rows = moot
+   (result already held, or already recorded — the race with a concurrent results2 submission is
+   settled by the database, not by app code) → log "reclassified/ignored". One row = a genuine
+   mid-game departure, now durably recorded with the left-vs-dropped distinction the app server
+   cannot derive on its own.
+3. New columns (migration): `games_users.departure_kind` (nullable text, 'left' | 'dropped') +
+   `departure_time TIMESTAMPTZ`. Nothing is pushed to clients yet — that wiring is the §17
+   overlay/UX task (deliberately with Travis); this leg is the durable, queryable feed it will
+   read from.
+
+**Timing note (correct by §19, worth stating):** a *clean mid-game* quitter's webhook usually
+arrives before their own client's results2 POST — that is a genuine departure of an undecided game
+and records as `left`. A winner idling on the victory dialog whose process later dies arrives as
+`dropped`, but their results were sent at the dialog, so `reported_results` is set and the UPDATE
+matches zero rows — the §19 false-positive is discarded exactly where the design intended.
+
+**Deliberately out of scope:** coordinator session-lifecycle cleanup (Departure events could
+eventually drive "all slots departed → forget the session", fixing the coordinator's
+grow-forever session map — noted, separate); any client-facing push (§17 task); per-tenant
+inbound auth on session/create (pre-existing open item).
+
+### §20a. As built + live-proven (2026-07-04) — deltas from the design above
+
+Built on rally-point2 `synced-leave` and SB `rp2-integration`; all three legs live-proven on
+loopback. Decisions that changed or firmed up during implementation and review (the rest landed
+as designed):
+
+- **The endpoint moved to `POST /webhooks/netcode-v2/departures` on a dedicated early
+  middleware mount** (Travis). A general `/webhooks` router (`server/webhook-routes.ts`) sits in
+  app.ts right after log/error-payload middleware and *before* redirect-to-canonical, the CSRF
+  origin check, the shared body parser, JWT/session, CORS, secure headers, and static serving —
+  webhook callers are machines with their own bearer auth, so the browser-oriented machinery is
+  useless-to-harmful for them (the origin check 403'd the first live round). Routes on this
+  mount parse their own JSON-only bodies. Future webhook consumers register here too.
+- **Webhook body is camelCase** (`externalId`, `externalRef`, `leaveSeq`) — it lands on SB's API
+  surface, so SB's convention wins over the rp2 control plane's snake_case (Travis). The
+  `/session/create` *request* stays snake_case (it's rp2's API). Absent correlation ids are
+  omitted, never `null` (the consumer's schema treats them as optional strings).
+- **Auth strictly precedes body validation** on the SB endpoint: unset `SB_RP2_NOTIFY_SECRET` →
+  404 for everyone (endpoint existence hidden), wrong bearer → 401 before any validation error
+  can leak the expected body shape. Verified over the wire with curl.
+- **Promotion re-derivation also fires the relay's departure notice** (review fix): the
+  fire-on-first-cache-insert rule covers decide_leave, observe_leave, AND a promoted authority's
+  fresh derivation — the "directive never escaped the dead authority" case would otherwise go
+  entirely unreported when no peer relay survives to observe it.
+- **Coordinator webhook client is hyper/hyper-util plain-HTTP** (already in-tree via axum; keeps
+  the ring-only, aws-lc-rs-free workspace pin). An `https://` notify URL needs a rustls(ring)
+  connector — prod TODO in `notify.rs`.
+- **Auth follow-up (Travis asked; agreed direction):** the static bearer is a legitimate v1 but
+  not the end state — upgrade to HMAC-signed payloads (secret off the wire, replay-windowed) or
+  fold into the per-tenant credential story alongside the still-open `/session/create` inbound
+  auth. Same problem, solve once.
+
+**Live proof (2-player loopback, single relay).** The §19 backstop finding got *stronger*: even
+`forceQuit` produces a result submission (the Electron app's fallback reporter), so the only true
+"no result" departure is app+game both dying — simulated by killing claude-2's Electron then its
+StarCraft process directly. Matrix observed through the full pipeline (relay decision →
+coordinator dedup+enrich → webhook → SQL classification), each within ~100ms of the relay's
+decision, webhook delivered first-attempt:
+- *dropped + recorded*: the true-crash kill — relay idle-timeout → `kind:"dropped"` webhook →
+  `games_users.departure_kind='dropped'` written for the crashed player (no `reported_results`).
+- *dropped + ignored*: plain forceQuit — the app's fallback results2 landed first, conditional
+  UPDATE matched zero rows, logged "departure ignored".
+- *left + ignored*: the winner quitting after the victory dialog (results already sent at the
+  dialog) — clean-leave intent → `kind:"left"` webhook → ignored. The §19 false-positive is
+  discarded exactly as designed.
+- *left + recorded* (mid-game F10 of an undecided game) is the one flavor not live-run — needs
+  human input; identical code path, classification decided by the same WHERE clause, unit-tested
+  both sides.

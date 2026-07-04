@@ -28,6 +28,7 @@ import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
 import { StateWithJwt, jwtSessions } from './lib/session/jwt-session-middleware'
 import createRoutes from './routes'
+import { createWebhookRoutes } from './webhook-routes'
 import { WebsocketServer } from './websockets'
 
 if (!process.env.SB_GQL_ORIGIN) {
@@ -147,11 +148,19 @@ process
     unhandledRejections.delete(promise)
   })
 
+const webhookRoutes = createWebhookRoutes()
+
 app
   .use(prometheusMiddleware())
   .use(prometheusHttpMetrics())
   .use(logMiddleware())
   .use(errorPayloadMiddleware())
+  // Webhook routes are mounted here, ahead of CSRF/origin checks, cookie/JWT session handling,
+  // CORS, security headers, and static file serving: their callers are trusted external services
+  // authenticating with their own bearer secrets, not browsers, so that machinery doesn't apply.
+  // See webhook-routes.ts.
+  .use(webhookRoutes.routes())
+  .use(webhookRoutes.allowedMethods())
   .use(
     koaCompress({
       // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved

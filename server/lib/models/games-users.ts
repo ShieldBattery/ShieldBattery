@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { DepartureKind } from '../../../common/games/netcode-v2'
 import {
   GameClientPlayerResult,
   ReconciledPlayerResult,
@@ -44,6 +45,10 @@ export interface GameUserRecord {
   result: ReconciledResult | null
   apm: number | null
   replayFileId: string | null
+  /** How this user's slot departed mid-game (left/dropped), or null if never recorded. */
+  departureKind: DepartureKind | null
+  /** When the mid-game departure was recorded, or null if never recorded. */
+  departureTime: Date | null
 }
 
 type DbGameUser = Dbify<GameUserRecord>
@@ -119,6 +124,8 @@ export async function getUserGameRecord(
       result: row.result,
       apm: row.apm,
       replayFileId: row.replay_file_id,
+      departureKind: row.departure_kind,
+      departureTime: row.departure_time,
     }
   } finally {
     done()
@@ -197,6 +204,43 @@ export async function setUserReconciledResult(
       apm = ${result.apm}
     WHERE user_id = ${userId} AND game_id = ${gameId}
   `)
+}
+
+/**
+ * Records a mid-game departure (left/dropped) for a user's game record, unless that record already
+ * holds a terminal outcome. The `WHERE` clause is the classification rule: a user who already
+ * submitted results, was reconciled, or already has a recorded departure yields no update, so the
+ * caller can tell a genuine departure from a moot/duplicate one without a separate read.
+ *
+ * @returns whether a row was actually updated (false means the departure was moot/duplicate).
+ */
+export async function recordUserDeparture({
+  userId,
+  gameId,
+  kind,
+  time,
+}: {
+  userId: SbUserId
+  gameId: string
+  kind: DepartureKind
+  time: Date
+}): Promise<boolean> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query(sql`
+      UPDATE games_users
+      SET
+        departure_kind = ${kind},
+        departure_time = ${time}
+      WHERE user_id = ${userId} AND game_id = ${gameId}
+        AND reported_results IS NULL AND result IS NULL AND departure_kind IS NULL
+    `)
+
+    return !!result.rowCount
+  } finally {
+    done()
+  }
 }
 
 /**

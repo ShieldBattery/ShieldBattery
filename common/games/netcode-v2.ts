@@ -59,3 +59,32 @@ export interface SubmitNetcodeV2PubkeyRequest {
   /** base64 (standard, padded) of the raw 32-byte Ed25519 public key. */
   pubkey: string
 }
+
+/**
+ * How a player's rally-point2 slot departed a game: a graceful quit vs. an unclean drop
+ * (disconnect/crash/force-quit).
+ */
+export type DepartureKind = 'left' | 'dropped'
+
+/**
+ * A mid-game player departure webhook, POSTed by the rally-point2 coordinator to the app server
+ * when a relay decides a player's slot has permanently left a session.
+ *
+ * `externalId`/`externalRef` are the correlation ids the app server attached at session create
+ * (the game's `gameId` and the player's `SbUserId`, respectively) and the coordinator echoes back
+ * so the notification is self-describing.
+ */
+export interface NetcodeV2DepartureNotification {
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+  slot: number
+  /** The departed player's `SbUserId`, stringified, if the coordinator still has it on record. */
+  externalRef?: string
+  kind: DepartureKind
+  /** The raw BW `pending_leave_reason` value the relay mapped `kind` from; carried for debugging. */
+  reason: number
+  /** The relay's leave ordering/telemetry sequence number for this session. */
+  leaveSeq: number
+}
