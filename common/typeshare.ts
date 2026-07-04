@@ -102,17 +102,33 @@ export enum MapVisibility {
  */
 export type PublishedGameReportMessage =
   /**
+   * A new report was filed. Node fires the moderation Discord webhook (the same way bug reports
+   * do); the payload carries what the webhook message needs so Node only has to resolve the two
+   * usernames.
+   */
+  | {
+      type: 'reportCreated'
+      data: {
+        reportId: string
+        reporterId: TypeshareTypes.SbUserId
+        reportedUserId: TypeshareTypes.SbUserId
+        /** The DB reason string (e.g. `"cheating"`); Node maps it to a label. */
+        reason: string
+        details?: string
+      }
+    }
+  /**
    * A report was resolved as `Actioned`. The listed users — the actioned report's reporter plus
    * the reporters of any sibling reports (same game + target) that were resolved as `Duplicate` —
    * should be told that a player they reported was punished. Content stays deliberately vague on
    * the Node side (no names, no game link) as an anti-retaliation measure.
    */
-  {
-    type: 'reportActioned'
-    data: {
-      reporterIds: TypeshareTypes.SbUserId[]
+  | {
+      type: 'reportActioned'
+      data: {
+        reporterIds: TypeshareTypes.SbUserId[]
+      }
     }
-  }
 
 /** Messages published to the Redis `"matchmaking"` channel. */
 export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }

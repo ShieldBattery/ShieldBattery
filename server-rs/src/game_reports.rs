@@ -139,6 +139,18 @@ impl GameReportResolution {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "data", rename_all = "camelCase")]
 pub enum PublishedGameReportMessage {
+    /// A new report was filed. Node fires the moderation Discord webhook (the same way bug reports
+    /// do); the payload carries what the webhook message needs so Node only has to resolve the two
+    /// usernames.
+    #[serde(rename_all = "camelCase")]
+    ReportCreated {
+        report_id: Uuid,
+        reporter_id: SbUserId,
+        reported_user_id: SbUserId,
+        /// The DB reason string (e.g. `"cheating"`); Node maps it to a label.
+        reason: String,
+        details: Option<String>,
+    },
     /// A report was resolved as `Actioned`. The listed users — the actioned report's reporter plus
     /// the reporters of any sibling reports (same game + target) that were resolved as `Duplicate` —
     /// should be told that a player they reported was punished. Content stays deliberately vague on
@@ -441,15 +453,30 @@ impl GameReportsMutation {
             )
             .await?;
 
-        // TODO(#game-reporting): publish a "report created" pubsub message so Node can fire the
-        // Discord webhook (shares plumbing with the planned reporter-notification feature).
-
-        report.ok_or_else(|| {
+        let report = report.ok_or_else(|| {
             graphql_error(
                 "ALREADY_REPORTED",
                 "You've already reported this player for this game",
             )
-        })
+        })?;
+
+        // Let Node fire the moderation Discord webhook (the webhook notifier lives there). Best-
+        // effort: a failed publish shouldn't fail the report.
+        if let Err(err) = ctx
+            .data::<RedisPool>()?
+            .publish(PublishedGameReportMessage::ReportCreated {
+                report_id: report.id,
+                reporter_id: report.reporter_id,
+                reported_user_id: report.reported_user_id,
+                reason: report.reason.to_db().to_owned(),
+                details: report.details.clone(),
+            })
+            .await
+        {
+            tracing::error!("failed to publish game report created message: {err:?}");
+        }
+
+        Ok(report)
     }
 
     /// Resolves a report with an outcome (which feeds the credibility stats). Idempotency is
