@@ -19,6 +19,7 @@ import {
   toMatchmakingSeasonJson,
 } from '../../../common/matchmaking'
 import { ALL_RACE_CHARS } from '../../../common/races'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { withDbClient } from '../db'
 import transact from '../db/transaction'
 import { makeErrorConverterMiddleware } from '../errors/coded-error'
@@ -31,6 +32,7 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
+import { RestrictionService } from '../users/restriction-service'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
 import { validateRequest } from '../validation/joi-validator'
 import { filterMapSelections } from './map-selections'
@@ -118,6 +120,7 @@ export class MatchmakingApi {
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private matchmakingBanService: MatchmakingBanService,
     private matchmakingPreferencesService: MatchmakingPreferencesService,
+    private restrictionService: RestrictionService,
   ) {}
 
   @httpPost('/find')
@@ -146,6 +149,17 @@ export class MatchmakingApi {
       throw new httpErrors.Unauthorized('This account is banned')
     }
     if (await this.matchmakingBanService.checkUser(ctx.session!.user.id)) {
+      throw new MatchmakingServiceError(
+        MatchmakingServiceErrorCode.UserBanned,
+        'This account is currently banned from matchmaking',
+      )
+    }
+    // A manual matchmaking restriction (for intentional leaving/griefing) blocks queueing too. It
+    // surfaces through the same UserBanned path as the automatic dodge-ban so the client shows the
+    // familiar banned dialog (with a countdown driven by /ban-status).
+    if (
+      await this.restrictionService.isRestricted(ctx.session!.user.id, RestrictionKind.Matchmaking)
+    ) {
       throw new MatchmakingServiceError(
         MatchmakingServiceErrorCode.UserBanned,
         'This account is currently banned from matchmaking',
@@ -289,9 +303,20 @@ export class MatchmakingApi {
     throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
   )
   async getBanStatus(ctx: RouterContext): Promise<GetMatchmakingBanStatusResponse> {
-    const ban = await this.matchmakingBanService.checkUser(ctx.session!.user.id)
+    // Report the latest end time across both the automatic dodge-ban and any manual matchmaking
+    // restriction, so the banned dialog counts down to whichever keeps the user out longer.
+    const [ban, restrictionEndTime] = await Promise.all([
+      this.matchmakingBanService.checkUser(ctx.session!.user.id),
+      this.restrictionService.getActiveRestrictionEndTime(
+        ctx.session!.user.id,
+        RestrictionKind.Matchmaking,
+      ),
+    ])
+
+    const banExpiresAt = ban ? Number(ban.expiresAt) : undefined
+    const endTimes = [banExpiresAt, restrictionEndTime].filter((t): t is number => t !== undefined)
     return {
-      bannedUntil: ban ? Number(ban.expiresAt) : undefined,
+      bannedUntil: endTimes.length ? Math.max(...endTimes) : undefined,
     }
   }
 

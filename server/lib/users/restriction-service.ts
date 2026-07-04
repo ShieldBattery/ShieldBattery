@@ -67,6 +67,19 @@ export class RestrictionService {
     return await checkMultipleRestrictions({ users, kind })
   }
 
+  /**
+   * Returns the end time (in ms) of the user's currently active restriction of `kind` (the
+   * last-expiring one), or `undefined` if they have no active restriction of that kind.
+   */
+  async getActiveRestrictionEndTime(
+    userId: SbUserId,
+    kind: RestrictionKind,
+  ): Promise<number | undefined> {
+    const restrictions = await getActiveUserRestrictions(userId)
+    const match = restrictions.find(r => r.kind === kind)
+    return match ? Number(match.endTime) : undefined
+  }
+
   async applyRestriction({
     targetId,
     kind,
@@ -78,7 +91,7 @@ export class RestrictionService {
     targetId: SbUserId
     kind: RestrictionKind
     endTime: Date
-    reason: RestrictionReason
+    reason?: RestrictionReason
     restrictedBy?: SbUserId
     adminNotes?: string
   }) {

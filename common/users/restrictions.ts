@@ -3,17 +3,23 @@ import { TFunction } from 'i18next'
 export enum RestrictionKind {
   Chat = 'chat',
   Reporting = 'reporting',
+  Matchmaking = 'matchmaking',
 }
 
 export const ALL_RESTRICTION_KINDS: ReadonlyArray<RestrictionKind> = Object.values(RestrictionKind)
 
 export enum RestrictionReason {
+  // Chat restriction reasons
   Spam = 'spam',
   Harassment = 'harassment',
   HateSpeech = 'hate_speech',
   Toxicity = 'toxicity',
   DisruptiveBehavior = 'disruptive_behavior',
   Other = 'other',
+  // Matchmaking restriction reasons
+  Cheating = 'cheating',
+  LeftGame = 'left_game',
+  Griefing = 'griefing',
 }
 
 export function restrictionReasonToLabel(reason: RestrictionReason, t: TFunction): string {
@@ -30,6 +36,12 @@ export function restrictionReasonToLabel(reason: RestrictionReason, t: TFunction
       return t('users.restrictions.reason.disruptive_behavior', 'Disruptive behavior')
     case RestrictionReason.Other:
       return t('users.restrictions.reason.other', 'Other')
+    case RestrictionReason.Cheating:
+      return t('users.restrictions.reason.cheating', 'Cheating or exploiting')
+    case RestrictionReason.LeftGame:
+      return t('users.restrictions.reason.left_game', 'Left the game')
+    case RestrictionReason.Griefing:
+      return t('users.restrictions.reason.griefing', 'Griefing')
     default:
       return reason satisfies never
   }
@@ -38,12 +50,37 @@ export function restrictionReasonToLabel(reason: RestrictionReason, t: TFunction
 export const ALL_RESTRICTION_REASONS: ReadonlyArray<RestrictionReason> =
   Object.values(RestrictionReason)
 
+/**
+ * The preset reasons available for each restriction kind. Kinds with an empty list don't use a
+ * reason at all (nothing is stored and nothing is shown to the user). This is the source of truth
+ * for both the admin UI's options and the server's per-kind validation.
+ */
+export const RESTRICTION_REASONS_BY_KIND: Record<
+  RestrictionKind,
+  ReadonlyArray<RestrictionReason>
+> = {
+  [RestrictionKind.Chat]: [
+    RestrictionReason.Spam,
+    RestrictionReason.Harassment,
+    RestrictionReason.HateSpeech,
+    RestrictionReason.Toxicity,
+    RestrictionReason.DisruptiveBehavior,
+    RestrictionReason.Other,
+  ],
+  [RestrictionKind.Reporting]: [],
+  [RestrictionKind.Matchmaking]: [
+    RestrictionReason.Cheating,
+    RestrictionReason.LeftGame,
+    RestrictionReason.Griefing,
+  ],
+}
+
 export type RestrictionEvent = RestrictionsChangedEvent
 
 export interface ClientRestrictionInfo {
   kind: RestrictionKind
   endTime: number
-  reason: RestrictionReason
+  reason?: RestrictionReason
 }
 
 export interface RestrictionsChangedEvent {

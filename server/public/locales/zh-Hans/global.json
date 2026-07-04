@@ -72,10 +72,15 @@
     },
     "restriction": {
       "chat": {
-        "notification": "<0>你的账户因以下原因被限制发送聊天消息：</0><1>{{reasonLabel}}</1><2>该限制将于以下时间结束：</2><3>{{endText}}</3>"
+        "notification": "你的账户已被限制发送聊天消息。"
       },
+      "endsOn": "该限制将于以下时间结束：",
+      "matchmaking": {
+        "notification": "你的账户已被限制使用匹配。"
+      },
+      "reasonLabel": "原因：",
       "reporting": {
-        "notification": "<0>你的账户因以下原因被限制举报玩家：</0><1>{{reasonLabel}}</1><2>该限制将于以下时间结束：</2><3>{{endText}}</3>"
+        "notification": "你的账户已被限制举报玩家。"
       }
     },
     "signup": {
@@ -1492,9 +1497,12 @@
     },
     "restrictions": {
       "reason": {
+        "cheating": "作弊或利用漏洞",
         "disruptive_behavior": "扰乱行为",
+        "griefing": "恶意破坏",
         "harassment": "骚扰",
         "hate_speech": "仇恨言论",
+        "left_game": "中途退出游戏",
         "other": "其他",
         "spam": "垃圾信息",
         "toxicity": "有害言行"

@@ -15,7 +15,7 @@ export interface UserIdentifierRestriction {
   endTime: Date
   restrictedBy?: SbUserId
   firstUserId?: SbUserId
-  reason: RestrictionReason
+  reason?: RestrictionReason
   adminNotes?: string
 }
 
@@ -34,7 +34,7 @@ function toUserIdentifierRestriction(
     endTime: fromDb.end_time,
     restrictedBy: fromDb.restricted_by ?? undefined,
     firstUserId: fromDb.first_user_id ?? undefined,
-    reason: fromDb.reason,
+    reason: fromDb.reason ?? undefined,
     adminNotes: fromDb.admin_notes ?? undefined,
   }
 }
@@ -46,7 +46,7 @@ export interface UserRestriction {
   startTime: Date
   endTime: Date
   restrictedBy?: SbUserId
-  reason: RestrictionReason
+  reason?: RestrictionReason
   adminNotes?: string
 }
 
@@ -60,7 +60,7 @@ function toUserRestriction(fromDb: DbUserRestriction): UserRestriction {
     startTime: fromDb.start_time,
     endTime: fromDb.end_time,
     restrictedBy: fromDb.restricted_by ?? undefined,
-    reason: fromDb.reason,
+    reason: fromDb.reason ?? undefined,
     adminNotes: fromDb.admin_notes ?? undefined,
   }
 }
@@ -68,7 +68,7 @@ function toUserRestriction(fromDb: DbUserRestriction): UserRestriction {
 export interface RestrictedIdentifierCountResult {
   count: number
   latestEnd: Date
-  reason: RestrictionReason
+  reason?: RestrictionReason
   restrictedBy?: SbUserId
   firstUserId?: SbUserId
 }
@@ -82,7 +82,7 @@ export async function countRestrictedUserIdentifiers(
     const result = await client.query<{
       matches: string
       latest_end: Date
-      reason: RestrictionReason
+      reason: RestrictionReason | null
       restricted_by: SbUserId | null
       first_user_id: SbUserId
     }>(sql`
@@ -119,7 +119,7 @@ export async function countRestrictedUserIdentifiers(
       ? {
           count: Number(result.rows[0].matches),
           latestEnd: result.rows[0].latest_end,
-          reason: result.rows[0].reason,
+          reason: result.rows[0].reason ?? undefined,
           restrictedBy: result.rows[0].restricted_by ?? undefined,
           firstUserId: result.rows[0].first_user_id,
         }
@@ -144,7 +144,7 @@ export async function restrictUsers(
     startTime: Date
     endTime: Date
     restrictedBy?: SbUserId
-    reason: RestrictionReason
+    reason?: RestrictionReason
     adminNotes?: string
   },
   withClient?: DbClient,
@@ -166,7 +166,7 @@ export async function restrictUsers(
         ${new Array(users.length).fill(startTime)}::timestamptz[],
         ${new Array(users.length).fill(endTime)}::timestamptz[],
         ${new Array(users.length).fill(restrictedBy)}::int4[],
-        ${new Array(users.length).fill(reason)}::restriction_reason[],
+        ${new Array(users.length).fill(reason ?? null)}::text[],
         ${new Array(users.length).fill(adminNotes)}::text[]
       ) AS t(user_id, kind, start_time, end_time, restricted_by, reason, admin_notes)
       RETURNING *
@@ -213,7 +213,7 @@ export async function restrictAllIdentifiers(
     startTime: Date
     endTime: Date
     restrictedBy?: SbUserId
-    reason: RestrictionReason
+    reason?: RestrictionReason
     adminNotes?: string
   },
   withClient?: DbClient,
@@ -233,7 +233,7 @@ export async function restrictAllIdentifiers(
         ${startTime} AS "start_time",
         ${endTime} AS "end_time",
         ${restrictedBy} AS "restricted_by",
-        ${reason} AS "reason",
+        ${reason ?? null} AS "reason",
         ${originalTarget} AS "first_user_id",
         ${adminNotes} AS "admin_notes"
       FROM user_identifiers
@@ -274,7 +274,7 @@ export async function mirrorRestrictionsToIdentifiers({
           ${new Array(identifiers.length).fill(r.startTime)}::timestamptz[],
           ${new Array(identifiers.length).fill(r.endTime)}::timestamptz[],
           ${new Array(identifiers.length).fill(r.restrictedBy)}::int4[],
-          ${new Array(identifiers.length).fill(r.reason)}::restriction_reason[],
+          ${new Array(identifiers.length).fill(r.reason ?? null)}::text[],
           ${new Array(identifiers.length).fill(r.userId)}::int4[],
           ${new Array(identifiers.length).fill(r.adminNotes)}::text[]
         )

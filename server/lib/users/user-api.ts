@@ -36,7 +36,10 @@ import {
   toUserRelationshipJson,
   toUserRelationshipSummaryJson,
 } from '../../../common/users/relationships'
-import { ALL_RESTRICTION_KINDS, ALL_RESTRICTION_REASONS } from '../../../common/users/restrictions'
+import {
+  ALL_RESTRICTION_KINDS,
+  RESTRICTION_REASONS_BY_KIND,
+} from '../../../common/users/restrictions'
 import { SbUser, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ClientSessionInfo } from '../../../common/users/session'
@@ -1268,9 +1271,19 @@ export class AdminUserApi {
           .valid(...ALL_RESTRICTION_KINDS)
           .required(),
         endTime: Joi.date().timestamp().min(Date.now()).required(),
-        reason: Joi.string()
-          .valid(...ALL_RESTRICTION_REASONS)
-          .required(),
+        // Reasons are per-kind: a kind with presets requires one of its presets; a kind with no
+        // presets (e.g. reporting) forbids a reason entirely.
+        reason: Joi.any().when('kind', {
+          switch: ALL_RESTRICTION_KINDS.filter(
+            kind => RESTRICTION_REASONS_BY_KIND[kind].length > 0,
+          ).map(kind => ({
+            is: kind,
+            then: Joi.string()
+              .valid(...RESTRICTION_REASONS_BY_KIND[kind])
+              .required(),
+          })),
+          otherwise: Joi.forbidden(),
+        }),
         adminNotes: Joi.string().max(500),
       }).required(),
     })

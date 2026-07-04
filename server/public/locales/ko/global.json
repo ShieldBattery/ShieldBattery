@@ -72,10 +72,15 @@
     },
     "restriction": {
       "chat": {
-        "notification": "<0>채팅 메시지 전송이 다음 사유로 제한되었습니다:</0><1>{{reasonLabel}}</1><2>제한은 다음 날짜에 해제됩니다:</2><3>{{endText}}</3>"
+        "notification": "채팅 메시지 전송이 제한되었습니다."
       },
+      "endsOn": "제한은 다음 날짜에 해제됩니다:",
+      "matchmaking": {
+        "notification": "매치메이킹 이용이 제한되었습니다."
+      },
+      "reasonLabel": "사유:",
       "reporting": {
-        "notification": "<0>플레이어 신고가 다음 사유로 제한되었습니다:</0><1>{{reasonLabel}}</1><2>제한은 다음 날짜에 해제됩니다:</2><3>{{endText}}</3>"
+        "notification": "플레이어 신고가 제한되었습니다."
       }
     },
     "signup": {
@@ -1492,9 +1497,12 @@
     },
     "restrictions": {
       "reason": {
+        "cheating": "치트 또는 익스플로잇 사용",
         "disruptive_behavior": "방해 행위",
+        "griefing": "고의적 방해",
         "harassment": "괴롭힘",
         "hate_speech": "혐오 발언",
+        "left_game": "게임 이탈",
         "other": "기타",
         "spam": "스팸",
         "toxicity": "악성 행동"
