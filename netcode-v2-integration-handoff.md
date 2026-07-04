@@ -406,6 +406,56 @@ PNG). forge does NOT currently hook rendering (only window management), so: GDI 
 HWND for windowed mode now (modest), with a D3D11 `Present`-hook backbuffer capture as the
 escalation if exclusive-fullscreen capture is ever needed (large, greenfield graphics-hook work).
 
+## Slice 8 — what landed (2026-07-04): debug screenshot (§7 #4) + forceQuit teardown
+
+**§7 is now complete** (#1–#4 all landed).
+
+- **`DebugControlCommand::Screenshot` — DEBUG-ONLY, live-verified.** Captures this client's own
+  game window and replies on `/game/debug/screenshot` with `{screenshot: {width, height,
+  pngBase64} | null, error}`. `debug_control::capture_screenshot()` runs on a
+  `tokio::task::spawn_blocking` worker (NOT the game thread — it only reads pixels via GDI/DWM and
+  touches no BW memory, so no game-thread hop is needed, unlike `forceLeave`). It resolves
+  `forge::debug_window_handle()` (new `#[cfg(debug_assertions)]` accessor reading `FORGE_WINDOW`),
+  `GetWindowRect` for size, builds a top-down 32bpp `CreateDIBSection`, `PrintWindow(hwnd, dc,
+  PW_RENDERFULLCONTENT)` (the Win8.1+ flag that captures DWM/DXGI-presented content — what makes
+  the D3D-rendered game window and the correct per-instance window capturable), with a `GetDC` +
+  `BitBlt` fallback, then BGRA→RGBA (alpha forced 0xFF) → `image` PNG encoder → base64. All GDI
+  handles freed via `scopeguard::defer!` on every path; never panics (errors become
+  `{screenshot: null, error}`). **Windowed capture only for now** — a D3D11 `Present`-hook
+  backbuffer grab is the escalation for exclusive-fullscreen (unbuilt, greenfield).
+- **App-side (dev-gated `isDev`):** `activeGameDebugScreenshot(gameId)` IPC correlates the reply
+  FIFO-per-game with a **10s** timeout (heavier than a state snapshot), decodes the base64 PNG and
+  writes it to `os.tmpdir()/sb-game-screenshot-<gameId>-<ts>.png`, resolving `{path, width,
+  height}` — so CDP never carries megabytes of base64. The pending-reply machinery
+  (`debugQueryState` + screenshot) was refactored into one generic `PendingDebugReply<T>` helper
+  set; teardown rejects both queues at every existing call site.
+  `window.__sbDebugGame.screenshot(gameId)`.
+- **`forceQuit` — app-side teardown (no DLL change), live-verified.**
+  `window.__sbDebugGame.forceQuit(gameId)` → `activeGameForceQuit` IPC (isDev) →
+  `ActiveGameManager.forceQuitGame`, which emits the existing top-level `quit` command
+  (`MessageResult::Stop` → `async_stop.cancel()`). **Why it exists / why hard-stop:** a `forceLeave`
+  drives the game to an allied-victory *result* but leaves the process sitting at the native
+  "Congratulations!" victory dialog — the BW game loop hasn't exited, so `/game/finished` (which
+  drives the app's `cleanup_and_quit`) never fires. `cleanup_and_quit` can't help there: it routes
+  an `ExitCleanup` request to the game thread, but that thread is blocked inside `run_game_loop` for
+  the whole game (serial request loop, `game_thread.rs`), so the request isn't serviced until the
+  loop exits on its own. `quit`→`Stop` cancels the async runtime and the process exits regardless —
+  a hard stop (no BW cleanup / settings save) but routed through the app so `ActiveGameManager`
+  resets its own state cleanly, unlike an external kill. **Keeps `forceLeave`** — the two are
+  complementary: `forceLeave` injects a coordinated synced leave into the netcode seam (the §6 test
+  tool), `forceQuit` just tears the process down.
+- **Live-verified (2026-07-04):** 2-player netcodeV2 loopback (claude-1/claude-2), both `playing`.
+  Each client's `screenshot()` returned its **own distinct** in-game frame (different bases/terrain
+  — proves per-instance HWND capture, the thing `desktopCapturer` couldn't do); a third capture
+  caught the victory dialog itself (a visual-only state logs can't see). Then `forceLeave(gameId,
+  1)` → c1 stuck at the victory dialog (`resultSent`); `forceQuit(gameId)` on each → StarCraft.exe
+  exited and Redux reset to `unknown` on both.
+- **Verified:** 70 Rust tests + clippy `-D warnings` clean; TS typecheck/lint + 522 tests clean;
+  release compile-out re-proven both directions with the `compile_error!` probe.
+- **verify-app skill updated:** documents polling `gameClient.status.state` in a bounded
+  *foreground* loop (a long-lived background `until`-loop of CDP evals silently drops the
+  playwright-cli session mid-wait) and points at the `window.__sbDebugGame` surface.
+
 ## What's next (in rough order)
 
 ### 0. ✅ Control plane (WS-E + WS-F) + roster + bootstrap seeding — DONE (slice 4)
@@ -489,10 +539,12 @@ resolution replaced it; samase either finds a symbol or it doesn't). Control-com
     then drain). Closing this = the coordinated-leave write above, which also lets the remaining
     client skip the dialog on a *clean* quit (native BW shows it only on unclean drops).
 
-### 7. Game observability + debug-control channel (verification tooling) — IN PROGRESS
-> **First slice landed 2026-07-04 — see "Slice 5 — what landed" above** (#1's transport event +
-> the `debug_control` scaffold + the release compile-out proof + live CDP verification). Remaining
-> here: #2 (queryState), #3 (forced scenarios), #4 (screenshots).
+### 7. Game observability + debug-control channel (verification tooling) — ✅ DONE
+> **All four pieces landed** (slices 5–8): #1 transport/`networkStatus` event + `debug_control`
+> scaffold (slice 5), #2 `debug/queryState` (slice 6), #3 `forceLeave` (slice 7), #4 in-game
+> `screenshot` + the `forceQuit` teardown helper (slice 8). See those slice sections above. The
+> debug surface stays compile-gated out of release; the app senders are `isDev`-gated. `forceLeave`
+> remains the tool for driving §6's leave/reconnect paths once they land.
 
 **This task can be picked up by a different developer.** It's
 tooling, not netcode — independent of the still-open leave/reconnect designs (#6), can proceed in
