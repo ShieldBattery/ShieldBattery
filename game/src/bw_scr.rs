@@ -144,7 +144,7 @@ pub struct BwScr {
     first_dialog: Option<Value<*mut bw::Dialog>>,
     graphic_layers: Option<Value<*mut bw::GraphicLayer>>,
     snet_local_player_list: Option<Value<*mut bw::StormListHead<bw::SNetPlayerConnection>>>,
-    /// Resolved symbols for the netcode v2 (rally-point2) turn seam. Required at launch; see
+    /// Resolved symbols for the netcode v2 (rally-point2) turn hooks. Required at launch; see
     /// [`NetcodeV2Bw`].
     netcode_v2: NetcodeV2Bw,
     free_sprites: LinkedList<scr::Sprite>,
@@ -307,11 +307,11 @@ pub struct BwScr {
     event_processing_lock: DumbSpinLock,
 }
 
-/// Resolved BW symbols the netcode v2 turn seam needs. Resolution is **required** — a missing symbol
+/// Resolved BW symbols the netcode v2 turn hooks need. Resolution is **required** — a missing symbol
 /// fails game launch like any other analyzed symbol. There is no native-networking fallback at the
 /// launch level: the platform is a full cutover to rally-point2 (all clients run the same netcode),
-/// so a build that can't resolve the seam must not run rather than silently degrade. (The per-hook
-/// `orig` fallthrough still covers the *phases* the seam doesn't carry yet — lobby join, and any game
+/// so a build that can't resolve the hooks must not run rather than silently degrade. (The per-hook
+/// `orig` fallthrough still covers the *phases* the turn transport doesn't carry yet — lobby join, and any game
 /// the app didn't hand a rally-point2 session.)
 ///
 /// The `net_player_flags` array and the RNG-enable flag are reused from the existing [`BwScr`]
@@ -335,29 +335,29 @@ struct NetcodeV2Bw {
     /// `player_turns_size[12]`: per-slot command byte length.
     player_turns_size: Value<*mut u32>,
     /// `game_frame_count`: the executable-turn index, used as the consensus coordinate on outbound
-    /// turns and as the "next frame" fed to the seam on receive.
+    /// turns and as the "next frame" fed to the turn state on receive.
     game_frame_count: Value<u32>,
     /// `pending_leave_reason[12]` base: the synced per-slot leave mailbox (nonzero reason = a pending
     /// leave `apply_pending_player_leaves` will apply, then clear, in the synced-RNG window).
     pending_leave_reason: Value<*mut i32>,
 }
 
-/// Outcome of the OUT hook consulting the seam, deciding whether the turn went to rally-point2 or
+/// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
 /// should fall through to native Storm.
-enum SeamSend {
-    /// No live seam for this turn (lobby phase, or no rally-point2 session) — run native.
+enum TurnSendOutcome {
+    /// No live turn state for this turn (lobby phase, or no rally-point2 session) — run native.
     Native,
-    /// Handed to the seam's driver.
+    /// Handed to the turn state's driver.
     Submitted,
-    /// Seam is active but the driver channel is closed/full mid-game. Not falling back to Storm
+    /// The turn state is live but the driver channel is closed/full mid-game. Not falling back to Storm
     /// (peers are on the relay, so a Storm send wouldn't reach them); the dropped local turn makes
     /// our own IN stall, surfacing the dead session as a lag screen rather than a silent desync.
     Failed,
 }
 
-/// Outcome of the IN hook consulting the seam.
-enum SeamReceive {
-    /// No live seam for this step — run native `receive_storm_turns`.
+/// Outcome of the IN hook consulting the turn state.
+enum TurnReceiveOutcome {
+    /// No live turn state for this step — run native `receive_storm_turns`.
     Native,
     /// Every required slot's turn is ready and the arrays are filled — return 1 (dispatch).
     Ready,
@@ -697,7 +697,7 @@ impl From<&'static str> for BwInitError {
     }
 }
 
-/// Resolves the netcode v2 seam symbols. Every symbol is required — a missing one is a launch
+/// Resolves the netcode v2 turn-hook symbols. Every symbol is required — a missing one is a launch
 /// failure naming it, consistent with the rest of `BwScr::new` (no native fallback at launch; full
 /// cutover to rally-point2).
 fn resolve_netcode_v2(
@@ -1471,7 +1471,7 @@ impl BwScr {
                 address,
             );
 
-            // Netcode v2 turn seam. Symbol resolution is required, so these always install; each
+            // Netcode v2 turn hooks. Symbol resolution is required, so these always install; each
             // body falls through to `orig` (native networking) while there is no live rally-point2
             // session or before the game has started, so installing them is a no-op for the legacy
             // path.
@@ -1481,12 +1481,12 @@ impl BwScr {
                 exe.hook_closure_address(
                     SendTurnMessage,
                     move |buffer, len, orig| match self.netcode_v2_send_turn(buffer, len) {
-                        SeamSend::Submitted => 1,
-                        SeamSend::Failed => {
-                            error!("Netcode v2: local turn could not be submitted to the seam");
+                        TurnSendOutcome::Submitted => 1,
+                        TurnSendOutcome::Failed => {
+                            error!("Netcode v2: local turn could not be submitted to the turn transport");
                             1
                         }
-                        SeamSend::Native => orig(buffer, len),
+                        TurnSendOutcome::Native => orig(buffer, len),
                     },
                     address,
                 );
@@ -1495,9 +1495,9 @@ impl BwScr {
                 exe.hook_closure_address(
                     ReceiveStormTurns,
                     move |a1, a2, a3, a4, a5, orig| match self.netcode_v2_receive_turns() {
-                        SeamReceive::Ready => 1,
-                        SeamReceive::Stall => 0,
-                        SeamReceive::Native => orig(a1, a2, a3, a4, a5),
+                        TurnReceiveOutcome::Ready => 1,
+                        TurnReceiveOutcome::Stall => 0,
+                        TurnReceiveOutcome::Native => orig(a1, a2, a3, a4, a5),
                     },
                     address,
                 );
@@ -1514,7 +1514,7 @@ impl BwScr {
                     },
                     address,
                 );
-                debug!("Netcode v2 seam hooks installed");
+                debug!("Netcode v2 turn hooks installed");
             }
 
             let address = self.net_format_turn_rate.0 as usize - base;
@@ -2258,45 +2258,45 @@ impl BwScr {
         }
     }
 
-    /// OUT hook body (`send_turn_message`): hand the fully-assembled local turn to the seam, having
+    /// OUT hook body (`send_turn_message`): hand the fully-assembled local turn to the turn state, having
     /// stripped the native latency/turn-rate control commands so they can't rewrite the pinned
-    /// globals mid-game. Returns [`SeamSend::Native`] before the game starts (lobby join stays on
+    /// globals mid-game. Returns [`TurnSendOutcome::Native`] before the game starts (lobby join stays on
     /// native Storm for now) or when there is no live session.
-    unsafe fn netcode_v2_send_turn(&self, buffer: *const u8, len: usize) -> SeamSend {
+    unsafe fn netcode_v2_send_turn(&self, buffer: *const u8, len: usize) -> TurnSendOutcome {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
-                return SeamSend::Native;
+                return TurnSendOutcome::Native;
             }
             let nc = &self.netcode_v2;
             let frame = nc.game_frame_count.resolve();
             let commands = std::slice::from_raw_parts(buffer, len);
             let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
-            match netcode_v2::with_seam(|s| s.submit_local_turn(&filtered, Some(frame))) {
-                None => SeamSend::Native,
-                Some(true) => SeamSend::Submitted,
-                Some(false) => SeamSend::Failed,
+            match netcode_v2::with_turn_state(|s| s.submit_local_turn(&filtered, Some(frame))) {
+                None => TurnSendOutcome::Native,
+                Some(true) => TurnSendOutcome::Submitted,
+                Some(false) => TurnSendOutcome::Failed,
             }
         }
     }
 
-    /// IN hook body (full replacement of `receive_storm_turns`): drain the seam and, when every
+    /// IN hook body (full replacement of `receive_storm_turns`): drain the turn state and, when every
     /// required slot is ready, fill `player_turns[]` / `player_turns_size[]` / `net_player_flags[]`
     /// and run the synced leave pass. Never calls the original.
     ///
-    /// The seam is gated to in-game only (`game_started`), so the lobby runs fully native (native
-    /// join is retained for now) and the seam's pipe is empty at the lobby→game transition — the
+    /// The turn hooks are gated to in-game only (`game_started`), so the lobby runs fully native (native
+    /// join is retained for now) and the turn state's pipe is empty at the lobby→game transition — the
     /// first in-game receive would stall forever (`network_ready = 0` → `step_network` skips the
     /// PIPE flush → deadlock; native avoids this because the lobby's unconditional flush pre-seeds
     /// the pipe). [`seed_netcode_v2_pipe`](Self::seed_netcode_v2_pipe) closes that gap by running
     /// the PIPE fill once at the transition.
-    unsafe fn netcode_v2_receive_turns(&self) -> SeamReceive {
+    unsafe fn netcode_v2_receive_turns(&self) -> TurnReceiveOutcome {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
-                return SeamReceive::Native;
+                return TurnReceiveOutcome::Native;
             }
             let nc = &self.netcode_v2;
             let next_frame = nc.game_frame_count.resolve();
-            let ready = netcode_v2::with_seam(|s| {
+            let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;
                 }
@@ -2311,7 +2311,7 @@ impl BwScr {
                 }
                 for (storm, bytes) in s.dispatch_buffers() {
                     let i = storm.0 as usize;
-                    // The bytes are owned by the seam (refcounted `Bytes`) and stay valid until the
+                    // The bytes are owned by the turn state (refcounted `Bytes`) and stay valid until the
                     // next `receive_turns`, which covers the whole step_network dispatch.
                     *player_turns.add(i) = bytes.as_ptr() as *mut u8;
                     *player_turns_size.add(i) = bytes.len() as u32;
@@ -2319,28 +2319,28 @@ impl BwScr {
                 }
                 s.apply_due_directive(next_frame);
                 // Exactly once per executed step (one local turn leaves the pipe), NOT per dispatched
-                // slot — see SeamState::mark_local_turn_executed.
+                // slot — see TurnState::mark_local_turn_executed.
                 s.mark_local_turn_executed();
                 true
             });
             match ready {
-                None => SeamReceive::Native,
-                Some(false) => SeamReceive::Stall,
+                None => TurnReceiveOutcome::Native,
+                Some(false) => TurnReceiveOutcome::Stall,
                 Some(true) => {
-                    // Leave pass runs with the seam lock released: the leave handlers can issue
-                    // commands that re-enter the OUT hook, which would re-lock the seam.
-                    let leaving = self.run_seam_leave_pass(nc);
+                    // Leave pass runs with the turn-state lock released: the leave handlers can issue
+                    // commands that re-enter the OUT hook, which would re-lock the turn state.
+                    let leaving = self.run_synced_leave_pass(nc);
                     for storm in leaving {
-                        netcode_v2::with_seam(|s| s.mark_slot_left(storm));
+                        netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
                     }
-                    SeamReceive::Ready
+                    TurnReceiveOutcome::Ready
                 }
             }
         }
     }
 
     /// PIPE hook body (full replacement of `flush_local_turns_to_latency_depth`): flush enough turns
-    /// to reach the seam's latency target, driven off the seam's own in-flight counter rather than
+    /// to reach the turn state's latency target, driven off its own in-flight counter rather than
     /// the native `get_outstanding_turn_count` (which goes degenerate-0 once Storm's send/ack
     /// counters stop advancing, causing an unbounded flush). Returns `false` before the game starts
     /// or with no live session, so the caller runs the original.
@@ -2351,9 +2351,9 @@ impl BwScr {
             }
             let nc = &self.netcode_v2;
             // Read the shortfall under the lock, then release before flushing — each flush re-enters
-            // the OUT hook (which re-locks the seam) and bumps the in-flight counter by one.
+            // the OUT hook (which re-locks the turn state) and bumps the in-flight counter by one.
             let to_flush =
-                netcode_v2::with_seam(|s| s.latency_turns().saturating_sub(s.outstanding_turns()));
+                netcode_v2::with_turn_state(|s| s.latency_turns().saturating_sub(s.outstanding_turns()));
             match to_flush {
                 None => false,
                 Some(n) => {
@@ -2366,11 +2366,11 @@ impl BwScr {
         }
     }
 
-    /// Seeds the seam's pipe at the lobby→game transition. The lobby is gated native, so nothing
-    /// has primed the seam when the game starts: the first in-game receive would stall waiting for
+    /// Seeds the turn state's pipe at the lobby→game transition. The lobby is gated native, so nothing
+    /// has primed the turn state when the game starts: the first in-game receive would stall waiting for
     /// turns no one has sent, and the PIPE flush that would send them only runs once the network is
     /// ready — a lockstep deadlock. Native pre-seeds via the lobby's unconditional flush; this is
-    /// the seam's equivalent, running the PIPE fill once, unconditionally, from the game thread
+    /// the turn transport's equivalent, running the PIPE fill once, unconditionally, from the game thread
     /// right after `set_game_started`. Every client seeds its own `latency_turns` turns, which
     /// reach peers via the relay fan-out (and ourselves via the local echo), so everyone's first
     /// receive finds a full turn queued. No-op when there is no live session (the lobby's native
@@ -2384,9 +2384,9 @@ impl BwScr {
     /// Reproduces `receive_storm_turns`' synced player-leave pass for the IN replacement: runs
     /// `apply_pending_player_leaves` inside the synced-RNG window (leave handling can consume synced
     /// RNG, so it must run with the same RNG state on every client) and returns the storm slots whose
-    /// pending reason was drained this pass, so the seam can drop them from its readiness set. Must be
-    /// called with the seam lock released — the leave handlers can re-enter the OUT hook.
-    unsafe fn run_seam_leave_pass(&self, nc: &NetcodeV2Bw) -> SmallVec<[StormPlayerId; 4]> {
+    /// pending reason was drained this pass, so the turn state can drop them from its readiness set. Must be
+    /// called with the turn-state lock released — the leave handlers can re-enter the OUT hook.
+    unsafe fn run_synced_leave_pass(&self, nc: &NetcodeV2Bw) -> SmallVec<[StormPlayerId; 4]> {
         unsafe {
             let reasons = nc.pending_leave_reason.resolve();
             let mut leaving = SmallVec::new();
@@ -4353,7 +4353,7 @@ mod hooks {
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
         !0 => StepGameLogic(usize) -> usize;
         !0 => StepNetwork() -> usize;
-        // Netcode v2 turn seam. All cdecl. OUT/IN/PIPE; each falls through to `orig` when there's no
+        // Netcode v2 turn hooks. All cdecl. OUT/IN/PIPE; each falls through to `orig` when there's no
         // live rally-point2 session (see the hook bodies).
         !0 => SendTurnMessage(*const u8, usize) -> usize;
         !0 => ReceiveStormTurns(u32, u32, *mut c_void, *mut c_void, *mut c_void) -> u32;

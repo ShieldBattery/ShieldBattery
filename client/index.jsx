@@ -1,6 +1,7 @@
 import { enableArrayMethods, enableMapSet } from 'immer'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { TypedIpcRenderer } from '../common/ipc'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { App } from './app'
 import { audioManager } from './audio/audio-manager'
@@ -123,9 +124,14 @@ rootElemPromise
   .then(async elem => {
     const reduxStore = createStore(ReduxDevTools)
     if (__WEBPACK_ENV.NODE_ENV !== 'production') {
-      // Expose the store for dev verification tooling (CDP-driven assertions on app state);
-      // compiled out of production bundles.
+      // Expose these for dev verification tooling (CDP-driven assertions on app state, and
+      // querying the debug-only state of a running game process); compiled out of production
+      // bundles.
       window.__sbReduxStore = reduxStore
+      window.__sbDebugGame = {
+        queryGameState: gameId =>
+          new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
+      }
     }
     registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()

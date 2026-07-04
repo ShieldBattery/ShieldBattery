@@ -53,9 +53,9 @@ pub struct GameState {
     async_stop: SharedCanceler,
     can_start_game: AwaitableTaskState,
     /// Netcode v2 credentials + relay endpoints, if the app sent them (`netcodeV2Setup`). Stashed
-    /// here for the rally-point2 seam to consume during network init. `None` on the legacy
+    /// here for the rally-point2 session setup to consume during network init. `None` on the legacy
     /// (rally-point v1 / Storm) path, which is unaffected by its presence or absence.
-    // TODO(netcode-v2): thread this into NetworkManager so the seam builds an `Identity` +
+    // TODO(netcode-v2): thread this into NetworkManager so the session setup builds an `Identity` +
     // `ClientEndpoint` from it (see `netcode_v2::credentials`) and dials the home relay.
     netcode_v2_setup: Option<Box<NetcodeV2Setup>>,
 }
@@ -302,8 +302,8 @@ impl GameState {
 
         let network = self.network.clone();
         let allow_start = self.wait_can_start_game().boxed();
-        // Consumed below (before the network is declared ready) to stand up the rally-point2 seam.
-        // `None` on the legacy path — the app hasn't sent `netcodeV2Setup` — in which case the seam
+        // Consumed below (before the network is declared ready) to stand up the rally-point2 turn transport.
+        // `None` on the legacy path — the app hasn't sent `netcodeV2Setup` — in which case the turn
         // hooks stay inactive and native networking runs.
         let netcode_v2_setup = self.netcode_v2_setup.take();
 
@@ -368,10 +368,10 @@ impl GameState {
                 .await
                 .map_err(GameInitError::NetworkInit)?;
 
-            // Netcode v2 (rally-point2): if the app handed us a session, stand up the QUIC seam
+            // Netcode v2 (rally-point2): if the app handed us a session, stand up the QUIC turn transport
             // before the network is declared ready. On a dial failure, fall back to native
             // networking for this session rather than failing the game — with no live session the
-            // seam hooks pass through to the original functions.
+            // turn hooks pass through to the original functions.
             if let Some(setup) = netcode_v2_setup {
                 let status = match netcode_v2::establish_session(&setup).await {
                     Ok(()) => {
@@ -742,6 +742,17 @@ impl GameState {
                         return app_socket::send_message(&self.ws_send, "/game/debug/pong", ())
                             .map(|_| ())
                             .boxed();
+                    }
+                    DebugControlCommand::QueryState => {
+                        let turn_state = crate::netcode_v2::with_turn_state(|s| s.debug_snapshot());
+                        let response = crate::debug_control::DebugStateResponse { turn_state };
+                        return app_socket::send_message(
+                            &self.ws_send,
+                            "/game/debug/state",
+                            response,
+                        )
+                        .map(|_| ())
+                        .boxed();
                     }
                 }
             }
@@ -1329,12 +1340,12 @@ impl InitInProgress {
                         .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
                     debug!("Player {} received storm id {}", name, storm_id.0);
                     // Record the rally-point2 slot ↔ storm id mapping as each player's storm id
-                    // solidifies, so the seam can attribute their turns. Our own slot comes from
+                    // solidifies, so the turn state can attribute their turns. Our own slot comes from
                     // the signed token (the one source we can always trust); peers resolve through
-                    // the coordinator's session roster carried in the launch handoff. `with_seam`
+                    // the coordinator's session roster carried in the launch handoff. `with_turn_state`
                     // is a no-op when there is no rally-point2 session.
                     if sb_user_id == self.local_user.id {
-                        netcode_v2::with_seam(|s| {
+                        netcode_v2::with_turn_state(|s| {
                             // Cross-check the two slot authorities: a server-side divergence
                             // between token minting and roster construction would otherwise
                             // surface only as a silent mid-game stall.
@@ -1350,7 +1361,7 @@ impl InitInProgress {
                             s.map_local_storm(storm_id);
                         });
                     } else {
-                        netcode_v2::with_seam(|s| s.map_storm_for_user(sb_user_id, storm_id));
+                        netcode_v2::with_turn_state(|s| s.map_storm_for_user(sb_user_id, storm_id));
                     }
                     self.joined_players.push(JoinedPlayer {
                         name: name.to_string(),

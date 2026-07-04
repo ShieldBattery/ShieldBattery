@@ -171,7 +171,7 @@ pub struct NetworkStallInfo {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NetworkTransport {
-    /// The rally-point2 QUIC seam (netcode v2).
+    /// The rally-point2 QUIC turn transport (netcode v2).
     NetcodeV2,
     /// The native Storm + rally-point v1 path.
     Native,
@@ -506,7 +506,7 @@ pub struct NetcodeV2Relay {
 /// One entry of the session's slot roster: which ShieldBattery user occupies a rally-point2 slot.
 /// The coordinator's session response is the authoritative source (its `tokens[]` carry one slot
 /// per player); the server resolves each slot back to the user it requested it for and the app
-/// forwards the full pairing here, so the seam can map every peer's rp2 slot — not just our own —
+/// forwards the full pairing here, so the turn state can map every peer's rp2 slot — not just our own —
 /// to the BW network id that player is assigned during join.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]

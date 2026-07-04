@@ -1,4 +1,4 @@
-//! The netcode v2 (rally-point2) game seam.
+//! The netcode v2 (rally-point2) turn transport.
 //!
 //! This module owns the ShieldBattery side of the three-hook turn/command seam that replaces Storm's
 //! UDP turn transport wholesale with a QUIC link to a home relay, driven by the `rally-point-client`
@@ -8,30 +8,30 @@
 //! ## The three hooks (in `bw_scr.rs`) and how they use this module
 //!
 //! 1. **OUT** — hooks `send_turn_message`, which hands us the fully-assembled local turn
-//!    `(buffer_ptr, len)` on the BW/sync thread. The hook calls [`SeamState::submit_local_turn`] to
+//!    `(buffer_ptr, len)` on the BW/sync thread. The hook calls [`TurnState::submit_local_turn`] to
 //!    enqueue it. The driver assigns the transport `seq` and the relay binds the `slot`, so both are
 //!    left zero.
 //! 2. **IN** — *fully replaces* `receive_storm_turns` (never calls the original, so its obfuscated
-//!    inner routine that memsets the arrays never runs). The hook calls [`SeamState::receive_turns`]
+//!    inner routine that memsets the arrays never runs). The hook calls [`TurnState::receive_turns`]
 //!    (drains the inbound channel, gates on all required slots being present); when it returns
-//!    `true`, it iterates [`SeamState::dispatch_buffers`] to fill
+//!    `true`, it iterates [`TurnState::dispatch_buffers`] to fill
 //!    `player_turns[]`/`player_turns_size[]`/`net_player_flags[]` (setting `0x10000|0x20000` on each
-//!    ready slot), then runs the synced-leave pass **after releasing the seam lock** (the leave pass
+//!    ready slot), then runs the synced-leave pass **after releasing the turn-state lock** (the leave pass
 //!    can re-enter the OUT hook). The dispatched bytes are owned here as refcounted `Bytes`, valid
 //!    until the next receive.
 //! 3. **PIPE** — *fully replaces* `flush_local_turns_to_latency_depth`, driving the flush loop
-//!    against [`SeamState::outstanding_turns`] and [`SeamState::latency_turns`] rather than the
+//!    against [`TurnState::outstanding_turns`] and [`TurnState::latency_turns`] rather than the
 //!    native in-flight count (which goes degenerate-0 once Storm's counters stop advancing).
 //!
 //! ## What's here
 //!
 //! - [`credentials`]: the security boundary — turning the launch handoff into an `Identity` + a
 //!   pinned TLS trust store.
-//! - [`SeamState`]: the game-thread-owned state the hooks operate on — the turn channels to the
+//! - [`TurnState`]: the game-thread-owned state the hooks operate on — the turn channels to the
 //!   Tokio-side [`LinkDriver`](rally_point_client::LinkDriver), the latency-buffer
 //!   [`DirectiveTracker`], the slot↔storm-id map, and the PIPE-hook in-flight turn counter.
-//! - [`session`]: [`establish_session`] (dial the relay, spawn the driver, stash the seam) and
-//!   [`with_seam`] (the hooks' accessor to the live seam).
+//! - [`session`]: [`establish_session`] (dial the relay, spawn the driver, stash the turn state) and
+//!   [`with_turn_state`] (the hooks' accessor to the live turn state).
 //!
 //! The BW-thread ⇄ Tokio-thread handoff is [`rally_point_client::TurnChannels`] (tokio `mpsc`, whose
 //! `try_send`/`try_recv` are sync and safe to call from the BW thread). The Tokio side runs
@@ -53,10 +53,10 @@ use rally_point_client::proto::messages::Payload;
 
 mod session;
 
-// The seam is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
+// The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
 // (`establish_session`), so only these two are re-exported. The credential/session types stay
 // internal to their submodules.
-pub use session::{establish_session, with_seam};
+pub use session::{establish_session, with_turn_state};
 
 use crate::app_messages::SbUserId;
 use crate::bw;
@@ -67,7 +67,7 @@ use crate::bw::players::StormPlayerId;
 /// Created once per game after the home relay link is up (see module docs). Not `Sync`: it is
 /// touched only from the BW/sync thread, which is also the only thread the hooks fire on. The Tokio
 /// side owns the other ends of [`TurnChannels`] via the driver.
-pub struct SeamState {
+pub struct TurnState {
     /// Turns to/from the Tokio-side driver. `outbound` carries turns we produce; `inbound` carries
     /// peers' turns the relay forwarded, tagged by source slot.
     channels: TurnChannels,
@@ -111,8 +111,8 @@ pub struct SeamState {
     required: [bool; bw::MAX_STORM_PLAYERS],
 }
 
-impl SeamState {
-    /// Builds seam state around the channels a running [`LinkDriver`](rally_point_client::LinkDriver)
+impl TurnState {
+    /// Builds turn state around the channels a running [`LinkDriver`](rally_point_client::LinkDriver)
     /// handed back. `local_slot` is this client's origin slot; `initial_latency_turns` is the
     /// built-in floor to start the pipe at (natively 2); `roster` is the coordinator's slot↔user
     /// pairing for every session participant.
@@ -167,7 +167,7 @@ impl SeamState {
     /// Records a *peer's* rp2 slot ↔ storm id mapping by resolving the user through the session
     /// roster, as that player's storm id solidifies during join. A user missing from the roster is
     /// logged and skipped (e.g. an observer outside the rp2 session) — their turns simply can't be
-    /// routed through the seam.
+    /// routed through the turn transport.
     pub fn map_storm_for_user(&mut self, user: SbUserId, storm_id: StormPlayerId) {
         let Some(slot) = self.roster_slot_for_user(user) else {
             warn!("netcode v2: user {user} has no slot in the session roster; not mapping");
@@ -340,6 +340,48 @@ impl SeamState {
     pub fn local_slot_id(&self) -> SlotId {
         self.local_slot
     }
+
+    /// A point-in-time read of this turn state, for the `queryState` debug-control command. Pure
+    /// read: touches no counters, drains no queues.
+    #[cfg(debug_assertions)]
+    pub fn debug_snapshot(&self) -> crate::debug_control::TurnStateSnapshot {
+        use crate::debug_control::TurnSlotSnapshot;
+
+        let slots = self
+            .roster
+            .iter()
+            .map(|&(slot, user_id)| match self.storm_id_for_slot(slot) {
+                Some(storm) => {
+                    // `map_slot` tolerates a storm id the fixed-size arrays can't track (it skips
+                    // via `get_mut`), so a diagnostic read must degrade the same way, not panic.
+                    let storm = storm.0 as usize;
+                    TurnSlotSnapshot {
+                        slot: slot.0,
+                        user_id,
+                        storm_id: Some(storm as u8),
+                        required: self.required.get(storm).copied().unwrap_or(false),
+                        queued_turns: self.inbound_queues.get(storm).map_or(0, |q| q.len()),
+                        has_dispatch: self.current_dispatch.get(storm).is_some_and(|d| d.is_some()),
+                    }
+                }
+                None => TurnSlotSnapshot {
+                    slot: slot.0,
+                    user_id,
+                    storm_id: None,
+                    required: false,
+                    queued_turns: 0,
+                    has_dispatch: false,
+                },
+            })
+            .collect();
+
+        crate::debug_control::TurnStateSnapshot {
+            local_slot: self.local_slot.0,
+            latency_turns: self.latency_turns,
+            outstanding_turns: self.turns_in_flight,
+            slots,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -358,10 +400,10 @@ mod tests {
     const LOCAL_USER: SbUserId = SbUserId(11);
     const PEER_USER: SbUserId = SbUserId(22);
 
-    /// Builds a SeamState wired to test channels. Returns the state, a sender to inject peer turns
+    /// Builds a TurnState wired to test channels. Returns the state, a sender to inject peer turns
     /// on `inbound`, and the outbound receiver to observe/keep-alive what we submit. Both far ends
-    /// are returned so the channels stay open (dropping them would close the seam's ends).
-    fn seam() -> (SeamState, mpsc::Sender<Payload>, mpsc::Receiver<Payload>) {
+    /// are returned so the channels stay open (dropping them would close the turn state's ends).
+    fn turn_state() -> (TurnState, mpsc::Sender<Payload>, mpsc::Receiver<Payload>) {
         let (out_tx, out_rx) = mpsc::channel(16);
         let (in_tx, in_rx) = mpsc::channel(16);
         let channels = TurnChannels {
@@ -369,7 +411,7 @@ mod tests {
             inbound: in_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
-        (SeamState::new(channels, LOCAL_SLOT, 2, roster), in_tx, out_rx)
+        (TurnState::new(channels, LOCAL_SLOT, 2, roster), in_tx, out_rx)
     }
 
     fn peer_turn(slot: SlotId, commands: &[u8]) -> Payload {
@@ -382,7 +424,7 @@ mod tests {
         }
     }
 
-    fn dispatched(state: &SeamState) -> Vec<(StormPlayerId, Vec<u8>)> {
+    fn dispatched(state: &TurnState) -> Vec<(StormPlayerId, Vec<u8>)> {
         state
             .dispatch_buffers()
             .map(|(storm, bytes)| (storm, bytes.to_vec()))
@@ -397,14 +439,14 @@ mod tests {
             outbound: out_tx,
             inbound: in_rx,
         };
-        let state = SeamState::new(channels, LOCAL_SLOT, 0, Vec::new());
+        let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new());
         assert_eq!(state.latency_turns(), 1);
         drop(out_rx);
     }
 
     #[test]
     fn roster_maps_a_peers_slot_by_user() {
-        let (mut state, in_tx, _out_rx) = seam();
+        let (mut state, in_tx, _out_rx) = turn_state();
         // A peer's storm id solidifies during join; the roster resolves their user to their slot.
         state.map_storm_for_user(PEER_USER, PEER_STORM);
 
@@ -415,7 +457,7 @@ mod tests {
 
     #[test]
     fn user_missing_from_roster_is_skipped_not_mapped() {
-        let (mut state, _in_tx, _out_rx) = seam();
+        let (mut state, _in_tx, _out_rx) = turn_state();
         state.map_storm_for_user(SbUserId(99), PEER_STORM);
         // No mapping was recorded: the slot doesn't gate readiness...
         assert!(state.receive_turns(0), "unmapped slot must not stall the step");
@@ -426,7 +468,7 @@ mod tests {
 
     #[test]
     fn not_ready_until_every_required_slot_has_a_turn() {
-        let (mut state, in_tx, _out_rx) = seam();
+        let (mut state, in_tx, _out_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -456,7 +498,7 @@ mod tests {
     fn local_turn_is_echoed_into_its_own_slot() {
         // The relay fans out to peers only, so our own commands must reach the local sim via the
         // echo — not the inbound channel.
-        let (mut state, _in_tx, mut out_rx) = seam();
+        let (mut state, _in_tx, mut out_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert!(state.submit_local_turn(b"local", Some(7)));
@@ -471,7 +513,7 @@ mod tests {
 
     #[test]
     fn one_turn_released_per_step_even_with_a_backlog() {
-        let (mut state, in_tx, _out_rx) = seam();
+        let (mut state, in_tx, _out_rx) = turn_state();
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         in_tx.try_send(peer_turn(PEER_SLOT, b"t1")).unwrap();
@@ -486,7 +528,7 @@ mod tests {
 
     #[test]
     fn a_left_slot_stops_gating_readiness() {
-        let (mut state, in_tx, _out_rx) = seam();
+        let (mut state, in_tx, _out_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -504,7 +546,7 @@ mod tests {
 
     #[test]
     fn buffer_directive_off_an_inbound_turn_retargets_latency() {
-        let (mut state, in_tx, _out_rx) = seam();
+        let (mut state, in_tx, _out_rx) = turn_state();
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         let mut turn = peer_turn(PEER_SLOT, b"x");
@@ -523,8 +565,81 @@ mod tests {
     }
 
     #[test]
+    fn debug_snapshot_reflects_mapped_and_unmapped_slots() {
+        use crate::debug_control::TurnSlotSnapshot;
+
+        let (mut state, in_tx, _out_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        // PEER_SLOT is left unmapped on purpose, to exercise the "no storm id yet" branch.
+
+        assert!(state.submit_local_turn(b"local", Some(0)));
+        // Peer slot isn't required (unmapped), so this is ready and dispatches immediately.
+        assert!(state.receive_turns(0));
+
+        let snapshot = state.debug_snapshot();
+        assert_eq!(snapshot.local_slot, LOCAL_SLOT.0);
+        assert_eq!(snapshot.latency_turns, 2);
+        assert_eq!(snapshot.outstanding_turns, 1);
+
+        let mut slots = snapshot.slots.clone();
+        slots.sort_by_key(|s| s.slot);
+        assert_eq!(
+            slots,
+            vec![
+                TurnSlotSnapshot {
+                    slot: LOCAL_SLOT.0,
+                    user_id: LOCAL_USER,
+                    storm_id: Some(LOCAL_STORM.0),
+                    required: true,
+                    queued_turns: 0,
+                    has_dispatch: true,
+                },
+                TurnSlotSnapshot {
+                    slot: PEER_SLOT.0,
+                    user_id: PEER_USER,
+                    storm_id: None,
+                    required: false,
+                    queued_turns: 0,
+                    has_dispatch: false,
+                },
+            ]
+        );
+
+        // Map the peer, queue up an extra turn behind the one that'll dispatch, and confirm the
+        // queue depth and required flag both show up.
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        in_tx.try_send(peer_turn(PEER_SLOT, b"t1")).unwrap();
+        in_tx.try_send(peer_turn(PEER_SLOT, b"t2")).unwrap();
+        assert!(state.submit_local_turn(b"local2", Some(1)));
+        assert!(state.receive_turns(1));
+
+        let snapshot = state.debug_snapshot();
+        let peer = snapshot
+            .slots
+            .iter()
+            .find(|s| s.slot == PEER_SLOT.0)
+            .expect("peer slot present");
+        assert_eq!(peer.storm_id, Some(PEER_STORM.0));
+        assert!(peer.required);
+        assert_eq!(peer.queued_turns, 1, "one turn dispatched, one still queued");
+        assert!(peer.has_dispatch);
+
+        // A synced leave clears the required flag; the snapshot should reflect it immediately.
+        state.mark_slot_left(PEER_STORM);
+        let snapshot = state.debug_snapshot();
+        let peer = snapshot
+            .slots
+            .iter()
+            .find(|s| s.slot == PEER_SLOT.0)
+            .expect("peer slot present");
+        assert!(!peer.required);
+        assert_eq!(peer.queued_turns, 0);
+        assert!(!peer.has_dispatch);
+    }
+
+    #[test]
     fn pipe_counter_tracks_local_turns_in_flight() {
-        let (mut state, _in_tx, _out_rx) = seam();
+        let (mut state, _in_tx, _out_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert_eq!(state.outstanding_turns(), 0);

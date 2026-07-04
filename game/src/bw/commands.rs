@@ -82,7 +82,7 @@ impl<'a> Iterator for IterCommands<'a> {
 /// `0x66` dynamic-turn-rate) from an assembled turn buffer, preserving every other command
 /// (including the inline `0x37` sync command and the `0x5` keep-alive) in order.
 ///
-/// The netcode v2 seam owns the latency buffer out-of-band via relay directives, and it pins
+/// The netcode v2 turn transport owns the latency buffer out-of-band via relay directives, and it pins
 /// `builtin_turn_latency` / turn rate. If these in-stream commands were
 /// allowed through they would ride `process_commands` → `recompute_turn_durations` and rewrite the
 /// pinned globals mid-game (a user clicking the in-game latency knob, or a DTR re-issue), diverging

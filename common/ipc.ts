@@ -7,6 +7,7 @@ import type {
 } from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
+import { GameDebugState } from './games/game-debug'
 import { GameLaunchConfig, GameRoute } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
@@ -75,6 +76,12 @@ interface IpcInvokeables {
    * `gameId`.
    */
   activeGameClearConfig: (gameId: string) => void
+  /**
+   * Queries the active game process's debug state (debug game builds only). Only registered when
+   * the app is running in a dev session (`isDev || SB_SESSION`); on a build that doesn't support
+   * it the query is never acknowledged, so this rejects on a timeout rather than hanging forever.
+   */
+  activeGameDebugQueryState: (gameId?: string) => GameDebugState
   /**
    * Generates the per-session Ed25519 keypair for a netcode v2 game and returns the base64 raw
    * public key (to be submitted to the server), or null if `gameId` is not the active game. The

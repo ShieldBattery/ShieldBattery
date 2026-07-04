@@ -119,6 +119,9 @@ export class GameServer {
       case '/game/networkStatus':
         this.activeGameManager.handleNetworkStatus(gameId, payload)
         break
+      case '/game/debug/state':
+        this.activeGameManager.handleDebugState(gameId, payload)
+        break
       case '/game/windowMove':
         {
           const { x, y, w, h } = payload

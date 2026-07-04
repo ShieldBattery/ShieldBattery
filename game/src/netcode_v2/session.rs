@@ -1,19 +1,19 @@
-//! Async-side setup for the netcode v2 seam: turning the stashed launch handoff
+//! Async-side setup for the netcode v2 turn transport: turning the stashed launch handoff
 //! ([`NetcodeV2Setup`]) into a live QUIC session, and the global handoff by which the BW-thread
-//! hooks reach the game-thread-owned [`SeamState`].
+//! hooks reach the game-thread-owned [`TurnState`].
 //!
 //! [`establish_session`] runs on the DLL's Tokio runtime: it builds the pinned-trust credentials,
 //! dials the home relay (falling back across address families and to the backup relay), spawns the
-//! [`LinkDriver`] that services the link, and stores the resulting [`SeamState`] where the three BW
-//! hooks can reach it via [`with_seam`]. Nothing installs those hooks yet — until they do, a live
-//! session simply sits here unused (the legacy transport still runs).
+//! [`LinkDriver`] that services the link, and stores the resulting [`TurnState`] where the three BW
+//! hooks (installed in `bw_scr.rs`) can reach it via [`with_turn_state`]. With no live session the
+//! hooks find nothing here and fall through to the native transport.
 
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::transport::Link;
 use rally_point_client::{ClientEndpoint, DialError, Identity, LinkDriver};
 
-use super::SeamState;
+use super::TurnState;
 use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials};
 use crate::app_messages::NetcodeV2Setup;
 use crate::recurse_checked_mutex::Mutex;
@@ -43,15 +43,15 @@ quick_error! {
 /// The live netcode v2 session for the current game.
 ///
 /// Holds the QUIC endpoint alive for the whole session (it owns the UDP socket the link runs on)
-/// and the game-thread-owned [`SeamState`] the three BW hooks operate on.
+/// and the game-thread-owned [`TurnState`] the three BW hooks operate on.
 pub struct NetcodeV2Session {
     /// Keeps the client endpoint — and thus its UDP socket — alive for the session's lifetime; the
     /// link the driver runs on borrows from it. Never touched again after construction.
     _endpoint: ClientEndpoint,
-    seam: SeamState,
+    turn_state: TurnState,
 }
 
-/// The current game's session, reached from the BW/sync thread via [`with_seam`] and created on the
+/// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
 /// async thread by [`establish_session`]. Recurse-checked so a hook that re-enters (the IN hook's
 /// leave pass can reach the OUT hook) gets `None` instead of deadlocking — but the lock discipline
 /// is to not hold it across such calls in the first place.
@@ -86,7 +86,7 @@ pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionErro
     let (driver, channels) = LinkDriver::new(link);
     // Service the link on the DLL's async runtime. `run` returning `Err` means the link failed,
     // which is effectively this player dropping; reconnect/failover is deferred, so for now the
-    // session just ends and the hooks stop finding a seam (the caller falls back to native).
+    // session just ends and the hooks stop finding a turn state (the caller falls back to native).
     tokio::spawn(async move {
         match driver.run().await {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
@@ -99,11 +99,11 @@ pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionErro
         .iter()
         .map(|entry| (SlotId(entry.slot), entry.user_id))
         .collect();
-    let seam = SeamState::new(channels, local_slot, INITIAL_LATENCY_TURNS, roster);
+    let turn_state = TurnState::new(channels, local_slot, INITIAL_LATENCY_TURNS, roster);
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             _endpoint: endpoint,
-            seam,
+            turn_state,
         });
     }
     Ok(())
@@ -133,17 +133,17 @@ async fn connect_relay(
     ))
 }
 
-/// Runs `f` against the current game's [`SeamState`], if one is live.
+/// Runs `f` against the current game's [`TurnState`], if one is live.
 ///
 /// Returns `None` when there is no active netcode v2 session (the legacy transport path) or when
-/// the seam mutex is already held by this thread — a re-entrant hook call, which the caller treats
-/// the same as "no seam" and falls back to native behavior. Keep `f` short: it runs with the BW
-/// sync thread holding the lock, and it must not call back into native code that can re-enter a
-/// seam hook (see the IN-hook lock discipline in the module docs).
-pub fn with_seam<R>(f: impl FnOnce(&mut SeamState) -> R) -> Option<R> {
+/// the turn-state mutex is already held by this thread — a re-entrant hook call, which the caller
+/// treats the same as "no turn state" and falls back to native behavior. Keep `f` short: it runs
+/// with the BW sync thread holding the lock, and it must not call back into native code that can
+/// re-enter a turn hook (see the IN-hook lock discipline in the module docs).
+pub fn with_turn_state<R>(f: impl FnOnce(&mut TurnState) -> R) -> Option<R> {
     let mut guard = SESSION.lock()?;
     let session = guard.as_mut()?;
-    Some(f(&mut session.seam))
+    Some(f(&mut session.turn_state))
 }
 
 /// Tears down the current session (game over / teardown). Idempotent.

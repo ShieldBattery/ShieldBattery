@@ -84,7 +84,7 @@ pub struct RelayTarget {
 /// home relay (and optional backup) to dial, and the pinned trust store covering them.
 ///
 /// [`Identity`] is not `Clone` and owns the signing key, so this whole bundle is consumed (moved)
-/// by the seam when it builds the endpoint.
+/// by the session setup when it builds the endpoint.
 pub struct SessionCredentials {
     pub identity: Identity,
     pub home: RelayTarget,

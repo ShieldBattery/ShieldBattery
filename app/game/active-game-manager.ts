@@ -6,6 +6,7 @@ import { promises as fsPromises } from 'node:fs'
 import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { getErrorStack } from '../../common/errors'
+import { GameDebugState } from '../../common/games/game-debug'
 import {
   GameLaunchConfig,
   GameRoute,
@@ -31,6 +32,16 @@ import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
 // Overrides the default rally-point bind port in the game. Not recommended for use outside of
 // specific development testing, as it can cause game processes to conflict with each other.
 const RALLY_POINT_PORT = Number(process.env.SB_RALLY_POINT_PORT ?? 0)
+
+// How long to wait for a `/game/debug/state` reply before giving up. A release DLL doesn't
+// recognize `debugControl` at all, so a query to one never gets a reply and always times out.
+const DEBUG_QUERY_TIMEOUT_MS = 5000
+
+interface PendingDebugQuery {
+  resolve: (state: GameDebugState) => void
+  reject: (err: Error) => void
+  timer: ReturnType<typeof setTimeout>
+}
 
 interface ActiveGameInfo {
   id: string
@@ -120,6 +131,8 @@ export type ActiveGameManagerEvents = {
 export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   private activeGame: ActiveGameInfo | null = null
   private serverPort = 0
+  /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
+  private pendingDebugQueries = new Map<string, PendingDebugQuery[]>()
 
   constructor(
     private mapStore: MapStore,
@@ -154,6 +167,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       this.emit('gameCommand', gameId, 'quit')
       this.setStatus(GameStatus.Unknown)
       this.activeGame = null
+      this.rejectPendingDebugQueries(gameId, 'Game config cleared')
     } else {
       log.verbose(`Got clearGameConfig for ${gameId}, but it is not the active game`)
     }
@@ -421,6 +435,88 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameStatus', this.getStatus()!)
   }
 
+  /**
+   * Queries the active game process's debug state (debug game builds only). Defaults `gameId` to
+   * the current active game, rejecting if there isn't one or it doesn't match. Rejects on a
+   * {@link DEBUG_QUERY_TIMEOUT_MS} timeout since a build that doesn't support the underlying
+   * `debugControl` command never replies.
+   */
+  debugQueryState(gameId?: string): Promise<GameDebugState> {
+    const id = gameId ?? this.activeGame?.id
+    if (!id || !this.activeGame || this.activeGame.id !== id) {
+      return Promise.reject(
+        new Error(
+          gameId ? `No active game matching '${gameId}' to query` : 'No active game to query',
+        ),
+      )
+    }
+
+    return new Promise<GameDebugState>((resolve, reject) => {
+      const entry: PendingDebugQuery = {
+        resolve,
+        reject,
+        timer: setTimeout(() => {
+          this.removePendingDebugQuery(id, entry)
+          reject(
+            new Error(
+              `Timed out waiting for debug state from game ${id} ` +
+                '(it may not be a debug build)',
+            ),
+          )
+        }, DEBUG_QUERY_TIMEOUT_MS),
+      }
+
+      const queue = this.pendingDebugQueries.get(id) ?? []
+      queue.push(entry)
+      this.pendingDebugQueries.set(id, queue)
+
+      this.emit('gameCommand', id, 'debugControl', { type: 'queryState' })
+    })
+  }
+
+  /** Resolves the oldest pending `debugQueryState` request for `gameId`, if any. */
+  handleDebugState(gameId: string, payload: GameDebugState) {
+    const queue = this.pendingDebugQueries.get(gameId)
+    const entry = queue?.shift()
+    if (!entry) {
+      log.verbose(`Got debug state for ${gameId} but no query was pending`)
+      return
+    }
+    if (queue!.length === 0) {
+      this.pendingDebugQueries.delete(gameId)
+    }
+
+    clearTimeout(entry.timer)
+    entry.resolve(payload)
+  }
+
+  private removePendingDebugQuery(gameId: string, entry: PendingDebugQuery) {
+    const queue = this.pendingDebugQueries.get(gameId)
+    if (!queue) {
+      return
+    }
+    const index = queue.indexOf(entry)
+    if (index !== -1) {
+      queue.splice(index, 1)
+    }
+    if (queue.length === 0) {
+      this.pendingDebugQueries.delete(gameId)
+    }
+  }
+
+  /** Rejects and clears any pending `debugQueryState` requests for `gameId`. */
+  private rejectPendingDebugQueries(gameId: string, reason: string) {
+    const queue = this.pendingDebugQueries.get(gameId)
+    if (!queue) {
+      return
+    }
+    this.pendingDebugQueries.delete(gameId)
+    for (const entry of queue) {
+      clearTimeout(entry.timer)
+      entry.reject(new Error(reason))
+    }
+  }
+
   handleGameResult(
     gameId: string,
     result: Record<SbUserId, GameClientPlayerResult>,
@@ -563,6 +659,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.activeGame = null
+    this.rejectPendingDebugQueries(id, 'Game exited')
   }
 
   handleGameExitWaitError(id: string, err: Error) {

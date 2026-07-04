@@ -218,7 +218,7 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 forge::game_started();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
-                // Now that the seam hooks are live (game started), prime the netcode v2 pipe so the
+                // Now that the turn hooks are live (game started), prime the netcode v2 pipe so the
                 // first in-game receive has turns to dispatch. No-op without a rally-point2 session.
                 bw.seed_netcode_v2_pipe();
                 bw.run_game_loop();
