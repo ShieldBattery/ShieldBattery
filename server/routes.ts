@@ -14,6 +14,7 @@ import './http-apis'
 import isDev from './lib/env/is-dev'
 import { getUrl, readFile } from './lib/files'
 import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-config'
+import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
 import { NewsService } from './lib/news/news-service'
@@ -46,6 +47,8 @@ export default function applyRoutes(
   // TODO(tec27): Move this somewhere better if we have any other news-related stuff and/or
   // services that don't have an attached HTTP API to hang off of
   container.resolve(NewsService)
+  // Has no HTTP API of its own; resolved here so its Redis subscription is set up at boot.
+  container.resolve(GameReportNotificationService)
 
   const router = new KoaRouter()
   app.use(router.routes()).use(router.allowedMethods())

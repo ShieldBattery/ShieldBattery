@@ -22,6 +22,7 @@ export type NotificationData =
   | UserRestrictedNotificationData
   | LeagueBanNotificationData
   | LeagueUnbanNotificationData
+  | GameReportActionedNotificationData
 
 export interface FriendRequestNotificationData extends BaseNotificationData {
   type: NotificationType.FriendRequest
@@ -68,6 +69,12 @@ export interface LeagueUnbanNotificationData extends BaseNotificationData {
 
 type LeagueUnbanSearchNotificationData = MakeSearchable<LeagueUnbanNotificationData>
 
+export interface GameReportActionedNotificationData extends BaseNotificationData {
+  type: NotificationType.GameReportActioned
+}
+
+type GameReportActionedSearchNotificationData = MakeSearchable<GameReportActionedNotificationData>
+
 /**
  * Notification data type that can be used to retrieve notifications by.
  */
@@ -78,6 +85,7 @@ export type SearchNotificationData =
   | UserRestrictedSearchNotificationData
   | LeagueBanSearchNotificationData
   | LeagueUnbanSearchNotificationData
+  | GameReportActionedSearchNotificationData
   | Record<string, never>
 
 export interface Notification {

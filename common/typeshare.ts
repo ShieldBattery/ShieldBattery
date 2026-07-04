@@ -94,6 +94,26 @@ export enum MapVisibility {
   Official = 'OFFICIAL',
 }
 
+/**
+ * Messages published to Node (via Redis pub/sub) about game-report events. Node turns these into
+ * user-facing notifications (and later shares the same channel with the Discord webhook). This is
+ * deliberately kept as pub/sub rather than a direct write so the notification/webhook machinery
+ * stays in Node, where the rest of it lives.
+ */
+export type PublishedGameReportMessage =
+  /**
+   * A report was resolved as `Actioned`. The listed users — the actioned report's reporter plus
+   * the reporters of any sibling reports (same game + target) that were resolved as `Duplicate` —
+   * should be told that a player they reported was punished. Content stays deliberately vague on
+   * the Node side (no names, no game link) as an anti-retaliation measure.
+   */
+  {
+    type: 'reportActioned'
+    data: {
+      reporterIds: TypeshareTypes.SbUserId[]
+    }
+  }
+
 /** Messages published to the Redis `"matchmaking"` channel. */
 export type PublishedMatchmakingMessage = { type: 'matchFound'; data: MatchFoundMessage }
 
@@ -101,6 +121,7 @@ export type PublishedMessage =
   | { type: 'news'; data: PublishedNewsMessage }
   | { type: 'user'; data: PublishedUserMessage }
   | { type: 'matchmaking'; data: PublishedMatchmakingMessage }
+  | { type: 'gameReport'; data: PublishedGameReportMessage }
 
 export type PublishedNewsMessage = { type: 'urgentMessageChanged'; data: undefined }
 

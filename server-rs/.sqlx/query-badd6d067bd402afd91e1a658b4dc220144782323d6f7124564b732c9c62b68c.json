@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                        SELECT EXISTS(\n                            SELECT 1 FROM game_reports\n                            WHERE game_id = $1 AND reported_user_id = $2\n                                AND id != $3 AND resolution = 'actioned'\n                        ) AS \"exists!\"\n                    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "exists!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "badd6d067bd402afd91e1a658b4dc220144782323d6f7124564b732c9c62b68c"
+}
