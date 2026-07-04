@@ -76,7 +76,7 @@ export interface UserRestrictedNotification extends BaseNotification {
   type: NotificationType.UserRestricted
   kind: RestrictionKind
   endTime: number
-  reason: RestrictionReason
+  reason?: RestrictionReason
 }
 
 export interface LeagueBanNotification extends BaseNotification {

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import {
   ALL_RESTRICTION_KINDS,
-  ALL_RESTRICTION_REASONS,
+  RESTRICTION_REASONS_BY_KIND,
   RestrictionKind,
   RestrictionReason,
+  restrictionReasonToLabel,
 } from '../../../common/users/restrictions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { BanHistoryEntryJson, UserRestrictionHistoryJson } from '../../../common/users/user-network'
@@ -97,7 +99,7 @@ interface BanFormModel {
 interface RestrictionFormModel {
   kind: RestrictionKind
   endTime: string
-  reason: RestrictionReason
+  reason?: RestrictionReason
   adminNotes?: string
 }
 
@@ -109,7 +111,7 @@ const BAN_FORM_DEFAULTS: BanFormModel = {
 const RESTRICTION_FORM_DEFAULTS: RestrictionFormModel = {
   kind: RestrictionKind.Chat,
   endTime: '',
-  reason: RestrictionReason.Spam,
+  reason: RESTRICTION_REASONS_BY_KIND[RestrictionKind.Chat][0],
   adminNotes: '',
 }
 
@@ -402,6 +404,7 @@ function RestrictionHistoryList({
   restrictionHistory: ReadonlyDeep<UserRestrictionHistoryJson[]>
   now: number
 }) {
+  const { t } = useTranslation()
   return (
     <BanTable>
       <thead>
@@ -428,7 +431,9 @@ function RestrictionHistoryList({
                   <span>- system -</span>
                 )}
               </UsernameCell>
-              <RestrictionReasonCell>{r.reason.replaceAll('_', ' ')}</RestrictionReasonCell>
+              <RestrictionReasonCell>
+                {r.reason !== undefined ? restrictionReasonToLabel(r.reason, t) : ''}
+              </RestrictionReasonCell>
               <td>{r.adminNotes ?? ''}</td>
             </BanRow>
           ))
@@ -449,23 +454,38 @@ function RestrictUserForm({
   model: RestrictionFormModel
   onSubmit: (model: ReadonlyDeep<RestrictionFormModel>) => void
 }) {
-  const { submit, bindInput, bindCustom, form } = useForm<RestrictionFormModel>(model, {
-    endTime: value => {
-      if (!value || Date.parse(value) <= Date.now()) {
-        return 'End time must be in the future'
-      }
-      return undefined
-    },
-  })
+  const { t } = useTranslation()
+  const { submit, bindInput, bindCustom, getInputValue, setInputValue, form } =
+    useForm<RestrictionFormModel>(model, {
+      endTime: value => {
+        if (!value || Date.parse(value) <= Date.now()) {
+          return 'End time must be in the future'
+        }
+        return undefined
+      },
+    })
 
   useFormCallbacks(form, {
     onSubmit,
   })
 
+  const kind = getInputValue('kind')
+  const reasonOptions = RESTRICTION_REASONS_BY_KIND[kind]
+
   return (
     <form noValidate={true} onSubmit={submit}>
       <TitleLarge>Restrict user</TitleLarge>
-      <Select {...bindCustom('kind')} label='Restriction type' tabIndex={0}>
+      <Select
+        {...bindCustom('kind')}
+        label='Restriction type'
+        tabIndex={0}
+        onChange={(value: RestrictionKind) => {
+          bindCustom('kind').onChange(value)
+          // Reasons are per-kind: reset to the new kind's first preset, or clear it entirely for
+          // kinds that don't use a reason (e.g. reporting).
+          const newReasons = RESTRICTION_REASONS_BY_KIND[value]
+          setInputValue('reason', newReasons.length ? newReasons[0] : undefined)
+        }}>
         {ALL_RESTRICTION_KINDS.map(kind => (
           <SelectOption key={kind} value={kind} text={kind} />
         ))}
@@ -476,11 +496,13 @@ function RestrictUserForm({
         floatingLabel={true}
         inputProps={{ tabIndex: 0 }}
       />
-      <Select {...bindCustom('reason')} label='Reason' tabIndex={0}>
-        {ALL_RESTRICTION_REASONS.map(reason => (
-          <SelectOption key={reason} value={reason} text={reason.replace('_', ' ')} />
-        ))}
-      </Select>
+      {reasonOptions.length ? (
+        <Select {...bindCustom('reason')} label='Reason' tabIndex={0}>
+          {reasonOptions.map(reason => (
+            <SelectOption key={reason} value={reason} text={restrictionReasonToLabel(reason, t)} />
+          ))}
+        </Select>
+      ) : null}
       <TextField
         {...bindInput('adminNotes')}
         label='Admin notes (optional)'

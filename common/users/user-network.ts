@@ -182,7 +182,7 @@ export interface UserRestrictionHistoryEntry {
   restrictedBy?: SbUserId
   startTime: Date
   endTime: Date
-  reason: RestrictionReason
+  reason?: RestrictionReason
   adminNotes?: string
 }
 
@@ -212,7 +212,7 @@ export interface AdminGetRestrictionsResponse {
 export interface AdminApplyRestrictionRequest {
   kind: RestrictionKind
   endTime: number
-  reason: RestrictionReason
+  reason?: RestrictionReason
   adminNotes?: string
 }
 

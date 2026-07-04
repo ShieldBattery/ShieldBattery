@@ -72,10 +72,15 @@
     },
     "restriction": {
       "chat": {
-        "notification": "<0>Tu cuenta ha sido restringida para enviar mensajes de chat por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
+        "notification": "Tu cuenta ha sido restringida para enviar mensajes de chat."
       },
+      "endsOn": "Esta restricción finalizará el:",
+      "matchmaking": {
+        "notification": "Tu cuenta ha sido restringida para el emparejamiento."
+      },
+      "reasonLabel": "Razón:",
       "reporting": {
-        "notification": "<0>Tu cuenta ha sido restringida para reportar jugadores por la siguiente razón:</0><1>{{reasonLabel}}</1><2>Esta restricción finalizará el:</2><3>{{endText}}</3>"
+        "notification": "Tu cuenta ha sido restringida para reportar jugadores."
       }
     },
     "signup": {
@@ -1508,9 +1513,12 @@
     },
     "restrictions": {
       "reason": {
+        "cheating": "Trampas o exploits",
         "disruptive_behavior": "Conducta disruptiva",
+        "griefing": "Sabotaje",
         "harassment": "Acoso",
         "hate_speech": "Discurso de odio",
+        "left_game": "Abandonó la partida",
         "other": "Otros",
         "spam": "Spam",
         "toxicity": "Toxicidad"

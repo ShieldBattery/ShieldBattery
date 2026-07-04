@@ -1,4 +1,4 @@
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
   RestrictionKind,
@@ -6,7 +6,6 @@ import {
   restrictionReasonToLabel,
 } from '../../common/users/restrictions'
 import { longTimestamp } from '../i18n/date-formats'
-import { TransInterpolation } from '../i18n/i18next'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ActionlessNotification } from '../notifications/notifications'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -23,7 +22,7 @@ export interface UserRestrictedNotificationUiProps {
   read: boolean
   kind: RestrictionKind
   endTime: number
-  reason: RestrictionReason
+  reason?: RestrictionReason
 }
 
 function kindToIcon(kind: RestrictionKind): string {
@@ -32,6 +31,8 @@ function kindToIcon(kind: RestrictionKind): string {
       return 'comments_disabled'
     case RestrictionKind.Reporting:
       return 'flag'
+    case RestrictionKind.Matchmaking:
+      return 'block'
     default:
       return kind satisfies never
   }
@@ -56,37 +57,27 @@ export function UserRestrictedNotificationUi({
 }: UserRestrictedNotificationUiProps) {
   const { t } = useTranslation()
 
-  const reasonLabel = restrictionReasonToLabel(reason, t)
+  const reasonLabel = reason !== undefined ? restrictionReasonToLabel(reason, t) : undefined
   const endText = longTimestamp.format(endTime)
 
-  let text: React.ReactNode
+  let intro: string
   switch (kind) {
     case RestrictionKind.Chat:
-      text = (
-        <span>
-          <Trans t={t} i18nKey='auth.restriction.chat.notification'>
-            <div>
-              Your account has been restricted from sending chat messages for the following reason:
-            </div>
-            <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
-            <div>This restriction will end on:</div>
-            <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
-          </Trans>
-        </span>
+      intro = t(
+        'auth.restriction.chat.notification',
+        'Your account has been restricted from sending chat messages.',
       )
       break
     case RestrictionKind.Reporting:
-      text = (
-        <span>
-          <Trans t={t} i18nKey='auth.restriction.reporting.notification'>
-            <div>
-              Your account has been restricted from reporting players for the following reason:
-            </div>
-            <SpecialText>{{ reasonLabel } as TransInterpolation}</SpecialText>
-            <div>This restriction will end on:</div>
-            <SpecialText>{{ endText } as TransInterpolation}</SpecialText>
-          </Trans>
-        </span>
+      intro = t(
+        'auth.restriction.reporting.notification',
+        'Your account has been restricted from reporting players.',
+      )
+      break
+    case RestrictionKind.Matchmaking:
+      intro = t(
+        'auth.restriction.matchmaking.notification',
+        'Your account has been restricted from matchmaking.',
       )
       break
     default:
@@ -100,7 +91,19 @@ export function UserRestrictedNotificationUi({
       showDivider={showDivider}
       read={read}
       icon={<ColoredIcon icon={kindToIcon(kind)} />}
-      text={text}
+      text={
+        <span>
+          <div>{intro}</div>
+          {reasonLabel !== undefined ? (
+            <>
+              <div>{t('auth.restriction.reasonLabel', 'Reason:')}</div>
+              <SpecialText>{reasonLabel}</SpecialText>
+            </>
+          ) : null}
+          <div>{t('auth.restriction.endsOn', 'This restriction will end on:')}</div>
+          <SpecialText>{endText}</SpecialText>
+        </span>
+      }
     />
   )
 }

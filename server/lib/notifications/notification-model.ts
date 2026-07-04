@@ -49,7 +49,7 @@ export interface UserRestrictedNotificationData extends BaseNotificationData {
   type: NotificationType.UserRestricted
   kind: RestrictionKind
   endTime: number
-  reason: RestrictionReason
+  reason?: RestrictionReason
 }
 
 type UserRestrictedSearchNotificationData = MakeSearchable<UserRestrictedNotificationData>

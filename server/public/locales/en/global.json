@@ -72,10 +72,15 @@
     },
     "restriction": {
       "chat": {
-        "notification": "<0>Your account has been restricted from sending chat messages for the following reason:</0><1>{{reasonLabel}}</1><2>This restriction will end on:</2><3>{{endText}}</3>"
+        "notification": "Your account has been restricted from sending chat messages."
       },
+      "endsOn": "This restriction will end on:",
+      "matchmaking": {
+        "notification": "Your account has been restricted from matchmaking."
+      },
+      "reasonLabel": "Reason:",
       "reporting": {
-        "notification": "<0>Your account has been restricted from reporting players for the following reason:</0><1>{{reasonLabel}}</1><2>This restriction will end on:</2><3>{{endText}}</3>"
+        "notification": "Your account has been restricted from reporting players."
       }
     },
     "signup": {
@@ -1500,9 +1505,12 @@
     },
     "restrictions": {
       "reason": {
+        "cheating": "Cheating or exploiting",
         "disruptive_behavior": "Disruptive behavior",
+        "griefing": "Griefing",
         "harassment": "Harassment",
         "hate_speech": "Hate speech",
+        "left_game": "Left the game",
         "other": "Other",
         "spam": "Spam",
         "toxicity": "Toxicity"
