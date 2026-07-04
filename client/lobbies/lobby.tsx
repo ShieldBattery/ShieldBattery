@@ -367,6 +367,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           <FilledButton
             label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
             onClick={onLeaveLobbyClick}
+            testName='leave-lobby-button'
           />
           <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
           <InfoItem>
@@ -413,6 +414,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
         label={t('lobbies.lobby.startGame', 'Start game')}
         disabled={isDisabled}
         onClick={onStartGame}
+        testName='start-game-button'
       />
     )
   }

@@ -287,6 +287,7 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
             onClick={() => push(urlPath`/play/lobbies/create/${routeLobby}`)}
+            testName='create-lobby-button'
           />
         </StateMessageLayout>
       )

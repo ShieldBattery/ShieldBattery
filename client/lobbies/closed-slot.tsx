@@ -51,7 +51,7 @@ export function ClosedSlot({
   }
 
   return (
-    <Slot>
+    <Slot data-test='lobby-slot'>
       <SlotLeft>
         <SlotProfile>
           <SlotEmptyAvatar />

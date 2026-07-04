@@ -272,6 +272,7 @@ function CreateLobbyForm({
         label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
         disabled={disabled}
         floatingLabel={true}
+        testName='lobby-name-input'
         inputProps={{
           autoCapitalize: 'off',
           autoComplete: 'off',
@@ -537,6 +538,7 @@ export function CreateLobby(props: CreateLobbyProps) {
           onClick={() => {
             formRef.current?.submit()
           }}
+          testName='create-lobby-submit'
         />
       </Actions>
     </Container>
