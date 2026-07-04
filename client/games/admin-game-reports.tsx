@@ -79,6 +79,27 @@ const AdminGameReportQuery = graphql(/* GraphQL */ `
       }
       game {
         id
+        config {
+          __typename
+          ... on GameConfigDataLobby {
+            teams {
+              isComputer
+              user {
+                id
+                name
+              }
+            }
+          }
+          ... on GameConfigDataMatchmaking {
+            teams {
+              isComputer
+              user {
+                id
+                name
+              }
+            }
+          }
+        }
       }
       replay {
         replayFileId
@@ -101,6 +122,17 @@ const AdminGameReportQuery = graphql(/* GraphQL */ `
         duplicate
         pending
       }
+      siblingReports {
+        id
+        reason
+        details
+        createdAt
+        resolvedAt
+        resolution
+        reporter {
+          id
+        }
+      }
     }
   }
 `)
@@ -116,6 +148,12 @@ const ResolveGameReportMutation = graphql(/* GraphQL */ `
         id
       }
     }
+  }
+`)
+
+const ResolveSiblingReportsMutation = graphql(/* GraphQL */ `
+  mutation ResolveSiblingReports($id: UUID!, $resolution: GameReportResolution!, $notes: String) {
+    resolveSiblingReports(id: $id, resolution: $resolution, notes: $notes)
   }
 `)
 
@@ -140,7 +178,8 @@ function reasonToLabel(reason: GameReportReason): string {
 const REFUND_ERROR_MESSAGES: Record<string, string> = {
   gameNotFound: 'Game not found.',
   notCurrentSeason: 'Only current-season games can have their points refunded.',
-  notRefundable: 'This game has no lost ranked points to refund.',
+  notRanked: 'This game has no ranked points to refund (it was not a ranked game).',
+  notRefundable: 'None of the eligible players lost ranked points or bonus in this game.',
   invalidPlayers: 'The reported player did not participate in this game.',
   alreadyRefunded: "This game's points have already been refunded.",
 }
@@ -158,6 +197,35 @@ function resolutionToLabel(resolution: GameReportResolution): string {
     default:
       return resolution satisfies never
   }
+}
+
+/** "Pending" / the resolution label / "Resolved" for a report's resolved state. */
+function resolvedStatusLabel(
+  resolvedAt: unknown,
+  resolution: GameReportResolution | null | undefined,
+): string {
+  if (!resolvedAt) {
+    return 'Pending'
+  }
+  return resolution ? resolutionToLabel(resolution) : 'Resolved'
+}
+
+/**
+ * Color tone for a resolved state in the incident overview. Only outcomes that reflect real action
+ * (`Actioned`/`Duplicate`) read as positive; `Dismissed`/`Abusive` are muted so they don't look
+ * "handled well" at a glance, and anything unresolved stays amber ("still pending").
+ */
+function siblingStatusTone(
+  resolvedAt: unknown,
+  resolution: GameReportResolution | null | undefined,
+): 'positive' | 'muted' | 'pending' {
+  if (!resolvedAt) {
+    return 'pending'
+  }
+  return resolution === GameReportResolution.Actioned ||
+    resolution === GameReportResolution.Duplicate
+    ? 'positive'
+    : 'muted'
 }
 
 const Content = styled.div`
@@ -206,6 +274,62 @@ const RefundWarning = styled.div`
   ${bodyMedium};
   margin-bottom: 12px;
   color: var(--theme-on-surface-variant);
+`
+
+const RefundListLabel = styled.div`
+  ${labelMedium};
+  margin-bottom: 8px;
+  color: var(--theme-on-surface-variant);
+`
+
+const RefundPlayerList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+`
+
+const RefundHint = styled.div`
+  ${bodyMedium};
+  margin-bottom: 12px;
+  color: var(--theme-amber);
+`
+
+const SiblingList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`
+
+const SiblingRow = styled.div`
+  ${bodyMedium};
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
+const SiblingReporter = styled.div`
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`
+
+const SiblingReason = styled.div`
+  flex: 0 0 auto;
+  color: var(--theme-on-surface-variant);
+`
+
+const SIBLING_TONE_COLORS = {
+  positive: 'var(--theme-positive)',
+  muted: 'var(--theme-on-surface-variant)',
+  pending: 'var(--theme-amber)',
+} as const
+
+const SiblingStatus = styled.div<{ $tone: keyof typeof SIBLING_TONE_COLORS }>`
+  ${labelMedium};
+  flex: 0 0 auto;
+  color: ${props => SIBLING_TONE_COLORS[props.$tone]};
 `
 
 const ReportTable = styled.div`
@@ -651,14 +775,19 @@ function GameReportDetails({
   report,
   resolving,
   onResolve,
+  resolvingSiblings,
+  onResolveSiblings,
 }: {
   report: AdminGameReport
   resolving: boolean
   onResolve: (resolution: GameReportResolution, notes: string | undefined) => void
+  resolvingSiblings: boolean
+  onResolveSiblings: (resolution: GameReportResolution) => void
 }) {
   const dispatch = useAppDispatch()
   const [notes, setNotes] = useState('')
-  const { game, replay, reporter } = report
+  const { game, replay, reporter, siblingReports } = report
+  const pendingSiblings = siblingReports.filter(s => !s.resolvedAt)
 
   const onWatchReplay = () => {
     if (!replay || !game || !IS_ELECTRON) {
@@ -687,10 +816,40 @@ function GameReportDetails({
   const resolve = (resolution: GameReportResolution) =>
     onResolve(resolution, notes.trim() ? notes.trim() : undefined)
 
+  // The game's human players — candidates to refund.
+  const participants = (game?.config.teams ?? [])
+    .flat()
+    .flatMap(p => (!p.isComputer && p.user ? [p.user] : []))
+
   const [refunding, setRefunding] = useState(false)
   const [confirmingRefund, setConfirmingRefund] = useState(false)
+  // The players to refund (the checked set). Defaults to everyone except the reported player and is
+  // reset each time the confirmation opens; the admin unchecks anyone else who was punished. The
+  // endpoint takes the *punished* set, so we send everyone not checked here.
+  const [refundedIds, setRefundedIds] = useState<ReadonlySet<SbUserId>>(new Set())
+  const openRefundConfirmation = () => {
+    const reportedId = report.reportedUser?.id
+    setRefundedIds(new Set(participants.filter(p => p.id !== reportedId).map(p => p.id)))
+    setConfirmingRefund(true)
+  }
+  const toggleRefunded = (userId: SbUserId) => {
+    setRefundedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(userId)) {
+        next.delete(userId)
+      } else {
+        next.add(userId)
+      }
+      return next
+    })
+  }
+  // Everyone left unchecked is treated as punished (excluded from the refund). The endpoint requires
+  // at least one punished player, so refunding literally everyone isn't allowed.
+  const punishedUserIds = participants.filter(p => !refundedIds.has(p.id)).map(p => p.id)
+  const refundedCount = participants.length - punishedUserIds.length
+  const canRefund = refundedCount > 0 && punishedUserIds.length > 0
   const onRefundPoints = () => {
-    if (!game || !report.reportedUser) {
+    if (!game || !canRefund) {
       return
     }
     setConfirmingRefund(false)
@@ -698,12 +857,7 @@ function GameReportDetails({
     fetchJson<NullifyGamePointsResponse>(apiUrl`games/${game.id}/nullify-points`, {
       method: 'POST',
       body: encodeBodyAsParams<NullifyGamePointsRequest>({
-        // Only the reported player is excluded. The endpoint accepts multiple punished ids, but this
-        // report knows about a single target — if a game had several punished players reported
-        // separately, the others would (wrongly) be refunded, and the per-game idempotency lock means
-        // that can't be corrected. The confirmation copy spells this out; a punished-set picker is a
-        // possible follow-up (see the sibling-report handling in issue #1335).
-        punishedUserIds: [report.reportedUser.id],
+        punishedUserIds,
       }),
     })
       .then(result => {
@@ -724,10 +878,7 @@ function GameReportDetails({
       })
   }
 
-  let statusLabel = 'Pending'
-  if (report.resolvedAt) {
-    statusLabel = report.resolution ? resolutionToLabel(report.resolution) : 'Resolved'
-  }
+  const statusLabel = resolvedStatusLabel(report.resolvedAt, report.resolution)
 
   return (
     <DetailsRoot>
@@ -836,19 +987,36 @@ function GameReportDetails({
                       label='Refund game points'
                       iconStart={<MaterialIcon icon='paid' />}
                       disabled={refunding || confirmingRefund}
-                      onClick={() => setConfirmingRefund(true)}
+                      onClick={openRefundConfirmation}
                     />
                   ) : null}
                 </ActionRow>
               ) : null}
-              {confirmingRefund && game && report.reportedUser ? (
+              {confirmingRefund && game ? (
                 <RefundConfirmation>
                   <RefundWarning>
-                    This refunds the ranked and league points that everyone{' '}
-                    <b>except {report.reportedUser.name}</b> lost in this game. Only{' '}
-                    {report.reportedUser.name} is excluded — if other players in this game were also
-                    punished, their points will be refunded too. This can't be undone.
+                    Checked players get the ranked and league points they lost in this game back.
+                    The reported player is unchecked by default — uncheck anyone else who was
+                    punished. This can't be undone.
                   </RefundWarning>
+                  <RefundListLabel>Players to refund</RefundListLabel>
+                  <RefundPlayerList>
+                    {participants.map(p => (
+                      <CheckBox
+                        key={p.id}
+                        label={p.name}
+                        checked={refundedIds.has(p.id)}
+                        onChange={() => toggleRefunded(p.id)}
+                        disabled={refunding}
+                      />
+                    ))}
+                  </RefundPlayerList>
+                  {refundedCount > 0 && punishedUserIds.length === 0 ? (
+                    <RefundHint>
+                      Leave at least one player unchecked — a refund must exclude at least one
+                      punished player.
+                    </RefundHint>
+                  ) : null}
                   <ActionRow>
                     <OutlinedButton
                       label='Cancel'
@@ -857,7 +1025,7 @@ function GameReportDetails({
                     />
                     <FilledButton
                       label='Refund points'
-                      disabled={refunding}
+                      disabled={refunding || !canRefund}
                       onClick={onRefundPoints}
                     />
                   </ActionRow>
@@ -903,6 +1071,37 @@ function GameReportDetails({
             </>
           )}
         </SectionCard>
+
+        {siblingReports.length ? (
+          <SectionCard>
+            <SectionLabel>
+              Other reports for this game against this player ({siblingReports.length})
+            </SectionLabel>
+            <SiblingList>
+              {siblingReports.map(s => (
+                <SiblingRow key={s.id}>
+                  <SiblingReporter>
+                    {s.reporter ? <ConnectedUsername userId={s.reporter.id} /> : 'unknown user'}
+                  </SiblingReporter>
+                  <SiblingReason>{reasonToLabel(s.reason)}</SiblingReason>
+                  <SiblingStatus $tone={siblingStatusTone(s.resolvedAt, s.resolution)}>
+                    {resolvedStatusLabel(s.resolvedAt, s.resolution)}
+                  </SiblingStatus>
+                </SiblingRow>
+              ))}
+            </SiblingList>
+            {pendingSiblings.length ? (
+              <ActionRow>
+                <OutlinedButton
+                  label={`Resolve ${pendingSiblings.length} pending as Duplicate`}
+                  iconStart={<MaterialIcon icon='content_copy' />}
+                  disabled={resolvingSiblings}
+                  onClick={() => onResolveSiblings(GameReportResolution.Duplicate)}
+                />
+              </ActionRow>
+            ) : null}
+          </SectionCard>
+        ) : null}
       </CardColumn>
 
       <CardColumn>
@@ -932,11 +1131,23 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
   })
   const [{ fetching: resolving, error: resolveError }, resolveGameReport] =
     useMutation(ResolveGameReportMutation)
+  const [{ fetching: resolvingSiblings, error: resolveSiblingsError }, resolveSiblingReports] =
+    useMutation(ResolveSiblingReportsMutation)
 
   const report = data?.gameReport
 
   const onResolve = (resolution: GameReportResolution, notes: string | undefined) => {
     resolveGameReport({ id: reportId, resolution, notes })
+      .then(result => {
+        if (!result.error) {
+          reexecute({ requestPolicy: 'network-only' })
+        }
+      })
+      .catch(swallowNonBuiltins)
+  }
+
+  const onResolveSiblings = (resolution: GameReportResolution) => {
+    resolveSiblingReports({ id: reportId, resolution, notes: undefined })
       .then(result => {
         if (!result.error) {
           reexecute({ requestPolicy: 'network-only' })
@@ -957,8 +1168,17 @@ function AdminGameReportView({ params: { reportId } }: { params: { reportId: str
       </HeadlineAndButton>
       {error ? <ErrorText>Error: {error.message}</ErrorText> : null}
       {resolveError ? <ErrorText>Error resolving: {resolveError.message}</ErrorText> : null}
+      {resolveSiblingsError ? (
+        <ErrorText>Error resolving pending reports: {resolveSiblingsError.message}</ErrorText>
+      ) : null}
       {report ? (
-        <GameReportDetails report={report} resolving={resolving} onResolve={onResolve} />
+        <GameReportDetails
+          report={report}
+          resolving={resolving}
+          onResolve={onResolve}
+          resolvingSiblings={resolvingSiblings}
+          onResolveSiblings={onResolveSiblings}
+        />
       ) : null}
       {!report && !fetching && !error ? (
         // The detail view is deep-linkable, and a stale/bad id resolves to a null report rather

@@ -134,6 +134,12 @@ type GameReport {
 	(see `replay`), batched via the same DataLoader.
 	"""
 	reportedUserStats: GameReportUserStats!
+	"""
+	Other reports against the same player for the same game (this one excluded), newest first —
+	so an admin sees the whole incident at once and doesn't, e.g., dismiss a report a sibling has
+	already gotten actioned. Detail-view only (the list view doesn't select it), so no batching.
+	"""
+	siblingReports: [GameReport!]!
 }
 
 type GameReportConnection {
@@ -481,6 +487,13 @@ type Mutation {
 	enforced: a report can only be resolved once.
 	"""
 	resolveGameReport(id: UUID!, resolution: GameReportResolution!, notes: String): GameReport!
+	"""
+	Resolves every still-pending sibling report of `id` (same game + reported player, excluding
+	`id` itself) with the given resolution — a one-click way to clear the rest of an incident
+	after handling one report (typically as `Duplicate`). Reporters are notified per sibling
+	exactly as if each had been resolved individually. Returns how many were resolved.
+	"""
+	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
 	"""
 	Sets (or clears, if message is not provided) the urgent message at the top of the home page.

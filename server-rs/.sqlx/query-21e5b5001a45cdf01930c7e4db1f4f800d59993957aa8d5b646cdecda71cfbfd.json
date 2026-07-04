@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT s.id\n                FROM game_reports s\n                JOIN game_reports r ON r.id = $1\n                WHERE s.game_id = r.game_id AND s.reported_user_id = r.reported_user_id\n                    AND s.id != $1 AND s.resolved_at IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "game_reports",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "21e5b5001a45cdf01930c7e4db1f4f800d59993957aa8d5b646cdecda71cfbfd"
+}

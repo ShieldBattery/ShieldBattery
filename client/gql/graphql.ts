@@ -318,7 +318,22 @@ export type AdminGameReportQuery = {
     reporter: { id: Types.SbUserId; name: string } | null
     reportedUser: { id: Types.SbUserId; name: string } | null
     resolver: { id: Types.SbUserId } | null
-    game: { id: string } | null
+    game: {
+      id: string
+      config:
+        | {
+            __typename: 'GameConfigDataLobby'
+            teams: Array<
+              Array<{ isComputer: boolean; user: { id: Types.SbUserId; name: string } | null }>
+            >
+          }
+        | {
+            __typename: 'GameConfigDataMatchmaking'
+            teams: Array<
+              Array<{ isComputer: boolean; user: { id: Types.SbUserId; name: string } | null }>
+            >
+          }
+    } | null
     replay: { replayFileId: string; hash: string; url: string } | null
     reporterStats: {
       total: number
@@ -336,6 +351,15 @@ export type AdminGameReportQuery = {
       duplicate: number
       pending: number
     }
+    siblingReports: Array<{
+      id: string
+      reason: GameReportReason
+      details: string | null
+      createdAt: string
+      resolvedAt: string | null
+      resolution: GameReportResolution | null
+      reporter: { id: Types.SbUserId } | null
+    }>
   } | null
 }
 
@@ -354,6 +378,14 @@ export type ResolveGameReportMutation = {
     resolver: { id: Types.SbUserId } | null
   }
 }
+
+export type ResolveSiblingReportsMutationVariables = Exact<{
+  id: string
+  resolution: GameReportResolution
+  notes?: string | null | undefined
+}>
+
+export type ResolveSiblingReportsMutation = { resolveSiblingReports: number }
 
 export type GamesPageContentQueryVariables = Exact<{ [key: string]: never }>
 
@@ -2095,7 +2127,103 @@ export const AdminGameReportDocument = {
                   name: { kind: 'Name', value: 'game' },
                   selectionSet: {
                     kind: 'SelectionSet',
-                    selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'config' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: '__typename' } },
+                            {
+                              kind: 'InlineFragment',
+                              typeCondition: {
+                                kind: 'NamedType',
+                                name: { kind: 'Name', value: 'GameConfigDataLobby' },
+                              },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'teams' },
+                                    selectionSet: {
+                                      kind: 'SelectionSet',
+                                      selections: [
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'isComputer' },
+                                        },
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'user' },
+                                          selectionSet: {
+                                            kind: 'SelectionSet',
+                                            selections: [
+                                              {
+                                                kind: 'Field',
+                                                name: { kind: 'Name', value: 'id' },
+                                              },
+                                              {
+                                                kind: 'Field',
+                                                name: { kind: 'Name', value: 'name' },
+                                              },
+                                            ],
+                                          },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                            {
+                              kind: 'InlineFragment',
+                              typeCondition: {
+                                kind: 'NamedType',
+                                name: { kind: 'Name', value: 'GameConfigDataMatchmaking' },
+                              },
+                              selectionSet: {
+                                kind: 'SelectionSet',
+                                selections: [
+                                  {
+                                    kind: 'Field',
+                                    name: { kind: 'Name', value: 'teams' },
+                                    selectionSet: {
+                                      kind: 'SelectionSet',
+                                      selections: [
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'isComputer' },
+                                        },
+                                        {
+                                          kind: 'Field',
+                                          name: { kind: 'Name', value: 'user' },
+                                          selectionSet: {
+                                            kind: 'SelectionSet',
+                                            selections: [
+                                              {
+                                                kind: 'Field',
+                                                name: { kind: 'Name', value: 'id' },
+                                              },
+                                              {
+                                                kind: 'Field',
+                                                name: { kind: 'Name', value: 'name' },
+                                              },
+                                            ],
+                                          },
+                                        },
+                                      ],
+                                    },
+                                  },
+                                ],
+                              },
+                            },
+                          ],
+                        },
+                      },
+                    ],
                   },
                 },
                 {
@@ -2137,6 +2265,29 @@ export const AdminGameReportDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'abusive' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'duplicate' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'pending' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'siblingReports' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'reason' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'details' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'resolvedAt' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'resolution' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'reporter' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [{ kind: 'Field', name: { kind: 'Name', value: 'id' } }],
+                        },
+                      },
                     ],
                   },
                 },
@@ -2224,6 +2375,65 @@ export const ResolveGameReportDocument = {
     },
   ],
 } as unknown as DocumentNode<ResolveGameReportMutation, ResolveGameReportMutationVariables>
+export const ResolveSiblingReportsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ResolveSiblingReports' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'resolution' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'GameReportResolution' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'notes' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'resolveSiblingReports' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'resolution' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'resolution' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'notes' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'notes' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<ResolveSiblingReportsMutation, ResolveSiblingReportsMutationVariables>
 export const GamesPageContentDocument = {
   kind: 'Document',
   definitions: [

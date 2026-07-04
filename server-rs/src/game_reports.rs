@@ -271,6 +271,17 @@ impl GameReport {
             .unwrap_or_default();
         Ok(stats.as_reported)
     }
+
+    /// Other reports against the same player for the same game (this one excluded), newest first —
+    /// so an admin sees the whole incident at once and doesn't, e.g., dismiss a report a sibling has
+    /// already gotten actioned. Detail-view only (the list view doesn't select it), so no batching.
+    #[graphql(guard = RequiredPermission::ManageGameReports)]
+    async fn sibling_reports(&self, ctx: &Context<'_>) -> Result<Vec<GameReport>> {
+        ctx.data::<GameReportsRepo>()?
+            .load_siblings(self.game_id, self.reported_user_id, self.id)
+            .await
+            .map_err(Into::into)
+    }
 }
 
 #[derive(SimpleObject)]
@@ -508,28 +519,75 @@ impl GameReportsMutation {
             }
         };
 
-        // Notify the reporters whose report led to a punishment. This covers the report just
-        // actioned, and — when this resolution is `Actioned` — the reporters of any sibling reports
-        // (same game + target) already resolved as `Duplicate`, since they made an equally good
-        // report. Resolving a report as `Duplicate` after its sibling was actioned notifies that
-        // reporter too. This is strictly best-effort: the resolution has already committed, so
-        // neither computing the recipients nor publishing must fail the mutation (otherwise the
-        // client sees an error for an action that succeeded, and a retry hits ALREADY_RESOLVED).
-        match repo.reporters_to_notify(&report, resolution).await {
-            Ok(reporter_ids) if !reporter_ids.is_empty() => {
-                if let Err(err) = ctx
-                    .data::<RedisPool>()?
-                    .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
-                    .await
-                {
-                    tracing::error!("failed to publish game report notification: {err:?}");
-                }
-            }
-            Ok(_) => {}
-            Err(err) => tracing::error!("failed to compute reporters to notify: {err:?}"),
-        }
+        publish_resolution_notifications(ctx, repo, &report, resolution).await;
 
         Ok(report)
+    }
+
+    /// Resolves every still-pending sibling report of `id` (same game + reported player, excluding
+    /// `id` itself) with the given resolution — a one-click way to clear the rest of an incident
+    /// after handling one report (typically as `Duplicate`). Reporters are notified per sibling
+    /// exactly as if each had been resolved individually. Returns how many were resolved.
+    #[graphql(guard = RequiredPermission::ManageGameReports)]
+    async fn resolve_sibling_reports(
+        &self,
+        ctx: &Context<'_>,
+        id: Uuid,
+        resolution: GameReportResolution,
+        notes: Option<String>,
+    ) -> Result<i32> {
+        let Some(user) = ctx.data::<Option<CurrentUser>>()? else {
+            return Err(graphql_error("UNAUTHORIZED", "Unauthorized"));
+        };
+
+        let repo = ctx.data::<GameReportsRepo>()?;
+        // Bounded (siblings share one game + target), so resolving one at a time — which keeps the
+        // notification behaviour identical to the single-report path — is fine here.
+        let mut resolved = 0;
+        for sibling_id in repo.pending_sibling_ids(id).await? {
+            if let Some(report) = repo
+                .resolve_report(sibling_id, user.id, resolution, notes.clone())
+                .await?
+            {
+                publish_resolution_notifications(ctx, repo, &report, resolution).await;
+                resolved += 1;
+            }
+        }
+
+        Ok(resolved)
+    }
+}
+
+/// Best-effort: after a report is resolved, tell the reporters whose report led to a punishment (see
+/// [`GameReportsRepo::reporters_to_notify`] for who that is — the actioned report's reporter plus any
+/// duplicate-of-actioned reporters). The resolution has already committed, so nothing here — neither
+/// computing recipients nor publishing — may surface as a mutation error, otherwise the client sees a
+/// failure for an action that succeeded and a retry hits ALREADY_RESOLVED.
+async fn publish_resolution_notifications(
+    ctx: &Context<'_>,
+    repo: &GameReportsRepo,
+    report: &GameReport,
+    resolution: GameReportResolution,
+) {
+    let reporter_ids = match repo.reporters_to_notify(report, resolution).await {
+        Ok(ids) if !ids.is_empty() => ids,
+        Ok(_) => return,
+        Err(err) => {
+            tracing::error!("failed to compute reporters to notify: {err:?}");
+            return;
+        }
+    };
+
+    match ctx.data::<RedisPool>() {
+        Ok(redis) => {
+            if let Err(err) = redis
+                .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
+                .await
+            {
+                tracing::error!("failed to publish game report notification: {err:?}");
+            }
+        }
+        Err(err) => tracing::error!("no RedisPool available to publish notification: {err:?}"),
     }
 }
 
@@ -795,6 +853,54 @@ impl GameReportsRepo {
         .await
         .wrap_err("Failed to check report existence")?;
         Ok(exists)
+    }
+
+    /// Loads the other reports against `reported_user_id` for `game_id`, excluding `exclude_id`,
+    /// newest first (the "sibling reports" of a report).
+    async fn load_siblings(
+        &self,
+        game_id: Uuid,
+        reported_user_id: SbUserId,
+        exclude_id: Uuid,
+    ) -> eyre::Result<Vec<GameReport>> {
+        let rows = sqlx::query_as!(
+            DbGameReport,
+            r#"
+                SELECT id, game_id, reporter_id as "reporter_id: _",
+                    reported_user_id as "reported_user_id: _", reason, details, created_at,
+                    resolved_at, resolver_id as "resolver_id: _", resolution, resolution_notes
+                FROM game_reports
+                WHERE game_id = $1 AND reported_user_id = $2 AND id != $3
+                ORDER BY created_at DESC
+            "#,
+            game_id,
+            reported_user_id.0,
+            exclude_id,
+        )
+        .fetch_all(&self.db)
+        .await
+        .wrap_err("Failed to load sibling reports")?;
+
+        rows.into_iter().map(Self::to_report).collect()
+    }
+
+    /// Ids of the still-pending sibling reports of `report_id` (same game + target, excluding
+    /// itself), for the bulk-resolve action.
+    async fn pending_sibling_ids(&self, report_id: Uuid) -> eyre::Result<Vec<Uuid>> {
+        let ids = sqlx::query_scalar!(
+            r#"
+                SELECT s.id
+                FROM game_reports s
+                JOIN game_reports r ON r.id = $1
+                WHERE s.game_id = r.game_id AND s.reported_user_id = r.reported_user_id
+                    AND s.id != $1 AND s.resolved_at IS NULL
+            "#,
+            report_id,
+        )
+        .fetch_all(&self.db)
+        .await
+        .wrap_err("Failed to load pending sibling reports")?;
+        Ok(ids)
     }
 
     /// Keyset-paginated report list. Ordering is always newest-first; `inverted` (backward
