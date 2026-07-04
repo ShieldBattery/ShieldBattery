@@ -365,6 +365,47 @@ relay for anything new that's prod-safe).
 `pending_leave_reason`, has to execute on the **game thread**, not the async thread that handles
 `debugControl`; route it like the existing game-thread requests), #4 app-side screenshots.
 
+## Slice 7 — what landed (2026-07-04): debug `forceLeave` (§7 #3, leave-only)
+
+- **`DebugControlCommand::ForceLeave { slot }` — DEBUG-ONLY, live-verified.** game_state (async
+  thread) records the slot on the `TurnState` (`debug_force_leave`); the IN hook drains it on the
+  **game thread** (`apply_forced_leaves`, run at the top of `netcode_v2_receive_turns`), writes that
+  slot's storm `pending_leave_reason` (`0x40000006` = dropped) and `mark_slot_left`s it so a step
+  stalled on the departed peer can proceed. The existing `run_synced_leave_pass` then applies it in
+  the synced-RNG window on a ready step, identical to a real drop. The async→game-thread hop is the
+  key structural point (async can't touch BW memory) — `debug_force_leave` just queues; the game
+  thread does the write.
+- **Determinism (documented on `apply_forced_leaves`):** this is the per-client *trigger*, NOT
+  consensus. A one-sided injection is correct for a 1v1 opponent-drop (one remaining client); 3+
+  player games need the same slot injected on every remaining client on the same turn (what §6's
+  coordinated leave will do). Don't add cross-client coordination at the seam.
+- **No `SetLatency`/buffer-injection command** (decided with Travis 2026-07-04): clients don't set
+  latency in v2 — the relays own it (D9) — so a client-side latency override would be actively
+  misleading. `forceLeave` is the whole of #3 for now.
+- **App-side (dev-gated `isDev || SB_SESSION`):** `activeGameForceLeave(gameId, slot)` IPC,
+  fire-and-forget → `gameCommand debugControl {type:'forceLeave', slot}`; verify the effect via
+  `queryState`. `window.__sbDebugGame.forceLeave(gameId, slot)`.
+- **Live-verified (2026-07-04):** 2-player loopback (claude-1 slot 0 / claude-2 slot 1), both
+  `playing` on netcodeV2. `queryState` baseline: both slots `required: true, hasDispatch: true`.
+  `forceLeave(gameId, 1)` on claude-1 → claude-1's `queryState` immediately showed slot 1 flip to
+  `required: false, hasDispatch: false` (slot 0 untouched); the game log recorded `was_dropped:
+  true`, the native synced-leave applied, claude-1 took the allied-victory path and the game
+  resolved to a real result (`/game/result` → victory for slot 0, defeat for slot 1) and
+  `finished` on both clients — i.e. the trigger drove the game to completion with no human quit,
+  which is exactly the point for testing the §6 leave/reconnect paths.
+- **Verified:** 66 Rust tests + clippy `-D warnings` clean; typecheck/lint clean; compile-out probe
+  both directions; the live run above.
+
+**§7 remaining after slice 7:** #4 screenshots. **Decision (2026-07-04): do #4 IN-GAME, not
+app-side.** The app-side `desktopCapturer` route was tried and reverted: window sources carry no
+owning PID, so it can only match by a guessed title and **can't distinguish two concurrent dev
+clients** (both windows are "StarCraft") — fatal for the verify-app two-client flow — and it can't
+capture exclusive-fullscreen. In-game capture from forge's own `HWND` (`FORGE_WINDOW`) grabs the
+right window per instance and rides the `debug_control` channel like `queryState` (reply a base64
+PNG). forge does NOT currently hook rendering (only window management), so: GDI `BitBlt` from the
+HWND for windowed mode now (modest), with a D3D11 `Present`-hook backbuffer capture as the
+escalation if exclusive-fullscreen capture is ever needed (large, greenfield graphics-hook work).
+
 ## What's next (in rough order)
 
 ### 0. ✅ Control plane (WS-E + WS-F) + roster + bootstrap seeding — DONE (slice 4)
