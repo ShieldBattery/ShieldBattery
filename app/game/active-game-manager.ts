@@ -504,6 +504,20 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
   }
 
+  /**
+   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
+   * builds only). Fire-and-forget: there's no reply, callers verify the effect via
+   * {@link debugQueryState}.
+   */
+  forceGameLeave(gameId: string, slot: number): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got forceGameLeave for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'forceLeave', slot })
+  }
+
   /** Rejects and clears any pending `debugQueryState` requests for `gameId`. */
   private rejectPendingDebugQueries(gameId: string, reason: string) {
     const queue = this.pendingDebugQueries.get(gameId)

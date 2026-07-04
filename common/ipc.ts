@@ -83,6 +83,14 @@ interface IpcInvokeables {
    */
   activeGameDebugQueryState: (gameId?: string) => GameDebugState
   /**
+   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
+   * builds only). Only registered when the app is running in a dev session
+   * (`isDev || SB_SESSION`). Fire-and-forget: there's no reply, so callers should verify the
+   * effect via {@link IpcInvokeables.activeGameDebugQueryState} (the slot's `required` flag
+   * becomes `false`).
+   */
+  activeGameForceLeave: (gameId: string, slot: number) => void
+  /**
    * Generates the per-session Ed25519 keypair for a netcode v2 game and returns the base64 raw
    * public key (to be submitted to the server), or null if `gameId` is not the active game. The
    * private key stays in the main process until it's handed to the game process at launch.

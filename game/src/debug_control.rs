@@ -21,6 +21,10 @@ pub enum DebugControlCommand {
     /// Snapshot the current netcode-v2 turn state; the DLL replies on `/game/debug/state` with a
     /// [`DebugStateResponse`].
     QueryState,
+    /// Force a synced leave of a mapped slot on THIS client. Writes the slot's
+    /// `pending_leave_reason` on the game thread so the native synced-leave pass applies it like a
+    /// real drop, and drops the slot from the readiness set so a stalled step can proceed.
+    ForceLeave { slot: u8 },
 }
 
 /// Reply payload for [`DebugControlCommand::QueryState`], sent on `/game/debug/state`.
@@ -73,6 +77,13 @@ mod tests {
     fn query_state_command_parses_camel_case() {
         let cmd: DebugControlCommand = serde_json::from_str(r#"{"type":"queryState"}"#).unwrap();
         assert_eq!(cmd, DebugControlCommand::QueryState);
+    }
+
+    #[test]
+    fn force_leave_command_parses_camel_case_with_slot() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"forceLeave","slot":2}"#).unwrap();
+        assert_eq!(cmd, DebugControlCommand::ForceLeave { slot: 2 });
     }
 
     #[test]

@@ -109,6 +109,12 @@ pub struct TurnState {
     /// Which storm slots must supply a turn before a step is ready to dispatch. Set as slots are
     /// mapped during join; a synced leave clears one (so the sim stops waiting on a departed peer).
     required: [bool; bw::MAX_STORM_PLAYERS],
+    /// Slots the `forceLeave` debug command has queued for a forced synced leave on the game thread.
+    /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_leaves`), which
+    /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
+    /// exercising the leave/reconnect paths without a real human quit.
+    #[cfg(debug_assertions)]
+    forced_leaves: Vec<SlotId>,
 }
 
 impl TurnState {
@@ -133,6 +139,8 @@ impl TurnState {
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
+            #[cfg(debug_assertions)]
+            forced_leaves: Vec::new(),
         }
     }
 
@@ -339,6 +347,21 @@ impl TurnState {
     /// The local origin slot, as a typed [`SlotId`] for the transport layer.
     pub fn local_slot_id(&self) -> SlotId {
         self.local_slot
+    }
+
+    /// Queues a slot for a forced synced leave, for the `forceLeave` debug-control command. The
+    /// game thread drains this on its next receive (see `bw_scr::apply_forced_leaves`); nothing is
+    /// applied here, so this is safe to call from the async side.
+    #[cfg(debug_assertions)]
+    pub fn debug_force_leave(&mut self, slot: SlotId) {
+        self.forced_leaves.push(slot);
+    }
+
+    /// Drains the slots queued by [`debug_force_leave`](Self::debug_force_leave), in queue order.
+    /// Called once per receive on the game thread.
+    #[cfg(debug_assertions)]
+    pub fn take_forced_leaves(&mut self) -> Vec<SlotId> {
+        std::mem::take(&mut self.forced_leaves)
     }
 
     /// A point-in-time read of this turn state, for the `queryState` debug-control command. Pure
@@ -635,6 +658,17 @@ mod tests {
         assert!(!peer.required);
         assert_eq!(peer.queued_turns, 0);
         assert!(!peer.has_dispatch);
+    }
+
+    #[test]
+    fn forced_leaves_drain_in_order_then_empty() {
+        let (mut state, _in_tx, _out_rx) = turn_state();
+        state.debug_force_leave(PEER_SLOT);
+        state.debug_force_leave(LOCAL_SLOT);
+
+        assert_eq!(state.take_forced_leaves(), vec![PEER_SLOT, LOCAL_SLOT]);
+        // A second drain finds nothing: `take` left the queue empty.
+        assert!(state.take_forced_leaves().is_empty());
     }
 
     #[test]

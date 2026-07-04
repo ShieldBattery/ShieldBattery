@@ -131,6 +131,8 @@ rootElemPromise
       window.__sbDebugGame = {
         queryGameState: gameId =>
           new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
+        forceLeave: (gameId, slot) =>
+          new TypedIpcRenderer().invoke('activeGameForceLeave', gameId, slot),
       }
     }
     registerDispatch(reduxStore.dispatch)

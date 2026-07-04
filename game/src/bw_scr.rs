@@ -365,6 +365,12 @@ enum TurnReceiveOutcome {
     Stall,
 }
 
+/// The leave reason the `forceLeave` debug command writes into `pending_leave_reason`. BW's
+/// "dropped" reason (`0x40000006` → `strPLAYER_WAS_DROPPED`), so a forced leave reads on this
+/// client exactly as a real drop does — same string, same synced-leave handling.
+#[cfg(debug_assertions)]
+const FORCED_LEAVE_REASON: i32 = 0x40000006u32 as i32;
+
 /// State mutated during renderer draw call
 struct RenderState {
     overlay: draw_overlay::OverlayState,
@@ -2295,6 +2301,12 @@ impl BwScr {
                 return TurnReceiveOutcome::Native;
             }
             let nc = &self.netcode_v2;
+            // Debug-only: apply any `forceLeave`-queued slots before the readiness check below, so a
+            // forced slot is already dropped from `required` when `receive_turns` runs and its
+            // `pending_leave_reason` is already written when `run_synced_leave_pass` fires on a ready
+            // step. Must precede the receive block.
+            #[cfg(debug_assertions)]
+            self.apply_forced_leaves(nc);
             let next_frame = nc.game_frame_count.resolve();
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
@@ -2378,6 +2390,43 @@ impl BwScr {
     pub fn seed_netcode_v2_pipe(&self) {
         unsafe {
             self.netcode_v2_flush_pipe();
+        }
+    }
+
+    /// Debug-only `forceLeave` application, run at the top of the IN hook. Drains the slots the
+    /// `forceLeave` command queued on the turn state and, for each one that maps to a storm id,
+    /// writes that storm's `pending_leave_reason` mailbox and drops the slot from the readiness set.
+    /// The existing native synced-leave pass ([`run_synced_leave_pass`](Self::run_synced_leave_pass))
+    /// then detects the written reason and applies it in the synced-RNG window on a ready step,
+    /// exactly as it would for a real drop; the `mark_slot_left` here is idempotent with the pass's
+    /// own re-report. An unmapped slot (no storm id yet) can't be leaked into `pending_leave_reason`,
+    /// so it's warned and skipped.
+    ///
+    /// # Determinism
+    ///
+    /// Writing `pending_leave_reason` and running `apply_pending_player_leaves` consumes synced RNG
+    /// on THIS client only. That is faithful to the real per-client leave mechanism, but a one-sided
+    /// injection desyncs a *continuing* multi-player game: peers that didn't apply the same leave on
+    /// the same turn diverge. For a 1v1 opponent-drop test (one remaining client) this is correct as
+    /// is; for 3+ player games the caller must inject the same slot on every remaining client on the
+    /// same turn — which is what the (still-unbuilt) coordinated-leave consensus will do. This is the
+    /// trigger, NOT the consensus; it deliberately does no cross-client coordination.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_forced_leaves(&self, nc: &NetcodeV2Bw) {
+        unsafe {
+            let Some(forced) = netcode_v2::with_turn_state(|s| s.take_forced_leaves()) else {
+                // No live session — nothing to force.
+                return;
+            };
+            for slot in forced {
+                let storm = netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten();
+                let Some(storm) = storm else {
+                    warn!("netcode v2: forceLeave for unmapped slot {slot:?}; skipping");
+                    continue;
+                };
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = FORCED_LEAVE_REASON;
+                netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
+            }
         }
     }
 
