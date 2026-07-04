@@ -77,17 +77,16 @@ interface IpcInvokeables {
    */
   activeGameClearConfig: (gameId: string) => void
   /**
-   * Queries the active game process's debug state (debug game builds only). Only registered when
-   * the app is running in a dev session (`isDev || SB_SESSION`); on a build that doesn't support
-   * it the query is never acknowledged, so this rejects on a timeout rather than hanging forever.
+   * Queries the active game process's debug state (debug game builds only). Only registered in
+   * development (`isDev`); on a build that doesn't support it the query is never acknowledged, so
+   * this rejects on a timeout rather than hanging forever.
    */
   activeGameDebugQueryState: (gameId?: string) => GameDebugState
   /**
    * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
-   * builds only). Only registered when the app is running in a dev session
-   * (`isDev || SB_SESSION`). Fire-and-forget: there's no reply, so callers should verify the
-   * effect via {@link IpcInvokeables.activeGameDebugQueryState} (the slot's `required` flag
-   * becomes `false`).
+   * builds only). Only registered in development (`isDev`). Fire-and-forget: there's no reply, so
+   * callers should verify the effect via {@link IpcInvokeables.activeGameDebugQueryState} (the
+   * slot's `required` flag becomes `false`).
    */
   activeGameForceLeave: (gameId: string, slot: number) => void
   /**

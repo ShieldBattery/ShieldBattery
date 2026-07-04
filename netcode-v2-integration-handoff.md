@@ -301,7 +301,7 @@ tests/lints green: 59 Rust tests, 858 TS tests, clippy/typecheck/lint clean.
   `app_socket.rs` and a cfg-gated `GameStateMessage::DebugControl` variant — the full
   command→game_state→reply round-trip pattern that §7 #2 (queryState) and #3 (forced scenarios)
   should extend. Unit-tested. No app-side sender exists yet; when one is added it must be
-  dev-gated (`isDev`/`SB_SESSION`) as defense in depth.
+  dev-gated (`isDev`) as defense in depth.
 - **Release compile-out: PROVEN, and don't re-verify it by string-grepping.** Method that works:
   drop `#[cfg(debug_assertions)] compile_error!(…)` into lib.rs — `cargo check --release` must
   pass (assertions off ⇒ the whole debug surface is excluded) and `cargo check` must fail
@@ -344,7 +344,7 @@ relay for anything new that's prod-safe).
   `TurnState::debug_snapshot()` is a pure read and degrades (never panics) on indices the arrays
   can't track. Release compile-out re-proven with the `compile_error!` probe, both directions.
 - **App-side sender (defense in depth, per the §7 split):** `activeGameDebugQueryState` IPC is
-  registered **only when `isDev || SB_SESSION`**; `ActiveGameManager.debugQueryState` correlates
+  registered **only when `isDev`**; `ActiveGameManager.debugQueryState` correlates
   replies FIFO-per-game with a 5s timeout (a release DLL never recognizes `debugControl`, so
   timeout = "not a debug build"), and pending queries are rejected on game teardown. Types in
   `common/games/game-debug.ts`.
@@ -382,7 +382,7 @@ relay for anything new that's prod-safe).
 - **No `SetLatency`/buffer-injection command** (decided with Travis 2026-07-04): clients don't set
   latency in v2 — the relays own it (D9) — so a client-side latency override would be actively
   misleading. `forceLeave` is the whole of #3 for now.
-- **App-side (dev-gated `isDev || SB_SESSION`):** `activeGameForceLeave(gameId, slot)` IPC,
+- **App-side (dev-gated `isDev`):** `activeGameForceLeave(gameId, slot)` IPC,
   fire-and-forget → `gameCommand debugControl {type:'forceLeave', slot}`; verify the effect via
   `queryState`. `window.__sbDebugGame.forceLeave(gameId, slot)`.
 - **Live-verified (2026-07-04):** 2-player loopback (claude-1 slot 0 / claude-2 slot 1), both
@@ -526,9 +526,9 @@ This is real and free: prod builds via `game\build.bat release` → `--release`,
 profile has no `debug-assertions` override, so `debug_assertions` is genuinely off in production
 (the DLL already uses this discriminator in three places). Put the whole risky surface in a single
 `#[cfg(debug_assertions)] mod debug_control` so it's trivially auditable ("is X in prod? it's under
-the debug module → no"), and belt-and-suspenders dev-gate the app's *sending* side
-(`isDev`/`SB_SESSION`) so the production app never emits these — the DLL `#[cfg]` is the load-bearing
-guarantee, the app gate is defense in depth. Payoff: because exclusion is compile-time, it doesn't
+the debug module → no"), and belt-and-suspenders dev-gate the app's *sending* side (`isDev` only —
+**not** `SB_SESSION`, which any player can set) so the production app never emits these — the DLL
+`#[cfg]` is the load-bearing guarantee, the app gate is defense in depth. Payoff: because exclusion is compile-time, it doesn't
 matter whether a trigger could arrive from the trusted local app or (the real nightmare) from
 something reachable via network/game data — the "force a leave" primitive simply isn't in the
 shipped binary.

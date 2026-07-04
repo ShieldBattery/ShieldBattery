@@ -727,9 +727,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   ipcMain.handle('activeGameSetNetcodeV2Setup', (event, gameId, setup) =>
     activeGameManager.setNetcodeV2Setup(gameId, setup),
   )
-  if (isDev || process.env.SB_SESSION) {
-    // Only register this in dev sessions; a release game build doesn't implement the underlying
-    // command anyway, but there's no reason to expose the handler outside of dev usage.
+  if (isDev) {
+    // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
+    // but there's no reason to expose these outside of development.
     ipcMain.handle('activeGameDebugQueryState', (event, gameId) =>
       activeGameManager.debugQueryState(gameId),
     )
