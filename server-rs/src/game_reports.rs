@@ -512,15 +512,21 @@ impl GameReportsMutation {
         // actioned, and — when this resolution is `Actioned` — the reporters of any sibling reports
         // (same game + target) already resolved as `Duplicate`, since they made an equally good
         // report. Resolving a report as `Duplicate` after its sibling was actioned notifies that
-        // reporter too. Best-effort: a failed publish shouldn't fail the resolve.
-        let reporter_ids = repo.reporters_to_notify(&report, resolution).await?;
-        if !reporter_ids.is_empty()
-            && let Err(err) = ctx
-                .data::<RedisPool>()?
-                .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
-                .await
-        {
-            tracing::error!("failed to publish game report notification: {err:?}");
+        // reporter too. This is strictly best-effort: the resolution has already committed, so
+        // neither computing the recipients nor publishing must fail the mutation (otherwise the
+        // client sees an error for an action that succeeded, and a retry hits ALREADY_RESOLVED).
+        match repo.reporters_to_notify(&report, resolution).await {
+            Ok(reporter_ids) if !reporter_ids.is_empty() => {
+                if let Err(err) = ctx
+                    .data::<RedisPool>()?
+                    .publish(PublishedGameReportMessage::ReportActioned { reporter_ids })
+                    .await
+                {
+                    tracing::error!("failed to publish game report notification: {err:?}");
+                }
+            }
+            Ok(_) => {}
+            Err(err) => tracing::error!("failed to compute reporters to notify: {err:?}"),
         }
 
         Ok(report)
