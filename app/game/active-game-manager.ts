@@ -491,6 +491,20 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Tells the active game process to deliberately desync this client's simulation from its peers by
+   * perturbing the local player's minerals (debug game builds only). Fire-and-forget: there's no
+   * reply, the effect is observed in-game / via the netcode behavior it triggers.
+   */
+  forceGameDesync(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got forceGameDesync for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'forceDesync' })
+  }
+
+  /**
    * Tells the active game process to quit abruptly (debug game builds only, but the underlying
    * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
    * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,

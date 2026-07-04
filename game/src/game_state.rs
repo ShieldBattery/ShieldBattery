@@ -761,6 +761,11 @@ impl GameState {
                         // Fire-and-forget: the injection applies on the game thread's next receive;
                         // verify via queryState. No reply.
                     }
+                    DebugControlCommand::ForceDesync => {
+                        crate::netcode_v2::with_turn_state(|s| s.debug_force_desync());
+                        // Fire-and-forget: the mineral perturbation applies on the game thread's next
+                        // receive. No reply.
+                    }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
                         return async move {

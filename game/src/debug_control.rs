@@ -37,6 +37,11 @@ pub enum DebugControlCommand {
     /// `pending_leave_reason` on the game thread so the native synced-leave pass applies it like a
     /// real drop, and drops the slot from the readiness set so a stalled step can proceed.
     ForceLeave { slot: u8 },
+    /// Deliberately diverge THIS client's simulation from its peers by adding a large amount to the
+    /// local player's minerals on the game thread. A resource-state change that only one client
+    /// makes desyncs BW's lockstep once the diverged value is spent or otherwise checked, so this is
+    /// a trigger for observing how a desync propagates through the transport. No reply.
+    ForceDesync,
     /// Capture this client's own game window via GDI/PrintWindow and reply on
     /// `/game/debug/screenshot` with a base64-encoded PNG.
     Screenshot,
@@ -269,6 +274,12 @@ mod tests {
         let cmd: DebugControlCommand =
             serde_json::from_str(r#"{"type":"forceLeave","slot":2}"#).unwrap();
         assert_eq!(cmd, DebugControlCommand::ForceLeave { slot: 2 });
+    }
+
+    #[test]
+    fn force_desync_command_parses_camel_case() {
+        let cmd: DebugControlCommand = serde_json::from_str(r#"{"type":"forceDesync"}"#).unwrap();
+        assert_eq!(cmd, DebugControlCommand::ForceDesync);
     }
 
     #[test]

@@ -359,6 +359,19 @@ mod tests {
     }
 
     #[test]
+    fn debug_control_force_desync_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"forceDesync"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::ForceDesync
+            )))
+        ));
+    }
+
+    #[test]
     fn debug_control_screenshot_dispatches_to_game_state() {
         let result = handle_app_message(
             r#"{"command":"debugControl","payload":{"type":"screenshot"}}"#.into(),

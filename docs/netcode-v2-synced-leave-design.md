@@ -1164,9 +1164,222 @@ exit recorded with `reported_at < departure_time`).
   tenant-enrollment/credential work.
 - **The webhook client speaks https** (prod app server sits behind an HTTPS reverse proxy):
   hyper-rustls, ring provider, webpki roots — aws-lc-rs verified absent from the workspace tree.
-- **Open (policy input pending): feeding departures into disputed reconciliation.** Today a 1v1
-  both-claim-victory dispute reconciles to `unknown` for both, no MMR. The departure timeline can
-  break the tie: the player whose relay-side departure happened mid-game while the opponent
-  stayed connected takes the loss. Proposed: in 1v1 disputes both `dropped` AND mid-game `left`
-  count against the departed player (leaving an undecided game is a concession either way); team
-  games need separate thought. Not wired into `reconcileResults` yet.
+- **Feeding departures into disputed reconciliation — policy approved (Travis), 1v1 first.**
+  Today a 1v1 both-claim-victory dispute reconciles to `unknown` for both, no MMR.
+
+### §20c. Departure-order dispute tiebreak (2026-07-04, policy approved)
+
+**The trust signal inside a dispute is relay-side departure ORDER, not submission timing.** The
+`reported_at <= departure_time` derivation answers "was this departure benign?" for
+notification/UX purposes, but it cannot arbitrate a dispute: a cheater who pre-submits a fake
+victory and then cuts their own link produces exactly the same benign-looking shape as a
+legitimate winner. What the cheater cannot forge is the order of departures — a player can only
+sever their *own* link, so the relay's timeline of who left the shared game first is
+adversary-proof. Whoever departed first wasn't connected for the events they claim happened
+afterward.
+
+**1v1 rule (implemented):** when a game with exactly two human players (no computers) would
+reconcile disputed/unknown, and *both* players hold departure records, and one departure
+precedes the other by more than a small epsilon (10s, relay-idle-timeout scale — a mutual
+netsplit orders the two link-deaths meaninglessly close, so close calls stay unresolved), the
+earlier-departing player takes the loss and the other the win; `disputed` clears so MMR applies;
+the result carries a departure-resolved marker that is logged for audit. `left` and `dropped`
+count identically (abandoning an undecided game is a concession either way — approved policy).
+Any missing evidence → exactly today's behavior; the feed stays best-effort and reconciliation
+never *requires* it.
+
+**Ranked team games (designed, staged behind 1v1):** matchmaking games have alliances fixed at
+start (the server prevents changes), so the same principle lifts to teams: order *teams* by
+their last member's departure; in a disputed game the side that outlasted the other is the side
+whose consistent claim gets trusted. Needs its own edge-case matrix before building — players
+eliminated mid-game who leave benignly (their personal defeat is already reported: their early
+departure must not count against a team still fighting), partial-survivor claim conflicts within
+one team, multi-team FFA-ish configs, draws. Lobby games stay out: alliances can change
+mid-game, so team membership at departure time isn't knowable.
+
+**Known limitation (Travis, 2026-07-04): a desync can false-trigger the tiebreak, and needs its
+own signal with veto power.** A desync-to-completion produces two *honest* clients whose sims
+diverged — each plays its own game to its own end and truthfully reports a win, and the one who
+finished first looks server-side exactly like the pre-submit cheat (early departure + victory
+claim). Departure order cannot separate "abandoned the shared game" from "finished a different
+game", because after the desync moment there is no shared game — and no server-side rule can
+pick the correct sim short of re-simulating the replay (not a thing we can build). **Decision (Travis): the 1v1 tiebreak implementation is GATED on the desync signal existing
+first** — changing MMR-affecting resolution logic on top of an unobserved failure mode is
+backwards. Sequence: understand how a desync looks to the relay today → wire the desync signal →
+then the tiebreak (with the desync veto in place from day one).
+
+**Desync detection design (Travis, 2026-07-04): the RELAY compares the sync checksums itself.**
+The sim already exchanges sync-check values through the turn command stream, and rp2 already
+parses/validates turns at the client edge — Travis explicitly wants rp2 to grow more game
+understanding over time, so the extraction lives relay-side (client-edge validation walks the
+command stream, lifts each slot's sync values; consensus-layer state compares per interval)
+rather than having the DLL lift the value into the turn envelope. A bonus over the envelope
+shape: the native game always emits sync commands, so their *absence* from one client's stream
+is itself an anomaly at the relay. On mismatch: an authoritative relay-side "desync at interval
+N" fact (in >2-player games the minority value even identifies *who* diverged; in 1v1 it is
+deliberately only a veto — void, don't adjudicate), reported through the same
+notice→coordinator→signed-webhook pipeline as departures, marking the game desynced → no
+tiebreak, no MMR. Gated on RE of 12409's sync-check mechanism (command id/layout, cadence,
+which state the checksum covers — also determines what the force-desync debug tool must perturb
+to trip it in an idle test game) and on live observation of what the native client does when its
+own check fires under the seam (the native response drops the peer via Storm — inert under v2 —
+so the client-side path may need neutering regardless). Tooling in progress: a `forceDesync`
+debug-control command.
+
+**RE of 12409's sync check (2026-07-04, names persisted in the BNDB):**
+- **Command `0x37`, 7 bytes, flows through the seam verbatim** (not in the 0x55/0x5f/0x66 strip
+  list). Layout: `[0]`=0x37; `[1]`=`slot<<4 | turn_counter_nibble`; `[2:4]`=16-bit state hash;
+  `[4]`=folded fog/vision checksum byte; `[5][6]`=fog window length + a per-player vision bit.
+- **Cadence:** one 0x37 emitted per outgoing turn (`issue_sync_command` 0x7589d0, from
+  `flush_outgoing_command_turn`'s tail, gated by `sync_active`); one local slot recorded per turn
+  (`record_turn_sync_slot` 0x758c90 from `step_network`). The 16-entry ring (`slot` nibble) is
+  latency alignment, NOT a tolerance window.
+- **Coverage alternates each turn** (`compute_player_sync_hash` 0x758a30): kind-1 = every active
+  unit via `hash_unit_for_sync` 0x5a7200 (type, shields, energy, x, y, HP — and nothing else:
+  orders/cooldowns/facing/target are NOT covered); kind-2 = game-struct header (~first 0x60
+  bytes) + `rng_seed` (sub_7521a0) + game+0x14c. Both kinds also fold the map-tile/fog region and
+  a vision term. Full coverage repeats every 2 turns. **Player minerals/resources were NOT
+  confirmed to be in the hashed header** — hence the debug tool perturbs the hash/RNG directly,
+  not minerals.
+- **No tolerance:** a single failed compare in `verify_peer_sync_slot` (0x758d30, from
+  `process_commands`' remote-0x37 case) — any of hash16 / fog byte / turn nibble / vision bit
+  differing — sets `desync_detected_flag` (0x11ce2fc) + `net_player_flags[offender] |= 0x10000`
+  that same turn.
+- **Mismatch consequence (the v2 gap):** at the turn's end `handle_desync_detected` (0x759080)
+  tallies flagged-vs-present across slots; minority-desynced → `drop_player_and_notify` →
+  `storm_drop_player` → `storm_send_to_player` (SNP path); majority/self →
+  `storm_self_leave_network_error(0x40000006)` (the general-network-error dialog / game-end).
+  **Detection is pure game state and fires identically under v2, but every consequence rides
+  Storm/SNP, which is INERT under the seam** — so in 1v1 each client independently flags the
+  other, its Storm drop no-ops, it prints a local notice and keeps simulating its now-diverged
+  game. No coordinated resolution is possible client-side under v2, which is exactly why the
+  relay (which sees every slot's 0x37) is the right detector — and why the native local
+  drop/dialog path may still need neutering under v2 regardless (observe first).
+
+### §20d. Live desync observation (2026-07-04) — a 1v1 desync is a SILENT DOUBLE-WIN, and the fix
+### is a relay desync veto that voids the game
+
+Forced a real desync in a live 2-player netcode-v2 game (`forceDesync` on one client: RNG-seed
+XOR + minerals). What actually happened, and what it means:
+
+**Observed (one lobby melee — not ranked, so no MMR applied; the ranked consequence below is
+extrapolated):** both clients' native sync check tripped and both showed a "You were disconnected"
+dialog (so BW's own detection *survives* the seam — the 0x37 compare runs unchanged). But the
+result the server recorded was the dangerous one:
+- claude-1 reported `{self: Victory(3), opponent: Playing(0)}`; claude-2 reported the mirror. Each
+  diverged sim reached *its own* victory and saw the other as merely still-playing — **neither
+  reported the other as Defeated.**
+- `reconcileResults` therefore saw two independent, unchallenged victories: each player has one
+  Victory and zero Defeats, the `victories>0 && defeats>0` dispute branch never fires, and
+  **both players reconciled to `win` with `disputed` never set** (DB-confirmed). Had this been a
+  ranked game it would have been a clean-looking MMR double-award. The `reconcileResults` TODO
+  (`tec27`) names exactly this gap: *"Check that the results are valid for the game configuration
+  (e.g. only 1 victor)"* — the one-winner validation is unbuilt.
+- **Important caveat — a 1v1 desync's reconcile outcome is UNRELIABLE, not reliably clean.**
+  Whether it slips through depends on how the sims diverged: here each reported the other as
+  `Playing`, giving two disputed-free wins; a divergence where each reports the other `Defeated`
+  instead yields each `[Victory, Defeat]` → `disputed = true` → `unknown`. So a desync can land
+  either way. That unpredictability is the point: reconciliation cannot be trusted to catch a
+  desync in *either* direction, which is why the fix must be the relay veto, not a reconcile
+  heuristic.
+- The **relay logged nothing** (its log ends at client-authorized): the native detection's drop /
+  self-leave rides Storm/SNP (inert under v2), so no leave, no departure, no webhook — the app
+  server had no signal that anything was wrong. And the game processes kept running with
+  "Continue Playing" available (the §19 footgun: continue-play would resume networked-but-diverged
+  turns).
+
+**Why the existing machinery doesn't catch it:** BW's detection fires but results were already
+sent at the dialog (§19) and its consequence is Storm-inert; reconciliation can't reliably tell a
+desync from a legit game (the reports may or may not contradict). The departure-order tiebreak
+(§20c) doesn't help either — when the desync reconciles clean there's no dispute to engage it, and
+departure order is irrelevant to a divergence regardless.
+
+**Policy (Travis) — split by stakes/mode:**
+
+*Lobby / custom games: desync ⇒ disputed, don't try hard.* Lobby win/loss "doesn't matter that
+much," and alliances are mutable there (see the reconcile-scoping note below), so there is no
+reliable structure to adjudicate against anyway. Any relay-observed desync → mark the game
+disputed. That's the whole rule.
+
+*Matchmaking (ranked) games: void only when UNDECIDABLE; otherwise the majority sim is
+authoritative.* This is where correctness matters and where alliances are locked, so structure is
+trustworthy. In lockstep every client runs its own sim from the *same* command stream, so a desync
+is normally *one* client diverging while all others still agree — the relay sees this directly as a
+majority sharing one 0x37 lineage and a minority differing. By topology:
+- **1v1 (2 slots):** a disagreement is 1-1, no majority, undecidable — void/disputed, no MMR
+  (there is no way to know which sim is correct without re-simulating).
+- **>2 slots with a strict majority:** the agreeing majority is the authoritative reality; the
+  diverged minority is identified and at-fault. Do **not** void — discard the minority players'
+  reports (their divergent self-victory is untrustworthy) and let the majority's coherent result
+  reconcile. A 2v2 where one player desyncs: the other three still agree, so the game resolves by
+  their shared reality and the desynced player takes the fault. (The ">2 minority identifies who
+  diverged" property from the RE, put to use.)
+- **>2 slots with no strict majority** (even split, e.g. 2-2): undecidable again — void.
+
+So the relay's `DesyncNotice` carries **which slots diverged** (the minority set) and the interval,
+not merely "a desync happened": for matchmaking the app server either discards the minority and
+reconciles the majority, or voids when no majority remains; for lobby it just disputes. Either way
+this overrides an otherwise-clean reconcile (the both-`win` case) and takes **precedence over** the
+§20c departure tiebreak — a desynced game is adjudicated by the desync rule, not by departure order
+(after a divergence there is no shared game to have "departed" from). Missing desync signal →
+today's behavior, unchanged.
+
+**Design (the detector the observation confirms we need):**
+1. **Relay compares the 0x37 sync values it already parses.** rp2's edge validator already walks
+   the SC:R command stream and *already classifies 0x37 Sync* (`proto/src/commands.rs`, 7-byte
+   live length). Extend that walk to lift each slot's sync payload (the hash16 + fog byte + turn
+   nibble + vision bit, keyed by the turn-counter nibble for interval alignment) and hand it to a
+   consensus-layer comparator that, per interval, checks all required slots agree. A mismatch —
+   or one slot's 0x37 *missing* where others sent one — is a relay-authoritative desync fact
+   (in >2-player games the minority value identifies who diverged; in 1v1 it is only "they
+   diverged", which is exactly the veto).
+2. **Reuse the departure pipeline shape:** a `DesyncNotice` sibling of `DepartureNotice` up the
+   coordinator control connection → dedup → signed webhook (`GET`-fetched tenant pubkey, same as
+   departures) → app server marks the game desynced.
+3. **Reconciliation honors it:** a game flagged desynced reconciles to disputed/void (no MMR),
+   overriding an otherwise-clean result. Runs before the §20c tiebreak.
+4. **Complementary cleanups:** the §19 "terminal dialog ⇒ close the v2 session" change removes the
+   continue-play-diverged footgun and stops the relay seeing turns from a decided game (does not
+   fix the already-sent result — the relay veto does). The native self-leave/drop path under v2
+   may still want neutering (it currently just no-ops into Storm), TBD.
+
+**Reusability note (Travis):** rp2 is deliberately *not* fully game-agnostic — it already parses
+and validates SC:R commands at the edge, and the intent is for it to grow more game understanding
+over time — so lifting the 0x37 checksum for comparison sits naturally in the layer that already
+reads it, rather than being pushed into the DLL/turn-envelope.
+
+**Open point — reconcile ordering vs. the desync signal (Travis).** Reconciliation currently fires
+as soon as all humans report (or a force-timeout). The desync signal arrives independently, so in
+principle a fast all-reported reconcile could beat it. In practice the timing favors us: desync
+detection is real-time/mid-game (the relay compares 0x37 the instant checksums diverge), typically
+well before clients finish and report, so the flag is usually recorded before reconcile triggers.
+The edge cases (last-frame desync, webhook latency/retry, coordinator restart) motivate, for
+**matchmaking only** (lobby is low-stakes), holding ranked finalization until the relay's session
+verdict is known with a bounded-timeout fallback (so a lost signal can't hang reconciliation).
+Deferred to the desync-reconciliation build — it sits on top of the `DesyncNotice` signal, which
+doesn't exist yet. Reversing already-applied MMR after a late signal (the existing re-reconcile
+`TODO(tec27)`) is the messier alternative the wait avoids.
+
+**Separate, complementary reconcile fix (not desync-specific).** The observation above also
+exposed a standalone reconciliation bug: `reconcileResults` will pass a result with more winners
+than the game structure allows (two players each honestly reporting *themselves* the winner → both
+`win`, `disputed` false) — the unbuilt `TODO(tec27)` "only 1 victor" validation. Fixed
+independently: a reconciled result with >1 winning team is forced to `disputed`/all-unknown.
+
+**Scoping correction (Travis): this structural check applies to MATCHMAKING games only.**
+Alliances are locked solely for matchmaking (`disableAllianceChanges: true` is set only in the
+matchmaking branch of `game-loader.ts`; lobby alliances are mutable and no lobby setting exposes
+locking today). So config teams are authoritative *only* for matchmaking — in a lobby game two
+players on different starting teams could legitimately ally and co-win, and the check would
+false-flag it. Gate: `gameSource === Matchmaking` → validate (teams via `getTeamsFromConfig`, FFA =
+each player own team); else skip. Lobby desyncs are instead handled by the "desync ⇒ disputed"
+rule above, which needs no structure. *Forward-looking (queued):* persist a `lockedAlliances`
+boolean in the stored `GameConfig` (true for matchmaking now, settable by a future lobby toggle)
+and have the reconcile gate read it with the `gameSource === Matchmaking` fallback for old records
+— so the check reads the real invariant instead of the mode proxy.
+
+This structural guard is the *report-shape* layer: it catches a two-self-winner result from any
+cause in matchmaking, but a desync that yields one plausible winner still reconciles clean, so it
+does NOT subsume the relay veto. The two are layers — the reconcile guard catches
+structurally-impossible ranked results; the relay veto catches desyncs regardless of report shape
+or mode.

@@ -96,6 +96,13 @@ interface IpcInvokeables {
    */
   activeGameForceLeave: (gameId: string, slot: number) => void
   /**
+   * Tells the active game process to deliberately desync this client's simulation from its peers by
+   * perturbing the local player's minerals (debug game builds only). Only registered in development
+   * (`isDev`). Fire-and-forget: there's no reply, the effect is observed in-game / via the netcode
+   * behavior it triggers.
+   */
+  activeGameForceDesync: (gameId: string) => void
+  /**
    * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
    * save; the only teardown that works mid-game). Only registered in development (`isDev`).
    * Fire-and-forget: there's no reply.

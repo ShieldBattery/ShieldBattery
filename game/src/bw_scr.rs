@@ -371,6 +371,21 @@ enum TurnReceiveOutcome {
 #[cfg(debug_assertions)]
 const FORCED_LEAVE_REASON: i32 = 0x40000006u32 as i32;
 
+/// The amount the `forceDesync` debug command adds to the local player's minerals. A visible,
+/// obviously-divergent resource change; on its own it only desyncs indirectly (once the extra
+/// minerals alter a spend), so it's paired with the RNG-seed perturbation below for a deterministic
+/// trip of the per-turn sync check.
+#[cfg(debug_assertions)]
+const FORCED_DESYNC_MINERAL_BONUS: u32 = 5000;
+
+/// The value the `forceDesync` debug command XORs into this client's synced RNG seed. The seed is
+/// folded into the per-turn sync checksum every client compares, so diverging it on one client
+/// trips the peers' sync check on the next matching turn — a deterministic, immediate desync
+/// trigger (and, because every subsequent RNG draw diverges, a genuine cascading one) rather than
+/// waiting for a resource change to indirectly affect unit state.
+#[cfg(debug_assertions)]
+const FORCED_DESYNC_RNG_XOR: u32 = 0x5B5B_5B5B;
+
 /// State mutated during renderer draw call
 struct RenderState {
     overlay: draw_overlay::OverlayState,
@@ -2313,6 +2328,9 @@ impl BwScr {
             // sourced from a queued slot rather than a relay directive. Must also precede the receive.
             #[cfg(debug_assertions)]
             self.apply_forced_leaves(nc);
+            // Debug-only: the `forceDesync` command's one-shot mineral perturbation on this client.
+            #[cfg(debug_assertions)]
+            self.apply_forced_desync();
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;
@@ -2455,6 +2473,68 @@ impl BwScr {
                 *nc.pending_leave_reason.resolve().add(storm.0 as usize) = FORCED_LEAVE_REASON;
                 netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
             }
+        }
+    }
+
+    /// Debug-only `forceDesync` application, run at the top of the IN hook. When the command has
+    /// armed the turn state's one-shot flag, diverges this client's simulation from its peers:
+    ///
+    /// - XORs [`FORCED_DESYNC_RNG_XOR`] into the synced RNG seed. The seed is folded into the
+    ///   per-turn sync checksum, so this trips the peers' sync check on the next matching turn
+    ///   deterministically (and every subsequent RNG draw diverges, so the desync also cascades
+    ///   through unit behavior). This is the reliable trigger.
+    /// - Adds [`FORCED_DESYNC_MINERAL_BONUS`] to the local player's minerals, a visible in-game
+    ///   confirmation the command landed and a second, resource-level divergence.
+    ///
+    /// No-op with no live session, or before the game struct exists.
+    ///
+    /// # Determinism
+    ///
+    /// The whole point is to break determinism: these writes happen on this client alone, so its
+    /// state and command stream drift from every peer. This is the trigger for observing desync
+    /// behavior through the transport, and it deliberately does no cross-client coordination.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_forced_desync(&self) {
+        unsafe {
+            let armed = netcode_v2::with_turn_state(|s| s.take_forced_desync());
+            if armed != Some(true) {
+                // No live session, or no perturbation pending.
+                return;
+            }
+
+            // The synced RNG seed sits one u32 past the operand analysis resolves (mirrors the read
+            // in `BwScr::rng_seed`).
+            let seed_ptr = self.rng_seed.resolve_as_ptr().add(1);
+            let old_seed = seed_ptr.read_unaligned();
+            let new_seed = old_seed ^ FORCED_DESYNC_RNG_XOR;
+            seed_ptr.write_unaligned(new_seed);
+            warn!("netcode v2: forceDesync perturbed RNG seed {old_seed:#x} -> {new_seed:#x}");
+
+            let game = self.game();
+            if game.is_null() {
+                // The RNG divergence above is enough to trip the sync check; the minerals write is
+                // just a visible extra, so a missing game struct isn't fatal.
+                warn!("netcode v2: forceDesync before game struct exists; skipped minerals write");
+                return;
+            }
+            let game = bw_dat::Game::from_ptr(game);
+            let player = self.local_player_id.resolve();
+            // The game's minerals array has one entry per game player (12 wide); an observer's id
+            // falls outside it and has no resources to perturb anyway.
+            const GAME_PLAYER_COUNT: u32 = 12;
+            if player >= GAME_PLAYER_COUNT {
+                warn!(
+                    "netcode v2: forceDesync with non-player local id {player}; skipped minerals"
+                );
+                return;
+            }
+            let player = player as u8;
+            let current = game.minerals(player);
+            let perturbed = current.saturating_add(FORCED_DESYNC_MINERAL_BONUS);
+            game.set_minerals(player, perturbed);
+            warn!(
+                "netcode v2: forceDesync perturbed local player {player} minerals {current} -> {perturbed}"
+            );
         }
     }
 

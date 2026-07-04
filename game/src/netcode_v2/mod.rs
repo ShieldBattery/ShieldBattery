@@ -122,6 +122,11 @@ pub struct TurnState {
     /// exercising the leave/reconnect paths without a real human quit.
     #[cfg(debug_assertions)]
     forced_leaves: Vec<SlotId>,
+    /// Set by the `forceDesync` debug command; drained by the IN hook on the game thread (see
+    /// `bw_scr::apply_forced_desync`), which perturbs the local player's minerals so this client's
+    /// simulation diverges from its peers. Debug-only trigger for observing how a desync propagates.
+    #[cfg(debug_assertions)]
+    forced_desync: bool,
 }
 
 impl TurnState {
@@ -149,6 +154,8 @@ impl TurnState {
             required: [false; bw::MAX_STORM_PLAYERS],
             #[cfg(debug_assertions)]
             forced_leaves: Vec::new(),
+            #[cfg(debug_assertions)]
+            forced_desync: false,
         }
     }
 
@@ -428,6 +435,21 @@ impl TurnState {
     #[cfg(debug_assertions)]
     pub fn take_forced_leaves(&mut self) -> Vec<SlotId> {
         std::mem::take(&mut self.forced_leaves)
+    }
+
+    /// Arms a one-shot mineral perturbation for the `forceDesync` debug-control command. The game
+    /// thread drains this on its next receive (see `bw_scr::apply_forced_desync`); nothing is
+    /// applied here, so this is safe to call from the async side.
+    #[cfg(debug_assertions)]
+    pub fn debug_force_desync(&mut self) {
+        self.forced_desync = true;
+    }
+
+    /// Consumes the flag armed by [`debug_force_desync`](Self::debug_force_desync), returning whether
+    /// a perturbation is pending. Called once per receive on the game thread.
+    #[cfg(debug_assertions)]
+    pub fn take_forced_desync(&mut self) -> bool {
+        std::mem::take(&mut self.forced_desync)
     }
 
     /// A point-in-time read of this turn state, for the `queryState` debug-control command. Pure
