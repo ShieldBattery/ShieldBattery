@@ -2301,13 +2301,18 @@ impl BwScr {
                 return TurnReceiveOutcome::Native;
             }
             let nc = &self.netcode_v2;
-            // Debug-only: apply any `forceLeave`-queued slots before the readiness check below, so a
-            // forced slot is already dropped from `required` when `receive_turns` runs and its
-            // `pending_leave_reason` is already written when `run_synced_leave_pass` fires on a ready
-            // step. Must precede the receive block.
+            let next_frame = nc.game_frame_count.resolve();
+            // Apply coordinated synced leaves due at this frame BEFORE the readiness check below, so a
+            // departing slot is already dropped from `required` when `receive_turns` runs and its
+            // `pending_leave_reason` is written for `run_synced_leave_pass` to drain on the ready
+            // step. A due leave is what unstalls a step gated on the departing peer. The directive is
+            // observed during `receive_turns`' drain; on the step it first arrives the readiness check
+            // still stalls, and the next poll of this (stalled) receive applies it here and proceeds.
+            self.apply_due_leaves(nc, next_frame);
+            // Debug-only: the `forceLeave` command's local (non-consensus) injection — same effect,
+            // sourced from a queued slot rather than a relay directive. Must also precede the receive.
             #[cfg(debug_assertions)]
             self.apply_forced_leaves(nc);
-            let next_frame = nc.game_frame_count.resolve();
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;
@@ -2390,6 +2395,29 @@ impl BwScr {
     pub fn seed_netcode_v2_pipe(&self) {
         unsafe {
             self.netcode_v2_flush_pipe();
+        }
+    }
+
+    /// Applies coordinated synced leaves due at `next_frame`, run at the top of the IN hook before
+    /// the readiness check. Drains the turn state's [`LeaveTracker`](netcode_v2) for slots whose
+    /// relay-agreed apply frame has arrived, writes each departing slot's `pending_leave_reason`
+    /// mailbox (drained by [`run_synced_leave_pass`](Self::run_synced_leave_pass) in the synced-RNG
+    /// window on the ready step) and drops it from the readiness set — so a step stalled on the
+    /// departing peer can proceed. No-op with no live session.
+    ///
+    /// This is the **production** leave path: the reason, slot, and apply frame all come from the
+    /// authority relay's directive, so every client applies the identical leave at the identical
+    /// frame and the native drain is deterministic across all of them (including clients that never
+    /// observed the drop locally). It is the consensus-backed twin of the debug-only, per-client
+    /// [`apply_forced_leaves`](Self::apply_forced_leaves).
+    unsafe fn apply_due_leaves(&self, nc: &NetcodeV2Bw, next_frame: u32) {
+        unsafe {
+            let Some(due) = netcode_v2::with_turn_state(|s| s.take_due_leaves(next_frame)) else {
+                return; // no live session
+            };
+            for (storm, reason) in due {
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = reason as i32;
+            }
         }
     }
 

@@ -223,6 +223,15 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 bw.seed_netcode_v2_pipe();
                 bw.run_game_loop();
 
+                // The game loop returning means this client will never produce another turn —
+                // whether it quit via F10 (the quit handshake completes inside the loop, so this
+                // fires within a few turns of the click) or the game ended naturally. Either way
+                // it's the one place that covers both: signal the driver so it can announce a
+                // clean leave to the relay instead of the peers waiting out an idle-timeout
+                // "dropped". A crash or hard kill never reaches this line, which is correct —
+                // those must still go through the relay's link-death detection.
+                crate::netcode_v2::with_turn_state(|s| s.send_leave_intent());
+
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
                 save_minimap_settings();

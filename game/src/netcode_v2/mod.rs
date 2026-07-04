@@ -47,9 +47,11 @@ use std::collections::VecDeque;
 
 use bytes::Bytes;
 use rally_point_client::DirectiveTracker;
+use rally_point_client::LeaveTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::Payload;
+use tokio::sync::mpsc;
 
 mod session;
 
@@ -74,6 +76,11 @@ pub struct TurnState {
     /// Collapses the authority relay's redundant, out-of-order latency-buffer directive stream into
     /// at-most-one change per decision, surfaced at its apply frame.
     directives: DirectiveTracker,
+    /// Collapses the authority relay's redundant, out-of-order synced player-leave directive stream
+    /// into at-most-one leave per slot, surfaced at its apply frame. Sibling of `directives`; a due
+    /// leave is applied at the top of the IN hook (before readiness), because clearing the departing
+    /// slot is what unstalls a step blocked on it.
+    leaves: LeaveTracker,
     /// The latency buffer (in turns) currently in force — the PIPE hook keeps this many turns in
     /// flight. Starts at the built-in floor; a due [`BufferDirective`] resizes it, with no upward cap
     /// (the relay owns latency) but floored at 1 locally — see
@@ -131,6 +138,7 @@ impl TurnState {
         Self {
             channels,
             directives: DirectiveTracker::new(),
+            leaves: LeaveTracker::new(),
             latency_turns: initial_latency_turns.max(1),
             slot_to_storm: [None; bw::MAX_STORM_PLAYERS],
             roster,
@@ -212,6 +220,8 @@ impl TurnState {
             slot: 0,
             commands: commands.clone(),
             game_frame_count: frame,
+            // We never originate relay directives; the relay stamps the buffer directive onto turns
+            // it forwards, so our own outbound turn carries none.
             buffer_directive: None,
         };
         match self.channels.outbound.try_send(payload) {
@@ -321,6 +331,38 @@ impl TurnState {
         }
     }
 
+    /// Surfaces coordinated synced leaves due at `next_frame` as `(storm id, native leave reason)`
+    /// pairs — mapping each departing slot to its storm id and dropping it from the readiness set
+    /// (`mark_slot_left`) so a step gated on it can proceed. The IN hook calls this at the *top* of
+    /// the receive step, before the readiness check (a due leave is what unstalls the step), then
+    /// writes each returned storm's `pending_leave_reason` for the synced-leave pass to drain in the
+    /// RNG window — the production twin of the debug `forceLeave` path, sourced from the relay's
+    /// directive instead of a local injection.
+    ///
+    /// A due leave for a slot with no storm id yet (unmapped — shouldn't happen in-game; slots map at
+    /// join) is warned and skipped: it can't be written into `pending_leave_reason`, and the
+    /// `LeaveTracker` has already marked it surfaced so it won't retry every step.
+    pub fn take_due_leaves(&mut self, next_frame: u32) -> Vec<(StormPlayerId, u32)> {
+        // Drain any leaves the driver surfaced from the reliable control stream
+        // into the tracker first. Leaves arrive here, off the turn path, because a
+        // drop stops turn flow — so this is the channel that still delivers the
+        // leave that must unstall us.
+        while let Ok(leave) = self.channels.leaves.try_recv() {
+            self.leaves.observe(&leave);
+        }
+        let mut out = Vec::new();
+        for (slot, reason) in self.leaves.take_due(next_frame) {
+            match self.storm_id_for_slot(slot) {
+                Some(storm) => {
+                    self.mark_slot_left(storm);
+                    out.push((storm, reason));
+                }
+                None => warn!("netcode v2: coordinated leave for unmapped slot {slot:?}; skipping"),
+            }
+        }
+        out
+    }
+
     /// PIPE hook input: local turns in flight. Replaces the native `get_outstanding_turn_count`,
     /// which goes degenerate once Storm's counters stop advancing.
     pub fn outstanding_turns(&self) -> u32 {
@@ -347,6 +389,30 @@ impl TurnState {
     /// The local origin slot, as a typed [`SlotId`] for the transport layer.
     pub fn local_slot_id(&self) -> SlotId {
         self.local_slot
+    }
+
+    /// Tells the driver this client will never produce another turn — the game loop just
+    /// returned, whether because the local player quit (F10) or the game ended naturally. The
+    /// driver holds the actual announcement until every turn we've produced has been sent and
+    /// acked, then writes it to the relay, so surviving players get a prompt synced leave with
+    /// the "player left" reason instead of waiting out the idle-timeout "dropped" path. A crash
+    /// or hard kill never reaches this call, which is correct: those still need the relay's
+    /// link-death detection to notice the drop.
+    ///
+    /// Safe to call more than once, though only the first call does anything: the driver latches
+    /// a single signal. A repeat finds the channel already holding it (`Full`) or the driver
+    /// already gone (`Closed`); both are expected outcomes here, not failures, so they're logged
+    /// at debug level and otherwise ignored — a stray extra call changes nothing either way.
+    pub fn send_leave_intent(&mut self) {
+        match self.channels.leave_intent.try_send(()) {
+            Ok(()) => debug!("netcode v2: announced clean leave to relay"),
+            Err(mpsc::error::TrySendError::Full(())) => {
+                debug!("netcode v2: leave intent already signaled; ignoring repeat call")
+            }
+            Err(mpsc::error::TrySendError::Closed(())) => {
+                debug!("netcode v2: leave-intent channel closed; driver already gone")
+            }
+        }
     }
 
     /// Queues a slot for a forced synced leave, for the `forceLeave` debug-control command. The
@@ -410,7 +476,7 @@ impl TurnState {
 #[cfg(test)]
 mod tests {
     use rally_point_client::TurnChannels;
-    use rally_point_client::proto::messages::BufferDirective;
+    use rally_point_client::proto::messages::{BufferDirective, LeaveDirective};
     use tokio::sync::mpsc;
 
     use super::*;
@@ -424,17 +490,36 @@ mod tests {
     const PEER_USER: SbUserId = SbUserId(22);
 
     /// Builds a TurnState wired to test channels. Returns the state, a sender to inject peer turns
-    /// on `inbound`, and the outbound receiver to observe/keep-alive what we submit. Both far ends
-    /// are returned so the channels stay open (dropping them would close the turn state's ends).
-    fn turn_state() -> (TurnState, mpsc::Sender<Payload>, mpsc::Receiver<Payload>) {
+    /// on `inbound`, the outbound receiver to observe/keep-alive what we submit, a sender to
+    /// inject relay-pushed leaves on the `leaves` channel, and the far-end receiver of the
+    /// `leave_intent` channel so tests can assert on what [`TurnState::send_leave_intent`] signals.
+    /// All far ends are returned so the channels stay open (dropping them would close the turn
+    /// state's ends).
+    fn turn_state() -> (
+        TurnState,
+        mpsc::Sender<Payload>,
+        mpsc::Receiver<Payload>,
+        mpsc::Sender<LeaveDirective>,
+        mpsc::Receiver<()>,
+    ) {
         let (out_tx, out_rx) = mpsc::channel(16);
         let (in_tx, in_rx) = mpsc::channel(16);
+        let (leave_tx, leave_rx) = mpsc::channel(16);
+        let (leave_intent_tx, leave_intent_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
+            leaves: leave_rx,
+            leave_intent: leave_intent_tx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
-        (TurnState::new(channels, LOCAL_SLOT, 2, roster), in_tx, out_rx)
+        (
+            TurnState::new(channels, LOCAL_SLOT, 2, roster),
+            in_tx,
+            out_rx,
+            leave_tx,
+            leave_intent_rx,
+        )
     }
 
     fn peer_turn(slot: SlotId, commands: &[u8]) -> Payload {
@@ -444,6 +529,15 @@ mod tests {
             commands: Bytes::copy_from_slice(commands),
             game_frame_count: Some(0),
             buffer_directive: None,
+        }
+    }
+
+    fn leave_directive(slot: SlotId, apply_at_frame: u32, reason: u32) -> LeaveDirective {
+        LeaveDirective {
+            slot: slot.0 as u32,
+            reason,
+            apply_at_frame,
+            leave_seq: 1,
         }
     }
 
@@ -458,9 +552,13 @@ mod tests {
     fn initial_latency_is_floored_at_one() {
         let (out_tx, out_rx) = mpsc::channel(1);
         let (_in_tx, in_rx) = mpsc::channel(1);
+        let (_leave_tx, leave_rx) = mpsc::channel(1);
+        let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
+            leaves: leave_rx,
+            leave_intent: leave_intent_tx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new());
         assert_eq!(state.latency_turns(), 1);
@@ -469,7 +567,7 @@ mod tests {
 
     #[test]
     fn roster_maps_a_peers_slot_by_user() {
-        let (mut state, in_tx, _out_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         // A peer's storm id solidifies during join; the roster resolves their user to their slot.
         state.map_storm_for_user(PEER_USER, PEER_STORM);
 
@@ -480,7 +578,7 @@ mod tests {
 
     #[test]
     fn user_missing_from_roster_is_skipped_not_mapped() {
-        let (mut state, _in_tx, _out_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_storm_for_user(SbUserId(99), PEER_STORM);
         // No mapping was recorded: the slot doesn't gate readiness...
         assert!(state.receive_turns(0), "unmapped slot must not stall the step");
@@ -491,7 +589,7 @@ mod tests {
 
     #[test]
     fn not_ready_until_every_required_slot_has_a_turn() {
-        let (mut state, in_tx, _out_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -521,7 +619,7 @@ mod tests {
     fn local_turn_is_echoed_into_its_own_slot() {
         // The relay fans out to peers only, so our own commands must reach the local sim via the
         // echo — not the inbound channel.
-        let (mut state, _in_tx, mut out_rx) = turn_state();
+        let (mut state, _in_tx, mut out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert!(state.submit_local_turn(b"local", Some(7)));
@@ -536,7 +634,7 @@ mod tests {
 
     #[test]
     fn one_turn_released_per_step_even_with_a_backlog() {
-        let (mut state, in_tx, _out_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         in_tx.try_send(peer_turn(PEER_SLOT, b"t1")).unwrap();
@@ -551,7 +649,7 @@ mod tests {
 
     #[test]
     fn a_left_slot_stops_gating_readiness() {
-        let (mut state, in_tx, _out_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -569,7 +667,7 @@ mod tests {
 
     #[test]
     fn buffer_directive_off_an_inbound_turn_retargets_latency() {
-        let (mut state, in_tx, _out_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         let mut turn = peer_turn(PEER_SLOT, b"x");
@@ -591,7 +689,7 @@ mod tests {
     fn debug_snapshot_reflects_mapped_and_unmapped_slots() {
         use crate::debug_control::TurnSlotSnapshot;
 
-        let (mut state, in_tx, _out_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         // PEER_SLOT is left unmapped on purpose, to exercise the "no storm id yet" branch.
 
@@ -662,7 +760,7 @@ mod tests {
 
     #[test]
     fn forced_leaves_drain_in_order_then_empty() {
-        let (mut state, _in_tx, _out_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.debug_force_leave(PEER_SLOT);
         state.debug_force_leave(LOCAL_SLOT);
 
@@ -673,7 +771,7 @@ mod tests {
 
     #[test]
     fn pipe_counter_tracks_local_turns_in_flight() {
-        let (mut state, _in_tx, _out_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert_eq!(state.outstanding_turns(), 0);
@@ -682,5 +780,67 @@ mod tests {
         assert_eq!(state.outstanding_turns(), 2);
         state.mark_local_turn_executed();
         assert_eq!(state.outstanding_turns(), 1);
+    }
+
+    #[test]
+    fn send_leave_intent_delivers_one_signal_and_a_repeat_is_a_harmless_no_op() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, mut leave_intent_rx) = turn_state();
+
+        // Two calls before the driver ever drains the channel: its capacity is 1, so the second
+        // finds the first signal still sitting there (`Full`) rather than queuing a second one.
+        // Neither call should panic.
+        state.send_leave_intent();
+        state.send_leave_intent();
+
+        // Exactly one signal reaches the far end...
+        assert_eq!(
+            leave_intent_rx.try_recv(),
+            Ok(()),
+            "the driver sees exactly one signal"
+        );
+        // ...and there is no second one queued behind it.
+        assert!(
+            leave_intent_rx.try_recv().is_err(),
+            "the repeat call must not have delivered a second signal"
+        );
+    }
+
+    const DROPPED: u32 = 0x4000_0006;
+
+    #[test]
+    fn take_due_leaves_maps_slot_to_storm_marks_left_at_its_frame() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        // The relay pushes the peer's leave down the control stream, due at frame 5.
+        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+
+        // take_due_leaves drains the control-stream channel into the tracker, then surfaces due ones.
+        assert!(state.take_due_leaves(4).is_empty(), "not due before its apply frame");
+        assert_eq!(
+            state.take_due_leaves(5),
+            vec![(PEER_STORM, DROPPED)],
+            "due at its frame: mapped to storm id, with the directive's reason"
+        );
+        // The leave dropped the peer from the readiness set, so a later step is ready without it.
+        assert!(state.submit_local_turn(b"local2", Some(5)));
+        assert!(state.receive_turns(5), "the left peer no longer gates readiness");
+        assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"local2".to_vec())]);
+    }
+
+    #[test]
+    fn take_due_leaves_skips_an_unmapped_departing_slot() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        let unmapped = SlotId(9); // never mapped to a storm id
+
+        leave_tx.try_send(leave_directive(unmapped, 3, DROPPED)).unwrap();
+
+        // A leave for a slot with no storm id can't be written into pending_leave_reason: skipped,
+        // not returned, and not retried (the tracker already marked it surfaced).
+        assert!(state.take_due_leaves(3).is_empty());
+        assert!(state.take_due_leaves(4).is_empty());
     }
 }
