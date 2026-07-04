@@ -949,3 +949,57 @@ player clicks through (results are collected and sent by the separate victory-de
 meanwhile — `resultSent` does not imply loop end). An unattended winner therefore exits via the
 drop path when its process ends, which is harmless — but worth remembering when reading logs:
 "no intent from the winner" is the dialog, not a regression.
+
+## 19. Departure classification and the victory dialog (2026-07-04 investigation)
+
+Prompted by a concern about the coming relay → coordinator → app-server *departure notification*
+(the signal that will feed §17's "survivors see who's out" UX): a winner sitting on the victory
+dialog exits — when its process finally ends — via the drop path (link death → `SlotDeparted`
+reason=dropped), which would be a **false "dropped"** for a game that actually just ended normally.
+The question was whether to fire a clean leave earlier, at the moment the game is decided.
+
+**RE finding (12409 BNDB).** The outgoing turn path — `step_network` (`0x749063`) →
+`flush_local_turns_to_latency_depth` (`0x748800`) → `flush_outgoing_command_turn` (`0x74c420`) →
+`send_turn_message` (call site `0x74e2bb`) — is gated on exactly two things: `network_ready` (set
+purely from receive success/failure) and `menu_screen_id != 0x21` (you are still on the in-game
+screen, not the score/stat screen). **There is no victory/defeat/game-decided flag anywhere in the
+send path.** With an empty command buffer the flush emits a 1-byte keep-alive turn, so a player who
+issues nothing still feeds lockstep. Slot removal from the required set is entirely event-driven
+(`handle_player_leave_message` `0x74fee0` / the pending-leave path, reached only by a real network
+leave or the quit-confirmation handshake `sub_7479c0`); nothing on a victory path writes leave
+state. Therefore "Continue Playing" (which keeps `menu_screen_id` on the in-game value and the loop
+running) keeps the client SENDING turns, and co-winners who both continue stay in lockstep with
+each other — victory does not touch the required-slot set.
+
+**Live confirmation (two 3-player single-relay loopback runs).**
+- *Continue Playing stays networked:* claude-1 + claude-2 (allied) won when claude-3 (unallied) was
+  defeated at frame ~347; both winners then continued and stayed in live lockstep for ~5,700 frames
+  (to ~6034/6142) before leaving. Network traffic visibly continued between them after "Continue
+  Playing" — the RE, confirmed in the app.
+- *Result locks at the victory dialog:* eliminating the other continuing player after "Continue
+  Playing" did not re-decide anything — F10 → End Mission still produced the already-locked victory.
+  Results + replay are already sent by the DLL at the victory dialog today, so the app server holds
+  the terminal result the moment a winner is sitting there.
+- *Graceful exits are already clean:* every departure across both runs — a natural defeat and both
+  continue-then-End-Mission winners — logged relay `reason=3` (clean "left"), never dropped. The
+  false "dropped" appears **only** on an *ungraceful* exit (crash, force-quit, closing the window),
+  which no game-side trigger can catch because the process is simply gone.
+
+**Decision: the departure notification keys on the DLL's already-sent result, not on any game-side
+trigger.** Since a graceful exit already emits a clean leave and the app server already has the
+game's terminal result at victory-dialog time, the notification consumer **ignores (or reclassifies)
+a departure for a game+player it already holds a terminal result for.** That covers the one
+remaining case — the ungraceful exit — robustly, without any in-game victory/defeat hook (which
+could not catch a crash anyway, and, per the RE, has no safe earlier moment to fire at: the client
+is a full lockstep participant right up until it leaves to the score screen). No game-DLL change is
+required for notification correctness.
+
+**Corollary (optional cleanup, not required).** Networked "Continue Playing" is a footgun: it keeps
+a *decided* game in live lockstep for no benefit. A tidy end state is to close the v2 session
+cleanly when the victory dialog shows and let "Continue Playing" run solo/local-only. The wrinkle:
+the seam hooks fall through to native Storm when there is no session, but scope C removed native
+join/Storm setup, so a solo continuation needs the seam to transition to *zero peers required,
+local-only* rather than fall into the dead native path. Simplest v1 is therefore to make the
+victory dialog End-Mission-only (drop the networked-continue option); the solo-sandbox version is a
+nicer stretch gated on that local-only transition. Either way this is cleanup, orthogonal to the
+notification correctness above.
