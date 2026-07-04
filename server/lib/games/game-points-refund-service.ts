@@ -27,7 +27,12 @@ export enum GamePointsRefundErrorCode {
   GameNotFound = 'gameNotFound',
   /** The game isn't in the current season, so its points aren't refundable. */
   NotCurrentSeason = 'notCurrentSeason',
-  /** The game has no matchmaking point changes to refund (e.g. it wasn't a ranked game). */
+  /** The game has no matchmaking point changes at all (e.g. it wasn't a ranked game). */
+  NotRanked = 'notRanked',
+  /**
+   * The game is ranked, but nothing can be refunded to the eligible players (e.g. the only players
+   * who lost points/bonus are the punished ones).
+   */
   NotRefundable = 'notRefundable',
   /** A punished user id isn't among the game's participants. */
   InvalidPlayers = 'invalidPlayers',
@@ -89,7 +94,7 @@ export class GamePointsRefundService {
     ])
     if (!mmChanges.length) {
       throw new GamePointsRefundServiceError(
-        GamePointsRefundErrorCode.NotRefundable,
+        GamePointsRefundErrorCode.NotRanked,
         'This game has no matchmaking points to refund',
       )
     }
@@ -105,10 +110,21 @@ export class GamePointsRefundService {
     }
 
     const punished = new Set(punishedUserIds)
-    // Refund only losses (negative point changes); honest winners keep their gains. The punished
-    // player(s) are excluded — note the victims often include the punished player's own allies
-    // (a griefer's teammates), which is why we refund "everyone else" rather than "the other team".
-    const mmRefunds = mmChanges.filter(c => !punished.has(c.userId) && c.pointsChange < 0)
+    // Refund every non-punished loser who actually spent something on this game. A matchmaking loss
+    // costs either ranked points (`pointsChange < 0`) or, when the season's bonus pool absorbs the
+    // loss, bonus points (`bonusUsedChange > 0`) instead — and for most of a season losses are fully
+    // bonus-absorbed, leaving `pointsChange` at 0 with the loss visible only as spent bonus, so
+    // gating on `pointsChange < 0` alone would refund nobody. We refund both. Winners also spend
+    // bonus (it amplifies their gains), so we gate on `outcome === 'loss'` to keep honest winners'
+    // gains rather than clawing them back. The punished player(s) are excluded — note the victims
+    // often include the punished player's own allies (a griefer's teammates), which is why we refund
+    // "everyone else" rather than "the other team".
+    const mmRefunds = mmChanges.filter(
+      c =>
+        !punished.has(c.userId) &&
+        c.outcome === 'loss' &&
+        (c.pointsChange < 0 || c.bonusUsedChange > 0),
+    )
     const leagueRefunds = leagueChanges.filter(c => !punished.has(c.userId) && c.pointsChange < 0)
 
     // Nothing to refund (e.g. the only players who lost points are the punished ones). Bail without

@@ -178,7 +178,8 @@ function reasonToLabel(reason: GameReportReason): string {
 const REFUND_ERROR_MESSAGES: Record<string, string> = {
   gameNotFound: 'Game not found.',
   notCurrentSeason: 'Only current-season games can have their points refunded.',
-  notRefundable: 'This game has no lost ranked points to refund.',
+  notRanked: 'This game has no ranked points to refund (it was not a ranked game).',
+  notRefundable: 'None of the eligible players lost ranked points or bonus in this game.',
   invalidPlayers: 'The reported player did not participate in this game.',
   alreadyRefunded: "This game's points have already been refunded.",
 }

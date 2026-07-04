@@ -43,15 +43,21 @@ vi.mock('../db/transaction', () => ({
 const GAME_ID = 'game-1'
 const CURRENT_SEASON = { id: 7 } as any
 
-/** Builds a `MatchmakingRatingChange` with only the fields the service reads. */
+/**
+ * Builds a `MatchmakingRatingChange` with only the fields the service reads. `outcome` defaults to
+ * matching the sign of `pointsChange` (real wins always net >= +1, losses <= 0), but can be
+ * overridden — e.g. a bonus-absorbed loss nets 0 ranked points yet is still a loss.
+ */
 function mmChange(
   userId: number,
   pointsChange: number,
   bonusUsedChange = 0,
+  outcome: 'win' | 'loss' = pointsChange > 0 ? 'win' : 'loss',
 ): MatchmakingRatingChange {
   return {
     userId: makeSbUserId(userId),
     matchmakingType: MatchmakingType.Match1v1,
+    outcome,
     pointsChange,
     bonusUsedChange,
   } as MatchmakingRatingChange
@@ -106,7 +112,7 @@ describe('GamePointsRefundService', () => {
     asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
       mmChange(10, 20, 10), // punished winner
       mmChange(11, -15, 4), // victim (loser)
-      mmChange(12, 8), // honest winner (positive change, not refunded)
+      mmChange(12, 8, 5), // honest winner who spent bonus (still not refunded — outcome is a win)
     ])
 
     const result = await refund([makeSbUserId(10)])
@@ -147,6 +153,31 @@ describe('GamePointsRefundService', () => {
     expect(notificationService.addNotification).toHaveBeenCalledWith(
       expect.objectContaining({ userId: makeSbUserId(11) }),
     )
+  })
+
+  test('refunds bonus-absorbed losers whose net ranked-points change was 0', async () => {
+    // For most of a season, a loss is fully covered by the bonus pool: the player nets 0 ranked
+    // points but spends bonus. They still lost something, so they must be refunded (bonus restored)
+    // — gating on `pointsChange < 0` alone would wrongly refund nobody here.
+    asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+      mmChange(10, 25, 12), // punished winner
+      mmChange(11, 0, 9), // victim whose 9-point loss was entirely bonus-absorbed (nets 0 points)
+    ])
+
+    const result = await refund([makeSbUserId(10)])
+
+    expect(refundMatchmakingPoints).toHaveBeenCalledTimes(1)
+    expect(refundMatchmakingPoints).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        userId: makeSbUserId(11),
+        // -0 from negating a 0-point (bonus-absorbed) loss; harmless — it adds 0 points in the DB
+        // and serializes to 0 in the audit row.
+        pointsRefund: -0,
+        bonusRefund: 9,
+      }),
+    )
+    expect(result.refundedUsers).toEqual([makeSbUserId(11)])
   })
 
   test('refunds, audits, and notifies league losers too — including league-only ones', async () => {
@@ -193,6 +224,15 @@ describe('GamePointsRefundService', () => {
     expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
     expect(refundMatchmakingPoints).not.toHaveBeenCalled()
     expect(notificationService.addNotification).not.toHaveBeenCalled()
+  })
+
+  test('throws NotRanked when the game has no matchmaking changes at all', async () => {
+    asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([])
+
+    await expect(refund([])).rejects.toMatchObject({
+      code: GamePointsRefundErrorCode.NotRanked,
+    })
+    expect(tryRecordGamePointsRefund).not.toHaveBeenCalled()
   })
 
   test('throws AlreadyRefunded when the game was already refunded', async () => {

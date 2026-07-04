@@ -171,6 +171,7 @@ function convertGamePointsRefundErrors(err: unknown) {
     case GamePointsRefundErrorCode.GameNotFound:
       throw asHttpError(404, err)
     case GamePointsRefundErrorCode.NotCurrentSeason:
+    case GamePointsRefundErrorCode.NotRanked:
     case GamePointsRefundErrorCode.NotRefundable:
     case GamePointsRefundErrorCode.InvalidPlayers:
       throw asHttpError(400, err)
