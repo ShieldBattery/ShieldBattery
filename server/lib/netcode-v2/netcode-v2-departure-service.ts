@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto'
+import { KeyObject, createPublicKey, verify as verifyEd25519 } from 'node:crypto'
 import { NetcodeV2DepartureNotification } from '../../../common/games/netcode-v2'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import log from '../logging/logger'
@@ -9,44 +9,86 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 /** HTTP status an unauthenticated/disabled-feature departures webhook call should get. */
 export type DepartureWebhookAuthStatus = 401 | 404
 
+/** How the `x-rp2-timestamp` + request body are combined into the bytes the signature covers. */
+const SIGNATURE_MESSAGE_PREFIX = 'rp2-webhook-v1:'
+
+/** How far a webhook's `x-rp2-timestamp` may drift from now before it's rejected as stale/replayed. */
+const REPLAY_WINDOW_MS = 5 * 60 * 1000
+
+const HEX_PUBKEY_PATTERN = /^[0-9a-f]{64}$/i
+
 /**
- * Checks a bearer `Authorization` header against the configured notify secret in constant time,
- * so the comparison can't leak the secret's contents through response-timing differences.
+ * Parses the rp2 tenant's Ed25519 public key out of its `SB_RP2_TENANT_PUBKEY` hex form (64 hex
+ * chars, the same format the rp2 dev coordinator prints for relays) into a `KeyObject`. Node's
+ * `crypto` has no direct "raw Ed25519 public key" import, so this goes through a JWK
+ * (`OKP`/`Ed25519`) construction, which only needs the raw key re-encoded as base64url.
  */
-function isAuthorized(authorizationHeader: string | undefined, secret: string): boolean {
-  if (!authorizationHeader?.startsWith('Bearer ')) {
-    return false
+export function parseTenantPublicKeyHex(hex: string | undefined): KeyObject | undefined {
+  if (!hex) {
+    return undefined
+  }
+  if (!HEX_PUBKEY_PATTERN.test(hex)) {
+    log.error(
+      'SB_RP2_TENANT_PUBKEY is set but is not 64 hex characters; departures webhook is disabled',
+    )
+    return undefined
   }
 
-  const provided = Buffer.from(authorizationHeader.slice('Bearer '.length))
-  const expected = Buffer.from(secret)
-  if (provided.length !== expected.length) {
-    return false
-  }
-
-  return timingSafeEqual(provided, expected)
+  const rawKey = Buffer.from(hex, 'hex')
+  return createPublicKey({
+    key: { kty: 'OKP', crv: 'Ed25519', x: rawKey.toString('base64url') },
+    format: 'jwk',
+  })
 }
+
+const TENANT_PUBLIC_KEY = parseTenantPublicKeyHex(process.env.SB_RP2_TENANT_PUBKEY)
 
 /**
  * Gates a departures webhook call before anything else runs (including body validation): returns
  * the HTTP status to respond with if the call should be rejected, or `null` if it's authorized to
  * proceed.
  *
- * Auth is a bearer secret rather than a user session — the caller is the trusted coordinator, not
- * an end user. The secret is read from `SB_RP2_NOTIFY_SECRET` on every call (rather than cached),
- * so the feature can be toggled without a restart-sensitive load path: unset means the feature is
- * off and the endpoint always reports not-found, so its existence isn't revealed either — which
- * also means this must run, and be respected, before any body validation that could otherwise
- * leak the endpoint's existence (or its expected shape) to an unauthenticated caller.
+ * Auth is an Ed25519 signature over the request rather than a shared secret — the coordinator
+ * signs each delivery attempt with its per-tenant signing key (the same one it uses for player
+ * session tokens), so the app server verifies with the public half and holds no secret at all. The
+ * signed message is `"rp2-webhook-v1:" + <x-rp2-timestamp> + ":" + <raw request body bytes>`; the
+ * timestamp also bounds how old a captured request can be before it's rejected as a replay.
+ *
+ * `SB_RP2_TENANT_PUBKEY` unset (or malformed) means the feature is off and this always returns 404
+ * — which also means this must run, and be respected, before any body validation that could
+ * otherwise leak the endpoint's existence (or its expected shape) to an unauthenticated caller.
  */
 export function checkDepartureWebhookAuth(
-  authorizationHeader: string | undefined,
+  timestampHeader: string,
+  signatureHeader: string,
+  rawBody: Buffer,
 ): DepartureWebhookAuthStatus | null {
-  const secret = process.env.SB_RP2_NOTIFY_SECRET
-  if (!secret) {
+  if (!TENANT_PUBLIC_KEY) {
     return 404
   }
-  if (!isAuthorized(authorizationHeader, secret)) {
+
+  if (!/^\d+$/.test(timestampHeader)) {
+    return 401
+  }
+  const timestamp = Number(timestampHeader)
+  if (!Number.isSafeInteger(timestamp) || Math.abs(Date.now() - timestamp) > REPLAY_WINDOW_MS) {
+    return 401
+  }
+
+  if (!signatureHeader) {
+    return 401
+  }
+  const signature = Buffer.from(signatureHeader, 'base64')
+  if (signature.length !== 64) {
+    return 401
+  }
+
+  const message = Buffer.concat([
+    Buffer.from(`${SIGNATURE_MESSAGE_PREFIX}${timestampHeader}:`, 'utf8'),
+    rawBody,
+  ])
+
+  if (!verifyEd25519(null, message, TENANT_PUBLIC_KEY, signature)) {
     return 401
   }
 
@@ -56,8 +98,10 @@ export function checkDepartureWebhookAuth(
 /**
  * Classifies and records a departure notification from an already-authenticated caller. Always
  * completes successfully from the caller's perspective (the caller responds 204 either way) — an
- * unrecordable/moot notification is a normal outcome, not an error, per the §19 classification
- * rule: a departure for a game+player that already holds a terminal result is discarded.
+ * unparseable notification (missing/malformed correlation ids) is logged and dropped rather than
+ * erroring back to the coordinator, and a notification that resolves to a real game+user is
+ * recorded unconditionally, even if that game already has results — see `recordUserDeparture`'s
+ * doc comment for why.
  */
 export async function recordDepartureNotification(
   notification: NetcodeV2DepartureNotification,
@@ -82,11 +126,8 @@ export async function recordDepartureNotification(
   const recorded = await recordUserDeparture({ userId, gameId, kind, time: new Date() })
 
   if (recorded) {
-    log.info({ gameId, userId, kind }, 'mid-game departure recorded')
+    log.info({ gameId, userId, kind }, 'departure recorded')
   } else {
-    log.info(
-      { gameId, userId, kind },
-      'departure ignored (terminal result already held or duplicate)',
-    )
+    log.info({ gameId, userId, kind }, 'duplicate departure ignored')
   }
 }

@@ -207,12 +207,18 @@ export async function setUserReconciledResult(
 }
 
 /**
- * Records a mid-game departure (left/dropped) for a user's game record, unless that record already
- * holds a terminal outcome. The `WHERE` clause is the classification rule: a user who already
- * submitted results, was reconciled, or already has a recorded departure yields no update, so the
- * caller can tell a genuine departure from a moot/duplicate one without a separate read.
+ * Records a mid-game departure (left/dropped) for a user's game record, regardless of whether that
+ * record already holds results — the departure is relay-side evidence of what happened on the
+ * network, recorded unconditionally so it survives adversarial cases like a player pre-submitting
+ * fake results before cutting their own connection. Whether a recorded departure was actually a
+ * benign post-result exit (e.g. lingering on the victory dialog) is derivable later by comparing
+ * `departure_time` against `reported_at`, rather than by refusing to record it here.
  *
- * @returns whether a row was actually updated (false means the departure was moot/duplicate).
+ * The `WHERE` clause's only remaining job is dedup: a game+user that already has a recorded
+ * departure yields no update, so a duplicate/retried webhook (delivery is at-least-once) is a no-op
+ * and the first departure recorded for a user in a game always wins.
+ *
+ * @returns whether a row was actually updated (false means this was a duplicate).
  */
 export async function recordUserDeparture({
   userId,
@@ -233,8 +239,7 @@ export async function recordUserDeparture({
       SET
         departure_kind = ${kind},
         departure_time = ${time}
-      WHERE user_id = ${userId} AND game_id = ${gameId}
-        AND reported_results IS NULL AND result IS NULL AND departure_kind IS NULL
+      WHERE user_id = ${userId} AND game_id = ${gameId} AND departure_kind IS NULL
     `)
 
     return !!result.rowCount

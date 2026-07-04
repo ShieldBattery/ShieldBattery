@@ -1125,3 +1125,48 @@ decision, webhook delivered first-attempt:
 - *left + recorded* (mid-game F10 of an undecided game) is the one flavor not live-run — needs
   human input; identical code path, classification decided by the same WHERE clause, unit-tested
   both sides.
+
+### §20b. Follow-up slice (2026-07-04, same day): evidence retention, always-present refs,
+### signed webhooks, https
+
+Driven by a Travis adversarial scenario — a cheater blocks their own relay link (but not the app
+server), plays out a fake solo "win", and submits it; both players claim victory; the relay-side
+departure record is exactly the tiebreaker the app server needs, because a player can only sever
+*their own* link: nobody can manufacture a relay-side departure for an opponent. Live-proven again
+end-to-end after all changes (signed webhook, true-crash `dropped` recorded; winner's post-result
+exit recorded with `reported_at < departure_time`).
+
+- **Departures are now recorded UNCONDITIONALLY** — the §20 ignore-if-result-held rule had a
+  suppression hole: pre-submitting fake results *before* cutting the link would get the departure
+  evidence discarded. `recordUserDeparture`'s WHERE keeps only the `departure_kind IS NULL` dedup
+  guard. Whether a departure was a benign post-result exit is *derivable* (`reported_at IS NOT
+  NULL AND reported_at <= departure_time`) instead of being decided at ingest by refusing to
+  record. Every player of every v2 game ends up with a departure row — the game's full departure
+  timeline, deliberately.
+- **Correlation ids are always present** (Travis: the optionality was an implementation leak).
+  `SessionDescriptor` now carries `external_id` + per-slot `slot_refs` down to every relay; the
+  **relay** stamps them into its own `DepartureNotice`; the coordinator prefers notice-carried
+  refs and falls back per-field to its store. A coordinator restart no longer loses the refs (the
+  old "no session record → drop" branch is gone); the only drop left is "no gameId from either
+  source". `external_ref` stays an opaque *string* at the rp2 boundary by design (rp2 is
+  multi-tenant and can't assume numeric ids) — SB stringifies its numeric `SbUserId` in and
+  integer-parses it back at ingest.
+- **Webhook auth = Ed25519 signatures from the tenant signing key** (Travis's idea), replacing
+  the bearer secret entirely. The coordinator signs each delivery attempt with the same per-tenant
+  key that mints player tokens: headers `x-rp2-timestamp` (unix ms) + `x-rp2-signature` (base64,
+  64 bytes) over the domain-separated message `rp2-webhook-v1:<timestamp>:<raw body bytes>` (the
+  prefix keeps webhook signatures unconfusable with token signatures). SB verifies with
+  `SB_RP2_TENANT_PUBKEY` (the same hex the dev coordinator prints for relays; parsed to a
+  KeyObject once at module load), ±5-minute replay window, raw-body-exact via the webhook
+  router's `includeUnparsed` koaBody. **SB now holds zero secrets for this feed.**
+  `SB_RP2_NOTIFY_SECRET` and `--dev-notify-secret` are gone. The symmetric direction —
+  SB signing its `/session/create` requests with its own registered keypair — remains with the
+  tenant-enrollment/credential work.
+- **The webhook client speaks https** (prod app server sits behind an HTTPS reverse proxy):
+  hyper-rustls, ring provider, webpki roots — aws-lc-rs verified absent from the workspace tree.
+- **Open (policy input pending): feeding departures into disputed reconciliation.** Today a 1v1
+  both-claim-victory dispute reconciles to `unknown` for both, no MMR. The departure timeline can
+  break the tie: the player whose relay-side departure happened mid-game while the opponent
+  stayed connected takes the loss. Proposed: in 1v1 disputes both `dropped` AND mid-game `left`
+  count against the departed player (leaving an undecided game is a concession either way); team
+  games need separate thought. Not wired into `reconcileResults` yet.
