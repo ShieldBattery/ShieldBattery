@@ -431,6 +431,7 @@
     "buttonCopyGameId": "Copiar ID",
     "buttonCopyLink": "Copia el enlace al juego",
     "buttonDownloadReplay": "Descargar replay",
+    "buttonReport": "Reportar",
     "buttonSearchAgain": "Busca de nuevo",
     "buttonWatchReplay": "Ver replay",
     "buttonWatchReplayLoading": "Cargando…",
@@ -492,6 +493,32 @@
       "matchFound": "¡Partido encontrado!",
       "searching": "Buscando un partido…"
     }
+  },
+  "gameReport": {
+    "alreadyReported": "Ya reportaste a este jugador por esta partida.",
+    "badRequest": "No se pudo enviar tu reporte. Revisa los detalles e inténtalo de nuevo.",
+    "description": "Reporta a un jugador por incumplir las reglas en esta partida. El equipo de ShieldBattery revisa los reportes.",
+    "details": "Detalles",
+    "detailsOptional": "Detalles (opcional)",
+    "detailsRequiredForOther": "Describe qué pasó.",
+    "detailsTooLong": "Los detalles no pueden superar los {{max}} caracteres.",
+    "error": "Algo salió mal al enviar tu reporte. Inténtalo de nuevo más tarde.",
+    "rateLimited": "Has enviado demasiados reportes recientemente. Inténtalo de nuevo más tarde.",
+    "reason": {
+      "abandoning": "Abandonó la partida",
+      "abusiveChat": "Chat abusivo",
+      "cheating": "Trampas o exploits",
+      "griefing": "Sabotaje",
+      "other": "Otro"
+    },
+    "reasonLabel": "Motivo",
+    "reasonRequired": "Elige un motivo.",
+    "reportedUser": "Jugador",
+    "reportedUserRequired": "Elige un jugador para reportar.",
+    "restricted": "Actualmente tienes restringido el envío de reportes.",
+    "submitted": "Reporte enviado.",
+    "title": "Reportar a un jugador",
+    "unknownPlayer": "Jugador desconocido"
   },
   "games": {
     "activity": {

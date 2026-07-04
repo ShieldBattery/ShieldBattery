@@ -425,6 +425,7 @@
     "buttonCopyGameId": "复制ID",
     "buttonCopyLink": "复制游戏链接",
     "buttonDownloadReplay": "下载录像",
+    "buttonReport": "举报",
     "buttonSearchAgain": "再次搜索",
     "buttonWatchReplay": "观看录像",
     "buttonWatchReplayLoading": "加载中…",
@@ -486,6 +487,32 @@
       "matchFound": "匹配成功！",
       "searching": "正在寻找比赛…"
     }
+  },
+  "gameReport": {
+    "alreadyReported": "你已经就这场游戏举报过该玩家了。",
+    "badRequest": "无法提交举报。请检查详情后重试。",
+    "description": "举报在这场游戏中违规的玩家。举报将由 ShieldBattery 工作人员审核。",
+    "details": "详情",
+    "detailsOptional": "详情（可选）",
+    "detailsRequiredForOther": "请描述发生了什么。",
+    "detailsTooLong": "详情不能超过 {{max}} 个字符。",
+    "error": "提交举报时出错。请稍后再试。",
+    "rateLimited": "你最近提交的举报过多。请稍后再试。",
+    "reason": {
+      "abandoning": "中途退出游戏",
+      "abusiveChat": "聊天辱骂",
+      "cheating": "作弊或利用漏洞",
+      "griefing": "恶意破坏",
+      "other": "其他"
+    },
+    "reasonLabel": "原因",
+    "reasonRequired": "请选择一个原因。",
+    "reportedUser": "玩家",
+    "reportedUserRequired": "请选择要举报的玩家。",
+    "restricted": "你当前被限制举报。",
+    "submitted": "举报已提交。",
+    "title": "举报玩家",
+    "unknownPlayer": "未知玩家"
   },
   "games": {
     "activity": {

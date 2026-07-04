@@ -30,6 +30,7 @@ export enum DialogType {
   PrivacyPolicy = 'privacyPolicy',
   ReplayInfo = 'replayInfo',
   ReplayLoad = 'replayLoad',
+  ReportGame = 'reportGame',
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
@@ -145,6 +146,13 @@ type ReplayLoadDialogPayload = BaseDialogPayload<
     gameId: string
   }
 >
+type ReportGameDialogPayload = BaseDialogPayload<
+  typeof DialogType.ReportGame,
+  {
+    gameId: string
+    reportedUserCandidates: SbUserId[]
+  }
+>
 type SimpleDialogPayload = BaseDialogPayload<
   typeof DialogType.Simple,
   {
@@ -183,6 +191,7 @@ export type DialogPayload =
   | PrivacyPolicyDialogPayload
   | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
+  | ReportGameDialogPayload
   | SimpleDialogPayload
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload

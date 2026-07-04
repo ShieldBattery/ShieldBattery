@@ -31,7 +31,8 @@ import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
-import { openSimpleDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg'
@@ -345,6 +346,22 @@ export function ConnectedGameResultsPage({
   const disableSearchAgain = !canSearchMatchmaking
   const isLive = !game?.results
 
+  const selfIsParticipant =
+    !!selfUser &&
+    !!game &&
+    game.config.teams.some(team => team.some(p => !p.isComputer && p.id === selfUser.id))
+  const reportCandidates = useMemo<SbUserId[]>(() => {
+    if (!game || !selfUser) {
+      return []
+    }
+    return game.config.teams
+      .flat()
+      .filter(p => !p.isComputer && p.id !== selfUser.id)
+      .map(p => p.id)
+  }, [game, selfUser])
+  // Reporting is limited to finished games you played in, against another human player from it.
+  const canReport = !isLive && selfIsParticipant && reportCandidates.length > 0
+
   return (
     <Container layoutScroll>
       <HeaderArea>
@@ -405,6 +422,20 @@ export function ConnectedGameResultsPage({
               a.href = replayInfo.url
               a.target = '_blank'
               a.click()
+            }}
+          />
+        ) : null}
+        {canReport ? (
+          <OutlinedButton
+            label={t('gameDetails.buttonReport', 'Report')}
+            iconStart={<MaterialIcon icon='flag' />}
+            onClick={() => {
+              dispatch(
+                openDialog({
+                  type: DialogType.ReportGame,
+                  initData: { gameId, reportedUserCandidates: reportCandidates },
+                }),
+              )
             }}
           />
         ) : null}

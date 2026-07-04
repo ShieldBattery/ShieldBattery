@@ -12,6 +12,7 @@ import { ChannelUserPermissionsDialog } from '../chat/channel-settings/user-perm
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
+import { ReportGameDialog } from '../games/report-game-dialog'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
 import { LeagueExplainerDialog } from '../leagues/league-explainer'
 import MapDetailsDialog from '../maps/map-details'
@@ -116,6 +117,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ReplayInfoDialog }
     case DialogType.ReplayLoad:
       return { component: ReplayLoadDialog, modal: true }
+    case DialogType.ReportGame:
+      return { component: ReportGameDialog }
     case DialogType.Simple:
       return { component: SimpleDialog }
     case DialogType.ShieldBatteryHealth:
