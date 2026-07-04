@@ -126,7 +126,7 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      in-game. Each session writes its own `.0.log`, so no more scanning for the right slot.
    - App log (`app-<session>.0.log`; prod → `app.0.log`): `Game status updated to 'configuring'` →
      `'playing'`.
-4. Decisive finish — two paths:
+4. Decisive finish — three paths:
    - **Human graceful leave (reliable, needs a person at the keyboard).** Ask the user to leave the
      match *through the in-game menu* (F10 / Menu → Quit/Leave Game → Yes) on the loser's window —
      **not** by closing the window / Alt-F4 / killing the process. A graceful leave ends the game
@@ -134,10 +134,25 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      decisive result → clean winner-up/loser-down MMR. This is the way to get a real MMR delta in
      this env (validated PR #1286, both 1v1 and 2v2). For **2v2**, the whole losing *team* must
      leave: have the user leave both of one team's windows.
+   - **Debug-tooling drop (unattended, netcode-v2 debug builds).** The debug DLL exposes a
+     game-control surface over CDP — `window.__sbDebugGame.forceLeave(gameId, slot)` injects a
+     synced drop of `slot` on the calling client, so the caller takes the allied-victory path and
+     the game **ends with no human at the keyboard**; `forceQuit(gameId)` then hard-tears-down any
+     window still sitting on a result/victory dialog (see verify-app for the whole surface +
+     details). This needs the **debug DLL** (which this tier already builds — the surface compiles
+     out of release) and a dev app session (`isDev`-gated senders). Two caveats: it's a **per-client
+     trigger, not consensus** (right for a 1v1 opponent-drop — the one remaining client; a 3+ player
+     game needs the slot injected on *every* remaining client on the same turn), and a one-sided
+     drop makes the two clients report contradictory results, so the game can reconcile **disputed
+     → no MMR delta**, same as the kill path. So this is the tool for driving the **netcode
+     leave/reconnect paths** and getting a game to *end* unattended — not for a guaranteed clean MMR
+     delta (use the human path for that).
    - **`Stop-Process` one `StarCraft.exe` (unattended fallback).** The other is *supposed* to be
      credited the win, but in practice the survivor often hangs on BW's dropped-player dialog with no
      human to dismiss it → both report `unknown` → game reconciles **disputed**, no MMR (see Known
-     issues). Use only when no human is available and you don't need the MMR delta.
+     issues). Prefer `forceQuit` over a raw `Stop-Process` when the app is dev-built (it routes
+     through the app, so `ActiveGameManager` resets its own state cleanly). Use only when no human is
+     available and you don't need the MMR delta.
 
 **Verify outcomes** — UI *and* DB (`docker exec shieldbattery-db-1 psql -U shieldbattery -d shieldbattery`):
 - `games`/`games_users` — a row with results for the match.
@@ -389,3 +404,6 @@ path before treating one as real; delete it once resolved.
   So this is only a hazard for fully-unattended runs; when you need the MMR delta, get a human to
   leave gracefully rather than killing the process. (The matcher-side writes — formation,
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)
+  On a **debug DLL build**, `window.__sbDebugGame.forceQuit(gameId)` dismisses/tears down the hung
+  survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceLeave` can end the
+  game unattended — but neither escapes the disputed-reconcile / no-MMR outcome (T4 "Decisive finish").
