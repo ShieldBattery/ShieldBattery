@@ -311,7 +311,19 @@ export default class GameResultService {
       return
     }
 
-    const reconciled = reconcileResults(humans, currentResults)
+    // Determine the team grouping used to validate that only one team wins. This is only meaningful
+    // for matchmaking, where alliances are locked (disableAllianceChanges), so the config's starting
+    // teams are authoritative at game end. In lobby/custom games players can change alliances
+    // mid-game, so two players who started on different teams could legitimately ally and co-win;
+    // those are left to other dispute signals instead. If a matchmaking config has no determinable
+    // teams (a free-for-all melee with >2 players), each player is their own team, which still limits
+    // the game to a single winner.
+    const validationTeams =
+      gameRecord.config.gameSource === GameSource.Matchmaking
+        ? (getTeamsFromConfig(gameRecord.config)?.map(team => team.map(p => p.id)) ??
+          humans.map(id => [id]))
+        : null
+    const reconciled = reconcileResults(humans, currentResults, validationTeams)
     const reconcileDate = new Date(this.clock.now())
     await transact(async client => {
       // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back

@@ -53,12 +53,18 @@ function countTerminalStates(resultMap: ReadonlyArray<[SbUserId, GameClientPlaye
 /**
  * Returns the final game results given the per-player results that were reported for a game.
  *
+ * @param users the user IDs of every (human) player in the game
  * @param results an array of results submitted from each player. For players that have not
  *   submitted a result yet, a null will be present in this array.
+ * @param teams the players grouped into teams, used to validate that no more than one team ends up
+ *   with a winning player (a game whose structure allows only a single winner). Pass `null` to skip
+ *   this validation (e.g. for game types with arbitrary victory conditions, like UMS). For a free-
+ *   for-all with no fixed teams, pass each player as their own single-member team.
  */
 export function reconcileResults(
   users: ReadonlyArray<SbUserId>,
   results: ReadonlyArray<ResultSubmission | null>,
+  teams: ReadonlyArray<ReadonlyArray<SbUserId>> | null,
 ): ReconciledResults {
   // TODO(tec27): Incomplete results can also sometimes be reconciled (e.g. 1 player still playing,
   // 1 player disconnected) but we need more information about the game type to do so (e.g. what
@@ -190,8 +196,20 @@ export function reconcileResults(
     }
   }
 
-  // TODO(tec27): Check that the results are valid for the game configuration (e.g. only 1 victor
-  // for an FFA)
+  if (teams) {
+    // Only a single team is allowed to win. If a winning player shows up on more than one team, the
+    // reported results are contradictory (e.g. both players in a 1v1 claiming victory), so we treat
+    // the game as disputed and don't credit anyone.
+    const winningTeams = teams.filter(team =>
+      team.some(id => reconciled.get(id)?.result === 'win'),
+    ).length
+    if (winningTeams > 1) {
+      disputed = true
+      for (const value of reconciled.values()) {
+        value.result = 'unknown'
+      }
+    }
+  }
 
   if (Array.from(reconciled.values()).some(r => r.result === 'unknown')) {
     // If any of the player results are unknown, we set all of them to unknown. (This prevents
