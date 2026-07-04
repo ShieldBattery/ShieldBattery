@@ -251,6 +251,13 @@ Two code paths:
 
 Build: 32-bit default, 64-bit via `game\build.bat x86_64`
 
+**Always rebuild via `game\build.bat`, never a bare `cargo build`.** The app injects
+`game/dist/shieldbattery.dll` (see `app/game/active-game-manager.ts`), and only `build.bat` copies
+the freshly compiled DLL from `target/` into `dist/`. A bare `cargo build` updates `target/` but
+leaves `dist/` stale, so a launched game silently runs the *old* DLL — a change appears to have no
+effect (or to "fail" in a way that doesn't match the source). If a game-launch test contradicts
+your code, suspect a stale `dist/` DLL first.
+
 Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free)
 
 ## Electron App

@@ -245,7 +245,16 @@ no-op, retry hardening, plus cleanups) — 9 fixed, 1 deferred (see latency note
 4. **Opaque session/lobby `ControlFrame` kind** (pre-existing ask, unchanged — needed for scope
    B's lobby-turns-on-reliable-stream).
 
-**Dev loopback runbook (unblocked — rp2 asks #1–#3 landed):** run `rally-point-coordinator`
+**✅ LIVE LOOPBACK VERIFIED (2026-07-03):** the full stack ran end-to-end for the first time — a
+real 2-player lobby game (claude-1/claude-2 via the runbook below): pubkeys → coordinator session
+→ relay authorized both tokens (`client authorized tenant="sb-dev" session=… slot=0/1`) → both
+DLLs logged **"Netcode v2 session established"** → game loop running with turn seqs advancing
+over the QUIC link, zero WARN/ERROR through gameplay. Gotcha that cost one failed run: the app
+injects `game/dist/shieldbattery.dll`, which only `game\build.bat` refreshes — a bare
+`cargo build` leaves a stale dist DLL (ours predated the plausibility-gate deletion and fell back
+to native networking).
+
+**Dev loopback runbook (verified working):** run `rally-point-coordinator`
 (`--allow-insecure-control --dev-tenant`, optionally `--tenant-key` to pin the key) and
 `rally-point-relay` (`--tenant-pubkey` = the hex pubkey the coordinator logs at startup,
 `--coordinator-url` + `--relay-id`; no cert flags needed — the relay self-signs and its cert
@@ -329,6 +338,104 @@ resolution replaced it; samase either finds a symbol or it doesn't). Control-com
   and **reconnect/failover (D11)** are still open *designs* — the analyzer unblocks the write, but the
   consensus/ordering protocol is the relay/coordinator's job; don't invent leave/reconnect handling
   at the seam unilaterally.
+  - **Observed live (2026-07-03):** with no leave-initiation wired, a peer quitting/dropping pops
+    SC:R's native "Waiting for players / Drop Players" timeout dialog on the remaining client (the
+    slot stays `required`, the IN hook returns `Stall`, which triggers `run_timeout_dialog` — guide
+    §5.5) instead of the peer vanishing cleanly. Expected for now; clicking "Drop Players" recovers
+    (the dialog's drop writes `pending_leave_reason`, which `run_seam_leave_pass`/`mark_slot_left`
+    then drain). Closing this = the coordinated-leave write above, which also lets the remaining
+    client skip the dialog on a *clean* quit (native BW shows it only on unclean drops).
+
+### 7. Game observability + debug-control channel (verification tooling) — NEXT TASK, unassigned
+
+**This is the recommended next task, meant to be picked up by a different developer.** It's
+tooling, not netcode — independent of the still-open leave/reconnect designs (#6), can proceed in
+parallel, and will directly *help* verify #6's work once it lands. It came out of the 2026-07-03
+live-loopback session: verifying in-game behavior today is log-grep-only (you scrape
+`game-<session>.0.log` for strings like "Netcode v2 session established" and infer state), and
+there is no way to *drive* the game to a condition and *assert* on the result. This task makes
+in-game behavior observable and assertable — and, at the debug tier, drivable.
+
+**Build on what already exists — the game is not a black box.** The DLL already speaks structured
+JSON up a websocket to the app (`game/src/app_socket.rs`): it sends `/game/setupProgress`,
+`/game/start`, `/game/result`, `/game/finished`, `/game/resultSent`, `/game/replayUploaded`,
+`/game/windowMove`, `/game/replaySaved` (see the `send_message`/`encode_message` sites in
+`game_state.rs` + `lib.rs`), and the channel is **bidirectional** — the app sends `netcodeV2Setup`
+*down*, dispatched in the `match &*message.command` at `app_socket.rs:212`. The app
+(`app/game/active-game-manager.ts`) already turns the upward messages into a `GameStatus` state
+machine (`common/games/game-status.ts`) exposed via `getStatus()` + a `gameStatus` event, which the
+renderer holds in Redux — so anything relayed this way is observable from a verifier over CDP
+(playwright-cli) without touching the DLL log at all. The work is routing *more* of what the DLL
+knows up this existing, already-observable channel — not building a new bridge.
+
+**THE load-bearing constraint — the debug/prod security split (do not skip):** any surface that
+lets something *control or query* a running game is a grief/cheat vector (force a leave on another
+player, read hidden/opponent state → maphack-adjacent) and MUST NOT exist in the production DLL.
+Enforce it at **compile time** with `#[cfg(debug_assertions)]`, **not** the `if cfg!(debug_assertions)`
+runtime branch the panic-hook backtrace uses (`lib.rs:170`): a runtime guard still *ships* the
+dangerous code in the binary, where it's a patch target and one bug from being reachable. `#[cfg]`
+means the handlers, the state-exposure functions, *and* the `app_socket.rs` dispatch arms for those
+commands are physically absent from a release build — the command names aren't even recognized.
+This is real and free: prod builds via `game\build.bat release` → `--release`, and the release
+profile has no `debug-assertions` override, so `debug_assertions` is genuinely off in production
+(the DLL already uses this discriminator in three places). Put the whole risky surface in a single
+`#[cfg(debug_assertions)] mod debug_control` so it's trivially auditable ("is X in prod? it's under
+the debug module → no"), and belt-and-suspenders dev-gate the app's *sending* side
+(`isDev`/`SB_SESSION`) so the production app never emits these — the DLL `#[cfg]` is the load-bearing
+guarantee, the app gate is defense in depth. Payoff: because exclusion is compile-time, it doesn't
+matter whether a trigger could arrive from the trusted local app or (the real nightmare) from
+something reachable via network/game data — the "force a leave" primitive simply isn't in the
+shipped binary.
+
+**The four pieces, ranked by value/effort, each labeled on which side of the split it falls:**
+
+1. **Structured status events up the existing websocket — SHIPS IN PROD (safe subset), do this
+   first.** Add DLL→app messages for the milestones currently only grepped from logs:
+   `session_established`, `game_result` (richer than today), and coarse lifecycle. These are the
+   *same trust boundary* as the `/game/start` message that already ships — outbound, to the local
+   app — so they're prod-safe. The app relays them into `GameStatus`/an events stream exactly like
+   the existing commands; the verifier asserts on a structured event via CDP instead of regexing a
+   rotating log. **Keep the always-on set to coarse, non-sensitive lifecycle signals.** Netcode
+   *health* about your own client (buffer size, turns-in-flight) is borderline-fine; anything
+   per-opponent or granular goes behind the debug gate (see #2). When unsure, gate it. This is the
+   direct upgrade of the 2026-07-03 friction and is genuinely small (one new command + one app-side
+   handler, mirroring `/game/setupProgress`).
+2. **Pull/query debug command — DEBUG-ONLY (`#[cfg(debug_assertions)]`).** Add a `debug/queryState`
+   request the app sends down and the DLL answers with a snapshot: seam readiness set, per-slot
+   storm ids, current buffer, turn counts. Lets the verifier assert invariants *at a chosen moment*
+   — e.g. "after the peer left, slot N is `mark_slot_left`" — which is exactly what would have let
+   the 2026-07-03 session confirm the leave behavior directly instead of inferring it from the drop
+   dialog. Reuses the existing inbound dispatch path; the work is exposing internal state safely and
+   gating the whole arm.
+3. **Command injection / forced scenarios — DEBUG-ONLY, the netcode power tool.** Because the seam
+   already sits at the turn/command layer and can *write* `pending_leave_reason`, a debug command
+   could **force** a leave, a desync, or a buffer change on demand — so netcode verification stops
+   needing two humans and a real quit. Highest value for the #6 leave/reconnect work specifically
+   (test those paths deterministically). Composes with #1/#2: force it, then assert the event/state.
+4. **Screenshots — SHIPS IN PROD-safe, coarse-confirm layer (outside the control surface).**
+   Capturing the game's *own* window is not a game-integrity vector, so do it **app-side** (Electron
+   `desktopCapturer` on the SC:R window, or a native BitBlt) → known path/IPC, **no DLL change**, and
+   it slots into the verify-app CDP flow (playwright triggers an app IPC → app grabs the window →
+   returns an image a vision pass reads). Value is precisely the visual-only states logs miss: the
+   "Waiting for players / Drop Players" dialog, a victory/defeat banner, a crash modal, a
+   black/frozen screen. Useless for fine sim assertions — a spot-check, not the backbone. Still
+   worth dev-gating the IPC for tidiness, but that's hygiene, not a security requirement.
+
+**Suggested first slice + acceptance:** ship #1's `session_established` as a structured event
+(unconditional, safe) relayed through `GameStatus`, and prove a verifier can assert on it over CDP
+(Redux/`getStatus()`) instead of grepping the DLL log — with the `debug_control` module scaffolded
+(even if empty) and a release-build check confirming the debug commands compile out. That
+establishes both the pattern and the security split so #2/#3 can't accidentally graduate into a
+release DLL. Then #4 (screenshots, app-side) as a cheap parallel add, and #2/#3 as the
+netcode-specific deepening. Endgame: #1 + #3 + #4 together = an agent can *drive* a game and
+*verify* it (force a peer-leave, screenshot to confirm the UI, assert the structured `player_left`)
+with no person at the keyboard.
+
+**File pointers:** `game/src/app_socket.rs` (send + the `:212` inbound dispatch),
+`game/src/game_state.rs` (existing `send_message` sites — model new events on these),
+`app/game/active-game-manager.ts` (`GameStatus` handling), `common/games/game-status.ts` (status
+enum + any new event types), `app/game/*` (screenshot IPC + `isDev` gate). Prod build discriminator:
+`game\build.bat release` / `#[cfg(debug_assertions)]`.
 
 ## Security notes (done here; keep these invariants)
 

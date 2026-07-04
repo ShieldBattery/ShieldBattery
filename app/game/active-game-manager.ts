@@ -16,6 +16,7 @@ import { GameStatus, ReportedGameStatus, statusToString } from '../../common/gam
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
@@ -603,10 +604,13 @@ async function doLaunch(
 
   const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
   const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
+  // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
+  // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
+  const logNameArg = `-log-name=${gameLogBaseName()}`
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} ` +
-    `-launch ${legacyCursorSizingArg}`
+    `-launch ${legacyCursorSizingArg} ${logNameArg}`
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

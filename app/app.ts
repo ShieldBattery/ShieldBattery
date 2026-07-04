@@ -30,6 +30,7 @@ import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
+import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { RallyPointManager } from './rally-point/rally-point-manager'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
@@ -732,7 +733,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     const collectedFiles: Array<{ name: string; filePath: string }> = []
     try {
       const filePath = path.join(tempDir, 'app.log')
-      await copyFile(path.join(logsDir, 'app.0.log'), filePath)
+      // Read this instance's (SB_SESSION-namespaced) log; the uploaded name stays `app.log`.
+      await copyFile(path.join(logsDir, `${appLogBaseName()}.0.log`), filePath)
       collectedFiles.push({ name: 'app.log', filePath })
     } catch (err) {
       logger.warning('Error copying app log: ' + getErrorStack(err))
@@ -740,7 +742,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
     try {
       const filePath = path.join(tempDir, 'shieldbattery.log')
-      await copyFile(path.join(logsDir, 'shieldbattery.0.log'), filePath)
+      // The game DLL log is `game[-<session>].0.log`; the uploaded name stays `shieldbattery.log`.
+      await copyFile(path.join(logsDir, `${gameLogBaseName()}.0.log`), filePath)
       collectedFiles.push({ name: 'shieldbattery.log', filePath })
     } catch (err) {
       logger.warning('Error copying game log: ' + getErrorStack(err))

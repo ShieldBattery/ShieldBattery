@@ -105,7 +105,7 @@ fn log_file() -> File {
     let mut options = std::fs::OpenOptions::new();
     let options = options.read(true).write(true).create(true).share_mode(1); // FILE_SHARE_READ
     for i in 0..20 {
-        let filename = dir.join(format!("shieldbattery.{i}.log"));
+        let filename = dir.join(format!("{}.{i}.log", args.log_name));
         if let Ok(mut file) = options.open(filename) {
             let result = remove_lines(&mut file, 10000, 5000);
             // Add blank lines to make start of the session a bit clearer.
@@ -224,12 +224,19 @@ pub extern "C" fn OnInject() {
         .chain(log_file())
         .apply();
 
+    let args = parse_args();
     let process_id = unsafe { GetCurrentProcessId() };
+    // A single greppable marker at the top of each run. `<log_name>.0.log` is reused across a
+    // session's successive launches (the file is line-trimmed, not truncated), so this is the
+    // boundary that separates this run from the previous one's tail — grep to the last
+    // `SESSION_START`. It also carries the build version, so a stale injected DLL is obvious here.
     info!(
-        "Logging started. Process id {} (0x{:x}). ShieldBattery {}",
-        process_id,
-        process_id,
+        "[SESSION_START] version={} game_id={} pid={} (0x{:x}) log={}",
         env!("SHIELDBATTERY_VERSION"),
+        args.game_id,
+        process_id,
+        process_id,
+        args.log_name,
     );
     unsafe {
         let init_helper = load_init_helper().expect("Unable to load sb_init.dll");
@@ -526,6 +533,10 @@ struct Args {
     user_data_path: PathBuf,
     rally_point_port: u16,
     use_legacy_cursor_sizing: bool,
+    /// Base name for the rotating log file (`<log_name>.<slot>.log`). The launcher passes an
+    /// `SB_SESSION`-namespaced value so concurrent dev instances don't share a log; defaults to
+    /// `game` when the launcher doesn't specify one.
+    log_name: String,
 }
 
 static ARGS: OnceLock<Args> = OnceLock::new();
@@ -548,6 +559,7 @@ fn try_parse_args() -> Option<Args> {
     let user_data_path = args.next()?.into();
     let rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let mut use_legacy_cursor_sizing = false;
+    let mut log_name = "game".to_owned();
 
     for arg in args {
         let arg = arg.into_string().ok()?;
@@ -555,6 +567,12 @@ fn try_parse_args() -> Option<Args> {
             // NOTE(tec27): We pass this through args because we need to know if it's enabled before
             // we patch the game, and settings come over websocket (so too late)
             use_legacy_cursor_sizing = true;
+        } else if let Some(name) = arg.strip_prefix("-log-name=") {
+            // The launcher's SB_SESSION-namespaced log base (see app/log-paths.ts). Ignored if
+            // empty so a malformed arg can't produce a `.<slot>.log` file with no stem.
+            if !name.is_empty() {
+                log_name = name.to_owned();
+            }
         }
     }
 
@@ -564,5 +582,6 @@ fn try_parse_args() -> Option<Args> {
         user_data_path,
         rally_point_port,
         use_legacy_cursor_sizing,
+        log_name,
     })
 }

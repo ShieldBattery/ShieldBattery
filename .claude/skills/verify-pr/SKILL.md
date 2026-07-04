@@ -120,9 +120,12 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
    equal/unrated players match in ~30s; the armed clickers ready both up instantly.
 3. Confirm launch + injection:
    - Two `StarCraft.exe` processes (`tasklist | grep StarCraft`).
-   - `%APPDATA%\ShieldBattery-Local\logs\shieldbattery.0.log` (+`.1`): `All players have joined` →
-     `Readying lobby for start` → **`Forge: Game started`** = really in-game.
-   - App log (`app.0.log`): `Game status updated to 'configuring'` → `'playing'`.
+   - `%APPDATA%\ShieldBattery-Local\logs\game-<session>.0.log` (e.g. `game-session1.0.log`; prod /
+     no `SB_SESSION` → `game.0.log`): grep past the last `[SESSION_START]` for this run, then
+     `All players have joined` → `Readying lobby for start` → **`Forge: Game started`** = really
+     in-game. Each session writes its own `.0.log`, so no more scanning for the right slot.
+   - App log (`app-<session>.0.log`; prod → `app.0.log`): `Game status updated to 'configuring'` →
+     `'playing'`.
 4. Decisive finish — two paths:
    - **Human graceful leave (reliable, needs a person at the keyboard).** Ask the user to leave the
      match *through the in-game menu* (F10 / Menu → Quit/Leave Game → Yes) on the loser's window —

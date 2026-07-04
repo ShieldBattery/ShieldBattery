@@ -15,10 +15,19 @@ prove a component *looks* right, nothing more. To verify that something *works*,
    (:5556), and the **webpack dev server (:5566)** — the dev app loads its renderer from there.
 2. Seeded accounts: `pnpm run seed-dev` (gives `claude-admin` + `claude-1..3`, password
    `shieldbattery`).
-3. `playwright-cli` available. On this machine the global isn't on PATH — use
-   `npx --no-install playwright-cli ...` (verify with `npx --no-install playwright-cli --version`).
-   The examples below write `playwright-cli` for brevity; prefix with `npx --no-install` when running.
-   Running them through the Bash tool (and appending `2>/dev/null`) avoids npm's config-warning noise.
+3. `playwright-cli` available. It's a **global** npm tool (not a project dependency) and is on PATH,
+   so just run it directly — `playwright-cli --version` (→ `0.1.14`), `playwright-cli -s=c1 snapshot`,
+   etc. No wrapper needed; it prints clean output with no npm config noise.
+   - **Don't wrap it in `npx`/`pnpm dlx`/`pnpm exec`.** `npx` (even `--no-install`) adds config-warning
+     noise you'd have to `2>/dev/null` away. `pnpm dlx` re-downloads from the registry each run (the
+     fetch-and-run path — it would drift from the pinned global). `pnpm exec` prints `Already up to
+     date` / `Done in Nms` to **stdout** (not stderr — `2>/dev/null` won't strip it), corrupting the
+     snapshot/eval output this skill parses. And `playwright-cli` isn't a project dep, so pnpm has
+     nothing to resolve for it anyway. Bare `playwright-cli` is the clean choice.
+4. **If you changed `game/` Rust code and will launch a game to verify it, rebuild with
+   `game\build.bat` first** — a bare `cargo build` leaves `game/dist/shieldbattery.dll` (the DLL the
+   app injects) stale, so the launched game silently runs the *old* code. If a game-launch result
+   contradicts your change, suspect a stale `dist/` DLL. (See AGENTS.md → Game DLL.)
 
 ## Launch the app with a debugging port
 
@@ -28,11 +37,18 @@ second instance can be logged in as a different account) and a distinct port per
 
 ```bash
 # Instance 1 (background)
-SB_HOT=1 SB_SESSION=session1 npx electron app --remote-debugging-port=9222
+env -u ELECTRON_RUN_AS_NODE SB_HOT=1 SB_SESSION=session1 npx electron app --remote-debugging-port=9222
 
 # Instance 2 — only for multi-client flows (background)
-SB_HOT=1 SB_SESSION=session2 npx electron app --remote-debugging-port=9223
+env -u ELECTRON_RUN_AS_NODE SB_HOT=1 SB_SESSION=session2 npx electron app --remote-debugging-port=9223
 ```
+
+> **`env -u ELECTRON_RUN_AS_NODE` is mandatory when launching from an agent tool.** VS Code runs its
+> extension host (which the Claude Code extension and its Bash/PowerShell tools live under) by
+> spawning the Electron binary with `ELECTRON_RUN_AS_NODE=1`, and that var is inherited by everything
+> the tools launch. Left set, the freshly-spawned `electron.exe` runs as plain Node and dies with
+> `TypeError: Not running in an Electron environment!`. A human launching from a normal terminal
+> never sees it (their shell doesn't have the var), so it's easy to miss — always strip it here.
 
 `session1`/`session2`/`session3` already have their settings files configured (incl. the StarCraft
 path) under `%APPDATA%\ShieldBattery-Local`.
@@ -124,8 +140,11 @@ Examples:
 
 ## Cleanup
 
-`detach` each playwright-cli session, then stop the Electron background processes you started. Leave
-Docker running.
+When the task is done, `detach` each playwright-cli session, then **shut down everything you
+started** — the Electron instances, any game process still running, and any servers/side processes
+you spun up for this verification (see the dev-env skill's Stopping section — including the caveat
+that `TaskStop` on a `pnpm` task can orphan the child, so confirm ports are actually free). Only
+leave something running if you'll reuse it in the same session. Leave Docker running.
 
 ## When the browser is enough
 
