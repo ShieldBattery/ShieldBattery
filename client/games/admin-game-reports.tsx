@@ -210,6 +210,24 @@ function resolvedStatusLabel(
   return resolution ? resolutionToLabel(resolution) : 'Resolved'
 }
 
+/**
+ * Color tone for a resolved state in the incident overview. Only outcomes that reflect real action
+ * (`Actioned`/`Duplicate`) read as positive; `Dismissed`/`Abusive` are muted so they don't look
+ * "handled well" at a glance, and anything unresolved stays amber ("still pending").
+ */
+function siblingStatusTone(
+  resolvedAt: unknown,
+  resolution: GameReportResolution | null | undefined,
+): 'positive' | 'muted' | 'pending' {
+  if (!resolvedAt) {
+    return 'pending'
+  }
+  return resolution === GameReportResolution.Actioned ||
+    resolution === GameReportResolution.Duplicate
+    ? 'positive'
+    : 'muted'
+}
+
 const Content = styled.div`
   max-width: 960px;
   margin: 0 16px;
@@ -258,6 +276,12 @@ const RefundWarning = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const PunishedListLabel = styled.div`
+  ${labelMedium};
+  margin-bottom: 8px;
+  color: var(--theme-on-surface-variant);
+`
+
 const PunishedList = styled.div`
   display: flex;
   flex-direction: column;
@@ -290,10 +314,16 @@ const SiblingReason = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const SiblingStatus = styled.div<{ $resolved: boolean }>`
+const SIBLING_TONE_COLORS = {
+  positive: 'var(--theme-positive)',
+  muted: 'var(--theme-on-surface-variant)',
+  pending: 'var(--theme-amber)',
+} as const
+
+const SiblingStatus = styled.div<{ $tone: keyof typeof SIBLING_TONE_COLORS }>`
   ${labelMedium};
   flex: 0 0 auto;
-  color: ${props => (props.$resolved ? 'var(--theme-positive)' : 'var(--theme-amber)')};
+  color: ${props => SIBLING_TONE_COLORS[props.$tone]};
 `
 
 const ReportTable = styled.div`
@@ -953,10 +983,12 @@ function GameReportDetails({
               {confirmingRefund && game ? (
                 <RefundConfirmation>
                   <RefundWarning>
-                    Refund the ranked and league points lost in this game to everyone{' '}
-                    <b>except the players you check below</b> (the punished players). Check anyone
-                    else who was punished — the endpoint refunds the rest. This can't be undone.
+                    Refunds the ranked and league points lost in this game to{' '}
+                    <b>everyone except the punished players selected below</b> (the punished players
+                    keep their losses). The reported player is preselected — check anyone else who
+                    was punished. This can't be undone.
                   </RefundWarning>
+                  <PunishedListLabel>Punished players — excluded from the refund</PunishedListLabel>
                   <PunishedList>
                     {participants.map(p => (
                       <CheckBox
@@ -975,7 +1007,7 @@ function GameReportDetails({
                       onClick={() => setConfirmingRefund(false)}
                     />
                     <FilledButton
-                      label='Refund points'
+                      label='Refund everyone else'
                       disabled={refunding || excludedIds.size === 0}
                       onClick={onRefundPoints}
                     />
@@ -1035,7 +1067,7 @@ function GameReportDetails({
                     {s.reporter ? <ConnectedUsername userId={s.reporter.id} /> : 'unknown user'}
                   </SiblingReporter>
                   <SiblingReason>{reasonToLabel(s.reason)}</SiblingReason>
-                  <SiblingStatus $resolved={!!s.resolvedAt}>
+                  <SiblingStatus $tone={siblingStatusTone(s.resolvedAt, s.resolution)}>
                     {resolvedStatusLabel(s.resolvedAt, s.resolution)}
                   </SiblingStatus>
                 </SiblingRow>
