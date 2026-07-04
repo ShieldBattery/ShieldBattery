@@ -276,17 +276,23 @@ const RefundWarning = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const PunishedListLabel = styled.div`
+const RefundListLabel = styled.div`
   ${labelMedium};
   margin-bottom: 8px;
   color: var(--theme-on-surface-variant);
 `
 
-const PunishedList = styled.div`
+const RefundPlayerList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 12px;
+`
+
+const RefundHint = styled.div`
+  ${bodyMedium};
+  margin-bottom: 12px;
+  color: var(--theme-amber);
 `
 
 const SiblingList = styled.div`
@@ -810,23 +816,24 @@ function GameReportDetails({
   const resolve = (resolution: GameReportResolution) =>
     onResolve(resolution, notes.trim() ? notes.trim() : undefined)
 
-  // The game's human players — candidates to exclude from the refund (the punished set).
+  // The game's human players — candidates to refund.
   const participants = (game?.config.teams ?? [])
     .flat()
     .flatMap(p => (!p.isComputer && p.user ? [p.user] : []))
 
   const [refunding, setRefunding] = useState(false)
   const [confirmingRefund, setConfirmingRefund] = useState(false)
-  // The players to exclude from the refund (the punished set). Defaults to the reported player and
-  // is reset each time the confirmation opens; the admin can add/remove others (e.g. a second
-  // cheater on the same team who was reported separately).
-  const [excludedIds, setExcludedIds] = useState<ReadonlySet<SbUserId>>(new Set())
+  // The players to refund (the checked set). Defaults to everyone except the reported player and is
+  // reset each time the confirmation opens; the admin unchecks anyone else who was punished. The
+  // endpoint takes the *punished* set, so we send everyone not checked here.
+  const [refundedIds, setRefundedIds] = useState<ReadonlySet<SbUserId>>(new Set())
   const openRefundConfirmation = () => {
-    setExcludedIds(new Set(report.reportedUser ? [report.reportedUser.id] : []))
+    const reportedId = report.reportedUser?.id
+    setRefundedIds(new Set(participants.filter(p => p.id !== reportedId).map(p => p.id)))
     setConfirmingRefund(true)
   }
-  const toggleExcluded = (userId: SbUserId) => {
-    setExcludedIds(prev => {
+  const toggleRefunded = (userId: SbUserId) => {
+    setRefundedIds(prev => {
       const next = new Set(prev)
       if (next.has(userId)) {
         next.delete(userId)
@@ -836,8 +843,13 @@ function GameReportDetails({
       return next
     })
   }
+  // Everyone left unchecked is treated as punished (excluded from the refund). The endpoint requires
+  // at least one punished player, so refunding literally everyone isn't allowed.
+  const punishedUserIds = participants.filter(p => !refundedIds.has(p.id)).map(p => p.id)
+  const refundedCount = participants.length - punishedUserIds.length
+  const canRefund = refundedCount > 0 && punishedUserIds.length > 0
   const onRefundPoints = () => {
-    if (!game || excludedIds.size === 0) {
+    if (!game || !canRefund) {
       return
     }
     setConfirmingRefund(false)
@@ -845,7 +857,7 @@ function GameReportDetails({
     fetchJson<NullifyGamePointsResponse>(apiUrl`games/${game.id}/nullify-points`, {
       method: 'POST',
       body: encodeBodyAsParams<NullifyGamePointsRequest>({
-        punishedUserIds: [...excludedIds],
+        punishedUserIds,
       }),
     })
       .then(result => {
@@ -983,23 +995,28 @@ function GameReportDetails({
               {confirmingRefund && game ? (
                 <RefundConfirmation>
                   <RefundWarning>
-                    Refunds the ranked and league points lost in this game to{' '}
-                    <b>everyone except the punished players selected below</b> (the punished players
-                    keep their losses). The reported player is preselected — check anyone else who
-                    was punished. This can't be undone.
+                    Checked players get the ranked and league points they lost in this game back.
+                    The reported player is unchecked by default — uncheck anyone else who was
+                    punished. This can't be undone.
                   </RefundWarning>
-                  <PunishedListLabel>Punished players — excluded from the refund</PunishedListLabel>
-                  <PunishedList>
+                  <RefundListLabel>Players to refund</RefundListLabel>
+                  <RefundPlayerList>
                     {participants.map(p => (
                       <CheckBox
                         key={p.id}
                         label={p.name}
-                        checked={excludedIds.has(p.id)}
-                        onChange={() => toggleExcluded(p.id)}
+                        checked={refundedIds.has(p.id)}
+                        onChange={() => toggleRefunded(p.id)}
                         disabled={refunding}
                       />
                     ))}
-                  </PunishedList>
+                  </RefundPlayerList>
+                  {refundedCount > 0 && punishedUserIds.length === 0 ? (
+                    <RefundHint>
+                      Leave at least one player unchecked — a refund must exclude at least one
+                      punished player.
+                    </RefundHint>
+                  ) : null}
                   <ActionRow>
                     <OutlinedButton
                       label='Cancel'
@@ -1007,8 +1024,8 @@ function GameReportDetails({
                       onClick={() => setConfirmingRefund(false)}
                     />
                     <FilledButton
-                      label='Refund everyone else'
-                      disabled={refunding || excludedIds.size === 0}
+                      label='Refund points'
+                      disabled={refunding || !canRefund}
                       onClick={onRefundPoints}
                     />
                   </ActionRow>
