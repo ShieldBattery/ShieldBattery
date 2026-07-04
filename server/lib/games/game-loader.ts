@@ -620,6 +620,9 @@ export class GameLoader {
       const activityRegistry = container.resolve(GameplayActivityRegistry)
 
       const hasMultipleHumans = players.size > 1
+      // Netcode v2 only makes sense with multiple network participants; single-human games have
+      // no peers to relay turns between.
+      const useNetcodeV2 = this.netcodeV2Service.isEnabled() && hasMultipleHumans
       const pingPromise = !hasMultipleHumans
         ? Result.ok()
         : Result.all(
@@ -668,7 +671,14 @@ export class GameLoader {
       let chosenTurnRate: BwTurnRate | 0 | undefined
       let chosenUserLatency: BwUserLatency | undefined
 
-      if (
+      if (useNetcodeV2) {
+        // Netcode v2's relay resizes the latency buffer on the fly to match live network
+        // conditions, which supersedes the static ping-based turn-rate degradation below — and
+        // DTR (turnRate 0) can't work at all, since the v2 seam strips the turn-rate commands it
+        // relies on. So v2 games always run the best turn rate and let the relay absorb latency.
+        chosenTurnRate = 24
+        chosenUserLatency = BwUserLatency.Low
+      } else if (
         gameConfig.gameSource === GameSource.Matchmaking ||
         gameConfig.gameSourceExtra?.turnRate === undefined
       ) {
@@ -730,19 +740,6 @@ export class GameLoader {
         for (const u of chatRestrictions) {
           restrictionsSet.add(u)
         }
-      }
-
-      // Netcode v2 only makes sense with multiple network participants; single-human games have
-      // no peers to relay turns between. The coordinator caps sessions at BW's 12 network
-      // participants (8 players + 4 observers); anything larger falls back to legacy netcode
-      // rather than failing to load.
-      const useNetcodeV2 =
-        this.netcodeV2Service.isEnabled() && hasMultipleHumans && players.size <= 12
-      if (this.netcodeV2Service.isEnabled() && hasMultipleHumans && !useNetcodeV2) {
-        log.warn(
-          `game ${gameId} has ${players.size} participants, too many for a netcode v2 session; ` +
-            `using legacy netcode`,
-        )
       }
 
       const generalSetup = getGeneralGameSetup({
