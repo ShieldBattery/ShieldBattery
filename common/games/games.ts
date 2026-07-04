@@ -199,8 +199,12 @@ export interface NullifyGamePointsRequest {
 }
 
 export interface NullifyGamePointsResponse {
-  /** The players whose points were restored, and how much was restored to each. */
-  refundedUsers: Array<{ userId: SbUserId; pointsRefunded: number }>
+  /**
+   * The players whose points were restored (matchmaking and/or league). Per-player amounts aren't
+   * included since matchmaking and league points are separate currencies; the authoritative
+   * breakdown lives in the `game_points_refunds` audit row.
+   */
+  refundedUsers: SbUserId[]
 }
 
 export function getGameDurationString(durationMs: number): string {

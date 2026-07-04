@@ -13,7 +13,8 @@ CREATE TABLE game_points_refunds (
   -- outlive the admin's account being deleted.
   refunded_by integer REFERENCES users (id) ON DELETE SET NULL,
   refunded_at timestamptz NOT NULL DEFAULT now(),
-  -- Per-user audit of what was restored, as
-  -- [{ "userId", "matchmakingType", "pointsRefunded", "bonusRefunded" }, ...].
+  -- Per-user audit of what was restored, as a JSON array of matchmaking and/or league refund
+  -- entries discriminated by `kind`. See GamePointsRefundDetail in game-points-refund-models.ts
+  -- for the exact shape.
   details jsonb NOT NULL
 );

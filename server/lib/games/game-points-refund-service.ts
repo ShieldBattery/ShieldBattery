@@ -38,7 +38,7 @@ export enum GamePointsRefundErrorCode {
 export class GamePointsRefundServiceError extends CodedError<GamePointsRefundErrorCode> {}
 
 export interface RefundGamePointsResult {
-  refundedUsers: Array<{ userId: SbUserId; pointsRefunded: number }>
+  refundedUsers: SbUserId[]
 }
 
 @singleton()
@@ -121,12 +121,31 @@ export class GamePointsRefundService {
       )
     }
 
-    const details: GamePointsRefundDetail[] = mmRefunds.map(c => ({
-      userId: c.userId,
-      matchmakingType: c.matchmakingType,
-      pointsRefunded: -c.pointsChange,
-      bonusRefunded: c.bonusUsedChange,
-    }))
+    // Audit every restoration — matchmaking and league — so a league-only refund still leaves a
+    // trace (and doesn't lock the game with an empty audit row).
+    const details: GamePointsRefundDetail[] = [
+      ...mmRefunds.map(
+        (c): GamePointsRefundDetail => ({
+          kind: 'matchmaking',
+          userId: c.userId,
+          matchmakingType: c.matchmakingType,
+          pointsRefunded: -c.pointsChange,
+          bonusRefunded: c.bonusUsedChange,
+        }),
+      ),
+      ...leagueRefunds.map(
+        (c): GamePointsRefundDetail => ({
+          kind: 'league',
+          userId: c.userId,
+          leagueId: c.leagueId,
+          pointsRefunded: -c.pointsChange,
+        }),
+      ),
+    ]
+
+    // Everyone who got any points back (matchmaking and/or league) — for the notifications and the
+    // response. Deduped, since the common case refunds a player in both.
+    const refundedUserIds = [...new Set([...mmRefunds, ...leagueRefunds].map(c => c.userId))]
 
     const { updatedRatings, updatedLeagueUsers } = await transact(async client => {
       const recorded = await tryRecordGamePointsRefund(client, { gameId, refundedBy, details })
@@ -180,9 +199,9 @@ export class GamePointsRefundService {
     // already been applied, so a notification failure shouldn't fail the request.
     try {
       await Promise.all(
-        details.map(d =>
+        refundedUserIds.map(userId =>
           this.notificationService.addNotification({
-            userId: d.userId,
+            userId,
             data: { type: NotificationType.GamePointsRefunded },
           }),
         ),
@@ -191,8 +210,6 @@ export class GamePointsRefundService {
       logger.error({ err }, 'error notifying players of a points refund')
     }
 
-    return {
-      refundedUsers: details.map(d => ({ userId: d.userId, pointsRefunded: d.pointsRefunded })),
-    }
+    return { refundedUsers: refundedUserIds }
   }
 }

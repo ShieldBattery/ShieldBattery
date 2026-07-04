@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { LeagueId } from '../../../common/leagues/leagues'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
-import { getLeagueUserChangesForGame, refundLeaguePoints } from '../leagues/league-models'
+import {
+  getLeagueUserChangesForGame,
+  LeagueUserChange,
+  refundLeaguePoints,
+} from '../leagues/league-models'
 import {
   getMatchmakingRatingChangesForGame,
   MatchmakingRatingChange,
@@ -50,6 +55,15 @@ function mmChange(
     pointsChange,
     bonusUsedChange,
   } as MatchmakingRatingChange
+}
+
+/** Builds a `LeagueUserChange` with only the fields the service reads. */
+function leagueChange(userId: number, pointsChange: number): LeagueUserChange {
+  return {
+    userId: makeSbUserId(userId),
+    leagueId: 'league-1' as LeagueId,
+    pointsChange,
+  } as LeagueUserChange
 }
 
 describe('GamePointsRefundService', () => {
@@ -108,7 +122,7 @@ describe('GamePointsRefundService', () => {
         bonusRefund: 4,
       }),
     )
-    expect(result.refundedUsers).toEqual([{ userId: makeSbUserId(11), pointsRefunded: 15 }])
+    expect(result.refundedUsers).toEqual([makeSbUserId(11)])
 
     // The audit row records the same refund; the ranking cache is refreshed.
     expect(tryRecordGamePointsRefund).toHaveBeenCalledWith(
@@ -117,6 +131,7 @@ describe('GamePointsRefundService', () => {
         gameId: GAME_ID,
         details: [
           {
+            kind: 'matchmaking',
             userId: makeSbUserId(11),
             matchmakingType: MatchmakingType.Match1v1,
             pointsRefunded: 15,
@@ -132,6 +147,37 @@ describe('GamePointsRefundService', () => {
     expect(notificationService.addNotification).toHaveBeenCalledWith(
       expect.objectContaining({ userId: makeSbUserId(11) }),
     )
+  })
+
+  test('refunds, audits, and notifies league losers too — including league-only ones', async () => {
+    asMockedFunction(getMatchmakingRatingChangesForGame).mockResolvedValue([
+      mmChange(10, 20), // punished winner
+      mmChange(11, -15, 4), // mm + (below) league loser
+      mmChange(12, 0), // participant whose mm points were clamped to 0 (no mm refund)
+    ])
+    asMockedFunction(getLeagueUserChangesForGame).mockResolvedValue([
+      leagueChange(11, -8),
+      leagueChange(12, -6), // league-only refund (their mm change was 0)
+    ])
+
+    const result = await refund([makeSbUserId(10)])
+
+    // Both league losers get their league points restored...
+    expect(refundLeaguePoints).toHaveBeenCalledTimes(2)
+    // ...and the league-only player (12) is included in the audit, response, and notifications even
+    // though they had no matchmaking refund.
+    expect(result.refundedUsers).toEqual([makeSbUserId(11), makeSbUserId(12)])
+    expect(notificationService.addNotification).toHaveBeenCalledTimes(2)
+    expect(notificationService.addNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: makeSbUserId(12) }),
+    )
+    const { details } = asMockedFunction(tryRecordGamePointsRefund).mock.calls[0][1]
+    expect(details).toContainEqual({
+      kind: 'league',
+      userId: makeSbUserId(12),
+      leagueId: 'league-1',
+      pointsRefunded: 6,
+    })
   })
 
   test('bails with NotRefundable (recording nothing) when the only losers are punished', async () => {
