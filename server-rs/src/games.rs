@@ -408,7 +408,13 @@ impl GamesRepo {
             r#"
             SELECT id, start_time, map_id as "map_id: _", config as "config: _",
                 disputable, dispute_requested, dispute_reviewed,
-                game_length, results as "results: _", routes as "routes: _"
+                game_length,
+                -- Some legacy rows store `results` as an empty object `{}` instead of an array (or
+                -- null); coerce any non-array value to NULL so it decodes as `None` rather than
+                -- erroring ("invalid type: map, expected a sequence"). Matches the Node guard in
+                -- game-models.ts.
+                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _",
+                routes as "routes: _"
             FROM games
             WHERE
                 game_length IS NULL
@@ -448,7 +454,13 @@ impl Loader<Uuid> for GamesLoader {
             r#"
             SELECT id, start_time, map_id as "map_id: _", config as "config: _",
                 disputable, dispute_requested, dispute_reviewed,
-                game_length, results as "results: _", routes as "routes: _"
+                game_length,
+                -- Some legacy rows store `results` as an empty object `{}` instead of an array (or
+                -- null); coerce any non-array value to NULL so it decodes as `None` rather than
+                -- erroring ("invalid type: map, expected a sequence"). Matches the Node guard in
+                -- game-models.ts.
+                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _",
+                routes as "routes: _"
             FROM games WHERE id = ANY($1)
             "#,
             keys

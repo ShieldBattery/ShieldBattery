@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, start_time, map_id as \"map_id: _\", config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length, results as \"results: _\", routes as \"routes: _\"\n            FROM games\n            WHERE\n                game_length IS NULL\n                AND start_time < now() - interval '2 minutes'\n                AND start_time > now() - interval '1 hour'\n                AND config->>'gameSource' = 'MATCHMAKING'\n            ORDER BY start_time DESC\n            LIMIT 10\n            ",
+  "query": "\n            SELECT id, start_time, map_id as \"map_id: _\", config as \"config: _\",\n                disputable, dispute_requested, dispute_reviewed,\n                game_length,\n                -- Some legacy rows store `results` as an empty object `{}` instead of an array (or\n                -- null); coerce any non-array value to NULL so it decodes as `None` rather than\n                -- erroring (\"invalid type: map, expected a sequence\"). Matches the Node guard in\n                -- game-models.ts.\n                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as \"results: _\",\n                routes as \"routes: _\"\n            FROM games WHERE id = ANY($1)\n            ",
   "describe": {
     "columns": [
       {
@@ -95,12 +95,7 @@
         "ordinal": 8,
         "name": "results: _",
         "type_info": "Jsonb",
-        "origin": {
-          "Table": {
-            "table": "games",
-            "name": "results"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 9,
@@ -115,7 +110,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "UuidArray"
+      ]
     },
     "nullable": [
       false,
@@ -126,9 +123,9 @@
       false,
       false,
       true,
-      true,
+      null,
       true
     ]
   },
-  "hash": "b93a30dc19f570feaeced2cfded96f180e7db730011ab3403d66a5e172274e74"
+  "hash": "1b1e9601db57d62cba100678383e7b413e7b398e9259b55b76138686293fa4af"
 }
