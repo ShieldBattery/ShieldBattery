@@ -531,7 +531,8 @@
       "title": "进行中的比赛"
     },
     "reporting": {
-      "actionedNotification": "我们已对您举报的一名玩家采取了处理措施。感谢您帮助维护公平的社区环境。"
+      "actionedNotification": "我们已对您举报的一名玩家采取了处理措施。感谢您帮助维护公平的社区环境。",
+      "pointsRefundedNotification": "经过审核，您在一场对局中失去的排位积分已返还给您。"
     }
   },
   "home": {

@@ -4,7 +4,8 @@ import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { urlPath } from '../../common/urls'
+import { NullifyGamePointsRequest, NullifyGamePointsResponse } from '../../common/games/games'
+import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { graphql } from '../gql'
@@ -17,6 +18,8 @@ import { Card } from '../material/card'
 import { CheckBox } from '../material/check-box'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
+import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { watchReplayFromUrl } from '../replays/action-creators'
@@ -133,6 +136,15 @@ function reasonToLabel(reason: GameReportReason): string {
   }
 }
 
+/** Friendly messages for the `code`s the nullify-points endpoint can return. */
+const REFUND_ERROR_MESSAGES: Record<string, string> = {
+  gameNotFound: 'Game not found.',
+  notCurrentSeason: 'Only current-season games can have their points refunded.',
+  notRefundable: 'This game has no lost ranked points to refund.',
+  invalidPlayers: 'The reported player did not participate in this game.',
+  alreadyRefunded: "This game's points have already been refunded.",
+}
+
 function resolutionToLabel(resolution: GameReportResolution): string {
   switch (resolution) {
     case GameReportResolution.Actioned:
@@ -180,6 +192,19 @@ const ErrorText = styled.div`
 
 const NotFoundText = styled.div`
   ${bodyLarge};
+  color: var(--theme-on-surface-variant);
+`
+
+const RefundConfirmation = styled.div`
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
+`
+
+const RefundWarning = styled.div`
+  ${bodyMedium};
+  margin-bottom: 12px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -662,6 +687,43 @@ function GameReportDetails({
   const resolve = (resolution: GameReportResolution) =>
     onResolve(resolution, notes.trim() ? notes.trim() : undefined)
 
+  const [refunding, setRefunding] = useState(false)
+  const [confirmingRefund, setConfirmingRefund] = useState(false)
+  const onRefundPoints = () => {
+    if (!game || !report.reportedUser) {
+      return
+    }
+    setConfirmingRefund(false)
+    setRefunding(true)
+    fetchJson<NullifyGamePointsResponse>(apiUrl`games/${game.id}/nullify-points`, {
+      method: 'POST',
+      body: encodeBodyAsParams<NullifyGamePointsRequest>({
+        // Only the reported player is excluded. The endpoint accepts multiple punished ids, but this
+        // report knows about a single target — if a game had several punished players reported
+        // separately, the others would (wrongly) be refunded, and the per-game idempotency lock means
+        // that can't be corrected. The confirmation copy spells this out; a punished-set picker is a
+        // possible follow-up (see the sibling-report handling in issue #1335).
+        punishedUserIds: [report.reportedUser.id],
+      }),
+    })
+      .then(result => {
+        setRefunding(false)
+        dispatch(
+          openSimpleDialog(
+            'Points refunded',
+            `Refunded points to ${result.refundedUsers.length} player(s) for this game.`,
+          ),
+        )
+      })
+      .catch(err => {
+        setRefunding(false)
+        const message =
+          (isFetchError(err) && err.code && REFUND_ERROR_MESSAGES[err.code]) ||
+          'There was a problem refunding points for this game.'
+        dispatch(openSimpleDialog('Refund failed', message))
+      })
+  }
+
   let statusLabel = 'Pending'
   if (report.resolvedAt) {
     statusLabel = report.resolution ? resolutionToLabel(report.resolution) : 'Resolved'
@@ -756,16 +818,50 @@ function GameReportDetails({
                   <DetailsValue>{report.resolutionNotes}</DetailsValue>
                 </Section>
               ) : null}
-              {reporter ? (
+              {reporter || game ? (
                 <ActionRow>
-                  <OutlinedButton
-                    label='Restrict this reporter'
-                    iconStart={<MaterialIcon icon='gavel' />}
-                    onClick={() =>
-                      push(urlPath`/users/${reporter.id}/${reporter.name}/admin/punishments`)
-                    }
-                  />
+                  {reporter ? (
+                    <OutlinedButton
+                      label='Restrict this reporter'
+                      iconStart={<MaterialIcon icon='gavel' />}
+                      onClick={() =>
+                        push(urlPath`/users/${reporter.id}/${reporter.name}/admin/punishments`)
+                      }
+                    />
+                  ) : null}
+                  {game &&
+                  report.reportedUser &&
+                  report.resolution === GameReportResolution.Actioned ? (
+                    <OutlinedButton
+                      label='Refund game points'
+                      iconStart={<MaterialIcon icon='paid' />}
+                      disabled={refunding || confirmingRefund}
+                      onClick={() => setConfirmingRefund(true)}
+                    />
+                  ) : null}
                 </ActionRow>
+              ) : null}
+              {confirmingRefund && game && report.reportedUser ? (
+                <RefundConfirmation>
+                  <RefundWarning>
+                    This refunds the ranked and league points that everyone{' '}
+                    <b>except {report.reportedUser.name}</b> lost in this game. Only{' '}
+                    {report.reportedUser.name} is excluded — if other players in this game were also
+                    punished, their points will be refunded too. This can't be undone.
+                  </RefundWarning>
+                  <ActionRow>
+                    <OutlinedButton
+                      label='Cancel'
+                      disabled={refunding}
+                      onClick={() => setConfirmingRefund(false)}
+                    />
+                    <FilledButton
+                      label='Refund points'
+                      disabled={refunding}
+                      onClick={onRefundPoints}
+                    />
+                  </ActionRow>
+                </RefundConfirmation>
               ) : null}
             </>
           ) : (

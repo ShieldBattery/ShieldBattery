@@ -20,6 +20,8 @@ import {
   GetGamesQueryParams,
   GetGamesResponse,
   MAX_GAMES_OFFSET,
+  NullifyGamePointsRequest,
+  NullifyGamePointsResponse,
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
@@ -41,6 +43,7 @@ import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { UpsertUserIp } from '../network/user-ips-type'
+import { checkAllPermissions } from '../permissions/check-permissions'
 import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
 import { getReplayInfosForGames } from '../replays/replay-info'
@@ -54,6 +57,11 @@ import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
 import { countCompletedGames, getGameRoutes, getGames } from './game-models'
+import {
+  GamePointsRefundErrorCode,
+  GamePointsRefundService,
+  GamePointsRefundServiceError,
+} from './game-points-refund-service'
 import GameResultService, { GameResultServiceError } from './game-result-service'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
@@ -154,10 +162,32 @@ function convertGameResultServiceErrors(err: unknown) {
   }
 }
 
+function convertGamePointsRefundErrors(err: unknown) {
+  if (!(err instanceof GamePointsRefundServiceError)) {
+    throw err
+  }
+
+  switch (err.code) {
+    case GamePointsRefundErrorCode.GameNotFound:
+      throw asHttpError(404, err)
+    case GamePointsRefundErrorCode.NotCurrentSeason:
+    case GamePointsRefundErrorCode.NotRefundable:
+    case GamePointsRefundErrorCode.InvalidPlayers:
+      throw asHttpError(400, err)
+    case GamePointsRefundErrorCode.AlreadyRefunded:
+      throw asHttpError(409, err)
+    default:
+      assertUnreachable(err.code)
+  }
+}
+
 async function convertServiceErrors(ctx: RouterContext, next: Koa.Next) {
   try {
     await next()
   } catch (err) {
+    if (err instanceof GamePointsRefundServiceError) {
+      convertGamePointsRefundErrors(err)
+    }
     convertGameResultServiceErrors(err)
   }
 }
@@ -170,7 +200,32 @@ export class GameApi {
     @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
     private gameLoader: GameLoader,
     private replayService: ReplayService,
+    private gamePointsRefundService: GamePointsRefundService,
   ) {}
+
+  @httpPost('/:gameId/nullify-points')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('manageGameReports'))
+  async nullifyGamePoints(ctx: RouterContext): Promise<NullifyGamePointsResponse> {
+    const {
+      params: { gameId },
+      body: { punishedUserIds },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<NullifyGamePointsRequest>({
+        // `.single()` because the client sends this via `encodeBodyAsParams`, which serializes a
+        // one-element array as a single `punishedUserIds=<id>` param that the body parser decodes as
+        // a scalar (the usual convention here — see user-api.ts / chat-api.ts). A 3v3 is the largest
+        // matchmaking game, so at most 6 punished players; keep a little slack.
+        punishedUserIds: Joi.array().items(joiUserId()).single().min(1).max(8).required(),
+      }),
+    })
+
+    return await this.gamePointsRefundService.refundGamePoints({
+      gameId,
+      punishedUserIds,
+      refundedBy: ctx.session!.user.id,
+    })
+  }
 
   @httpGet('/list')
   @httpBefore(throttleMiddleware(gamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))

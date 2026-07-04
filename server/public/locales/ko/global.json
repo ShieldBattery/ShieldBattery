@@ -531,7 +531,8 @@
       "title": "진행 중인 경기"
     },
     "reporting": {
-      "actionedNotification": "회원님이 신고하신 플레이어에게 조치가 취해졌습니다. 공정한 커뮤니티를 유지하는 데 도움을 주셔서 감사합니다."
+      "actionedNotification": "회원님이 신고하신 플레이어에게 조치가 취해졌습니다. 공정한 커뮤니티를 유지하는 데 도움을 주셔서 감사합니다.",
+      "pointsRefundedNotification": "게임이 검토되어, 회원님이 잃은 랭크 점수가 복구되었습니다."
     }
   },
   "home": {

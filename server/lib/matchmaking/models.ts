@@ -375,6 +375,41 @@ export async function updateMatchmakingRating(
 }
 
 /**
+ * Restores matchmaking points to a user for a nullified game: adds `pointsRefund` back to their
+ * `points` and returns `bonusRefund` to their season bonus pool (by decrementing `bonus_used`).
+ * Deliberately touches only points/bonus — MMR is not reversed (it self-corrects over subsequent
+ * games). Returns the updated rating (so callers can refresh the rankings cache), or `undefined` if
+ * no matching row exists. See game-points-refund-service.
+ */
+export async function refundMatchmakingPoints(
+  client: DbClient,
+  {
+    userId,
+    matchmakingType,
+    seasonId,
+    pointsRefund,
+    bonusRefund,
+  }: {
+    userId: SbUserId
+    matchmakingType: MatchmakingType
+    seasonId: SeasonId
+    pointsRefund: number
+    bonusRefund: number
+  },
+): Promise<MatchmakingRating | undefined> {
+  const result = await client.query<DbMatchmakingRating>(sql`
+    UPDATE matchmaking_ratings
+    SET points = points + ${pointsRefund},
+        bonus_used = bonus_used - ${bonusRefund}
+    WHERE user_id = ${userId}
+      AND matchmaking_type = ${matchmakingType}
+      AND season_id = ${seasonId}
+    RETURNING *;
+  `)
+  return result.rows.length ? fromDbMatchmakingRating(result.rows[0]) : undefined
+}
+
+/**
  * Returns a list of players's matchmaking ratings, and optionally filtered by a search query, for a
  * particular matchmaking type.
  */

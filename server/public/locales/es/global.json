@@ -537,7 +537,8 @@
       "title": "Partidas en vivo"
     },
     "reporting": {
-      "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa."
+      "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa.",
+      "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada."
     }
   },
   "home": {

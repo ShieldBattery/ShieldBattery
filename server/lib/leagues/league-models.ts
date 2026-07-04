@@ -400,6 +400,28 @@ export async function updateLeagueUser(leagueUser: LeagueUser, client: DbClient)
   `)
 }
 
+/**
+ * Restores league points to a user for a nullified game (adds `pointsRefund` back). Returns the
+ * updated league user (so callers can refresh the leaderboard), or `undefined` if no matching row
+ * exists. See game-points-refund-service.
+ */
+export async function refundLeaguePoints(
+  client: DbClient,
+  {
+    userId,
+    leagueId,
+    pointsRefund,
+  }: { userId: SbUserId; leagueId: LeagueId; pointsRefund: number },
+): Promise<LeagueUser | undefined> {
+  const result = await client.query<DbLeagueUser>(sql`
+    UPDATE league_users
+    SET points = points + ${pointsRefund}
+    WHERE league_id = ${leagueId} AND user_id = ${userId}
+    RETURNING *;
+  `)
+  return result.rows.length ? convertLeagueUserFromDb(result.rows[0]) : undefined
+}
+
 export async function banLeagueUser(leagueUser: LeagueUser, withClient?: DbClient) {
   const { client, done } = await db(withClient)
   try {
