@@ -534,7 +534,8 @@
       "title": "Live games"
     },
     "reporting": {
-      "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair."
+      "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair.",
+      "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed."
     }
   },
   "home": {

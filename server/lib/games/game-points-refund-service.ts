@@ -1,4 +1,5 @@
 import { singleton } from 'tsyringe'
+import { NotificationType } from '../../../common/notifications'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
@@ -16,6 +17,7 @@ import {
   MatchmakingRating,
   refundMatchmakingPoints,
 } from '../matchmaking/models'
+import NotificationService from '../notifications/notification-service'
 import { Redis } from '../redis/redis'
 import { getGameRecord } from './game-models'
 import { GamePointsRefundDetail, tryRecordGamePointsRefund } from './game-points-refund-models'
@@ -44,6 +46,7 @@ export class GamePointsRefundService {
   constructor(
     private redis: Redis,
     private seasonsService: MatchmakingSeasonsService,
+    private notificationService: NotificationService,
   ) {}
 
   /**
@@ -161,6 +164,21 @@ export class GamePointsRefundService {
       await updateLeaderboards(this.redis, updatedLeagueUsers)
     } catch (err) {
       logger.error({ err }, 'error refreshing ranking/leaderboard caches after a points refund')
+    }
+
+    // Let the refunded players know their points were restored. Best-effort — the refund itself has
+    // already been applied, so a notification failure shouldn't fail the request.
+    try {
+      await Promise.all(
+        details.map(d =>
+          this.notificationService.addNotification({
+            userId: d.userId,
+            data: { type: NotificationType.GamePointsRefunded },
+          }),
+        ),
+      )
+    } catch (err) {
+      logger.error({ err }, 'error notifying players of a points refund')
     }
 
     return {

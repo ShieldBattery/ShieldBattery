@@ -1,6 +1,7 @@
 import React from 'react'
 import { NotificationType, SbNotification } from '../../common/notifications'
 import { UserRestrictedNotificationUi } from '../auth/user-restricted-notification-ui'
+import { GamePointsRefundedNotificationUi } from '../games/game-points-refunded-notification-ui'
 import { GameReportActionedNotificationUi } from '../games/game-report-actioned-notification-ui'
 import {
   LeagueBanNotificationUi,
@@ -27,6 +28,7 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.LeagueBan:
     case NotificationType.LeagueUnban:
     case NotificationType.GameReportActioned:
+    case NotificationType.GamePointsRefunded:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -111,6 +113,14 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
     case NotificationType.GameReportActioned:
       return (
         <GameReportActionedNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+        />
+      )
+    case NotificationType.GamePointsRefunded:
+      return (
+        <GamePointsRefundedNotificationUi
           ref={ref}
           showDivider={showDivider}
           read={notification.read}

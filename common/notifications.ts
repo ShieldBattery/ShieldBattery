@@ -23,6 +23,8 @@ export enum NotificationType {
   LeagueUnban = 'leagueUnban',
   /** Action was taken against a player this user reported. */
   GameReportActioned = 'gameReportActioned',
+  /** Ranked points this user lost in a game were refunded after the game was nullified. */
+  GamePointsRefunded = 'gamePointsRefunded',
 }
 
 export type SbNotification =
@@ -34,6 +36,7 @@ export type SbNotification =
   | LeagueBanNotification
   | LeagueUnbanNotification
   | GameReportActionedNotification
+  | GamePointsRefundedNotification
 
 export interface BaseNotification {
   /**
@@ -98,6 +101,14 @@ export interface LeagueUnbanNotification extends BaseNotification {
  */
 export interface GameReportActionedNotification extends BaseNotification {
   type: NotificationType.GameReportActioned
+}
+
+/**
+ * Tells a player that ranked points they lost in a game were refunded, because the game was
+ * nullified by an admin (e.g. after a cheating/griefing report was actioned).
+ */
+export interface GamePointsRefundedNotification extends BaseNotification {
+  type: NotificationType.GamePointsRefunded
 }
 
 export type NotificationEvent =
