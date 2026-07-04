@@ -141,6 +141,32 @@ Examples:
   countdown/launch begins on both. (Actually *launching the game* and verifying outcomes is the
   **verify-pr** skill's game-launch tier.)
 
+## Waiting for the game to reach a state (poll in the foreground)
+
+Launching a game is slow — StarCraft starts, the DLL injects, and (on netcode v2) the relay is
+dialed — so `gameClient.status.state` walks `configuring` → `playing` over ~30–60s, and the result
+path later moves `playing` → `resultSent`/`finished`. Don't guess a fixed sleep; poll the state.
+
+**Poll with a bounded *foreground* loop, one short `eval` at a time** — do **not** wrap a long
+`until playwright-cli … eval …; do sleep; done` in a background Bash task. A long-lived background
+loop of CDP evals silently drops the playwright-cli session mid-wait (later calls start failing
+`The browser 'cN' is not open`) even though the Electron app itself stays up and listening — you
+then have to `attach` again and you've lost the wait. A short foreground loop with a per-iteration
+`sleep` is reliable:
+
+```bash
+# The eval result is on the SECOND output line, so sed -n 2p extracts it.
+for i in $(seq 1 40); do
+  st=$(playwright-cli -s=c1 eval "window.__sbReduxStore.getState().gameClient.status?.state ?? 'null'" 2>/dev/null | sed -n 2p)
+  echo "[$i] $st"
+  [ "$st" = '"playing"' ] && break
+  sleep 4
+done
+```
+
+Poll both instances in the same loop for a two-client game. If the session does drop, re-`attach`
+(the app is still up on its CDP port) and resume — you do not need to relaunch the app.
+
 ## Reading what happened
 
 - **Redux state (dev builds)**: the store is exposed as `window.__sbReduxStore` (dev bundles
@@ -149,6 +175,12 @@ Examples:
   Game-relevant: `gameClient.status` is the full `ReportedGameStatus`, incl.
   `networkStatus.transport` (`'netcodeV2' | 'native'`, plus `fallbackFrom`/`error` when a netcode
   v2 dial failed) — assert on this instead of grepping the game DLL log.
+- **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
+  `queryGameState(gameId)`, `forceLeave(gameId, slot)`, `forceQuit(gameId)`, and
+  `screenshot(gameId)` for driving/inspecting a running game over CDP (a release DLL doesn't
+  implement these, so query calls time out). `forceQuit` is the reliable way to tear a launched
+  game down between checks — it works even mid-game, when the process would otherwise sit at the
+  native victory dialog.
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
 - **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app.0.log` — shared across instances, so grep by
   the message you expect rather than assuming ordering.
