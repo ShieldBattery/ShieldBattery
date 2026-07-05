@@ -2132,3 +2132,420 @@ the list-filter predicate excludes the game.
   lobby games increment (race/global vs matchmaking-scoped — `makeCountKeys` in
   `user-stats-model`). No MMR/league repair needed: those are matchmaking-only, and matchmaking
   never has computers.
+
+## 23. Scope C — replace native join, delete Storm (design groundwork, 2026-07-05)
+
+Scope C is the committed end state (locked 2026-07-02): the DLL stops running Storm's join
+handshake and assigns BW's network-participant id ("storm id") itself, from the rally-point2
+roster — collapsing the rp2-slot↔storm-id translation into one id and deleting every read-back of
+Storm's join bookkeeping. This section records the groundwork investigation: what native join
+actually sets up (RE, 12409 BNDB), the full deletion surface in `game/`, the design shape that
+falls out, and a staged build plan. Nothing here is built yet.
+
+A framing correction to earlier notes: **Storm is not just the join path — its whole network layer
+runs for the entire match today.** The `StepIo` hook pumps `snet_recv_packets`/`snet_send_packets`
+every game-loop step (`bw_scr.rs:1419-1437`), so Storm's resend/heartbeat machinery runs in
+parallel with the QUIC transport all game, carried by the SNP shim (`snp.rs`) over the legacy
+rally-point **v1** relay (`network_manager.rs`). Scope B's "reroute join packets onto an rp2
+reliable channel" was never built (the opaque `ControlFrame` kind doesn't exist), so there is no
+half-done intermediate to preserve: scope C goes straight from "join on SNP→rally-point-v1" to "no
+Storm at all", and the entire v1 path — `snp.rs`, the `network_manager.rs` routing/resend state,
+`netcode/storm.rs` packet-header parsing, plus the app/server-side v1 route provisioning that
+feeds it — becomes deletable in the same arc.
+
+### §23a. What native join actually does (RE, 12409)
+
+Two layers feed the same lobby state machine: Storm's session handshake, and the BW lobby command
+stream it carries.
+
+**Where the local client learns its storm id.** Host: `create_game_multiplayer` (0x741d3e) →
+`storm_create_game` (0x7aee60); client: `join_game` (0x8b0fe0) → `storm_join_game` (0x7b0220).
+Both take `&local_storm_player_id` (global **0xf57cfc**, default 8) as an out-param — Storm writes
+the assigned id there (host gets 0). This one global is the local wire identity read pervasively
+by turn send/recv and sync code, and `init_game_network` (0x741760) refuses to start unless it is
+nonzero-valid. Under scope C the DLL writes it directly.
+
+**How each player gets registered.** `process_lobby_commands` (0x7479f1) dispatches lobby opcodes:
+- **case 7 `net_cmd_lobby_slot_setup`** (0x731880, 0x16c payload): the heavyweight snapshot —
+  picks the local game slot, fills BW `players[]`, copies the name, initializes turn queues
+  (`sub_7371c0` loops), copies skins, sets `lobby_state = 4`, calls `rebuild_storm_to_game_maps`.
+- **case 6 `net_cmd_player_join`** (0x732740, 8-byte payload): per-remote-player add (requires
+  `lobby_state >= 4`) → `init_net_player(storm_id, flags, f4, f6)`.
+
+**The two primitives scope C reuses:**
+- **`init_net_player`** (0x751940) — this is the `init_network_player_info` the DLL already calls
+  as an opaque pointer with args `(storm_id, 0, 1, 5)`. It writes `net_player_info[storm_id]`
+  (0x11cef58, `StormPlayer[12]`, 0x68 stride: in_use/flags/name) — i.e. it populates exactly the
+  table the DLL reads back as `storm_players`/`storm_player_flags`. **Caveat:** it sources the
+  player's name from Storm's live session table (`sub_750860` → `storm_get_player_name_data`
+  0x7af9e0, gated on `storm_provider_ready`) — twice, in fact: once as an existence gate before
+  writing the entry. Stage 0 (§23f Q2) resolved this by sidestepping it entirely: the function is
+  ~8 lines, so the DLL **inlines it** — writes `net_player_info[idx]` directly from its roster and
+  never touches Storm's name path.
+- **`rebuild_storm_to_game_maps`** (0x756450, arg = local storm id) — the single consistent
+  deriver of the id maps: resets `net_player_to_game[]` (0x11cc790) / `net_player_to_unique[]`
+  (0x11cc760) / `net_observer_storm_to_human_id[]` (0x11cc780), then walks `players[]` and binds
+  `players[i].storm_id → i`, setting `local_player_id`/`local_unique_player_id` when the storm id
+  matches the arg. **The storm-id↔game-slot mapping is derived from `players[].storm_id`, not
+  stored by Storm** — whoever writes that field and calls this function owns the mapping. The game
+  itself re-derives the maps on player leave (`process_ingame_player_leave` calls
+  `set_net_player_to_game`), which is why writing the map globals directly instead of going
+  through the deriver would risk divergence.
+
+**Hidden couplings that must be neutered when Storm never joins:** name formatting anywhere
+(join/leave chat lines, whispers) hits `storm_get_player_name_data`'s provider-ready gate; the
+SNET event handlers (event 3 → `handle_player_leave_message` 0x74fee0 — already a known §16a
+hazard, inert so far) must not fire — stage 0 corrected the registration site: they are installed
+around `choose_snp` (0x7427d4), **not** by `init_storm_networking` as first reported, and they
+only fire on inbound Storm packets, so they are structurally dead without a provider; the
+quit/drop/teardown family (`storm_drop_player` 0x7af3d0, `storm_self_leave_network_error`
+0x7af340, quit handshake `sub_7479c0`/`sub_748e60`) derefs provider handles (`data_11cdf80/84/8c`,
+`data_f5db1c`) that a never-joined Storm leaves stale; and `in_lobby_or_game` gates teardown
+branches that call Storm cleanup. §23f Q6 audited all of these: the early-outs on
+`storm_provider_ready == 0` make the whole family safe at BSS defaults, no stubbing required.
+
+### §23b. The deletion surface in `game/`
+
+The id plumbing has a single choke point: **`update_bw_slots` (`game_state.rs:1362`) is the only
+place the DLL writes `storm_id` into a BW `Player` struct**, and it is a read-then-copy from
+Storm's name table matched by player name. Everything else keys off that write:
+`update_nation_and_human_ids` (`bw_scr.rs:2727-2768`) reads `players[].storm_id` +
+`local_storm_id` to write the id maps and local ids (this is native code's own copy of
+`rebuild_storm_to_game_maps` logic, invoked from `ready_lobby_for_start`); `after_init_game_data`
+and `PlayersRandomized` rebuild the post-randomization mapping; `determine_game_results` and chat
+key on `joined_players[].storm_id`; `process_replay_commands` resolves replay slots by it. The
+rp2 turn engine's `slot_to_storm` table is populated only from `update_bw_slots`
+(`map_local_storm`/`map_storm_for_user`, `game_state.rs:1396-1399`) — today the QUIC engine is
+bootstrapped by Storm's join, which is precisely the dependency scope C inverts.
+
+Beyond that choke point, the reads to delete are: the storm-id-as-join-signal flag polling
+(`game_state.rs:420-432` host loop, `1579-1587` joiner) diffing `storm_player_flags()` to detect
+joins and drive `init_network_player_info`; the `StormIdChanged` guard (`game_state.rs:1346`);
+`storm_player_names` (`1757-1776`); `check_player_drops` (`bw_scr.rs:3041-3060`, informational —
+re-derive from `LeaveTracker` or drop); `GameThreadResults.network_results` built from
+`storm_player_flags()[i] == 0` as has_quit (`game_thread.rs:361-371` — re-derive from
+`TurnState`/`LeaveTracker`, which already own this truth under v2); the `local_storm_id == 0`
+host-role check in `do_lobby_game_init` (`bw_scr.rs:3466`); and the Storm sequence-number debug
+walker (`snet_next_turn_sequence_number`, cosmetic). The native calls that go: `join_game`,
+`storm_create_game`/`storm_join_game` (via `create_lobby`/`join_lobby`), `init_storm_networking`,
+`choose_snp`, the `LoadSnpList` hook + `SNP_FUNCTIONS`, the `StepIo` snet pump, and
+`storm_last_error` plumbing around join.
+
+### §23c. Design shape
+
+**One id.** Storm id ≡ rp2 slot id, assigned by the SB server at session create — the roster in
+`NetcodeV2Setup` already carries (sb_user_id → slot) for every human including observers, so every
+client holds the same assignment before the game process even launches. `TurnState.slot_to_storm`
+becomes the identity map (and eventually dissolves). The host must hold **storm id 0** (the
+`do_lobby_game_init` role check and Storm's own host convention): the server assigns the host rp2
+slot 0 at session create — a server-side choice, no game patch needed. Observer slots map to the
+native observer id space (storm id | 0x80, separate arrays) — exact mapping is open question (4).
+
+**Direct registration replaces the handshake.** At the point `join_lobby`/`create_lobby` runs
+today, the DLL instead: writes `local_storm_player_id` (0xf57cfc); fills `players[]` slots
+including `storm_id` from the roster (extending `setup_slots`, which already builds the slot
+layout and currently plants the placeholder id 27); writes `net_player_info[idx]` directly per
+human (inlined `init_net_player` — §23f Q1/Q2 pinned the fabrication values); calls
+`rebuild_storm_to_game_maps(local_storm_id)` once; and reproduces the residual
+`net_cmd_lobby_slot_setup` side effects **by direct calls, not a synthesized command buffer**
+(§23f Q3 settled this: the case-7 handler's slot-election logic fights a DLL that already knows
+its roster, and it re-enters the Storm name gate). The concrete checklist is in §23f Q3.
+
+**The lobby→game transition is driven locally — no lobby turns cross the wire (decided 2026-07-05,
+with Travis; local-drive investigation + rp2 capability pass).** The one message that crosses today
+is the host's `0x48` lobby-game-init command, which carries the randomization seed to non-hosts and
+implicitly signals them to start. Under scope C **every client already holds the identical seed
+locally** (`SETUP_INFO.seed`, server-distributed before the process launches — the host's `0x48`
+carries no information a client lacks), so the exchange is pure signalling. The decision: each
+client drives lobby-init itself, so nothing rides the turn path at all.
+
+- **Injection primitive — NOT `send_command`.** `send_command` queues a command that BW only
+  *dispatches* once its turn *completes* (every peer's turn data for that sequence has arrived);
+  with native networking gone the turn never completes → deadlock. The correct primitive is calling
+  **`process_lobby_commands(ptr, len, /*player=*/0)` directly** with a synthesized
+  `LobbyGameInitData{0x48, seed, player_bytes}` buffer — mirroring the DLL's existing
+  `process_game_commands(ptr, len, 1)` direct-injection precedent (`bw_scr.rs:3753`). That runs the
+  native `0x48` handler locally with zero turn-completion dependency, and the existing
+  `ProcessLobbyCommands` hook still trips `lobby_game_init_command_seen` →
+  `try_finish_lobby_game_init` writes `lobby_state = 9` → the completer finishes immediately with no
+  `maybe_receive_turns`. Drop the `local_storm_id == 0` guard's network role; there is no
+  host/non-host asymmetry left in lobby-init.
+- **The `0x48` also doubled as the non-hosts' "start" signal (source-confirmed caveat).** Today
+  non-hosts block in the init loop until the host's `0x48` arrives (which the host sends only after
+  the server's `allow_start` + `all_players_ready`). Self-driving removes that gate, so scope C must
+  provide an explicit **SB-layer start-to-all-clients** signal and gate each client's local
+  `do_lobby_game_init` on it (the `game_state.rs:493-496` TODO already anticipates this). Under rp2
+  this is belt-and-suspenders — `netcode_v2_receive_turns` already parks frame 0 until every
+  required slot is present, so an over-eager non-host self-corrects rather than desyncs — but we
+  want the "server said go" property kept, not lost.
+- **One binary fact still gates certainty (§23f Q8):** that the native `0x48` handler writes only
+  deterministic-from-seed state (the RNG seed) plus a local ready flag, and reads no live
+  turn/network state that is only valid when reached via a completed network turn. Judged <20%
+  likely to fail (the handler is upstream of sim determinism; turn *position* can't matter before
+  the sim starts), but it needs the decompile the stage-0 pass couldn't run (BinaryNinja was down).
+  If it fails, the `0x48` must ride rp2 as a reliable pre-game message — see the transport note.
+
+**If a reliable lobby message is ever needed, it rides a dedicated reliable channel — never the
+`Payload` turn path (locked with Travis, 2026-07-05).** Should the `0x48` binary check fail, or for
+the future reliable side-channels this design already wants (chat, resync, §17's out-of-band
+disconnect chat), the carrier is a **new `ControlFrame` kind on the existing reliable control
+stream** (the one already carrying leave-intent / oversize-turn), with its **own schema**, fanned
+out by the relay, and the reliable→unreliable switch mapping onto the seam's existing `game_started`
+boundary. It is explicitly **not** an unframed `Payload` on the turn path: the rp2 capability pass
+found that route drags in a size-independent "send reliably by intent" signal the client lacks and
+forces lobby opcodes through the relay's in-game command-validation table (which hard-rejects +
+disconnects on any opcode not in its flat SC:R table). A dedicated schema sidesteps both, reliability
+is structural rather than a size-triggered accident, and this is precisely what rp2's own
+`wire.proto` doc anticipated ("reliable side-channels — chat, resync, and possibly lobby setup — ride
+reliable QUIC streams with their own schema"). **Given local-drive, stage 1 almost certainly builds
+none of this** — it becomes the future home for chat/resync, not scope-C work.
+
+**Solo/comp games are the carve-out that decides how much can be deleted.** A single-human-vs-AI
+game has no v2 session (§22i) and today runs native create + SNP with zero peers. If the SNP shim
+is deleted, that path dies too. The clean shape: solo games also use direct registration and run
+the seam in `local_only` mode from the start (the §21a/§22i machinery — echo-local, no required
+remote slots) with **no rp2 session at all**, making every game seam-driven and Storm fully dead.
+This needs `TurnState` to be constructible without `establish_session` (today `with_turn_state`
+exists only when a session dialed). Alternative if that grows hairy: keep native create for
+sessionless solo games and scope the deletion to "no Storm in any networked game" — worse end
+state, defensible intermediate.
+
+**The determinism constraint (the #1 correctness rule).** `player_turns[]`/`net_player_flags[]`
+are indexed by storm id and turn ordering in the sim is by game slot; the
+(roster → storm id → game slot) triple must therefore be **byte-identical on every client**, and
+the active-player set (`net_player_info[].in_use`, `players[].type`) must match everywhere — a
+slot in_use on one client and not another changes what the sync hash iterates and desyncs
+immediately. Assignment must be a pure function of the server-distributed roster (it is, by
+construction, if ids come from session-create slots), never of join/arrival order. This is also
+why the relay-side 0x37 comparator is the perfect safety net for this work: any mistake here fires
+a desync event on the first turn, loudly, in loopback.
+
+### §23d. Staged build plan
+
+- **Stage 0 — RE closure.** Resolve §23e (1)-(5): `StormPlayer` field semantics via the accessor
+  family read-sites; the name-source patch point (`sub_750860` vs `storm_get_player_name_data`);
+  whether case-7 side effects can be reproduced by direct calls (enumerate everything 0x731880
+  writes); the observer id mapping; the `data_11cf438` sentinel. Also audit the teardown family
+  for provider-handle derefs reachable in a never-joined process. Pure BinaryNinja work, no code.
+- **Stage 1 — direct registration becomes the v2 join path, outright.** No dev flag (Travis: the
+  branch *is* the flag — `rp2-integration` is allowed to be broken). Build: direct registration
+  (inline `init_net_player` + `players[]` fill + `rebuild_storm_to_game_maps` + the §23f Q3 side-
+  effect checklist); **local-drive lobby-init** (synthesized `0x48` via direct
+  `process_lobby_commands`, drop the host guard) + the SB-layer start-to-all-clients signal that
+  replaces `0x48`-as-start-signal; and SNET/provider neutering (keep `storm_provider_ready`/
+  `data_f5db1c` at BSS defaults, skip `load_snp_list`/`choose_snp` — §23f Q6). No lobby turns on
+  rp2 (local-drive). Live-prove in loopback: 2p, 3p cross-relay, observer present, F10 quit + drop
+  + results + replay-slot resolution, relay 0x37 comparator quiet across all of it. The §5.8-style
+  gate: survivors of a mid-game drop continue synced to a real result, registered scope-C-style.
+  (The live seed-match test in §23f Q8 is folded in here — log `rng_seed()` on all clients right
+  after init, confirm identical, before trusting local-drive.)
+- **Stage 2 — the deletion sweep.** `snp.rs`, `network_manager.rs` v1 relay + route provisioning
+  (app/server side too), `netcode/storm.rs`, `LoadSnpList` hook, `StepIo` snet pump, the §23b
+  Storm-read list, `StormIdChanged`, flag polling, and the solo-game local-only conversion (or its
+  documented deferral). `slot_to_storm` collapses to identity.
+
+Stage 1 is where the desync-sensitive risk concentrates, and it lands while the whole live-proof
+harness (verify-app multi-client, forceQuit/queryState/forceDesync, relay desync webhooks) is hot.
+Any regression window between stage 1 landing and its live matrix passing only ever affects this
+branch.
+
+### §23e. Open questions
+
+Questions (1)–(5) were **resolved by the stage 0 RE pass — answers in §23f.** Still open:
+
+6. Sessionless `TurnState` for solo/comp games (the §23c carve-out): build it, or defer solo games
+   on native create as a documented intermediate?
+7. `PlayersRandomized`/`after_init_game_data` survive unchanged (they read `players[].storm_id`,
+   which we now write) — verify no other native reader assumes Storm-side state that the direct
+   registration doesn't cover (the §23a coupling list + §23f Q6 audit are the checklist).
+8. (From §23f, the two medium-confidence spots — both settle with a single live game-launch test,
+   not more RE:) whether `build_player_net_record` + turn-queue init are strictly required at
+   registration time vs covered by later game-start init; and the exhaustive game-end cleanup set
+   behind `in_lobby_or_game`.
+9. **RESOLVED (§23f Q9): the `0x48` handler is safe to inject locally.** It seeds `rng_seed`
+   verbatim from the payload and reads no live turn/network/sender state. Conditions (all already
+   met by the existing flow) below.
+
+### §23f. Stage 0 RE closure — answers (2026-07-05, 12409 BNDB; names/comments persisted)
+
+**Q1 — `StormPlayer` fields (0x68 stride).** `+0` state: 0=empty, **1=in-use**, 2=leaving (set at
+player-leave); every accessor requires state==1. `+2` flags (u16): lobby bookkeeping bits only
+(kept bits 0,1,8–15; 0x100 tracks a slot condition) — **0 is safe** for an in-game human. `+4`/`+6`
+(u16 each): inert for gameplay — their sole reader is `get_net_player_info_fields` (0x7516b0),
+consumed only by `build_player_net_record` (0x735780) which snapshots them into the 8-byte
+per-player record at `data_11cc6a0[gameId]`; **0 is safe**. `+8` name[0x60]. **Observer vs human
+is not encoded in the entry** — only the id range/index differs. Fabrication recipe: state=1,
+flags=0, field4=0, field6=0, name copied in.
+
+**Q2 — name plumbing: inline, don't patch.** `storm_get_player_name_data` (0x7af9e0) has three
+hard Storm dependencies (provider-ready, local-player-id byte, a session-player linked-list node),
+and `init_net_player` calls it **twice** (existence gate + name read). Neither patching the
+wrapper nor fabricating session structs is needed: `init_net_player` is ~8 lines, so the DLL
+inlines it and writes `net_player_info[idx]` directly. In-game name consumers
+(`handle_player_leave`'s chat line, etc.) read `net_player_info+8`, not Storm — filling +8 covers
+them. The only residual `storm_get_player_name_data` callers are lobby-command paths scope C
+replaces anyway.
+
+**Q3 — slot-setup side effects: direct calls win.** Beyond the roster fill the DLL must reproduce:
+`data_11cc669 = 0xff` (sentinel); `players[]` fill (ids/types/names — ours by construction);
+`player_skins` copy (0x15e stride, at `players_index * 0x15e`); clear the occupied slot-flag dword
+(`data_11cc628[game slot]` / `data_11cc608[observer slot]`); `lobby_state = 4`; per-player
+`build_player_net_record` (0x735780) + turn-queue init (`sub_7371c0`); `rebuild_storm_to_game_maps`
+once. Skipped as cosmetic/egress: lobby-UI color/name buffers, and `sub_74e5d0` (packs `game_data`
+and **broadcasts it to Storm peers** — pure network egress, dead under v2). Synthesizing a case-7
+command buffer was rejected: the handler's slot-election fights a roster-owning DLL and re-enters
+the Storm name gate. Medium-confidence remainder: whether the net-record/turn-queue calls are
+strictly required at this point vs re-done by game-start init — one live launch settles it.
+
+**Q4 — observer recipe.** Observers are storm ids **0x80–0x83 exactly** (`is_observer_human_id`
+0x75ad64); `net_player_info` index `8 + (id & 0x7f)`; game-player struct at `players[12 + n]`
+(type 6 = occupied human, same fill as a regular human); observer slot-flag dword
+`data_11cc608[n]` (0 = occupied); `rebuild_storm_to_game_maps` **fully handles observers** (its
+loop remaps id 8→0x80 and indexes `players[12..15]`, populating `net_observer_storm_to_human_id`
+0x11cc780 + the game map). No observer-only extra step exists. rp2 observer slots 8–11 map 1:1
+onto native 0x80–0x83.
+
+**Q5 — `data_11cf438`: leave it zero (BSS default), no action.** It is not a networking sentinel:
+every write site passes 0; readers just forward it into a lobby-info command builder. **Correction
+to §23a as first written:** `sub_751910`/`sub_751930` are this word's set/reset, *not* SNET event
+registration — the real `handle_player_leave_message` registration lives around `choose_snp`
+(0x7427d4).
+
+**Q6 — neuter plan: two globals at their defaults, zero stubs.**
+- `storm_provider_ready` **must stay 0** (its default): `storm_drop_player`,
+  `storm_self_leave_network_error`, and `storm_get_player_name_data` all early-out on it.
+- `data_f5db1c` stays **0xff** (default, "no local Storm player") — reinforces the early-outs.
+- SNP/SNET registration (`load_snp_list`, `choose_snp`) can simply be **skipped**: handlers only
+  fire on inbound Storm packets, and nothing reads registration state as a prerequisite.
+- The quit handshake (`sub_7479c0`/`sub_748e60`) derefs no provider handles; it completes when
+  every `net_player_flags[]` entry with bit 0x10000 has acked — set that bit only for genuinely
+  registered players (as normal registration does) and quit terminates correctly.
+- **No teardown function needs stubbing** while the two globals hold. If the DLL ever raises
+  `storm_provider_ready`, stub `storm_drop_player` + `storm_self_leave_network_error` (or keep the
+  `data_f5db0c` session list empty so their loops no-op).
+
+**Q8 — local-drive lobby-init: SOUND-WITH-CAVEATS (2026-07-05; source-confirmed, one binary check
+pending).** Verdict grounded in the Rust source (BinaryNinja was down for this pass). Findings:
+- **The lobby network turn carries no information a client lacks** — the seed is in `SETUP_INFO` on
+  every client; the host's `0x48` is pure signalling. Strongest single fact, source-confirmed.
+- **`send_command` is the wrong injection primitive** (would deadlock: it queues a command that only
+  dispatches on turn completion, which never happens without native networking). Use direct
+  `process_lobby_commands(ptr, len, 0)`, mirroring the `process_game_commands(ptr, len, 1)`
+  precedent at `bw_scr.rs:3753`. This is the key implementation correction.
+- **`maybe_receive_turns` does nothing else required here** — the completer's only exit condition is
+  `lobby_game_init_command_seen`; all real lobby reconciliation happens at the SB layer before
+  `StartGame`. So during the final phase `maybe_receive_turns` is just transport for the `0x48`.
+- **Caveat A → RESOLVED by Q9 below** (the native handler is safe to inject).
+- **Caveat B (source-confirmed, must handle):** `0x48` doubles as the non-hosts' start gate → needs
+  the explicit SB start-to-all-clients signal (folded into the §23c decision + stage 1).
+- **Confidence:** high on mechanism/synchronization (source). Live test that also confirms it: drop
+  the host guard, inject `0x48` locally, log `rng_seed()` on both clients post-init — identical
+  seeds + a synced frame 0 with no stall is decisive. (`game\build.bat`, not bare `cargo build`, or
+  the game runs a stale `dist/` DLL.)
+
+**Q9 — the `0x48` handler is safe to inject locally: YES-with-conditions, high confidence
+(2026-07-05, `handle_lobby_init_0x48` at 0x7315b3, dispatch case 0xd; comments persisted).**
+- **Reads no live state:** the only use of the `player` arg is a `player != 0` early-return guard;
+  it does *not* index `player_bytes` by sender, record the host, or read any per-turn counter,
+  storm-presence bitmask, or `local_storm_player_id` (verified via the 0xf57cfc xref sweep). So a
+  locally-injected command behaves identically to a network-delivered one.
+- **Seed is verbatim:** `set_rng_seed(seed)` writes `rng_seed` (0x11cf444) = the command's seed
+  field — the same global the DLL's `rng_seed()` reads. Deterministic-from-payload. ✓
+- **"Command seen" signal:** the handler copies the 13-byte command into the `lobby_init_command`
+  global (non-replay path), which is exactly what `lobby_game_init_command_seen` /
+  `try_finish_lobby_game_init` poll — so local injection drives `lobby_state → 9` the same way.
+- **Conditions, all already met by the existing flow:** (1) `lobby_state == 8` before the call
+  (set by `ready_lobby_for_start`); (2) `player == 0` (direct injection passes it explicitly);
+  (3) exact 13-byte buffer (`0x48` + u32 seed + 8×player_bytes); (4) `is_replay == 0` for a live
+  game. **On `player_bytes`:** Q9's initial read flagged "must not be `[8;8]`," but that describes
+  the handler's *save-game* remapping contract — for a fresh game `8` is the empty/no-remapping
+  sentinel (the value the id maps init to) and the per-player loop no-ops on it. The **shipping**
+  `do_lobby_game_init` already sends `[8;8]` and native games work, so local-drive inherits the
+  correct payload unchanged; the real slot→storm mapping only matters if/when save games land (the
+  existing `bw_scr.rs:3471` TODO). The stage-4 seed-match live test is the final arbiter.
+- **Reconfirmed correction:** the handler is dispatch **case 0xd** (not case 7 — that's
+  `net_cmd_lobby_slot_setup`), a separate function from 0x731880.
+
+### §23g. Stage 1 implementation spec — ordered slices (2026-07-05)
+
+Turns §23a–f into buildable, independently-verifiable slices in dependency order. The game/ slices
+are desync-sensitive and driven by live 2-client loopback proofs (relay 0x37 comparator must stay
+quiet), so they are *not* one-shot subagent work — each carries its own `build.bat` + live gate.
+
+**Load-bearing discovery (shapes slices 2–3): the SB readiness overlay rides the v1 transport
+scope C deletes.** The DLL's own peer-to-peer payload overlay (`game/src/proto/messages.proto` —
+`ClientReady`, `ClientAck*`, `StormWrapper`) is carried by `network_manager.rs` / `ack_manager.rs`
+over rally-point **v1** (`snp.rs`). Scope C removes that whole path, so everything it carried must
+be re-homed or retired:
+- `StormWrapper` (Storm join/session packets) — **retired** (no Storm packets under direct
+  registration).
+- `ClientReady` / `all_players_ready` (the readiness handshake, `game_state.rs:481-514`,
+  `890-900`) — **re-homed to server mediation.** Today non-hosts send `ClientReady` peer→host and
+  the host collects them + the server's `allow_start`; under scope C the server (which already
+  knows every client via `gameUserPath`) collects readiness and broadcasts one **start** signal to
+  all clients. This is the same realization as local-drive: ShieldBattery already coordinates
+  "everyone ready, go" through its own server, so the game netcode never needed a peer-to-peer
+  readiness overlay. (Confirm the exact current transport of `ClientReady` at the top of slice 2 —
+  spec assumes v1-overlay; if any of it already goes server-side, fold accordingly.)
+
+**Slice 1 — server: host → rp2 slot 0** (`game-loader.ts:843`). Today rp2 slot = position in the
+load-request `players` set (`[...players].map((p, slot) => …)`), so the host is not reliably slot
+0 and observers are interleaved by position. The scope-C shape (grounded against the DLL's
+`update_nation_and_human_ids`): **player slots → rp2 slots 0-7, observers → rp2 slots 8-11, host →
+rp2 slot 0.** rp2 slot then equals the BW *storm id* directly (see the slice-3 observer note — the
+storm id stays in 0-11, distinct from the observer *game* id 0x80-0x83). Small, unit-testable,
+independent of BinaryNinja and live testing — but its observer half is coupled to slice 3, so build
+the two together rather than shipping slice 1 alone. **Gate:** typecheck + a unit test asserting the
+slot shape (host 0, players 0-7, observers 8-11).
+
+**Slice 2 — SB-layer start signal + readiness re-homing** (server + app + DLL). Server collects
+per-client readiness and broadcasts a `start` (reuse the `gameUserPath` publish channel that
+already carries `setNetcodeV2Setup`/`setRoutes`); the DLL gates its local `do_lobby_game_init` on
+receiving it, replacing both the host's `allow_start`+`all_players_ready`→`0x48` send and the
+non-hosts' wait-for-`0x48`. Retire the `ClientReady` peer payload. **Gate:** the readiness
+handshake still completes end-to-end in a live 2-client load (no game sim needed yet — this is
+pre-`0x48`). Design point to settle in-slice: whether to centralize the whole readiness decision
+server-side or keep `allow_start` server-side + a thin per-client "I'm ready" report.
+
+**Slice 3 — DLL: direct registration + neutering** (the core, `game_state.rs` / `bw_scr.rs` /
+`game_thread.rs`). Smaller than first framed, because `setup_slots` (`game_state.rs:1622`) is
+*already* "pretty much a replacement for [native join's] code" (its own comment): it fills all 16
+`players[]` entries + names and only plants `storm_id: 27` as a placeholder that native-join
+reconciliation later overwrites. The concrete edits:
+- **`setup_slots`:** write the **real storm id from the rp2 roster** instead of the `27`
+  placeholder (players → their rp2 slot 0-7; observers → their rp2 slot 8-11). Needs the roster
+  threaded in (a user→storm-id map).
+- **Delete the Storm-read reconciliation** that follows today: the flag-polling loop in `init_game`
+  (`game_state.rs:416-456`), `update_joined_state`/`update_bw_slots`, and the `StormIdChanged`
+  guard. `update_nation_and_human_ids` (already called from `ready_lobby_for_start`) then builds the
+  id maps from `players[].storm_id` with **no change** — so no native `rebuild_storm_to_game_maps`
+  call is needed; the DLL already has that logic.
+- **`net_player_info`** (`storm_players`): inline the `init_net_player` writes per human (state=1,
+  flags/+4/+6 = 0, name) so in-game readers (leave-chat, accessors) see a populated table.
+- **Neuter** (`remaining_game_init`, `bw_scr.rs:3691`): skip `init_storm_networking` +
+  `choose_snp(PROVIDER_ID)` for the v2 path; keep the name write and `is_multiplayer = 1`. Provider
+  globals stay at BSS defaults (§23f Q6) — no stubs.
+- **`TurnState.slot_to_storm`** is populated directly from the roster (in `establish_session` /
+  registration) instead of via `update_bw_slots` reading Storm.
+
+**Observer id note (a §23f Q4 correction — prevents a desync bug):** `0x80-0x83` is the observer's
+**game/net-player id**, *not* its storm id. `update_nation_and_human_ids` asserts `storm_id < 16`
+and indexes the 12-entry `net_player_to_game`, so the observer *storm* id must stay in 0-11 (= its
+rp2 slot 8-11); the handler derives the `0x80+` game id from the `players[]` index (12-15). So
+observers are registered exactly like players but at `players[12+n]` with storm id = rp2 slot 8+n.
+
+**First proof = players-only** (2-client, then 3-client cross-relay); add observers as a
+follow-up increment once the player path is synced-clean, since observer id handling is the
+subtlest part. **Gate:** game reaches a synced frame 0; relay 0x37 quiet; drop/leave/results/
+replay-slot resolution intact.
+
+**Slice 4 — DLL: local-drive lobby-init** (`game_thread.rs` / `bw_scr.rs`, depends on 3 + the slice
+2 signal). Synthesize `LobbyGameInitData{0x48, seed, player_bytes}` and inject via direct
+`process_lobby_commands(ptr, len, 0)` on every client (drop the `local_storm_id == 0` guard); gate
+on the slice-2 start signal. **Gate (also closes Q8/Q9):** log `rng_seed()` on all clients
+post-init — identical + synced frame 0, no stall. If it fails, fall back to the §23c dedicated
+reliable channel for `0x48`.
+
+**Stage 2 (deletion sweep) then removes** `snp.rs`, `network_manager.rs`, `ack_manager.rs`,
+`netcode/storm.rs`, the retired `messages.proto` payload kinds, the app/server v1 route
+provisioning, and the §23b Storm-read list — once slices 1–4 prove nothing else needs them.
