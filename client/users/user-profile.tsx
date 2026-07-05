@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useQuery } from 'urql'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
 import { getRankedTypesByActivity } from '../../common/ladder/ladder'
@@ -15,6 +16,8 @@ import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { graphql } from '../gql'
+import TwitchIcon from '../icons/brands/twitch.svg'
 import { RaceIcon } from '../lobbies/race-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { replace } from '../navigation/routing'
@@ -26,6 +29,7 @@ import {
   bodyLarge,
   headlineLarge,
   labelMedium,
+  labelSmall,
   singleLine,
   titleLarge,
   TitleMedium,
@@ -149,13 +153,15 @@ const TopSection = styled.div`
   align-items: center;
 `
 
-const AvatarCircle = styled.div`
+const TWITCH_PURPLE = '#9146ff'
+
+const AvatarCircle = styled.div<{ $isLive?: boolean }>`
   width: 100px;
   height: 100px;
   position: relative;
 
   background-color: var(--color-blue30);
-  border: 12px solid var(--color-blue40);
+  border: 12px solid ${props => (props.$isLive ? TWITCH_PURPLE : 'var(--color-blue40)')};
   border-radius: 50%;
 `
 
@@ -166,6 +172,68 @@ const StyledAvatar = styled(ConnectedAvatar)`
   top: calc(50% - 28px);
   left: calc(50% - 28px);
 `
+
+const LiveBadge = styled.div`
+  ${labelSmall};
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+
+  border-radius: 10px;
+  background-color: ${TWITCH_PURPLE};
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+`
+
+const TwitchChannelLink = styled.a`
+  ${bodyLarge};
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+
+  &,
+  &:link,
+  &:visited {
+    color: var(--theme-on-surface-variant);
+  }
+
+  &:hover {
+    color: var(--theme-on-surface);
+  }
+`
+
+const TwitchChannelIcon = styled(TwitchIcon)`
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: ${TWITCH_PURPLE};
+`
+
+const UserProfileTwitchQuery = graphql(/* GraphQL */ `
+  query UserProfileTwitch($userId: SbUserId!) {
+    user(id: $userId) {
+      id
+      twitchChannel {
+        twitchLogin
+        twitchDisplayName
+      }
+      liveStream {
+        twitchLogin
+        title
+        gameName
+      }
+    }
+  }
+`)
 
 const UsernameAndTitle = styled.div`
   ${selectableTextContainer};
@@ -213,6 +281,13 @@ export function UserProfilePage({
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
+  const [{ data: twitchData }] = useQuery({
+    query: UserProfileTwitchQuery,
+    variables: { userId: user.id },
+  })
+  const twitchChannel = twitchData?.user?.twitchChannel
+  const isLive = !!twitchData?.user?.liveStream
+
   let content: React.ReactNode
   switch (subPage) {
     case UserProfileSubPage.Summary:
@@ -250,12 +325,22 @@ export function UserProfilePage({
   return (
     <CenteredContentContainer>
       <TopSection>
-        <AvatarCircle>
+        <AvatarCircle $isLive={isLive}>
           <StyledAvatar userId={user.id} />
+          {isLive ? <LiveBadge>{t('users.profile.twitch.liveBadge', 'Live')}</LiveBadge> : null}
         </AvatarCircle>
         <UsernameAndTitle>
           <Username>{user.name}</Username>
           <TitleMedium>{title}</TitleMedium>
+          {twitchChannel ? (
+            <TwitchChannelLink
+              href={`https://twitch.tv/${twitchChannel.twitchLogin}`}
+              target='_blank'
+              rel='noopener'>
+              <TwitchChannelIcon />
+              <span>{twitchChannel.twitchDisplayName}</span>
+            </TwitchChannelLink>
+          ) : null}
         </UsernameAndTitle>
       </TopSection>
 

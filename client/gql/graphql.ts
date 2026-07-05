@@ -764,6 +764,18 @@ export type AdminUpdateUserPermissionsMutation = {
   }
 }
 
+export type UserProfileTwitchQueryVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type UserProfileTwitchQuery = {
+  user: {
+    id: Types.SbUserId
+    twitchChannel: { twitchLogin: string; twitchDisplayName: string } | null
+    liveStream: { twitchLogin: string; title: string; gameName: string } | null
+  } | null
+}
+
 export const LiveGames_FeedEntryPlayersFragmentFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -4088,3 +4100,68 @@ export const AdminUpdateUserPermissionsDocument = {
   AdminUpdateUserPermissionsMutation,
   AdminUpdateUserPermissionsMutationVariables
 >
+export const UserProfileTwitchDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserProfileTwitch' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'twitchChannel' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'liveStream' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserProfileTwitchQuery, UserProfileTwitchQueryVariables>

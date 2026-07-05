@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT twitch_login, twitch_display_name\n            FROM twitch_connections\n            WHERE user_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "twitch_login",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_login"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "twitch_display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_display_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "eaf8b7f1dc48803e0a851348e2abe9e211a350128868edf72ffdccb0a30dfad1"
+}

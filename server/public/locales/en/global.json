@@ -1545,7 +1545,10 @@
         "stats": "Stats",
         "summary": "Summary"
       },
-      "totalGames": "Total games"
+      "totalGames": "Total games",
+      "twitch": {
+        "liveBadge": "Live"
+      }
     },
     "profileOverlay": {
       "info": "Info",

@@ -596,6 +596,54 @@ async fn load_live_streams(redis: &RedisPool) -> eyre::Result<Vec<(SbUserId, Liv
     Ok(streams)
 }
 
+/// A public view of a user's linked Twitch channel, shown on their profile.
+#[derive(SimpleObject, sqlx::FromRow)]
+pub struct TwitchChannel {
+    /// The Twitch login name (used in `twitch.tv/<login>` URLs).
+    pub twitch_login: String,
+    /// The Twitch display name.
+    pub twitch_display_name: String,
+}
+
+/// Loads the public Twitch channel (login/display name) a user has linked, if any.
+pub async fn load_public_channel(
+    pool: &PgPool,
+    user_id: SbUserId,
+) -> eyre::Result<Option<TwitchChannel>> {
+    sqlx::query_as!(
+        TwitchChannel,
+        r#"
+            SELECT twitch_login, twitch_display_name
+            FROM twitch_connections
+            WHERE user_id = $1
+        "#,
+        user_id as _,
+    )
+    .fetch_optional(pool)
+    .await
+    .wrap_err("Failed to load Twitch channel")
+}
+
+/// Loads a single user's current live stream (category-agnostic), if they are live right now.
+pub async fn load_user_live_stream(
+    redis: &RedisPool,
+    user_id: SbUserId,
+) -> eyre::Result<Option<LiveStream>> {
+    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
+    let json: Option<String> = conn
+        .hget(LIVE_STREAMS_KEY, i32::from(user_id))
+        .await
+        .wrap_err("Failed to load live stream")?;
+    match json {
+        Some(json) => {
+            let summary: LiveStreamSummary =
+                serde_json::from_str(&json).wrap_err("Failed to parse live stream")?;
+            Ok(Some(LiveStream::from_summary(user_id, summary)))
+        }
+        None => Ok(None),
+    }
+}
+
 async fn load_connection(
     pool: &PgPool,
     user_id: SbUserId,

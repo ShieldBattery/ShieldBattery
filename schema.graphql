@@ -794,6 +794,14 @@ type SbUser {
 	"""
 	avatarUrl: String
 	permissions: SbPermissions!
+	"""
+	The Twitch channel this user has linked, if any (shown on their profile).
+	"""
+	twitchChannel: TwitchChannel
+	"""
+	This user's current Twitch stream, if they are live right now.
+	"""
+	liveStream: LiveStream
 }
 
 """
@@ -811,6 +819,20 @@ type SignupCode {
 	exhausted: Boolean!
 	notes: String
 	createdByUser: SbUser
+}
+
+"""
+A public view of a user's linked Twitch channel, shown on their profile.
+"""
+type TwitchChannel {
+	"""
+	The Twitch login name (used in `twitch.tv/<login>` URLs).
+	"""
+	twitchLogin: String!
+	"""
+	The Twitch display name.
+	"""
+	twitchDisplayName: String!
 }
 
 """
