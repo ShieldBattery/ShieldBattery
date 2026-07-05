@@ -458,7 +458,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2060,7 +2060,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "rally-point-client"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=b7947bc609da945f543c085b291ab626d57989b1#b7947bc609da945f543c085b291ab626d57989b1"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=c1d553179ad1b9074cb1106cf9a779b12c555e7e#c1d553179ad1b9074cb1106cf9a779b12c555e7e"
 dependencies = [
  "rally-point-proto",
  "rally-point-transport",
@@ -2074,7 +2074,7 @@ dependencies = [
 [[package]]
 name = "rally-point-proto"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=b7947bc609da945f543c085b291ab626d57989b1#b7947bc609da945f543c085b291ab626d57989b1"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=c1d553179ad1b9074cb1106cf9a779b12c555e7e#c1d553179ad1b9074cb1106cf9a779b12c555e7e"
 dependencies = [
  "bytes",
  "prost",
@@ -2087,7 +2087,7 @@ dependencies = [
 [[package]]
 name = "rally-point-transport"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=b7947bc609da945f543c085b291ab626d57989b1#b7947bc609da945f543c085b291ab626d57989b1"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=c1d553179ad1b9074cb1106cf9a779b12c555e7e#c1d553179ad1b9074cb1106cf9a779b12c555e7e"
 dependencies = [
  "prost",
  "quinn",
