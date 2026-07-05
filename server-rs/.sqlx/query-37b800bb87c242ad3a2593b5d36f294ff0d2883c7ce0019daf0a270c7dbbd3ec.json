@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO twitch_connections\n                (user_id, twitch_user_id, twitch_login, twitch_display_name)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (user_id) DO UPDATE SET\n                twitch_user_id = EXCLUDED.twitch_user_id,\n                twitch_login = EXCLUDED.twitch_login,\n                twitch_display_name = EXCLUDED.twitch_display_name,\n                eventsub_subscription_ids = '{}',\n                updated_at = now()\n            RETURNING user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,\n                eventsub_subscription_ids\n        ",
+  "query": "\n            INSERT INTO twitch_connections\n                (user_id, twitch_user_id, twitch_login, twitch_display_name)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (user_id) DO UPDATE SET\n                twitch_user_id = EXCLUDED.twitch_user_id,\n                twitch_login = EXCLUDED.twitch_login,\n                twitch_display_name = EXCLUDED.twitch_display_name,\n                updated_at = now()\n            RETURNING user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,\n                eventsub_subscription_ids\n        ",
   "describe": {
     "columns": [
       {
@@ -87,5 +87,5 @@
       false
     ]
   },
-  "hash": "a7a9a4516b4c75d286f9994df61581ef20b7d335b932b20b06e9f852a931e503"
+  "hash": "37b800bb87c242ad3a2593b5d36f294ff0d2883c7ce0019daf0a270c7dbbd3ec"
 }

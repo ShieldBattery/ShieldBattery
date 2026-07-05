@@ -790,8 +790,9 @@ async fn load_all_connections(pool: &PgPool) -> eyre::Result<Vec<TwitchConnectio
     .wrap_err("Failed to load Twitch connections")
 }
 
-/// Inserts or replaces the identity of a user's Twitch connection, resetting the tracked
-/// subscription ids (the caller creates fresh subscriptions and records their ids separately).
+/// Inserts or replaces the identity of a user's Twitch connection. The tracked subscription ids are
+/// left untouched (the caller reconciles subscriptions and records their ids separately, only when
+/// the linked account actually changes).
 async fn upsert_connection(
     pool: &PgPool,
     user_id: SbUserId,
@@ -809,7 +810,6 @@ async fn upsert_connection(
                 twitch_user_id = EXCLUDED.twitch_user_id,
                 twitch_login = EXCLUDED.twitch_login,
                 twitch_display_name = EXCLUDED.twitch_display_name,
-                eventsub_subscription_ids = '{}',
                 updated_at = now()
             RETURNING user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,
                 eventsub_subscription_ids
@@ -1021,13 +1021,11 @@ impl TwitchMutation {
                 )
             })?;
 
-        // If this user was already linked (possibly to a different Twitch account), tear down the
-        // old subscriptions before recording the new identity.
-        if let Some(existing) = load_connection(pool, user.id).await? {
-            client
-                .delete_subscriptions(&existing.eventsub_subscription_ids)
-                .await;
-        }
+        // Capture any existing connection up front so we can tell whether this is a re-link. We do
+        // NOT tear down its subscriptions yet: the upsert below can still fail (e.g. the target
+        // account is already linked to someone else), and that must not leave the user with their
+        // current account's subscriptions deleted.
+        let existing = load_connection(pool, user.id).await?;
 
         let mut connection = match upsert_connection(
             pool,
@@ -1056,12 +1054,24 @@ impl TwitchMutation {
             }
         };
 
-        // Subscribe to stream online/offline events for the newly linked broadcaster.
-        let sub_ids = client.ensure_subscriptions(&twitch_user.id).await;
-        if let Err(e) = update_subscription_ids(pool, user.id, &sub_ids).await {
-            error!("Failed to store Twitch subscription ids: {e:?}");
+        // Only reconcile subscriptions when the linked Twitch account actually changed (or this is a
+        // brand-new link) -- re-linking the same account keeps its existing subscriptions untouched.
+        let account_changed = existing
+            .as_ref()
+            .map(|existing| existing.twitch_user_id != twitch_user.id)
+            .unwrap_or(true);
+        if account_changed {
+            if let Some(existing) = &existing {
+                client
+                    .delete_subscriptions(&existing.eventsub_subscription_ids)
+                    .await;
+            }
+            let sub_ids = client.ensure_subscriptions(&twitch_user.id).await;
+            if let Err(e) = update_subscription_ids(pool, user.id, &sub_ids).await {
+                error!("Failed to store Twitch subscription ids: {e:?}");
+            }
+            connection.eventsub_subscription_ids = sub_ids;
         }
-        connection.eventsub_subscription_ids = sub_ids;
 
         // Reflect the broadcaster's current live status immediately: this clears any stale entry
         // left over from a previous link and surfaces users who linked while already streaming
