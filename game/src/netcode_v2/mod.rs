@@ -126,6 +126,12 @@ pub struct TurnState {
     /// session is ending, so [`submit_local_turn`](Self::submit_local_turn) keeps echoing our turns
     /// into the sim but stops handing them to the (closing) link. Latched — never cleared.
     local_only: bool,
+    /// Whether this game contains computer (AI) players. Set once at setup from the slot list.
+    /// Gates [`should_self_close`](Self::should_self_close): only a game with AI can continue after
+    /// every remote human has left, so only such a game self-closes its session when it runs out of
+    /// remote humans. A human-only game left alone is one whose winner is about to report a result,
+    /// which must not race the session closing.
+    has_computers: bool,
     /// Slots the `forceLeave` debug command has queued for a forced synced leave on the game thread.
     /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_leaves`), which
     /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
@@ -143,12 +149,14 @@ impl TurnState {
     /// Builds turn state around the channels a running [`LinkDriver`](rally_point_client::LinkDriver)
     /// handed back. `local_slot` is this client's origin slot; `initial_latency_turns` is the
     /// built-in floor to start the pipe at (natively 2); `roster` is the coordinator's slot↔user
-    /// pairing for every session participant.
+    /// pairing for every session participant; `has_computers` is whether the game contains AI
+    /// players (drives [`should_self_close`](Self::should_self_close)).
     pub fn new(
         channels: TurnChannels,
         local_slot: SlotId,
         initial_latency_turns: u32,
         roster: Vec<(SlotId, SbUserId)>,
+        has_computers: bool,
     ) -> Self {
         Self {
             channels,
@@ -163,6 +171,7 @@ impl TurnState {
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
             local_only: false,
+            has_computers,
             #[cfg(debug_assertions)]
             forced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
@@ -432,6 +441,30 @@ impl TurnState {
         self.local_slot
     }
 
+    /// Whether the session should close itself now: this game has computer players and no live
+    /// remote human slot remains (every remote human has left), and it is not already local-only.
+    ///
+    /// A still-`required` slot other than our own is a live remote human — the readiness set holds
+    /// exactly the mapped rp2 participants, and a synced leave clears one as it departs. When the
+    /// last of them is gone, a game with AI can keep going versus the computers with no peer to stay
+    /// in lockstep with, so there is no reason to keep the relay session open: the caller latches
+    /// [`begin_local_only`](Self::begin_local_only) to continue entirely locally and close the link.
+    ///
+    /// The computers gate is load-bearing, not cosmetic. In a human-only game, running out of remote
+    /// humans means the local player is the winner and its result report is imminent; closing the
+    /// session first would send the leave intent ahead of that report and drop it. A human-only game
+    /// therefore never self-closes here — it ends through the victory-dialog path instead, which
+    /// reports the result before closing.
+    pub fn should_self_close(&self) -> bool {
+        if !self.has_computers || self.local_only {
+            return false;
+        }
+        let local_storm = self.storm_id_for_slot(self.local_slot).map(|s| s.0 as usize);
+        let remote_human_remains = (0..bw::MAX_STORM_PLAYERS)
+            .any(|storm| self.required[storm] && Some(storm) != local_storm);
+        !remote_human_remains
+    }
+
     /// Ends the networked session for a locally-decided game, transitioning to local-only play.
     /// Idempotent: the second call is a no-op.
     ///
@@ -635,6 +668,30 @@ mod tests {
         mpsc::Sender<LeaveDirective>,
         mpsc::Receiver<()>,
     ) {
+        turn_state_inner(false)
+    }
+
+    /// Like [`turn_state`], but for a game that contains computer (AI) players — the case that
+    /// self-closes its session once the last remote human leaves.
+    fn turn_state_with_computers() -> (
+        TurnState,
+        mpsc::Sender<Payload>,
+        mpsc::Receiver<Payload>,
+        mpsc::Sender<LeaveDirective>,
+        mpsc::Receiver<()>,
+    ) {
+        turn_state_inner(true)
+    }
+
+    fn turn_state_inner(
+        has_computers: bool,
+    ) -> (
+        TurnState,
+        mpsc::Sender<Payload>,
+        mpsc::Receiver<Payload>,
+        mpsc::Sender<LeaveDirective>,
+        mpsc::Receiver<()>,
+    ) {
         let (out_tx, out_rx) = mpsc::channel(16);
         let (in_tx, in_rx) = mpsc::channel(16);
         let (leave_tx, leave_rx) = mpsc::channel(16);
@@ -653,7 +710,7 @@ mod tests {
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
-            TurnState::new(channels, LOCAL_SLOT, 2, roster),
+            TurnState::new(channels, LOCAL_SLOT, 2, roster, has_computers),
             in_tx,
             out_rx,
             leave_tx,
@@ -702,7 +759,7 @@ mod tests {
             result: result_tx,
             result_expected: Arc::new(AtomicBool::new(false)),
         };
-        let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new());
+        let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
         drop(out_rx);
     }
@@ -1117,6 +1174,83 @@ mod tests {
         assert!(state.take_due_leaves(4).is_empty());
     }
 
+    #[test]
+    fn self_close_triggers_when_last_remote_human_leaves_with_computers() {
+        let (mut state, _in_tx, mut out_rx, leave_tx, mut leave_intent_rx) =
+            turn_state_with_computers();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        // While a remote human is still live, the session stays open.
+        assert!(!state.should_self_close(), "not alone: the peer is still here");
+
+        // The remote human leaves (relay-directed synced leave applies at frame 5).
+        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
+
+        // Now alone with the computers: the session should close itself. Drive the same sequence
+        // the IN hook does — check the predicate, then latch local-only.
+        assert!(state.should_self_close(), "last human left, AI remains");
+        state.begin_local_only();
+
+        // Latching local-only announced the clean leave to the driver...
+        assert_eq!(leave_intent_rx.try_recv(), Ok(()));
+        // ...and stopped handing our turns to the (closing) link, while still echoing locally so the
+        // sim plays on versus the AI.
+        assert!(state.submit_local_turn(b"solo", Some(6)));
+        assert!(out_rx.try_recv().is_err(), "no turn reaches the relay once local-only");
+        assert!(state.receive_turns(6), "sim proceeds on the local turn alone");
+        assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"solo".to_vec())]);
+    }
+
+    #[test]
+    fn self_close_does_not_trigger_without_computers() {
+        // Same roster and departure, but a human-only game: closing here would race the winner's
+        // result report, so the predicate must stay false and leave the victory-dialog path to it.
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
+
+        assert!(
+            !state.should_self_close(),
+            "human-only games never self-close, even when alone"
+        );
+    }
+
+    #[test]
+    fn self_close_does_not_trigger_while_a_remote_human_remains() {
+        // A computers game, but the remote human hasn't left: the session stays networked.
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state_with_computers();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        assert!(
+            !state.should_self_close(),
+            "a live remote human keeps the session open"
+        );
+    }
+
+    #[test]
+    fn self_close_is_idempotent_once_local_only() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state_with_computers();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
+        assert!(state.should_self_close());
+
+        // Once closed, the predicate stops firing so the IN hook won't re-latch every step.
+        state.begin_local_only();
+        assert!(
+            !state.should_self_close(),
+            "already local-only: nothing left to close"
+        );
+    }
+
     /// A TurnState wired so the result path is observable: returns the state, the receiver of the
     /// result channel (to see what a submit hands the driver), and a clone of the shared
     /// `result_expected` latch (to see what `expect_result_report` sets). The non-result far ends
@@ -1136,7 +1270,7 @@ mod tests {
             result: result_tx,
             result_expected: Arc::clone(&result_expected),
         };
-        let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new());
+        let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
     }
 

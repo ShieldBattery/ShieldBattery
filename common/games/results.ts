@@ -88,6 +88,11 @@ export enum GameResultErrorCode {
    * relay's signed webhook, not this direct submission endpoint.
    */
   RelayReportRequired = 'RelayReportRequired',
+  /**
+   * The game contains computer players, so it's exempt from result tracking entirely — there was
+   * never anything for this submission to reconcile against.
+   */
+  ResultsNotTracked = 'ResultsNotTracked',
 }
 
 /** The payload format for submitting game results to the server. */

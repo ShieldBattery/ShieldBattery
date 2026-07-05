@@ -373,7 +373,11 @@ impl GameState {
             // networking for this session rather than failing the game — with no live session the
             // turn hooks pass through to the original functions.
             if let Some(setup) = netcode_v2_setup {
-                let status = match netcode_v2::establish_session(&setup).await {
+                // A game with AI players self-closes its relay session when the last remote human
+                // leaves, so the lone human plays on versus the computers locally (see
+                // `TurnState::should_self_close`).
+                let has_computers = info.slots.iter().any(|s| s.is_computer());
+                let status = match netcode_v2::establish_session(&setup, has_computers).await {
                     Ok(()) => {
                         info!("Netcode v2 session established");
                         NetworkStatus {

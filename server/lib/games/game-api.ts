@@ -60,6 +60,7 @@ import {
 } from './game-points-refund-service'
 import GameResultService, {
   GameResultServiceError,
+  isResultsExempt,
   SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
   usedNetcodeV2,
 } from './game-result-service'
@@ -158,6 +159,8 @@ function convertGameResultServiceErrors(err: unknown) {
     case GameResultErrorCode.NotLoaded:
       throw asHttpError(409, err)
     case GameResultErrorCode.RelayReportRequired:
+      throw asHttpError(409, err)
+    case GameResultErrorCode.ResultsNotTracked:
       throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
@@ -512,10 +515,21 @@ export class GameApi {
       )
     }
 
+    const gameRecord = await this.gameResultService.retrieveGame(gameId)
+
+    // A game with computer players never tracks results at all, so it rejects with a distinct code
+    // rather than the (misleading, for this case) relay-report requirement below — checked first
+    // since an exempt v2 game should report "not tracked", not "use the relay".
+    if (isResultsExempt(gameRecord.config)) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.ResultsNotTracked,
+        'results are not tracked for games with computer players',
+      )
+    }
+
     // A netcode-v2 game's result can only reach the server through the relay's signed webhook —
     // this direct endpoint stays open for pre-cutover clients, but a v2 game must reject it so
     // there's no untrusted side door around the relay's guarantees.
-    const gameRecord = await this.gameResultService.retrieveGame(gameId)
     if (usedNetcodeV2(gameRecord.config)) {
       throw new GameResultServiceError(
         GameResultErrorCode.RelayReportRequired,

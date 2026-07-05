@@ -59,7 +59,13 @@ static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 
 /// Builds the QUIC session from the launch handoff and stores it for the hooks. Call on the Tokio
 /// runtime (it dials and spawns the driver). Replaces any previous session.
-pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionError> {
+///
+/// `has_computers` is whether the game contains AI players; it drives the turn state's
+/// self-closing behavior when the last remote human leaves (see [`TurnState::should_self_close`]).
+pub async fn establish_session(
+    setup: &NetcodeV2Setup,
+    has_computers: bool,
+) -> Result<(), SessionError> {
     let SessionCredentials {
         identity,
         home,
@@ -88,7 +94,13 @@ pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionErro
         .iter()
         .map(|entry| (SlotId(entry.slot), entry.user_id))
         .collect();
-    let turn_state = TurnState::new(channels, local_slot, INITIAL_LATENCY_TURNS, roster);
+    let turn_state = TurnState::new(
+        channels,
+        local_slot,
+        INITIAL_LATENCY_TURNS,
+        roster,
+        has_computers,
+    );
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             _endpoint: endpoint,

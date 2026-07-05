@@ -1,10 +1,15 @@
 import { describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
 import {
+  findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
+  getGames,
+  getGamesForUser,
+  getRecentGamesForUser,
   setNetcodeV2Session,
 } from './game-models'
 
@@ -43,6 +48,7 @@ describe('games/game-models/findKnownCompleteUnreconciledGames', () => {
     expect(template.text).toContain(
       'bool_and(gu.reported_results IS NOT NULL OR gu.departure_kind IS NOT NULL)',
     )
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
     expect(template.values).toContain(olderThan)
   })
 })
@@ -66,6 +72,31 @@ describe('games/game-models/findUnreconciledGames', () => {
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
     expect(template.text).toContain('g.netcode_v2_session IS NULL')
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+    expect(template.values).toContain(reportedBefore)
+  })
+})
+
+describe('games/game-models/findFullyReportedUnreconciledGames', () => {
+  test('returns the game ids from the query result', async () => {
+    mockDbClient([{ id: 'game-1' }, { id: 'game-2' }])
+    const reportedBefore = new Date('2026-07-04T00:00:00.000Z')
+
+    const result = await findFullyReportedUnreconciledGames(reportedBefore)
+
+    expect(result).toEqual(['game-1', 'game-2'])
+  })
+
+  test('excludes results-exempt games', async () => {
+    const query = mockDbClient([])
+    const reportedBefore = new Date('2026-07-04T00:00:00.000Z')
+
+    await findFullyReportedUnreconciledGames(reportedBefore)
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('g.results IS NULL')
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
     expect(template.values).toContain(reportedBefore)
   })
 })
@@ -99,7 +130,46 @@ describe('games/game-models/findUnreconciledV2GamesForProbe', () => {
     expect(template.text).toContain('results IS NULL')
     expect(template.text).toContain('netcode_v2_session IS NOT NULL')
     expect(template.text).toContain('start_time <')
+    expect(template.text).toContain("(config->>'resultsExempt')::boolean IS NOT TRUE")
     expect(template.values).toContain(olderThan)
+  })
+})
+
+describe('games/game-models/getGames', () => {
+  test('excludes results-exempt games from the platform games list', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+  })
+})
+
+describe('games/game-models/getGamesForUser', () => {
+  test('excludes results-exempt games from a user match history', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(1)
+
+    await getGamesForUser({ userId, limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+  })
+})
+
+describe('games/game-models/getRecentGamesForUser', () => {
+  test('excludes results-exempt games from a user profile recent-games list', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(1)
+
+    await getRecentGamesForUser(userId, 6)
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
   })
 })
 

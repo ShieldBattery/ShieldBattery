@@ -31,6 +31,12 @@ vi.mock('../models/games-users', () => ({
 vi.mock('../models/game-desync-events', () => ({
   recordDesyncEvent: vi.fn(),
 }))
+// Defaults to "game not found" so tests that don't care about the exemption check (i.e. don't pass
+// their own `getGameRecordFn`) behave exactly as they did before it existed — the real DB-backed
+// implementation would otherwise blow up in this unit test environment.
+vi.mock('../games/game-models', () => ({
+  getGameRecord: vi.fn().mockResolvedValue(undefined),
+}))
 
 const GAME_ID = '11111111-2222-4333-8444-555555555555'
 
@@ -483,6 +489,29 @@ describe('netcode-v2/recordDepartureNotification', () => {
       )
       expect(recordUserDeparture).not.toHaveBeenCalled()
     })
+
+    test('drops an embedded result for a results-exempt (computer) game, but still records the departure', async () => {
+      asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+      const submitGameResults = vi.fn()
+      const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
+      const getGameRecordFn = vi.fn().mockResolvedValue({
+        config: { resultsExempt: true },
+      })
+      const notification = makeDepartureNotification({
+        result: { payload: encodeResultPayload(), arrivalMs: Date.now() },
+      })
+
+      await recordDepartureNotification(
+        notification,
+        submitGameResults,
+        scheduleKnownCompleteReconcile,
+        getGameRecordFn,
+      )
+
+      expect(submitGameResults).not.toHaveBeenCalled()
+      expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+      expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
+    })
   })
 })
 
@@ -674,6 +703,40 @@ describe('netcode-v2/recordResultNotification', () => {
     )
 
     expect(submitGameResults).not.toHaveBeenCalled()
+  })
+
+  test('drops a result for a results-exempt (computer) game without submitting or scheduling reconcile', async () => {
+    const submitGameResults = vi.fn()
+    const scheduleKnownCompleteReconcile = vi.fn()
+    const getGameRecordFn = vi.fn().mockResolvedValue({
+      config: { resultsExempt: true },
+    })
+
+    await recordResultNotification(
+      makeResultNotification(),
+      submitGameResults,
+      scheduleKnownCompleteReconcile,
+      getGameRecordFn,
+    )
+
+    expect(submitGameResults).not.toHaveBeenCalled()
+    expect(scheduleKnownCompleteReconcile).not.toHaveBeenCalled()
+  })
+
+  test('submits normally when the game record has no exemption flag set (legacy record)', async () => {
+    const submitGameResults = vi.fn().mockResolvedValue(undefined)
+    const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
+    const getGameRecordFn = vi.fn().mockResolvedValue({ config: {} })
+
+    await recordResultNotification(
+      makeResultNotification(),
+      submitGameResults,
+      scheduleKnownCompleteReconcile,
+      getGameRecordFn,
+    )
+
+    expect(submitGameResults).toHaveBeenCalledTimes(1)
+    expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
   })
 })
 

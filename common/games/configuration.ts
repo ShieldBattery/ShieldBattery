@@ -42,6 +42,16 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
    * the game failed to load), won't have it set; readers should treat a missing value as `false`.
    */
   useNetcodeV2?: boolean
+  /**
+   * Whether this game is exempt from result tracking, because its teams include at least one
+   * computer player. Unlike `useNetcodeV2`, the team composition is known as soon as the config is
+   * built, so this is set once at registration time and never changes.
+   *
+   * Matchmaking never includes computer players, so this only ever applies to lobby games.
+   * Records created before this field existed won't have it set; readers should treat a missing
+   * value as `false`.
+   */
+  resultsExempt?: boolean
 }
 
 export type LobbyGameConfig = SetOptional<

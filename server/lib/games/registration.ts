@@ -20,6 +20,13 @@ import { genResultCode } from './gen-result-code'
  *   player name
  */
 export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, startTime = new Date()) {
+  // Unlike `useNetcodeV2` (only decided once the game loads), whether the game has any computer
+  // players is already known from the config's teams, so it's set here rather than later. This is
+  // mutated directly onto the passed-in config (rather than building a new object to persist) so
+  // that the caller's reference — which the loader later re-persists via `updateGameConfig` once
+  // `useNetcodeV2` is decided — still carries it forward instead of losing it on that overwrite.
+  gameConfig.resultsExempt = gameConfig.teams.some(team => team.some(p => p.isComputer))
+
   const humanPlayers = gameConfig.teams.reduce((r, team) => {
     const humans = team.filter(p => !p.isComputer)
     r.push(...humans)

@@ -2116,6 +2116,14 @@ Mechanism, three parts:
   legacy 180-minute loop — or they would churn as permanently-unreconciled.
 - **UI:** comp games filtered out of games lists and match history entirely (Travis: not greyed —
   gone).
+**Live-proven (2026-07-05, loopback, 2 humans + 1 computer):** `resultsExempt=true` persisted at
+registration and survived the loader's `useNetcodeV2` config overwrite (the shared-object
+mutation); forceQuit on one human → its drop-leave applied on the survivor and the survivor's
+**automatic clean leave followed 3.6ms later** (`reason=3`, the roster-empty + computers-present
+trigger) → "session fully closed" 0.3ms after that; the survivor's game stayed `playing` versus
+the AI with the relay session gone; no reports, no reconcile, departures recorded as evidence;
+the list-filter predicate excludes the game.
+
 - **Historical record repair (Travis, follow-up; can trail the slice):** a one-time data migration
   backing comp games out of users' win/loss records — historical comp games did reconcile and did
   increment `user_stats` counters, so hiding them prospectively leaves stale tallies behind.

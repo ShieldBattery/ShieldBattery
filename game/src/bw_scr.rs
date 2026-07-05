@@ -2324,6 +2324,20 @@ impl BwScr {
             // observed during `receive_turns`' drain; on the step it first arrives the readiness check
             // still stalls, and the next poll of this (stalled) receive applies it here and proceeds.
             self.apply_due_leaves(nc, next_frame);
+            // If applying those leaves emptied the remote-human roster in a game that has computer
+            // players, close the networked session: the lone human plays on versus the AI entirely
+            // locally while the relay session ends cleanly behind them. This is the same local-only
+            // latch the victory dialog uses, triggered instead by the roster emptying.
+            //
+            // Once local-only, a later result report (the human eventually wins or loses versus the
+            // AI) is handed to a driver that has already sent its leave intent, so the driver drops
+            // it and no HTTP fallback runs — a report from a session that has closed has nowhere
+            // trustworthy to go, and games with computers do not track results, so dropping it is
+            // correct. Gated on computers-present precisely so a human-only game — where "alone"
+            // means the winner's result is imminent — never closes ahead of that report.
+            if netcode_v2::with_turn_state(|s| s.should_self_close()).unwrap_or(false) {
+                netcode_v2::begin_local_only();
+            }
             // Debug-only: the `forceLeave` command's local (non-consensus) injection — same effect,
             // sourced from a queued slot rather than a relay directive. Must also precede the receive.
             #[cfg(debug_assertions)]

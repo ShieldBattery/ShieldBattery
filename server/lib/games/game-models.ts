@@ -192,7 +192,8 @@ export async function countCompletedGames(): Promise<number> {
 /**
  * Retrieves game information for the last `numGames` games of a user. The resulting array may be
  * empty or less than `numGames` in length if the user has not played that many games. This list
- * will also include games that have incomplete results or are disputed.
+ * will also include games that have incomplete results or are disputed, but never a results-exempt
+ * game (contains computer players — see `isResultsExempt`), which is never shown at all.
  */
 export async function getRecentGamesForUser(
   userId: SbUserId,
@@ -206,6 +207,7 @@ export async function getRecentGamesForUser(
       SELECT g.*
       FROM games_users u JOIN games g ON u.game_id = g.id
       WHERE u.user_id = ${userId}
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       ORDER BY u.start_time DESC
       LIMIT ${numGames}
     `)
@@ -216,7 +218,9 @@ export async function getRecentGamesForUser(
 }
 
 /**
- * Retrieves completed matchmaking games for the platform games list.
+ * Retrieves completed matchmaking games for the platform games list. Never returns a results-exempt
+ * game (contains computer players — see `isResultsExempt`), though matchmaking never has computer
+ * players in the first place.
  */
 export async function getGames(
   params: {
@@ -238,6 +242,9 @@ export async function getGames(
     const whereClauses = [
       sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`,
       sql`g.results IS NOT NULL`,
+      // Matchmaking never has computer players, so this can't currently exclude anything — kept
+      // for consistency/defense in depth with the other games-list surfaces.
+      sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
     let needMapJoin = false
 
@@ -344,7 +351,8 @@ export async function getGames(
 }
 
 /**
- * Retrieves game information for the match history of a user.
+ * Retrieves game information for the match history of a user. Never returns a results-exempt game
+ * (contains computer players — see `isResultsExempt`).
  */
 export async function getGamesForUser(
   params: {
@@ -378,7 +386,10 @@ export async function getGamesForUser(
 
   const { client, done } = await db(withClient)
   try {
-    const whereClauses = [sql`gu.user_id = ${userId}`]
+    const whereClauses = [
+      sql`gu.user_id = ${userId}`,
+      sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
+    ]
     let needMapJoin = false
 
     if (ranked || custom) {
@@ -502,7 +513,9 @@ export async function getGamesForUser(
  *
  * Excludes netcode-v2 games that persisted a coordinator session id — those are covered by the
  * sweep's coordinator liveness probe instead (`findUnreconciledV2GamesForProbe`), so this is
- * effectively the legacy/pre-cutover backstop now.
+ * effectively the legacy/pre-cutover backstop now. Also excludes results-exempt games (contains
+ * computer players — see `isResultsExempt`), which never reconcile; a legacy comp game predating
+ * the exemption flag still flows through here as it always has.
  *
  * @param reportedBeforeTime Only include game IDs that have a reported result from before this time
  * @param withClient a DB client to use to make the query (optional)
@@ -520,7 +533,8 @@ export async function findUnreconciledGames(
       WHERE gu."reported_results" IS NOT NULL
       AND gu."result" IS NULL
       AND gu.reported_at < ${reportedBeforeTime}
-      AND g.netcode_v2_session IS NULL;
+      AND g.netcode_v2_session IS NULL
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE;
     `)
     return result.rows.map(row => row.id)
   } finally {
@@ -533,7 +547,8 @@ export async function findUnreconciledGames(
  * `olderThan`, for the periodic sweep's coordinator liveness probe. A v2 game only reaches this
  * backstop if it missed both push paths (the zero-grace known-complete trigger and `sessionClosed`)
  * -- ~zero in steady state -- so the sweep asks the coordinator directly whether each session is
- * still alive instead of blind-forcing on a timeout.
+ * still alive instead of blind-forcing on a timeout. Excludes results-exempt games (contains
+ * computer players — see `isResultsExempt`), which never reconcile.
  *
  * @param olderThan Only include games that started before this time
  * @param withClient a DB client to use to make the query (optional)
@@ -549,7 +564,8 @@ export async function findUnreconciledV2GamesForProbe(
       FROM games
       WHERE results IS NULL
       AND netcode_v2_session IS NOT NULL
-      AND start_time < ${olderThan};
+      AND start_time < ${olderThan}
+      AND (config->>'resultsExempt')::boolean IS NOT TRUE;
     `)
     return result.rows.map(row => ({
       gameId: row.id,
@@ -566,6 +582,8 @@ export async function findUnreconciledV2GamesForProbe(
  * reconciled result, and whose most recent report is older than `reportedBeforeTime`. This catches
  * games that were fully reported but never reconciled (e.g. the server restarted during the desync
  * verdict grace window), so they can be reconciled without waiting for the 3h force sweep.
+ * Excludes results-exempt games (contains computer players — see `isResultsExempt`), which never
+ * reconcile.
  *
  * @param reportedBeforeTime Only include games whose newest report predates this time
  * @param withClient a DB client to use to make the query (optional)
@@ -581,6 +599,7 @@ export async function findFullyReportedUnreconciledGames(
       FROM games_users gu
       JOIN games g ON g.id = gu.game_id
       WHERE g.results IS NULL
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       GROUP BY gu.game_id
       HAVING bool_and(gu.reported_results IS NOT NULL)
         AND MAX(gu.reported_at) < ${reportedBeforeTime};
@@ -596,7 +615,8 @@ export async function findFullyReportedUnreconciledGames(
  * or had a departure recorded, and the newest such report/departure is older than
  * `olderThan`. A netcode-v2 game's result inputs are closed the moment every human is in one of
  * those two states (a departed human can't report, a reported one can't report again), so these
- * are safe to force-reconcile without waiting for the much longer legacy timeout.
+ * are safe to force-reconcile without waiting for the much longer legacy timeout. Excludes
+ * results-exempt games (contains computer players — see `isResultsExempt`), which never reconcile.
  *
  * @param olderThan Only include games whose newest report/departure predates this time
  * @param withClient a DB client to use to make the query (optional)
@@ -613,6 +633,7 @@ export async function findKnownCompleteUnreconciledGames(
       JOIN games g ON g.id = gu.game_id
       WHERE g.results IS NULL
       AND (g.config->>'useNetcodeV2')::boolean IS TRUE
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       GROUP BY gu.game_id
       HAVING bool_and(gu.reported_results IS NOT NULL OR gu.departure_kind IS NOT NULL)
         AND MAX(GREATEST(gu.reported_at, gu.departure_time)) < ${olderThan};

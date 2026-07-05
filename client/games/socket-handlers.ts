@@ -56,6 +56,9 @@ export default function ({
                 } else if (err.code === GameResultErrorCode.RelayReportRequired) {
                   logger.verbose(`Game result must be reported through the relay, not retrying`)
                   return
+                } else if (err.code === GameResultErrorCode.ResultsNotTracked) {
+                  logger.verbose(`Game results are not tracked for this game, not retrying`)
+                  return
                 }
               }
 

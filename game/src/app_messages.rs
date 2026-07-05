@@ -408,6 +408,14 @@ impl PlayerInfo {
         self.player_type == SbSlotType::Observer
     }
 
+    /// Returns true for AI (computer-controlled) players — both regular and UMS computers.
+    pub fn is_computer(&self) -> bool {
+        matches!(
+            self.player_type,
+            SbSlotType::Computer | SbSlotType::UmsComputer
+        )
+    }
+
     pub fn bw_player_type(&self) -> u8 {
         match self.player_type {
             SbSlotType::Human | SbSlotType::Observer => bw::PLAYER_TYPE_HUMAN,

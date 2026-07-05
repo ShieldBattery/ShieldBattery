@@ -24,6 +24,7 @@ import {
 import GameResultService, {
   getValidationTeams,
   haveAllRequiredReportersReported,
+  isResultsExempt,
   usedNetcodeV2,
 } from './game-result-service'
 
@@ -160,6 +161,27 @@ describe('games/game-result-service/usedNetcodeV2', () => {
   })
 })
 
+describe('games/game-result-service/isResultsExempt', () => {
+  test('is false for a config without resultsExempt set (legacy record)', () => {
+    const config = lobbyConfig()
+    expect(config.resultsExempt).toBeUndefined()
+
+    expect(isResultsExempt(config)).toBe(false)
+  })
+
+  test('is true for a config with resultsExempt explicitly true', () => {
+    const config = lobbyConfig({ resultsExempt: true })
+
+    expect(isResultsExempt(config)).toBe(true)
+  })
+
+  test('is false for a config with resultsExempt explicitly false', () => {
+    const config = lobbyConfig({ resultsExempt: false })
+
+    expect(isResultsExempt(config)).toBe(false)
+  })
+})
+
 describe('games/game-result-service/haveAllRequiredReportersReported', () => {
   test('does NOT consider a 2v2 matchmaking game fully reported when a diverged player reported but a real (non-diverged) reporter is still missing', () => {
     // Regression test for the "count vs identity" bug: p4 is diverged, and its report alone used to
@@ -284,6 +306,18 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
     expect(maybeReconcileResults).not.toHaveBeenCalled()
   })
 
+  test('no-ops for a results-exempt game (contains computer players)', async () => {
+    const gameRecord = makeGameRecord({
+      config: matchmakingConfig(DEFAULT_TEAMS, { useNetcodeV2: true, resultsExempt: true }),
+    })
+    asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
+
+    await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
+
+    expect(areAllHumansAccountedFor).not.toHaveBeenCalled()
+    expect(maybeReconcileResults).not.toHaveBeenCalled()
+  })
+
   test('no-ops for a game that already has reconciled results', async () => {
     const gameRecord = makeGameRecord({ results: [] })
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
@@ -386,6 +420,18 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
 
     await service.forceReconcileGame(GAME_ID)
 
+    expect(publishReconciledGame).not.toHaveBeenCalled()
+  })
+
+  test('no-ops for a results-exempt game (contains computer players)', async () => {
+    const gameRecord = makeGameRecord({
+      config: matchmakingConfig(DEFAULT_TEAMS, { resultsExempt: true }),
+    })
+    asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
+
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(maybeReconcileResults).not.toHaveBeenCalled()
     expect(publishReconciledGame).not.toHaveBeenCalled()
   })
 
