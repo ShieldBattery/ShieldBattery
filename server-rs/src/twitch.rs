@@ -1154,8 +1154,9 @@ fn verify_signature(
     mac.verify_slice(&expected).is_ok()
 }
 
-/// Records that we've processed `message_id`, returning whether it was already seen (i.e. this is a
-/// Twitch redelivery we should drop).
+/// Atomically claims `message_id`, returning whether it was already claimed (i.e. this is a Twitch
+/// redelivery we should drop). The claim is released via `release_message` if handling fails, so a
+/// transient error doesn't permanently suppress redelivery of that message.
 async fn already_processed(redis: &RedisPool, message_id: &str) -> eyre::Result<bool> {
     let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
     let opts = SetOptions::default()
@@ -1167,6 +1168,16 @@ async fn already_processed(redis: &RedisPool, message_id: &str) -> eyre::Result<
         .wrap_err("Failed to record EventSub message id")?;
     // `None` means the key already existed, so NX declined to set it -> already processed.
     Ok(set.is_none())
+}
+
+/// Releases a dedupe claim so Twitch's redelivery of the same message can be processed again (used
+/// when handling failed).
+async fn release_message(redis: &RedisPool, message_id: &str) -> eyre::Result<()> {
+    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
+    conn.del::<_, ()>(webhook_dedupe_key(message_id))
+        .await
+        .wrap_err("Failed to release EventSub dedupe claim")?;
+    Ok(())
 }
 
 async fn handle_notification(
@@ -1328,12 +1339,21 @@ async fn eventsub_callback(
                 Ok(false) => {}
                 Err(e) => error!("EventSub dedupe check failed: {e:?}"),
             }
-            if let Err(e) = handle_notification(&client, &db, &redis, &body).await {
-                // Ack anyway (2xx): repeated non-2xx responses make Twitch revoke the subscription,
-                // and the error is already logged for us to investigate.
-                error!("Failed to handle Twitch EventSub notification: {e:?}");
+            match handle_notification(&client, &db, &redis, &body).await {
+                Ok(()) => StatusCode::NO_CONTENT.into_response(),
+                Err(e) => {
+                    error!("Failed to handle Twitch EventSub notification: {e:?}");
+                    // Release the claim and return non-2xx so Twitch redelivers. Otherwise a
+                    // transient failure (a Redis blip, a get_stream error) would drop this event
+                    // permanently: the dedupe entry would block redelivery, and the periodic
+                    // refresh only re-checks users already marked live, so a lost stream.online
+                    // would never recover until the next transition or re-link.
+                    if let Err(e) = release_message(&redis, message_id).await {
+                        error!("Failed to release EventSub dedupe claim: {e:?}");
+                    }
+                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
+                }
             }
-            StatusCode::NO_CONTENT.into_response()
         }
         "revocation" => {
             warn!("Twitch EventSub subscription was revoked; reconciliation will recreate it");
