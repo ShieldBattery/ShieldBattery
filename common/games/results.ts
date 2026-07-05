@@ -83,6 +83,11 @@ export enum GameResultErrorCode {
   InvalidClient = 'InvalidClient',
   /** The game has not been marked as loaded yet, so results cannot be submitted. */
   NotLoaded = 'NotLoaded',
+  /**
+   * The game used netcode v2 (rally-point2), so results can only reach the server through the
+   * relay's signed webhook, not this direct submission endpoint.
+   */
+  RelayReportRequired = 'RelayReportRequired',
 }
 
 /** The payload format for submitting game results to the server. */

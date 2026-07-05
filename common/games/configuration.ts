@@ -33,6 +33,15 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
    * `gameSource === GameSource.Matchmaking`, since matchmaking has always locked alliances.
    */
   lockedAlliances?: boolean
+  /**
+   * Whether this game used netcode v2 (rally-point2) for its networking. This depends on the
+   * feature being enabled and the game having more than one human participant, neither of which is
+   * known when the game record is first created, so the loader persists it here once decided.
+   *
+   * Records created before this field existed, or whose loader never reached that decision (e.g.
+   * the game failed to load), won't have it set; readers should treat a missing value as `false`.
+   */
+  useNetcodeV2?: boolean
 }
 
 export type LobbyGameConfig = SetOptional<

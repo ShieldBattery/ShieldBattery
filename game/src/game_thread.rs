@@ -223,6 +223,12 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 bw.seed_netcode_v2_pipe();
                 bw.run_game_loop();
 
+                // Report the game result before announcing the leave. `send_game_results` sets the
+                // result-expected latch synchronously (see its body), and the driver holds any
+                // leave intent until the result frame has been sent — so the result reaches the
+                // relay ahead of the leave announcement.
+                send_game_results();
+
                 // The game loop returning means this client will never produce another turn —
                 // whether it quit via F10 (the quit handshake completes inside the loop, so this
                 // fires within a few turns of the click) or the game ended naturally. Either way
@@ -235,7 +241,6 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
                 save_minimap_settings();
-                send_game_results();
                 forge::hide_window();
             }
             // Saves registry settings etc.
@@ -279,6 +284,14 @@ fn save_minimap_settings() {
 pub fn send_game_results() {
     let bw = get_bw();
     if bw.trigger_game_results_sent() {
+        // Latch the result-expected flag on the live v2 session synchronously, before any leave
+        // intent can be signalled — this runs ahead of both the loop-end intent and the one
+        // `begin_local_only` fires. The driver then holds a pending leave intent until the result
+        // report has been sent, so the result frame precedes the leave intent on the wire. If no
+        // result code is ultimately decided, the async side submits nothing and the driver releases
+        // the held intent at its own safety timeout — bounded and harmless, and in practice a v2
+        // game always has a result code. No-op without a live v2 session.
+        crate::netcode_v2::with_turn_state(|s| s.expect_result_report());
         let results = unsafe { game_results() };
         send_game_msg_to_async(GameThreadMessage::Results(results));
     }

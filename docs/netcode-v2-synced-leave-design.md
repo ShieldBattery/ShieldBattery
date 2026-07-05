@@ -1733,3 +1733,326 @@ during reconcile — not introduced here, worth a later look.
 **Follow-up from the live run:** the routine sync-ordinal nibble-correction log (fires at every game
 start as slots join the compare set) was downgraded from `warn!` to `debug!` — it's expected, not a
 warning (Travis's call). Nothing is committed pending review.
+
+## 22. Results through the relay — design (2026-07-04; revised same day after Travis review:
+## relay-ONLY, no results2 fallback)
+
+Builds the durable direction recorded in §21d: for a netcode-v2 game, the relay link is **the only
+way a result report reaches the app server**. The report travels over the client's live,
+authenticated relay link; the relay stamps arrival against its own timeline; the report flows up
+the existing signed relay → coordinator → webhook pipeline as a third event kind beside
+`departure`/`desync`. **The direct `results2` HTTP path is closed for v2 games** (Travis: keeping
+it would forfeit every guarantee this exists to provide — an untrusted side door makes the trusted
+door decorative). The payoff is structural rather than policy: a client that severed its link
+**cannot have reported at all** — the report can only precede the link close on the ordered stream
+— so the cut-my-link-then-claim-victory class dies without any new reconciliation rule; §21b's
+existing concession tiebreak (sole reporter with a terminal self-victory + opponent
+dropped-without-reporting) already resolves it decisively. The client that lost its connection
+still *gets* a result: its outcome is decided from the survivors' relay-borne reports plus its own
+relay-recorded departure, on the server, like any finished game. The malicious-client bar is
+intact throughout (worst case remains: your own game disputed/void; never an honest player
+flipped).
+
+### §22a. Shape: opaque payload, home-relay direct, no mesh
+
+The DLL serializes the **same `GameResultsReport` JSON it already POSTs to `results2`** (`user_id`,
+`result_code`, `time`, `player_results`) and sends it as opaque bytes in a new client→relay
+`ControlFrame::GameResult { payload: bytes }` (next free oneof tag, 4). rp2 never parses it — the
+same tenant-agnostic boundary that keeps `external_ref` an opaque string. The relay's "light
+validation" (§21d c) is structural, not semantic: a size cap (**4 KiB** — the worst-case real
+report, 8 players + an 8-char result code, is ~450 bytes of JSON, so this is ~9× headroom while
+still denying any meaningful use of the frame as a data channel),
+**one per slot per session** (first wins, extras dropped at debug — the same anti-flooding
+posture as one-0x37-per-turn), and attribution: the reporting slot comes from the **authenticated
+connection** (`AuthorizedClient`), exactly like `LeaveIntent`'s implicit sender — nothing in the
+payload is trusted for identity.
+
+Delivery is **home-relay direct**: the serve loop (`routing.rs`) hands the frame to a new
+`consensus::record_result` (dedup + stamp in the `DecisionMaker`), which fires
+`RelayNotice::Result(ResultNotice)` on first insert, through the existing pending-until-sent
+coordinator-WS buffer. **No mesh frame, no authority involvement**: every relay owns a coordinator
+WS and the coordinator already dedups notices, so a peer-homed reporter's home relay reports it
+directly (the departure pipeline's exact precedent). The relay stamps what only it knows:
+`arrival_ms` (relay wall clock), `session_frame` (its local lockstep view at arrival), and the
+reporting slot's last stamped frame. Desync/departure context is *not* embedded — those notices
+already flow independently and the app server correlates by game.
+
+Coordinator: `RelayToCoordinator::Result` variant (plus the compiler-enforced pre-Hello-violation
+arm), dedup by `(tenant, session, slot)`, enrichment identical to departures (notice-carried
+`external_id`/`external_ref` first, stored `session_refs` fallback — coordinator-restart safe),
+then a `ResultWebhook { event: "result", tenant, session, externalId, slot, externalRef,
+payload (base64), arrivalMs, sessionFrame?, slotFrame? }`, Ed25519-signed per attempt, same 6-try
+backoff. All wire changes are additive: an old relay skips the unknown oneof kind (`kind: None`
+path), an old coordinator folds `Result` to `Unknown`, an old app server 400s the unknown event
+(the webhook is best-effort by design; HTTP dual-submit still lands the result).
+
+### §22b. Client sequencing — result before leave-intent, one latch
+
+The result frame and `LeaveIntent` ride the **same ordered reliable stream**, and the relay
+processes control frames sequentially, breaking the serve loop only at the intent — so "result is
+in before the link closes" reduces to *local enqueue order in the driver*, which a single latch
+guarantees:
+
+- `send_game_results()` (game thread, once-gated) additionally latches **result-expected** on the
+  driver *synchronously, before* any leave-intent can be signalled. The async thread, on the
+  `Results` message, serializes the report once and hands the bytes to a new capacity-1
+  `TurnChannels::result_report` channel; the driver sends `ControlFrame::GameResult` immediately on
+  receipt.
+- `maybe_send_leave_intent` gains one condition: hold while result-expected ∧ not-yet-sent, bounded
+  by the **existing 2s `LEAVE_INTENT_TIMEOUT`** (a missing/late result is harmless — HTTP covers it;
+  the hold in practice is sub-millisecond, the time to build + serialize the report).
+- The three end-of-game paths then need almost nothing:
+  - **`WMission` (victory):** `dialog_hook` already calls `send_game_results()` *before*
+    `begin_local_only()`/`send_leave_intent()` — correct order for free.
+  - **`LMission` (defeat):** result goes out over the live link the moment the dialog shows; under
+    §21a's current behavior the defeated client stays networked afterward, so there's no
+    interaction with the intent at all. (Travis, on review: the victory/defeat session-close
+    asymmetry itself is suspect — a decided-for-me game is a decided-for-me game — and closing the
+    session at `LMission` too may be right. Not this slice; the one substantive difference to weigh
+    when unifying is that staying networked after defeat is what lets a defeated player keep
+    watching a still-live team game, which local-only would freeze. For *results*, the dialogs are
+    already symmetric: both report at dialog time.)
+  - **Loop end (F10 quit / natural end):** the one wrong ordering today — `game_thread.rs` sends
+    the leave intent (line ~233) *before* `send_game_results()` (line ~238). **Swap them**, so the
+    latch is set before the intent path runs; the driver hold covers the cross-thread race.
+- A crash never reaches any of this — correctly so, since a crashed client's "result" doesn't
+  exist and its departure is the relay's link-death record. If the result frame cannot be sent
+  (driver already dead, link lost moments earlier), the DLL logs and moves on: that client is a
+  non-reporter with a relay-recorded drop, which is exactly what it is. There is deliberately
+  **no HTTP retry fallback** — that fallback is precisely the untrusted channel being removed.
+
+### §22c. App-server ingest: the only door for v2 results
+
+The webhook ingest **is** the submission path. `POST /webhooks/netcode-v2/game-events` gains the
+`result` event kind (joi alternative): verify signature (unchanged), parse `externalId`→gameId /
+`externalRef`→userId, base64-decode the payload and parse it as a results2-shaped body,
+**cross-check `payload.user_id` against `externalRef`** (mismatch = malicious/corrupt → drop +
+warn), then call the same `submitGameResults` service path — including the `result_code` check.
+That check is kept deliberately even though identity is already link-proven: it's cheap, it keeps
+one validation path for all submissions, and it means even a compromised relay/coordinator cannot
+fabricate a *player-attributed* report without the secret only the real game client holds. The
+webhook's at-least-once delivery dedups on the existing `AlreadyReported`. Relay timing lands on
+`games_users` (new migration): `relay_report_time TIMESTAMPTZ` + `relay_report_frame INTEGER` —
+no longer a "proven" bit (every v2 report is relay-borne by construction), but the trustworthy
+single-timeline ordering of report-vs-departure-vs-desync, stored for audit and future policy.
+
+**The doors that close** (all keyed on the game's config having `useNetcodeV2`):
+- `results2` **rejects** submissions for v2 games (new coded error; the endpoint itself stays for
+  pre-cutover clients and dies with them). The renderer's resend loop treats it as terminal, like
+  `AlreadyReported`.
+- The DLL skips its HTTP POST when a v2 session was active (its report went over the link before
+  the leave intent, or it has nothing trustworthy to say).
+- The Electron app's crash-backup resend (both the captured-result and blank-result flavors) is
+  disabled for v2 games: a crashed client's report either already made it through the relay or
+  must not exist, and "the game exited" is exactly what the relay's link-death departure records —
+  the blank-result path was a weaker duplicate of a signal we now get signed.
+- Replay upload stays HTTP (size; a replay is evidence, not a claim — unforgeable in the way that
+  matters, since it must match the sim both players hashed all game).
+
+**Reliability consequences, faced squarely** (this path is now load-bearing):
+- A relay crash between accepting the frame and delivering the notice loses that report (the
+  pending buffer is in-memory). The player becomes a non-reporter; the sweep force-reconciles from
+  the survivors' reports and the departure records. The failure mode is a dispute/void or a
+  survivors-decided result — never a fabricated one. Same envelope as departures/desync already
+  accept, and the window is milliseconds wide.
+- There is no "v2 game running on native transport" case to worry about: **if rp2 isn't
+  available, the game doesn't play** (Travis, this review — no native fallback exists in the end
+  state). A dial failure is a load failure like any other; a game that never started has no
+  results, and the existing load-timeout path handles it. (The DLL's current dial-fail→native
+  fallback in `init_game` is a dev-era leftover to be retired in line with this — same philosophy
+  as the seam-symbol hard-fail decision: a client that can't run the real netcode must not run.)
+
+### §22d. What relay-borne means — and what it deliberately doesn't
+
+A relay-borne report certifies: *this player's authenticated link was alive at the moment it
+reported, the report predates its leave-intent/close on an ordered stream, and the relay placed it
+at a known point on the same timeline as every departure and desync event.* It does **not**
+certify content — a connected liar can push a fabricated victory through its live link, and no
+relay can see sim state. Two conflicting reports from two players who both stayed connected still
+void (that is §20d/§21b ground: the desync comparator already proves whether the sims agreed; if
+they did, one of two conflicting claims is a lie the server cannot pick between — voiding keeps
+the attacker's damage confined to their own game).
+
+### §22e. Reconciliation: no new policy — the structure does the work
+
+**No reconciliation rule changes.** The §21b concession tiebreak already resolves the target
+class, because relay-only delivery makes "reported" and "was connected when it reported" the same
+fact:
+- **The closed class:** a loser cuts its link then tries to claim victory — there is no channel.
+  It is an abandoner-without-a-report with a `dropped` departure record; the honest winner is the
+  sole reporter with a terminal self-victory → §21b concession → decisive honest win (today: void).
+- **Lingering liar** (stays connected, lies through the relay): both reported → void, unchanged.
+  An attacker can always spoil its own game; it can never flip the honest player to a loss.
+- **Honest player's report lost** (relay crash window above): sole-reporter concession needs the
+  *other* side to have a departure record — a lost-report player has none (it left cleanly or is
+  still the survivor), so nothing engages against it; sweep → dispute/void, never a flip.
+- **Both crash / neither reports:** all-unknown → sweep → void, unchanged.
+The stored relay stamps (`relay_report_time`, `relay_report_frame`) drive **no v1 rule** — §21b
+already established that order-based adjudication is what liars game. They exist so a future
+policy (or a human reviewing a dispute) reads one trustworthy timeline instead of two clocks.
+
+### §22f. Build plan, acceptance, open items
+
+Order (each step lands green before the next):
+1. **rp2**: proto `GameResult` frame + transport `send_control_result`/reader arm + driver channel,
+   latch + intent-hold + relay serve-loop arm (no `break 'serve`) + `DecisionMaker` record/dedup/
+   stamps + `RelayNotice::Result` → coordinator dispatch, dedup, `ResultWebhook` + unit tests
+   (one-per-slot, size cap, result-then-intent ordering, notice refs fallback, Unknown-fold compat).
+2. **game/**: async-thread handoff (serialize once, hand to driver), result-expected latch,
+   loop-end reorder in `game_thread.rs`, HTTP POST skipped when a v2 session was active.
+3. **server/**: webhook `result` schema + ingest-as-submission + timing-stamps migration +
+   `results2` rejection for v2 games + app/renderer backup-resend disable + tests (incl. the
+   §22e sweep cases as adversarial unit tests — the lie class can't be produced by an honest
+   client, like Fix A/B).
+
+Acceptance: unit suites green in all three repos, then live loopback — (a) honest 1v1: both
+results arrive via relay webhook only (`relay_report_time` stamped, zero `results2` hits in the
+server log), reconcile unchanged; (b) `LMission` defeat reports over the live link at dialog time;
+(c) loop-end F10 quit: relay log shows the result frame processed *before* the leave intent;
+(d) true-crash (kill app + game processes): no report exists anywhere, departure recorded, and the
+survivor's sole report resolves the game by §21b concession — the class this section closes,
+observed live; (e) a v2 game's direct `results2` POST is rejected.
+
+Open/flagged:
+- **Unify `LMission` with `WMission` session-close** (Travis, from this review: the asymmetry in
+  §21a is suspect — a game that's decided *for me* is decided, whichever dialog says so). Not this
+  slice; weigh the one real difference — staying networked after defeat is what lets a defeated
+  player spectate a still-live team game.
+- Replay upload stays HTTP forever (size); replays are evidence, not claims.
+- Post-cutover cleanup: delete the `results2` submission endpoint and the app's backup-resend
+  machinery outright once no pre-v2 client can exist.
+
+### §22g. Fast force-reconcile for fully-accounted v2 games (Travis, same review — built with
+### this slice)
+
+The 180-minute force-reconcile timeout is the blunt heuristic the old TODO(tec27) in
+`game-result-service.ts` complained about: with no way to know whether a game was still being
+played, the sweep had to wait long enough that no legitimate game could still be running. Relay-only
+results + relay-recorded departures remove the uncertainty for a v2 game: **every human is always
+in exactly one of three states — still linked (game in progress), reported (result recorded), or
+departed (relay-signed record, and structurally unable to ever report, since reports only travel
+over the now-closed link).** So once every human has a report or a departure record, the game is
+definitively over and nothing new can arrive except an in-flight webhook retry (relay pending-buffer
++ coordinator backoff, ≤ ~2 minutes end to end).
+
+**"Reported or departed" is a closed ledger** (Travis, follow-up): a departed human structurally
+cannot submit anymore, and a reported one cannot submit *again* — so the moment every human is in
+one of those two states, the input set is final and reconciliation can run with force semantics
+immediately, not on a timer. The one caveat that turns "immediately" into "almost immediately":
+the *relay* boundary is strictly ordered (a slot's result always precedes its departure), but
+webhook *delivery* is not — the coordinator dispatches each notice with independent retries
+(backoff to 30s, ~6 attempts), so a result can land at the app server up to ~a minute after the
+same slot's departure. A short grace absorbs that skew.
+
+Two layers, both keyed on the same predicate — config says `useNetcodeV2` ∧ every human has
+`reported_results` or a `departure_kind`:
+1. **Event-driven (the normal path):** after the webhook ingest records a departure *or* a result,
+   if the predicate now holds, schedule a one-shot force-reconcile in
+   `RECONCILE_KNOWN_COMPLETE_DELAY_MS = 2 min` (per-game deduped one-shot via `clock.setTimeout`,
+   the exact `scheduleDesyncGraceRecheck` pattern; the existing matchmaking desync-verdict grace
+   still applies inside reconcile). This removes the timer from the vast majority of v2
+   reconciliations — a game ends, and ~2 minutes later it is reconciled.
+2. **Sweep backstop (restart resilience):** the one-shot dies with the server, so the existing
+   15-minute sweep also force-reconciles any game where the predicate holds and the newest
+   report/departure timestamp is ≥ `RECONCILE_KNOWN_COMPLETE_MINUTES = 10` old.
+
+The 180-minute rule stays for anything the relay can't vouch for (legacy games, and v2 games where
+some human neither reported nor departed — e.g. a diverged client still idling on its link).
+D11-note: a future reconnect grace doesn't break the invariant, because a departure record is only
+written when a synced leave was *decided* — a reconnect within the relay's grace window never
+produces one.
+
+**Why 2 minutes and not zero (Travis asked):** the delay exists solely because webhook delivery is
+unordered across notices — each is dispatched with its own retry loop, so slot X's *result* (accepted
+by the relay before X's leave, and so part of the final input set) can still be mid-retry when X's
+*departure* has already landed. Reconciling at that instant would run the concession against a
+player whose report is in flight, and there is no re-reconcile fixup. The 2 minutes covers the
+full retry span (~60–90s worst case) with margin. It only ever costs latency in the
+crashed/abandoned-player case — a fully-reported game still reconciles the moment the last report
+lands, with no §22g delay at all. **Future tightening:** per-session *ordered* webhook dispatch at
+the coordinator (serialize deliveries in notice order) would make "departure arrived" imply "that
+slot's result already arrived", letting the grace drop to ~seconds. Not built; the win is small
+next to 180 minutes → 2.
+
+**Superseded by §22h (2026-07-05, same review conversation):** the 2-minute grace and the
+`had_result` idea both died in design review — §22h replaces them with embedded results, a
+session-close signal, and reap policies, deleting the reconciliation timer outright. The §22g
+event-driven trigger and sweep backstop shapes survive; only the *waiting* goes.
+
+**Live-proven (2026-07-05, loopback, both §22 and §22g):** game 1 — forceQuit the opponent:
+relay-only result (relay stamps in `games_users`, zero `results2` hits, DLL "handed result report
+to driver"), victory report ingested ~200ms after `WMission`, crashed client produced *no* report
+of any kind (blank-backup path confirmed dead) + `dropped` record, direct `results2` POST → 409
+`RelayReportRequired`, and the §21b concession resolved it `win`/`loss`, `disputable=false` (via
+the 180-min sweep path, backdated). Game 2 — same crash shape with §22g live: departure 07:13:24,
+result 07:13:26 (ledger closed), **auto-reconciled 07:15:31** — `win`/`loss`, `disputable=false`,
+no timer manipulation, no human intervention.
+
+### §22h. The reconciliation timer is dead — session lifecycle owns game end (design locked with
+### Travis, 2026-07-05; follow-up slice to §22/§22g)
+
+Locked over the same review conversation, driven by two of Travis's observations: **outside the
+relay, a submitted result *is* a leave** (a reported player's participation is over — they can
+join another game; their later link close is administrative), and **the relay layer always knows —
+or can be asked — whether a game still exists**, so no reconciliation decision ever needs a blind
+timer. Four pieces:
+
+**1. Departure notices embed the slot's result (replaces §22g's 2-minute grace and the interim
+`had_result` idea).** The relay retains the (≤4 KiB, one-per-slot) result payload it records and
+carries it — home-relay-authored, `reachable_frame`-style first-non-None-wins through mesh
+`SlotDeparted`, departure records, and promotion — into `DepartureNotice`. Every departure webhook
+is then atomic terminal truth: *left/dropped, and here is the result — or there provably never was
+one* (results only ride the live link; the serve loop closes at the intent; so post-departure
+results are impossible by construction). SB ingests an embedded result through the same submission
+path (`AlreadyReported` dedups against the early standalone result webhook, which still fires at
+dialog time — the fast path and the defeat-spectator's early report both stay). Consequences:
+**zero grace** — a departure ingested closes its slot with evidence in hand; all humans accounted →
+force-reconcile immediately; and every single-webhook-loss mode self-heals (the standalone result
+and the departure-embedded copy are redundant deliveries; only losing both falls through).
+Client-side frames are deliberately NOT merged: the ordered control stream already gives
+result-then-intent atomicity at the relay, a merge would delay the `LMission` report until exit
+(a loitering loser would stall everyone's reconcile), and crash departures have no leave message
+to merge into. The departure notice for an already-reported slot carries no *new* accounting
+information (Travis's result≡leave point) but is still sent: it is the redundancy above, and §20b's
+evidence-retention decision (unconditional departure records) stands.
+
+**2. `SessionClosed`, ordered last.** Each relay fires `RelayToCoordinator::SessionClosed` when it
+tears down a session's state (all its slots gone). The coordinator — which assigned the serving
+relay set — emits a final `sessionClosed` webhook once every serving relay has closed. Webhook
+dispatch becomes **serialized per session** (one FIFO queue per (tenant, session) instead of
+independent spawn-per-notice; retries block the queue), which makes "all prior notices delivered
+or exhausted" a free consequence of queue order: ingesting `sessionClosed` *guarantees* nothing
+else is in flight. SB force-reconciles on it immediately with whatever evidence landed — this
+covers the dark-slot case (a slot whose both deliveries were lost) without any timer.
+
+**3. Backstop inverted from timer to query.** SB persists the rp2 session id on the game row; the
+15-minute sweep, instead of a 180-minute blind force, **asks** the coordinator via one *batch*
+liveness call (`POST` a list of session ids → alive/gone map — NOT a GET per session; the probe
+set is only unreconciled v2 games that missed both push paths, ~zero in steady state) and
+force-reconciles the gone/unknown ones. The 180-minute constant survives solely for pre-cutover
+legacy games and is deleted with them.
+
+**4. Session reap policies (Travis, this review) — sessions cannot dangle.** Coordinator-armed
+(it holds the global result+departure picture in its dedup sets), enforced by a new
+`CoordinatorToRelay` close-slot directive; both count **player slots only** (observers never
+report; reaped at session end):
+- **Holdout reap:** honest clients report within seconds of the sim deciding (the dialogs fire on
+  the same turns for everyone), so *all-but-one humans accounted + the last one silent on a live
+  link* is anomalous almost immediately → short grace (~60s) → close the holdout's link → normal
+  `dropped` flow → session resolves. The 1v1 anti-stall: a loser withholding its report delays the
+  honest winner's decisive result by at most the grace.
+- **Post-decision linger reap** (the "leave timeout after submitting a result", session-qualified):
+  armed only when **all** humans are accounted but links remain → short grace (~60s) → close the
+  stragglers → `SessionClosed`. The qualifier protects the defeated spectator (reported at
+  `LMission`, legitimately watching live teammates — not all accounted, no reap); a per-player
+  reported→must-leave rule is deliberately NOT built (it becomes trivially true if the
+  `LMission`/`WMission` session-close unification ever lands).
+
+Net: every v2 game reconciles at event speed — seconds after its last webhook in the normal case,
+bounded by ~60s reap grace against malicious lingering, by queue-ordered `SessionClosed` against
+webhook loss, and by the batch liveness probe against coordinator death. No blind timers remain.
+Build order: rp2 (retain+embed, `SessionClosed`, per-session dispatch queue, reapers + close-slot
+directive, batch liveness endpoint) → server (embedded-result ingest, `sessionClosed` force,
+zero-grace trigger replacing the 2-min one-shot, session-id persistence + probe backstop).
+Sequenced AFTER committing the proven §22/§22g slice, BEFORE the cross-repo landing (wire adds
+stay compat-free pre-push).

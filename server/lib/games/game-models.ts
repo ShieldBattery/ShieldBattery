@@ -1,4 +1,4 @@
-import { GameSource } from '../../../common/games/configuration'
+import { GameConfig, GameSource } from '../../../common/games/configuration'
 import {
   GameDurationFilter,
   GameFormat,
@@ -115,6 +115,24 @@ export async function setReconciledResult(
       assigned_matchup = ${assignedMatchup}
     WHERE id = ${gameId}
   `)
+}
+
+/**
+ * Overwrites a game's persisted config. Used for values that get decided after the game record is
+ * first created — currently only `useNetcodeV2`, which depends on the netcode v2 feature flag and
+ * the player count at load time, neither of which is known when the game is registered.
+ */
+export async function updateGameConfig(gameId: string, config: GameConfig): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET config = ${config}
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
 }
 
 /**
@@ -509,6 +527,38 @@ export async function findFullyReportedUnreconciledGames(
       GROUP BY gu.game_id
       HAVING bool_and(gu.reported_results IS NOT NULL)
         AND MAX(gu.reported_at) < ${reportedBeforeTime};
+    `)
+    return result.rows.map(row => row.id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a list of unreconciled netcode-v2 game IDs where every human has either reported results
+ * or had a departure recorded, and the newest such report/departure is older than
+ * `olderThan`. A netcode-v2 game's result inputs are closed the moment every human is in one of
+ * those two states (a departed human can't report, a reported one can't report again), so these
+ * are safe to force-reconcile without waiting for the much longer legacy timeout.
+ *
+ * @param olderThan Only include games whose newest report/departure predates this time
+ * @param withClient a DB client to use to make the query (optional)
+ */
+export async function findKnownCompleteUnreconciledGames(
+  olderThan: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string }>(sql`
+      SELECT gu.game_id AS "id"
+      FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
+      WHERE g.results IS NULL
+      AND (g.config->>'useNetcodeV2')::boolean IS TRUE
+      GROUP BY gu.game_id
+      HAVING bool_and(gu.reported_results IS NOT NULL OR gu.departure_kind IS NOT NULL)
+        AND MAX(GREATEST(gu.reported_at, gu.departure_time)) < ${olderThan};
     `)
     return result.rows.map(row => row.id)
   } finally {

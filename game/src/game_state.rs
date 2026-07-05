@@ -990,15 +990,39 @@ async fn send_game_result(
 
     let result_code = info.result_code.clone().unwrap();
 
-    // Run result submission and replay upload in parallel, waiting for both to complete
-    let results_future = send_results_to_server(
-        results,
-        info,
-        local_user,
-        &result_code,
-        server_config,
-        ws_send,
-    );
+    // A netcode v2 game delivers its result report over the rally-point2 relay's reliable control
+    // stream instead of an HTTP POST. Build the exact same report the server validates and hand it
+    // to the driver; `submit_result_report` reports whether a live v2 session took it. The
+    // `/game/result` app message above and the replay upload below are unaffected either way.
+    let report = GameResultsReport {
+        user_id: local_user.id,
+        result_code: result_code.clone(),
+        time: results.time_ms,
+        player_results: results
+            .results
+            .iter()
+            .map(|(&uid, result)| (uid, *result))
+            .collect(),
+    };
+    let sent_over_relay = match serde_json::to_vec(&report) {
+        Ok(bytes) => netcode_v2::submit_result_report(bytes),
+        // Serializing this struct cannot realistically fail (it's what the HTTP path serializes
+        // too); if it somehow did, fall back to the HTTP result path rather than lose the result.
+        Err(err) => {
+            error!("Failed to serialize game result report: {err}");
+            false
+        }
+    };
+
+    // The HTTP result POST runs only for a legacy game. A v2 game's result already went over the
+    // relay, and its backup-resend paths are disabled server-side, so there is no POST, no retries,
+    // and no `/game/resultSent` emission. The replay upload still runs for both.
+    let results_future = async {
+        if !sent_over_relay {
+            send_results_to_server(results, info, local_user, &result_code, server_config, ws_send)
+                .await;
+        }
+    };
 
     if let Some(replay_path) = &results.replay_path {
         let replay_future = send_replay(

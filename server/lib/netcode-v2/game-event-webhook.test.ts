@@ -101,6 +101,75 @@ describe('netcode-v2/GAME_EVENT_BODY_SCHEMA', () => {
     expect(error).toBeDefined()
   })
 
+  test('accepts a result event', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'result',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 0,
+      externalRef: '42',
+      payload: Buffer.from('{"userId":42}', 'utf8').toString('base64'),
+      arrivalMs: Date.now(),
+      sessionFrame: 100,
+      slotFrame: 99,
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.event).toBe('result')
+  })
+
+  test('rejects a result event missing a required field', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'result',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 0,
+      // missing `payload` and `arrivalMs`
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('rejects a result event whose slot is out of range', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'result',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 16,
+      payload: Buffer.from('{}', 'utf8').toString('base64'),
+      arrivalMs: Date.now(),
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('rejects a result event whose payload is not valid base64', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'result',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 0,
+      payload: 'not-valid-base64!!!',
+      arrivalMs: Date.now(),
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('rejects a result event whose payload exceeds the size cap', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'result',
+      tenant: 'sb-dev',
+      session: 1,
+      slot: 0,
+      payload: Buffer.alloc(6200).toString('base64'),
+      arrivalMs: Date.now(),
+    })
+
+    expect(error).toBeDefined()
+  })
+
   test('allows unknown extra fields on either variant (coordinator does not deny_unknown_fields)', () => {
     const { error } = GAME_EVENT_BODY_SCHEMA.validate({
       event: 'departure',

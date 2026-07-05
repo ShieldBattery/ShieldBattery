@@ -24,7 +24,7 @@ import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-poi
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
+import { deleteRecordForGame, updateGameConfig, updateRouteDebugInfo } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
@@ -626,6 +626,22 @@ export class GameLoader {
       // Netcode v2 only makes sense with multiple network participants; single-human games have
       // no peers to relay turns between.
       const useNetcodeV2 = this.netcodeV2Service.isEnabled() && hasMultipleHumans
+      // Persisted onto the game's config so later readers (e.g. the results endpoint deciding
+      // whether direct HTTP submission is allowed) can see it without re-deriving it — this isn't
+      // known until now, so it can't be part of the config written at registration time. The
+      // write is awaited and fails the load on error: the results endpoint rejects direct
+      // submissions for netcode-v2 games based on this flag, so losing the write would silently
+      // re-open the direct-submission door for this game.
+      const [, configError] = (
+        await Result.fromAsyncCatching(updateGameConfig(gameId, { ...gameConfig, useNetcodeV2 }))
+      ).toTuple()
+      if (configError) {
+        return Result.error(
+          new BaseGameLoaderError(GameLoadErrorType.Internal, 'error persisting game config', {
+            cause: configError,
+          }),
+        )
+      }
       const pingPromise = !hasMultipleHumans
         ? Result.ok()
         : Result.all(

@@ -49,6 +49,16 @@ export interface GameUserRecord {
   departureKind: DepartureKind | null
   /** When the mid-game departure was recorded, or null if never recorded. */
   departureTime: Date | null
+  /**
+   * When the netcode-v2 relay recorded this user's result report arriving, or null if the result
+   * (if any) wasn't relay-reported. Audit/timeline only — drives no reconciliation policy.
+   */
+  relayReportTime: Date | null
+  /**
+   * The relay's local session frame at the moment it recorded the report, or null if unknown or
+   * not relay-reported.
+   */
+  relayReportFrame: number | null
 }
 
 type DbGameUser = Dbify<GameUserRecord>
@@ -126,6 +136,8 @@ export async function getUserGameRecord(
       replayFileId: row.replay_file_id,
       departureKind: row.departure_kind,
       departureTime: row.departure_time,
+      relayReportTime: row.relay_report_time,
+      relayReportFrame: row.relay_report_frame,
     }
   } finally {
     done()
@@ -133,14 +145,21 @@ export async function getUserGameRecord(
 }
 
 /**
- * Updates a particular user's results for a game.
+ * Updates a particular user's results for a game, optionally stamping when/where a netcode-v2
+ * relay recorded the report arriving (omitted, or explicitly `undefined`/`null`, for a report that
+ * didn't come from the relay, e.g. the direct `results2` endpoint).
  */
 export async function setReportedResults({
   userId,
   gameId,
   reportedResults,
   reportedAt,
-}: ReadonlyDeep<ReportedResultsData>) {
+  relayReportTime,
+  relayReportFrame,
+}: ReadonlyDeep<ReportedResultsData> & {
+  relayReportTime?: Date
+  relayReportFrame?: number | null
+}) {
   const { client, done } = await db()
 
   try {
@@ -148,7 +167,9 @@ export async function setReportedResults({
       UPDATE games_users
       SET
         reported_results = ${reportedResults},
-        reported_at = ${reportedAt}
+        reported_at = ${reportedAt},
+        relay_report_time = ${relayReportTime ?? null},
+        relay_report_frame = ${relayReportFrame ?? null}
       WHERE user_id = ${userId} AND game_id = ${gameId}
     `)
   } finally {
@@ -285,6 +306,32 @@ export async function recordUserDeparture({
     `)
 
     return !!result.rowCount
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Whether every human player in a game has either reported results or had a departure recorded —
+ * the two states a relay-tracked (netcode-v2) human can end up in once their link to the game is
+ * closed, since a departed player can no longer report and a reported one can't report again. A
+ * game with no `games_users` rows at all (e.g. an unknown game id) is never considered accounted
+ * for.
+ */
+export async function areAllHumansAccountedFor(gameId: string): Promise<boolean> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{ all_accounted: boolean | null; total: string }>(sql`
+      SELECT
+        bool_and(reported_results IS NOT NULL OR departure_kind IS NOT NULL) AS all_accounted,
+        count(*) AS total
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    const row = result.rows[0]
+    return Number(row?.total ?? 0) > 0 && row?.all_accounted === true
   } finally {
     done()
   }

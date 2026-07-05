@@ -3,15 +3,23 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
+  NetcodeV2ResultNotification,
 } from '../../../common/games/netcode-v2'
+import {
+  GameClientResult,
+  GameResultErrorCode,
+  SubmitGameResultsRequest,
+} from '../../../common/games/results'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { GameResultServiceError } from '../games/game-result-service'
 import { recordDesyncEvent } from '../models/game-desync-events'
 import { recordUserDeparture } from '../models/games-users'
 import {
   checkGameEventWebhookAuth,
   recordDepartureNotification,
   recordDesyncNotification,
+  recordResultNotification,
 } from './netcode-v2-game-event-service'
 import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
@@ -65,6 +73,35 @@ function makeDesyncNotification(
     detectedAtMs: Date.now(),
     noMajority: false,
     diverged: [{ slot: 2, externalRef: '42' }],
+    ...overrides,
+  }
+}
+
+/** base64-encodes a `SubmitGameResultsRequest` the way the DLL's opaque relay payload would be. */
+function encodeResultPayload(overrides: Partial<SubmitGameResultsRequest> = {}): string {
+  const body: SubmitGameResultsRequest = {
+    userId: makeSbUserId(42),
+    resultCode: 'abc123',
+    time: 12345,
+    playerResults: [[makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }]],
+    ...overrides,
+  }
+  return Buffer.from(JSON.stringify(body), 'utf8').toString('base64')
+}
+
+function makeResultNotification(
+  overrides: Partial<NetcodeV2ResultNotification> = {},
+): NetcodeV2ResultNotification {
+  return {
+    event: 'result',
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
+    slot: 0,
+    externalRef: '42',
+    payload: encodeResultPayload(),
+    arrivalMs: Date.now(),
+    sessionFrame: 100,
     ...overrides,
   }
 }
@@ -230,8 +267,12 @@ describe('netcode-v2/recordDepartureNotification', () => {
 
   test('records the departure when it is genuine', async () => {
     asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+    const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
 
-    await recordDepartureNotification(makeDepartureNotification({ kind: 'dropped' }))
+    await recordDepartureNotification(
+      makeDepartureNotification({ kind: 'dropped' }),
+      scheduleKnownCompleteReconcile,
+    )
 
     expect(recordUserDeparture).toHaveBeenCalledWith({
       userId: makeSbUserId(42),
@@ -239,20 +280,31 @@ describe('netcode-v2/recordDepartureNotification', () => {
       kind: 'dropped',
       time: expect.any(Date),
     })
+    expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
   })
 
-  test('completes without error on a duplicate departure', async () => {
+  test('completes without error on a duplicate departure, and still checks reconcile eligibility', async () => {
     asMockedFunction(recordUserDeparture).mockResolvedValue(false)
+    const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
 
-    await expect(recordDepartureNotification(makeDepartureNotification())).resolves.toBeUndefined()
+    await expect(
+      recordDepartureNotification(makeDepartureNotification(), scheduleKnownCompleteReconcile),
+    ).resolves.toBeUndefined()
 
     expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+    expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
   })
 
   test('does not call the model when externalRef is not an integer', async () => {
-    await recordDepartureNotification(makeDepartureNotification({ externalRef: 'not-a-number' }))
+    const scheduleKnownCompleteReconcile = vi.fn()
+
+    await recordDepartureNotification(
+      makeDepartureNotification({ externalRef: 'not-a-number' }),
+      scheduleKnownCompleteReconcile,
+    )
 
     expect(recordUserDeparture).not.toHaveBeenCalled()
+    expect(scheduleKnownCompleteReconcile).not.toHaveBeenCalled()
   })
 
   test('does not call the model when externalRef is missing', async () => {
@@ -262,9 +314,15 @@ describe('netcode-v2/recordDepartureNotification', () => {
   })
 
   test('does not call the model when externalId is not a valid gameId', async () => {
-    await recordDepartureNotification(makeDepartureNotification({ externalId: 'not-a-uuid' }))
+    const scheduleKnownCompleteReconcile = vi.fn()
+
+    await recordDepartureNotification(
+      makeDepartureNotification({ externalId: 'not-a-uuid' }),
+      scheduleKnownCompleteReconcile,
+    )
 
     expect(recordUserDeparture).not.toHaveBeenCalled()
+    expect(scheduleKnownCompleteReconcile).not.toHaveBeenCalled()
   })
 
   test('does not call the model when externalId is missing', async () => {
@@ -340,5 +398,127 @@ describe('netcode-v2/recordDesyncNotification', () => {
     await recordDesyncNotification(makeDesyncNotification({ externalId: undefined }))
 
     expect(recordDesyncEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('netcode-v2/recordResultNotification', () => {
+  test('submits the decoded report and stamps relay fields', async () => {
+    const submitGameResults = vi.fn().mockResolvedValue(undefined)
+    const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
+    const notification = makeResultNotification()
+
+    await recordResultNotification(notification, submitGameResults, scheduleKnownCompleteReconcile)
+
+    expect(submitGameResults).toHaveBeenCalledWith({
+      gameId: GAME_ID,
+      userId: makeSbUserId(42),
+      resultCode: 'abc123',
+      time: 12345,
+      playerResults: [
+        [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
+      ],
+      relayReportTime: new Date(notification.arrivalMs),
+      relayReportFrame: 100,
+      logger: expect.anything(),
+    })
+    expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
+  })
+
+  test('stamps a null relayReportFrame when sessionFrame is absent', async () => {
+    const submitGameResults = vi.fn().mockResolvedValue(undefined)
+
+    await recordResultNotification(
+      makeResultNotification({ sessionFrame: undefined }),
+      submitGameResults,
+      vi.fn().mockResolvedValue(undefined),
+    )
+
+    expect(submitGameResults).toHaveBeenCalledWith(
+      expect.objectContaining({ relayReportFrame: null }),
+    )
+  })
+
+  test('completes silently on a duplicate (AlreadyReported) submission, without checking reconcile eligibility', async () => {
+    const submitGameResults = vi
+      .fn()
+      .mockRejectedValue(new GameResultServiceError(GameResultErrorCode.AlreadyReported, 'dup'))
+    const scheduleKnownCompleteReconcile = vi.fn()
+
+    await expect(
+      recordResultNotification(
+        makeResultNotification(),
+        submitGameResults,
+        scheduleKnownCompleteReconcile,
+      ),
+    ).resolves.toBeUndefined()
+    expect(scheduleKnownCompleteReconcile).not.toHaveBeenCalled()
+  })
+
+  test('drops (without throwing) on other submission-service errors', async () => {
+    const submitGameResults = vi
+      .fn()
+      .mockRejectedValue(new GameResultServiceError(GameResultErrorCode.NotFound, 'no game'))
+
+    await expect(
+      recordResultNotification(makeResultNotification(), submitGameResults),
+    ).resolves.toBeUndefined()
+  })
+
+  test('rethrows an unexpected (non-domain) error from the submission service', async () => {
+    const submitGameResults = vi.fn().mockRejectedValue(new Error('boom'))
+
+    await expect(
+      recordResultNotification(makeResultNotification(), submitGameResults),
+    ).rejects.toThrow('boom')
+  })
+
+  test('drops a payload that cannot be decoded as base64 JSON, without throwing', async () => {
+    const submitGameResults = vi.fn()
+    const notification = makeResultNotification({ payload: '!!!not valid base64 json!!!' })
+
+    await expect(recordResultNotification(notification, submitGameResults)).resolves.toBeUndefined()
+    expect(submitGameResults).not.toHaveBeenCalled()
+  })
+
+  test('drops a payload that fails schema validation, without throwing', async () => {
+    const submitGameResults = vi.fn()
+    const badPayload = Buffer.from(JSON.stringify({ userId: 42 }), 'utf8').toString('base64')
+    const notification = makeResultNotification({ payload: badPayload })
+
+    await expect(recordResultNotification(notification, submitGameResults)).resolves.toBeUndefined()
+    expect(submitGameResults).not.toHaveBeenCalled()
+  })
+
+  test('drops a payload whose userId does not match externalRef', async () => {
+    const submitGameResults = vi.fn()
+    const notification = makeResultNotification({
+      externalRef: '99',
+      payload: encodeResultPayload({ userId: makeSbUserId(42) }),
+    })
+
+    await expect(recordResultNotification(notification, submitGameResults)).resolves.toBeUndefined()
+    expect(submitGameResults).not.toHaveBeenCalled()
+  })
+
+  test('does not call the service when externalId is missing', async () => {
+    const submitGameResults = vi.fn()
+
+    await recordResultNotification(
+      makeResultNotification({ externalId: undefined }),
+      submitGameResults,
+    )
+
+    expect(submitGameResults).not.toHaveBeenCalled()
+  })
+
+  test('does not call the service when externalRef is missing', async () => {
+    const submitGameResults = vi.fn()
+
+    await recordResultNotification(
+      makeResultNotification({ externalRef: undefined }),
+      submitGameResults,
+    )
+
+    expect(submitGameResults).not.toHaveBeenCalled()
   })
 })

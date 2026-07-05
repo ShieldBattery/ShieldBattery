@@ -1,10 +1,12 @@
 import KoaRouter from '@koa/router'
 import Joi from 'joi'
 import koaBody from 'koa-body'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
   NetcodeV2GameEvent,
+  NetcodeV2ResultNotification,
 } from '../../../common/games/netcode-v2'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -13,6 +15,7 @@ import {
   checkGameEventWebhookAuth,
   recordDepartureNotification,
   recordDesyncNotification,
+  recordResultNotification,
 } from './netcode-v2-game-event-service'
 
 const gameEventsThrottle = createThrottle('netcodeV2GameEvents', {
@@ -45,6 +48,11 @@ const MAX_SAFE_BIGINT = Number.MAX_SAFE_INTEGER
 // when persisted or formatted) instead of failing validation up front. Year ~2286.
 const MAX_EPOCH_MS = 10_000_000_000_000
 const MAX_DIVERGED_SLOTS = 16
+// The relay caps a result report at 4 KiB before it ever reaches the coordinator; base64 inflates
+// that by ~4/3, so 8192 chars comfortably covers a legitimate payload without accepting an
+// unbounded body.
+const MAX_RESULT_PAYLOAD_BASE64_CHARS = 8192
+const MAX_SLOT = 15
 
 const DEPARTURE_EVENT_SCHEMA = Joi.object<NetcodeV2DepartureNotification>({
   event: Joi.string().valid('departure').required(),
@@ -83,6 +91,21 @@ const DESYNC_EVENT_SCHEMA = Joi.object<NetcodeV2DesyncNotification>({
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
 
+const RESULT_EVENT_SCHEMA = Joi.object<NetcodeV2ResultNotification>({
+  event: Joi.string().valid('result').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).required(),
+  externalId: Joi.string(),
+  slot: Joi.number().integer().min(0).max(MAX_SLOT).required(),
+  externalRef: Joi.string(),
+  payload: Joi.string().base64().max(MAX_RESULT_PAYLOAD_BASE64_CHARS).required(),
+  arrivalMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+  sessionFrame: Joi.number().integer().min(0),
+  slotFrame: Joi.number().integer().min(0),
+})
+  // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
+  .unknown(true)
+
 /**
  * Validates a `POST /netcode-v2/game-events` body as one of the `NetcodeV2GameEvent` variants,
  * discriminated by `event`. Joi tries each alternative in order and reports the combined errors if
@@ -91,6 +114,7 @@ const DESYNC_EVENT_SCHEMA = Joi.object<NetcodeV2DesyncNotification>({
 export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
   DEPARTURE_EVENT_SCHEMA,
   DESYNC_EVENT_SCHEMA,
+  RESULT_EVENT_SCHEMA,
 )
 
 /**
@@ -100,8 +124,9 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
  * authentication is an Ed25519 signature over the request rather than a session; see
  * `netcode-v2-game-event-service.ts` for the auth + classification logic this handler delegates to.
  *
- * One endpoint carries both departure and desync notifications (discriminated by `event`) — the
- * coordinator's notice pipe is a single generalized channel rather than one route per event kind.
+ * One endpoint carries departure, desync, and result notifications (discriminated by `event`) —
+ * the coordinator's notice pipe is a single generalized channel rather than one route per event
+ * kind.
  */
 export function registerGameEventWebhookRoutes(router: KoaRouter) {
   router.post(
@@ -125,10 +150,18 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
       }
 
       const { body } = validateRequest(ctx, { body: GAME_EVENT_BODY_SCHEMA })
-      if (body.event === 'departure') {
-        await recordDepartureNotification(body)
-      } else {
-        await recordDesyncNotification(body)
+      switch (body.event) {
+        case 'departure':
+          await recordDepartureNotification(body)
+          break
+        case 'desync':
+          await recordDesyncNotification(body)
+          break
+        case 'result':
+          await recordResultNotification(body)
+          break
+        default:
+          assertUnreachable(body)
       }
       ctx.status = 204
     },

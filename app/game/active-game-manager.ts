@@ -728,7 +728,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         if (
           this.activeGame.config?.setup.resultCode &&
           !this.activeGame?.result &&
-          !this.activeGame?.resultSent
+          !this.activeGame?.resultSent &&
+          !this.activeGame.config.setup.useNetcodeV2
         ) {
           // The game didn't send a result, so we will send a blank one
           const config = this.activeGame.config
@@ -754,7 +755,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       status >= GameStatus.Playing &&
       this.activeGame.config?.setup.resultCode &&
       !this.activeGame.resultSent &&
-      this.activeGame.result
+      this.activeGame.result &&
+      // A netcode-v2 game's result travels over the game client's relay link before the leave
+      // intent that ends the session — it either already made it through that path, or the client
+      // has nothing trustworthy left to say. Resending it here would be a duplicate, untrusted
+      // side door around the relay, which is the whole point of this being relay-only: "the game
+      // exited" is exactly what the relay's signed departure record says on its own.
+      !this.activeGame.config.setup.useNetcodeV2
     ) {
       const config = this.activeGame.config!
       const submission: SubmitGameResultsRequest = {

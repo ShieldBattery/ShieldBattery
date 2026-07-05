@@ -1,10 +1,18 @@
 import got from 'got'
 import { verify as verifyEd25519 } from 'node:crypto'
+import { Logger } from 'pino'
+import { container } from 'tsyringe'
 import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
+  NetcodeV2ResultNotification,
 } from '../../../common/games/netcode-v2'
+import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import GameResultService, {
+  GameResultServiceError,
+  SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
+} from '../games/game-result-service'
 import log from '../logging/logger'
 import { recordDesyncEvent } from '../models/game-desync-events'
 import { recordUserDeparture } from '../models/games-users'
@@ -153,6 +161,13 @@ function parseUserId(
   return makeSbUserId(parsed)
 }
 
+/** The `maybeScheduleKnownCompleteReconcile` call the webhook ingest paths need, factored out for injection in tests. */
+type ScheduleKnownCompleteReconcile = (gameId: string) => Promise<void>
+
+/** Production `ScheduleKnownCompleteReconcile`: resolves the singleton service from the DI container. */
+const defaultScheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = gameId =>
+  container.resolve(GameResultService).maybeScheduleKnownCompleteReconcile(gameId)
+
 /**
  * Classifies and records a departure notification from an already-authenticated caller. Always
  * completes successfully from the caller's perspective (the caller responds 204 either way) — an
@@ -160,9 +175,12 @@ function parseUserId(
  * erroring back to the coordinator, and a notification that resolves to a real game+user is
  * recorded unconditionally, even if that game already has results — see `recordUserDeparture`'s
  * doc comment for why.
+ *
+ * @param scheduleKnownCompleteReconcile injectable for testing; defaults to the real service.
  */
 export async function recordDepartureNotification(
   notification: NetcodeV2DepartureNotification,
+  scheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = defaultScheduleKnownCompleteReconcile,
 ): Promise<void> {
   const gameId = parseGameId(notification.externalId, 'departure')
   if (!gameId) {
@@ -182,6 +200,12 @@ export async function recordDepartureNotification(
   } else {
     log.info({ gameId, userId, kind }, 'duplicate departure ignored')
   }
+
+  // A departure can be the notice that closes the last still-open human slot in a netcode-v2 game,
+  // regardless of whether this particular delivery was a fresh record or a duplicate retry (another
+  // slot could have closed in between), so this check runs unconditionally once we have a resolved
+  // game+user.
+  await scheduleKnownCompleteReconcile(gameId)
 }
 
 /**
@@ -223,4 +247,102 @@ export async function recordDesyncNotification(
   } else {
     log.info({ gameId, syncOrdinal }, 'duplicate desync event ignored')
   }
+}
+
+/** The `submitGameResults` call `recordResultNotification` needs, factored out for injection in tests. */
+type SubmitGameResults = (args: {
+  gameId: string
+  userId: SbUserId
+  resultCode: string
+  time: number
+  playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
+  relayReportTime: Date
+  relayReportFrame: number | null
+  logger: Logger
+}) => Promise<void>
+
+/** Production `SubmitGameResults`: resolves the singleton service from the DI container. */
+const defaultSubmitGameResults: SubmitGameResults = args =>
+  container.resolve(GameResultService).submitGameResults(args)
+
+/**
+ * Classifies and records a result notification from an already-authenticated caller: this is the
+ * only way a netcode-v2 game's result reaches the server, so a notification that resolves to a
+ * real game+user is submitted through the same service the direct `results2` endpoint uses.
+ *
+ * Same forgiving posture as departures/desync — an unresolvable `externalId`/`externalRef`, an
+ * undecodable/invalid payload, or a payload whose `userId` doesn't match `externalRef` (a
+ * malicious or corrupt relay/coordinator) is logged and dropped rather than erroring back to the
+ * coordinator. A duplicate delivery of an already-submitted result is expected (the webhook is
+ * at-least-once) and is likewise silent.
+ *
+ * @param submitGameResults injectable for testing; defaults to the real service.
+ * @param scheduleKnownCompleteReconcile injectable for testing; defaults to the real service.
+ */
+export async function recordResultNotification(
+  notification: NetcodeV2ResultNotification,
+  submitGameResults: SubmitGameResults = defaultSubmitGameResults,
+  scheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = defaultScheduleKnownCompleteReconcile,
+): Promise<void> {
+  const gameId = parseGameId(notification.externalId, 'result')
+  if (!gameId) {
+    return
+  }
+
+  const userId = parseUserId(notification.externalRef, { gameId })
+  if (!userId) {
+    return
+  }
+
+  let parsedPayload: unknown
+  try {
+    parsedPayload = JSON.parse(Buffer.from(notification.payload, 'base64').toString('utf8'))
+  } catch (err) {
+    log.warn({ gameId, userId, err }, 'netcode v2 result payload could not be decoded, dropping')
+    return
+  }
+
+  const { error, value: body } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(parsedPayload)
+  if (error) {
+    log.warn(
+      { gameId, userId, err: error },
+      'netcode v2 result payload failed schema validation, dropping',
+    )
+    return
+  }
+
+  if (body.userId !== userId) {
+    log.warn(
+      { gameId, userId, payloadUserId: body.userId },
+      'netcode v2 result payload userId does not match externalRef, dropping',
+    )
+    return
+  }
+
+  try {
+    await submitGameResults({
+      gameId,
+      userId,
+      resultCode: body.resultCode,
+      time: body.time,
+      playerResults: body.playerResults,
+      relayReportTime: new Date(notification.arrivalMs),
+      relayReportFrame: notification.sessionFrame ?? null,
+      logger: log,
+    })
+    log.info({ gameId, userId }, 'result recorded via relay webhook')
+  } catch (err) {
+    if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.AlreadyReported) {
+      log.debug({ gameId, userId }, 'duplicate relay result ignored')
+      return
+    }
+    if (err instanceof GameResultServiceError) {
+      log.warn({ gameId, userId, err }, 'relay result rejected by submission service, dropping')
+      return
+    }
+    throw err
+  }
+
+  // This result may have just closed the last still-open human slot in the game.
+  await scheduleKnownCompleteReconcile(gameId)
 }

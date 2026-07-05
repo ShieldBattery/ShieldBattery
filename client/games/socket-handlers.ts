@@ -53,6 +53,9 @@ export default function ({
                 } else if (err.code === GameResultErrorCode.NotFound) {
                   logger.warning(`Game result resend failed, game not found!`)
                   return
+                } else if (err.code === GameResultErrorCode.RelayReportRequired) {
+                  logger.verbose(`Game result must be reported through the relay, not retrying`)
+                  return
                 }
               }
 

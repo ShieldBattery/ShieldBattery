@@ -1,3 +1,4 @@
+import Joi from 'joi'
 import { Logger } from 'pino'
 import { singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -11,7 +12,12 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
-import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
+import {
+  ALL_GAME_CLIENT_RESULTS,
+  GameClientPlayerResult,
+  GameResultErrorCode,
+  SubmitGameResultsRequest,
+} from '../../../common/games/results'
 import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues/leagues'
 import {
   MATCHMAKING_SEASON_FINALIZED_TIME_MS,
@@ -28,6 +34,7 @@ import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
 import {
   findFullyReportedUnreconciledGames,
+  findKnownCompleteUnreconciledGames,
   findUnreconciledGames,
   setReconciledResult,
 } from '../games/game-models'
@@ -61,6 +68,7 @@ import {
 import { calculateChangedRatings } from '../matchmaking/rating'
 import { getDesyncEventsForGame } from '../models/game-desync-events'
 import {
+  areAllHumansAccountedFor,
   getCurrentReportedResults,
   getDepartureTimesForGame,
   getMaxReportedAtForGame,
@@ -71,6 +79,7 @@ import {
 import { Redis } from '../redis/redis'
 import { Clock, TimeoutId } from '../time/clock'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
+import { joiUserId } from '../users/user-validators'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { getGameRecord } from './game-models'
@@ -104,6 +113,41 @@ export function getValidationTeams(
 
   return getTeamsFromConfig(config)?.map(team => team.map(p => p.id)) ?? humans.map(id => [id])
 }
+
+/**
+ * Whether a game's persisted config recorded a netcode v2 (rally-point2) session. Records created
+ * before this field existed, or whose loader never reached the decision, won't have it set, so a
+ * missing value falls back to `false` — no v2 session ever existed for them.
+ */
+export function usedNetcodeV2(config: GameConfig): boolean {
+  return config.useNetcodeV2 ?? false
+}
+
+/**
+ * Validates a game result submission body — used both by the direct `results2` HTTP endpoint and
+ * by the netcode-v2 webhook, which decodes a relay-forwarded report and validates it against this
+ * same schema before treating it as a submission. Keeping one schema for both entry points means a
+ * relay-borne report has to satisfy the exact same shape a directly-POSTed one does.
+ */
+export const SUBMIT_GAME_RESULTS_REQUEST_SCHEMA = Joi.object<SubmitGameResultsRequest>({
+  userId: Joi.number().min(0).required(),
+  resultCode: Joi.string().required(),
+  time: Joi.number().min(0).required(),
+  playerResults: Joi.array()
+    .items(
+      Joi.array().ordered(
+        joiUserId().required(),
+        Joi.object({
+          result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
+          race: Joi.string().valid('p', 't', 'z').required(),
+          apm: Joi.number().min(0).required(),
+        }).required(),
+      ),
+    )
+    .min(0)
+    .max(8)
+    .required(),
+}).required()
 
 /**
  * Whether every required (non-diverged) human has actually submitted a result report, checked by
@@ -142,6 +186,19 @@ const DESYNC_VERDICT_GRACE_BUFFER_MS = 1000
  * ensuring the desync verdict grace window has comfortably elapsed.
  */
 const FULLY_REPORTED_RECONCILE_DELAY_MINUTES = 1
+/**
+ * How long to wait, after every human in a netcode-v2 game has reported results or had a departure
+ * recorded, before force-reconciling it. This only needs to absorb webhook delivery skew (retries
+ * with backoff up to ~30s, a handful of attempts) between a slot's result and its departure notice,
+ * not any uncertainty about whether the game is still being played.
+ */
+const RECONCILE_KNOWN_COMPLETE_DELAY_MS = 2 * 60 * 1000
+/**
+ * Backstop for `RECONCILE_KNOWN_COMPLETE_DELAY_MS`: how old a fully-accounted netcode-v2 game's
+ * newest report/departure must be before the periodic sweep force-reconciles it, covering the case
+ * where the one-shot scheduled at ingest time was lost (e.g. a server restart).
+ */
+const RECONCILE_KNOWN_COMPLETE_MINUTES = 10
 
 @singleton()
 export default class GameResultService {
@@ -150,6 +207,11 @@ export default class GameResultService {
    * one outstanding re-check per game.
    */
   private readonly desyncGraceRechecks = new Map<string, TimeoutId>()
+  /**
+   * Games with a pending one-shot known-complete force-reconcile, keyed by game ID, so we schedule
+   * at most one outstanding reconcile per game.
+   */
+  private readonly knownCompleteReconciles = new Map<string, TimeoutId>()
 
   constructor(
     private clientSocketsManager: ClientSocketsManager,
@@ -202,6 +264,26 @@ export default class GameResultService {
             }
           } catch (err: unknown) {
             logger.error({ err }, `failed to reconcile fully-reported game ${gameId}`)
+          }
+        }
+
+        // Backstop for the event-driven known-complete reconcile below: catches netcode-v2 games
+        // whose scheduled one-shot was lost (e.g. a server restart) by forcing any game where every
+        // human has reported or departed and the newest such timestamp is well in the past.
+        const knownCompleteBefore = new Date(this.clock.now())
+        knownCompleteBefore.setMinutes(
+          knownCompleteBefore.getMinutes() - RECONCILE_KNOWN_COMPLETE_MINUTES,
+        )
+        const knownComplete = await findKnownCompleteUnreconciledGames(knownCompleteBefore)
+        for (const gameId of knownComplete) {
+          try {
+            const gameRecord = await this.retrieveGame(gameId)
+            const didReconcile = await this.maybeReconcileResults(gameRecord, true /* force */)
+            if (didReconcile) {
+              await this.publishReconciledGame(gameId)
+            }
+          } catch (err: unknown) {
+            logger.error({ err }, `failed to reconcile known-complete game ${gameId}`)
           }
         }
       },
@@ -293,6 +375,8 @@ export default class GameResultService {
     resultCode,
     time,
     playerResults,
+    relayReportTime,
+    relayReportFrame,
     logger,
   }: {
     gameId: string
@@ -300,6 +384,10 @@ export default class GameResultService {
     resultCode: string
     time: number
     playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
+    /** When the netcode-v2 relay recorded this report arriving, for reports relayed via webhook. */
+    relayReportTime?: Date
+    /** The relay's local session frame at arrival, for reports relayed via webhook. */
+    relayReportFrame?: number | null
     logger: Logger
   }): Promise<void> {
     const gameUserRecord = await getUserGameRecord(userId, gameId)
@@ -336,6 +424,8 @@ export default class GameResultService {
         playerResults,
       },
       reportedAt: new Date(this.clock.now()),
+      relayReportTime,
+      relayReportFrame,
     })
 
     // We don't need to hold up the response while we check for reconciling
@@ -387,6 +477,70 @@ export default class GameResultService {
         })
     }, delayMs)
     this.desyncGraceRechecks.set(gameId, timeoutId)
+  }
+
+  /**
+   * Checks whether every human in a netcode-v2 game now has either a reported result or a recorded
+   * departure, and if so, schedules a one-shot force-reconcile after
+   * `RECONCILE_KNOWN_COMPLETE_DELAY_MS`. Called after the netcode-v2 webhook ingest records a
+   * departure or a result — those are the only two ways a human's slot in such a game closes, so
+   * checking after either write is enough to catch the moment the game's input set becomes final.
+   *
+   * No-ops for a non-netcode-v2 game, a game that's already reconciled, a game that isn't found (it
+   * may have been deleted), or one where some human still hasn't reported or departed. Never throws:
+   * this only ever runs as a fire-and-forget hook off webhook ingest, so a failure here must not
+   * turn an already-successful departure/result write into a failed webhook response.
+   */
+  async maybeScheduleKnownCompleteReconcile(gameId: string): Promise<void> {
+    try {
+      const gameRecord = await this.retrieveGame(gameId)
+      if (gameRecord.results || !usedNetcodeV2(gameRecord.config)) {
+        return
+      }
+
+      if (!(await areAllHumansAccountedFor(gameId))) {
+        return
+      }
+
+      this.scheduleKnownCompleteReconcile(gameId)
+    } catch (err: unknown) {
+      if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.NotFound) {
+        return
+      }
+      logger.error(
+        { err },
+        `failed to check known-complete reconcile eligibility for game ${gameId}`,
+      )
+    }
+  }
+
+  /**
+   * Schedules a single one-shot force-reconcile of a game after `RECONCILE_KNOWN_COMPLETE_DELAY_MS`.
+   * Only one re-check is ever outstanding per game.
+   */
+  private scheduleKnownCompleteReconcile(gameId: string): void {
+    if (this.knownCompleteReconciles.has(gameId)) {
+      return
+    }
+
+    const timeoutId = this.clock.setTimeout(() => {
+      // Cleared unconditionally before doing any async work, for the same reason as
+      // `scheduleDesyncGraceRecheck`'s equivalent line: nothing after this point can throw
+      // synchronously, so an error can only be logged, never wedge the timer bookkeeping.
+      this.knownCompleteReconciles.delete(gameId)
+      Promise.resolve()
+        .then(async () => {
+          const gameRecord = await this.retrieveGame(gameId)
+          const didReconcile = await this.maybeReconcileResults(gameRecord, true /* force */)
+          if (didReconcile) {
+            await this.publishReconciledGame(gameId)
+          }
+        })
+        .catch(err => {
+          logger.error({ err }, `failed to force-reconcile known-complete game ${gameId}`)
+        })
+    }, RECONCILE_KNOWN_COMPLETE_DELAY_MS)
+    this.knownCompleteReconciles.set(gameId, timeoutId)
   }
 
   /**
@@ -808,9 +962,10 @@ export default class GameResultService {
    * Publishes a game's current record — and, if applicable, matchmaking rating/league changes — to
    * subscribers: the game's own subscription channel gets an `update` event, and each user whose MMR
    * changed gets a personal matchmaking-results event. Every entry point that can commit a
-   * reconciliation (an immediate submit-triggered reconcile, the delayed desync-grace re-check, and
-   * the periodic sweeps) calls this afterward, so a late/asynchronous reconcile still reaches clients
-   * instead of leaving them on a stale game/MMR until a manual refetch.
+   * reconciliation (an immediate submit-triggered reconcile, the delayed desync-grace re-check, the
+   * known-complete force-reconcile, and the periodic sweeps) calls this afterward, so a
+   * late/asynchronous reconcile still reaches clients instead of leaving them on a stale game/MMR
+   * until a manual refetch.
    */
   private async publishReconciledGame(gameId: string): Promise<void> {
     const game = await this.retrieveGame(gameId)

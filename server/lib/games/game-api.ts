@@ -26,12 +26,7 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { SubmitNetcodeV2PubkeyRequest } from '../../../common/games/netcode-v2'
-import {
-  ALL_GAME_CLIENT_RESULTS,
-  GameResultErrorCode,
-  SubmitGameReplayRequest,
-  SubmitGameResultsRequest,
-} from '../../../common/games/results'
+import { GameResultErrorCode, SubmitGameReplayRequest } from '../../../common/games/results'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -55,7 +50,6 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
-import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
 import { countCompletedGames, getGameRoutes, getGames } from './game-models'
@@ -64,7 +58,11 @@ import {
   GamePointsRefundService,
   GamePointsRefundServiceError,
 } from './game-points-refund-service'
-import GameResultService, { GameResultServiceError } from './game-result-service'
+import GameResultService, {
+  GameResultServiceError,
+  SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
+  usedNetcodeV2,
+} from './game-result-service'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
 const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
@@ -158,6 +156,8 @@ function convertGameResultServiceErrors(err: unknown) {
     case GameResultErrorCode.InvalidClient:
       throw asHttpError(400, err)
     case GameResultErrorCode.NotLoaded:
+      throw asHttpError(409, err)
+    case GameResultErrorCode.RelayReportRequired:
       throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
@@ -502,31 +502,24 @@ export class GameApi {
       body: { userId, resultCode, time, playerResults },
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
-      body: Joi.object<SubmitGameResultsRequest>({
-        userId: Joi.number().min(0).required(),
-        resultCode: Joi.string().required(),
-        time: Joi.number().min(0).required(),
-        playerResults: Joi.array()
-          .items(
-            Joi.array().ordered(
-              joiUserId().required(),
-              Joi.object({
-                result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
-                race: Joi.string().valid('p', 't', 'z').required(),
-                apm: Joi.number().min(0).required(),
-              }).required(),
-            ),
-          )
-          .min(0)
-          .max(8)
-          .required(),
-      }).required(),
+      body: SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
     })
 
     if (this.gameLoader.isLoading(gameId)) {
       throw new GameResultServiceError(
         GameResultErrorCode.NotLoaded,
         'Game is still loading, try again later',
+      )
+    }
+
+    // A netcode-v2 game's result can only reach the server through the relay's signed webhook —
+    // this direct endpoint stays open for pre-cutover clients, but a v2 game must reject it so
+    // there's no untrusted side door around the relay's guarantees.
+    const gameRecord = await this.gameResultService.retrieveGame(gameId)
+    if (usedNetcodeV2(gameRecord.config)) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.RelayReportRequired,
+        'netcode v2 games must report results through the relay',
       )
     }
 

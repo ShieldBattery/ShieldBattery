@@ -125,7 +125,39 @@ export interface NetcodeV2DesyncNotification {
 }
 
 /**
- * The rally-point2 coordinator's mid-game notification webhook body — either a departure or a
- * desync event, discriminated by `event`. POSTed to `POST /webhooks/netcode-v2/game-events`.
+ * A game result report webhook body, POSTed by the rally-point2 coordinator to the app server (as
+ * one variant of `NetcodeV2GameEvent`) when a relay forwards a client's result report. The report
+ * itself is the same `GameResultsReport` JSON the game client would otherwise POST to `results2`,
+ * carried as opaque base64 bytes — rp2 never parses it, only relays it.
+ *
+ * `externalId`/`externalRef` are the correlation ids the app server attached at session create
+ * (the game's `gameId` and the reporting player's `SbUserId`, respectively) and the coordinator
+ * echoes back so the notification is self-describing.
  */
-export type NetcodeV2GameEvent = NetcodeV2DepartureNotification | NetcodeV2DesyncNotification
+export interface NetcodeV2ResultNotification {
+  event: 'result'
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+  slot: number
+  /** The reporting player's `SbUserId`, stringified, if the coordinator still has it on record. */
+  externalRef?: string
+  /** base64 of the reporting client's serialized result report JSON, opaque to the relay. */
+  payload: string
+  /** Unix ms when the relay's connection to the reporting client received the report. */
+  arrivalMs: number
+  /** The relay's local lockstep frame at arrival, if known. */
+  sessionFrame?: number
+  /** The reporting slot's last stamped frame, if known. */
+  slotFrame?: number
+}
+
+/**
+ * The rally-point2 coordinator's mid-game notification webhook body — a departure, desync, or
+ * result event, discriminated by `event`. POSTed to `POST /webhooks/netcode-v2/game-events`.
+ */
+export type NetcodeV2GameEvent =
+  | NetcodeV2DepartureNotification
+  | NetcodeV2DesyncNotification
+  | NetcodeV2ResultNotification

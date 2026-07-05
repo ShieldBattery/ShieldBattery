@@ -44,6 +44,7 @@
 mod credentials;
 
 use std::collections::VecDeque;
+use std::sync::atomic::Ordering;
 
 use bytes::Bytes;
 use rally_point_client::DirectiveTracker;
@@ -58,7 +59,7 @@ mod session;
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
 // (`establish_session`), so only these two are re-exported. The credential/session types stay
 // internal to their submodules.
-pub use session::{begin_local_only, establish_session, with_turn_state};
+pub use session::{begin_local_only, establish_session, submit_result_report, with_turn_state};
 
 use crate::app_messages::SbUserId;
 use crate::bw;
@@ -509,6 +510,26 @@ impl TurnState {
         }
     }
 
+    /// Latches the result-expected flag the driver reads to hold a pending leave intent until the
+    /// end-of-game result report has been sent — guaranteeing the result frame precedes the leave
+    /// intent on the wire. Set from the game thread before any leave intent can be signalled. A
+    /// plain relaxed store, so it's cheap and idempotent.
+    pub fn expect_result_report(&self) {
+        self.channels.result_expected.store(true, Ordering::Relaxed);
+    }
+
+    /// Hands the serialized end-of-game result report to the driver, which sends it up the relay's
+    /// reliable control stream ahead of any leave intent. `try_send` is enough: the channel holds a
+    /// single report and at most one is produced per game. A full or closed channel (a duplicate
+    /// report, or a dead/absent link) is warned and the report dropped — best-effort, and harmless
+    /// because a v2 game with no live relay has no result to deliver there anyway.
+    pub fn submit_result_report(&self, report: Vec<u8>) {
+        match self.channels.result.try_send(report) {
+            Ok(()) => debug!("netcode v2: handed result report to driver"),
+            Err(e) => warn!("netcode v2: dropping result report, channel unavailable: {e}"),
+        }
+    }
+
     /// Queues a slot for a forced synced leave, for the `forceLeave` debug-control command. The
     /// game thread drains this on its next receive (see `bw_scr::apply_forced_leaves`); nothing is
     /// applied here, so this is safe to call from the async side.
@@ -584,6 +605,9 @@ impl TurnState {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+
     use rally_point_client::TurnChannels;
     use rally_point_client::proto::messages::{BufferDirective, LeaveDirective};
     use tokio::sync::mpsc;
@@ -615,11 +639,17 @@ mod tests {
         let (in_tx, in_rx) = mpsc::channel(16);
         let (leave_tx, leave_rx) = mpsc::channel(16);
         let (leave_intent_tx, leave_intent_rx) = mpsc::channel(1);
+        // The result channel/latch aren't exercised by these tests; drop the receiver (closing the
+        // channel is harmless — nothing submits a report here). See `turn_state_with_result` for
+        // the result-handoff tests.
+        let (result_tx, _result_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
+            result: result_tx,
+            result_expected: Arc::new(AtomicBool::new(false)),
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -663,11 +693,14 @@ mod tests {
         let (_in_tx, in_rx) = mpsc::channel(1);
         let (_leave_tx, leave_rx) = mpsc::channel(1);
         let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
+        let (result_tx, _result_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
             leaves: leave_rx,
             leave_intent: leave_intent_tx,
+            result: result_tx,
+            result_expected: Arc::new(AtomicBool::new(false)),
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new());
         assert_eq!(state.latency_turns(), 1);
@@ -1082,5 +1115,57 @@ mod tests {
         // not returned, and not retried (the tracker already marked it surfaced).
         assert!(state.take_due_leaves(3).is_empty());
         assert!(state.take_due_leaves(4).is_empty());
+    }
+
+    /// A TurnState wired so the result path is observable: returns the state, the receiver of the
+    /// result channel (to see what a submit hands the driver), and a clone of the shared
+    /// `result_expected` latch (to see what `expect_result_report` sets). The non-result far ends
+    /// are dropped — these tests never exercise the turn/leave paths.
+    fn turn_state_with_result() -> (TurnState, mpsc::Receiver<Vec<u8>>, Arc<AtomicBool>) {
+        let (out_tx, _out_rx) = mpsc::channel(1);
+        let (_in_tx, in_rx) = mpsc::channel(1);
+        let (_leave_tx, leave_rx) = mpsc::channel(1);
+        let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
+        let (result_tx, result_rx) = mpsc::channel(1);
+        let result_expected = Arc::new(AtomicBool::new(false));
+        let channels = TurnChannels {
+            outbound: out_tx,
+            inbound: in_rx,
+            leaves: leave_rx,
+            leave_intent: leave_intent_tx,
+            result: result_tx,
+            result_expected: Arc::clone(&result_expected),
+        };
+        let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new());
+        (state, result_rx, result_expected)
+    }
+
+    #[test]
+    fn expect_result_report_sets_the_shared_latch() {
+        let (state, _result_rx, result_expected) = turn_state_with_result();
+        assert!(!result_expected.load(Ordering::Relaxed), "not latched until asked");
+
+        state.expect_result_report();
+        assert!(
+            result_expected.load(Ordering::Relaxed),
+            "latch flips so the driver holds the leave intent for the result"
+        );
+
+        // Idempotent: a repeat call leaves it set.
+        state.expect_result_report();
+        assert!(result_expected.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn submit_result_report_hands_bytes_to_the_driver() {
+        let (state, mut result_rx, _result_expected) = turn_state_with_result();
+
+        state.submit_result_report(b"report".to_vec());
+        assert_eq!(
+            result_rx.try_recv().expect("report handed to the driver"),
+            b"report".to_vec()
+        );
+        // Nothing else queued behind the single report.
+        assert!(result_rx.try_recv().is_err());
     }
 }

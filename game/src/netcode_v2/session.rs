@@ -164,6 +164,29 @@ pub fn begin_local_only() {
     }
 }
 
+/// Hands the current game's serialized end-of-game result report to the driver, which delivers it
+/// over the relay's reliable control stream (see [`TurnState::submit_result_report`]). Returns
+/// whether a live netcode v2 session took the report.
+///
+/// `true` means the report was handed to the driver and the caller must NOT also POST it over HTTP.
+/// `false` means there is no v2 session (a legacy game or replay), and the caller falls back to the
+/// HTTP result path — the same fallback taken on the re-entrant-lock case, which can't actually
+/// happen here (this fires from the async result handler, well off the turn hooks) but is warned
+/// rather than silently dropping the report.
+pub fn submit_result_report(report: Vec<u8>) -> bool {
+    let Some(mut guard) = SESSION.lock() else {
+        warn!("submit_result_report skipped: turn state locked re-entrantly");
+        return false;
+    };
+    match guard.as_mut() {
+        Some(session) => {
+            session.turn_state.submit_result_report(report);
+            true
+        }
+        None => false,
+    }
+}
+
 /// Tears down the current session (game over / teardown). Idempotent.
 pub fn clear_session() {
     if let Some(mut guard) = SESSION.lock() {
