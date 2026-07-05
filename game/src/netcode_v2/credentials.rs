@@ -206,6 +206,7 @@ mod tests {
             client_private_key: Secret::from_base64_for_test(&BASE64_STANDARD.encode([0u8; 4])),
             home_relay: home,
             roster: Vec::new(),
+            initial_buffer_turns: 2,
         }
     }
 

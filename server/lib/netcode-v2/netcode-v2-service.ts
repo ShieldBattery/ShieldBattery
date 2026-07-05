@@ -71,6 +71,12 @@ interface CoordinatorSessionResponse {
    */
   slot_homes?: CoordinatorSlotHome[]
   tokens: Array<{ slot: number; token: number[] }>
+  /**
+   * The tenant's configured turn-buffer range. The relay's own buffer law starts every session at
+   * `min` and only sends a resize directive when its computed depth moves off that starting point,
+   * so `min` is also the depth each client must seed its pipe at to agree with the relay from the
+   * first turn.
+   */
   bounds: { min: number; max: number }
 }
 
@@ -321,6 +327,9 @@ export class NetcodeV2Service {
           token: Buffer.from(token).toString('base64'),
           homeRelay: slotHomeBySlot.get(slot) ?? homeRelay,
           roster: slots,
+          // Floored defensively: a misconfigured or unexpected coordinator bound of 0 would leave
+          // the pipe with no latency at all to absorb the network round-trip.
+          initialBufferTurns: Math.max(1, session.bounds.min),
         })
       }
       if (result.size !== slots.length) {

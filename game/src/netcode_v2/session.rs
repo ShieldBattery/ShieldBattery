@@ -18,11 +18,6 @@ use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials}
 use crate::app_messages::NetcodeV2Setup;
 use crate::recurse_checked_mutex::Mutex;
 
-/// The latency floor to start the pipe at (the built-in latency is natively 2). A due
-/// [`BufferDirective`](rally_point_client::proto::messages::BufferDirective) from the relay resizes
-/// it from there.
-const INITIAL_LATENCY_TURNS: u32 = 2;
-
 quick_error! {
     #[derive(Debug)]
     pub enum SessionError {
@@ -94,10 +89,14 @@ pub async fn establish_session(
         .iter()
         .map(|entry| (SlotId(entry.slot), entry.user_id))
         .collect();
+    // Seeded from the session's buffer bounds minimum (the coordinator's policy for this tenant),
+    // which is also where the relay's decision-maker starts. A due BufferDirective
+    // (rally_point_client::proto::messages::BufferDirective) resizes it from there; floored at 1
+    // in case a malformed handoff ever carried 0.
     let turn_state = TurnState::new(
         channels,
         local_slot,
-        INITIAL_LATENCY_TURNS,
+        setup.initial_buffer_turns.max(1),
         roster,
         has_computers,
     );

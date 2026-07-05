@@ -37,6 +37,14 @@ export interface NetcodeV2ServerSetup {
   token: string
   homeRelay: NetcodeV2RelayInfo
   roster: NetcodeV2RosterEntry[]
+  /**
+   * The turn pipe depth to start the session at. The relay's buffer law starts every session at
+   * its tenant's configured minimum and only broadcasts a `BufferDirective` when that computed
+   * depth changes, so a client that seeds its own hardcoded default instead of this value can sit
+   * one turn ahead of the relay indefinitely if the session never needs to grow past the minimum.
+   * Seeding from this value keeps the two in agreement from the first turn.
+   */
+  initialBufferTurns: number
 }
 
 /**

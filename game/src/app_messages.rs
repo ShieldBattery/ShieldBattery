@@ -545,6 +545,11 @@ pub struct NetcodeV2Setup {
     /// The session's full slot roster (every player, including ourselves). Our own slot still comes
     /// from the signed token — this list exists to map the *other* players' slots.
     pub roster: Vec<NetcodeV2RosterEntry>,
+    /// The turn pipe depth to start the session at, seeded from the session's buffer-bounds
+    /// minimum. The relay's decision-maker starts there too and only sends a resize directive once
+    /// its computed depth moves off that starting point, so a client that seeded some other
+    /// default would disagree with the relay until the first such directive arrived.
+    pub initial_buffer_turns: u32,
 }
 
 #[cfg(test)]
