@@ -135,10 +135,14 @@ describe('netcode-v2/checkGameEventWebhookAuth', () => {
     vi.unstubAllEnvs()
   })
 
-  /** Stubs netcode v2 as configured (coordinator URL + tenant), as `loadConfigFromEnv` expects. */
+  /**
+   * Stubs netcode v2 as configured (coordinator URL + tenant + client key), as `loadConfigFromEnv`
+   * expects — the client key is required whenever the coordinator URL is set.
+   */
   function configureNetcodeV2() {
     vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
     vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
+    vi.stubEnv('SB_RP2_CLIENT_KEY', '11'.repeat(32))
   }
 
   test('returns 404 when netcode v2 is not configured, regardless of the headers', async () => {

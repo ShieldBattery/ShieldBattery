@@ -1,5 +1,5 @@
 import got from 'got'
-import { X509Certificate } from 'node:crypto'
+import { createPrivateKey, KeyObject, sign, X509Certificate } from 'node:crypto'
 import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
 import { raceAbort } from '../../../common/async/abort-signals'
@@ -23,6 +23,97 @@ const MAX_PUBKEYS_PER_GAME = 16
 const SESSIONS_ALIVE_CHUNK_SIZE = 512
 
 export class NetcodeV2ServiceError extends Error {}
+
+/** A raw 32-byte Ed25519 seed as 64 hex characters — the `SB_RP2_CLIENT_KEY` format. */
+const ED25519_SEED_HEX_PATTERN = /^[0-9a-f]{64}$/i
+
+/** How the timestamp + method + path + body are combined into the bytes a request signature covers. */
+const REQUEST_SIGNATURE_MESSAGE_PREFIX = 'rp2-request-v1:'
+
+/**
+ * The fixed 16-byte PKCS#8 v1 DER prefix for an Ed25519 private key; the raw 32-byte seed follows
+ * it to form the 48-byte document Node's `createPrivateKey` accepts. We assemble it by hand because
+ * the interchange format for the client key is the raw seed (hex) — ring (coordinator side) accepts
+ * only PKCS#8 v2 and Node exports only v1, so neither side ships a PKCS#8 document; both derive a
+ * keypair from the same raw seed instead. This mirrors `app/game/netcode-v2-keys.ts`, which
+ * hand-assembles the v2 form for the game process. The RFC 8032 §7.1 test vector pins this layout
+ * byte-for-byte (see the test), so drift breaks a test rather than silently producing a bad key.
+ */
+const PKCS8_V1_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
+
+/**
+ * Builds a Node Ed25519 signing `KeyObject` from a raw 32-byte seed given as hex, by wrapping it in
+ * the fixed PKCS#8 v1 DER envelope. Exported for the cross-implementation test vector.
+ */
+export function clientSigningKeyFromSeedHex(seedHex: string): KeyObject {
+  if (!ED25519_SEED_HEX_PATTERN.test(seedHex)) {
+    throw new NetcodeV2ServiceError('SB_RP2_CLIENT_KEY must be 64 hex characters (a 32-byte seed)')
+  }
+  return createPrivateKey({
+    key: Buffer.concat([PKCS8_V1_ED25519_PREFIX, Buffer.from(seedHex, 'hex')]),
+    format: 'der',
+    type: 'pkcs8',
+  })
+}
+
+/**
+ * The client signing key, built from `SB_RP2_CLIENT_KEY` and cached by its seed value. `loadConfig
+ * FromEnv` already fails loudly at config time when the coordinator is configured without a valid
+ * key, so this only builds the `KeyObject` — cached so it's assembled once (a new build only if the
+ * env value changes, which in practice happens only across test cases that stub it). Reading the env
+ * at call time (rather than a module-load constant) matches `loadConfigFromEnv`'s own pattern and
+ * keeps the module testable with `vi.stubEnv`.
+ */
+let cachedClientSigningKey: { seedHex: string; key: KeyObject } | undefined
+
+function getClientSigningKey(): KeyObject {
+  const seedHex = process.env.SB_RP2_CLIENT_KEY
+  if (!seedHex) {
+    throw new NetcodeV2ServiceError('SB_RP2_CLIENT_KEY is not configured')
+  }
+  if (cachedClientSigningKey?.seedHex !== seedHex) {
+    cachedClientSigningKey = { seedHex, key: clientSigningKeyFromSeedHex(seedHex) }
+  }
+  return cachedClientSigningKey.key
+}
+
+/**
+ * The `x-rp2-timestamp` + `x-rp2-signature` header pair authenticating a coordinator-bound request.
+ * Signs `rp2-request-v1:<unix seconds>:<METHOD uppercased>:<path>:<raw body>` with the client key —
+ * the mirror image of the coordinator's webhook signature. Binding the method + path stops a signed
+ * body being replayed against a different endpoint. There is deliberately no nonce: transport is
+ * HTTPS in prod / loopback in dev, and a captured-in-window replay at worst mints a garbage session
+ * that gets reaped.
+ */
+export function signCoordinatorRequest(
+  method: string,
+  path: string,
+  body: string,
+): { 'x-rp2-timestamp': string; 'x-rp2-signature': string } {
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const message = Buffer.concat([
+    Buffer.from(
+      `${REQUEST_SIGNATURE_MESSAGE_PREFIX}${timestamp}:${method.toUpperCase()}:${path}:`,
+      'utf8',
+    ),
+    Buffer.from(body, 'utf8'),
+  ])
+  return {
+    'x-rp2-timestamp': timestamp,
+    'x-rp2-signature': sign(null, message, getClientSigningKey()).toString('hex'),
+  }
+}
+
+/**
+ * The path a coordinator request signs into its signature: pathname plus any query string. The
+ * coordinator verifies over `uri.path_and_query()`, so both sides must include the query — today's
+ * endpoints carry none, but signing path-and-query keeps the two implementations from silently
+ * diverging the day one does.
+ */
+function coordinatorRequestPath(url: string): string {
+  const parsed = new URL(url)
+  return parsed.pathname + parsed.search
+}
 
 /**
  * The wire shapes of the rally-point2 coordinator's `POST /session/create` API. These use the
@@ -110,6 +201,19 @@ export function loadConfigFromEnv(): NetcodeV2Config | undefined {
   const tenant = process.env.SB_RP2_TENANT
   if (!tenant) {
     throw new Error('SB_RP2_COORDINATOR_URL is set but SB_RP2_TENANT is missing')
+  }
+
+  // The client key is required whenever the coordinator is configured: every
+  // coordinator-bound request is signed with it, so a missing/malformed key
+  // must fail loudly here (config time) rather than at the first request. This
+  // validates presence + format; `getClientSigningKey` builds the actual
+  // KeyObject from the same env var.
+  const clientKeySeedHex = process.env.SB_RP2_CLIENT_KEY
+  if (!clientKeySeedHex) {
+    throw new Error('SB_RP2_COORDINATOR_URL is set but SB_RP2_CLIENT_KEY is missing')
+  }
+  if (!ED25519_SEED_HEX_PATTERN.test(clientKeySeedHex)) {
+    throw new Error('SB_RP2_CLIENT_KEY must be 64 hex characters (a 32-byte Ed25519 seed)')
   }
 
   const splitRelaysRaw = process.env.SB_RP2_SPLIT_RELAYS
@@ -273,9 +377,18 @@ export class NetcodeV2Service {
 
       let session: CoordinatorSessionResponse
       try {
+        // Serialize the body ourselves and sign those exact bytes (rather than
+        // handing `got` a `json:` object) so the signature covers precisely what
+        // goes on the wire — the coordinator verifies over the raw body.
+        const url = `${config.coordinatorUrl}/session/create`
+        const bodyStr = JSON.stringify(request)
         session = await got
-          .post(`${config.coordinatorUrl}/session/create`, {
-            json: request,
+          .post(url, {
+            body: bodyStr,
+            headers: {
+              'content-type': 'application/json',
+              ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+            },
             timeout: { request: 10000 },
             signal,
           })
@@ -418,9 +531,15 @@ export async function checkSessionsAlive(sessions: readonly number[]): Promise<S
   const alive = new Set<number>()
   for (let i = 0; i < sessions.length; i += SESSIONS_ALIVE_CHUNK_SIZE) {
     const chunk = sessions.slice(i, i + SESSIONS_ALIVE_CHUNK_SIZE)
+    const url = `${config.coordinatorUrl}/sessions/alive`
+    const bodyStr = JSON.stringify({ tenant: config.tenant, sessions: chunk })
     const response = await got
-      .post(`${config.coordinatorUrl}/sessions/alive`, {
-        json: { tenant: config.tenant, sessions: chunk },
+      .post(url, {
+        body: bodyStr,
+        headers: {
+          'content-type': 'application/json',
+          ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+        },
         timeout: { request: 10000 },
       })
       .json<SessionsAliveResponse>()
