@@ -28,6 +28,19 @@ pub struct Settings {
     pub jwt_secret: SecretString,
     pub session_ttl: Duration,
     pub file_store: FileStoreSettings,
+    /// Twitch integration credentials. `None` disables the integration entirely (account linking
+    /// errors out and the live-streams feed stays empty), so dev/CI can run without Twitch creds.
+    pub twitch: Option<TwitchSettings>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TwitchSettings {
+    /// The OAuth client ID of our registered Twitch application. Public (embedded in authorize
+    /// URLs the client opens), so it's a plain String.
+    pub client_id: String,
+    /// The OAuth client secret of our registered Twitch application. Only ever used server-side for
+    /// the authorization-code token exchange.
+    pub client_secret: SecretString,
 }
 
 #[derive(Debug, Clone)]
@@ -153,6 +166,18 @@ pub fn get_configuration() -> eyre::Result<Settings> {
                 .wrap_err("Failed to parse SB_FILE_STORE JSON")
         })?;
 
+    let twitch_client_id = std::env::var("SB_TWITCH_CLIENT_ID").ok();
+    let twitch_client_secret = std::env::var("SB_TWITCH_CLIENT_SECRET").ok();
+    if twitch_client_id.is_some() != twitch_client_secret.is_some() {
+        return Err(eyre!(
+            "SB_TWITCH_CLIENT_ID and SB_TWITCH_CLIENT_SECRET must both be set or both unset"
+        ));
+    }
+    let twitch = twitch_client_id.map(|client_id| TwitchSettings {
+        client_id,
+        client_secret: twitch_client_secret.unwrap().into(),
+    });
+
     Ok(Settings {
         env,
         app_host: host,
@@ -190,5 +215,6 @@ pub fn get_configuration() -> eyre::Result<Settings> {
                 .wrap_err("SB_SESSION_TTL is not a valid integer")?,
         ),
         file_store,
+        twitch,
     })
 }

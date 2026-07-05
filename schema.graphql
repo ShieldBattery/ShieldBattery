@@ -503,6 +503,21 @@ type Mutation {
 	Sets (or clears, if message is not provided) the urgent message at the top of the home page.
 	"""
 	newsSetUrgentMessage(message: UrgentMessageInput): Boolean!
+	"""
+	Begins linking the current user's Twitch account, returning the Twitch OAuth authorize URL
+	the client should open. Completing the flow calls `twitchCompleteLink` with the resulting
+	`code` and `state`.
+	"""
+	twitchStartLink: TwitchLinkStart!
+	"""
+	Completes linking the current user's Twitch account using the `code` and `state` returned by
+	the Twitch OAuth redirect.
+	"""
+	twitchCompleteLink(code: String!, state: String!): TwitchConnection!
+	"""
+	Removes the current user's Twitch connection. Returns whether a connection was removed.
+	"""
+	twitchUnlink: Boolean!
 	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	userUpdatePermissions(userId: SbUserId!, permissions: SbPermissionsInput!): SbUser!
 	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
@@ -613,6 +628,10 @@ type Query {
 	pastLeagues: [League!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
 	urgentMessage: UrgentMessage
+	"""
+	The current user's linked Twitch connection, or `null` if they haven't linked one.
+	"""
+	myTwitchConnection: TwitchConnection
 	user(id: SbUserId!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser
@@ -749,6 +768,38 @@ type SignupCode {
 	exhausted: Boolean!
 	notes: String
 	createdByUser: SbUser
+}
+
+"""
+A persistent link between a ShieldBattery user and their Twitch account.
+"""
+type TwitchConnection {
+	"""
+	Twitch's stable numeric user id for the linked account.
+	"""
+	twitchUserId: String!
+	"""
+	The Twitch login name (used in `twitch.tv/<login>` URLs).
+	"""
+	twitchLogin: String!
+	"""
+	The Twitch display name (may differ from the login name in capitalization).
+	"""
+	twitchDisplayName: String!
+	"""
+	When the account was first linked.
+	"""
+	linkedAt: DateTime!
+}
+
+"""
+The result of starting a Twitch link: the authorize URL the client should open.
+"""
+type TwitchLinkStart {
+	"""
+	The Twitch OAuth authorize URL the client should open (e.g. in a popup) to begin linking.
+	"""
+	url: String!
 }
 
 """

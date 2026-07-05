@@ -24,6 +24,7 @@ import {
   TermsOfServicePage,
 } from './policies/policy-displays'
 import { ReplaysRoot } from './replays/replays-root'
+import { TwitchOAuthCallback } from './twitch/twitch-oauth-callback'
 import { ProfileRouteComponent } from './users/route'
 import { WhisperRouteComponent } from './whispers/route'
 
@@ -59,6 +60,8 @@ export function AppRoutes({
         path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
         component={Signup}
       />
+
+      <Route path='/twitch/callback' component={TwitchOAuthCallback} />
 
       {isAdmin ? <Route path='/admin/*?' component={AdminPanel} /> : <></>}
 

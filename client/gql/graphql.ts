@@ -609,6 +609,39 @@ export type AccountSettingsChangeLoginNameMutation = {
   }
 }
 
+export type ConnectionSettingsQueryVariables = Exact<{ [key: string]: never }>
+
+export type ConnectionSettingsQuery = {
+  myTwitchConnection: {
+    twitchUserId: string
+    twitchLogin: string
+    twitchDisplayName: string
+    linkedAt: string
+  } | null
+}
+
+export type ConnectionSettingsStartTwitchLinkMutationVariables = Exact<{ [key: string]: never }>
+
+export type ConnectionSettingsStartTwitchLinkMutation = { twitchStartLink: { url: string } }
+
+export type ConnectionSettingsCompleteTwitchLinkMutationVariables = Exact<{
+  code: string
+  state: string
+}>
+
+export type ConnectionSettingsCompleteTwitchLinkMutation = {
+  twitchCompleteLink: {
+    twitchUserId: string
+    twitchLogin: string
+    twitchDisplayName: string
+    linkedAt: string
+  }
+}
+
+export type ConnectionSettingsUnlinkTwitchMutationVariables = Exact<{ [key: string]: never }>
+
+export type ConnectionSettingsUnlinkTwitchMutation = { twitchUnlink: boolean }
+
 export type UserNameAuditHistoryQueryVariables = Exact<{
   userId: Types.SbUserId
   displayNameLimit?: number | null | undefined
@@ -3434,6 +3467,138 @@ export const AccountSettingsChangeLoginNameDocument = {
 } as unknown as DocumentNode<
   AccountSettingsChangeLoginNameMutation,
   AccountSettingsChangeLoginNameMutationVariables
+>
+export const ConnectionSettingsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'ConnectionSettings' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'myTwitchConnection' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchUserId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'linkedAt' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<ConnectionSettingsQuery, ConnectionSettingsQueryVariables>
+export const ConnectionSettingsStartTwitchLinkDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ConnectionSettingsStartTwitchLink' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'twitchStartLink' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [{ kind: 'Field', name: { kind: 'Name', value: 'url' } }],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  ConnectionSettingsStartTwitchLinkMutation,
+  ConnectionSettingsStartTwitchLinkMutationVariables
+>
+export const ConnectionSettingsCompleteTwitchLinkDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ConnectionSettingsCompleteTwitchLink' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'code' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'state' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'twitchCompleteLink' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'code' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'code' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'state' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'state' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchUserId' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'linkedAt' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  ConnectionSettingsCompleteTwitchLinkMutation,
+  ConnectionSettingsCompleteTwitchLinkMutationVariables
+>
+export const ConnectionSettingsUnlinkTwitchDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'ConnectionSettingsUnlinkTwitch' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [{ kind: 'Field', name: { kind: 'Name', value: 'twitchUnlink' } }],
+      },
+    },
+  ],
+} as unknown as DocumentNode<
+  ConnectionSettingsUnlinkTwitchMutation,
+  ConnectionSettingsUnlinkTwitchMutationVariables
 >
 export const UserNameAuditHistoryDocument = {
   kind: 'Document',

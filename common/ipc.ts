@@ -52,6 +52,18 @@ export interface FsStats {
   birthtime: Date
 }
 
+/** The result of running the Twitch OAuth flow in the desktop app's dedicated auth window. */
+export interface TwitchOauthFlowResult {
+  /** The authorization code, present on success. */
+  code?: string
+  /** The state that was issued, echoed back for validation. */
+  state?: string
+  /** An OAuth error code (e.g. `access_denied`) if the user declined or the flow failed. */
+  error?: string
+  /** A human-readable description of `error`, if one was provided. */
+  errorDescription?: string
+}
+
 /** RPCs that can be invoked by the renderer process to run code in the main process. */
 interface IpcInvokeables {
   /**
@@ -112,6 +124,13 @@ interface IpcInvokeables {
   settingsOverwriteBlizzardFile: () => void
 
   shieldbatteryCheckFiles: () => Promise<ShieldBatteryFileResult[]>
+
+  /**
+   * Runs the Twitch OAuth authorization flow in a dedicated desktop window (the renderer can't open
+   * a controllable popup that redirects back to us), resolving with the code/state -- or an error
+   * -- captured from the redirect to our callback URL.
+   */
+  twitchOauthFlow: (authorizeUrl: string) => Promise<TwitchOauthFlowResult>
 
   windowGetStatus: () => Promise<{ focused: boolean; maximized: boolean }>
 }

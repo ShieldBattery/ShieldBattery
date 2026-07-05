@@ -16,7 +16,7 @@ import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { getErrorStack } from '../common/errors'
-import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { ReplayShieldBatteryData } from '../common/replays'
 import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
@@ -196,6 +196,82 @@ async function createScrSettings() {
   return settings
 }
 
+/**
+ * Runs the Twitch OAuth authorization flow in a dedicated `BrowserWindow`. The renderer can't do
+ * this itself: `setWindowOpenHandler` denies `window.open` and pushes URLs to the system browser,
+ * which can't relay the result back to the app. We load the authorize URL, watch for the redirect
+ * back to our callback URL (taken from the authorize URL's `redirect_uri`), and resolve with the
+ * code/state -- or an error -- captured from it.
+ */
+function runTwitchOauthFlow(
+  authorizeUrl: string,
+  parent: BrowserWindow | null,
+): Promise<TwitchOauthFlowResult> {
+  let redirectUri: string
+  try {
+    const redirect = new URL(authorizeUrl).searchParams.get('redirect_uri')
+    if (!redirect) {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: 'Authorize URL was missing a redirect_uri',
+      })
+    }
+    redirectUri = redirect
+  } catch (err) {
+    return Promise.resolve({ error: 'invalid_request', errorDescription: getErrorStack(err) })
+  }
+
+  return new Promise<TwitchOauthFlowResult>(resolve => {
+    const authWindow = new BrowserWindow({
+      parent: parent ?? undefined,
+      modal: !!parent,
+      width: 600,
+      height: 800,
+      autoHideMenuBar: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    })
+
+    let settled = false
+    const finish = (result: TwitchOauthFlowResult) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      if (!authWindow.isDestroyed()) {
+        authWindow.destroy()
+      }
+      resolve(result)
+    }
+
+    const onNavigate = (url: string, event: { preventDefault: () => void }) => {
+      if (!url.startsWith(redirectUri)) {
+        return
+      }
+      // Don't actually load our callback page in the auth window; we only want its query params.
+      event.preventDefault()
+      const params = new URL(url).searchParams
+      finish({
+        code: params.get('code') ?? undefined,
+        state: params.get('state') ?? undefined,
+        error: params.get('error') ?? undefined,
+        errorDescription: params.get('error_description') ?? undefined,
+      })
+    }
+
+    authWindow.webContents.on('will-redirect', (event, url) => onNavigate(url, event))
+    authWindow.webContents.on('will-navigate', (event, url) => onNavigate(url, event))
+    // If the user closes the window before finishing, treat it like a declined authorization.
+    authWindow.on('closed', () => finish({ error: 'access_denied' }))
+
+    authWindow.loadURL(authorizeUrl).catch(err => {
+      finish({ error: 'load_failed', errorDescription: getErrorStack(err) })
+    })
+  })
+}
+
 function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsManager) {
   ipcMain.handle('logMessage', (event, level, message) => {
     logger.log(level, message)
@@ -246,6 +322,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       maximized: mainWindow.isMaximized(),
     }
   })
+
+  ipcMain.handle('twitchOauthFlow', (event, authorizeUrl) =>
+    runTwitchOauthFlow(authorizeUrl, mainWindow),
+  )
 
   let lastRunAppAtSystemStart: boolean | undefined
   let lastRunAppAtSystemStartMinimized: boolean | undefined
