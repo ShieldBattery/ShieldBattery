@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO twitch_connections\n                (user_id, twitch_user_id, twitch_login, twitch_display_name)\n            VALUES ($1, $2, $3, $4)\n            ON CONFLICT (user_id) DO UPDATE SET\n                twitch_user_id = EXCLUDED.twitch_user_id,\n                twitch_login = EXCLUDED.twitch_login,\n                twitch_display_name = EXCLUDED.twitch_display_name,\n                updated_at = now()\n            RETURNING user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at\n        ",
+  "query": "\n            SELECT user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,\n                eventsub_subscription_ids\n            FROM twitch_connections\n            WHERE twitch_user_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -57,13 +57,21 @@
             "name": "linked_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "eventsub_subscription_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "eventsub_subscription_ids"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Int4",
-        "Text",
-        "Text",
         "Text"
       ]
     },
@@ -72,8 +80,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "f0e03e1f4167683eab70d716833f2c3831dde3b04c322b863ec7613175a3b67b"
+  "hash": "4bd088310ce544d4c69a4a44cac3a9f30ad043df041b380988c173c4c6720c33"
 }

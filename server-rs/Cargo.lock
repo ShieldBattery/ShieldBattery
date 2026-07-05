@@ -4176,6 +4176,7 @@ dependencies = [
  "dotenvy",
  "enumset",
  "gethostname 1.1.0",
+ "hmac 0.13.0",
  "ipnetwork",
  "itertools 0.15.0",
  "jsonwebtoken",

@@ -3,6 +3,7 @@ use crate::email::MailgunClient;
 use crate::file_store::FileStore;
 use crate::redis::RedisPool;
 use crate::schema::SbSchema;
+use crate::twitch::TwitchClient;
 use crate::users::CurrentUserRepo;
 use crate::users::names::NameChecker;
 use axum::extract::FromRef;
@@ -21,4 +22,6 @@ pub struct AppState {
     pub graphql_schema: SbSchema,
     pub current_user_repo: CurrentUserRepo,
     pub name_checker: NameChecker,
+    /// `None` when Twitch isn't configured.
+    pub twitch_client: Option<Arc<TwitchClient>>,
 }

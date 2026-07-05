@@ -39,8 +39,12 @@ pub struct TwitchSettings {
     /// URLs the client opens), so it's a plain String.
     pub client_id: String,
     /// The OAuth client secret of our registered Twitch application. Only ever used server-side for
-    /// the authorization-code token exchange.
+    /// the authorization-code token exchange and app (client-credentials) token.
     pub client_secret: SecretString,
+    /// The secret we hand to Twitch when creating EventSub subscriptions and use to verify the HMAC
+    /// signature on incoming webhook notifications. Must stay stable across restarts (it's shared
+    /// with Twitch), so it's configured rather than generated.
+    pub eventsub_secret: SecretString,
 }
 
 #[derive(Debug, Clone)]
@@ -168,14 +172,19 @@ pub fn get_configuration() -> eyre::Result<Settings> {
 
     let twitch_client_id = std::env::var("SB_TWITCH_CLIENT_ID").ok();
     let twitch_client_secret = std::env::var("SB_TWITCH_CLIENT_SECRET").ok();
-    if twitch_client_id.is_some() != twitch_client_secret.is_some() {
+    let twitch_eventsub_secret = std::env::var("SB_TWITCH_EVENTSUB_SECRET").ok();
+    if twitch_client_id.is_some() != twitch_client_secret.is_some()
+        || twitch_client_id.is_some() != twitch_eventsub_secret.is_some()
+    {
         return Err(eyre!(
-            "SB_TWITCH_CLIENT_ID and SB_TWITCH_CLIENT_SECRET must both be set or both unset"
+            "SB_TWITCH_CLIENT_ID, SB_TWITCH_CLIENT_SECRET, and SB_TWITCH_EVENTSUB_SECRET must all \
+             be set or all unset"
         ));
     }
     let twitch = twitch_client_id.map(|client_id| TwitchSettings {
         client_id,
         client_secret: twitch_client_secret.unwrap().into(),
+        eventsub_secret: twitch_eventsub_secret.unwrap().into(),
     });
 
     Ok(Settings {

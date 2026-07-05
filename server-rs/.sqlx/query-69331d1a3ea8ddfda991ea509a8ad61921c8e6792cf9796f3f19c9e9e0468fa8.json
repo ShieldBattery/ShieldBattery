@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at\n            FROM twitch_connections\n            WHERE user_id = $1\n        ",
+  "query": "\n            SELECT user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,\n                eventsub_subscription_ids\n            FROM twitch_connections\n            WHERE user_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,17 @@
             "name": "linked_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "eventsub_subscription_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "eventsub_subscription_ids"
+          }
+        }
       }
     ],
     "parameters": {
@@ -69,8 +80,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "9fd123a3551a7037f1a9bbd621312eb5877baec161e406b5a7d72d834b184094"
+  "hash": "69331d1a3ea8ddfda991ea509a8ad61921c8e6792cf9796f3f19c9e9e0468fa8"
 }
