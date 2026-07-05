@@ -1228,7 +1228,18 @@ debug-control command.
 
 **RE of 12409's sync check (2026-07-04, names persisted in the BNDB):**
 - **Command `0x37`, 7 bytes, flows through the seam verbatim** (not in the 0x55/0x5f/0x66 strip
-  list). Layout: `[0]`=0x37; `[1]`=`slot<<4 | turn_counter_nibble`; `[2:4]`=16-bit state hash;
+  list). Layout (**corrected 2026-07-05 by full RE of issue_sync_command/verify_peer_sync_slot;
+  the original note below had `[1]` wrong**): `[0]`=0x37; `[1]`=`ring_index<<4 | hash_kind` — high
+  nibble is the 16-entry ring index (+1 mod 16 per network turn), LOW nibble is the hash KIND (only
+  ever 1 or 2, locked to ring parity: even index = kind-1 units hash, odd = kind-2 header/rng hash;
+  byte[1] cycles the fixed sequence 0x01,0x12,0x21,0x32,…,0xF2). No sender id is in the payload at
+  all (identity = network framing). Game start: the enable path emits the first 0x37 at ring index 1
+  and the initial latency-flush burst repeats identical ring-1 commands before the ring first
+  advances. **Cross-peer comparability:** only `hash16` (+ kind) is a shared-state value; bytes
+  `[4]`/`[5]`/`[6]` are per-sender vision-masked and the native check evaluates them PAIRWISE
+  against the receiver's own fog buffer — they legitimately differ between players in a healthy
+  game and must never be cross-compared (this exact mistake produced a live false-positive desync
+  at game start before it was corrected). `[2:4]`=16-bit state hash;
   `[4]`=folded fog/vision checksum byte; `[5][6]`=fog window length + a per-player vision bit.
 - **Cadence:** one 0x37 emitted per outgoing turn (`issue_sync_command` 0x7589d0, from
   `flush_outgoing_command_turn`'s tail, gated by `sync_active`); one local slot recorded per turn
@@ -1324,6 +1335,34 @@ this overrides an otherwise-clean reconcile (the both-`win` case) and takes **pr
 (after a divergence there is no shared game to have "departed" from). Missing desync signal →
 today's behavior, unchanged.
 
+**Coverage analysis — does relay-side hash comparison see every desync? (2026-07-05, RE-backed.)**
+A concern: when a client's native check fires, does it stop feeding the relay conflicting samples?
+Two facts resolve this in our favor, both specific to netcode v2's architecture:
+- **The native detection path never stops sync emission.** RE of 12409 (`handle_desync_detected`
+  0x759080 and all `sync_active` 0x11ce294 xrefs): the only writer of `sync_active` is the game-loop
+  enable/disable helper `sub_74e320`, which the detection path never calls. Detection sets Storm-level
+  drop/leave flags (`net_player_flags |= 0x10000`, `storm_self_leave_network_error(0x40000006)`) — all
+  inert under v2 — but `step_network` keeps calling `record_turn_sync_slot`/`flush_outgoing_command_turn`
+  because `sync_active` is still set. So both diverged clients keep emitting 0x37 with conflicting hash16.
+- **Broadcast, not point-to-point.** Native BW sends turns per-destination over Storm, so a desync
+  prunes the offending peer from each client's send list and the two sims separate in silence (why
+  native has no server-side desync visibility). rp2 sends ONE turn stream fanned by the relay; there is
+  no per-destination list to prune, and the native `storm_drop_player` is inert — so neither client can
+  stop broadcasting its (now diverging) stream at the authority relay. Our architecture removes the
+  native blindness rather than inheriting it.
+- **Residual gap (small, documented):** the relay compares only `hash16` (bytes [2:3]); the native
+  fog/vision bytes [4..7] are per-sender vision-masked and not cross-comparable (see §20e), so a
+  divergence living ONLY in fog state, that never perturbs a hashed unit/header/RNG value, and whose
+  owner reaches the victory-dialog result-lock (§19) before it ever touches hash16, would evade the
+  relay. Fog is downstream of unit positions and vision, so a pure-fog divergence with zero hashed
+  consequence is exotic; the class is narrow. Closing it fully needs a client-originated signal (the
+  native fog check fires immediately; a report over the reliable control stream would beat the
+  result-lock). Decision (deferred to Travis): ship relay-hash as the authoritative v1 veto with this
+  gap documented; a client desync-report hook feeding the same DesyncNotice pipeline is an optional
+  fast-follow. Trust note: a client report can only ever be a VOID/dispute trigger (the safe
+  direction — a false report denies MMR to both and is rate-limitable), never a winner claim; it does
+  not reopen the "don't trust client report shape" concern, which was about trusting who won.
+
 **Design (the detector the observation confirms we need):**
 1. **Relay compares the 0x37 sync values it already parses.** rp2's edge validator already walks
    the SC:R command stream and *already classifies 0x37 Sync* (`proto/src/commands.rs`, 7-byte
@@ -1383,3 +1422,121 @@ cause in matchmaking, but a desync that yields one plausible winner still reconc
 does NOT subsume the relay veto. The two are layers — the reconcile guard catches
 structurally-impossible ranked results; the relay veto catches desyncs regardless of report shape
 or mode.
+
+### §20e. Relay-side desync detection — design locked (2026-07-04, with Travis)
+
+The detector §20d calls for, designed against the code as it exists. Decisions made with Travis
+are marked (T); the rest are implementation resolutions consistent with them.
+
+**Where it runs (T): authority-relay-only**, like `decide_leave`. Every relay already funnels
+every turn — client edge, mesh hop, and the oversize-turn divert — through
+`deliver_turn_to_locals` (mesh.rs), immediately after a `consensus::observe_frame` call. The lift
+is a new sibling, `consensus::observe_sync(decision_makers, key, slot, &payload.commands)`, which
+no-ops unless this relay is the session's authority. It re-walks the already-validated command
+bytes looking for `0x37` (a trivial `command_length` scan — validation happened at the ingress
+edge; mesh hops deliberately don't re-validate, and this changes nothing about that trust
+model: the authority parses the bytes itself, it does not trust a peer's parse). No wire-format
+changes to the turn path at all.
+
+**Authority promotion starts the comparator fresh** — no compare-state transfers in the
+descriptor or mesh. A real desync diverges every interval, so the next interval after promotion
+catches it. (Consequence: a desync whose evidence straddles an authority death can be missed
+once; accepted — the alternative is transferring per-interval hash state, pure complexity.)
+
+**Interval alignment (final as-built scheme, revised twice in review).** Each client emits exactly
+one 0x37 per outgoing turn once `sync_active` is set, and lockstep means every client's Nth sync
+command covers the same simulated interval. Naive arrival-order counting is wrong three ways —
+the mesh delivers duplicate turns via multiple flood paths, QUIC datagrams reorder, and a client
+legitimately runs up to the buffer depth AHEAD of its slowest peer's arrivals (producing turn k+1
+only requires having executed k+1−depth) — each of which silently offsets a slot's ordinals and
+manufactures false desyncs that a symmetric loopback test never sees. As built:
+- **Exactly-once observation:** `observe_sync` runs inside `deliver_turn_to_locals` immediately
+  after the `mark_seen` dedup (the choke point all four turn paths funnel through), so the
+  authority observes each distinct (slot, seq) turn once.
+- **Nibble-corrected steady state:** each 0x37 is placed at the ordinal ≡ its ring nibble (mod 16)
+  nearest the slot's own expected count — self-heals transport reordering (±7 exact), and is
+  buffer-depth-independent because it's relative to the slot's own stream.
+- **Frame-anchored joins:** a slot's first-ever report is placed by projecting its turn's
+  `game_frame_count` against a running (ordinal, frame) calibration (rate from first/latest
+  calibration points, projected from the latest, clamped to [0, frontier]), then nibble-refined.
+  Lockstep binds cross-client frame skew to ~±2 turns, so this is exact at any buffer depth —
+  this is what removed the earlier ±7 join ceiling when Travis raised the dev buffer bounds to
+  (1, 12) (depth×42ms at TR24; 12 ≈ 504ms one-way = parity with old TR8 Extra High; BW's 16-entry
+  sync ring caps total in-flight depth ~14ish). Fallback with no frame or no rate yet: frontier +
+  nibble. Known accepted corner: a join during a PAUSE right after authority promotion (frames
+  frozen, rate unavailable, arrival lag possibly > 7) can misplace — worst case one spurious
+  notice; task-3 consumption can sanity-check.
+- **Evaluation margin:** ordinal k is judged once every member whose join ordinal ≤ k reported it
+  AND the frontier is ≥ k + margin, margin = max(8, bounds.max + 2) computed per call from the
+  session's live bounds. Window cap 64 with eviction as the stalled-slot backstop (log, don't
+  judge). An absurd-bounds backstop (max ≥ 32 = window/2) disables the comparator, log-once —
+  defensive only, not a live constraint.
+Compared value (**corrected 2026-07-05 after a live false positive + binary RE, see §20c**):
+`hash16` (bytes [2:3]) plus kind agreement ONLY — bytes [4..7] are per-sender vision-masked and
+never cross-comparable. The alternating kind-1/kind-2 coverage aligns automatically since
+comparison is same-ordinal, and ring parity ↔ kind is a cross-check. hash16's cross-peer
+equality is guaranteed by the structure of the native check itself (the receiver compares the
+remote value against a locally recomputed one, so synced peers must produce identical values or
+vanilla SC:R would flag desyncs constantly).
+
+**Who is compared:** live, non-observer slots. Departed slots stop being required from their
+departure. **Observers are excluded (T)** — they don't reliably emit 0x37 (SB observers join
+as quasi-normal players today, but that's slated for cleanup) — which needs the relay to know
+observer-ness: `PlayerHandoff` gains `observer: bool` (serde-default false, like `external_ref`),
+the coordinator carries it into the `SessionDescriptor` as `observer_slots: Vec<SlotId>`
+(serde-default empty), SB sets it at `/session/create` from the game's slot types.
+
+**Missing-0x37 policy (v1): log, don't judge.** A slot whose ordinal stream stops (or never
+starts) while others advance is logged as an anomaly (rate-limited warn with slot + ordinal gap),
+but only *value mismatches* produce notices in v1. Cadence edges (pre-`sync_active` turns,
+whatever SB observers actually do, §19 post-victory tails) haven't been observed enough to make
+absence authoritative; revisit once the detector has run in anger.
+
+**Mismatch → DesyncNotice, repeatable per session (T).** On the first ordinal where values
+disagree: majority value = the agreeing plurality holding a strict majority of compared slots;
+everyone else is the **diverged minority**. No strict majority (1v1, even split) → the notice
+carries an explicit `no_majority` marker and an empty minority set (SB must not infer
+undecidability from topology). The comparator then **drops the diverged minority from the
+compare set and keeps watching the survivors** — a later second divergence (3v3 loses one, then
+another) fires again as a new event at its own, later ordinal (T: multiple events per
+session are real, if vanishingly rare; "after some count, just void the game" is app-server
+policy in the reconciliation slice, and the per-event evidence supports it either way).
+**The sync ordinal IS the event identity** — no relay-assigned per-session sequence. It is
+monotone and derived from game data rather than relay state, so authority promotion (fresh
+comparator) cannot collide with an event the dead authority already reported: a re-detection
+lands at a later ordinal and is simply a second piece of evidence. Notice carries: session, the
+sync ordinal, the closest observed `game_frame_count`
+(human-meaningful interval), diverged slots (with external refs, like departures), detected-at.
+Checksum values themselves stay relay-side (T: opaque, slots+interval suffice) — logged, not
+shipped.
+
+**Pipeline: the departure pipe, generalized (T: one pipe, my call on shape).** Nothing is
+deployed, so rename rather than parallel: the relay→coordinator notice channel and the
+coordinator's dedup/enrich/retry/webhook path handle a notice union (departure | desync), the
+webhook body gains a `kind` discriminator, and SB's endpoint becomes
+`POST /webhooks/netcode-v2/game-events` (the `/departures` route does not survive; same
+dedicated early middleware chain, same Ed25519 signature scheme and fetched-pubkey verify).
+Coordinator dedup key for desyncs: (tenant, session, sync_ordinal). Same at-least-once retries.
+
+**SB persistence (this slice records, task-3 reconciliation consumes):** new table
+`game_desync_events` — PK (game_id, sync_ordinal), detected-at, frame, `no_majority`
+flag, diverged user ids (parsed from external refs like departures). No games_users column;
+the reconciliation slice derives per-player fault from the events. Ingest is idempotent on the
+PK (at-least-once delivery).
+
+**Post-result desyncs (T):** no timestamp-classification logic here — the §19 cleanup (close the
+v2 session at the terminal dialog) is the fix, and it must land **before** task-3 reconciliation
+starts consuming desync flags, else a continue-playing divergence could void a decided ranked
+game. Harmless in this slice (nothing consumes the flag yet); recorded as a sequencing gate.
+
+**Explicitly out of scope for this slice:** reconciliation changes (majority-authoritative /
+void / lobby-disputed — task 3), the MMR bounded-wait ordering (task 3), the §20c departure
+tiebreak (task 4, gated on this), any enforcement (the relay does not kick diverged slots —
+detection only, enforcement is a possible future), and neutering the native Storm-inert
+drop/self-leave path (observe first, per §20c).
+
+**Acceptance:** unit tests on the comparator (majority/minority/no-majority/second-divergence/
+observer-excluded/departed-slot); the live §20d scenario re-run — `forceDesync` in a 1v1 →
+relay logs the divergence at a concrete ordinal → DesyncNotice → signed webhook →
+`game_desync_events` row with `no_majority` — plus a departure re-run to prove the renamed
+pipe still records departures.

@@ -1,16 +1,20 @@
 import got from 'got'
 import { verify as verifyEd25519 } from 'node:crypto'
-import { NetcodeV2DepartureNotification } from '../../../common/games/netcode-v2'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
+import {
+  NetcodeV2DepartureNotification,
+  NetcodeV2DesyncNotification,
+} from '../../../common/games/netcode-v2'
+import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import log from '../logging/logger'
+import { recordDesyncEvent } from '../models/game-desync-events'
 import { recordUserDeparture } from '../models/games-users'
 import { loadConfigFromEnv } from './netcode-v2-service'
 import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** HTTP status an unauthenticated/disabled-feature departures webhook call should get. */
-export type DepartureWebhookAuthStatus = 401 | 404
+/** HTTP status an unauthenticated/disabled-feature game-events webhook call should get. */
+export type GameEventWebhookAuthStatus = 401 | 404
 
 /** How the `x-rp2-timestamp` + request body are combined into the bytes the signature covers. */
 const SIGNATURE_MESSAGE_PREFIX = 'rp2-webhook-v1:'
@@ -42,7 +46,7 @@ async function fetchTenantPubkeyHex(): Promise<string> {
 const tenantPubkeyCache = new TenantPubkeyCache(fetchTenantPubkeyHex)
 
 /**
- * Gates a departures webhook call before anything else runs (including body validation): returns
+ * Gates a game-events webhook call before anything else runs (including body validation): returns
  * the HTTP status to respond with if the call should be rejected, or `null` if it's authorized to
  * proceed.
  *
@@ -64,12 +68,12 @@ const tenantPubkeyCache = new TenantPubkeyCache(fetchTenantPubkeyHex)
  * `pubkeyCache` defaults to the module's shared cache; tests inject their own to avoid network
  * calls and exercise rotation/rate-limit behavior directly.
  */
-export async function checkDepartureWebhookAuth(
+export async function checkGameEventWebhookAuth(
   timestampHeader: string,
   signatureHeader: string,
   rawBody: Buffer,
   pubkeyCache: TenantPubkeyCache = tenantPubkeyCache,
-): Promise<DepartureWebhookAuthStatus | null> {
+): Promise<GameEventWebhookAuthStatus | null> {
   if (!loadConfigFromEnv()) {
     return 404
   }
@@ -114,6 +118,42 @@ export async function checkDepartureWebhookAuth(
 }
 
 /**
+ * Parses a webhook's `externalId` back into the app server's `gameId`, or returns `undefined` (and
+ * logs) if it's missing or not a valid game id. Shared by both departure and desync ingest — the
+ * coordinator's correlation id is the same `gameId` string in both cases.
+ */
+function parseGameId(externalId: string | undefined, eventKind: string): string | undefined {
+  if (!externalId || !UUID_PATTERN.test(externalId)) {
+    log.warn(
+      { externalId },
+      `netcode v2 ${eventKind} notification missing/invalid externalId, ignoring`,
+    )
+    return undefined
+  }
+  return externalId
+}
+
+/**
+ * Parses a webhook's `externalRef` (the app server's stringified `SbUserId`) back into an
+ * `SbUserId`, or returns `undefined` (and logs) if it's missing or not a positive integer. Shared
+ * by both departure and desync ingest.
+ */
+function parseUserId(
+  externalRef: string | undefined,
+  context: Record<string, unknown>,
+): SbUserId | undefined {
+  const parsed = externalRef !== undefined ? Number(externalRef) : NaN
+  if (!externalRef || !Number.isInteger(parsed) || parsed <= 0) {
+    log.warn(
+      { ...context, externalRef },
+      'netcode v2 notification entry missing/invalid externalRef, skipping',
+    )
+    return undefined
+  }
+  return makeSbUserId(parsed)
+}
+
+/**
  * Classifies and records a departure notification from an already-authenticated caller. Always
  * completes successfully from the caller's perspective (the caller responds 204 either way) — an
  * unparseable notification (missing/malformed correlation ids) is logged and dropped rather than
@@ -124,28 +164,63 @@ export async function checkDepartureWebhookAuth(
 export async function recordDepartureNotification(
   notification: NetcodeV2DepartureNotification,
 ): Promise<void> {
-  const { externalId: gameId, externalRef, kind } = notification
-
-  if (!gameId || !UUID_PATTERN.test(gameId)) {
-    log.warn({ gameId }, 'netcode v2 departure notification missing/invalid externalId, ignoring')
+  const gameId = parseGameId(notification.externalId, 'departure')
+  if (!gameId) {
     return
   }
 
-  const parsedUserId = externalRef !== undefined ? Number(externalRef) : NaN
-  if (!externalRef || !Number.isInteger(parsedUserId) || parsedUserId <= 0) {
-    log.warn(
-      { gameId, externalRef },
-      'netcode v2 departure notification missing/invalid externalRef, ignoring',
-    )
+  const userId = parseUserId(notification.externalRef, { gameId })
+  if (!userId) {
     return
   }
 
-  const userId = makeSbUserId(parsedUserId)
+  const { kind } = notification
   const recorded = await recordUserDeparture({ userId, gameId, kind, time: new Date() })
 
   if (recorded) {
     log.info({ gameId, userId, kind }, 'departure recorded')
   } else {
     log.info({ gameId, userId, kind }, 'duplicate departure ignored')
+  }
+}
+
+/**
+ * Classifies and records a desync notification from an already-authenticated caller. Same
+ * forgiving posture as departures: an unresolvable `externalId` (unknown/malformed) is logged and
+ * dropped, always responding 204 to the coordinator. A diverged entry whose `externalRef` is
+ * missing or unparseable is itself skipped (logged) while the rest of the event is still recorded
+ * — a partially-unparseable event is still evidence worth keeping.
+ */
+export async function recordDesyncNotification(
+  notification: NetcodeV2DesyncNotification,
+): Promise<void> {
+  const gameId = parseGameId(notification.externalId, 'desync')
+  if (!gameId) {
+    return
+  }
+
+  const { syncOrdinal, gameFrame, detectedAtMs, noMajority, diverged } = notification
+
+  const divergedUserIds: SbUserId[] = []
+  for (const entry of diverged) {
+    const userId = parseUserId(entry.externalRef, { gameId, syncOrdinal, slot: entry.slot })
+    if (userId !== undefined) {
+      divergedUserIds.push(userId)
+    }
+  }
+
+  const recorded = await recordDesyncEvent({
+    gameId,
+    syncOrdinal,
+    detectedAt: new Date(detectedAtMs),
+    gameFrame,
+    noMajority,
+    divergedUserIds,
+  })
+
+  if (recorded) {
+    log.info({ gameId, syncOrdinal, noMajority, divergedUserIds }, 'desync event recorded')
+  } else {
+    log.info({ gameId, syncOrdinal }, 'duplicate desync event ignored')
   }
 }

@@ -5,7 +5,7 @@ import Koa from 'koa'
 
 type ValidatedParamType<T> = T extends { params: Joi.ObjectSchema<infer U> } ? U : never
 type ValidatedQueryType<T> = T extends { query: Joi.ObjectSchema<infer U> } ? U : never
-type ValidatedBodyType<T> = T extends { body: Joi.ObjectSchema<infer U> } ? U : never
+type ValidatedBodyType<T> = T extends { body: Joi.AnySchema<infer U> } ? U : never
 
 /** A description of how to validate a request. */
 export interface JoiValidationDescriptor {
@@ -21,9 +21,10 @@ export interface JoiValidationDescriptor {
   query?: Joi.ObjectSchema
   /**
    * A schema to use for validating a request's body data. If undefined, the body will not be
-   * validated.
+   * validated. Usually a `Joi.ObjectSchema`, but a `Joi.AlternativesSchema` is also valid (e.g. for
+   * a discriminated-union body).
    */
-  body?: Joi.ObjectSchema
+  body?: Joi.AnySchema
 }
 
 /** Returns a function that validates that the parts of a Koa request pass validation with Joi. */

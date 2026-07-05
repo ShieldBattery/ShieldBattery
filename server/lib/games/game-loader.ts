@@ -8,7 +8,7 @@ import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameRoute, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
 import { GameRouteDebugInfo } from '../../../common/games/games'
-import { Slot } from '../../../common/lobbies/slot'
+import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
@@ -820,7 +820,15 @@ export class GameLoader {
         // request the session from the coordinator. Each player gets their own token plus the
         // relay endpoints and the full slot roster. This must complete (and be published) before
         // `startWhenReady`: the game process consumes the setup when its game init starts.
-        const slots = [...players].map((p, slot) => ({ slot, userId: p.userId! }))
+        //
+        // `players` includes observer slots alongside human slots (see `GameLoadRequest.players`'s
+        // doc comment), and `Slot.type` distinguishes them, so observer-ness is known here — mark
+        // it so the relay's desync comparator can exclude observers from the compared slot set.
+        const slots = [...players].map((p, slot) => ({
+          slot,
+          userId: p.userId!,
+          observer: p.type === SlotType.Observer,
+        }))
         const [setups, setupsError] = (
           await Result.fromAsyncCatching(
             this.netcodeV2Service.createSessionForGame({ gameId, slots, signal }),

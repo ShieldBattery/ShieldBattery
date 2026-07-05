@@ -67,14 +67,16 @@ export interface SubmitNetcodeV2PubkeyRequest {
 export type DepartureKind = 'left' | 'dropped'
 
 /**
- * A mid-game player departure webhook, POSTed by the rally-point2 coordinator to the app server
- * when a relay decides a player's slot has permanently left a session.
+ * A mid-game player departure webhook body, POSTed by the rally-point2 coordinator to the app
+ * server (as one variant of `NetcodeV2GameEvent`) when a relay decides a player's slot has
+ * permanently left a session.
  *
  * `externalId`/`externalRef` are the correlation ids the app server attached at session create
  * (the game's `gameId` and the player's `SbUserId`, respectively) and the coordinator echoes back
  * so the notification is self-describing.
  */
 export interface NetcodeV2DepartureNotification {
+  event: 'departure'
   tenant: string
   session: number
   /** The `gameId` this session was created for, if the coordinator still has it on record. */
@@ -88,3 +90,42 @@ export interface NetcodeV2DepartureNotification {
   /** The relay's leave ordering/telemetry sequence number for this session. */
   leaveSeq: number
 }
+
+/** One slot the relay observed diverging from the majority sync-checksum lineage. */
+export interface NetcodeV2DivergedSlot {
+  slot: number
+  /** The diverged player's `SbUserId`, stringified, if the coordinator still has it on record. */
+  externalRef?: string
+}
+
+/**
+ * A mid-game desync webhook body, POSTed by the rally-point2 coordinator to the app server (as one
+ * variant of `NetcodeV2GameEvent`) when the authority relay's sync-checksum comparator sees a
+ * slot's `0x37` sync command diverge from the agreeing majority.
+ *
+ * `diverged` is empty exactly when `noMajority` is true — the relay deliberately doesn't guess
+ * "who's wrong" when there's no strict majority to trust (1v1, or an even split).
+ */
+export interface NetcodeV2DesyncNotification {
+  event: 'desync'
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+  /** The per-slot sync ordinal (count of `0x37` commands) the comparator disagreed on. */
+  syncOrdinal: number
+  /** The closest observed `game_frame_count`, for human-meaningful correlation, if known. */
+  gameFrame?: number
+  /** Unix ms when the relay detected the divergence. */
+  detectedAtMs: number
+  /** True when no strict majority of compared slots agreed (1v1, or an even split) — undecidable. */
+  noMajority: boolean
+  /** The diverged minority's slots, empty when `noMajority` is true. */
+  diverged: NetcodeV2DivergedSlot[]
+}
+
+/**
+ * The rally-point2 coordinator's mid-game notification webhook body — either a departure or a
+ * desync event, discriminated by `event`. POSTed to `POST /webhooks/netcode-v2/game-events`.
+ */
+export type NetcodeV2GameEvent = NetcodeV2DepartureNotification | NetcodeV2DesyncNotification

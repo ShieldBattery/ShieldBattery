@@ -23,9 +23,15 @@ export class NetcodeV2ServiceError extends Error {}
  */
 interface CoordinatorSessionRequest {
   tenant: string
-  /** The ShieldBattery `gameId`, echoed back on the coordinator's departure webhooks. */
+  /** The ShieldBattery `gameId`, echoed back on the coordinator's notification webhooks. */
   external_id: string
-  players: Array<{ slot: number; client_pubkey: number[]; external_ref: string }>
+  players: Array<{
+    slot: number
+    client_pubkey: number[]
+    external_ref: string
+    /** Excludes this slot from the relay's desync sync-checksum comparator (serde-default false). */
+    observer: boolean
+  }>
 }
 
 interface CoordinatorRelayEndpoint {
@@ -197,7 +203,7 @@ export class NetcodeV2Service {
     signal,
   }: {
     gameId: string
-    slots: Array<{ slot: number; userId: SbUserId }>
+    slots: Array<{ slot: number; userId: SbUserId; observer: boolean }>
     signal: AbortSignal
   }): Promise<Map<SbUserId, NetcodeV2ServerSetup>> {
     const config = this.config
@@ -216,12 +222,13 @@ export class NetcodeV2Service {
         tenant: config.tenant,
         // eslint-disable-next-line camelcase
         external_id: gameId,
-        players: slots.map(({ slot, userId }) => ({
+        players: slots.map(({ slot, userId, observer }) => ({
           slot,
           // eslint-disable-next-line camelcase
           client_pubkey: Array.from(Buffer.from(pubkeys.get(userId)!, 'base64')),
           // eslint-disable-next-line camelcase
           external_ref: String(userId),
+          observer,
         })),
       }
 

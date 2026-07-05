@@ -1,10 +1,10 @@
 import KoaRouter from '@koa/router'
-import { registerDepartureWebhookRoutes } from './lib/netcode-v2/departure-webhook'
+import { registerGameEventWebhookRoutes } from './lib/netcode-v2/game-event-webhook'
 
 /**
  * Builds the router for machine-caller webhook endpoints (currently: the rally-point2
- * coordinator's mid-game departure notifications; future webhook consumers should register their
- * routes here too).
+ * coordinator's mid-game notification webhook, covering both departure and desync events; future
+ * webhook consumers should register their routes here too).
  *
  * Mounted in app.ts *ahead of* the app's normal middleware chain (CSRF/origin checks, cookie/JWT
  * session handling, CORS, security headers, static file serving, the shared body parser, etc.) —
@@ -16,7 +16,7 @@ import { registerDepartureWebhookRoutes } from './lib/netcode-v2/departure-webho
 export function createWebhookRoutes(): KoaRouter {
   const router = new KoaRouter({ prefix: '/webhooks' })
 
-  registerDepartureWebhookRoutes(router)
+  registerGameEventWebhookRoutes(router)
 
   return router
 }
