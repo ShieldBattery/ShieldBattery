@@ -78,6 +78,9 @@ const colorContainerHighestPlus3 = '#213961'
 const colorError = '#ff6e6e'
 const colorSuccess = '#66bb6a'
 
+/** Color used to indicate that a user is currently live-streaming. */
+const colorLive = '#e01d3c'
+
 /** Color used to indicate something positive (e.g. winning). */
 const colorPositive = '#69f0ae'
 const colorPositiveInvert = '#2f6805'
@@ -200,6 +203,7 @@ export const THEME_CSS = css`
 
   --theme-error: ${colorError};
   --theme-success: ${colorSuccess};
+  --theme-live: ${colorLive};
 
   --theme-positive: ${colorPositive};
   --theme-positive-invert: ${colorPositiveInvert};

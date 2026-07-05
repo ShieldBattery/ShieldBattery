@@ -153,6 +153,8 @@ const TopSection = styled.div`
   align-items: center;
 `
 
+// The Twitch brand color, used only for the Twitch channel-link glyph (a brand mark). "Live" state
+// is conveyed with the brand-agnostic --theme-live color instead.
 const TWITCH_PURPLE = '#9146ff'
 
 const AvatarCircle = styled.div<{ $isLive?: boolean }>`
@@ -161,7 +163,7 @@ const AvatarCircle = styled.div<{ $isLive?: boolean }>`
   position: relative;
 
   background-color: var(--color-blue30);
-  border: 12px solid ${props => (props.$isLive ? TWITCH_PURPLE : 'var(--color-blue40)')};
+  border: 12px solid ${props => (props.$isLive ? 'var(--theme-live)' : 'var(--color-blue40)')};
   border-radius: 50%;
 `
 
@@ -186,7 +188,7 @@ const LiveBadge = styled.div`
   padding: 0 8px;
 
   border-radius: 10px;
-  background-color: ${TWITCH_PURPLE};
+  background-color: var(--theme-live);
   color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.5px;
