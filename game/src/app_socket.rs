@@ -163,6 +163,13 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
             let user = serde_json::from_value(payload).context(("Invalid local user", &*text))?;
             Ok(MessageResult::Game(GameStateMessage::SetLocalUser(user)))
         }
+        "blockedUsers" => {
+            let blocked_users =
+                serde_json::from_value(payload).context(("Invalid blocked users", &*text))?;
+            Ok(MessageResult::Game(GameStateMessage::SetBlockedUsers(
+                blocked_users,
+            )))
+        }
         "serverConfig" => {
             let config =
                 serde_json::from_value(payload).context(("Invalid server config", &*text))?;

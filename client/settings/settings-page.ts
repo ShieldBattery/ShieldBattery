@@ -1,5 +1,6 @@
 export enum UserSettingsPage {
   Account = 'UserAccount',
+  Social = 'UserSocial',
   Language = 'UserLanguage',
 }
 

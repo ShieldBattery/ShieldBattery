@@ -43,6 +43,18 @@ impl ChatManager {
         debug!("ChatManager initialized with players: {:?}", self.players);
     }
 
+    /// Replaces the set of players blocked on ShieldBattery. Should be called after
+    /// [`Self::set_local_player_info`] so the local user is never blocked.
+    pub fn set_blocked_players(&mut self, player_ids: &[SbUserId]) {
+        self.blocked_players.clear();
+        self.blocked_players.extend(
+            player_ids
+                .iter()
+                .filter(|&&id| self.local_user_id != Some(id)),
+        );
+        debug!("ChatManager blocked players: {:?}", self.blocked_players);
+    }
+
     pub fn add_blocked_player(&mut self, player_id: SbUserId) {
         if self.local_user_id == Some(player_id) {
             // Don't allow blocking yourself

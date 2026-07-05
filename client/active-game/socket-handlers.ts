@@ -12,6 +12,7 @@ import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
+import { getRelationshipsIfNeeded } from '../social/action-creators'
 import { updateActiveGame } from './wait-for-active-game'
 
 type EventToActionMap = {
@@ -52,17 +53,34 @@ export default function ({
           })
         }
 
-        const config: GameLaunchConfig = {
-          localUser: {
-            id: self!.user.id,
-            name: self!.user.name,
-          },
-          serverConfig: {
-            serverUrl: makeServerUrl(''),
-          },
-          setup,
+        const buildAndSend = () => {
+          const config: GameLaunchConfig = {
+            localUser: {
+              id: self!.user.id,
+              name: self!.user.name,
+            },
+            blockedUsers: Array.from(getState().relationships.blocks.keys()),
+            serverConfig: {
+              serverUrl: makeServerUrl(''),
+            },
+            setup,
+          }
+          ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
         }
-        ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
+
+        // The game needs the block list to hide blocked players' in-game chat. Relationship state
+        // is cleared on every reconnect, so make sure it's loaded before launching (falling back to
+        // whatever's cached rather than blocking the launch if the request fails).
+        if (getState().relationships.loaded) {
+          buildAndSend()
+        } else {
+          dispatch(
+            getRelationshipsIfNeeded({
+              onSuccess: buildAndSend,
+              onError: () => buildAndSend(),
+            }),
+          )
+        }
       }
     },
     setRoutes(_, { routes, gameId }) {

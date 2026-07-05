@@ -17,6 +17,7 @@ import { useNavigationTracker } from '../navigation/navigation-tracker'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { openSettings } from '../settings/action-creators'
+import { UserSettingsPage } from '../settings/settings-page'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -137,8 +138,7 @@ export function FriendsList() {
             activeTab={activeTab}
             onChange={tab => {
               if (tab === FriendsListTab.Settings) {
-                // TODO(tec27): Open to the correct part of settings once it's there
-                dispatch(openSettings())
+                dispatch(openSettings(UserSettingsPage.Social))
                 onNavigation()
                 return
               }

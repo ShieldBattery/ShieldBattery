@@ -65,6 +65,9 @@ enum InitState {
 
 struct IncompleteInit {
     local_user: Option<SbUser>,
+    /// SbUserIds the local user has blocked; their in-game chat is hidden. Not required for init,
+    /// so it defaults to empty if the app never sends it.
+    blocked_users: Vec<SbUserId>,
     server_config: Option<ServerConfig>,
     settings_set: bool,
     routes_set: bool,
@@ -91,6 +94,7 @@ impl IncompleteInit {
         Ok(InitInProgress::new(
             info.clone(),
             self.local_user.take().unwrap(),
+            mem::take(&mut self.blocked_users),
             self.server_config.take().unwrap(),
         ))
     }
@@ -101,6 +105,7 @@ pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
     SetLocalUser(SbUser),
+    SetBlockedUsers(Vec<SbUserId>),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     StartWhenReady,
@@ -186,6 +191,14 @@ impl GameState {
             state.local_user = Some(user);
         } else {
             error!("Received local user after game was started");
+        }
+    }
+
+    fn set_blocked_users(&mut self, users: Vec<SbUserId>) {
+        if let InitState::WaitingForInput(ref mut state) = self.init_state {
+            state.blocked_users = users;
+        } else {
+            error!("Received blocked users after game was started");
         }
     }
 
@@ -566,6 +579,9 @@ impl GameState {
             SetLocalUser(user) => {
                 self.set_local_user(user);
             }
+            SetBlockedUsers(users) => {
+                self.set_blocked_users(users);
+            }
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
             }
@@ -709,6 +725,7 @@ impl GameState {
                     get_bw().init_chat_manager(
                         &state.joined_players,
                         state.local_user.id,
+                        &state.blocked_users,
                         state.setup_info.is_chat_restricted.unwrap_or_default(),
                     );
 
@@ -998,6 +1015,7 @@ async fn send_replay(
 struct InitInProgress {
     setup_info: Arc<GameSetupInfo>,
     local_user: SbUser,
+    blocked_users: Vec<SbUserId>,
     server_config: ServerConfig,
 
     all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
@@ -1024,6 +1042,7 @@ impl InitInProgress {
     fn new(
         setup_info: Arc<GameSetupInfo>,
         local_user: SbUser,
+        blocked_users: Vec<SbUserId>,
         server_config: ServerConfig,
     ) -> InitInProgress {
         let is_host = setup_info
@@ -1051,6 +1070,7 @@ impl InitInProgress {
         let mut result = InitInProgress {
             setup_info,
             local_user,
+            blocked_users,
             server_config,
 
             all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
@@ -1670,6 +1690,7 @@ pub async fn create_future(
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
             local_user: None,
+            blocked_users: Vec::new(),
             server_config: None,
             routes_set: false,
             settings_set: false,

@@ -99,6 +99,11 @@ export interface GameSetup {
 export interface GameLaunchConfig {
   /** The user currently logged into the application and playing the game. */
   localUser: SbUser
+  /**
+   * The SbUserIds the local user has blocked. Their chat messages are hidden in-game (matching the
+   * app's behavior in chat/whispers).
+   */
+  blockedUsers: SbUserId[]
   /** Setup for this specific server. */
   serverConfig: {
     /** The URL of the server, so that the game client can communicate with it as necessary. */
