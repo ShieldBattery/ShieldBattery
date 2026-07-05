@@ -16,8 +16,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use async_graphql::dataloader::DataLoader;
-use async_graphql::{ComplexObject, Context, Object, SimpleObject};
+use async_graphql::dataloader::{DataLoader, Loader};
+use async_graphql::futures_util::TryStreamExt;
+use async_graphql::{ComplexObject, Context, Object, SchemaBuilder, SimpleObject};
 use axum::{
     Router,
     body::Bytes,
@@ -41,6 +42,7 @@ use uuid::Uuid;
 
 use crate::configuration::Settings;
 use crate::graphql::errors::graphql_error;
+use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::redis::RedisPool;
 use crate::state::AppState;
 use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
@@ -76,6 +78,9 @@ const WEBHOOK_MAX_AGE_SECONDS: i64 = 600;
 /// Delay before boot reconciliation runs, giving the HTTP server time to bind so that the
 /// verification callbacks for any (re)created subscriptions can succeed.
 const RECONCILE_STARTUP_DELAY: Duration = Duration::from_secs(5);
+/// How often the periodic refresh re-checks currently-live streamers against Twitch (refreshing
+/// their stats and clearing anyone who is no longer live).
+const LIVE_REFRESH_INTERVAL: Duration = Duration::from_secs(120);
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -355,30 +360,43 @@ impl TwitchClient {
     }
 
     async fn get_stream(&self, broadcaster_user_id: &str) -> eyre::Result<Option<StreamInfo>> {
-        let token = self.app_token().await?;
-        let url = Url::parse_with_params(
-            TWITCH_HELIX_STREAMS_URL,
-            &[("user_id", broadcaster_user_id)],
-        )
-        .wrap_err("Failed to build Twitch get-streams URL")?;
-        let resp = self
-            .http
-            .get(url)
-            .header("Client-Id", &self.client_id)
-            .bearer_auth(&token)
-            .send()
-            .await
-            .wrap_err("Failed to get Twitch stream")?;
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(eyre!("Twitch get-streams failed ({status}): {text}"));
+        let ids = [broadcaster_user_id.to_string()];
+        Ok(self.get_streams(&ids).await?.into_iter().next())
+    }
+
+    /// Fetches the live streams for a set of broadcasters (offline ones are simply absent from the
+    /// result). Batched into Twitch's 100-ids-per-request limit.
+    async fn get_streams(&self, broadcaster_user_ids: &[String]) -> eyre::Result<Vec<StreamInfo>> {
+        if broadcaster_user_ids.is_empty() {
+            return Ok(Vec::new());
         }
-        let streams: HelixStreamsResponse = resp
-            .json()
-            .await
-            .wrap_err("Failed to parse Twitch streams response")?;
-        Ok(streams.data.into_iter().next())
+        let token = self.app_token().await?;
+        let mut streams = Vec::new();
+        for chunk in broadcaster_user_ids.chunks(100) {
+            let params: Vec<(&str, &str)> =
+                chunk.iter().map(|id| ("user_id", id.as_str())).collect();
+            let url = Url::parse_with_params(TWITCH_HELIX_STREAMS_URL, &params)
+                .wrap_err("Failed to build Twitch get-streams URL")?;
+            let resp = self
+                .http
+                .get(url)
+                .header("Client-Id", &self.client_id)
+                .bearer_auth(&token)
+                .send()
+                .await
+                .wrap_err("Failed to get Twitch streams")?;
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                return Err(eyre!("Twitch get-streams failed ({status}): {text}"));
+            }
+            let page: HelixStreamsResponse = resp
+                .json()
+                .await
+                .wrap_err("Failed to parse Twitch streams response")?;
+            streams.extend(page.data);
+        }
+        Ok(streams)
     }
 
     /// Ensures the online+offline subscriptions exist for a broadcaster, returning the ids that were
@@ -475,6 +493,7 @@ struct HelixStreamsResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 struct StreamInfo {
+    user_id: String,
     user_login: String,
     user_name: String,
     game_id: String,
@@ -523,13 +542,27 @@ pub struct LiveStreamSummary {
 }
 
 impl LiveStreamSummary {
+    fn from_stream(stream: StreamInfo) -> Self {
+        Self {
+            twitch_user_id: stream.user_id,
+            twitch_login: stream.user_login,
+            twitch_display_name: stream.user_name,
+            title: stream.title,
+            game_id: stream.game_id,
+            game_name: stream.game_name,
+            viewer_count: stream.viewer_count,
+            started_at: stream.started_at,
+            thumbnail_url: stream.thumbnail_url,
+        }
+    }
+
     fn is_starcraft(&self) -> bool {
         STARCRAFT_CATEGORY_NAMES.contains(&self.game_name.to_lowercase().as_str())
     }
 }
 
 /// A ShieldBattery user who is currently live-streaming, for the home-page feed.
-#[derive(SimpleObject)]
+#[derive(Clone, SimpleObject)]
 #[graphql(complex)]
 pub struct LiveStream {
     #[graphql(skip)]
@@ -597,7 +630,7 @@ async fn load_live_streams(redis: &RedisPool) -> eyre::Result<Vec<(SbUserId, Liv
 }
 
 /// A public view of a user's linked Twitch channel, shown on their profile.
-#[derive(SimpleObject, sqlx::FromRow)]
+#[derive(Clone, SimpleObject, sqlx::FromRow)]
 pub struct TwitchChannel {
     /// The Twitch login name (used in `twitch.tv/<login>` URLs).
     pub twitch_login: String,
@@ -605,42 +638,103 @@ pub struct TwitchChannel {
     pub twitch_display_name: String,
 }
 
-/// Loads the public Twitch channel (login/display name) a user has linked, if any.
-pub async fn load_public_channel(
-    pool: &PgPool,
-    user_id: SbUserId,
-) -> eyre::Result<Option<TwitchChannel>> {
-    sqlx::query_as!(
-        TwitchChannel,
-        r#"
-            SELECT twitch_login, twitch_display_name
-            FROM twitch_connections
-            WHERE user_id = $1
-        "#,
-        user_id as _,
-    )
-    .fetch_optional(pool)
-    .await
-    .wrap_err("Failed to load Twitch channel")
+/// Batches per-user Twitch channel lookups so that selecting `twitchChannel` on a list of users
+/// doesn't fan out into one DB query each.
+pub struct TwitchChannelLoader {
+    db: PgPool,
 }
 
-/// Loads a single user's current live stream (category-agnostic), if they are live right now.
-pub async fn load_user_live_stream(
-    redis: &RedisPool,
-    user_id: SbUserId,
-) -> eyre::Result<Option<LiveStream>> {
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    let json: Option<String> = conn
-        .hget(LIVE_STREAMS_KEY, i32::from(user_id))
-        .await
-        .wrap_err("Failed to load live stream")?;
-    match json {
-        Some(json) => {
-            let summary: LiveStreamSummary =
-                serde_json::from_str(&json).wrap_err("Failed to parse live stream")?;
-            Ok(Some(LiveStream::from_summary(user_id, summary)))
+impl TwitchChannelLoader {
+    pub fn new(db: PgPool) -> Self {
+        Self { db }
+    }
+}
+
+impl Loader<SbUserId> for TwitchChannelLoader {
+    type Value = TwitchChannel;
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
+        Ok(sqlx::query!(
+            r#"
+                SELECT user_id as "user_id: SbUserId", twitch_login, twitch_display_name
+                FROM twitch_connections
+                WHERE user_id = ANY($1)
+            "#,
+            keys as _,
+        )
+        .fetch(&self.db)
+        .map_ok(|r| {
+            (
+                r.user_id,
+                TwitchChannel {
+                    twitch_login: r.twitch_login,
+                    twitch_display_name: r.twitch_display_name,
+                },
+            )
+        })
+        .try_collect()
+        .await?)
+    }
+}
+
+/// Batches per-user live-stream lookups (a single Redis `HMGET`) so that selecting `liveStream` on a
+/// list of users doesn't fan out into one Redis call each. Category-agnostic (any live stream).
+pub struct LiveStreamLoader {
+    redis: RedisPool,
+}
+
+impl LiveStreamLoader {
+    pub fn new(redis: RedisPool) -> Self {
+        Self { redis }
+    }
+}
+
+impl Loader<SbUserId> for LiveStreamLoader {
+    type Value = LiveStream;
+    type Error = async_graphql::Error;
+
+    async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
+        // The live set (currently-live streamers only) is small, so one HGETALL + filter is cheaper
+        // and simpler than an HMGET, and reuses the same parsing.
+        let requested: HashSet<SbUserId> = keys.iter().copied().collect();
+        let live = load_live_streams(&self.redis)
+            .await
+            .map_err(|e| graphql_error("INTERNAL_SERVER_ERROR", e.to_string()))?;
+
+        Ok(live
+            .into_iter()
+            .filter(|(user_id, _)| requested.contains(user_id))
+            .map(|(user_id, summary)| (user_id, LiveStream::from_summary(user_id, summary)))
+            .collect())
+    }
+}
+
+pub struct TwitchModule {
+    db_pool: PgPool,
+    redis_pool: RedisPool,
+}
+
+impl TwitchModule {
+    pub fn new(db_pool: PgPool, redis_pool: RedisPool) -> Self {
+        Self {
+            db_pool,
+            redis_pool,
         }
-        None => Ok(None),
+    }
+}
+
+impl SchemaBuilderModule for TwitchModule {
+    fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
+        builder
+            .data(DataLoader::new(
+                TwitchChannelLoader::new(self.db_pool.clone()),
+                tokio::spawn,
+            ))
+            .data(DataLoader::new(
+                LiveStreamLoader::new(self.redis_pool.clone()),
+                tokio::spawn,
+            ))
     }
 }
 
@@ -969,6 +1063,16 @@ impl TwitchMutation {
         }
         connection.eventsub_subscription_ids = sub_ids;
 
+        // Reflect the broadcaster's current live status immediately: this clears any stale entry
+        // left over from a previous link and surfaces users who linked while already streaming
+        // (EventSub only fires on transitions, so it wouldn't otherwise notice an in-progress
+        // stream).
+        if let Err(e) =
+            refresh_stream_state(client, ctx.data::<RedisPool>()?, user.id, &twitch_user.id).await
+        {
+            error!("Failed to refresh Twitch live state on link: {e:?}");
+        }
+
         Ok(connection)
     }
 
@@ -1081,31 +1185,82 @@ async fn handle_notification(
     };
 
     match notification.subscription.sub_type.as_str() {
-        SUB_TYPE_STREAM_ONLINE => match client.get_stream(&broadcaster_id).await? {
-            Some(stream) => {
-                let summary = LiveStreamSummary {
-                    twitch_user_id: connection.twitch_user_id,
-                    twitch_login: stream.user_login,
-                    twitch_display_name: stream.user_name,
-                    title: stream.title,
-                    game_id: stream.game_id,
-                    game_name: stream.game_name,
-                    viewer_count: stream.viewer_count,
-                    started_at: stream.started_at,
-                    thumbnail_url: stream.thumbnail_url,
-                };
-                set_stream_live(redis, connection.user_id, &summary).await?;
-            }
-            None => {
-                // The stream ended between the event and our lookup, or isn't visible -- make sure
-                // we don't show them as live.
-                set_stream_offline(redis, connection.user_id).await?;
-            }
-        },
+        // Look up the actual stream (rather than trusting the event) so we store a full, current
+        // summary; if it isn't live after all, this clears any stale entry.
+        SUB_TYPE_STREAM_ONLINE => {
+            refresh_stream_state(client, redis, connection.user_id, &broadcaster_id).await?
+        }
         SUB_TYPE_STREAM_OFFLINE => {
             set_stream_offline(redis, connection.user_id).await?;
         }
         other => warn!("Unexpected Twitch EventSub notification type: {other}"),
+    }
+
+    Ok(())
+}
+
+/// Reconciles a single user's Redis live state with their actual current Twitch status: stores a
+/// fresh summary if they're live, or clears the entry if they're not. Used when a stream comes
+/// online, when an account is (re)linked, and by the periodic refresh.
+async fn refresh_stream_state(
+    client: &TwitchClient,
+    redis: &RedisPool,
+    sb_user_id: SbUserId,
+    broadcaster_id: &str,
+) -> eyre::Result<()> {
+    match client.get_stream(broadcaster_id).await? {
+        Some(stream) => {
+            set_stream_live(redis, sb_user_id, &LiveStreamSummary::from_stream(stream)).await
+        }
+        None => set_stream_offline(redis, sb_user_id).await,
+    }
+}
+
+/// Periodically reconciles the `twitch:live` Redis hash with Twitch: refreshes viewer counts/titles
+/// for streamers still live and, crucially, clears entries for anyone who is no longer live (a
+/// safety net for a missed `stream.offline` event, which would otherwise pin them "live" forever).
+pub async fn refresh_live_streams_loop(client: Arc<TwitchClient>, redis: RedisPool) {
+    let mut interval = tokio::time::interval(LIVE_REFRESH_INTERVAL);
+    loop {
+        interval.tick().await;
+        if let Err(e) = refresh_all_live_streams(&client, &redis).await {
+            error!("Twitch live-stream refresh failed: {e:?}");
+        }
+    }
+}
+
+async fn refresh_all_live_streams(client: &TwitchClient, redis: &RedisPool) -> eyre::Result<()> {
+    let live = load_live_streams(redis).await?;
+    if live.is_empty() {
+        return Ok(());
+    }
+
+    // broadcaster_user_id -> our SB user id, for everyone we currently believe is live.
+    let by_broadcaster: HashMap<String, SbUserId> = live
+        .into_iter()
+        .map(|(user_id, summary)| (summary.twitch_user_id, user_id))
+        .collect();
+    let broadcaster_ids: Vec<String> = by_broadcaster.keys().cloned().collect();
+
+    let live_now: HashMap<String, StreamInfo> = client
+        .get_streams(&broadcaster_ids)
+        .await?
+        .into_iter()
+        .map(|stream| (stream.user_id.clone(), stream))
+        .collect();
+
+    for (broadcaster_id, sb_user_id) in by_broadcaster {
+        match live_now.get(&broadcaster_id) {
+            Some(stream) => {
+                set_stream_live(
+                    redis,
+                    sb_user_id,
+                    &LiveStreamSummary::from_stream(stream.clone()),
+                )
+                .await?;
+            }
+            None => set_stream_offline(redis, sb_user_id).await?,
+        }
     }
 
     Ok(())

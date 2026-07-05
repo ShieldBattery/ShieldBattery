@@ -49,7 +49,10 @@ use crate::redis::RedisPool;
 use crate::schema::{SbSchema, build_schema};
 use crate::sessions::{SbSession, jwt_middleware};
 use crate::state::AppState;
-use crate::twitch::{TwitchClient, create_twitch_api, reconcile_subscriptions};
+use crate::twitch::{
+    TwitchClient, TwitchModule, create_twitch_api, reconcile_subscriptions,
+    refresh_live_streams_loop,
+};
 use crate::users::names::{NameChecker, create_names_api};
 use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
 
@@ -135,7 +138,11 @@ pub async fn create_app(
     // Only present when Twitch is configured; disables the integration otherwise.
     let twitch_client = TwitchClient::from_settings(&settings);
     if let Some(twitch_client) = twitch_client.clone() {
-        tokio::spawn(reconcile_subscriptions(twitch_client, db_pool.clone()));
+        tokio::spawn(reconcile_subscriptions(
+            twitch_client.clone(),
+            db_pool.clone(),
+        ));
+        tokio::spawn(refresh_live_streams_loop(twitch_client, redis_pool.clone()));
     }
 
     let schema = build_schema()
@@ -149,6 +156,7 @@ pub async fn create_app(
         .data(name_checker.clone())
         .data(matchmaker_config.clone())
         .data(twitch_client.clone())
+        .module(TwitchModule::new(db_pool.clone(), redis_pool.clone()))
         .module(MapsModule::new(db_pool.clone()))
         .module(GamesModule::new(db_pool.clone()))
         .module(GameReportsModule::new(db_pool.clone()))
