@@ -52,7 +52,10 @@ export interface FsStats {
   birthtime: Date
 }
 
-/** The result of running the Twitch OAuth flow in the desktop app's dedicated auth window. */
+/**
+ * The result of running the Twitch OAuth flow in the desktop app, which opens the authorize URL in
+ * the user's real browser and captures the redirect via a loopback server (see `runTwitchOauthFlow`).
+ */
 export interface TwitchOauthFlowResult {
   /** The authorization code, present on success. */
   code?: string

@@ -9,8 +9,10 @@ import { TypedIpcRenderer } from '../../common/ipc'
  *
  * On the web we open the authorize URL in a popup that redirects to our `/twitch/callback` route
  * (rendered by `TwitchOAuthCallback`) and relays the result back via `postMessage`. In the desktop
- * app `window.open` is denied and external URLs are shunted to the system browser, so we instead ask
- * the main process to run the flow in a dedicated window (see the `twitchOauthFlow` IPC).
+ * app we ask the main process to open the authorize URL in the user's real browser (reusing their
+ * existing Twitch login) and capture the redirect with a temporary loopback server (see the
+ * `twitchOauthFlow` IPC). The desktop flow therefore uses a fixed `localhost` redirect URI, selected
+ * server-side via the `desktop` argument to `twitchStartLink`.
  */
 
 export const TWITCH_OAUTH_MESSAGE_TYPE = 'shieldbattery:twitchOauthResult'

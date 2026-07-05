@@ -45,7 +45,7 @@ type Documents = {
   '\n  mutation AccountSettingsChangeDisplayName($currentPassword: String!, $name: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { name: $name }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeDisplayNameDocument
   '\n  mutation AccountSettingsChangeLoginName($currentPassword: String!, $loginName: String!) {\n    userUpdateCurrent(currentPassword: $currentPassword, changes: { loginName: $loginName }) {\n      ...AccountSettings_CurrentUser\n    }\n  }\n': typeof types.AccountSettingsChangeLoginNameDocument
   '\n  query ConnectionSettings {\n    myTwitchConnection {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsDocument
-  '\n  mutation ConnectionSettingsStartTwitchLink {\n    twitchStartLink {\n      url\n    }\n  }\n': typeof types.ConnectionSettingsStartTwitchLinkDocument
+  '\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n': typeof types.ConnectionSettingsStartTwitchLinkDocument
   '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsCompleteTwitchLinkDocument
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n': typeof types.ConnectionSettingsUnlinkTwitchDocument
   '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n': typeof types.LiveStreams_FeedFragmentFragmentDoc
@@ -119,7 +119,7 @@ const documents: Documents = {
     types.AccountSettingsChangeLoginNameDocument,
   '\n  query ConnectionSettings {\n    myTwitchConnection {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n':
     types.ConnectionSettingsDocument,
-  '\n  mutation ConnectionSettingsStartTwitchLink {\n    twitchStartLink {\n      url\n    }\n  }\n':
+  '\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n':
     types.ConnectionSettingsStartTwitchLinkDocument,
   '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n':
     types.ConnectionSettingsCompleteTwitchLinkDocument,
@@ -345,8 +345,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation ConnectionSettingsStartTwitchLink {\n    twitchStartLink {\n      url\n    }\n  }\n',
-): (typeof documents)['\n  mutation ConnectionSettingsStartTwitchLink {\n    twitchStartLink {\n      url\n    }\n  }\n']
+  source: '\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n',
+): (typeof documents)['\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

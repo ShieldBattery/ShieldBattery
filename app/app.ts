@@ -9,6 +9,7 @@ import { readFile } from 'fs/promises'
 import ReplayParser, { ReplayHeader } from 'jssuh'
 import fs, { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
+import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pipeline } from 'stream/promises'
@@ -196,78 +197,121 @@ async function createScrSettings() {
   return settings
 }
 
+/** How long we'll wait for the user to complete the Twitch authorization in their browser. */
+const TWITCH_OAUTH_TIMEOUT_MS = 5 * 60 * 1000
+
+/** The page shown in the user's browser once the flow finishes and they can return to the app. */
+const TWITCH_OAUTH_RESULT_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShieldBattery</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif; background: #10151e; color: #e0e7f0; }
+  .card { text-align: center; padding: 32px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+  p { margin: 0; color: #abbeda; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Return to ShieldBattery</h1>
+    <p>You can close this browser tab now.</p>
+  </div>
+</body>
+</html>`
+
 /**
- * Runs the Twitch OAuth authorization flow in a dedicated `BrowserWindow`. The renderer can't do
- * this itself: `setWindowOpenHandler` denies `window.open` and pushes URLs to the system browser,
- * which can't relay the result back to the app. We load the authorize URL, watch for the redirect
- * back to our callback URL (taken from the authorize URL's `redirect_uri`), and resolve with the
- * code/state -- or an error -- captured from it.
+ * Runs the Twitch OAuth authorization flow for the desktop app. Rather than an in-app window (which
+ * would force users to sign into Twitch again), we open the authorize URL in the user's real browser
+ * -- reusing their existing Twitch session -- and capture the redirect with a temporary loopback
+ * HTTP server. The server binds the `localhost` port taken from the authorize URL's `redirect_uri`
+ * (a fixed port registered with Twitch; see `DESKTOP_REDIRECT_URI` in server-rs `twitch.rs`) and
+ * resolves with the `code`/`state` -- or an error -- from the first redirect whose `state` matches
+ * the one we started with.
  */
-function runTwitchOauthFlow(
-  authorizeUrl: string,
-  parent: BrowserWindow | null,
-): Promise<TwitchOauthFlowResult> {
-  let redirectUri: string
+function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult> {
+  let redirect: URL
+  let expectedState: string | null
   try {
-    const redirect = new URL(authorizeUrl).searchParams.get('redirect_uri')
-    if (!redirect) {
+    const parsed = new URL(authorizeUrl)
+    const redirectUri = parsed.searchParams.get('redirect_uri')
+    if (!redirectUri) {
       return Promise.resolve({
         error: 'invalid_request',
         errorDescription: 'Authorize URL was missing a redirect_uri',
       })
     }
-    redirectUri = redirect
+    redirect = new URL(redirectUri)
+    expectedState = parsed.searchParams.get('state')
   } catch (err) {
     return Promise.resolve({ error: 'invalid_request', errorDescription: getErrorStack(err) })
   }
 
-  return new Promise<TwitchOauthFlowResult>(resolve => {
-    const authWindow = new BrowserWindow({
-      parent: parent ?? undefined,
-      modal: !!parent,
-      width: 600,
-      height: 800,
-      autoHideMenuBar: true,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-      },
+  const port = Number(redirect.port)
+  if (!port) {
+    return Promise.resolve({
+      error: 'invalid_request',
+      errorDescription: `Authorize URL redirect_uri had no port: ${redirect.href}`,
     })
+  }
 
+  return new Promise<TwitchOauthFlowResult>(resolve => {
     let settled = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+
     const finish = (result: TwitchOauthFlowResult) => {
       if (settled) {
         return
       }
       settled = true
-      if (!authWindow.isDestroyed()) {
-        authWindow.destroy()
+      if (timeout) {
+        clearTimeout(timeout)
       }
+      server.close()
       resolve(result)
     }
 
-    const onNavigate = (url: string, event: { preventDefault: () => void }) => {
-      if (!url.startsWith(redirectUri)) {
+    const server = http.createServer((req, res) => {
+      const requestUrl = new URL(req.url ?? '/', `http://127.0.0.1:${port}`)
+      const state = requestUrl.searchParams.get('state')
+      // Ignore stray hits (favicon fetches, port scans, an unrelated tab); only the redirect
+      // carrying the state we issued should settle the flow.
+      if (!expectedState || state !== expectedState) {
+        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+        res.end('Not found')
         return
       }
-      // Don't actually load our callback page in the auth window; we only want its query params.
-      event.preventDefault()
-      const params = new URL(url).searchParams
+
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      res.end(TWITCH_OAUTH_RESULT_PAGE)
       finish({
-        code: params.get('code') ?? undefined,
-        state: params.get('state') ?? undefined,
-        error: params.get('error') ?? undefined,
-        errorDescription: params.get('error_description') ?? undefined,
+        code: requestUrl.searchParams.get('code') ?? undefined,
+        state: state ?? undefined,
+        error: requestUrl.searchParams.get('error') ?? undefined,
+        errorDescription: requestUrl.searchParams.get('error_description') ?? undefined,
       })
-    }
+    })
 
-    authWindow.webContents.on('will-redirect', (event, url) => onNavigate(url, event))
-    authWindow.webContents.on('will-navigate', (event, url) => onNavigate(url, event))
-    // If the user closes the window before finishing, treat it like a declined authorization.
-    authWindow.on('closed', () => finish({ error: 'access_denied' }))
+    server.on('error', err => {
+      finish({ error: 'server_failed', errorDescription: getErrorStack(err) })
+    })
 
-    authWindow.loadURL(authorizeUrl).catch(err => {
-      finish({ error: 'load_failed', errorDescription: getErrorStack(err) })
+    // Bind loopback-only so the callback isn't reachable from the network.
+    server.listen(port, '127.0.0.1', () => {
+      timeout = setTimeout(() => {
+        finish({
+          error: 'timeout',
+          errorDescription: 'Timed out waiting for Twitch authorization.',
+        })
+      }, TWITCH_OAUTH_TIMEOUT_MS)
+
+      shell.openExternal(authorizeUrl).catch(err => {
+        finish({ error: 'open_failed', errorDescription: getErrorStack(err) })
+      })
     })
   })
 }
@@ -323,9 +367,13 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
   })
 
-  ipcMain.handle('twitchOauthFlow', (event, authorizeUrl) =>
-    runTwitchOauthFlow(authorizeUrl, mainWindow),
-  )
+  ipcMain.handle('twitchOauthFlow', async (event, authorizeUrl) => {
+    const result = await runTwitchOauthFlow(authorizeUrl)
+    // Bring the app back to the foreground now that the browser detour is done.
+    mainWindow?.show()
+    mainWindow?.focus()
+    return result
+  })
 
   let lastRunAppAtSystemStart: boolean | undefined
   let lastRunAppAtSystemStartMinimized: boolean | undefined

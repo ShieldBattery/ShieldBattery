@@ -544,9 +544,10 @@ type Mutation {
 	"""
 	Begins linking the current user's Twitch account, returning the Twitch OAuth authorize URL
 	the client should open. Completing the flow calls `twitchCompleteLink` with the resulting
-	`code` and `state`.
+	`code` and `state`. `desktop` selects the loopback redirect URI used by the desktop app
+	instead of our web callback.
 	"""
-	twitchStartLink: TwitchLinkStart!
+	twitchStartLink(desktop: Boolean! = false): TwitchLinkStart!
 	"""
 	Completes linking the current user's Twitch account using the `code` and `state` returned by
 	the Twitch OAuth redirect.

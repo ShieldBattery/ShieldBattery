@@ -53,14 +53,26 @@ const TWITCH_HELIX_USERS_URL: &str = "https://api.twitch.tv/helix/users";
 const TWITCH_HELIX_STREAMS_URL: &str = "https://api.twitch.tv/helix/streams";
 const TWITCH_HELIX_EVENTSUB_URL: &str = "https://api.twitch.tv/helix/eventsub/subscriptions";
 
+/// The fixed loopback redirect URI used by the desktop app's OAuth flow. Unlike the web flow (which
+/// redirects to `<canonical host>/twitch/callback`), the desktop app opens the authorize URL in the
+/// user's real browser and captures the redirect with a temporary loopback HTTP server, so their
+/// existing Twitch login is reused. Twitch requires an exact, port-inclusive redirect_uri match and
+/// rejects bare IP literals, so this must be a single fixed `localhost` port registered as a second
+/// redirect URI in the Twitch console. The desktop app parses this port out of the authorize URL and
+/// binds its loopback server on it -- see `runTwitchOauthFlow` in `app/app.ts`.
+const DESKTOP_REDIRECT_URI: &str = "http://localhost:27193/twitch/callback";
+
 const SUB_TYPE_STREAM_ONLINE: &str = "stream.online";
 const SUB_TYPE_STREAM_OFFLINE: &str = "stream.offline";
 
-/// Twitch category names we treat as "StarCraft: Brood War" for the home-page live-streams feed,
-/// matched case-insensitively against a stream's category. We match on name rather than Twitch's
-/// numeric game id because the ids aren't easily verifiable without live API access; both the id and
-/// name are stored in Redis, so this can be swapped for an id allowlist later.
-const STARCRAFT_CATEGORY_NAMES: &[&str] = &["starcraft", "starcraft: brood war"];
+/// Twitch category (game) ids we treat as StarCraft: Brood War for the home-page live-streams feed,
+/// matched against a stream's category id. Twitch's category ids are stable, so we match on id
+/// rather than the display name (which varies with capitalization/localization). Covers the three
+/// non-SC2 StarCraft categories a Remastered stream can be tagged with:
+/// - `11989`      StarCraft
+/// - `4967`       StarCraft: Brood War
+/// - `1664649323` StarCraft: Remastered
+const STARCRAFT_CATEGORY_IDS: &[&str] = &["11989", "4967", "1664649323"];
 
 /// The thumbnail size we substitute into Twitch's `{width}x{height}` template for feed entries.
 const STREAM_THUMBNAIL_WIDTH: u32 = 320;
@@ -88,6 +100,15 @@ fn link_state_key(state: &str) -> String {
     format!("twitch:link_state:{state}")
 }
 
+/// What we stash in Redis for a pending link `state`: the user who started the flow, plus the
+/// redirect URI baked into their authorize URL. The redirect URI differs between the web and desktop
+/// flows and must be replayed verbatim in the token exchange, so we remember which one was used.
+#[derive(Debug, Serialize, Deserialize)]
+struct PendingLink {
+    user_id: i32,
+    redirect_uri: String,
+}
+
 fn webhook_dedupe_key(message_id: &str) -> String {
     format!("twitch:eventsub_seen:{message_id}")
 }
@@ -111,7 +132,9 @@ pub struct TwitchClient {
     client_secret: SecretString,
     eventsub_secret: SecretString,
     eventsub_callback_url: String,
-    redirect_uri: String,
+    /// The redirect URI for the web linking flow (`<canonical host>/twitch/callback`). The desktop
+    /// flow uses the fixed `DESKTOP_REDIRECT_URI` instead; see `redirect_uri_for`.
+    web_redirect_uri: String,
     app_token: RwLock<Option<CachedAppToken>>,
 }
 
@@ -126,7 +149,7 @@ impl TwitchClient {
             client_secret: twitch.client_secret.clone(),
             eventsub_secret: twitch.eventsub_secret.clone(),
             eventsub_callback_url: format!("{host}/twitch/eventsub"),
-            redirect_uri: format!("{host}/twitch/callback"),
+            web_redirect_uri: format!("{host}/twitch/callback"),
             app_token: RwLock::new(None),
         }))
     }
@@ -139,13 +162,24 @@ impl TwitchClient {
         &self.eventsub_callback_url
     }
 
-    /// Builds the Twitch OAuth authorize URL for a link attempt with the given `state`.
-    fn authorize_url(&self, state: &str) -> eyre::Result<String> {
+    /// The redirect URI to use for a link attempt, depending on whether it originates from the
+    /// desktop app (a fixed loopback URI) or the web (our canonical callback).
+    fn redirect_uri_for(&self, desktop: bool) -> &str {
+        if desktop {
+            DESKTOP_REDIRECT_URI
+        } else {
+            &self.web_redirect_uri
+        }
+    }
+
+    /// Builds the Twitch OAuth authorize URL for a link attempt with the given `state`. `redirect_uri`
+    /// must be reused verbatim in `exchange_code` (Twitch requires the two to match).
+    fn authorize_url(&self, state: &str, redirect_uri: &str) -> eyre::Result<String> {
         let url = Url::parse_with_params(
             TWITCH_OAUTH_AUTHORIZE_URL,
             &[
                 ("client_id", self.client_id.as_str()),
-                ("redirect_uri", self.redirect_uri.as_str()),
+                ("redirect_uri", redirect_uri),
                 ("response_type", "code"),
                 // We only need to read the linking user's channel identity (Get Users returns the
                 // token's owner even with no scopes), so we request no scopes.
@@ -204,9 +238,9 @@ impl TwitchClient {
         Ok(token.access_token)
     }
 
-    /// Exchanges an authorization `code` for a user access token. The redirect URI must match the
-    /// one used to obtain the code.
-    async fn exchange_code(&self, code: &str) -> eyre::Result<String> {
+    /// Exchanges an authorization `code` for a user access token. `redirect_uri` must match the one
+    /// used to obtain the code (i.e. the one baked into the authorize URL).
+    async fn exchange_code(&self, code: &str, redirect_uri: &str) -> eyre::Result<String> {
         let resp = self
             .http
             .post(TWITCH_OAUTH_TOKEN_URL)
@@ -215,7 +249,7 @@ impl TwitchClient {
                 ("client_secret", self.client_secret.expose_secret()),
                 ("code", code),
                 ("grant_type", "authorization_code"),
-                ("redirect_uri", self.redirect_uri.as_str()),
+                ("redirect_uri", redirect_uri),
             ])
             .send()
             .await
@@ -557,7 +591,7 @@ impl LiveStreamSummary {
     }
 
     fn is_starcraft(&self) -> bool {
-        STARCRAFT_CATEGORY_NAMES.contains(&self.game_name.to_lowercase().as_str())
+        STARCRAFT_CATEGORY_IDS.contains(&self.game_id.as_str())
     }
 }
 
@@ -940,31 +974,38 @@ pub struct TwitchMutation;
 impl TwitchMutation {
     /// Begins linking the current user's Twitch account, returning the Twitch OAuth authorize URL
     /// the client should open. Completing the flow calls `twitchCompleteLink` with the resulting
-    /// `code` and `state`.
-    async fn twitch_start_link(&self, ctx: &Context<'_>) -> async_graphql::Result<TwitchLinkStart> {
+    /// `code` and `state`. `desktop` selects the loopback redirect URI used by the desktop app
+    /// instead of our web callback.
+    async fn twitch_start_link(
+        &self,
+        ctx: &Context<'_>,
+        #[graphql(default)] desktop: bool,
+    ) -> async_graphql::Result<TwitchLinkStart> {
         let user = require_current_user(ctx)?;
         let client = require_twitch_client(ctx)?;
+        let redirect_uri = client.redirect_uri_for(desktop);
 
         // A server-issued, single-use `state` bound to this user, stored in Redis. Completing the
         // link requires both this state (proving the flow started here) and the same user's auth
         // token, which together prevent an attacker from linking their Twitch account to a victim.
         let state = Uuid::new_v4().to_string();
+        let pending = serde_json::to_string(&PendingLink {
+            user_id: i32::from(user.id),
+            redirect_uri: redirect_uri.to_string(),
+        })
+        .wrap_err("Failed to serialize pending Twitch link")?;
         let mut redis = ctx
             .data::<RedisPool>()?
             .get()
             .await
             .wrap_err("Could not connect to Redis")?;
         redis
-            .set_ex::<_, _, ()>(
-                link_state_key(&state),
-                i32::from(user.id),
-                LINK_STATE_TTL_SECONDS,
-            )
+            .set_ex::<_, _, ()>(link_state_key(&state), pending, LINK_STATE_TTL_SECONDS)
             .await
             .wrap_err("Failed to store Twitch link state")?;
 
         Ok(TwitchLinkStart {
-            url: client.authorize_url(&state)?,
+            url: client.authorize_url(&state, redirect_uri)?,
         })
     }
 
@@ -987,7 +1028,7 @@ impl TwitchMutation {
             .await
             .wrap_err("Could not connect to Redis")?;
         let key = link_state_key(&state);
-        let stored_user_id: Option<i32> = redis
+        let stored: Option<String> = redis
             .get(&key)
             .await
             .wrap_err("Failed to read Twitch link state")?;
@@ -996,20 +1037,26 @@ impl TwitchMutation {
             .await
             .wrap_err("Failed to clear Twitch link state")?;
 
-        if stored_user_id != Some(i32::from(user.id)) {
+        let pending = stored
+            .and_then(|s| serde_json::from_str::<PendingLink>(&s).ok())
+            .filter(|p| p.user_id == i32::from(user.id));
+        let Some(pending) = pending else {
             return Err(graphql_error(
                 "TWITCH_INVALID_STATE",
                 "Your Twitch linking request was invalid or expired. Please try again.",
             ));
-        }
+        };
 
-        let access_token = client.exchange_code(&code).await.map_err(|e| {
-            error!("Twitch code exchange failed: {e:?}");
-            graphql_error(
-                "TWITCH_EXCHANGE_FAILED",
-                "Failed to complete Twitch linking",
-            )
-        })?;
+        let access_token = client
+            .exchange_code(&code, &pending.redirect_uri)
+            .await
+            .map_err(|e| {
+                error!("Twitch code exchange failed: {e:?}");
+                graphql_error(
+                    "TWITCH_EXCHANGE_FAILED",
+                    "Failed to complete Twitch linking",
+                )
+            })?;
         let twitch_user = client
             .get_authenticated_user(&access_token)
             .await

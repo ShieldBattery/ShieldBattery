@@ -621,7 +621,9 @@ export type ConnectionSettingsQuery = {
   } | null
 }
 
-export type ConnectionSettingsStartTwitchLinkMutationVariables = Exact<{ [key: string]: never }>
+export type ConnectionSettingsStartTwitchLinkMutationVariables = Exact<{
+  desktop: boolean
+}>
 
 export type ConnectionSettingsStartTwitchLinkMutation = { twitchStartLink: { url: string } }
 
@@ -3676,12 +3678,29 @@ export const ConnectionSettingsStartTwitchLinkDocument = {
       kind: 'OperationDefinition',
       operation: 'mutation',
       name: { kind: 'Name', value: 'ConnectionSettingsStartTwitchLink' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'desktop' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
+          },
+        },
+      ],
       selectionSet: {
         kind: 'SelectionSet',
         selections: [
           {
             kind: 'Field',
             name: { kind: 'Name', value: 'twitchStartLink' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'desktop' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'desktop' } },
+              },
+            ],
             selectionSet: {
               kind: 'SelectionSet',
               selections: [{ kind: 'Field', name: { kind: 'Name', value: 'url' } }],

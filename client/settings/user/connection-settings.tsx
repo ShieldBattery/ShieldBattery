@@ -30,8 +30,8 @@ const ConnectionSettingsQuery = graphql(/* GraphQL */ `
 `)
 
 const StartTwitchLinkMutation = graphql(/* GraphQL */ `
-  mutation ConnectionSettingsStartTwitchLink {
-    twitchStartLink {
+  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {
+    twitchStartLink(desktop: $desktop) {
       url
     }
   }
@@ -162,7 +162,9 @@ export function ConnectionSettings() {
   }
 
   const connectTwitch = async () => {
-    const startResult = await startTwitchLink({})
+    // The desktop app runs the OAuth flow in the user's real browser via a loopback redirect, which
+    // needs a different (fixed localhost) redirect URI than the web callback.
+    const startResult = await startTwitchLink({ desktop: IS_ELECTRON })
     if (startResult.error || !startResult.data) {
       showLinkError(startResult.error)
       return
