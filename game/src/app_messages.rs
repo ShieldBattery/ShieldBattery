@@ -183,9 +183,6 @@ pub enum NetworkTransport {
 #[serde(rename_all = "camelCase")]
 pub struct NetworkStatus {
     pub transport: NetworkTransport,
-    /// Set when a different transport was requested but establishing it failed.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fallback_from: Option<NetworkTransport>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -557,10 +554,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn network_status_serializes_camel_case_with_fallback() {
+    fn network_status_serializes_camel_case_with_error() {
         let status = NetworkStatus {
             transport: NetworkTransport::Native,
-            fallback_from: Some(NetworkTransport::NetcodeV2),
             error: Some("dial timed out".to_owned()),
         };
         let json = serde_json::to_value(&status).unwrap();
@@ -568,7 +564,6 @@ mod tests {
             json,
             serde_json::json!({
                 "transport": "native",
-                "fallbackFrom": "netcodeV2",
                 "error": "dial timed out",
             })
         );
@@ -578,7 +573,6 @@ mod tests {
     fn network_status_omits_none_fields() {
         let status = NetworkStatus {
             transport: NetworkTransport::NetcodeV2,
-            fallback_from: None,
             error: None,
         };
         let json = serde_json::to_value(&status).unwrap();

@@ -172,6 +172,9 @@ quick_error! {
         NetworkInit(e: NetworkError) {
             display("Network initialization error: {}", e)
         }
+        NetcodeV2SessionInit(msg: String) {
+            display("Netcode v2 session could not be established: {}", msg)
+        }
         UnknownGameType(ty: crate::app_messages::GameType, sub: Option<u8>) {
             display("Unknown game type '{:?}', {:?}", ty, sub)
         }
@@ -368,38 +371,28 @@ impl GameState {
                 .await
                 .map_err(GameInitError::NetworkInit)?;
 
-            // Netcode v2 (rally-point2): if the app handed us a session, stand up the QUIC turn transport
-            // before the network is declared ready. On a dial failure, fall back to native
-            // networking for this session rather than failing the game — with no live session the
-            // turn hooks pass through to the original functions.
+            // Netcode v2 (rally-point2): if the app handed us a session, stand up the QUIC turn
+            // transport before the network is declared ready. A game that was launched for netcode
+            // v2 must run on it; if the relay can't be reached the game init fails outright, so the
+            // app's launch machinery cancels the load and surfaces an error rather than silently
+            // playing the game on native networking.
             if let Some(setup) = netcode_v2_setup {
                 // A game with AI players self-closes its relay session when the last remote human
                 // leaves, so the lone human plays on versus the computers locally (see
                 // `TurnState::should_self_close`).
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
-                let status = match netcode_v2::establish_session(&setup, has_computers).await {
-                    Ok(()) => {
-                        info!("Netcode v2 session established");
-                        NetworkStatus {
-                            transport: NetworkTransport::NetcodeV2,
-                            fallback_from: None,
-                            error: None,
-                        }
-                    }
-                    Err(e) => {
-                        error!("Netcode v2 session setup failed; using native networking: {e}");
-                        NetworkStatus {
-                            transport: NetworkTransport::Native,
-                            fallback_from: Some(NetworkTransport::NetcodeV2),
-                            error: Some(e.to_string()),
-                        }
-                    }
+                netcode_v2::establish_session(&setup, has_computers)
+                    .await
+                    .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                info!("Netcode v2 session established");
+                let status = NetworkStatus {
+                    transport: NetworkTransport::NetcodeV2,
+                    error: None,
                 };
                 let _ = app_socket::send_message(&ws_send, "/game/networkStatus", status).await;
             } else {
                 let status = NetworkStatus {
                     transport: NetworkTransport::Native,
-                    fallback_from: None,
                     error: None,
                 };
                 let _ = app_socket::send_message(&ws_send, "/game/networkStatus", status).await;
