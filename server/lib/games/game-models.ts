@@ -487,6 +487,36 @@ export async function findUnreconciledGames(
 }
 
 /**
+ * Returns a list of game IDs where every player has reported results but the game still has no
+ * reconciled result, and whose most recent report is older than `reportedBeforeTime`. This catches
+ * games that were fully reported but never reconciled (e.g. the server restarted during the desync
+ * verdict grace window), so they can be reconciled without waiting for the 3h force sweep.
+ *
+ * @param reportedBeforeTime Only include games whose newest report predates this time
+ * @param withClient a DB client to use to make the query (optional)
+ */
+export async function findFullyReportedUnreconciledGames(
+  reportedBeforeTime: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string }>(sql`
+      SELECT gu.game_id AS "id"
+      FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
+      WHERE g.results IS NULL
+      GROUP BY gu.game_id
+      HAVING bool_and(gu.reported_results IS NOT NULL)
+        AND MAX(gu.reported_at) < ${reportedBeforeTime};
+    `)
+    return result.rows.map(row => row.id)
+  } finally {
+    done()
+  }
+}
+
+/**
  * Retrieves route debug information for a specific game, with server descriptions.
  */
 export async function getGameRoutes(gameId: string): Promise<GameRouteDebugInfo[]> {

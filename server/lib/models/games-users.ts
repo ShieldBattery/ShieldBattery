@@ -187,6 +187,48 @@ export async function getCurrentReportedResults(
 }
 
 /**
+ * Returns the most recent `reported_at` time across all users in a game, or null if no user has
+ * reported yet.
+ */
+export async function getMaxReportedAtForGame(gameId: string): Promise<Date | null> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{ max_reported_at: Date | null }>(sql`
+      SELECT MAX(reported_at) AS max_reported_at
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    return result.rows[0]?.max_reported_at ?? null
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns each user's recorded mid-game departure time for a game (null for users that never had a
+ * departure recorded), keyed by user ID.
+ */
+export async function getDepartureTimesForGame(
+  gameId: string,
+): Promise<Map<SbUserId, Date | null>> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{ user_id: SbUserId; departure_time: Date | null }>(sql`
+      SELECT user_id, departure_time
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    return new Map(result.rows.map(row => [row.user_id, row.departure_time]))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Sets the reconciled (and probably final) result for a particular user in a game. This is intended
  * to be executed in a transaction that updates all the users and the full game results at once.
  */

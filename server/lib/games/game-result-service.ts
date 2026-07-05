@@ -26,8 +26,16 @@ import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
-import { findUnreconciledGames, setReconciledResult } from '../games/game-models'
-import { reconcileResults } from '../games/results'
+import {
+  findFullyReportedUnreconciledGames,
+  findUnreconciledGames,
+  setReconciledResult,
+} from '../games/game-models'
+import {
+  ResultSubmission,
+  applyDepartureConcessionTiebreak,
+  applyDesyncPolicy,
+} from '../games/results'
 import { JobScheduler } from '../jobs/job-scheduler'
 import { doFullRankingsUpdate, updateRankings } from '../ladder/rankings'
 import { updateLeaderboards } from '../leagues/leaderboard'
@@ -51,14 +59,17 @@ import {
   updateMatchmakingRating,
 } from '../matchmaking/models'
 import { calculateChangedRatings } from '../matchmaking/rating'
+import { getDesyncEventsForGame } from '../models/game-desync-events'
 import {
   getCurrentReportedResults,
+  getDepartureTimesForGame,
+  getMaxReportedAtForGame,
   getUserGameRecord,
   setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
 import { Redis } from '../redis/redis'
-import { Clock } from '../time/clock'
+import { Clock, TimeoutId } from '../time/clock'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -94,6 +105,22 @@ export function getValidationTeams(
   return getTeamsFromConfig(config)?.map(team => team.map(p => p.id)) ?? humans.map(id => [id])
 }
 
+/**
+ * Whether every required (non-diverged) human has actually submitted a result report, checked by
+ * identity rather than count. A diverged player's report is discarded later by the desync policy, so
+ * counting it toward the total (e.g. `haveResults >= requiredReporters.length`) would let it satisfy
+ * a *different*, non-diverged reporter's requirement — in a >2-human matchmaking game, a diverged
+ * client reporting quickly could otherwise push the count up while a real majority reporter is still
+ * missing, locking in MMR on a partial majority.
+ */
+export function haveAllRequiredReportersReported(
+  humans: ReadonlyArray<SbUserId>,
+  divergedUserIds: ReadonlySet<SbUserId>,
+  reportedHumans: ReadonlySet<SbUserId>,
+): boolean {
+  return humans.filter(id => !divergedUserIds.has(id)).every(id => reportedHumans.has(id))
+}
+
 /** How often the reconciliation job should run. */
 const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
 /**
@@ -103,9 +130,27 @@ const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
  * from the game client periodically, or integrating with rally-point
  */
 const FORCE_RECONCILE_TIMEOUT_MINUTES = 3 * 60
+/**
+ * How long after a matchmaking game's last result report we wait for a trailing relay desync verdict
+ * before locking in the reconciled result.
+ */
+const DESYNC_VERDICT_GRACE_MS = 15 * 1000
+/** Extra time added to a scheduled grace re-check so the report is comfortably past the window. */
+const DESYNC_VERDICT_GRACE_BUFFER_MS = 1000
+/**
+ * How long a fully-reported game's newest report must be in the past before the sweep reconciles it,
+ * ensuring the desync verdict grace window has comfortably elapsed.
+ */
+const FULLY_REPORTED_RECONCILE_DELAY_MINUTES = 1
 
 @singleton()
 export default class GameResultService {
+  /**
+   * Games with a pending one-shot desync-grace re-check, keyed by game ID, so we schedule at most
+   * one outstanding re-check per game.
+   */
+  private readonly desyncGraceRechecks = new Map<string, TimeoutId>()
+
   constructor(
     private clientSocketsManager: ClientSocketsManager,
     private typedPublisher: TypedPublisher<GameSubscriptionEvent>,
@@ -131,9 +176,32 @@ export default class GameResultService {
         for (const gameId of toReconcile) {
           try {
             const gameRecord = await this.retrieveGame(gameId)
-            await this.maybeReconcileResults(gameRecord, true /* force */)
+            const didReconcile = await this.maybeReconcileResults(gameRecord, true /* force */)
+            if (didReconcile) {
+              await this.publishReconciledGame(gameId)
+            }
           } catch (err: unknown) {
             logger.error({ err }, `failed to reconcile game ${gameId}`)
+          }
+        }
+
+        // Also reconcile games that are fully reported but never got reconciled (e.g. the server
+        // restarted during the desync verdict grace window). These don't need forcing: their grace
+        // window has long elapsed, so they reconcile immediately.
+        const fullyReportedBefore = new Date(this.clock.now())
+        fullyReportedBefore.setMinutes(
+          fullyReportedBefore.getMinutes() - FULLY_REPORTED_RECONCILE_DELAY_MINUTES,
+        )
+        const fullyReported = await findFullyReportedUnreconciledGames(fullyReportedBefore)
+        for (const gameId of fullyReported) {
+          try {
+            const gameRecord = await this.retrieveGame(gameId)
+            const didReconcile = await this.maybeReconcileResults(gameRecord, false)
+            if (didReconcile) {
+              await this.publishReconciledGame(gameId)
+            }
+          } catch (err: unknown) {
+            logger.error({ err }, `failed to reconcile fully-reported game ${gameId}`)
           }
         }
       },
@@ -273,45 +341,9 @@ export default class GameResultService {
     // We don't need to hold up the response while we check for reconciling
     Promise.resolve()
       .then(() => this.maybeReconcileResults(gameRecord))
-      .then(async () => {
-        const game = await this.retrieveGame(gameId)
-        const [mmrChanges, leagueUserChanges, season] = await Promise.all([
-          this.retrieveMatchmakingRatingChanges(game),
-          this.retrieveLeagueUserChanges(game),
-          this.matchmakingSeasonsService.getSeasonForDate(game.startTime).then(([s]) => s),
-        ])
-
-        let leagues: League[] = []
-        if (leagueUserChanges.length > 0) {
-          const uniqueLeagues = Array.from(new Set(leagueUserChanges.map(lu => lu.leagueId)))
-          leagues = await getLeaguesById(uniqueLeagues)
-        }
-
-        const gameJson = toGameRecordJson(game)
-        this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
-          type: 'update',
-          game: gameJson,
-          mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
-        })
-
-        if (mmrChanges.length) {
-          for (const change of mmrChanges) {
-            const leagueChanges = leagueUserChanges.filter(lu => lu.userId === change.userId)
-            const leagueIds = leagueChanges.map(lu => lu.leagueId)
-            const applicableLeagues = leagues.filter(l => leagueIds.includes(l.id))
-
-            this.matchmakingPublisher.publish(
-              GameResultService.getMatchmakingResultsPath(change.userId),
-              {
-                userId: change.userId,
-                game: gameJson,
-                mmrChange: toPublicMatchmakingRatingChangeJson(change),
-                leagues: applicableLeagues.map(l => toLeagueJson(l)),
-                leagueChanges: leagueChanges.map(lu => toClientLeagueUserChangeJson(lu)),
-                season: toMatchmakingSeasonJson(season),
-              },
-            )
-          }
+      .then(async didReconcile => {
+        if (didReconcile) {
+          await this.publishReconciledGame(gameId)
         }
       })
       .catch(err => {
@@ -326,21 +358,170 @@ export default class GameResultService {
       })
   }
 
-  private async maybeReconcileResults(gameRecord: GameRecord, force = false): Promise<void> {
-    if (gameRecord.results) {
+  /**
+   * Schedules a single one-shot re-check of a game's reconciliation after `delayMs`, used to wait
+   * out the desync verdict grace window. Only one re-check is ever outstanding per game.
+   */
+  private scheduleDesyncGraceRecheck(gameId: string, delayMs: number): void {
+    if (this.desyncGraceRechecks.has(gameId)) {
       return
+    }
+
+    const timeoutId = this.clock.setTimeout(() => {
+      // Cleared unconditionally before doing any async work, so the map entry never outlives this
+      // firing regardless of whether the re-check below succeeds, rejects, or the game vanishes
+      // (e.g. deleted) in the interim. Nothing after this point can throw synchronously: the rest
+      // is a promise chain whose only failure path is the `.catch` below, so an error here can only
+      // be logged, never crash the process or wedge the timer bookkeeping.
+      this.desyncGraceRechecks.delete(gameId)
+      Promise.resolve()
+        .then(async () => {
+          const gameRecord = await this.retrieveGame(gameId)
+          const didReconcile = await this.maybeReconcileResults(gameRecord, false)
+          if (didReconcile) {
+            await this.publishReconciledGame(gameId)
+          }
+        })
+        .catch(err => {
+          logger.error({ err }, `failed to re-check reconciliation for game ${gameId}`)
+        })
+    }, delayMs)
+    this.desyncGraceRechecks.set(gameId, timeoutId)
+  }
+
+  /**
+   * Reconciles a game's results if they're ready to be reconciled (see the early-return conditions
+   * below), persisting the outcome in a transaction.
+   *
+   * @returns whether a reconciliation was actually committed. `false` covers every path that didn't
+   *   touch the DB (results already set, still waiting on a required reporter, or a desync-grace
+   *   re-check was scheduled instead) — callers use this to decide whether to publish the updated
+   *   game to subscribers, since publishing only makes sense when something actually changed.
+   */
+  private async maybeReconcileResults(gameRecord: GameRecord, force = false): Promise<boolean> {
+    if (gameRecord.results) {
+      return false
     }
 
     const gameId = gameRecord.id
     const currentResults = await getCurrentReportedResults(gameId)
     const humans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id))
-    const haveResults = currentResults.filter(r => !!r).length
-    if (!force && haveResults < humans.length) {
-      return
+    const desyncEvents = await getDesyncEventsForGame(gameId)
+
+    // `divergedUserIds` is coordinator-resolved from a session-create ref and, despite arriving over
+    // a signed relay webhook, is treated as untrusted-shaped here: intersect against the game's
+    // actual humans so an ID that doesn't belong to this game can never gate reporting or appear in
+    // logs as if it did (see the trust-model note on `applyDesyncPolicy` for the full reasoning).
+    const humanSet = new Set(humans)
+    const divergedUnion = new Set(
+      desyncEvents.flatMap(e => e.divergedUserIds).filter(id => humanSet.has(id)),
+    )
+    const hasNoMajorityEvent = desyncEvents.some(e => e.noMajority)
+
+    // Every human who submitted *any* report, keyed by identity (not count) — a diverged player's
+    // report is discarded later by the desync policy, so counting it here would let it satisfy the
+    // gate on behalf of a real (non-diverged) reporter who hasn't reported yet.
+    const reportedHumans = new Set(
+      currentResults.filter((r): r is ResultSubmission => !!r).map(r => r.reporter),
+    )
+    // A diverged client's simulation can run arbitrarily long, so we never require its report to
+    // consider the game fully reported.
+    if (!force && !haveAllRequiredReportersReported(humans, divergedUnion, reportedHumans)) {
+      return false
+    }
+
+    const isMatchmaking = gameRecord.config.gameSource === GameSource.Matchmaking
+
+    // Give a trailing relay desync verdict a brief window to arrive after the final result report
+    // before we lock in a matchmaking result. A no-majority event is already terminal (the game
+    // voids), so there's nothing left to wait for in that case.
+    if (!force && isMatchmaking && !hasNoMajorityEvent) {
+      const maxReportedAt = await getMaxReportedAtForGame(gameId)
+      if (maxReportedAt) {
+        const elapsed = this.clock.now() - maxReportedAt.getTime()
+        if (elapsed < DESYNC_VERDICT_GRACE_MS) {
+          this.scheduleDesyncGraceRecheck(
+            gameId,
+            DESYNC_VERDICT_GRACE_MS - elapsed + DESYNC_VERDICT_GRACE_BUFFER_MS,
+          )
+          return false
+        }
+      }
     }
 
     const validationTeams = getValidationTeams(gameRecord.config, humans)
-    const reconciled = reconcileResults(humans, currentResults, validationTeams)
+    const { reconciled: policyReconciled, outcome } = applyDesyncPolicy({
+      isMatchmaking,
+      humans,
+      results: currentResults,
+      validationTeams,
+      desyncEvents,
+    })
+    let reconciled = policyReconciled
+
+    if (outcome.kind === 'lobby-disputed') {
+      logger.info(`game ${gameId} had ${outcome.eventCount} relay desync event(s); forcing dispute`)
+    } else if (outcome.kind === 'void') {
+      logger.info(
+        {
+          syncOrdinals: desyncEvents.map(e => e.syncOrdinal),
+          noMajority: desyncEvents.map(e => e.noMajority),
+          divergedUserIds: Array.from(divergedUnion),
+        },
+        `game ${gameId} voided by relay desync policy (${outcome.reason})`,
+      )
+      if (outcome.reason === 'no-majority') {
+        // A no-majority desync names no diverged minority, so there's no one to pin the fault on
+        // from the event alone — including the case where a player deliberately desyncs their own
+        // client to dodge a loss. We can't attribute it automatically, but logging the participants
+        // at WARN keeps this reviewable/greppable for manual follow-up. Per-user rate-limiting on
+        // repeated self-desync-voids is deferred.
+        logger.warn(
+          { gameId, participants: humans },
+          `netcode-v2 no-majority void; participants=[${humans.join(', ')}] — possible self-desync abuse`,
+        )
+      }
+    } else if (outcome.kind === 'majority-discard') {
+      logger.info(
+        {
+          syncOrdinals: desyncEvents.map(e => e.syncOrdinal),
+          divergedUserIds: outcome.divergedUserIds,
+        },
+        `game ${gameId} reconciled from majority reports after discarding diverged reports`,
+      )
+    }
+
+    // The departure concession tiebreak only applies when a game has no relay desync events (the
+    // desync policy takes precedence). We gate the departure-times query on the cheap prerequisites
+    // so we don't hit the DB for games the tiebreak can't apply to anyway.
+    if (desyncEvents.length === 0) {
+      const hasComputers = gameRecord.config.teams.some(team => team.some(p => p.isComputer))
+      const allUnknown = Array.from(reconciled.results.values()).every(r => r.result === 'unknown')
+      if ((reconciled.disputed || allUnknown) && !hasComputers && humans.length === 2) {
+        const departureTimes = await getDepartureTimesForGame(gameId)
+        const tiebreak = applyDepartureConcessionTiebreak({
+          reconciled,
+          humans,
+          hasComputers,
+          hasDesyncEvents: false,
+          reportedHumans,
+          results: currentResults,
+          departureTimes,
+        })
+        if (tiebreak.applied) {
+          reconciled = tiebreak.reconciled
+          logger.info(
+            {
+              winner: tiebreak.winner,
+              loser: tiebreak.loser,
+              loserDepartureTime: departureTimes.get(tiebreak.loser!),
+            },
+            `departure concession tiebreak applied for game ${gameId}`,
+          )
+        }
+      }
+    }
+
     const reconcileDate = new Date(this.clock.now())
     await transact(async client => {
       // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
@@ -619,6 +800,58 @@ export default class GameResultService {
         })
       }
     })
+
+    return true
+  }
+
+  /**
+   * Publishes a game's current record — and, if applicable, matchmaking rating/league changes — to
+   * subscribers: the game's own subscription channel gets an `update` event, and each user whose MMR
+   * changed gets a personal matchmaking-results event. Every entry point that can commit a
+   * reconciliation (an immediate submit-triggered reconcile, the delayed desync-grace re-check, and
+   * the periodic sweeps) calls this afterward, so a late/asynchronous reconcile still reaches clients
+   * instead of leaving them on a stale game/MMR until a manual refetch.
+   */
+  private async publishReconciledGame(gameId: string): Promise<void> {
+    const game = await this.retrieveGame(gameId)
+    const [mmrChanges, leagueUserChanges, season] = await Promise.all([
+      this.retrieveMatchmakingRatingChanges(game),
+      this.retrieveLeagueUserChanges(game),
+      this.matchmakingSeasonsService.getSeasonForDate(game.startTime).then(([s]) => s),
+    ])
+
+    let leagues: League[] = []
+    if (leagueUserChanges.length > 0) {
+      const uniqueLeagues = Array.from(new Set(leagueUserChanges.map(lu => lu.leagueId)))
+      leagues = await getLeaguesById(uniqueLeagues)
+    }
+
+    const gameJson = toGameRecordJson(game)
+    this.typedPublisher.publish(GameResultService.getGameSubPath(gameId), {
+      type: 'update',
+      game: gameJson,
+      mmrChanges: mmrChanges.map(m => toPublicMatchmakingRatingChangeJson(m)),
+    })
+
+    if (mmrChanges.length) {
+      for (const change of mmrChanges) {
+        const leagueChanges = leagueUserChanges.filter(lu => lu.userId === change.userId)
+        const leagueIds = leagueChanges.map(lu => lu.leagueId)
+        const applicableLeagues = leagues.filter(l => leagueIds.includes(l.id))
+
+        this.matchmakingPublisher.publish(
+          GameResultService.getMatchmakingResultsPath(change.userId),
+          {
+            userId: change.userId,
+            game: gameJson,
+            mmrChange: toPublicMatchmakingRatingChangeJson(change),
+            leagues: applicableLeagues.map(l => toLeagueJson(l)),
+            leagueChanges: leagueChanges.map(lu => toClientLeagueUserChangeJson(lu)),
+            season: toMatchmakingSeasonJson(season),
+          },
+        )
+      }
+    }
   }
 
   static getGameSubPath(gameId: string) {

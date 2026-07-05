@@ -1540,3 +1540,196 @@ observer-excluded/departed-slot); the live §20d scenario re-run — `forceDesyn
 relay logs the divergence at a concrete ordinal → DesyncNotice → signed webhook →
 `game_desync_events` row with `no_majority` — plus a departure re-run to prove the renamed
 pipe still records departures.
+
+## 21. Desync-aware reconciliation, session-close-at-victory, and the malicious-client audit (2026-07-05)
+
+This section covers the slice that *consumes* the §20e desync signal (the payoff nothing was
+using yet), the §19 cleanup that had to land alongside it, and — the bulk of the work — a
+five-front adversarial audit of the whole netcode-v2 surface against a bar Travis set explicitly:
+
+> **A malicious client's worst case must be its OWN game disputed or voided. It must never crash
+> the relay or the server, stall honest survivors, or frame an honest player.**
+
+The audit found the parse/transport/isolation surface solid (no client-reachable panic, no
+unbounded growth, per-game isolation holds, slot-binding enforced), but surfaced two ways a
+client could make an *honest* player lose — both fixed here. Status at writing: built, unit-tested,
+clippy/typecheck/lint-clean in all three repos; **not yet live-loopback-proven; not committed.**
+
+### §21a. Session-close at the victory dialog (§19 cleanup, game DLL)
+
+The §19 investigation left "networked Continue Playing" as a footgun: a *decided* game kept feeding
+the relay 0x37s, so a later divergence could produce a desync event that would void an
+already-decided ranked game. §20e made that a hard sequencing gate — this must land before
+reconciliation consumes desync flags.
+
+Built (`game/src/netcode_v2/`, `bw_scr/dialog_hook.rs`): on the **`WMission`** dialog only (victory
+— not `LMission`), `TurnState::begin_local_only()`:
+- fabricates a reason-3 ("player left") leave for every still-live remote slot, routed through the
+  **same `LeaveTracker`** relay directives flow through (marked due immediately), so the IN hook
+  applies them in the deterministic synced-leave window — no second application path;
+- sets a latched `local_only` flag so `submit_local_turn` keeps the local echo (the sim needs its
+  own turns) but stops sending to the closing link;
+- then calls the existing `send_leave_intent()` so the relay decides our clean leave for any
+  remaining participants.
+
+The asymmetry (victory only): victory decides the game for everyone, so the session can end and any
+further play is local-only; a defeat does not end the game for the *other* players, so the defeated
+client stays a networked participant until it exits (its clean leave fires at loop end). Two
+robustness details from review: `begin_local_only` skips slots already tracked in the `LeaveTracker`
+(a team-victory co-winner's real directive can arrive while our fabricated one is in flight —
+fabricating a second, differently-stamped entry would trip the tracker's per-slot consistency
+`debug_assert!`); and once `local_only`, the leaves-channel drain **discards** incoming directives
+rather than observing them (same assert hazard, and they're redundant — every remote slot is already
+left or tracked). `session.rs::begin_local_only` warns on a re-entrant-lock miss, distinct from the
+silent no-session no-op. This makes the §20e gate hold: a decided game stops emitting 0x37, so a
+continue-play divergence cannot produce a desync event that voids it.
+
+### §21b. Desync-aware reconciliation and the concession tiebreak (app server)
+
+`applyDesyncPolicy` (`server/lib/games/results.ts`, pure/total/exported) consumes
+`game_desync_events`:
+- **Matchmaking**: any `no_majority` event → **void** (all-unknown, disputed, no MMR — undecidable);
+  otherwise **majority-discard** — null out the diverged minority's own reports and let the
+  majority's reports decide everyone's result (including the diverged players', pinning fault on
+  them). `divergedUserIds` are intersected against the game's actual humans first (untrusted-shaped,
+  even though the event is relay-signed); an event that names nobody recognizable voids rather than
+  silently passing through.
+- **Lobby / non-matchmaking**: force `disputed` (results stand, but stats/MMR blocked). No structure
+  to adjudicate against (alliances mutable).
+
+Diverged players are excluded from the "all humans reported" gate (a diverged sim can run
+arbitrarily long). Matchmaking finalization waits out a bounded window (`DESYNC_VERDICT_GRACE_MS =
+15s` past the last report) for a trailing relay verdict, via a one-shot `clock.setTimeout` deduped
+in a per-game map; a `no_majority` event is already terminal and skips the wait. The 15-min sweep
+now also reconciles fully-reported-but-unreconciled games (`findFullyReportedUnreconciledGames`), so
+a server restart during the grace window still finalizes them. The whole policy is total over
+degenerate/adversarial input (empty/all-null results, out-of-game or duplicated diverged IDs) —
+it resolves to a void, never a throw (reconcile runs fire-and-forget; a throw would only wedge the
+game unreconciled).
+
+**The §20c departure tiebreak was gameable and is replaced.** The old rule (earlier departer loses,
+later departer wins, dispute clears, MMR applies) trusted *departure order*, which a client controls
+by **lingering**: a losing 1v1 player reports a false victory (→ mutual-victory dispute), then simply
+holds its connection open past the honest winner's prompt post-victory teardown, becoming the
+"later" departer → it wins with MMR and flips the honest winner to a loss. Departure order cannot
+arbitrate a two-sided dispute. `applyDepartureConcessionTiebreak` restricts it to a genuine
+**concession**: it engages only when exactly one of two humans reported a result and the other
+**abandoned without reporting** (corroborated by a departure record) — the sole reporter is trusted
+(a "won but crashed before reporting" race is farfetched, per Travis), takes the win, the abandoner
+takes the loss. When both reported (the exploit shape) it stays disputed/void. Departure time/order
+no longer decides anything; the departure record only corroborates that the abandoner actually left.
+
+### §21c. The adversarial audit and the relay fixes
+
+Five deep-dives (relay leave machinery, relay sync comparator, relay edge validation/routing,
+client leave/directive lib, app-server ingest/reconciliation). Findings and dispositions:
+
+**CRITICAL — calibration poisoning (relay `consensus.rs`, the §20e comparator).** The frame-anchored
+join placement trusted a single slot's `game_frame_count` to position *another* slot's join ordinal:
+an attacker floods/races to own the frontier and the calibration rate, so an honest joiner is
+projected ~16 ordinals off and — after the parity-preserving nibble correction — its whole stream is
+shifted a full ring cycle, making it disagree with the aligned majority and get named the diverged
+party. **Fix — corroborate-or-defer:** the frames-per-ordinal rate is derived only from **≥3 distinct
+slots' median** `(ordinal, frame)` points (`SYNC_CORROBORATION_MIN = 3`, `update_corroboration`);
+the median of ≥3 with ≤1 attacker is always bounded within the honest spread, so **no
+frame-agreement tolerance parameter exists** (an exploitable magic number avoided). A join is
+frame-anchored only from that corroborated rate; with no trustworthy rate it is placed only within
+one ring cycle of the frontier (`join_expected` returns `None` beyond that → `defer_join` drops and
+retries on the slot's next report — a safe false-negative, never a misplacement), and a new member
+whose nibble lands *above* the frontier is likewise deferred (the tell-tale of a deep join that
+jumped a cycle). This also resolves cleanly post-authority-promotion (fresh comparator): all live
+slots sit at the same ring, place at the frontier, and corroborate — no deadlock. A single client
+controls one slot, so it can neither reach the 3-slot threshold alone nor move a corroborated
+median. Also landed: **one 0x37 per (slot, turn)** enforcement in `observe_sync` — the flooding lever
+the attack (and the separate window-eviction detection-evasion, MEDIUM) both depend on.
+
+**HIGH — leave-frame inflation stalls survivors (relay `consensus.rs`/`routing.rs`/`mesh.rs`).** A
+departing client sets `game_frame_count = u32::MAX`; the leave's `apply_at_frame` was derived
+one-past the departing slot's own unvalidated frame with no clamp, so honest survivors got a
+directive to drop the slot at a frame they never reach → permanent stall. Note the subtlety that
+made the naive fix wrong: clamping *up* to a survivor-relative bound doesn't help (a stalled
+survivor can't reach any frame above its stall), and survivors' *stamped* frames run ahead of their
+*executed* frame by the buffer depth. **Fix — clamp DOWN to a provably-executed, single-sourced
+ceiling:** `apply_base = min(slot_last, F)`, where `F` = the min over surviving slots of the highest
+frame each has *provably executed* — a frame stamped at least `buffer_max` **turns** (transport seq,
+not game frames — so no frames-per-turn constant enters) before the current frontier turn;
+`threshold = frontier_turn.saturating_sub(buffer_max)` keeps `F` computable in the game's first turns
+too (a survivor with no proven frame yet falls back to its earliest stamped frame). `F` is computed
+**only on the departing slot's home relay** and carried verbatim in a new optional
+`SlotDeparted.reachable_frame` (mesh-only wire field, does not touch the game client) plus the
+departure record (first-non-`None`-wins), so `decide_leave` and any promoted authority's
+re-derivation clamp to the identical value — determinism preserved. Honest steady state:
+`slot_last ≤ F`, the clamp is a no-op. Early-game / cross-relay-mesh-lag corner: `F` may sit a few
+frames below `slot_last`, giving a bounded, deterministic **early-drop** — never a stall. All four
+production frame-observation sites now use the seq-aware `observe_turn_frame`; the seq-less
+`observe_frame` is test-only, so the clamp cannot be bypassed live.
+
+**HIGH — departure-order tiebreak.** Covered in §21b (fixed on the app-server side, concession-only).
+
+**MEDIUM (deferred, documented):** oversize-turn amplification — the forward channel is bounded by
+*count*, not bytes, so a valid 64 KiB turn is cloned into every peer channel (a memory spike touching
+other sessions' box, and a lever to force-drop honest teammates). Fix direction: byte-budget the
+forward channel / lower `MAX_CONTROL_FRAME_LEN` / rate-limit oversize turns. And: the accepted
+"self-desync to void my own loss" escape has no per-user abuse rate-limit; the app server now logs
+the participants at WARN on a `no_majority` void for manual review, but automated throttling is
+deferred.
+
+**LOW (fixed):** checked `u8::try_from` on the four mesh-path `SlotId` casts (defense-in-depth on
+trusted peer traffic); webhook numeric fields gained `.integer()`/range bounds (a validly-signed but
+malformed body no longer 500s on every at-least-once retry) and the `diverged` array is capped.
+
+### §21d. Pre-existing note and the durable future direction
+
+**Pre-existing (not introduced or worsened here):** after an authority promotion the comparator
+re-bases sync ordinals low, so a desync straddling a relay failover could collide on the
+`game_desync_events` primary key `(game_id, sync_ordinal)` and be dropped as a duplicate. This is
+within §20e's already-accepted "a desync straddling an authority death can be missed once" envelope;
+noted for a future revisit (e.g. an epoch/authority-generation component in the event identity).
+
+**Durable future direction (Travis, not built): report game results *through the relay*.** Today
+clients POST results directly to the app server, independently of their relay link — so a client can
+sever its link (or feed a diverged game) and still submit a result, and the server has no
+relay-side corroboration of it. The residual 1v1-lie class (the concession tiebreak deliberately
+voids rather than adjudicates two-sided victory claims) is a direct consequence. Routing the result
+report *through the relay* fixes this structurally: (a) it proves the reporting client was **actually
+connected through the end of the game** — a result can only arrive over a live link the relay
+watched the whole session — so a "cut my link then claim victory" report is impossible; (b) it lets
+the relay **stamp and correlate timing** — the result's arrival can be placed against the relay's own
+timeline of departures/disconnects for the session, giving the app server a trustworthy ordering it
+cannot get from independently-submitted reports; and (c) the relay can apply light validation before
+forwarding. This is the fix that would let more disputes resolve to a decisive result instead of a
+void, and it composes with the existing signed relay→coordinator→webhook pipe (a result becomes
+another notice kind alongside departure/desync). Recorded as the intended long-term shape; a larger
+change than this slice, deliberately deferred.
+
+### §21e. Verification status
+
+Unit/type coverage is green everywhere: rp2 `cargo fmt`/clippy/`cargo test --workspace` (211 relay
+tests, incl. the new adversarial cases — inflated-frame clamp + determinism, ≥3-median corroboration,
+attacker-cannot-frame-a-joiner, early-game-inflation-no-stall); server typecheck + 86 vitest +
+eslint; game clippy + unit tests + a fresh `build.bat` DLL.
+
+**Live loopback proof (2026-07-05, PASSED).** Coordinator + relay + Node (rp2 env) + two Electron
+clients (claude-1/claude-2), a real 1v1 netcode-v2 lobby game:
+- *Honest play is regression-free.* Both clients ran on `netcodeV2`, authorized on the relay
+  (slots 0/1), and played cleanly for the whole game — the relay log had **zero** desync/error/stall,
+  only the expected startup nibble-correction (the corroborate-or-defer join path placing the two
+  slots at the frontier at game start, no false positive). So the relay Fix A/B + one-per-turn
+  changes don't break or false-flag normal play.
+- *The full desync→dispute chain fired end to end.* `forceDesync` on one client → relay logged
+  `desync detected sync_ordinal=1759 no_majority=true diverged=[]` (correct 1v1 shape) → signed
+  webhook → a `game_desync_events` row (`no_majority=t`, empty diverged) → the game finished with the
+  exact §20d silent-double-win report shape (each client reported self-Victory / opponent-Playing),
+  and **reconciliation consumed the desync event and disputed the game** (`games.disputable = t`,
+  "had 1 relay desync event(s); forcing dispute") instead of recording a clean double-win. This is
+  the §20d fix proven live, not just in unit tests. (Lobby game → dispute; a matchmaking game would
+  void with no MMR by the same path.)
+
+Adversarial behaviors (Fix A inflated-frame clamp, Fix B calibration framing) can't be produced by an
+honest loopback client and remain unit-test-covered. A benign pre-existing pg `DeprecationWarning`
+(concurrent `client.query` in the existing `setReconciledResult` transaction path) was observed
+during reconcile — not introduced here, worth a later look.
+
+**Follow-up from the live run:** the routine sync-ordinal nibble-correction log (fires at every game
+start as slots join the compare set) was downgraded from `warn!` to `debug!` — it's expected, not a
+warning (Travis's call). Nothing is committed pending review.

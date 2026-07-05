@@ -36,16 +36,26 @@ const gameEventBody = koaBody({
   includeUnparsed: true,
 })
 
+// Postgres BIGINT bounds; syncOrdinal is persisted to a BIGINT column, so rejecting fractional or
+// out-of-range values here (rather than passing them to the DB and 500ing on every at-least-once
+// webhook retry) keeps a malformed/malicious delivery from ever reaching a query.
+const MAX_SAFE_BIGINT = Number.MAX_SAFE_INTEGER
+// A generous but finite bound on the webhook's `detectedAtMs`/epoch-ms fields, so a wildly
+// out-of-range value can't produce `new Date(huge)` -> an Invalid Date that throws downstream (e.g.
+// when persisted or formatted) instead of failing validation up front. Year ~2286.
+const MAX_EPOCH_MS = 10_000_000_000_000
+const MAX_DIVERGED_SLOTS = 16
+
 const DEPARTURE_EVENT_SCHEMA = Joi.object<NetcodeV2DepartureNotification>({
   event: Joi.string().valid('departure').required(),
   tenant: Joi.string().required(),
-  session: Joi.number().required(),
+  session: Joi.number().integer().min(0).required(),
   externalId: Joi.string(),
-  slot: Joi.number().required(),
+  slot: Joi.number().integer().min(0).required(),
   externalRef: Joi.string(),
   kind: Joi.string().valid('left', 'dropped').required(),
-  reason: Joi.number().required(),
-  leaveSeq: Joi.number().required(),
+  reason: Joi.number().integer().min(0).required(),
+  leaveSeq: Joi.number().integer().min(0).required(),
 })
   // The coordinator's control protos don't `deny_unknown_fields`, so this endpoint shouldn't
   // either — an old app server shouldn't break on a newer coordinator's extra webhook fields.
@@ -54,19 +64,20 @@ const DEPARTURE_EVENT_SCHEMA = Joi.object<NetcodeV2DepartureNotification>({
 const DESYNC_EVENT_SCHEMA = Joi.object<NetcodeV2DesyncNotification>({
   event: Joi.string().valid('desync').required(),
   tenant: Joi.string().required(),
-  session: Joi.number().required(),
+  session: Joi.number().integer().min(0).required(),
   externalId: Joi.string(),
-  syncOrdinal: Joi.number().required(),
-  gameFrame: Joi.number(),
-  detectedAtMs: Joi.number().required(),
+  syncOrdinal: Joi.number().integer().min(0).max(MAX_SAFE_BIGINT).required(),
+  gameFrame: Joi.number().integer().min(0),
+  detectedAtMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
   noMajority: Joi.boolean().required(),
   diverged: Joi.array()
     .items(
       Joi.object({
-        slot: Joi.number().required(),
+        slot: Joi.number().integer().min(0).required(),
         externalRef: Joi.string(),
       }).unknown(true),
     )
+    .max(MAX_DIVERGED_SLOTS)
     .required(),
 })
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.

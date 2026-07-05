@@ -222,3 +222,309 @@ export function reconcileResults(
 
   return { disputed, time: elapsedTime, results: reconciled }
 }
+
+/**
+ * The relay-observed desync information needed to decide how a game's results should be reconciled.
+ * A superset (like `GameDesyncEvent`) is structurally assignable.
+ */
+export interface DesyncPolicyEvent {
+  noMajority: boolean
+  divergedUserIds: ReadonlyArray<SbUserId>
+}
+
+/** Describes how the desync policy resolved a game, for audit logging. */
+export type DesyncOutcome =
+  | { kind: 'no-events' }
+  | { kind: 'lobby-disputed'; eventCount: number }
+  | {
+      kind: 'void'
+      reason: 'no-majority' | 'diverged-covers-all' | 'zero-reports' | 'diverged-unresolvable'
+    }
+  | { kind: 'majority-discard'; divergedUserIds: SbUserId[] }
+
+export interface DesyncPolicyDecision {
+  reconciled: ReconciledResults
+  outcome: DesyncOutcome
+}
+
+/**
+ * Produces a fully-voided reconciliation (every player 'unknown', disputed) so a game that a relay
+ * flagged as undecidable never credits anyone. Reports (if any) are only used to recover a sensible
+ * elapsed time and per-player races/apm; the outcomes are all forced to 'unknown'.
+ */
+function voidReconciledResults(
+  humans: ReadonlyArray<SbUserId>,
+  results: ReadonlyArray<ResultSubmission | null>,
+  teams: ReadonlyArray<ReadonlyArray<SbUserId>> | null,
+): ReconciledResults {
+  if (!results.some(r => !!r)) {
+    return {
+      disputed: true,
+      time: 0,
+      results: new Map(humans.map(id => [id, { result: 'unknown', race: 'p', apm: 0 }])),
+    }
+  }
+
+  const base = reconcileResults(humans, results, teams)
+  for (const value of base.results.values()) {
+    value.result = 'unknown'
+  }
+  return { ...base, disputed: true, results: base.results }
+}
+
+/**
+ * Applies the relay desync policy around `reconcileResults`. Given the raw reports and the desync
+ * events a game accumulated, decides whether to reconcile normally, force a dispute (lobby), void
+ * the game entirely, or reconcile from the majority's reports after discarding a diverged minority's
+ * reports.
+ *
+ * Security / trust model: `desyncEvents` originate from the rally-point2 relay's Ed25519-signed
+ * webhook, so a game client cannot inject, forge, or suppress them — a client only controls whether
+ * ITS OWN slot's simulation diverges from the majority, never whether an event exists or which user
+ * IDs it names. Even so, this function treats `divergedUserIds` as untrusted-SHAPED input (the
+ * coordinator resolves it from a session-create ref that could be stale, missing, or — under a
+ * defense-in-depth assumption — subtly wrong): every ID is intersected against `humans` before use,
+ * so an ID that isn't actually a player of this game is dropped rather than trusted or indexed
+ * against. This function is total over its inputs — empty/all-null `results`, empty `humans`,
+ * duplicated or out-of-game `divergedUserIds`, etc. all resolve to a well-formed (typically voided)
+ * outcome rather than throwing, since this runs fire-and-forget and a throw here would only be lost
+ * noise while leaving the game stuck unreconciled.
+ *
+ * The worst a malicious/compromised client can do through this path is cause its own game to be
+ * disputed or voided (no stats/MMR for anyone) — never crash the server, corrupt another player's
+ * result, or force a false win/loss onto someone else. A single client desyncing alone in a game of
+ * more than two humans is, by construction, the minority: its own reports are discarded and the
+ * majority's reports decide the outcome (including its own), which pins the fault on the
+ * misbehaving party instead of voiding. A 1v1 (or any even split with no strict majority) has no way
+ * to tell which side is telling the truth, so it always voids — that's an unavoidable limit of
+ * majority-authoritative resolution, not a gap in this policy.
+ *
+ * @param isMatchmaking whether the game is a matchmaking game (matchmaking gets the void /
+ *   majority-authoritative handling; other sources are only forced to disputed)
+ * @param humans every human player's user ID
+ * @param results the reports submitted so far (one entry per human, nulls for missing reports)
+ * @param validationTeams the single-winner validation teams (see `getValidationTeams`)
+ * @param desyncEvents the desync events recorded for the game
+ */
+export function applyDesyncPolicy({
+  isMatchmaking,
+  humans,
+  results,
+  validationTeams,
+  desyncEvents,
+}: {
+  isMatchmaking: boolean
+  humans: ReadonlyArray<SbUserId>
+  results: ReadonlyArray<ResultSubmission | null>
+  validationTeams: ReadonlyArray<ReadonlyArray<SbUserId>> | null
+  desyncEvents: ReadonlyArray<DesyncPolicyEvent>
+}): DesyncPolicyDecision {
+  // Defense in depth: a report's `reporter` should always be one of `humans` (it's derived from the
+  // games_users row it was stored under), but `reconcileResults` throws on a reporter it doesn't
+  // recognize. Sanitizing here means this function can never propagate that throw, no matter how the
+  // inputs are assembled upstream.
+  const humanSet = new Set(humans)
+  const safeResults = results.map(r => (r && humanSet.has(r.reporter) ? r : null))
+  // `reconcileResults` also indexes into its sorted-reports array, which is only safe when at least
+  // one report is present; route a fully degenerate (all-null) input through the same synthesized
+  // void path used elsewhere instead of calling it directly.
+  const hasAnyReport = safeResults.some(r => !!r)
+
+  if (desyncEvents.length === 0) {
+    return {
+      reconciled: hasAnyReport
+        ? reconcileResults(humans, safeResults, validationTeams)
+        : voidReconciledResults(humans, safeResults, validationTeams),
+      outcome: { kind: 'no-events' },
+    }
+  }
+
+  if (!isMatchmaking) {
+    // A desync in a non-matchmaking game leaves the computed results standing but forces a dispute
+    // (which blocks stats), since we can't trust that everyone simulated the same game.
+    const reconciled = hasAnyReport
+      ? reconcileResults(humans, safeResults, validationTeams)
+      : voidReconciledResults(humans, safeResults, validationTeams)
+    return {
+      reconciled: { ...reconciled, disputed: true },
+      outcome: { kind: 'lobby-disputed', eventCount: desyncEvents.length },
+    }
+  }
+
+  if (desyncEvents.some(e => e.noMajority)) {
+    // No trustworthy majority existed for at least one divergence, so the game is undecidable.
+    return {
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      outcome: { kind: 'void', reason: 'no-majority' },
+    }
+  }
+
+  // Every event here claims a resolvable diverged minority (`noMajority` is false). Intersect each
+  // event's diverged IDs against the actual humans in this game before trusting them at all: an ID
+  // that doesn't belong to this game is dropped, never used to index or discard a report.
+  const divergedUnion = new Set<SbUserId>()
+  for (const event of desyncEvents) {
+    for (const id of event.divergedUserIds) {
+      if (humanSet.has(id)) {
+        divergedUnion.add(id)
+      }
+    }
+  }
+
+  if (divergedUnion.size === 0) {
+    // A signed event claimed a resolvable minority but, after dropping IDs that don't belong to
+    // this game, named nobody we recognize. That's undecidable, not clean — void rather than
+    // silently falling through to a normal reconcile with nothing discarded.
+    return {
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      outcome: { kind: 'void', reason: 'diverged-unresolvable' },
+    }
+  }
+
+  if (humans.every(id => divergedUnion.has(id))) {
+    return {
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      outcome: { kind: 'void', reason: 'diverged-covers-all' },
+    }
+  }
+
+  // Discard the diverged minority's own reports; the majority's reports remain authoritative for
+  // everyone (including the diverged players) — a diverged player's own report (even a fabricated
+  // self-victory) cannot leak into the outcome, since it's nulled out before reconciling.
+  const filtered = safeResults.map(r => (r && divergedUnion.has(r.reporter) ? null : r))
+  if (!filtered.some(r => !!r)) {
+    return {
+      reconciled: voidReconciledResults(humans, safeResults, validationTeams),
+      outcome: { kind: 'void', reason: 'zero-reports' },
+    }
+  }
+
+  return {
+    reconciled: reconcileResults(humans, filtered, validationTeams),
+    outcome: { kind: 'majority-discard', divergedUserIds: Array.from(divergedUnion) },
+  }
+}
+
+export interface DepartureConcessionDecision {
+  reconciled: ReconciledResults
+  applied: boolean
+  winner?: SbUserId
+  loser?: SbUserId
+}
+
+/**
+ * Whether `report` is a genuine terminal self-victory claim by `reporter` over `nonReporter`: the
+ * reporter's own entry says `Victory`, and the non-reporter's entry (if the report has one at all)
+ * doesn't also say `Victory`. This is what the departure concession tiebreak requires as its win
+ * basis — a report that's still `Playing`, claims the reporter lost, or claims a mutual victory
+ * can't be trusted just because it's the only one that showed up.
+ */
+function isTerminalSelfVictoryReport(
+  report: ResultSubmission,
+  reporter: SbUserId,
+  nonReporter: SbUserId,
+): boolean {
+  const reporterEntry = report.playerResults.find(([id]) => id === reporter)
+  if (!reporterEntry || reporterEntry[1].result !== GameClientResult.Victory) {
+    return false
+  }
+
+  const nonReporterEntry = report.playerResults.find(([id]) => id === nonReporter)
+  if (nonReporterEntry && nonReporterEntry[1].result === GameClientResult.Victory) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * For a two-human, no-computer game with no relay desync events, whose reconciled outcome is
+ * disputed or entirely unknown, resolves the outcome as a concession when exactly one of the two
+ * players never submitted a result, that non-reporting player has a recorded mid-game departure
+ * (`left` or `dropped` count identically) — i.e. they abandoned the game without ever reporting
+ * anything — AND the sole reporter's own raw report is a genuine terminal self-victory over the
+ * non-reporter (see `isTerminalSelfVictoryReport`). The sole reporter takes the win, the abandoning
+ * non-reporter takes the loss, and the dispute clears (so MMR can apply for matchmaking).
+ *
+ * The terminal-self-victory check matters because the submit endpoint accepts non-terminal reports
+ * (e.g. still `Playing`): without it, a sole reporter who submitted garbage, a self-defeat, or a
+ * mutual-victory claim would still hand themselves a win and the abandoning opponent a ranked loss.
+ *
+ * This deliberately does NOT engage when both players reported, even if their reports conflict (e.g.
+ * a mutual claimed victory) — that combination must stay disputed/void. Departure order/time is
+ * client-controllable: a losing player can report a false victory (producing a two-sided conflict)
+ * and then simply linger on the connection to become the "later" departer. A rule that let departure
+ * order arbitrate a two-sided dispute would let that lingering flip the honest winner into a loss.
+ * Restricting this to a genuine one-sided abandonment — where the non-reporter's client never
+ * produced a report to contest with — closes that hole: the non-reporter's departure record only
+ * ever corroborates that they left, never who won.
+ *
+ * @returns the (possibly modified) reconciliation plus whether the concession was applied
+ */
+export function applyDepartureConcessionTiebreak({
+  reconciled,
+  humans,
+  hasComputers,
+  hasDesyncEvents,
+  reportedHumans,
+  results,
+  departureTimes,
+}: {
+  reconciled: ReconciledResults
+  humans: ReadonlyArray<SbUserId>
+  hasComputers: boolean
+  hasDesyncEvents: boolean
+  /** The user IDs of the humans who submitted a result report (regardless of what it said). */
+  reportedHumans: ReadonlySet<SbUserId>
+  /** The raw reports submitted so far, used to find the sole reporter's actual claim. */
+  results: ReadonlyArray<ResultSubmission | null>
+  departureTimes: ReadonlyMap<SbUserId, Date | null>
+}): DepartureConcessionDecision {
+  if (hasDesyncEvents || hasComputers || humans.length !== 2) {
+    return { reconciled, applied: false }
+  }
+
+  const allUnknown = Array.from(reconciled.results.values()).every(r => r.result === 'unknown')
+  if (!reconciled.disputed && !allUnknown) {
+    return { reconciled, applied: false }
+  }
+
+  const [a, b] = humans
+  const aReported = reportedHumans.has(a)
+  const bReported = reportedHumans.has(b)
+  if (aReported === bReported) {
+    // Both reported (a two-sided conflict — must stay disputed/void) or neither reported (nothing
+    // to trust as a win basis either way).
+    return { reconciled, applied: false }
+  }
+
+  const [reporter, nonReporter] = aReported ? [a, b] : [b, a]
+  if (!departureTimes.get(nonReporter)) {
+    // No corroborating departure for the non-reporter: they may just be slow, not abandoned.
+    return { reconciled, applied: false }
+  }
+
+  const report = results.find((r): r is ResultSubmission => !!r && r.reporter === reporter)
+  if (!report || !isTerminalSelfVictoryReport(report, reporter, nonReporter)) {
+    // The sole report isn't a clean terminal self-victory (still in progress, a self-reported
+    // defeat, a mutual-victory claim, or missing entirely) — nothing trustworthy to concede to.
+    return { reconciled, applied: false }
+  }
+
+  const reporterResult = reconciled.results.get(reporter)
+  const nonReporterResult = reconciled.results.get(nonReporter)
+  if (!reporterResult || !nonReporterResult) {
+    return { reconciled, applied: false }
+  }
+
+  const newResults = new Map(reconciled.results)
+  newResults.set(reporter, { ...reporterResult, result: 'win' })
+  newResults.set(nonReporter, { ...nonReporterResult, result: 'loss' })
+
+  return {
+    reconciled: { ...reconciled, disputed: false, results: newResults },
+    applied: true,
+    winner: reporter,
+    loser: nonReporter,
+  }
+}
