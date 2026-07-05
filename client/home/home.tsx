@@ -20,6 +20,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { singleLine, titleSmall } from '../styles/typography'
+import { LiveStreamEntry, LiveStreams_FeedFragment } from '../twitch/live-stream-entry'
 import { BottomLinks } from './bottom-links'
 import { HomeSection, HomeSectionTitle } from './home-section'
 import { useLastSeenUrgentMessage } from './last-seen-urgent-message'
@@ -136,6 +137,7 @@ const HomeQuery = graphql(/* GraphQL */ `
     }
 
     ...LiveGames_FeedFragment
+    ...LiveStreams_FeedFragment
     ...Leagues_HomeFeedFragment
   }
 `)
@@ -188,6 +190,7 @@ export function Home() {
                 </SupportIcons>
               </SupportSection>
               <LiveGamesFeed query={data} />
+              <LiveStreamsFeed query={data} />
               <LeagueHomeFeed query={data} />
             </RightSection>
             <BottomLinksArea>
@@ -285,6 +288,32 @@ export function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames
           <LiveGameEntry key={liveGame.id} query={liveGame} />
         ))}
       </LiveGamesRoot>
+    </HomeSection>
+  ) : null
+}
+
+const LiveStreamsRoot = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  border-radius: 4px;
+  overflow: hidden;
+`
+
+export function LiveStreamsFeed({
+  query,
+}: {
+  query?: FragmentType<typeof LiveStreams_FeedFragment>
+}) {
+  const { t } = useTranslation()
+  const { liveStreams } = useFragment(LiveStreams_FeedFragment, query) ?? { liveStreams: [] }
+
+  return liveStreams.length > 0 ? (
+    <HomeSection>
+      <HomeSectionTitle>{t('twitch.liveStreams.title', 'Live streams')}</HomeSectionTitle>
+      <LiveStreamsRoot>
+        {liveStreams.slice(0, 5).map(stream => (
+          <LiveStreamEntry key={stream.twitchLogin} query={stream} />
+        ))}
+      </LiveStreamsRoot>
     </HomeSection>
   ) : null
 }

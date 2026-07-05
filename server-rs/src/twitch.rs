@@ -16,7 +16,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use async_graphql::{Context, Object, SimpleObject};
+use async_graphql::dataloader::DataLoader;
+use async_graphql::{ComplexObject, Context, Object, SimpleObject};
 use axum::{
     Router,
     body::Bytes,
@@ -42,7 +43,7 @@ use crate::configuration::Settings;
 use crate::graphql::errors::graphql_error;
 use crate::redis::RedisPool;
 use crate::state::AppState;
-use crate::users::{CurrentUser, SbUserId};
+use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
 
 const TWITCH_OAUTH_AUTHORIZE_URL: &str = "https://id.twitch.tv/oauth2/authorize";
 const TWITCH_OAUTH_TOKEN_URL: &str = "https://id.twitch.tv/oauth2/token";
@@ -52,6 +53,16 @@ const TWITCH_HELIX_EVENTSUB_URL: &str = "https://api.twitch.tv/helix/eventsub/su
 
 const SUB_TYPE_STREAM_ONLINE: &str = "stream.online";
 const SUB_TYPE_STREAM_OFFLINE: &str = "stream.offline";
+
+/// Twitch category names we treat as "StarCraft: Brood War" for the home-page live-streams feed,
+/// matched case-insensitively against a stream's category. We match on name rather than Twitch's
+/// numeric game id because the ids aren't easily verifiable without live API access; both the id and
+/// name are stored in Redis, so this can be swapped for an id allowlist later.
+const STARCRAFT_CATEGORY_NAMES: &[&str] = &["starcraft", "starcraft: brood war"];
+
+/// The thumbnail size we substitute into Twitch's `{width}x{height}` template for feed entries.
+const STREAM_THUMBNAIL_WIDTH: u32 = 320;
+const STREAM_THUMBNAIL_HEIGHT: u32 = 180;
 
 /// How long a pending link request (the server-issued `state`) stays valid. Long enough for a user
 /// to complete the Twitch consent screen, short enough to bound abuse of a leaked state value.
@@ -511,6 +522,80 @@ pub struct LiveStreamSummary {
     pub thumbnail_url: String,
 }
 
+impl LiveStreamSummary {
+    fn is_starcraft(&self) -> bool {
+        STARCRAFT_CATEGORY_NAMES.contains(&self.game_name.to_lowercase().as_str())
+    }
+}
+
+/// A ShieldBattery user who is currently live-streaming, for the home-page feed.
+#[derive(SimpleObject)]
+#[graphql(complex)]
+pub struct LiveStream {
+    #[graphql(skip)]
+    pub user_id: SbUserId,
+    /// The Twitch login name (used in `twitch.tv/<login>` URLs).
+    pub twitch_login: String,
+    /// The Twitch display name.
+    pub twitch_display_name: String,
+    /// The stream's title.
+    pub title: String,
+    /// The Twitch category/game being streamed.
+    pub game_name: String,
+    /// The stream's current viewer count.
+    pub viewer_count: i32,
+    /// When the stream started.
+    pub started_at: DateTime<Utc>,
+    /// A ready-to-use thumbnail URL at a fixed size.
+    pub thumbnail_url: String,
+}
+
+#[ComplexObject]
+impl LiveStream {
+    /// The ShieldBattery user who is streaming.
+    async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
+        ctx.data::<DataLoader<UsersLoader>>()?
+            .load_one(self.user_id)
+            .await
+    }
+}
+
+impl LiveStream {
+    fn from_summary(user_id: SbUserId, summary: LiveStreamSummary) -> Self {
+        Self {
+            user_id,
+            twitch_login: summary.twitch_login,
+            twitch_display_name: summary.twitch_display_name,
+            title: summary.title,
+            game_name: summary.game_name,
+            viewer_count: summary.viewer_count.clamp(0, i64::from(i32::MAX)) as i32,
+            started_at: summary.started_at,
+            thumbnail_url: summary
+                .thumbnail_url
+                .replace("{width}", &STREAM_THUMBNAIL_WIDTH.to_string())
+                .replace("{height}", &STREAM_THUMBNAIL_HEIGHT.to_string()),
+        }
+    }
+}
+
+/// Loads every currently-live streamer from Redis (unfiltered).
+async fn load_live_streams(redis: &RedisPool) -> eyre::Result<Vec<(SbUserId, LiveStreamSummary)>> {
+    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
+    let entries: HashMap<i32, String> = conn
+        .hgetall(LIVE_STREAMS_KEY)
+        .await
+        .wrap_err("Failed to load live streams")?;
+
+    let mut streams = Vec::with_capacity(entries.len());
+    for (user_id, json) in entries {
+        match serde_json::from_str::<LiveStreamSummary>(&json) {
+            Ok(summary) => streams.push((SbUserId(user_id), summary)),
+            Err(e) => warn!("Failed to parse live stream for user {user_id}: {e:?}"),
+        }
+    }
+    Ok(streams)
+}
+
 async fn load_connection(
     pool: &PgPool,
     user_id: SbUserId,
@@ -690,6 +775,19 @@ impl TwitchQuery {
     ) -> async_graphql::Result<Option<TwitchConnection>> {
         let user = require_current_user(ctx)?;
         Ok(load_connection(ctx.data::<PgPool>()?, user.id).await?)
+    }
+
+    /// ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
+    /// first).
+    async fn live_streams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<LiveStream>> {
+        let mut streams: Vec<LiveStream> = load_live_streams(ctx.data::<RedisPool>()?)
+            .await?
+            .into_iter()
+            .filter(|(_, summary)| summary.is_starcraft())
+            .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
+            .collect();
+        streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
+        Ok(streams)
     }
 }
 

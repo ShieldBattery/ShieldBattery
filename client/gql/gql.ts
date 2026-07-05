@@ -33,7 +33,7 @@ type Documents = {
   '\n  fragment LiveGames_FeedEntryPlayersFragment on GamePlayer {\n    user {\n      id\n      name\n    }\n    race\n  }\n': typeof types.LiveGames_FeedEntryPlayersFragmentFragmentDoc
   '\n  fragment LiveGames_FeedEntryMapAndTypeFragment on Game {\n    id\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n        image1024Url\n        image2048Url\n        width\n        height\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n      }\n    }\n  }\n': typeof types.LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc
   '\n  mutation ReportGame($input: ReportGameInput!) {\n    reportGame(input: $input) {\n      id\n    }\n  }\n': typeof types.ReportGameDocument
-  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
+  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n': typeof types.UrgentMessage_HomeDisplayFragmentFragmentDoc
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
@@ -48,6 +48,8 @@ type Documents = {
   '\n  mutation ConnectionSettingsStartTwitchLink {\n    twitchStartLink {\n      url\n    }\n  }\n': typeof types.ConnectionSettingsStartTwitchLinkDocument
   '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsCompleteTwitchLinkDocument
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n': typeof types.ConnectionSettingsUnlinkTwitchDocument
+  '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n': typeof types.LiveStreams_FeedFragmentFragmentDoc
+  '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n': typeof types.LiveStreams_FeedEntryFragmentFragmentDoc
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n': typeof types.UserNameAuditHistoryDocument
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
@@ -92,7 +94,7 @@ const documents: Documents = {
     types.LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc,
   '\n  mutation ReportGame($input: ReportGameInput!) {\n    reportGame(input: $input) {\n      id\n    }\n  }\n':
     types.ReportGameDocument,
-  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n':
+  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n':
     types.HomePageContentDocument,
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n':
     types.UrgentMessage_HomeDisplayFragmentFragmentDoc,
@@ -122,6 +124,10 @@ const documents: Documents = {
     types.ConnectionSettingsCompleteTwitchLinkDocument,
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n':
     types.ConnectionSettingsUnlinkTwitchDocument,
+  '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n':
+    types.LiveStreams_FeedFragmentFragmentDoc,
+  '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n':
+    types.LiveStreams_FeedEntryFragmentFragmentDoc,
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n':
     types.UserNameAuditHistoryDocument,
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n':
@@ -264,8 +270,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n',
-): (typeof documents)['\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n']
+  source: '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n',
+): (typeof documents)['\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -350,6 +356,18 @@ export function graphql(
 export function graphql(
   source: '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n',
 ): (typeof documents)['\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n',
+): (typeof documents)['\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n',
+): (typeof documents)['\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

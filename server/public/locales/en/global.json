@@ -1449,6 +1449,13 @@
       "title": "Installation problems detected"
     }
   },
+  "twitch": {
+    "liveStreams": {
+      "title": "Live streams",
+      "viewers_one": "{{count}} watching",
+      "viewers_other": "{{count}} watching"
+    }
+  },
   "user": {
     "matchHistory": {
       "noMatchingGames": "No matching games.",

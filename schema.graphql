@@ -288,6 +288,44 @@ type League {
 	badgeUrl: String
 }
 
+"""
+A ShieldBattery user who is currently live-streaming, for the home-page feed.
+"""
+type LiveStream {
+	"""
+	The Twitch login name (used in `twitch.tv/<login>` URLs).
+	"""
+	twitchLogin: String!
+	"""
+	The Twitch display name.
+	"""
+	twitchDisplayName: String!
+	"""
+	The stream's title.
+	"""
+	title: String!
+	"""
+	The Twitch category/game being streamed.
+	"""
+	gameName: String!
+	"""
+	The stream's current viewer count.
+	"""
+	viewerCount: Int!
+	"""
+	When the stream started.
+	"""
+	startedAt: DateTime!
+	"""
+	A ready-to-use thumbnail URL at a fixed size.
+	"""
+	thumbnailUrl: String!
+	"""
+	The ShieldBattery user who is streaming.
+	"""
+	user: SbUser
+}
+
 type LobbyExtra {
 	turnRate: Int
 	useLegacyLimits: Boolean
@@ -632,6 +670,11 @@ type Query {
 	The current user's linked Twitch connection, or `null` if they haven't linked one.
 	"""
 	myTwitchConnection: TwitchConnection
+	"""
+	ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
+	first).
+	"""
+	liveStreams: [LiveStream!]!
 	user(id: SbUserId!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser

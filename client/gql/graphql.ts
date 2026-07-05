@@ -503,6 +503,7 @@ export type HomePageContentQuery = {
 } & {
   ' $fragmentRefs'?: {
     LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment
+    LiveStreams_FeedFragmentFragment: LiveStreams_FeedFragmentFragment
     Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment
   }
 }
@@ -641,6 +642,26 @@ export type ConnectionSettingsCompleteTwitchLinkMutation = {
 export type ConnectionSettingsUnlinkTwitchMutationVariables = Exact<{ [key: string]: never }>
 
 export type ConnectionSettingsUnlinkTwitchMutation = { twitchUnlink: boolean }
+
+export type LiveStreams_FeedFragmentFragment = {
+  liveStreams: Array<
+    { twitchLogin: string } & {
+      ' $fragmentRefs'?: {
+        LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
+      }
+    }
+  >
+} & { ' $fragmentName'?: 'LiveStreams_FeedFragmentFragment' }
+
+export type LiveStreams_FeedEntryFragmentFragment = {
+  twitchLogin: string
+  twitchDisplayName: string
+  title: string
+  gameName: string
+  viewerCount: number
+  thumbnailUrl: string
+  user: { id: Types.SbUserId; name: string } | null
+} & { ' $fragmentName'?: 'LiveStreams_FeedEntryFragmentFragment' }
 
 export type UserNameAuditHistoryQueryVariables = Exact<{
   userId: Types.SbUserId
@@ -1423,6 +1444,94 @@ export const AccountSettings_CurrentUserFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<AccountSettings_CurrentUserFragment, unknown>
+export const LiveStreams_FeedEntryFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'LiveStream' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveStreams_FeedEntryFragmentFragment, unknown>
+export const LiveStreams_FeedFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveStreams' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'LiveStream' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveStreams_FeedFragmentFragment, unknown>
 export const AdminUserProfile_PermissionsFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -2761,6 +2870,7 @@ export const HomePageContentDocument = {
             },
           },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveStreams_FeedFragment' } },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' } },
         ],
       },
@@ -2957,6 +3067,33 @@ export const HomePageContentDocument = {
     },
     {
       kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'LiveStream' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
       name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
       typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
       selectionSet: {
@@ -3013,6 +3150,30 @@ export const HomePageContentDocument = {
                 {
                   kind: 'FragmentSpread',
                   name: { kind: 'Name', value: 'LiveGames_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveStreams' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
                 },
               ],
             },
