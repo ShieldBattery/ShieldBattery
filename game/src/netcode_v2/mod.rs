@@ -339,7 +339,10 @@ impl TurnState {
         self.current_dispatch
             .iter()
             .enumerate()
-            .filter_map(|(storm, buf)| buf.as_ref().map(|b| (StormPlayerId(storm as u8), b.as_ref())))
+            .filter_map(|(storm, buf)| {
+                buf.as_ref()
+                    .map(|b| (StormPlayerId(storm as u8), b.as_ref()))
+            })
     }
 
     /// Marks a storm slot as departed: it no longer gates step readiness, and its queued and
@@ -459,7 +462,9 @@ impl TurnState {
         if !self.has_computers || self.local_only {
             return false;
         }
-        let local_storm = self.storm_id_for_slot(self.local_slot).map(|s| s.0 as usize);
+        let local_storm = self
+            .storm_id_for_slot(self.local_slot)
+            .map(|s| s.0 as usize);
         let remote_human_remains = (0..bw::MAX_STORM_PLAYERS)
             .any(|storm| self.required[storm] && Some(storm) != local_storm);
         !remote_human_remains
@@ -496,7 +501,12 @@ impl TurnState {
             };
             // A slot already dropped from `required` has left; re-leaving it would double-apply the
             // native leave. Only slots still gating the step are live and need a fabricated leave.
-            if !self.required.get(storm.0 as usize).copied().unwrap_or(false) {
+            if !self
+                .required
+                .get(storm.0 as usize)
+                .copied()
+                .unwrap_or(false)
+            {
                 continue;
             }
             // A real relay directive may already be tracked for this slot (observed, but not yet
@@ -613,7 +623,10 @@ impl TurnState {
                         storm_id: Some(storm as u8),
                         required: self.required.get(storm).copied().unwrap_or(false),
                         queued_turns: self.inbound_queues.get(storm).map_or(0, |q| q.len()),
-                        has_dispatch: self.current_dispatch.get(storm).is_some_and(|d| d.is_some()),
+                        has_dispatch: self
+                            .current_dispatch
+                            .get(storm)
+                            .is_some_and(|d| d.is_some()),
                     }
                 }
                 None => TurnSlotSnapshot {
@@ -771,7 +784,10 @@ mod tests {
         state.map_storm_for_user(PEER_USER, PEER_STORM);
 
         in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
-        assert!(state.receive_turns(0), "mapped peer slot should gate + dispatch");
+        assert!(
+            state.receive_turns(0),
+            "mapped peer slot should gate + dispatch"
+        );
         assert_eq!(dispatched(&state), vec![(PEER_STORM, b"peer".to_vec())]);
     }
 
@@ -780,7 +796,10 @@ mod tests {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
         state.map_storm_for_user(SbUserId(99), PEER_STORM);
         // No mapping was recorded: the slot doesn't gate readiness...
-        assert!(state.receive_turns(0), "unmapped slot must not stall the step");
+        assert!(
+            state.receive_turns(0),
+            "unmapped slot must not stall the step"
+        );
         // ...and no storm id was attached to any roster slot.
         assert_eq!(state.storm_id_for_slot(PEER_SLOT), None);
         assert_eq!(state.storm_id_for_slot(LOCAL_SLOT), None);
@@ -794,14 +813,20 @@ mod tests {
 
         // Only the peer turn has arrived; our own local turn hasn't been submitted yet.
         in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
-        assert!(!state.receive_turns(0), "should stall with a required slot missing");
+        assert!(
+            !state.receive_turns(0),
+            "should stall with a required slot missing"
+        );
         // A stall consumes nothing, so the peer turn is still queued for the next check.
 
         assert!(
             state.submit_local_turn(b"local", Some(0)),
             "submit should succeed while the driver end is open"
         );
-        assert!(state.receive_turns(0), "ready once both required slots have a turn");
+        assert!(
+            state.receive_turns(0),
+            "ready once both required slots have a turn"
+        );
 
         let mut got = dispatched(&state);
         got.sort_by_key(|(storm, _)| storm.0);
@@ -941,7 +966,10 @@ mod tests {
             .expect("peer slot present");
         assert_eq!(peer.storm_id, Some(PEER_STORM.0));
         assert!(peer.required);
-        assert_eq!(peer.queued_turns, 1, "one turn dispatched, one still queued");
+        assert_eq!(
+            peer.queued_turns, 1,
+            "one turn dispatched, one still queued"
+        );
         assert!(peer.has_dispatch);
 
         // A synced leave clears the required flag; the snapshot should reflect it immediately.
@@ -1013,10 +1041,15 @@ mod tests {
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         // The relay pushes the peer's leave down the control stream, due at frame 5.
-        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 5, DROPPED))
+            .unwrap();
 
         // take_due_leaves drains the control-stream channel into the tracker, then surfaces due ones.
-        assert!(state.take_due_leaves(4).is_empty(), "not due before its apply frame");
+        assert!(
+            state.take_due_leaves(4).is_empty(),
+            "not due before its apply frame"
+        );
         assert_eq!(
             state.take_due_leaves(5),
             vec![(PEER_STORM, DROPPED)],
@@ -1024,7 +1057,10 @@ mod tests {
         );
         // The leave dropped the peer from the readiness set, so a later step is ready without it.
         assert!(state.submit_local_turn(b"local2", Some(5)));
-        assert!(state.receive_turns(5), "the left peer no longer gates readiness");
+        assert!(
+            state.receive_turns(5),
+            "the left peer no longer gates readiness"
+        );
         assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"local2".to_vec())]);
     }
 
@@ -1045,7 +1081,10 @@ mod tests {
         // Surfacing it marked the peer left, so it no longer gates readiness: the sim proceeds on
         // the local turn alone.
         assert!(state.submit_local_turn(b"solo", Some(0)));
-        assert!(state.receive_turns(0), "sim proceeds on the local turn alone");
+        assert!(
+            state.receive_turns(0),
+            "sim proceeds on the local turn alone"
+        );
         assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"solo".to_vec())]);
 
         // Local-only also announced the clean leave to the driver.
@@ -1123,8 +1162,13 @@ mod tests {
         // The relay already pushed the peer's real leave, due in the future — tracked but not yet
         // surfaced. This is the team-victory shape: a co-winner's own clean leave lands on our
         // control stream while our own leave intent is still in flight.
-        leave_tx.try_send(leave_directive(PEER_SLOT, 10, DROPPED)).unwrap();
-        assert!(state.take_due_leaves(5).is_empty(), "not due yet, but now tracked");
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 10, DROPPED))
+            .unwrap();
+        assert!(
+            state.take_due_leaves(5).is_empty(),
+            "not due yet, but now tracked"
+        );
 
         // Fabricating a second, conflicting entry (different apply frame/reason) for the same slot
         // would trip LeaveTracker's per-slot consistency debug_assert; begin_local_only must see
@@ -1148,7 +1192,9 @@ mod tests {
         // A real relay directive for the same slot arrives after the fabrication, carrying a
         // different apply frame/reason than the fabricated one — the kind of mismatch that would
         // trip LeaveTracker's per-slot consistency assert if it were observed.
-        leave_tx.try_send(leave_directive(PEER_SLOT, 50, DROPPED)).unwrap();
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 50, DROPPED))
+            .unwrap();
 
         // The fabricated leave surfaces exactly once; the real directive was discarded rather than
         // observed, so it neither panics nor re-opens/duplicates the slot's leave.
@@ -1166,7 +1212,9 @@ mod tests {
         state.map_slot(PEER_SLOT, PEER_STORM);
         let unmapped = SlotId(9); // never mapped to a storm id
 
-        leave_tx.try_send(leave_directive(unmapped, 3, DROPPED)).unwrap();
+        leave_tx
+            .try_send(leave_directive(unmapped, 3, DROPPED))
+            .unwrap();
 
         // A leave for a slot with no storm id can't be written into pending_leave_reason: skipped,
         // not returned, and not retried (the tracker already marked it surfaced).
@@ -1182,10 +1230,15 @@ mod tests {
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         // While a remote human is still live, the session stays open.
-        assert!(!state.should_self_close(), "not alone: the peer is still here");
+        assert!(
+            !state.should_self_close(),
+            "not alone: the peer is still here"
+        );
 
         // The remote human leaves (relay-directed synced leave applies at frame 5).
-        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 5, DROPPED))
+            .unwrap();
         assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
 
         // Now alone with the computers: the session should close itself. Drive the same sequence
@@ -1198,8 +1251,14 @@ mod tests {
         // ...and stopped handing our turns to the (closing) link, while still echoing locally so the
         // sim plays on versus the AI.
         assert!(state.submit_local_turn(b"solo", Some(6)));
-        assert!(out_rx.try_recv().is_err(), "no turn reaches the relay once local-only");
-        assert!(state.receive_turns(6), "sim proceeds on the local turn alone");
+        assert!(
+            out_rx.try_recv().is_err(),
+            "no turn reaches the relay once local-only"
+        );
+        assert!(
+            state.receive_turns(6),
+            "sim proceeds on the local turn alone"
+        );
         assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"solo".to_vec())]);
     }
 
@@ -1211,7 +1270,9 @@ mod tests {
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
-        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 5, DROPPED))
+            .unwrap();
         assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
 
         assert!(
@@ -1239,7 +1300,9 @@ mod tests {
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
-        leave_tx.try_send(leave_directive(PEER_SLOT, 5, DROPPED)).unwrap();
+        leave_tx
+            .try_send(leave_directive(PEER_SLOT, 5, DROPPED))
+            .unwrap();
         assert_eq!(state.take_due_leaves(5), vec![(PEER_STORM, DROPPED)]);
         assert!(state.should_self_close());
 
@@ -1277,7 +1340,10 @@ mod tests {
     #[test]
     fn expect_result_report_sets_the_shared_latch() {
         let (state, _result_rx, result_expected) = turn_state_with_result();
-        assert!(!result_expected.load(Ordering::Relaxed), "not latched until asked");
+        assert!(
+            !result_expected.load(Ordering::Relaxed),
+            "not latched until asked"
+        );
 
         state.expect_result_report();
         assert!(

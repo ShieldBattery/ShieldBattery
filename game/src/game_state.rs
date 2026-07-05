@@ -766,16 +766,17 @@ impl GameState {
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
                         return async move {
-                            let response =
-                                match tokio::task::spawn_blocking(crate::debug_control::capture_screenshot)
-                                    .await
-                                {
-                                    Ok(response) => response,
-                                    Err(e) => crate::debug_control::DebugScreenshotResponse {
-                                        screenshot: None,
-                                        error: Some(format!("screenshot task failed: {e}")),
-                                    },
-                                };
+                            let response = match tokio::task::spawn_blocking(
+                                crate::debug_control::capture_screenshot,
+                            )
+                            .await
+                            {
+                                Ok(response) => response,
+                                Err(e) => crate::debug_control::DebugScreenshotResponse {
+                                    screenshot: None,
+                                    error: Some(format!("screenshot task failed: {e}")),
+                                },
+                            };
                             let _ = app_socket::send_message(
                                 &ws_send,
                                 "/game/debug/screenshot",
@@ -1016,8 +1017,15 @@ async fn send_game_result(
     // and no `/game/resultSent` emission. The replay upload still runs for both.
     let results_future = async {
         if !sent_over_relay {
-            send_results_to_server(results, info, local_user, &result_code, server_config, ws_send)
-                .await;
+            send_results_to_server(
+                results,
+                info,
+                local_user,
+                &result_code,
+                server_config,
+                ws_send,
+            )
+            .await;
         }
     };
 

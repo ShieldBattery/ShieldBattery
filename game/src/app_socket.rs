@@ -180,7 +180,13 @@ fn parse_payload<T: serde::de::DeserializeOwned>(
     sensitive: bool,
 ) -> Result<T, HandleMessageError> {
     Ok(serde_json::from_value(payload)
-        .map_err(|e| if sensitive { sanitize_serde_error(e) } else { e })
+        .map_err(|e| {
+            if sensitive {
+                sanitize_serde_error(e)
+            } else {
+                e
+            }
+        })
         .context((context, err_input))?)
 }
 

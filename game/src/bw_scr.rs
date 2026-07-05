@@ -726,7 +726,9 @@ fn resolve_netcode_v2(
     ctx: scarf::OperandCtx<'static>,
 ) -> Result<NetcodeV2Bw, BwInitError> {
     let send_turn_message = analysis.send_turn_message().ok_or("send_turn_message")?;
-    let receive_storm_turns = analysis.receive_storm_turns().ok_or("receive_storm_turns")?;
+    let receive_storm_turns = analysis
+        .receive_storm_turns()
+        .ok_or("receive_storm_turns")?;
     let flush_local_turns = analysis
         .flush_local_turns_to_latency_depth()
         .ok_or("flush_local_turns_to_latency_depth")?;
@@ -739,7 +741,9 @@ fn resolve_netcode_v2(
     let player_turns = analysis.player_turns().ok_or("player_turns")?;
     let player_turns_size = analysis.player_turns_size().ok_or("player_turns_size")?;
     let game_frame_count = analysis.game_frame_count().ok_or("game_frame_count")?;
-    let pending_leave_reason = analysis.pending_leave_reason().ok_or("pending_leave_reason")?;
+    let pending_leave_reason = analysis
+        .pending_leave_reason()
+        .ok_or("pending_leave_reason")?;
 
     Ok(NetcodeV2Bw {
         send_turn_message,
@@ -1561,9 +1565,7 @@ impl BwScr {
                         None
                     };
                     let effective_latency = match v2_turns {
-                        Some(latency_turns) => {
-                            ((1000 * latency_turns + 500) / turn_rate) as f32
-                        }
+                        Some(latency_turns) => ((1000 * latency_turns + 500) / turn_rate) as f32,
                         None => {
                             let cur_user_latency = self.net_user_latency.resolve();
                             let user_delay = 2 /* proto_latency */ + cur_user_latency;
@@ -2417,8 +2419,9 @@ impl BwScr {
             let nc = &self.netcode_v2;
             // Read the shortfall under the lock, then release before flushing — each flush re-enters
             // the OUT hook (which re-locks the turn state) and bumps the in-flight counter by one.
-            let to_flush =
-                netcode_v2::with_turn_state(|s| s.latency_turns().saturating_sub(s.outstanding_turns()));
+            let to_flush = netcode_v2::with_turn_state(|s| {
+                s.latency_turns().saturating_sub(s.outstanding_turns())
+            });
             match to_flush {
                 None => false,
                 Some(n) => {

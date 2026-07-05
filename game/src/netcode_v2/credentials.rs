@@ -269,7 +269,10 @@ mod tests {
         ));
         // Non-base64 → base64 error.
         assert!(matches!(
-            add_relay_cert(&mut roots, &relay(Some("203.0.113.7"), None, "!!!not base64!!!")),
+            add_relay_cert(
+                &mut roots,
+                &relay(Some("203.0.113.7"), None, "!!!not base64!!!")
+            ),
             Err(CredentialError::Base64("relayCert"))
         ));
         assert!(roots.is_empty());
