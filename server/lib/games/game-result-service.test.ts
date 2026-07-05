@@ -12,8 +12,15 @@ import { MatchmakingType } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { areAllHumansAccountedFor } from '../models/games-users'
-import { FakeClock, StopCriteria } from '../time/testing/fake-clock'
-import { getGameRecord } from './game-models'
+import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
+import { FakeClock } from '../time/testing/fake-clock'
+import {
+  findFullyReportedUnreconciledGames,
+  findKnownCompleteUnreconciledGames,
+  findUnreconciledGames,
+  findUnreconciledV2GamesForProbe,
+  getGameRecord,
+} from './game-models'
 import GameResultService, {
   getValidationTeams,
   haveAllRequiredReportersReported,
@@ -25,6 +32,10 @@ vi.mock('./game-models', async () => {
   return {
     ...actual,
     getGameRecord: vi.fn(),
+    findUnreconciledGames: vi.fn(),
+    findFullyReportedUnreconciledGames: vi.fn(),
+    findKnownCompleteUnreconciledGames: vi.fn(),
+    findUnreconciledV2GamesForProbe: vi.fn(),
   }
 })
 
@@ -34,6 +45,17 @@ vi.mock('../models/games-users', async () => {
   return {
     ...actual,
     areAllHumansAccountedFor: vi.fn(),
+  }
+})
+
+vi.mock('../netcode-v2/netcode-v2-service', async () => {
+  const actual = await vi.importActual<typeof import('../netcode-v2/netcode-v2-service')>(
+    '../netcode-v2/netcode-v2-service',
+  )
+  return {
+    ...actual,
+    checkSessionsAlive: vi.fn(),
+    loadConfigFromEnv: vi.fn(),
   }
 })
 
@@ -179,8 +201,6 @@ describe('games/game-result-service/haveAllRequiredReportersReported', () => {
 
 describe('games/game-result-service/GameResultService#maybeScheduleKnownCompleteReconcile', () => {
   const GAME_ID = 'game-1'
-  /** Matches `RECONCILE_KNOWN_COMPLETE_DELAY_MS` in game-result-service.ts. */
-  const RECONCILE_DELAY_MS = 2 * 60 * 1000
 
   let clock: FakeClock
   let service: GameResultService
@@ -221,8 +241,8 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
     )
 
     // `maybeReconcileResults` and `publishReconciledGame` are exercised by their own tests
-    // elsewhere; here we only care that the scheduling/dedup machinery calls them at the right
-    // time with the right arguments, so we stub their bodies out.
+    // elsewhere; here we only care that this method calls them (via `forceReconcileGame`) at the
+    // right time with the right arguments, so we stub their bodies out.
     maybeReconcileResults = vi
       .spyOn(service as any, 'maybeReconcileResults')
       .mockResolvedValue(true)
@@ -231,47 +251,26 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
       .mockResolvedValue(undefined)
   })
 
-  test('schedules a one-shot that force-reconciles after the delay', async () => {
+  test('force-reconciles immediately once every human is accounted for', async () => {
     const gameRecord = makeGameRecord()
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
     asMockedFunction(areAllHumansAccountedFor).mockResolvedValue(true)
 
     await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await clock.allTimeoutsCompleted()
 
     expect(maybeReconcileResults).toHaveBeenCalledWith(gameRecord, true)
     expect(publishReconciledGame).toHaveBeenCalledWith(GAME_ID)
   })
 
-  test('dedups: a second call while the one-shot is still pending does not schedule another', async () => {
-    clock.autoRunTimeouts = false
-    const setTimeoutSpy = vi.spyOn(clock, 'setTimeout')
-
+  test('each call that passes the gate force-reconciles again — no dedup/delay to skip', async () => {
     const gameRecord = makeGameRecord()
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
     asMockedFunction(areAllHumansAccountedFor).mockResolvedValue(true)
 
     await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-
-    expect(setTimeoutSpy).toHaveBeenCalledTimes(1)
-    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), RECONCILE_DELAY_MS)
-
-    await clock.runTimeoutsUntil({ criteria: StopCriteria.EmptyQueue })
-    expect(maybeReconcileResults).toHaveBeenCalledTimes(1)
-  })
-
-  test('a new call after the first one-shot fired schedules a fresh one', async () => {
-    const gameRecord = makeGameRecord()
-    asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
-    asMockedFunction(areAllHumansAccountedFor).mockResolvedValue(true)
-
-    await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await clock.allTimeoutsCompleted()
     expect(maybeReconcileResults).toHaveBeenCalledTimes(1)
 
     await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await clock.allTimeoutsCompleted()
     expect(maybeReconcileResults).toHaveBeenCalledTimes(2)
   })
 
@@ -280,7 +279,6 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
 
     await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await clock.allTimeoutsCompleted()
 
     expect(areAllHumansAccountedFor).not.toHaveBeenCalled()
     expect(maybeReconcileResults).not.toHaveBeenCalled()
@@ -291,7 +289,6 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
     asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
 
     await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await clock.allTimeoutsCompleted()
 
     expect(areAllHumansAccountedFor).not.toHaveBeenCalled()
     expect(maybeReconcileResults).not.toHaveBeenCalled()
@@ -303,7 +300,6 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
     asMockedFunction(areAllHumansAccountedFor).mockResolvedValue(false)
 
     await service.maybeScheduleKnownCompleteReconcile(GAME_ID)
-    await clock.allTimeoutsCompleted()
 
     expect(maybeReconcileResults).not.toHaveBeenCalled()
   })
@@ -322,5 +318,186 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
 
     await expect(service.maybeScheduleKnownCompleteReconcile(GAME_ID)).resolves.toBeUndefined()
     expect(maybeReconcileResults).not.toHaveBeenCalled()
+  })
+})
+
+describe('games/game-result-service/GameResultService#forceReconcileGame', () => {
+  const GAME_ID = 'game-1'
+
+  let clock: FakeClock
+  let service: GameResultService
+  let maybeReconcileResults: ReturnType<typeof vi.spyOn>
+  let publishReconciledGame: ReturnType<typeof vi.spyOn>
+
+  function makeGameRecord(overrides: Partial<GameRecord> = {}): GameRecord {
+    return {
+      id: GAME_ID,
+      startTime: new Date(0),
+      mapId: makeSbMapId('1'),
+      config: matchmakingConfig(DEFAULT_TEAMS, { useNetcodeV2: true }),
+      disputable: false,
+      disputeRequested: false,
+      disputeReviewed: false,
+      gameLength: null,
+      results: null,
+      selectedMatchup: null,
+      assignedMatchup: null,
+      ...overrides,
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    clock = new FakeClock()
+    clock.setCurrentTime(1_000_000)
+
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      {} as any,
+      clock,
+      {} as any,
+    )
+
+    maybeReconcileResults = vi.spyOn(service as any, 'maybeReconcileResults')
+    publishReconciledGame = vi
+      .spyOn(service as any, 'publishReconciledGame')
+      .mockResolvedValue(undefined)
+  })
+
+  test('force-reconciles and publishes when reconciliation commits', async () => {
+    const gameRecord = makeGameRecord()
+    asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
+    maybeReconcileResults.mockResolvedValue(true)
+
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(maybeReconcileResults).toHaveBeenCalledWith(gameRecord, true)
+    expect(publishReconciledGame).toHaveBeenCalledWith(GAME_ID)
+  })
+
+  test('does not publish when reconciliation does not commit', async () => {
+    const gameRecord = makeGameRecord()
+    asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
+    maybeReconcileResults.mockResolvedValue(false)
+
+    await service.forceReconcileGame(GAME_ID)
+
+    expect(publishReconciledGame).not.toHaveBeenCalled()
+  })
+
+  test('resolves quietly (never throws) when the game cannot be found', async () => {
+    asMockedFunction(getGameRecord).mockResolvedValue(undefined)
+
+    await expect(service.forceReconcileGame(GAME_ID)).resolves.toBeUndefined()
+    expect(publishReconciledGame).not.toHaveBeenCalled()
+  })
+
+  test('resolves quietly (never throws) when reconciliation fails unexpectedly', async () => {
+    const gameRecord = makeGameRecord()
+    asMockedFunction(getGameRecord).mockResolvedValue(gameRecord)
+    maybeReconcileResults.mockRejectedValue(new Error('db exploded'))
+
+    await expect(service.forceReconcileGame(GAME_ID)).resolves.toBeUndefined()
+    expect(publishReconciledGame).not.toHaveBeenCalled()
+  })
+})
+
+describe('games/game-result-service/GameResultService periodic sweep — netcode-v2 liveness probe', () => {
+  const GAME_ID_ALIVE = 'game-alive'
+  const GAME_ID_GONE = 'game-gone'
+
+  const FAKE_CONFIG = {
+    coordinatorUrl: 'http://coordinator.example',
+    tenant: 'sb-dev',
+    relayServerName: 'localhost',
+  }
+
+  let clock: FakeClock
+  let service: GameResultService
+  let forceReconcileGame: ReturnType<typeof vi.spyOn>
+  let sweepCallback: () => Promise<void>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    clock = new FakeClock()
+    clock.setCurrentTime(1_000_000)
+
+    // The sweep also runs the legacy/known-complete loops before the probe; stub them out to
+    // empty so this block only exercises the probe's own behavior.
+    asMockedFunction(findUnreconciledGames).mockResolvedValue([])
+    asMockedFunction(findFullyReportedUnreconciledGames).mockResolvedValue([])
+    asMockedFunction(findKnownCompleteUnreconciledGames).mockResolvedValue([])
+    asMockedFunction(findUnreconciledV2GamesForProbe).mockResolvedValue([])
+
+    const jobScheduler = {
+      scheduleJob: vi.fn(
+        (_name: string, _start: Date, _interval: number, cb: () => Promise<void>) => {
+          sweepCallback = cb
+        },
+      ),
+      unscheduleJob: vi.fn(),
+    }
+
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      jobScheduler as any,
+      {} as any,
+      clock,
+      {} as any,
+    )
+
+    forceReconcileGame = vi.spyOn(service, 'forceReconcileGame').mockResolvedValue(undefined)
+  })
+
+  test('skips the probe entirely when netcode v2 is not configured', async () => {
+    asMockedFunction(loadConfigFromEnv).mockReturnValue(undefined)
+
+    await sweepCallback()
+
+    expect(findUnreconciledV2GamesForProbe).not.toHaveBeenCalled()
+    expect(checkSessionsAlive).not.toHaveBeenCalled()
+  })
+
+  test('does not call the coordinator when there are no probe candidates', async () => {
+    asMockedFunction(loadConfigFromEnv).mockReturnValue(FAKE_CONFIG)
+    asMockedFunction(findUnreconciledV2GamesForProbe).mockResolvedValue([])
+
+    await sweepCallback()
+
+    expect(checkSessionsAlive).not.toHaveBeenCalled()
+    expect(forceReconcileGame).not.toHaveBeenCalled()
+  })
+
+  test('force-reconciles games whose session is gone/unknown, skips ones still alive', async () => {
+    asMockedFunction(loadConfigFromEnv).mockReturnValue(FAKE_CONFIG)
+    asMockedFunction(findUnreconciledV2GamesForProbe).mockResolvedValue([
+      { gameId: GAME_ID_ALIVE, session: 1 },
+      { gameId: GAME_ID_GONE, session: 2 },
+    ])
+    asMockedFunction(checkSessionsAlive).mockResolvedValue(new Set([1]))
+
+    await sweepCallback()
+
+    expect(checkSessionsAlive).toHaveBeenCalledWith([1, 2])
+    expect(forceReconcileGame).toHaveBeenCalledTimes(1)
+    expect(forceReconcileGame).toHaveBeenCalledWith(GAME_ID_GONE)
+  })
+
+  test('logs and continues (does not throw) if the coordinator liveness check fails', async () => {
+    asMockedFunction(loadConfigFromEnv).mockReturnValue(FAKE_CONFIG)
+    asMockedFunction(findUnreconciledV2GamesForProbe).mockResolvedValue([
+      { gameId: GAME_ID_GONE, session: 2 },
+    ])
+    asMockedFunction(checkSessionsAlive).mockRejectedValue(new Error('coordinator down'))
+
+    await expect(sweepCallback()).resolves.toBeUndefined()
+    expect(forceReconcileGame).not.toHaveBeenCalled()
   })
 })

@@ -170,6 +170,95 @@ describe('netcode-v2/GAME_EVENT_BODY_SCHEMA', () => {
     expect(error).toBeDefined()
   })
 
+  test('accepts a departure event with an embedded result', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'departure',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 0,
+      externalRef: '42',
+      kind: 'left',
+      reason: 3,
+      leaveSeq: 1,
+      result: {
+        payload: Buffer.from('{"userId":42}', 'utf8').toString('base64'),
+        arrivalMs: Date.now(),
+        sessionFrame: 100,
+        slotFrame: 99,
+      },
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.event).toBe('departure')
+  })
+
+  test('accepts a departure event without an embedded result', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'departure',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 0,
+      kind: 'dropped',
+      reason: 1,
+      leaveSeq: 1,
+    })
+
+    expect(error).toBeUndefined()
+  })
+
+  test('rejects a departure event whose embedded result is missing a required field', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'departure',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+      slot: 0,
+      kind: 'left',
+      reason: 3,
+      leaveSeq: 1,
+      result: {
+        // missing `payload` and `arrivalMs`
+        sessionFrame: 100,
+      },
+    })
+
+    expect(error).toBeDefined()
+  })
+
+  test('accepts a sessionClosed event', () => {
+    const { error, value } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionClosed',
+      tenant: 'sb-dev',
+      session: 1,
+      externalId: GAME_ID,
+    })
+
+    expect(error).toBeUndefined()
+    expect(value.event).toBe('sessionClosed')
+  })
+
+  test('accepts a sessionClosed event without externalId', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionClosed',
+      tenant: 'sb-dev',
+      session: 1,
+    })
+
+    expect(error).toBeUndefined()
+  })
+
+  test('rejects a sessionClosed event missing a required field', () => {
+    const { error } = GAME_EVENT_BODY_SCHEMA.validate({
+      event: 'sessionClosed',
+      externalId: GAME_ID,
+      // missing `tenant` and `session`
+    })
+
+    expect(error).toBeDefined()
+  })
+
   test('allows unknown extra fields on either variant (coordinator does not deny_unknown_fields)', () => {
     const { error } = GAME_EVENT_BODY_SCHEMA.validate({
       event: 'departure',

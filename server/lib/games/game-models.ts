@@ -118,6 +118,24 @@ export async function setReconciledResult(
 }
 
 /**
+ * Persists the rally-point2 coordinator's session id for a netcode-v2 game, called right after the
+ * coordinator's session/create call succeeds. Lets the reconciliation sweep later ask the
+ * coordinator whether the session is still alive instead of blind-forcing after a timeout.
+ */
+export async function setNetcodeV2Session(gameId: string, session: number): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET netcode_v2_session = ${session}
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
  * Overwrites a game's persisted config. Used for values that get decided after the game record is
  * first created — currently only `useNetcodeV2`, which depends on the netcode v2 feature flag and
  * the player count at load time, neither of which is known when the game is registered.
@@ -482,6 +500,10 @@ export async function getGamesForUser(
  * determine games that have completed but didn't get reconciled (usually because at least one
  * player failed to report).
  *
+ * Excludes netcode-v2 games that persisted a coordinator session id — those are covered by the
+ * sweep's coordinator liveness probe instead (`findUnreconciledV2GamesForProbe`), so this is
+ * effectively the legacy/pre-cutover backstop now.
+ *
  * @param reportedBeforeTime Only include game IDs that have a reported result from before this time
  * @param withClient a DB client to use to make the query (optional)
  */
@@ -494,11 +516,46 @@ export async function findUnreconciledGames(
     const result = await client.query<{ id: string }>(sql`
       SELECT DISTINCT gu.game_id as "id"
       FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
       WHERE gu."reported_results" IS NOT NULL
       AND gu."result" IS NULL
-      AND gu.reported_at < ${reportedBeforeTime};
+      AND gu.reported_at < ${reportedBeforeTime}
+      AND g.netcode_v2_session IS NULL;
     `)
     return result.rows.map(row => row.id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns unreconciled netcode-v2 games that persisted a coordinator session id and started before
+ * `olderThan`, for the periodic sweep's coordinator liveness probe. A v2 game only reaches this
+ * backstop if it missed both push paths (the zero-grace known-complete trigger and `sessionClosed`)
+ * -- ~zero in steady state -- so the sweep asks the coordinator directly whether each session is
+ * still alive instead of blind-forcing on a timeout.
+ *
+ * @param olderThan Only include games that started before this time
+ * @param withClient a DB client to use to make the query (optional)
+ */
+export async function findUnreconciledV2GamesForProbe(
+  olderThan: Date,
+  withClient?: DbClient,
+): Promise<Array<{ gameId: string; session: number }>> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string; netcode_v2_session: string }>(sql`
+      SELECT id, netcode_v2_session
+      FROM games
+      WHERE results IS NULL
+      AND netcode_v2_session IS NOT NULL
+      AND start_time < ${olderThan};
+    `)
+    return result.rows.map(row => ({
+      gameId: row.id,
+      // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
+      session: Number(row.netcode_v2_session),
+    }))
   } finally {
     done()
   }

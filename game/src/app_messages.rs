@@ -534,9 +534,6 @@ pub struct NetcodeV2Setup {
     pub client_private_key: Secret,
     /// The home relay this client dials.
     pub home_relay: NetcodeV2Relay,
-    /// Optional backup relay for failover. Carried now so the descriptor shape is stable; unused
-    /// until the reconnect/resync mechanism lands.
-    pub backup_relay: Option<NetcodeV2Relay>,
     /// The session's full slot roster (every player, including ourselves). Our own slot still comes
     /// from the signed token — this list exists to map the *other* players' slots.
     pub roster: Vec<NetcodeV2RosterEntry>,

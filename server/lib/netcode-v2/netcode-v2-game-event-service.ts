@@ -6,6 +6,7 @@ import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
   NetcodeV2ResultNotification,
+  NetcodeV2SessionClosedNotification,
 } from '../../../common/games/netcode-v2'
 import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -168,6 +169,112 @@ type ScheduleKnownCompleteReconcile = (gameId: string) => Promise<void>
 const defaultScheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = gameId =>
   container.resolve(GameResultService).maybeScheduleKnownCompleteReconcile(gameId)
 
+/** The `GameResultService.forceReconcileGame` call `recordSessionClosedNotification` needs, factored out for injection in tests. */
+type ForceReconcile = (gameId: string) => Promise<void>
+
+/** Production `ForceReconcile`: resolves the singleton service from the DI container. */
+const defaultForceReconcile: ForceReconcile = gameId =>
+  container.resolve(GameResultService).forceReconcileGame(gameId)
+
+/** The `submitGameResults` call `submitRelayResult` needs, factored out for injection in tests. */
+type SubmitGameResults = (args: {
+  gameId: string
+  userId: SbUserId
+  resultCode: string
+  time: number
+  playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
+  relayReportTime: Date
+  relayReportFrame: number | null
+  logger: Logger
+}) => Promise<void>
+
+/** Production `SubmitGameResults`: resolves the singleton service from the DI container. */
+const defaultSubmitGameResults: SubmitGameResults = args =>
+  container.resolve(GameResultService).submitGameResults(args)
+
+/**
+ * Decodes, validates, and submits a relay-forwarded result report through
+ * `GameResultService.submitGameResults` — the shared pipeline behind both the standalone `result`
+ * webhook and a departure's embedded result, since both carry the exact same opaque payload shape.
+ *
+ * Same forgiving posture throughout: an undecodable/invalid payload, or a payload whose `userId`
+ * doesn't match the already-resolved `userId` (a malicious or corrupt relay/coordinator), is logged
+ * and dropped rather than erroring back to the coordinator. A duplicate delivery of an
+ * already-submitted result is expected (the webhook is at-least-once, and a departure's embedded
+ * result is itself redundant with an earlier standalone report) and is likewise silent. An
+ * unexpected (non-domain) error from the submission service is rethrown.
+ *
+ * @returns whether a fresh report was actually submitted — `false` covers every dropped/duplicate
+ *   path, so callers that gate other work on "did this webhook just close out a slot" can tell the
+ *   difference.
+ */
+async function submitRelayResult(
+  {
+    gameId,
+    userId,
+    payload,
+    arrivalMs,
+    sessionFrame,
+  }: {
+    gameId: string
+    userId: SbUserId
+    payload: string
+    arrivalMs: number
+    sessionFrame?: number
+  },
+  submitGameResults: SubmitGameResults,
+): Promise<boolean> {
+  let parsedPayload: unknown
+  try {
+    parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'))
+  } catch (err) {
+    log.warn({ gameId, userId, err }, 'netcode v2 result payload could not be decoded, dropping')
+    return false
+  }
+
+  const { error, value: body } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(parsedPayload)
+  if (error) {
+    log.warn(
+      { gameId, userId, err: error },
+      'netcode v2 result payload failed schema validation, dropping',
+    )
+    return false
+  }
+
+  if (body.userId !== userId) {
+    log.warn(
+      { gameId, userId, payloadUserId: body.userId },
+      'netcode v2 result payload userId does not match externalRef, dropping',
+    )
+    return false
+  }
+
+  try {
+    await submitGameResults({
+      gameId,
+      userId,
+      resultCode: body.resultCode,
+      time: body.time,
+      playerResults: body.playerResults,
+      relayReportTime: new Date(arrivalMs),
+      relayReportFrame: sessionFrame ?? null,
+      logger: log,
+    })
+    log.info({ gameId, userId }, 'result recorded via relay webhook')
+    return true
+  } catch (err) {
+    if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.AlreadyReported) {
+      log.debug({ gameId, userId }, 'duplicate relay result ignored')
+      return false
+    }
+    if (err instanceof GameResultServiceError) {
+      log.warn({ gameId, userId, err }, 'relay result rejected by submission service, dropping')
+      return false
+    }
+    throw err
+  }
+}
+
 /**
  * Classifies and records a departure notification from an already-authenticated caller. Always
  * completes successfully from the caller's perspective (the caller responds 204 either way) — an
@@ -176,10 +283,18 @@ const defaultScheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = ga
  * recorded unconditionally, even if that game already has results — see `recordUserDeparture`'s
  * doc comment for why.
  *
+ * A departure carrying an embedded `result` submits it through the same pipeline as the standalone
+ * `result` webhook, before the departure itself is recorded — a departure is atomic terminal truth
+ * for its slot, so its result (if any) lands first. This is expected to duplicate an earlier
+ * standalone report for the same slot (the fast path at the victory dialog); `submitRelayResult`
+ * silently no-ops on that overlap.
+ *
+ * @param submitGameResults injectable for testing; defaults to the real service.
  * @param scheduleKnownCompleteReconcile injectable for testing; defaults to the real service.
  */
 export async function recordDepartureNotification(
   notification: NetcodeV2DepartureNotification,
+  submitGameResults: SubmitGameResults = defaultSubmitGameResults,
   scheduleKnownCompleteReconcile: ScheduleKnownCompleteReconcile = defaultScheduleKnownCompleteReconcile,
 ): Promise<void> {
   const gameId = parseGameId(notification.externalId, 'departure')
@@ -190,6 +305,19 @@ export async function recordDepartureNotification(
   const userId = parseUserId(notification.externalRef, { gameId })
   if (!userId) {
     return
+  }
+
+  if (notification.result) {
+    await submitRelayResult(
+      {
+        gameId,
+        userId,
+        payload: notification.result.payload,
+        arrivalMs: notification.result.arrivalMs,
+        sessionFrame: notification.result.sessionFrame,
+      },
+      submitGameResults,
+    )
   }
 
   const { kind } = notification
@@ -249,22 +377,6 @@ export async function recordDesyncNotification(
   }
 }
 
-/** The `submitGameResults` call `recordResultNotification` needs, factored out for injection in tests. */
-type SubmitGameResults = (args: {
-  gameId: string
-  userId: SbUserId
-  resultCode: string
-  time: number
-  playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
-  relayReportTime: Date
-  relayReportFrame: number | null
-  logger: Logger
-}) => Promise<void>
-
-/** Production `SubmitGameResults`: resolves the singleton service from the DI container. */
-const defaultSubmitGameResults: SubmitGameResults = args =>
-  container.resolve(GameResultService).submitGameResults(args)
-
 /**
  * Classifies and records a result notification from an already-authenticated caller: this is the
  * only way a netcode-v2 game's result reaches the server, so a notification that resolves to a
@@ -294,55 +406,46 @@ export async function recordResultNotification(
     return
   }
 
-  let parsedPayload: unknown
-  try {
-    parsedPayload = JSON.parse(Buffer.from(notification.payload, 'base64').toString('utf8'))
-  } catch (err) {
-    log.warn({ gameId, userId, err }, 'netcode v2 result payload could not be decoded, dropping')
-    return
-  }
-
-  const { error, value: body } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(parsedPayload)
-  if (error) {
-    log.warn(
-      { gameId, userId, err: error },
-      'netcode v2 result payload failed schema validation, dropping',
-    )
-    return
-  }
-
-  if (body.userId !== userId) {
-    log.warn(
-      { gameId, userId, payloadUserId: body.userId },
-      'netcode v2 result payload userId does not match externalRef, dropping',
-    )
-    return
-  }
-
-  try {
-    await submitGameResults({
+  const submitted = await submitRelayResult(
+    {
       gameId,
       userId,
-      resultCode: body.resultCode,
-      time: body.time,
-      playerResults: body.playerResults,
-      relayReportTime: new Date(notification.arrivalMs),
-      relayReportFrame: notification.sessionFrame ?? null,
-      logger: log,
-    })
-    log.info({ gameId, userId }, 'result recorded via relay webhook')
-  } catch (err) {
-    if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.AlreadyReported) {
-      log.debug({ gameId, userId }, 'duplicate relay result ignored')
-      return
-    }
-    if (err instanceof GameResultServiceError) {
-      log.warn({ gameId, userId, err }, 'relay result rejected by submission service, dropping')
-      return
-    }
-    throw err
+      payload: notification.payload,
+      arrivalMs: notification.arrivalMs,
+      sessionFrame: notification.sessionFrame,
+    },
+    submitGameResults,
+  )
+  if (!submitted) {
+    return
   }
 
   // This result may have just closed the last still-open human slot in the game.
   await scheduleKnownCompleteReconcile(gameId)
+}
+
+/**
+ * Classifies and records a `sessionClosed` notification from an already-authenticated caller.
+ * The coordinator only sends this once every relay serving the session has torn down its state and
+ * webhook dispatch for the session is serialized, so by the time this arrives every other notice
+ * for the session was already delivered or permanently exhausted — nothing for it is still in
+ * flight. There's nothing left to gate on, so this force-reconciles the game immediately with
+ * whatever evidence has landed, covering a slot whose result and departure were both lost.
+ *
+ * Same forgiving posture as the other event kinds — an unresolvable `externalId` is logged and
+ * dropped — and never throws, so a reconciliation failure doesn't turn an already-successful
+ * webhook delivery into an error response.
+ *
+ * @param forceReconcile injectable for testing; defaults to the real service.
+ */
+export async function recordSessionClosedNotification(
+  notification: NetcodeV2SessionClosedNotification,
+  forceReconcile: ForceReconcile = defaultForceReconcile,
+): Promise<void> {
+  const gameId = parseGameId(notification.externalId, 'sessionClosed')
+  if (!gameId) {
+    return
+  }
+
+  await forceReconcile(gameId)
 }

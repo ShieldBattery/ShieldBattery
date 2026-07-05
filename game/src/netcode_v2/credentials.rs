@@ -80,15 +80,14 @@ pub struct RelayTarget {
     pub server_name: String,
 }
 
-/// Everything one game session needs to authorize against its relays: the client [`Identity`], the
-/// home relay (and optional backup) to dial, and the pinned trust store covering them.
+/// Everything one game session needs to authorize against its relay: the client [`Identity`], the
+/// home relay to dial, and the pinned trust store covering it.
 ///
 /// [`Identity`] is not `Clone` and owns the signing key, so this whole bundle is consumed (moved)
 /// by the session setup when it builds the endpoint.
 pub struct SessionCredentials {
     pub identity: Identity,
     pub home: RelayTarget,
-    pub backup: Option<RelayTarget>,
     pub roots: RootCertStore,
 }
 
@@ -103,21 +102,16 @@ impl SessionCredentials {
         let key_bytes = decode_base64(setup.client_private_key.expose(), "clientPrivateKey")?;
         let identity = Identity::from_pkcs8(token, &key_bytes).map_err(|_| CredentialError::Key)?;
 
-        // Pin every relay we might dial (home + backup) into one trust store. Building it from the
-        // relays we were told to trust — and only those — is the whole point; see the module docs.
+        // Pin the home relay into the trust store. Building it from the relay we were told to
+        // trust — and only that — is the whole point; see the module docs.
         let mut roots = RootCertStore::empty();
         add_relay_cert(&mut roots, &setup.home_relay)?;
-        if let Some(backup) = &setup.backup_relay {
-            add_relay_cert(&mut roots, backup)?;
-        }
 
         let home = resolve_relay(&setup.home_relay)?;
-        let backup = setup.backup_relay.as_ref().map(resolve_relay).transpose()?;
 
         Ok(Self {
             identity,
             home,
-            backup,
             roots,
         })
     }
@@ -211,7 +205,6 @@ mod tests {
             token: BASE64_STANDARD.encode([0u8; 4]),
             client_private_key: Secret::from_base64_for_test(&BASE64_STANDARD.encode([0u8; 4])),
             home_relay: home,
-            backup_relay: None,
             roster: Vec::new(),
         }
     }

@@ -3,7 +3,7 @@
 //! hooks reach the game-thread-owned [`TurnState`].
 //!
 //! [`establish_session`] runs on the DLL's Tokio runtime: it builds the pinned-trust credentials,
-//! dials the home relay (falling back across address families and to the backup relay), spawns the
+//! dials the home relay (falling back across its address families), spawns the
 //! [`LinkDriver`] that services the link, and stores the resulting [`TurnState`] where the three BW
 //! hooks (installed in `bw_scr.rs`) can reach it via [`with_turn_state`]. With no live session the
 //! hooks find nothing here and fall through to the native transport.
@@ -63,25 +63,14 @@ pub async fn establish_session(setup: &NetcodeV2Setup) -> Result<(), SessionErro
     let SessionCredentials {
         identity,
         home,
-        backup,
         roots,
     } = SessionCredentials::from_setup(setup)?;
     // The slot is the one the coordinator signed into the token, not a separately-sent value.
     let local_slot = identity.token().claims.slot;
     let endpoint = credentials::bind_endpoint(roots)?;
 
-    // Dial the home relay; fall back to the backup only if the home relay is unreachable on every
-    // one of its addresses. Surface the home relay's error if the backup also fails — it's the more
-    // useful diagnostic.
-    let link = match connect_relay(&endpoint, &home, &identity).await {
-        Ok(link) => link,
-        Err(home_err) => match &backup {
-            Some(backup) => connect_relay(&endpoint, backup, &identity)
-                .await
-                .map_err(|_| home_err)?,
-            None => return Err(home_err),
-        },
-    };
+    // Dial the home relay, trying its candidate addresses in preference order (v6 then v4).
+    let link = connect_relay(&endpoint, &home, &identity).await?;
 
     let (driver, channels) = LinkDriver::new(link);
     // Service the link on the DLL's async runtime. `run` returning `Err` means the link failed,

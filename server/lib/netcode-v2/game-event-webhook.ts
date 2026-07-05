@@ -7,6 +7,7 @@ import {
   NetcodeV2DesyncNotification,
   NetcodeV2GameEvent,
   NetcodeV2ResultNotification,
+  NetcodeV2SessionClosedNotification,
 } from '../../../common/games/netcode-v2'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
@@ -16,6 +17,7 @@ import {
   recordDepartureNotification,
   recordDesyncNotification,
   recordResultNotification,
+  recordSessionClosedNotification,
 } from './netcode-v2-game-event-service'
 
 const gameEventsThrottle = createThrottle('netcodeV2GameEvents', {
@@ -54,6 +56,16 @@ const MAX_DIVERGED_SLOTS = 16
 const MAX_RESULT_PAYLOAD_BASE64_CHARS = 8192
 const MAX_SLOT = 15
 
+// Shared by RESULT_EVENT_SCHEMA and DEPARTURE_EVENT_SCHEMA's embedded `result`: both carry the
+// exact same relay-forwarded report shape, so they validate it identically rather than each
+// declaring their own copy.
+const RESULT_PAYLOAD_FIELDS = {
+  payload: Joi.string().base64().max(MAX_RESULT_PAYLOAD_BASE64_CHARS).required(),
+  arrivalMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
+  sessionFrame: Joi.number().integer().min(0),
+  slotFrame: Joi.number().integer().min(0),
+}
+
 const DEPARTURE_EVENT_SCHEMA = Joi.object<NetcodeV2DepartureNotification>({
   event: Joi.string().valid('departure').required(),
   tenant: Joi.string().required(),
@@ -64,6 +76,7 @@ const DEPARTURE_EVENT_SCHEMA = Joi.object<NetcodeV2DepartureNotification>({
   kind: Joi.string().valid('left', 'dropped').required(),
   reason: Joi.number().integer().min(0).required(),
   leaveSeq: Joi.number().integer().min(0).required(),
+  result: Joi.object(RESULT_PAYLOAD_FIELDS),
 })
   // The coordinator's control protos don't `deny_unknown_fields`, so this endpoint shouldn't
   // either — an old app server shouldn't break on a newer coordinator's extra webhook fields.
@@ -98,10 +111,16 @@ const RESULT_EVENT_SCHEMA = Joi.object<NetcodeV2ResultNotification>({
   externalId: Joi.string(),
   slot: Joi.number().integer().min(0).max(MAX_SLOT).required(),
   externalRef: Joi.string(),
-  payload: Joi.string().base64().max(MAX_RESULT_PAYLOAD_BASE64_CHARS).required(),
-  arrivalMs: Joi.number().integer().min(0).max(MAX_EPOCH_MS).required(),
-  sessionFrame: Joi.number().integer().min(0),
-  slotFrame: Joi.number().integer().min(0),
+  ...RESULT_PAYLOAD_FIELDS,
+})
+  // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
+  .unknown(true)
+
+const SESSION_CLOSED_EVENT_SCHEMA = Joi.object<NetcodeV2SessionClosedNotification>({
+  event: Joi.string().valid('sessionClosed').required(),
+  tenant: Joi.string().required(),
+  session: Joi.number().integer().min(0).required(),
+  externalId: Joi.string(),
 })
   // See DEPARTURE_EVENT_SCHEMA's comment: same no-`deny_unknown_fields` interop reasoning.
   .unknown(true)
@@ -115,6 +134,7 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
   DEPARTURE_EVENT_SCHEMA,
   DESYNC_EVENT_SCHEMA,
   RESULT_EVENT_SCHEMA,
+  SESSION_CLOSED_EVENT_SCHEMA,
 )
 
 /**
@@ -124,9 +144,9 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
  * authentication is an Ed25519 signature over the request rather than a session; see
  * `netcode-v2-game-event-service.ts` for the auth + classification logic this handler delegates to.
  *
- * One endpoint carries departure, desync, and result notifications (discriminated by `event`) —
- * the coordinator's notice pipe is a single generalized channel rather than one route per event
- * kind.
+ * One endpoint carries departure, desync, result, and sessionClosed notifications (discriminated
+ * by `event`) — the coordinator's notice pipe is a single generalized channel rather than one
+ * route per event kind.
  */
 export function registerGameEventWebhookRoutes(router: KoaRouter) {
   router.post(
@@ -159,6 +179,9 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
           break
         case 'result':
           await recordResultNotification(body)
+          break
+        case 'sessionClosed':
+          await recordSessionClosedNotification(body)
           break
         default:
           assertUnreachable(body)

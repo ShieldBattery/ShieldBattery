@@ -2056,3 +2056,71 @@ directive, batch liveness endpoint) → server (embedded-result ingest, `session
 zero-grace trigger replacing the 2-min one-shot, session-id persistence + probe backstop).
 Sequenced AFTER committing the proven §22/§22g slice, BEFORE the cross-repo landing (wire adds
 stay compat-free pre-push).
+
+**§22h live-proven (2026-07-05, loopback game 3):** crash at 08:39:25 → relay idle-timeout drop
+(departure webhook 08:39:35) → victory dialog → result webhook 08:39:37.367 closed the ledger and
+`forceReconcileGame` fired **in the same call stack** — `win`/`loss`, `disputable=false`, ~0ms from
+ledger-close vs. §22g's 2m05s vs. the original 180 minutes. The winner's clean departure (embedded
+result, deduped `AlreadyReported`) landed 40ms later; the coordinator logged "session fully closed;
+sessionClosed enqueued" the moment the leave-intent emptied the roster, and the FIFO queue
+delivered it behind the result+departure, where it no-oped idempotently. Session id persisted for
+the probe backstop. Only warning in the run: the pre-existing §21e pg deprecation.
+
+**Backup relays REMOVED (Travis, same review).** The §22h build surfaced that an
+assigned-but-idle backup relay never fires `SessionClosed` (it never homes a slot, so it never
+hits roster-empty teardown) — and the fix is that backups shouldn't exist: mid-game failover to a
+backup would need session-state transfer that doesn't exist (D11 territory), dial-time fallback is
+properly the coordinator's job (it tracks relay liveness and shouldn't hand out a dead home), and
+real multi-relay redundancy is **per-player home relays + the mesh** (§18), which stays. Removal
+spans the session-create response (`backup_relay` gone), coordinator assignment, the client/DLL
+dial sequence (home only; multi-address-family fallback within the one relay stays), and the
+`SB_RP2_SPLIT_RELAYS` dev knob (re-expressed as per-slot home selection). With backups gone,
+`serving_relays` ≡ distinct homes, every serving relay eventually empties its roster, and the
+`SessionClosed` gap is structurally impossible. As built, the dev split hint became
+`SessionRequest.dev_relay_split` (slots to home on a secondary relay) answered by
+`SessionResponse.slot_homes` (per-slot overrides of the single `home_relay`) — so the dev
+cross-relay capability survives as genuine per-slot homing. **Live-proven same day (game 4,
+no-backup stack end to end):** session created with the new response shape, both DLLs dialed
+home-only, crash at 09:14:44 → reconciled 09:14:58 (`win`/`loss`), the same same-tick §22h
+profile as game 3.
+
+### §22i. Games with computers: results-exempt, self-closing sessions, hidden from records
+### (decided with Travis 2026-07-05; slice 3, queued behind §22h)
+
+Relay-only submission breaks the "last human keeps playing vs AI" case: under §22h the holdout
+reap would sever a player who is legitimately mid-game for another hour, because computers are not
+rp2 participants — at the coordinator, one silent human among accounted slots is indistinguishable
+from a lingering 1v1 withholder. (The only-human-*ever* case is NOT broken: `useNetcodeV2`
+requires multiple humans, so those games never leave the HTTP path.)
+
+**Decision (Travis):** games containing computer players are **results-exempt and not shown at
+all** — no games-list/match-history presence, no reconciliation. Matchmaking never has computers,
+so ranked play is untouched; lobby comp-game results were already fiction (computers report
+nothing; reconciling around them was guesswork).
+
+Mechanism, three parts:
+- **Self-closing sessions (game DLL), the piece that keeps the reapers universal:** when the last
+  *remote human* slot leaves and the game contains computers, enter `local_only` + send the leave
+  intent — the exact `WMission` machinery, triggered by roster-empty. The lone human continues vs
+  AI fully locally (no required remote slots), the session closes cleanly behind them, and no
+  session containing a human-vs-AI continuation ever exists from the relay's point of view — so
+  §22h's reap policies need no exemption flag and no rp2 changes. The computers-present gate is
+  load-bearing: in a human-only game "alone" means victory is imminent, and a roster-empty intent
+  would race ahead of `send_game_results` and get the winner's report dropped — human-only games
+  keep the dialog-driven path untouched.
+- **Server exemption** (derivable from stored config — computers are in `config.teams`; no
+  migration): `results2` rejects exempt games with a distinct `ResultsNotTracked` code (not the
+  misleading `RelayReportRequired`); relay-borne results/departures for them are ignored at
+  ingest (recorded departures are harmless, reconcile never runs); exempt games are **excluded
+  from every reconcile query** — known-complete trigger, sweep backstop, liveness probe, and the
+  legacy 180-minute loop — or they would churn as permanently-unreconciled.
+- **UI:** comp games filtered out of games lists and match history entirely (Travis: not greyed —
+  gone).
+- **Historical record repair (Travis, follow-up; can trail the slice):** a one-time data migration
+  backing comp games out of users' win/loss records — historical comp games did reconcile and did
+  increment `user_stats` counters, so hiding them prospectively leaves stale tallies behind.
+  Safest shape is a recompute (rebuild the affected counters from non-comp reconciled games)
+  rather than per-game decrements; scoping detail to pin down first: exactly which counter keys
+  lobby games increment (race/global vs matchmaking-scoped — `makeCountKeys` in
+  `user-stats-model`). No MMR/league repair needed: those are matchmaking-only, and matchmaking
+  never has computers.

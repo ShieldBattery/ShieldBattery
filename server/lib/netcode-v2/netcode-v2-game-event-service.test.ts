@@ -4,6 +4,7 @@ import {
   NetcodeV2DepartureNotification,
   NetcodeV2DesyncNotification,
   NetcodeV2ResultNotification,
+  NetcodeV2SessionClosedNotification,
 } from '../../../common/games/netcode-v2'
 import {
   GameClientResult,
@@ -20,6 +21,7 @@ import {
   recordDepartureNotification,
   recordDesyncNotification,
   recordResultNotification,
+  recordSessionClosedNotification,
 } from './netcode-v2-game-event-service'
 import { TenantPubkeyCache } from './tenant-pubkey-cache'
 
@@ -102,6 +104,18 @@ function makeResultNotification(
     payload: encodeResultPayload(),
     arrivalMs: Date.now(),
     sessionFrame: 100,
+    ...overrides,
+  }
+}
+
+function makeSessionClosedNotification(
+  overrides: Partial<NetcodeV2SessionClosedNotification> = {},
+): NetcodeV2SessionClosedNotification {
+  return {
+    event: 'sessionClosed',
+    tenant: 'sb-dev',
+    session: 1,
+    externalId: GAME_ID,
     ...overrides,
   }
 }
@@ -267,10 +281,12 @@ describe('netcode-v2/recordDepartureNotification', () => {
 
   test('records the departure when it is genuine', async () => {
     asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+    const submitGameResults = vi.fn().mockResolvedValue(undefined)
     const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
 
     await recordDepartureNotification(
       makeDepartureNotification({ kind: 'dropped' }),
+      submitGameResults,
       scheduleKnownCompleteReconcile,
     )
 
@@ -280,15 +296,21 @@ describe('netcode-v2/recordDepartureNotification', () => {
       kind: 'dropped',
       time: expect.any(Date),
     })
+    expect(submitGameResults).not.toHaveBeenCalled()
     expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
   })
 
   test('completes without error on a duplicate departure, and still checks reconcile eligibility', async () => {
     asMockedFunction(recordUserDeparture).mockResolvedValue(false)
+    const submitGameResults = vi.fn().mockResolvedValue(undefined)
     const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
 
     await expect(
-      recordDepartureNotification(makeDepartureNotification(), scheduleKnownCompleteReconcile),
+      recordDepartureNotification(
+        makeDepartureNotification(),
+        submitGameResults,
+        scheduleKnownCompleteReconcile,
+      ),
     ).resolves.toBeUndefined()
 
     expect(recordUserDeparture).toHaveBeenCalledTimes(1)
@@ -296,10 +318,12 @@ describe('netcode-v2/recordDepartureNotification', () => {
   })
 
   test('does not call the model when externalRef is not an integer', async () => {
+    const submitGameResults = vi.fn()
     const scheduleKnownCompleteReconcile = vi.fn()
 
     await recordDepartureNotification(
       makeDepartureNotification({ externalRef: 'not-a-number' }),
+      submitGameResults,
       scheduleKnownCompleteReconcile,
     )
 
@@ -314,10 +338,12 @@ describe('netcode-v2/recordDepartureNotification', () => {
   })
 
   test('does not call the model when externalId is not a valid gameId', async () => {
+    const submitGameResults = vi.fn()
     const scheduleKnownCompleteReconcile = vi.fn()
 
     await recordDepartureNotification(
       makeDepartureNotification({ externalId: 'not-a-uuid' }),
+      submitGameResults,
       scheduleKnownCompleteReconcile,
     )
 
@@ -329,6 +355,134 @@ describe('netcode-v2/recordDepartureNotification', () => {
     await recordDepartureNotification(makeDepartureNotification({ externalId: undefined }))
 
     expect(recordUserDeparture).not.toHaveBeenCalled()
+  })
+
+  describe('embedded result', () => {
+    test('submits and stamps the embedded result before recording the departure', async () => {
+      const callOrder: string[] = []
+      asMockedFunction(recordUserDeparture).mockImplementation(async () => {
+        callOrder.push('departure')
+        return true
+      })
+      const submitGameResults = vi.fn().mockImplementation(async () => {
+        callOrder.push('submit')
+      })
+      const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
+      const notification = makeDepartureNotification({
+        kind: 'dropped',
+        result: {
+          payload: encodeResultPayload(),
+          arrivalMs: 12345,
+          sessionFrame: 200,
+        },
+      })
+
+      await recordDepartureNotification(
+        notification,
+        submitGameResults,
+        scheduleKnownCompleteReconcile,
+      )
+
+      expect(submitGameResults).toHaveBeenCalledWith({
+        gameId: GAME_ID,
+        userId: makeSbUserId(42),
+        resultCode: 'abc123',
+        time: 12345,
+        playerResults: [
+          [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
+        ],
+        relayReportTime: new Date(12345),
+        relayReportFrame: 200,
+        logger: expect.anything(),
+      })
+      expect(callOrder).toEqual(['submit', 'departure'])
+      expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
+    })
+
+    test('does not touch the submission service when no result is embedded', async () => {
+      asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+      const submitGameResults = vi.fn()
+
+      await recordDepartureNotification(
+        makeDepartureNotification({ result: undefined }),
+        submitGameResults,
+      )
+
+      expect(submitGameResults).not.toHaveBeenCalled()
+      expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+    })
+
+    test('silently skips an embedded result the user already reported, and still records the departure', async () => {
+      asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+      const submitGameResults = vi
+        .fn()
+        .mockRejectedValue(new GameResultServiceError(GameResultErrorCode.AlreadyReported, 'dup'))
+      const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
+      const notification = makeDepartureNotification({
+        result: { payload: encodeResultPayload(), arrivalMs: Date.now() },
+      })
+
+      await expect(
+        recordDepartureNotification(
+          notification,
+          submitGameResults,
+          scheduleKnownCompleteReconcile,
+        ),
+      ).resolves.toBeUndefined()
+
+      expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+      expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
+    })
+
+    test('drops a malformed embedded payload without throwing, and still records the departure', async () => {
+      asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+      const submitGameResults = vi.fn()
+      const scheduleKnownCompleteReconcile = vi.fn().mockResolvedValue(undefined)
+      const notification = makeDepartureNotification({
+        result: { payload: '!!!not valid base64 json!!!', arrivalMs: Date.now() },
+      })
+
+      await expect(
+        recordDepartureNotification(
+          notification,
+          submitGameResults,
+          scheduleKnownCompleteReconcile,
+        ),
+      ).resolves.toBeUndefined()
+
+      expect(submitGameResults).not.toHaveBeenCalled()
+      expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+      expect(scheduleKnownCompleteReconcile).toHaveBeenCalledWith(GAME_ID)
+    })
+
+    test('drops an embedded payload whose userId does not match externalRef, and still records the departure', async () => {
+      asMockedFunction(recordUserDeparture).mockResolvedValue(true)
+      const submitGameResults = vi.fn()
+      const notification = makeDepartureNotification({
+        externalRef: '99',
+        result: {
+          payload: encodeResultPayload({ userId: makeSbUserId(42) }),
+          arrivalMs: Date.now(),
+        },
+      })
+
+      await recordDepartureNotification(notification, submitGameResults)
+
+      expect(submitGameResults).not.toHaveBeenCalled()
+      expect(recordUserDeparture).toHaveBeenCalledTimes(1)
+    })
+
+    test('rethrows an unexpected (non-domain) error from the embedded result submission', async () => {
+      const submitGameResults = vi.fn().mockRejectedValue(new Error('boom'))
+      const notification = makeDepartureNotification({
+        result: { payload: encodeResultPayload(), arrivalMs: Date.now() },
+      })
+
+      await expect(recordDepartureNotification(notification, submitGameResults)).rejects.toThrow(
+        'boom',
+      )
+      expect(recordUserDeparture).not.toHaveBeenCalled()
+    })
   })
 })
 
@@ -520,5 +674,38 @@ describe('netcode-v2/recordResultNotification', () => {
     )
 
     expect(submitGameResults).not.toHaveBeenCalled()
+  })
+})
+
+describe('netcode-v2/recordSessionClosedNotification', () => {
+  test('force-reconciles the resolved game', async () => {
+    const forceReconcile = vi.fn().mockResolvedValue(undefined)
+
+    await recordSessionClosedNotification(makeSessionClosedNotification(), forceReconcile)
+
+    expect(forceReconcile).toHaveBeenCalledWith(GAME_ID)
+    expect(forceReconcile).toHaveBeenCalledTimes(1)
+  })
+
+  test('drops (without forcing) when externalId is missing', async () => {
+    const forceReconcile = vi.fn()
+
+    await recordSessionClosedNotification(
+      makeSessionClosedNotification({ externalId: undefined }),
+      forceReconcile,
+    )
+
+    expect(forceReconcile).not.toHaveBeenCalled()
+  })
+
+  test('drops (without forcing) when externalId is not a valid gameId', async () => {
+    const forceReconcile = vi.fn()
+
+    await recordSessionClosedNotification(
+      makeSessionClosedNotification({ externalId: 'not-a-uuid' }),
+      forceReconcile,
+    )
+
+    expect(forceReconcile).not.toHaveBeenCalled()
   })
 })

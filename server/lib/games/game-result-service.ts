@@ -36,6 +36,7 @@ import {
   findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
   findUnreconciledGames,
+  findUnreconciledV2GamesForProbe,
   setReconciledResult,
 } from '../games/game-models'
 import {
@@ -76,6 +77,7 @@ import {
   setReportedResults,
   setUserReconciledResult,
 } from '../models/games-users'
+import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { Redis } from '../redis/redis'
 import { Clock, TimeoutId } from '../time/clock'
 import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-model'
@@ -169,9 +171,12 @@ export function haveAllRequiredReportersReported(
 const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
 /**
  * How long after the first result report until we consider a game to be completed, even if we don't
- * have every players' results.
- * TODO(tec27): Use a more accurate method for detecting games in progress, like pinging the server
- * from the game client periodically, or integrating with rally-point
+ * have every players' results. Only applies to games with no persisted netcode-v2 session id
+ * (pre-cutover legacy games, plus the rare v2 game whose session id failed to persist) — a v2 game
+ * with a session id is instead covered by the coordinator liveness probe backstop below, which asks
+ * rather than blind-forces.
+ * TODO(tec27): Use a more accurate method for detecting legacy games in progress, like pinging the
+ * server from the game client periodically, or integrating with rally-point
  */
 const FORCE_RECONCILE_TIMEOUT_MINUTES = 3 * 60
 /**
@@ -187,18 +192,18 @@ const DESYNC_VERDICT_GRACE_BUFFER_MS = 1000
  */
 const FULLY_REPORTED_RECONCILE_DELAY_MINUTES = 1
 /**
- * How long to wait, after every human in a netcode-v2 game has reported results or had a departure
- * recorded, before force-reconciling it. This only needs to absorb webhook delivery skew (retries
- * with backoff up to ~30s, a handful of attempts) between a slot's result and its departure notice,
- * not any uncertainty about whether the game is still being played.
- */
-const RECONCILE_KNOWN_COMPLETE_DELAY_MS = 2 * 60 * 1000
-/**
- * Backstop for `RECONCILE_KNOWN_COMPLETE_DELAY_MS`: how old a fully-accounted netcode-v2 game's
- * newest report/departure must be before the periodic sweep force-reconciles it, covering the case
- * where the one-shot scheduled at ingest time was lost (e.g. a server restart).
+ * Backstop for the immediate known-complete force-reconcile (`maybeScheduleKnownCompleteReconcile`):
+ * how old a fully-accounted netcode-v2 game's newest report/departure must be before the periodic
+ * sweep force-reconciles it too, covering the case where the triggering webhook that would have
+ * forced it immediately was itself never delivered or processed (e.g. a server restart).
  */
 const RECONCILE_KNOWN_COMPLETE_MINUTES = 10
+/**
+ * How old an unreconciled netcode-v2 game's `startTime` must be before the periodic sweep includes
+ * it in the coordinator liveness probe. Games younger than this are almost certainly still in
+ * progress, so there's no reason to ask the coordinator about them yet.
+ */
+const SESSION_PROBE_MIN_AGE_MINUTES = 30
 
 @singleton()
 export default class GameResultService {
@@ -207,11 +212,6 @@ export default class GameResultService {
    * one outstanding re-check per game.
    */
   private readonly desyncGraceRechecks = new Map<string, TimeoutId>()
-  /**
-   * Games with a pending one-shot known-complete force-reconcile, keyed by game ID, so we schedule
-   * at most one outstanding reconcile per game.
-   */
-  private readonly knownCompleteReconciles = new Map<string, TimeoutId>()
 
   constructor(
     private clientSocketsManager: ClientSocketsManager,
@@ -284,6 +284,33 @@ export default class GameResultService {
             }
           } catch (err: unknown) {
             logger.error({ err }, `failed to reconcile known-complete game ${gameId}`)
+          }
+        }
+
+        // Coordinator liveness probe backstop for netcode-v2 games: rather than blind-forcing on a
+        // fixed timeout, ask the coordinator directly whether each unreconciled v2 game's session is
+        // still alive, and force-reconcile the ones that are gone/unknown. A v2 game only reaches
+        // this backstop if it missed both push paths (the zero-grace known-complete trigger and
+        // `sessionClosed`), which is ~zero in steady state, and skips entirely when netcode v2 isn't
+        // configured (no v2 games could exist).
+        if (loadConfigFromEnv()) {
+          const probeBefore = new Date(this.clock.now())
+          probeBefore.setMinutes(probeBefore.getMinutes() - SESSION_PROBE_MIN_AGE_MINUTES)
+          const probeCandidates = await findUnreconciledV2GamesForProbe(probeBefore)
+          if (probeCandidates.length > 0) {
+            try {
+              const alive = await checkSessionsAlive(probeCandidates.map(c => c.session))
+              for (const { gameId, session } of probeCandidates) {
+                if (!alive.has(session)) {
+                  await this.forceReconcileGame(gameId)
+                }
+              }
+            } catch (err: unknown) {
+              logger.error(
+                { err },
+                'failed to probe coordinator session liveness for sweep backstop',
+              )
+            }
           }
         }
       },
@@ -481,10 +508,14 @@ export default class GameResultService {
 
   /**
    * Checks whether every human in a netcode-v2 game now has either a reported result or a recorded
-   * departure, and if so, schedules a one-shot force-reconcile after
-   * `RECONCILE_KNOWN_COMPLETE_DELAY_MS`. Called after the netcode-v2 webhook ingest records a
-   * departure or a result — those are the only two ways a human's slot in such a game closes, so
-   * checking after either write is enough to catch the moment the game's input set becomes final.
+   * departure, and if so, force-reconciles it immediately. Called after the netcode-v2 webhook
+   * ingest records a departure or a result — those are the only two ways a human's slot in such a
+   * game closes, so checking after either write is enough to catch the moment the game's input set
+   * becomes final.
+   *
+   * No delivery-skew grace is needed before forcing: a departure notice carries its slot's result
+   * inline, so the departure that closes the last open slot already has that slot's result in hand
+   * (or definitive proof there never was one) — nothing for this game can still be in flight.
    *
    * No-ops for a non-netcode-v2 game, a game that's already reconciled, a game that isn't found (it
    * may have been deleted), or one where some human still hasn't reported or departed. Never throws:
@@ -501,8 +532,6 @@ export default class GameResultService {
       if (!(await areAllHumansAccountedFor(gameId))) {
         return
       }
-
-      this.scheduleKnownCompleteReconcile(gameId)
     } catch (err: unknown) {
       if (err instanceof GameResultServiceError && err.code === GameResultErrorCode.NotFound) {
         return
@@ -511,36 +540,29 @@ export default class GameResultService {
         { err },
         `failed to check known-complete reconcile eligibility for game ${gameId}`,
       )
-    }
-  }
-
-  /**
-   * Schedules a single one-shot force-reconcile of a game after `RECONCILE_KNOWN_COMPLETE_DELAY_MS`.
-   * Only one re-check is ever outstanding per game.
-   */
-  private scheduleKnownCompleteReconcile(gameId: string): void {
-    if (this.knownCompleteReconciles.has(gameId)) {
       return
     }
 
-    const timeoutId = this.clock.setTimeout(() => {
-      // Cleared unconditionally before doing any async work, for the same reason as
-      // `scheduleDesyncGraceRecheck`'s equivalent line: nothing after this point can throw
-      // synchronously, so an error can only be logged, never wedge the timer bookkeeping.
-      this.knownCompleteReconciles.delete(gameId)
-      Promise.resolve()
-        .then(async () => {
-          const gameRecord = await this.retrieveGame(gameId)
-          const didReconcile = await this.maybeReconcileResults(gameRecord, true /* force */)
-          if (didReconcile) {
-            await this.publishReconciledGame(gameId)
-          }
-        })
-        .catch(err => {
-          logger.error({ err }, `failed to force-reconcile known-complete game ${gameId}`)
-        })
-    }, RECONCILE_KNOWN_COMPLETE_DELAY_MS)
-    this.knownCompleteReconciles.set(gameId, timeoutId)
+    await this.forceReconcileGame(gameId)
+  }
+
+  /**
+   * Force-reconciles a game immediately and publishes the result if reconciliation actually
+   * committed. Never throws — every caller is a fire-and-forget hook off webhook ingest (the
+   * zero-grace known-complete trigger above, `sessionClosed` ingest, and the sweep's coordinator
+   * liveness probe), so a failure here must not turn an already-successful webhook write into a
+   * failed response or interrupt the rest of a sweep.
+   */
+  async forceReconcileGame(gameId: string): Promise<void> {
+    try {
+      const gameRecord = await this.retrieveGame(gameId)
+      const didReconcile = await this.maybeReconcileResults(gameRecord, true /* force */)
+      if (didReconcile) {
+        await this.publishReconciledGame(gameId)
+      }
+    } catch (err: unknown) {
+      logger.error({ err }, `failed to force-reconcile game ${gameId}`)
+    }
   }
 
   /**

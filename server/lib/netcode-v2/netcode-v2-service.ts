@@ -6,6 +6,7 @@ import { raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { NetcodeV2RelayInfo, NetcodeV2ServerSetup } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { setNetcodeV2Session } from '../games/game-models'
 import log from '../logging/logger'
 
 /**
@@ -13,6 +14,13 @@ import log from '../logging/logger'
  * safety net on memory only — the API layer restricts submissions to game participants.
  */
 const MAX_PUBKEYS_PER_GAME = 16
+
+/**
+ * How many session ids `checkSessionsAlive` will ask about in a single `POST /sessions/alive`
+ * call. The sweep's probe candidate set is expected to be tiny in steady state, but this keeps a
+ * single request bounded regardless.
+ */
+const SESSIONS_ALIVE_CHUNK_SIZE = 512
 
 export class NetcodeV2ServiceError extends Error {}
 
@@ -32,6 +40,12 @@ interface CoordinatorSessionRequest {
     /** Excludes this slot from the relay's desync sync-checksum comparator (serde-default false). */
     observer: boolean
   }>
+  /**
+   * Dev/testing only: slots that should home on a secondary relay instead of the session's primary
+   * home, to force a genuine cross-relay (meshed) session. Omitted on a production request; the
+   * coordinator ignores it unless a second relay is enrolled.
+   */
+  dev_relay_split?: number[]
 }
 
 interface CoordinatorRelayEndpoint {
@@ -42,10 +56,20 @@ interface CoordinatorRelayEndpoint {
   cert_der: number[]
 }
 
+/** A per-slot home-relay override: a slot that homes on a relay other than `home_relay`. */
+interface CoordinatorSlotHome {
+  slot: number
+  relay: CoordinatorRelayEndpoint
+}
+
 interface CoordinatorSessionResponse {
   session: number
   home_relay: CoordinatorRelayEndpoint
-  backup_relay: CoordinatorRelayEndpoint
+  /**
+   * Per-slot home overrides. Empty on a production session (every slot homes on `home_relay`);
+   * populated only for a dev-forced cross-relay split.
+   */
+  slot_homes?: CoordinatorSlotHome[]
   tokens: Array<{ slot: number; token: number[] }>
   bounds: { min: number; max: number }
 }
@@ -56,10 +80,11 @@ export interface NetcodeV2Config {
   /** TLS server name clients validate the relay certificate against. */
   relayServerName: string
   /**
-   * Dev/testing knob: slot numbers that should dial the backup relay as home instead of the true
-   * home relay (their true home becomes the fallback instead), so cross-relay games can be
-   * exercised without a real network split between players. No effect on a session that only got
-   * a single relay. Configured via SB_RP2_SPLIT_RELAYS (comma-separated slot numbers).
+   * Dev/testing knob: slot numbers that should home on a secondary relay instead of the session's
+   * primary home relay, so cross-relay games can be exercised without a real network split between
+   * players. Sent to the coordinator as the session-create request's `dev_relay_split` hint, which
+   * homes those slots on a second relay; the coordinator ignores it when only one relay is enrolled.
+   * Configured via SB_RP2_SPLIT_RELAYS (comma-separated slot numbers).
    */
   splitRelaySlots?: Set<number>
 }
@@ -218,6 +243,12 @@ export class NetcodeV2Service {
         signal,
       )
 
+      // Dev cross-relay split: the slots (present in this game) the operator flagged to home on a
+      // secondary relay, forwarded to the coordinator as its `dev_relay_split` hint.
+      const splitSlots = config.splitRelaySlots
+        ? slots.map(s => s.slot).filter(slot => config.splitRelaySlots!.has(slot))
+        : []
+
       const request: CoordinatorSessionRequest = {
         tenant: config.tenant,
         // eslint-disable-next-line camelcase
@@ -230,6 +261,8 @@ export class NetcodeV2Service {
           external_ref: String(userId),
           observer,
         })),
+        // eslint-disable-next-line camelcase
+        ...(splitSlots.length > 0 ? { dev_relay_split: splitSlots } : {}),
       }
 
       let session: CoordinatorSessionResponse
@@ -250,24 +283,32 @@ export class NetcodeV2Service {
           `(home relay ${session.home_relay.relay_id})`,
       )
 
-      const homeRelay = relayEndpointToInfo(session.home_relay, config)
-      // A backup equal to the home relay means only one relay was available; skip it in that case.
-      const backupRelay =
-        session.backup_relay.relay_id !== session.home_relay.relay_id
-          ? relayEndpointToInfo(session.backup_relay, config)
-          : undefined
+      // Persisted so the reconciliation sweep can later ask the coordinator whether this session
+      // is still alive instead of blind-forcing on a timeout. Non-fatal: a game whose session id
+      // fails to persist just falls back to the legacy timeout-based sweep for its backstop.
+      try {
+        await setNetcodeV2Session(gameId, session.session)
+      } catch (err) {
+        log.warn({ err, gameId }, `failed to persist netcode v2 session id for game ${gameId}`)
+      }
 
-      const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
-      const swappedSlots = backupRelay
-        ? slots.map(s => s.slot).filter(slot => config.splitRelaySlots?.has(slot))
-        : []
-      if (swappedSlots.length > 0) {
+      const homeRelay = relayEndpointToInfo(session.home_relay, config)
+      // Per-slot home overrides from the coordinator's dev cross-relay split: each listed slot
+      // homes on its own relay instead of the session's primary home. Empty on a normal session.
+      const slotHomeBySlot = new Map(
+        (session.slot_homes ?? []).map(({ slot, relay }) => [
+          slot,
+          relayEndpointToInfo(relay, config),
+        ]),
+      )
+      if (slotHomeBySlot.size > 0) {
         log.info(
           `netcode v2 dev split-relays active for game ${gameId}: slot(s) ` +
-            `${swappedSlots.join(', ')} dialing backup relay as home`,
+            `${[...slotHomeBySlot.keys()].join(', ')} homing on a secondary relay`,
         )
       }
-      const swappedSlotSet = new Set(swappedSlots)
+
+      const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
 
       const result = new Map<SbUserId, NetcodeV2ServerSetup>()
       for (const { slot, token } of session.tokens) {
@@ -276,21 +317,9 @@ export class NetcodeV2Service {
           throw new NetcodeV2ServiceError(`coordinator returned a token for unknown slot ${slot}`)
         }
 
-        // Dev/testing knob: for the slots listed in SB_RP2_SPLIT_RELAYS, swap home and backup so
-        // that player's client dials the backup relay first instead of the true home relay (its
-        // true home becomes the fallback). Lets us exercise cross-relay games in dev without
-        // needing a real network split between players.
-        let slotHomeRelay = homeRelay
-        let slotBackupRelay = backupRelay
-        if (backupRelay && swappedSlotSet.has(slot)) {
-          slotHomeRelay = backupRelay
-          slotBackupRelay = homeRelay
-        }
-
         result.set(userId, {
           token: Buffer.from(token).toString('base64'),
-          homeRelay: slotHomeRelay,
-          backupRelay: slotBackupRelay,
+          homeRelay: slotHomeBySlot.get(slot) ?? homeRelay,
           roster: slots,
         })
       }
@@ -350,4 +379,46 @@ export class NetcodeV2Service {
     }
     return waiter
   }
+}
+
+interface SessionsAliveResponse {
+  alive: number[]
+}
+
+/**
+ * Asks the rally-point2 coordinator which of the given session ids are still alive, in batches of
+ * at most `SESSIONS_ALIVE_CHUNK_SIZE`. A session id the coordinator omits from its response is
+ * gone or unknown to it — safe to treat as no longer live.
+ *
+ * Exported standalone (rather than a method on `NetcodeV2Service`) alongside `loadConfigFromEnv`,
+ * for the same reason: the reconciliation sweep needs this without going through the game-loading
+ * service's DI lifecycle.
+ *
+ * Throws if netcode v2 isn't configured or a batch request fails; callers decide how to handle
+ * that themselves.
+ */
+export async function checkSessionsAlive(sessions: readonly number[]): Promise<Set<number>> {
+  const config = loadConfigFromEnv()
+  if (!config) {
+    throw new NetcodeV2ServiceError('netcode v2 is not configured')
+  }
+  if (sessions.length === 0) {
+    return new Set()
+  }
+
+  const alive = new Set<number>()
+  for (let i = 0; i < sessions.length; i += SESSIONS_ALIVE_CHUNK_SIZE) {
+    const chunk = sessions.slice(i, i + SESSIONS_ALIVE_CHUNK_SIZE)
+    const response = await got
+      .post(`${config.coordinatorUrl}/sessions/alive`, {
+        json: { tenant: config.tenant, sessions: chunk },
+        timeout: { request: 10000 },
+      })
+      .json<SessionsAliveResponse>()
+    for (const session of response.alive) {
+      alive.add(session)
+    }
+  }
+
+  return alive
 }

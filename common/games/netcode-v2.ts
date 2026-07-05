@@ -28,7 +28,7 @@ export interface NetcodeV2RosterEntry {
 
 /**
  * The server-provided part of a netcode v2 session handoff for one player: their signed session
- * token, the relay(s) to dial, and the full slot roster. The Electron app combines this with the
+ * token, the relay to dial, and the full slot roster. The Electron app combines this with the
  * per-session private key it generated locally (which never leaves the user's machine) to build
  * the complete setup message for the game process.
  */
@@ -36,7 +36,6 @@ export interface NetcodeV2ServerSetup {
   /** base64 (standard, padded) of this player's coordinator-signed session token. */
   token: string
   homeRelay: NetcodeV2RelayInfo
-  backupRelay?: NetcodeV2RelayInfo
   roster: NetcodeV2RosterEntry[]
 }
 
@@ -67,6 +66,26 @@ export interface SubmitNetcodeV2PubkeyRequest {
 export type DepartureKind = 'left' | 'dropped'
 
 /**
+ * A departed slot's retained result report, embedded directly in its departure notice. The relay
+ * keeps whatever result payload it recorded for that slot (if any) and carries it into the
+ * departure record, so a departure is atomic terminal truth for its slot: left/dropped, and here
+ * is the result -- or there provably never was one. Same payload/arrival/frame shape as
+ * `NetcodeV2ResultNotification`'s own fields, and redundant with any earlier standalone `result`
+ * event for the same slot (both the fast path at the victory dialog and this embedded copy can
+ * deliver the same report), so ingesting it twice is expected and harmless.
+ */
+export interface NetcodeV2EmbeddedResult {
+  /** base64 of the reporting client's serialized result report JSON, opaque to the relay. */
+  payload: string
+  /** Unix ms when the relay's connection to the reporting client received the report. */
+  arrivalMs: number
+  /** The relay's local lockstep frame at arrival, if known. */
+  sessionFrame?: number
+  /** The reporting slot's last stamped frame, if known. */
+  slotFrame?: number
+}
+
+/**
  * A mid-game player departure webhook body, POSTed by the rally-point2 coordinator to the app
  * server (as one variant of `NetcodeV2GameEvent`) when a relay decides a player's slot has
  * permanently left a session.
@@ -89,6 +108,8 @@ export interface NetcodeV2DepartureNotification {
   reason: number
   /** The relay's leave ordering/telemetry sequence number for this session. */
   leaveSeq: number
+  /** The departed slot's retained result, if the relay ever recorded one for it. */
+  result?: NetcodeV2EmbeddedResult
 }
 
 /** One slot the relay observed diverging from the majority sync-checksum lineage. */
@@ -154,10 +175,28 @@ export interface NetcodeV2ResultNotification {
 }
 
 /**
- * The rally-point2 coordinator's mid-game notification webhook body — a departure, desync, or
- * result event, discriminated by `event`. POSTed to `POST /webhooks/netcode-v2/game-events`.
+ * The rally-point2 coordinator's final notice for a session, POSTed once every relay that served
+ * it has torn down its state. Webhook dispatch is serialized per session, so ingesting this event
+ * guarantees every other notice for the session was already delivered or permanently exhausted --
+ * nothing for it is still in flight. SB force-reconciles the game immediately on ingest, with
+ * whatever evidence has landed, which covers a slot whose result and departure notices were both
+ * lost.
+ */
+export interface NetcodeV2SessionClosedNotification {
+  event: 'sessionClosed'
+  tenant: string
+  session: number
+  /** The `gameId` this session was created for, if the coordinator still has it on record. */
+  externalId?: string
+}
+
+/**
+ * The rally-point2 coordinator's mid-game notification webhook body — a departure, desync,
+ * result, or sessionClosed event, discriminated by `event`. POSTed to
+ * `POST /webhooks/netcode-v2/game-events`.
  */
 export type NetcodeV2GameEvent =
   | NetcodeV2DepartureNotification
   | NetcodeV2DesyncNotification
   | NetcodeV2ResultNotification
+  | NetcodeV2SessionClosedNotification
