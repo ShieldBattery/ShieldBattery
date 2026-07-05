@@ -50,7 +50,7 @@ use rally_point_client::DirectiveTracker;
 use rally_point_client::LeaveTracker;
 use rally_point_client::TurnChannels;
 use rally_point_client::proto::ids::SlotId;
-use rally_point_client::proto::messages::Payload;
+use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use tokio::sync::mpsc;
 
 mod session;
@@ -58,11 +58,16 @@ mod session;
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
 // (`establish_session`), so only these two are re-exported. The credential/session types stay
 // internal to their submodules.
-pub use session::{establish_session, with_turn_state};
+pub use session::{begin_local_only, establish_session, with_turn_state};
 
 use crate::app_messages::SbUserId;
 use crate::bw;
 use crate::bw::players::StormPlayerId;
+
+/// BW's native "player left" leave reason — the same value the relay stamps onto a clean leave, so a
+/// locally-fabricated leave (see [`TurnState::begin_local_only`]) applies identically to a
+/// relay-directed clean departure.
+const LOCAL_ONLY_LEAVE_REASON: u32 = 3;
 
 /// The game-thread-owned state the three hooks operate on.
 ///
@@ -116,6 +121,10 @@ pub struct TurnState {
     /// Which storm slots must supply a turn before a step is ready to dispatch. Set as slots are
     /// mapped during join; a synced leave clears one (so the sim stops waiting on a departed peer).
     required: [bool; bw::MAX_STORM_PLAYERS],
+    /// Set once the local result is decided (see [`begin_local_only`](Self::begin_local_only)): the
+    /// session is ending, so [`submit_local_turn`](Self::submit_local_turn) keeps echoing our turns
+    /// into the sim but stops handing them to the (closing) link. Latched — never cleared.
+    local_only: bool,
     /// Slots the `forceLeave` debug command has queued for a forced synced leave on the game thread.
     /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_leaves`), which
     /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
@@ -152,6 +161,7 @@ impl TurnState {
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
+            local_only: false,
             #[cfg(debug_assertions)]
             forced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
@@ -222,6 +232,13 @@ impl TurnState {
     /// are left zero: the driver assigns the seq and the relay binds the slot from the token.
     pub fn submit_local_turn(&mut self, commands: &[u8], frame: Option<u32>) -> bool {
         let commands = Bytes::copy_from_slice(commands);
+        if self.local_only {
+            // The result is decided and the link is closing (see `begin_local_only`), so send
+            // nothing to the relay — but the sim still needs its own turns, so keep the local echo
+            // going. There is no peer left to desync against.
+            self.echo_local_turn(commands);
+            return true;
+        }
         let payload = Payload {
             seq: 0,
             slot: 0,
@@ -233,21 +250,27 @@ impl TurnState {
         };
         match self.channels.outbound.try_send(payload) {
             Ok(()) => {
-                // Echo our own turn into our dispatch queue: the relay fans out to peers only, so
-                // this is the sole path by which our commands reach the local sim — and it keeps
-                // them on the same latency delay as everyone else's. Only on a successful send: if
-                // the turn never left, executing it locally would desync us from peers who never saw
-                // it (the session is tearing down at that point anyway).
-                if let Some(local_storm) = self.storm_id_for_slot(self.local_slot)
-                    && let Some(queue) = self.inbound_queues.get_mut(local_storm.0 as usize)
-                {
-                    queue.push_back(commands);
-                }
-                self.turns_in_flight = self.turns_in_flight.saturating_add(1);
+                // Only echo on a successful send: if the turn never left, executing it locally would
+                // desync us from peers who never saw it (the session is tearing down at that point
+                // anyway).
+                self.echo_local_turn(commands);
                 true
             }
             Err(_) => false,
         }
+    }
+
+    /// Queues a just-submitted local turn into our own dispatch queue and counts it in flight. The
+    /// relay fans out to peers only, so this echo is the sole path by which our commands reach the
+    /// local sim — and it keeps them on the same latency delay as everyone else's (lockstep requires
+    /// our own commands to execute on the same turn as our peers see them).
+    fn echo_local_turn(&mut self, commands: Bytes) {
+        if let Some(local_storm) = self.storm_id_for_slot(self.local_slot)
+            && let Some(queue) = self.inbound_queues.get_mut(local_storm.0 as usize)
+        {
+            queue.push_back(commands);
+        }
+        self.turns_in_flight = self.turns_in_flight.saturating_add(1);
     }
 
     /// Drains every inbound turn currently available from the driver into the per-slot queues,
@@ -354,8 +377,18 @@ impl TurnState {
         // into the tracker first. Leaves arrive here, off the turn path, because a
         // drop stops turn flow — so this is the channel that still delivers the
         // leave that must unstall us.
-        while let Ok(leave) = self.channels.leaves.try_recv() {
-            self.leaves.observe(&leave);
+        //
+        // Once local-only, the link is closing and every remote slot is already left or tracked
+        // (see `begin_local_only`), so a directive arriving now is redundant — and observing it
+        // is actively unsafe: a fabricated entry carries a synthetic apply frame/reason, so a real
+        // directive for the same slot would conflict with it and trip the tracker's per-slot
+        // consistency assert. Drain the channel so it doesn't back up, but throw the contents away.
+        if self.local_only {
+            while self.channels.leaves.try_recv().is_ok() {}
+        } else {
+            while let Ok(leave) = self.channels.leaves.try_recv() {
+                self.leaves.observe(&leave);
+            }
         }
         let mut out = Vec::new();
         for (slot, reason) in self.leaves.take_due(next_frame) {
@@ -396,6 +429,60 @@ impl TurnState {
     /// The local origin slot, as a typed [`SlotId`] for the transport layer.
     pub fn local_slot_id(&self) -> SlotId {
         self.local_slot
+    }
+
+    /// Ends the networked session for a locally-decided game, transitioning to local-only play.
+    /// Idempotent: the second call is a no-op.
+    ///
+    /// Once the local result is settled, keeping the game networked is a liability — a later
+    /// simulation divergence would surface as relay desync events against a game whose outcome is
+    /// already fixed. This severs the link cleanly: it fabricates a "player left" leave for every
+    /// remote slot still live and not already tracked, and routes each through the same
+    /// [`LeaveTracker`] the relay's own directives flow through (marked due immediately, so the next
+    /// [`take_due_leaves`](Self::take_due_leaves) surfaces it and the IN hook applies it in the
+    /// deterministic synced-leave window — the identical path a relay-directed leave takes). Then it
+    /// flips into local-only mode so [`submit_local_turn`](Self::submit_local_turn) stops sending,
+    /// and signals the clean leave to the driver.
+    ///
+    /// Order matters: the local-only flag is set before signaling the leave, so no further datagram
+    /// can queue behind the announcement and the driver's outbound drain completes at once.
+    pub fn begin_local_only(&mut self) {
+        if self.local_only {
+            return;
+        }
+        self.local_only = true;
+
+        for slot_idx in 0..bw::MAX_STORM_PLAYERS {
+            // Our own slot keeps feeding the sim; only remote participants are dropped.
+            if slot_idx == self.local_slot.0 as usize {
+                continue;
+            }
+            let Some(storm) = self.slot_to_storm[slot_idx] else {
+                continue; // unmapped: not a routed participant, nothing to leave
+            };
+            // A slot already dropped from `required` has left; re-leaving it would double-apply the
+            // native leave. Only slots still gating the step are live and need a fabricated leave.
+            if !self.required.get(storm.0 as usize).copied().unwrap_or(false) {
+                continue;
+            }
+            // A real relay directive may already be tracked for this slot (observed, but not yet
+            // due) — a team-victory co-winner's own clean leave arriving while ours is in flight.
+            // It carries the authoritative apply frame/reason and will surface on its own; fabricating
+            // a second entry for the same slot would conflict with it (different apply frame/reason)
+            // and trip the tracker's per-slot consistency check.
+            if self.leaves.contains(slot_idx as u32) {
+                continue;
+            }
+            self.leaves.observe(&LeaveDirective {
+                slot: slot_idx as u32,
+                reason: LOCAL_ONLY_LEAVE_REASON,
+                // Due at any frame, so the very next `take_due_leaves` surfaces it.
+                apply_at_frame: 0,
+                leave_seq: 0,
+            });
+        }
+
+        self.send_leave_intent();
     }
 
     /// Tells the driver this client will never produce another turn — the game loop just
@@ -849,6 +936,137 @@ mod tests {
         assert!(state.submit_local_turn(b"local2", Some(5)));
         assert!(state.receive_turns(5), "the left peer no longer gates readiness");
         assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"local2".to_vec())]);
+    }
+
+    #[test]
+    fn begin_local_only_fabricates_leaves_for_live_remote_slots() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, mut leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        state.begin_local_only();
+
+        // The remote peer's leave surfaces through the normal application path, due immediately,
+        // with the clean "player left" reason — and the local slot is never fabricated a leave.
+        assert_eq!(
+            state.take_due_leaves(0),
+            vec![(PEER_STORM, LOCAL_ONLY_LEAVE_REASON)]
+        );
+        // Surfacing it marked the peer left, so it no longer gates readiness: the sim proceeds on
+        // the local turn alone.
+        assert!(state.submit_local_turn(b"solo", Some(0)));
+        assert!(state.receive_turns(0), "sim proceeds on the local turn alone");
+        assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"solo".to_vec())]);
+
+        // Local-only also announced the clean leave to the driver.
+        assert_eq!(leave_intent_rx.try_recv(), Ok(()));
+    }
+
+    #[test]
+    fn begin_local_only_skips_already_left_slots() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+        // The peer already departed (e.g. an earlier relay leave), clearing it from `required`.
+        state.mark_slot_left(PEER_STORM);
+
+        state.begin_local_only();
+
+        // Its only remote slot was already gone, so nothing is fabricated and no leave is
+        // re-applied.
+        assert!(state.take_due_leaves(0).is_empty());
+    }
+
+    #[test]
+    fn begin_local_only_is_idempotent() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, mut leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        state.begin_local_only();
+        // The second call runs before the fabricated leave is even drained: it must fabricate
+        // nothing more and must not re-signal the driver.
+        state.begin_local_only();
+
+        // The peer leave still surfaces exactly once, not twice.
+        assert_eq!(
+            state.take_due_leaves(0),
+            vec![(PEER_STORM, LOCAL_ONLY_LEAVE_REASON)]
+        );
+        assert!(state.take_due_leaves(0).is_empty());
+
+        // And only a single clean-leave signal reached the driver.
+        assert_eq!(leave_intent_rx.try_recv(), Ok(()));
+        assert!(leave_intent_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn submit_local_turn_echoes_but_does_not_send_after_local_only() {
+        let (mut state, _in_tx, mut out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        // PEER_SLOT is left unmapped, so local-only fabricates no peer leave here — this test is
+        // about the local submit path, not the fabrication.
+
+        state.begin_local_only();
+
+        assert!(
+            state.submit_local_turn(b"local", Some(9)),
+            "local echo still succeeds in local-only mode"
+        );
+        // Nothing was handed to the driver: the link is closing.
+        assert!(
+            out_rx.try_recv().is_err(),
+            "no turn should reach the relay in local-only mode"
+        );
+        // But it's queued for local dispatch and counted in flight, so the sim keeps stepping.
+        assert_eq!(state.outstanding_turns(), 1);
+        assert!(state.receive_turns(9));
+        assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"local".to_vec())]);
+    }
+
+    #[test]
+    fn begin_local_only_defers_to_an_already_tracked_real_directive() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        // The relay already pushed the peer's real leave, due in the future — tracked but not yet
+        // surfaced. This is the team-victory shape: a co-winner's own clean leave lands on our
+        // control stream while our own leave intent is still in flight.
+        leave_tx.try_send(leave_directive(PEER_SLOT, 10, DROPPED)).unwrap();
+        assert!(state.take_due_leaves(5).is_empty(), "not due yet, but now tracked");
+
+        // Fabricating a second, conflicting entry (different apply frame/reason) for the same slot
+        // would trip LeaveTracker's per-slot consistency debug_assert; begin_local_only must see
+        // it's already tracked and leave it alone.
+        state.begin_local_only();
+
+        // The real directive still surfaces on its own schedule, with its own reason — not the
+        // fabricated one — and exactly once.
+        assert_eq!(state.take_due_leaves(10), vec![(PEER_STORM, DROPPED)]);
+        assert!(state.take_due_leaves(10).is_empty());
+    }
+
+    #[test]
+    fn a_real_directive_after_local_only_is_discarded_not_observed() {
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        state.begin_local_only();
+
+        // A real relay directive for the same slot arrives after the fabrication, carrying a
+        // different apply frame/reason than the fabricated one — the kind of mismatch that would
+        // trip LeaveTracker's per-slot consistency assert if it were observed.
+        leave_tx.try_send(leave_directive(PEER_SLOT, 50, DROPPED)).unwrap();
+
+        // The fabricated leave surfaces exactly once; the real directive was discarded rather than
+        // observed, so it neither panics nor re-opens/duplicates the slot's leave.
+        assert_eq!(
+            state.take_due_leaves(0),
+            vec![(PEER_STORM, LOCAL_ONLY_LEAVE_REASON)]
+        );
+        assert!(state.take_due_leaves(50).is_empty());
     }
 
     #[test]

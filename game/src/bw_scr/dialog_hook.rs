@@ -48,7 +48,15 @@ pub unsafe fn spawn_dialog_hook(
             let inited = CONSOLE_DIALOG_EVENT_HANDLERS[index].init(console_dialog_event_handler);
             inited.set_orig(event_handler);
             inited.func() as usize
-        } else if name == "WMission" || name == "LMission" {
+        } else if name == "WMission" {
+            send_game_results();
+            // Victory decides the game for everyone, so the session can end and any further play is
+            // local-only. Defeat is deliberately not handled the same way: a loss doesn't end the
+            // game for the other players, so the defeated client stays a normal networked
+            // participant until it exits, at which point its clean leave fires as the game loop ends.
+            crate::netcode_v2::begin_local_only();
+            event_handler
+        } else if name == "LMission" {
             send_game_results();
             event_handler
         } else {

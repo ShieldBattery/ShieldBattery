@@ -146,6 +146,24 @@ pub fn with_turn_state<R>(f: impl FnOnce(&mut TurnState) -> R) -> Option<R> {
     Some(f(&mut session.turn_state))
 }
 
+/// Transitions the current game's turn state to local-only for a locally-decided game (see
+/// [`TurnState::begin_local_only`]).
+///
+/// Unlike [`with_turn_state`], this distinguishes its two `None` cases instead of collapsing them:
+/// no live session (legacy game or replay — the hooks never find a turn state here either) stays a
+/// silent no-op, but the lock already held re-entrantly is warned, because this call fires from the
+/// dialog hook rather than one of the three turn hooks — if it ever raced one of them, losing the
+/// transition silently would leave the game networked when it should have gone local-only.
+pub fn begin_local_only() {
+    let Some(mut guard) = SESSION.lock() else {
+        warn!("begin_local_only skipped: turn state locked re-entrantly");
+        return;
+    };
+    if let Some(session) = guard.as_mut() {
+        session.turn_state.begin_local_only();
+    }
+}
+
 /// Tears down the current session (game over / teardown). Idempotent.
 pub fn clear_session() {
     if let Some(mut guard) = SESSION.lock() {
