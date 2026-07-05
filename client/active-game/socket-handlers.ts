@@ -12,14 +12,8 @@ import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { makeServerUrl } from '../network/server-url'
-import { getRelationshipsIfNeeded } from '../social/action-creators'
+import { ensureRelationshipsLoaded } from '../social/action-creators'
 import { updateActiveGame } from './wait-for-active-game'
-
-/**
- * How long to wait for the relationships (block list) fetch before launching a game anyway with
- * whatever's cached. Keeps a slow/hung request from stalling the game-launch path.
- */
-const RELATIONSHIPS_LAUNCH_TIMEOUT_MS = 5000
 
 type EventToActionMap = {
   [E in GameLoaderEvent['type']]: (
@@ -74,24 +68,10 @@ export default function ({
           ipcRenderer.invoke('activeGameSetConfig', config)?.catch(swallowNonBuiltins)
         }
 
-        // The game needs the block list to hide blocked players' in-game chat. Relationship state
-        // is cleared on every reconnect, so make sure it's loaded before launching. We cap the wait
-        // with a timeout and fall back to whatever's cached rather than stalling the launch behind a
-        // slow/hung request — worst case the game just launches without the latest block list.
-        // `callbackOnAbort` is required so the timeout still triggers the fallback (abortableThunk
-        // otherwise swallows both callbacks once the signal aborts).
-        if (getState().relationships.loaded) {
-          buildAndSend()
-        } else {
-          dispatch(
-            getRelationshipsIfNeeded({
-              signal: AbortSignal.timeout(RELATIONSHIPS_LAUNCH_TIMEOUT_MS),
-              callbackOnAbort: true,
-              onSuccess: buildAndSend,
-              onError: () => buildAndSend(),
-            }),
-          )
-        }
+        // The game needs the block list to hide blocked players' in-game chat, and relationship
+        // state is cleared on every reconnect, so make sure it's loaded before launching (falling
+        // back to whatever's cached rather than stalling the launch).
+        dispatch(ensureRelationshipsLoaded(buildAndSend))
       }
     },
     setRoutes(_, { routes, gameId }) {
