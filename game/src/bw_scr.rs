@@ -1550,10 +1550,26 @@ impl BwScr {
                         0 => 24, // This only happens with DTR, and is temporary anyway
                         val => val,
                     };
-                    let cur_user_latency = self.net_user_latency.resolve();
-                    let user_delay = 2 /* proto_latency */ + cur_user_latency;
-                    let effective_latency =
-                        ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
+                    // Under a live netcode v2 session the PIPE hook owns the latency pipeline, so the
+                    // native `2 + user_latency` builtin turns no longer describe the delay: the relay's
+                    // buffer directive sets the whole pipe depth, which `latency_turns()` reports (floor
+                    // 1) and which the relay can retune mid-game. Read it fresh each format call so the
+                    // display tracks the live depth; fall back to native state for legacy games.
+                    let v2_turns = if self.game_started.load(Ordering::Acquire) {
+                        netcode_v2::with_turn_state(|s| s.latency_turns())
+                    } else {
+                        None
+                    };
+                    let effective_latency = match v2_turns {
+                        Some(latency_turns) => {
+                            ((1000 * latency_turns + 500) / turn_rate) as f32
+                        }
+                        None => {
+                            let cur_user_latency = self.net_user_latency.resolve();
+                            let user_delay = 2 /* proto_latency */ + cur_user_latency;
+                            ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round()
+                        }
+                    };
                     let value = format!("Lat: {effective_latency:.0}ms");
                     (*result).text.replace_all(value.as_str());
                     result

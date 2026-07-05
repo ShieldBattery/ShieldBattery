@@ -548,7 +548,9 @@ impl OverlayState {
 
     fn add_debug_ui(&mut self, bw: &BwVars, ctx: &egui::Context) {
         let res = egui::Window::new("Debug")
-            .default_pos((0.0, 0.0))
+            // Kept clear of the top-left corner, where the game draws its own fps/turn-rate/latency
+            // readout when those displays are enabled.
+            .default_pos((260.0, 0.0))
             .default_open(false)
             .movable(true)
             .show(ctx, |ui| {
