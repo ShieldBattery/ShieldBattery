@@ -93,6 +93,11 @@ pub trait Bw: Sync + Send {
         local_player_name: &CStr,
         slot_count: u32,
     ) -> Result<u32, u32>;
+    /// Copies BW's game template for `game_type` into `game_data`. Native game creation does this
+    /// from a registry BW loads from data files; without it the template block stays zeroed, which
+    /// BW reads as a Use-Map-Settings game (map triggers run, no alliance UI, map-defined victory).
+    /// Errors if the game type is not in the registry (the template would stay zeroed).
+    unsafe fn apply_game_type_template(&self, game_type: BwGameType) -> Result<(), ()>;
     /// Loads the scenario from `map_path` (`init_map_from_path`, a pure loader with no Storm refs)
     /// and backs up the chk player types (`init_team_game_playable_slots`), mirroring the native
     /// join path. Returns the storm error code on failure.

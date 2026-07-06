@@ -109,6 +109,10 @@ impl<'e> Analysis<'e> {
         self.0.single_player_start()
     }
 
+    pub fn find_game_type_template(&mut self) -> Option<VirtualAddress> {
+        self.0.find_game_type_template()
+    }
+
     pub fn is_paused(&mut self) -> Option<Operand<'e>> {
         self.0.is_paused()
     }

@@ -202,6 +202,9 @@ pub struct BwScr {
         *mut c_void,
         u32,
     ) -> u32,
+    // Returns a pointer to the 0x20-byte game template for the given game type/subtype (BW's
+    // registry loaded from data files), or null if unregistered. cdecl(type_low, type_high, subtype).
+    find_game_type_template: unsafe extern "C" fn(u32, u32, u32) -> *const u8,
     ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     send_command: unsafe extern "C" fn(*const u8, usize),
     snet_recv_packets: unsafe extern "C" fn(),
@@ -853,6 +856,9 @@ impl BwScr {
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
         let storm_create_game = analysis.storm_create_game().ok_or("storm_create_game")?;
+        let find_game_type_template = analysis
+            .find_game_type_template()
+            .ok_or("find_game_type_template")?;
         let process_lobby_commands = analysis
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
@@ -1186,6 +1192,7 @@ impl BwScr {
             },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             storm_create_game: unsafe { mem::transmute(storm_create_game.0) },
+            find_game_type_template: unsafe { mem::transmute(find_game_type_template.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
@@ -3803,6 +3810,28 @@ impl bw::Bw for BwScr {
         unsafe {
             let dest = self.game_data.resolve();
             ptr::copy_nonoverlapping(game_data as *const bw::BwGameData, dest, 1);
+        }
+    }
+
+    unsafe fn apply_game_type_template(&self, game_type: bw::BwGameType) -> Result<(), ()> {
+        unsafe {
+            // The lookup keys on the game type split into low/high bytes; our game types all fit in
+            // the low byte, so the high byte is always 0.
+            let template = (self.find_game_type_template)(
+                game_type.primary as u32,
+                0,
+                game_type.subtype as u32,
+            );
+            if template.is_null() {
+                error!(
+                    "No game template registered for type {}/{}",
+                    game_type.primary, game_type.subtype
+                );
+                return Err(());
+            }
+            let dest = self.game_data.resolve();
+            (*dest).game_template = *(template as *const bw::GameTemplate);
+            Ok(())
         }
     }
 

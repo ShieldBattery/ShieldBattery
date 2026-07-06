@@ -482,6 +482,12 @@ impl GameState {
                     //    game_data.map_name).
                     let game_data = build_bw_game_data(&info, game_type, map_data, map_name);
                     bw.write_game_data(&game_data);
+                    // 1b. game template — native game creation copies this from BW's registry; without
+                    //     it the template stays zeroed, which BW reads as Use Map Settings (map
+                    //     triggers run, no alliance UI, map-defined victory instead of melee rules).
+                    bw.apply_game_type_template(game_type).map_err(|()| {
+                        GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
+                    })?;
                     // 2. minimal local Storm session — BW's game init dereferences Storm's per-player
                     //    session object, which only storm_create_game allocates. The session has no
                     //    network peers (the rp2 transport carries all real traffic); it exists so
