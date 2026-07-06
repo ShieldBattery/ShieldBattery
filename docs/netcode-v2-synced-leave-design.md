@@ -73,28 +73,51 @@ and in the code.
 
 ### Chat (in-game) — in progress
 
-In a scope-C game, in-game chat is broken two ways:
+In a scope-C game, in-game chat is broken two ways: (1) a peer's chat message never reaches the
+receiver's display, and (2) every message renders as coming from the host (player 0 / claude-1),
+including the sender's own copy on its own screen. Ruled out: the replay/observer display filter
+(`is_replay == 0`, the local player is not an observer); local-id defaulting (ids are correct and
+distinct per client); and the `net_player_count` fix (restoring the MP UI did not help chat).
 
-1. **A peer's chat message never reaches the receiver's display.** It is dropped in the native `0x5c`
-   chat handler, somewhere between `process_commands` and `print_text` (0x721430).
-2. **All chat shows as coming from the host** (player index 0 / storm id 0), including the sender's
-   own messages.
+**RE of the native `0x5c` chat handler (12409).** Command `0x5c` dispatches through
+`command_dispatch_index_table` (0x748790) → case `0x36` → `print_text` (0x721430). Fixed 0x52-byte
+layout: `data[0]=0x5c`, `data[1]` = the **sender game player id** (the value displayed), `data[2..]` =
+the 0x50-byte message. The handler is **unconditional** — it reads `data[1]` and calls `print_text`
+with no recipient check, no sender validation, no `net_player_to_game` translation, and no
+`command_user` involvement; `print_text` renders `players[data[1]].name` verbatim (own colour if
+`data[1] == local_player_id`, else received colour).
 
-Ruled out as causes: the replay/observer display filter (`is_replay == 0`, the local player is not an
-observer); local-id defaulting (the ids are correct and distinct per client); and the `net_player_count`
-fix (restoring the MP UI did not help chat).
+- **Symptom (2) — understood.** `data[1]` is literally `0` in our commands (native BW writes the
+  sender's own game id there on send; scope-C leaves it 0 — the send path is obfuscated, unread), so
+  every message renders as `players[0]` = the host. Clean fix: **rewrite `data[1] = command_user`**
+  (the correct sender game id the turn-processing path already computes) before the handler runs — a
+  byte rewrite of a non-sim command, so it cannot affect the sync hash. Understood and ready, but
+  unverifiable until symptom (1) is fixed.
 
-**Approach — no new samase symbol.** We already hook `process_game_commands` (the command dispatcher —
-it sees every `0x5c`, the raw command bytes, and arg3) and `print_text` (the display), so the fix can
-live inside hooks we already own. Plan:
+- **Symptom (1) — the blocker, and a key finding.** Instrumenting our `process_game_commands` hook to
+  log every `0x5c` it processes showed **the log never fired — for the peer's chat *or* the local
+  player's own message.** So the chat `0x5c` does **not** traverse the `process_game_commands` path we
+  hook, even though gameplay commands do (desync=0). Chat is therefore delivered/processed by a path
+  our seam doesn't cover — it is *not* dropped inside the command handler (which is unconditional).
+  Leading hypotheses:
+  - In-game chat may be sent via a **separate Storm out-of-band path** (e.g. `SNetSendMessage`), not
+    the turn-command stream our OUT hook (`send_turn_message`) carries. Scope-C's neutered Storm
+    transport would then drop the peer copy, while the local echo displays via a direct `print_text`
+    (explaining the empty `process_game_commands` log even for the *own* message). If so, chat must be
+    **re-homed onto an rp2 reliable side-channel** — the same out-of-band-chat channel the Disconnect
+    UX section already wants. (Note: this would contradict the earlier assumption that in-game chat
+    rides the turn stream — worth settling.)
+  - Or our `game_command_lengths` table mis-frames `0x5c` (the RE says fixed 0x52), so `iter_commands`
+    never yields a clean `[0x5c, …]` command and both our send-side `strip_control_commands` and the
+    receive-side walk mishandle it.
 
-- (a) Instrument the `process_game_commands` hook to log the command-buffer bytes + `command_user` +
-  arg3. This is decisive: does the peer's `0x5c` reach command processing at all? What is in `data[1]`?
-  Where exactly does it die?
-- (b) Decompile the `0x5c` handler to understand what `data[1]` carries (a sender id-space value vs a
-  recipient / chat-mode byte) and the exact display-vs-drop condition.
-- (c) Fix inside our existing hooks — rewrite `data[1]` / the command bytes before calling `orig`, or
-  correct a field we feed in. RE of the handler logic is in progress.
+**Next diagnostic (whoever resumes):** instrument the OUT hook (`netcode_v2_send_turn`) to log whether
+a `0x5c` is present in the outgoing turn buffer when chat is typed. If **yes** → chat rides the turn
+stream and the drop is receive-side (chase why `process_game_commands` never sees it — the
+`step_network` / `receive_storm_turns` / `player_turns[]` path). If **no** → chat uses a separate
+(likely Storm out-of-band) send path and needs re-homing onto an rp2 reliable channel. Also confirm
+`game_command_lengths[0x5c] == 0x52`. No new samase symbol is needed for the handler itself; the fix
+lives in our existing OUT/IN/command hooks plus, most likely, a new reliable side-channel.
 
 ### Scope C — remaining stage-1 increments
 
