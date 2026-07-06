@@ -5,7 +5,7 @@ use std::io;
 use byteorder::{LE, ReadBytesExt, WriteBytesExt};
 use libc::c_void;
 
-use crate::app_messages::GameSetupInfo;
+use crate::app_messages::{GameSetupInfo, SbUserId};
 use crate::bw::Bw;
 use crate::bw::players::BwPlayerId;
 use crate::bw_scr::BwScr;
@@ -29,6 +29,9 @@ pub const GAME_LOGIC_VERSION: u16 = 0x3;
 pub struct SbatReplayData {
     pub team_game_main_players: [u8; 4],
     pub starting_races: [u8; 0xc],
+    /// ShieldBattery user ids of the players, indexed by BW player id (i.e. `user_ids[player_id]`
+    /// is that player's user id). Non-human/empty slots are `0`.
+    pub user_ids: [SbUserId; 8],
     pub game_logic_version: u16,
 }
 
@@ -174,6 +177,29 @@ fn test_write_uuid() {
     );
 }
 
+#[test]
+fn test_parse_user_ids() {
+    // Section payload as written by `add_shieldbattery_data` (offsets are relative to the payload,
+    // i.e. after the 8-byte section id/length header).
+    let mut data = vec![0u8; 0x58];
+    (&mut data[0x0..]).write_u16::<LE>(1).unwrap(); // format_version
+    data[0x16..0x1a].copy_from_slice(&[1, 2, 3, 4]); // team_game_main_players
+    // user_ids[8] at 0x36, one u32 each. Only the first two slots are "human".
+    let user_ids = [111u32, 222, 0, 0, 0, 0, 0, 0];
+    let mut out = &mut data[0x36..0x56];
+    for &id in &user_ids {
+        out.write_u32::<LE>(id).unwrap();
+    }
+    (&mut data[0x56..])
+        .write_u16::<LE>(GAME_LOGIC_VERSION)
+        .unwrap();
+
+    let parsed = parse_shieldbattery_data(&data).unwrap();
+    assert_eq!(parsed.team_game_main_players, [1, 2, 3, 4]);
+    assert_eq!(parsed.game_logic_version, GAME_LOGIC_VERSION);
+    assert_eq!(parsed.user_ids.map(|id| id.0), user_ids);
+}
+
 pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     let format = (&data[0..]).read_u16::<LE>().ok()?;
     if format > 1 {
@@ -181,6 +207,11 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     }
     let team_game_main_players = data.get(0x16..)?.get(..4)?;
     let starting_races = data.get(0x1a..)?.get(..0xc)?;
+    let mut user_id_bytes = data.get(0x36..)?.get(..0x20)?;
+    let mut user_ids = [SbUserId(0); 8];
+    for out in user_ids.iter_mut() {
+        *out = SbUserId(user_id_bytes.read_u32::<LE>().ok()?);
+    }
     let game_logic_version = if format == 1 {
         data.get(0x56..)?.read_u16::<LE>().ok()?
     } else {
@@ -189,6 +220,7 @@ pub fn parse_shieldbattery_data(data: &[u8]) -> Option<SbatReplayData> {
     Some(SbatReplayData {
         team_game_main_players: team_game_main_players.try_into().ok()?,
         starting_races: starting_races.try_into().ok()?,
+        user_ids,
         game_logic_version,
     })
 }
