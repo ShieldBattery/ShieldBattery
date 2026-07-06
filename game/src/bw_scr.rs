@@ -258,6 +258,7 @@ pub struct BwScr {
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
     print_text_addr: VirtualAddress,
+    net_player_count_addr: VirtualAddress,
 
     // State
     exe_build: u32,
@@ -1056,6 +1057,7 @@ impl BwScr {
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
+        let net_player_count_addr = analysis.net_player_count().ok_or("net_player_count")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -1239,6 +1241,7 @@ impl BwScr {
             spawn_dialog,
             step_game_logic,
             print_text_addr,
+            net_player_count_addr,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1885,6 +1888,27 @@ impl BwScr {
                     }
 
                     orig(text, player, unused);
+                },
+                address,
+            );
+
+            let address = self.net_player_count_addr.0 as usize - base;
+            exe.hook_closure_address(
+                NetPlayerCount,
+                move |orig| {
+                    if netcode_v2::with_turn_state(|_| ()).is_some() {
+                        // The native count reads the Storm session player list, which for a netcode-v2
+                        // game holds only the local player (no Storm peers) — so BW would classify the
+                        // game as single-player and draw the single-player minimap UI. Report the true
+                        // count of registered net players so the multiplayer UI (diplomacy +
+                        // communication buttons) is created.
+                        let players = self.storm_players.resolve();
+                        (0..bw::MAX_STORM_PLAYERS)
+                            .filter(|&i| (*players.add(i)).state == 1)
+                            .count() as u32
+                    } else {
+                        orig()
+                    }
                 },
                 address,
             );
@@ -4739,6 +4763,7 @@ mod hooks {
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);
+        !0 => NetPlayerCount() -> u32;
     );
 
     system_hooks!(

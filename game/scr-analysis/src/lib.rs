@@ -113,6 +113,10 @@ impl<'e> Analysis<'e> {
         self.0.find_game_type_template()
     }
 
+    pub fn net_player_count(&mut self) -> Option<VirtualAddress> {
+        self.0.net_player_count()
+    }
+
     pub fn is_paused(&mut self) -> Option<Operand<'e>> {
         self.0.is_paused()
     }
