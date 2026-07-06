@@ -227,6 +227,30 @@ impl TurnState {
             .map(|&(slot, _)| slot)
     }
 
+    /// The `(user, storm id)` pairing for every session participant, where storm id ≡ rp2 slot.
+    /// Used to write real storm ids into BW's player slots directly from the roster instead of
+    /// learning them from a Storm join.
+    pub fn roster_storm_ids(&self) -> Vec<(SbUserId, StormPlayerId)> {
+        self.roster
+            .iter()
+            .map(|&(slot, user)| (user, StormPlayerId(slot.0)))
+            .collect()
+    }
+
+    /// Assign the slot→storm identity map (storm id ≡ rp2 slot) for every roster slot up front,
+    /// rather than learning storm ids as they solidify during a Storm join. Each mapped slot becomes
+    /// `required` (a session participant the sim must have a turn from each step). The roster names
+    /// every participant including ourselves, so this covers the local slot too (superseding the
+    /// per-join `map_local_storm`/`map_storm_for_user` calls, which stay available for the legacy
+    /// path and tests).
+    pub fn populate_identity_slots(&mut self) {
+        // Read the slots first so the borrow of `roster` ends before `map_slot` borrows `self` mutably.
+        let slots: Vec<SlotId> = self.roster.iter().map(|&(slot, _)| slot).collect();
+        for slot in slots {
+            self.map_slot(slot, StormPlayerId(slot.0));
+        }
+    }
+
     /// Looks up the BW storm id for a rally-point2 slot, if mapped.
     pub fn storm_id_for_slot(&self, slot: SlotId) -> Option<StormPlayerId> {
         self.slot_to_storm.get(slot.0 as usize).copied().flatten()
@@ -789,6 +813,51 @@ mod tests {
             "mapped peer slot should gate + dispatch"
         );
         assert_eq!(dispatched(&state), vec![(PEER_STORM, b"peer".to_vec())]);
+    }
+
+    #[test]
+    fn populate_identity_slots_maps_every_roster_slot_to_its_own_id() {
+        // storm id ≡ rp2 slot. After populating identity, every roster slot resolves to a storm id
+        // equal to its own slot number, is `required`, and routes its turns without any per-join
+        // mapping call.
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        state.populate_identity_slots();
+
+        // Both roster slots (local 0, peer 1) now map to their own ids as storm ids.
+        assert_eq!(state.storm_id_for_slot(LOCAL_SLOT), Some(StormPlayerId(0)));
+        assert_eq!(state.storm_id_for_slot(PEER_SLOT), Some(StormPlayerId(1)));
+
+        // The peer's turns route through its identity storm id, and both slots gate readiness.
+        in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
+        assert!(
+            !state.receive_turns(0),
+            "the local slot is required but hasn't submitted a turn yet"
+        );
+        assert!(state.submit_local_turn(b"local", Some(0)));
+        assert!(state.receive_turns(0), "both identity slots present");
+        let mut got = dispatched(&state);
+        got.sort_by_key(|(storm, _)| storm.0);
+        assert_eq!(
+            got,
+            vec![
+                (StormPlayerId(0), b"local".to_vec()),
+                (StormPlayerId(1), b"peer".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn roster_storm_ids_pairs_each_user_with_its_slot_as_storm_id() {
+        let (state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let mut ids = state.roster_storm_ids();
+        ids.sort_by_key(|(user, _)| user.0);
+        assert_eq!(
+            ids,
+            vec![
+                (LOCAL_USER, StormPlayerId(LOCAL_SLOT.0)),
+                (PEER_USER, StormPlayerId(PEER_SLOT.0)),
+            ]
+        );
     }
 
     #[test]

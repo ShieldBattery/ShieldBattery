@@ -2498,14 +2498,40 @@ independent of BinaryNinja and live testing — but its observer half is coupled
 the two together rather than shipping slice 1 alone. **Gate:** typecheck + a unit test asserting the
 slot shape (host 0, players 0-7, observers 8-11).
 
-**Slice 2 — SB-layer start signal + readiness re-homing** (server + app + DLL). Server collects
-per-client readiness and broadcasts a `start` (reuse the `gameUserPath` publish channel that
-already carries `setNetcodeV2Setup`/`setRoutes`); the DLL gates its local `do_lobby_game_init` on
-receiving it, replacing both the host's `allow_start`+`all_players_ready`→`0x48` send and the
-non-hosts' wait-for-`0x48`. Retire the `ClientReady` peer payload. **Gate:** the readiness
-handshake still completes end-to-end in a live 2-client load (no game sim needed yet — this is
-pre-`0x48`). Design point to settle in-slice: whether to centralize the whole readiness decision
-server-side or keep `allow_start` server-side + a thin per-client "I'm ready" report.
+**Slice 2 — readiness re-homing (turns out: ~no server change for the first proof).** Investigation
+(2026-07-05) found the server *already* broadcasts `startWhenReady` to every client
+(`game-loader.ts:880-885`, loop over `activeClients`), and each DLL already latches it into
+`can_start_game` (`StartWhenReady` → `game_state.rs:632`). The peer `ClientReady`/`all_players_ready`
+handshake is a *separate*, redundant sync: the server's own game-is-live tracking (`finishedPlayers`,
+`game-loader.ts:437`) is fed by a distinct DLL→server loaded-report, not by `ClientReady`, so
+retiring the peer overlay doesn't touch it. Under local-drive, each client registers its roster
+locally (instant, no Storm-join wait) and the **frame-0 barrier** (`receive_turns` parks until all
+slots present) is the true lockstep sync. So slice 2 is really: **every client local-drives `0x48`
+on `can_start_game` (merges into slice 4); delete the peer `ClientReady` send + `all_players_ready`
+wait.** The existing `startWhenReady` is the "go" for the first proof; a straggler just parks at
+frame 0. **Gate:** live 2-client load reaches the local-drive `0x48` point on both clients.
+
+**Relay-driven start — the cleaner end state (direction, Travis 2026-07-05; a slice-2 follow-up,
+not the first proof).** Longer term the "everyone's here, go" signal should come from the **relay**,
+not the app server. The app server owns it today only for a historical reason that has since
+evaporated: rally-point *v1* relays were dumb forwarders with no notion of session membership, so
+nothing at the network layer knew the roster — the app server *had* to orchestrate start, and the
+DLLs synced readiness peer-to-peer (`ClientReady`). rp2's smart relays hold the roster (session
+descriptor) and already fan reliable control-stream directives to all clients, so the relay is now
+the natural synchronization authority: it is the one component that sees every client dial in and
+authenticate. A relay "all slots present → start" directive (same machinery as the buffer/leave
+directives) would replace **both** `startWhenReady` *and* the peer `ClientReady` handshake, and a
+reconnecting client (D11) would be re-synced by the relay rather than app-server orchestration.
+Subtlety: "all slots dialed+authenticated" is *early presence* (clients dial during
+`establish_session`, before the map loads) — the same timing as today's `startWhenReady`; the true
+lockstep remains the frame-0 barrier, which the relay already owns. So it's the same two-tier
+structure (early "go" + hard frame-0 sync) consolidated onto the relay. What genuinely stays with
+the app server: session *creation* + setup/token/roster distribution (it owns the game config); and
+game-lifecycle bookkeeping for MMR/timeouts — though even a "session started / all-present" notice
+could ride the relay's existing coordinator→webhook pipeline (like departure/result/session-close).
+**Staging:** prove scope-C registration + local-drive first on the existing `startWhenReady`, then
+migrate the "go" to a relay start-directive as a clean follow-up that deletes `startWhenReady` +
+the `ClientReady` overlay. Keeps each step independently testable.
 
 **Slice 3 — DLL: direct registration + neutering** (the core, `game_state.rs` / `bw_scr.rs` /
 `game_thread.rs`). Smaller than first framed, because `setup_slots` (`game_state.rs:1622`) is
@@ -2527,6 +2553,44 @@ reconciliation later overwrites. The concrete edits:
   globals stay at BSS defaults (§23f Q6) — no stubs.
 - **`TurnState.slot_to_storm`** is populated directly from the roster (in `establish_session` /
   registration) instead of via `update_bw_slots` reading Storm.
+
+**The create/join network-setup boundary (RE 2026-07-05, §23h) — host and non-host converge.** The
+pivot: `select_map_entry` (0x60dc70) is *not* a map loader — it's a "start MP game" dispatcher whose
+branch reaches `create_game_multiplayer` → `storm_create_game`, and `storm_create_game` (0x7aee60)
+hard-returns `ERROR_BAD_PROVIDER` when `storm_provider_ready == 0` (0x7aeee2). With SNP neutered it
+*always* fails, so `select_map_entry` **cannot be called for a v2 host.** Both paths therefore use
+the same Storm-free primitives:
+- **KEEP:** `init_map_from_path` (0x71d6a0 — pure scenario loader, zero Storm refs, already used by
+  the join path); `init_team_game_playable_slots` (Rust helper, no Storm); **`init_game_network(0)`**
+  (0x741760 — reads no provider state; its gate is satisfied by the DLL's pre-write of
+  `local_storm_player_id`; drives `lobby_state` 2→3). `init_game_network`'s only real dependency is
+  an internal map *re-load* keyed off `game_data.map_name` — so `game_data` must be populated first
+  (the one item flagged for live-test confirmation).
+- **SKIP:** `select_map_entry`, `create_game_multiplayer`, `storm_create_game`, `join_game`/
+  `storm_join_game`, native `init_net_player` (reproduce its effect by the direct `net_player_info`
+  write above).
+- **REPRODUCE** (what `create_game_multiplayer` did only on Storm-success):
+  - **`game_data`** (BwGameData, 0x11cde68) — **already constructed** in `join_lobby`
+    (`game_state.rs:1518-1557`) from SB info+map+options (map name/dims/tileset, game_type, player
+    counts, creator/name). Extract to a helper, build on every client, write to the global. This is
+    the bulk of the "reproduce" work and it already exists.
+  - **`in_lobby_or_game = 1`** (0x11cdf88) — also relaxes the `init_game_network` gate; read by
+    teardown branches. Needs the global resolved (possibly a raw offset if scr-analysis doesn't
+    expose it).
+  - **`lobby_state → 4`** (0x11cc668) — `init_game_network` only reaches 3; native
+    `net_cmd_lobby_slot_setup` sets 4. The DLL registration must drive it to 4 (then
+    `ready_lobby_for_start` bumps to 8, which the `0x48` handler requires).
+- **Live-test-only checks (per RE):** the `init_game_network` map re-load succeeding off the
+  DLL-populated `game_data.map_name`; and a grep that no *kept* native function calls a Storm
+  player-name lookup on a DLL-registered storm id (the direct `net_player_info` write is what avoids
+  it). All nine functions are BNDB-annotated `[SB scope-C]`.
+
+**Unified v2 setup sequence** (replaces `create_lobby`/`join_lobby` for a v2 session; same on every
+client): build `game_data` (helper) + write global; `in_lobby_or_game = 1`; `remaining_game_init`
+neutered (name + `is_multiplayer=1`, no SNP); write `local_storm_player_id = my rp2 slot`;
+`init_map_from_path`; `setup_slots` with roster storm ids; `net_player_info` per human;
+`init_game_network(0)`; drive `lobby_state → 4`; `ready_lobby_for_start` (→8). Delete the flag-poll
+loop + `update_bw_slots`.
 
 **Observer id note (a §23f Q4 correction — prevents a desync bug):** `0x80-0x83` is the observer's
 **game/net-player id**, *not* its storm id. `update_nation_and_human_ids` asserts `storm_id < 16`

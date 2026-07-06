@@ -97,6 +97,18 @@ impl<'e> Analysis<'e> {
         self.0.is_multiplayer()
     }
 
+    pub fn in_lobby_or_game(&mut self) -> Option<Operand<'e>> {
+        self.0.in_lobby_or_game()
+    }
+
+    pub fn storm_create_game(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_create_game()
+    }
+
+    pub fn single_player_start(&mut self) -> Option<VirtualAddress> {
+        self.0.single_player_start()
+    }
+
     pub fn is_paused(&mut self) -> Option<Operand<'e>> {
         self.0.is_paused()
     }

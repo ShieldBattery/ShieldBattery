@@ -75,6 +75,7 @@ pub struct BwScr {
     storm_player_flags: Value<*mut u32>,
     lobby_state: Value<u8>,
     is_multiplayer: Value<u8>,
+    in_lobby_or_game: Value<u32>,
     game_state: Value<u8>,
     sprites_inited: Value<u8>,
     is_replay: Value<u32>,
@@ -184,6 +185,23 @@ pub struct BwScr {
     process_lobby_commands: unsafe extern "C" fn(*const u8, usize, u32),
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
+    storm_create_game: unsafe extern "system" fn(
+        *const u8,
+        *const u8,
+        *const u8,
+        u32,
+        u32,
+        u32,
+        *const c_void,
+        u32,
+        u32,
+        u32,
+        *const u8,
+        *const u8,
+        *mut u32,
+        *mut c_void,
+        u32,
+    ) -> u32,
     ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     send_command: unsafe extern "C" fn(*const u8, usize),
     snet_recv_packets: unsafe extern "C" fn(),
@@ -821,6 +839,7 @@ impl BwScr {
         let step_network = analysis.step_network().ok_or("step_network")?;
         let lobby_state = analysis.lobby_state().ok_or("Lobby state")?;
         let is_multiplayer = analysis.is_multiplayer().ok_or("is_multiplayer")?;
+        let in_lobby_or_game = analysis.in_lobby_or_game().ok_or("in_lobby_or_game")?;
         let select_map_entry = analysis.select_map_entry().ok_or("select_map_entry")?;
         let game_state = analysis.game_state().ok_or("Game state")?;
         let rng_seed = analysis.rng_seed().ok_or("RNG seed")?;
@@ -833,6 +852,7 @@ impl BwScr {
         let init_real_time_lighting = analysis.init_real_time_lighting();
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
+        let storm_create_game = analysis.storm_create_game().ok_or("storm_create_game")?;
         let process_lobby_commands = analysis
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
@@ -1079,6 +1099,7 @@ impl BwScr {
             storm_player_flags: Value::new(ctx, storm_player_flags),
             lobby_state: Value::new(ctx, lobby_state),
             is_multiplayer: Value::new(ctx, is_multiplayer),
+            in_lobby_or_game: Value::new(ctx, in_lobby_or_game),
             game_state: Value::new(ctx, game_state),
             sprites_inited: Value::new(ctx, sprites_inited),
             is_replay: Value::new(ctx, is_replay),
@@ -1164,6 +1185,7 @@ impl BwScr {
                 init_real_time_lighting.map(|x| mem::transmute(x.0))
             },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
+            storm_create_game: unsafe { mem::transmute(storm_create_game.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
@@ -3437,9 +3459,17 @@ impl bw::Bw for BwScr {
             // would call step_io.
             // Hopefully this doesn't have thread safety issues when called from the async thread..
             // Since the main thread isn't running it's normal loop at all, it's probably fine.
-            (self.snet_recv_packets)();
-            (self.snet_send_packets)();
-            (self.step_network)() != 0
+            if SNP_INITIALIZED.load(Ordering::Relaxed) {
+                (self.snet_recv_packets)();
+                (self.snet_send_packets)();
+                (self.step_network)() != 0
+            } else {
+                // Netcode v2 forms no Storm session, so the SNP is never initialized and these
+                // Storm packet-pump functions would dereference uninitialized provider state (a
+                // null-pointer crash). All turn traffic rides the rp2 relay instead, so there is
+                // nothing to pump here — report progress so lobby init doesn't treat it as a stall.
+                true
+            }
         };
 
         self.event_processing_lock.unlock();
@@ -3466,21 +3496,39 @@ impl bw::Bw for BwScr {
 
     unsafe fn do_lobby_game_init(&self, seed: u32) {
         unsafe {
-            let local_storm_id = self.local_storm_id.resolve();
-            if local_storm_id == 0 {
-                let data = bw::LobbyGameInitData {
-                    game_init_command: 0x48,
-                    random_seed: seed,
-                    // TODO(tec27): deal with player bytes if we ever allow save games
-                    player_bytes: [8; 8],
-                };
+            let data = bw::LobbyGameInitData {
+                game_init_command: 0x48,
+                random_seed: seed,
+                // TODO(tec27): deal with player bytes if we ever allow save games
+                player_bytes: [8; 8],
+            };
+            let ptr = &data as *const bw::LobbyGameInitData as *const u8;
+            let len = mem::size_of::<bw::LobbyGameInitData>();
+
+            if netcode_v2::with_turn_state(|_| ()).is_some() {
+                // Netcode v2: every client local-drives lobby-init — there is no host/
+                // non-host asymmetry left, and no Storm turn stream to carry the command. The seed is
+                // server-distributed (identical on every client), so the `0x48` carries no info a
+                // client lacks; inject it directly via `process_lobby_commands(ptr, len, /*player=*/0)`
+                // — the same direct-injection precedent as `process_game_commands` — rather than
+                // `send_command` (which only dispatches once a network turn completes, and would
+                // deadlock without native networking). The `ProcessLobbyCommands` hook still trips
+                // `lobby_game_init_command_seen`, so `try_finish_lobby_game_init` drives
+                // `lobby_state → 9`. No `local_storm_id == 0` host guard.
                 debug!(
-                    "Sending lobby game init data: {:#x} {:#x} {:#x?}",
+                    "Local-driving lobby game init (netcode v2): {:#x} {:#x} {:#x?}",
                     data.game_init_command, seed, data.player_bytes
                 );
-                let ptr = &data as *const bw::LobbyGameInitData as *const u8;
-                let len = mem::size_of::<bw::LobbyGameInitData>();
-                (self.send_command)(ptr, len);
+                (self.process_lobby_commands)(ptr, len, 0);
+            } else {
+                let local_storm_id = self.local_storm_id.resolve();
+                if local_storm_id == 0 {
+                    debug!(
+                        "Sending lobby game init data: {:#x} {:#x} {:#x?}",
+                        data.game_init_command, seed, data.player_bytes
+                    );
+                    (self.send_command)(ptr, len);
+                }
             }
         }
     }
@@ -3707,6 +3755,114 @@ impl bw::Bw for BwScr {
                 panic!("Failed to select SNP");
             }
             self.is_multiplayer.write(1);
+        }
+    }
+
+    unsafe fn create_local_storm_session(
+        &self,
+        game_name: &CStr,
+        local_player_name: &CStr,
+        slot_count: u32,
+    ) -> Result<u32, u32> {
+        unsafe {
+            // Storm writes the created session's local player id here. A fresh session with no
+            // network peers always yields 0; the caller overwrites the roster slot afterward.
+            let mut out_storm_id: u32 = 0;
+            // Copied synchronously into a Storm global that only feeds game-list broadcasts. It is
+            // never read while a LOCAL session with no peers is running, so zeroed content is safe.
+            let mut scratch = [0u8; 0xa8];
+            self.storm_set_last_error(0);
+            let ok = (self.storm_create_game)(
+                game_name.as_ptr() as *const u8,
+                ptr::null(),
+                ptr::null(),
+                0,
+                0,
+                0,
+                ptr::null(),
+                0,
+                slot_count,
+                0,
+                local_player_name.as_ptr() as *const u8,
+                ptr::null(),
+                &mut out_storm_id,
+                scratch.as_mut_ptr() as *mut c_void,
+                0,
+            );
+            if ok == 0 {
+                let error = self.storm_last_error();
+                error!("storm_create_game failed: {error:08x}");
+                return Err(error);
+            }
+            self.in_lobby_or_game.write(1);
+            Ok(out_storm_id)
+        }
+    }
+
+    unsafe fn write_game_data(&self, game_data: &bw::BwGameData) {
+        unsafe {
+            let dest = self.game_data.resolve();
+            ptr::copy_nonoverlapping(game_data as *const bw::BwGameData, dest, 1);
+        }
+    }
+
+    unsafe fn set_local_storm_id(&self, storm_id: u32) {
+        unsafe {
+            self.local_storm_id.write(storm_id);
+        }
+    }
+
+    unsafe fn v2_load_map(&self, map_path: &CStr) -> Result<(), u32> {
+        unsafe {
+            // Needs to be at least 0x24 bytes, but adding some buffer space in case the
+            // output struct changes. Mirrors the native join path's map load.
+            let mut out = [0u32; 0x10];
+            self.storm_set_last_error(0);
+            let ok = (self.init_map_from_path)(
+                map_path.as_ptr() as *const u8,
+                out.as_mut_ptr() as *mut c_void,
+                0,
+                0,
+            );
+            if ok == 0 {
+                let error = self.storm_last_error();
+                error!("init_map_from_path failed: {error:08x}");
+                return Err(error);
+            }
+            self.init_team_game_playable_slots();
+            Ok(())
+        }
+    }
+
+    unsafe fn register_net_player(&self, storm_id: u8, name: &str) {
+        unsafe {
+            let players = self.storm_players.resolve();
+            let entry = players.add(storm_id as usize);
+            // Inlined `init_net_player` effect: state=1 (in-use), name copied into the 0x60-byte
+            // name field. Deliberately does NOT call native `init_net_player`, which sources the
+            // name from Storm's provider-gated session table. `flags`/`unk4`/`protocol_version` are
+            // set to exactly what the `init_network_player_info(_, 0, 1, 5)` wrapper always passed
+            // native `init_net_player`. These three fields are only snapshotted into a per-player
+            // record and never read by gameplay, but reproducing the native values verbatim keeps
+            // the fabricated entry byte-identical to a real join.
+            let mut fabricated = scr::StormPlayer {
+                state: 1,
+                unk1: 0,
+                flags: 0,
+                unk4: 1,
+                protocol_version: 5,
+                name: [0; 0x60],
+            };
+            for (&input, out) in name.as_bytes().iter().zip(fabricated.name.iter_mut()) {
+                *out = input;
+            }
+            *entry = fabricated;
+        }
+    }
+
+    unsafe fn set_lobby_state(&self, state: u8) {
+        unsafe {
+            self.lobby_state.write(state);
         }
     }
 

@@ -93,13 +93,17 @@ pub async fn establish_session(
     // which is also where the relay's decision-maker starts. A due BufferDirective
     // (rally_point_client::proto::messages::BufferDirective) resizes it from there; floored at 1
     // in case a malformed handoff ever carried 0.
-    let turn_state = TurnState::new(
+    let mut turn_state = TurnState::new(
         channels,
         local_slot,
         setup.initial_buffer_turns.max(1),
         roster,
         has_computers,
     );
+    // Direct registration assigns storm ids from the roster (storm id ≡ rp2 slot) rather than
+    // learning them from a Storm join, so seed the slot→storm identity map up front here. The legacy
+    // path leaves it empty and fills it during `update_bw_slots`.
+    turn_state.populate_identity_slots();
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             _endpoint: endpoint,
