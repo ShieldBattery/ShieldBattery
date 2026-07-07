@@ -158,9 +158,21 @@ handshake. The full RE-verified implementation plan is the next section.
 >    by the host at `lobby_state == 4`, and **the host never self-applies** — host-side state is
 >    maintained by the native slot handlers that SB's `setup_slots` bypasses, so under 2c the HOST
 >    lacks the state exactly like peers ⇒ the local build+apply must run on **every client**.
->    Remaining work: samase analyzer for `sub_736410` (anchors written), then the DLL-side record
->    builder (semantic gaps flagged in the anchors doc: the `game+0xEC/0xE4/0xE6` config words and
->    the per-slot alliance-byte bit meanings — old tactical note says active teams want `0x0E`).
+>    **BUILT (2026-07-07 overnight, awaiting live verify) — with a settled DEVIATION from option 2:**
+>    the second RE pass closed every semantic gap and thereby showed the record is NOT locally
+>    buildable under 2c (its staging/lobby-global inputs are populated only by bypassed native
+>    machinery, have no samase analyzers, and a zero-fill would stomp map-load staging state via
+>    apply's table rebuild). What IS now fully decoded is the exact state whose absence causes the
+>    bug: `game+0xE4C0[8]` per-slot force numbers + `game+0xE4C8[4]` per-force CHK FORC flag bytes
+>    (0x02 allied | 0x04 allied-victory | 0x08 shared-vision = 0x0E), which native game init expands
+>    into the alliance matrix (`game+0xE544`, 2-bit cells) + vision (`game+0xFC`). Fix as built:
+>    `setup_forces` in game_state.rs — every client writes `player_forces[slot]=team_id` and
+>    `force_flags[force-1]=0x0E` (bw_dat's named Game fields) right after `setup_slots` for
+>    team-force game types (Team Melee/FFA, TvB; melee/FFA/UMS untouched), native init derives the
+>    rest. The samase analyzer + resolved `apply_lobby_force_cmd` pointer stay as groundwork.
+>    Full RE + verdict trail: anchors doc → `apply_lobby_force_cmd`. UMS FORC flags = follow-up
+>    (`MapForce` lacks the flags field). Acceptance test unchanged: Team Melee 2v1 forceQuit →
+>    surviving teammate WINS, no friendly fire, shared vision.
 > 2. **Start-of-game lag screen — ✅ FIXED + LIVE-VERIFIED 2026-07-07.** The native-countdown theory
 >    was refuted by instrumentation (`lobby_state` sat at 8 the whole time on the host; zero native
 >    ladder movement; zero non-keepalive commands before the `0x48`). Actual cause: **a keep-alive
@@ -420,6 +432,11 @@ and the deletion sweep are compile-verifiable; the behavioral middle needs a run
 
 ### Open decision — the async `?` (force/alliance/vision) command
 
+> **SUPERSEDED (2026-07-07 overnight): option 2 proved unimplementable under 2c and was replaced
+> by a direct write of the now-fully-decoded force bytes (`setup_forces` in game_state.rs) — see
+> the status block issue 1 above and the anchors doc's `apply_lobby_force_cmd` verdict for the
+> full reasoning. The paragraph below stands as the earlier state of the trail.**
+>
 > **RESOLVED (2026-07-07): option 2, and the RE is done.** The live Team Melee test killed option 1
 > (sync-clean but the surviving teammate still scores a loss), and a full BinaryNinja pass produced
 > everything option 2 needs — including the correction that the command class is **`0x4A`** (0x3F

@@ -588,6 +588,10 @@ impl GameState {
                         ums_forces,
                         Some(&storm_id_map),
                     );
+                    // The force layout the slot arrangement implies, which native slot setup would
+                    // have derived from lobby commands. Must precede game init (the 0x48 handler),
+                    // which reads it to build the alliance/vision tables.
+                    setup_forces(&info.slots, game_type, bw.game());
                     // Natively lobby_state 4 is reached when the lobby-entry slot-setup record is
                     // received, which never arrives under this seam; set it directly.
                     bw.set_lobby_state(4);
@@ -2152,6 +2156,47 @@ fn build_replay_joined_players() -> Vec<JoinedPlayer> {
         .collect::<Vec<_>>();
     debug!("Built replay joined players: {joined_players:?}");
     joined_players
+}
+
+/// Writes the per-slot force assignments (`game.player_forces`) and per-force flag bytes
+/// (`game.force_flags`) for game types whose lobby team layout defines the BW forces (Team
+/// Melee/FFA, Top vs Bottom). BW's game init derives the real alliance matrix and shared vision
+/// from these bytes. Natively they are populated by a lobby force-settings command
+/// (`apply_lobby_force_cmd`, async command class 0x4A) that never runs under netcode v2's direct
+/// slot setup, leaving them zeroed — which BW reads as "no alliances", so teammates can
+/// friendly-fire and a surviving teammate scores a loss instead of an allied victory when the
+/// last enemy drops. The slot layout is identical on every client (server-ordered), so every
+/// client writing these locally stays in sync.
+unsafe fn setup_forces(slots: &[PlayerInfo], game_type: BwGameType, game: *mut bw::Game) {
+    if !game_type.has_team_forces() {
+        return;
+    }
+    unsafe {
+        for (i, slot) in slots.iter().enumerate() {
+            // Observers live outside the 8 force-assignable slots; player slots use their index
+            // in `slots` as their BW slot id (matching `setup_slots`).
+            if slot.is_observer() {
+                continue;
+            }
+            if let Some(force) = (*game).player_forces.get_mut(i) {
+                *force = slot.team_id;
+            }
+        }
+        // Allied + allied victory + shared vision for every force with a participant. (The
+        // remaining force flag bit, 0x1 = random start location, is left unset.)
+        const FORCE_ALLIED_FLAGS: u8 = 0x0e;
+        for slot in slots.iter().filter(|s| s.is_human() || s.is_computer()) {
+            let team = slot.team_id;
+            if (1..=4).contains(&team) {
+                (*game).force_flags[usize::from(team - 1)] = FORCE_ALLIED_FLAGS;
+            }
+        }
+        debug!(
+            "Set up team forces: player_forces {:?} force_flags {:?}",
+            (*game).player_forces,
+            (*game).force_flags,
+        );
+    }
 }
 
 unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {

@@ -241,6 +241,13 @@ impl BwGameType {
     pub fn is_team_game(&self) -> bool {
         matches!(self.primary, 0xb | 0xc | 0xd)
     }
+
+    /// Whether the lobby's team layout defines the BW force layout: the shared-control team types
+    /// (Team Melee/FFA/CTF) and Top vs Bottom. Melee/FFA/1v1 are positional (every player its own
+    /// enemy), and UMS forces come from the map instead.
+    pub fn has_team_forces(&self) -> bool {
+        self.is_team_game() || self.primary == 0xf
+    }
 }
 
 quick_error! {

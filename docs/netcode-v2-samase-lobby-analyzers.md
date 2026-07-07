@@ -154,9 +154,48 @@ Inside apply: the repeated `^ 0x307A98A3` game-struct access; the guard compare 
 force-header immediates `0x80..0x83` written with `+4=-1`, `+8=0x0C` at stride 0x24; terminal
 `(*fp)(x,1,5)` + `set_lobby_state(3)`. Builder: immediate `0x4A` into buf[0] followed by the same
 field sequence, ending in a 0x3F-length send + a 1-byte `0x50` send. Fragile: every raw address
-and both XOR keys. Unproven semantics (flagged): what `game+0xEC/0xE4/0xE6` mean; the exact
-bit meanings of the per-slot alliance/vision bytes (the old tactical-fix note says active teams
-want `0x0E`); `sub_756A00`'s exact `data_11D00B8` derivation.
+and both XOR keys.
+
+**Semantic gaps CLOSED (2026-07-07 second Opus pass) — and the verdict they force:**
+
+- **`game+0xEC/0xE4/0xE6`:** three u16s in the encrypted CGame paralleling `BwGameData`'s
+  game_type/subtype pair (0xE4/0xE6 adjacent, 0xEC separate) — the CGame-side game-type family
+  words. Set by the game-info/CreateGame path independent of per-slot lobby handlers ⇒
+  **already populated on every 2c client** (the `apply_game_type_template` fix covers the peer).
+  Identity round-trip in the record; per-word semantic labels never pinned (moot, see verdict).
+- **`game+0xE4C0..0xE4CB` (rec +0x2B..+0x36) decoded — TWO arrays, not 12 uniform bytes:**
+  `+0xE4C0..E4C7` = 8 per-SLOT force numbers (1-4; staging `+0xA` copies, `net_cmd_lobby_slot_setup`
+  compares them to force ids @0x731bf2, `setup_players_on_game_start` groups by them @0x75636f).
+  `+0xE4C8..E4CB` = 4 per-FORCE flag bytes (forces 1-4) with the standard CHK FORC bits:
+  0x01 random-start-location, 0x02 allied, 0x04 allied-victory, 0x08 shared-vision ⇒ **0x0E =
+  fully-allied team force** (the old tactical note was right, but it's a per-FORCE byte, not
+  per-slot; the "0x0E" similarity to `cmd_alliance`'s net-command opcode 0x0E was a red herring —
+  `issue_alliance_command` @0x73C500 / `cmd_alliance` @0x73A4C0 use 2-bit-per-target payloads).
+  Alliance matrix `game+0xE544` = 12×12 stride-0xC **2-bit cells** (0 enemy / 1 allied / 2
+  allied-victory); vision `game+0xFC` = per-player u32 mask. The init-time expander that reads
+  the force flags into 0xE544/0xFC was not pinned (it is NOT dialog-path `sub_6c0790`, which reads
+  settings table `data_11a4280`), but live behavior proves it runs and reads `0xE4C8`.
+  bw_dat already names these fields: `Game.player_forces[8]` / `Game.force_flags[4]`.
+- **`data_11D00B8` (rec +0x37):** 8-byte per-slot participation flag array (`sub_756A00` is just a
+  memmove of it; zeroed by `sub_7580f0`, `[slot]=1` by `sub_754540` from the map-load player-table
+  init `sub_71cb90`; `setup_players_on_game_start` skips slot when 0).
+- **Builder read-source table verified complete** — every record field reads exactly the location
+  apply writes back (identity round-trip); no reads outside CGame + the staging/lobby globals.
+
+**VERDICT — the 0x4A local build+apply is NOT implementable under 2c, superseded by a direct
+force-byte write (implemented in `game_state.rs::setup_forces`).** The builder's inputs (staging
+`data_11CF860` entries +8/+9, `data_11CC714/71C`, `data_11D00B8`) are populated only by the native
+lobby machinery 2c bypasses, have **no samase analyzers** (and the live build is 13515 — 12409
+addresses don't map), and +8/+9's semantics were never labeled. A zero-filled record would make
+apply STOMP the map-load staging state today's sync-clean games depend on. Meanwhile the only
+state whose absence causes the alliance bug is the 12 bytes at `game+0xE4C0` — which bw_dat
+already exposes as named `Game` fields and whose encoding is now fully decoded. So every 2c
+client writes `player_forces[slot] = team_id` + `force_flags[force-1] = 0x0E` directly after
+`setup_slots` (deterministic from server-ordered slots ⇒ sync-safe) and native game init derives
+alliances/vision from them, exactly as it would from a native 0x4A. The resolved
+`apply_lobby_force_cmd` fn pointer stays in `NetcodeV2Bw` as groundwork should the full record
+path ever be wanted (it would need analyzers for the four globals above first). UMS force flags
+are a separate follow-up (SB's `MapForce` doesn't carry FORC flags yet).
 
 ### `process_async_lobby_command` @ 0x735ba0 / `sub_73f490` @ 0x73f490
 Not needed as analyzers — option 3 (hooking the async transport) stays ruled out; they are
