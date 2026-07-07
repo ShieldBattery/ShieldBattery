@@ -336,8 +336,9 @@ impl TurnState {
 
     /// Records the rally-point2 slot ↔ BW storm id mapping learned during lobby join.
     ///
-    /// rp2 slots are coordinator-bounded (≤ 7), so an out-of-range slot can't occur short of a
-    /// protocol bug; assert in debug so one would surface loudly rather than as a mapping that
+    /// rp2 slots are session-bounded to `0..bw::MAX_STORM_PLAYERS` — players and observers share
+    /// that range, observers occupying the upper slots — so an out-of-range slot can't occur short
+    /// of a protocol bug; assert in debug so one would surface loudly rather than as a mapping that
     /// silently never resolves.
     pub fn map_slot(&mut self, slot: SlotId, storm_id: StormPlayerId) {
         debug_assert!(

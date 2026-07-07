@@ -483,13 +483,13 @@ impl GameState {
                     bw.apply_game_type_template(game_type).map_err(|()| {
                         GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
                     })?;
-                    // Fill net_player_info directly for every human. Native init_net_player only
-                    // populates the entry for a player Storm's own provider-gated name lookup
-                    // resolves — the local player, but not a roster-seeded remote — so a direct write
-                    // is what gives every player a populated entry (name + in-use state).
-                    // TODO(observers): players only for now — observer registration (rp2 slots
-                    //    8-11 → players[12+n]) goes here too.
-                    for slot in info.slots.iter().filter(|s| s.is_human()) {
+                    // Fill net_player_info directly for every human and observer. Native
+                    // init_net_player only populates the entry a player Storm's own provider-gated
+                    // name lookup resolves — the local player, but not a roster-seeded remote — so a
+                    // direct write is what gives every participant a populated entry (name + in-use
+                    // state). Observers are net players too — their storm ids are rp2 slots < 12,
+                    // in range of the net-player table — so they register the same way.
+                    for slot in info.slots.iter().filter(|s| s.is_human() || s.is_observer()) {
                         if let Some(uid) = slot.user_id
                             && let Some(&storm) = storm_id_map.get(&uid)
                         {
@@ -1472,39 +1472,58 @@ fn sanitized_name_cstring(raw: &str) -> Option<CString> {
 }
 
 /// Builds the joined-player set for a netcode v2 game directly from the session roster + slot
-/// layout, without reading Storm's join bookkeeping. PLAYERS ONLY: observers are not handled yet.
-/// The storm id is the user's rp2 roster slot (storm id ≡ rp2 slot). For a non-UMS human the BW
-/// game slot (`player_id`) equals its index in `slots` — the same `slot_id` `setup_slots` assigns —
-/// and is re-derived from the storm id once BW randomizes slots (`PlayersRandomized`), so the
-/// pre-randomization value only needs to be a valid game slot.
+/// layout, without reading Storm's join bookkeeping. The storm id is the user's rp2 roster slot
+/// (storm id ≡ rp2 slot). For a non-UMS human the BW game slot (`player_id`) equals its index in
+/// `slots` — the same `slot_id` `setup_slots` assigns — and is re-derived from the storm id once BW
+/// randomizes slots (`PlayersRandomized`), so the pre-randomization value only needs to be a valid
+/// game slot. Observers occupy the observer game slots `players[12..16]` (ids 0x80-0x83): the nth
+/// observer in slot order takes `players[11 + n]`, matching `setup_slots`, and BW's randomization
+/// leaves those slots in place. A slot whose user has no roster storm id is skipped (a replay's
+/// roster names only the local viewer).
 ///
-/// TODO(observers, UMS): observers and UMS games use a different game-slot layout (observers at
-/// `players[12+n]`, UMS by `slot.player_id`); this players-only, non-UMS mapping covers the current
-/// path and needs extending for those.
+/// TODO(UMS): UMS games place players by `slot.player_id` rather than by slot index; this non-UMS
+/// mapping needs extending for those.
 fn build_v2_joined_players(
     info: &GameSetupInfo,
     storm_id_map: &HashMap<SbUserId, u8>,
 ) -> Vec<JoinedPlayer> {
-    info.slots
-        .iter()
-        .enumerate()
-        .filter(|(_, slot)| slot.is_human())
-        .filter_map(|(i, slot)| {
-            let user_id = slot.user_id?;
-            let name = info
-                .users
-                .iter()
-                .find(|u| u.id == user_id)
-                .map(|u| u.name.clone())?;
-            let storm_id = storm_id_map.get(&user_id).copied()?;
-            Some(JoinedPlayer {
-                name,
-                storm_id: StormPlayerId(storm_id),
-                player_id: Some(BwPlayerId(i as u8)),
-                sb_user_id: user_id,
-            })
-        })
-        .collect()
+    let mut joined = Vec::new();
+    let mut num_observers = 0u8;
+    for (i, slot) in info.slots.iter().enumerate() {
+        let is_observer = slot.is_observer();
+        if !slot.is_human() && !is_observer {
+            continue;
+        }
+        // Observers count in slot order regardless of whether the entry resolves below, so a later
+        // observer still lands on the game slot `setup_slots` gave it.
+        let player_id = if is_observer {
+            num_observers += 1;
+            BwPlayerId(11 + num_observers)
+        } else {
+            BwPlayerId(i as u8)
+        };
+        let Some(user_id) = slot.user_id else {
+            continue;
+        };
+        let Some(name) = info
+            .users
+            .iter()
+            .find(|u| u.id == user_id)
+            .map(|u| u.name.clone())
+        else {
+            continue;
+        };
+        let Some(&storm_id) = storm_id_map.get(&user_id) else {
+            continue;
+        };
+        joined.push(JoinedPlayer {
+            name,
+            storm_id: StormPlayerId(storm_id),
+            player_id: Some(player_id),
+            sb_user_id: user_id,
+        });
+    }
+    joined
 }
 
 unsafe fn join_lobby(
@@ -1661,9 +1680,10 @@ unsafe fn setup_slots(
                 storm_id: match slot.is_human() || slot.is_observer() {
                     // Netcode v2: write the real storm id from the roster (storm id ≡ rp2 slot) so
                     // `update_nation_and_human_ids` builds the id maps with no Storm-read
-                    // reconciliation. TODO(observers): observer storm ids resolve to rp2 slots 8-11
-                    // here (< 16, which the id-map builder requires), but the observer path is
-                    // unverified — this handles players only.
+                    // reconciliation. Observer storm ids are rp2 slots as well (< 16, which the
+                    // id-map builder requires); the lookup covers players and observers alike. A
+                    // miss falls through to `u32::MAX`, which that builder asserts against — the
+                    // same loud failure a missing player would get.
                     true => match v2_storm_ids {
                         Some(map) => slot
                             .user_id
@@ -2334,6 +2354,62 @@ mod tests {
         assert_eq!(joined[1].storm_id, StormPlayerId(1));
         assert_eq!(joined[1].player_id, Some(BwPlayerId(1)));
         assert_eq!(joined[1].sb_user_id, SbUserId(20));
+    }
+
+    #[test]
+    fn build_v2_joined_players_places_observers_at_observer_slots() {
+        let info: GameSetupInfo = serde_json::from_value(serde_json::json!({
+            "name": "obs game",
+            "map": {
+                "id": "map-id",
+                "hash": "hash",
+                "name": "Fighting Spirit",
+                "description": "",
+                "mapData": {
+                    "height": 128,
+                    "width": 112,
+                    "umsSlots": 2,
+                    "slots": 2,
+                    "tileset": 3,
+                    "umsForces": [],
+                    "isEud": false
+                },
+                "imageVersion": 0
+            },
+            "mapPath": "z:\\maps\\fs.scm",
+            "gameType": "melee",
+            "slots": [
+                { "id": "s0", "type": "human", "typeId": 6, "teamId": 0, "userId": 10, "race": "z", "playerId": 0 },
+                { "id": "s1", "type": "human", "typeId": 6, "teamId": 0, "userId": 20, "race": "p", "playerId": 1 },
+                { "id": "s2", "type": "observer", "typeId": 6, "teamId": 0, "userId": 30, "race": "r", "playerId": 2 }
+            ],
+            "host": { "id": "s0", "type": "human", "typeId": 6, "teamId": 0, "userId": 10, "race": "z", "playerId": 0 },
+            "users": [
+                { "id": 10, "name": "hostname" },
+                { "id": 20, "name": "oppname" },
+                { "id": 30, "name": "obsname" }
+            ],
+            "seed": 305419896,
+            "gameId": "game-id"
+        }))
+        .expect("valid GameSetupInfo fixture");
+        // storm id ≡ rp2 slot: the observer sits at rp2 slot 8, above the two players.
+        let storm_ids = HashMap::from([
+            (SbUserId(10), 0u8),
+            (SbUserId(20), 1u8),
+            (SbUserId(30), 8u8),
+        ]);
+        let mut joined = build_v2_joined_players(&info, &storm_ids);
+        joined.sort_by_key(|p| p.storm_id.0);
+
+        assert_eq!(joined.len(), 3);
+        assert_eq!(joined[0].player_id, Some(BwPlayerId(0)));
+        assert_eq!(joined[1].player_id, Some(BwPlayerId(1)));
+        // First (and only) observer occupies players[12]; its id reports as an observer.
+        assert_eq!(joined[2].name, "obsname");
+        assert_eq!(joined[2].storm_id, StormPlayerId(8));
+        assert_eq!(joined[2].player_id, Some(BwPlayerId(12)));
+        assert!(joined[2].player_id.unwrap().is_observer());
     }
 
     #[test]

@@ -3135,6 +3135,13 @@ impl BwScr {
     unsafe fn is_allied_with(&self, other_unique_player: u8) -> bool {
         unsafe {
             let local = self.local_unique_player_id.resolve() as u8;
+            // Observers hold no alliances: a local observer (BW id 0x80-0x83) never sees
+            // allies-scoped chat, and an observer sender (players[12..16]) is allied with no one.
+            // This also keeps the indexing below inside players[0..8] and alliances[0..12] — both
+            // observer encodings would run past those bounds.
+            if BwPlayerId(local).is_observer() || BwPlayerId(other_unique_player).is_observer() {
+                return false;
+            }
             if local == other_unique_player {
                 return true;
             }
@@ -3149,19 +3156,36 @@ impl BwScr {
         }
     }
 
-    /// Resolves a BW storm id to its `players[]` index (0-7 — this does not cover observer slots,
-    /// matching [`process_replay_commands`](Self::process_replay_commands)'s own lookup), the same
-    /// mapping that function uses to attribute a replayed command to its author.
-    ///
-    /// A message from an observer's storm id is therefore never resolved here and gets dropped by
-    /// the caller with a debug log — a known limitation shared with the replay-command path, not a
-    /// new one introduced for chat.
+    /// Resolves a BW storm id to its `players[]` index: player slots `0..8` and observer slots
+    /// `12..16` (ids 0x80-0x83). The intervening `8..12` are neutral/special slots that never carry
+    /// a session storm id and are deliberately skipped. This is the mapping used to attribute a
+    /// command — chat or replayed — to its author. Returns `None` if no slot currently holds the
+    /// storm id (e.g. the player already left).
     unsafe fn unique_player_for_storm(&self, storm_player: StormPlayerId) -> Option<u8> {
         unsafe {
             let players = self.players();
             (0..8)
-                .position(|i| (*players.add(i)).storm_id as u8 == storm_player.0)
+                .chain(12..16)
+                .find(|&i| (*players.add(i)).storm_id as u8 == storm_player.0)
                 .map(|s| s as u8)
+        }
+    }
+
+    /// The game player id whose identity a command runs under, given the sender's `players[]` index
+    /// (from [`unique_player_for_storm`](Self::unique_player_for_storm)). In a team game a normal
+    /// player's commands run under that team's main player; an observer has no team (its
+    /// `players[].team` is 0, which would underflow `team_game_main_player`), so it acts under its
+    /// own slot. Outside a team game, and always for an observer, the slot index is the game player.
+    unsafe fn command_game_player(&self, unique_player: u8) -> u8 {
+        unsafe {
+            if game_thread::is_team_game() && !BwPlayerId(unique_player).is_observer() {
+                let players = self.players();
+                // Teams start from 1
+                let team = (*players.add(unique_player as usize)).team;
+                (*self.game()).team_game_main_player[team as usize - 1]
+            } else {
+                unique_player
+            }
         }
     }
 
@@ -3207,15 +3231,7 @@ impl BwScr {
             let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
                 return false;
             };
-            let players = self.players();
-            let game = self.game();
-            let game_player = if game_thread::is_team_game() {
-                // Teams start from 1
-                let team = (*players.add(unique_player as usize)).team;
-                (*game).team_game_main_player[team as usize - 1]
-            } else {
-                unique_player
-            };
+            let game_player = self.command_game_player(unique_player);
             self.command_user.write(game_player as u32);
             self.unique_command_user.write(unique_player as u32);
             (self.process_game_commands)(
@@ -4506,20 +4522,10 @@ impl bw::Bw for BwScr {
 
     unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) {
         unsafe {
-            let players = self.players();
-            let game = self.game();
-            let unique_player =
-                match (0..8).position(|i| (*players.add(i)).storm_id as u8 == storm_player.0) {
-                    Some(s) => s as u8,
-                    None => return,
-                };
-            let game_player = if game_thread::is_team_game() {
-                // Teams start from 1
-                let team = (*players.add(unique_player as usize)).team;
-                (*game).team_game_main_player[team as usize - 1]
-            } else {
-                unique_player
+            let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
+                return;
             };
+            let game_player = self.command_game_player(unique_player);
             self.command_user.write(game_player as u32);
             self.unique_command_user.write(unique_player as u32);
             self.enable_rng.write(1);
