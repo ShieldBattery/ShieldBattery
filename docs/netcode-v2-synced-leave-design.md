@@ -238,6 +238,24 @@ creation + setup/token/roster distribution, and MMR/timeout bookkeeping.
 start-directive is a clean follow-up that deletes `startWhenReady` and the `ClientReady` overlay, each
 step independently testable.
 
+**BUILT + LIVE-PROVEN through increment B (2026-07-07/08).** rp2 `d057552`: the coordinator carries
+the session's full slot set on the descriptor (`expected_slots`, serde-default empty = off); relays
+announce registering slots to mesh peers (`SlotPresent`) and every relay accumulates the session-wide
+live set (so a mid-startup promotion can evaluate coverage); only the authority fires `SessionStart`
+(a one-shot latch; a departure uncovers a not-yet-started session; a started one stays started); the
+directive fans to local slots on the same per-slot reliable push channel as leave directives +
+broadcasts across the mesh, and a slot registering after start is re-pushed immediately
+(at-least-once — clients dedup). Wire: `ControlFrame` oneof field 7 = fieldless `SessionStart`;
+mesh oneof 7/8 = `SlotPresent`/`SessionStart`. SB `4d51187e5`: `establish_session` returns the
+directive receiver; the relay init path awaits it (in the lobby-stepping `select!` where the
+`allow_start` wait sat) then hands the receiver to a session-lifetime drain task — REQUIRED, not
+optional: the driver closes the link if a re-pushed directive hits a dropped receiver.
+`establish_sessionless` fabricates + parks the channel like the others. Live-verified loopback:
+both melee-1v1 clients log the wait → directive-received transition, play to a correct DB result,
+zero desync; solo + replay unchanged. Remaining: increment C — delete the `startWhenReady` chain
+end-to-end (server publish, ws event, renderer handler, IPC, app latch + resend-on-connect, DLL
+message + `can_start_game`; solo/replay then start as soon as local init is ready).
+
 ### Reconnect / failover (D11)
 
 The whole design ships the **permanent-leave** path with an *immediate* trigger (matching today's
