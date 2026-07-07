@@ -17,7 +17,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
     GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameResultsReport,
-    GameSetupInfo, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
+    GameSetupInfo, GameType, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
     NetworkTransport, PlayerInfo, SbUser, SbUserId, ServerConfig, Settings, SetupProgress,
     UmsLobbyRace,
 };
@@ -1476,17 +1476,17 @@ fn sanitized_name_cstring(raw: &str) -> Option<CString> {
 /// (storm id ≡ rp2 slot). For a non-UMS human the BW game slot (`player_id`) equals its index in
 /// `slots` — the same `slot_id` `setup_slots` assigns — and is re-derived from the storm id once BW
 /// randomizes slots (`PlayersRandomized`), so the pre-randomization value only needs to be a valid
-/// game slot. Observers occupy the observer game slots `players[12..16]` (ids 0x80-0x83): the nth
-/// observer in slot order takes `players[11 + n]`, matching `setup_slots`, and BW's randomization
-/// leaves those slots in place. A slot whose user has no roster storm id is skipped (a replay's
-/// roster names only the local viewer).
-///
-/// TODO(UMS): UMS games place players by `slot.player_id` rather than by slot index; this non-UMS
-/// mapping needs extending for those.
+/// game slot. A UMS game places players by the map's slot id (`slot.player_id`) instead — the same
+/// id `setup_slots` places them at — and BW does not randomize UMS slots. Observers occupy the
+/// observer game slots `players[12..16]` (ids 0x80-0x83): the nth observer in slot order takes
+/// `players[11 + n]`, matching `setup_slots`, and BW's randomization leaves those slots in place.
+/// A slot whose user has no roster storm id is skipped (a replay's roster names only the local
+/// viewer).
 fn build_v2_joined_players(
     info: &GameSetupInfo,
     storm_id_map: &HashMap<SbUserId, u8>,
 ) -> Vec<JoinedPlayer> {
+    let is_ums = info.game_type == GameType::Ums;
     let mut joined = Vec::new();
     let mut num_observers = 0u8;
     for (i, slot) in info.slots.iter().enumerate() {
@@ -1499,6 +1499,8 @@ fn build_v2_joined_players(
         let player_id = if is_observer {
             num_observers += 1;
             BwPlayerId(11 + num_observers)
+        } else if is_ums {
+            BwPlayerId(slot.player_id.unwrap_or(0))
         } else {
             BwPlayerId(i as u8)
         };
@@ -2410,6 +2412,59 @@ mod tests {
         assert_eq!(joined[2].storm_id, StormPlayerId(8));
         assert_eq!(joined[2].player_id, Some(BwPlayerId(12)));
         assert!(joined[2].player_id.unwrap().is_observer());
+    }
+
+    #[test]
+    fn build_v2_joined_players_places_ums_players_by_map_slot_id() {
+        let info: GameSetupInfo = serde_json::from_value(serde_json::json!({
+            "name": "ums game",
+            "map": {
+                "id": "map-id",
+                "hash": "hash",
+                "name": "Some Scenario",
+                "description": "",
+                "mapData": {
+                    "height": 128,
+                    "width": 112,
+                    "umsSlots": 8,
+                    "slots": 8,
+                    "tileset": 3,
+                    "umsForces": [],
+                    "isEud": false
+                },
+                "imageVersion": 0
+            },
+            "mapPath": "z:\\maps\\scenario.scx",
+            "gameType": "ums",
+            "slots": [
+                { "id": "s0", "type": "human", "typeId": 6, "teamId": 1, "userId": 10, "race": "z", "playerId": 0 },
+                { "id": "s1", "type": "human", "typeId": 6, "teamId": 1, "userId": 20, "race": "p", "playerId": 1 },
+                { "id": "s2", "type": "human", "typeId": 6, "teamId": 2, "userId": 30, "race": "t", "playerId": 4 }
+            ],
+            "host": { "id": "s0", "type": "human", "typeId": 6, "teamId": 1, "userId": 10, "race": "z", "playerId": 0 },
+            "users": [
+                { "id": 10, "name": "hostname" },
+                { "id": 20, "name": "oppname" },
+                { "id": 30, "name": "thirdname" }
+            ],
+            "seed": 305419896,
+            "gameId": "game-id"
+        }))
+        .expect("valid GameSetupInfo fixture");
+        let storm_ids = HashMap::from([
+            (SbUserId(10), 0u8),
+            (SbUserId(20), 1u8),
+            (SbUserId(30), 2u8),
+        ]);
+        let mut joined = build_v2_joined_players(&info, &storm_ids);
+        joined.sort_by_key(|p| p.storm_id.0);
+
+        assert_eq!(joined.len(), 3);
+        // UMS placement follows the map's slot id, not the slot-list index: the third human sits
+        // at map slot 4 even though it is slots[2].
+        assert_eq!(joined[0].player_id, Some(BwPlayerId(0)));
+        assert_eq!(joined[1].player_id, Some(BwPlayerId(1)));
+        assert_eq!(joined[2].player_id, Some(BwPlayerId(4)));
     }
 
     #[test]
