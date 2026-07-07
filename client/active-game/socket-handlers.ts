@@ -117,9 +117,6 @@ export default function ({
         }
       }
     },
-    setRoutes(_, { routes, gameId }) {
-      ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
-    },
     setNetcodeV2Setup(_, { gameId, setup }) {
       ipcRenderer.invoke('activeGameSetNetcodeV2Setup', gameId, setup)?.catch(swallowNonBuiltins)
     },

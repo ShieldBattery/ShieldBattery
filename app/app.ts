@@ -718,9 +718,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       return null
     }
   })
-  ipcMain.handle('activeGameSetRoutes', (event, gameId, routes) =>
-    activeGameManager.setGameRoutes(gameId, routes),
-  )
   ipcMain.handle('activeGameGenNetcodeV2Keys', (event, gameId) =>
     activeGameManager.generateNetcodeV2Keys(gameId),
   )

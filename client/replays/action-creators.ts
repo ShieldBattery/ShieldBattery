@@ -62,8 +62,7 @@ async function setGameConfig(
   })
 }
 
-function setGameRoutes(gameId: string) {
-  ipcRenderer.invoke('activeGameSetRoutes', gameId, [])?.catch(swallowNonBuiltins)
+function startReplayWhenReady(gameId: string) {
   ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
 }
 
@@ -96,7 +95,7 @@ export function startReplay({
               // start waiting for this game to launch to avoid a race here. This is pretty dumb and
               // should probably be handled in a different way.
               setTimeout(() => {
-                setGameRoutes(gameId)
+                startReplayWhenReady(gameId)
               }, 250)
             }
           },

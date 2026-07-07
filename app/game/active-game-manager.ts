@@ -1,6 +1,5 @@
 import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { app, screen } from 'electron'
-import { Set } from 'immutable'
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
 import os from 'node:os'
@@ -14,7 +13,6 @@ import {
 } from '../../common/games/game-debug'
 import {
   GameLaunchConfig,
-  GameRoute,
   isReplayLaunchConfig,
   isReplayMapInfo,
 } from '../../common/games/game-launch-config'
@@ -62,7 +60,6 @@ interface ActiveGameInfo {
    */
   promise?: Promise<any>
   config?: GameLaunchConfig
-  routes?: GameRoute[]
   /**
    * The per-session netcode v2 keypair, generated on request during loading. The private key is
    * held here (never sent to the server) until it's merged into the game process handoff.
@@ -200,20 +197,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       this.activeGame = null
       return null
     }
-    if (current && current.routes && isGameConfig(config)) {
-      const routesIds = Set(current.routes.map(r => r.for))
-      const slotIds = Set(config.setup.slots.map(s => s.id))
-
-      if (!slotIds.isSuperset(routesIds)) {
-        this.setStatus(GameStatus.Error)
-        this.activeGame = null
-
-        log.error(
-          `Slots and routes don't match:\nslots: ${String(slotIds)}\nroutes: ${String(routesIds)}`,
-        )
-        throw new Error("Slots and routes don't match")
-      }
-    }
 
     const gameId = config.setup.gameId
     const activeGamePromise = doLaunch(
@@ -251,36 +234,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     log.verbose(`Creating new game ${gameId}`)
     this.setStatus(GameStatus.Launching)
     return gameId
-  }
-
-  setGameRoutes(gameId: string, routes: GameRoute[]) {
-    const current = this.activeGame
-    if (current && current.id !== gameId) {
-      return
-    }
-
-    if (current && current.config) {
-      const routesIds = Set(routes.map(r => r.for))
-      const slotIds = Set(current.config.setup.slots.map(s => s.id))
-
-      if (!slotIds.isSuperset(routesIds)) {
-        this.setStatus(GameStatus.Error)
-        this.activeGame = null
-
-        const err = new Error("Slots and routes don't match")
-        this.setStatus(GameStatus.Error, err)
-        return
-      }
-    }
-
-    this.activeGame = {
-      ...current,
-      id: gameId,
-      routes,
-    }
-    this.setStatus(GameStatus.Launching)
-
-    this.maybeSendGameSetup(this.activeGame)
   }
 
   /**
@@ -330,9 +283,9 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
 
   /**
    * Sends the game setup command (preceded by everything it depends on) once every input has
-   * arrived: the config and routes always, plus the netcode v2 handoff for games using it. The
-   * game process consumes the netcode v2 setup when its game init starts, so it must be delivered
-   * before `setupGame`.
+   * arrived: the config always, plus the netcode v2 handoff for games using it. The game process
+   * consumes the netcode v2 setup when its game init starts, so it must be delivered before
+   * `setupGame`.
    *
    * May fire before the game process has connected — those sends go nowhere, and
    * `handleGameConnected` re-runs this once the process is ready. Takes the game explicitly (not
@@ -340,14 +293,13 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
    * captured, not one that replaced it in the meantime.
    */
   private maybeSendGameSetup(game: ActiveGameInfo) {
-    if (!game.config || !game.routes) {
+    if (!game.config) {
       return
     }
     if (game.config.setup.useNetcodeV2 && !game.netcodeV2Setup) {
       return
     }
 
-    this.emit('gameCommand', game.id, 'routes', game.routes)
     if (game.netcodeV2Setup) {
       this.emit('gameCommand', game.id, 'netcodeV2Setup', game.netcodeV2Setup)
     }

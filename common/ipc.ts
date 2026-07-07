@@ -8,7 +8,7 @@ import type {
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
-import { GameLaunchConfig, GameRoute } from './games/game-launch-config'
+import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
@@ -129,7 +129,6 @@ interface IpcInvokeables {
    * merges in the locally-held private key and forwards it to the game process.
    */
   activeGameSetNetcodeV2Setup: (gameId: string, setup: NetcodeV2ServerSetup) => void
-  activeGameSetRoutes: (gameId: string, routes: GameRoute[]) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 

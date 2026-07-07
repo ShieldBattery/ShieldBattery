@@ -2,7 +2,6 @@ import { SlotType } from '../lobbies/slot'
 import { MapInfoJson } from '../maps'
 import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
-import { ResolvedRallyPointServer } from '../rally-point/index'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameType } from './game-type'
@@ -118,16 +117,4 @@ export interface GameLaunchConfig {
   }
   /** Setup configuration for the game, such as the map, game type, etc. */
   setup: GameSetup
-}
-
-/** A network route configuration for communication between two players in a game. */
-export interface GameRoute {
-  /** The ID of the player who will be connected to over this network route. */
-  for: string
-  /** The rally-point server to connect to for this route. */
-  server: ResolvedRallyPointServer
-  /** The ID of the route, used to identify it to the rally-point server. */
-  routeId: string
-  /** The ID of the local player, used to identify themselves to the rally-point server. */
-  playerId: number
 }

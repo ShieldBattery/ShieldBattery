@@ -1,10 +1,9 @@
-import { GameRoute, GameSetup } from './game-launch-config'
+import { GameSetup } from './game-launch-config'
 import { NetcodeV2ServerSetup } from './netcode-v2'
 
 export type GameLoaderEvent =
   | CancelLoading
   | SetGameConfigEvent
-  | SetRoutesEvent
   | SetNetcodeV2SetupEvent
   | StartWhenReadyEvent
 
@@ -17,12 +16,6 @@ export interface SetGameConfigEvent {
   type: 'setGameConfig'
   gameId: string
   setup: GameSetup
-}
-
-export interface SetRoutesEvent {
-  type: 'setRoutes'
-  gameId: string
-  routes: GameRoute[]
 }
 
 /**
