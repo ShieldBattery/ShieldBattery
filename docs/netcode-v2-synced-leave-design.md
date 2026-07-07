@@ -158,21 +158,25 @@ handshake. The full RE-verified implementation plan is the next section.
 >    by the host at `lobby_state == 4`, and **the host never self-applies** — host-side state is
 >    maintained by the native slot handlers that SB's `setup_slots` bypasses, so under 2c the HOST
 >    lacks the state exactly like peers ⇒ the local build+apply must run on **every client**.
->    **BUILT (2026-07-07 overnight, awaiting live verify) — with a settled DEVIATION from option 2:**
+>    **✅ FIXED + LIVE-VERIFIED (2026-07-07 overnight) — with a settled DEVIATION from option 2:**
 >    the second RE pass closed every semantic gap and thereby showed the record is NOT locally
 >    buildable under 2c (its staging/lobby-global inputs are populated only by bypassed native
 >    machinery, have no samase analyzers, and a zero-fill would stomp map-load staging state via
->    apply's table rebuild). What IS now fully decoded is the exact state whose absence causes the
->    bug: `game+0xE4C0[8]` per-slot force numbers + `game+0xE4C8[4]` per-force CHK FORC flag bytes
->    (0x02 allied | 0x04 allied-victory | 0x08 shared-vision = 0x0E), which native game init expands
->    into the alliance matrix (`game+0xE544`, 2-bit cells) + vision (`game+0xFC`). Fix as built:
->    `setup_forces` in game_state.rs — every client writes `player_forces[slot]=team_id` and
->    `force_flags[force-1]=0x0E` (bw_dat's named Game fields) right after `setup_slots` for
->    team-force game types (Team Melee/FFA, TvB; melee/FFA/UMS untouched), native init derives the
->    rest. The samase analyzer + resolved `apply_lobby_force_cmd` pointer stay as groundwork.
->    Full RE + verdict trail: anchors doc → `apply_lobby_force_cmd`. UMS FORC flags = follow-up
->    (`MapForce` lacks the flags field). Acceptance test unchanged: Team Melee 2v1 forceQuit →
->    surviving teammate WINS, no friendly fire, shared vision.
+>    apply's table rebuild). The intermediate attempt — writing the decoded native INPUTS
+>    (`game+0xE4C0[8]` per-slot forces + `game+0xE4C8[4]` per-force FORC flag bytes, 0x0E) after
+>    `setup_slots` — was live-DISPROVEN: values verified correct at lobby time on all clients, yet
+>    the game-end alliance matrix stayed empty, so game init re-derives/resets those inputs from
+>    map data before the (still un-pinned) expander reads them. Fix as landed (`f475993ab`):
+>    `setup_team_alliances` in game_thread.rs, called from `after_init_game_data` (post-init,
+>    post-randomization, nothing left to wipe it) — every client writes the derived OUTPUTS
+>    directly: `game.alliances[i][j] = AlliedVictory(2)` both ways + mutual `game.visions` bits for
+>    every same-team pair, for team-force types (Team Melee/FFA, TvB) under v2, non-replay. Same
+>    cells the ally dialog + result scoring read; same encoding the in-game alliance/vision net
+>    commands write. VERIFIED: matrix+vision identical on all 3 clients; Team Melee 2v1 forceQuit
+>    → DB `claude-1 win, claude-3 win, claude-2 loss` (was c3 loss). The samase analyzer + resolved
+>    `apply_lobby_force_cmd` pointer stay as groundwork. Full RE + verdict trail: anchors doc →
+>    `apply_lobby_force_cmd`. Follow-ups: UMS FORC flags (`MapForce` lacks the flags field);
+>    friendly-fire/vision spot-check in live play (matrix-verified only).
 > 2. **Start-of-game lag screen — ✅ FIXED + LIVE-VERIFIED 2026-07-07.** The native-countdown theory
 >    was refuted by instrumentation (`lobby_state` sat at 8 the whole time on the host; zero native
 >    ladder movement; zero non-keepalive commands before the `0x48`). Actual cause: **a keep-alive

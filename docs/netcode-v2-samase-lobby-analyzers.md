@@ -183,7 +183,12 @@ and both XOR keys.
   apply writes back (identity round-trip); no reads outside CGame + the staging/lobby globals.
 
 **VERDICT — the 0x4A local build+apply is NOT implementable under 2c, superseded by a direct
-force-byte write (implemented in `game_state.rs::setup_forces`).** The builder's inputs (staging
+write of the derived alliance/vision state (`game_thread.rs::setup_team_alliances`, live-verified).
+An input-side write was tried first and live-DISPROVEN: `player_forces`/`force_flags` written
+post-`setup_slots` were correct at lobby time but the alliance matrix stayed empty — game init
+re-derives those bytes from map data before the (un-pinned) expander reads them, so the working
+write point is `after_init_game_data`, targeting `game.alliances`/`game.visions` directly.**
+The builder's inputs (staging
 `data_11CF860` entries +8/+9, `data_11CC714/71C`, `data_11D00B8`) are populated only by the native
 lobby machinery 2c bypasses, have **no samase analyzers** (and the live build is 13515 — 12409
 addresses don't map), and +8/+9's semantics were never labeled. A zero-filled record would make
