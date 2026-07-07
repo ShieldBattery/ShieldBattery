@@ -6,7 +6,7 @@ import { GameReplayInfo } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { SlotType } from '../../common/lobbies/slot'
 import { SbUser, SelfUserJson } from '../../common/users/sb-user'
-import { makeSbUserId } from '../../common/users/sb-user-id'
+import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
@@ -15,11 +15,16 @@ import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { fetchRaw } from '../network/fetch'
 import { makeServerUrl } from '../network/server-url'
+import { ensureRelationshipsLoaded } from '../social/action-creators'
 import { healthChecked } from '../starcraft/health-checked'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-async function setGameConfig(replay: { name: string; path: string }, user?: SelfUserJson) {
+async function setGameConfig(
+  replay: { name: string; path: string },
+  user?: SelfUserJson,
+  blockedUsers: SbUserId[] = [],
+) {
   const player: PlayerInfo = {
     type: SlotType.Human,
     typeId: 6,
@@ -38,6 +43,7 @@ async function setGameConfig(replay: { name: string; path: string }, user?: Self
 
   return ipcRenderer.invoke('activeGameSetConfig', {
     localUser,
+    blockedUsers,
     serverConfig: {
       serverUrl: makeServerUrl(''),
     },
@@ -68,37 +74,46 @@ export function startReplay({
   name?: string
 }): ThunkAction {
   return healthChecked((dispatch, getState) => {
-    const {
-      auth: { self },
-    } = getState()
+    // Relationship state (the block list) resets on reconnect, so ensure it's loaded before reading
+    // it — otherwise a replay launched right after a reconnect would hide nothing. Consistent with
+    // the game-launch path in active-game/socket-handlers.ts.
+    dispatch(
+      ensureRelationshipsLoaded(() => {
+        const {
+          auth: { self },
+          relationships,
+        } = getState()
 
-    // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can show
-    // to other people (like their friends) when a user is watching a replay.
-    setGameConfig({ path, name }, self?.user).then(
-      gameId => {
-        if (gameId) {
-          dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
-          // NOTE(tec27): This is just to give time for the dialog to open/run its effects to start
-          // waiting for this game to launch to avoid a race here. This is pretty dumb and should
-          // probably be handled in a different way.
-          setTimeout(() => {
-            setGameRoutes(gameId)
-          }, 250)
-        }
-      },
-      err => {
-        logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
-        dispatch(
-          openSimpleDialog(
-            i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
-            i18n.t(
-              'replays.loading.initFailureBody',
-              'The selected replay could not be loaded. It may either be corrupt, or was created ' +
-                'by a version of StarCraft newer than is currently supported.',
-            ),
-          ),
+        // TODO(2Pac): Use the game loader on the server to register watching a replay, so we can
+        // show to other people (like their friends) when a user is watching a replay.
+        const blockedUsers = Array.from(relationships.blocks.keys())
+        setGameConfig({ path, name }, self?.user, blockedUsers).then(
+          gameId => {
+            if (gameId) {
+              dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
+              // NOTE(tec27): This is just to give time for the dialog to open/run its effects to
+              // start waiting for this game to launch to avoid a race here. This is pretty dumb and
+              // should probably be handled in a different way.
+              setTimeout(() => {
+                setGameRoutes(gameId)
+              }, 250)
+            }
+          },
+          err => {
+            logger.error(`Error starting replay file [${path}]: ${err?.stack ?? err}`)
+            dispatch(
+              openSimpleDialog(
+                i18n.t('replays.loading.initFailureTitle', 'Error loading replay'),
+                i18n.t(
+                  'replays.loading.initFailureBody',
+                  'The selected replay could not be loaded. It may either be corrupt, or was ' +
+                    'created by a version of StarCraft newer than is currently supported.',
+                ),
+              ),
+            )
+          },
         )
-      },
+      }),
     )
   })
 }

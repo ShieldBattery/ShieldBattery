@@ -1348,6 +1348,15 @@
         "selectLanguage": "Select a language",
         "title": "Language"
       },
+      "social": {
+        "blockedUsers": {
+          "count": "{{blocked}} / {{max}}",
+          "description": "You won't see messages from blocked users in chat or in games, and they can't send you friend requests.",
+          "empty": "You haven't blocked anyone.",
+          "title": "Blocked users"
+        },
+        "title": "Social"
+      },
       "title": "User"
     }
   },

@@ -44,6 +44,7 @@ import {
 } from './settings-page'
 import { AccountSettings } from './user/account-settings'
 import { UserLanguageSettings } from './user/language-settings'
+import { UserSocialSettings } from './user/social-settings'
 
 const ESCAPE = 'Escape'
 
@@ -142,7 +143,9 @@ function Settings({
       transition={transition}>
       <NavContainer>
         <NavSectionTitle>{t('settings.user.title', 'User')}</NavSectionTitle>
-        {(isLoggedIn ? [UserSettingsPage.Account] : []).map(getNavEntriesMapper())}
+        {(isLoggedIn ? [UserSettingsPage.Account, UserSettingsPage.Social] : []).map(
+          getNavEntriesMapper(),
+        )}
         {[UserSettingsPage.Language].map(getNavEntriesMapper())}
 
         {IS_ELECTRON ? (
@@ -215,6 +218,8 @@ function SettingsPageDisplay({ page }: { page: SettingsPage }) {
   switch (page) {
     case UserSettingsPage.Account:
       return <AccountSettings />
+    case UserSettingsPage.Social:
+      return <UserSocialSettings />
     case UserSettingsPage.Language:
       return <UserLanguageSettings />
   }
@@ -248,6 +253,9 @@ function getSettingsPageTitle({ page, t }: { page: SettingsPage; t: TFunction })
   switch (page) {
     case UserSettingsPage.Account:
       title = t('settings.user.account.label', 'Account')
+      break
+    case UserSettingsPage.Social:
+      title = t('settings.user.social.title', 'Social')
       break
     case UserSettingsPage.Language:
       title = t('settings.user.language.title', 'Language')

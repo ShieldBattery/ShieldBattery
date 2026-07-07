@@ -2762,11 +2762,14 @@ impl BwScr {
         &self,
         players: &[JoinedPlayer],
         local_user_id: SbUserId,
+        blocked_users: &[SbUserId],
         is_chat_restricted: bool,
     ) {
         let mut chat_manager = self.chat_manager.lock();
         chat_manager.set_players(players);
+        // Must be set before the blocked players so the local user can't end up blocked.
         chat_manager.set_local_player_info(local_user_id, is_chat_restricted);
+        chat_manager.set_blocked_players(blocked_users);
     }
 
     pub fn snet_next_turn_sequence_number(&self) -> u16 {

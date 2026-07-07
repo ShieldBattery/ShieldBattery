@@ -273,6 +273,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       : undefined
 
     this.emit('gameCommand', id, 'localUser', config.localUser)
+    this.emit('gameCommand', id, 'blockedUsers', config.blockedUsers)
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
     this.emit('gameCommand', id, 'settings', {
       local,

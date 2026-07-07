@@ -65,6 +65,9 @@ enum InitState {
 
 struct IncompleteInit {
     local_user: Option<SbUser>,
+    /// SbUserIds the local user has blocked; their in-game chat is hidden. Not required for init,
+    /// so it defaults to empty if the app never sends it.
+    blocked_users: Vec<SbUserId>,
     server_config: Option<ServerConfig>,
     settings_set: bool,
     routes_set: bool,
@@ -91,6 +94,7 @@ impl IncompleteInit {
         Ok(InitInProgress::new(
             info.clone(),
             self.local_user.take().unwrap(),
+            mem::take(&mut self.blocked_users),
             self.server_config.take().unwrap(),
         ))
     }
@@ -101,6 +105,7 @@ pub enum GameStateMessage {
     SetSettings(Settings),
     SetRoutes(Vec<Route>),
     SetLocalUser(SbUser),
+    SetBlockedUsers(Vec<SbUserId>),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
     StartWhenReady,
@@ -186,6 +191,14 @@ impl GameState {
             state.local_user = Some(user);
         } else {
             error!("Received local user after game was started");
+        }
+    }
+
+    fn set_blocked_users(&mut self, users: Vec<SbUserId>) {
+        if let InitState::WaitingForInput(ref mut state) = self.init_state {
+            state.blocked_users = users;
+        } else {
+            error!("Received blocked users after game was started");
         }
     }
 
@@ -566,6 +579,9 @@ impl GameState {
             SetLocalUser(user) => {
                 self.set_local_user(user);
             }
+            SetBlockedUsers(users) => {
+                self.set_blocked_users(users);
+            }
             SetRoutes(routes) => {
                 return self.set_routes(routes).boxed();
             }
@@ -693,22 +709,31 @@ impl GameState {
             }
             PlayersRandomized(new_mapping) => {
                 if let InitState::Started(ref mut state) = self.init_state {
-                    for player in &mut state.joined_players {
-                        let old_id = player.player_id;
-                        player.player_id = new_mapping
-                            .get(player.storm_id.0 as usize)
-                            .and_then(|&id| id);
-                        if old_id.is_some() != player.player_id.is_some() {
-                            warn!(
-                                "Player {} lost/gained player id after randomization: {:?} -> {:?}",
-                                player.name, old_id, player.player_id,
-                            );
+                    if state.setup_info.is_replay() {
+                        // Replays don't go through the normal lobby join flow that populates
+                        // joined_players (the launch config only carries the local viewer), so
+                        // rebuild it here from the SB user ids recorded in the replay's Sbat
+                        // section. This is what lets the chat manager hide blocked players' chat.
+                        state.joined_players = build_replay_joined_players();
+                    } else {
+                        for player in &mut state.joined_players {
+                            let old_id = player.player_id;
+                            player.player_id = new_mapping
+                                .get(player.storm_id.0 as usize)
+                                .and_then(|&id| id);
+                            if old_id.is_some() != player.player_id.is_some() {
+                                warn!(
+                                    "Player {} lost/gained player id after randomization: {:?} -> {:?}",
+                                    player.name, old_id, player.player_id,
+                                );
+                            }
                         }
                     }
 
                     get_bw().init_chat_manager(
                         &state.joined_players,
                         state.local_user.id,
+                        &state.blocked_users,
                         state.setup_info.is_chat_restricted.unwrap_or_default(),
                     );
 
@@ -998,6 +1023,7 @@ async fn send_replay(
 struct InitInProgress {
     setup_info: Arc<GameSetupInfo>,
     local_user: SbUser,
+    blocked_users: Vec<SbUserId>,
     server_config: ServerConfig,
 
     all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
@@ -1024,6 +1050,7 @@ impl InitInProgress {
     fn new(
         setup_info: Arc<GameSetupInfo>,
         local_user: SbUser,
+        blocked_users: Vec<SbUserId>,
         server_config: ServerConfig,
     ) -> InitInProgress {
         let is_host = setup_info
@@ -1051,6 +1078,7 @@ impl InitInProgress {
         let mut result = InitInProgress {
             setup_info,
             local_user,
+            blocked_users,
             server_config,
 
             all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
@@ -1585,6 +1613,50 @@ unsafe fn setup_slots(
     }
 }
 
+/// Builds the joined-player list for a replay from the SB user ids recorded in its Sbat section,
+/// so the chat manager can hide blocked players' chat. Unlike a live game, a replay never populates
+/// `joined_players` through the lobby join flow — but the replay records each player's SB user id
+/// keyed by BW player id, which is exactly the id the chat manager matches incoming chat against.
+///
+/// Note we deliberately don't use the storm player list here: in a replay the only storm player is
+/// the local viewer, not the recorded players. `user_ids` is indexed by BW player id (and covers
+/// only the 8 playing slots), so we map it straight across — observers and empty slots (which have
+/// a 0 user id) are skipped and won't have their chat hidden.
+///
+/// Returns an empty list for replays without the Sbat section (e.g. non-ShieldBattery replays), in
+/// which case no chat is hidden.
+fn build_replay_joined_players() -> Vec<JoinedPlayer> {
+    let Some(replay_data) = game_thread::sbat_replay_data() else {
+        return Vec::new();
+    };
+    let players = unsafe { get_bw().players() };
+    let joined_players = replay_data
+        .user_ids
+        .iter()
+        .enumerate()
+        .filter_map(|(player_id, &sb_user_id)| {
+            if sb_user_id.0 == 0 {
+                return None;
+            }
+            // The BW player array is indexed by BW player id too, so it lines up with user_ids.
+            let name = unsafe {
+                CStr::from_ptr((*players.add(player_id)).name.as_ptr() as *const i8)
+                    .to_str()
+                    .unwrap_or("")
+                    .to_string()
+            };
+            Some(JoinedPlayer {
+                name,
+                storm_id: StormPlayerId(player_id as u8),
+                player_id: Some(BwPlayerId(player_id as u8)),
+                sb_user_id,
+            })
+        })
+        .collect::<Vec<_>>();
+    debug!("Built replay joined players: {joined_players:?}");
+    joined_players
+}
+
 unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
     unsafe {
         let storm_players = bw.storm_players();
@@ -1670,6 +1742,7 @@ pub async fn create_future(
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
             local_user: None,
+            blocked_users: Vec::new(),
             server_config: None,
             routes_set: false,
             settings_set: false,
