@@ -163,8 +163,13 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
   `battlenet::chat::Message`). **Verify first** whether that box even renders in-game on retail SC:R
   (2c's gateway is dead) — if not, the overlay path is already full parity and this is moot; if so,
   feeding it is a higher-effort follow-up (construct the opaque Message).
-- **Chat-in-replay confirmation.** Correct by construction (arg-`0` inject → `add_to_replay_data`), but
-  not yet confirmed by parsing a produced `.rep`.
+- **Chat-in-replay: recording CONFIRMED by .rep parse (2026-07-07).** All three matrix-run replays
+  (FFA/Team FFA/TvB, `server/uploaded_files/replays/`) contain the injected `0x5c` records with
+  correct sender game ids (jssuh parse; sender bytes match the live `chatLog` attribution exactly).
+  Remaining nit: the message did not visibly render during LastReplay *playback* (screenshots
+  covering the render window show an empty message area) — likely the viewer session's
+  `players[].storm_id`/name state, not data loss. Low-priority polish; investigate when touching the
+  replay-viewer path.
 
 ### Relay-driven start
 
