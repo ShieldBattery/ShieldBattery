@@ -126,6 +126,28 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
   (`submit_result_report` returns `false` for a `Sessionless` link), and does NOT hit the x86_64
   refusal gate (no `StormSessionPlayer` writes). Verified live: solo-vs-AI reaches `playing`, single
   required slot 0, turns flowing, transport `native`.
+- **Observers under 2c — DONE + live-proven (2026-07-07).** Observers join the v2 roster like
+  players (storm id ≡ rp2 slot; in a partial lobby they take the next array slots, not necessarily
+  8–11) and land at `players[12..16]` with BW ids 0x80–0x83. DLL: `build_v2_joined_players` includes
+  them (`player_id` = the `players[]` index 12..15 — the encoding the post-randomization mapping
+  produces and `BwPlayerId::is_observer` expects), the v2 init registers them in `net_player_info`,
+  and storm→`players[]` attribution scans `(0..8).chain(12..16)` (shared helper now used by live
+  chat + replay paths), with an observer sender in a team game acting under its own slot (team byte
+  0 would underflow the team-main-player lookup) and alliance checks treating observers as allied
+  with no one (both observer id encodings would index past `players[0..8]`/`alliances[0..12]`).
+  **rp2 relay bug found by the live test + fixed** (`0023711`): `apply_descriptor` recorded observer
+  slots via a call that no-ops before the maker exists, and `sync_maker` created the maker later in
+  the same function — a single-relay session (one push, pre-dial) lost its observer set, so the
+  desync comparator compared the observer and flagged it diverged at frame 0 (observers legitimately
+  emit non-matching hashes; SB's majority policy shrugged it off — only the observer's nonexistent
+  result was discarded). Fix seeds the observer set at maker creation; regression test pins the
+  single-push scenario. **Live-verified twice** (buggy relay, then fixed relay): melee 1v1 + 1 obs —
+  all three reach `playing`, observer chat crosses both directions with correct attribution (sender
+  game id 12), the observer's view stays frame-locked with proper SC:R observer UI, players continue
+  when the observer leaves mid-game, results reconcile win/loss for the players only, and on the
+  fixed relay the comparator stays silent (zero desync events). Follow-up: an observer's quit is
+  classified as a drop (QUIC idle timeout), not a clean leave — the loop-end leave intent doesn't
+  fire on the observer's exit path; no scoring impact. SB `8ced9f4ea`.
 - **Replay playback under the swept build — FIXED + live-proven.** The deleted join loop used to
   overwrite the viewer slot's placeholder storm id; without it `ready_lobby_for_start` →
   `update_nation_and_human_ids` tripped `assert!(storm_id < 16)` (saw junk `27`). Fix: the replay
@@ -137,11 +159,6 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
 
 ### 2c increments still to verify / build
 
-- **Observer registration under 2c.** rp2 observer slots 8–11 → `players[12+n]`, storm id = rp2 slot
-  8+n (stays < 16, which `update_nation_and_human_ids` requires; the `0x80–0x83` value is the
-  observer's game/net-player id derived from the `players[]` index, not its storm id). Observers
-  register like players but at `players[12+n]`. The subtlest part; the players-only path is now fully
-  swept, so this is the next natural build.
 - **UMS scenario-map verification.** Only a standard melee map played as UMS (default forces) is
   verified sync-clean. A real UMS scenario map (custom forces, rescue/neutral players, non-contiguous
   `player_id` slots) is not in the dev DB and still needs verifying; under 2c its force/alliance setup
@@ -154,10 +171,8 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
   returns `ChatTarget::All` — bw_dat's `Control` exposes no radio "checked" accessor for the `MsgFltr`
   dialog. It logs a one-time dump of the MsgFltr children (id/label/flags) on first chat send; a single
   live run pins the mapping, after which the All/Allies/Observers/Player selection can be read.
-  Receiver-side scope filtering is already implemented.
-- **Observer-sender chat drops.** `unique_player_for_storm` scans only `players[0..8]` (same limit as
-  the replay-command path), so a message from an observer's storm id is dropped. Resolve alongside
-  observer registration.
+  Receiver-side scope filtering is already implemented (incl. the observer cases: an observer is
+  allied with no one, so Allies-scoped chat never shows to or from one).
 - **Scrollable chat-history box (open decision).** The `0x5c`/`print_text` path feeds the classic
   transmission-line overlay only; SC:R's modern scrollable in-game box is fed by `sub_682140` (opaque
   `battlenet::chat::Message`). **Verify first** whether that box even renders in-game on retail SC:R
@@ -272,7 +287,8 @@ seven configurations green**:
 - **Solo vs computer** — ✅ proven post-sweep on the new sessionless `TurnState`: reaches `playing`,
   single required slot, turns flow, transport `native`.
 - **Replay** — ✅ proven post-sweep: LastReplay reaches `playing`, viewer storm id resolves, no panic.
-- **Observers** — 2p + 1 obs; observer registers, players sync to a result. Not built (see above).
+- **Observers** — ✅ 2p + 1 obs live-proven (see the Completed entry): registration, chat both ways,
+  frame-locked view, mid-game observer leave, correct results, comparator silent on the fixed relay.
 - **UMS** — a real scenario map with custom forces (not yet done).
 - **In-game handoff** — transport flips to datagrams at `set_game_started`;
   `networkStatus.transport === 'netcodeV2'`.
