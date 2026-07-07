@@ -77,13 +77,90 @@ optional callback, `snet_recv_packets()` + `snet_send_packets()`; succeeds when 
 type (bounds `u< 0x10`, index `type<<2`) is nonzero in the table; times out via `GetTickCount()`
 against `timeoutMs` (join passes `data_f5daf0`).
 
+### `apply_lobby_force_cmd` (`sub_736410`) @ 0x736410 (VERIFIED 2026-07-07 — **ANALYZER LANDED, option 2 is live**)
+
+> **samase analyzer shipped (samase_scarf `5ddf3085`, 2026-07-07).** Public accessor
+> `apply_lobby_force_cmd()` → `Option<VirtualAddress>`; internally resolved from
+> `process_async_lobby_command` by walking the dispatcher switch to the class-`0x4A` case, steering
+> onto the `len == 0x3F` branch, and taking the following call (switch shape + length check are the
+> recompile-stable signature). **To consume: bump `game/scr-analysis/Cargo.toml` `rev` to
+> `5ddf3085…`** and add the `apply_lobby_force_cmd` pass-through beside the existing ones
+> (`storm_join_game` etc.), then resolve it into `NetcodeV2Bw`.
+
+The 2026-07-07 Team Melee live test settled the force-command decision to **option 2**: the game
+syncs but the surviving teammate still scores a LOSS, so the force/alliance/vision state must be
+established by building the command record locally on every client and feeding it through this
+native apply. Full RE below (one deep pass, 2026-07-07).
+
+**Naming correction:** the wire class byte is **`0x4A`** ('J'), NOT `'?'`/0x3F — `0x3F` is the
+record LENGTH (63 bytes), and earlier notes conflated the two. In
+`process_async_lobby_command`'s dispatch (`lookup_table_736260[class - 0x3A]`), class `0x4A` →
+case value 2 → this function; class `0x3F` maps to the default no-op case. (Related BN misnomer:
+`is_observer_human_id` @ 0x75AD64 actually returns 1 iff `id ∈ [0x80..0x83]` — it is a
+force-header-id test, not an observer test.)
+
+- **Entry 0x736410 falls through (no ret) into `sub_736537`** — one logical routine; call
+  0x736410, never 0x736537 directly.
+- **`__cdecl`, 2 args:** `int apply(const void* record /* 63-byte body */, int guard /* pass 0 */)`.
+  The dispatcher passes `storm_turn_base - 1` as `guard`; the body runs only when it's 0.
+  `record[0]` (the class byte) is never read — the record just has to be the full 63-byte layout.
+- **Preconditions:** `in_lobby_or_game` (u32 @ 0x11CDF88, read via `sub_7424C0`) must be 0 (i.e.
+  pre-game lobby); the game struct must exist (accessed via the encrypted pointer
+  `*(0xF333CC) ^ 0x307A98A3`); map/lobby force config must be loaded (the second pass reads it via
+  `sub_6596F0`/`sub_658AD0`/`sub_659000`). No length/sender checks inside.
+- **Side effects (complete):** writes `game+0xEC/+0xE4/+0xE6` (config words, from the record);
+  `game+0xE4C0/+0xE4C4/+0xE4C8` (12 per-slot alliance/vision flag bytes); `data_11CC714` (8B) +
+  `data_11CC71C` (4B) per-slot force/type block; `data_11D00B8` (8B via `sub_758160`); fully
+  rebuilds the staging tables `data_11CF860` (12 slot entries, stride 0x24: `+0`=slot id,
+  `+4`=-1, `+8`=rec[0x07+slot], `+9`=rec[0x13+slot], `+0xA`=rec[0x2B+slot]) and `data_11CFA10`
+  (4 force headers, ids 0x80–0x83, `+8`=0x0C); zeroes flags `data_11CFF20/F80/FE0/11D0040`; and
+  ends with **`set_lobby_state(3)`** — so sequence a direct call BEFORE hand-writing
+  lobby_state 4/8, or re-assert after.
+- **Staging consumers** (what the tables feed at start): `sub_754200`/`sub_7543A0`/`sub_754560`/
+  `sub_757D50`/`sub_757E80`/`sub_757FD0`/`sub_758190` (the arranged player/force → final
+  net-player record path), and `sub_736300` (re-derives `data_11CC714` from
+  `data_11CFA10[force]+8`; called from `init_game_network` @ 0x741873).
+
+**The 63-byte record layout** (offsets from record[0]; builder fills every field from the same
+location it's applied to, so host-side these are identity round-trips):
+
+| off | size | applied to |
+| --- | --- | --- |
+| +0x00 | 1 | class byte `0x4A` (dispatcher-only, apply never reads it) |
+| +0x01/+0x03/+0x05 | 2 each | `game+0xEC` / `game+0xE4` / `game+0xE6` |
+| +0x07 | 12 | per-slot → staging `+8` |
+| +0x13 | 12 | per-slot → staging `+9` |
+| +0x1F | 8 | `data_11CC714` |
+| +0x27 | 4 | `data_11CC71C` |
+| +0x2B/+0x2F/+0x33 | 4 each | `game+0xE4C0/+0xE4C4/+0xE4C8` (also slots 0..7 → staging `+0xA`) |
+| +0x37 | 8 | `data_11D00B8` (via `sub_758160`; builder fills via `sub_756A00`) |
+
+**The builder/sender — FOUND: `sub_736D30` @ 0x736D30** (flows into BN's `sub_736E16`; one
+routine). Builds the record on the stack from live host state (the table above, right column ==
+left column) and sends it **unicast** via the async send primitive `sub_73F550(target, buf, 0x3F)`
+(sibling of receive `sub_73F490`), followed by a 1-byte class-`0x50` marker send. Its single call
+site is `sub_74FD16` @ 0x74FEC3 (dispatch-pointer-invoked lobby membership handler, no direct
+xrefs): on a per-player lobby event with `lobby_state == 4` (post slot-setup), the host sends that
+player `0x4B` (roster, via sibling builder `sub_736CD0`, carries a `0x79` byte) then `0x4A` (this
+record). So natively it is a **per-joiner catch-up sync**, and **the host never self-applies** —
+host-side state is maintained directly by the native lobby slot handlers, which is exactly the
+path SB's `setup_slots` bypasses (⇒ under 2c the HOST is missing this state too, not just peers;
+option 2's local build+apply must run on every client, host included).
+
+**Analyzer anchors (build-stable):** dispatch case: switch on `byte - 0x3A` through a byte lookup
+table (`[0x10]=2` → this case), `cmp len, 0x3F`, `push guard; push body; call; add esp, 8`.
+Inside apply: the repeated `^ 0x307A98A3` game-struct access; the guard compare against
+`in_lobby_or_game`; offsets `+0xEC/+0xE4/+0xE6` (words) and `+0xE4C0/4/8` (dwords); the four
+force-header immediates `0x80..0x83` written with `+4=-1`, `+8=0x0C` at stride 0x24; terminal
+`(*fp)(x,1,5)` + `set_lobby_state(3)`. Builder: immediate `0x4A` into buf[0] followed by the same
+field sequence, ending in a 0x3F-length send + a 1-byte `0x50` send. Fragile: every raw address
+and both XOR keys. Unproven semantics (flagged): what `game+0xEC/0xE4/0xE6` mean; the exact
+bit meanings of the per-slot alliance/vision bytes (the old tactical-fix note says active teams
+want `0x0E`); `sub_756A00`'s exact `data_11D00B8` derivation.
+
 ### `process_async_lobby_command` @ 0x735ba0 / `sub_73f490` @ 0x73f490
-**Likely NOT needed.** The `?`-command verdict landed on option 1 (drop; the `game+0xE4C8` writes
-have no reader anywhere in the init/alliance surface and `lobby_state=3` has no consumer), with
-option 2 (build the record locally + call `sub_736410` — no wire, no transport tap) as the
-fallback if the staging-table effect proves live. Option 3 (hooking this path) is ruled out
-either way. `sub_736410` @ 0x736410 would need an analyzer only under option 2. See the design
-doc's Open decision section for the evidence + settling experiment.
+Not needed as analyzers — option 3 (hooking the async transport) stays ruled out; they are
+navigation context for the `0x4A` work above.
 
 ## The join success tail (0x7b04e4 → end) — the peer replacement's reproduction target (VERIFIED, exact order)
 
@@ -185,9 +262,9 @@ dumps, `get_data_decl` on 0xF5DB10)
    By elimination it's in an SNET-event listener registered via `sub_960690('SNET', …)` for the
    admit/roster messages (types 9/0xa, or host-side type 7) — walking that event registry is the
    remaining (crash-risky) trace.
-2. Only if the `?` decision's fallback (option 2) is ever needed: locate the `?` SENDER (the 0x3F
-   record builder on the async send path). Inferred from the dispatcher's uniform handling (no
-   local special-case): the host self-applies via async loopback; unverified.
+2. ~~Locate the `?` SENDER~~ — **DONE 2026-07-07** (see the `apply_lobby_force_cmd` section: the
+   command class is `0x4A`, the builder is `sub_736D30`, it's a per-joiner unicast catch-up, and
+   the host never self-applies — the earlier loopback inference was wrong).
 
 Handshake map for reference (VERIFIED): join sends type **1** (join req) → waits **2** (accept) →
 sends **7** (player info) → waits **9**/**0xa** (admitted list / start), receipts recorded by

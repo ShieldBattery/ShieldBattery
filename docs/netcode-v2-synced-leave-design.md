@@ -142,32 +142,51 @@ handshake. The full RE-verified implementation plan is the next section.
 > the same over-optimistic-deletion pattern.
 >
 > **3 OPEN ISSUES (handoff):**
-> 1. **Alliance / surviving-teammate-loss (the headline bug this pivot exists to fix — STILL OPEN).**
->    Team Melee 2v1, forceQuit the lone enemy → DB shows the unit-owning teammate `win` but the
->    **other teammate `loss`** (should be an allied win). The game now SYNCS correctly, but the BW
->    alliance table (`game+0xE544`) is not set for shared-control team games, so
->    `determine_game_results` drops the non-victor teammate to defeat. This is the settling
->    experiment for the `?`-command Open decision below, and it resolves it to **OPTION 2, not option
->    1**: build the force/alliance record locally on every client (deterministic from map + game type
->    + team layout) and feed it through native `sub_736410` — no wire. Needs a samase analyzer for
->    `sub_736410` (0x736410). See "Open decision — the async `?` command".
-> 2. **Start-of-game lag screen (native-lobby regression — was clean before).** Log-proven: NOT our
->    `do_countdown` (host/peer synced within 50ms). The host sends its own `0x48` lobby-init and
->    doesn't process it back for **~7s** (`Lobby game init command seen`), while the peer receives the
->    relayed copy in ~40ms. Cause (Travis): under native `create_lobby` the host runs SC:R's native
->    lobby machine, whose native countdown / lobby-state ladder gates when the host's own `0x48` is
->    processed; the peer's lobby is driven directly so it applies the relayed `0x48` immediately.
->    One-directional (only the host lags → peer waits at the frame-0 barrier; not a desync). Fix
->    direction: suppress or sync SC:R's native countdown on the host, and sync our own `do_countdown`
->    (it carries `// TODO(tec27): Sync countdown across clients`).
-> 3. **In-game chat doesn't cross to peers.** PROBE-PROVEN it is NOT in the in-game turn stream: a
->    full game with real typing logged ZERO framed `0x5c` in the OUT hook (`send_turn_message`) OR in
->    `process_game_commands` (RECV). So chat leaves via a path our seam doesn't carry — which is why
->    it vanishes while sync stays perfect. Local sender attribution is now CORRECT (native-lobby
->    identity fix). Next: RE the chat SEND path (what the in-game chat input triggers) — never traced;
->    only the receive/dispatch side (`0x5c`→`print_text`) is known. Re-check the premise that SC:R
->    in-game chat even uses the classic `0x5c` command (it has its own modern chat overlay). `SNetSendMessage`
->    is a generic Storm primitive, NOT "the chat path" — don't assume it's the mechanism.
+> 1. **Alliance / surviving-teammate-loss (the headline bug this pivot exists to fix — STILL OPEN,
+>    RE COMPLETE 2026-07-07).** Team Melee 2v1, forceQuit the lone enemy → DB shows the unit-owning
+>    teammate `win` but the **other teammate `loss`** (should be an allied win). The game now SYNCS
+>    correctly, but the BW alliance table (`game+0xE544`) is not set for shared-control team games,
+>    so `determine_game_results` drops the non-victor teammate to defeat. The settling experiment
+>    resolved the force-command decision to **OPTION 2**: build the command record locally on every
+>    client and feed it through native `sub_736410` — no wire. **The full RE for that landed
+>    2026-07-07** (see `netcode-v2-samase-lobby-analyzers.md` → `apply_lobby_force_cmd`): the
+>    command class is **`0x4A`, not `'?'`** (0x3F was the record LENGTH — earlier notes conflated);
+>    the complete 63-byte record layout, the apply's direct-call contract
+>    (`cdecl(record, guard=0)`, requires `in_lobby_or_game == 0`, forces `lobby_state = 3`), the
+>    builder (`sub_736D30` — the authoritative field-by-field spec), and its trigger are all
+>    documented. Key structural finding: natively `0x4A` is a **per-joiner unicast catch-up** sent
+>    by the host at `lobby_state == 4`, and **the host never self-applies** — host-side state is
+>    maintained by the native slot handlers that SB's `setup_slots` bypasses, so under 2c the HOST
+>    lacks the state exactly like peers ⇒ the local build+apply must run on **every client**.
+>    Remaining work: samase analyzer for `sub_736410` (anchors written), then the DLL-side record
+>    builder (semantic gaps flagged in the anchors doc: the `game+0xEC/0xE4/0xE6` config words and
+>    the per-slot alliance-byte bit meanings — old tactical note says active teams want `0x0E`).
+> 2. **Start-of-game lag screen — ✅ FIXED + LIVE-VERIFIED 2026-07-07.** The native-countdown theory
+>    was refuted by instrumentation (`lobby_state` sat at 8 the whole time on the host; zero native
+>    ladder movement; zero non-keepalive commands before the `0x48`). Actual cause: **a keep-alive
+>    backlog in our own lobby seam pacing.** `lobby_receive_turns` consumed exactly one echoed
+>    buffer per call as its pacing gate, but the lobby flush (OUT hook) is driven by **multiple
+>    threads** (probe-proven: 4 distinct flush threads on BOTH clients) and outpaced consumption on
+>    the host ~2:1 — ~140 queued keep-alives after the ~7s countdown window, so the host's own
+>    `0x48` sat behind a FIFO backlog drained at one turn per 50ms (6.95s, matching exactly). Fix:
+>    consume-side collapse of leading keep-alives in `TurnState::lobby_receive_turns` (a real
+>    command never waits behind information-free keep-alives; cadence still echo-gated), plus a
+>    permanent flush-driver-thread probe and a ≥32-depth backlog warning in
+>    `submit_local_lobby_turn`. Verified: host `0x48` send→process **86ms** (was 6.95s), peer 55ms,
+>    both clients hit `playing` in the same poll window. The remaining start delay is the intended
+>    `do_countdown` (2s settle + 5 beeps), still carrying `TODO(tec27): Sync countdown across
+>    clients` (already ±50ms in practice).
+> 3. **In-game chat doesn't cross to peers — RE COMPLETE (2026-07-07), ready to implement.** The
+>    ZERO-`0x5c` probe was conclusive: SC:R in-game chat rides its **battlenet ClientSdk gateway**
+>    (`battlenet::chat::Message` + an `"InGame*"` channel selector), fully out-of-band from the sim —
+>    not the classic `0x5c` command at all. Send commits in `toggle_chat_box` (0x7b4130); the peer copy
+>    dies because 2c has no working gateway, while the sender's own copy renders via a local ClientSdk
+>    loopback. Fix (full detail in the "Chat (in-game)" section): re-home onto a new reliable
+>    `GameChat` control frame — tap `toggle_chat_box` to send (suppress the native gateway send), and
+>    inject on receive by synthesizing a classic `0x5c` through `process_commands`, which renders with
+>    correct attribution AND records to the replay for free. samase asks: `toggle_chat_box` +
+>    `chat_box_mode` global. One open decision for Travis (overlay-only `0x5c` vs also feeding SC:R's
+>    scrollable history box via `sub_682140`).
 >
 > The original slice plan follows unchanged for reference. Slice 5b (deletion sweep) is NOT done —
 > and note the `net_player_count` hook is now LOAD-BEARING (keep it; native count returns garbage).
@@ -400,6 +419,16 @@ live self-test run (rp2 coordinator+relay loopback per the runbook), not blind. 
 and the deletion sweep are compile-verifiable; the behavioral middle needs a running game.
 
 ### Open decision — the async `?` (force/alliance/vision) command
+
+> **RESOLVED (2026-07-07): option 2, and the RE is done.** The live Team Melee test killed option 1
+> (sync-clean but the surviving teammate still scores a loss), and a full BinaryNinja pass produced
+> everything option 2 needs — including the correction that the command class is **`0x4A`** (0x3F
+> was the record length, not a `'?'` class char), the complete 63-byte record layout, the apply
+> contract, and the native builder `sub_736D30` (a host→joiner unicast catch-up; the host never
+> self-applies, so the local build+apply must run on every client). Canonical spec now lives in
+> `netcode-v2-samase-lobby-analyzers.md` → `apply_lobby_force_cmd`. The analysis below is the
+> historical trail; where it conflicts with the anchors doc, the anchors doc wins.
+
 The only setup command the seam does not capture. Options, in preference order:
 1. **Verify it's non-load-bearing and drop it** — its effects (alliance flags / vision / force layout)
    may be fully re-established by the slot-setup command + `init_game`'s own derivation on both sides.
@@ -564,53 +593,97 @@ sync-clean. A real UMS **scenario map** (custom forces, rescue/neutral players, 
 UMS force/alliance setup would also become native (map-driven), likely closing the
 `build_v2_joined_players` player_id gap too.
 
-### Chat (in-game) — in progress
+### Chat (in-game) — RE COMPLETE (2026-07-07), ready to implement
 
 In a scope-C game, in-game chat is broken two ways: (1) a peer's chat message never reaches the
 receiver's display, and (2) every message renders as coming from the host (player 0 / claude-1),
-including the sender's own copy on its own screen. Ruled out: the replay/observer display filter
-(`is_replay == 0`, the local player is not an observer); local-id defaulting (ids are correct and
-distinct per client); and the `net_player_count` fix (restoring the MP UI did not help chat).
+including the sender's own copy on its own screen. Both are now fully explained by the send-path RE
+below (canonical anchors in `netcode-v2-samase-lobby-analyzers.md` → chat section once written).
 
-**RE of the native `0x5c` chat handler (12409).** Command `0x5c` dispatches through
-`command_dispatch_index_table` (0x748790) → case `0x36` → `print_text` (0x721430). Fixed 0x52-byte
-layout: `data[0]=0x5c`, `data[1]` = the **sender game player id** (the value displayed), `data[2..]` =
-the 0x50-byte message. The handler is **unconditional** — it reads `data[1]` and calls `print_text`
-with no recipient check, no sender validation, no `net_player_to_game` translation, and no
-`command_user` involvement; `print_text` renders `players[data[1]].name` verbatim (own colour if
-`data[1] == local_player_id`, else received colour).
+**The mechanism (12409 RE, decompile-verified).** SC:R in-game chat does **not** ride the classic
+`0x5c`-in-the-turn-stream path at all — the live probe's ZERO-`0x5c` result was correct and
+conclusive. Hitting Enter routes through SC:R's **battlenet ClientSdk gateway chat** (a
+`battlenet::chat::Message` tagged with an `"InGame*"` channel selector), fully out-of-band from the
+game sim:
 
-- **Symptom (2) — understood.** `data[1]` is literally `0` in our commands (native BW writes the
-  sender's own game id there on send; scope-C leaves it 0 — the send path is obfuscated, unread), so
-  every message renders as `players[0]` = the host. Clean fix: **rewrite `data[1] = command_user`**
-  (the correct sender game id the turn-processing path already computes) before the handler runs — a
-  byte rewrite of a non-sim command, so it cannot affect the sync hash. Understood and ready, but
-  unverifiable until symptom (1) is fixed.
+- **SEND — `toggle_chat_box` (0x7b4130), the commit function.** Reads the edit control (id 7) into a
+  buffer, runs `handle_chat_commands` (0x6848c0, the `/`-cheat parser — consumes the input and aborts
+  the send if it was a command), and for real multiplayer chat switches on the global **`chat_box_mode`
+  (u8)** — 2=All, 3=Allies, 4=Specific-player, 5=Observers — to select one of the channel strings
+  `"InGameAll"` / `"InGameAllies"` / `"InGameSpecificPlayer"` / `"InGameObservers"`, then hands the
+  message + channel to the battlenet gateway send. **Recipient scope is a named channel, not a
+  per-player mask or a send-side recipient loop.** The exact gateway send primitive is behind
+  control-flow obfuscation and was not resolved — but it doesn't need to be, since we suppress the
+  native send and carry the bytes ourselves. Symptom (1) is thus: scope-C/2c has no working battlenet
+  gateway, so the peer copy dies out-of-band; the sender's own copy renders only via a **local
+  ClientSdk loopback** (below).
+- **RECEIVE (live) — `sub_7ef2d0`, the battlenet chat-Message render handler.** In-game-guarded
+  (`scmain_state_equals(3)`); computes the sender's game id via `storm_player_to_unique_id`, then calls
+  `print_text` (overlay line) **and** `sub_682140` (the scrollable chat-history box). The local sender's
+  own message arrives through this same handler via **ClientSdk local loopback** (`ILocalChatEventsV1`),
+  which is why the echo shows even with a dead gateway. Symptom (2): attribution is decided at *render*
+  time by `sub_721d50` comparing `sender_id == local_player_id` — nothing writes a wrong id, the peer
+  copies simply never arrive, and the residual mis-attribution the earlier note saw was the old scope-C
+  `0x5c` injection leaving `data[1]=0`.
+- **The classic `0x5c` path still works and records replays for free.** `command_dispatch_index_table`
+  (0x748790) `[0x5c-5]=0x36` → handler @0x7485af: fixed 0x52 layout `[0x5c][sender game id][0x50 text]`,
+  `print_text(text, id, 0)`, and it **falls straight into `add_to_replay_data` (0x753e70)** — so any
+  `0x5c` that reaches `process_commands` is both rendered (overlay) and written to the replay command
+  buffer, with the sender tagged from the `command_user` byte. Native live battlenet chat is *not*
+  recorded by this path (`sub_7ef2d0` never calls `add_to_replay_data`); if native SC:R replays carry
+  chat it's via an untraced extended replay section. **This is moot and favorable for us:** injecting as
+  `0x5c` gets replay capture for every message for free.
 
-- **Symptom (1) — the blocker, and a key finding.** Instrumenting our `process_game_commands` hook to
-  log every `0x5c` it processes showed **the log never fired — for the peer's chat *or* the local
-  player's own message.** So the chat `0x5c` does **not** traverse the `process_game_commands` path we
-  hook, even though gameplay commands do (desync=0). Chat is therefore delivered/processed by a path
-  our seam doesn't cover — it is *not* dropped inside the command handler (which is unconditional).
-  Leading hypotheses:
-  - In-game chat may be sent via a **separate Storm out-of-band path** (e.g. `SNetSendMessage`), not
-    the turn-command stream our OUT hook (`send_turn_message`) carries. Scope-C's neutered Storm
-    transport would then drop the peer copy, while the local echo displays via a direct `print_text`
-    (explaining the empty `process_game_commands` log even for the *own* message). If so, chat must be
-    **re-homed onto an rp2 reliable side-channel** — the same out-of-band-chat channel the Disconnect
-    UX section already wants. (Note: this would contradict the earlier assumption that in-game chat
-    rides the turn stream — worth settling.)
-  - Or our `game_command_lengths` table mis-frames `0x5c` (the RE says fixed 0x52), so `iter_commands`
-    never yields a clean `[0x5c, …]` command and both our send-side `strip_control_commands` and the
-    receive-side walk mishandle it.
+**We already own most of the surface (2026-07-07 code audit — corrects the "hook `toggle_chat_box`
+from scratch" framing).** The DLL already intercepts chat at the **dialog layer**, one level above the
+native `toggle_chat_box`, so the send tap does NOT need a new native-function samase analyzer:
+- `dialog_hook.rs::chat_box_event_handler` hooks the "TextBox" dialog's event handler, catches the
+  Enter keypress (0xa/0xd) on the edit box (child id 7), and reads `edit_box.string()`. Today it runs
+  the text through `chat::ChatManager::handle_send_chat` for **slash commands** (`/version`, `/mute*`,
+  `/version`, chat-restriction gate); real (non-slash) chat currently falls through to the native
+  `orig` handler → the dead battlenet gateway. Suppression is already demonstrated (`edit_box
+  .set_string(b"")` clears the box so nothing sends).
+- On receive we already hook `print_text` (`bw_scr.rs`) and run `ChatManager::handle_message` for
+  block/mute filtering, and we already have `BwScr::print_text_from_user(text, user)` — the exact
+  attribution-carrying call (`print_text(text, sender_id, 0)`) the receive inject needs.
 
-**Next diagnostic (whoever resumes):** instrument the OUT hook (`netcode_v2_send_turn`) to log whether
-a `0x5c` is present in the outgoing turn buffer when chat is typed. If **yes** → chat rides the turn
-stream and the drop is receive-side (chase why `process_game_commands` never sees it — the
-`step_network` / `receive_storm_turns` / `player_turns[]` path). If **no** → chat uses a separate
-(likely Storm out-of-band) send path and needs re-homing onto an rp2 reliable channel. Also confirm
-`game_command_lengths[0x5c] == 0x52`. No new samase symbol is needed for the handler itself; the fix
-lives in our existing OUT/IN/command hooks plus, most likely, a new reliable side-channel.
+**Implementation plan (re-home chat onto an rp2 reliable channel).**
+- **Transport.** A new dedicated reliable control-frame kind (chat is out-of-band, never on the turn
+  path) — `GameChat { slot, target, text }`, relay-stamped slot like `LobbyCommand`/`GameResult`,
+  fan-out to all-but-author + mesh. **No replay log** (chat is ephemeral — the big simplification vs the
+  lobby channel) and a size/rate cap at the relay. `target` carries the All/Allies/Observers scope so
+  the receiver can honour it. This is also the OOB-chat channel the §17 disconnect-UX + survivor↔survivor
+  wants, and it works during turn stalls (unlike a turn-stream command).
+- **SEND — extend the existing `chat_box_event_handler`.** In the non-slash branch, for a live v2
+  session: submit a `GameChat` over the channel and clear the edit box to suppress the native gateway
+  send (which is dead weight without a gateway, and also produces the local-loopback echo — so once
+  suppressed, the local echo must come from our own inject path, below, giving one uniform render path
+  for own+peer). The only missing input is the **target scope** (All/Allies/Observers) — get it from
+  the `chat_box_mode` global (one small samase ask) or derive it from the `MsgFltr` radio state we
+  already hook.
+- **RECEIVE inject.** On draining `chat_in` (and for the local player's own message), render with the
+  correct sender id. Two tiers: **(render-only)** call `print_text_from_user(text, sender_game_id)` —
+  a one-liner we already have, gets overlay + attribution, NO replay; **(render+replay)** instead
+  synthesize a `0x5c` command `[0x5c][sender_game_id][0x50 NUL-padded text]`, set the `command_user`
+  tag, and run it through `process_commands` (already hooked) so the native handler renders it AND
+  falls into `add_to_replay_data` — chat lands in the replay for free.
+
+**Open decisions (need Travis):**
+1. **Replay capture.** render-only vs the `0x5c`-through-`process_commands` inject that also records to
+   the replay. Chat-in-replays has existed since classic ~1.12/1.13, so the recorder path is worth
+   keeping — lean toward the `0x5c` inject.
+2. **Scrollable chat-history box.** The RE says SC:R's modern scrollable in-game chat box is fed only by
+   `sub_682140` (opaque `battlenet::chat::Message`); the `0x5c`/`print_text` paths feed the classic
+   transmission-line overlay only. **Travis flagged uncertainty that the scrollable box even renders
+   in-game today — VERIFY FIRST** (against retail SC:R, since 2c's gateway is dead): if it doesn't show
+   during gameplay, the overlay path is already full parity and `sub_682140` work is moot. If it does,
+   feeding it is a higher-effort follow-up (construct the opaque Message).
+
+**samase ask for the chat slice (reduced):** just the `chat_box_mode` global (target scope), and only
+if we don't derive the target from the `MsgFltr` dialog we already hook. No `toggle_chat_box` analyzer
+needed (we tap at the dialog layer). Receive anchors for reference: the `0x5c` handler +
+`add_to_replay_data` pair and `command_dispatch_index_table[0x5c-5]=0x36`; `print_text` and
+`process_commands` are already resolved/hooked.
 
 ### Scope C — remaining stage-1 increments
 
