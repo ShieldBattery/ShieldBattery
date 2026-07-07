@@ -8,6 +8,8 @@
 //! hooks (installed in `bw_scr.rs`) can reach it via [`with_turn_state`]. With no live session the
 //! hooks find nothing here and fall through to the native transport.
 
+use std::ffi::CString;
+
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::transport::Link;
@@ -196,4 +198,66 @@ pub fn clear_session() {
     if let Some(mut guard) = SESSION.lock() {
         *guard = None;
     }
+    clear_lobby_session_seed();
+}
+
+/// The inputs the `storm_join_game` replacement hook needs to build a peer's Storm session state
+/// itself, in place of the native network join handshake. Staged on the async side before the
+/// native lobby join runs, and read by the hook on BW's thread mid-join.
+///
+/// While this is unset (the default), the hook falls through to the native `storm_join_game` and
+/// nothing here changes any behavior.
+pub struct LobbySessionSeed {
+    /// The Storm session (game) name, passed through to `storm_create_game`.
+    pub game_name: CString,
+    /// This client's own player name.
+    pub local_name: CString,
+    /// The session's total slot count, passed through to `storm_create_game`.
+    pub slot_count: u32,
+    /// The local player's storm session slot (the roster slot this client occupies).
+    pub local_slot: u8,
+    /// Every OTHER session member (the local player is not listed).
+    pub members: Vec<StormMemberSeed>,
+}
+
+/// One other session member the join replacement seeds into Storm's session-player list, standing in
+/// for the peer-admit that would normally happen as its network join packet arrives.
+pub struct StormMemberSeed {
+    /// The member's storm session slot.
+    pub slot: u8,
+    /// The member's player name.
+    pub name: CString,
+    /// The member's 12-byte Storm net key (see [`storm_net_key`](super::storm_net_key)).
+    pub net_key: [u8; 12],
+}
+
+/// The staged join-replacement inputs, reached from the BW/sync thread via
+/// [`with_lobby_session_seed`]. Recurse-checked like [`SESSION`]: a re-entrant read returns `None`,
+/// which the hook treats identically to "no seed staged" (fall through to native join).
+static LOBBY_SESSION_SEED: Mutex<Option<LobbySessionSeed>> = Mutex::new(None);
+
+/// Stages the inputs the `storm_join_game` replacement hook builds a peer's session state from.
+/// Call before the native lobby join runs. Replaces any previously-staged seed.
+pub fn set_lobby_session_seed(seed: LobbySessionSeed) {
+    if let Some(mut guard) = LOBBY_SESSION_SEED.lock() {
+        *guard = Some(seed);
+    }
+}
+
+/// Clears any staged join-replacement inputs (tied to [`clear_session`]'s lifecycle).
+pub fn clear_lobby_session_seed() {
+    if let Some(mut guard) = LOBBY_SESSION_SEED.lock() {
+        *guard = None;
+    }
+}
+
+/// Runs `f` against the staged join-replacement inputs, if any are staged.
+///
+/// Returns `None` when nothing is staged (the default — the join hook then runs native
+/// `storm_join_game`) or when the seed mutex is already held by this thread (a re-entrant read,
+/// treated the same as "not staged").
+pub fn with_lobby_session_seed<R>(f: impl FnOnce(&LobbySessionSeed) -> R) -> Option<R> {
+    let guard = LOBBY_SESSION_SEED.lock()?;
+    let seed = guard.as_ref()?;
+    Some(f(seed))
 }

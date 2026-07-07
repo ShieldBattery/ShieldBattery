@@ -840,7 +840,28 @@ export class GameLoader {
         // `players` includes observer slots alongside human slots (see `GameLoadRequest.players`'s
         // doc comment), and `Slot.type` distinguishes them, so observer-ness is known here — mark
         // it so the relay's desync comparator can exclude observers from the compared slot set.
-        const slots = [...players].map((p, slot) => ({
+        //
+        // The host must land at rp2 slot 0: with native-lobby netcode v2, the host creates the
+        // game's Storm session, and Storm always assigns its creator slot 0. The game DLL maps
+        // BW Storm ids to rp2 slots by identity, so this roster has to agree the host is slot 0 or
+        // that mapping breaks. Reuse the host already resolved for `generalSetup` (the same user
+        // named in the published `GameSetup.host`) rather than re-deriving it here.
+        const playersArr = [...players]
+        const hostUserId = generalSetup.host.userId
+        const hostPlayer = playersArr.find(p => p.userId === hostUserId)
+        let orderedPlayers: Slot[]
+        if (hostPlayer) {
+          orderedPlayers = [hostPlayer, ...playersArr.filter(p => p !== hostPlayer)]
+        } else {
+          // Shouldn't happen — the host is always a human participant — but don't let it crash the
+          // load, just fall back to the unordered assignment.
+          log.warn(
+            { gameId, hostUserId },
+            'netcode v2: host not found among players, using unordered slot assignment',
+          )
+          orderedPlayers = playersArr
+        }
+        const slots = orderedPlayers.map((p, slot) => ({
           slot,
           userId: p.userId!,
           observer: p.type === SlotType.Observer,

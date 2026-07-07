@@ -105,6 +105,45 @@ impl<'e> Analysis<'e> {
         self.0.storm_create_game()
     }
 
+    // Storm session internals for the netcode-v2 native-lobby join replacement.
+
+    pub fn storm_join_game(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_join_game()
+    }
+
+    pub fn storm_session_player_lookup_or_create(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_session_player_lookup_or_create()
+    }
+
+    pub fn get_local_storm_session_player(&mut self) -> Option<VirtualAddress> {
+        self.0.get_local_storm_session_player()
+    }
+
+    /// Registers a slot -> name mapping used by lobby slot-setup name lookups.
+    pub fn storm_register_slot_name(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_register_slot_name()
+    }
+
+    /// Drains Storm's deferred SNET packet queue; a join replacement must call this.
+    pub fn snet_drain_deferred_queue(&mut self) -> Option<VirtualAddress> {
+        self.0.snet_drain_deferred_queue()
+    }
+
+    pub fn find_storm_session_player(&mut self) -> Option<VirtualAddress> {
+        self.0.find_storm_session_player()
+    }
+
+    /// Single byte global storm session slot; 0xff = not in a session.
+    pub fn storm_local_player_slot(&mut self) -> Option<Operand<'e>> {
+        self.0.storm_local_player_slot()
+    }
+
+    /// The base added to a session slot to form the game-level net player id
+    /// (`local_net_player = slot + storm_turn_base`).
+    pub fn storm_turn_base(&mut self) -> Option<Operand<'e>> {
+        self.0.storm_turn_base()
+    }
+
     pub fn single_player_start(&mut self) -> Option<VirtualAddress> {
         self.0.single_player_start()
     }

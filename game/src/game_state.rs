@@ -402,6 +402,11 @@ impl GameState {
                     .await
                     .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
                 info!("Netcode v2 session established");
+                // Route lobby command traffic through the rp2 turn transport rather than native
+                // Storm networking. This must latch on before any native create/join runs: the
+                // host's lobby machine starts flushing lobby turns the instant its session is
+                // created, and those turns have to ride the seam from the very first flush.
+                netcode_v2::with_turn_state(|s| s.enable_lobby_seam());
                 let status = NetworkStatus {
                     transport: NetworkTransport::NetcodeV2,
                     error: None,
@@ -427,19 +432,27 @@ impl GameState {
                 debug!("Network ready");
             }
             if is_netcode_v2 {
-                // Unified v2 setup: same on every client (host and non-host converge). No Storm
-                // join; players are registered directly from the rp2 roster and the lobby is driven
-                // to the ready state locally. The Storm-read reconciliation (flag-poll loop +
-                // update_bw_slots) is replaced by direct roster registration; the joined-player set
-                // is built directly rather than learned from Storm.
+                if cfg!(target_arch = "x86_64") {
+                    // The Storm session-player struct's 64-bit field offsets are unverified (see
+                    // StormSessionPlayer in bw_scr/scr.rs) — seeding would write through guessed
+                    // offsets into native heap objects. Refuse the load cleanly until they're
+                    // verified.
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "netcode v2 native-lobby setup is not yet supported on 64-bit builds"
+                            .into(),
+                    ));
+                }
+                // Native-lobby setup over the rp2 seam: the host creates the native lobby and each
+                // peer joins it, but all lobby command traffic rides the turn transport rather than
+                // Storm networking. Storm ids come straight from the rp2 roster (storm id ≡ rp2
+                // slot) instead of being learned from a Storm join, and the joined-player set is
+                // built directly rather than discovered through Storm's flag-poll reconciliation.
                 let bw = get_bw();
                 let MapInfo::Game(ref game_map) = info.map else {
                     return Err(GameInitError::NetcodeV2SessionInit(
                         "netcode v2 game is not a map game".into(),
                     ));
                 };
-                let map_data = &game_map.map_data;
-                let map_name = &game_map.name;
 
                 // The (user → storm id) mapping from the live session roster (storm id ≡ rp2 slot).
                 let storm_id_map: HashMap<SbUserId, u8> =
@@ -454,80 +467,103 @@ impl GameState {
                     ));
                 };
 
-                let map_path = CString::new(info.map_path.as_bytes())
-                    .map_err(|_| GameInitError::NullInPath(info.map_path.clone()))?;
-
                 // storm_create_game validates both names as non-empty. Strip any interior NULs so
                 // the CStrings are well-formed, and fall back to a constant game name if empty.
-                let game_name = {
-                    let stripped = info.name.replace('\0', "");
-                    let stripped = if stripped.is_empty() {
-                        "game".to_owned()
-                    } else {
-                        stripped
-                    };
-                    CString::new(stripped).map_err(|_| {
-                        GameInitError::NetcodeV2SessionInit("invalid game name".into())
-                    })?
-                };
-                let local_name = CString::new(local_user.name.replace('\0', ""))
-                    .ok()
-                    .filter(|s| !s.as_bytes().is_empty())
-                    .ok_or_else(|| {
-                        GameInitError::NetcodeV2SessionInit("local player name is empty".into())
-                    })?;
+                let game_name = sanitized_name_cstring(&info.name)
+                    .unwrap_or_else(|| CString::new("game").unwrap());
+                let local_name = sanitized_name_cstring(&local_user.name).ok_or_else(|| {
+                    GameInitError::NetcodeV2SessionInit("local player name is empty".into())
+                })?;
+
+                // The peer's join replacement rebuilds an equivalent Storm session from these inputs;
+                // the total slot count is the number of setup slots (what native create derives from
+                // its GameInput on the host side).
+                let slot_count = info.slots.len() as u32;
+
+                // Every OTHER session member (the local player builds its own identity). Each member's
+                // name comes from the roster user list, NUL-stripped like the local name, and its
+                // Storm net key is derived from its slot + user id. A roster member missing from
+                // the user list, or whose name sanitizes to empty, is a server-data invariant
+                // violation — fail the load loudly rather than silently dropping the member.
+                let members: Vec<netcode_v2::StormMemberSeed> = storm_id_map
+                    .iter()
+                    .filter(|&(&user_id, _)| user_id != local_user.id)
+                    .map(|(&user_id, &slot)| {
+                        let name = info
+                            .users
+                            .iter()
+                            .find(|u| u.id == user_id)
+                            .and_then(|u| sanitized_name_cstring(&u.name))
+                            .ok_or_else(|| {
+                                GameInitError::NetcodeV2SessionInit(format!(
+                                    "roster member {user_id:?} has no usable name in the user list"
+                                ))
+                            })?;
+                        Ok(netcode_v2::StormMemberSeed {
+                            slot,
+                            name,
+                            net_key: netcode_v2::storm_net_key(slot, user_id),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, GameInitError>>()?;
+
+                let ums_forces = &game_map.map_data.ums_forces[..];
+
+                if is_host {
+                    // Storm makes the session creator slot 0 unconditionally, and storm id ≡ rp2
+                    // slot everywhere else, so the server assigns the host rp2 slot 0. If that
+                    // contract ever breaks, every id derived from the roster is wrong — fail the
+                    // load loudly instead of desyncing on the first turn.
+                    if local_storm != 0 {
+                        return Err(GameInitError::NetcodeV2SessionInit(format!(
+                            "host must occupy rp2 slot 0, got slot {local_storm}"
+                        )));
+                    }
+                    unsafe {
+                        // Create the native lobby (its Storm create allocates the session the peers
+                        // are admitted into). No set_user_latency: netcode v2 latency is relay-owned.
+                        create_lobby(&info)?;
+                        // Admit the peers into the just-created session, standing in for the network
+                        // join packets native Storm would have received from each of them.
+                        bw.v2_seed_storm_session_members(&members);
+                    }
+                } else {
+                    // Stage the session seed the storm_join_game hook consumes to build this client's
+                    // Storm session itself (create-then-fixup + member seeding) instead of running the
+                    // native network join handshake.
+                    netcode_v2::set_lobby_session_seed(netcode_v2::LobbySessionSeed {
+                        game_name,
+                        local_name,
+                        slot_count,
+                        local_slot: local_storm,
+                        members,
+                    });
+                    unsafe {
+                        join_lobby(&info, game_type, latency).await?;
+                    }
+                    // Drop the staged seed now that the join consumed it: a stale seed must never
+                    // survive to be picked up by any later storm_join_game call. This only covers
+                    // the success path — `join_lobby`'s error/cancellation paths never reach here,
+                    // but session teardown (`clear_session`) clears the seed too, so those paths
+                    // are still covered.
+                    netcode_v2::clear_lobby_session_seed();
+                }
+
+                game_thread::step_lobby_init();
 
                 unsafe {
-                    // 1. game_data global (must precede init_game_network, whose map re-load keys off
-                    //    game_data.map_name).
-                    let game_data = build_bw_game_data(&info, game_type, map_data, map_name);
-                    bw.write_game_data(&game_data);
-                    // 1b. game template — native game creation copies this from BW's registry; without
-                    //     it the template stays zeroed, which BW reads as Use Map Settings (map
-                    //     triggers run, no alliance UI, map-defined victory instead of melee rules).
+                    // Overlay the real game-type template onto game_data. Native create sets it on the
+                    // host from BW's registry, but the roster-driven peer join never receives the
+                    // host's game-info blob, so its template stays zeroed — which BW runs as Use Map
+                    // Settings (wrong rules → a turn-0 desync against the host's real-rules sim). The
+                    // registry is identical on every client, so this local lookup matches the host.
                     bw.apply_game_type_template(game_type).map_err(|()| {
                         GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
                     })?;
-                    // 2. minimal local Storm session — BW's game init dereferences Storm's per-player
-                    //    session object, which only storm_create_game allocates. The session has no
-                    //    network peers (the rp2 transport carries all real traffic); it exists so
-                    //    native init reads are valid. Storm writes the fresh session's local id (0) to
-                    //    its own global; the roster slot written below overwrites it. BwGameData is
-                    //    packed, so copy max_player_count out before use.
-                    let slot_count = { game_data.max_player_count } as u32;
-                    let session_id = bw
-                        .create_local_storm_session(&game_name, &local_name, slot_count)
-                        .map_err(|e| {
-                            GameInitError::NetcodeV2SessionInit(format!(
-                                "storm_create_game failed: {e:08x}"
-                            ))
-                        })?;
-                    debug!("Created local Storm session, local player id {session_id}");
-                    // 3. local wire identity = our rp2 slot (native Storm join assigns this).
-                    bw.set_local_storm_id(local_storm as u32);
-                    // 4. scenario load (the native join path's Storm-free map load).
-                    bw.v2_load_map(&map_path).map_err(|e| {
-                        GameInitError::NetcodeV2SessionInit(format!("map load failed: {e:08x}"))
-                    })?;
-                    // 5. native game-network init (advances lobby_state toward 3, reloads the map).
-                    //    Its first action is to zero the entire players[] array, so it must run BEFORE
-                    //    the slot layout below — otherwise it wipes the roster we just wrote. Its start
-                    //    gate is satisfied by `in_lobby_or_game` (set by the session create above) even
-                    //    for the host, whose local storm id is 0.
-                    bw.init_game_network();
-                    // 6. slot layout with the real storm ids from the roster (not the `27`
-                    //    placeholder). Written after init_game_network's array wipe so it survives into
-                    //    the id-map build below.
-                    let ums_forces = &game_map.map_data.ums_forces[..];
-                    setup_slots(
-                        &info.slots,
-                        &info.users,
-                        game_type,
-                        ums_forces,
-                        Some(&storm_id_map),
-                    );
-                    // 7. net_player_info per human (inlined init_net_player effect — populates the
-                    //    storm_players table in-game readers use).
+                    // Fill net_player_info directly for every human. Native init_net_player only
+                    // populates the entry for a player Storm's own provider-gated name lookup
+                    // resolves — the local player, but not a roster-seeded remote — so a direct write
+                    // is what gives every player a populated entry (name + in-use state).
                     // TODO(observers): players only for now — observer registration (rp2 slots
                     //    8-11 → players[12+n]) goes here too.
                     for slot in info.slots.iter().filter(|s| s.is_human()) {
@@ -540,14 +576,23 @@ impl GameState {
                                 .find(|u| u.id == uid)
                                 .map(|u| u.name.as_str())
                                 .unwrap_or("");
-                            bw.register_net_player(storm, name);
+                            bw.v2_register_net_player(storm, name);
                         }
                     }
-                    // 8. native net_cmd_lobby_slot_setup would set lobby_state = 4.
+                    // Slot layout with the real storm ids from the roster (SB owns the arrangement,
+                    // the roster owns the ids).
+                    setup_slots(
+                        &info.slots,
+                        &info.users,
+                        game_type,
+                        ums_forces,
+                        Some(&storm_id_map),
+                    );
+                    // Natively lobby_state 4 is reached when the lobby-entry slot-setup record is
+                    // received, which never arrives under this seam; set it directly.
                     bw.set_lobby_state(4);
-                    // 9. build the id maps from players[].storm_id + bump lobby_state to 8 (the state
-                    //    the 0x48 handler requires). No native rebuild_storm_to_game_maps call
-                    //    needed — update_nation_and_human_ids already reproduces that logic.
+                    // Build the id maps from players[].storm_id and bump lobby_state to 8 (the state
+                    // the 0x48 handler requires).
                     bw.ready_lobby_for_start();
                 }
 
@@ -1775,6 +1820,14 @@ fn build_bw_game_data(
         *out = *val;
     }
     game_info
+}
+
+/// Strips interior NULs and builds a `CString`, or `None` if the result is empty. Storm name
+/// fields reject empty strings and NULs would truncate them.
+fn sanitized_name_cstring(raw: &str) -> Option<CString> {
+    CString::new(raw.replace('\0', ""))
+        .ok()
+        .filter(|s| !s.as_bytes().is_empty())
 }
 
 /// Builds the joined-player set for a netcode v2 game directly from the session roster + slot

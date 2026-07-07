@@ -69,17 +69,6 @@ pub trait Bw: Sync + Send {
     unsafe fn do_lobby_game_init(&self, seed: u32);
     unsafe fn try_finish_lobby_game_init(&self) -> bool;
 
-    /// Netcode v2 direct-registration primitives. Together with `setup_slots` (in `game_state.rs`)
-    /// they reproduce what native Storm join set up, without forming a Storm session.
-    ///
-    /// Writes the `game_data` global (map dims/name, game type, player counts) — the data native
-    /// `create_game_multiplayer` populated only on Storm-success. Must precede `init_game_network`,
-    /// whose internal map re-load is keyed off `game_data.map_name`.
-    unsafe fn write_game_data(&self, game_data: &BwGameData);
-    /// Writes `local_storm_player_id` directly from the rp2 roster slot — the wire identity Storm's
-    /// join handshake normally assigns. `init_game_network`'s start gate is satisfied by this being
-    /// a valid (nonzero-or-host) id.
-    unsafe fn set_local_storm_id(&self, storm_id: u32);
     /// Creates a minimal LOCAL Storm session (no network peers) via `storm_create_game`. BW's game
     /// init dereferences Storm's per-player session object, which only this call allocates, so the
     /// session must exist for those reads to be valid even though the rp2 transport carries all real
@@ -93,19 +82,6 @@ pub trait Bw: Sync + Send {
         local_player_name: &CStr,
         slot_count: u32,
     ) -> Result<u32, u32>;
-    /// Copies BW's game template for `game_type` into `game_data`. Native game creation does this
-    /// from a registry BW loads from data files; without it the template block stays zeroed, which
-    /// BW reads as a Use-Map-Settings game (map triggers run, no alliance UI, map-defined victory).
-    /// Errors if the game type is not in the registry (the template would stay zeroed).
-    unsafe fn apply_game_type_template(&self, game_type: BwGameType) -> Result<(), ()>;
-    /// Loads the scenario from `map_path` (`init_map_from_path`, a pure loader with no Storm refs)
-    /// and backs up the chk player types (`init_team_game_playable_slots`), mirroring the native
-    /// join path. Returns the storm error code on failure.
-    unsafe fn v2_load_map(&self, map_path: &CStr) -> Result<(), u32>;
-    /// Writes `net_player_info[storm_id]` (the `storm_players` table) directly for one registered
-    /// human — the inlined effect of native `init_net_player` (state=in-use, flags/fields cleared,
-    /// name copied) without touching Storm's provider-gated name path.
-    unsafe fn register_net_player(&self, storm_id: u8, name: &str);
     /// Writes the `lobby_state` global. Used by v2 setup to drive it to 4 (the state native
     /// `net_cmd_lobby_slot_setup` reaches, which `ready_lobby_for_start` then bumps to 8).
     unsafe fn set_lobby_state(&self, state: u8);

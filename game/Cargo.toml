@@ -142,6 +142,12 @@ protoc-bin-vendored-win32 = "3.0"
 # -- Local helper crates --
 [workspace]
 
+# DEV-ONLY, REMOVE BEFORE LANDING: builds against the uncommitted rally-point2 lobby-channel work
+# in the sibling checkout. At integration: commit+push rally-point2, bump the `rev` pin above, and
+# delete this patch table.
+[patch."https://github.com/ShieldBattery/rally-point2.git"]
+rally-point-client = { path = "../../rally-point2/client" }
+
 [dependencies.scr-analysis]
 path = "./scr-analysis"
 

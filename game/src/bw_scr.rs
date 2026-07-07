@@ -202,10 +202,10 @@ pub struct BwScr {
         *mut c_void,
         u32,
     ) -> u32,
+    ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     // Returns a pointer to the 0x20-byte game template for the given game type/subtype (BW's
     // registry loaded from data files), or null if unregistered. cdecl(type_low, type_high, subtype).
     find_game_type_template: unsafe extern "C" fn(u32, u32, u32) -> *const u8,
-    ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
     send_command: unsafe extern "C" fn(*const u8, usize),
     snet_recv_packets: unsafe extern "C" fn(),
     snet_send_packets: unsafe extern "C" fn(),
@@ -362,6 +362,26 @@ struct NetcodeV2Bw {
     /// `pending_leave_reason[12]` base: the synced per-slot leave mailbox (nonzero reason = a pending
     /// leave `apply_pending_player_leaves` will apply, then clear, in the synced-RNG window).
     pending_leave_reason: Value<*mut i32>,
+    /// Hook target: `storm_join_game(...)`, the Storm-level network join handshake. The netcode-v2
+    /// native-lobby join replacement replaces it wholesale (building equivalent session state from
+    /// our own inputs) whenever a lobby session seed is staged.
+    storm_join_game: VirtualAddress,
+    /// Looks up the session-player node with the given 12-byte net key, or creates (and zero-inits,
+    /// slot field = 0xffff) a fresh one. cdecl(net_key_ptr).
+    storm_session_player_lookup_or_create:
+        unsafe extern "C" fn(*const u8) -> *mut scr::StormSessionPlayer,
+    /// Returns (creating if needed) the local player's session-player node. cdecl, no args.
+    get_local_storm_session_player: unsafe extern "C" fn() -> *mut scr::StormSessionPlayer,
+    /// Copies a slot name (max 0x7f chars + NUL) into the slot-name registry the lobby slot-setup
+    /// handler's name lookups read. cdecl(slot, name_ptr); return value unused.
+    storm_register_slot_name: unsafe extern "C" fn(u32, *const u8) -> u32,
+    /// Drains Storm's deferred inbound packet queue (packets that arrived before the local slot /
+    /// turn-base were known). cdecl, no args; return value unused.
+    snet_drain_deferred_queue: unsafe extern "C" fn() -> u32,
+    /// `storm_local_player_slot`: the local storm session slot global (0xff = not in a session).
+    storm_local_player_slot: Value<u8>,
+    /// `storm_turn_base`: the base added to a session slot to form the game-level net player id.
+    storm_turn_base: Value<u32>,
 }
 
 /// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
@@ -766,6 +786,23 @@ fn resolve_netcode_v2(
     let pending_leave_reason = analysis
         .pending_leave_reason()
         .ok_or("pending_leave_reason")?;
+    let storm_join_game = analysis.storm_join_game().ok_or("storm_join_game")?;
+    let storm_session_player_lookup_or_create = analysis
+        .storm_session_player_lookup_or_create()
+        .ok_or("storm_session_player_lookup_or_create")?;
+    let get_local_storm_session_player = analysis
+        .get_local_storm_session_player()
+        .ok_or("get_local_storm_session_player")?;
+    let storm_register_slot_name = analysis
+        .storm_register_slot_name()
+        .ok_or("storm_register_slot_name")?;
+    let snet_drain_deferred_queue = analysis
+        .snet_drain_deferred_queue()
+        .ok_or("snet_drain_deferred_queue")?;
+    let storm_local_player_slot = analysis
+        .storm_local_player_slot()
+        .ok_or("storm_local_player_slot")?;
+    let storm_turn_base = analysis.storm_turn_base().ok_or("storm_turn_base")?;
 
     Ok(NetcodeV2Bw {
         send_turn_message,
@@ -777,7 +814,38 @@ fn resolve_netcode_v2(
         player_turns_size: Value::new(ctx, player_turns_size),
         game_frame_count: Value::new(ctx, game_frame_count),
         pending_leave_reason: Value::new(ctx, pending_leave_reason),
+        storm_join_game,
+        storm_session_player_lookup_or_create: unsafe {
+            mem::transmute(storm_session_player_lookup_or_create.0)
+        },
+        get_local_storm_session_player: unsafe { mem::transmute(get_local_storm_session_player.0) },
+        storm_register_slot_name: unsafe { mem::transmute(storm_register_slot_name.0) },
+        snet_drain_deferred_queue: unsafe { mem::transmute(snet_drain_deferred_queue.0) },
+        storm_local_player_slot: Value::new(ctx, storm_local_player_slot),
+        storm_turn_base: Value::new(ctx, storm_turn_base),
     })
+}
+
+/// Writes a Storm session-player node's slot the way native join does: the low byte only. A node is
+/// created with its `u16` slot field set to 0xffff, and native join overwrites just the low byte,
+/// leaving the high byte 0xff; readers compare only the low byte, so writing the full `u16` would
+/// diverge from native and be wrong.
+unsafe fn write_session_player_slot(node: *mut scr::StormSessionPlayer, slot: u8) {
+    unsafe {
+        (&raw mut (*node).slot).cast::<u8>().write(slot);
+    }
+}
+
+/// Copies a player name into a session-player node's `name` buffer, matching Storm's own bound: at
+/// most 0x7f characters plus a NUL terminator (the buffer is 0x80 bytes).
+unsafe fn copy_session_player_name(node: *mut scr::StormSessionPlayer, name: &CStr) {
+    unsafe {
+        let bytes = name.to_bytes();
+        let len = bytes.len().min(0x7f);
+        let dest = (&raw mut (*node).name).cast::<u8>();
+        ptr::copy_nonoverlapping(bytes.as_ptr(), dest, len);
+        dest.add(len).write(0);
+    }
 }
 
 impl BwScr {
@@ -857,9 +925,6 @@ impl BwScr {
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
         let storm_create_game = analysis.storm_create_game().ok_or("storm_create_game")?;
-        let find_game_type_template = analysis
-            .find_game_type_template()
-            .ok_or("find_game_type_template")?;
         let process_lobby_commands = analysis
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
@@ -896,6 +961,9 @@ impl BwScr {
             .font_cache_render_ascii()
             .ok_or("font_cache_render_ascii")?;
         let ttf_malloc = analysis.ttf_malloc().ok_or("ttf_malloc")?;
+        let find_game_type_template = analysis
+            .find_game_type_template()
+            .ok_or("find_game_type_template")?;
         let ttf_render_sdf = analysis.ttf_render_sdf().ok_or("ttf_render_sdf")?;
         let lobby_create_callback_offset = analysis
             .create_game_dialog_vtbl_on_multiplayer_create()
@@ -1194,7 +1262,6 @@ impl BwScr {
             },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             storm_create_game: unsafe { mem::transmute(storm_create_game.0) },
-            find_game_type_template: unsafe { mem::transmute(find_game_type_template.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
@@ -1202,6 +1269,7 @@ impl BwScr {
             snet_recv_packets: unsafe { mem::transmute(snet_recv_packets.0) },
             snet_send_packets: unsafe { mem::transmute(snet_send_packets.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
+            find_game_type_template: unsafe { mem::transmute(find_game_type_template.0) },
             process_events: unsafe { mem::transmute(process_events.0) },
             process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
             move_screen: unsafe { mem::transmute(move_screen.0) },
@@ -1567,6 +1635,24 @@ impl BwScr {
                             0
                         } else {
                             orig(a1, a2)
+                        }
+                    },
+                    address,
+                );
+
+                // Full replacement for Storm's network join handshake, active only when a lobby
+                // session seed is staged (the native-lobby join seam). With no seed staged — always,
+                // for now — it falls through to the original, so installing it is a no-op for every
+                // existing path.
+                let address = nc.storm_join_game.0 as usize - base;
+                exe.hook_closure_address(
+                    StormJoinGame,
+                    move |a1, a2, a3, out, a5, a6, a7, a8, a9, orig| {
+                        match netcode_v2::with_lobby_session_seed(|seed| {
+                            self.v2_run_join_replacement(seed, out)
+                        }) {
+                            Some(ret) => ret,
+                            None => orig(a1, a2, a3, out, a5, a6, a7, a8, a9),
                         }
                     },
                     address,
@@ -2350,14 +2436,31 @@ impl BwScr {
         }
     }
 
-    /// OUT hook body (`send_turn_message`): hand the fully-assembled local turn to the turn state, having
-    /// stripped the native latency/turn-rate control commands so they can't rewrite the pinned
-    /// globals mid-game. Returns [`TurnSendOutcome::Native`] before the game starts (lobby join stays on
-    /// native Storm for now) or when there is no live session.
+    /// OUT hook body (`send_turn_message`): in-game, hand the fully-assembled local turn to the turn
+    /// state, having stripped the native latency/turn-rate control commands so they can't rewrite the
+    /// pinned globals mid-game. Before the game starts, the lobby stays on native Storm networking
+    /// unless the turn state's lobby seam is latched on (see [`TurnState::enable_lobby_seam`] — the
+    /// native-lobby setup path, a later slice); when it is, the raw buffer goes to
+    /// [`TurnState::submit_local_lobby_turn`] with no [`commands::strip_control_commands`] — the
+    /// lobby command set is different from the in-game one and must relay byte-identical. Returns
+    /// [`TurnSendOutcome::Native`] whenever there is no live session, or (pre-game) the seam isn't
+    /// enabled.
     unsafe fn netcode_v2_send_turn(&self, buffer: *const u8, len: usize) -> TurnSendOutcome {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
-                return TurnSendOutcome::Native;
+                let commands = std::slice::from_raw_parts(buffer, len);
+                let outcome = netcode_v2::with_turn_state(|s| {
+                    if !s.lobby_seam_enabled() {
+                        return None;
+                    }
+                    Some(s.submit_local_lobby_turn(commands))
+                })
+                .flatten();
+                return match outcome {
+                    None => TurnSendOutcome::Native,
+                    Some(true) => TurnSendOutcome::Submitted,
+                    Some(false) => TurnSendOutcome::Failed,
+                };
             }
             let nc = &self.netcode_v2;
             let frame = nc.game_frame_count.resolve();
@@ -2375,8 +2478,15 @@ impl BwScr {
     /// required slot is ready, fill `player_turns[]` / `player_turns_size[]` / `net_player_flags[]`
     /// and run the synced leave pass. Never calls the original.
     ///
-    /// The turn hooks are gated to in-game only (`game_started`), so the lobby runs fully native (native
-    /// join is retained for now) and the turn state's pipe is empty at the lobby→game transition — the
+    /// Before the game starts, the lobby stays fully native (native join is retained for now) unless
+    /// the turn state's lobby seam is latched on (see [`TurnState::enable_lobby_seam`] — the
+    /// native-lobby setup path, a later slice). When it is, this fills the same arrays from the
+    /// lobby-phase turn assembly instead — [`TurnState::lobby_receive_turns`], the lobby analogue of
+    /// the in-game turn assembly below, paced by the local echo rather than a readiness set. That
+    /// branch is drain→gate→dispatch only: it runs no leave/directive machinery, since there are no
+    /// frames or leaves during lobby in this slice.
+    ///
+    /// With the seam still off, the turn state's pipe is empty at the lobby→game transition — the
     /// first in-game receive would stall forever (`network_ready = 0` → `step_network` skips the
     /// PIPE flush → deadlock; native avoids this because the lobby's unconditional flush pre-seeds
     /// the pipe). [`seed_netcode_v2_pipe`](Self::seed_netcode_v2_pipe) closes that gap by running
@@ -2384,7 +2494,28 @@ impl BwScr {
     unsafe fn netcode_v2_receive_turns(&self) -> TurnReceiveOutcome {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
-                return TurnReceiveOutcome::Native;
+                let nc = &self.netcode_v2;
+                let ready = netcode_v2::with_turn_state(|s| {
+                    if !s.lobby_seam_enabled() {
+                        return None;
+                    }
+                    if !s.lobby_receive_turns() {
+                        return Some(false);
+                    }
+                    Self::fill_turn_dispatch(
+                        nc.player_turns.resolve(),
+                        nc.player_turns_size.resolve(),
+                        self.storm_player_flags.resolve(),
+                        s.lobby_dispatch_buffers(),
+                    );
+                    Some(true)
+                })
+                .flatten();
+                return match ready {
+                    None => TurnReceiveOutcome::Native,
+                    Some(false) => TurnReceiveOutcome::Stall,
+                    Some(true) => TurnReceiveOutcome::Ready,
+                };
             }
             let nc = &self.netcode_v2;
             let next_frame = nc.game_frame_count.resolve();
@@ -2420,23 +2551,14 @@ impl BwScr {
                 if !s.receive_turns(next_frame) {
                     return false;
                 }
-                let player_turns = nc.player_turns.resolve();
-                let player_turns_size = nc.player_turns_size.resolve();
-                let flags = self.storm_player_flags.resolve();
-                // A full replacement doesn't run the native memset, so clear every slot first: a
-                // stale ready bit on a slot we don't fill would make step_network dispatch garbage.
-                for i in 0..bw::MAX_STORM_PLAYERS {
-                    *flags.add(i) = 0;
-                    *player_turns_size.add(i) = 0;
-                }
-                for (storm, bytes) in s.dispatch_buffers() {
-                    let i = storm.0 as usize;
-                    // The bytes are owned by the turn state (refcounted `Bytes`) and stay valid until the
-                    // next `receive_turns`, which covers the whole step_network dispatch.
-                    *player_turns.add(i) = bytes.as_ptr() as *mut u8;
-                    *player_turns_size.add(i) = bytes.len() as u32;
-                    *flags.add(i) = 0x10000 | 0x20000; // present | turn-ready
-                }
+                // The bytes are owned by the turn state (refcounted `Bytes`) and stay valid until the
+                // next `receive_turns`, which covers the whole step_network dispatch.
+                Self::fill_turn_dispatch(
+                    nc.player_turns.resolve(),
+                    nc.player_turns_size.resolve(),
+                    self.storm_player_flags.resolve(),
+                    s.dispatch_buffers(),
+                );
                 s.apply_due_directive(next_frame);
                 // Exactly once per executed step (one local turn leaves the pipe), NOT per dispatched
                 // slot — see TurnState::mark_local_turn_executed.
@@ -2455,6 +2577,32 @@ impl BwScr {
                     }
                     TurnReceiveOutcome::Ready
                 }
+            }
+        }
+    }
+
+    /// Fills `player_turns[]` / `player_turns_size[]` / `net_player_flags[]` from a set of dispatched
+    /// per-slot buffers. Shared by [`netcode_v2_receive_turns`](Self::netcode_v2_receive_turns)'s
+    /// lobby-phase and in-game branches, which differ only in where `buffers` comes from.
+    ///
+    /// A full replacement doesn't run the native memset, so every slot is cleared first: a stale
+    /// ready bit on a slot we don't fill would make step_network dispatch garbage.
+    unsafe fn fill_turn_dispatch<'a>(
+        player_turns: *mut *mut u8,
+        player_turns_size: *mut u32,
+        flags: *mut u32,
+        buffers: impl Iterator<Item = (StormPlayerId, &'a [u8])>,
+    ) {
+        unsafe {
+            for i in 0..bw::MAX_STORM_PLAYERS {
+                *flags.add(i) = 0;
+                *player_turns_size.add(i) = 0;
+            }
+            for (storm, bytes) in buffers {
+                let i = storm.0 as usize;
+                *player_turns.add(i) = bytes.as_ptr() as *mut u8;
+                *player_turns_size.add(i) = bytes.len() as u32;
+                *flags.add(i) = 0x10000 | 0x20000; // present | turn-ready
             }
         }
     }
@@ -2499,6 +2647,185 @@ impl BwScr {
     pub fn seed_netcode_v2_pipe(&self) {
         unsafe {
             self.netcode_v2_flush_pipe();
+        }
+    }
+
+    /// Seeds Storm's session-player list with the given non-local session members, standing in for
+    /// the peer-admit that native networking performs when each member's join packet arrives. For
+    /// each member: look up (or create) its list node by net key, write the low byte of its slot,
+    /// set the present/turn-expected flag, and register its slot name.
+    ///
+    /// The local player is never in `members` — its node is set up by the local-identity fixup in
+    /// the join replacement instead. The host uses this to admit its peers after `storm_create_game`;
+    /// the join replacement uses it to admit everyone but the local player.
+    pub unsafe fn v2_seed_storm_session_members(&self, members: &[netcode_v2::StormMemberSeed]) {
+        unsafe {
+            let nc = &self.netcode_v2;
+            for member in members {
+                let node = (nc.storm_session_player_lookup_or_create)(member.net_key.as_ptr());
+                if node.is_null() {
+                    // The lookup allocates on miss and only returns null on allocation failure,
+                    // which shouldn't happen; skip the member rather than dereference null.
+                    error!(
+                        "netcode v2: failed to create Storm session player for slot {}",
+                        member.slot
+                    );
+                    continue;
+                }
+                write_session_player_slot(node, member.slot);
+                // Bit 0x4 = present/turn-expected. Native sets it from a Storm event listener when a
+                // peer is admitted; seeding replaces that admit, so seeding must set it or the
+                // receive-turns barrier would never expect this member's turns.
+                (*node).flags |= 0x4;
+                // Write the node's own name buffer, not just the slot-name registry: native
+                // init_net_player reads a session member's name straight off the node (via
+                // storm_get_player_name_data) and skips a member whose node name is empty, leaving
+                // that player's net_player_info entry unpopulated (state stays 0). Without this a
+                // seeded remote is invisible to the per-player registration that follows.
+                copy_session_player_name(node, &member.name);
+                (nc.storm_register_slot_name)(
+                    member.slot as u32,
+                    member.name.as_ptr() as *const u8,
+                );
+            }
+        }
+    }
+
+    /// Writes one human's `net_player_info` (the "storm players") entry directly: state = in-use plus
+    /// the display name. Native `init_net_player` only fills this from a session member Storm's own
+    /// provider-gated lookup resolves, which succeeds for the local player but not for a
+    /// roster-seeded remote, so a remote's entry would otherwise stay empty — leaving its name blank
+    /// everywhere the table is read (the multiplayer-player count that gates the diplomacy UI, the
+    /// "player was dropped" notice, chat sender names). The `flags`/`unk4`/`protocol_version` values
+    /// match what the native `init_network_player_info(_, 0, 1, 5)` path always wrote; they are only
+    /// snapshotted into a per-player record, never read by gameplay.
+    pub unsafe fn v2_register_net_player(&self, storm_id: u8, name: &str) {
+        unsafe {
+            let players = self.storm_players.resolve();
+            let entry = players.add(storm_id as usize);
+            let mut fabricated = scr::StormPlayer {
+                state: 1,
+                unk1: 0,
+                flags: 0,
+                unk4: 1,
+                protocol_version: 5,
+                name: [0; 0x60],
+            };
+            for (&input, out) in name.as_bytes().iter().zip(fabricated.name.iter_mut()) {
+                *out = input;
+            }
+            *entry = fabricated;
+        }
+    }
+
+    /// Copies BW's game template for `game_type` into `game_data.game_template`. On the host, native
+    /// game creation does this from a registry BW loads from data files; the roster-driven peer join
+    /// builds its session locally and never receives the host's game-info blob, so its template block
+    /// stays zeroed — which BW reads as a Use-Map-Settings game (map triggers run, no alliance UI,
+    /// map-defined victory instead of the real game type's rules). Every client loads the same
+    /// registry at startup, so this local lookup reproduces the host's template exactly. Errors if the
+    /// game type is not registered.
+    pub unsafe fn apply_game_type_template(&self, game_type: bw::BwGameType) -> Result<(), ()> {
+        unsafe {
+            // The lookup keys on the game type split into low/high bytes; our game types all fit in
+            // the low byte, so the high byte is always 0.
+            let template = (self.find_game_type_template)(
+                game_type.primary as u32,
+                0,
+                game_type.subtype as u32,
+            );
+            if template.is_null() {
+                error!(
+                    "No game template registered for type {}/{}",
+                    game_type.primary, game_type.subtype
+                );
+                return Err(());
+            }
+            let dest = self.game_data.resolve();
+            (*dest).game_template = *(template as *const bw::GameTemplate);
+            Ok(())
+        }
+    }
+
+    /// Full replacement for `storm_join_game` used when a lobby session seed is staged: builds this
+    /// client's Storm session state from our own inputs rather than the network join handshake the
+    /// native function performs (two sends and two blocking waits).
+    ///
+    /// The native function's prefix tears down any prior session, and a native peer's session state
+    /// (game-info blob plus globals) is assembled by an inbound-message handler that never runs in
+    /// this seam. `storm_create_game` constructs the equivalent state from our own inputs, after
+    /// which the local identity is corrected to the roster slot and the other members are seeded in
+    /// place of the network admit. Nothing ever compares session blobs across machines, so each
+    /// client building its own from identical server-fed inputs is sound.
+    ///
+    /// Returns 1 (TRUE) on success — the native caller then stores `*out_net_player_id` as the local
+    /// net player id — or 0 (FALSE) on failure, handing control to the caller's join-failure path.
+    unsafe fn v2_run_join_replacement(
+        &self,
+        seed: &netcode_v2::LobbySessionSeed,
+        out_net_player_id: *mut u32,
+    ) -> u32 {
+        unsafe {
+            let nc = &self.netcode_v2;
+            // The native join flow retries: a failure after this replacement already succeeded once
+            // (e.g. the caller's map load) re-invokes it. storm_create_game is the one non-idempotent
+            // step, so skip it when a session is already live. `in_lobby_or_game` is the reliable
+            // test: create_local_storm_session itself sets it to 1 and nothing else on this path
+            // touches it, so it is provably 0 on the first attempt and 1 on every retry after a
+            // successful create. (storm_local_player_slot's 0xff not-in-session sentinel is what
+            // native join's own entry guard checks, but its pre-first-write state is unverified — a
+            // zero-initialized global would read as "in session" and wrongly skip the first create.)
+            // Every step below is overwrite-or-recompute and safe to re-run.
+            let session_already_live = self.in_lobby_or_game.resolve() != 0;
+            if !session_already_live {
+                // 1. Build equivalent session state. A fresh local session with no peers makes the
+                //    local player session slot 0; the fixup below moves it to the roster slot.
+                if let Err(e) = self.create_local_storm_session(
+                    &seed.game_name,
+                    &seed.local_name,
+                    seed.slot_count,
+                ) {
+                    error!("netcode v2: join replacement storm_create_game failed: {e:08x}");
+                    return 0;
+                }
+            }
+            // 2. Local identity fixup: correct the local session slot and node from the 0 that create
+            //    produced to this client's roster slot.
+            nc.storm_local_player_slot.write(seed.local_slot);
+            let local = (nc.get_local_storm_session_player)();
+            if local.is_null() {
+                error!("netcode v2: join replacement could not resolve local session player");
+                return 0;
+            }
+            write_session_player_slot(local, seed.local_slot);
+            // Create already wrote the local name into this node; rewriting it keeps the fixup
+            // self-sufficient and identical for any future caller.
+            copy_session_player_name(local, &seed.local_name);
+            (nc.storm_register_slot_name)(
+                seed.local_slot as u32,
+                seed.local_name.as_ptr() as *const u8,
+            );
+            // 3. Seed the other members. Done after the local fixup so its slot-name registration for
+            //    the local slot re-registers over the local name create left at that index.
+            self.v2_seed_storm_session_members(&seed.members);
+            // 4. The local game-level net player id the native caller stores: session slot plus the
+            //    turn base.
+            // Every roster consumer treats the game-level net player id as identical to the session
+            // slot; that holds because the turn base stays 0 in this flow (its native writers are
+            // the Storm turn-advance and join paths, which never run here). Assert it so a violation
+            // is loud in debug rather than a silent identity mismatch.
+            debug_assert_eq!(
+                nc.storm_turn_base.resolve(),
+                0,
+                "storm_turn_base expected to be 0"
+            );
+            *out_net_player_id = seed.local_slot as u32 + nc.storm_turn_base.resolve();
+            // 5. Native join's success tail drains Storm's deferred inbound queue. Nothing can be
+            //    queued when no Storm networking has run, but calling it keeps the replacement
+            //    faithful to the native tail and covers any provider-queued edge.
+            (nc.snet_drain_deferred_queue)();
+            // 6. TRUE: the caller treats the join as succeeded.
+            1
         }
     }
 
@@ -3536,30 +3863,26 @@ impl bw::Bw for BwScr {
             let ptr = &data as *const bw::LobbyGameInitData as *const u8;
             let len = mem::size_of::<bw::LobbyGameInitData>();
 
-            if netcode_v2::with_turn_state(|_| ()).is_some() {
-                // Netcode v2: every client local-drives lobby-init — there is no host/
-                // non-host asymmetry left, and no Storm turn stream to carry the command. The seed is
-                // server-distributed (identical on every client), so the `0x48` carries no info a
-                // client lacks; inject it directly via `process_lobby_commands(ptr, len, /*player=*/0)`
-                // — the same direct-injection precedent as `process_game_commands` — rather than
-                // `send_command` (which only dispatches once a network turn completes, and would
-                // deadlock without native networking). The `ProcessLobbyCommands` hook still trips
-                // `lobby_game_init_command_seen`, so `try_finish_lobby_game_init` drives
-                // `lobby_state → 9`. No `local_storm_id == 0` host guard.
+            // Only the host (storm id 0) sends the lobby-init `0x48` record; peers receive it. The
+            // seed is server-distributed, so every client hand-set its own lobby_state to 8 and the
+            // record carries the same value everywhere — the host's send reaches peers over the
+            // session's reliable lobby channel (the rp2 lobby seam when active, native Storm
+            // otherwise), where their handle_lobby_init_0x48 accepts it (sender slot 0, lobby_state
+            // 8). The ProcessLobbyCommands hook trips lobby_game_init_command_seen on every client,
+            // so try_finish_lobby_game_init drives lobby_state → 9.
+            //
+            // This is a single send with no retry: once the seam accepts the bytes, the reliable
+            // control stream plus the relay's per-session replay log guarantee delivery, so the only
+            // loss window is a local submit failure with an effectively-dead driver — and a peer
+            // stuck waiting for the record is bounded by the server's game-load timeout, which
+            // cancels the whole load.
+            let local_storm_id = self.local_storm_id.resolve();
+            if local_storm_id == 0 {
                 debug!(
-                    "Local-driving lobby game init (netcode v2): {:#x} {:#x} {:#x?}",
+                    "Sending lobby game init data: {:#x} {:#x} {:#x?}",
                     data.game_init_command, seed, data.player_bytes
                 );
-                (self.process_lobby_commands)(ptr, len, 0);
-            } else {
-                let local_storm_id = self.local_storm_id.resolve();
-                if local_storm_id == 0 {
-                    debug!(
-                        "Sending lobby game init data: {:#x} {:#x} {:#x?}",
-                        data.game_init_command, seed, data.player_bytes
-                    );
-                    (self.send_command)(ptr, len);
-                }
+                (self.send_command)(ptr, len);
             }
         }
     }
@@ -3827,89 +4150,6 @@ impl bw::Bw for BwScr {
             }
             self.in_lobby_or_game.write(1);
             Ok(out_storm_id)
-        }
-    }
-
-    unsafe fn write_game_data(&self, game_data: &bw::BwGameData) {
-        unsafe {
-            let dest = self.game_data.resolve();
-            ptr::copy_nonoverlapping(game_data as *const bw::BwGameData, dest, 1);
-        }
-    }
-
-    unsafe fn apply_game_type_template(&self, game_type: bw::BwGameType) -> Result<(), ()> {
-        unsafe {
-            // The lookup keys on the game type split into low/high bytes; our game types all fit in
-            // the low byte, so the high byte is always 0.
-            let template = (self.find_game_type_template)(
-                game_type.primary as u32,
-                0,
-                game_type.subtype as u32,
-            );
-            if template.is_null() {
-                error!(
-                    "No game template registered for type {}/{}",
-                    game_type.primary, game_type.subtype
-                );
-                return Err(());
-            }
-            let dest = self.game_data.resolve();
-            (*dest).game_template = *(template as *const bw::GameTemplate);
-            Ok(())
-        }
-    }
-
-    unsafe fn set_local_storm_id(&self, storm_id: u32) {
-        unsafe {
-            self.local_storm_id.write(storm_id);
-        }
-    }
-
-    unsafe fn v2_load_map(&self, map_path: &CStr) -> Result<(), u32> {
-        unsafe {
-            // Needs to be at least 0x24 bytes, but adding some buffer space in case the
-            // output struct changes. Mirrors the native join path's map load.
-            let mut out = [0u32; 0x10];
-            self.storm_set_last_error(0);
-            let ok = (self.init_map_from_path)(
-                map_path.as_ptr() as *const u8,
-                out.as_mut_ptr() as *mut c_void,
-                0,
-                0,
-            );
-            if ok == 0 {
-                let error = self.storm_last_error();
-                error!("init_map_from_path failed: {error:08x}");
-                return Err(error);
-            }
-            self.init_team_game_playable_slots();
-            Ok(())
-        }
-    }
-
-    unsafe fn register_net_player(&self, storm_id: u8, name: &str) {
-        unsafe {
-            let players = self.storm_players.resolve();
-            let entry = players.add(storm_id as usize);
-            // Inlined `init_net_player` effect: state=1 (in-use), name copied into the 0x60-byte
-            // name field. Deliberately does NOT call native `init_net_player`, which sources the
-            // name from Storm's provider-gated session table. `flags`/`unk4`/`protocol_version` are
-            // set to exactly what the `init_network_player_info(_, 0, 1, 5)` wrapper always passed
-            // native `init_net_player`. These three fields are only snapshotted into a per-player
-            // record and never read by gameplay, but reproducing the native values verbatim keeps
-            // the fabricated entry byte-identical to a real join.
-            let mut fabricated = scr::StormPlayer {
-                state: 1,
-                unk1: 0,
-                flags: 0,
-                unk4: 1,
-                protocol_version: 5,
-                name: [0; 0x60],
-            };
-            for (&input, out) in name.as_bytes().iter().zip(fabricated.name.iter_mut()) {
-                *out = input;
-            }
-            *entry = fabricated;
         }
     }
 
@@ -4767,6 +5007,12 @@ mod hooks {
     );
 
     system_hooks!(
+        // Storm's network join handshake, stdcall with 9 dword args (retn 0x24 on x86). The netcode
+        // v2 native-lobby join replacement replaces it wholesale when a lobby session seed is staged.
+        // Only arg 4 (`*mut u32`, out: local game-level net player id) is consulted; the rest — name
+        // strings, expected game id/version, host net key, advertise value — are opaque here and are
+        // passed through verbatim to the original on the native (unseeded) path.
+        !0 => StormJoinGame(usize, usize, usize, *mut u32, usize, usize, usize, usize, usize) -> u32;
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;

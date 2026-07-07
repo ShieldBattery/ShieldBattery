@@ -57,9 +57,15 @@ use tokio::sync::mpsc;
 mod session;
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
-// (`establish_session`), so only these two are re-exported. The credential/session types stay
-// internal to their submodules.
-pub use session::{begin_local_only, establish_session, submit_result_report, with_turn_state};
+// (`establish_session`), so only these are re-exported. The credential/session types stay internal
+// to their submodules. `with_lobby_session_seed` is consumed by the `storm_join_game` replacement
+// hook (in `bw_scr.rs`); the seed types and `set_lobby_session_seed`/`clear_lobby_session_seed` are
+// the staging API the native-lobby setup path uses to stage (and drop) a join seed.
+pub use session::{
+    LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
+    establish_session, set_lobby_session_seed, submit_result_report, with_lobby_session_seed,
+    with_turn_state,
+};
 
 use crate::app_messages::SbUserId;
 use crate::bw;
@@ -69,6 +75,31 @@ use crate::bw::players::StormPlayerId;
 /// locally-fabricated leave (see [`TurnState::begin_local_only`]) applies identically to a
 /// relay-directed clean departure.
 const LOCAL_ONLY_LEAVE_REASON: u32 = 3;
+
+/// BW's lobby-phase keep-alive record: the bare 1-byte command buffer `send_turn_message` flushes
+/// when nothing was queued that tick. Used both to synthesize a stand-in for a required peer with
+/// nothing queued, and to recognize (and skip relaying) the local flush's own empty-tick buffer.
+const LOBBY_KEEP_ALIVE: u8 = 0x05;
+
+/// Builds the 12-byte Storm net key that identifies a session member in Storm's local
+/// session-player list. The key is `[b'S', b'B', slot, 0]` followed by the SB user id as a
+/// little-endian `u32`, then zero padding to 12 bytes.
+///
+/// Storm uses these keys only as local list-lookup identities — the join replacement seeds each
+/// member's list node under its key and later looks it up by the same key. The network paths that
+/// would compare a key against one derived from a received packet never run in the native-lobby
+/// seam, so the only requirement on this value is that it be deterministic and unique per member
+/// within the session; both the slot and the user id are unique per member, so either alone would
+/// suffice and the pair is comfortably unique.
+pub fn storm_net_key(slot: u8, user_id: SbUserId) -> [u8; 12] {
+    let mut key = [0u8; 12];
+    key[0] = b'S';
+    key[1] = b'B';
+    key[2] = slot;
+    key[3] = 0;
+    key[4..8].copy_from_slice(&user_id.0.to_le_bytes());
+    key
+}
 
 /// The game-thread-owned state the three hooks operate on.
 ///
@@ -122,6 +153,30 @@ pub struct TurnState {
     /// Which storm slots must supply a turn before a step is ready to dispatch. Set as slots are
     /// mapped during join; a synced leave clears one (so the sim stops waiting on a departed peer).
     required: [bool; bw::MAX_STORM_PLAYERS],
+    /// Whether the lobby seam is active: when `true`, [`submit_local_lobby_turn`](Self::submit_local_lobby_turn)
+    /// and [`lobby_receive_turns`](Self::lobby_receive_turns) carry BW's lobby-phase command traffic
+    /// over the driver's lobby channels instead of leaving lobby join on native Storm networking.
+    /// Defaults to `false`: the lobby seam is dead code until the (future) native-lobby setup path
+    /// calls [`enable_lobby_seam`](Self::enable_lobby_seam) — the currently-shipping "scope C"
+    /// direct-registration setup path never does, so adding this machinery changes zero runtime
+    /// behavior on its own.
+    lobby_seam_enabled: bool,
+    /// The local member's pending lobby turns, queued at OUT time by
+    /// [`submit_local_lobby_turn`](Self::submit_local_lobby_turn) — the lobby analogue of
+    /// `inbound_queues`'s local echo. Also the pacing gate for
+    /// [`lobby_receive_turns`](Self::lobby_receive_turns): the native lobby flush produces one
+    /// buffer roughly every 50 ms, so gating readiness on this queue reproduces that cadence instead
+    /// of free-running a turn per poll.
+    lobby_echo: VecDeque<Bytes>,
+    /// Per-storm-slot FIFO of other members' lobby command buffers, delivered off
+    /// `channels.lobby_in` and routed by [`drain_lobby_inbound`](Self::drain_lobby_inbound). The
+    /// lobby analogue of `inbound_queues`.
+    lobby_inbound: [VecDeque<Bytes>; bw::MAX_STORM_PLAYERS],
+    /// The lobby command buffers currently being dispatched, per storm slot. Kept separate from
+    /// `current_dispatch` so the lobby→game transition can't cross-pollute the two dispatch sets.
+    /// Owned here (as refcounted [`Bytes`]) for the same reason as `current_dispatch`: the pointers
+    /// written into `player_turns[]` must stay valid through the whole dispatch.
+    lobby_dispatch: [Option<Bytes>; bw::MAX_STORM_PLAYERS],
     /// Set once the local result is decided (see [`begin_local_only`](Self::begin_local_only)): the
     /// session is ending, so [`submit_local_turn`](Self::submit_local_turn) keeps echoing our turns
     /// into the sim but stops handing them to the (closing) link. Latched — never cleared.
@@ -170,6 +225,10 @@ impl TurnState {
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
             current_dispatch: std::array::from_fn(|_| None),
             required: [false; bw::MAX_STORM_PLAYERS],
+            lobby_seam_enabled: false,
+            lobby_echo: VecDeque::new(),
+            lobby_inbound: std::array::from_fn(|_| VecDeque::new()),
+            lobby_dispatch: std::array::from_fn(|_| None),
             local_only: false,
             has_computers,
             #[cfg(debug_assertions)]
@@ -326,6 +385,12 @@ impl TurnState {
                 queue.push_back(payload.commands);
             }
         }
+        // The relay is phase-agnostic, so a hostile client can keep spraying lobby commands mid-game,
+        // up to the replay log's cap. `drain_inbound` only runs in-game (via `receive_turns`), and the
+        // lobby seam's own drain doesn't run once the game has started — so this is the only thing
+        // still draining `lobby_in`. An undrained channel would eventually fill and wedge the driver;
+        // there's nothing useful to do with a lobby command mid-game, so it's discarded.
+        while self.channels.lobby_in.try_recv().is_ok() {}
     }
 
     /// IN-hook core: drain arrivals, then — if every required slot has a turn queued — pop exactly
@@ -361,6 +426,117 @@ impl TurnState {
     /// present+ready flags on that slot.
     pub fn dispatch_buffers(&self) -> impl Iterator<Item = (StormPlayerId, &[u8])> {
         self.current_dispatch
+            .iter()
+            .enumerate()
+            .filter_map(|(storm, buf)| {
+                buf.as_ref()
+                    .map(|b| (StormPlayerId(storm as u8), b.as_ref()))
+            })
+    }
+
+    /// Latches the lobby seam on, so the OUT/IN hooks route lobby-phase command traffic through
+    /// [`submit_local_lobby_turn`](Self::submit_local_lobby_turn) /
+    /// [`lobby_receive_turns`](Self::lobby_receive_turns) instead of falling through to native Storm
+    /// networking for the lobby. Nothing calls this outside tests yet — it's wired up by the
+    /// native-lobby setup path (next slice).
+    pub fn enable_lobby_seam(&mut self) {
+        self.lobby_seam_enabled = true;
+    }
+
+    /// Whether the lobby seam is active (see [`enable_lobby_seam`](Self::enable_lobby_seam)).
+    pub fn lobby_seam_enabled(&self) -> bool {
+        self.lobby_seam_enabled
+    }
+
+    /// OUT hook body for the lobby phase: queues `buffer` into the local echo and, if it carries real
+    /// command records, relays it to the other session members over the driver's lobby channel.
+    /// `buffer` is the raw bytes BW's lobby flush produced — bare concatenated command records, or
+    /// the single byte [`LOBBY_KEEP_ALIVE`] when nothing was queued that tick. Unlike
+    /// [`submit_local_turn`](Self::submit_local_turn), nothing here strips control commands: lobby
+    /// records are a different command set than in-game commands and must arrive byte-identical.
+    ///
+    /// Always echoes locally, keep-alives included — the local sim needs every lobby turn the same
+    /// way native loopback returns our own commands through `process_lobby_commands`. A keep-alive-only
+    /// buffer is never relayed to peers: the relay keeps a capped per-session replay log (1024
+    /// commands / 256 KiB) for members whose stream comes up late, and forwarding a keep-alive every
+    /// ~50 ms (20 Hz) would exhaust that cap in under a minute for zero information.
+    ///
+    /// Returns `false` only when the buffer carried real commands and the relay send failed
+    /// (channel full/closed) — a lost lobby command is correctness-critical (a peer could permanently
+    /// miss a slot-setup/init record). The echo has already happened by the time a `false` comes back
+    /// (the game is tearing down at that point anyway).
+    pub fn submit_local_lobby_turn(&mut self, buffer: &[u8]) -> bool {
+        let commands = Bytes::copy_from_slice(buffer);
+        self.lobby_echo.push_back(commands.clone());
+        if matches!(buffer, [LOBBY_KEEP_ALIVE]) {
+            return true;
+        }
+        self.channels.lobby_out.try_send(commands.to_vec()).is_ok()
+    }
+
+    /// Drains every `(slot, buffer)` pair currently available from the driver's `lobby_in` channel
+    /// into the per-storm-slot lobby queues. Never blocks. Mirrors [`drain_inbound`](Self::drain_inbound)'s
+    /// treatment of an unmapped slot: it can't be attributed to a BW player, so it's dropped rather
+    /// than mis-delivered.
+    fn drain_lobby_inbound(&mut self) {
+        while let Ok((slot, buffer)) = self.channels.lobby_in.try_recv() {
+            let Some(storm) = self.storm_id_for_slot(slot) else {
+                debug_assert!(false, "lobby command for unmapped slot {slot:?}");
+                continue;
+            };
+            if let Some(queue) = self.lobby_inbound.get_mut(storm.0 as usize) {
+                queue.push_back(Bytes::from(buffer));
+            }
+        }
+    }
+
+    /// IN hook core for the lobby phase: drain arrivals, then — once the local echo has a queued
+    /// turn — pop one buffer per required slot into the owned lobby dispatch buffers and report
+    /// ready.
+    ///
+    /// The local echo is the pacing gate, not the readiness set: the native lobby flush produces one
+    /// buffer roughly every 50 ms, so gating on it reproduces that cadence — without it this hook
+    /// would free-run a turn per poll instead of waiting out the native tick. Peers never gate this
+    /// way: a peer with nothing queued gets a synthesized [`LOBBY_KEEP_ALIVE`] rather than stalling
+    /// the whole lobby on a quiet member.
+    ///
+    /// Returns `true` when a lobby turn is ready to dispatch, `false` to stall — nothing is consumed
+    /// on a stall. After a `true`, read [`lobby_dispatch_buffers`](Self::lobby_dispatch_buffers) to
+    /// fill `player_turns[]`.
+    pub fn lobby_receive_turns(&mut self) -> bool {
+        self.drain_lobby_inbound();
+        let Some(local_turn) = self.lobby_echo.pop_front() else {
+            // Nothing queued yet this tick: stall rather than free-run ahead of the native cadence.
+            return false;
+        };
+        let Some(local_storm) = self.storm_id_for_slot(self.local_slot) else {
+            // Setup never ran, so there's no slot to attribute this turn to. Stall rather than
+            // panic, and put the turn back so the next (properly set-up) call still sees it.
+            debug_assert!(false, "lobby receive with an unmapped local slot");
+            self.lobby_echo.push_front(local_turn);
+            return false;
+        };
+        for storm in 0..bw::MAX_STORM_PLAYERS {
+            self.lobby_dispatch[storm] = if !self.required[storm] {
+                None
+            } else if storm == local_storm.0 as usize {
+                Some(local_turn.clone())
+            } else {
+                Some(
+                    self.lobby_inbound[storm]
+                        .pop_front()
+                        .unwrap_or_else(|| Bytes::from_static(&[LOBBY_KEEP_ALIVE])),
+                )
+            };
+        }
+        true
+    }
+
+    /// The lobby command buffers to dispatch this step: `(storm id, command bytes)` for each ready
+    /// slot. Valid until the next [`lobby_receive_turns`](Self::lobby_receive_turns). Mirrors
+    /// [`dispatch_buffers`](Self::dispatch_buffers) over the lobby-specific dispatch set.
+    pub fn lobby_dispatch_buffers(&self) -> impl Iterator<Item = (StormPlayerId, &[u8])> {
+        self.lobby_dispatch
             .iter()
             .enumerate()
             .filter_map(|(storm, buf)| {
@@ -692,43 +868,36 @@ mod tests {
     const LOCAL_USER: SbUserId = SbUserId(11);
     const PEER_USER: SbUserId = SbUserId(22);
 
-    /// Builds a TurnState wired to test channels. Returns the state, a sender to inject peer turns
-    /// on `inbound`, the outbound receiver to observe/keep-alive what we submit, a sender to
-    /// inject relay-pushed leaves on the `leaves` channel, and the far-end receiver of the
-    /// `leave_intent` channel so tests can assert on what [`TurnState::send_leave_intent`] signals.
-    /// All far ends are returned so the channels stay open (dropping them would close the turn
-    /// state's ends).
-    fn turn_state() -> (
+    /// The harness tuple [`turn_state`]/[`turn_state_with_computers`]/[`turn_state_inner`] return:
+    /// the state, a sender to inject peer turns on `inbound`, the outbound receiver to
+    /// observe/keep-alive what we submit, a sender to inject relay-pushed leaves on the `leaves`
+    /// channel, the far-end receiver of the `leave_intent` channel so tests can assert on what
+    /// [`TurnState::send_leave_intent`] signals, the far-end receiver of `lobby_out` so tests can
+    /// observe what [`TurnState::submit_local_lobby_turn`] relays, and the far-end sender of
+    /// `lobby_in` so tests can inject peer lobby commands.
+    type TurnStateHarness = (
         TurnState,
         mpsc::Sender<Payload>,
         mpsc::Receiver<Payload>,
         mpsc::Sender<LeaveDirective>,
         mpsc::Receiver<()>,
-    ) {
+        mpsc::Receiver<Vec<u8>>,
+        mpsc::Sender<(SlotId, Vec<u8>)>,
+    );
+
+    /// Builds a TurnState wired to test channels (see [`TurnStateHarness`]). All far ends are
+    /// returned so the channels stay open (dropping them would close the turn state's ends).
+    fn turn_state() -> TurnStateHarness {
         turn_state_inner(false)
     }
 
     /// Like [`turn_state`], but for a game that contains computer (AI) players — the case that
     /// self-closes its session once the last remote human leaves.
-    fn turn_state_with_computers() -> (
-        TurnState,
-        mpsc::Sender<Payload>,
-        mpsc::Receiver<Payload>,
-        mpsc::Sender<LeaveDirective>,
-        mpsc::Receiver<()>,
-    ) {
+    fn turn_state_with_computers() -> TurnStateHarness {
         turn_state_inner(true)
     }
 
-    fn turn_state_inner(
-        has_computers: bool,
-    ) -> (
-        TurnState,
-        mpsc::Sender<Payload>,
-        mpsc::Receiver<Payload>,
-        mpsc::Sender<LeaveDirective>,
-        mpsc::Receiver<()>,
-    ) {
+    fn turn_state_inner(has_computers: bool) -> TurnStateHarness {
         let (out_tx, out_rx) = mpsc::channel(16);
         let (in_tx, in_rx) = mpsc::channel(16);
         let (leave_tx, leave_rx) = mpsc::channel(16);
@@ -737,6 +906,8 @@ mod tests {
         // channel is harmless — nothing submits a report here). See `turn_state_with_result` for
         // the result-handoff tests.
         let (result_tx, _result_rx) = mpsc::channel(1);
+        let (lobby_out_tx, lobby_out_rx) = mpsc::channel(16);
+        let (lobby_in_tx, lobby_in_rx) = mpsc::channel(16);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -744,6 +915,8 @@ mod tests {
             leave_intent: leave_intent_tx,
             result: result_tx,
             result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: lobby_out_tx,
+            lobby_in: lobby_in_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -752,6 +925,8 @@ mod tests {
             out_rx,
             leave_tx,
             leave_intent_rx,
+            lobby_out_rx,
+            lobby_in_tx,
         )
     }
 
@@ -781,6 +956,40 @@ mod tests {
             .collect()
     }
 
+    fn lobby_dispatched(state: &TurnState) -> Vec<(StormPlayerId, Vec<u8>)> {
+        state
+            .lobby_dispatch_buffers()
+            .map(|(storm, bytes)| (storm, bytes.to_vec()))
+            .collect()
+    }
+
+    #[test]
+    fn storm_net_key_is_deterministic_and_unique_per_member() {
+        // Deterministic: the same (slot, user) always produces the same key.
+        assert_eq!(
+            storm_net_key(2, SbUserId(0x1234)),
+            storm_net_key(2, SbUserId(0x1234))
+        );
+
+        // Distinct members produce distinct keys, whether they differ by slot, by user, or both.
+        let a = storm_net_key(0, SbUserId(11));
+        let b = storm_net_key(1, SbUserId(11));
+        let c = storm_net_key(0, SbUserId(22));
+        let d = storm_net_key(1, SbUserId(22));
+        let keys = [a, b, c, d];
+        for i in 0..keys.len() {
+            for j in (i + 1)..keys.len() {
+                assert_ne!(keys[i], keys[j], "keys {i} and {j} collided");
+            }
+        }
+
+        // Layout: "SB" + slot + 0, then the user id little-endian, then zero padding.
+        assert_eq!(
+            storm_net_key(3, SbUserId(0x0A0B_0C0D)),
+            [b'S', b'B', 3, 0, 0x0D, 0x0C, 0x0B, 0x0A, 0, 0, 0, 0]
+        );
+    }
+
     #[test]
     fn initial_latency_is_floored_at_one() {
         let (out_tx, out_rx) = mpsc::channel(1);
@@ -788,6 +997,8 @@ mod tests {
         let (_leave_tx, leave_rx) = mpsc::channel(1);
         let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
         let (result_tx, _result_rx) = mpsc::channel(1);
+        let (lobby_out_tx, _lobby_out_rx) = mpsc::channel(1);
+        let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -795,6 +1006,8 @@ mod tests {
             leave_intent: leave_intent_tx,
             result: result_tx,
             result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: lobby_out_tx,
+            lobby_in: lobby_in_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -803,7 +1016,8 @@ mod tests {
 
     #[test]
     fn roster_maps_a_peers_slot_by_user() {
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         // A peer's storm id solidifies during join; the roster resolves their user to their slot.
         state.map_storm_for_user(PEER_USER, PEER_STORM);
 
@@ -820,7 +1034,8 @@ mod tests {
         // storm id ≡ rp2 slot. After populating identity, every roster slot resolves to a storm id
         // equal to its own slot number, is `required`, and routes its turns without any per-join
         // mapping call.
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.populate_identity_slots();
 
         // Both roster slots (local 0, peer 1) now map to their own ids as storm ids.
@@ -848,7 +1063,8 @@ mod tests {
 
     #[test]
     fn roster_storm_ids_pairs_each_user_with_its_slot_as_storm_id() {
-        let (state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         let mut ids = state.roster_storm_ids();
         ids.sort_by_key(|(user, _)| user.0);
         assert_eq!(
@@ -862,7 +1078,8 @@ mod tests {
 
     #[test]
     fn user_missing_from_roster_is_skipped_not_mapped() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_storm_for_user(SbUserId(99), PEER_STORM);
         // No mapping was recorded: the slot doesn't gate readiness...
         assert!(
@@ -876,7 +1093,8 @@ mod tests {
 
     #[test]
     fn not_ready_until_every_required_slot_has_a_turn() {
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -912,7 +1130,15 @@ mod tests {
     fn local_turn_is_echoed_into_its_own_slot() {
         // The relay fans out to peers only, so our own commands must reach the local sim via the
         // echo — not the inbound channel.
-        let (mut state, _in_tx, mut out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert!(state.submit_local_turn(b"local", Some(7)));
@@ -927,7 +1153,8 @@ mod tests {
 
     #[test]
     fn one_turn_released_per_step_even_with_a_backlog() {
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         in_tx.try_send(peer_turn(PEER_SLOT, b"t1")).unwrap();
@@ -942,7 +1169,8 @@ mod tests {
 
     #[test]
     fn a_left_slot_stops_gating_readiness() {
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -960,7 +1188,8 @@ mod tests {
 
     #[test]
     fn buffer_directive_off_an_inbound_turn_retargets_latency() {
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(PEER_SLOT, PEER_STORM);
 
         let mut turn = peer_turn(PEER_SLOT, b"x");
@@ -982,7 +1211,8 @@ mod tests {
     fn debug_snapshot_reflects_mapped_and_unmapped_slots() {
         use crate::debug_control::TurnSlotSnapshot;
 
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         // PEER_SLOT is left unmapped on purpose, to exercise the "no storm id yet" branch.
 
@@ -1056,7 +1286,8 @@ mod tests {
 
     #[test]
     fn forced_leaves_drain_in_order_then_empty() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.debug_force_leave(PEER_SLOT);
         state.debug_force_leave(LOCAL_SLOT);
 
@@ -1067,7 +1298,8 @@ mod tests {
 
     #[test]
     fn pipe_counter_tracks_local_turns_in_flight() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
 
         assert_eq!(state.outstanding_turns(), 0);
@@ -1080,7 +1312,15 @@ mod tests {
 
     #[test]
     fn send_leave_intent_delivers_one_signal_and_a_repeat_is_a_harmless_no_op() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, mut leave_intent_rx) = turn_state();
+        let (
+            mut state,
+            _in_tx,
+            _out_rx,
+            _leave_tx,
+            mut leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
 
         // Two calls before the driver ever drains the channel: its capacity is 1, so the second
         // finds the first signal still sitting there (`Full`) rather than queuing a second one.
@@ -1105,7 +1345,8 @@ mod tests {
 
     #[test]
     fn take_due_leaves_maps_slot_to_storm_marks_left_at_its_frame() {
-        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1135,7 +1376,15 @@ mod tests {
 
     #[test]
     fn begin_local_only_fabricates_leaves_for_live_remote_slots() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, mut leave_intent_rx) = turn_state();
+        let (
+            mut state,
+            _in_tx,
+            _out_rx,
+            _leave_tx,
+            mut leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1162,7 +1411,8 @@ mod tests {
 
     #[test]
     fn begin_local_only_skips_already_left_slots() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
         // The peer already departed (e.g. an earlier relay leave), clearing it from `required`.
@@ -1177,7 +1427,15 @@ mod tests {
 
     #[test]
     fn begin_local_only_is_idempotent() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, mut leave_intent_rx) = turn_state();
+        let (
+            mut state,
+            _in_tx,
+            _out_rx,
+            _leave_tx,
+            mut leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1200,7 +1458,15 @@ mod tests {
 
     #[test]
     fn submit_local_turn_echoes_but_does_not_send_after_local_only() {
-        let (mut state, _in_tx, mut out_rx, _leave_tx, _leave_intent_rx) = turn_state();
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         // PEER_SLOT is left unmapped, so local-only fabricates no peer leave here — this test is
         // about the local submit path, not the fabrication.
@@ -1224,7 +1490,8 @@ mod tests {
 
     #[test]
     fn begin_local_only_defers_to_an_already_tracked_real_directive() {
-        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1252,7 +1519,8 @@ mod tests {
 
     #[test]
     fn a_real_directive_after_local_only_is_discarded_not_observed() {
-        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1276,7 +1544,8 @@ mod tests {
 
     #[test]
     fn take_due_leaves_skips_an_unmapped_departing_slot() {
-        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
         let unmapped = SlotId(9); // never mapped to a storm id
@@ -1293,8 +1562,15 @@ mod tests {
 
     #[test]
     fn self_close_triggers_when_last_remote_human_leaves_with_computers() {
-        let (mut state, _in_tx, mut out_rx, leave_tx, mut leave_intent_rx) =
-            turn_state_with_computers();
+        let (
+            mut state,
+            _in_tx,
+            mut out_rx,
+            leave_tx,
+            mut leave_intent_rx,
+            _lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state_with_computers();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1335,7 +1611,8 @@ mod tests {
     fn self_close_does_not_trigger_without_computers() {
         // Same roster and departure, but a human-only game: closing here would race the winner's
         // result report, so the predicate must stay false and leave the victory-dialog path to it.
-        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state();
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1353,7 +1630,8 @@ mod tests {
     #[test]
     fn self_close_does_not_trigger_while_a_remote_human_remains() {
         // A computers game, but the remote human hasn't left: the session stays networked.
-        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx) = turn_state_with_computers();
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state_with_computers();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1365,7 +1643,8 @@ mod tests {
 
     #[test]
     fn self_close_is_idempotent_once_local_only() {
-        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx) = turn_state_with_computers();
+        let (mut state, _in_tx, _out_rx, leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state_with_computers();
         state.map_slot(LOCAL_SLOT, LOCAL_STORM);
         state.map_slot(PEER_SLOT, PEER_STORM);
 
@@ -1394,6 +1673,8 @@ mod tests {
         let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
         let (result_tx, result_rx) = mpsc::channel(1);
         let result_expected = Arc::new(AtomicBool::new(false));
+        let (lobby_out_tx, _lobby_out_rx) = mpsc::channel(1);
+        let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1401,6 +1682,8 @@ mod tests {
             leave_intent: leave_intent_tx,
             result: result_tx,
             result_expected: Arc::clone(&result_expected),
+            lobby_out: lobby_out_tx,
+            lobby_in: lobby_in_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -1436,5 +1719,159 @@ mod tests {
         );
         // Nothing else queued behind the single report.
         assert!(result_rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn lobby_seam_latch_defaults_off_and_enable_flips_it() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        assert!(!state.lobby_seam_enabled(), "off until asked");
+        state.enable_lobby_seam();
+        assert!(state.lobby_seam_enabled());
+    }
+
+    #[test]
+    fn lobby_keep_alive_only_buffer_is_echoed_but_never_relayed() {
+        let (
+            mut state,
+            _in_tx,
+            _out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            mut lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+
+        assert!(state.submit_local_lobby_turn(&[LOBBY_KEEP_ALIVE]));
+        // Forwarding a keep-alive would exhaust the relay's capped replay log for zero information,
+        // so nothing goes out over `lobby_out`.
+        assert!(
+            lobby_out_rx.try_recv().is_err(),
+            "a keep-alive-only buffer must never be relayed"
+        );
+
+        // But it's still echoed, so the local lobby dispatch sees it — mirroring native loopback.
+        assert!(state.lobby_receive_turns());
+        assert_eq!(
+            lobby_dispatched(&state),
+            vec![(LOCAL_STORM, vec![LOBBY_KEEP_ALIVE])]
+        );
+    }
+
+    #[test]
+    fn lobby_content_buffer_is_relayed_verbatim_and_echoed() {
+        let (
+            mut state,
+            _in_tx,
+            _out_rx,
+            _leave_tx,
+            _leave_intent_rx,
+            mut lobby_out_rx,
+            _lobby_in_tx,
+        ) = turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+
+        assert!(state.submit_local_lobby_turn(b"slotinit"));
+        assert_eq!(
+            lobby_out_rx.try_recv().expect("relayed to the driver"),
+            b"slotinit".to_vec()
+        );
+
+        assert!(state.lobby_receive_turns());
+        assert_eq!(
+            lobby_dispatched(&state),
+            vec![(LOCAL_STORM, b"slotinit".to_vec())]
+        );
+    }
+
+    #[test]
+    fn lobby_receive_turns_gates_on_the_local_echo_and_synthesizes_a_peer_keep_alive() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        assert!(
+            !state.lobby_receive_turns(),
+            "stalls until the local flush produces a turn"
+        );
+
+        assert!(state.submit_local_lobby_turn(b"hello"));
+        assert!(state.lobby_receive_turns());
+
+        let mut got = lobby_dispatched(&state);
+        got.sort_by_key(|(storm, _)| storm.0);
+        assert_eq!(
+            got,
+            vec![
+                (LOCAL_STORM, b"hello".to_vec()),
+                (PEER_STORM, vec![LOBBY_KEEP_ALIVE]),
+            ],
+            "a required peer with nothing queued gets a synthesized keep-alive"
+        );
+    }
+
+    #[test]
+    fn a_peer_lobby_command_takes_precedence_over_the_synthesized_keep_alive() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        lobby_in_tx
+            .try_send((PEER_SLOT, b"peerslot".to_vec()))
+            .unwrap();
+        assert!(state.submit_local_lobby_turn(b"localslot"));
+        assert!(state.lobby_receive_turns());
+
+        let mut got = lobby_dispatched(&state);
+        got.sort_by_key(|(storm, _)| storm.0);
+        assert_eq!(
+            got,
+            vec![
+                (LOCAL_STORM, b"localslot".to_vec()),
+                (PEER_STORM, b"peerslot".to_vec()),
+            ],
+            "the peer's real command dispatches instead of a synthesized keep-alive"
+        );
+    }
+
+    #[test]
+    fn in_game_receive_discards_lobby_in_traffic_without_affecting_dispatch() {
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, lobby_in_tx) =
+            turn_state();
+        state.map_slot(LOCAL_SLOT, LOCAL_STORM);
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        // Fill the lobby_in channel to its test capacity (16, see `turn_state_inner`) with a
+        // hostile or just-late peer's lobby traffic sprayed mid-game.
+        for _ in 0..16 {
+            lobby_in_tx
+                .try_send((PEER_SLOT, b"late lobby command".to_vec()))
+                .unwrap();
+        }
+
+        in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
+        assert!(state.submit_local_turn(b"local", Some(0)));
+        assert!(
+            state.receive_turns(0),
+            "normal in-game turn dispatch is unaffected by the lobby traffic"
+        );
+        let mut got = dispatched(&state);
+        got.sort_by_key(|(storm, _)| storm.0);
+        assert_eq!(
+            got,
+            vec![
+                (LOCAL_STORM, b"local".to_vec()),
+                (PEER_STORM, b"peer".to_vec()),
+            ]
+        );
+
+        // The full lobby_in channel was drained as part of that receive, so it has room again.
+        assert!(
+            lobby_in_tx.try_send((PEER_SLOT, b"more".to_vec())).is_ok(),
+            "receive_turns must have drained the lobby_in backlog"
+        );
     }
 }
