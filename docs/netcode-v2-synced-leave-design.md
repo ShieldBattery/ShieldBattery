@@ -148,6 +148,20 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
   fixed relay the comparator stays silent (zero desync events). Follow-up: an observer's quit is
   classified as a drop (QUIC idle timeout), not a clean leave — the loop-end leave intent doesn't
   fire on the observer's exit path; no scoring impact. SB `8ced9f4ea`.
+- **UMS scenario maps under 2c — DONE + live-proven (2026-07-07).** `build_v2_joined_players` now
+  places UMS players by the map's slot id (`slot.player_id`, mirroring `setup_slots`; BW does not
+  randomize UMS slots) instead of slot-list index, which diverged whenever the occupied map slots
+  weren't contiguous from zero. Live-verified on a real scenario map (Colorless Fate 0.81 (Ob):
+  two custom forces, forced races, occupied map slots {0,1,3}): sync-clean (comparator silent),
+  chat attributed by map slot id on every client, and the map's own FORC flags drove alliances +
+  allied victory **natively** — when the lone Players-force opponent quit, both the winner and the
+  unitless Observers-force player resolved simultaneously (win / loss·loss in the DB, consistent
+  and reconciled). That native path also **closes the "UMS FORC flags" backlog item**: no SB-side
+  alliance derivation is needed for UMS — `setup_team_alliances` stays team-force-only by design.
+  Rescue/neutral players weren't in this map; they're map-internal (not joinable slots), so the
+  mechanism proven here covers them by construction — a live run on such a map remains an optional
+  spot-check. SB `cec74d376`; map upload recipe: `POST /api/1/maps` (Bearer JWT from
+  `POST /api/1/sessions` with `clientIds: []` + `Origin` header), multipart `file` + `extension`.
 - **Replay playback under the swept build — FIXED + live-proven.** The deleted join loop used to
   overwrite the viewer slot's placeholder storm id; without it `ready_lobby_for_start` →
   `update_nation_and_human_ids` tripped `assert!(storm_id < 16)` (saw junk `27`). Fix: the replay
@@ -159,11 +173,7 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
 
 ### 2c increments still to verify / build
 
-- **UMS scenario-map verification.** Only a standard melee map played as UMS (default forces) is
-  verified sync-clean. A real UMS scenario map (custom forces, rescue/neutral players, non-contiguous
-  `player_id` slots) is not in the dev DB and still needs verifying; under 2c its force/alliance setup
-  is native (map-driven), which likely also closes the `build_v2_joined_players` player_id gap and
-  supplies UMS FORC flags for the chat/alliance follow-ups.
+(none — observers and UMS scenario maps both landed 2026-07-07; see Completed.)
 
 ### Chat follow-ups
 
@@ -289,7 +299,8 @@ seven configurations green**:
 - **Replay** — ✅ proven post-sweep: LastReplay reaches `playing`, viewer storm id resolves, no panic.
 - **Observers** — ✅ 2p + 1 obs live-proven (see the Completed entry): registration, chat both ways,
   frame-locked view, mid-game observer leave, correct results, comparator silent on the fixed relay.
-- **UMS** — a real scenario map with custom forces (not yet done).
+- **UMS** — ✅ real scenario map live-proven (see the Completed entry): custom forces, forced races,
+  non-contiguous map slots, native FORC-driven alliances/victory, correct reconciled results.
 - **In-game handoff** — transport flips to datagrams at `set_game_started`;
   `networkStatus.transport === 'netcodeV2'`.
 
@@ -342,9 +353,6 @@ shape should be removed rather than ossified:
   sync ordinals low, so a desync straddling a failover could collide on `game_desync_events`'
   `(game_id, sync_ordinal)` PK and drop as a duplicate. Within the accepted "straddling-death miss
   once" envelope; a revisit could add an authority-generation/epoch component to the event identity.
-- **UMS FORC flags.** `MapForce` (app_messages.rs) doesn't carry the CHK FORC force-property flags, so
-  team-force alliances for a UMS scenario map can't yet be derived the way melee team types are — folds
-  into the UMS scenario-map work.
 - **Pre-existing pg `DeprecationWarning`.** Concurrent `client.query` in the `setReconciledResult`
   transaction path — observed during reconcile, not introduced by this work.
 - **TS-side `GameNetworkStatus.fallbackFrom` cleanup.** Unused field; optional removal.
