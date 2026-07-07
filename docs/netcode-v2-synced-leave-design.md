@@ -207,6 +207,27 @@ A relay "all slots present → start" directive (same machinery as the buffer/le
 **both** `startWhenReady` *and* the peer `ClientReady` handshake, and a reconnecting client (D11) is
 re-synced by the relay rather than by app-server orchestration.
 
+**Current-flow facts (mapped 2026-07-07, ready for the build):** `startWhenReady` today is NOT a
+readiness quorum — the server publishes it unconditionally the moment its own setup work (map lookup,
+rp2 session mint, `setNetcodeV2Setup` fan-out) completes (`game-loader.ts:715`). The only ready-style
+input the server collects is the pubkey PUT. The DLL latches it in `can_start_game`
+(`GameStateMessage::StartWhenReady`, one-time `AwaitableTaskState` latch) but by the time it waits on
+that latch the rp2 session is fully dialed (`establish_session`) and the native lobby fully built
+(create/join, `setup_slots`, lobby_state 8) — the latch only gates leaving the lobby screen; the
+frame-0 barrier (`receive_turns` parks until every required slot has a turn) is the true lockstep
+sync and stays untouched. App/renderer are pure relays (`startWhenReady` ws event →
+`activeGameStartWhenReady` IPC → `gameCommand` latch with resend-on-connect). Server keeps the 75s
+load timeout + status-report cancellation regardless. **rp2 has:** per-slot registration at auth
+(`routing::register`, the live per-relay roster), per-slot reliable push channels + mesh
+control-frame broadcast (the LeaveDirective template), and the lobby replay log (solves
+late-control-stream delivery). **rp2 lacks:** a session-wide expected-slot set on the descriptor
+(derive from `slot_refs` or add explicitly) and slot-granular cross-relay presence (today's
+`MeshPresence` is a scalar live-count feeding authority verdicts). Build shape: authority relay fires
+a `SessionStart` control frame once every expected slot is live session-wide (re-push on late
+register; idempotent client latch); DLL waits on it in place of the `can_start_game` latch (solo/
+replay paths start immediately — no relay); then delete the `startWhenReady` chain end-to-end
+(server publish + ws event + renderer handler + IPC + app latch + DLL message).
+
 Subtlety: "all slots dialed + authenticated" is early presence (clients dial during
 `establish_session`, before the map loads) — the same timing as today's `startWhenReady`; the true
 lockstep sync remains the frame-0 barrier the relay already owns. So it is the same two-tier structure
@@ -271,6 +292,21 @@ Native pause is a synced turn-stream command and turns keep flowing while paused
 carry it unchanged — but nobody has proven pause/unpause through the v2 transport, and the F10-quit RE
 showed quit-adjacent flows have surprising native structure. Verify in a live 2-player game: pause, chat
 while paused, unpause, confirm no stall/desync.
+
+**Automation attempt (2026-07-07): needs a human or the test harness.** Synthetic keyboard input
+(SendKeys) DOES reach the game — two live chat-box sends fired the send tap — but menu interactions
+don't automate: the F10 Game Menu (which has "Pause Game") ignores Esc/Break sends, and mouse clicks
+computed from debug screenshots miss because the screenshot coordinate space is the game's render
+target, not the physical window (observed 1260×973 capture vs 1074×751 window; non-uniform ratios).
+The clean future path is synced-command *injection* through the seam via the debug surface (submit
+pause/resume bytes into the outgoing turn like real input) — but that belongs to the game-test-harness
+design (`docs/game-test-harness-design.md`, input-simulation goal), so don't build an ad-hoc one.
+
+**Same finding for the MsgFltr send-scope pin:** the one-time dump is reachable (two live sends logged
+"no MsgFltr dialog observed yet; defaulting to All"), but the `MsgFltr` dialog is NOT instantiated by
+opening the chat box or by Tab — it's presumably created by a menu screen (Options → message filters),
+which hits the same menu-automation wall. One human run that opens that screen then sends a chat pins
+the mapping.
 
 ### Acceptance / testing matrix (loopback runbook; relay `0x37` comparator quiet = sync-clean)
 
