@@ -244,13 +244,26 @@ while paused, unpause, confirm no stall/desync.
 
 ### Acceptance / testing matrix (loopback runbook; relay `0x37` comparator quiet = sync-clean)
 
-Re-run after any 2c increment. Post-sweep (2026-07-07) status:
+Re-run after any 2c increment. Post-sweep (2026-07-07, both rounds) status — **matrix complete, all
+seven configurations green**:
 
 - **Melee 1v1** — ✅ re-proven post-sweep: sync-clean, chat bidirectional + correctly attributed,
-  transport `netcodeV2`, DB win/loss correct. FFA not re-run this round.
+  transport `netcodeV2`, DB win/loss correct.
+- **FFA 3-player** — ✅ re-proven post-sweep: sync-clean, three-way chat (every message on every
+  client, attribution consistent), `forceQuit` both losers → DB win/loss/loss correct.
 - **Team Melee 2v1** — ✅ re-proven post-sweep: sync-clean, `forceQuit` the lone enemy → both surviving
-  teammates WIN (alliance fix intact). Team FFA / TvB not re-run this round; no friendly-fire in TvB
-  still only matrix-verified — spot-check live combat.
+  teammates WIN (alliance fix intact).
+- **Team FFA 2v1** — ✅ re-proven post-sweep: sync-clean, chat crosses teams (receiver-side filter,
+  send stubbed to All), alliance matrix + visions identical on all 3 clients, `forceQuit` the lone
+  enemy → both teammates WIN.
+- **Top vs Bottom 2v1** — ✅ re-proven post-sweep: sync-clean, chat delivered to both other clients,
+  alliance matrix identical on all 3 clients. **Engine-consumption spot-checks passed live:** shared
+  vision actually renders (each teammate's minimap shows the other's base; the lone enemy sees only
+  its own), and allied victory actually fires (survivors hit `hasResult` in-game the moment the last
+  enemy quit — the victory checker read `alliances[i][j]==2`). Friendly-fire targeting uses those same
+  alliance cells; a manual unit-vs-ally combat poke needs human play and is the only remaining
+  (optional) check. TvB matrix diagonal reads 2 for the teamed slots (vs 1 in Team FFA) — native
+  template-derived, identical on all clients, benign.
 - **Solo vs computer** — ✅ proven post-sweep on the new sessionless `TurnState`: reaches `playing`,
   single required slot, turns flow, transport `native`.
 - **Replay** — ✅ proven post-sweep: LastReplay reaches `playing`, viewer storm id resolves, no panic.
