@@ -467,6 +467,18 @@ pub unsafe fn after_init_game_data() {
         }
 
         send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
+
+        // Netcode v2 games never run the native lobby force-settings command that team-force
+        // alliances are derived from, and pre-init writes of its inputs don't survive game init
+        // (init re-derives them from map data), so the derived state itself is written here, after
+        // init has finished.
+        if !is_replay()
+            && (*game_data).game_type().has_team_forces()
+            && crate::netcode_v2::with_turn_state(|_| ()).is_some()
+        {
+            setup_team_alliances(bw);
+        }
+
         // Create fog-of-war sprites for any neutral buildings
         if !is_ums()
             && matches!(
@@ -480,6 +492,41 @@ pub unsafe fn after_init_game_data() {
                 }
             }
         }
+    }
+}
+
+/// Fills the alliance matrix and shared-vision masks for teammates in team-force game types
+/// (Team Melee/FFA, Top vs Bottom): allied-victory both ways plus mutual vision for every
+/// same-team player pair. These are the cells the in-game ally dialog and result scoring read,
+/// with the same encoding the in-game alliance/vision net commands write. Teams come from the
+/// server-ordered slot layout, so every client writes identical values and the write is
+/// sync-safe.
+unsafe fn setup_team_alliances(bw: &BwScr) {
+    unsafe {
+        let game = bw.game();
+        let players = bw.players();
+        for i in 0..8 {
+            let player = *players.add(i);
+            // In-game participant player types: 1 = computer, 2 = human.
+            if !matches!(player.player_type, 1 | 2) || player.team == 0 {
+                continue;
+            }
+            for j in 0..8 {
+                if i == j {
+                    continue;
+                }
+                let other = *players.add(j);
+                if matches!(other.player_type, 1 | 2) && other.team == player.team {
+                    (*game).alliances[i][j] = bw::players::AllianceState::AlliedVictory as u8;
+                    (*game).visions[i] |= 1 << j;
+                }
+            }
+        }
+        debug!(
+            "Set up team alliances: {:?} visions {:?}",
+            &(&(*game).alliances)[..8],
+            &(&(*game).visions)[..8],
+        );
     }
 }
 
