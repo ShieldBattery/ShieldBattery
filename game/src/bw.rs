@@ -85,6 +85,8 @@ pub trait Bw: Sync + Send {
     /// Writes the `lobby_state` global. Used by v2 setup to drive it to 4 (the state native
     /// `net_cmd_lobby_slot_setup` reaches, which `ready_lobby_for_start` then bumps to 8).
     unsafe fn set_lobby_state(&self, state: u8);
+    /// Reads the `lobby_state` global.
+    unsafe fn lobby_state(&self) -> u8;
 
     /// Inits player's info from storm to starcraft.
     /// Called once player has joined and is visible to storm.

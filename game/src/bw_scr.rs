@@ -1540,6 +1540,17 @@ impl BwScr {
                 ProcessLobbyCommands,
                 move |data, len, player, orig| {
                     let slice = std::slice::from_raw_parts(data, len);
+                    // Anything other than a bare 1-byte 0x05 keep-alive is rare during lobby, so
+                    // log it: the command byte, sender, and the lobby_state it arrives into (a
+                    // 0x69 slot-setup resets lobby_state to 4, stomping a hand-written 8).
+                    if slice.len() > 1 || slice.first() != Some(&5) {
+                        debug!(
+                            "Lobby command {:02x?} from player {} at lobby_state {}",
+                            &slice[..slice.len().min(16)],
+                            player,
+                            self.lobby_state.resolve(),
+                        );
+                    }
                     if let Some(&byte) = slice.first()
                         && byte == 0x48
                         && player == 0
@@ -3879,8 +3890,11 @@ impl bw::Bw for BwScr {
             let local_storm_id = self.local_storm_id.resolve();
             if local_storm_id == 0 {
                 debug!(
-                    "Sending lobby game init data: {:#x} {:#x} {:#x?}",
-                    data.game_init_command, seed, data.player_bytes
+                    "Sending lobby game init data: {:#x} {:#x} {:#x?} (lobby_state {})",
+                    data.game_init_command,
+                    seed,
+                    data.player_bytes,
+                    self.lobby_state.resolve(),
                 );
                 (self.send_command)(ptr, len);
             }
@@ -4157,6 +4171,10 @@ impl bw::Bw for BwScr {
         unsafe {
             self.lobby_state.write(state);
         }
+    }
+
+    unsafe fn lobby_state(&self) -> u8 {
+        unsafe { self.lobby_state.resolve() }
     }
 
     unsafe fn game(&self) -> *mut bw::Game {

@@ -168,6 +168,11 @@ pub struct TurnState {
     /// buffer roughly every 50 ms, so gating readiness on this queue reproduces that cadence instead
     /// of free-running a turn per poll.
     lobby_echo: VecDeque<Bytes>,
+    /// Every thread observed driving the lobby flush (each logged once) — the flush cadence
+    /// assumption behind `lobby_echo`'s pacing only holds when a single driver produces buffers,
+    /// so knowing when a second one appears (e.g. the host's native lobby machine pumping from the
+    /// main thread) is load-bearing for diagnosing dispatch backlog.
+    lobby_flush_threads: Vec<std::thread::ThreadId>,
     /// Per-storm-slot FIFO of other members' lobby command buffers, delivered off
     /// `channels.lobby_in` and routed by [`drain_lobby_inbound`](Self::drain_lobby_inbound). The
     /// lobby analogue of `inbound_queues`.
@@ -227,6 +232,7 @@ impl TurnState {
             required: [false; bw::MAX_STORM_PLAYERS],
             lobby_seam_enabled: false,
             lobby_echo: VecDeque::new(),
+            lobby_flush_threads: Vec::new(),
             lobby_inbound: std::array::from_fn(|_| VecDeque::new()),
             lobby_dispatch: std::array::from_fn(|_| None),
             local_only: false,
@@ -466,8 +472,20 @@ impl TurnState {
     /// miss a slot-setup/init record). The echo has already happened by the time a `false` comes back
     /// (the game is tearing down at that point anyway).
     pub fn submit_local_lobby_turn(&mut self, buffer: &[u8]) -> bool {
+        let thread = std::thread::current().id();
+        if !self.lobby_flush_threads.contains(&thread) {
+            self.lobby_flush_threads.push(thread);
+            debug!(
+                "lobby flush driver thread {thread:?} ({} total)",
+                self.lobby_flush_threads.len()
+            );
+        }
         let commands = Bytes::copy_from_slice(buffer);
         self.lobby_echo.push_back(commands.clone());
+        let depth = self.lobby_echo.len();
+        if depth >= 32 && depth.is_multiple_of(32) {
+            warn!("lobby echo backlog at {depth} turns (flush outpacing dispatch)");
+        }
         if matches!(buffer, [LOBBY_KEEP_ALIVE]) {
             return true;
         }
@@ -505,10 +523,18 @@ impl TurnState {
     /// fill `player_turns[]`.
     pub fn lobby_receive_turns(&mut self) -> bool {
         self.drain_lobby_inbound();
-        let Some(local_turn) = self.lobby_echo.pop_front() else {
+        let Some(mut local_turn) = self.lobby_echo.pop_front() else {
             // Nothing queued yet this tick: stall rather than free-run ahead of the native cadence.
             return false;
         };
+        // A keep-alive carries no information, so a queued real command must never wait behind
+        // one: collapse leading keep-alives down to whatever follows them. Without this, a flush
+        // path that runs faster than this hook (the host's native lobby machine pumps the flush on
+        // the main thread on top of the async thread's step_network) grows an unbounded keep-alive
+        // backlog that delays every real command behind it by queue-depth * dispatch cadence.
+        while matches!(local_turn[..], [LOBBY_KEEP_ALIVE]) && !self.lobby_echo.is_empty() {
+            local_turn = self.lobby_echo.pop_front().expect("checked non-empty");
+        }
         let Some(local_storm) = self.storm_id_for_slot(self.local_slot) else {
             // Setup never ran, so there's no slot to attribute this turn to. Stall rather than
             // panic, and put the turn back so the next (properly set-up) call still sees it.

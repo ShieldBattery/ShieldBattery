@@ -610,14 +610,27 @@ impl GameState {
                 // until every required slot is present) is the true lockstep sync. Every client waits
                 // for the server's go, then local-drives the 0x48 (in do_lobby_game_init on the game
                 // thread). Keep stepping lobby init so the window stays responsive while we wait.
+                let mut last_lobby_state = unsafe { bw.lobby_state() };
+                debug!("Waiting for server start clearance at lobby_state {last_lobby_state}");
                 loop {
                     game_thread::step_lobby_init();
+                    let lobby_state = unsafe { bw.lobby_state() };
+                    if lobby_state != last_lobby_state {
+                        debug!(
+                            "lobby_state changed {last_lobby_state} -> {lobby_state} while \
+                            awaiting start clearance"
+                        );
+                        last_lobby_state = lobby_state;
+                    }
                     select! {
                         _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
                         _ = &mut allow_start => break,
                     }
                 }
-                debug!("Server cleared start (netcode v2); local-driving lobby init");
+                debug!(
+                    "Server cleared start (netcode v2); local-driving lobby init at lobby_state {}",
+                    unsafe { bw.lobby_state() },
+                );
             } else {
                 if !is_host {
                     unsafe {
@@ -2188,8 +2201,14 @@ async unsafe fn do_countdown() {
 
     let mut beeps = 0;
     let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
+    let mut last_lobby_state = bw.lobby_state();
 
     loop {
+        let lobby_state = bw.lobby_state();
+        if lobby_state != last_lobby_state {
+            debug!("lobby_state changed {last_lobby_state} -> {lobby_state} during countdown");
+            last_lobby_state = lobby_state;
+        }
         select! {
             _ = countdown_interval.tick() => {
                 if beeps == 0 {
