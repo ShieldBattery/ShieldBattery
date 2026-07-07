@@ -7,8 +7,9 @@
 > that now lives in the code, the commits, and the `netcode-v2-integration` memory — so it is
 > redundant here. This file keeps a
 > terse record of the completed arcs plus the design for the work that is **not yet built** — that
-> unbuilt design (deletion sweep, D11 reconnect, §17 disconnect UX, relay-driven start, pause) exists
-> only here. Re-synthesized 2026-07-07; delete once the remaining work lands.
+> unbuilt design (D11 reconnect, §17 disconnect UX, relay-driven start, pause, observers under 2c)
+> exists only here. Re-synthesized 2026-07-07; the v1 deletion sweep + sessionless solo carve-out
+> landed the same day. Delete once the remaining work lands.
 
 The framing thesis still holds for the leave path: a coordinated player-leave is the sibling of a
 latency-buffer directive — the relay decides one value, schedules it at a future frame, and every
@@ -98,38 +99,49 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
   correctness-critical, per-session ordered replay log for late-dialing members, caps 1024 cmds /
   256 KiB) and `GameChat` (arm 6, best-effort, no replay log, `target_kind`/`target_slot` scope the
   relay never interprets, 256-byte size cap + per-slot token-bucket rate cap). rp2 `5fec7f4`.
+- **v1 Storm deletion sweep — DONE + live-proven.** The dead v1 transport is gone: DLL
+  `network_manager.rs`, `netcode/{ack_manager,sequence_buffer,storm}.rs`, in-process `rally_point.rs`
+  + `udp.rs`, the `messages.proto` wire kinds (`StormWrapper`/`ClientReady`/`ClientAck*`) and their
+  build wiring, the v1 network-debug overlay panel, and the ClientReady peer-readiness handshake +
+  its `storm_player_flags` join-polling loop — ~4000 lines. `snp.rs` shrank to inert provider stubs
+  (`choose_snp` still needs a valid table for Storm's local session create), and the SNP packet pump
+  + `SNP_INITIALIZED` gate **stay** — native lobby create/join initializes the provider and its tick
+  drives the lobby seam's flush+receive (live-disproven that they could be dropped: removing them
+  stalled the `0x48` on turn 0). App/server side: rally-point ping + `createRoutes` + the `setRoutes`
+  event/IPC/handler are gone; a multi-human load now **requires** netcode v2 and fails loudly
+  otherwise; turn rate/latency fixed at 24/Low. KEPT (live under v2): the `net_player_count` hook,
+  `check_player_drops`, the `network_results` `has_quit`/`was_dropped` derivation + the
+  `storm_player_flags` accessor. `slot_to_storm` is now identity-seeded only (`map_local_storm`/
+  `map_storm_for_user` deleted). SB `446016e1e` (DLL) + `12589b90a` (app/server).
+- **Solo / computer-game carve-out — DONE (sessionless `TurnState`) + live-proven.** A
+  single-human-vs-AI game stands up a **sessionless** turn state: `local_only` from birth, no
+  credentials/dial/`LinkDriver`. `establish_sessionless` (session.rs) fabricates the `TurnChannels`
+  and parks their far ends alive in `SessionLink::Sessionless(ParkedChannels)`, so every driver-bound
+  send (turn/lobby/chat/leave/result) lands in a void instead of erroring on a closed channel;
+  `TurnState::new_sessionless` sets `local_only=true`, roster = `[(SlotId(0), local_user)]`, seeds the
+  identity map. `init_game` is now four-way: setup present → relay path; else replay → local playback;
+  else exactly one human → sessionless; else (multi-human, no setup) → hard `GameInitError`. Solo runs
+  the native lobby setup a relay host does (create_lobby / template / `v2_register_net_player` for the
+  lone human / setup_slots / lobby-state drive) minus seeding + dial, reports its result over HTTP
+  (`submit_result_report` returns `false` for a `Sessionless` link), and does NOT hit the x86_64
+  refusal gate (no `StormSessionPlayer` writes). Verified live: solo-vs-AI reaches `playing`, single
+  required slot 0, turns flowing, transport `native`.
+- **Replay playback under the swept build — FIXED + live-proven.** The deleted join loop used to
+  overwrite the viewer slot's placeholder storm id; without it `ready_lobby_for_start` →
+  `update_nation_and_human_ids` tripped `assert!(storm_id < 16)` (saw junk `27`). Fix: the replay
+  branch resolves `bw.local_storm_id()`, waits (bounded) for the viewer's storm flag, calls
+  `init_network_player_info`, and passes a real `storm_id_map` to `setup_slots`. Verified live:
+  LastReplay reaches `playing`, slot 0 storm id `0`, no panic.
 
 ## Remaining work
-
-### 2c deletion sweep (the last 2c slice — NOT done)
-
-The native-lobby path is live and proven, so the now-dead scope-C/v1 Storm infrastructure can be
-deleted outright. **Keep the `net_player_count` hook — it is load-bearing** (native count returns
-garbage from the peerless-shaped session). Targets:
-
-- The retired v1 Storm/SNP modules: `network_manager.rs`, `netcode/ack_manager.rs`, `netcode/storm.rs`,
-  `snp.rs`; the `LoadSnpList` hook and the `StepIo` snet pump.
-- The Storm-read list now owned by `TurnState`/`LeaveTracker`: `storm_players` / `storm_player_flags`
-  reads, the `StormIdChanged` guard, the flag-polling join-signal, `check_player_drops`, the
-  `network_results` `has_quit` derivation. `slot_to_storm` collapses to identity.
-- Retired `messages.proto` payload kinds (`StormWrapper`, `ClientReady`/`ClientAck*`) and the
-  app/server rally-point-**v1** route provisioning (`createRoutes`-for-v2).
-
-Deletion is compile-verifiable; re-run the loopback acceptance matrix (below) afterward to confirm no
-live-path regression.
 
 ### 2c increments still to verify / build
 
 - **Observer registration under 2c.** rp2 observer slots 8–11 → `players[12+n]`, storm id = rp2 slot
   8+n (stays < 16, which `update_nation_and_human_ids` requires; the `0x80–0x83` value is the
   observer's game/net-player id derived from the `players[]` index, not its storm id). Observers
-  register like players but at `players[12+n]`. The subtlest part; build once the players-only path is
-  fully swept.
-- **Solo / computer-game carve-out.** A single-human-vs-AI game has no v2 session and today leans on
-  native create + SNP with zero peers, which the deletion sweep kills. Either build a **sessionless
-  `TurnState`** that runs `local_only` from the start (clean end state — Storm fully deletable) or keep
-  native create for solo games as a documented weaker intermediate ("no Storm in any *networked*
-  game"). Decide when the sweep forces it.
+  register like players but at `players[12+n]`. The subtlest part; the players-only path is now fully
+  swept, so this is the next natural build.
 - **UMS scenario-map verification.** Only a standard melee map played as UMS (default forces) is
   verified sync-clean. A real UMS scenario map (custom forces, rescue/neutral players, non-contiguous
   `player_id` slots) is not in the dev DB and still needs verifying; under 2c its force/alliance setup
@@ -232,17 +244,20 @@ while paused, unpause, confirm no stall/desync.
 
 ### Acceptance / testing matrix (loopback runbook; relay `0x37` comparator quiet = sync-clean)
 
-Re-run after the deletion sweep and any 2c increment:
+Re-run after any 2c increment. Post-sweep (2026-07-07) status:
 
-- **Melee 1v1 + FFA** — baseline, no regression.
-- **Team Melee / Team FFA / Top-vs-Bottom** — slots correct; surviving teammate WINS on last-enemy drop
-  (`forceQuit`); no friendly-fire in TvB (still only matrix-verified — spot-check live combat).
-- **Observers** — 2p + 1 obs; observer registers, players sync to a result.
-- **Solo vs computer** — loads + plays (per the carve-out decision above).
+- **Melee 1v1** — ✅ re-proven post-sweep: sync-clean, chat bidirectional + correctly attributed,
+  transport `netcodeV2`, DB win/loss correct. FFA not re-run this round.
+- **Team Melee 2v1** — ✅ re-proven post-sweep: sync-clean, `forceQuit` the lone enemy → both surviving
+  teammates WIN (alliance fix intact). Team FFA / TvB not re-run this round; no friendly-fire in TvB
+  still only matrix-verified — spot-check live combat.
+- **Solo vs computer** — ✅ proven post-sweep on the new sessionless `TurnState`: reaches `playing`,
+  single required slot, turns flow, transport `native`.
+- **Replay** — ✅ proven post-sweep: LastReplay reaches `playing`, viewer storm id resolves, no panic.
+- **Observers** — 2p + 1 obs; observer registers, players sync to a result. Not built (see above).
 - **UMS** — a real scenario map with custom forces (not yet done).
 - **In-game handoff** — transport flips to datagrams at `set_game_started`;
   `networkStatus.transport === 'netcodeV2'`.
-- **Chat** — bidirectional delivery, correct attribution, no desync (done for 1v1; re-check per type).
 
 ### Post-cutover cleanup (final form — not built)
 
