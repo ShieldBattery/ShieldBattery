@@ -78,6 +78,7 @@ struct ParkedChannels {
     _lobby_in: mpsc::Sender<(SlotId, Vec<u8>)>,
     _chat_out: mpsc::Receiver<ChatOut>,
     _chat_in: mpsc::Sender<(SlotId, ChatOut)>,
+    _session_start: mpsc::Sender<()>,
 }
 
 /// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
@@ -91,10 +92,14 @@ static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 ///
 /// `has_computers` is whether the game contains AI players; it drives the turn state's
 /// self-closing behavior when the last remote human leaves (see [`TurnState::should_self_close`]).
+///
+/// Returns the receiver end of the relay's session-start directive: the driver forwards a unit on
+/// it once every expected slot has connected, session-wide. The init path awaits it once to gate
+/// the game start; the turn state never reads it, so it is lifted out of the turn channels here.
 pub async fn establish_session(
     setup: &NetcodeV2Setup,
     has_computers: bool,
-) -> Result<(), SessionError> {
+) -> Result<mpsc::Receiver<()>, SessionError> {
     let SessionCredentials {
         identity,
         home,
@@ -107,7 +112,7 @@ pub async fn establish_session(
     // Dial the home relay, trying its candidate addresses in preference order (v6 then v4).
     let link = connect_relay(&endpoint, &home, &identity).await?;
 
-    let (driver, channels) = LinkDriver::new(link);
+    let (driver, mut channels) = LinkDriver::new(link);
     // Service the link on the DLL's async runtime. `run` returning `Err` means the link failed,
     // which is effectively this player dropping; reconnect/failover is deferred, so for now the
     // session just ends and the hooks stop finding a turn state (the caller falls back to native).
@@ -127,6 +132,10 @@ pub async fn establish_session(
     // which is also where the relay's decision-maker starts. A due BufferDirective
     // (rally_point_client::proto::messages::BufferDirective) resizes it from there; floored at 1
     // in case a malformed handoff ever carried 0.
+    // The session-start receiver is awaited by the init path (and drained for the session's life
+    // afterward), never by the turn state — so take it out here and leave a closed stand-in in the
+    // bundle the turn state stores. The driver's sender points at the receiver returned below.
+    let session_start = std::mem::replace(&mut channels.session_start, mpsc::channel(1).1);
     let mut turn_state = TurnState::new(
         channels,
         local_slot,
@@ -143,7 +152,7 @@ pub async fn establish_session(
             turn_state,
         });
     }
-    Ok(())
+    Ok(session_start)
 }
 
 /// Stands up a sessionless [`TurnState`] for a solo game (one human, the rest AI) and stores it for
@@ -168,6 +177,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (lobby_in_tx, lobby_in_rx) = mpsc::channel(256);
     let (chat_out_tx, chat_out_rx) = mpsc::channel(256);
     let (chat_in_tx, chat_in_rx) = mpsc::channel(256);
+    let (session_start_tx, session_start_rx) = mpsc::channel(16);
 
     let channels = TurnChannels {
         outbound: outbound_tx,
@@ -180,6 +190,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         lobby_in: lobby_in_rx,
         chat_out: chat_out_tx,
         chat_in: chat_in_rx,
+        session_start: session_start_rx,
     };
     let parked = ParkedChannels {
         _outbound: outbound_rx,
@@ -191,6 +202,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _lobby_in: lobby_in_tx,
         _chat_out: chat_out_rx,
         _chat_in: chat_in_tx,
+        _session_start: session_start_tx,
     };
 
     let turn_state = TurnState::new_sessionless(channels, local_user_id, has_computers);

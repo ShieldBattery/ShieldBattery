@@ -337,7 +337,7 @@ impl GameState {
                 // leaves, so the lone human plays on versus the computers locally (see
                 // `TurnState::should_self_close`).
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
-                netcode_v2::establish_session(&setup, has_computers)
+                let mut session_start = netcode_v2::establish_session(&setup, has_computers)
                     .await
                     .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
                 info!("Netcode v2 session established");
@@ -527,31 +527,47 @@ impl GameState {
                     .await
                     .map_err(|_| GameInitError::Closed)?;
 
-                // The peer readiness handshake (ClientReady send / all_players_ready wait) is
-                // retired — the server already broadcast startWhenReady to every client (latched
-                // into can_start_game / allow_start), and the frame-0 barrier (receive_turns parks
-                // until every required slot is present) is the true lockstep sync. Every client waits
-                // for the server's go, then local-drives the 0x48 (in do_lobby_game_init on the game
-                // thread). Keep stepping lobby init so the window stays responsive while we wait.
+                // The relay's SessionStart directive gates the game start: the relay fires it once
+                // every expected slot (players + observers) has connected somewhere in the session's
+                // mesh. Await it once here, then local-drive the 0x48 (in do_lobby_game_init on the
+                // game thread). The frame-0 barrier (receive_turns parks until every required slot is
+                // present) remains the true lockstep sync. Keep stepping lobby init so the window
+                // stays responsive while we wait.
                 let mut last_lobby_state = unsafe { bw.lobby_state() };
-                debug!("Waiting for server start clearance at lobby_state {last_lobby_state}");
+                debug!("Waiting for the session-start directive at lobby_state {last_lobby_state}");
                 loop {
                     game_thread::step_lobby_init();
                     let lobby_state = unsafe { bw.lobby_state() };
                     if lobby_state != last_lobby_state {
                         debug!(
                             "lobby_state changed {last_lobby_state} -> {lobby_state} while \
-                            awaiting start clearance"
+                            awaiting the session-start directive"
                         );
                         last_lobby_state = lobby_state;
                     }
                     select! {
                         _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
-                        _ = &mut allow_start => break,
+                        received = session_start.recv() => {
+                            match received {
+                                Some(()) => info!("Netcode v2 session-start directive received; starting game"),
+                                None => warn!(
+                                    "Netcode v2 session-start channel closed before a directive; starting anyway"
+                                ),
+                            }
+                            break;
+                        }
                     }
                 }
+                // Delivery is at-least-once: keep the receiver alive and drained for the rest of the
+                // session so a re-pushed directive (authority churn / a late slot's re-register)
+                // stays a no-op instead of wedging or closing the driver on a dropped receiver.
+                tokio::spawn(async move {
+                    while session_start.recv().await.is_some() {
+                        debug!("netcode v2: redundant session-start directive drained (no-op)");
+                    }
+                });
                 debug!(
-                    "Server cleared start (netcode v2); local-driving lobby init at lobby_state {}",
+                    "Session-start directive handled (netcode v2); local-driving lobby init at lobby_state {}",
                     unsafe { bw.lobby_state() },
                 );
             } else if info.is_replay() {

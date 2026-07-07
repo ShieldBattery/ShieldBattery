@@ -1079,6 +1079,7 @@ mod tests {
         // is harmless — nothing sends or drains chat here).
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(16);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(16);
+        let (_session_start_tx, session_start_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1090,6 +1091,7 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            session_start: session_start_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -1174,6 +1176,7 @@ mod tests {
         let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(1);
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(1);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(1);
+        let (_session_start_tx, session_start_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1185,6 +1188,7 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            session_start: session_start_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -1204,6 +1208,7 @@ mod tests {
         let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(16);
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(16);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(16);
+        let (_session_start_tx, session_start_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1215,6 +1220,7 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            session_start: session_start_rx,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
         // birth, so there is no relay session to close.
@@ -1882,6 +1888,7 @@ mod tests {
         let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(1);
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(1);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(1);
+        let (_session_start_tx, session_start_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1893,6 +1900,7 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            session_start: session_start_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -2122,6 +2130,7 @@ mod tests {
         let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(16);
         let (chat_out_tx, chat_out_rx) = mpsc::channel(16);
         let (chat_in_tx, chat_in_rx) = mpsc::channel(16);
+        let (_session_start_tx, session_start_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -2133,6 +2142,7 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            session_start: session_start_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
