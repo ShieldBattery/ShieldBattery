@@ -111,6 +111,10 @@ impl<'e> Analysis<'e> {
         self.0.storm_join_game()
     }
 
+    pub fn apply_lobby_force_cmd(&mut self) -> Option<VirtualAddress> {
+        self.0.apply_lobby_force_cmd()
+    }
+
     pub fn storm_session_player_lookup_or_create(&mut self) -> Option<VirtualAddress> {
         self.0.storm_session_player_lookup_or_create()
     }

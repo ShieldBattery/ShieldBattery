@@ -375,6 +375,11 @@ struct NetcodeV2Bw {
     /// Copies a slot name (max 0x7f chars + NUL) into the slot-name registry the lobby slot-setup
     /// handler's name lookups read. cdecl(slot, name_ptr); return value unused.
     storm_register_slot_name: unsafe extern "C" fn(u32, *const u8) -> u32,
+    /// Handler for async lobby command class 0x4A, the per-slot force/alliance/vision apply.
+    /// cdecl(record_ptr, guard); record is the 63-byte serialized command body.
+    /// Resolved but not yet called by anything (no caller wired up yet).
+    #[allow(dead_code)]
+    apply_lobby_force_cmd: unsafe extern "C" fn(*const u8, i32) -> i32,
     /// Drains Storm's deferred inbound packet queue (packets that arrived before the local slot /
     /// turn-base were known). cdecl, no args; return value unused.
     snet_drain_deferred_queue: unsafe extern "C" fn() -> u32,
@@ -796,6 +801,9 @@ fn resolve_netcode_v2(
     let storm_register_slot_name = analysis
         .storm_register_slot_name()
         .ok_or("storm_register_slot_name")?;
+    let apply_lobby_force_cmd = analysis
+        .apply_lobby_force_cmd()
+        .ok_or("apply_lobby_force_cmd")?;
     let snet_drain_deferred_queue = analysis
         .snet_drain_deferred_queue()
         .ok_or("snet_drain_deferred_queue")?;
@@ -820,6 +828,7 @@ fn resolve_netcode_v2(
         },
         get_local_storm_session_player: unsafe { mem::transmute(get_local_storm_session_player.0) },
         storm_register_slot_name: unsafe { mem::transmute(storm_register_slot_name.0) },
+        apply_lobby_force_cmd: unsafe { mem::transmute(apply_lobby_force_cmd.0) },
         snet_drain_deferred_queue: unsafe { mem::transmute(snet_drain_deferred_queue.0) },
         storm_local_player_slot: Value::new(ctx, storm_local_player_slot),
         storm_turn_base: Value::new(ctx, storm_turn_base),
