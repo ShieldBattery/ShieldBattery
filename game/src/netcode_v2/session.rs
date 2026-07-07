@@ -5,19 +5,24 @@
 //! [`establish_session`] runs on the DLL's Tokio runtime: it builds the pinned-trust credentials,
 //! dials the home relay (falling back across its address families), spawns the
 //! [`LinkDriver`] that services the link, and stores the resulting [`TurnState`] where the three BW
-//! hooks (installed in `bw_scr.rs`) can reach it via [`with_turn_state`]. With no live session the
-//! hooks find nothing here and fall through to the native transport.
+//! hooks (installed in `bw_scr.rs`) can reach it via [`with_turn_state`]. [`establish_sessionless`]
+//! stores a driverless [`TurnState`] the same way for a solo game. With no turn state stored (a
+//! replay), the hooks find nothing here and run BW's original turn handling unchanged.
 
 use std::ffi::CString;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
+use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use rally_point_client::transport::Link;
-use rally_point_client::{ClientEndpoint, DialError, Identity, LinkDriver};
+use rally_point_client::{ChatOut, ClientEndpoint, DialError, Identity, LinkDriver, TurnChannels};
+use tokio::sync::mpsc;
 
 use super::TurnState;
 use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials};
-use crate::app_messages::NetcodeV2Setup;
+use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
 
 quick_error! {
@@ -39,13 +44,40 @@ quick_error! {
 
 /// The live netcode v2 session for the current game.
 ///
-/// Holds the QUIC endpoint alive for the whole session (it owns the UDP socket the link runs on)
+/// Holds whatever keeps the turn transport alive for the session's lifetime (see [`SessionLink`])
 /// and the game-thread-owned [`TurnState`] the three BW hooks operate on.
 pub struct NetcodeV2Session {
-    /// Keeps the client endpoint — and thus its UDP socket — alive for the session's lifetime; the
-    /// link the driver runs on borrows from it. Never touched again after construction.
-    _endpoint: ClientEndpoint,
+    /// What keeps the turn transport alive (see [`SessionLink`]). Its inner value is never touched
+    /// after construction, but the variant is read to tell a relay-backed session from a sessionless
+    /// one (e.g. so a result report only counts as delivered when there is a real relay driver).
+    link: SessionLink,
     turn_state: TurnState,
+}
+
+/// What keeps a session's turn transport standing.
+enum SessionLink {
+    /// A live relay game: the QUIC endpoint (and thus its UDP socket) the [`LinkDriver`] runs on.
+    Relay(ClientEndpoint),
+    /// A sessionless solo game: no relay, no driver. The parked far ends of the fabricated turn
+    /// channels, held alive so every driver-bound send in [`TurnState`] lands in a void rather than
+    /// erroring on a closed channel.
+    Sessionless(ParkedChannels),
+}
+
+/// The far ends of a sessionless game's fabricated [`TurnChannels`]. There is no [`LinkDriver`] to
+/// own them, so the session holds them: keeping each one alive means the [`TurnState`] end never
+/// observes a closed channel, so every turn/lobby/chat/leave/result send succeeds (into nothing)
+/// exactly as it would against a live driver. Nothing ever reads them.
+struct ParkedChannels {
+    _outbound: mpsc::Receiver<Payload>,
+    _inbound: mpsc::Sender<Payload>,
+    _leaves: mpsc::Sender<LeaveDirective>,
+    _leave_intent: mpsc::Receiver<()>,
+    _result: mpsc::Receiver<Vec<u8>>,
+    _lobby_out: mpsc::Receiver<Vec<u8>>,
+    _lobby_in: mpsc::Sender<(SlotId, Vec<u8>)>,
+    _chat_out: mpsc::Receiver<ChatOut>,
+    _chat_in: mpsc::Sender<(SlotId, ChatOut)>,
 }
 
 /// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
@@ -102,17 +134,72 @@ pub async fn establish_session(
         roster,
         has_computers,
     );
-    // Direct registration assigns storm ids from the roster (storm id ≡ rp2 slot) rather than
-    // learning them from a Storm join, so seed the slot→storm identity map up front here. The legacy
-    // path leaves it empty and fills it during `update_bw_slots`.
+    // Storm ids come straight from the roster (storm id ≡ rp2 slot), so seed the slot→storm
+    // identity map up front here rather than learning it from a Storm join.
     turn_state.populate_identity_slots();
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
-            _endpoint: endpoint,
+            link: SessionLink::Relay(endpoint),
             turn_state,
         });
     }
     Ok(())
+}
+
+/// Stands up a sessionless [`TurnState`] for a solo game (one human, the rest AI) and stores it for
+/// the hooks, exactly where [`establish_session`] would store a relay-backed one — so the three BW
+/// hooks reach it via [`with_turn_state`] uniformly. There is no relay to dial and no driver to
+/// spawn: the turn channels are fabricated here and their far ends parked alive in the session (see
+/// [`ParkedChannels`]), so every driver-bound send in the turn state succeeds into a void. Replaces
+/// any previous session.
+///
+/// `has_computers` drives nothing here (a solo game is local-only from birth, so it never
+/// self-closes), but is threaded through for symmetry with [`establish_session`].
+pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
+    // Capacities matching the driver's own so a burst of lobby/chat/turn sends can't wedge on a full
+    // channel before the game settles into local-only steady state. Nothing drains these; they only
+    // need to stay open.
+    let (outbound_tx, outbound_rx) = mpsc::channel(1024);
+    let (inbound_tx, inbound_rx) = mpsc::channel(1024);
+    let (leaves_tx, leaves_rx) = mpsc::channel(16);
+    let (leave_intent_tx, leave_intent_rx) = mpsc::channel(1);
+    let (result_tx, result_rx) = mpsc::channel(1);
+    let (lobby_out_tx, lobby_out_rx) = mpsc::channel(256);
+    let (lobby_in_tx, lobby_in_rx) = mpsc::channel(256);
+    let (chat_out_tx, chat_out_rx) = mpsc::channel(256);
+    let (chat_in_tx, chat_in_rx) = mpsc::channel(256);
+
+    let channels = TurnChannels {
+        outbound: outbound_tx,
+        inbound: inbound_rx,
+        leaves: leaves_rx,
+        leave_intent: leave_intent_tx,
+        result: result_tx,
+        result_expected: Arc::new(AtomicBool::new(false)),
+        lobby_out: lobby_out_tx,
+        lobby_in: lobby_in_rx,
+        chat_out: chat_out_tx,
+        chat_in: chat_in_rx,
+    };
+    let parked = ParkedChannels {
+        _outbound: outbound_rx,
+        _inbound: inbound_tx,
+        _leaves: leaves_tx,
+        _leave_intent: leave_intent_rx,
+        _result: result_rx,
+        _lobby_out: lobby_out_rx,
+        _lobby_in: lobby_in_tx,
+        _chat_out: chat_out_rx,
+        _chat_in: chat_in_tx,
+    };
+
+    let turn_state = TurnState::new_sessionless(channels, local_user_id, has_computers);
+    if let Some(mut guard) = SESSION.lock() {
+        *guard = Some(NetcodeV2Session {
+            link: SessionLink::Sessionless(parked),
+            turn_state,
+        });
+    }
 }
 
 /// Dials one relay, trying its candidate addresses in preference order (v6 then v4, per
@@ -141,11 +228,11 @@ async fn connect_relay(
 
 /// Runs `f` against the current game's [`TurnState`], if one is live.
 ///
-/// Returns `None` when there is no active netcode v2 session (the legacy transport path) or when
-/// the turn-state mutex is already held by this thread — a re-entrant hook call, which the caller
-/// treats the same as "no turn state" and falls back to native behavior. Keep `f` short: it runs
-/// with the BW sync thread holding the lock, and it must not call back into native code that can
-/// re-enter a turn hook (see the IN-hook lock discipline in the module docs).
+/// Returns `None` when there is no turn state stored (a replay) or when the turn-state mutex is
+/// already held by this thread — a re-entrant hook call, which the caller treats the same as "no
+/// turn state" and runs BW's original behavior. Keep `f` short: it runs with the BW sync thread
+/// holding the lock, and it must not call back into native code that can re-enter a turn hook (see
+/// the IN-hook lock discipline in the module docs).
 pub fn with_turn_state<R>(f: impl FnOnce(&mut TurnState) -> R) -> Option<R> {
     let mut guard = SESSION.lock()?;
     let session = guard.as_mut()?;
@@ -156,8 +243,8 @@ pub fn with_turn_state<R>(f: impl FnOnce(&mut TurnState) -> R) -> Option<R> {
 /// [`TurnState::begin_local_only`]).
 ///
 /// Unlike [`with_turn_state`], this distinguishes its two `None` cases instead of collapsing them:
-/// no live session (legacy game or replay — the hooks never find a turn state here either) stays a
-/// silent no-op, but the lock already held re-entrantly is warned, because this call fires from the
+/// no turn state stored (a replay — the hooks never find a turn state here either) stays a silent
+/// no-op, but the lock already held re-entrantly is warned, because this call fires from the
 /// dialog hook rather than one of the three turn hooks — if it ever raced one of them, losing the
 /// transition silently would leave the game networked when it should have gone local-only.
 pub fn begin_local_only() {
@@ -170,25 +257,31 @@ pub fn begin_local_only() {
     }
 }
 
-/// Hands the current game's serialized end-of-game result report to the driver, which delivers it
-/// over the relay's reliable control stream (see [`TurnState::submit_result_report`]). Returns
-/// whether a live netcode v2 session took the report.
+/// Hands the current game's serialized end-of-game result report to a relay driver, which delivers
+/// it over the relay's reliable control stream (see [`TurnState::submit_result_report`]). Returns
+/// whether a relay-backed session took the report.
 ///
-/// `true` means the report was handed to the driver and the caller must NOT also POST it over HTTP.
-/// `false` means there is no v2 session (a legacy game or replay), and the caller falls back to the
-/// HTTP result path — the same fallback taken on the re-entrant-lock case, which can't actually
-/// happen here (this fires from the async result handler, well off the turn hooks) but is warned
-/// rather than silently dropping the report.
+/// `true` means the report was handed to a relay driver and the caller must NOT also POST it over
+/// HTTP. `false` means there is no relay driver — a solo game (whose sessionless turn state has no
+/// relay to deliver over), or a replay (no turn state at all), or the re-entrant-lock case (which
+/// can't actually happen here, since this fires from the async result handler well off the turn
+/// hooks, but is warned rather than silently mis-reporting) — so the caller falls back to the HTTP
+/// result path.
 pub fn submit_result_report(report: Vec<u8>) -> bool {
     let Some(mut guard) = SESSION.lock() else {
         warn!("submit_result_report skipped: turn state locked re-entrantly");
         return false;
     };
     match guard.as_mut() {
-        Some(session) => {
-            session.turn_state.submit_result_report(report);
-            true
-        }
+        Some(session) => match session.link {
+            SessionLink::Relay(_) => {
+                session.turn_state.submit_result_report(report);
+                true
+            }
+            // A sessionless solo game has no relay to deliver over, so it does not take the report;
+            // the caller POSTs it over HTTP just as a native game would.
+            SessionLink::Sessionless(_) => false,
+        },
         None => false,
     }
 }

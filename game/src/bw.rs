@@ -88,6 +88,11 @@ pub trait Bw: Sync + Send {
     /// Reads the `lobby_state` global.
     unsafe fn lobby_state(&self) -> u8;
 
+    /// Reads the local player's storm id global (the same one `do_lobby_game_init` and
+    /// `update_nation_and_human_ids` key off). Valid once a Storm session (native or v2) has been
+    /// created for this client.
+    unsafe fn local_storm_id(&self) -> u32;
+
     /// Inits player's info from storm to starcraft.
     /// Called once player has joined and is visible to storm.
     unsafe fn init_network_player_info(&self, storm_player_id: u32);
@@ -130,9 +135,6 @@ pub trait Bw: Sync + Send {
     unsafe fn is_network_ready(&self) -> bool;
     unsafe fn set_user_latency(&self, latency: UserLatency);
 
-    /// Note: Size is unspecified, but will not change between calls.
-    /// (Remastered has 12 storm players)
-    unsafe fn storm_players(&self) -> Vec<StormPlayer>;
     /// Size unspecified.
     unsafe fn storm_player_flags(&self) -> Vec<u32>;
 
@@ -370,19 +372,6 @@ pub struct SNetPlayerConnection {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
-pub struct StormPlayer {
-    pub state: u8,
-    pub unk1: u8,
-    pub flags: u16,
-    pub unk4: u16,
-    // Always 5, not useful for us
-    pub protocol_version: u16,
-    pub name: [u8; 0x19],
-    pub padding: u8,
-}
-
-#[repr(C)]
 pub struct FowSprite {
     pub prev: *mut FowSprite,
     pub next: *mut FowSprite,
@@ -583,7 +572,6 @@ fn struct_sizes() {
         value
     }
 
-    assert_eq!(size_of::<StormPlayer>(), 0x22);
     assert_eq!(size_of::<BwGameData>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
     assert_eq!(size_of::<FowSprite>(), size(0x10, 0x20));

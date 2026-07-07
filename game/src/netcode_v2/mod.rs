@@ -64,8 +64,8 @@ mod session;
 // the staging API the native-lobby setup path uses to stage (and drop) a join seed.
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
-    establish_session, set_lobby_session_seed, submit_result_report, with_lobby_session_seed,
-    with_turn_state,
+    establish_session, establish_sessionless, set_lobby_session_seed, submit_result_report,
+    with_lobby_session_seed, with_turn_state,
 };
 
 use crate::app_messages::SbUserId;
@@ -175,8 +175,9 @@ pub struct TurnState {
     /// assigns storm ids in join order, so the map starts empty).
     slot_to_storm: [Option<StormPlayerId>; bw::MAX_STORM_PLAYERS],
     /// The session's slot roster from the coordinator (via the launch handoff): which SB user
-    /// occupies each rp2 slot. Consulted as storm ids solidify during join to map each *peer's*
-    /// slot; our own slot comes from the signed token instead ([`map_local_storm`](Self::map_local_storm)).
+    /// occupies each rp2 slot. Used to seed the slot→storm identity map up front
+    /// ([`populate_identity_slots`](Self::populate_identity_slots)) and to build the joined-player
+    /// set (storm id ≡ rp2 slot).
     roster: Vec<(SlotId, SbUserId)>,
     /// Local origin slot (which slot our own outbound turns belong to). The relay rebinds the wire
     /// `slot` from the token regardless; this is for our own bookkeeping/echo.
@@ -306,6 +307,33 @@ impl TurnState {
         }
     }
 
+    /// Builds turn state for a sessionless solo game (a single human, the rest AI) with no relay
+    /// link behind it. The roster is the lone local participant at [`SlotId(0)`], the slot→storm
+    /// identity map is seeded up front (so storm id 0 maps to slot 0), the latency floor is the
+    /// built-in 1, and the state is [`local_only`](Self::local_only) from birth: every driver-bound
+    /// send echoes locally or lands in a parked void rather than reaching a relay. Unlike
+    /// [`begin_local_only`](Self::begin_local_only) there is no fabricated-leave dance — there are no
+    /// remote slots to leave.
+    ///
+    /// `channels` are the fabricated turn channels whose far ends the caller parks alive (see
+    /// [`session::establish_sessionless`]). `has_computers` is whether the game contains AI players.
+    pub fn new_sessionless(
+        channels: TurnChannels,
+        local_user_id: SbUserId,
+        has_computers: bool,
+    ) -> Self {
+        let mut state = Self::new(
+            channels,
+            SlotId(0),
+            1,
+            vec![(SlotId(0), local_user_id)],
+            has_computers,
+        );
+        state.populate_identity_slots();
+        state.local_only = true;
+        state
+    }
+
     /// Records the rally-point2 slot ↔ BW storm id mapping learned during lobby join.
     ///
     /// rp2 slots are coordinator-bounded (≤ 7), so an out-of-range slot can't occur short of a
@@ -325,35 +353,6 @@ impl TurnState {
         }
     }
 
-    /// Records this client's own rp2 slot ↔ storm id mapping, learned when our storm id solidifies
-    /// during join. The local slot comes from the signed token (not the join order), so this is the
-    /// one mapping we can always make correctly; it's what makes the local echo
-    /// ([`submit_local_turn`](Self::submit_local_turn)) deliver our own turns into the sim.
-    pub fn map_local_storm(&mut self, storm_id: StormPlayerId) {
-        let slot = self.local_slot;
-        self.map_slot(slot, storm_id);
-    }
-
-    /// Records a *peer's* rp2 slot ↔ storm id mapping by resolving the user through the session
-    /// roster, as that player's storm id solidifies during join. A user missing from the roster is
-    /// logged and skipped (e.g. an observer outside the rp2 session) — their turns simply can't be
-    /// routed through the turn transport.
-    pub fn map_storm_for_user(&mut self, user: SbUserId, storm_id: StormPlayerId) {
-        let Some(slot) = self.roster_slot_for_user(user) else {
-            warn!("netcode v2: user {user} has no slot in the session roster; not mapping");
-            return;
-        };
-        self.map_slot(slot, storm_id);
-    }
-
-    /// Looks up a user's rp2 slot in the session roster, if the roster names them.
-    pub fn roster_slot_for_user(&self, user: SbUserId) -> Option<SlotId> {
-        self.roster
-            .iter()
-            .find(|&&(_, u)| u == user)
-            .map(|&(slot, _)| slot)
-    }
-
     /// The `(user, storm id)` pairing for every session participant, where storm id ≡ rp2 slot.
     /// Used to write real storm ids into BW's player slots directly from the roster instead of
     /// learning them from a Storm join.
@@ -364,12 +363,10 @@ impl TurnState {
             .collect()
     }
 
-    /// Assign the slot→storm identity map (storm id ≡ rp2 slot) for every roster slot up front,
-    /// rather than learning storm ids as they solidify during a Storm join. Each mapped slot becomes
-    /// `required` (a session participant the sim must have a turn from each step). The roster names
-    /// every participant including ourselves, so this covers the local slot too (superseding the
-    /// per-join `map_local_storm`/`map_storm_for_user` calls, which stay available for the legacy
-    /// path and tests).
+    /// Assign the slot→storm identity map (storm id ≡ rp2 slot) for every roster slot up front. Each
+    /// mapped slot becomes `required` (a session participant the sim must have a turn from each
+    /// step). The roster names every participant including ourselves, so this covers the local slot
+    /// too.
     pub fn populate_identity_slots(&mut self) {
         // Read the slots first so the borrow of `roster` ends before `map_slot` borrows `self` mutably.
         let slots: Vec<SlotId> = self.roster.iter().map(|&(slot, _)| slot).collect();
@@ -1194,18 +1191,61 @@ mod tests {
     }
 
     #[test]
-    fn roster_maps_a_peers_slot_by_user() {
-        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
-            turn_state();
-        // A peer's storm id solidifies during join; the roster resolves their user to their slot.
-        state.map_storm_for_user(PEER_USER, PEER_STORM);
+    fn sessionless_is_local_only_from_birth_and_drives_the_seam_locally() {
+        // A sessionless solo game: one local slot, no peers, local-only from birth. The channels
+        // stand in for the parked far ends `establish_sessionless` would hold alive.
+        let (out_tx, mut out_rx) = mpsc::channel(16);
+        let (_in_tx, in_rx) = mpsc::channel(16);
+        let (_leave_tx, leave_rx) = mpsc::channel(16);
+        let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
+        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (lobby_out_tx, mut lobby_out_rx) = mpsc::channel(16);
+        let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(16);
+        let (chat_out_tx, _chat_out_rx) = mpsc::channel(16);
+        let (_chat_in_tx, chat_in_rx) = mpsc::channel(16);
+        let channels = TurnChannels {
+            outbound: out_tx,
+            inbound: in_rx,
+            leaves: leave_rx,
+            leave_intent: leave_intent_tx,
+            result: result_tx,
+            result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: lobby_out_tx,
+            lobby_in: lobby_in_rx,
+            chat_out: chat_out_tx,
+            chat_in: chat_in_rx,
+        };
+        // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
+        // birth, so there is no relay session to close.
+        let mut state = TurnState::new_sessionless(channels, LOCAL_USER, true);
+        assert_eq!(state.storm_id_for_slot(SlotId(0)), Some(StormPlayerId(0)));
+        assert!(!state.should_self_close());
 
-        in_tx.try_send(peer_turn(PEER_SLOT, b"peer")).unwrap();
+        // In-game: the local turn echoes into the sim but nothing reaches the (void) relay.
+        assert!(state.submit_local_turn(b"solo", Some(0)));
         assert!(
-            state.receive_turns(0),
-            "mapped peer slot should gate + dispatch"
+            out_rx.try_recv().is_err(),
+            "a sessionless game must not send to the relay"
         );
-        assert_eq!(dispatched(&state), vec![(PEER_STORM, b"peer".to_vec())]);
+        assert!(state.receive_turns(0), "the lone slot's echo is enough");
+        assert_eq!(
+            dispatched(&state),
+            vec![(StormPlayerId(0), b"solo".to_vec())]
+        );
+
+        // Lobby seam: the local echo drives dispatch for the single required slot. A real command
+        // buffer is relayed into the void harmlessly (the parked far end keeps the channel open).
+        state.enable_lobby_seam();
+        assert!(state.submit_local_lobby_turn(b"slotinit"));
+        assert_eq!(
+            lobby_out_rx.try_recv().expect("relayed into the void"),
+            b"slotinit".to_vec()
+        );
+        assert!(state.lobby_receive_turns());
+        assert_eq!(
+            lobby_dispatched(&state),
+            vec![(StormPlayerId(0), b"slotinit".to_vec())]
+        );
     }
 
     #[test]
@@ -1253,21 +1293,6 @@ mod tests {
                 (PEER_USER, StormPlayerId(PEER_SLOT.0)),
             ]
         );
-    }
-
-    #[test]
-    fn user_missing_from_roster_is_skipped_not_mapped() {
-        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
-            turn_state();
-        state.map_storm_for_user(SbUserId(99), PEER_STORM);
-        // No mapping was recorded: the slot doesn't gate readiness...
-        assert!(
-            state.receive_turns(0),
-            "unmapped slot must not stall the step"
-        );
-        // ...and no storm id was attached to any roster slot.
-        assert_eq!(state.storm_id_for_slot(PEER_SLOT), None);
-        assert_eq!(state.storm_id_for_slot(LOCAL_SLOT), None);
     }
 
     #[test]

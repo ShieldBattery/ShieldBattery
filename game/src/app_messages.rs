@@ -173,7 +173,7 @@ pub struct NetworkStallInfo {
 pub enum NetworkTransport {
     /// The rally-point2 QUIC turn transport (netcode v2).
     NetcodeV2,
-    /// The native Storm + rally-point v1 path.
+    /// No relay: a local-only game (a solo game versus AI, or a replay).
     Native,
 }
 
@@ -378,6 +378,9 @@ pub enum SbSlotType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
+    // The lobby player id from the server's slot list. Part of the wire format but not consulted by
+    // the game DLL (it maps players by user id / slot index instead).
+    #[allow(dead_code)]
     pub id: LobbyPlayerId,
     pub race: Option<String>,
     pub user_id: Option<SbUserId>,
@@ -433,29 +436,6 @@ impl PlayerInfo {
             _ => bw::RACE_RANDOM,
         }
     }
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Route {
-    #[serde(rename = "for")]
-    pub for_player: LobbyPlayerId,
-    pub server: RallyPointServer,
-    pub route_id: String,
-    // NOTE(tec27): This is an id specific to rally-point, not the SbUserId or any of the IDs from
-    // BW
-    pub player_id: u32,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-pub struct RallyPointServer {
-    pub address4: Option<String>,
-    pub address6: Option<String>,
-    pub port: u16,
-    pub description: String,
-    pub id: u32,
 }
 
 /// A string whose contents must never appear in logs or error output. Wraps a value (e.g. a

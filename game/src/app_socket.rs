@@ -237,10 +237,6 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
                 config,
             )))
         }
-        "routes" => {
-            let routes = parse_payload(payload, "Invalid routes", err_input, sensitive)?;
-            Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))
-        }
         "netcodeV2Setup" => {
             let setup = parse_payload(payload, "Invalid netcode v2 setup", err_input, sensitive)
                 .map(Box::new)?;

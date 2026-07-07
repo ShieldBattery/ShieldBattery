@@ -29,7 +29,6 @@ use crate::bw_scr::BwScr;
 use crate::forge::TRACK_WINDOW_POS;
 use crate::game_thread::lobby_init::LobbyInitCompleter;
 use crate::replay;
-use crate::snp;
 use crate::{bw, forge};
 
 lazy_static! {
@@ -96,7 +95,6 @@ pub enum GameThreadRequestType {
 // Game thread sends something to async tasks
 pub enum GameThreadMessage {
     WindowMove(i32, i32, i32, i32),
-    Snp(snp::SnpMessage),
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
     /// considered invalid and updated to match this mapping.
@@ -111,13 +109,6 @@ pub enum GameThreadMessage {
         color_mode: Option<MinimapColorMode>,
         terrain_hidden: Option<bool>,
     },
-    /// Request async task to write debug info to provided parameter.
-    DebugInfoRequest(DebugInfoRequest),
-}
-
-pub enum DebugInfoRequest {
-    /// (OnceLock is effectively oneshot channel for the result)
-    Network(Arc<OnceLock<crate::network_manager::DebugInfo>>),
 }
 
 /// Sends a message from game thread to the async system.

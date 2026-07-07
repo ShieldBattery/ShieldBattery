@@ -10,11 +10,9 @@ use libc::c_void;
 
 use scopeguard::defer;
 use winapi::shared::minwindef::{FARPROC, HMODULE};
-use winapi::um::handleapi::{CloseHandle, DuplicateHandle};
 use winapi::um::libloaderapi::{
     FreeLibrary, GetModuleFileNameW, GetModuleHandleExW, GetModuleHandleW,
 };
-use winapi::um::winnt::HANDLE;
 use winapi::um::winuser::MessageBoxW;
 
 /// Convert a rust string to a winapi-usable 0-terminated unicode u16 Vec
@@ -35,48 +33,6 @@ pub fn os_string_from_winapi(input: &[u16]) -> OsString {
 pub fn os_string_from_winapi_with_nul(input: &[u16]) -> OsString {
     let end = input.iter().position(|&x| x == 0).unwrap_or(input.len());
     OsString::from_wide(&input[..end])
-}
-
-pub struct OwnedHandle(HANDLE);
-unsafe impl Sync for OwnedHandle {} // Should be valid for all winapi handles..?
-unsafe impl Send for OwnedHandle {} // Should be valid for all winapi handles..?
-
-impl OwnedHandle {
-    pub fn duplicate(handle: HANDLE) -> Result<OwnedHandle, io::Error> {
-        use winapi::um::processthreadsapi::GetCurrentProcess;
-        use winapi::um::winnt::DUPLICATE_SAME_ACCESS;
-
-        unsafe {
-            let current_process = GetCurrentProcess();
-            let mut out = null_mut();
-            let ok = DuplicateHandle(
-                current_process,
-                handle,
-                current_process,
-                &mut out,
-                0,
-                0,
-                DUPLICATE_SAME_ACCESS,
-            );
-            if ok == 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(OwnedHandle(out))
-            }
-        }
-    }
-
-    pub fn get(&self) -> HANDLE {
-        self.0
-    }
-}
-
-impl Drop for OwnedHandle {
-    fn drop(&mut self) {
-        unsafe {
-            CloseHandle(self.0);
-        }
-    }
 }
 
 pub fn module_handle(name: &str) -> Option<HMODULE> {

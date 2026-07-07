@@ -56,16 +56,11 @@ mod debug_control;
 mod forge;
 mod game_state;
 mod game_thread;
-mod netcode;
 mod netcode_v2;
-mod network_manager;
-mod proto;
-mod rally_point;
 mod recurse_checked_mutex;
 mod replay;
 mod snp;
 mod sync;
-mod udp;
 mod windows;
 
 const WAIT_DEBUGGER: bool = false;
@@ -434,37 +429,27 @@ fn async_thread(main_thread: std::sync::mpsc::Sender<()>) {
     // Async game state is also the only task that gets access to a way to send requests to
     // BW's main thread (request_loop is at `run_main_thread_event_loop`)
 
-    // Decided to go with RouteManager and RallyPoint spawning their tasks implicitly
-    // during construction instead of returning a Future to spawn.
-    // That'll however requires being in async context during initialization, so
-    // call tokio::run right away.
-    // Should not really matter.
-    //
     // The overall way the important tasks communicate is:
     //
     //      recv_game_thread_messages
     //          |                |
     //          |                |
     //          v                v
-    //      app_socket ---> game_state ---> network_manager --- rally_point <--- udp_recv
-    //                          |                                |      \
-    //                          |                                |       ---> udp_send
-    //                      send to game_thread (not async)      |
-    //                                              \            v
-    //                                               \------active network [1]
+    //      app_socket ---> game_state
+    //                          |
+    //                          |
+    //                      send to game_thread (not async)
     //
-    //  Some communicate in both ways, the arrows represent that the task gets blocked if
-    //  the receiving tasks message buffer is full. This avoids having to spawn tasks and nicely
-    //  throttles things if, say, outside world sends data faster than we can handle.
-    //  If there were a cycle with blocking, it could lead into all tasks in the cycle getting
-    //  stuck, so that has to be avoided. So in cases where two tasks want to send messages
-    //  both ways, at least one of them has to spawn a child task every time it wants to send
-    //  something.
+    //  In-game turn traffic does not flow through here: it rides the rally-point2 turn transport,
+    //  whose Tokio-side driver (see `netcode_v2`) is spawned on this same runtime and talks to the
+    //  BW/sync thread directly over channels rather than through the game_state task.
     //
-    //  [1] Rally-point task blocks on sending the received data to anyone who has started
-    //  listening to it, which practically is just a child task of the network manager task, but
-    //  not the main task which receives messages from game_state.
-    //  Not sure if that's the smartest way to do that.
+    //  The arrows represent that the task gets blocked if the receiving task's message buffer is
+    //  full. This avoids having to spawn tasks and nicely throttles things if, say, the outside
+    //  world sends data faster than we can handle. If there were a cycle with blocking, it could
+    //  lead to all tasks in the cycle getting stuck, so that has to be avoided; in cases where two
+    //  tasks want to send messages both ways, at least one of them spawns a child task every time
+    //  it wants to send something.
     let runtime = tokio::runtime::Runtime::new().unwrap();
     let handle = runtime.handle();
     *ASYNC_RUNTIME.lock() = Some(handle.clone());
@@ -533,7 +518,6 @@ struct Args {
     game_id: String,
     server_port: u16,
     user_data_path: PathBuf,
-    rally_point_port: u16,
     use_legacy_cursor_sizing: bool,
     /// Base name for the rotating log file (`<log_name>.<slot>.log`). The launcher passes an
     /// `SB_SESSION`-namespaced value so concurrent dev instances don't share a log; defaults to
@@ -559,7 +543,9 @@ fn try_parse_args() -> Option<Args> {
     let game_id = args.next()?.into_string().ok()?;
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
-    let rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
+    // Vestigial rally-point v1 UDP port, still passed positionally by the launcher; consumed to keep
+    // the argument order but no longer used (all turn traffic rides the rally-point2 relay).
+    let _rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let mut use_legacy_cursor_sizing = false;
     let mut log_name = "game".to_owned();
 
@@ -582,7 +568,6 @@ fn try_parse_args() -> Option<Args> {
         game_id,
         server_port,
         user_data_path,
-        rally_point_port,
         use_legacy_cursor_sizing,
         log_name,
     })

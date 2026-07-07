@@ -1,7 +1,6 @@
 //! A build script that
-//! 1) Generates rust code from protobufs
-//! 2) Compiles d3d11 shaders for SC:R
-//! 3) Gathers version information from package.json
+//! 1) Compiles d3d11 shaders for SC:R
+//! 2) Gathers version information from package.json
 
 use std::fs;
 use std::path::Path;
@@ -13,24 +12,7 @@ use compile_shaders::{ShaderModel, ShaderType};
 #[allow(clippy::type_complexity)]
 static SOURCES: &[(&str, &str, &[(&str, &str)])] = &[("mask", "mask.hlsl", &[])];
 
-static PROTOS: &[&str] = &["src/proto/messages.proto"];
-
 fn main() {
-    if std::env::var("PROTOC").is_err() {
-        let protoc_path = protoc_bin_vendored_win32::protoc_bin_path();
-        unsafe {
-            std::env::set_var("PROTOC", protoc_path);
-        }
-    }
-
-    for &path in PROTOS {
-        println!("cargo:rerun-if-changed={path}");
-    }
-    let mut prost_build = prost_build::Config::new();
-    // Use Bytes for bytes fields instead of a Vec<u8>
-    prost_build.bytes(["."]);
-    prost_build.compile_protos(PROTOS, &["src/proto/"]).unwrap();
-
     let out_path = std::env::var("OUT_DIR").unwrap();
     let out_path = Path::new(&out_path);
     assert!(out_path.exists());

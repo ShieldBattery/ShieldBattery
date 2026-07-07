@@ -1556,6 +1556,13 @@ impl BwScr {
                     // time a packets are received in a frame.
                     //
                     // Still need to check that the SNP is ready BW side.
+                    //
+                    // The native-lobby seam (and the sessionless solo path) still create a real
+                    // Storm session, so the chosen SNP provider initializes and Storm's own lobby
+                    // tick keeps running: this pump drives that tick's flush + receive, and the
+                    // OUT/IN hooks intercept the sends/receives it produces to carry them over the
+                    // rally-point2 relay instead of a real network. All actual transport rides the
+                    // relay; the SNP provider itself only ever moves bytes into the inert stubs.
                     if SNP_INITIALIZED.load(Ordering::Relaxed) {
                         (self.snet_recv_packets)();
                         (self.snet_send_packets)();
@@ -1636,9 +1643,8 @@ impl BwScr {
             );
 
             // Netcode v2 turn hooks. Symbol resolution is required, so these always install; each
-            // body falls through to `orig` (native networking) while there is no live rally-point2
-            // session or before the game has started, so installing them is a no-op for the legacy
-            // path.
+            // body falls through to `orig` (BW's original turn handling) when there is no turn state
+            // (a replay), so installing them changes nothing for a replay.
             {
                 let nc = &self.netcode_v2;
                 let address = nc.send_turn_message.0 as usize - base;
@@ -1711,11 +1717,11 @@ impl BwScr {
                         0 => 24, // This only happens with DTR, and is temporary anyway
                         val => val,
                     };
-                    // Under a live netcode v2 session the PIPE hook owns the latency pipeline, so the
-                    // native `2 + user_latency` builtin turns no longer describe the delay: the relay's
-                    // buffer directive sets the whole pipe depth, which `latency_turns()` reports (floor
-                    // 1) and which the relay can retune mid-game. Read it fresh each format call so the
-                    // display tracks the live depth; fall back to native state for legacy games.
+                    // Under a live turn state the PIPE hook owns the latency pipeline, so the native
+                    // `2 + user_latency` builtin turns no longer describe the delay: `latency_turns()`
+                    // reports the current pipe depth (floor 1, retunable mid-game by a relay's buffer
+                    // directive). Read it fresh each format call so the display tracks the live depth;
+                    // fall back to native state when there is no turn state (a replay).
                     let v2_turns = if self.game_started.load(Ordering::Acquire) {
                         netcode_v2::with_turn_state(|s| s.latency_turns())
                     } else {
@@ -4126,10 +4132,10 @@ impl bw::Bw for BwScr {
                 (self.snet_send_packets)();
                 (self.step_network)() != 0
             } else {
-                // Netcode v2 forms no Storm session, so the SNP is never initialized and these
-                // Storm packet-pump functions would dereference uninitialized provider state (a
-                // null-pointer crash). All turn traffic rides the rp2 relay instead, so there is
-                // nothing to pump here — report progress so lobby init doesn't treat it as a stall.
+                // The SNP provider initializes once native create/join runs (create_lobby /
+                // create_game_multiplayer), which hasn't necessarily happened yet at every point
+                // this is called — report progress rather than treat a not-yet-initialized SNP as
+                // a stall.
                 true
             }
         };
@@ -4470,6 +4476,10 @@ impl bw::Bw for BwScr {
         unsafe { self.lobby_state.resolve() }
     }
 
+    unsafe fn local_storm_id(&self) -> u32 {
+        unsafe { self.local_storm_id.resolve() }
+    }
+
     unsafe fn game(&self) -> *mut bw::Game {
         unsafe { self.game.resolve() }
     }
@@ -4581,29 +4591,6 @@ impl bw::Bw for BwScr {
                 *item = Unit::from_ptr(*selection.add(i));
             }
             out
-        }
-    }
-
-    unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
-        unsafe {
-            let ptr = self.storm_players.resolve();
-            let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
-            scr_players
-                .iter()
-                .map(|player| bw::StormPlayer {
-                    state: player.state,
-                    unk1: player.unk1,
-                    flags: player.flags,
-                    unk4: player.unk4,
-                    protocol_version: player.protocol_version,
-                    name: {
-                        let mut name = [0; 0x19];
-                        name[..0x18].copy_from_slice(&player.name[..0x18]);
-                        name
-                    },
-                    padding: 0,
-                })
-                .collect()
         }
     }
 
@@ -5230,10 +5217,11 @@ unsafe extern "system" fn snp_initialize(
     module_data: *mut c_void,
 ) -> i32 {
     unsafe {
-        snp::initialize(&*client_info, None);
-        // We'll also have to call the SCR's normal LAN SNP init function, which initializes
-        // a global that SCR will try to access on game joining. Luckily it won't initialize
-        // anything else we don't want.
+        // No ShieldBattery packet transport is set up here — all traffic rides the rally-point2
+        // relay — but SCR's own LAN SNP init still runs: it initializes a global SCR accesses when
+        // joining a game, and it won't initialize anything else we don't want. Storm's own lobby
+        // session tick (the StepIo pump, `maybe_receive_turns`) only runs once this has completed,
+        // so its result is latched into `SNP_INITIALIZED` for those to gate on.
         let scr_init: unsafe extern "system" fn(
             *const bw::ClientInfo,
             *mut c_void,

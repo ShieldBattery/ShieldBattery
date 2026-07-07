@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
-use std::sync::{Arc, OnceLock};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Instant;
 
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
@@ -21,8 +21,6 @@ use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
 use crate::bw_scr::draw_overlay::fonts::display_family;
-use crate::game_thread::{self, GameThreadMessage};
-use crate::network_manager;
 
 use self::production::ProductionState;
 
@@ -58,8 +56,6 @@ pub struct OverlayState {
     player_vision_was_auto_disabled: [bool; 8],
     replay_start_handled: bool,
     draw_layer: u16,
-    network_debug_state: network_manager::DebugState,
-    network_debug_info: NetworkDebugInfo,
     dialog_debug_inspect_children: bool,
     was_loading: bool,
 }
@@ -87,18 +83,6 @@ struct ReplayPanelState {
     show_statistics: bool,
     show_production: bool,
     show_console: bool,
-}
-
-/// One request from async thread will be active at once, check if it had completed
-/// when rendering a new frame, and if it has then start a new request.
-/// Otherwise re-render with old data.
-///
-/// Maybe this should be at BwScr level so that this module is more contained without
-/// triggering changes and having dependencies on rest of the program?
-struct NetworkDebugInfo {
-    current_request: Option<Arc<OnceLock<network_manager::DebugInfo>>>,
-    previous: Option<Arc<OnceLock<network_manager::DebugInfo>>>,
-    previous_time: Instant,
 }
 
 /// State that will be in StepOutput; mutated through &mut self
@@ -330,8 +314,6 @@ impl OverlayState {
             player_vision_was_auto_disabled: [false; 8],
             replay_start_handled: false,
             draw_layer: get_normal_draw_layer(),
-            network_debug_state: network_manager::DebugState::new(),
-            network_debug_info: NetworkDebugInfo::new(),
             dialog_debug_inspect_children: false,
             was_loading: false,
         }
@@ -589,13 +571,6 @@ impl OverlayState {
             }
             for (var, text) in [(&mut v.production_max, "Production max")] {
                 ui.add(Slider::new(var, 0u32..=50).text(text));
-            }
-        });
-        ui.collapsing("Network", |ui| {
-            if let Some((values, time)) = self.network_debug_info.get() {
-                values.draw(ui, &mut self.network_debug_state);
-                let msg = format!("Updated {}ms ago", time.as_millis());
-                ui.label(egui::RichText::new(msg).size(18.0));
             }
         });
         ui.collapsing("BW Dialogs", |ui| {
@@ -1145,42 +1120,6 @@ impl OverlayState {
                 y: (y as f32 - y_offset) / y_div * screen_h,
             }
         }
-    }
-}
-
-impl NetworkDebugInfo {
-    pub fn new() -> NetworkDebugInfo {
-        NetworkDebugInfo {
-            current_request: None,
-            previous: None,
-            previous_time: Instant::now(),
-        }
-    }
-
-    pub fn get(&mut self) -> Option<(&network_manager::DebugInfo, Duration)> {
-        match self.current_request {
-            Some(ref cur) => {
-                if cur.get().is_some() {
-                    self.previous = self.current_request.take();
-                    self.previous_time = Instant::now();
-                    self.start_request();
-                }
-            }
-            None => {
-                self.start_request();
-            }
-        }
-        let result = self.previous.as_ref()?;
-        let result = result.get()?;
-        Some((result, self.previous_time.elapsed()))
-    }
-
-    fn start_request(&mut self) {
-        let arc = Arc::new(OnceLock::new());
-        self.current_request = Some(arc.clone());
-        game_thread::send_game_msg_to_async(GameThreadMessage::DebugInfoRequest(
-            game_thread::DebugInfoRequest::Network(arc),
-        ));
     }
 }
 
