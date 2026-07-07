@@ -47,6 +47,7 @@ use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
 
 use bytes::Bytes;
+use rally_point_client::ChatOut;
 use rally_point_client::DirectiveTracker;
 use rally_point_client::LeaveTracker;
 use rally_point_client::TurnChannels;
@@ -100,6 +101,53 @@ pub fn storm_net_key(slot: u8, user_id: SbUserId) -> [u8; 12] {
     key[4..8].copy_from_slice(&user_id.0.to_le_bytes());
     key
 }
+
+/// The receiver scope a chat message names, decoded from (or encoded to) the wire's
+/// `(target_kind, target_slot)` pair the relay carries opaquely (see
+/// [`rally_point_client::ChatOut`]). Mirrors the scopes SC:R's own `MsgFltr` chat-target dialog
+/// offers: everyone, allies only, observers only, or one named player.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChatTarget {
+    All,
+    Allies,
+    Observers,
+    Player(SlotId),
+}
+
+impl ChatTarget {
+    const WIRE_ALL: u32 = 0;
+    const WIRE_ALLIES: u32 = 1;
+    const WIRE_OBSERVERS: u32 = 2;
+    const WIRE_PLAYER: u32 = 3;
+
+    /// Encodes this target as the `(target_kind, target_slot)` pair `ChatOut` carries on the
+    /// wire. `target_slot` is meaningless for anything but `Player`, so it's left `0`.
+    pub fn to_wire(self) -> (u32, u32) {
+        match self {
+            ChatTarget::All => (Self::WIRE_ALL, 0),
+            ChatTarget::Allies => (Self::WIRE_ALLIES, 0),
+            ChatTarget::Observers => (Self::WIRE_OBSERVERS, 0),
+            ChatTarget::Player(slot) => (Self::WIRE_PLAYER, slot.0 as u32),
+        }
+    }
+
+    /// Decodes a wire `(target_kind, target_slot)` pair. An unrecognized `target_kind` (a future
+    /// wire addition this build predates, or a non-conforming peer) degrades to `All` rather than
+    /// dropping the message: `All` is the one scope the receive-side filter never hides, so it's
+    /// the safe default when the scope itself can't be read.
+    pub fn from_wire(target_kind: u32, target_slot: u32) -> ChatTarget {
+        match target_kind {
+            Self::WIRE_ALLIES => ChatTarget::Allies,
+            Self::WIRE_OBSERVERS => ChatTarget::Observers,
+            Self::WIRE_PLAYER => ChatTarget::Player(SlotId(target_slot as u8)),
+            _ => ChatTarget::All,
+        }
+    }
+}
+
+/// How many rendered chat lines [`TurnState::record_chat`] keeps for `queryState` verification.
+#[cfg(debug_assertions)]
+const CHAT_LOG_CAPACITY: usize = 64;
 
 /// The game-thread-owned state the three hooks operate on.
 ///
@@ -203,6 +251,16 @@ pub struct TurnState {
     /// simulation diverges from its peers. Debug-only trigger for observing how a desync propagates.
     #[cfg(debug_assertions)]
     forced_desync: bool,
+    /// Messages the `sendChat` debug command has queued for this client to send, in queue order.
+    /// Drained by the IN hook on the game thread (see `bw_scr::apply_debug_chat`), which sends and
+    /// locally echoes each one through the same path the in-game chat box's own send tap uses.
+    #[cfg(debug_assertions)]
+    debug_chat_queue: Vec<(ChatTarget, String)>,
+    /// The last [`CHAT_LOG_CAPACITY`] chat lines rendered by this client (its own, and any peer's),
+    /// recorded at injection time by [`record_chat`](Self::record_chat) for `queryState`
+    /// verification. Oldest first.
+    #[cfg(debug_assertions)]
+    chat_log: VecDeque<crate::debug_control::DebugChatLogEntry>,
 }
 
 impl TurnState {
@@ -241,6 +299,10 @@ impl TurnState {
             forced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
             forced_desync: false,
+            #[cfg(debug_assertions)]
+            debug_chat_queue: Vec::new(),
+            #[cfg(debug_assertions)]
+            chat_log: VecDeque::new(),
         }
     }
 
@@ -370,6 +432,58 @@ impl TurnState {
             queue.push_back(commands);
         }
         self.turns_in_flight = self.turns_in_flight.saturating_add(1);
+    }
+
+    /// OUT path for in-game chat: hands a message to the driver's chat channel for the other
+    /// session members, scoped by `target` (see [`ChatTarget`]). `text` is capped to
+    /// [`bw::commands::CHAT_TEXT_CAPACITY`] bytes (truncated on a UTF-8 boundary) before it ever
+    /// reaches the driver — every session member injects a chat message as the fixed-size classic
+    /// chat record, so trimming here keeps this client's own echo and every peer's copy identical
+    /// instead of each truncating independently at a different point.
+    ///
+    /// Best-effort like the driver's other chat handling: returns `false` when the channel to the
+    /// driver is full or closed (the driver died, or is overwhelmed), which the caller should log
+    /// and otherwise ignore — a lost chat line is not correctness-critical the way a lost turn or
+    /// lobby command is.
+    pub fn submit_chat(&mut self, target: ChatTarget, text: String) -> bool {
+        let text = bw::commands::truncate_utf8(&text, bw::commands::CHAT_TEXT_CAPACITY).to_string();
+        let (target_kind, target_slot) = target.to_wire();
+        let message = ChatOut {
+            target_kind,
+            target_slot,
+            text,
+        };
+        self.channels.chat_out.try_send(message).is_ok()
+    }
+
+    /// Drains every chat message currently available from the driver's `chat_in` channel. Never
+    /// blocks, and always fully drains the channel regardless of `game_started` — mirrors
+    /// `lobby_in`'s discard-drain at the end of [`drain_inbound`](Self::drain_inbound): a channel
+    /// nothing reads eventually fills and wedges the driver, and unlike `lobby_in`, chat stays live
+    /// for the driver's whole session rather than being pre-game-only.
+    ///
+    /// Delivers what it drains only once the game has started and this client hasn't gone
+    /// [`local_only`](Self::local_only) — before the game starts there is no in-game overlay to
+    /// render a line on yet, and once local-only, this client's peers are departed or departing,
+    /// so there is no one left to meaningfully attribute a late message to. Outside that window the
+    /// drained messages are discarded.
+    ///
+    /// Each returned message's text is capped to [`bw::commands::CHAT_TEXT_CAPACITY`] bytes
+    /// (truncated on a UTF-8 boundary) before the caller ever sees it: the relay allows up to 256
+    /// bytes on the wire, more than the classic chat record's fixed capacity, so a message from a
+    /// non-conforming peer can't reach the injection helper only to overflow it there.
+    pub fn drain_chat_inbound(&mut self, game_started: bool) -> Vec<(SlotId, ChatOut)> {
+        let deliverable = game_started && !self.local_only;
+        let mut out = Vec::new();
+        while let Ok((slot, mut chat)) = self.channels.chat_in.try_recv() {
+            if !deliverable {
+                continue;
+            }
+            chat.text = bw::commands::truncate_utf8(&chat.text, bw::commands::CHAT_TEXT_CAPACITY)
+                .to_string();
+            out.push((slot, chat));
+        }
+        out
     }
 
     /// Drains every inbound turn currently available from the driver into the per-slot queues,
@@ -829,6 +943,34 @@ impl TurnState {
         std::mem::take(&mut self.forced_desync)
     }
 
+    /// Queues a chat message for the `sendChat` debug-control command. The game thread drains this
+    /// on its next receive (see `bw_scr::apply_debug_chat`) and sends + locally echoes it through
+    /// the exact same path (`BwScr::send_chat_message`) the in-game chat box's own send tap uses.
+    /// Nothing is sent here, so this is safe to call from the async side.
+    #[cfg(debug_assertions)]
+    pub fn debug_queue_chat(&mut self, target: ChatTarget, text: String) {
+        self.debug_chat_queue.push((target, text));
+    }
+
+    /// Drains the messages queued by [`debug_queue_chat`](Self::debug_queue_chat), in queue order.
+    /// Called once per receive on the game thread.
+    #[cfg(debug_assertions)]
+    pub fn take_debug_chat_queue(&mut self) -> Vec<(ChatTarget, String)> {
+        std::mem::take(&mut self.debug_chat_queue)
+    }
+
+    /// Records one rendered chat line for `queryState` verification, capped to the last
+    /// [`CHAT_LOG_CAPACITY`] messages (oldest dropped first). Called at injection time — see
+    /// `bw_scr::BwScr::inject_chat_message` — so the log reflects exactly what was attributed and
+    /// rendered, truncation included, for both this client's own messages and a peer's.
+    #[cfg(debug_assertions)]
+    pub fn record_chat(&mut self, entry: crate::debug_control::DebugChatLogEntry) {
+        self.chat_log.push_back(entry);
+        if self.chat_log.len() > CHAT_LOG_CAPACITY {
+            self.chat_log.pop_front();
+        }
+    }
+
     /// A point-in-time read of this turn state, for the `queryState` debug-control command. Pure
     /// read: touches no counters, drains no queues.
     #[cfg(debug_assertions)]
@@ -871,6 +1013,7 @@ impl TurnState {
             latency_turns: self.latency_turns,
             outstanding_turns: self.turns_in_flight,
             slots,
+            chat_log: self.chat_log.iter().cloned().collect(),
         }
     }
 }
@@ -934,6 +1077,10 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(1);
         let (lobby_out_tx, lobby_out_rx) = mpsc::channel(16);
         let (lobby_in_tx, lobby_in_rx) = mpsc::channel(16);
+        // Chat isn't exercised by these tests; the far ends drop on return (closing the channels
+        // is harmless — nothing sends or drains chat here).
+        let (chat_out_tx, _chat_out_rx) = mpsc::channel(16);
+        let (_chat_in_tx, chat_in_rx) = mpsc::channel(16);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -943,6 +1090,8 @@ mod tests {
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
+            chat_out: chat_out_tx,
+            chat_in: chat_in_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -1025,6 +1174,8 @@ mod tests {
         let (result_tx, _result_rx) = mpsc::channel(1);
         let (lobby_out_tx, _lobby_out_rx) = mpsc::channel(1);
         let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(1);
+        let (chat_out_tx, _chat_out_rx) = mpsc::channel(1);
+        let (_chat_in_tx, chat_in_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1034,6 +1185,8 @@ mod tests {
             result_expected: Arc::new(AtomicBool::new(false)),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
+            chat_out: chat_out_tx,
+            chat_in: chat_in_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -1701,6 +1854,8 @@ mod tests {
         let result_expected = Arc::new(AtomicBool::new(false));
         let (lobby_out_tx, _lobby_out_rx) = mpsc::channel(1);
         let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(1);
+        let (chat_out_tx, _chat_out_rx) = mpsc::channel(1);
+        let (_chat_in_tx, chat_in_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1710,6 +1865,8 @@ mod tests {
             result_expected: Arc::clone(&result_expected),
             lobby_out: lobby_out_tx,
             lobby_in: lobby_in_rx,
+            chat_out: chat_out_tx,
+            chat_in: chat_in_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -1899,5 +2056,153 @@ mod tests {
             lobby_in_tx.try_send((PEER_SLOT, b"more".to_vec())).is_ok(),
             "receive_turns must have drained the lobby_in backlog"
         );
+    }
+
+    #[test]
+    fn chat_target_wire_round_trips() {
+        for target in [
+            ChatTarget::All,
+            ChatTarget::Allies,
+            ChatTarget::Observers,
+            ChatTarget::Player(PEER_SLOT),
+        ] {
+            let (kind, slot) = target.to_wire();
+            assert_eq!(ChatTarget::from_wire(kind, slot), target);
+        }
+    }
+
+    #[test]
+    fn chat_target_from_wire_defaults_unrecognized_kinds_to_all() {
+        // A future wire addition this build predates, or a malformed peer, must degrade to `All`
+        // rather than be mistaken for one of the known scopes.
+        assert_eq!(ChatTarget::from_wire(99, 0), ChatTarget::All);
+    }
+
+    /// Minimal chat-only harness: builds a `TurnState` with live `chat_out`/`chat_in` channels and
+    /// drops every other channel's far end (nothing here exercises turns/leaves/lobby). Kept
+    /// separate from [`turn_state_inner`] rather than extending its widely-shared tuple, since only
+    /// these chat tests need live chat channels.
+    fn turn_state_with_chat() -> (
+        TurnState,
+        mpsc::Receiver<ChatOut>,
+        mpsc::Sender<(SlotId, ChatOut)>,
+    ) {
+        let (out_tx, _out_rx) = mpsc::channel(16);
+        let (_in_tx, in_rx) = mpsc::channel(16);
+        let (_leave_tx, leave_rx) = mpsc::channel(16);
+        let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
+        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (lobby_out_tx, _lobby_out_rx) = mpsc::channel(16);
+        let (_lobby_in_tx, lobby_in_rx) = mpsc::channel(16);
+        let (chat_out_tx, chat_out_rx) = mpsc::channel(16);
+        let (chat_in_tx, chat_in_rx) = mpsc::channel(16);
+        let channels = TurnChannels {
+            outbound: out_tx,
+            inbound: in_rx,
+            leaves: leave_rx,
+            leave_intent: leave_intent_tx,
+            result: result_tx,
+            result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: lobby_out_tx,
+            lobby_in: lobby_in_rx,
+            chat_out: chat_out_tx,
+            chat_in: chat_in_rx,
+        };
+        let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
+        (
+            TurnState::new(channels, LOCAL_SLOT, 2, roster, false),
+            chat_out_rx,
+            chat_in_tx,
+        )
+    }
+
+    #[test]
+    fn submit_chat_sends_the_scoped_message_and_truncates_oversize_text() {
+        let (mut state, mut chat_out_rx, _chat_in_tx) = turn_state_with_chat();
+
+        assert!(state.submit_chat(ChatTarget::Allies, "gg".to_string()));
+        let sent = chat_out_rx.try_recv().unwrap();
+        assert_eq!(sent.target_kind, 1);
+        assert_eq!(sent.target_slot, 0);
+        assert_eq!(sent.text, "gg");
+
+        assert!(state.submit_chat(ChatTarget::Player(PEER_SLOT), "hi".to_string()));
+        let sent = chat_out_rx.try_recv().unwrap();
+        assert_eq!(sent.target_kind, 3);
+        assert_eq!(sent.target_slot, PEER_SLOT.0 as u32);
+
+        // Oversize text is truncated to `CHAT_TEXT_CAPACITY` before it ever reaches the driver, on
+        // a UTF-8 boundary — every session member injects this into the same fixed-size classic
+        // chat record, so truncating once here keeps every copy identical.
+        let oversize = "a".repeat(bw::commands::CHAT_TEXT_CAPACITY + 50);
+        assert!(state.submit_chat(ChatTarget::All, oversize));
+        let sent = chat_out_rx.try_recv().unwrap();
+        assert_eq!(sent.text.len(), bw::commands::CHAT_TEXT_CAPACITY);
+    }
+
+    #[test]
+    fn drain_chat_inbound_delivers_when_game_started_and_discards_otherwise() {
+        let (mut state, _chat_out_rx, chat_in_tx) = turn_state_with_chat();
+        let message = ChatOut {
+            target_kind: 0,
+            target_slot: 0,
+            text: "hello".to_string(),
+        };
+
+        // Not yet in-game: drained but discarded.
+        chat_in_tx.try_send((PEER_SLOT, message.clone())).unwrap();
+        assert_eq!(state.drain_chat_inbound(false), Vec::new());
+
+        // In-game: delivered.
+        chat_in_tx.try_send((PEER_SLOT, message.clone())).unwrap();
+        let delivered = state.drain_chat_inbound(true);
+        assert_eq!(delivered, vec![(PEER_SLOT, message)]);
+
+        // Either way the channel is fully drained, never left to back up.
+        assert!(state.drain_chat_inbound(true).is_empty());
+    }
+
+    #[test]
+    fn drain_chat_inbound_discards_once_local_only() {
+        let (mut state, _chat_out_rx, chat_in_tx) = turn_state_with_chat();
+        state.begin_local_only();
+
+        chat_in_tx
+            .try_send((
+                PEER_SLOT,
+                ChatOut {
+                    target_kind: 0,
+                    target_slot: 0,
+                    text: "late".to_string(),
+                },
+            ))
+            .unwrap();
+        assert_eq!(
+            state.drain_chat_inbound(true),
+            Vec::new(),
+            "a message arriving after local-only has no one left to attribute it to"
+        );
+    }
+
+    #[test]
+    fn drain_chat_inbound_truncates_oversize_wire_text() {
+        let (mut state, _chat_out_rx, chat_in_tx) = turn_state_with_chat();
+        // The relay allows up to 256 bytes on the wire, more than the classic chat record's fixed
+        // capacity — a non-conforming peer's oversize message must not reach the injection helper
+        // only to overflow it there.
+        let oversize = "b".repeat(200);
+        chat_in_tx
+            .try_send((
+                PEER_SLOT,
+                ChatOut {
+                    target_kind: 0,
+                    target_slot: 0,
+                    text: oversize,
+                },
+            ))
+            .unwrap();
+        let delivered = state.drain_chat_inbound(true);
+        assert_eq!(delivered.len(), 1);
+        assert_eq!(delivered[0].1.text.len(), bw::commands::CHAT_TEXT_CAPACITY);
     }
 }

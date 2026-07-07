@@ -45,6 +45,32 @@ pub enum DebugControlCommand {
     /// Capture this client's own game window via GDI/PrintWindow and reply on
     /// `/game/debug/screenshot` with a base64-encoded PNG.
     Screenshot,
+    /// Send a chat message over the active netcode-v2 session as this client, through the same
+    /// send path the in-game chat box uses: submit it to the relay's chat channel, then locally
+    /// echo it so it renders immediately on this client too (see `bw_scr::send_chat_message`).
+    /// `target` selects the receiver scope; omitted, it defaults to [`DebugChatTarget::All`]. No
+    /// reply — verify via a peer's rendered chat, or this client's own via `queryState`'s
+    /// `chatLog`.
+    SendChat {
+        text: String,
+        #[serde(default)]
+        target: DebugChatTarget,
+    },
+}
+
+/// The chat scope for [`DebugControlCommand::SendChat`], a serde-friendly mirror of
+/// [`crate::netcode_v2::ChatTarget`] (which isn't itself `Deserialize` — production code only
+/// ever builds one from the in-game `MsgFltr` dialog's live state, never from JSON).
+#[derive(Debug, Deserialize, Default, Eq, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum DebugChatTarget {
+    #[default]
+    All,
+    Allies,
+    Observers,
+    Player {
+        slot: u8,
+    },
 }
 
 /// Reply payload for [`DebugControlCommand::QueryState`], sent on `/game/debug/state`.
@@ -67,6 +93,25 @@ pub struct TurnStateSnapshot {
     pub outstanding_turns: u32,
     /// One entry per session-roster slot.
     pub slots: Vec<TurnSlotSnapshot>,
+    /// The last `CHAT_LOG_CAPACITY` chat lines this client has rendered (its own, and any peer's),
+    /// oldest first. See [`crate::netcode_v2::TurnState::record_chat`].
+    pub chat_log: Vec<DebugChatLogEntry>,
+}
+
+/// One rendered chat line, recorded at injection time for [`DebugControlCommand::QueryState`]
+/// verification. Captures what the classic chat record actually carried, not the raw wire
+/// message, so it reflects the sender id and text exactly as the overlay/replay saw them —
+/// truncation included.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugChatLogEntry {
+    /// The player id (0-7; see `bw_scr::chat::ChatManager::handle_message`'s player-id ranges)
+    /// the message was attributed to.
+    pub sender_game_id: u8,
+    /// The message text as injected (already truncated to the classic chat record's capacity).
+    pub text: String,
+    /// Whether this client authored the message (`true`) or received it from a peer (`false`).
+    pub own: bool,
 }
 
 /// Per-slot detail within a [`TurnStateSnapshot`].
@@ -303,6 +348,11 @@ mod tests {
                     queued_turns: 0,
                     has_dispatch: false,
                 }],
+                chat_log: vec![DebugChatLogEntry {
+                    sender_game_id: 0,
+                    text: "gg".to_string(),
+                    own: true,
+                }],
             }),
         };
 
@@ -322,8 +372,52 @@ mod tests {
                         "queuedTurns": 0,
                         "hasDispatch": false,
                     }],
+                    "chatLog": [{
+                        "senderGameId": 0,
+                        "text": "gg",
+                        "own": true,
+                    }],
                 },
             })
+        );
+    }
+
+    #[test]
+    fn send_chat_command_parses_camel_case_with_default_target() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"sendChat","text":"gl hf"}"#).unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SendChat {
+                text: "gl hf".to_string(),
+                target: DebugChatTarget::All,
+            }
+        );
+    }
+
+    #[test]
+    fn send_chat_command_parses_camel_case_with_explicit_target() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"sendChat","text":"gg","target":{"kind":"allies"}}"#)
+                .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SendChat {
+                text: "gg".to_string(),
+                target: DebugChatTarget::Allies,
+            }
+        );
+
+        let cmd: DebugControlCommand = serde_json::from_str(
+            r#"{"type":"sendChat","text":"hi","target":{"kind":"player","slot":3}}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            cmd,
+            DebugControlCommand::SendChat {
+                text: "hi".to_string(),
+                target: DebugChatTarget::Player { slot: 3 },
+            }
         );
     }
 

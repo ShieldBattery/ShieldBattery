@@ -134,6 +134,8 @@ rootElemPromise
         forceLeave: (gameId, slot) =>
           new TypedIpcRenderer().invoke('activeGameForceLeave', gameId, slot),
         forceDesync: gameId => new TypedIpcRenderer().invoke('activeGameForceDesync', gameId),
+        sendChat: (gameId, text) =>
+          new TypedIpcRenderer().invoke('activeGameSendChat', gameId, text),
         forceQuit: gameId => new TypedIpcRenderer().invoke('activeGameForceQuit', gameId),
         screenshot: gameId => new TypedIpcRenderer().invoke('activeGameDebugScreenshot', gameId),
       }

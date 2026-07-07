@@ -15,6 +15,25 @@ pub mod id {
     pub const SET_NETWORK_SPEED: u8 = 0x66;
 }
 
+/// Bytes available for text in the classic `[0x5c][sender id][text]` chat command record: the
+/// record is a fixed 0x52 bytes total (a 2-byte header followed by a 0x50-byte text field), and
+/// the text field's last byte is reserved for the trailing NUL the native chat handler expects.
+pub const CHAT_TEXT_CAPACITY: usize = 0x50 - 1;
+
+/// Truncates `text` to at most `max_len` bytes, backing off to the nearest UTF-8 character
+/// boundary at or before `max_len` so a multi-byte character is never split. Returns `text`
+/// unchanged (a borrow, no allocation) when it already fits.
+pub fn truncate_utf8(text: &str, max_len: usize) -> &str {
+    if text.len() <= max_len {
+        return text;
+    }
+    let mut end = max_len;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
 pub fn command_length(data: &[u8], command_lengths: &[u32]) -> Option<usize> {
     match *data.first()? {
         0x6 | 0x7 => {
@@ -359,6 +378,28 @@ mod test {
             strip_control_commands(data, &lengths),
             Cow::Borrowed(_)
         ));
+    }
+
+    #[test]
+    fn truncate_utf8_returns_input_unchanged_when_it_fits() {
+        assert_eq!(truncate_utf8("hello", 10), "hello");
+        assert_eq!(truncate_utf8("hello", 5), "hello");
+        assert_eq!(truncate_utf8("", 0), "");
+    }
+
+    #[test]
+    fn truncate_utf8_cuts_ascii_at_the_exact_byte() {
+        assert_eq!(truncate_utf8("hello world", 5), "hello");
+        assert_eq!(truncate_utf8("hello world", 0), "");
+    }
+
+    #[test]
+    fn truncate_utf8_backs_off_to_a_char_boundary() {
+        // "café" is 5 bytes ('é' is 2 bytes); a cap of 4 would split 'é' mid-character.
+        let text = "café";
+        assert_eq!(text.len(), 5);
+        assert_eq!(truncate_utf8(text, 4), "caf");
+        assert_eq!(truncate_utf8(text, 5), "café");
     }
 
     #[test]

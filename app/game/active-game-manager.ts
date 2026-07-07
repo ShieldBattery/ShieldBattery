@@ -505,6 +505,21 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Tells the active game process to send an in-game chat message over its netcode v2 session, as
+   * this client (debug game builds only), through the same send path the in-game chat box's own
+   * Enter-key send uses. Fire-and-forget: there's no reply; verify via a peer's rendered chat, or
+   * this client's own via {@link debugQueryState}'s `turnState.chatLog`.
+   */
+  sendGameChat(gameId: string, text: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got sendGameChat for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'sendChat', text })
+  }
+
+  /**
    * Tells the active game process to quit abruptly (debug game builds only, but the underlying
    * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
    * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,

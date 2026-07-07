@@ -22,6 +22,16 @@ export interface GameTurnSlotSnapshot {
   hasDispatch: boolean
 }
 
+/** One chat line the game process has rendered, recorded at injection time. */
+export interface GameChatLogEntry {
+  /** The player id the message was attributed to (0-7). */
+  senderGameId: number
+  /** The message text as injected (already truncated to the classic chat record's capacity). */
+  text: string
+  /** Whether this client authored the message, as opposed to receiving it from a peer. */
+  own: boolean
+}
+
 /** A snapshot of a game process's network turn transport state, if a session is live. */
 export interface GameTurnStateSnapshot {
   /** The rally-point2 slot of the local player. */
@@ -32,6 +42,11 @@ export interface GameTurnStateSnapshot {
   outstandingTurns: number
   /** One entry per session-roster slot. */
   slots: GameTurnSlotSnapshot[]
+  /**
+   * The last chat lines this client has rendered, oldest first. Optional so a still-running older
+   * DLL that predates this field doesn't fail to deserialize.
+   */
+  chatLog?: GameChatLogEntry[]
 }
 
 /** The reply payload for a `debugControl`/`queryState` request, sent as `/game/debug/state`. */

@@ -1,9 +1,11 @@
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::ptr::null_mut;
+use std::sync::atomic::{AtomicBool, AtomicPtr, AtomicU8, Ordering};
 
 use bw_dat::dialog::{Control, Dialog, EventHandler};
 
 use crate::bw::{self, Bw, get_bw};
 use crate::game_thread::send_game_results;
+use crate::netcode_v2;
 
 use super::console;
 
@@ -15,6 +17,15 @@ static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
 static CONSOLE_DIALOG_EVENT_HANDLERS: [EventHandler; console::CONSOLE_DIALOGS.len()] =
     [NEW_EVENT_HANDLER; console::CONSOLE_DIALOGS.len()];
 static PREVENT_BUTTON_HIDE_COUNT: AtomicU8 = AtomicU8::new(0);
+/// The live "MsgFltr" chat-target-scope dialog's control pointer, stashed by
+/// [`msg_filter_event_handler`] the first (and every) time it runs so
+/// [`chat_target_scope`] can read the dialog's current selection at chat-send time. Null until
+/// the dialog has been created at least once.
+static MSG_FILTER_DIALOG: AtomicPtr<bw::Control> = AtomicPtr::new(null_mut());
+/// Whether [`chat_target_scope`] has already dumped the `MsgFltr` dialog's children to the log.
+/// The dump is a one-time diagnostic (the dialog's layout doesn't change at runtime), not
+/// something worth repeating on every chat message.
+static MSG_FILTER_DUMPED: AtomicBool = AtomicBool::new(false);
 
 // Helper needed for initializing array of event handlers
 #[allow(clippy::declare_interior_mutable_const)]
@@ -84,6 +95,18 @@ unsafe extern "C" fn chat_box_event_handler(
                     if bw.handle_chat_command(text) {
                         // Clear the chat box text so no message gets sent
                         edit_box.set_string(b"");
+                    } else {
+                        // A live netcode v2 session carries chat over its own relay channel — the
+                        // native battlenet-gateway send is dead under it, and this client's own
+                        // copy renders only via `send_chat_message`'s injected local echo (see its
+                        // doc comment). Clear the box the same way a handled slash command does so
+                        // the dead native send below (and its local ClientSdk loopback echo) never
+                        // fires and never doubles up our own already-injected echo.
+                        let target = chat_target_scope();
+                        if bw.send_chat_message(target, text) {
+                            edit_box.set_string(b"");
+                        }
+                        // No live session: fall through unchanged to the native `orig` call below.
                     }
                 }
             } else {
@@ -110,6 +133,11 @@ unsafe extern "C" fn msg_filter_event_handler(
     orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
 ) -> u32 {
     unsafe {
+        // Stash the live dialog pointer so `chat_target_scope` can read this dialog's current
+        // selection later, at chat-send time (from `chat_box_event_handler`, a different control's
+        // handler entirely).
+        MSG_FILTER_DIALOG.store(ctrl, Ordering::Relaxed);
+
         // Same as chat box, to make the radio button for "Send to allies" enabled even when
         // alliances cannot be changed.
         let bw = get_bw();
@@ -121,6 +149,40 @@ unsafe extern "C" fn msg_filter_event_handler(
         (*game_data).game_template.allies_enabled = old;
         ret
     }
+}
+
+/// The chat-target scope the `MsgFltr` dialog's current selection names, for the chat-box send
+/// tap in [`chat_box_event_handler`].
+///
+/// The first time this runs (once the dialog has been observed at all — see
+/// [`msg_filter_event_handler`]), it dumps every child control's id, label, and raw flags at
+/// `debug!` level. The ids and labels this dialog uses aren't known yet, and
+/// `bw_dat::dialog::Control` exposes no "checked"/"selected" accessor for a radio-style control —
+/// only `flags()`'s raw bits, `id()`, `string()`, `is_hidden()`, and `is_disabled()` — so this dump
+/// is how a live run pins down which child is which and whether any bit in `flags()` tracks the
+/// active selection. Until that mapping exists, this always resolves to `ChatTarget::All`.
+fn chat_target_scope() -> netcode_v2::ChatTarget {
+    let ptr = MSG_FILTER_DIALOG.load(Ordering::Relaxed);
+    let Some(ptr) = (!ptr.is_null()).then_some(ptr) else {
+        debug!("netcode v2: no MsgFltr dialog observed yet; defaulting chat target to All");
+        return netcode_v2::ChatTarget::All;
+    };
+    if !MSG_FILTER_DUMPED.swap(true, Ordering::Relaxed) {
+        // Safety: `ptr` came from a live event handler call on this same dialog, so it's a valid
+        // control at this point (event handlers only fire on controls that still exist).
+        let dialog = unsafe { Control::new(ptr) }.dialog();
+        for child in dialog.children() {
+            debug!(
+                "netcode v2: MsgFltr child id={} string={:?} flags={:#x} hidden={} disabled={}",
+                child.id(),
+                child.string(),
+                child.flags(),
+                child.is_hidden(),
+                child.is_disabled(),
+            );
+        }
+    }
+    netcode_v2::ChatTarget::All
 }
 
 unsafe extern "C" fn minimap_event_handler(

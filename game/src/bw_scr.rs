@@ -32,7 +32,7 @@ use crate::app_messages::{
     AtomicStartingFog, MapInfo, MinimapColorMode, SbUserId, Settings, StartingFog,
 };
 use crate::bw::apm_stats::ApmStats;
-use crate::bw::players::StormPlayerId;
+use crate::bw::players::{BwPlayerId, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
@@ -855,6 +855,25 @@ unsafe fn copy_session_player_name(node: *mut scr::StormSessionPlayer, name: &CS
         ptr::copy_nonoverlapping(bytes.as_ptr(), dest, len);
         dest.add(len).write(0);
     }
+}
+
+/// The classic chat command's fixed record size: a 2-byte header (`0x5c`, sender game id) followed
+/// by a 0x50-byte NUL-padded text field.
+const CHAT_RECORD_LEN: usize = 0x52;
+
+/// Builds the classic `0x5c` chat command record — `[0x5c][sender_game_id][0x50 NUL-padded
+/// text]` — the fixed layout the native command dispatcher renders on the overlay with
+/// attribution from `sender_game_id` and (for a live, not-yet-recorded command) appends to the
+/// replay. `text` is truncated (on a UTF-8 boundary) to [`commands::CHAT_TEXT_CAPACITY`] bytes if
+/// it doesn't already fit; the remainder of the text field, and its final byte, stay `0` (the
+/// NUL terminator).
+fn build_chat_record(sender_game_id: u8, text: &str) -> [u8; CHAT_RECORD_LEN] {
+    let mut record = [0u8; CHAT_RECORD_LEN];
+    record[0] = commands::id::CHAT;
+    record[1] = sender_game_id;
+    let text = commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY);
+    record[2..2 + text.len()].copy_from_slice(text.as_bytes());
+    record
 }
 
 impl BwScr {
@@ -2515,6 +2534,13 @@ impl BwScr {
         unsafe {
             if !self.game_started.load(Ordering::Acquire) {
                 let nc = &self.netcode_v2;
+                // Chat stays live for the driver's whole session, unlike lobby commands, so it can
+                // already be arriving before the game starts. Nothing renders it yet — drain and
+                // discard so the channel never backs up and wedges the driver (mirrors `lobby_in`'s
+                // own discard-drain once the game HAS started; see `drain_chat_inbound`).
+                netcode_v2::with_turn_state(|s| {
+                    s.drain_chat_inbound(false);
+                });
                 let ready = netcode_v2::with_turn_state(|s| {
                     if !s.lobby_seam_enabled() {
                         return None;
@@ -2567,6 +2593,13 @@ impl BwScr {
             // Debug-only: the `forceDesync` command's one-shot mineral perturbation on this client.
             #[cfg(debug_assertions)]
             self.apply_forced_desync();
+            // Debug-only: the `sendChat` command's queued messages, sent + locally echoed through
+            // the same path a human's own Enter keypress uses.
+            #[cfg(debug_assertions)]
+            self.apply_debug_chat();
+            // In-game chat delivered from peers over the relay, each injected as the classic chat
+            // record after passing its target scope's receive-side filter.
+            self.apply_chat_inbound();
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;
@@ -2968,6 +3001,257 @@ impl BwScr {
             warn!(
                 "netcode v2: forceDesync perturbed local player {player} minerals {current} -> {perturbed}"
             );
+        }
+    }
+
+    /// Debug-only `sendChat` application, run on the game thread alongside
+    /// [`apply_forced_leaves`](Self::apply_forced_leaves)/[`apply_forced_desync`](Self::apply_forced_desync).
+    /// Drains the messages the `sendChat` command queued and sends + locally echoes each one
+    /// through [`send_chat_message`](Self::send_chat_message) — the exact path the in-game chat
+    /// box's own send tap uses — so a debug-triggered message is indistinguishable downstream from
+    /// one a human typed.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_debug_chat(&self) {
+        unsafe {
+            let Some(queued) = netcode_v2::with_turn_state(|s| s.take_debug_chat_queue()) else {
+                return; // no live session
+            };
+            for (target, text) in queued {
+                self.send_chat_message(target, &text);
+            }
+        }
+    }
+
+    /// Send path shared by the in-game chat box's send tap (`dialog_hook::chat_box_event_handler`)
+    /// and the `sendChat` debug command: submits `text` to the active netcode v2 session's chat
+    /// channel, scoped by `target`, then injects this client's own local echo — the classic chat
+    /// record for our own storm id — the same way a peer's message is injected. Suppressing the
+    /// native battlenet-gateway chat send (dead under netcode v2 anyway) also suppresses its local
+    /// ClientSdk loopback echo, so this injection is the only thing that renders our own message.
+    ///
+    /// Returns `false` when there is no live netcode v2 session, so the caller falls back to
+    /// native chat handling unchanged. A `true` return means a session took the message — even if
+    /// the relay send itself failed, chat is best-effort (see
+    /// [`TurnState::submit_chat`](netcode_v2::TurnState::submit_chat)), and the only thing that
+    /// matters to the caller is whether native chat should be suppressed.
+    unsafe fn send_chat_message(&self, target: netcode_v2::ChatTarget, text: &str) -> bool {
+        unsafe {
+            let Some(sent) =
+                netcode_v2::with_turn_state(|s| s.submit_chat(target, text.to_string()))
+            else {
+                return false; // no live session
+            };
+            if !sent {
+                debug!("netcode v2: chat_out channel unavailable; message not queued for peers");
+            }
+            let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
+            if !self.inject_chat_message(local_storm, text) {
+                debug!("netcode v2: local chat echo dropped; local storm id unresolved");
+            }
+            true
+        }
+    }
+
+    /// Injects one chat message — attributed to `storm_player` — as the classic chat record, so it
+    /// renders on the overlay with correct attribution and lands in the replay. Used for both a
+    /// peer's message arriving over the netcode v2 relay (`apply_chat_inbound`) and this client's
+    /// own local echo (`send_chat_message`, with `storm_player` set to this client's own storm id)
+    /// — one path renders both, so the two can never diverge in formatting or attribution.
+    ///
+    /// Returns `false` (injecting nothing) when `storm_player` can't be resolved to a `players[]`
+    /// slot right now — see [`unique_player_for_storm`](Self::unique_player_for_storm) — e.g. it
+    /// already left.
+    unsafe fn inject_chat_message(&self, storm_player: StormPlayerId, text: &str) -> bool {
+        unsafe {
+            let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
+                return false;
+            };
+            let record = build_chat_record(unique_player, text);
+            // `0`: a live command not yet on the replay's command log, so the native command
+            // processor appends it (`add_to_replay_data`) the same as any other in-game command —
+            // see `process_injected_game_command`'s doc comment for the full reasoning.
+            let injected = self.process_injected_game_command(&record, storm_player, 0);
+            #[cfg(debug_assertions)]
+            if injected {
+                let own = storm_player.0 as u32 == self.local_storm_id.resolve();
+                netcode_v2::with_turn_state(|s| {
+                    s.record_chat(crate::debug_control::DebugChatLogEntry {
+                        sender_game_id: unique_player,
+                        text: commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY)
+                            .to_string(),
+                        own,
+                    })
+                });
+            }
+            injected
+        }
+    }
+
+    /// Whether a received chat message naming `target` should be shown to the local player, given
+    /// its sender's BW storm id. Mirrors the scopes the `MsgFltr` chat-target dialog offers (see
+    /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows only to a player
+    /// currently allied with the sender; `Observers` shows only if the local player is an
+    /// observer; a named `Player` shows only to that one rp2 slot. Anything else is dropped
+    /// silently by the caller.
+    unsafe fn chat_target_visible(
+        &self,
+        sender_storm: StormPlayerId,
+        target: netcode_v2::ChatTarget,
+    ) -> bool {
+        unsafe {
+            match target {
+                netcode_v2::ChatTarget::All => true,
+                netcode_v2::ChatTarget::Player(slot) => {
+                    netcode_v2::with_turn_state(|s| s.local_slot_id() == slot).unwrap_or(false)
+                }
+                netcode_v2::ChatTarget::Observers => {
+                    BwPlayerId(self.local_unique_player_id.resolve() as u8).is_observer()
+                }
+                netcode_v2::ChatTarget::Allies => {
+                    match self.unique_player_for_storm(sender_storm) {
+                        Some(sender_unique) => self.is_allied_with(sender_unique),
+                        // The sender can't be resolved to a live player right now (e.g. already
+                        // left) — nothing to compare alliances against, so don't show it as if it
+                        // were an ally message.
+                        None => false,
+                    }
+                }
+            }
+        }
+    }
+
+    /// Whether the local player is currently allied with `other_unique_player` (a `players[]`
+    /// index). A team game shares one alliance per team, so it's decided by comparing
+    /// `players[].team`; otherwise each player sets alliances individually, tracked in
+    /// `game.alliances[a][b]` — `a`'s live alliance state toward `b`, `0` for an enemy and
+    /// nonzero for an ally (plain or allied-victory). Picks whichever the game actually uses so it
+    /// reflects in-game alliance changes, not just the lobby's starting teams.
+    unsafe fn is_allied_with(&self, other_unique_player: u8) -> bool {
+        unsafe {
+            let local = self.local_unique_player_id.resolve() as u8;
+            if local == other_unique_player {
+                return true;
+            }
+            if game_thread::is_team_game() {
+                let players = self.players();
+                let local_team = (*players.add(local as usize)).team;
+                let other_team = (*players.add(other_unique_player as usize)).team;
+                local_team == other_team
+            } else {
+                (*self.game()).alliances[local as usize][other_unique_player as usize] != 0
+            }
+        }
+    }
+
+    /// Resolves a BW storm id to its `players[]` index (0-7 — this does not cover observer slots,
+    /// matching [`process_replay_commands`](Self::process_replay_commands)'s own lookup), the same
+    /// mapping that function uses to attribute a replayed command to its author.
+    ///
+    /// A message from an observer's storm id is therefore never resolved here and gets dropped by
+    /// the caller with a debug log — a known limitation shared with the replay-command path, not a
+    /// new one introduced for chat.
+    unsafe fn unique_player_for_storm(&self, storm_player: StormPlayerId) -> Option<u8> {
+        unsafe {
+            let players = self.players();
+            (0..8)
+                .position(|i| (*players.add(i)).storm_id as u8 == storm_player.0)
+                .map(|s| s as u8)
+        }
+    }
+
+    /// Feeds `commands` through the native command processor as if it had arrived from
+    /// `storm_player`'s own turn — the mechanism
+    /// [`process_replay_commands`](Self::process_replay_commands) uses to re-feed a saved replay's
+    /// log back through, generalized here to a buffer assembled at runtime instead of one read
+    /// back from a replay file. Resolves `storm_player`'s BW player identity (storm id → unique
+    /// player → that team's game player, for a team game) and stamps `command_user`/
+    /// `unique_command_user` for the one call, restoring the local player's identity immediately
+    /// after so nothing downstream mistakes this client for `storm_player`.
+    ///
+    /// Unlike `process_replay_commands`, this leaves `enable_rng` untouched: that toggle exists for
+    /// re-deriving a saved replay's RNG draws, and every command this helper injects (chat, so far)
+    /// consumes no RNG — there is nothing here for it to gate.
+    ///
+    /// `are_recorded_replay_commands` is the third argument the native processor (and its
+    /// `ProcessGameCommands` hook) takes: `1` means "these commands are already on the replay
+    /// log" — the value `process_replay_commands` passes when re-feeding a saved replay's own
+    /// commands back through, so the native processor's `add_to_replay_data` does not double-write
+    /// them. `0` means a live, not-yet-recorded command, which the processor *does* append to the
+    /// growing replay log. A message produced live during this game wants the latter, so it lands
+    /// in the replay the same way it would have if the native chat gateway still worked.
+    ///
+    /// One side effect worth naming: the `ProcessGameCommands` hook's "didn't see a sync command
+    /// this call" bookkeeping is gated only on `is_replay` (never true here — this only runs
+    /// during a live game), not on this argument, so an injected call — which never carries a
+    /// `0x37` sync command — logs the same "will be dropped" line real turn dispatch logs for an
+    /// actually-desynced peer. That bookkeeping (`dropped_players`, read only by
+    /// `check_player_drops`) is a logging dedup flag, not itself what drops anyone from the game;
+    /// this is a known, accepted side effect of reusing this entry point for out-of-band chat
+    /// rather than adding a new native one.
+    ///
+    /// Returns `false` (injecting nothing) if `storm_player` doesn't currently own a `players[]`
+    /// slot — see [`unique_player_for_storm`](Self::unique_player_for_storm).
+    unsafe fn process_injected_game_command(
+        &self,
+        commands: &[u8],
+        storm_player: StormPlayerId,
+        are_recorded_replay_commands: u32,
+    ) -> bool {
+        unsafe {
+            let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
+                return false;
+            };
+            let players = self.players();
+            let game = self.game();
+            let game_player = if game_thread::is_team_game() {
+                // Teams start from 1
+                let team = (*players.add(unique_player as usize)).team;
+                (*game).team_game_main_player[team as usize - 1]
+            } else {
+                unique_player
+            };
+            self.command_user.write(game_player as u32);
+            self.unique_command_user.write(unique_player as u32);
+            (self.process_game_commands)(
+                commands.as_ptr(),
+                commands.len(),
+                are_recorded_replay_commands,
+            );
+            self.command_user.write(self.local_player_id.resolve());
+            self.unique_command_user
+                .write(self.local_unique_player_id.resolve());
+            true
+        }
+    }
+
+    /// In-game chat delivered from peers over the netcode v2 relay: drains what's arrived (see
+    /// [`TurnState::drain_chat_inbound`](netcode_v2::TurnState::drain_chat_inbound)) and injects
+    /// each message that passes the receive-side scope filter
+    /// ([`chat_target_visible`](Self::chat_target_visible)) as the classic chat record. Run once
+    /// per receive on the game thread, alongside the debug forced-leave/desync application.
+    unsafe fn apply_chat_inbound(&self) {
+        unsafe {
+            let Some(messages) = netcode_v2::with_turn_state(|s| s.drain_chat_inbound(true)) else {
+                return; // no live session
+            };
+            for (slot, chat) in messages {
+                let Some(sender_storm) =
+                    netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten()
+                else {
+                    debug!("netcode v2: chat from unmapped slot {slot:?}; dropping");
+                    continue;
+                };
+                let target = netcode_v2::ChatTarget::from_wire(chat.target_kind, chat.target_slot);
+                if !self.chat_target_visible(sender_storm, target) {
+                    continue;
+                }
+                if !self.inject_chat_message(sender_storm, &chat.text) {
+                    debug!(
+                        "netcode v2: chat from slot {slot:?} (storm {sender_storm:?}) could not \
+                         be attributed to a players[] slot; dropping"
+                    );
+                }
+            }
         }
     }
 

@@ -103,6 +103,14 @@ interface IpcInvokeables {
    */
   activeGameForceDesync: (gameId: string) => void
   /**
+   * Tells the active game process to send an in-game chat message over its netcode v2 session, as
+   * this client (debug game builds only). Only registered in development (`isDev`). Sends to
+   * everyone (`ChatTarget::All`) — there's currently no way to pick a narrower scope from here.
+   * Fire-and-forget: there's no reply; verify via a peer's rendered chat, or this client's own via
+   * {@link IpcInvokeables.activeGameDebugQueryState}'s `turnState.chatLog`.
+   */
+  activeGameSendChat: (gameId: string, text: string) => void
+  /**
    * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
    * save; the only teardown that works mid-game). Only registered in development (`isDev`).
    * Fire-and-forget: there's no reply.

@@ -391,6 +391,19 @@ mod tests {
     }
 
     #[test]
+    fn debug_control_send_chat_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"sendChat","text":"gg"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::SendChat { text, target }
+            ))) if text == "gg" && target == crate::debug_control::DebugChatTarget::All
+        ));
+    }
+
+    #[test]
     fn unknown_command_still_errors() {
         let result = handle_app_message(r#"{"command":"notARealCommand","payload":null}"#.into());
         assert!(matches!(result, Err(HandleMessageError::UnknownCommand(_))));
