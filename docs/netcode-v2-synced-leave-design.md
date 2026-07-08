@@ -311,6 +311,29 @@ without a reconnect path waiting is pointless. Shares its UI/overlay with self-d
   built to THIS shape (named players, timer, non-modal), initially wired to v1 semantics; D11 fills the
   [Reconnect] branch and the drop-gating.
 
+**INTERIM SHAPE BUILT + LIVE-PROVEN (2026-07-08).** rp2 `cbbbcc5`: `SlotConnectivity{slot,connected}`
+frames (ControlFrame oneof 8; mesh oneof 9) fan to every client the instant a slot's link dies (clean
+leaves fan nothing) and on every registration; the authority's leave decision for a DROP holds for
+`DISCONNECT_GRACE` (10 s interim) then decides exactly as before — clean leaves bypass the hold, a
+clean intent during a slot's drop grace cancels it ("left" supersedes held "dropped"), and the hold is
+local/ephemeral on every observing relay so an authority failover never loses the departure (tradeoff:
+the grace collapses to immediate on promotion rather than restarting — the D11 revisit restarts it
+when the window grows + manual Drop arrives). SB `2268cd7ea`: `TurnState` drains the connectivity
+channel on the game thread (post-`game_started` only), and an always-on non-interactable egui notice
+(top-center, no input rect — clicks/keys pass through, ships in release) names each dropped peer with
+an elapsed counter, ending on reconnect or the slot's applied leave; the client's OWN link death is
+detected as the connectivity channel CLOSING (deterministic on driver death) and renders "Connection
+to the server lost" (never for local-only sessions). **Live-proven:** hard-killed a client's game
+process → survivor showed "claude-2 lost connection — waiting… (4s)" during the grace, automatic drop
+at ~23 s total (~13 s QUIC idle detect + 10 s grace), correct win/loss reconciled; killed the relay →
+both clients showed the self-disconnect line. **Bonus finding:** BW's NATIVE "Waiting for players"
+stall dialog still appears under 2c (it keys on the sim stall, not Storm) with a Drop Players button
+and countdown — its name list is empty under the seam and its Drop button's behavior under 2c is
+unknown/unwired; cohabitation is acceptable interim, but the D11/manual-drop work should either feed
+it names or suppress it in favor of the egui overlay. Remaining §17/D11 work: manual Drop (RequestDrop
+up the control stream + authority honoring it only past grace), [Reconnect]/[Abandon] actions on the
+self-disconnect notice, longer grace, grace restart on promotion.
+
 ### Pause/unpause through the v2 seam (unproven)
 
 Native pause is a synced turn-stream command and turns keep flowing while paused, so the seam *should*
