@@ -166,6 +166,35 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
   mechanism proven here covers them by construction — a live run on such a map remains an optional
   spot-check. SB `cec74d376`; map upload recipe: `POST /api/1/maps` (Bearer JWT from
   `POST /api/1/sessions` with `clientIds: []` + `Origin` header), multipart `file` + `extension`.
+- **Raw end-of-game results + server-side scoring — DONE + live-proven (2026-07-08, SB
+  `e74feb535` + the stage-2 rules commit).** Clients report RAW evidence instead of digested
+  verdicts, on both the relay GameResult path and HTTP results2: `{version: 2, userId, resultCode,
+  time, players[] {userId|null, bwPlayerId, stormId|null, race, victoryState raw 0-3, alliances[8]
+  raw 0-2}, netPlayers[] {stormId, wasDropped, hasQuit}, localPlayerLoseType}` (JSON, camelCase;
+  computers get rows with null user id — this also made the only-computers-playing rule derivable,
+  it was dead client-side because the id mapping held humans only). Fits the relay's 4096-byte
+  GameResult cap (~1.5 KB max; pinned by a DLL test — rp2 untouched, payload stays opaque). The
+  server stores the raw body verbatim in `games_users.reported_results` (versioned jsonb, legacy
+  digests discriminated by absent `version`) and derives verdicts at reconcile time via a
+  line-faithful TS port of `determine_game_results`
+  (`server/lib/games/raw-results.ts::deriveResultSubmission`, all 13 Rust scenario tests ported) —
+  scoring is server-iterable and past games can be re-derived from stored evidence. The DLL keeps
+  its digest ONLY for the local `/game/result` app message. On top of the port, two evidence-based
+  rules the client digest couldn't have (stage 2): **corroborated-victory veto** (a non-reporter
+  raw Victory who has quit is downgraded to Disconnected unless their OWN report claims
+  self-Victory — sound because the DLL sends its result frame before its leave intent, so a real
+  winner always has a self-claim on file) and **synthesized last-standing victory** (no victor
+  after the veto + reporter's original state Playing + reporter the sole not-quit human + no
+  computer playing ⇒ reporter gets the win BW should have awarded; linger-proof because a real
+  winner's corroborated Victory blocks the no-victor precondition). Live-proven: melee 1v1
+  (win/loss, raw stored), Team Melee 2v1 (both teammates win), and Travis's manual one-way-ally
+  experiments — BOTH the clean-quit and the drop variants scored correctly natively (leaver loss /
+  survivor win, evidence captured in the DB), so the historical inversion was most likely the old
+  client digest's bug; the stage-2 rules verify as no-ops on correct-case evidence and remain
+  defense-in-depth (unit-tested against synthetic inversion evidence end-to-end through
+  reconciliation). NOTE: a dev-server restart is required to pick up server schema changes —
+  webpack-watch recompiles but the running process keeps the old bundle (cost us one dropped-report
+  game live).
 - **Replay playback under the swept build — FIXED + live-proven.** The deleted join loop used to
   overwrite the viewer slot's placeholder storm id; without it `ready_lobby_for_start` →
   `update_nation_and_human_ids` tripped `assert!(storm_id < 16)` (saw junk `27`). Fix: the replay
@@ -181,12 +210,16 @@ Terse; the design detail is in the referenced commits, the code, the anchors doc
 
 ### Chat follow-ups
 
-- **Send-side target scope is stubbed to All.** `dialog_hook::chat_target_scope` is plumbed but always
-  returns `ChatTarget::All` — bw_dat's `Control` exposes no radio "checked" accessor for the `MsgFltr`
-  dialog. It logs a one-time dump of the MsgFltr children (id/label/flags) on first chat send; a single
-  live run pins the mapping, after which the All/Allies/Observers/Player selection can be read.
-  Receiver-side scope filtering is already implemented (incl. the observer cases: an observer is
-  allied with no one, so Allies-scoped chat never shows to or from one).
+- **Send-side target scope is stubbed to All — MsgFltr dump CAPTURED (Travis live, 2026-07-08),
+  pivot to `chat_box_mode`.** The one-time dump fired: children are id=1 "Send to player", id=2
+  "Send to everyone", id=3 "Send to allies", id=4 = the selected player's name, Accept/Cancel
+  −2/−3, title −1 "Messaging". BUT all three radio options report identical flags (0x106) even
+  while Travis switched scopes — the checked state is not in the dumped control flags, so the
+  MsgFltr-read approach is a dead end. The robust path is the one the original chat RE already
+  identified: read the **`chat_box_mode` global** (selects the InGame* channel; the four "InGame*"
+  strings referenced only by `toggle_chat_box` are the samase anchor). A BinaryNinja/samase task,
+  no human run needed. Receiver-side scope filtering is already implemented (incl. the observer
+  cases: an observer is allied with no one, so Allies-scoped chat never shows to or from one).
 - **Scrollable chat-history box (open decision).** The `0x5c`/`print_text` path feeds the classic
   transmission-line overlay only; SC:R's modern scrollable in-game box is fed by `sub_682140` (opaque
   `battlenet::chat::Message`). **Verify first** whether that box even renders in-game on retail SC:R
@@ -501,15 +534,38 @@ end.** This supersedes the interim 10 s auto-drop above.
   (no camera pan during the wait) matches a real pause. **The chat receive/inject path was RE-proven
   overflow-safe** (`add_to_replay_data` splits frozen-frame blocks at 255 B + bounds-checks capacity;
   the historical replay-pause overflow was the *reader*, already reimplemented as `step_replay_commands`).
-- **Remaining (human-gated, ~2 min at a live game):** confirm chat opens/types/sends under the overlay
-  and unit orders (move/attack) do nothing while blocked. All else is verified.
+- **Human-gated checks: ALL DONE (Travis live, 2026-07-08 late).** Chat opens/types/sends under the
+  overlay and orders do nothing while blocked (Travis-confirmed working). Pause/unpause through the
+  seam: done in a live 1v1 (paused, chatted while paused, unpaused — comparator silent, game
+  resolved normally). **Live observation to keep in mind:** BW's NATIVE sim-level stall-drop still
+  fires ~45 s after a peer's link death (the suppressed "TimeOut" dialog's countdown logic lives on
+  — we hid the dialog, not the timer) and ends the game without any manual Drop click; the
+  no-auto-drop policy holds at the RELAY layer (departure stays undecided until RequestDrop/abandon)
+  while the sim auto-drops anyway. Games can't hang, results flow fine (proven repeatedly today),
+  but the manual Drop button effectively matters only for windows shorter than the native timer —
+  revisit if we ever want waits longer than ~45 s to be possible (would need the native drop timer
+  disabled, a separate RE task).
+- **Overlay polish (2026-07-08 late, Travis feedback live):** grid columns spaced 20px with a 110px
+  uniform min width (name/elapsed constant width), Drop button fixed at 140×32 via `add_sized`
+  ("Drop (45s)" → "Drop" renders the same footprint), tier-1 rows reserve the button's exact
+  footprint so the confirmed-tier upgrade doesn't resize the row/panel, panel anchored 72px from
+  the top (clears the resource-indicator band). Bare labels for name/elapsed (a fixed-rect or
+  layout-wrapped label breaks the row baseline — learned twice). **Elapsed timer shows on
+  confirmed-tier rows ONLY** (Travis's call): the stall tier runs on a different clock, so
+  displaying it made the counter visibly reset to 0 on relay confirmation; now the one visible
+  clock is the same one the Drop button's 45 s unlock counts against. **Chat fix:** Enter on an
+  empty chat box no longer sends a blank message (skips the send tap entirely, falls through to
+  native close) — was a regression vs native behavior in the GameChat send tap. **egui-upgrade
+  investigation (Travis suggestion):** newer egui has better layout tooling that would have made
+  this simpler; an upgrade risks the replay/obs UI and the loading screen, so investigate it as
+  part of the Overlay UI dev mode arc — the eframe preview app is exactly the tool to make an
+  upgrade safely verifiable without game launches.
 
-### Pause/unpause through the v2 seam (unproven)
+### Pause/unpause through the v2 seam — ✅ LIVE-PROVEN (Travis, 2026-07-08 late)
 
-Native pause is a synced turn-stream command and turns keep flowing while paused, so the seam *should*
-carry it unchanged — but nobody has proven pause/unpause through the v2 transport, and the F10-quit RE
-showed quit-adjacent flows have surprising native structure. Verify in a live 2-player game: pause, chat
-while paused, unpause, confirm no stall/desync.
+Paused via the F10 menu in a live 1v1, chatted while paused, unpaused: no stall, comparator silent,
+game played on and resolved normally (the game clock lagging wall-clock across the pause confirmed
+the sim genuinely froze). The seam carries pause unchanged, as designed.
 
 **Automation attempt (2026-07-07): needs a human or the test harness.** Synthetic keyboard input
 (SendKeys) DOES reach the game — two live chat-box sends fired the send tap — but menu interactions
@@ -620,21 +676,21 @@ shape should be removed rather than ossified:
 
 ### Backlog (small / deferred)
 
-- **Raw client results + server-side scoring (direction agreed with Travis 2026-07-08; subsumes the
-  ally-quit fix).** Clients stop reporting digested verdicts and instead report RAW end-of-game
-  evidence: per-player BW victory state (pre-allied-victors-expansion), the end-time alliance
-  matrix, and anything else scoring needs (departure kind/timing already arrives via the relay's
-  departure notices). The server derives the verdict — one brain, iterable without client releases,
-  cross-client-diffable field by field. Motivating case: a one-way mid-game alliance in unranked
-  melee (loser allies winner, then leaves) makes BW's native allied-victors pass score the LEAVER
-  victorious; the survivor's digested report arrives inverted and reconciliation can only shrug
-  (unknown/unknown). With raw evidence the ally-quit case is trivially distinguishable from genuine
-  allied victory, and the concession-only principle extends naturally (a live-game leaver is not
-  awardable a win off an opponent's report). Design points: version the raw schema from day one;
-  raw-ONLY (no client digest — the DLL keeps its local victory/defeat dialog as presentation, not
-  scoring); the GameResult frame stays relay-opaque (payload just gets richer); majority/concession
-  arbitration unchanged, just over better inputs. Ranked stays additionally guarded by
-  `lockedAlliances`.
+- **In-game network stats overlay (`/netstat` — Travis request, 2026-07-08).** A player-facing,
+  toggleable in-game surface (chat command `/netstat` via the existing `handle_chat_command` path,
+  and/or a hotkey) showing per-player link health for diagnosing bad games live: who has been
+  stalling the sim (and cumulative stall time attributable per slot — the IN hook knows which slots
+  it was waiting on), turn-arrival jitter/latency, packet loss / retransmits (quinn exposes
+  per-connection stats: RTT, lost packets, congestion window), buffer-size directives over time
+  (the relay's adaptive control law already pushes these — a small sparkline of buffer depth +
+  change markers), and own-link state history. Data sources are all already in-process:
+  `TurnState` (stall tracking, per-slot turn arrival), the driver/quinn connection stats, and
+  buffer directives; the relay could optionally push per-slot mesh-side stats on a control frame
+  later (start client-side-only). Render as an egui panel built on the **Overlay UI dev mode**
+  view-model pattern — graphs/sparklines iterate in the eframe preview app without game launches,
+  making this a natural second consumer of that arc (build the dev mode first, then this). The
+  existing `network_stalls` end-of-game summary (count/min/max/median) is the seed; keep a ring
+  buffer of per-slot events so the panel can show "last N minutes" rather than lifetime aggregates.
 
 - **Client desync-report hook.** Closes the pure-fog desync gap (a divergence living only in
   vision-masked fog that never perturbs a hashed value and reaches the result-lock first). A client
