@@ -197,7 +197,7 @@ export function AccountSettings() {
     }
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
       snackbarController.showSnackbar(
-        t('settings.user.account.avatar.tooLarge', 'That image is too large (max 5 MB).'),
+        t('settings.user.account.avatar.tooLarge', 'That image is too large (max 5 MB).'),
       )
       return
     }

@@ -1304,7 +1304,7 @@
           "invalidType": "Please choose an image file.",
           "removeError": "Something went wrong removing your avatar.",
           "removeSuccess": "Avatar removed.",
-          "tooLarge": "That image is too large (max 5\u00a0MB).",
+          "tooLarge": "That image is too large (max 5 MB).",
           "upload": "Upload avatar",
           "uploadError": "Something went wrong updating your avatar.",
           "uploadSuccess": "Avatar updated."
