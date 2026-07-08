@@ -114,22 +114,25 @@ pub struct TurnStateSnapshot {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DisconnectViewSnapshot {
-    /// This client's own connection state, deciding the prominent self notice.
+    /// This client's own connection state, deciding the prominent self notice. Driven only by the
+    /// real self-link signal, never by a guess from the remote roster's behavior — see
+    /// [`DisconnectSelfState`]'s doc comment.
     pub self_state: DisconnectSelfState,
-    /// One entry per blocking or relay-confirmed remote player. Empty while `selfState` owns the
-    /// notice (`interrupted` / `reconnecting`).
+    /// One entry per blocking or relay-confirmed remote player. Empty while `selfState` is
+    /// `reconnecting`.
     pub rows: Vec<DisconnectRowSnapshot>,
 }
 
-/// This client's own connection state within a [`DisconnectViewSnapshot`].
+/// This client's own connection state within a [`DisconnectViewSnapshot`]. Only ever `ok` or
+/// `reconnecting`: an unconfirmed stall — even one covering every remaining remote participant, as
+/// in a 1v1 the instant the lone opponent drops — is exactly as likely to be their link as ours, so
+/// it is never asserted as a self-connection problem; it shows as a per-peer stall row instead (see
+/// `DisconnectTier::Stall`).
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DisconnectSelfState {
     /// Our link is fine; any rows are about peers.
     Ok,
-    /// The whole remote roster went quiet at once with no relay-confirmed drop — likelier our own
-    /// link than every peer at once.
-    Interrupted,
     /// The relay confirmed our own link is down (or the session ended); the driver auto-reconnects.
     Reconnecting,
 }

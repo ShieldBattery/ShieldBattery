@@ -32,12 +32,16 @@ export interface GameChatLogEntry {
   own: boolean
 }
 
-/** This client's own connection state within a {@link GameDisconnectView}. */
+/**
+ * This client's own connection state within a {@link GameDisconnectView}. Driven only by the real
+ * self-link signal, never by a guess from the remote roster's behavior: an unconfirmed stall (even
+ * one covering every remaining remote participant, as in a 1v1 the instant the lone opponent drops)
+ * is exactly as likely to be their link as ours, so it is never asserted as a self-connection
+ * problem — it shows as a per-peer 'stall' row instead.
+ */
 export type GameDisconnectSelfState =
   /** Our link is fine; any rows are about peers. */
   | 'ok'
-  /** The whole remote roster went quiet at once with no relay-confirmed drop — likelier our link. */
-  | 'interrupted'
   /** The relay confirmed our own link is down (or the session ended); the driver auto-reconnects. */
   | 'reconnecting'
 

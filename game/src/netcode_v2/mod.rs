@@ -157,7 +157,7 @@ pub const STALL_TIER_DELAY: Duration = Duration::from_secs(3);
 /// from ever being refused merely for arriving a moment early.
 pub const DROP_UNLOCK_UI: Duration = Duration::from_secs(45);
 
-/// How long a "drop requested…" note lingers on a row after a drop request is submitted. The button
+/// How long a "drop requested..." note lingers on a row after a drop request is submitted. The button
 /// stays available afterward (a re-click is safe); the note just acknowledges the click.
 pub const DROP_REQUESTED_NOTE: Duration = Duration::from_secs(5);
 
@@ -181,10 +181,6 @@ pub struct DisconnectStatus {
     /// detection confirms a link death. A slot appears here whether or not the relay has yet
     /// confirmed its drop.
     pub stalled: Vec<StalledPeer>,
-    /// Whether [`stalled`](Self::stalled) covers every remaining remote participant (and there is at
-    /// least one). When the whole remote roster is blocked at once and the relay has confirmed none
-    /// of them, the local link is the likelier culprit than every peer dropping simultaneously.
-    pub all_remotes_stalled: bool,
     /// When the current sustained turn-stream stall began, if the sim is stalled right now. Cleared
     /// the moment a full step assembles again, so a passing jitter never accumulates toward
     /// [`STALL_TIER_DELAY`].
@@ -226,15 +222,16 @@ pub enum DisconnectTier {
     Confirmed,
 }
 
-/// This client's own connection state, deciding the prominent self-notice.
+/// This client's own connection state, deciding the prominent self-notice. Driven only by the real
+/// self-link signal — the driver's own-slot connectivity emit, or the turn channels closing outright
+/// (see [`TurnState::pump_connectivity`]) — never by a guess from the remote roster's behavior: an
+/// unconfirmed stall (even one covering every remaining remote participant, as in a 1v1 the instant
+/// the lone opponent drops) is exactly as likely to be their link as ours, so it must never assert
+/// "it's you" — that reads as a per-peer [`Stall`](DisconnectTier::Stall) row instead.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelfState {
     /// Our link is fine; any rows are about peers.
     Healthy,
-    /// The whole remote roster went quiet at once with no relay-confirmed peer drop — far likelier
-    /// our own link than every peer failing together. Shown as a single interrupted notice rather
-    /// than blaming each peer.
-    Interrupted,
     /// The relay confirmed our own link is down (or the session ended). The driver auto-reconnects;
     /// this is the prominent self notice.
     Reconnecting,
@@ -273,7 +270,6 @@ impl DisconnectStatus {
             peers: Vec::new(),
             self_lost: false,
             stalled: Vec::new(),
-            all_remotes_stalled: false,
             stalled_since: None,
             drop_requests: Vec::new(),
         }
@@ -281,29 +277,28 @@ impl DisconnectStatus {
 
     /// Whether the session has a real, relay-acknowledged connection problem right now: our own link
     /// is down, or at least one peer's drop has been relay-confirmed. Deliberately excludes the
-    /// stall-only tier and the `interrupted` self-state heuristic — neither is relay-acknowledged, so
-    /// neither should be strong enough to lock game input against what might be a passing latency
-    /// blip. Used to gate whether `bw_scr::draw_overlay::OverlayState::window_proc` pauses
-    /// game-destined input, so a disconnect overlay in this state behaves like a pause.
+    /// stall-only tier — an unconfirmed stall is not relay-acknowledged, so it should never be strong
+    /// enough to lock game input against what might be a passing latency blip. Used to gate whether
+    /// `bw_scr::draw_overlay::OverlayState::window_proc` pauses game-destined input, so a disconnect
+    /// overlay in this state behaves like a pause.
     pub fn is_blocking(&self) -> bool {
         self.self_lost || !self.peers.is_empty()
     }
 
-    /// This client's own connection state at `now`. Relay-confirmed self-loss wins outright; failing
-    /// that, a sustained whole-roster stall with no confirmed peer drop reads as our own link.
-    pub fn self_state(&self, now: Instant) -> SelfState {
+    /// This client's own connection state at `now`. Driven solely by [`self_lost`](Self::self_lost) —
+    /// the real self-link signal — never by a guess from the remote roster's behavior (see
+    /// [`SelfState`]'s doc comment for why).
+    pub fn self_state(&self, _now: Instant) -> SelfState {
         if self.self_lost {
             SelfState::Reconnecting
-        } else if self.all_remotes_stalled && self.peers.is_empty() && self.stall_sustained(now) {
-            SelfState::Interrupted
         } else {
             SelfState::Healthy
         }
     }
 
     /// The display-ready disconnect rows at `now`, one per blocking or relay-confirmed remote player.
-    /// Empty when the self-state owns the notice (reconnecting or interrupted): the single self line
-    /// is the whole story there. A relay-confirmed peer always shows as
+    /// Empty while [`self_state`](Self::self_state) is [`Reconnecting`](SelfState::Reconnecting): the
+    /// single self notice is the whole story there. A relay-confirmed peer always shows as
     /// [`Confirmed`](DisconnectTier::Confirmed); a merely-stalled peer shows as
     /// [`Stall`](DisconnectTier::Stall) only once the stall is sustained, and never duplicates a peer
     /// already shown confirmed.
@@ -985,7 +980,7 @@ impl TurnState {
             *slot = None;
         }
         // An applied leave ends the survivor overlay's lifetime for this slot: the peer has left
-        // lockstep (whether it reconnected in time or was dropped for good), so the "waiting…"
+        // lockstep (whether it reconnected in time or was dropped for good), so the "waiting..."
         // notice and any pending drop-request acknowledgement no longer apply.
         if let Some(slot) = self.slot_for_storm(storm_id) {
             self.disconnected.retain(|&(s, _)| s != slot);
@@ -1068,11 +1063,9 @@ impl TurnState {
             })
             .collect();
         let stalled = self.stalled_peers();
-        let remote_required = self.remote_required_count();
         DisconnectStatus {
             peers,
             self_lost: self.self_link_lost,
-            all_remotes_stalled: remote_required > 0 && stalled.len() == remote_required,
             stalled,
             stalled_since: self.stall_start,
             drop_requests: self.drop_requests.clone(),
@@ -1095,17 +1088,6 @@ impl TurnState {
                 Some(StalledPeer { slot, user_id })
             })
             .collect()
-    }
-
-    /// How many remote participants the sim still requires a turn from each step: every mapped,
-    /// still-required slot other than our own. Shrinks as peers depart (an applied leave clears a
-    /// slot's `required`), so it tracks the live remote roster rather than the original one.
-    fn remote_required_count(&self) -> usize {
-        let local_storm = self.storm_id_for_slot(self.local_slot);
-        (0..bw::MAX_STORM_PLAYERS)
-            .filter(|&storm| self.required[storm])
-            .filter(|&storm| Some(StormPlayerId(storm as u8)) != local_storm)
-            .count()
     }
 
     /// The session user occupying a rally-point2 slot, per the coordinator's roster.
@@ -1447,7 +1429,6 @@ impl TurnState {
         let status = self.disconnect_status();
         let self_state = match status.self_state(now) {
             SelfState::Healthy => DisconnectSelfState::Ok,
-            SelfState::Interrupted => DisconnectSelfState::Interrupted,
             SelfState::Reconnecting => DisconnectSelfState::Reconnecting,
         };
         let rows = status
@@ -2892,7 +2873,6 @@ mod tests {
         assert_eq!(status.stalled.len(), 1);
         assert_eq!(status.stalled[0].slot, PEER_SLOT);
         assert_eq!(status.stalled[0].user_id, PEER_USER);
-        assert!(status.all_remotes_stalled);
 
         // Once the peer's synced leave applies, it is no longer required: nothing remote remains to
         // wait on.
@@ -2900,7 +2880,6 @@ mod tests {
         state.mark_slot_left(peer_storm);
         let status = state.disconnect_status();
         assert!(status.stalled.is_empty());
-        assert!(!status.all_remotes_stalled);
     }
 
     #[test]
@@ -2914,7 +2893,6 @@ mod tests {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
             }],
-            all_remotes_stalled: false,
             stalled_since: Some(now - Duration::from_secs(1)),
             drop_requests: Vec::new(),
         };
@@ -2943,7 +2921,6 @@ mod tests {
             }],
             self_lost: false,
             stalled: Vec::new(),
-            all_remotes_stalled: false,
             stalled_since: None,
             drop_requests: Vec::new(),
         };
@@ -2974,7 +2951,6 @@ mod tests {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
             }],
-            all_remotes_stalled: true,
             stalled_since: Some(now - STALL_TIER_DELAY * 2),
             drop_requests: Vec::new(),
         };
@@ -2984,36 +2960,43 @@ mod tests {
     }
 
     #[test]
-    fn self_state_interrupted_only_when_the_whole_roster_stalls_unconfirmed_and_sustained() {
+    fn a_whole_roster_stall_with_no_self_signal_names_the_stalled_peer_not_the_self() {
+        // The 1v1 false-positive this guards against: the instant the lone opponent drops,
+        // `stalled` trivially covers the whole remote roster. Without a real self-link signal, this
+        // must read as "waiting for {opponent}", never as "your connection is interrupted" — the
+        // self notice is reserved for `self_lost`, which nothing here sets.
         let now = Instant::now();
-        let base = DisconnectStatus {
+        let status = DisconnectStatus {
             peers: Vec::new(),
             self_lost: false,
             stalled: vec![StalledPeer {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
             }],
-            all_remotes_stalled: true,
             stalled_since: Some(now - STALL_TIER_DELAY),
             drop_requests: Vec::new(),
         };
-        assert_eq!(base.self_state(now), SelfState::Interrupted);
-        // The single interrupted notice owns the display: no per-peer rows.
-        assert!(base.rows(now).is_empty());
+        assert_eq!(status.self_state(now), SelfState::Healthy);
+        let rows = status.rows(now);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].slot, PEER_SLOT);
+        assert_eq!(rows[0].tier, DisconnectTier::Stall);
 
-        // Not yet sustained: still healthy (an ordinary between-turn gap).
+        // Not yet sustained: no row at all (an ordinary between-turn gap), still not a self notice.
         let brief = DisconnectStatus {
             stalled_since: Some(now),
-            ..base
+            ..status
         };
         assert_eq!(brief.self_state(now), SelfState::Healthy);
+        assert!(brief.rows(now).is_empty());
 
-        // A relay-confirmed self-loss overrides the heuristic outright.
+        // Only a real self-link signal produces the self notice.
         let lost = DisconnectStatus {
             self_lost: true,
             ..brief
         };
         assert_eq!(lost.self_state(now), SelfState::Reconnecting);
+        assert!(lost.rows(now).is_empty());
     }
 
     #[test]
@@ -3027,7 +3010,6 @@ mod tests {
             }],
             self_lost: false,
             stalled: Vec::new(),
-            all_remotes_stalled: false,
             stalled_since: None,
             drop_requests: vec![(PEER_SLOT, now - ago)],
         };
@@ -3046,12 +3028,11 @@ mod tests {
                 slot: PEER_SLOT,
                 user_id: PEER_USER,
             }],
-            all_remotes_stalled: true,
             stalled_since: Some(now - STALL_TIER_DELAY * 2),
             ..DisconnectStatus::healthy()
         };
         assert!(!stalled_only.is_blocking());
-        assert_eq!(stalled_only.self_state(now), SelfState::Interrupted);
+        assert_eq!(stalled_only.self_state(now), SelfState::Healthy);
 
         // A relay-confirmed peer drop blocks, regardless of the unlock threshold.
         let confirmed = DisconnectStatus {

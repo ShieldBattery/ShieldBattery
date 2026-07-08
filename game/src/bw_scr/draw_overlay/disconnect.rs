@@ -1,6 +1,6 @@
 use egui::{
-    Align2, Color32, CornerRadius, Frame, InnerResponse, Margin, Pos2, RichText, Sense, Stroke,
-    Vec2, pos2, vec2,
+    Align, Align2, Color32, CornerRadius, Frame, InnerResponse, Layout, Margin, Pos2, RichText,
+    Sense, Stroke, Vec2, pos2, vec2,
 };
 
 use crate::app_messages::{GameSetupInfo, SbUser, SbUserId};
@@ -31,12 +31,19 @@ const DROP_BUTTON_DISABLED_TEXT: Color32 = colors::GREY60;
 
 /// Text size for a per-player row.
 const ROW_SIZE: f32 = 18.0;
-/// Text size for the prominent self-disconnect notice (shared by the reconnecting and interrupted
-/// states — both are self-connection warnings and read with equal prominence).
+/// Text size for the peers panel's header line — a bit larger than a row, so it reads as the single
+/// statement of what the panel is rather than another row.
+const HEADER_SIZE: f32 = 20.0;
+/// Text size for the prominent self-disconnect notice.
 const SELF_SIZE: f32 = 24.0;
 /// Minimum size of the Drop button's hit area — noticeably larger than a text-sized default so it
 /// reads unambiguously as a clickable button rather than a label.
 const DROP_BUTTON_SIZE: Vec2 = Vec2 { x: 96.0, y: 32.0 };
+/// Horizontal gap between grid columns, and between the Drop button and its drop-requested
+/// acknowledgement within the action cell.
+const COLUMN_SPACING: f32 = 14.0;
+/// Vertical gap between grid rows.
+const ROW_SPACING: f32 = 6.0;
 
 /// One display-ready disconnect row: a logical row from the turn state with its player name
 /// resolved. Holds no BW or turn-state types, so the render path below depends only on this and
@@ -137,24 +144,18 @@ fn render_disconnect_view(
                     ui.vertical_centered(|ui| match view.self_state {
                         // TODO(tec27): Translate this
                         SelfState::Reconnecting => {
-                            draw_self_notice(ui, "Lost connection to the server, reconnecting...")
+                            draw_self_notice(ui, "Lost connection to the server, reconnecting…")
                         }
-                        // TODO(tec27): Translate this
-                        SelfState::Interrupted => draw_self_notice(ui, "Connection interrupted…"),
-                        SelfState::Healthy => {
-                            for row in &view.rows {
-                                draw_row(ui, row, &mut clicked);
-                            }
-                        }
+                        SelfState::Healthy => draw_peers_panel(ui, &view.rows, &mut clicked),
                     });
                 });
             clicked
         })
 }
 
-/// Draws a prominent self-connection notice: a signal-lost icon beside larger, warning-coloured
-/// text. Shared by the relay-confirmed "reconnecting" state and the unconfirmed "interrupted"
-/// heuristic — both are self-connection warnings and read with equal prominence.
+/// Draws the prominent self-connection notice: a signal-lost icon beside larger, warning-coloured
+/// text. Only ever shown for a relay-confirmed self-link loss (see [`SelfState`]) — never on a mere
+/// guess from the remote roster's behavior.
 fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
     ui.horizontal(|ui| {
         ui.add_space(2.0);
@@ -169,35 +170,59 @@ fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
     });
 }
 
-/// Draws one player row: the waiting/disconnect message, the elapsed counter, and — for a
-/// relay-confirmed row — the manual Drop button (disabled with a countdown until the unlock
-/// threshold, then clickable) and any request note. A click on the enabled button pushes the row's
-/// slot into `clicked`.
-fn draw_row(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Vec<SlotId>) {
-    ui.horizontal(|ui| {
-        // TODO(tec27): Translate these
-        let message = match row.tier {
-            DisconnectTier::Stall => format!("Waiting for {}…", row.name),
-            DisconnectTier::Confirmed => format!("{} lost connection, waiting...", row.name),
-        };
-        ui.label(
-            RichText::new(message)
-                .size(ROW_SIZE)
-                .color(PRIMARY)
-                .family(display_family()),
-        );
-        ui.label(
-            RichText::new(format!("({}s)", row.seconds))
-                .size(ROW_SIZE)
-                .color(SECONDARY)
-                .family(display_family()),
-        );
-        if row.tier == DisconnectTier::Confirmed {
-            draw_drop_button(ui, row, clicked);
-        }
+/// Draws the peers panel: a "Waiting for players" header followed by one column-aligned row per
+/// blocking or relay-confirmed player — name, elapsed time, and (for a relay-confirmed row) the
+/// manual Drop button. Mirrors the layout of SC:R's native waiting-for-players dialog rather than a
+/// per-row sentence, so several simultaneous disconnects stack as a clean table instead of repeated
+/// shortened sentences. The header states once what the panel is; individual rows don't restate it.
+fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut Vec<SlotId>) {
+    // TODO(tec27): Translate this
+    ui.label(
+        RichText::new("Waiting for players")
+            .size(HEADER_SIZE)
+            .color(PRIMARY)
+            .strong()
+            .family(display_family()),
+    );
+    ui.add_space(8.0);
+    egui::Grid::new("sb_disconnect_rows")
+        .num_columns(3)
+        .spacing(vec2(COLUMN_SPACING, ROW_SPACING))
+        .show(ui, |ui| {
+            for row in rows {
+                ui.label(
+                    RichText::new(&row.name)
+                        .size(ROW_SIZE)
+                        .color(PRIMARY)
+                        .family(display_family()),
+                );
+                ui.label(
+                    RichText::new(format!("{}s", row.seconds))
+                        .size(ROW_SIZE)
+                        .color(SECONDARY)
+                        .family(display_family()),
+                );
+                draw_action_cell(ui, row, clicked);
+                ui.end_row();
+            }
+        });
+}
+
+/// A row's action-column cell: the manual Drop button for a [`Confirmed`](DisconnectTier::Confirmed)
+/// row (with its drop-requested acknowledgement alongside it, if a click just happened), or nothing
+/// for a [`Stall`](DisconnectTier::Stall) row — there is no relay-confirmed death yet to drop.
+fn draw_action_cell(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Vec<SlotId>) {
+    if row.tier != DisconnectTier::Confirmed {
+        // An explicit empty cell, so every row touches all three grid columns the same way.
+        ui.label("");
+        return;
+    }
+    ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+        draw_drop_button(ui, row, clicked);
         if row.drop_requested {
+            // TODO(tec27): Translate this
             ui.label(
-                RichText::new("drop requested...")
+                RichText::new("drop requested…")
                     .size(ROW_SIZE)
                     .color(SECONDARY)
                     .family(display_family()),
@@ -290,13 +315,14 @@ fn paint_signal_lost_icon(ui: &mut egui::Ui, color: Color32) {
 }
 
 impl OverlayState {
-    /// Draws the survivor disconnect notice: a small, translucent panel anchored top-center that
-    /// names the players the local simulation is waiting on. A row starts as a plain
-    /// stall-tier "Waiting for {name}…" the moment the turn stream stalls, and upgrades to
-    /// "{name} lost connection, waiting..." once the relay confirms that link is dead. A confirmed
-    /// row grows a Drop button immediately (greyed out with a countdown until the unlock threshold,
-    /// then clickable); while this client's own link is down (or the whole remote roster stalls
-    /// unconfirmed), a single prominent notice replaces the per-peer rows.
+    /// Draws the survivor disconnect notice: a small, translucent panel anchored top-center. While
+    /// this client's own link is relay-confirmed down, it is the single prominent self notice (never
+    /// on a mere stall, however wide, since an unconfirmed stall is exactly as likely to be a peer's
+    /// link as ours). Otherwise, whenever the local simulation is blocked on at least one remote
+    /// participant's turn (a mere stall) or the relay has confirmed a peer's link death, it is a
+    /// "Waiting for players" header over one column-aligned row per such player — name, elapsed
+    /// time, and, for a relay-confirmed row, a Drop button (greyed out with a countdown until the
+    /// unlock threshold, then clickable).
     ///
     /// Renders in every build — this is product UX, not debug output — and only while there is
     /// something to report; an all-healthy status draws nothing. The panel captures mouse input only
