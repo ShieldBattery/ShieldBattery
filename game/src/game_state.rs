@@ -2169,6 +2169,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2258,6 +2259,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2345,6 +2347,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2431,6 +2434,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2517,6 +2521,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2658,6 +2663,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2795,6 +2801,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -2936,6 +2943,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -3075,6 +3083,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -3227,6 +3236,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -3370,6 +3380,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -3483,6 +3494,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),
@@ -3630,6 +3642,7 @@ mod tests {
         let local_user = SbUser {
             id: 1.into(),
             name: "local".to_string(),
+            avatar_url: None,
         };
         let local = JoinedPlayer {
             name: local_user.name.clone(),

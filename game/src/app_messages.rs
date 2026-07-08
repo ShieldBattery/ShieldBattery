@@ -112,6 +112,10 @@ impl Display for SbUserId {
 pub struct SbUser {
     pub id: SbUserId,
     pub name: String,
+    /// A fully-qualified URL to the user's uploaded profile avatar, or `None` if they haven't
+    /// uploaded one. This is a resolved URL, not the underlying storage path.
+    #[serde(rename = "avatarUrl", default)]
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Serialize)]

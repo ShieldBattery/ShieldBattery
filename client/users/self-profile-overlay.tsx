@@ -38,6 +38,7 @@ const Actions = styled.div`
 
 interface SelfProfileOverlayProps {
   username: string
+  avatarUrl?: string
   anchor: HTMLElement | null
   popoverProps: Omit<PopoverProps, 'children' | 'anchorX' | 'anchorY' | 'originX' | 'originY'>
   children: React.ReactNode
@@ -55,7 +56,7 @@ const transition: Transition = {
 }
 
 export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
-  const { username, anchor, popoverProps, children } = props
+  const { username, avatarUrl, anchor, popoverProps, children } = props
   const [anchorX, anchorY] = useElemAnchorPosition(anchor ?? null, 'left', 'top')
 
   return (
@@ -72,7 +73,7 @@ export function SelfProfileOverlay(props: SelfProfileOverlayProps) {
       motionTransition={transition}>
       <PopoverContents>
         <Header>
-          <StyledAvatar user={username} />
+          <StyledAvatar user={username} image={avatarUrl} />
           <Username>{username}</Username>
         </Header>
         <Actions>{children}</Actions>

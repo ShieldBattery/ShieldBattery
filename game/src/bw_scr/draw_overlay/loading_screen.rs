@@ -232,15 +232,17 @@ impl OverlayState {
         users: &[SbUser],
         is_start_team: bool,
     ) {
+        let user = if player.player_type == SbSlotType::Computer {
+            None
+        } else {
+            users.iter().find(|u| Some(u.id) == player.user_id)
+        };
         let username = if player.player_type == SbSlotType::Computer {
             "Computer"
         } else {
-            users
-                .iter()
-                .find(|u| Some(u.id) == player.user_id)
-                .map(|u| u.name.as_str())
-                .unwrap_or("Unknown Player")
+            user.map(|u| u.name.as_str()).unwrap_or("Unknown Player")
         };
+        let avatar_url = user.and_then(|u| u.avatar_url.as_deref());
         let (race_icon, race_color) = match player.bw_race() {
             RACE_PROTOSS => (
                 egui::include_image!("icons/zealot_24px.svg"),
@@ -276,26 +278,43 @@ impl OverlayState {
                     .gap([16.0, 16.0].into())
                     .align_items(FlexAlign::Center)
                     .show(ui, |flex| {
-                        let mut image = Some(
-                            egui::Image::new(race_icon)
+                        let race_image = egui::Image::new(race_icon)
+                            .fit_to_exact_size([40.0, 40.0].into())
+                            .tint(race_color);
+                        // A circular avatar, shown only when the user has uploaded one. The race
+                        // icon always sits on the inner (map-facing) edge, and the avatar (when
+                        // present) sits on the outer edge, with the name in between.
+                        let avatar = avatar_url.map(|url| {
+                            egui::Image::from_uri(url)
+                                .show_loading_spinner(false)
                                 .fit_to_exact_size([40.0, 40.0].into())
-                                .tint(race_color),
-                        );
-
-                        if !is_start_team && let Some(image) = image.take() {
-                            flex.add(egui_flex::item(), image);
-                        }
-                        flex.add_ui(egui_flex::item().shrink(), |ui| {
-                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
-                            ui.label(
-                                RichText::new(username)
-                                    .size(28.0)
-                                    .color(colors::GREY99)
-                                    .family(display_family()),
-                            );
+                                .corner_radius(CornerRadius::same(20))
                         });
-                        if let Some(image) = image {
-                            flex.add(egui_flex::item(), image);
+
+                        let add_name = |flex: &mut FlexInstance| {
+                            flex.add_ui(egui_flex::item().shrink(), |ui| {
+                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                                ui.label(
+                                    RichText::new(username)
+                                        .size(28.0)
+                                        .color(colors::GREY99)
+                                        .family(display_family()),
+                                );
+                            });
+                        };
+
+                        if is_start_team {
+                            if let Some(avatar) = avatar {
+                                flex.add(egui_flex::item(), avatar);
+                            }
+                            add_name(flex);
+                            flex.add(egui_flex::item(), race_image);
+                        } else {
+                            flex.add(egui_flex::item(), race_image);
+                            add_name(flex);
+                            if let Some(avatar) = avatar {
+                                flex.add(egui_flex::item(), avatar);
+                            }
                         }
                     });
             },
