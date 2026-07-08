@@ -60,6 +60,16 @@ pub struct OverlayState {
     draw_layer: u16,
     dialog_debug_inspect_children: bool,
     was_loading: bool,
+    /// Whether BW's chat entry box is currently open for text input, refreshed each
+    /// [`step`](Self::step). [`window_proc`](Self::window_proc) reads this to keep chat usable while
+    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) is otherwise swallowing game input.
+    chat_textbox_open: bool,
+    /// Whether the disconnect overlay is in a real connection-problem state (our own link down, or
+    /// at least one relay-confirmed disconnected peer) — as opposed to the brief stall-only tier,
+    /// which must never lock input against a passing jitter blip. Refreshed each
+    /// [`step`](Self::step) from the same [`DisconnectStatus`] the overlay renders; read by
+    /// [`window_proc`](Self::window_proc) to gate game-destined input.
+    disconnect_blocks_input: bool,
 }
 
 struct UiRect {
@@ -318,6 +328,8 @@ impl OverlayState {
             draw_layer: get_normal_draw_layer(),
             dialog_debug_inspect_children: false,
             was_loading: false,
+            chat_textbox_open: false,
+            disconnect_blocks_input: false,
         }
     }
 
@@ -429,6 +441,11 @@ impl OverlayState {
             .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
+        self.chat_textbox_open = chat_textbox_open;
+        // Only a real connection problem (our own link down, or a relay-confirmed peer drop) blocks
+        // game input — never the brief stall-only tier, so a passing latency jitter can't lock the
+        // player out of their own game.
+        self.disconnect_blocks_input = disconnect_status.is_blocking();
         self.replay_panels.hotkeys_active =
             bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
         let output = ctx.run(input, |ctx| {
@@ -967,7 +984,11 @@ impl OverlayState {
                     };
                     self.mouse_down[button_idx] = pressed;
                     if !handle {
-                        return None;
+                        return if self.should_block_game_pointer_input() {
+                            Some(0)
+                        } else {
+                            None
+                        };
                     }
                     self.captured_mouse_down[button_idx] = pressed;
                     self.events.push(Event::PointerButton {
@@ -998,7 +1019,11 @@ impl OverlayState {
                         .iter()
                         .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
                     if !handle {
-                        return None;
+                        return if self.should_block_game_pointer_input() {
+                            Some(0)
+                        } else {
+                            None
+                        };
                     }
                     // Scroll amount seems to be fine without any extra scaling
                     let amount = ((wparam >> 16) as i16) as f32;
@@ -1036,10 +1061,20 @@ impl OverlayState {
                             return Some(0);
                         }
                     }
+                    if self.should_block_game_keyboard_input(vkey) {
+                        return Some(0);
+                    }
                     None
                 }
                 WM_CHAR => {
                     if !self.ctx.wants_keyboard_input() {
+                        if self.disconnect_blocks_input && !self.chat_textbox_open {
+                            // No vkey to carve VK_RETURN out of here — opening the chat box is
+                            // handled at the WM_KEYDOWN level above, so a WM_CHAR reaching this
+                            // point with the box still closed has no legitimate game-thread
+                            // destination while blocked.
+                            return Some(0);
+                        }
                         return None;
                     }
                     if wparam >= 0x80 {
@@ -1057,6 +1092,28 @@ impl OverlayState {
                 _ => None,
             }
         }
+    }
+
+    /// Whether a mouse event aimed at the game world (it missed every registered ui rect) should be
+    /// swallowed instead of reaching BW, so the disconnect overlay behaves like a pause: unit
+    /// selection, drag-select, and move/attack commands all ride these same messages. Gated on
+    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) — the brief stall-only tier never
+    /// blocks, only a relay-acknowledged connection problem (our own link, or a confirmed peer drop).
+    /// Chat needs no mouse carve-out here: opening, typing, and sending are all keyboard-driven.
+    fn should_block_game_pointer_input(&self) -> bool {
+        self.disconnect_blocks_input
+    }
+
+    /// Whether a keyboard event aimed at the game (a hotkey or unit command, since anything egui or
+    /// the replay-hotkey check wanted has already returned above) should be swallowed instead of
+    /// reaching BW. Mirrors [`should_block_game_pointer_input`](Self::should_block_game_pointer_input)'s
+    /// gate, but carves out the chat surface: with the chat textbox open every key passes through
+    /// (typing, backspace, arrow keys, Enter to send, Escape to close), and with it closed,
+    /// `VK_RETURN` still passes through so the player can open the box in the first place.
+    fn should_block_game_keyboard_input(&self, vkey: i32) -> bool {
+        self.disconnect_blocks_input
+            && !self.chat_textbox_open
+            && vkey != winapi::um::winuser::VK_RETURN
     }
 
     fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {

@@ -5,7 +5,7 @@ use egui::{
 
 use crate::app_messages::{GameSetupInfo, SbUser, SbUserId};
 use crate::bw_scr::draw_overlay::{OverlayState, colors, fonts::display_family};
-use crate::netcode_v2::{self, DisconnectStatus, DisconnectTier, SelfState};
+use crate::netcode_v2::{self, DROP_UNLOCK_UI, DisconnectStatus, DisconnectTier, SelfState};
 use rally_point_client::proto::ids::SlotId;
 
 /// Near-white high-emphasis colour for a row's primary text.
@@ -15,10 +15,28 @@ const WARNING: Color32 = Color32::from_rgb(0xFF, 0xB7, 0x4D);
 /// Muted secondary for the elapsed counters and the drop-request acknowledgement.
 const SECONDARY: Color32 = Color32::from_rgb(0x9A, 0x9F, 0xA6);
 
+/// Enabled Drop button fill: an amber/danger accent, so the button reads as a distinct, deliberate
+/// action rather than another line of text.
+const DROP_BUTTON_FILL: Color32 = colors::AMBER60;
+/// Enabled Drop button border, a shade darker than its fill.
+const DROP_BUTTON_BORDER: Color32 = colors::AMBER30;
+/// Enabled Drop button label colour — dark, for contrast against the bright amber fill.
+const DROP_BUTTON_TEXT: Color32 = colors::GREY10;
+/// Disabled (still-counting-down) Drop button fill: muted grey, distinct from the amber "ready" look.
+const DROP_BUTTON_DISABLED_FILL: Color32 = colors::GREY30;
+/// Disabled Drop button border.
+const DROP_BUTTON_DISABLED_BORDER: Color32 = colors::GREY40;
+/// Disabled Drop button label colour.
+const DROP_BUTTON_DISABLED_TEXT: Color32 = colors::GREY60;
+
 /// Text size for a per-player row.
 const ROW_SIZE: f32 = 18.0;
-/// Text size for the prominent self-disconnect notice.
+/// Text size for the prominent self-disconnect notice (shared by the reconnecting and interrupted
+/// states — both are self-connection warnings and read with equal prominence).
 const SELF_SIZE: f32 = 24.0;
+/// Minimum size of the Drop button's hit area — noticeably larger than a text-sized default so it
+/// reads unambiguously as a clickable button rather than a label.
+const DROP_BUTTON_SIZE: Vec2 = Vec2 { x: 96.0, y: 32.0 };
 
 /// One display-ready disconnect row: a logical row from the turn state with its player name
 /// resolved. Holds no BW or turn-state types, so the render path below depends only on this and
@@ -32,7 +50,9 @@ struct DisconnectRowView {
     seconds: u64,
     /// Which tier the row is in.
     tier: DisconnectTier,
-    /// Whether the manual drop button should show.
+    /// Whether the manual drop button is enabled: shown from the moment the row is
+    /// [`Confirmed`](DisconnectTier::Confirmed), greyed out and disabled with a countdown label
+    /// until this flips, then clickable.
     drop_unlocked: bool,
     /// Whether to briefly acknowledge a just-made drop request.
     drop_requested: bool,
@@ -52,9 +72,15 @@ impl DisconnectView {
         self.rows.is_empty() && self.self_state == SelfState::Healthy
     }
 
-    /// Whether any row offers a drop button — the only thing that makes the overlay interactable.
+    /// Whether any row shows a Drop button (enabled or still counting down) — the only thing that
+    /// makes the overlay interactable. Keyed on the tier rather than `drop_unlocked`: the button
+    /// itself is present (just disabled) before the unlock threshold, so the overlay's input rect
+    /// must be registered from the moment a row goes confirmed, not only once the button is
+    /// clickable.
     fn has_button(&self) -> bool {
-        self.rows.iter().any(|row| row.drop_unlocked)
+        self.rows
+            .iter()
+            .any(|row| row.tier == DisconnectTier::Confirmed)
     }
 }
 
@@ -109,16 +135,12 @@ fn render_disconnect_view(
                 .inner_margin(Margin::symmetric(16, 12))
                 .show(ui, |ui| {
                     ui.vertical_centered(|ui| match view.self_state {
-                        SelfState::Reconnecting => draw_self_lost(ui),
-                        SelfState::Interrupted => {
-                            // TODO(tec27): Translate this
-                            ui.label(
-                                RichText::new("Connection interrupted…")
-                                    .size(ROW_SIZE)
-                                    .color(WARNING)
-                                    .family(display_family()),
-                            );
+                        // TODO(tec27): Translate this
+                        SelfState::Reconnecting => {
+                            draw_self_notice(ui, "Lost connection to the server, reconnecting...")
                         }
+                        // TODO(tec27): Translate this
+                        SelfState::Interrupted => draw_self_notice(ui, "Connection interrupted…"),
                         SelfState::Healthy => {
                             for row in &view.rows {
                                 draw_row(ui, row, &mut clicked);
@@ -130,15 +152,16 @@ fn render_disconnect_view(
         })
 }
 
-/// Draws the prominent self-disconnect notice: a signal-lost icon and larger, warning-coloured text.
-fn draw_self_lost(ui: &mut egui::Ui) {
+/// Draws a prominent self-connection notice: a signal-lost icon beside larger, warning-coloured
+/// text. Shared by the relay-confirmed "reconnecting" state and the unconfirmed "interrupted"
+/// heuristic — both are self-connection warnings and read with equal prominence.
+fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
     ui.horizontal(|ui| {
         ui.add_space(2.0);
         paint_signal_lost_icon(ui, WARNING);
         ui.add_space(8.0);
-        // TODO(tec27): Translate this
         ui.label(
-            RichText::new("Connection to the server lost — reconnecting…")
+            RichText::new(text)
                 .size(SELF_SIZE)
                 .color(WARNING)
                 .family(display_family()),
@@ -147,14 +170,15 @@ fn draw_self_lost(ui: &mut egui::Ui) {
 }
 
 /// Draws one player row: the waiting/disconnect message, the elapsed counter, and — for a
-/// relay-confirmed row past the unlock threshold — the manual Drop button and any request note. A
-/// click pushes the row's slot into `clicked`.
+/// relay-confirmed row — the manual Drop button (disabled with a countdown until the unlock
+/// threshold, then clickable) and any request note. A click on the enabled button pushes the row's
+/// slot into `clicked`.
 fn draw_row(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Vec<SlotId>) {
     ui.horizontal(|ui| {
         // TODO(tec27): Translate these
         let message = match row.tier {
             DisconnectTier::Stall => format!("Waiting for {}…", row.name),
-            DisconnectTier::Confirmed => format!("{} lost connection — waiting…", row.name),
+            DisconnectTier::Confirmed => format!("{} lost connection, waiting...", row.name),
         };
         ui.label(
             RichText::new(message)
@@ -168,27 +192,66 @@ fn draw_row(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Vec<SlotId
                 .color(SECONDARY)
                 .family(display_family()),
         );
-        if row.drop_unlocked {
-            let button = egui::Button::new(
-                RichText::new("Drop")
-                    .size(ROW_SIZE)
-                    .color(PRIMARY)
-                    .family(display_family()),
-            )
-            .fill(colors::CONTAINER_HIGHEST);
-            if ui.add(button).clicked() {
-                clicked.push(row.slot);
-            }
+        if row.tier == DisconnectTier::Confirmed {
+            draw_drop_button(ui, row, clicked);
         }
         if row.drop_requested {
             ui.label(
-                RichText::new("drop requested…")
+                RichText::new("drop requested...")
                     .size(ROW_SIZE)
                     .color(SECONDARY)
                     .family(display_family()),
             );
         }
     });
+}
+
+/// Draws the Drop button for a [`Confirmed`](DisconnectTier::Confirmed) row: shown from the moment
+/// the relay confirms the drop, labeled with a countdown and disabled/greyed until
+/// [`DROP_UNLOCK_UI`], then a plain, clickable, amber/danger-filled button. A click while enabled
+/// pushes the row's slot into `clicked`; a disabled button ignores clicks entirely (no request can
+/// reach a relay that wouldn't yet honor it).
+fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Vec<SlotId>) {
+    let enabled = row.drop_unlocked;
+    let label = if enabled {
+        "Drop".to_string()
+    } else {
+        let remaining = DROP_UNLOCK_UI.as_secs().saturating_sub(row.seconds);
+        format!("Drop ({remaining}s)")
+    };
+    let (fill, border, text_color) = if enabled {
+        (DROP_BUTTON_FILL, DROP_BUTTON_BORDER, DROP_BUTTON_TEXT)
+    } else {
+        (
+            DROP_BUTTON_DISABLED_FILL,
+            DROP_BUTTON_DISABLED_BORDER,
+            DROP_BUTTON_DISABLED_TEXT,
+        )
+    };
+    let button = egui::Button::new(
+        RichText::new(label)
+            .size(ROW_SIZE)
+            .color(text_color)
+            .strong()
+            .family(display_family()),
+    )
+    .fill(fill)
+    .stroke(Stroke::new(1.5, border))
+    .corner_radius(CornerRadius::same(6))
+    .min_size(DROP_BUTTON_SIZE);
+    let response = ui.add_enabled(enabled, button);
+    if enabled && response.hovered() {
+        // egui doesn't vary an explicit `.fill()` on hover, so paint a subtle highlight over the
+        // button ourselves — visible feedback that it's a live, clickable control.
+        ui.painter().rect_filled(
+            response.rect,
+            CornerRadius::same(6),
+            Color32::from_white_alpha(28),
+        );
+    }
+    if response.clicked() {
+        clicked.push(row.slot);
+    }
 }
 
 /// Paints three ascending signal bars with a diagonal slash through them, in `color`, sized to sit
@@ -230,14 +293,20 @@ impl OverlayState {
     /// Draws the survivor disconnect notice: a small, translucent panel anchored top-center that
     /// names the players the local simulation is waiting on. A row starts as a plain
     /// stall-tier "Waiting for {name}…" the moment the turn stream stalls, and upgrades to
-    /// "{name} lost connection — waiting…" once the relay confirms that link is dead. A confirmed row
-    /// past the unlock threshold grows a Drop button that submits a manual drop request; while this
-    /// client's own link is down, a single prominent notice replaces the per-peer rows.
+    /// "{name} lost connection, waiting..." once the relay confirms that link is dead. A confirmed
+    /// row grows a Drop button immediately (greyed out with a countdown until the unlock threshold,
+    /// then clickable); while this client's own link is down (or the whole remote roster stalls
+    /// unconfirmed), a single prominent notice replaces the per-peer rows.
     ///
     /// Renders in every build — this is product UX, not debug output — and only while there is
     /// something to report; an all-healthy status draws nothing. The panel captures mouse input only
-    /// while a Drop button is showing (following the interactable-overlay mechanism the replay stats
-    /// window uses); otherwise clicks and keys pass straight through to the game.
+    /// while a Drop button is showing (registered via [`force_add_ui_rect`](OverlayState::force_add_ui_rect)
+    /// rather than the `ui_active`-gated [`add_ui_rect`](OverlayState::add_ui_rect): BW's native
+    /// "TimeOut" waiting-for-players dialog is suppressed but still spawned — see
+    /// `dialog_hook::spawn_dialog_hook` — and sitting at the top of BW's dialog stack, it drives
+    /// `ui_active` to `false` exactly while the Drop button needs to be clickable, so the Drop
+    /// button's rect must win regardless); otherwise clicks and keys pass straight through to the
+    /// game.
     pub(super) fn add_disconnect_overlay(
         &mut self,
         status: &DisconnectStatus,
@@ -257,10 +326,11 @@ impl OverlayState {
         for &slot in &res.inner {
             netcode_v2::with_turn_state(|s| s.request_drop(slot));
         }
-        // Register the panel's rect (respecting whether higher-priority BW menus are open) only when
-        // it is interactable, so the game doesn't lose clicks to a passive notice.
+        // Register the panel's rect only when it is interactable, so the game doesn't lose clicks to
+        // a passive notice. Unconditional on `ui_active` (see the doc comment above): a suppressed
+        // BW dialog sitting on the stack must never be able to steal the Drop button's clicks.
         if interactable {
-            self.add_ui_rect(&Some(res));
+            self.force_add_ui_rect(&Some(res), false);
         }
     }
 }
