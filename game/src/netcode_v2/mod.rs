@@ -45,6 +45,7 @@ mod credentials;
 
 use std::collections::VecDeque;
 use std::sync::atomic::Ordering;
+use std::time::Instant;
 
 use bytes::Bytes;
 use rally_point_client::ChatOut;
@@ -143,6 +144,25 @@ impl ChatTarget {
             _ => ChatTarget::All,
         }
     }
+}
+
+/// A render-side snapshot of the session's connectivity health, for the survivor disconnect
+/// overlay. Built by [`TurnState::disconnect_status`] and read from the draw thread; it names peers
+/// only by user id (resolved to a display name at render time) and touches no game state.
+pub struct DisconnectStatus {
+    /// Peers the relay's connectivity stream reported as dropped, awaiting the automatic
+    /// grace-period leave. Empty when every peer link is healthy.
+    pub peers: Vec<DisconnectedPeer>,
+    /// Whether this client's own relay link has been observed dead mid-game.
+    pub self_lost: bool,
+}
+
+/// One peer the relay's connectivity stream reported as dropped.
+pub struct DisconnectedPeer {
+    /// The session user occupying the dropped slot, for display-name resolution at render time.
+    pub user_id: SbUserId,
+    /// When the drop was first observed, so the overlay can show how long the wait has run.
+    pub since: Instant,
 }
 
 /// How many rendered chat lines [`TurnState::record_chat`] keeps for `queryState` verification.
@@ -262,6 +282,18 @@ pub struct TurnState {
     /// verification. Oldest first.
     #[cfg(debug_assertions)]
     chat_log: VecDeque<crate::debug_control::DebugChatLogEntry>,
+    /// Peers the relay's connectivity stream reported as dropped and which have neither
+    /// (re)connected nor had their synced leave applied yet, each paired with the instant the drop
+    /// was first observed (for the overlay's elapsed counter). In observation order. Populated only
+    /// once the game has started: a pre-start drop frame is ignored (there is no in-game overlay to
+    /// render it on yet), a (re)connect clears the slot, and an applied leave clears it via
+    /// [`mark_slot_left`](Self::mark_slot_left). Best-effort and render-facing only.
+    disconnected: Vec<(SlotId, Instant)>,
+    /// Set once this client's own relay link is observed dead mid-game — the driver dropped its end
+    /// of the turn channels (see [`pump_connectivity`](Self::pump_connectivity)). Informational for
+    /// the overlay only; the existing link-failure handling is unchanged. Latched, and never set for
+    /// a deliberately-closed [`local_only`](Self::local_only) session.
+    self_link_lost: bool,
 }
 
 impl TurnState {
@@ -304,6 +336,8 @@ impl TurnState {
             debug_chat_queue: Vec::new(),
             #[cfg(debug_assertions)]
             chat_log: VecDeque::new(),
+            disconnected: Vec::new(),
+            self_link_lost: false,
         }
     }
 
@@ -697,6 +731,77 @@ impl TurnState {
         if let Some(slot) = self.current_dispatch.get_mut(storm) {
             *slot = None;
         }
+        // An applied leave ends the survivor overlay's lifetime for this slot: the peer has left
+        // lockstep (whether it reconnected in time or was dropped for good), so the "waiting…"
+        // notice no longer applies.
+        if let Some(slot) = self.slot_for_storm(storm_id) {
+            self.disconnected.retain(|&(s, _)| s != slot);
+        }
+    }
+
+    /// The rally-point2 slot mapped to a storm id, if any — the inverse of
+    /// [`storm_id_for_slot`](Self::storm_id_for_slot), used to translate a storm-keyed leave back to
+    /// the slot the connectivity stream keys its drops by.
+    fn slot_for_storm(&self, storm_id: StormPlayerId) -> Option<SlotId> {
+        self.slot_to_storm
+            .iter()
+            .position(|&s| s == Some(storm_id))
+            .map(|idx| SlotId(idx as u8))
+    }
+
+    /// Game-thread pump for the relay's best-effort slot-connectivity stream (see
+    /// [`TurnChannels::connectivity`](rally_point_client::TurnChannels)). Drains every pending
+    /// change without blocking: a drop (`false`) observed once the game has started records the slot
+    /// as disconnected (keeping the first-seen instant on a repeat), a (re)connect (`true`) clears
+    /// it, and a pre-start frame is ignored — the pre-start dial's own connect frames arrive here and
+    /// are absorbed harmlessly.
+    ///
+    /// If the channel's sender has been dropped mid-game — the driver closed its end of the turn
+    /// channels, so this client's own relay link is gone — latches
+    /// [`self_link_lost`](Self::self_link_lost), unless the session was closed deliberately (already
+    /// [`local_only`](Self::local_only)), where the closure is expected and not a lost connection.
+    ///
+    /// Render-facing only: it mutates no game state, alliances, or turn pipeline.
+    pub fn pump_connectivity(&mut self, game_started: bool, now: Instant) {
+        loop {
+            match self.channels.connectivity.try_recv() {
+                Ok((slot, true)) => self.disconnected.retain(|&(s, _)| s != slot),
+                Ok((slot, false)) => {
+                    if game_started && !self.disconnected.iter().any(|&(s, _)| s == slot) {
+                        self.disconnected.push((slot, now));
+                    }
+                }
+                Err(mpsc::error::TryRecvError::Empty) => break,
+                Err(mpsc::error::TryRecvError::Disconnected) => {
+                    if game_started && !self.local_only {
+                        self.self_link_lost = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    /// A render-side snapshot of who has lost connection, for the survivor disconnect overlay.
+    /// Resolves each disconnected slot to its session user id via the roster (a slot with no roster
+    /// entry — which should not occur — is skipped). Pure read: drains no channel, mutates nothing.
+    pub fn disconnect_status(&self) -> DisconnectStatus {
+        let peers = self
+            .disconnected
+            .iter()
+            .filter_map(|&(slot, since)| {
+                let user_id = self
+                    .roster
+                    .iter()
+                    .find(|&&(s, _)| s == slot)
+                    .map(|&(_, user)| user)?;
+                Some(DisconnectedPeer { user_id, since })
+            })
+            .collect();
+        DisconnectStatus {
+            peers,
+            self_lost: self.self_link_lost,
+        }
     }
 
     /// Applies any latency-buffer change due at `next_frame`, updating the pipe target the PIPE hook
@@ -1020,6 +1125,7 @@ impl TurnState {
 mod tests {
     use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
+    use std::time::Duration;
 
     use rally_point_client::TurnChannels;
     use rally_point_client::proto::messages::{BufferDirective, LeaveDirective};
@@ -1080,6 +1186,10 @@ mod tests {
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(16);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(16);
         let (_session_start_tx, session_start_rx) = mpsc::channel(1);
+        // Connectivity isn't exercised by these tests; the sender drops on return (a disconnected
+        // receiver is harmless — nothing pumps connectivity here). See `turn_state_with_connectivity`
+        // for the disconnect-overlay tests.
+        let (_connectivity_tx, connectivity_rx) = mpsc::channel(16);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1092,6 +1202,7 @@ mod tests {
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
             session_start: session_start_rx,
+            connectivity: connectivity_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -1177,6 +1288,7 @@ mod tests {
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(1);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(1);
         let (_session_start_tx, session_start_rx) = mpsc::channel(1);
+        let (_connectivity_tx, connectivity_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1189,6 +1301,7 @@ mod tests {
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
             session_start: session_start_rx,
+            connectivity: connectivity_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -1209,6 +1322,7 @@ mod tests {
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(16);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(16);
         let (_session_start_tx, session_start_rx) = mpsc::channel(1);
+        let (_connectivity_tx, connectivity_rx) = mpsc::channel(16);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1221,6 +1335,7 @@ mod tests {
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
             session_start: session_start_rx,
+            connectivity: connectivity_rx,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
         // birth, so there is no relay session to close.
@@ -1889,6 +2004,7 @@ mod tests {
         let (chat_out_tx, _chat_out_rx) = mpsc::channel(1);
         let (_chat_in_tx, chat_in_rx) = mpsc::channel(1);
         let (_session_start_tx, session_start_rx) = mpsc::channel(1);
+        let (_connectivity_tx, connectivity_rx) = mpsc::channel(1);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -1901,6 +2017,7 @@ mod tests {
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
             session_start: session_start_rx,
+            connectivity: connectivity_rx,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -2131,6 +2248,7 @@ mod tests {
         let (chat_out_tx, chat_out_rx) = mpsc::channel(16);
         let (chat_in_tx, chat_in_rx) = mpsc::channel(16);
         let (_session_start_tx, session_start_rx) = mpsc::channel(1);
+        let (_connectivity_tx, connectivity_rx) = mpsc::channel(16);
         let channels = TurnChannels {
             outbound: out_tx,
             inbound: in_rx,
@@ -2143,6 +2261,7 @@ mod tests {
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
             session_start: session_start_rx,
+            connectivity: connectivity_rx,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -2240,5 +2359,111 @@ mod tests {
         let delivered = state.drain_chat_inbound(true);
         assert_eq!(delivered.len(), 1);
         assert_eq!(delivered[0].1.text.len(), bw::commands::CHAT_TEXT_CAPACITY);
+    }
+
+    /// Builds a TurnState wired for the disconnect-overlay tests: the slot→storm identity map is
+    /// seeded from the roster (as `establish_session` does), and the sender the driver would use to
+    /// push slot-connectivity changes is returned. The other far ends drop on return — these tests
+    /// exercise only `pump_connectivity` / `disconnect_status` / `mark_slot_left`, none of which
+    /// read them.
+    fn turn_state_with_connectivity() -> (TurnState, mpsc::Sender<(SlotId, bool)>) {
+        let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
+        let channels = TurnChannels {
+            outbound: mpsc::channel(16).0,
+            inbound: mpsc::channel::<Payload>(16).1,
+            leaves: mpsc::channel::<LeaveDirective>(16).1,
+            leave_intent: mpsc::channel(1).0,
+            result: mpsc::channel(1).0,
+            result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: mpsc::channel(16).0,
+            lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
+            chat_out: mpsc::channel(16).0,
+            chat_in: mpsc::channel::<(SlotId, ChatOut)>(16).1,
+            session_start: mpsc::channel(1).1,
+            connectivity: connectivity_rx,
+        };
+        let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
+        let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
+        state.populate_identity_slots();
+        (state, connectivity_tx)
+    }
+
+    #[test]
+    fn connectivity_records_and_clears_peer_drops_once_started() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+        let now = Instant::now();
+
+        // A drop that arrives before the game starts is ignored: there is no in-game overlay yet.
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(false, now);
+        assert!(state.disconnect_status().peers.is_empty());
+
+        // Once started, a drop is recorded and resolves to the slot's session user for display.
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, now);
+        let status = state.disconnect_status();
+        assert_eq!(status.peers.len(), 1);
+        assert_eq!(status.peers[0].user_id, PEER_USER);
+        assert!(!status.self_lost);
+
+        // A (re)connect clears it.
+        connectivity_tx.try_send((PEER_SLOT, true)).unwrap();
+        state.pump_connectivity(true, now);
+        assert!(state.disconnect_status().peers.is_empty());
+    }
+
+    #[test]
+    fn connectivity_repeat_drop_keeps_the_first_seen_instant() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+        let first = Instant::now();
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, first);
+        let recorded = state.disconnect_status().peers[0].since;
+
+        // A redundant drop for the same slot must not reset the counter.
+        let later = first + Duration::from_secs(5);
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, later);
+        assert_eq!(state.disconnect_status().peers[0].since, recorded);
+    }
+
+    #[test]
+    fn applied_leave_ends_the_disconnect_notice() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+        connectivity_tx.try_send((PEER_SLOT, false)).unwrap();
+        state.pump_connectivity(true, Instant::now());
+        assert_eq!(state.disconnect_status().peers.len(), 1);
+
+        // The dropped slot's synced leave applies (storm id ≡ rp2 slot under the identity map): the
+        // overlay's lifetime for that peer ends.
+        let peer_storm = state.storm_id_for_slot(PEER_SLOT).unwrap();
+        state.mark_slot_left(peer_storm);
+        assert!(state.disconnect_status().peers.is_empty());
+    }
+
+    #[test]
+    fn a_dead_driver_latches_self_link_lost_only_in_game() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+        // The driver dropping its end of the channel is what a lost local link looks like here.
+        drop(connectivity_tx);
+
+        // Pre-start, the closed channel is not surfaced as a lost connection.
+        state.pump_connectivity(false, Instant::now());
+        assert!(!state.disconnect_status().self_lost);
+
+        // In-game, it latches the self-disconnect notice.
+        state.pump_connectivity(true, Instant::now());
+        assert!(state.disconnect_status().self_lost);
+    }
+
+    #[test]
+    fn a_deliberate_local_only_close_is_not_a_lost_connection() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+        drop(connectivity_tx);
+        // A local-only session closed its own link on purpose; the channel closing must not read as
+        // a lost connection.
+        state.begin_local_only();
+        state.pump_connectivity(true, Instant::now());
+        assert!(!state.disconnect_status().self_lost);
     }
 }

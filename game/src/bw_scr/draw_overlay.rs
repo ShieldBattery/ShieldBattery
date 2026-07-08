@@ -21,10 +21,12 @@ use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
 use crate::bw_scr::draw_overlay::fonts::display_family;
+use crate::netcode_v2::DisconnectStatus;
 
 use self::production::ProductionState;
 
 mod colors;
+mod disconnect;
 mod fonts;
 mod loading_screen;
 mod production;
@@ -325,6 +327,7 @@ impl OverlayState {
         apm: Option<&ApmStats>,
         screen_size: (u32, u32),
         setup_info: Option<&GameSetupInfo>,
+        disconnect_status: &DisconnectStatus,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -440,6 +443,9 @@ impl OverlayState {
                 if bw.is_replay_or_obs {
                     self.add_replay_ui(bw, apm, ctx);
                 }
+                // Product UX, drawn in every build: a non-interactive notice while peers are dropped
+                // (relay grace period) or our own link is gone.
+                self.add_disconnect_overlay(disconnect_status, setup_info, ctx);
                 let debug = cfg!(debug_assertions);
                 if debug {
                     self.add_debug_ui(bw, ctx);

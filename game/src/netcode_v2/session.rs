@@ -79,6 +79,7 @@ struct ParkedChannels {
     _chat_out: mpsc::Receiver<ChatOut>,
     _chat_in: mpsc::Sender<(SlotId, ChatOut)>,
     _session_start: mpsc::Sender<()>,
+    _connectivity: mpsc::Sender<(SlotId, bool)>,
 }
 
 /// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
@@ -178,6 +179,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (chat_out_tx, chat_out_rx) = mpsc::channel(256);
     let (chat_in_tx, chat_in_rx) = mpsc::channel(256);
     let (session_start_tx, session_start_rx) = mpsc::channel(16);
+    let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
 
     let channels = TurnChannels {
         outbound: outbound_tx,
@@ -191,6 +193,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         chat_out: chat_out_tx,
         chat_in: chat_in_rx,
         session_start: session_start_rx,
+        connectivity: connectivity_rx,
     };
     let parked = ParkedChannels {
         _outbound: outbound_rx,
@@ -203,6 +206,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _chat_out: chat_out_rx,
         _chat_in: chat_in_tx,
         _session_start: session_start_tx,
+        _connectivity: connectivity_tx,
     };
 
     let turn_state = TurnState::new_sessionless(channels, local_user_id, has_computers);

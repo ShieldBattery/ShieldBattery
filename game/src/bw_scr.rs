@@ -2263,6 +2263,15 @@ impl BwScr {
                         let apm_guard = self.apm_state.lock();
                         let apm = apm_guard.as_deref();
                         let size = ((*render_target.bw).width, (*render_target.bw).height);
+                        // A snapshot of who has lost connection, for the survivor overlay. `None`
+                        // (a replay, or a re-entrant lock) renders as an all-healthy status.
+                        let disconnect_status =
+                            netcode_v2::with_turn_state(|s| s.disconnect_status()).unwrap_or(
+                                netcode_v2::DisconnectStatus {
+                                    peers: Vec::new(),
+                                    self_lost: false,
+                                },
+                            );
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -2292,6 +2301,7 @@ impl BwScr {
                                 apm,
                                 size,
                                 game_thread::setup_info(),
+                                &disconnect_status,
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -2546,6 +2556,9 @@ impl BwScr {
                 // own discard-drain once the game HAS started; see `drain_chat_inbound`).
                 netcode_v2::with_turn_state(|s| {
                     s.drain_chat_inbound(false);
+                    // Drain the connectivity stream pre-start too so it can't back up and wedge the
+                    // driver; a pre-start frame records nothing (there is no in-game overlay yet).
+                    s.pump_connectivity(false, Instant::now());
                 });
                 let ready = netcode_v2::with_turn_state(|s| {
                     if !s.lobby_seam_enabled() {
@@ -2606,6 +2619,10 @@ impl BwScr {
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
+            // Relay-pushed slot-connectivity changes, into the turn state's disconnected set for the
+            // survivor overlay to render. Render-side only — no game state, alliances, or turn
+            // pipeline are touched here.
+            netcode_v2::with_turn_state(|s| s.pump_connectivity(true, Instant::now()));
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;
