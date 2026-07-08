@@ -94,6 +94,16 @@ function UserError({ error }: { error: FetchError }) {
         </span>
       )
 
+    case UserErrorCode.InappropriateImage:
+      return (
+        <span>
+          {t(
+            'auth.userErrorDisplay.inappropriateImage',
+            'That image was flagged as inappropriate. Please choose a different one.',
+          )}
+        </span>
+      )
+
     case UserErrorCode.NotAllowedOnSelf:
     case UserErrorCode.NotFound:
       break

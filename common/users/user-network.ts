@@ -62,6 +62,7 @@ export enum UserErrorCode {
   UsernameTakenOrRestricted = 'usernameTaken',
   MachineBanned = 'machineBanned',
   TooManyAccounts = 'tooManyAccounts',
+  InappropriateImage = 'inappropriateImage',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
@@ -123,6 +124,10 @@ export interface ChangeLanguageRequest {
 }
 
 export interface ChangeLanguagesResponse {
+  user: SelfUserJson
+}
+
+export interface UpdateCurrentUserAvatarResponse {
   user: SelfUserJson
 }
 

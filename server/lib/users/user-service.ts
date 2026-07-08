@@ -9,7 +9,7 @@ import { getPermissions } from '../models/permissions'
 import { Redis, RedisSubscriber } from '../redis/redis'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
-import { findSelfById, updateUser, UserUpdatables } from './user-model'
+import { findSelfById, setUserAvatarPath, updateUser, UserUpdatables } from './user-model'
 
 /**
  * How long to cache user info in redis.
@@ -117,6 +117,26 @@ export class UserService {
     }
 
     return selfInfo
+  }
+
+  /**
+   * Sets (or clears, when `avatarPath` is `undefined`) the current user's avatar, returning the
+   * updated user info along with the previously-stored path (so the caller can delete the orphaned
+   * file). Refreshes the cached user data and, if `ctx` is provided, the current session.
+   */
+  async updateCurrentUserAvatar(
+    id: SbUserId,
+    avatarPath: string | undefined,
+    ctx?: Koa.Context,
+  ): Promise<{ userInfo: SelfUserInfo; previousPath?: string }> {
+    const { previousPath } = await setUserAvatarPath(id, avatarPath)
+    const selfInfo = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
+
+    if (ctx && ctx.session?.user.id === id) {
+      ;(ctx.session as any as AppSession) = selfInfo
+    }
+
+    return { userInfo: selfInfo, previousPath }
   }
 
   /**

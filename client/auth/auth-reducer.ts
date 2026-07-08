@@ -66,4 +66,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       state.self.user.name = newDisplayName
     }
   },
+  ['@auth/avatarChanged'](state, action) {
+    if (state.self) {
+      state.self.user = { ...action.payload.user }
+    }
+  },
 })

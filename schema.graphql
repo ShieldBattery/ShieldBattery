@@ -37,6 +37,10 @@ type CurrentUser {
 	Number of display name change tokens available
 	"""
 	nameChangeTokens: Int!
+	"""
+	A fully-qualified URL to the user's uploaded avatar, or null if they haven't uploaded one.
+	"""
+	avatarUrl: String
 	permissions: SbPermissions!
 	canChangeDisplayName: Boolean!
 	nextDisplayNameChangeAllowedAt: DateTime
@@ -723,6 +727,10 @@ type SbUser {
 	The user's display name (may differ from their login name).
 	"""
 	name: String!
+	"""
+	A fully-qualified URL to the user's uploaded avatar, or null if they haven't uploaded one.
+	"""
+	avatarUrl: String
 	permissions: SbPermissions!
 }
 

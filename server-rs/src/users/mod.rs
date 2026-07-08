@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_graphql::dataloader::{DataLoader, Loader};
-use async_graphql::futures_util::TryStreamExt;
 use async_graphql::{
     ComplexObject, Context, Guard, InputObject, Object, Result, SchemaBuilder, SimpleObject,
 };
@@ -34,6 +33,7 @@ use crate::email::{
     EmailChangeData, EmailVerificationData, LoginNameChangeData, MailgunClient, MailgunMessage,
     MailgunTemplate, PasswordChangeData,
 };
+use crate::file_store::FileStore;
 use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::random_code::gen_random_code;
@@ -57,13 +57,15 @@ const DISPLAY_NAME_CHANGE_COOLDOWN: chrono::Duration = chrono::Duration::days(60
 pub struct UsersModule {
     db_pool: PgPool,
     redis_pool: RedisPool,
+    file_store: FileStore,
 }
 
 impl UsersModule {
-    pub fn new(db_pool: PgPool, redis_pool: RedisPool) -> Self {
+    pub fn new(db_pool: PgPool, redis_pool: RedisPool, file_store: FileStore) -> Self {
         Self {
             db_pool,
             redis_pool,
+            file_store,
         }
     }
 }
@@ -72,7 +74,7 @@ impl SchemaBuilderModule for UsersModule {
     fn apply<Q, M, S>(&self, builder: SchemaBuilder<Q, M, S>) -> SchemaBuilder<Q, M, S> {
         builder
             .data(DataLoader::new(
-                UsersLoader::new(self.db_pool.clone()),
+                UsersLoader::new(self.db_pool.clone(), self.file_store.clone()),
                 tokio::spawn,
             ))
             .data(DataLoader::new(
@@ -82,16 +84,19 @@ impl SchemaBuilderModule for UsersModule {
             .data(CurrentUserRepo::new(
                 self.db_pool.clone(),
                 self.redis_pool.clone(),
+                self.file_store.clone(),
             ))
     }
 }
 
-#[derive(sqlx::FromRow, SimpleObject, Clone, Debug)]
+#[derive(SimpleObject, Clone, Debug)]
 #[graphql(complex)]
 pub struct SbUser {
     pub id: SbUserId,
     /// The user's display name (may differ from their login name).
     pub name: String,
+    /// A fully-qualified URL to the user's uploaded avatar, or null if they haven't uploaded one.
+    pub avatar_url: Option<String>,
 }
 
 #[ComplexObject]
@@ -110,6 +115,7 @@ impl From<CurrentUser> for SbUser {
         Self {
             id: value.id,
             name: value.name,
+            avatar_url: value.avatar_url,
         }
     }
 }
@@ -154,6 +160,8 @@ pub struct CurrentUser {
     pub last_name_change: Option<DateTime<Utc>>,
     /// Number of display name change tokens available
     pub name_change_tokens: i32,
+    /// A fully-qualified URL to the user's uploaded avatar, or null if they haven't uploaded one.
+    pub avatar_url: Option<String>,
 
     pub permissions: SbPermissions,
 }
@@ -1063,11 +1071,24 @@ async fn set_audit_context(
 
 pub struct UsersLoader {
     db: PgPool,
+    file_store: FileStore,
 }
 
 impl UsersLoader {
-    pub fn new(db: PgPool) -> Self {
-        Self { db }
+    pub fn new(db: PgPool, file_store: FileStore) -> Self {
+        Self { db, file_store }
+    }
+
+    /// Converts a stored avatar path into a public URL, if the user has one.
+    fn avatar_url(
+        &self,
+        avatar_path: Option<String>,
+    ) -> Result<Option<String>, async_graphql::Error> {
+        avatar_path
+            .as_deref()
+            .map(|p| self.file_store.url(p))
+            .transpose()
+            .map_err(|e| async_graphql::Error::new(e.to_string()))
     }
 }
 
@@ -1076,15 +1097,27 @@ impl Loader<SbUserId> for UsersLoader {
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
-        Ok(sqlx::query_as!(
-            SbUser,
-            r#"SELECT id as "id: SbUserId", name::TEXT as "name!" FROM users WHERE id = ANY($1)"#,
+        let rows = sqlx::query!(
+            r#"SELECT id as "id: SbUserId", name::TEXT as "name!", avatar_path
+               FROM users WHERE id = ANY($1)"#,
             keys as _,
         )
-        .fetch(&self.db)
-        .map_ok(|u| (u.id, u))
-        .try_collect()
-        .await?)
+        .fetch_all(&self.db)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let avatar_url = self.avatar_url(row.avatar_path)?;
+                Ok((
+                    row.id,
+                    SbUser {
+                        id: row.id,
+                        name: row.name,
+                        avatar_url,
+                    },
+                ))
+            })
+            .collect()
     }
 }
 
@@ -1093,15 +1126,27 @@ impl Loader<String> for UsersLoader {
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[String]) -> Result<HashMap<String, Self::Value>, Self::Error> {
-        Ok(sqlx::query_as!(
-            SbUser,
-            r#"SELECT id, name FROM users WHERE name = ANY($1)"#,
+        let rows = sqlx::query!(
+            r#"SELECT id as "id: SbUserId", name::TEXT as "name!", avatar_path
+               FROM users WHERE name = ANY($1)"#,
             keys,
         )
-        .fetch(&self.db)
-        .map_ok(|u| (u.name.clone(), u))
-        .try_collect()
-        .await?)
+        .fetch_all(&self.db)
+        .await?;
+
+        rows.into_iter()
+            .map(|row| {
+                let avatar_url = self.avatar_url(row.avatar_path)?;
+                Ok((
+                    row.name.clone(),
+                    SbUser {
+                        id: row.id,
+                        name: row.name,
+                        avatar_url,
+                    },
+                ))
+            })
+            .collect()
     }
 }
 
@@ -1111,6 +1156,7 @@ impl Loader<String> for UsersLoader {
 pub struct CurrentUserRepo {
     db: PgPool,
     redis: RedisPool,
+    file_store: FileStore,
 }
 
 // TODO(tec27): Move this somewhere common for other caches to use
@@ -1125,8 +1171,12 @@ impl CurrentUserRepo {
     // NOTE(tec27): If you update this here, also update it in the node server's UserService.
     const USER_CACHE_TIME: Duration = Duration::from_secs(60 * 60);
 
-    pub fn new(db: PgPool, redis: RedisPool) -> Self {
-        Self { db, redis }
+    pub fn new(db: PgPool, redis: RedisPool, file_store: FileStore) -> Self {
+        Self {
+            db,
+            redis,
+            file_store,
+        }
     }
 
     fn user_cache_key(user_id: SbUserId) -> String {
@@ -1164,13 +1214,13 @@ impl CurrentUserRepo {
 
         let db = self.db.clone();
         let (user, permissions) = tokio::join!(
-            sqlx::query_as!(
-                SelfUser,
+            sqlx::query!(
                 r#"
-                    SELECT id, name::TEXT as "name!", login_name::TEXT as "login_name!",
-                        email, email_verified, accepted_privacy_version, accepted_terms_version,
+                    SELECT id as "id: SbUserId", name::TEXT as "name!",
+                        login_name::TEXT as "login_name!", email, email_verified,
+                        accepted_privacy_version, accepted_terms_version,
                         accepted_use_policy_version, locale, last_login_name_change,
-                        last_name_change, name_change_tokens
+                        last_name_change, name_change_tokens, avatar_path
                     FROM users
                     WHERE id = $1
                 "#,
@@ -1194,8 +1244,29 @@ impl CurrentUserRepo {
             .fetch_one(&db)
         );
 
+        let row = user.wrap_err("failed to load user")?;
+        let avatar_url = row
+            .avatar_path
+            .as_deref()
+            .map(|p| self.file_store.url(p))
+            .transpose()
+            .wrap_err("failed to build avatar url")?;
         let cached_user = CachedCurrentUser {
-            user: user.wrap_err("failed to load user")?,
+            user: SelfUser {
+                id: row.id,
+                name: row.name,
+                login_name: row.login_name,
+                email: row.email,
+                email_verified: row.email_verified,
+                accepted_privacy_version: row.accepted_privacy_version,
+                accepted_terms_version: row.accepted_terms_version,
+                accepted_use_policy_version: row.accepted_use_policy_version,
+                locale: row.locale,
+                last_login_name_change: row.last_login_name_change,
+                last_name_change: row.last_name_change,
+                name_change_tokens: row.name_change_tokens,
+                avatar_url,
+            },
             permissions: permissions.wrap_err("failed to load permissions")?,
         };
 
@@ -1235,6 +1306,10 @@ struct SelfUser {
     #[serde(default, with = "ts_milliseconds_option")]
     pub last_name_change: Option<DateTime<Utc>>,
     pub name_change_tokens: i32,
+    /// A fully-qualified URL to the user's uploaded avatar, or null if they haven't uploaded one.
+    /// Populated from `avatar_path` (converted to a URL) when loading from the DB; matches the
+    /// `avatarUrl` field the node server writes to the shared cache.
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1259,6 +1334,7 @@ impl From<CachedCurrentUser> for CurrentUser {
             last_login_name_change: value.user.last_login_name_change,
             last_name_change: value.user.last_name_change,
             name_change_tokens: value.user.name_change_tokens,
+            avatar_url: value.user.avatar_url,
 
             permissions: value.permissions,
         }
@@ -1403,6 +1479,7 @@ mod tests {
             last_login_name_change: None,
             last_name_change: None,
             name_change_tokens: 0,
+            avatar_url: None,
         };
 
         let json = serde_json::to_string(&user).unwrap();

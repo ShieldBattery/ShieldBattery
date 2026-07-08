@@ -6,6 +6,7 @@ import {
   AcceptPoliciesResponse,
   ChangeLanguagesResponse,
   EmailChangedEvent,
+  UpdateCurrentUserAvatarResponse,
 } from '../../common/users/user-network'
 
 export type AuthActions =
@@ -20,6 +21,7 @@ export type AuthActions =
   | SessionUnauthorized
   | ClearRestriction
   | DisplayNameChanged
+  | AvatarChanged
 
 export interface LogOut {
   type: '@auth/logOut'
@@ -101,5 +103,12 @@ export interface DisplayNameChanged {
   payload: {
     newDisplayName: string
   }
+  error?: false
+}
+
+/** The current user changed (or removed) their profile avatar. */
+export interface AvatarChanged {
+  type: '@auth/avatarChanged'
+  payload: UpdateCurrentUserAvatarResponse
   error?: false
 }

@@ -6,6 +6,7 @@ import {
   RecoverUsernameRequest,
   RequestPasswordResetRequest,
   ResetPasswordRequest,
+  UpdateCurrentUserAvatarResponse,
 } from '../../common/users/user-network'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -254,4 +255,46 @@ export function sendVerificationEmail(userId: SbUserId, spec: RequestHandlingSpe
   return abortableThunk(spec, () =>
     fetchJson<void>(apiUrl`users/${userId}/email-verification/send`, { method: 'post' }),
   )
+}
+
+export function uploadUserAvatar(
+  userId: SbUserId,
+  file: File,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const formData = new FormData()
+    formData.append('avatar', file)
+
+    const result = await fetchJson<UpdateCurrentUserAvatarResponse>(
+      apiUrl`users/${userId}/avatar`,
+      {
+        method: 'POST',
+        signal: spec.signal,
+        body: formData,
+      },
+    )
+
+    dispatch({
+      type: '@auth/avatarChanged',
+      payload: result,
+    })
+  })
+}
+
+export function removeUserAvatar(userId: SbUserId, spec: RequestHandlingSpec<void>): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const result = await fetchJson<UpdateCurrentUserAvatarResponse>(
+      apiUrl`users/${userId}/avatar`,
+      {
+        method: 'DELETE',
+        signal: spec.signal,
+      },
+    )
+
+    dispatch({
+      type: '@auth/avatarChanged',
+      payload: result,
+    })
+  })
 }

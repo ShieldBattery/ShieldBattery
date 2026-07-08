@@ -78,6 +78,7 @@ export interface ConnectedAvatarProps {
 export function ConnectedAvatar({ userId, className }: ConnectedAvatarProps) {
   const dispatch = useAppDispatch()
   const username = useAppSelector(s => s.users.byId.get(userId)?.name)
+  const avatarUrl = useAppSelector(s => s.users.byId.get(userId)?.avatarUrl)
 
   useEffect(() => {
     dispatch(getBatchUserInfo(userId))
@@ -86,6 +87,6 @@ export function ConnectedAvatar({ userId, className }: ConnectedAvatarProps) {
   if (!username) {
     return <LoadingAvatar className={className} />
   } else {
-    return <Avatar user={username} className={className} />
+    return <Avatar user={username} image={avatarUrl} className={className} />
   }
 }

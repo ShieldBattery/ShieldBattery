@@ -17,6 +17,12 @@ export interface SbUser {
    * `Jsonify` conversion step.
    */
   created: number
+  /**
+   * A fully-qualified URL to the user's uploaded profile avatar, or `undefined` if they haven't
+   * uploaded one (in which case clients render a generated placeholder). This is a resolved URL,
+   * not the underlying storage path.
+   */
+  avatarUrl?: string
 }
 
 /** Information about the current user. */
@@ -55,6 +61,7 @@ export function toSelfUserJson(user: SelfUser): SelfUserJson {
     id: user.id,
     name: user.name,
     created: user.created,
+    avatarUrl: user.avatarUrl,
     loginName: user.loginName,
     email: user.email,
     emailVerified: user.emailVerified,
@@ -73,6 +80,7 @@ export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
     id: userJson.id,
     name: userJson.name,
     created: userJson.created,
+    avatarUrl: userJson.avatarUrl,
     loginName: userJson.loginName,
     email: userJson.email,
     emailVerified: userJson.emailVerified,

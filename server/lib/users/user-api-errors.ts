@@ -31,6 +31,8 @@ export const convertUserApiErrors = makeErrorConverterMiddleware(err => {
       throw asHttpError(403, err)
     case UserErrorCode.TooManyAccounts:
       throw asHttpError(403, err)
+    case UserErrorCode.InappropriateImage:
+      throw asHttpError(400, err)
 
     default:
       assertUnreachable(err.code)

@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name FROM users WHERE name = ANY($1)",
+  "query": "SELECT id as \"id: SbUserId\", name::TEXT as \"name!\", avatar_path\n               FROM users WHERE name = ANY($1)",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id: SbUserId",
         "type_info": "Int4",
         "origin": {
           "Table": {
@@ -16,17 +16,18 @@
       },
       {
         "ordinal": 1,
-        "name": "name",
-        "type_info": {
-          "Custom": {
-            "name": "citext",
-            "kind": "Simple"
-          }
-        },
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "avatar_path",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "users",
-            "name": "name"
+            "name": "avatar_path"
           }
         }
       }
@@ -50,8 +51,9 @@
     },
     "nullable": [
       false,
-      false
+      null,
+      true
     ]
   },
-  "hash": "88903529124e3b7a21decdfcbe70084b9fa8a93703fb81eb073c722b71bede9a"
+  "hash": "d9a705e6ea40b7353442ba7cd1ce5ed19dc61cf269c7efdeecabfd2a56d0a282"
 }
