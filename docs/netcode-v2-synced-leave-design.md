@@ -521,14 +521,21 @@ shape should be removed rather than ossified:
 
 ### Backlog (small / deferred)
 
-- **Ally-quit scoring hardening (live-found 2026-07-08, Travis's alliance experiment).** In unranked
-  melee, a one-way mid-game alliance (loser allies the winner, then leaves) makes BW's native
-  allied-victors pass score the LEAVER as victorious — the survivor's report arrives inverted
-  ("dropped opponent won, I lost") and reconciliation conservatively yields unknown/unknown. Ranked
-  is already immune (`lockedAlliances`). Fix direction: extend the concession-only principle into
-  report interpretation — a player whose departure ended a live game is not awardable a WIN from an
-  opponent's report alone; score leaver loss / survivor win (or keep void at minimum). Server-side
-  reconciliation change; no DLL work (the DLL faithfully reports BW's verdict).
+- **Raw client results + server-side scoring (direction agreed with Travis 2026-07-08; subsumes the
+  ally-quit fix).** Clients stop reporting digested verdicts and instead report RAW end-of-game
+  evidence: per-player BW victory state (pre-allied-victors-expansion), the end-time alliance
+  matrix, and anything else scoring needs (departure kind/timing already arrives via the relay's
+  departure notices). The server derives the verdict — one brain, iterable without client releases,
+  cross-client-diffable field by field. Motivating case: a one-way mid-game alliance in unranked
+  melee (loser allies winner, then leaves) makes BW's native allied-victors pass score the LEAVER
+  victorious; the survivor's digested report arrives inverted and reconciliation can only shrug
+  (unknown/unknown). With raw evidence the ally-quit case is trivially distinguishable from genuine
+  allied victory, and the concession-only principle extends naturally (a live-game leaver is not
+  awardable a win off an opponent's report). Design points: version the raw schema from day one;
+  raw-ONLY (no client digest — the DLL keeps its local victory/defeat dialog as presentation, not
+  scoring); the GameResult frame stays relay-opaque (payload just gets richer); majority/concession
+  arbitration unchanged, just over better inputs. Ranked stays additionally guarded by
+  `lockedAlliances`.
 
 - **Client desync-report hook.** Closes the pure-fog desync gap (a divergence living only in
   vision-masked fog that never perturbs a hashed value and reaches the result-lock first). A client
