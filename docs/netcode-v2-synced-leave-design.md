@@ -9,7 +9,11 @@
 > terse record of the completed arcs plus the design for the work that is **not yet built** — that
 > unbuilt design (D11 reconnect, §17 disconnect UX, relay-driven start, pause, observers under 2c)
 > exists only here. Re-synthesized 2026-07-07; the v1 deletion sweep + sessionless solo carve-out
-> landed the same day. Delete once the remaining work lands.
+> landed the same day. **2026-07-08: the whole disconnect/reconnect/RequestDrop arc landed +
+> live-proven** (see the §17 "REQUESTDROP BUNDLE" entry — manual drop with a 30 s relay floor / 45 s
+> client unlock, no auto-drop, 45 s abandoned-session shutdown, two-tier titled overlay, self-notice,
+> native stall-dialog suppression, chat + input-block under the overlay). Delete once the remaining
+> work lands.
 
 The framing thesis still holds for the leave path: a coordinated player-leave is the sibling of a
 latency-buffer directive — the relay decides one value, schedules it at a future frame, and every
@@ -433,6 +437,73 @@ it names or suppress it in favor of the egui overlay. Remaining §17/D11 work: m
 up the control stream + authority honoring it only past grace), [Reconnect]/[Abandon] actions on the
 self-disconnect notice, longer grace, grace restart on promotion.
 
+**REQUESTDROP BUNDLE — BUILT + LIVE-PROVEN (2026-07-08). The no-auto-drop policy is now live end to
+end.** This supersedes the interim 10 s auto-drop above.
+
+- **rp2 (relay/proto/client/transport).** `RequestDrop` is a client→relay `ControlFrame` arm 9 (the
+  requester is the authenticated connection's slot, never client-asserted; carries the target slot) +
+  a mesh `MeshControlFrame` arm 10 (`{slot, requester}`, origin relay broadcasts, authority-only
+  honors, no echo). The 10 s timed grace is replaced by an **indefinite `DropHolds`** registry
+  (`relay/src/drop_hold.rs`, renamed from `leave_grace.rs`): a dropped slot's departure is held with
+  no timer and decided **only** when a surviving client sends `RequestDrop` and the authority sees the
+  hold pending for ≥ `DROP_UNLOCK` (**30 s relay floor** — the anti-grief minimum, deliberately below
+  the client's 45 s button so a legitimate click is never refused on timing). Per-`(session,requester)`
+  token-bucket rate cap (burst 2, ~1/2 s); a refused/rate-limited/self-targeting request never closes
+  the link. **Fully-abandoned session** (zero live slots session-wide via `presence::all_empty` +
+  ≥1 undecided departure) arms `ABANDONED_SESSION_TIMEOUT` (**45 s**) on every observing relay; on
+  expiry each force-decides all undecided departures past the authority gate (safe via the existing
+  per-maker/receiver/coordinator dedup) → the game never waits forever. A **critical review-caught
+  fix** (`cb4734a`): the roster-empty session-teardown sweep must keep holds that still back an
+  *undecided* departure alive (they are the reconnect-admission token + unlock clock), else a
+  last-slot blip or mass-blip reconnect is wrongly refused. Commits: `a6c9300` (bundle), `cb4734a`
+  (hold-sweep fix + `reinstate_slot` no-op-when-decided race guard), `18811be` (30 s floor),
+  `09f18e1` (45 s abandon). Additive wire (arms 9/10); the 5-message handshake is untouched.
+- **SB DLL.** Two-tier overlay: at ≥3 s of *local sim stall* a titled **"Waiting for players"** panel
+  appears naming the blocking players (earlier than the relay's ~13 s QUIC-idle signal); when the
+  relay confirms a slot's link death that row upgrades to the confirmed tier and grows a per-player
+  **Drop** button. The panel is an `egui::Grid` (columns **name · elapsed · action**) so multiple
+  simultaneous disconnects stack cleanly, one independent Drop button + countdown each. The Drop
+  button is shown from the confirmed tier, **disabled/greyed with a "Drop (Ns)" countdown until the
+  45 s `DROP_UNLOCK_UI`**, then enabled (45 s client > 30 s relay floor ⇒ an enabled click is always
+  honored) → calls `TurnState::request_drop(slot)`; its egui input rect is registered via
+  `force_add_ui_rect` (unconditional on `ui_active`, since the suppressed native dialog sits atop the
+  BW dialog stack and would otherwise starve the rect). The **self-disconnect notice** (larger amber
+  text + painter-drawn signal-bars-slash icon, "Lost connection to the server, reconnecting…") is a
+  separate prominent element driven **only by the real driver self-link signal** — the earlier
+  "all-remotes-stalled ⇒ interrupted" heuristic was **removed** (it false-positived in a 1v1, telling
+  the survivor *their* link was lost when the opponent dropped). BW's native **"TimeOut"** stall
+  dialog is suppressed (`dialog_hook` spawn-interception by name — confirmed via a permanent
+  `spawn_dialog` debug log — hide flag + event-swallow handler, `orig` still called). **Input-block:**
+  the `window_proc` swallows game-destined mouse + keydown while a disconnect overlay is up (pause
+  feel — orders/selection blocked), while WM_CHAR passes through so **chat works under the overlay**.
+  Debug surface for verify: `__sbDebugGame.requestDrop(gameId, slot)` + `queryState`'s
+  `turnState.disconnect` (`selfState: ok|reconnecting`; `rows[]` with `slot, userId, tier, elapsedSeconds,
+  dropUnlocked, dropRequested`). Commits `3bb3cc729`, `59ed01a74`, `dda52a829`, `ba87d2876`.
+- **Live-proven (loopback):** 1v1 hard-kill → drop past unlock → **win/loss, departure_kind dropped**
+  (×2, incl. a real egui button click); 3-player *simultaneous* kill of two peers → two panel rows +
+  two independently-unlocking Drop buttons → both dropped, **win/loss/loss** all correct; abandoned
+  session (kill both) → relay force-decides at all-empty + 45 s → SB reconciles **unknown/unknown,
+  both dropped, game finalized (no hang)**; self-disconnect notice shows `reconnecting` on a relay
+  suspend and clears on resume; same-relay blip (20 s suspend/resume) recovers cleanly with the 30 s
+  floor. Comparator silent throughout.
+- **Input-block design SETTLED — window_proc block is correct, not a compromise (RE 2026-07-08).**
+  A command-layer alternative (strip player orders at the `send_turn_message` flush hook, keep
+  camera/selection) was investigated and **rejected**: commands accumulate at *generation*
+  (`send_command`) upstream of the flush hook, so the strip doesn't stop the buffer filling during a
+  stall (overflow risk), and dropping selection commands mis-orders the wrong units on resume because
+  BW's `last_sent_selection` dedup state freezes while visual selection stays live. A BinaryNinja RE
+  for a **native command-disable flag** found none usable: `is_replay` keeps `0x37` sync but is
+  load-bearing (routes the turn loop into replay-file reading — corrupts the sim); the observer-id
+  range disables commands but **also suppresses `0x37` sync** + corrupts attribution/fog. The
+  window_proc input-block is safe *precisely because* it blocks selection too — it freezes
+  `client_selection` in lockstep with `last_sent_selection` (no divergence ⇒ correct targeting after
+  resume), keeps `0x37`/`0x05` flowing every turn, and touches no load-bearing global. The one cost
+  (no camera pan during the wait) matches a real pause. **The chat receive/inject path was RE-proven
+  overflow-safe** (`add_to_replay_data` splits frozen-frame blocks at 255 B + bounds-checks capacity;
+  the historical replay-pause overflow was the *reader*, already reimplemented as `step_replay_commands`).
+- **Remaining (human-gated, ~2 min at a live game):** confirm chat opens/types/sends under the overlay
+  and unit orders (move/attack) do nothing while blocked. All else is verified.
+
 ### Pause/unpause through the v2 seam (unproven)
 
 Native pause is a synced turn-stream command and turns keep flowing while paused, so the seam *should*
@@ -486,6 +557,34 @@ seven configurations green**:
   non-contiguous map slots, native FORC-driven alliances/victory, correct reconciled results.
 - **In-game handoff** — transport flips to datagrams at `set_game_started`;
   `networkStatus.transport === 'netcodeV2'`.
+
+### Overlay UI dev mode (direction agreed with Travis 2026-07-08 — not built)
+
+A fast visual-iteration loop for in-game egui UI (disconnect overlay first; observer/replay egui
+states later) without launching StarCraft. egui is renderer-agnostic — the DLL feeds it through
+forge/D3D11; an `eframe` host feeds the same widget code through its own backend with identical
+layout/painting given the same fonts + pixels-per-point. Plan:
+
+- **Extract the overlay presentation into a pure view-model + render layer** (host-compilable, no BW
+  types/pointers): plain data in (`peers[] {name, seconds, tier, drop_unlocked, drop_requested}`,
+  self-state, later observer/replay states), egui paint out. The DLL adapts its live `TurnState` into
+  the view-model; the render fn is already factored this way (`draw_overlay/disconnect.rs`
+  `DisconnectView` + a render fn taking only `(&View, &egui::Context)`), so it is close to liftable.
+- **An eframe preview bin** renders those functions in a native window over a game-screenshot backdrop,
+  with a control panel to emulate states (N disconnected users, elapsed timers, unlock reached,
+  self-disconnect/reconnecting, …). Tier 1 (ship first): watch + auto-rebuild/relaunch with the
+  emulation knobs persisted across restarts — feels like hot reload for a tiny crate. Tier 2
+  (optional upgrade): true in-process reload of the render fns via the `hot-lib-reloader` pattern —
+  the pure-fn-of-plain-data factoring is exactly its shape (fn-body/styling edits reload live; struct
+  layout changes need a relaunch).
+- **In-game hot reload (dev-only follow-up):** the same view-model crate can be loaded by the DLL as a
+  32-bit dylib behind a dev cargo feature, watcher-swapped on rebuild — edit overlay code, the running
+  game picks it up next frame, no relaunch. Standard Rust hot-reload caveats (matching toolchain/egui
+  version, copy-then-load on Windows, struct-layout changes need relaunch); dev-build-only so it can't
+  destabilize release. Only egui UI qualifies — BW-native/SC:R-rendered surfaces (console, real
+  observer HUD, replay seek bar) stay game-launch territory. Complements the game-test-harness design
+  (`docs/game-test-harness-design.md`), which owns automated multi-client verification; this is the
+  visual-iteration sibling and its view-models are what the harness's egui test-ID hooks want.
 
 ### Post-cutover cleanup (final form — not built)
 
