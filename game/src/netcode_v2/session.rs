@@ -3,13 +3,15 @@
 //! hooks reach the game-thread-owned [`TurnState`].
 //!
 //! [`establish_session`] runs on the DLL's Tokio runtime: it builds the pinned-trust credentials,
-//! dials the home relay (falling back across its address families), spawns the
-//! [`LinkDriver`] that services the link, and stores the resulting [`TurnState`] where the three BW
-//! hooks (installed in `bw_scr.rs`) can reach it via [`with_turn_state`]. [`establish_sessionless`]
-//! stores a driverless [`TurnState`] the same way for a solo game. With no turn state stored (a
-//! replay), the hooks find nothing here and run BW's original turn handling unchanged.
+//! dials the home relay (falling back across its address families), spawns the [`LinkDriver`] that
+//! services the link — re-dialing itself on a link drop, without tearing the turn channels down —
+//! and stores the resulting [`TurnState`] where the three BW hooks (installed in `bw_scr.rs`) can
+//! reach it via [`with_turn_state`]. [`establish_sessionless`] stores a driverless [`TurnState`] the
+//! same way for a solo game. With no turn state stored (a replay), the hooks find nothing here and
+//! run BW's original turn handling unchanged.
 
 use std::ffi::CString;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -17,7 +19,9 @@ use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use rally_point_client::transport::Link;
-use rally_point_client::{ChatOut, ClientEndpoint, DialError, Identity, LinkDriver, TurnChannels};
+use rally_point_client::{
+    ChatOut, ClientEndpoint, DialError, Identity, LinkDriver, Reconnect, TurnChannels,
+};
 use tokio::sync::mpsc;
 
 use super::TurnState;
@@ -111,14 +115,24 @@ pub async fn establish_session(
     let endpoint = credentials::bind_endpoint(roots)?;
 
     // Dial the home relay, trying its candidate addresses in preference order (v6 then v4).
-    let link = connect_relay(&endpoint, &home, &identity).await?;
+    let (link, relay_addr) = connect_relay(&endpoint, &home, &identity).await?;
 
     let (driver, mut channels) = LinkDriver::new(link);
-    // Service the link on the DLL's async runtime. `run` returning `Err` means the link failed,
-    // which is effectively this player dropping; reconnect/failover is deferred, so for now the
-    // session just ends and the hooks stop finding a turn state (the caller falls back to native).
+    // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
+    // `SessionLink::Relay` below) so a re-dial after a drop reuses the already-bound local port.
+    let reconnect = Reconnect {
+        endpoint: ClientEndpoint::from_endpoint(endpoint.endpoint().clone()),
+        relay_addr,
+        server_name: home.server_name.clone(),
+        identity,
+    };
+    // Service the link on the DLL's async runtime. `run_reconnecting` re-dials internally on a
+    // link failure, keeping every turn channel alive across the outage (see the self-connectivity
+    // convention on `channels.connectivity` in `mod.rs`); it only ends — dropping the channels,
+    // which the hooks read as end-of-session — on a clean shutdown, a terminal relay refusal, or a
+    // non-link failure reconnecting can't fix.
     tokio::spawn(async move {
-        match driver.run().await {
+        match driver.run_reconnecting(reconnect).await {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),
         }
@@ -219,16 +233,18 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
 }
 
 /// Dials one relay, trying its candidate addresses in preference order (v6 then v4, per
-/// [`RelayTarget`]). Returns on the first address that connects; errors only if all of them fail.
+/// [`RelayTarget`]). Returns the link and the address that connected (so a later reconnect can
+/// redial that same address rather than re-running the whole family fallback) on the first address
+/// that connects; errors only if all of them fail.
 async fn connect_relay(
     endpoint: &ClientEndpoint,
     relay: &RelayTarget,
     identity: &Identity,
-) -> Result<Link, SessionError> {
+) -> Result<(Link, SocketAddr), SessionError> {
     let mut last_err = None;
     for &addr in &relay.addrs {
         match endpoint.connect(addr, &relay.server_name, identity).await {
-            Ok(link) => return Ok(link),
+            Ok(link) => return Ok((link, addr)),
             Err(e) => {
                 debug!("netcode v2 dial to {addr} failed: {e}");
                 last_err = Some(e);

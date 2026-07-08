@@ -2557,7 +2557,9 @@ impl BwScr {
                 netcode_v2::with_turn_state(|s| {
                     s.drain_chat_inbound(false);
                     // Drain the connectivity stream pre-start too so it can't back up and wedge the
-                    // driver; a pre-start frame records nothing (there is no in-game overlay yet).
+                    // driver; a pre-start peer frame records nothing (there is no in-game overlay
+                    // yet to show it on), though an own-slot frame still updates the self-link flag
+                    // — harmlessly, since that overlay is gated on the game having started too.
                     s.pump_connectivity(false, Instant::now());
                 });
                 let ready = netcode_v2::with_turn_state(|s| {
@@ -2619,9 +2621,10 @@ impl BwScr {
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
-            // Relay-pushed slot-connectivity changes, into the turn state's disconnected set for the
-            // survivor overlay to render. Render-side only — no game state, alliances, or turn
-            // pipeline are touched here.
+            // Relay-pushed slot-connectivity changes: a peer's drop/reconnect updates the turn
+            // state's disconnected set, our own updates the self-link flag, for the survivor
+            // overlay to render. Render-side only — no game state, alliances, or turn pipeline are
+            // touched here.
             netcode_v2::with_turn_state(|s| s.pump_connectivity(true, Instant::now()));
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {

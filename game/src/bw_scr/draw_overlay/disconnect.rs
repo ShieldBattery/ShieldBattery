@@ -10,7 +10,8 @@ const LINE_SIZE: f32 = 18.0;
 impl OverlayState {
     /// Draws the survivor disconnect notice: a small, translucent, non-interactive panel anchored
     /// top-center that lists each peer whose relay link dropped (with how long the automatic-drop
-    /// grace period has run) and, if this client's own link is gone, a distinct line for that.
+    /// grace period has run) and, while this client's own link is down and reconnecting, a distinct
+    /// line for that — which disappears again once the reconnect succeeds.
     ///
     /// Renders in every build — this is product UX, not debug output — and only while there is
     /// something to report; an all-healthy status draws nothing. It registers no UI rect and marks
@@ -58,7 +59,7 @@ impl OverlayState {
                             }
                             if status.self_lost {
                                 ui.label(
-                                    RichText::new("Connection to the server lost")
+                                    RichText::new("Connection to the server lost — reconnecting…")
                                         .size(LINE_SIZE)
                                         .color(colors::AMBER90)
                                         .family(display_family()),

@@ -153,7 +153,9 @@ pub struct DisconnectStatus {
     /// Peers the relay's connectivity stream reported as dropped, awaiting the automatic
     /// grace-period leave. Empty when every peer link is healthy.
     pub peers: Vec<DisconnectedPeer>,
-    /// Whether this client's own relay link has been observed dead mid-game.
+    /// Whether this client's own relay link is currently down. The driver re-dials on its own, so
+    /// this can go back to `false` once the link is re-established — it only becomes permanent once
+    /// the session ends for good.
     pub self_lost: bool,
 }
 
@@ -289,10 +291,14 @@ pub struct TurnState {
     /// render it on yet), a (re)connect clears the slot, and an applied leave clears it via
     /// [`mark_slot_left`](Self::mark_slot_left). Best-effort and render-facing only.
     disconnected: Vec<(SlotId, Instant)>,
-    /// Set once this client's own relay link is observed dead mid-game — the driver dropped its end
-    /// of the turn channels (see [`pump_connectivity`](Self::pump_connectivity)). Informational for
-    /// the overlay only; the existing link-failure handling is unchanged. Latched, and never set for
-    /// a deliberately-closed [`local_only`](Self::local_only) session.
+    /// Whether this client's own relay link is currently down, per the driver's self-connectivity
+    /// signal on [`TurnChannels::connectivity`](rally_point_client::TurnChannels) (see
+    /// [`pump_connectivity`](Self::pump_connectivity)). Unlike a peer's entry in `disconnected`,
+    /// this is not a one-way latch: the driver re-dials on its own, so a `(own slot, true)` frame
+    /// clears it again once the link is back. It only becomes permanent when the turn channels
+    /// close outright (a terminal end of session), which also sets it and leaves it set for the
+    /// rest of the game. Informational for the overlay only; never set for a deliberately-closed
+    /// [`local_only`](Self::local_only) session.
     self_link_lost: bool,
 }
 
@@ -751,20 +757,34 @@ impl TurnState {
 
     /// Game-thread pump for the relay's best-effort slot-connectivity stream (see
     /// [`TurnChannels::connectivity`](rally_point_client::TurnChannels)). Drains every pending
-    /// change without blocking: a drop (`false`) observed once the game has started records the slot
-    /// as disconnected (keeping the first-seen instant on a repeat), a (re)connect (`true`) clears
-    /// it, and a pre-start frame is ignored — the pre-start dial's own connect frames arrive here and
-    /// are absorbed harmlessly.
+    /// change without blocking, distinguishing our own slot from a peer's by comparing against
+    /// [`local_slot`](Self::local_slot):
     ///
-    /// If the channel's sender has been dropped mid-game — the driver closed its end of the turn
-    /// channels, so this client's own relay link is gone — latches
-    /// [`self_link_lost`](Self::self_link_lost), unless the session was closed deliberately (already
-    /// [`local_only`](Self::local_only)), where the closure is expected and not a lost connection.
+    /// - A peer frame (`false`) observed once the game has started records that slot as
+    ///   disconnected (keeping the first-seen instant on a repeat); a peer `true` clears it. A
+    ///   pre-start frame is ignored — the pre-start dial's own connect frames arrive here and are
+    ///   absorbed harmlessly.
+    /// - Our own slot's frame drives [`self_link_lost`](Self::self_link_lost) directly: `false`
+    ///   sets it, `true` clears it — the driver re-dials on its own and emits this pair around each
+    ///   outage, so unlike a peer's entry this is not a one-way latch. Applied regardless of
+    ///   `game_started`: the overlay that reads the flag is itself gated on the game having
+    ///   started, so an early frame just sets the flag to its correct value ahead of time.
+    ///
+    /// If the channel's sender has been dropped — the driver ended and closed its end of every turn
+    /// channel, so the session is over — latches `self_link_lost` for good, unless the session was
+    /// closed deliberately (already [`local_only`](Self::local_only)), where the closure is expected
+    /// and not a lost connection. This is the terminal fallback: a closure no longer means "our link
+    /// blipped" (the driver's own reconnect loop handles that case above), only that reconnection is
+    /// no longer possible (slot-departed refusal, token expiry, or a non-link failure) or the session
+    /// ended cleanly.
     ///
     /// Render-facing only: it mutates no game state, alliances, or turn pipeline.
     pub fn pump_connectivity(&mut self, game_started: bool, now: Instant) {
         loop {
             match self.channels.connectivity.try_recv() {
+                Ok((slot, connected)) if slot == self.local_slot => {
+                    self.self_link_lost = !connected;
+                }
                 Ok((slot, true)) => self.disconnected.retain(|&(s, _)| s != slot),
                 Ok((slot, false)) => {
                     if game_started && !self.disconnected.iter().any(|&(s, _)| s == slot) {
@@ -2442,9 +2462,41 @@ mod tests {
     }
 
     #[test]
-    fn a_dead_driver_latches_self_link_lost_only_in_game() {
+    fn own_slot_frame_drives_self_link_lost_directly() {
         let (mut state, connectivity_tx) = turn_state_with_connectivity();
-        // The driver dropping its end of the channel is what a lost local link looks like here.
+
+        // Our own slot's drop sets the flag immediately off the driver's explicit signal, without
+        // waiting for the channel to close — and does not get mistaken for a peer drop.
+        connectivity_tx.try_send((LOCAL_SLOT, false)).unwrap();
+        state.pump_connectivity(true, Instant::now());
+        let status = state.disconnect_status();
+        assert!(status.self_lost);
+        assert!(status.peers.is_empty());
+    }
+
+    #[test]
+    fn own_slot_reconnect_clears_self_link_lost() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+
+        connectivity_tx.try_send((LOCAL_SLOT, false)).unwrap();
+        state.pump_connectivity(true, Instant::now());
+        assert!(state.disconnect_status().self_lost);
+
+        // The driver re-dialing successfully clears the notice — unlike a peer's entry in
+        // `disconnected`, this is not a one-way latch: the driver keeps servicing the channels
+        // across the outage and signals its own reconnect the same way it signaled the drop.
+        connectivity_tx.try_send((LOCAL_SLOT, true)).unwrap();
+        state.pump_connectivity(true, Instant::now());
+        assert!(!state.disconnect_status().self_lost);
+    }
+
+    #[test]
+    fn a_closed_channel_latches_self_link_lost_only_in_game() {
+        let (mut state, connectivity_tx) = turn_state_with_connectivity();
+        // The channel closing outright — as opposed to an own-slot frame — is the terminal
+        // fallback: reconnection is no longer possible (or the session ended), so this always
+        // means the link is down for the rest of the game, with no own-slot `true` frame ever
+        // coming to clear it.
         drop(connectivity_tx);
 
         // Pre-start, the closed channel is not surfaced as a lost connection.
