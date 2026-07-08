@@ -87,6 +87,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
   return {
     id: userInternal.id,
     name: userInternal.name,
+    created: Number(userInternal.created),
     loginName: userInternal.loginName,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
@@ -108,6 +109,7 @@ function convertToExternal(userInternal: UserInternal): SbUser {
   return {
     id: userInternal.id,
     name: userInternal.name,
+    created: Number(userInternal.created),
   }
 }
 
@@ -491,14 +493,6 @@ export async function findAllUsersWithEmail(email: string): Promise<SbUser[]> {
   } finally {
     done()
   }
-}
-
-// TODO(tec27): Delete this function and make this value part of SbUser (I don't have time to
-// thread this value through everywhere that needs it because a bunch of services try to construct
-// their own SbUsers from just a name and ID :( )
-export async function retrieveUserCreatedDate(userId: SbUserId): Promise<Date> {
-  const user = await internalFindUserById(userId)
-  return user!.created
 }
 
 export async function isUsernameAvailable(

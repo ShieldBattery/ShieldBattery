@@ -36,7 +36,6 @@ export const RANDOM_EMAIL_CODE_PATTERN = new RegExp(
  */
 export interface UserProfile {
   userId: SbUserId
-  created: Date
   ladder: Partial<Record<MatchmakingType, LadderPlayer>>
   seasonId: SeasonId
   userStats: UserStats
@@ -47,7 +46,6 @@ export type UserProfileJson = Jsonify<UserProfile>
 export function toUserProfileJson(userProfile: UserProfile): UserProfileJson {
   return {
     userId: userProfile.userId,
-    created: Number(userProfile.created),
     ladder: userProfile.ladder,
     seasonId: userProfile.seasonId,
     userStats: userProfile.userStats,

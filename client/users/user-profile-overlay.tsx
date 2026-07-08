@@ -218,7 +218,7 @@ export function UserProfileOverlayContents({
   }, [dispatch, userId])
 
   const hasAnyRanks = getRankedTypesByActivity(profile?.ladder ?? {}).length > 0
-  const longFormattedDate = longTimestamp.format(profile?.created)
+  const longFormattedDate = longTimestamp.format(user?.created)
 
   return (
     <PopoverContents>
@@ -257,7 +257,7 @@ export function UserProfileOverlayContents({
               <BodyMedium>
                 {t('users.profileOverlay.joined', {
                   defaultValue: 'Joined {{date}}',
-                  date: joinDateFormat.format(profile.created),
+                  date: joinDateFormat.format(user?.created),
                 })}
               </BodyMedium>
             </Tooltip>

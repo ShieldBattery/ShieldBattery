@@ -89,8 +89,8 @@ const mockRestrictionService = {
 } as any as RestrictionService
 
 const { user1, user2 } = vi.hoisted(() => ({
-  user1: { id: 1 as SbUserId, name: 'USER_NAME_1' } as SbUser,
-  user2: { id: 2 as SbUserId, name: 'USER_NAME_2' } as SbUser,
+  user1: { id: 1 as SbUserId, name: 'USER_NAME_1', created: 1577836800000 } as SbUser,
+  user2: { id: 2 as SbUserId, name: 'USER_NAME_2', created: 1577836800000 } as SbUser,
 }))
 
 vi.mock('../users/user-model', () => {
@@ -262,7 +262,6 @@ describe('chat/chat-service', () => {
   const joinUser1ShieldBatteryChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user1.id,
-    userName: user1.name,
     channelId: shieldBatteryChannel.id,
     sent: new Date('2023-03-11T00:00:00.000Z'),
     data: {
@@ -272,7 +271,6 @@ describe('chat/chat-service', () => {
   const joinUser1TestChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user1.id,
-    userName: user1.name,
     channelId: testChannel.id,
     sent: new Date('2023-03-11T00:00:00.000Z'),
     data: {
@@ -282,7 +280,6 @@ describe('chat/chat-service', () => {
   const joinUser2ShieldBatteryChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user2.id,
-    userName: user2.name,
     channelId: shieldBatteryChannel.id,
     sent: new Date('2023-03-11T00:00:00.000Z'),
     data: {
@@ -292,7 +289,6 @@ describe('chat/chat-service', () => {
   const joinUser2TestChannelMessage: FakeDbJoinChannelMessage = {
     msgId: 'MESSAGE_ID',
     userId: user2.id,
-    userName: user2.name,
     channelId: testChannel.id,
     sent: new Date('2023-03-11T00:00:00.000Z'),
     data: {
@@ -371,7 +367,6 @@ describe('chat/chat-service', () => {
     textMessage = {
       msgId: 'MESSAGE_ID',
       userId: user.id,
-      userName: user.name,
       channelId: channel.id,
       sent: new Date('2023-03-11T00:00:00.000Z'),
       data: {
@@ -440,7 +435,7 @@ describe('chat/chat-service', () => {
 
   describe('handleNewUser', () => {
     test('subscribes user to their joined channels', async () => {
-      const user3: SbUser = { id: 3 as SbUserId, name: 'USER_NAME_3' }
+      const user3: SbUser = { id: 3 as SbUserId, name: 'USER_NAME_3', created: 1577836800000 }
       const user3ShieldBatteryChannelEntry = { ...user1ShieldBatteryChannelEntry, userId: user3.id }
       const user3TestChannelEntry = { ...user1TestChannelEntry, userId: user3.id }
 
@@ -1669,7 +1664,6 @@ describe('chat/chat-service', () => {
     const textMessage1: FakeDbTextChannelMessage = {
       msgId: 'MESSAGE_1_ID',
       userId: user1.id,
-      userName: user1.name,
       channelId: testChannel.id,
       sent: new Date('2023-03-11T00:00:00.000Z'),
       data: {
@@ -1680,7 +1674,6 @@ describe('chat/chat-service', () => {
     const textMessage2: FakeDbTextChannelMessage = {
       msgId: 'MESSAGE_2_ID',
       userId: user1.id,
-      userName: user1.name,
       channelId: testChannel.id,
       sent: new Date('2023-03-11T00:00:00.000Z'),
       data: {
@@ -1692,7 +1685,6 @@ describe('chat/chat-service', () => {
     const textMessage3: FakeDbTextChannelMessage = {
       msgId: 'MESSAGE_3_ID',
       userId: user1.id,
-      userName: user1.name,
       channelId: testChannel.id,
       sent: new Date('2023-03-11T00:00:00.000Z'),
       data: {
@@ -1704,7 +1696,6 @@ describe('chat/chat-service', () => {
     const textMessage4: FakeDbTextChannelMessage = {
       msgId: 'MESSAGE_4_ID',
       userId: user1.id,
-      userName: user1.name,
       channelId: testChannel.id,
       sent: new Date('2023-03-11T00:00:00.000Z'),
       data: {
@@ -1827,7 +1818,6 @@ describe('chat/chat-service', () => {
       const message: FakeDbTextChannelMessage = {
         msgId: 'MESSAGE_5_ID',
         userId: user1.id,
-        userName: user1.name,
         channelId: testChannel.id,
         sent: new Date('2023-03-11T00:00:00.000Z'),
         data: {

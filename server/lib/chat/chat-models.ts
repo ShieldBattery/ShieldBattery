@@ -380,7 +380,6 @@ export type ChatMessageData = TextMessageData | JoinChannelData
 export interface ChatMessage {
   msgId: string
   userId: SbUserId
-  userName: string
   channelId: SbChannelId
   sent: Date
   data: ChatMessageData
@@ -396,18 +395,13 @@ export async function addMessageToChannel<T extends ChatMessageData>(
 ): Promise<ChatMessage & { data: T }> {
   const doIt = async (client: DbClient) => {
     const result = await client.query<DbChatMessage>(sql`
-      WITH ins AS (
-        INSERT INTO channel_messages (user_id, channel_id, sent, data)
-        SELECT ${userId}, ${channelId},
-          CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData}
-        WHERE EXISTS (
-          SELECT 1 FROM channel_users WHERE user_id = ${userId} AND channel_id = ${channelId}
-        )
-        RETURNING id, user_id, channel_id, sent, data
+      INSERT INTO channel_messages (user_id, channel_id, sent, data)
+      SELECT ${userId}, ${channelId},
+        CURRENT_TIMESTAMP AT TIME ZONE 'UTC', ${messageData}
+      WHERE EXISTS (
+        SELECT 1 FROM channel_users WHERE user_id = ${userId} AND channel_id = ${channelId}
       )
-      SELECT ins.id AS msg_id, users.id AS user_id, users.name AS user_name, ins.channel_id,
-        ins.sent, ins.data
-      FROM ins INNER JOIN users ON ins.user_id = users.id;
+      RETURNING id AS msg_id, user_id, channel_id, sent, data;
     `)
     if (result.rows.length < 1) {
       throw new Error('No rows returned')
@@ -417,7 +411,6 @@ export async function addMessageToChannel<T extends ChatMessageData>(
     return {
       msgId: row.msg_id,
       userId: row.user_id,
-      userName: row.user_name,
       channelId: row.channel_id,
       sent: row.sent,
       data: row.data as T,
@@ -445,8 +438,8 @@ export async function getMessagesForChannel(
 
   let query = sql`
       WITH messages AS (
-        SELECT m.id AS msg_id, u.id AS user_id, u.name AS user_name, m.channel_id, m.sent, m.data
-        FROM channel_messages as m INNER JOIN users as u ON m.user_id = u.id
+        SELECT m.id AS msg_id, m.user_id, m.channel_id, m.sent, m.data
+        FROM channel_messages as m
         WHERE m.channel_id = ${channelId} `
 
   if (beforeDate !== undefined) {
@@ -464,7 +457,6 @@ export async function getMessagesForChannel(
     return result.rows.map(row => ({
       msgId: row.msg_id,
       userId: row.user_id,
-      userName: row.user_name,
       channelId: row.channel_id,
       sent: row.sent,
       data: row.data,

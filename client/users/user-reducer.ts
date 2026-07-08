@@ -35,7 +35,7 @@ function updateUsers(state: UserState, users: SbUser[]) {
         userState.name = user.name
       }
     } else {
-      state.byId.set(user.id, { id: user.id, name: user.name })
+      state.byId.set(user.id, { id: user.id, name: user.name, created: user.created })
     }
   }
 }
@@ -46,7 +46,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       payload: { user },
     } = action
 
-    state.byId.set(user.id, { id: user.id, name: user.name })
+    state.byId.set(user.id, { id: user.id, name: user.name, created: user.created })
   },
 
   ['@chat/loadMessageHistory'](state, action) {

@@ -701,6 +701,8 @@ export default class ChatService {
       mentions: mentionedUserIds.length > 0 ? mentionedUserIds : undefined,
       channelMentions: mentionedChannelIds.length > 0 ? mentionedChannelIds : undefined,
     })
+    // The sender just posted a message, so they're guaranteed to exist
+    const user = (await findUserById(result.userId))!
 
     this.publisher.publish(getChannelPath(channelId), {
       action: 'message2',
@@ -712,10 +714,7 @@ export default class ChatService {
         time: Number(result.sent),
         text: result.data.text,
       },
-      user: {
-        id: result.userId,
-        name: result.userName,
-      },
+      user,
       mentions: userMentions,
       channelMentions: channelMentions.map(c => toBasicChannelInfo(c)),
     })

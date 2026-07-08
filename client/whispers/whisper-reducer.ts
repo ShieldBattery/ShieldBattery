@@ -103,7 +103,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const newMessage = new TextMessageRecord({
       id,
       time,
-      from: from.id,
+      from,
       text,
     })
 
@@ -129,7 +129,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         new TextMessageRecord({
           id: msg.id,
           time: msg.time,
-          from: msg.from.id,
+          from: msg.from,
           text: msg.text,
         }),
     )
