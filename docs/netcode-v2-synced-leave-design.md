@@ -283,6 +283,43 @@ and the code is shaped so D11 drops in without rework:
 The leave directive is orthogonal to *how long we wait before deciding a departure is permanent*, so
 nothing here forecloses reconnect.
 
+**Design decisions settled 2026-07-08 (informed by the §17 build; not yet built):**
+
+- **The driver owns reconnection; the TurnChannels stay alive.** Today a link death kills the
+  `LinkDriver`, dropping every channel sender — which is exactly how the §17 self-disconnect notice
+  detects it. That shape makes reconnect awkward (a new driver would need to re-wire channels into a
+  live `TurnState`). D11 inverts it: `LinkDriver::run` catches the QUIC connection error and re-dials
+  internally (same token + keypair — the token is per-session and the connection binding is a
+  possession proof, re-provable on a fresh connection), keeping all channels alive across attempts.
+  Self-disconnect detection then migrates from "channel closed" to a driver-emitted self-connectivity
+  status on the existing `connectivity` channel (e.g. a reserved self marker or a dedicated channel),
+  which the overlay renders as "Connection lost — reconnecting… ([Abandon])" and clears on success.
+- **Relay accepts re-registration for a live-or-graced slot.** `routing::register` already re-pushes
+  `SessionStart` on re-register; D11 extends acceptance: a slot re-authenticating while its drop grace
+  runs cancels the grace (the `LeaveGrace::cancel` path already exists) and fans
+  `connectivity(slot, true)` — survivors' overlays clear. A re-register after the leave was decided is
+  rejected (the slot is gone; the client gets a terminal "you were dropped").
+- **Turn resync = bounded replay from cursor.** The relay keeps a per-session bounded ring of
+  forwarded turns (bounded by the grace window: grace-seconds × turn rate × per-turn size — small).
+  A reconnecting client's hello carries its last-delivered turn seq per slot (the client already
+  tracks delivery per slot); the relay replays everything newer on the reliable stream before
+  resuming live fan-out. The lobby channel already has replay-log semantics (the late-dial catch-up
+  pattern) — the turn ring is its in-game sibling. The reconnecting client's own OUTBOUND gap is
+  filled by its send queue (it kept producing turns while stalled — they buffered locally; on
+  reconnect they flush in order).
+- **Grace grows with reconnect** (~45 s per the §17 target) **+ manual Drop unlocks at grace expiry**:
+  `RequestDrop` up the control stream; the authority honors it only for a slot it knows is
+  disconnected with grace elapsed (single request suffices interim; rate-limit per requester). The
+  §17 grace-collapse-on-promotion tradeoff gets revisited here (promotion restarts the remaining
+  grace instead of deciding immediately).
+- **Relay-death failover stays deferred** (move to a backup relay + mesh re-home) — it needs
+  coordinator-side relay liveness + client-side relay list, a separate arc. A relay death today =
+  every client's self-disconnect notice + eventual reconciliation sweep; acceptable interim.
+- **Ordering:** rp2 first (re-register acceptance + grace cancel + turn ring + replay-on-hello),
+  live-testable with a synthetic client before touching the DLL; then the driver-owned re-dial; then
+  the overlay actions ([Abandon] first — it's just the existing quit; [Reconnect] as the manual
+  trigger for the automatic machinery).
+
 ### Disconnect UX (§17 target — design direction, not built)
 
 Shape the connection-lost work toward this end state; the interim ships auto-removal (~10s) because
