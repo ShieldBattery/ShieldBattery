@@ -252,9 +252,16 @@ directive receiver; the relay init path awaits it (in the lobby-stepping `select
 optional: the driver closes the link if a re-pushed directive hits a dropped receiver.
 `establish_sessionless` fabricates + parks the channel like the others. Live-verified loopback:
 both melee-1v1 clients log the wait → directive-received transition, play to a correct DB result,
-zero desync; solo + replay unchanged. Remaining: increment C — delete the `startWhenReady` chain
-end-to-end (server publish, ws event, renderer handler, IPC, app latch + resend-on-connect, DLL
-message + `can_start_game`; solo/replay then start as soon as local init is ready).
+zero desync; solo + replay unchanged. **Increment C DONE (SB `16e670c79`): the `startWhenReady`
+chain is deleted end-to-end** — server publish, gameLoader ws event, renderer relay case,
+`activeGameStartWhenReady` IPC, app latch + resend-on-connect, DLL message + `can_start_game`
+latch, and the replay path's own deferred start caller (`startReplayWhenReady`, an unmapped second
+consumer the sweep found). Solo/replay init proceeds directly once local init is ready (lobby init
+still completes in the game thread's StartGame handler — `step_lobby_init` alone can never finish
+it, which is why the old loops were pure gates). Live-verified on the fully rebuilt stack (new
+DLL + restarted server + restarted Electron mains): melee 1v1 gates on the directive with a
+correct reconciled result and zero desync; solo and replay launch clean. **The relay-driven start
+arc is complete** — the app server no longer participates in "go" at all.
 
 ### Reconnect / failover (D11)
 
