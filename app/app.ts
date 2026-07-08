@@ -10,6 +10,7 @@ import ReplayParser, { ReplayHeader } from 'jssuh'
 import fs, { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
 import http from 'node:http'
+import type { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pipeline } from 'stream/promises'
@@ -262,6 +263,8 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
   return new Promise<TwitchOauthFlowResult>(resolve => {
     let settled = false
     let timeout: ReturnType<typeof setTimeout> | undefined
+    // Track live connections so we can forcibly tear them down when the flow finishes.
+    const sockets = new Set<Socket>()
 
     const finish = (result: TwitchOauthFlowResult) => {
       if (settled) {
@@ -272,6 +275,15 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
         clearTimeout(timeout)
       }
       server.close()
+      // server.close() stops accepting new connections but leaves already-open ones intact -- the
+      // external browser holds its callback connection open with keep-alive (and may open a stray
+      // favicon connection too). While any socket is still bound to the fixed loopback port, a
+      // second link attempt can't re-bind it and fails with EADDRINUSE (particularly on Windows).
+      // resetAndDestroy() sends an RST so the port is released immediately, with no lingering
+      // TIME_WAIT socket to block the rebind.
+      for (const socket of sockets) {
+        socket.resetAndDestroy()
+      }
       resolve(result)
     }
 
@@ -287,12 +299,22 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
       }
 
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
-      res.end(TWITCH_OAUTH_RESULT_PAGE)
-      finish({
-        code: requestUrl.searchParams.get('code') ?? undefined,
-        state: state ?? undefined,
-        error: requestUrl.searchParams.get('error') ?? undefined,
-        errorDescription: requestUrl.searchParams.get('error_description') ?? undefined,
+      // Settle only once the result page has flushed to the browser, since finish() resets the
+      // connection out from under it.
+      res.end(TWITCH_OAUTH_RESULT_PAGE, () => {
+        finish({
+          code: requestUrl.searchParams.get('code') ?? undefined,
+          state: state ?? undefined,
+          error: requestUrl.searchParams.get('error') ?? undefined,
+          errorDescription: requestUrl.searchParams.get('error_description') ?? undefined,
+        })
+      })
+    })
+
+    server.on('connection', socket => {
+      sockets.add(socket)
+      socket.on('close', () => {
+        sockets.delete(socket)
       })
     })
 
