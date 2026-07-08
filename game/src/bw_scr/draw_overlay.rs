@@ -1068,13 +1068,14 @@ impl OverlayState {
                 }
                 WM_CHAR => {
                     if !self.ctx.wants_keyboard_input() {
-                        if self.disconnect_blocks_input && !self.chat_textbox_open {
-                            // No vkey to carve VK_RETURN out of here — opening the chat box is
-                            // handled at the WM_KEYDOWN level above, so a WM_CHAR reaching this
-                            // point with the box still closed has no legitimate game-thread
-                            // destination while blocked.
-                            return Some(0);
-                        }
+                        // Never swallowed for the disconnect block: SC:R opens and submits the chat
+                        // box from the Enter *character* here (0x0D/0x0A), not from WM_KEYDOWN's
+                        // VK_RETURN — swallowing WM_CHAR while the box is closed would swallow the
+                        // very keypress that opens it, so `chat_textbox_open` could never flip true
+                        // and every following WM_CHAR would stay swallowed forever. A WM_CHAR never
+                        // carries a unit command or hotkey (those are WM_KEYDOWN virtual keys, and
+                        // still blocked by `should_block_game_keyboard_input` below), so passing all
+                        // of them through can't let a blocked player command units.
                         return None;
                     }
                     if wparam >= 0x80 {
@@ -1108,8 +1109,11 @@ impl OverlayState {
     /// the replay-hotkey check wanted has already returned above) should be swallowed instead of
     /// reaching BW. Mirrors [`should_block_game_pointer_input`](Self::should_block_game_pointer_input)'s
     /// gate, but carves out the chat surface: with the chat textbox open every key passes through
-    /// (typing, backspace, arrow keys, Enter to send, Escape to close), and with it closed,
-    /// `VK_RETURN` still passes through so the player can open the box in the first place.
+    /// (backspace, arrow keys, Escape to close — actual typed characters and Enter-to-open/submit
+    /// ride WM_CHAR, which this doesn't gate at all, see the WM_CHAR arm above). The `VK_RETURN`
+    /// carve-out below is harmless but not what opens the chat box (SC:R opens it from the Enter
+    /// *character* on WM_CHAR, not this virtual-key WM_KEYDOWN) — kept so a bare Return keydown
+    /// doesn't get eaten as a stray hotkey while the box is closed.
     fn should_block_game_keyboard_input(&self, vkey: i32) -> bool {
         self.disconnect_blocks_input
             && !self.chat_textbox_open

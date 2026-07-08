@@ -42,8 +42,10 @@ const DROP_BUTTON_SIZE: Vec2 = Vec2 { x: 96.0, y: 32.0 };
 /// Horizontal gap between grid columns, and between the Drop button and its drop-requested
 /// acknowledgement within the action cell.
 const COLUMN_SPACING: f32 = 14.0;
-/// Vertical gap between grid rows.
-const ROW_SPACING: f32 = 6.0;
+/// Vertical gap between grid rows — enough that stacked rows read as a table, not a cramped block.
+const ROW_SPACING: f32 = 12.0;
+/// Vertical gap between the "Waiting for players" header and the first row.
+const HEADER_GAP: f32 = 12.0;
 
 /// One display-ready disconnect row: a logical row from the turn state with its player name
 /// resolved. Holds no BW or turn-state types, so the render path below depends only on this and
@@ -139,7 +141,7 @@ fn render_disconnect_view(
             Frame::default()
                 .fill(colors::CONTAINER_HIGH.gamma_multiply(0.85))
                 .corner_radius(CornerRadius::same(8))
-                .inner_margin(Margin::symmetric(16, 12))
+                .inner_margin(Margin::symmetric(20, 16))
                 .show(ui, |ui| {
                     ui.vertical_centered(|ui| match view.self_state {
                         // TODO(tec27): Translate this
@@ -184,7 +186,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
             .strong()
             .family(display_family()),
     );
-    ui.add_space(8.0);
+    ui.add_space(HEADER_GAP);
     egui::Grid::new("sb_disconnect_rows")
         .num_columns(3)
         .spacing(vec2(COLUMN_SPACING, ROW_SPACING))
