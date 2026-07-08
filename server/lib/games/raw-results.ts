@@ -6,7 +6,11 @@ import {
 } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import logger from '../logging/logger'
+import type { StoredResultReport } from '../models/games-users'
 import { ResultSubmission } from './results'
+
+/** Reused empty default so a caller that omits `corroboratedVictors` allocates nothing. */
+const NO_CORROBORATED_VICTORS: ReadonlySet<SbUserId> = new Set()
 
 /**
  * Derives a per-player result submission from a single client's raw end-of-game report. This mirrors
@@ -22,6 +26,14 @@ import { ResultSubmission } from './results'
  * a locally-defeated reporter still counts as "playing" in the raw table when deciding whether only
  * computers remain).
  *
+ * On top of that faithful port, the server intentionally applies two extra evidence-based rules the
+ * client digest never had, because the server can see evidence a single client couldn't: the leaver's
+ * own report and the network departure record. Both target the "one-way-ally quit" artifact, where a
+ * losing player allies a survivor one-directionally and quits, tricking BW into stamping the LEAVER a
+ * Victory in the survivor's capture while the survivor's own state stays unresolved. Rule A (below)
+ * vetoes an uncorroborated quit-victory; Rule B synthesizes the last-standing victory BW should have
+ * awarded but didn't. See each rule's comment for the full evidence reasoning.
+ *
  * Adversarial-but-schema-valid input (duplicate `bwPlayerId`s, colliding storm ids, missing rows)
  * degrades sanely — a missing lookup is skipped or treated as "quit" — rather than throwing, since
  * this runs off untrusted client evidence and a throw would wedge an otherwise-reconcilable game.
@@ -30,12 +42,18 @@ import { ResultSubmission } from './results'
  * @param reporterUserId the user who submitted this report (may be an observer with no `players` row)
  * @param opts.isUms whether the game is UMS, taken from the server's own game config (never
  *   client-asserted); UMS reports pass through undigested
+ * @param opts.corroboratedVictors the set of users whose OWN stored report claims a self-Victory,
+ *   computed once across every report in the game (see `computeCorroboratedVictors`). Rule A uses it
+ *   to tell a genuine winner-who-quit (present in the set) from the one-way-ally quit artifact
+ *   (absent). Omit it (or pass an empty set) to disable the veto — no player is treated as
+ *   corroborated, which is the correct default when deriving a report in isolation.
  */
 export function deriveResultSubmission(
   raw: StoredRawGameResults,
   reporterUserId: SbUserId,
-  opts: { isUms: boolean },
+  opts: { isUms: boolean; corroboratedVictors?: ReadonlySet<SbUserId> },
 ): ResultSubmission {
+  const corroboratedVictors = opts.corroboratedVictors ?? NO_CORROBORATED_VICTORS
   // The derived, per-user results (humans only). Keyed by SbUserId.
   const results = new Map<SbUserId, GameClientPlayerResult>()
   // The raw per-BW-player table (humans + computers), whose victory states we mutate in place.
@@ -90,6 +108,41 @@ export function deriveResultSubmission(
     stormId === undefined || (network.get(stormId)?.hasQuit ?? true)
   const wasDropped = (stormId: number | undefined): boolean =>
     stormId !== undefined && (network.get(stormId)?.wasDropped ?? false)
+
+  // The reporter's own raw victory state as originally captured, before any rule below mutates a
+  // view. Rule B needs to know the reporter wasn't eliminated, and the reporter-Playing→Defeat rule
+  // just below rewrites the derived view, so we snapshot the raw state now. (The raw table itself is
+  // never touched for the reporter, but snapshotting keeps the intent explicit.)
+  const reporterBwId = sbToBw.get(reporterUserId)
+  const reporterOriginalVictoryState =
+    reporterBwId !== undefined ? rawByBw.get(reporterBwId)?.victoryState : undefined
+
+  // Rule A — corroborated-victory veto. A game client sends its result frame to the relay BEFORE its
+  // leave intent, so any player who genuinely reached a Victory has their OWN report saying so. A
+  // non-reporter human whose row here shows Victory, who has quit, but whose own report does NOT claim
+  // self-Victory (absent from `corroboratedVictors`) is the fingerprint of the one-way-alliance
+  // artifact: BW stamped the leaver a Victory in this capture even though they never actually won.
+  // Downgrade that uncorroborated quit-victory to Disconnected in BOTH views so the has-victory
+  // questions below don't see a phantom victor. Only human rows are examined: computers never report
+  // (so can never be corroborated) and a computer's Victory only ever comes from the only-computers
+  // rule further down, which needs no veto. The reporter's own row is never downgraded — a reporter's
+  // self-claim is arbitrated later by reconciliation's cross-report victory/defeat counting.
+  for (const p of rawByBw.values()) {
+    if (
+      p.userId === null ||
+      p.userId === reporterUserId ||
+      p.victoryState !== GameClientResult.Victory ||
+      corroboratedVictors.has(p.userId) ||
+      !hasQuit(p.stormId ?? undefined)
+    ) {
+      continue
+    }
+    p.victoryState = GameClientResult.Disconnected
+    const derived = results.get(p.userId)
+    if (derived) {
+      derived.result = GameClientResult.Disconnected
+    }
+  }
 
   // BW leaves the local player marked Playing unless they were actually defeated (all buildings
   // destroyed); map that to Defeat since a Victory would already have been applied. Later logic may
@@ -152,6 +205,50 @@ export function deriveResultSubmission(
 
   // Recompute now that the above may have changed the raw victory states.
   hasVictory = anyRawVictory(rawByBw)
+
+  // Rule B — synthesized last-standing victory. After Rule A vetoes the leaver's phantom victory, a
+  // genuinely-won game can be left with no victor at all: BW never resolved the survivor's own state
+  // because the interfering one-way alliance denied them the native win. When the reporter is
+  // demonstrably the sole player left standing — no victor anywhere, the reporter wasn't eliminated
+  // (their original raw state was Playing) and hasn't quit, every other human has quit, and no
+  // computer is still playing — award them the Victory BW should have. Setting the reporter's raw
+  // state to Victory lets the normal victory branch below run: it maps the quit players to defeats
+  // and applies allied-victory expansions. This can't fire for the leaver in the exploit (their own
+  // capture shows the survivor still connected, so two humans have not quit) and can't be gamed by
+  // lingering (a real winner's corroborated raw Victory survives Rule A, keeping `hasVictory` true and
+  // blocking the no-victor precondition).
+  if (!hasVictory && reporterOriginalVictoryState === GameClientResult.Playing) {
+    const reporterConnected = !hasQuit(sbToStorm.get(reporterUserId))
+    const noComputerPlaying = !anyRawPlaying(rawByBw, bwToSb, false /* computer */)
+    let allOtherHumansQuit = true
+    for (const p of rawByBw.values()) {
+      if (p.userId === null || p.userId === reporterUserId) {
+        continue
+      }
+      if (!hasQuit(p.stormId ?? undefined)) {
+        allOtherHumansQuit = false
+        break
+      }
+    }
+
+    if (
+      reporterConnected &&
+      noComputerPlaying &&
+      allOtherHumansQuit &&
+      reporterBwId !== undefined
+    ) {
+      const reporterRaw = rawByBw.get(reporterBwId)
+      if (reporterRaw) {
+        reporterRaw.victoryState = GameClientResult.Victory
+        const reporterDerived = results.get(reporterUserId)
+        if (reporterDerived) {
+          reporterDerived.result = GameClientResult.Victory
+        }
+        // Recompute so the branch below takes the victor path and finishes the derivation.
+        hasVictory = anyRawVictory(rawByBw)
+      }
+    }
+  }
 
   if (!hasVictory) {
     // No victor yet, so the game is still ongoing: map any Defeats to Disconnected if the player
@@ -304,4 +401,39 @@ function toSubmission(
     time,
     playerResults: [...results.entries()],
   }
+}
+
+/**
+ * Collects the users whose OWN stored report claims a self-Victory, across every report submitted for
+ * a game. This is the corroboration set Rule A (see `deriveResultSubmission`) uses to distinguish a
+ * genuine winner-who-quit from the one-way-alliance quit artifact: a player who truly reached a
+ * victory sent a result frame saying so before ever leaving, so their own report — raw or legacy —
+ * records the self-Victory. A player with no stored report (e.g. a crash before reporting) is never
+ * corroborated, which is intentional: an uncorroborated quit-victory in someone else's capture is
+ * exactly what the veto is meant to strip.
+ *
+ * Only a report's claim about ITSELF counts. A raw report is inspected via the reporter's own
+ * `players` row; a legacy digested report via its `playerResults` entry for the reporter.
+ */
+export function computeCorroboratedVictors(
+  storedReports: ReadonlyArray<StoredResultReport | null>,
+): Set<SbUserId> {
+  const corroborated = new Set<SbUserId>()
+  for (const stored of storedReports) {
+    if (!stored) {
+      continue
+    }
+    if (stored.kind === 'raw') {
+      const ownRow = stored.raw.players.find(p => p.userId === stored.reporter)
+      if (ownRow?.victoryState === GameClientResult.Victory) {
+        corroborated.add(stored.reporter)
+      }
+    } else {
+      const ownEntry = stored.playerResults.find(([id]) => id === stored.reporter)
+      if (ownEntry?.[1].result === GameClientResult.Victory) {
+        corroborated.add(stored.reporter)
+      }
+    }
+  }
+  return corroborated
 }

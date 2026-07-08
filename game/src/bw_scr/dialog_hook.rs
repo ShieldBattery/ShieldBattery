@@ -112,6 +112,11 @@ unsafe extern "C" fn chat_box_event_handler(
                     if bw.handle_chat_command(text) {
                         // Clear the chat box text so no message gets sent
                         edit_box.set_string(b"");
+                    } else if text.is_empty() {
+                        // Enter on an already-empty box: natively this just closes the chat box
+                        // without sending anything, so skip our send tap entirely (no chat_out
+                        // submit, no local echo injection) and fall through to the native `orig`
+                        // call below, which closes the box exactly as it does after a real send.
                     } else {
                         // A live netcode v2 session carries chat over its own relay channel — the
                         // native battlenet-gateway send is dead under it, and this client's own

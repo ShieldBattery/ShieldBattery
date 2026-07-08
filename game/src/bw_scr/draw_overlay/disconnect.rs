@@ -36,12 +36,19 @@ const ROW_SIZE: f32 = 18.0;
 const HEADER_SIZE: f32 = 20.0;
 /// Text size for the prominent self-disconnect notice.
 const SELF_SIZE: f32 = 24.0;
-/// Minimum size of the Drop button's hit area — noticeably larger than a text-sized default so it
-/// reads unambiguously as a clickable button rather than a label.
-const DROP_BUTTON_SIZE: Vec2 = Vec2 { x: 96.0, y: 32.0 };
+/// Fixed size of the Drop button's hit area, wide enough to fit its longest possible label,
+/// `"Drop (45s)"` (the countdown starts at [`DROP_UNLOCK_UI`]'s whole seconds), so the button
+/// keeps the same footprint whether it reads "Drop (45s)" or just "Drop" — see [`draw_drop_button`],
+/// which renders it via `add_sized` rather than treating this as a mere minimum.
+const DROP_BUTTON_SIZE: Vec2 = Vec2 { x: 140.0, y: 32.0 };
+/// Minimum width of every grid column — generous enough that typical player names and any realistic
+/// elapsed count fit without growing their column, keeping the panel width steady. Columns still
+/// grow to fit wider content; this only sets a floor.
+const COL_MIN_WIDTH: f32 = 110.0;
 /// Horizontal gap between grid columns, and between the Drop button and its drop-requested
-/// acknowledgement within the action cell.
-const COLUMN_SPACING: f32 = 14.0;
+/// acknowledgement within the action cell — generous, so the name/elapsed/action columns read as
+/// distinct fields rather than a run-on line.
+const COLUMN_SPACING: f32 = 20.0;
 /// Vertical gap between grid rows — enough that stacked rows read as a table, not a cramped block.
 const ROW_SPACING: f32 = 12.0;
 /// Vertical gap between the "Waiting for players" header and the first row.
@@ -133,7 +140,7 @@ fn render_disconnect_view(
     ctx: &egui::Context,
 ) -> InnerResponse<Vec<SlotId>> {
     egui::Area::new("sb_disconnect_overlay".into())
-        .anchor(Align2::CENTER_TOP, vec2(0.0, 24.0))
+        .anchor(Align2::CENTER_TOP, vec2(0.0, 72.0))
         .order(egui::Order::Foreground)
         .interactable(view.has_button())
         .show(ctx, |ui| {
@@ -190,6 +197,7 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
     egui::Grid::new("sb_disconnect_rows")
         .num_columns(3)
         .spacing(vec2(COLUMN_SPACING, ROW_SPACING))
+        .min_col_width(COL_MIN_WIDTH)
         .show(ui, |ui| {
             for row in rows {
                 ui.label(
@@ -198,8 +206,20 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
                         .color(PRIMARY)
                         .family(display_family()),
                 );
+                // Only a relay-confirmed row shows its elapsed time: the stall tier runs on a
+                // different clock (sustained-stall duration), and showing it would make the
+                // counter visibly reset to zero when the row upgrades to confirmed. The confirmed
+                // clock is also what the Drop button's unlock countdown runs against, so the one
+                // timer the player sees is coherent with the button. A plain label keeps the
+                // column width constant (min_col_width covers any realistic count) without
+                // disturbing the row's text baseline the way a fixed-rect widget would.
+                let elapsed_text = if row.tier == DisconnectTier::Confirmed {
+                    format!("{}s", row.seconds)
+                } else {
+                    String::new()
+                };
                 ui.label(
-                    RichText::new(format!("{}s", row.seconds))
+                    RichText::new(elapsed_text)
                         .size(ROW_SIZE)
                         .color(SECONDARY)
                         .family(display_family()),
@@ -215,8 +235,12 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
 /// for a [`Stall`](DisconnectTier::Stall) row — there is no relay-confirmed death yet to drop.
 fn draw_action_cell(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Vec<SlotId>) {
     if row.tier != DisconnectTier::Confirmed {
-        // An explicit empty cell, so every row touches all three grid columns the same way.
-        ui.label("");
+        // Reserve the Drop button's exact footprint (same centered layout, same size) so a row
+        // upgrading to the confirmed tier doesn't grow the row height or widen the panel when the
+        // real button appears.
+        ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+            ui.add_sized(DROP_BUTTON_SIZE, egui::Label::new(""));
+        });
         return;
     }
     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
@@ -264,9 +288,14 @@ fn draw_drop_button(ui: &mut egui::Ui, row: &DisconnectRowView, clicked: &mut Ve
     )
     .fill(fill)
     .stroke(Stroke::new(1.5, border))
-    .corner_radius(CornerRadius::same(6))
-    .min_size(DROP_BUTTON_SIZE);
-    let response = ui.add_enabled(enabled, button);
+    .corner_radius(CornerRadius::same(6));
+    // `add_sized` rather than the button's own `min_size`: a min size still lets the widest label
+    // ("Drop (45s)") grow the button past a shorter one ("Drop"), which is exactly the frame-to-frame
+    // resize this is meant to prevent. Sizing the button explicitly keeps its footprint identical
+    // across every label the countdown produces.
+    let response = ui
+        .add_enabled_ui(enabled, |ui| ui.add_sized(DROP_BUTTON_SIZE, button))
+        .inner;
     if enabled && response.hovered() {
         // egui doesn't vary an explicit `.fill()` on hover, so paint a subtle highlight over the
         // button ourselves — visible feedback that it's a live, clickable control.

@@ -88,7 +88,7 @@ import { joiUserId } from '../users/user-validators'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { getGameRecord } from './game-models'
-import { deriveResultSubmission } from './raw-results'
+import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
 
@@ -673,12 +673,17 @@ export default class GameResultService {
     // so everything downstream (reconcile, desync policy, departure tiebreak, persistence) is
     // agnostic to which form a client submitted. `isUms` comes from our own config, never the client.
     const isUms = gameRecord.config.gameType === GameType.UseMapSettings
+    // Cross-report evidence for the raw-report veto (Rule A in `deriveResultSubmission`): the set of
+    // users whose OWN report claims a self-Victory, computed once over every stored report and fed to
+    // each derivation so a leaver's uncorroborated quit-victory in someone else's capture can be
+    // stripped while a genuine winner-who-quit's victory is preserved.
+    const corroboratedVictors = computeCorroboratedVictors(storedResults)
     const currentResults: Array<ResultSubmission | null> = storedResults.map(stored => {
       if (!stored) {
         return null
       }
       if (stored.kind === 'raw') {
-        return deriveResultSubmission(stored.raw, stored.reporter, { isUms })
+        return deriveResultSubmission(stored.raw, stored.reporter, { isUms, corroboratedVictors })
       }
       return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
     })
