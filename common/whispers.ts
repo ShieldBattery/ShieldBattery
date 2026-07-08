@@ -11,8 +11,13 @@ export enum WhisperMessageType {
 export interface BaseWhisperMessage {
   id: string
   type: WhisperMessageType
-  from: SbUser
-  to: SbUser
+  /**
+   * The ID of the user that sent the message. Full user info is delivered separately via the
+   * `users` array on the containing event/response.
+   */
+  from: SbUserId
+  /** The ID of the user that received the message. See `from` for where to find full user info. */
+  to: SbUserId
   time: number
 }
 

@@ -386,8 +386,14 @@ describe('users/user-relationship-service', () => {
     )
     connector = new NydusConnector(nydus, sessionLookup)
 
-    client1 = connector.connectClient({ id: makeSbUserId(1), name: 'One' }, 'one')
-    client2 = connector.connectClient({ id: makeSbUserId(2), name: 'Two' }, 'two')
+    client1 = connector.connectClient(
+      { id: makeSbUserId(1), name: 'One', created: 1577836800000 },
+      'one',
+    )
+    client2 = connector.connectClient(
+      { id: makeSbUserId(2), name: 'Two', created: 1577836800000 },
+      'two',
+    )
 
     asMockedFunction(client1.publish).mockClear()
     asMockedFunction(client2.publish).mockClear()
@@ -1038,7 +1044,10 @@ describe('users/user-relationship-service', () => {
       await userRelationshipService.acceptFriendRequest(USER, makeSbUserId(2))
       await userRelationshipService.acceptFriendRequest(USER, makeSbUserId(3))
 
-      const nextClient = connector.connectClient({ id: makeSbUserId(1), name: 'One' }, 'another')
+      const nextClient = connector.connectClient(
+        { id: makeSbUserId(1), name: 'One', created: 1577836800000 },
+        'another',
+      )
       await Promise.resolve()
 
       expect(nextClient.publish).toHaveBeenCalledWith(

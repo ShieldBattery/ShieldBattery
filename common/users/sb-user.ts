@@ -11,6 +11,12 @@ export interface SbUser {
   id: SbUserId
   /** The user's display name. */
   name: string
+  /**
+   * When the user's account was created, as a UTC timestamp in milliseconds. Represented as a
+   * number (rather than a `Date`) because `SbUser`s are sent over the wire as-is, without a
+   * `Jsonify` conversion step.
+   */
+  created: number
 }
 
 /** Information about the current user. */
@@ -48,6 +54,7 @@ export function toSelfUserJson(user: SelfUser): SelfUserJson {
   return {
     id: user.id,
     name: user.name,
+    created: user.created,
     loginName: user.loginName,
     email: user.email,
     emailVerified: user.emailVerified,
@@ -65,6 +72,7 @@ export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
   return {
     id: userJson.id,
     name: userJson.name,
+    created: userJson.created,
     loginName: userJson.loginName,
     email: userJson.email,
     emailVerified: userJson.emailVerified,

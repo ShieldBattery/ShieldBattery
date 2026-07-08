@@ -130,7 +130,6 @@ import {
   findUserByName,
   findUsersById,
   isUsernameAvailable,
-  retrieveUserCreatedDate,
   UserUpdatables,
 } from './user-model'
 import { UserRelationshipService } from './user-relationship-service'
@@ -580,7 +579,6 @@ export class UserApi {
     const rankingsPromise = getRankingsForUser(this.redis, user.id, currentSeason.id)
 
     const userStatsPromise = getUserStats(user.id)
-    const createdDatePromise = retrieveUserCreatedDate(user.id)
 
     const NUM_RECENT_GAMES = 6
     const matchHistoryPromise = (async () => {
@@ -610,10 +608,9 @@ export class UserApi {
       }
     })()
 
-    const [userStats, matchHistory, createdDate, ratings, rankings] = await Promise.all([
+    const [userStats, matchHistory, ratings, rankings] = await Promise.all([
       userStatsPromise,
       matchHistoryPromise,
-      createdDatePromise,
       ratingsPromise,
       rankingsPromise,
     ])
@@ -653,7 +650,6 @@ export class UserApi {
       user,
       profile: {
         userId: user.id,
-        created: Number(createdDate),
         ladder,
         seasonId: currentSeason.id,
         userStats,

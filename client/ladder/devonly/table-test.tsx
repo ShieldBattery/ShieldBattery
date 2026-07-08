@@ -70,7 +70,7 @@ for (let i = 0; i < 1000; i++) {
     rZLosses,
     lastPlayedDate,
   })
-  usersById.set(makeSbUserId(i), { id: makeSbUserId(i), name })
+  usersById.set(makeSbUserId(i), { id: makeSbUserId(i), name, created: Date.now() })
 }
 
 PLAYERS.sort((a, b) => b.points - a.points)

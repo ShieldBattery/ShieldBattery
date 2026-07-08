@@ -39,6 +39,7 @@ async function setGameConfig(
   const localUser: SbUser = {
     id: user?.id ?? makeSbUserId(0),
     name: user?.name ?? 'ShieldBattery User',
+    created: user?.created ?? 0,
   }
 
   return ipcRenderer.invoke('activeGameSetConfig', {

@@ -42,7 +42,7 @@ const eventToAction: EventToActionMap = {
         return
       }
 
-      const isBlocked = blocks.has(event.message.from.id)
+      const isBlocked = blocks.has(event.message.from)
       if (!isBlocked) {
         // Notify the main process of the new message, so it can display an appropriate notification
         ipcRenderer.send('chatNewMessage', {
@@ -51,7 +51,7 @@ const eventToAction: EventToActionMap = {
       }
 
       const { from, to } = event.message
-      const target = self.user.id === to.id ? from.id : to.id
+      const target = self.user.id === to ? from : to
       dispatch({
         type: '@whispers/updateMessage',
         payload: event,

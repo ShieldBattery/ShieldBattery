@@ -58,6 +58,7 @@ export default function ({
             localUser: {
               id: self!.user.id,
               name: self!.user.name,
+              created: self!.user.created,
             },
             blockedUsers: Array.from(getState().relationships.blocks.keys()),
             serverConfig: {
