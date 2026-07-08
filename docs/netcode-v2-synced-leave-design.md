@@ -335,6 +335,22 @@ nothing here forecloses reconnect.
   the overlay actions ([Abandon] first — it's just the existing quit; [Reconnect] as the manual
   trigger for the automatic machinery).
 
+**Relay side BUILT (rp2 `3641b3e`, 2026-07-08; not yet DLL-live-tested).** Re-dial during a pending
+drop grace registers normally (grace cancels — locally at classification, cross-relay via the
+`connectivity(true)` signal the receiving relay's dispatch now hooks), and the relay replays missed
+turns cursor-based: the handshake gained a **fifth message** (resume-cursor frame: u16-LE count +
+`(u8 slot, u64-LE last-delivered-seq)` entries, cap 16, empty = fresh dial — **wire-breaking**, a
+4-message client auth-times-out against a 5-message relay, so the dist DLL and dev relay must move
+together), a per-session turn ring records at the fan-out choke point post-session-start
+(count-bound derived from grace×24tps×12slots×1.5, byte-bound 4 MiB, drop-oldest), and replay rides
+`OversizeTurn` frames on the reliable control stream oldest-first before live fan-out resumes (the
+client's per-(slot,seq) dedup makes stale cursors degrade to extra replay, never corruption).
+Re-dial after the decision → terminal `SLOT_DEPARTED_CLOSE = 0x06` (distinct from
+`SLOT_TAKEN_CLOSE` 0x02 = live double-connect); the future DLL re-dial loop must treat 0x06 as
+stop-retrying. Integration tests cover the full two-client reconnect (exact missed turns, in order,
+no leave fires) and the terminal refusal. Next: the driver-owned re-dial (client crate), then the
+RequestDrop bundle.
+
 ### Disconnect UX (§17 target — design direction, not built)
 
 Shape the connection-lost work toward this end state; the interim ships auto-removal (~10s) because
