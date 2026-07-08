@@ -370,6 +370,17 @@ only. **Live findings (2026-07-08):**
    an in-flight grace") invalidated by reconnection. Fix: a promotion must skip departures whose
    grace hold is pending — the hold's expiry/cancel is the sole decider for graced drops; ungraced
    undecided departures keep immediate re-derivation (never-lose-a-departure).
+3. **Fix LANDED (rp2 `421b382`) + blip test GREEN.** Two load-bearing halves (negative-control
+   proven): the handoff drain skips grace-pending slots (threaded INTO the drain — filtering its
+   output would mark the slot decided and swallow the grace's later decision), and a re-register
+   within grace REINSTATES the slot (discards the departure record — its cancelled grace would
+   otherwise leave it undecided-and-ungraced, exactly what a promotion re-derives). Live re-run:
+   20 s relay suspend mid-game → both clients re-registered, zero leaves decided, game resumed
+   seamlessly (overlay cleared, comparator silent through and after the outage), redundant
+   SessionStart re-push drained as designed. **Same-relay blip reconnection is LIVE-PROVEN
+   end-to-end.** (The end-game scoring of that particular run was scrambled by a deliberate
+   one-way alliance experiment — see the ally-quit backlog item; a no-blip control confirmed the
+   quit/results path healthy.)
 
 ### Disconnect UX (§17 target — design direction, not built)
 
@@ -509,6 +520,15 @@ shape should be removed rather than ossified:
   transport can't drift (ALPN mismatch rejected at handshake) — rebuild both sides when bumping the pin.
 
 ### Backlog (small / deferred)
+
+- **Ally-quit scoring hardening (live-found 2026-07-08, Travis's alliance experiment).** In unranked
+  melee, a one-way mid-game alliance (loser allies the winner, then leaves) makes BW's native
+  allied-victors pass score the LEAVER as victorious — the survivor's report arrives inverted
+  ("dropped opponent won, I lost") and reconciliation conservatively yields unknown/unknown. Ranked
+  is already immune (`lockedAlliances`). Fix direction: extend the concession-only principle into
+  report interpretation — a player whose departure ended a live game is not awardable a WIN from an
+  opponent's report alone; score leaver loss / survivor win (or keep void at minimum). Server-side
+  reconciliation change; no DLL work (the DLL faithfully reports BW's verdict).
 
 - **Client desync-report hook.** Closes the pure-fog desync gap (a divergence living only in
   vision-masked fog that never perturbs a hashed value and reaches the result-lock first). A client
