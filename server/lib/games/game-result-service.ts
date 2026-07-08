@@ -13,9 +13,12 @@ import {
 } from '../../../common/games/games'
 import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
 import {
+  ALL_GAME_CLIENT_ALLIANCE_STATES,
+  ALL_GAME_CLIENT_LOSE_TYPES,
   ALL_GAME_CLIENT_RESULTS,
-  GameClientPlayerResult,
   GameResultErrorCode,
+  RawGameResultsReport,
+  StoredGameResults,
   SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { League, toClientLeagueUserChangeJson, toLeagueJson } from '../../../common/leagues/leagues'
@@ -85,6 +88,7 @@ import { joiUserId } from '../users/user-validators'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { getGameRecord } from './game-models'
+import { deriveResultSubmission } from './raw-results'
 
 export class GameResultServiceError extends CodedError<GameResultErrorCode> {}
 
@@ -134,13 +138,8 @@ export function isResultsExempt(config: GameConfig): boolean {
   return config.resultsExempt ?? false
 }
 
-/**
- * Validates a game result submission body — used both by the direct `results2` HTTP endpoint and
- * by the netcode-v2 webhook, which decodes a relay-forwarded report and validates it against this
- * same schema before treating it as a submission. Keeping one schema for both entry points means a
- * relay-borne report has to satisfy the exact same shape a directly-POSTed one does.
- */
-export const SUBMIT_GAME_RESULTS_REQUEST_SCHEMA = Joi.object<SubmitGameResultsRequest>({
+/** The legacy digested submission shape (no `version`): a set of already-decided per-player verdicts. */
+const LEGACY_GAME_RESULTS_REQUEST_SCHEMA = Joi.object<SubmitGameResultsRequest>({
   userId: Joi.number().min(0).required(),
   resultCode: Joi.string().required(),
   time: Joi.number().min(0).required(),
@@ -159,6 +158,60 @@ export const SUBMIT_GAME_RESULTS_REQUEST_SCHEMA = Joi.object<SubmitGameResultsRe
     .max(8)
     .required(),
 }).required()
+
+/** The raw (v2) submission shape: undigested BW evidence the server derives verdicts from. */
+const RAW_GAME_RESULTS_REPORT_SCHEMA = Joi.object<RawGameResultsReport>({
+  version: Joi.valid(2).required(),
+  userId: joiUserId().required(),
+  resultCode: Joi.string().required(),
+  time: Joi.number().min(0).required(),
+  players: Joi.array()
+    .items(
+      Joi.object({
+        userId: joiUserId().allow(null).required(),
+        bwPlayerId: Joi.number().integer().min(0).max(7).required(),
+        stormId: Joi.number().integer().min(0).max(7).allow(null).required(),
+        race: Joi.string().valid('p', 't', 'z').required(),
+        victoryState: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
+        alliances: Joi.array()
+          .length(8)
+          .items(Joi.valid(...ALL_GAME_CLIENT_ALLIANCE_STATES))
+          .required(),
+      }),
+    )
+    .max(8)
+    .required(),
+  netPlayers: Joi.array()
+    .items(
+      Joi.object({
+        stormId: Joi.number().integer().min(0).max(7).required(),
+        wasDropped: Joi.boolean().required(),
+        hasQuit: Joi.boolean().required(),
+      }),
+    )
+    .max(8)
+    .required(),
+  localPlayerLoseType: Joi.string()
+    .valid(...ALL_GAME_CLIENT_LOSE_TYPES)
+    .allow(null)
+    .required(),
+}).required()
+
+/**
+ * Validates a game result submission body — used both by the direct `results2` HTTP endpoint and
+ * by the netcode-v2 webhook, which decodes a relay-forwarded report and validates it against this
+ * same schema before treating it as a submission. Keeping one schema for both entry points means a
+ * relay-borne report has to satisfy the exact same shape a directly-POSTed one does.
+ *
+ * A report is version-discriminated: a `version: 2` body is validated as the raw schema; a body with
+ * no `version` is validated as the legacy digested schema (so pre-cutover clients keep working).
+ */
+export const SUBMIT_GAME_RESULTS_REQUEST_SCHEMA = Joi.alternatives()
+  .conditional(Joi.object({ version: Joi.exist() }).unknown(), {
+    then: RAW_GAME_RESULTS_REPORT_SCHEMA,
+    otherwise: LEGACY_GAME_RESULTS_REQUEST_SCHEMA,
+  })
+  .required()
 
 /**
  * Whether every required (non-diverged) human has actually submitted a result report, checked by
@@ -407,25 +460,21 @@ export default class GameResultService {
 
   async submitGameResults({
     gameId,
-    userId,
-    resultCode,
-    time,
-    playerResults,
+    report,
     relayReportTime,
     relayReportFrame,
     logger,
   }: {
     gameId: string
-    userId: SbUserId
-    resultCode: string
-    time: number
-    playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
+    /** The validated submission body: either a legacy digested report or a raw (v2) report. */
+    report: SubmitGameResultsRequest | RawGameResultsReport
     /** When the netcode-v2 relay recorded this report arriving, for reports relayed via webhook. */
     relayReportTime?: Date
     /** The relay's local session frame at arrival, for reports relayed via webhook. */
     relayReportFrame?: number | null
     logger: Logger
   }): Promise<void> {
+    const { userId, resultCode, time } = report
     const gameUserRecord = await getUserGameRecord(userId, gameId)
     if (!gameUserRecord || gameUserRecord.resultCode !== resultCode) {
       // TODO(tec27): Should we be giving this info to clients? Should we be giving *more* info?
@@ -443,7 +492,13 @@ export default class GameResultService {
       gameRecord.config.teams.map(team => team.filter(p => !p.isComputer).map(p => p.id)).flat(),
     )
 
-    for (const [id, _] of playerResults) {
+    // Every reported user must be an actual (non-computer) participant of this game. For a raw
+    // report the participants are the non-null player user IDs; computers carry a null user id.
+    const reportedUserIds =
+      'version' in report
+        ? report.players.flatMap(p => (p.userId !== null ? [p.userId] : []))
+        : report.playerResults.map(([id]) => id)
+    for (const id of reportedUserIds) {
       if (!playerIdsInGame.has(id)) {
         throw new GameResultServiceError(
           GameResultErrorCode.InvalidPlayers,
@@ -452,13 +507,21 @@ export default class GameResultService {
       }
     }
 
+    const reportedResults: StoredGameResults =
+      'version' in report
+        ? {
+            version: 2,
+            time: report.time,
+            players: report.players,
+            netPlayers: report.netPlayers,
+            localPlayerLoseType: report.localPlayerLoseType,
+          }
+        : { time, playerResults: report.playerResults }
+
     await setReportedResults({
       userId,
       gameId,
-      reportedResults: {
-        time,
-        playerResults,
-      },
+      reportedResults,
       reportedAt: new Date(this.clock.now()),
       relayReportTime,
       relayReportFrame,
@@ -605,7 +668,20 @@ export default class GameResultService {
     }
 
     const gameId = gameRecord.id
-    const currentResults = await getCurrentReportedResults(gameId)
+    const storedResults = await getCurrentReportedResults(gameId)
+    // Raw reports are digested into the same `ResultSubmission` shape a legacy report already has,
+    // so everything downstream (reconcile, desync policy, departure tiebreak, persistence) is
+    // agnostic to which form a client submitted. `isUms` comes from our own config, never the client.
+    const isUms = gameRecord.config.gameType === GameType.UseMapSettings
+    const currentResults: Array<ResultSubmission | null> = storedResults.map(stored => {
+      if (!stored) {
+        return null
+      }
+      if (stored.kind === 'raw') {
+        return deriveResultSubmission(stored.raw, stored.reporter, { isUms })
+      }
+      return { reporter: stored.reporter, time: stored.time, playerResults: stored.playerResults }
+    })
     const humans = gameRecord.config.teams.flatMap(t => t.filter(p => !p.isComputer).map(p => p.id))
     const desyncEvents = await getDesyncEventsForGame(gameId)
 

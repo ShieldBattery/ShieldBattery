@@ -46,7 +46,8 @@ impl TryFrom<u8> for AssignedRace {
 
 // NOTE(tec27): The name + descriptions here are derived experimentally rather than through
 // reversing all the cases here, so they may not be 100% accurate.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum PlayerLoseType {
     /// The last player in the game with us was dropped. This generally implies that our results are
     /// probably "just as valid" as whatever results they report.
@@ -93,7 +94,8 @@ impl TryFrom<u8> for VictoryState {
     }
 }
 
-#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq, Hash, Serialize_repr)]
+#[repr(u8)]
 pub enum AllianceState {
     #[default]
     Unallied = 0,

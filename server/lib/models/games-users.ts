@@ -4,34 +4,46 @@ import {
   GameClientPlayerResult,
   ReconciledPlayerResult,
   ReconciledResult,
+  StoredGameResults,
+  StoredRawGameResults,
 } from '../../../common/games/results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
-import { ResultSubmission } from '../games/results'
 
 export interface GameUserReportedResults {
   userId: SbUserId
   reportedAt?: Date
-  reportedResults?: {
-    time: number
-    playerResults: Array<[SbUserId, GameClientPlayerResult]>
-  }
+  reportedResults?: StoredGameResults
 }
 
 export interface ReportedResultsData {
   userId: SbUserId
   gameId: string
   reportedAt: Date
-  reportedResults: {
-    /** The elapsed time of the game, in milliseconds. */
-    time: number
-    /** A tuple of (userId, result info). */
-    playerResults: Array<[SbUserId, GameClientPlayerResult]>
-  }
+  /** The stored report: either a legacy digested report or a raw (v2) report. */
+  reportedResults: StoredGameResults
 }
+
+/**
+ * A user's stored report as returned for reconciliation, discriminated between the legacy digested
+ * form (already a set of per-player verdicts) and the raw (v2) form (undigested BW evidence the
+ * server derives verdicts from). Both carry the `reporter` (the user the row belongs to).
+ */
+export type StoredResultReport =
+  | {
+      kind: 'legacy'
+      reporter: SbUserId
+      time: number
+      playerResults: Array<[SbUserId, GameClientPlayerResult]>
+    }
+  | {
+      kind: 'raw'
+      reporter: SbUserId
+      raw: StoredRawGameResults
+    }
 
 export interface GameUserRecord {
   userId: SbUserId
@@ -178,30 +190,40 @@ export async function setReportedResults({
 }
 
 /**
- * Gets the current reported results for all the users in a game.
+ * Gets the current reported results for all the users in a game, as stored (a legacy digested report
+ * or a raw v2 report). Callers derive verdicts from raw reports before reconciling.
  */
 export async function getCurrentReportedResults(
   gameId: string,
-): Promise<Array<ResultSubmission | null>> {
+): Promise<Array<StoredResultReport | null>> {
   const { client, done } = await db()
 
   try {
-    const result = await client.query(sql`
+    const result = await client.query<{
+      user_id: SbUserId
+      reported_results: StoredGameResults | null
+    }>(sql`
       SELECT user_id, reported_results
       FROM games_users
       WHERE game_id = ${gameId}
       ORDER BY reported_at DESC
     `)
 
-    return result.rows.map(row =>
-      row.reported_results
-        ? {
-            reporter: row.user_id,
-            time: row.reported_results.time,
-            playerResults: row.reported_results.playerResults,
-          }
-        : null,
-    )
+    return result.rows.map(row => {
+      const stored = row.reported_results
+      if (!stored) {
+        return null
+      }
+      if ('version' in stored) {
+        return { kind: 'raw', reporter: row.user_id, raw: stored }
+      }
+      return {
+        kind: 'legacy',
+        reporter: row.user_id,
+        time: stored.time,
+        playerResults: stored.playerResults,
+      }
+    })
   } finally {
     done()
   }
@@ -366,10 +388,7 @@ export async function getGameReportedResults(gameId: string): Promise<GameUserRe
     const result = await client.query<{
       user_id: SbUserId
       reported_at?: Date | null
-      reported_results?: {
-        time: number
-        playerResults: Array<[SbUserId, GameClientPlayerResult]>
-      } | null
+      reported_results?: StoredGameResults | null
     }>(sql`
       SELECT user_id, reported_at, reported_results
       FROM games_users

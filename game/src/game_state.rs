@@ -16,10 +16,10 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameResultsReport,
-    GameSetupInfo, GameType, MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus,
-    NetworkTransport, PlayerInfo, SbUser, SbUserId, ServerConfig, Settings, SetupProgress,
-    UmsLobbyRace,
+    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameSetupInfo, GameType,
+    MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus, NetworkTransport,
+    PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser, SbUserId,
+    ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
@@ -1104,15 +1104,14 @@ async fn send_game_result(
     // stream instead of an HTTP POST. Build the exact same report the server validates and hand it
     // to the driver; `submit_result_report` reports whether a live v2 session took it. The
     // `/game/result` app message above and the replay upload below are unaffected either way.
-    let report = GameResultsReport {
+    let report = RawGameResultsReport {
+        version: 2,
         user_id: local_user.id,
-        result_code: result_code.clone(),
+        result_code: &result_code,
         time: results.time_ms,
-        player_results: results
-            .results
-            .iter()
-            .map(|(&uid, result)| (uid, *result))
-            .collect(),
+        players: &results.raw_players,
+        net_players: &results.raw_net_players,
+        local_player_lose_type: results.local_player_lose_type,
     };
     let sent_over_relay = match serde_json::to_vec(&report) {
         Ok(bytes) => netcode_v2::submit_result_report(bytes),
@@ -1170,15 +1169,14 @@ async fn send_results_to_server(
         server_config.server_url, info.game_id
     );
 
-    let result_body = GameResultsReport {
+    let result_body = RawGameResultsReport {
+        version: 2,
         user_id: local_user.id,
-        result_code: result_code.to_string(),
+        result_code,
         time: results.time_ms,
-        player_results: results
-            .results
-            .iter()
-            .map(|(&uid, result)| (uid, *result))
-            .collect(),
+        players: &results.raw_players,
+        net_players: &results.raw_net_players,
+        local_player_lose_type: results.local_player_lose_type,
     };
 
     let headers = api_request_headers();
@@ -1353,6 +1351,9 @@ impl InitInProgress {
 
         let time_ms = game_results.time.as_millis() as u64;
         let replay_path = game_results.replay_path.clone();
+        let raw_players = build_raw_players(&game_results, &self.joined_players);
+        let raw_net_players = build_raw_net_players(&game_results);
+        let local_player_lose_type = game_results.local_player_lose_type;
         let results = determine_game_results(game_results, &self.joined_players, &self.local_user);
 
         self.stall_durations.sort_unstable();
@@ -1375,6 +1376,9 @@ impl InitInProgress {
                 min: stall_min as u32,
                 max: stall_max as u32,
             },
+            raw_players,
+            raw_net_players,
+            local_player_lose_type,
             replay_path,
         });
         for send in self.waiting_for_result.drain(..) {
@@ -1948,6 +1952,51 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
         }
     }
     Ok(None)
+}
+
+/// Builds the raw per-player evidence rows for the server report. A player row is a human when its
+/// BW id belongs to a joined player, otherwise it is a computer (no user id / storm id).
+fn build_raw_players(
+    game_thread_results: &GameThreadResults,
+    joined_players: &[JoinedPlayer],
+) -> Vec<RawPlayerResult> {
+    let humans_by_bw = joined_players
+        .iter()
+        .filter_map(|p| p.player_id.map(|bw| (bw, p)))
+        .collect::<HashMap<_, _>>();
+
+    let mut rows = game_thread_results
+        .player_results
+        .iter()
+        .map(|(&bw_id, result)| {
+            let human = humans_by_bw.get(&bw_id);
+            RawPlayerResult {
+                user_id: human.map(|p| p.sb_user_id),
+                bw_player_id: bw_id.0,
+                storm_id: human.map(|p| p.storm_id.0),
+                race: result.race,
+                victory_state: result.victory_state,
+                alliances: result.alliances,
+            }
+        })
+        .collect::<Vec<_>>();
+    rows.sort_by_key(|r| r.bw_player_id);
+    rows
+}
+
+/// Builds the raw network status rows for the server report, one per storm id, sorted by storm id.
+fn build_raw_net_players(game_thread_results: &GameThreadResults) -> Vec<RawNetPlayer> {
+    let mut rows = game_thread_results
+        .network_results
+        .iter()
+        .map(|(&storm_id, status)| RawNetPlayer {
+            storm_id: storm_id.0,
+            was_dropped: status.was_dropped,
+            has_quit: status.has_quit,
+        })
+        .collect::<Vec<_>>();
+    rows.sort_by_key(|r| r.storm_id);
+    rows
 }
 
 fn determine_game_results(
@@ -4045,5 +4094,115 @@ mod tests {
                 }
             ),])
         )
+    }
+
+    #[test]
+    fn raw_report_serializes_expected_json() {
+        let players = vec![
+            RawPlayerResult {
+                user_id: Some(10.into()),
+                bw_player_id: 0,
+                storm_id: Some(0),
+                race: AssignedRace::Zerg,
+                victory_state: VictoryState::Victory,
+                alliances: {
+                    let mut a = [AllianceState::Unallied; 8];
+                    a[1] = AllianceState::AlliedVictory;
+                    a
+                },
+            },
+            RawPlayerResult {
+                user_id: None,
+                bw_player_id: 1,
+                storm_id: None,
+                race: AssignedRace::Terran,
+                victory_state: VictoryState::Defeat,
+                alliances: [AllianceState::Unallied; 8],
+            },
+        ];
+        let net_players = vec![RawNetPlayer {
+            storm_id: 0,
+            was_dropped: false,
+            has_quit: true,
+        }];
+        let report = RawGameResultsReport {
+            version: 2,
+            user_id: 10.into(),
+            result_code: "abc",
+            time: 1234,
+            players: &players,
+            net_players: &net_players,
+            local_player_lose_type: Some(PlayerLoseType::TargetedDisconnect),
+        };
+
+        let value = serde_json::to_value(&report).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "version": 2,
+                "userId": 10,
+                "resultCode": "abc",
+                "time": 1234,
+                "players": [
+                    {
+                        "userId": 10,
+                        "bwPlayerId": 0,
+                        "stormId": 0,
+                        "race": "z",
+                        "victoryState": 3,
+                        "alliances": [0, 2, 0, 0, 0, 0, 0, 0],
+                    },
+                    {
+                        "userId": null,
+                        "bwPlayerId": 1,
+                        "stormId": null,
+                        "race": "t",
+                        "victoryState": 2,
+                        "alliances": [0, 0, 0, 0, 0, 0, 0, 0],
+                    },
+                ],
+                "netPlayers": [
+                    { "stormId": 0, "wasDropped": false, "hasQuit": true },
+                ],
+                "localPlayerLoseType": "targetedDisconnect",
+            })
+        );
+    }
+
+    #[test]
+    fn maximal_raw_report_fits_relay_cap() {
+        let players = (0..8u8)
+            .map(|i| RawPlayerResult {
+                user_id: Some(u32::MAX.into()),
+                bw_player_id: i,
+                storm_id: Some(i),
+                race: AssignedRace::Protoss,
+                victory_state: VictoryState::Disconnected,
+                alliances: [AllianceState::AlliedVictory; 8],
+            })
+            .collect::<Vec<_>>();
+        let net_players = (0..8u8)
+            .map(|i| RawNetPlayer {
+                storm_id: i,
+                was_dropped: true,
+                has_quit: true,
+            })
+            .collect::<Vec<_>>();
+        let report = RawGameResultsReport {
+            version: 2,
+            user_id: u32::MAX.into(),
+            result_code: "0123456789abcdef0123456789abcdef",
+            time: u64::MAX,
+            players: &players,
+            net_players: &net_players,
+            local_player_lose_type: Some(PlayerLoseType::MassDisconnect),
+        };
+
+        let bytes = serde_json::to_vec(&report).unwrap();
+        assert!(
+            bytes.len() < 4096,
+            "maximal raw report was {} bytes, expected comfortably under 4096",
+            bytes.len(),
+        );
     }
 }

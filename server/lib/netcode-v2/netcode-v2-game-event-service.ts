@@ -9,7 +9,11 @@ import {
   NetcodeV2ResultNotification,
   NetcodeV2SessionClosedNotification,
 } from '../../../common/games/netcode-v2'
-import { GameClientPlayerResult, GameResultErrorCode } from '../../../common/games/results'
+import {
+  GameResultErrorCode,
+  RawGameResultsReport,
+  SubmitGameResultsRequest,
+} from '../../../common/games/results'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { getGameRecord } from '../games/game-models'
 import GameResultService, {
@@ -182,10 +186,7 @@ const defaultForceReconcile: ForceReconcile = gameId =>
 /** The `submitGameResults` call `submitRelayResult` needs, factored out for injection in tests. */
 type SubmitGameResults = (args: {
   gameId: string
-  userId: SbUserId
-  resultCode: string
-  time: number
-  playerResults: ReadonlyArray<[playerId: SbUserId, result: GameClientPlayerResult]>
+  report: SubmitGameResultsRequest | RawGameResultsReport
   relayReportTime: Date
   relayReportFrame: number | null
   logger: Logger
@@ -255,7 +256,7 @@ async function submitRelayResult(
     return false
   }
 
-  const { error, value: body } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(parsedPayload)
+  const { error, value } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(parsedPayload)
   if (error) {
     log.warn(
       { gameId, userId, err: error },
@@ -263,10 +264,11 @@ async function submitRelayResult(
     )
     return false
   }
+  const report = value as SubmitGameResultsRequest | RawGameResultsReport
 
-  if (body.userId !== userId) {
+  if (report.userId !== userId) {
     log.warn(
-      { gameId, userId, payloadUserId: body.userId },
+      { gameId, userId, payloadUserId: report.userId },
       'netcode v2 result payload userId does not match externalRef, dropping',
     )
     return false
@@ -275,10 +277,7 @@ async function submitRelayResult(
   try {
     await submitGameResults({
       gameId,
-      userId,
-      resultCode: body.resultCode,
-      time: body.time,
-      playerResults: body.playerResults,
+      report,
       relayReportTime: new Date(arrivalMs),
       relayReportFrame: sessionFrame ?? null,
       logger: log,

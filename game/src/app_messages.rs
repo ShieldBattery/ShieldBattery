@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::bw;
-use crate::bw::players::{AssignedRace, VictoryState};
+use crate::bw::players::{AllianceState, AssignedRace, PlayerLoseType, VictoryState};
 use crate::bw::{BwGameType, LobbyOptions};
 
 // Structures of messages that are used to communicate with the electron app.
@@ -192,6 +192,12 @@ pub struct GameResults {
     pub time_ms: u64,
     pub results: HashMap<SbUserId, GamePlayerResult>,
     pub network_stalls: NetworkStallInfo,
+    /// Raw per-player evidence rows sent to the server, one per non-observer human and per computer.
+    pub raw_players: Vec<RawPlayerResult>,
+    /// Raw network status for all 8 storm ids sent to the server.
+    pub raw_net_players: Vec<RawNetPlayer>,
+    /// The type of loss the local player received (if any).
+    pub local_player_lose_type: Option<PlayerLoseType>,
     /// Path to the temporary replay file saved for upload.
     /// This file should be cleaned up after upload completes.
     pub replay_path: Option<PathBuf>,
@@ -210,13 +216,40 @@ pub struct GameResultsMessage<'a> {
     pub temp_replay_path: Option<&'a str>,
 }
 
+/// A single player's raw end-of-game evidence, as read directly from the game.
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RawPlayerResult {
+    /// SbUserId of the human occupying this slot, or `None` for a computer.
+    pub user_id: Option<SbUserId>,
+    pub bw_player_id: u8,
+    /// Storm id of the human occupying this slot, or `None` for a computer.
+    pub storm_id: Option<u8>,
+    pub race: AssignedRace,
+    pub victory_state: VictoryState,
+    pub alliances: [AllianceState; 8],
+}
+
+/// A single storm player's raw network status at the end of the game.
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RawNetPlayer {
+    pub storm_id: u8,
+    pub was_dropped: bool,
+    pub has_quit: bool,
+}
+
+/// Raw end-of-game evidence report sent to the server, over the relay or the HTTP results path.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GameResultsReport {
+pub struct RawGameResultsReport<'a> {
+    pub version: u8,
     pub user_id: SbUserId,
-    pub result_code: String,
+    pub result_code: &'a str,
     pub time: u64,
-    pub player_results: Vec<(SbUserId, GamePlayerResult)>,
+    pub players: &'a [RawPlayerResult],
+    pub net_players: &'a [RawNetPlayer],
+    pub local_player_lose_type: Option<PlayerLoseType>,
 }
 
 #[derive(Serialize)]

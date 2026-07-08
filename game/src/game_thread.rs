@@ -308,13 +308,7 @@ unsafe fn game_results() -> GameThreadResults {
         let game = bw.game();
         let players = bw.players();
 
-        let mut player_results = HashMap::new();
-        for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
-            if id.is_observer() {
-                // Observers should already be filtered out of the player ID mapping but just to be safe
-                continue;
-            }
-
+        let read_player_result = |id: BwPlayerId| {
             let victory_state = (*game).victory_state[id.0 as usize]
                 .try_into()
                 .unwrap_or_else(|e| {
@@ -339,14 +333,31 @@ unsafe fn game_results() -> GameThreadResults {
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap();
-            player_results.insert(
-                id,
-                PlayerResult {
-                    victory_state,
-                    race,
-                    alliances,
-                },
-            );
+            PlayerResult {
+                victory_state,
+                race,
+                alliances,
+            }
+        };
+
+        let mut player_results = HashMap::new();
+        for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
+            if id.is_observer() {
+                // Observers should already be filtered out of the player ID mapping but just to be safe
+                continue;
+            }
+            player_results.insert(id, read_player_result(id));
+        }
+
+        // Computers have no player ID mapping, so read their rows directly from the player slots.
+        for i in 0..8 {
+            let id = BwPlayerId(i as u8);
+            // In-game participant player types: 1 = computer, 2 = human.
+            if (*players.add(i)).player_type == 1 {
+                player_results
+                    .entry(id)
+                    .or_insert_with(|| read_player_result(id));
+            }
         }
 
         let network_results = (0..8)

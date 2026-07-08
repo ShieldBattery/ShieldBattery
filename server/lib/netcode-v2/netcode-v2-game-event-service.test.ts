@@ -395,12 +395,14 @@ describe('netcode-v2/recordDepartureNotification', () => {
 
       expect(submitGameResults).toHaveBeenCalledWith({
         gameId: GAME_ID,
-        userId: makeSbUserId(42),
-        resultCode: 'abc123',
-        time: 12345,
-        playerResults: [
-          [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
-        ],
+        report: {
+          userId: makeSbUserId(42),
+          resultCode: 'abc123',
+          time: 12345,
+          playerResults: [
+            [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
+          ],
+        },
         relayReportTime: new Date(12345),
         relayReportFrame: 200,
         logger: expect.anything(),
@@ -598,12 +600,14 @@ describe('netcode-v2/recordResultNotification', () => {
 
     expect(submitGameResults).toHaveBeenCalledWith({
       gameId: GAME_ID,
-      userId: makeSbUserId(42),
-      resultCode: 'abc123',
-      time: 12345,
-      playerResults: [
-        [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
-      ],
+      report: {
+        userId: makeSbUserId(42),
+        resultCode: 'abc123',
+        time: 12345,
+        playerResults: [
+          [makeSbUserId(42), { result: GameClientResult.Victory, race: 'z', apm: 100 }],
+        ],
+      },
       relayReportTime: new Date(notification.arrivalMs),
       relayReportFrame: 100,
       logger: expect.anything(),

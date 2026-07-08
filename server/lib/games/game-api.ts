@@ -12,6 +12,7 @@ import {
   GameSortOption,
 } from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
+import { GameType } from '../../../common/games/game-type'
 import {
   GameDebugInfo,
   GameReplayInfo,
@@ -26,7 +27,13 @@ import {
   toGameRecordJson,
 } from '../../../common/games/games'
 import { SubmitNetcodeV2PubkeyRequest } from '../../../common/games/netcode-v2'
-import { GameResultErrorCode, SubmitGameReplayRequest } from '../../../common/games/results'
+import {
+  GameResultErrorCode,
+  isRawStoredGameResults,
+  RawGameResultsReport,
+  SubmitGameReplayRequest,
+  SubmitGameResultsRequest,
+} from '../../../common/games/results'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -64,6 +71,7 @@ import GameResultService, {
   SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
   usedNetcodeV2,
 } from './game-result-service'
+import { deriveResultSubmission } from './raw-results'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
 const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
@@ -373,9 +381,24 @@ export class GameApi {
           })),
         )
 
+        // The debug view shows per-player verdicts. A raw (v2) report is undigested, so derive its
+        // verdicts (the same way reconciliation would) before displaying it.
+        const isUms = game.config.gameType === GameType.UseMapSettings
+        const debugReportedResults = reportedResults.map(r => {
+          if (r.reportedResults && isRawStoredGameResults(r.reportedResults)) {
+            const derived = deriveResultSubmission(r.reportedResults, r.userId, { isUms })
+            return {
+              userId: r.userId,
+              reportedAt: r.reportedAt,
+              reportedResults: { time: derived.time, playerResults: derived.playerResults },
+            }
+          }
+          return { userId: r.userId, reportedAt: r.reportedAt, reportedResults: r.reportedResults }
+        })
+
         debugInfo = {
           routes,
-          reportedResults,
+          reportedResults: debugReportedResults,
           replays: replayDebugInfo.length > 0 ? replayDebugInfo : undefined,
         }
       } catch (err) {
@@ -502,11 +525,12 @@ export class GameApi {
   async submitGameResults(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
-      body: { userId, resultCode, time, playerResults },
+      body,
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
       body: SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
     })
+    const report = body as SubmitGameResultsRequest | RawGameResultsReport
 
     if (this.gameLoader.isLoading(gameId)) {
       throw new GameResultServiceError(
@@ -539,16 +563,13 @@ export class GameApi {
 
     await this.gameResultService.submitGameResults({
       gameId,
-      userId,
-      resultCode,
-      time,
-      playerResults,
+      report,
       logger: ctx.log,
     })
 
     // If it was successful, record this user's IP for that account, since the normal middleware
     // to do so won't have run
-    this.upsertUserIp(userId, ctx.ip).catch(err => {
+    this.upsertUserIp(report.userId, ctx.ip).catch(err => {
       logger.error({ err }, 'error upserting user IP')
     })
 
