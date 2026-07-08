@@ -30,8 +30,8 @@ bytes = "1.10"
 chrono = "0.4"
 directories = "6.0"
 egui = { workspace = true }
-egui_extras = { version = "0.31", features = ["file", "http", "image", "svg"] }
-egui_flex = "0.3"
+egui_extras = { version = "0.35", features = ["file", "http", "image", "svg"] }
+egui_flex = "0.7"
 fern = "0.7"
 futures = "0.3"
 fxhash = "0.2"
@@ -144,7 +144,7 @@ members = ["overlay-ui"]
 # declaration, so the two can never drift on version/features — they must tessellate identically for
 # the preview to match the game.
 [workspace.dependencies]
-egui = { version = "0.31", features = ["bytemuck"] }
+egui = { version = "0.35", features = ["bytemuck"] }
 
 # DEV-ONLY, REMOVE BEFORE LANDING: builds against the uncommitted rally-point2 lobby-channel work
 # in the sibling checkout. At integration: commit+push rally-point2, bump the `rev` pin above, and

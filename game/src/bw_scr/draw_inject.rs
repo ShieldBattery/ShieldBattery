@@ -24,7 +24,6 @@ macro_rules! warn_once {
 pub struct RenderState {
     textures: HashMap<TextureId, OwnedBwTexture>,
     queued_texture_frees: Vec<OwnedBwTexture>,
-    temp_buffer: Vec<u8>,
 }
 
 /// Most of this isn't probably safe to use outside renderer (main) thread,
@@ -38,7 +37,6 @@ impl RenderState {
         RenderState {
             textures: HashMap::with_capacity(16),
             queued_texture_frees: Vec::new(),
-            temp_buffer: Vec::new(),
         }
     }
 }
@@ -719,7 +717,7 @@ unsafe fn update_textures(
                 || delta.options.minification == TextureFilter::Linear;
             let size = delta.image.size();
             let size = (size[0] as u32, size[1] as u32);
-            let rgba = egui_image_data_to_rgba(&delta.image, &mut state.temp_buffer);
+            let rgba = egui_image_data_to_rgba(&delta.image);
             if let Some(pos) = delta.pos {
                 if let Some(texture) = state.textures.get(&id) {
                     texture.update(rgba, (pos[0] as u32, pos[1] as u32), size);
@@ -742,17 +740,12 @@ unsafe fn update_textures(
     }
 }
 
-fn egui_image_data_to_rgba<'a>(image: &'a epaint::ImageData, buffer: &'a mut Vec<u8>) -> &'a [u8] {
+fn egui_image_data_to_rgba(image: &epaint::ImageData) -> &[u8] {
+    // As of egui 0.34 the font atlas is delivered as a color image too, so every delta is now a
+    // premultiplied-RGBA `Color32` buffer that BW's RGBA texture format takes directly — the same
+    // bytes egui's own wgpu/glow backends upload.
     match image {
         epaint::ImageData::Color(image) => bytemuck::cast_slice(&image.pixels),
-        epaint::ImageData::Font(image) => {
-            buffer.clear();
-            buffer.reserve(image.pixels.len() * 4);
-            for pixel in image.srgba_pixels(None) {
-                buffer.extend_from_slice(bytemuck::bytes_of(&pixel));
-            }
-            &buffer[..]
-        }
     }
 }
 

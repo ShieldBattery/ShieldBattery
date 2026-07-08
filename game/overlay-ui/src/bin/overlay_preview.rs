@@ -110,9 +110,9 @@ fn run_smoke() {
                 screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 720.0))),
                 ..Default::default()
             };
-            let output = ctx.run(raw, |ctx| {
-                let _ = render_disconnect_view(view, ctx);
-            });
+            ctx.begin_pass(raw);
+            let _ = render_disconnect_view(view, &ctx);
+            let output = ctx.end_pass();
             let _ = ctx.tessellate(output.shapes, ctx.pixels_per_point());
         }
     }
@@ -444,7 +444,11 @@ impl PreviewApp {
 }
 
 impl eframe::App for PreviewApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    // eframe 0.35 replaced `App::update(ctx)` with `App::ui(ui)`, handing the app a root `Ui` rather
+    // than the bare context. Panels now nest into that `Ui` via `show_inside`; the overlay's own
+    // floating `Area` still shows against the context, reached through `ui.ctx()`.
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         self.dirty = false;
 
         let now = Instant::now();
@@ -456,20 +460,22 @@ impl eframe::App for PreviewApp {
         }
 
         ctx.set_pixels_per_point(self.knobs.pixels_per_point);
-        self.ensure_backdrop(ctx);
+        self.ensure_backdrop(&ctx);
 
         let view = self.build_view();
 
-        egui::SidePanel::right("knobs")
+        // egui 0.34 unified SidePanel/TopBottomPanel into `Panel`; `default_width` became the
+        // side-agnostic `default_size`, and panels now draw into a `&mut Ui` via `show`.
+        egui::Panel::right("knobs")
             .resizable(true)
-            .default_width(340.0)
-            .show(ctx, |ui| {
+            .default_size(340.0)
+            .show(ui, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| self.knobs_panel(ui));
             });
 
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 let rect = ui.max_rect();
                 self.paint_backdrop(ui, rect);
                 if view.is_empty() {
@@ -484,7 +490,7 @@ impl eframe::App for PreviewApp {
             });
 
         // The overlay draws itself as its own top-anchored Area, over the central backdrop.
-        let clicked = render_disconnect_view(&view, ctx).inner;
+        let clicked = render_disconnect_view(&view, &ctx).inner;
         if !clicked.is_empty() {
             self.last_clicked = clicked;
         }
@@ -494,7 +500,9 @@ impl eframe::App for PreviewApp {
         }
     }
 
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    // eframe 0.35's `on_exit` no longer receives a glow context (the default build renders through
+    // wgpu, and the parameter was dropped from the trait).
+    fn on_exit(&mut self) {
         save_knobs(&self.knobs);
     }
 }

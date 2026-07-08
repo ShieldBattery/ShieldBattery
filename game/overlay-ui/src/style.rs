@@ -43,7 +43,7 @@ pub fn install_fonts_and_style(ctx: &egui::Context) {
     entry.insert(1, "Do Hyeon".to_string());
     ctx.set_fonts(fonts);
 
-    let mut style_arc = ctx.style();
+    let mut style_arc = ctx.global_style();
     let style = Arc::make_mut(&mut style_arc);
     // Make windows transparent
     style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.7);
@@ -63,5 +63,5 @@ pub fn install_fonts_and_style(ctx: &egui::Context) {
             font.size = size;
         }
     }
-    ctx.set_style(style_arc);
+    ctx.set_global_style(style_arc);
 }

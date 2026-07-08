@@ -397,7 +397,11 @@ impl OverlayState {
         self.disconnect_blocks_input = disconnect_status.is_blocking();
         self.replay_panels.hotkeys_active =
             bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
-        let output = ctx.run(input, |ctx| {
+        // `run_ui` replaced `Context::run` in egui 0.34: it hands the callback a root `Ui` covering
+        // the whole screen (no margin/background) instead of the bare `&Context`. Floating Windows
+        // and Areas still attach to the context (`&ctx`); only the loading screen's `CentralPanel`
+        // needs the root `Ui`, so it alone is threaded `ui`.
+        let output = ctx.run_ui(input, |ui| {
             if bw.game_started {
                 if self.was_loading {
                     self.draw_layer = get_normal_draw_layer();
@@ -407,20 +411,20 @@ impl OverlayState {
                 }
 
                 if bw.is_replay_or_obs {
-                    self.add_replay_ui(bw, apm, ctx);
+                    self.add_replay_ui(bw, apm, &ctx);
                 }
                 // Product UX, drawn in every build: a stall-aware notice naming the players the sim
                 // is waiting on, upgrading to relay-confirmed disconnects with a manual drop.
-                self.add_disconnect_overlay(disconnect_status, setup_info, ctx);
+                self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
                 let debug = cfg!(debug_assertions);
                 if debug {
-                    self.add_debug_ui(bw, ctx);
+                    self.add_debug_ui(bw, &ctx);
                 }
             } else {
                 // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
                 self.draw_layer = 26;
                 self.was_loading = true;
-                self.add_loading_screen_ui(bw, setup_info, ctx);
+                self.add_loading_screen_ui(bw, setup_info, ui);
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -980,6 +984,9 @@ impl OverlayState {
                     self.events.push(Event::MouseWheel {
                         unit: egui::MouseWheelUnit::Point,
                         delta: egui::vec2(0.0, amount),
+                        // egui 0.35 added a scroll phase for trackpads; a mouse wheel has no phase,
+                        // so use the "unknown" value egui documents for that case.
+                        phase: egui::TouchPhase::Move,
                         modifiers,
                     });
                     Some(0)
@@ -991,7 +998,7 @@ impl OverlayState {
                     modifiers.alt |= is_syskey;
                     let vkey = wparam as i32;
                     if let Some(key) = vkey_to_egui_key(vkey) {
-                        if !is_syskey && self.ctx.wants_keyboard_input() {
+                        if !is_syskey && self.ctx.egui_wants_keyboard_input() {
                             self.events.push(Event::Key {
                                 key,
                                 // Probably fine to leave None, could also be Some(key) even
@@ -1016,7 +1023,7 @@ impl OverlayState {
                     None
                 }
                 WM_CHAR => {
-                    if !self.ctx.wants_keyboard_input() {
+                    if !self.ctx.egui_wants_keyboard_input() {
                         // Never swallowed for the disconnect block: SC:R opens and submits the chat
                         // box from the Enter *character* here (0x0D/0x0A), not from WM_KEYDOWN's
                         // VK_RETURN — swallowing WM_CHAR while the box is closed would swallow the

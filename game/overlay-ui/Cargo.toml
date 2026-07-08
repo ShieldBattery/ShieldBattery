@@ -15,7 +15,7 @@ egui = { workspace = true }
 # Preview-host-only dependencies. All optional and gated behind the `preview` feature, which only the
 # `overlay-preview` binary requires, so the game DLL — which depends on this crate for its lib alone —
 # never pulls eframe/winit/image into its build graph.
-eframe = { version = "0.31", optional = true }
+eframe = { version = "0.35", optional = true }
 image = { version = "0.25", default-features = false, features = [
   "png",
 ], optional = true }
