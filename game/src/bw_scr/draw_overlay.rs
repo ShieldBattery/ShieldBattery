@@ -1,18 +1,15 @@
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
-use std::sync::Arc;
 use std::time::Instant;
 
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
 use egui::epaint;
 use egui::load::SizedTexture;
-use egui::style::TextStyle;
 use egui::{
-    Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
-    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, UiBuilder, Vec2, Widget,
-    WidgetText, pos2, vec2,
+    Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
+    Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
 };
 use winapi::shared::windef::{HWND, POINT};
 
@@ -20,14 +17,15 @@ use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
-use crate::bw_scr::draw_overlay::fonts::display_family;
 use crate::netcode_v2::DisconnectStatus;
 
 use self::production::ProductionState;
 
-mod colors;
+// The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
+// crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
+pub use overlay_ui::{colors, fonts};
+
 mod disconnect;
-mod fonts;
 mod loading_screen;
 mod production;
 
@@ -234,59 +232,10 @@ impl OverlayState {
 
         egui_extras::install_image_loaders(&ctx);
 
-        // Add our custom fonts
-        let mut fonts = FontDefinitions::default();
-        fonts.font_data.insert(
-            "inter".to_string(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../files/fonts/Inter-Regular.ttf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "Sofia Sans SemiBold".to_string(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../files/fonts/SofiaSans-SemiBold.ttf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "Do Hyeon".to_string(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../files/fonts/DoHyeon-Regular.ttf"
-            ))),
-        );
+        // Fonts and base style come from the overlay-ui crate, so the host preview renders text
+        // identically to the game.
+        overlay_ui::install_fonts_and_style(&ctx);
 
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "inter".to_string());
-        let entry = fonts.families.entry(display_family()).or_default();
-        entry.insert(0, "Sofia Sans SemiBold".to_string());
-        // Fallback for Korean characters
-        entry.insert(1, "Do Hyeon".to_string());
-        ctx.set_fonts(fonts);
-
-        let mut style_arc = ctx.style();
-        let style = Arc::make_mut(&mut style_arc);
-        // Make windows transparent
-        style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.7);
-        // Don't want select/copy on text labels
-        style.interaction.selectable_labels = false;
-
-        // Increase default font sizes a bit.
-        // 16.0 seems to give a size that roughly matches with the smallest text size BW uses.
-        let text_styles = [
-            (TextStyle::Small, 12.0),
-            (TextStyle::Body, 16.0),
-            (TextStyle::Button, 16.0),
-            (TextStyle::Monospace, 16.0),
-        ];
-        for &(ref text_style, size) in &text_styles {
-            if let Some(font) = style.text_styles.get_mut(text_style) {
-                font.size = size;
-            }
-        }
-        ctx.set_style(style_arc);
         OverlayState {
             ctx,
             start_time: Instant::now(),

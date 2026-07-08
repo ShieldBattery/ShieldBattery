@@ -29,7 +29,7 @@ byteorder = "1.3"
 bytes = "1.10"
 chrono = "0.4"
 directories = "6.0"
-egui = { version = "0.31", features = ["bytemuck"] }
+egui = { workspace = true }
 egui_extras = { version = "0.31", features = ["file", "http", "image", "svg"] }
 egui_flex = "0.3"
 fern = "0.7"
@@ -138,12 +138,25 @@ serde_json = "1.0"
 
 # -- Local helper crates --
 [workspace]
+members = ["overlay-ui"]
+
+# egui is shared between the game DLL and the host-compilable overlay-ui crate via this one
+# declaration, so the two can never drift on version/features — they must tessellate identically for
+# the preview to match the game.
+[workspace.dependencies]
+egui = { version = "0.31", features = ["bytemuck"] }
 
 # DEV-ONLY, REMOVE BEFORE LANDING: builds against the uncommitted rally-point2 lobby-channel work
 # in the sibling checkout. At integration: commit+push rally-point2, bump the `rev` pin above, and
 # delete this patch table.
 [patch."https://github.com/ShieldBattery/rally-point2.git"]
 rally-point-client = { path = "../../rally-point2/client" }
+
+# Host-renderable overlay presentation layer. The DLL uses its lib (view-model + egui render fns +
+# font/style setup); the crate's eframe preview bin is gated behind its `preview` feature so it never
+# enters this DLL's build graph.
+[dependencies.overlay-ui]
+path = "./overlay-ui"
 
 [dependencies.scr-analysis]
 path = "./scr-analysis"
