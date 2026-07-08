@@ -248,7 +248,6 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
             let setup = parse_payload(payload, "Invalid game setup", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
-        "startWhenReady" => Ok(MessageResult::Game(GameStateMessage::StartWhenReady)),
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
         #[cfg(debug_assertions)]

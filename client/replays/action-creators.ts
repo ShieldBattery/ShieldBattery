@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { PlayerInfo } from '../../common/games/game-launch-config'
 import { GameType } from '../../common/games/game-type'
 import { GameReplayInfo } from '../../common/games/games'
@@ -62,10 +61,6 @@ async function setGameConfig(
   })
 }
 
-function startReplayWhenReady(gameId: string) {
-  ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
-}
-
 export function startReplay({
   path,
   name = 'Replay',
@@ -91,12 +86,6 @@ export function startReplay({
           gameId => {
             if (gameId) {
               dispatch(openDialog({ type: DialogType.ReplayLoad, initData: { gameId } }))
-              // NOTE(tec27): This is just to give time for the dialog to open/run its effects to
-              // start waiting for this game to launch to avoid a race here. This is pretty dumb and
-              // should probably be handled in a different way.
-              setTimeout(() => {
-                startReplayWhenReady(gameId)
-              }, 250)
             }
           },
           err => {

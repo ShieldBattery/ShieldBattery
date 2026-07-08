@@ -122,7 +122,6 @@ interface IpcInvokeables {
    * private key stays in the main process until it's handed to the game process at launch.
    */
   activeGameGenNetcodeV2Keys: (gameId: string) => string | null
-  activeGameStartWhenReady: (gameId: string) => void
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
   /**
    * Delivers the server's netcode v2 session handoff (token/relays/roster); the main process

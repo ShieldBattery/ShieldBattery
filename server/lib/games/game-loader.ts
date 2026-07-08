@@ -648,8 +648,8 @@ export class GameLoader {
       if (useNetcodeV2) {
         // Assign each participant a rally-point2 slot, wait for their per-session pubkeys, and
         // request the session from the coordinator. Each player gets their own token plus the
-        // relay endpoints and the full slot roster. This must complete (and be published) before
-        // `startWhenReady`: the game process consumes the setup when its game init starts.
+        // relay endpoints and the full slot roster. The game process consumes this setup when its
+        // game init starts, so it must be published to every player before they can proceed.
         //
         // `players` includes observer slots alongside human slots (see `GameLoadRequest.players`'s
         // doc comment), and `Slot.type` distinguishes them, so observer-ness is known here — mark
@@ -711,16 +711,6 @@ export class GameLoader {
           new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
         )
       }
-
-      for (const client of activeClients) {
-        this.publisher.publish(gameUserPath(gameId, client.userId), {
-          type: 'startWhenReady',
-          gameId,
-        })
-      }
-
-      // Delay the cleanup until after `startWhenReady` has been sent
-      await Promise.resolve()
 
       return Result.ok()
     })

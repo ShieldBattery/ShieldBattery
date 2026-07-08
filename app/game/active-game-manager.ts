@@ -71,10 +71,6 @@ interface ActiveGameInfo {
    */
   netcodeV2Setup?: NetcodeV2Setup
   /**
-   * Whether or not this game instance has been told it can start.
-   */
-  startWhenReadySent?: boolean
-  /**
    * The results of the game delivered once our local process has completed.
    */
   result?: {
@@ -306,16 +302,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameCommand', game.id, 'setupGame', game.config.setup)
   }
 
-  /** Tells a particular game instance that it is okay to begin (starting actual gameplay). */
-  startWhenReady(gameId: string) {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
-      return
-    }
-
-    this.emit('gameCommand', gameId, 'startWhenReady')
-    this.activeGame.startWhenReadySent = true
-  }
-
   /** Notifies the manager that a game instance has connected and is ready for configuration. */
   async handleGameConnected(id: string) {
     if (!this.activeGame || this.activeGame.id !== id) {
@@ -358,12 +344,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     })
 
     this.maybeSendGameSetup(game)
-
-    // If the `startWhenReady` command was already sent by this point, it means it was sent while
-    // the game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.
-    if (this.activeGame.startWhenReadySent) {
-      this.emit('gameCommand', this.activeGame.id, 'startWhenReady')
-    }
   }
 
   handleGameLaunchError(id: string, err: Error) {

@@ -120,9 +120,6 @@ export default function ({
     setNetcodeV2Setup(_, { gameId, setup }) {
       ipcRenderer.invoke('activeGameSetNetcodeV2Setup', gameId, setup)?.catch(swallowNonBuiltins)
     },
-    startWhenReady(_, { gameId }) {
-      ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
-    },
     cancelLoading(_, { gameId }) {
       ipcRenderer.invoke('activeGameClearConfig', gameId)?.catch(swallowNonBuiltins)
     },

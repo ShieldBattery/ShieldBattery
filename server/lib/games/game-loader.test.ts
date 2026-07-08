@@ -204,7 +204,7 @@ describe('games/game-loader/GameLoader', () => {
     await vi.waitFor(() => {
       expect(publisher.publish).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ type: 'startWhenReady' }),
+        expect.objectContaining({ type: 'setGameConfig' }),
       )
     })
     gameLoader.registerGameAsLoaded('game-solo', p1)
@@ -260,7 +260,7 @@ describe('games/game-loader/GameLoader', () => {
     await vi.waitFor(() => {
       expect(publisher.publish).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ type: 'startWhenReady' }),
+        expect.objectContaining({ type: 'setNetcodeV2Setup' }),
       )
     })
     gameLoader.registerGameAsLoaded('game-multi', p1)

@@ -43,7 +43,6 @@ pub struct GameState {
     #[allow(dead_code)]
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
-    can_start_game: AwaitableTaskState,
     /// Netcode v2 credentials + relay endpoints, if the app sent them (`netcodeV2Setup`). Consumed
     /// by `init_game` to stand up the rally-point2 session (`netcode_v2::establish_session`).
     /// `None` for a solo game (which runs a sessionless turn state) or a replay.
@@ -104,7 +103,6 @@ pub enum GameStateMessage {
     SetBlockedUsers(Vec<SbUserId>),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
-    StartWhenReady,
     /// The fully-known joined-player set, built directly from the session roster + slot layout.
     /// Populates `joined_players` (for results/chat/id-mapping) and completes the
     /// all-players-joined gate.
@@ -212,22 +210,6 @@ impl GameState {
         send_game_request(&self.send_main_thread_requests, request_type)
     }
 
-    fn wait_can_start_game(&mut self) -> impl Future<Output = ()> + use<> {
-        let recv = match self.can_start_game {
-            AwaitableTaskState::Incomplete(ref mut waiters) => {
-                let (send, recv) = oneshot::channel();
-                waiters.push(send);
-                Some(recv)
-            }
-            AwaitableTaskState::Complete => None,
-        };
-        async move {
-            if let Some(recv) = recv {
-                let _ = recv.await;
-            }
-        }
-    }
-
     /// On success, returns once game is ready to be started & shown.
     fn init_game(
         &mut self,
@@ -261,7 +243,6 @@ impl GameState {
         let game_request_send = self.send_main_thread_requests.clone();
         let ws_send = self.ws_send.clone();
 
-        let mut allow_start = self.wait_can_start_game().boxed();
         // Present for a relay game, whose per-session credentials + relay endpoints the app sent as
         // `netcodeV2Setup`; absent for a solo (single-human) game or a replay. Drives the transport
         // policy the async block below branches on.
@@ -574,7 +555,7 @@ impl GameState {
                 // A replay plays back from its recorded command stream, not the turn transport:
                 // there is no session and no peers to join. Its local Storm session was already
                 // created in the prologue; here it lays out slots, loads any ShieldBattery replay
-                // extension, readies the lobby, and waits for the server's start clearance.
+                // extension, and readies the lobby.
                 game_thread::step_lobby_init();
                 let bw = get_bw();
 
@@ -654,13 +635,9 @@ impl GameState {
                     .await
                     .map_err(|_| GameInitError::Closed)?;
 
-                loop {
-                    game_thread::step_lobby_init();
-                    select! {
-                        _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
-                        _ = &mut allow_start => break,
-                    }
-                }
+                // The replay's local session is fully readied above; there is no session peer to
+                // wait on, so init proceeds directly. Lobby init completes later on the game thread
+                // in the StartGame handler (which synthesizes the 0x48 and steps to completion).
             } else {
                 // No netcode v2 setup and not a replay: a solo game, the local human versus AI. More
                 // than one human here is a server misconfiguration — multiplayer must run on netcode
@@ -732,13 +709,9 @@ impl GameState {
                     .await
                     .map_err(|_| GameInitError::Closed)?;
 
-                loop {
-                    game_thread::step_lobby_init();
-                    select! {
-                        _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
-                        _ = &mut allow_start => break,
-                    }
-                }
+                // The sessionless turn state is local-only from birth with nothing to wait on, so
+                // init proceeds directly. do_countdown below keeps stepping lobby init, and the
+                // StartGame handler on the game thread drives it to completion.
             }
 
             forge::start_process_events_dispatch();
@@ -823,16 +796,6 @@ impl GameState {
             }
             SetServerConfig(config) => {
                 self.set_server_config(config);
-            }
-            StartWhenReady => {
-                match mem::replace(&mut self.can_start_game, AwaitableTaskState::Complete) {
-                    AwaitableTaskState::Complete => (),
-                    AwaitableTaskState::Incomplete(waiting) => {
-                        for sender in waiting {
-                            let _ = sender.send(());
-                        }
-                    }
-                }
             }
             SetupGame(info) => {
                 let ws_send = self.ws_send.clone();
@@ -1896,7 +1859,6 @@ pub async fn create_future(
         send_main_thread_requests,
         running_game: None,
         async_stop,
-        can_start_game: AwaitableTaskState::Incomplete(Vec::new()),
         netcode_v2_setup: None,
     };
     loop {

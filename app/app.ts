@@ -704,9 +704,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
     })
 
-  ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
-    activeGameManager.startWhenReady(gameId),
-  )
   ipcMain.handle('activeGameClearConfig', (event, gameId) =>
     activeGameManager.clearGameConfig(gameId),
   )
