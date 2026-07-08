@@ -351,6 +351,26 @@ stop-retrying. Integration tests cover the full two-client reconnect (exact miss
 no leave fires) and the terminal refusal. Next: the driver-owned re-dial (client crate), then the
 RequestDrop bundle.
 
+**Driver + DLL built (rp2 `5cb22f1`, SB `f462c9d75`); first live blip test found a promotion race
+(fix in flight).** The driver's `run_reconnecting` re-dials internally (jittered 500ms→5s backoff,
+3s dial timeout, real resume cursors from the reorder cursor; unacked payloads re-carry and the
+receive dedup survives the rebind), signals `(own_slot,false/true)` on the connectivity channel
+(§17's self notice now reads "— reconnecting…" and clears on success); channels closing = terminal
+only. **Live findings (2026-07-08):**
+1. **Killing the relay process is NOT a reconnect test** — the restarted relay has a fresh keypair
+   and the client's pinned-leaf-cert trust (fail-closed, by design) rejects it forever
+   (`BadSignature` re-dial loop). Same-relay blips must be simulated by SUSPENDING the relay
+   process (`NtSuspendProcess` ~20 s then resume — same cert, same in-memory state). Relay-process
+   death is the deferred failover arc (coordinator-mediated re-home with fresh certs).
+2. **The suspend/resume blip exposed a real race:** on resume the relay processed both stale link
+   deaths (graces armed), presence flapped the authority away-and-back, both clients re-registered
+   ("re-registered within its drop grace; cancelling the held leave" ✓) — but the re-promotion
+   re-derived and broadcast BOTH held departures as leave directives (`rebroadcast_leaves=2`),
+   ending the game (both results `unknown`). This is the §17 interim tradeoff ("promotion collapses
+   an in-flight grace") invalidated by reconnection. Fix: a promotion must skip departures whose
+   grace hold is pending — the hold's expiry/cancel is the sole decider for graced drops; ungraced
+   undecided departures keep immediate re-derivation (never-lose-a-departure).
+
 ### Disconnect UX (§17 target — design direction, not built)
 
 Shape the connection-lost work toward this end state; the interim ships auto-removal (~10s) because
