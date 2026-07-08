@@ -116,10 +116,15 @@ egui is renderer-agnostic; an eframe host renders identically given the same fon
   `hot-lib-reloader` for true in-process reload; the pure-fn factoring is exactly its shape.
 - In-game dev-only dylib hot reload as a follow-up (32-bit dylib behind a dev cargo feature,
   watcher-swapped). Only egui UI qualifies — BW-native surfaces stay game-launch territory.
-- **egui-upgrade investigation (Travis, 2026-07-08):** newer egui has better layout tooling (the
-  overlay polish fought Grid baseline quirks — bare labels only; fixed-rect/layout-wrapped labels
-  break the row baseline). An upgrade risks the replay/obs UI and the loading screen — use the
-  preview app to verify an upgrade across every overlay state without game launches.
+- **egui upgrade — PRIORITIZED (Travis, 2026-07-08, do right after the extraction lands):** egui
+  0.35 (latest) adds CSS-like styling, better text rendering, and an MCP integration that would
+  let the agent drive/verify egui UIs directly (also relevant to the game-test-harness design's
+  egui hooks). Older-version pain is real (the overlay polish fought Grid baseline quirks — bare
+  labels only; fixed-rect/layout-wrapped labels break the row baseline). Risks: the replay/obs UI
+  and the loading screen, plus the DLL's forge/D3D11 egui render backend may need adaptation
+  across paint/texture API changes. Verify with the preview app across every overlay state + one
+  loopback game launch for the in-game surfaces (loading screen, debug panel, obs/replay UI).
+  Check the 0.x→0.35 changelogs for backend-breaking changes first.
 - Complements `docs/game-test-harness-design.md` (automated multi-client verification); this arc's
   view-models are what the harness's egui test-ID hooks want.
 
