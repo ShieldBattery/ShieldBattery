@@ -56,6 +56,13 @@ pub enum DebugControlCommand {
         #[serde(default)]
         target: DebugChatTarget,
     },
+    /// Submit a manual drop request for a disconnected slot over the active netcode-v2 session, as a
+    /// survivor would with the overlay's Drop button — the identical [`crate::netcode_v2::TurnState::request_drop`]
+    /// call. Fire-and-forget: the relay honors it only once the slot has been down past its floor,
+    /// and the sole confirmation is the slot's synced leave. No reply — verify via `queryState`
+    /// (`turnState.disconnect.rows[..].dropRequested`, then the slot's `required` going `false` once
+    /// the leave applies).
+    RequestDrop { slot: u8 },
 }
 
 /// The chat scope for [`DebugControlCommand::SendChat`], a serde-friendly mirror of
@@ -96,6 +103,66 @@ pub struct TurnStateSnapshot {
     /// The last `CHAT_LOG_CAPACITY` chat lines this client has rendered (its own, and any peer's),
     /// oldest first. See [`crate::netcode_v2::TurnState::record_chat`].
     pub chat_log: Vec<DebugChatLogEntry>,
+    /// What the survivor disconnect overlay is showing right now, so verification can assert the
+    /// two-tier timing and the manual-drop unlock without reading pixels.
+    pub disconnect: DisconnectViewSnapshot,
+}
+
+/// A read of the survivor disconnect overlay's current state, for `queryState` verification. Mirrors
+/// exactly what the overlay derives from the same turn state, so an assertion here proves what the
+/// overlay would draw.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisconnectViewSnapshot {
+    /// This client's own connection state, deciding the prominent self notice.
+    pub self_state: DisconnectSelfState,
+    /// One entry per blocking or relay-confirmed remote player. Empty while `selfState` owns the
+    /// notice (`interrupted` / `reconnecting`).
+    pub rows: Vec<DisconnectRowSnapshot>,
+}
+
+/// This client's own connection state within a [`DisconnectViewSnapshot`].
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DisconnectSelfState {
+    /// Our link is fine; any rows are about peers.
+    Ok,
+    /// The whole remote roster went quiet at once with no relay-confirmed drop — likelier our own
+    /// link than every peer at once.
+    Interrupted,
+    /// The relay confirmed our own link is down (or the session ended); the driver auto-reconnects.
+    Reconnecting,
+}
+
+/// Which disconnect tier a [`DisconnectRowSnapshot`] is in.
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DisconnectTier {
+    /// The sim is blocked on this player, but the relay has not confirmed a link death — no drop
+    /// offered.
+    Stall,
+    /// The relay confirmed this player's link is down; the drop unlocks once `elapsedSeconds`
+    /// crosses the threshold.
+    Confirmed,
+}
+
+/// One disconnect-overlay row within a [`DisconnectViewSnapshot`].
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisconnectRowSnapshot {
+    /// The rally-point2 slot this row is about; the target of a manual drop.
+    pub slot: u8,
+    /// The session user occupying that slot.
+    pub user_id: SbUserId,
+    /// Which tier the row is in.
+    pub tier: DisconnectTier,
+    /// How long the condition has run, in whole seconds (confirmed-disconnect wait, or sustained
+    /// stall).
+    pub elapsed_seconds: u64,
+    /// Whether the manual drop is available (a confirmed row past the unlock threshold).
+    pub drop_unlocked: bool,
+    /// Whether a drop was requested for this slot within the recent acknowledgement window.
+    pub drop_requested: bool,
 }
 
 /// One rendered chat line, recorded at injection time for [`DebugControlCommand::QueryState`]
@@ -353,6 +420,17 @@ mod tests {
                     text: "gg".to_string(),
                     own: true,
                 }],
+                disconnect: DisconnectViewSnapshot {
+                    self_state: DisconnectSelfState::Ok,
+                    rows: vec![DisconnectRowSnapshot {
+                        slot: 1,
+                        user_id: SbUserId(22),
+                        tier: DisconnectTier::Confirmed,
+                        elapsed_seconds: 47,
+                        drop_unlocked: true,
+                        drop_requested: false,
+                    }],
+                },
             }),
         };
 
@@ -377,9 +455,27 @@ mod tests {
                         "text": "gg",
                         "own": true,
                     }],
+                    "disconnect": {
+                        "selfState": "ok",
+                        "rows": [{
+                            "slot": 1,
+                            "userId": 22,
+                            "tier": "confirmed",
+                            "elapsedSeconds": 47,
+                            "dropUnlocked": true,
+                            "dropRequested": false,
+                        }],
+                    },
                 },
             })
         );
+    }
+
+    #[test]
+    fn request_drop_command_parses_camel_case_with_slot() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"requestDrop","slot":1}"#).unwrap();
+        assert_eq!(cmd, DebugControlCommand::RequestDrop { slot: 1 });
     }
 
     #[test]

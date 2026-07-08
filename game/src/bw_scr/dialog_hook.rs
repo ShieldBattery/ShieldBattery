@@ -11,6 +11,7 @@ use super::console;
 
 static CHAT_BOX_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MSG_FILTER_EVENT_HANDLER: EventHandler = EventHandler::new();
+static TIMEOUT_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON1_EVENT_HANDLER: EventHandler = EventHandler::new();
 static MINIMAP_BUTTON2_EVENT_HANDLER: EventHandler = EventHandler::new();
@@ -41,6 +42,9 @@ pub unsafe fn spawn_dialog_hook(
         let dialog = Dialog::new(raw);
         let ctrl = dialog.as_control();
         let name = ctrl.string();
+        // A permanent, cheap record of every dialog BW spawns — the safety net for identifying a
+        // dialog by its real template name from a live run.
+        debug!("spawn_dialog: {name:?}");
         let event_handler = if name == "TextBox" {
             let inited = CHAT_BOX_EVENT_HANDLER.init(chat_box_event_handler);
             inited.set_orig(event_handler);
@@ -70,6 +74,19 @@ pub unsafe fn spawn_dialog_hook(
         } else if name == "LMission" {
             send_game_results();
             event_handler
+        } else if name.eq_ignore_ascii_case("timeout")
+            && netcode_v2::with_turn_state(|_| ()).is_some()
+        {
+            // Under a netcode-v2 session the egui disconnect overlay is the sole disconnect surface;
+            // BW's native waiting-for-players dialog (empty name list, unwired Drop button, its own
+            // countdown) must never show. Hide it at spawn and swap in an event handler that swallows
+            // everything but its own init/delete, so it neither draws nor responds. The native spawn
+            // still runs below — only the dialog's visibility and interactivity are stripped, never
+            // its creation.
+            (*(raw as *mut bw::scr::Control)).flags &= !0x2;
+            let inited = TIMEOUT_EVENT_HANDLER.init(timeout_event_handler);
+            inited.set_orig(event_handler);
+            inited.func() as usize
         } else {
             event_handler
         };
@@ -243,6 +260,22 @@ unsafe fn allow_event_on_hidden_console(event: *mut bw::ControlEvent) -> bool {
         }
     } else {
         false
+    }
+}
+
+unsafe extern "C" fn timeout_event_handler(
+    ctrl: *mut bw::Control,
+    event: *mut bw::ControlEvent,
+    orig: unsafe extern "C" fn(*mut bw::Control, *mut bw::ControlEvent) -> u32,
+) -> u32 {
+    unsafe {
+        // Hiding the dialog stops it drawing but not responding, so swallow every event but the
+        // init/delete it needs to construct and tear down cleanly. This kills its own
+        // waiting-for-players countdown and its unwired Drop button along with the rest.
+        if !allow_event_on_hidden_console(event) {
+            return 0;
+        }
+        orig(ctrl, event)
     }
 }
 

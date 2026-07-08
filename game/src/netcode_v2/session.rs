@@ -82,6 +82,7 @@ struct ParkedChannels {
     _lobby_in: mpsc::Sender<(SlotId, Vec<u8>)>,
     _chat_out: mpsc::Receiver<ChatOut>,
     _chat_in: mpsc::Sender<(SlotId, ChatOut)>,
+    _request_drop: mpsc::Receiver<SlotId>,
     _session_start: mpsc::Sender<()>,
     _connectivity: mpsc::Sender<(SlotId, bool)>,
 }
@@ -192,6 +193,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (lobby_in_tx, lobby_in_rx) = mpsc::channel(256);
     let (chat_out_tx, chat_out_rx) = mpsc::channel(256);
     let (chat_in_tx, chat_in_rx) = mpsc::channel(256);
+    let (request_drop_tx, request_drop_rx) = mpsc::channel(1);
     let (session_start_tx, session_start_rx) = mpsc::channel(16);
     let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
 
@@ -206,6 +208,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         lobby_in: lobby_in_rx,
         chat_out: chat_out_tx,
         chat_in: chat_in_rx,
+        request_drop: request_drop_tx,
         session_start: session_start_rx,
         connectivity: connectivity_rx,
     };
@@ -219,6 +222,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _lobby_in: lobby_in_tx,
         _chat_out: chat_out_rx,
         _chat_in: chat_in_tx,
+        _request_drop: request_drop_rx,
         _session_start: session_start_tx,
         _connectivity: connectivity_tx,
     };

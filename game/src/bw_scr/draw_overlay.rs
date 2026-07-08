@@ -443,8 +443,8 @@ impl OverlayState {
                 if bw.is_replay_or_obs {
                     self.add_replay_ui(bw, apm, ctx);
                 }
-                // Product UX, drawn in every build: a non-interactive notice while peers are dropped
-                // (relay grace period) or our own link is gone.
+                // Product UX, drawn in every build: a stall-aware notice naming the players the sim
+                // is waiting on, upgrading to relay-confirmed disconnects with a manual drop.
                 self.add_disconnect_overlay(disconnect_status, setup_info, ctx);
                 let debug = cfg!(debug_assertions);
                 if debug {

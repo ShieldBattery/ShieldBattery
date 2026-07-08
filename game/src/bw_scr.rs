@@ -2266,12 +2266,8 @@ impl BwScr {
                         // A snapshot of who has lost connection, for the survivor overlay. `None`
                         // (a replay, or a re-entrant lock) renders as an all-healthy status.
                         let disconnect_status =
-                            netcode_v2::with_turn_state(|s| s.disconnect_status()).unwrap_or(
-                                netcode_v2::DisconnectStatus {
-                                    peers: Vec::new(),
-                                    self_lost: false,
-                                },
-                            );
+                            netcode_v2::with_turn_state(|s| s.disconnect_status())
+                                .unwrap_or_else(netcode_v2::DisconnectStatus::healthy);
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.

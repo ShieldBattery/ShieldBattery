@@ -917,6 +917,14 @@ impl GameState {
                         // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
                         // box's own send tap uses. No reply.
                     }
+                    DebugControlCommand::RequestDrop { slot } => {
+                        crate::netcode_v2::with_turn_state(|s| {
+                            s.request_drop(rally_point_client::proto::ids::SlotId(slot))
+                        });
+                        // Fire-and-forget, the same call the overlay's Drop button makes: the relay
+                        // honors it only past its floor and confirms it solely via the slot's synced
+                        // leave. No reply — verify via queryState.
+                    }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
                         return async move {

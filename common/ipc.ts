@@ -111,6 +111,16 @@ interface IpcInvokeables {
    */
   activeGameSendChat: (gameId: string, text: string) => void
   /**
+   * Tells the active game process to submit a manual drop request for a disconnected rally-point2
+   * slot over its netcode v2 session (debug game builds only), the same request the in-game
+   * disconnect overlay's Drop button makes. Only registered in development (`isDev`).
+   * Fire-and-forget: there's no reply, and the relay honors it only once the slot has been down past
+   * its floor. Verify via {@link IpcInvokeables.activeGameDebugQueryState}'s
+   * `turnState.disconnect.rows` (the row's `dropRequested`, then the slot's `required` going `false`
+   * once the synced leave applies).
+   */
+  activeGameRequestDrop: (gameId: string, slot: number) => void
+  /**
    * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
    * save; the only teardown that works mid-game). Only registered in development (`isDev`).
    * Fire-and-forget: there's no reply.

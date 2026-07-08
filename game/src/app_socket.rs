@@ -399,6 +399,19 @@ mod tests {
     }
 
     #[test]
+    fn debug_control_request_drop_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"requestDrop","slot":1}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::RequestDrop { slot: 1 }
+            )))
+        ));
+    }
+
+    #[test]
     fn unknown_command_still_errors() {
         let result = handle_app_message(r#"{"command":"notARealCommand","payload":null}"#.into());
         assert!(matches!(result, Err(HandleMessageError::UnknownCommand(_))));

@@ -452,6 +452,22 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Tells the active game process to submit a manual drop request for a disconnected rally-point2
+   * slot over its netcode v2 session (debug game builds only), the same request the in-game
+   * disconnect overlay's Drop button makes. Fire-and-forget: there's no reply; the relay honors it
+   * only once the slot has been down past its floor, and confirms it solely via the slot's synced
+   * leave. Verify via {@link debugQueryState}'s `turnState.disconnect.rows`.
+   */
+  requestGameDrop(gameId: string, slot: number): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got requestGameDrop for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'requestDrop', slot })
+  }
+
+  /**
    * Tells the active game process to quit abruptly (debug game builds only, but the underlying
    * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
    * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,

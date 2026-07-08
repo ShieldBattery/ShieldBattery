@@ -32,6 +32,43 @@ export interface GameChatLogEntry {
   own: boolean
 }
 
+/** This client's own connection state within a {@link GameDisconnectView}. */
+export type GameDisconnectSelfState =
+  /** Our link is fine; any rows are about peers. */
+  | 'ok'
+  /** The whole remote roster went quiet at once with no relay-confirmed drop — likelier our link. */
+  | 'interrupted'
+  /** The relay confirmed our own link is down (or the session ended); the driver auto-reconnects. */
+  | 'reconnecting'
+
+/** Which disconnect tier a {@link GameDisconnectRow} is in. */
+export type GameDisconnectTier =
+  /** The sim is blocked on this player, but the relay hasn't confirmed a link death — no drop. */
+  | 'stall'
+  /** The relay confirmed this player's link is down; the drop unlocks past the threshold. */
+  | 'confirmed'
+
+/** One row of the in-game disconnect overlay, as the game process derives it. */
+export interface GameDisconnectRow {
+  /** The rally-point2 slot this row is about; the target of a manual drop. */
+  slot: number
+  userId: SbUserId
+  tier: GameDisconnectTier
+  /** How long the condition has run, in whole seconds (confirmed-disconnect wait, or sustained stall). */
+  elapsedSeconds: number
+  /** Whether the manual drop is available (a confirmed row past the unlock threshold, ~45s). */
+  dropUnlocked: boolean
+  /** Whether a drop was requested for this slot within the recent acknowledgement window. */
+  dropRequested: boolean
+}
+
+/** What the survivor disconnect overlay is showing, as tracked by the game process. */
+export interface GameDisconnectView {
+  selfState: GameDisconnectSelfState
+  /** One entry per blocking or relay-confirmed remote player; empty while `selfState` owns the notice. */
+  rows: GameDisconnectRow[]
+}
+
 /** A snapshot of a game process's network turn transport state, if a session is live. */
 export interface GameTurnStateSnapshot {
   /** The rally-point2 slot of the local player. */
@@ -47,6 +84,11 @@ export interface GameTurnStateSnapshot {
    * DLL that predates this field doesn't fail to deserialize.
    */
   chatLog?: GameChatLogEntry[]
+  /**
+   * What the disconnect overlay is showing. Optional so a still-running older DLL that predates this
+   * field doesn't fail to deserialize.
+   */
+  disconnect?: GameDisconnectView
 }
 
 /** The reply payload for a `debugControl`/`queryState` request, sent as `/game/debug/state`. */
