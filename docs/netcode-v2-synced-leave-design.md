@@ -307,11 +307,26 @@ nothing here forecloses reconnect.
   pattern) — the turn ring is its in-game sibling. The reconnecting client's own OUTBOUND gap is
   filled by its send queue (it kept producing turns while stalled — they buffered locally; on
   reconnect they flush in order).
-- **Grace grows with reconnect** (~45 s per the §17 target) **+ manual Drop unlocks at grace expiry**:
-  `RequestDrop` up the control stream; the authority honors it only for a slot it knows is
-  disconnected with grace elapsed (single request suffices interim; rate-limit per requester). The
+- **No auto-drop — the drop is always a human decision (Travis, 2026-07-08).** The grace timer stops
+  being a decision trigger and becomes an *unlock*: after **45 s minimum sustained disconnection**,
+  any single survivor may trigger the drop (`RequestDrop` up the control stream; the authority honors
+  it only for a slot it knows is disconnected with the unlock elapsed; rate-limit per requester).
+  No quorum initially — the 45 s floor already protects the disconnected player, and a unanimous-vote
+  tier inverts the griefing surface (one absent survivor holds the game hostage). SC:R's
+  accumulated-disconnection-in-a-window unlock and an escalating scheme (45 s = all survivors vote,
+  90 s = any one) are compatible refinements to revisit only if single-requester shows abuse.
+  **Sequencing guard:** the interim 10 s auto-drop stays until RequestDrop ships and is removed in
+  the SAME increment — without a request path, removing auto-drop would let one dropped player stall
+  a game forever. The survivor overlay gains the Drop button at unlock (it needs an input rect via
+  `add_ui_rect` — the §17 overlay is deliberately non-interactable today). The
   §17 grace-collapse-on-promotion tradeoff gets revisited here (promotion restarts the remaining
-  grace instead of deciding immediately).
+  unlock window instead of deciding immediately).
+- **Suppress BW's native "Waiting for players" stall dialog (Travis, 2026-07-08).** The egui overlay
+  is the sole disconnect surface — the native dialog (empty name list under the seam, an unwired
+  Drop Players button, and its own countdown that contradicts the 45 s policy) must not appear at
+  all. The `dialog_hook` spawn-interception (the mechanism that taps `chat_box`/`MsgFltr` by dialog
+  name) is the natural tool: identify the stall dialog's name and swallow/hide it. Fold into the
+  RequestDrop increment so the replacement lands with the suppression.
 - **Relay-death failover stays deferred** (move to a backup relay + mesh re-home) — it needs
   coordinator-side relay liveness + client-side relay list, a separate arc. A relay death today =
   every client's self-disconnect notice + eventual reconciliation sweep; acceptable interim.
