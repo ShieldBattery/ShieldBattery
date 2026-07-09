@@ -46,7 +46,7 @@ fn main() -> eframe::Result<()> {
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
+            .with_inner_size([1500.0, 840.0])
             .with_title("ShieldBattery Overlay Preview"),
         ..Default::default()
     };
@@ -464,15 +464,8 @@ impl eframe::App for PreviewApp {
 
         let view = self.build_view();
 
-        // egui 0.34 unified SidePanel/TopBottomPanel into `Panel`; `default_width` became the
-        // side-agnostic `default_size`, and panels now draw into a `&mut Ui` via `show`.
-        egui::Panel::right("knobs")
-            .resizable(true)
-            .default_size(340.0)
-            .show(ui, |ui| {
-                egui::ScrollArea::vertical().show(ui, |ui| self.knobs_panel(ui));
-            });
-
+        // The backdrop fills the whole window so it reads as a full game screen, and the overlay
+        // (below) anchors to that full screen exactly as it does in-game.
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
@@ -489,11 +482,27 @@ impl eframe::App for PreviewApp {
                 }
             });
 
-        // The overlay draws itself as its own top-anchored Area, over the central backdrop.
+        // The overlay draws itself as its own top-center Area in the `Foreground` layer, over the
+        // full-window backdrop — the same anchoring it uses in-game.
         let clicked = render_disconnect_view(&view, &ctx).inner;
         if !clicked.is_empty() {
             self.last_clicked = clicked;
         }
+
+        // Float the knobs as a top-right window in the same `Foreground` layer but drawn *after* the
+        // overlay, so the controls always sit on top of (and take input ahead of) the overlay where
+        // the two overlap — the overlay centers on the full window, so it can otherwise slide under
+        // a docked panel.
+        egui::Window::new("Overlay preview knobs")
+            .order(egui::Order::Foreground)
+            .anchor(egui::Align2::RIGHT_TOP, vec2(-8.0, 8.0))
+            .resizable(true)
+            .default_width(340.0)
+            .show(&ctx, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(ui.ctx().content_rect().height() - 48.0)
+                    .show(ui, |ui| self.knobs_panel(ui));
+            });
 
         if self.dirty {
             save_knobs(&self.knobs);
