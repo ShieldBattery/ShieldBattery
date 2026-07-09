@@ -1336,6 +1336,25 @@
         "rateLimited": "你每 30 天只能修改一次登录名。",
         "unknownError": "遇到错误。请稍后再试。"
       },
+      "connections": {
+        "description": "将外部账号关联到您的 ShieldBattery 个人资料。",
+        "title": "关联账号",
+        "twitch": {
+          "connect": "关联",
+          "connectedAs": "已关联为 {{channel}}",
+          "connectedSnackbar": "Twitch 账号已关联。",
+          "disconnect": "取消关联",
+          "disconnectedSnackbar": "Twitch 账号已取消关联。",
+          "errors": {
+            "alreadyLinked": "该 Twitch 账号已关联到另一个 ShieldBattery 账号。",
+            "generic": "关联 Twitch 账号时出错。请重试。",
+            "invalidState": "您的 Twitch 关联请求已过期。请重试。",
+            "notConfigured": "Twitch 关联目前不可用。"
+          },
+          "name": "Twitch",
+          "notConnected": "未关联"
+        }
+      },
       "language": {
         "selectLanguage": "选择语言",
         "title": "语言"
@@ -1399,6 +1418,21 @@
       "noProblems": "您的本地安装现在没有问题了。",
       "starcraftVersionContents": "你的《星际争霸》安装版本已过时。ShieldBattery 仅支持来自 Battle.net 的最新重制版。请安装<2><0>最新版本</0></2>并重新启动 ShieldBattery。",
       "title": "检测到安装问题"
+    }
+  },
+  "twitch": {
+    "live": {
+      "badge": "直播中",
+      "uptimeHoursMinutes": "{{hours}}小时{{minutes}}分钟",
+      "uptimeMinutes": "{{minutes}}分钟",
+      "watch": "观看直播"
+    },
+    "liveStreams": {
+      "empty": "目前没有人在直播星际争霸。",
+      "pageTitle": "直播",
+      "seeAll": "查看所有直播",
+      "title": "直播",
+      "viewers_other": "{{count}} 人观看"
     }
   },
   "user": {
@@ -1490,7 +1524,10 @@
         "stats": "统计数据",
         "summary": "概要"
       },
-      "totalGames": "总比赛数"
+      "totalGames": "总比赛数",
+      "twitch": {
+        "liveBadge": "直播中"
+      }
     },
     "profileOverlay": {
       "info": "信息",

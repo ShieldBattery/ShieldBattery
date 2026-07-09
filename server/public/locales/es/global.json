@@ -1352,6 +1352,25 @@
         "rateLimited": "Solo puedes cambiar tu nombre de inicio de sesión una vez cada 30 días.",
         "unknownError": "Algo salió mal, inténtalo de nuevo más tarde."
       },
+      "connections": {
+        "description": "Vincula cuentas externas a tu perfil de ShieldBattery.",
+        "title": "Conexiones",
+        "twitch": {
+          "connect": "Conectar",
+          "connectedAs": "Conectado como {{channel}}",
+          "connectedSnackbar": "Cuenta de Twitch conectada.",
+          "disconnect": "Desconectar",
+          "disconnectedSnackbar": "Cuenta de Twitch desconectada.",
+          "errors": {
+            "alreadyLinked": "Esa cuenta de Twitch ya está vinculada a otra cuenta de ShieldBattery.",
+            "generic": "Algo salió mal al vincular tu cuenta de Twitch. Inténtalo de nuevo.",
+            "invalidState": "Tu solicitud de vinculación de Twitch expiró. Inténtalo de nuevo.",
+            "notConfigured": "La vinculación con Twitch no está disponible en este momento."
+          },
+          "name": "Twitch",
+          "notConnected": "No conectado"
+        }
+      },
       "language": {
         "selectLanguage": "Selecciona un idioma",
         "title": "Idioma"
@@ -1415,6 +1434,23 @@
       "noProblems": "Su instalación local ahora está libre de problemas.",
       "starcraftVersionContents": "Tu instalación de StarCraft no está actualizada. ShieldBattery admite instalaciones de la última versión remasterizada. Instale la <2><0>última versión</0></2> y reinicie ShieldBattery.",
       "title": "Problemas de instalación detectados"
+    }
+  },
+  "twitch": {
+    "live": {
+      "badge": "En vivo",
+      "uptimeHoursMinutes": "{{hours}} h {{minutes}} min",
+      "uptimeMinutes": "{{minutes}} min",
+      "watch": "Ver stream"
+    },
+    "liveStreams": {
+      "empty": "Nadie está transmitiendo StarCraft en este momento.",
+      "pageTitle": "Transmisiones en vivo",
+      "seeAll": "Ver todas las transmisiones",
+      "title": "Transmisiones en vivo",
+      "viewers_one": "{{count}} espectador",
+      "viewers_many": "{{count}} espectadores",
+      "viewers_other": "{{count}} espectadores"
     }
   },
   "user": {
@@ -1506,7 +1542,10 @@
         "stats": "Estadísticas",
         "summary": "Resumen"
       },
-      "totalGames": "Juegos totales"
+      "totalGames": "Juegos totales",
+      "twitch": {
+        "liveBadge": "En vivo"
+      }
     },
     "profileOverlay": {
       "info": "Información",
