@@ -4,7 +4,7 @@ import styled, { css, keyframes } from 'styled-components'
 import TwitchIcon from '../icons/brands/twitch.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useNow } from '../react/date-hooks'
-import { bodyMedium, bodySmall, labelSmall, singleLine } from '../styles/typography'
+import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../styles/typography'
 
 /**
  * A shared visual language for "live" state, reused across the home feed, profiles, and anywhere
@@ -69,6 +69,46 @@ const LivePillRoot = styled.div`
   letter-spacing: 0.5px;
   white-space: nowrap;
 `
+
+/**
+ * A small "live" dot for the corner of an avatar in dense lists. Place it inside a
+ * `position: relative` avatar container. `$ringColor` should match the surface behind the avatar so
+ * the dot reads as separated from it.
+ */
+export const LiveCornerDot = styled.span<{ $ringColor?: string }>`
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 11px;
+  height: 11px;
+
+  border-radius: 50%;
+  background-color: var(--theme-live);
+  border: 2px solid ${props => props.$ringColor ?? 'var(--theme-container-low)'};
+`
+
+const LiveLabelRoot = styled.div`
+  ${labelMedium};
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  color: var(--theme-live);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+`
+
+/** An inline "• Live" label (pulsing dot + text, no fill) for placement next to a name in a list. */
+export function LiveLabel({ className }: { className?: string }) {
+  const { t } = useTranslation()
+  return (
+    <LiveLabelRoot className={className}>
+      <LiveDot $size={7} />
+      {t('twitch.live.badge', 'Live')}
+    </LiveLabelRoot>
+  )
+}
 
 /** A "Live" badge for headers, banners, and thumbnail corners. */
 export function LivePill({ className }: { className?: string }) {

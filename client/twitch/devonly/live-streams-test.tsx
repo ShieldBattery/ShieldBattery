@@ -1,9 +1,12 @@
 import styled from 'styled-components'
+import { Avatar } from '../../avatars/avatar'
 import { LiveStreamsFeed } from '../../home/home'
-import { titleLarge } from '../../styles/typography'
+import { titleLarge, titleSmall } from '../../styles/typography'
 import { ProfileLiveBanner } from '../../users/user-profile'
 import {
+  LiveCornerDot,
   LiveDot,
+  LiveLabel,
   LivePill,
   LiveWatchRow,
   TwitchMark,
@@ -114,6 +117,7 @@ export function LiveStreamsTest() {
       <PrimitiveRow>
         <LiveDot />
         <LivePill />
+        <LiveLabel />
         <ViewerCountPill count={1240} />
         <UptimePill startedAt={mockStreams[0].startedAt} />
         <TwitchMark />
@@ -142,6 +146,61 @@ export function LiveStreamsTest() {
           viewerCount={1240}
         />
       </WatchRowArea>
+
+      <SectionTitle>Friends list (live treatment)</SectionTitle>
+      <FriendsArea>
+        <FriendRow user='Bisu' isLive={true} />
+        <FriendRow user='SnOw' isLive={false} />
+      </FriendsArea>
     </Root>
+  )
+}
+
+const FriendsArea = styled.div`
+  width: 288px;
+  max-width: 100%;
+  padding: 8px;
+
+  background-color: var(--theme-container-lowest);
+  border-radius: 8px;
+`
+
+const FriendRowRoot = styled.div`
+  ${titleSmall};
+  height: 44px;
+  padding: 4px 8px;
+
+  display: flex;
+  align-items: center;
+`
+
+const FriendAvatarContainer = styled.div`
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin: 2px 16px 2px 0;
+`
+
+const FriendAvatar = styled(Avatar)`
+  width: 32px;
+  height: 32px;
+`
+
+const FriendRowName = styled.div`
+  flex-grow: 1;
+`
+
+// Standalone reproduction of a friends-list row (the real FriendEntry is Redux + overlay wired).
+function FriendRow({ user, isLive }: { user: string; isLive: boolean }) {
+  return (
+    <FriendRowRoot>
+      <FriendAvatarContainer>
+        <FriendAvatar user={user} />
+        {isLive ? <LiveCornerDot $ringColor='var(--theme-container-lowest)' /> : null}
+      </FriendAvatarContainer>
+      <FriendRowName>{user}</FriendRowName>
+      {isLive ? <LiveLabel /> : null}
+    </FriendRowRoot>
   )
 }

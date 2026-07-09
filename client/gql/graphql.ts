@@ -645,6 +645,10 @@ export type ConnectionSettingsUnlinkTwitchMutationVariables = Exact<{ [key: stri
 
 export type ConnectionSettingsUnlinkTwitchMutation = { twitchUnlink: boolean }
 
+export type LiveUserIdsQueryVariables = Exact<{ [key: string]: never }>
+
+export type LiveUserIdsQuery = { liveStreamUserIds: Array<Types.SbUserId> }
+
 export type LiveStreams_FeedFragmentFragment = {
   liveStreams: Array<
     { twitchLogin: string; viewerCount: number } & {
@@ -3812,6 +3816,20 @@ export const ConnectionSettingsUnlinkTwitchDocument = {
   ConnectionSettingsUnlinkTwitchMutation,
   ConnectionSettingsUnlinkTwitchMutationVariables
 >
+export const LiveUserIdsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'LiveUserIds' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [{ kind: 'Field', name: { kind: 'Name', value: 'liveStreamUserIds' } }],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveUserIdsQuery, LiveUserIdsQueryVariables>
 export const UserNameAuditHistoryDocument = {
   kind: 'Document',
   definitions: [

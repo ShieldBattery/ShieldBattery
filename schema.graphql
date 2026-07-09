@@ -676,6 +676,13 @@ type Query {
 	first).
 	"""
 	liveStreams: [LiveStream!]!
+	"""
+	The ids of every ShieldBattery user who is currently live-streaming (any category). This lets
+	the client badge "live" state across user lists (friends, chat, etc.) from a single lookup,
+	with per-stream details fetched lazily via `SbUser.liveStream` where needed. Category-agnostic
+	by design, matching the profile "Live" badge (`live_streams` is the StarCraft-filtered feed).
+	"""
+	liveStreamUserIds: [SbUserId!]!
 	user(id: SbUserId!): SbUser
 	userByDisplayName(name: String!): SbUser
 	currentUser: CurrentUser

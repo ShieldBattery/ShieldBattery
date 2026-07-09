@@ -973,6 +973,21 @@ impl TwitchQuery {
         streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
         Ok(streams)
     }
+
+    /// The ids of every ShieldBattery user who is currently live-streaming (any category). This lets
+    /// the client badge "live" state across user lists (friends, chat, etc.) from a single lookup,
+    /// with per-stream details fetched lazily via `SbUser.liveStream` where needed. Category-agnostic
+    /// by design, matching the profile "Live" badge (`live_streams` is the StarCraft-filtered feed).
+    async fn live_stream_user_ids(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<SbUserId>> {
+        Ok(load_live_streams(ctx.data::<RedisPool>()?)
+            .await?
+            .into_iter()
+            .map(|(user_id, _)| user_id)
+            .collect())
+    }
 }
 
 #[derive(Default)]
