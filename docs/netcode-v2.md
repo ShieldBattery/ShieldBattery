@@ -88,18 +88,21 @@
 
 ### Chat follow-ups
 
-- **Send-side target scope (stubbed to All) — analyzer LANDED, DLL consumption remaining.** The
-  MsgFltr dump (live 2026-07-08) proved the radio checked-state is NOT in control flags (all three
-  report 0x106), so the pin reads the `chat_box_mode` byte global instead. **samase_scarf
-  `chat_box_mode()` accessor DONE** (samase `711a5204` on `storm-create-game`, pushed; resolves on
-  all 165 test builds; RE: byte @0x11df4d0 in 1.23.10.12409, values 2=All 3=Allies
-  4=SpecificPlayer 5=Observers, only valid while the box is open ≠0; the *persistent* selection +
-  specific-player target live in `game[0x2c70]` = 8 everyone / 9 allies / 0–7 player | 0x80 obs —
-  read that if scope is needed while the box is closed). **Remaining DLL work:** bump the
-  `scr-analysis` rev to `711a5204`, add the pass-through + resolve into `NetcodeV2Bw`, and map the
-  mode → `ChatTarget` in `dialog_hook::chat_target_scope` (read at send time, box is open then).
-  Live-verifiable with a team game (send-to-allies → only allies receive). Receiver-side filtering
-  already works.
+- **Send-side target scope — DONE + live-proven for everyone/allies (SB `dacea67b5`).** The MsgFltr
+  radio checked-state isn't in control flags, so the scope is read from BW's `chat_box_mode` byte
+  global (samase `chat_box_mode()` accessor, samase `711a5204`; scr-analysis rev bumped, resolved
+  on `BwScr` warn-and-degrade like the minimap globals). `dialog_hook::chat_target_scope` maps
+  2=everyone→All, 3→Allies, 5→Observers, 4→Player (target from the bw_dat-named
+  `Game.chat_dialog_recipient`, BW player id → storm id → rp2 slot via the identity map, degrade to
+  All on any unresolvable target). The analyzer is version-independent — resolved on the live 13515
+  build (no warn). **Live-proven in a Team Melee 2v1:** send-to-everyone reached both teams;
+  send-to-allies reached only the teammate, not the enemy. **Known follow-up (Team Melee only):**
+  BW's "send to player" dialog addresses *teams*, not individual slots, in team-shared-control
+  games, which doesn't map cleanly onto the slot-addressed transport — it reaches one team member
+  or degrades to everyone. A proper fix needs RE of the team-melee recipient encoding + a
+  multi-slot `ChatTarget`; niche (positional games list real players and work), deferred. Observers
+  scope is coded but not separately live-exercised (receiver filter already treats an observer as
+  allied with no one). Receiver-side filtering was already proven.
 - **Scrollable chat-history box (open decision).** The `0x5c` path feeds the classic overlay only;
   SC:R's scrollable box is fed by `sub_682140` (opaque battlenet Message). Verify first whether
   that box even renders in-game on retail under 2c — if not, this is moot.
