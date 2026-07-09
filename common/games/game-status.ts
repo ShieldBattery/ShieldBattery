@@ -82,12 +82,11 @@ export type GameNetworkTransport = 'netcodeV2' | 'native'
 
 /**
  * Which turn transport a running game ended up on, as reported by the game client once the
- * choice settles during game init. `fallbackFrom`/`error` are set when a transport was requested
- * but could not be established.
+ * choice settles during game init. `error` is set when a transport was requested but could not be
+ * established.
  */
 export interface GameNetworkStatus {
   transport: GameNetworkTransport
-  fallbackFrom?: GameNetworkTransport
   error?: string
 }
 

@@ -363,8 +363,7 @@ while breaking real games — fix + re-gate before cutover):
   exit path; no scoring impact).
 - Relay protocol hygiene: initial buffer directive at session start; rate-limited control-law
   logging.
-- TS cleanup: unused `GameNetworkStatus.fallbackFrom`. Pre-existing pg `DeprecationWarning` in
-  `setReconciledResult`.
+- Pre-existing pg `DeprecationWarning` in `setReconciledResult`.
 - `StormSessionPlayer` 64-bit field offsets unverified (v2 native-lobby init hard-fails cleanly on
   x86_64 until verified). `TurnStateHarness` tuple → named struct. Lobby-phase send failure could
   fail-fast the load instead of riding the 75 s timeout.
