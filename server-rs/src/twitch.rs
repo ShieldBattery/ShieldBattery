@@ -93,6 +93,14 @@ const RECONCILE_STARTUP_DELAY: Duration = Duration::from_secs(5);
 /// How often the periodic refresh re-checks currently-live streamers against Twitch (refreshing
 /// their stats and clearing anyone who is no longer live).
 const LIVE_REFRESH_INTERVAL: Duration = Duration::from_secs(120);
+/// How many times we poll Twitch's Get Streams after a `stream.online` event before concluding the
+/// broadcaster isn't really live. Twitch's Get Streams endpoint routinely lags the `stream.online`
+/// notification by a few seconds, so a single `None` result would otherwise drop a stream that is
+/// really coming online -- and the periodic refresh only re-checks users already marked live, so it
+/// wouldn't recover it until the next transition.
+const STREAM_ONLINE_LOOKUP_ATTEMPTS: u32 = 4;
+/// Delay between the Get Streams polls counted by `STREAM_ONLINE_LOOKUP_ATTEMPTS`.
+const STREAM_ONLINE_LOOKUP_RETRY_DELAY: Duration = Duration::from_secs(2);
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -1254,9 +1262,10 @@ async fn handle_notification(
 
     match notification.subscription.sub_type.as_str() {
         // Look up the actual stream (rather than trusting the event) so we store a full, current
-        // summary; if it isn't live after all, this clears any stale entry.
+        // summary. Twitch's Get Streams can briefly lag the online event, so this retries a not-live
+        // result before giving up instead of clearing the stream outright.
         SUB_TYPE_STREAM_ONLINE => {
-            refresh_stream_state(client, redis, connection.user_id, &broadcaster_id).await?
+            handle_stream_online(client, redis, connection.user_id, &broadcaster_id).await?
         }
         SUB_TYPE_STREAM_OFFLINE => {
             set_stream_offline(redis, connection.user_id).await?;
@@ -1267,9 +1276,34 @@ async fn handle_notification(
     Ok(())
 }
 
+/// Handles a `stream.online` event by resolving the broadcaster's full stream summary and storing it.
+/// Twitch's Get Streams endpoint can lag the event by a few seconds, so a not-live (`None`) result is
+/// retried a few times before we conclude the stream really isn't live -- otherwise a streamer who
+/// just went live could be dropped until their next transition. A hard error propagates so the caller
+/// can have Twitch redeliver the event.
+async fn handle_stream_online(
+    client: &TwitchClient,
+    redis: &RedisPool,
+    sb_user_id: SbUserId,
+    broadcaster_id: &str,
+) -> eyre::Result<()> {
+    for attempt in 1..=STREAM_ONLINE_LOOKUP_ATTEMPTS {
+        if let Some(stream) = client.get_stream(broadcaster_id).await? {
+            return set_stream_live(redis, sb_user_id, &LiveStreamSummary::from_stream(stream))
+                .await;
+        }
+        if attempt < STREAM_ONLINE_LOOKUP_ATTEMPTS {
+            tokio::time::sleep(STREAM_ONLINE_LOOKUP_RETRY_DELAY).await;
+        }
+    }
+    // Still not live after riding out the Get Streams lag -- treat as genuinely offline (e.g. a
+    // stream that ended almost immediately); the next transition or periodic refresh will correct it.
+    set_stream_offline(redis, sb_user_id).await
+}
+
 /// Reconciles a single user's Redis live state with their actual current Twitch status: stores a
-/// fresh summary if they're live, or clears the entry if they're not. Used when a stream comes
-/// online, when an account is (re)linked, and by the periodic refresh.
+/// fresh summary if they're live, or clears the entry if they're not. Used when an account is
+/// (re)linked, to immediately reflect an in-progress stream or clear a stale entry from a prior link.
 async fn refresh_stream_state(
     client: &TwitchClient,
     redis: &RedisPool,
