@@ -1423,6 +1423,8 @@
   "twitch": {
     "live": {
       "badge": "라이브",
+      "friendLiveSnackbar": "{{user}}님이 지금 Twitch에서 라이브 중입니다",
+      "friendLiveWatch": "보기",
       "uptimeHoursMinutes": "{{hours}}시간 {{minutes}}분",
       "uptimeMinutes": "{{minutes}}분",
       "watch": "방송 보기"

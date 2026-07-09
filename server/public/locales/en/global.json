@@ -1452,6 +1452,8 @@
   "twitch": {
     "live": {
       "badge": "Live",
+      "friendLiveSnackbar": "{{user}} is now live on Twitch",
+      "friendLiveWatch": "Watch",
       "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
       "uptimeMinutes": "{{minutes}}m",
       "watch": "Watch stream"

@@ -158,6 +158,15 @@ export function LiveStreamsTest() {
         <FriendRow user='SnOw' isLive={false} />
       </FriendsArea>
 
+      <SectionTitle>Lobby slot (live) — smaller corner dot</SectionTitle>
+      <LobbySlotRow>
+        <LobbyAvatarContainer>
+          <LobbySlotAvatar user='Bisu' />
+          <LiveCornerDot $size={8} $ringColor='var(--theme-surface)' />
+        </LobbyAvatarContainer>
+        <span>Bisu</span>
+      </LobbySlotRow>
+
       <SectionTitle>Live page grid</SectionTitle>
       <PageGrid>
         {mockEntries.map((query, i) => (
@@ -172,6 +181,25 @@ const PageGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
+`
+
+const LobbySlotRow = styled.div`
+  ${titleSmall};
+  display: flex;
+  align-items: center;
+  height: 40px;
+`
+
+const LobbyAvatarContainer = styled.div`
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-right: 16px;
+`
+
+const LobbySlotAvatar = styled(Avatar)`
+  width: 24px;
+  height: 24px;
 `
 
 const FriendsArea = styled.div`

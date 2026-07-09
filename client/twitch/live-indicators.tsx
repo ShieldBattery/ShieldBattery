@@ -75,12 +75,12 @@ const LivePillRoot = styled.div`
  * `position: relative` avatar container. `$ringColor` should match the surface behind the avatar so
  * the dot reads as separated from it.
  */
-export const LiveCornerDot = styled.span<{ $ringColor?: string }>`
+export const LiveCornerDot = styled.span<{ $ringColor?: string; $size?: number }>`
   position: absolute;
   right: -1px;
   bottom: -1px;
-  width: 11px;
-  height: 11px;
+  width: ${props => props.$size ?? 11}px;
+  height: ${props => props.$size ?? 11}px;
 
   border-radius: 50%;
   background-color: var(--theme-live);

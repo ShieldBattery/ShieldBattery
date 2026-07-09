@@ -5,6 +5,8 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { useAppSelector } from '../redux-hooks'
+import { LiveCornerDot } from '../twitch/live-indicators'
+import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUsername } from '../users/connected-username'
 import { LobbyUserMenu } from './lobby-menu-items'
 import { RacePicker } from './race-picker'
@@ -26,8 +28,20 @@ const StyledComputerAvatar = styled(ComputerAvatar)`
   ${avatarStyles};
 `
 
-const StyledAvatar = styled(ConnectedAvatar)`
-  ${avatarStyles};
+const PlayerAvatarContainer = styled.div`
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-left: 1px; /* To align with bordered empty slot avatar area */
+  margin-right: 16px;
+
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const PlayerAvatar = styled(ConnectedAvatar)`
+  width: 24px;
+  height: 24px;
 `
 
 export interface PlayerSlotProps {
@@ -67,8 +81,17 @@ export function PlayerSlot({
 }: PlayerSlotProps) {
   const { t } = useTranslation()
   const user = useAppSelector(s => userId && s.users.byId.get(userId))
+  const liveUserIds = useLiveUserIds()
+  const isLive = !isComputer && !!userId && liveUserIds.has(userId)
 
-  const avatar = isComputer ? <StyledComputerAvatar /> : <StyledAvatar userId={userId!} />
+  const avatar = isComputer ? (
+    <StyledComputerAvatar />
+  ) : (
+    <PlayerAvatarContainer>
+      <PlayerAvatar userId={userId!} />
+      {isLive ? <LiveCornerDot $size={8} $ringColor='var(--theme-surface)' /> : null}
+    </PlayerAvatarContainer>
+  )
   const displayName = isComputer ? (
     t('game.playerName.computer', 'Computer')
   ) : (

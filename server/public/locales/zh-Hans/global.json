@@ -1423,6 +1423,8 @@
   "twitch": {
     "live": {
       "badge": "直播中",
+      "friendLiveSnackbar": "{{user}} 正在 Twitch 上直播",
+      "friendLiveWatch": "观看",
       "uptimeHoursMinutes": "{{hours}}小时{{minutes}}分钟",
       "uptimeMinutes": "{{minutes}}分钟",
       "watch": "观看直播"

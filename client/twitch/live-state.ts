@@ -3,7 +3,7 @@ import { useQuery } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { graphql } from '../gql'
 
-const LiveUserIdsQuery = graphql(/* GraphQL */ `
+export const LiveUserIdsQuery = graphql(/* GraphQL */ `
   query LiveUserIds {
     liveStreamUserIds
   }

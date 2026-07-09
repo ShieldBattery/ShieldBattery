@@ -1447,6 +1447,8 @@
   "twitch": {
     "live": {
       "badge": "В эфире",
+      "friendLiveSnackbar": "{{user}} сейчас в эфире на Twitch",
+      "friendLiveWatch": "Смотреть",
       "uptimeHoursMinutes": "{{hours}} ч {{minutes}} мин",
       "uptimeMinutes": "{{minutes}} мин",
       "watch": "Смотреть стрим"

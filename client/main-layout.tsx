@@ -52,6 +52,7 @@ import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
+import { FriendLiveNotifications } from './twitch/friend-live-notifications'
 import { LiveCornerDot } from './twitch/live-indicators'
 import { useIsUserLive } from './twitch/live-state'
 import { navigateToUserProfile } from './users/action-creators'
@@ -875,6 +876,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       ) : (
         <div></div>
       )}
+      {isLoggedIn ? <FriendLiveNotifications /> : null}
       <NotificationPopups />
     </Root>
   )
