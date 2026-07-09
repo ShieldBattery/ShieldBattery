@@ -4,7 +4,11 @@ import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
 import { raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
-import { NetcodeV2RelayInfo, NetcodeV2ServerSetup } from '../../../common/games/netcode-v2'
+import {
+  NetcodeV2RehomeResponse,
+  NetcodeV2RelayInfo,
+  NetcodeV2ServerSetup,
+} from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { setNetcodeV2Session } from '../games/game-models'
 import log from '../logging/logger'
@@ -171,6 +175,24 @@ interface CoordinatorSessionResponse {
   bounds: { min: number; max: number }
 }
 
+/**
+ * The wire shapes of the coordinator's `POST /session/rehome` API. Same serde conventions as
+ * `/session/create` (snake_case, byte arrays as JSON number arrays). `dead_relay_id` is the relay
+ * the client believes dead; the coordinator decides whether it's actually gone and, if so, moves
+ * the whole group to a replacement.
+ */
+interface CoordinatorRehomeRequest {
+  tenant: string
+  session: number
+  dead_relay_id: number
+}
+
+interface CoordinatorRehomeResponse {
+  decision: 'stay' | 'unavailable' | 'newTarget'
+  /** Present only for a `newTarget` decision: the replacement relay to dial. */
+  relay?: CoordinatorRelayEndpoint
+}
+
 export interface NetcodeV2Config {
   coordinatorUrl: string
   tenant: string
@@ -274,6 +296,7 @@ function relayEndpointToInfo(
   }
 
   return {
+    relayId: peer.relay_id,
     address4: family === 4 ? host : undefined,
     address6: family === 6 ? host : undefined,
     port,
@@ -452,6 +475,64 @@ export class NetcodeV2Service {
       return result
     } finally {
       this.discardGame(gameId)
+    }
+  }
+
+  /**
+   * Asks the coordinator to re-home an in-flight session off a relay a client reports dead. The
+   * coordinator authoritatively decides whether the named relay is actually gone and, if so, moves
+   * the whole group to a replacement, returning it. `stay` means the relay is in fact still live
+   * (the client's own path is broken, not the relay); `unavailable` means no relay can take the
+   * session over yet. A `newTarget` relay is converted through the same `relayEndpointToInfo` used
+   * at session create, so the game client receives the standard pinned-cert descriptor shape.
+   *
+   * This is a tenant-signed control-plane call (like `/session/create`); the game client never
+   * talks to the coordinator itself — it reaches this via the SB `netcodeV2Rehome` HTTP endpoint.
+   */
+  async rehomeSession(session: number, deadRelayId: number): Promise<NetcodeV2RehomeResponse> {
+    const config = this.config
+    if (!config) {
+      throw new NetcodeV2ServiceError('netcode v2 is not configured')
+    }
+
+    const request: CoordinatorRehomeRequest = {
+      tenant: config.tenant,
+      session,
+      // eslint-disable-next-line camelcase
+      dead_relay_id: deadRelayId,
+    }
+
+    let response: CoordinatorRehomeResponse
+    try {
+      const url = `${config.coordinatorUrl}/session/rehome`
+      const bodyStr = JSON.stringify(request)
+      response = await got
+        .post(url, {
+          body: bodyStr,
+          headers: {
+            'content-type': 'application/json',
+            ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+          },
+          timeout: { request: 10000 },
+        })
+        .json<CoordinatorRehomeResponse>()
+    } catch (err) {
+      throw new NetcodeV2ServiceError('coordinator session rehome failed', { cause: err })
+    }
+
+    switch (response.decision) {
+      case 'stay':
+        return { decision: 'stay' }
+      case 'newTarget':
+        if (!response.relay) {
+          throw new NetcodeV2ServiceError('coordinator returned a newTarget rehome without a relay')
+        }
+        return { decision: 'newTarget', relay: relayEndpointToInfo(response.relay, config) }
+      case 'unavailable':
+        return { decision: 'unavailable' }
+      default:
+        // An unrecognized decision is treated as "can't move right now" rather than trusted.
+        return { decision: 'unavailable' }
     }
   }
 

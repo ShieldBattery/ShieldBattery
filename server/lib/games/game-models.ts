@@ -136,6 +136,28 @@ export async function setNetcodeV2Session(gameId: string, session: number): Prom
 }
 
 /**
+ * Returns the rally-point2 coordinator session id persisted for a game, or `null` if the game has
+ * none on record (not a netcode-v2 game, or the session id never persisted). Used by the in-game
+ * re-home endpoint to confirm a request names a live netcode-v2 session before asking the
+ * coordinator to move it.
+ */
+export async function getNetcodeV2Session(gameId: string): Promise<number | null> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ netcode_v2_session: string | null }>(sql`
+      SELECT netcode_v2_session
+      FROM games
+      WHERE id = ${gameId}
+    `)
+    const raw = result.rows[0]?.netcode_v2_session
+    // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
+    return raw === null || raw === undefined ? null : Number(raw)
+  } finally {
+    done()
+  }
+}
+
+/**
  * Overwrites a game's persisted config. Used for values that get decided after the game record is
  * first created — currently only `useNetcodeV2`, which depends on the netcode v2 feature flag and
  * the player count at load time, neither of which is known when the game is registered.

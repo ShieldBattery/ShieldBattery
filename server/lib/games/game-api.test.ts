@@ -1,8 +1,19 @@
 import { RouterContext } from '@koa/router'
 import { describe, expect, test, vi } from 'vitest'
 import { GameResultErrorCode } from '../../../common/games/results'
+import { getUserGameRecord } from '../models/games-users'
 import { GameApi } from './game-api'
+import { getNetcodeV2Session } from './game-models'
 import { GameResultServiceError } from './game-result-service'
+
+vi.mock('../models/games-users', async importOriginal => ({
+  ...(await importOriginal<typeof import('../models/games-users')>()),
+  getUserGameRecord: vi.fn(),
+}))
+vi.mock('./game-models', async importOriginal => ({
+  ...(await importOriginal<typeof import('./game-models')>()),
+  getNetcodeV2Session: vi.fn(),
+}))
 
 /** Builds a minimal fake `RouterContext` that satisfies `results2`'s param/body Joi validation. */
 function makeResultsCtx(): RouterContext {
@@ -74,5 +85,90 @@ describe('games/game-api/GameApi#submitGameResults', () => {
     await api.submitGameResults(makeResultsCtx())
 
     expect(gameResultService.submitGameResults).toHaveBeenCalledTimes(1)
+  })
+})
+
+/** A fake `RouterContext` satisfying `netcodeV2Rehome`'s param/body Joi validation. */
+function makeRehomeCtx(): RouterContext {
+  return {
+    params: { gameId: 'game-1' },
+    request: {
+      body: { userId: 1, resultCode: 'abc123abc123', deadRelayId: 5 },
+    },
+  } as any
+}
+
+/** Builds a `GameApi` with only the dependencies `netcodeV2Rehome` touches mocked. */
+function makeRehomeApi({
+  isEnabled = true,
+  isLoading = false,
+}: {
+  isEnabled?: boolean
+  isLoading?: boolean
+} = {}) {
+  const gameLoader = { isLoading: vi.fn().mockReturnValue(isLoading) }
+  const netcodeV2Service = {
+    isEnabled: vi.fn().mockReturnValue(isEnabled),
+    rehomeSession: vi.fn(),
+  }
+  const api = new GameApi(
+    {} as any,
+    vi.fn() as any,
+    gameLoader as any,
+    {} as any,
+    netcodeV2Service as any,
+  )
+  return { api, netcodeV2Service }
+}
+
+describe('games/game-api/GameApi#netcodeV2Rehome', () => {
+  test('rejects when netcode v2 is not enabled', async () => {
+    const { api, netcodeV2Service } = makeRehomeApi({ isEnabled: false })
+
+    const err = await api.netcodeV2Rehome(makeRehomeCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+    expect(netcodeV2Service.rehomeSession).not.toHaveBeenCalled()
+  })
+
+  test('rejects a request whose resultCode does not match the stored record', async () => {
+    const { api, netcodeV2Service } = makeRehomeApi()
+    vi.mocked(getUserGameRecord).mockResolvedValue({ resultCode: 'a-different-code' } as any)
+
+    const err = await api.netcodeV2Rehome(makeRehomeCtx()).catch(e => e)
+
+    expect(err).toBeInstanceOf(GameResultServiceError)
+    expect((err as GameResultServiceError).code).toBe(GameResultErrorCode.NotFound)
+    expect(netcodeV2Service.rehomeSession).not.toHaveBeenCalled()
+  })
+
+  test('rejects when the game has no netcode v2 session on record', async () => {
+    const { api, netcodeV2Service } = makeRehomeApi()
+    vi.mocked(getUserGameRecord).mockResolvedValue({ resultCode: 'abc123abc123' } as any)
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(null)
+
+    const err = await api.netcodeV2Rehome(makeRehomeCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 409)
+    expect(netcodeV2Service.rehomeSession).not.toHaveBeenCalled()
+  })
+
+  test('re-homes with the stored session id and returns the coordinator decision', async () => {
+    const { api, netcodeV2Service } = makeRehomeApi()
+    vi.mocked(getUserGameRecord).mockResolvedValue({ resultCode: 'abc123abc123' } as any)
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(42)
+    const decision = {
+      decision: 'newTarget' as const,
+      relay: { relayId: 9 } as any,
+    }
+    netcodeV2Service.rehomeSession.mockResolvedValue(decision)
+
+    const ctx = makeRehomeCtx()
+    await api.netcodeV2Rehome(ctx)
+
+    // The stored session id (not anything from the request) is what's re-homed, with the client's
+    // reported dead relay id.
+    expect(netcodeV2Service.rehomeSession).toHaveBeenCalledWith(42, 5)
+    expect(ctx.body).toEqual(decision)
   })
 })

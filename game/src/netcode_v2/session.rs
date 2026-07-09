@@ -26,6 +26,7 @@ use tokio::sync::mpsc;
 
 use super::TurnState;
 use super::credentials::{self, CredentialError, RelayTarget, SessionCredentials};
+use super::rehome::{self, RehomeContext};
 use crate::app_messages::{NetcodeV2Setup, SbUserId};
 use crate::recurse_checked_mutex::Mutex;
 
@@ -105,6 +106,7 @@ static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 pub async fn establish_session(
     setup: &NetcodeV2Setup,
     has_computers: bool,
+    rehome_context: RehomeContext,
 ) -> Result<mpsc::Receiver<()>, SessionError> {
     let SessionCredentials {
         identity,
@@ -118,6 +120,12 @@ pub async fn establish_session(
     // Dial the home relay, trying its candidate addresses in preference order (v6 then v4).
     let (link, relay_addr) = connect_relay(&endpoint, &home, &identity).await?;
 
+    // The SB-server-mediated failover hook: when the home relay's process dies (fresh cert ⇒ pinned
+    // trust refuses it), the driver escalates to this to move the whole group to a replacement
+    // relay. `None` (no result code to authenticate the server request) keeps the pre-failover
+    // same-relay-only behavior. Seeded with the home relay's id — the relay it first names as dead.
+    let rehome = rehome::build_provider(&rehome_context, setup.home_relay.relay_id);
+
     let (driver, mut channels) = LinkDriver::new(link);
     // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
     // `SessionLink::Relay` below) so a re-dial after a drop reuses the already-bound local port.
@@ -126,6 +134,11 @@ pub async fn establish_session(
         relay_addr,
         server_name: home.server_name.clone(),
         identity,
+        rehome,
+        // Use the driver's built-in escalation timing (immediate on a cert/pin rejection, ~10s of
+        // failed same-relay dials otherwise; re-ask ~every 15s while unavailable).
+        escalate_after: None,
+        escalate_retry: None,
     };
     // Service the link on the DLL's async runtime. `run_reconnecting` re-dials internally on a
     // link failure, keeping every turn channel alive across the outage (see the self-connectivity

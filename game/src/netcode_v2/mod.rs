@@ -57,6 +57,7 @@ use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use tokio::sync::mpsc;
 
 mod net_stats;
+mod rehome;
 mod session;
 
 pub use net_stats::{NetStatRow, NetStatsStatus};
@@ -66,6 +67,7 @@ pub use net_stats::{NetStatRow, NetStatsStatus};
 // to their submodules. `with_lobby_session_seed` is consumed by the `storm_join_game` replacement
 // hook (in `bw_scr.rs`); the seed types and `set_lobby_session_seed`/`clear_lobby_session_seed` are
 // the staging API the native-lobby setup path uses to stage (and drop) a join seed.
+pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
     establish_session, establish_sessionless, set_lobby_session_seed, submit_result_report,

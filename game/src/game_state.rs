@@ -237,6 +237,9 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
+        // The server base URL the netcode-v2 re-home provider posts to (same origin as the results
+        // submission). Captured before `init_state` is moved into `Started`.
+        let server_url = init_state.server_config.server_url.clone();
         self.init_state = InitState::Started(init_state);
 
         let send_messages_to_state = self.internal_send.clone();
@@ -318,9 +321,18 @@ impl GameState {
                 // leaves, so the lone human plays on versus the computers locally (see
                 // `TurnState::should_self_close`).
                 let has_computers = info.slots.iter().any(|s| s.is_computer());
-                let mut session_start = netcode_v2::establish_session(&setup, has_computers)
-                    .await
-                    .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                // Context the re-home provider authenticates its SB-server failover requests with
+                // (the same gameId + userId + resultCode the results submission uses).
+                let rehome_context = netcode_v2::RehomeContext {
+                    server_url: server_url.clone(),
+                    game_id: info.game_id.clone(),
+                    user_id: local_user.id,
+                    result_code: info.result_code.clone(),
+                };
+                let mut session_start =
+                    netcode_v2::establish_session(&setup, has_computers, rehome_context)
+                        .await
+                        .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
                 info!("Netcode v2 session established");
                 // Route lobby command traffic through the rp2 turn transport rather than native
                 // Storm networking. This must latch on before any native create/join runs: the

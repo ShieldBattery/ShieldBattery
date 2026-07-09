@@ -123,6 +123,21 @@ pub fn bind_endpoint(roots: RootCertStore) -> Result<ClientEndpoint, CredentialE
     ClientEndpoint::bind(roots).map_err(CredentialError::Endpoint)
 }
 
+/// Builds a dialable QUIC endpoint and resolved [`RelayTarget`] for a single relay, applying the
+/// same fail-closed pinning [`SessionCredentials::from_setup`] applies to the home relay — but for a
+/// replacement relay the server named in a re-home response. The endpoint trusts *exactly* this
+/// relay's leaf cert; the target carries its dial address(es) and TLS server name. Must be called
+/// from within the Tokio runtime that will drive the endpoint.
+pub(crate) fn endpoint_for_relay(
+    relay: &NetcodeV2Relay,
+) -> Result<(ClientEndpoint, RelayTarget), CredentialError> {
+    let mut roots = RootCertStore::empty();
+    add_relay_cert(&mut roots, relay)?;
+    let target = resolve_relay(relay)?;
+    let endpoint = bind_endpoint(roots)?;
+    Ok((endpoint, target))
+}
+
 fn decode_base64(value: &str, field: &'static str) -> Result<Vec<u8>, CredentialError> {
     BASE64_STANDARD
         .decode(value)
@@ -178,6 +193,7 @@ mod tests {
 
     fn relay(address4: Option<&str>, address6: Option<&str>, cert: &str) -> NetcodeV2Relay {
         NetcodeV2Relay {
+            relay_id: 1,
             address4: address4.map(str::to_owned),
             address6: address6.map(str::to_owned),
             port: 14900,

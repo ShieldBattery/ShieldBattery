@@ -8,6 +8,11 @@ import { SbUserId } from '../users/sb-user-id'
  * Field names match the game process's `NetcodeV2Relay` (game/src/app_messages.rs).
  */
 export interface NetcodeV2RelayInfo {
+  /**
+   * The coordinator's numeric id for this relay. Carried through so the game process can name the
+   * relay it believes dead when it asks the coordinator to re-home a session off it.
+   */
+  relayId: number
   address4?: string
   address6?: string
   port: number
@@ -66,6 +71,30 @@ export interface SubmitNetcodeV2PubkeyRequest {
   /** base64 (standard, padded) of the raw 32-byte Ed25519 public key. */
   pubkey: string
 }
+
+/**
+ * Request body the game process POSTs to `/api/1/games/:gameId/netcodeV2Rehome` when its home relay
+ * looks dead and it needs the server to re-home the session. Authenticated exactly like the results
+ * and replay submissions: the caller proves it owns the slot by presenting the per-(game, user)
+ * `resultCode` the server minted, so no separate credential is needed.
+ */
+export interface NetcodeV2RehomeRequest {
+  userId: SbUserId
+  resultCode: string
+  /** The coordinator's numeric id for the relay the client believes is dead (its current home). */
+  deadRelayId: number
+}
+
+/**
+ * The server's answer to a re-home request, relayed from the coordinator. `stay` means the named
+ * relay is actually still live (keep retrying it); `unavailable` means no relay can take the session
+ * over yet; `newTarget` carries the replacement relay to dial (as the standard `NetcodeV2RelayInfo`
+ * descriptor, pinned cert included).
+ */
+export type NetcodeV2RehomeResponse =
+  | { decision: 'stay' }
+  | { decision: 'unavailable' }
+  | { decision: 'newTarget'; relay: NetcodeV2RelayInfo }
 
 /**
  * How a player's rally-point2 slot departed a game: a graceful quit vs. an unclean drop

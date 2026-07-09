@@ -511,6 +511,11 @@ impl std::fmt::Debug for Secret {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetcodeV2Relay {
+    /// The coordinator's numeric id for this relay. Named in a re-home request when this client
+    /// believes the relay is dead. Defaults to 0 if an older server omits it; 0 never names a live
+    /// relay, so a re-home ask against it harmlessly answers `unavailable`.
+    #[serde(default)]
+    pub relay_id: u64,
     pub address4: Option<String>,
     pub address6: Option<String>,
     pub port: u16,

@@ -26,7 +26,11 @@ import {
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
-import { SubmitNetcodeV2PubkeyRequest } from '../../../common/games/netcode-v2'
+import {
+  NetcodeV2RehomeRequest,
+  NetcodeV2RehomeResponse,
+  SubmitNetcodeV2PubkeyRequest,
+} from '../../../common/games/netcode-v2'
 import {
   GameResultErrorCode,
   isRawStoredGameResults,
@@ -59,7 +63,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
-import { countCompletedGames, getGameRoutes, getGames } from './game-models'
+import { countCompletedGames, getGameRoutes, getGames, getNetcodeV2Session } from './game-models'
 import {
   GamePointsRefundErrorCode,
   GamePointsRefundService,
@@ -574,6 +578,54 @@ export class GameApi {
     })
 
     ctx.status = 204
+  }
+
+  // NOTE(tec27): Like the results/replay endpoints this doesn't require being logged in — the game
+  // client authenticates by presenting the per-(game, user) resultCode the server minted, which is
+  // secret to that user. The game client posts here when its home relay looks dead and it needs the
+  // session re-homed; the server (not the client) does the tenant-signed coordinator round trip.
+  @httpPost('/:gameId/netcodeV2Rehome')
+  @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
+  async netcodeV2Rehome(ctx: RouterContext): Promise<void> {
+    const {
+      params: { gameId },
+      body: { userId, resultCode, deadRelayId },
+    } = validateRequest(ctx, {
+      params: GAME_ID_PARAM,
+      body: Joi.object<NetcodeV2RehomeRequest>().keys({
+        userId: Joi.number().min(0).required(),
+        resultCode: Joi.string().required(),
+        deadRelayId: Joi.number().min(0).required(),
+      }),
+    })
+
+    if (!this.netcodeV2Service.isEnabled()) {
+      throw new httpErrors.NotFound('netcode v2 is not enabled')
+    }
+    if (this.gameLoader.isLoading(gameId)) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.NotLoaded,
+        'Game is still loading, try again later',
+      )
+    }
+
+    // Same auth as the replay upload: the resultCode must match what's stored for this user/game.
+    const gameUserRecord = await getUserGameRecord(userId, gameId)
+    if (!gameUserRecord || gameUserRecord.resultCode !== resultCode) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
+
+    // Only a live netcode-v2 game with a coordinator session on record can be re-homed.
+    const session = await getNetcodeV2Session(gameId)
+    if (session === null) {
+      throw new httpErrors.Conflict('game has no active netcode v2 session')
+    }
+
+    const decision: NetcodeV2RehomeResponse = await this.netcodeV2Service.rehomeSession(
+      session,
+      deadRelayId,
+    )
+    ctx.body = decision
   }
 
   // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,
