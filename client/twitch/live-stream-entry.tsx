@@ -1,7 +1,15 @@
-import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { ConnectedAvatar } from '../avatars/avatar'
 import { FragmentType, graphql, useFragment } from '../gql'
-import { bodySmall, singleLine, titleSmall } from '../styles/typography'
+import { bodyMedium, bodySmall, singleLine, titleSmall } from '../styles/typography'
+import {
+  LiveDot,
+  LivePill,
+  TwitchMark,
+  UptimePill,
+  useStreamUptime,
+  ViewerCountPill,
+} from './live-indicators'
 
 /**
  * Shared fragment for the home-page "live streams" feed. Defined here (rather than duplicated in
@@ -11,6 +19,7 @@ export const LiveStreams_FeedFragment = graphql(/* GraphQL */ `
   fragment LiveStreams_FeedFragment on Query {
     liveStreams {
       twitchLogin
+      viewerCount
       ...LiveStreams_FeedEntryFragment
     }
   }
@@ -21,8 +30,8 @@ const LiveStreams_FeedEntryFragment = graphql(/* GraphQL */ `
     twitchLogin
     twitchDisplayName
     title
-    gameName
     viewerCount
+    startedAt
     thumbnailUrl
     user {
       id
@@ -31,12 +40,184 @@ const LiveStreams_FeedEntryFragment = graphql(/* GraphQL */ `
   }
 `)
 
-const EntryRoot = styled.a`
+type LiveStreamFragment = ReturnType<typeof useLiveStream>
+
+function useLiveStream(query: FragmentType<typeof LiveStreams_FeedEntryFragment>) {
+  return useFragment(LiveStreams_FeedEntryFragment, query)
+}
+
+/**
+ * The ShieldBattery identity leads every entry: the SB username (in amber). The Twitch handle is
+ * only worth showing when it differs from the SB name.
+ */
+function getIdentity(stream: LiveStreamFragment) {
+  const sbName = stream.user?.name ?? stream.twitchDisplayName
+  const handle =
+    stream.user && stream.twitchDisplayName.toLowerCase() !== stream.user.name.toLowerCase()
+      ? stream.twitchDisplayName
+      : undefined
+  return { sbName, handle }
+}
+
+function streamUrl(login: string) {
+  return `https://twitch.tv/${login}`
+}
+
+const Name = styled.span`
+  ${singleLine};
+  color: var(--theme-amber);
+`
+
+const Handle = styled.span`
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+`
+
+const Thumbnail = styled.img`
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+  background-color: var(--theme-container-highest);
+`
+
+// --- Featured (hero) entry -------------------------------------------------------------------
+
+const FeaturedRoot = styled.a`
+  display: block;
+  padding: 10px 10px 12px;
+
+  color: inherit;
+  text-decoration: none;
+  contain: content;
+
+  &:link,
+  &:visited {
+    color: inherit;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+  }
+`
+
+const FeaturedThumb = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+
+  border-radius: 6px;
+  overflow: hidden;
+
+  ${FeaturedRoot}:hover &,
+  ${FeaturedRoot}:focus-visible & {
+    outline: 2px solid var(--theme-live);
+    outline-offset: 2px;
+  }
+`
+
+const CornerTopLeft = styled.div`
+  position: absolute;
+  top: 8px;
+  left: 8px;
+`
+const CornerTopRight = styled.div`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+`
+const CornerBottomLeft = styled.div`
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+`
+const CornerBottomRight = styled.div`
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+`
+
+const FeaturedMeta = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 72px;
-  padding: 8px;
+  gap: 10px;
+  margin-top: 10px;
+`
+
+const FeaturedAvatar = styled(ConnectedAvatar)`
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+`
+
+const MetaText = styled.div`
+  min-width: 0;
+  flex: 1;
+`
+
+const NameLine = styled.div`
+  ${titleSmall};
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+`
+
+const FeaturedTitle = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+  margin-top: 1px;
+  color: var(--theme-on-surface-variant);
+`
+
+export function FeaturedLiveStreamEntry({
+  query,
+}: {
+  query: FragmentType<typeof LiveStreams_FeedEntryFragment>
+}) {
+  const stream = useLiveStream(query)
+  const { sbName, handle } = getIdentity(stream)
+
+  return (
+    <FeaturedRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
+      <FeaturedThumb>
+        <Thumbnail src={stream.thumbnailUrl} alt='' loading='lazy' />
+        <CornerTopLeft>
+          <LivePill />
+        </CornerTopLeft>
+        <CornerTopRight>
+          <ViewerCountPill count={stream.viewerCount} />
+        </CornerTopRight>
+        <CornerBottomLeft>
+          <UptimePill startedAt={stream.startedAt} />
+        </CornerBottomLeft>
+        <CornerBottomRight>
+          <TwitchMark />
+        </CornerBottomRight>
+      </FeaturedThumb>
+      <FeaturedMeta>
+        {stream.user ? <FeaturedAvatar userId={stream.user.id} /> : null}
+        <MetaText>
+          <NameLine>
+            <Name>{sbName}</Name>
+            {handle ? <Handle>@{handle}</Handle> : null}
+          </NameLine>
+          <FeaturedTitle>{stream.title}</FeaturedTitle>
+        </MetaText>
+      </FeaturedMeta>
+    </FeaturedRoot>
+  )
+}
+
+// --- Compact row entry -----------------------------------------------------------------------
+
+const RowRoot = styled.a`
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 12px;
 
   color: inherit;
   text-decoration: none;
@@ -54,38 +235,47 @@ const EntryRoot = styled.a`
   }
 `
 
-const Thumbnail = styled.img`
-  width: 96px;
-  height: 54px;
+const RowThumb = styled.div`
+  position: relative;
+  width: 108px;
+  height: 61px;
   flex-shrink: 0;
 
-  border-radius: 2px;
-  object-fit: cover;
-  background-color: var(--theme-container-highest);
+  border-radius: 4px;
+  overflow: hidden;
 `
 
-const Info = styled.div`
+const RowViewerCorner = styled.div`
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+`
+
+const RowInfo = styled.div`
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex: 1;
 `
 
-const Title = styled.div`
+const RowNameLine = styled.div`
   ${titleSmall};
-  ${singleLine};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 `
 
-const StreamerName = styled.div`
-  ${bodySmall};
+const RowTitle = styled.div`
+  ${bodyMedium};
   ${singleLine};
-  color: var(--theme-on-surface-variant);
+  margin-top: 2px;
 `
 
-const Meta = styled.div`
+const RowMeta = styled.div`
   ${bodySmall};
   ${singleLine};
+  margin-top: 2px;
   color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
 `
 
 export function LiveStreamEntry({
@@ -93,22 +283,27 @@ export function LiveStreamEntry({
 }: {
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
 }) {
-  const { t } = useTranslation()
-  const stream = useFragment(LiveStreams_FeedEntryFragment, query)
-  const streamerName = stream.user?.name ?? stream.twitchDisplayName
+  const stream = useLiveStream(query)
+  const { sbName, handle } = getIdentity(stream)
+  const uptime = useStreamUptime(stream.startedAt)
 
   return (
-    <EntryRoot href={`https://twitch.tv/${stream.twitchLogin}`} target='_blank' rel='noopener'>
-      <Thumbnail src={stream.thumbnailUrl} alt='' width={96} height={54} loading='lazy' />
-      <Info>
-        <Title>{stream.title}</Title>
-        <StreamerName>{streamerName}</StreamerName>
-        <Meta>
-          {t('twitch.liveStreams.viewers', '{{count}} watching', { count: stream.viewerCount })}
-          {' · '}
-          {stream.gameName}
-        </Meta>
-      </Info>
-    </EntryRoot>
+    <RowRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
+      <RowThumb>
+        <Thumbnail src={stream.thumbnailUrl} alt='' width={108} height={61} loading='lazy' />
+        <RowViewerCorner>
+          <ViewerCountPill count={stream.viewerCount} />
+        </RowViewerCorner>
+      </RowThumb>
+      <RowInfo>
+        <RowNameLine>
+          <LiveDot $size={7} />
+          <Name>{sbName}</Name>
+          {handle ? <Handle>@{handle}</Handle> : null}
+        </RowNameLine>
+        <RowTitle>{stream.title}</RowTitle>
+        <RowMeta>{uptime}</RowMeta>
+      </RowInfo>
+    </RowRoot>
   )
 }

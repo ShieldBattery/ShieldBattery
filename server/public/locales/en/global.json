@@ -1450,6 +1450,12 @@
     }
   },
   "twitch": {
+    "live": {
+      "badge": "Live",
+      "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
+      "uptimeMinutes": "{{minutes}}m",
+      "watch": "Watch stream"
+    },
     "liveStreams": {
       "title": "Live streams",
       "viewers_one": "{{count}} watching",

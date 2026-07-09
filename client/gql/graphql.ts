@@ -647,7 +647,7 @@ export type ConnectionSettingsUnlinkTwitchMutation = { twitchUnlink: boolean }
 
 export type LiveStreams_FeedFragmentFragment = {
   liveStreams: Array<
-    { twitchLogin: string } & {
+    { twitchLogin: string; viewerCount: number } & {
       ' $fragmentRefs'?: {
         LiveStreams_FeedEntryFragmentFragment: LiveStreams_FeedEntryFragmentFragment
       }
@@ -659,8 +659,8 @@ export type LiveStreams_FeedEntryFragmentFragment = {
   twitchLogin: string
   twitchDisplayName: string
   title: string
-  gameName: string
   viewerCount: number
+  startedAt: string
   thumbnailUrl: string
   user: { id: Types.SbUserId; name: string } | null
 } & { ' $fragmentName'?: 'LiveStreams_FeedEntryFragmentFragment' }
@@ -774,7 +774,14 @@ export type UserProfileTwitchQuery = {
   user: {
     id: Types.SbUserId
     twitchChannel: { twitchLogin: string; twitchDisplayName: string } | null
-    liveStream: { twitchLogin: string; title: string; gameName: string } | null
+    liveStream: {
+      twitchLogin: string
+      title: string
+      gameName: string
+      viewerCount: number
+      startedAt: string
+      thumbnailUrl: string
+    } | null
   } | null
 }
 
@@ -1471,8 +1478,8 @@ export const LiveStreams_FeedEntryFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
           {
             kind: 'Field',
@@ -1507,6 +1514,7 @@ export const LiveStreams_FeedFragmentFragmentDoc = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'FragmentSpread',
                   name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
@@ -1527,8 +1535,8 @@ export const LiveStreams_FeedFragmentFragmentDoc = {
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
           {
             kind: 'Field',
@@ -3089,8 +3097,8 @@ export const HomePageContentDocument = {
           { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
           { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'title' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
           { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
           { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
           {
             kind: 'Field',
@@ -3185,6 +3193,7 @@ export const HomePageContentDocument = {
               kind: 'SelectionSet',
               selections: [
                 { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
                 {
                   kind: 'FragmentSpread',
                   name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
@@ -4173,6 +4182,9 @@ export const UserProfileTwitchDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'title' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'gameName' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
                     ],
                   },
                 },

@@ -48,13 +48,13 @@ type Documents = {
   '\n  mutation ConnectionSettingsStartTwitchLink($desktop: Boolean!) {\n    twitchStartLink(desktop: $desktop) {\n      url\n    }\n  }\n': typeof types.ConnectionSettingsStartTwitchLinkDocument
   '\n  mutation ConnectionSettingsCompleteTwitchLink($code: String!, $state: String!) {\n    twitchCompleteLink(code: $code, state: $state) {\n      twitchUserId\n      twitchLogin\n      twitchDisplayName\n      linkedAt\n    }\n  }\n': typeof types.ConnectionSettingsCompleteTwitchLinkDocument
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n': typeof types.ConnectionSettingsUnlinkTwitchDocument
-  '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n': typeof types.LiveStreams_FeedFragmentFragmentDoc
-  '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n': typeof types.LiveStreams_FeedEntryFragmentFragmentDoc
+  '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      viewerCount\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n': typeof types.LiveStreams_FeedFragmentFragmentDoc
+  '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n': typeof types.LiveStreams_FeedEntryFragmentFragmentDoc
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n': typeof types.UserNameAuditHistoryDocument
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
-  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
+  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
 }
 const documents: Documents = {
   '\n  query AdminMatchmakingConfig {\n    matchmakingConfig {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n      perMode {\n        matchmakingType\n        config {\n          weightRatingVariance\n          weightWinProb\n          weightLatency\n          uncertaintyK\n          minQuality\n          adaptiveComfortableMultiplier\n          adaptiveDecayPerMissing\n          populationHalfLifeSeconds\n        }\n      }\n      defaults {\n        searchIntervalSeconds\n        maxPlayersExamined\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n    }\n  }\n':
@@ -125,9 +125,9 @@ const documents: Documents = {
     types.ConnectionSettingsCompleteTwitchLinkDocument,
   '\n  mutation ConnectionSettingsUnlinkTwitch {\n    twitchUnlink\n  }\n':
     types.ConnectionSettingsUnlinkTwitchDocument,
-  '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n':
+  '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      viewerCount\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n':
     types.LiveStreams_FeedFragmentFragmentDoc,
-  '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n':
+  '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n':
     types.LiveStreams_FeedEntryFragmentFragmentDoc,
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n':
     types.UserNameAuditHistoryDocument,
@@ -137,7 +137,7 @@ const documents: Documents = {
     types.AdminUserProfile_PermissionsFragmentDoc,
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n':
     types.AdminUpdateUserPermissionsDocument,
-  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n      }\n    }\n  }\n':
+  '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
     types.UserProfileTwitchDocument,
 }
 
@@ -363,14 +363,14 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n',
-): (typeof documents)['\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n']
+  source: '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      viewerCount\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n',
+): (typeof documents)['\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      viewerCount\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n',
-): (typeof documents)['\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    gameName\n    viewerCount\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n']
+  source: '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n',
+): (typeof documents)['\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -399,8 +399,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n      }\n    }\n  }\n']
+  source: '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n']
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {}

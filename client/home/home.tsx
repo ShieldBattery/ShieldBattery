@@ -20,7 +20,11 @@ import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { singleLine, titleSmall } from '../styles/typography'
-import { LiveStreamEntry, LiveStreams_FeedFragment } from '../twitch/live-stream-entry'
+import {
+  FeaturedLiveStreamEntry,
+  LiveStreamEntry,
+  LiveStreams_FeedFragment,
+} from '../twitch/live-stream-entry'
 import { BottomLinks } from './bottom-links'
 import { HomeSection, HomeSectionTitle } from './home-section'
 import { useLastSeenUrgentMessage } from './last-seen-urgent-message'
@@ -306,14 +310,23 @@ export function LiveStreamsFeed({
   const { t } = useTranslation()
   const { liveStreams } = useFragment(LiveStreams_FeedFragment, query) ?? { liveStreams: [] }
 
-  return liveStreams.length > 0 ? (
+  if (liveStreams.length === 0) {
+    return null
+  }
+
+  // The most-watched stream is featured as a hero card; the rest become compact rows.
+  const sorted = [...liveStreams].sort((a, b) => b.viewerCount - a.viewerCount)
+  const [featured, ...rest] = sorted
+
+  return (
     <HomeSection>
       <HomeSectionTitle>{t('twitch.liveStreams.title', 'Live streams')}</HomeSectionTitle>
       <LiveStreamsRoot>
-        {liveStreams.slice(0, 5).map(stream => (
+        <FeaturedLiveStreamEntry key={featured.twitchLogin} query={featured} />
+        {rest.slice(0, 4).map(stream => (
           <LiveStreamEntry key={stream.twitchLogin} query={stream} />
         ))}
       </LiveStreamsRoot>
     </HomeSection>
-  ) : null
+  )
 }

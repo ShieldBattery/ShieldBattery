@@ -9,6 +9,7 @@ import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
 import { DevStarcraft } from './starcraft/devonly/dev-starcraft'
+import { DevTwitch } from './twitch/devonly/dev-twitch'
 
 const Container = styled.div`
   width: 100%;
@@ -47,6 +48,7 @@ export default function Dev() {
             ['Matchmaking components', 'matchmaking', DevMatchmaking],
             ['Material components', 'material', DevMaterial],
             ['Starcraft', 'starcraft', DevStarcraft],
+            ['Twitch components', 'twitch', DevTwitch],
           ]}
         />
       </Content>
