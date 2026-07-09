@@ -1297,6 +1297,18 @@
     "user": {
       "account": {
         "authenticationHeader": "Authentication",
+        "avatar": {
+          "change": "Change avatar",
+          "header": "Avatar",
+          "inappropriate": "That image was flagged as inappropriate. Please choose a different one.",
+          "invalidType": "Please choose an image file.",
+          "removeError": "Something went wrong removing your avatar.",
+          "removeSuccess": "Avatar removed.",
+          "tooLarge": "That image is too large (max 5 MB).",
+          "upload": "Upload avatar",
+          "uploadError": "Something went wrong updating your avatar.",
+          "uploadSuccess": "Avatar updated."
+        },
         "changeDisplayName": {
           "dialogTitle": "Change display name",
           "success": "Display name changed successfully."

@@ -34,8 +34,16 @@ function updateUsers(state: UserState, users: SbUser[]) {
       if (userState.name !== user.name) {
         userState.name = user.name
       }
+      if (userState.avatarUrl !== user.avatarUrl) {
+        userState.avatarUrl = user.avatarUrl
+      }
     } else {
-      state.byId.set(user.id, { id: user.id, name: user.name, created: user.created })
+      state.byId.set(user.id, {
+        id: user.id,
+        name: user.name,
+        created: user.created,
+        avatarUrl: user.avatarUrl,
+      })
     }
   }
 }
@@ -46,7 +54,16 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       payload: { user },
     } = action
 
-    state.byId.set(user.id, { id: user.id, name: user.name, created: user.created })
+    state.byId.set(user.id, {
+      id: user.id,
+      name: user.name,
+      created: user.created,
+      avatarUrl: user.avatarUrl,
+    })
+  },
+
+  ['@auth/avatarChanged'](state, action) {
+    updateUsers(state, [action.payload.user])
   },
 
   ['@chat/loadMessageHistory'](state, action) {

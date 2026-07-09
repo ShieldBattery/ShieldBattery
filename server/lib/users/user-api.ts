@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt'
 import got from 'got'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import mime from 'mime'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
@@ -19,6 +20,7 @@ import {
 } from '../../../common/games/game-filters'
 import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
 import { ALL_TRANSLATION_LANGUAGES } from '../../../common/i18n'
+import { MAX_IMAGE_SIZE_BYTES, USER_AVATAR_SIZE } from '../../../common/images'
 import { LadderPlayer } from '../../../common/ladder/ladder'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import {
@@ -69,6 +71,7 @@ import {
   toBanHistoryEntryJson,
   toUserIpInfoJson,
   toUserRestrictionHistoryJson,
+  UpdateCurrentUserAvatarResponse,
   UserErrorCode,
   UsernameAvailableResponse,
 } from '../../../common/users/user-network'
@@ -76,10 +79,14 @@ import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import isDev from '../env/is-dev'
+import { deleteFile } from '../files'
+import { handleMultipartFiles } from '../files/handle-multipart-files'
+import { createImagePath, resizeImage } from '../files/images'
 import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import { joiLocale } from '../i18n/locale-validator'
+import { ImageService } from '../images/image-service'
 import { getRankingsForUser } from '../ladder/rankings'
 import { sendMailTemplate } from '../mail/mailer'
 import { getMapInfos } from '../maps/map-models'
@@ -158,6 +165,12 @@ const usernameAvailableThrottle = createThrottle('usernameavailability', {
 const accountUpdateThrottle = createThrottle('accountupdate', {
   rate: 10,
   burst: 20,
+  window: 60000,
+})
+
+const avatarUpdateThrottle = createThrottle('avatarupdate', {
+  rate: 5,
+  burst: 10,
   window: 60000,
 })
 
@@ -266,6 +279,7 @@ export class UserApi {
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private chatService: ChatService,
     private replayService: ReplayService,
+    private imageService: ImageService,
   ) {
     container.resolve(PasswordResetCleanupJob)
     container.resolve(SignupCodeCleanupJob)
@@ -879,6 +893,83 @@ export class UserApi {
     )
 
     return { user: toSelfUserJson(user) }
+  }
+
+  @httpPost('/:id/avatar')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(avatarUpdateThrottle, ctx => String(ctx.session!.user.id)),
+    handleMultipartFiles(MAX_IMAGE_SIZE_BYTES),
+  )
+  async updateAvatar(ctx: RouterContext): Promise<UpdateCurrentUserAvatarResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().valid(ctx.session!.user.id).required(),
+      }).required(),
+    })
+
+    const avatarFile = ctx.request.files?.avatar
+    if (!avatarFile) {
+      throw new httpErrors.BadRequest('an avatar file must be provided')
+    }
+    if (Array.isArray(avatarFile)) {
+      throw new httpErrors.BadRequest('only one avatar file can be uploaded')
+    }
+
+    if (!(await this.imageService.isImageSafe(avatarFile.filepath))) {
+      throw new UserApiError(UserErrorCode.InappropriateImage, 'Avatar image is inappropriate')
+    }
+
+    const [image, imageExtension] = await resizeImage(
+      avatarFile.filepath,
+      USER_AVATAR_SIZE,
+      USER_AVATAR_SIZE,
+    )
+    const avatarPath = createImagePath('user-avatars', imageExtension)
+    const buffer = await image.toBuffer()
+
+    const { userInfo, previousPath } = await this.userService.updateCurrentUserAvatar(
+      params.id,
+      { path: avatarPath, data: buffer, contentType: mime.getType(imageExtension) ?? undefined },
+      ctx,
+    )
+
+    if (previousPath) {
+      // Best-effort cleanup of the now-orphaned old avatar; a failure here shouldn't fail the
+      // request since the user's avatar has already been updated successfully.
+      deleteFile(previousPath).catch(err =>
+        ctx.log.error({ err }, 'error deleting previous avatar file'),
+      )
+    }
+
+    return { user: toSelfUserJson(userInfo.user) }
+  }
+
+  @httpDelete('/:id/avatar')
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(avatarUpdateThrottle, ctx => String(ctx.session!.user.id)),
+  )
+  async removeAvatar(ctx: RouterContext): Promise<UpdateCurrentUserAvatarResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().valid(ctx.session!.user.id).required(),
+      }).required(),
+    })
+
+    const { userInfo, previousPath } = await this.userService.updateCurrentUserAvatar(
+      params.id,
+      undefined,
+      ctx,
+    )
+
+    if (previousPath) {
+      deleteFile(previousPath).catch(err =>
+        ctx.log.error({ err }, 'error deleting previous avatar file'),
+      )
+    }
+
+    return { user: toSelfUserJson(userInfo.user) }
   }
 
   @httpPost('/:id/email-verification/send')

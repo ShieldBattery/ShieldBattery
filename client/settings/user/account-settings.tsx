@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
@@ -9,12 +9,16 @@ import {
   PASSWORD_MINLENGTH,
 } from '../../../common/constants'
 import { getErrorStack } from '../../../common/errors'
+import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import { LOGIN_NAME_CHANGE_COOLDOWN_MS } from '../../../common/users/sb-user'
+import { UserErrorCode } from '../../../common/users/user-network'
+import { removeUserAvatar, uploadUserAvatar } from '../../auth/action-creators'
 import {
   createUsernameAvailabilityValidator,
   usernameValidator,
 } from '../../auth/auth-form-validators'
 import { useSelfUser } from '../../auth/auth-utils'
+import { Avatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
@@ -38,6 +42,7 @@ import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { Tooltip } from '../../material/tooltip'
+import { isFetchError } from '../../network/fetch-errors'
 import { useNow } from '../../react/date-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
@@ -110,6 +115,29 @@ const UnverifiedIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 24 }
   color: var(--theme-amber);
 `
 
+const AvatarCard = styled(Card)`
+  display: flex;
+  align-items: center;
+  gap: 24px;
+`
+
+const AvatarPreview = styled(Avatar)`
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+`
+
+const AvatarActions = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+`
+
+const HiddenFileInput = styled.input`
+  display: none;
+`
+
 const CurrentUserFragment = graphql(/* GraphQL */ `
   fragment AccountSettings_CurrentUser on CurrentUser {
     id
@@ -141,7 +169,12 @@ export function AccountSettings() {
   })
   const currentUser = useFragment(CurrentUserFragment, data?.currentUser)
   const [emailRevealed, setEmailRevealed] = useState(false)
-  const reduxEmailVerified = useSelfUser()?.emailVerified
+  const selfUser = useSelfUser()
+  const reduxEmailVerified = selfUser?.emailVerified
+
+  const snackbarController = useSnackbarController()
+  const avatarFileInputRef = useRef<HTMLInputElement>(null)
+  const [avatarUpdating, setAvatarUpdating] = useState(false)
 
   useEffect(() => {
     if (currentUser && reduxEmailVerified !== currentUser.emailVerified) {
@@ -149,6 +182,83 @@ export function AccountSettings() {
       refreshQuery({ requestPolicy: 'network-only' })
     }
   }, [refreshQuery, reduxEmailVerified, currentUser])
+
+  const onAvatarFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset the input so selecting the same file again still fires a change event.
+    event.target.value = ''
+    if (!file || !selfUser) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      snackbarController.showSnackbar(
+        t('settings.user.account.avatar.invalidType', 'Please choose an image file.'),
+      )
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      snackbarController.showSnackbar(
+        t('settings.user.account.avatar.tooLarge', 'That image is too large (max 5 MB).'),
+      )
+      return
+    }
+
+    setAvatarUpdating(true)
+    dispatch(
+      uploadUserAvatar(selfUser.id, file, {
+        onSuccess: () => {
+          setAvatarUpdating(false)
+          snackbarController.showSnackbar(
+            t('settings.user.account.avatar.uploadSuccess', 'Avatar updated.'),
+          )
+        },
+        onError: err => {
+          setAvatarUpdating(false)
+          const message =
+            isFetchError(err) && err.code === UserErrorCode.InappropriateImage
+              ? t(
+                  'settings.user.account.avatar.inappropriate',
+                  'That image was flagged as inappropriate. Please choose a different one.',
+                )
+              : t(
+                  'settings.user.account.avatar.uploadError',
+                  'Something went wrong updating your avatar.',
+                )
+          snackbarController.showSnackbar(message)
+          logger.error(`Error uploading avatar: ${getErrorStack(err)}`)
+        },
+      }),
+    )
+  }
+
+  const onRemoveAvatar = () => {
+    if (!selfUser) {
+      return
+    }
+
+    setAvatarUpdating(true)
+    dispatch(
+      removeUserAvatar(selfUser.id, {
+        onSuccess: () => {
+          setAvatarUpdating(false)
+          snackbarController.showSnackbar(
+            t('settings.user.account.avatar.removeSuccess', 'Avatar removed.'),
+          )
+        },
+        onError: err => {
+          setAvatarUpdating(false)
+          snackbarController.showSnackbar(
+            t(
+              'settings.user.account.avatar.removeError',
+              'Something went wrong removing your avatar.',
+            ),
+          )
+          logger.error(`Error removing avatar: ${getErrorStack(err)}`)
+        },
+      }),
+    )
+  }
 
   if (!currentUser) {
     return (
@@ -167,6 +277,40 @@ export function AccountSettings() {
 
   return (
     <Root>
+      <Section>
+        <SectionHeader>{t('settings.user.account.avatar.header', 'Avatar')}</SectionHeader>
+        <AvatarCard>
+          <AvatarPreview user={selfUser?.name} image={selfUser?.avatarUrl} />
+          <AvatarActions>
+            <HiddenFileInput
+              ref={avatarFileInputRef}
+              type='file'
+              accept='image/*'
+              onChange={onAvatarFileSelected}
+              data-test='avatar-file-input'
+            />
+            <FilledButton
+              label={
+                selfUser?.avatarUrl
+                  ? t('settings.user.account.avatar.change', 'Change avatar')
+                  : t('settings.user.account.avatar.upload', 'Upload avatar')
+              }
+              disabled={avatarUpdating}
+              onClick={() => avatarFileInputRef.current?.click()}
+              testName='upload-avatar-button'
+            />
+            {selfUser?.avatarUrl ? (
+              <TextButton
+                label={t('common.actions.remove', 'Remove')}
+                disabled={avatarUpdating}
+                onClick={onRemoveAvatar}
+                testName='remove-avatar-button'
+              />
+            ) : null}
+          </AvatarActions>
+        </AvatarCard>
+      </Section>
+
       <Section>
         <UserCard>
           <EditableItem>

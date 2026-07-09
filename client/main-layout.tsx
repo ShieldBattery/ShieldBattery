@@ -636,7 +636,8 @@ function AppBar({
               onDismiss: closeProfileOverlay,
             }}
             anchor={profileEntryElem}
-            username={selfUser?.name ?? ''}>
+            username={selfUser?.name ?? ''}
+            avatarUrl={selfUser?.avatarUrl}>
             <MenuItem
               icon={<MaterialIcon icon='account_box' />}
               text={t('navigation.leftNav.viewProfile', 'View profile')}

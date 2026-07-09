@@ -781,7 +781,11 @@ export function PlayerResult({ className, config, result, mmrChange }: PlayerRes
         <StyledRaceIcon race={result?.race ?? config.race} />
         {result?.race && config.race === 'r' ? <SelectedRandomIcon race='r' /> : null}
       </RaceRoot>
-      {config.isComputer ? <StyledComputerAvatar /> : <PlayerAvatar user={user?.name ?? ''} />}
+      {config.isComputer ? (
+        <StyledComputerAvatar />
+      ) : (
+        <PlayerAvatar user={user?.name ?? ''} image={user?.avatarUrl} />
+      )}
       <PlayerName>
         {config.isComputer ? t('game.playerName.computer', 'Computer') : (user?.name ?? '')}
       </PlayerName>

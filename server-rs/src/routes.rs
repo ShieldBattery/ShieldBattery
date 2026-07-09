@@ -145,7 +145,11 @@ pub async fn create_app(
         .module(GamesModule::new(db_pool.clone()))
         .module(GameReportsModule::new(db_pool.clone()))
         .module(NewsModule::new(db_pool.clone()))
-        .module(UsersModule::new(db_pool.clone(), redis_pool.clone()))
+        .module(UsersModule::new(
+            db_pool.clone(),
+            redis_pool.clone(),
+            file_store.clone(),
+        ))
         .limit_depth(if settings.env == Env::Production {
             // TODO(tec27): Figure out good limits
             10
@@ -175,7 +179,11 @@ pub async fn create_app(
 
     let app_state = AppState {
         settings: Arc::new(settings.clone()),
-        current_user_repo: CurrentUserRepo::new(db_pool.clone(), redis_pool.clone()),
+        current_user_repo: CurrentUserRepo::new(
+            db_pool.clone(),
+            redis_pool.clone(),
+            file_store.clone(),
+        ),
         name_checker,
         db_pool,
         redis_pool,

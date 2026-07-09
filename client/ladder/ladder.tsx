@@ -978,7 +978,7 @@ export function LadderTable(props: LadderTableProps) {
   }, [])
 
   const renderRow = (index: number, player: LadderPlayer) => {
-    const username = usersById.get(player.userId)?.name ?? ''
+    const user = usersById.get(player.userId)
 
     return (
       <Row
@@ -986,7 +986,8 @@ export function LadderTable(props: LadderTableProps) {
         isEven={index % 2 === 0}
         isSelf={player.userId === selfUserId}
         player={player}
-        username={username}
+        username={user?.name ?? ''}
+        avatarUrl={user?.avatarUrl}
         curTime={curTime}
         bonusPool={bonusPool}
         onSelected={onRowSelected}
@@ -1305,13 +1306,14 @@ interface RowProps {
   isSelf: boolean
   player: LadderPlayer
   username: string
+  avatarUrl?: string
   curTime: number
   bonusPool: number
   onSelected?: (userId: SbUserId, username: string) => void
 }
 
 const Row = React.memo(
-  ({ isEven, isSelf, player, username, curTime, bonusPool, onSelected }: RowProps) => {
+  ({ isEven, isSelf, player, username, avatarUrl, curTime, bonusPool, onSelected }: RowProps) => {
     const { t } = useTranslation()
     const onClick = useCallback(() => {
       if (onSelected) {
@@ -1338,7 +1340,7 @@ const Row = React.memo(
           <span>{player.rank}</span>
         </RankCell>
         <PlayerCell>
-          <StyledAvatar user={username} />
+          <StyledAvatar user={username} image={avatarUrl} />
           <PlayerNameAndRace>
             <PlayerName>{username}</PlayerName>
             <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>

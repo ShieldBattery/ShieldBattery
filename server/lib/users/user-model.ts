@@ -14,6 +14,7 @@ import db, { DbClient } from '../db'
 import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import transact from '../db/transaction'
 import { Dbify } from '../db/types'
+import { getUrl } from '../files'
 import { createPermissions } from '../models/permissions'
 import { incrementSignupCodeUsage, validateAndLockSignupCode } from './signup-code-models'
 import { createUserStats } from './user-stats-model'
@@ -30,6 +31,8 @@ interface UserInternal {
   email: string
   created: Date
   signupIpAddress?: string
+  /** File-store path (not URL) of the user's uploaded avatar, if any. */
+  avatarPath?: string
   emailVerified: boolean
   acceptedUsePolicyVersion: number
   acceptedTermsVersion: number
@@ -61,6 +64,7 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     email: dbUser.email,
     created: dbUser.created,
     signupIpAddress: dbUser.signup_ip_address ?? undefined,
+    avatarPath: dbUser.avatar_path ?? undefined,
     emailVerified: dbUser.email_verified,
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
@@ -88,6 +92,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     id: userInternal.id,
     name: userInternal.name,
     created: Number(userInternal.created),
+    avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
     loginName: userInternal.loginName,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
@@ -110,6 +115,7 @@ function convertToExternal(userInternal: UserInternal): SbUser {
     id: userInternal.id,
     name: userInternal.name,
     created: Number(userInternal.created),
+    avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
   }
 }
 
@@ -200,6 +206,9 @@ export type UserUpdatables = Omit<
   | 'lastLoginNameChange'
   | 'lastNameChange'
   | 'nameChangeTokens'
+  // Avatars are managed through `setUserAvatarPath` (which also reports the previous path so the
+  // old file can be cleaned up), not the generic update path.
+  | 'avatarPath'
 >
 
 /**
@@ -277,6 +286,33 @@ export async function updateUser(
     return result.rows.length > 0
       ? convertToExternalSelf(convertUserFromDb(result.rows[0]))
       : undefined
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Sets (or clears, when `avatarPath` is `undefined`) the avatar path for a user, returning the
+ * path that was previously stored (if any) so the caller can delete the now-orphaned file. This
+ * should only be called for the currently active user.
+ */
+export async function setUserAvatarPath(
+  id: SbUserId,
+  avatarPath: string | undefined,
+  withClient?: DbClient,
+): Promise<{ previousPath?: string }> {
+  const { client, done } = await db(withClient)
+  try {
+    // The `old` subquery reads the pre-update value within the same statement, so we can return the
+    // previous path in a single round-trip.
+    const result = await client.query<{ previous_path: string | null }>(sql`
+      UPDATE users AS u
+      SET avatar_path = ${avatarPath ?? null}
+      FROM (SELECT avatar_path FROM users WHERE id = ${id}) AS old
+      WHERE u.id = ${id}
+      RETURNING old.avatar_path AS previous_path;
+    `)
+    return { previousPath: result.rows[0]?.previous_path ?? undefined }
   } finally {
     done()
   }
