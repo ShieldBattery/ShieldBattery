@@ -830,4 +830,11 @@ impl<'e> Analysis<'e> {
     pub fn save_replay(&mut self) -> Option<VirtualAddress> {
         self.0.save_replay()
     }
+
+    /// Single byte global holding the in-game chat send-scope while the chat box is open: 0 = box
+    /// closed, 1 = single-player local, 2 = everyone, 3 = allies, 4 = a specific player,
+    /// 5 = observers.
+    pub fn chat_box_mode(&mut self) -> Option<Operand<'e>> {
+        self.0.chat_box_mode()
+    }
 }

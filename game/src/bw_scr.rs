@@ -137,6 +137,10 @@ pub struct BwScr {
     minimap_color_mode: Option<Value<u8>>,
     /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
     minimap_terrain_hidden: Option<Value<u8>>,
+    /// BW's in-game chat send-scope byte (`chat_box_mode`): 0 = box closed, 1 = single-player local,
+    /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
+    /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
+    chat_box_mode: Option<Value<u8>>,
     statres_icons: Value<*mut scr::DdsGrpSet>,
     cmdicons: Value<*mut scr::DdsGrpSet>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
@@ -1118,6 +1122,12 @@ impl BwScr {
         if minimap_terrain_hidden.is_none() {
             warn!("Could not find minimap_terrain_hidden global");
         }
+        // Non-fatal: without it, in-game chat can't read its send-scope and every message goes to
+        // everyone rather than failing game launch.
+        let chat_box_mode = analysis.chat_box_mode();
+        if chat_box_mode.is_none() {
+            warn!("Could not find chat_box_mode global");
+        }
         let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
         let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
         let screen_x = analysis.screen_x().ok_or("screen_x")?;
@@ -1247,6 +1257,7 @@ impl BwScr {
             use_rgb_colors: Value::new(ctx, use_rgb_colors),
             minimap_color_mode: minimap_color_mode.map(|op| Value::new(ctx, op)),
             minimap_terrain_hidden: minimap_terrain_hidden.map(|op| Value::new(ctx, op)),
+            chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
             screen_x: Value::new(ctx, screen_x),
@@ -3834,6 +3845,15 @@ impl BwScr {
         self.minimap_terrain_hidden
             .as_ref()
             .map(|value| unsafe { value.resolve() != 0 })
+    }
+
+    /// Reads BW's in-game chat send-scope byte (`chat_box_mode`), or `None` if the global wasn't
+    /// located during analysis. Only meaningful while the chat box is open, which is the case at
+    /// chat-send time.
+    pub fn read_chat_box_mode(&self) -> Option<u8> {
+        self.chat_box_mode
+            .as_ref()
+            .map(|value| unsafe { value.resolve() })
     }
 
     /// Applies the saved minimap color/terrain toggle values (from local settings) to the game's

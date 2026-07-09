@@ -988,6 +988,13 @@ impl TurnState {
         }
     }
 
+    /// The [`ChatTarget::Player`] addressing a single participant by BW storm id, or `None` if the
+    /// storm id maps to no live session slot. The transport carries the rp2 slot, which the receive
+    /// side resolves back to a storm id, so a specific-player chat is addressed by slot here.
+    pub fn chat_target_for_storm(&self, storm_id: StormPlayerId) -> Option<ChatTarget> {
+        self.slot_for_storm(storm_id).map(ChatTarget::Player)
+    }
+
     /// The rally-point2 slot mapped to a storm id, if any — the inverse of
     /// [`storm_id_for_slot`](Self::storm_id_for_slot), used to translate a storm-keyed leave back to
     /// the slot the connectivity stream keys its drops by.
