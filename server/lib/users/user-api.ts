@@ -79,7 +79,7 @@ import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import isDev from '../env/is-dev'
-import { deleteFile, writeFile } from '../files'
+import { deleteFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
@@ -927,14 +927,10 @@ export class UserApi {
     )
     const avatarPath = createImagePath('user-avatars', imageExtension)
     const buffer = await image.toBuffer()
-    await writeFile(avatarPath, buffer, {
-      acl: 'public-read',
-      type: mime.getType(imageExtension) ?? undefined,
-    })
 
     const { userInfo, previousPath } = await this.userService.updateCurrentUserAvatar(
       params.id,
-      avatarPath,
+      { path: avatarPath, data: buffer, contentType: mime.getType(imageExtension) ?? undefined },
       ctx,
     )
 

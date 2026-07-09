@@ -11,6 +11,7 @@ import {
 import { getErrorStack } from '../../../common/errors'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import { LOGIN_NAME_CHANGE_COOLDOWN_MS } from '../../../common/users/sb-user'
+import { UserErrorCode } from '../../../common/users/user-network'
 import { removeUserAvatar, uploadUserAvatar } from '../../auth/action-creators'
 import {
   createUsernameAvailabilityValidator,
@@ -41,6 +42,7 @@ import { Dialog } from '../../material/dialog'
 import { PasswordTextField } from '../../material/password-text-field'
 import { TextField } from '../../material/text-field'
 import { Tooltip } from '../../material/tooltip'
+import { isFetchError } from '../../network/fetch-errors'
 import { useNow } from '../../react/date-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
@@ -213,12 +215,17 @@ export function AccountSettings() {
         },
         onError: err => {
           setAvatarUpdating(false)
-          snackbarController.showSnackbar(
-            t(
-              'settings.user.account.avatar.uploadError',
-              'Something went wrong updating your avatar.',
-            ),
-          )
+          const message =
+            isFetchError(err) && err.code === UserErrorCode.InappropriateImage
+              ? t(
+                  'settings.user.account.avatar.inappropriate',
+                  'That image was flagged as inappropriate. Please choose a different one.',
+                )
+              : t(
+                  'settings.user.account.avatar.uploadError',
+                  'Something went wrong updating your avatar.',
+                )
+          snackbarController.showSnackbar(message)
           logger.error(`Error uploading avatar: ${getErrorStack(err)}`)
         },
       }),

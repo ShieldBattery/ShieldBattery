@@ -101,7 +101,6 @@
       "banWithoutReason": "No reason specified",
       "defaultError": "An error occurred: {{status}} {{statusText}}",
       "genericError": "An error occurred: {{errorMessage}}",
-      "inappropriateImage": "That image was flagged as inappropriate. Please choose a different one.",
       "invalidCode": "The provided code is invalid. It may have expired.",
       "invalidCredentials": "Incorrect username or password",
       "machineBanned": "This machine is banned from creating new accounts.",
@@ -1301,6 +1300,7 @@
         "avatar": {
           "change": "Change avatar",
           "header": "Avatar",
+          "inappropriate": "That image was flagged as inappropriate. Please choose a different one.",
           "invalidType": "Please choose an image file.",
           "removeError": "Something went wrong removing your avatar.",
           "removeSuccess": "Avatar removed.",

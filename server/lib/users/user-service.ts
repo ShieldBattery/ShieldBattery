@@ -4,6 +4,7 @@ import { SbPermissions } from '../../../common/users/permissions'
 import { fromSelfUserJson, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { AuthEvent } from '../../../common/users/user-network'
+import { deleteFile, writeFile } from '../files'
 import logger from '../logging/logger'
 import { getPermissions } from '../models/permissions'
 import { Redis, RedisSubscriber } from '../redis/redis'
@@ -120,16 +121,36 @@ export class UserService {
   }
 
   /**
-   * Sets (or clears, when `avatarPath` is `undefined`) the current user's avatar, returning the
-   * updated user info along with the previously-stored path (so the caller can delete the orphaned
-   * file). Refreshes the cached user data and, if `ctx` is provided, the current session.
+   * Sets (or clears, when `avatar` is `undefined`) the current user's avatar, returning the updated
+   * user info along with the previously-stored path (so the caller can delete the orphaned file).
+   * Refreshes the cached user data and, if `ctx` is provided, the current session.
+   *
+   * When setting an avatar, the file is written to the store *before* the DB is updated so the DB
+   * never references a file that doesn't exist; if the DB update then fails, the just-written file
+   * is cleaned up.
    */
   async updateCurrentUserAvatar(
     id: SbUserId,
-    avatarPath: string | undefined,
+    avatar: { path: string; data: Buffer; contentType?: string } | undefined,
     ctx?: Koa.Context,
   ): Promise<{ userInfo: SelfUserInfo; previousPath?: string }> {
-    const { previousPath } = await setUserAvatarPath(id, avatarPath)
+    let previousPath: string | undefined
+    if (avatar) {
+      await writeFile(avatar.path, avatar.data, { acl: 'public-read', type: avatar.contentType })
+      try {
+        ;({ previousPath } = await setUserAvatarPath(id, avatar.path))
+      } catch (err) {
+        // The file was written but the DB update failed, so it's now orphaned. Best-effort cleanup;
+        // the original error is what matters to the caller.
+        deleteFile(avatar.path).catch(deleteErr =>
+          logger.error({ err: deleteErr }, 'error deleting orphaned avatar file'),
+        )
+        throw err
+      }
+    } else {
+      ;({ previousPath } = await setUserAvatarPath(id, undefined))
+    }
+
     const selfInfo = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
 
     if (ctx && ctx.session?.user.id === id) {

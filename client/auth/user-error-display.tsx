@@ -94,16 +94,9 @@ function UserError({ error }: { error: FetchError }) {
         </span>
       )
 
+    // InappropriateImage is only produced by the avatar upload flow, which surfaces its own message
+    // (see account-settings.tsx); it never reaches this auth-focused display.
     case UserErrorCode.InappropriateImage:
-      return (
-        <span>
-          {t(
-            'auth.userErrorDisplay.inappropriateImage',
-            'That image was flagged as inappropriate. Please choose a different one.',
-          )}
-        </span>
-      )
-
     case UserErrorCode.NotAllowedOnSelf:
     case UserErrorCode.NotFound:
       break
