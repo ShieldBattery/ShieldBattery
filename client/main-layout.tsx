@@ -52,6 +52,8 @@ import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
+import { LiveCornerDot } from './twitch/live-indicators'
+import { useIsUserLive } from './twitch/live-state'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
 
@@ -501,6 +503,13 @@ const UserButton = styled.button`
   }
 `
 
+const UserButtonAvatarContainer = styled.div`
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+`
+
 const UserButtonAvatar = styled(ConnectedAvatar)`
   width: 40px;
   height: 40px;
@@ -550,6 +559,7 @@ function AppBarUser({
 }) {
   const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({ onClick })
+  const isLive = useIsUserLive(user.id)
 
   const [nameRef, isNameOverflowing] = useOverflowingElement<HTMLDivElement>()
 
@@ -561,7 +571,10 @@ function AppBarUser({
       ref={ref}
       data-test='app-bar-user-button'
       aria-label={t('navigation.bar.userMenu', 'User menu')}>
-      <UserButtonAvatar userId={user.id} />
+      <UserButtonAvatarContainer>
+        <UserButtonAvatar userId={user.id} />
+        {isLive ? <LiveCornerDot $ringColor='var(--theme-primary-container)' /> : null}
+      </UserButtonAvatarContainer>
       <UserButtonNameAndTitle>
         <Tooltip
           text={user.name}
