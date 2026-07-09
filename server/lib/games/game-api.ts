@@ -586,16 +586,19 @@ export class GameApi {
   // session re-homed; the server (not the client) does the tenant-signed coordinator round trip.
   @httpPost('/:gameId/netcodeV2Rehome')
   @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
-  async netcodeV2Rehome(ctx: RouterContext): Promise<void> {
+  async netcodeV2Rehome(ctx: RouterContext): Promise<NetcodeV2RehomeResponse> {
     const {
       params: { gameId },
       body: { userId, resultCode, deadRelayId },
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
       body: Joi.object<NetcodeV2RehomeRequest>().keys({
-        userId: Joi.number().min(0).required(),
+        // `.integer()`: `userId` is an account id and `deadRelayId` is a coordinator u64 relay id
+        // — a fractional value (e.g. `1.5`) is meaningless and would only fail downstream at the
+        // coordinator, so reject it here.
+        userId: Joi.number().integer().min(0).required(),
         resultCode: Joi.string().required(),
-        deadRelayId: Joi.number().min(0).required(),
+        deadRelayId: Joi.number().integer().min(0).required(),
       }),
     })
 
@@ -615,17 +618,27 @@ export class GameApi {
       throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
     }
 
+    // Only a user still actively in the game may drive failover. A user who has already submitted a
+    // result, or whose mid-game departure the relay recorded, is done — and letting a done (e.g.
+    // departed) player keep asking to re-home would let them drain the coordinator's per-session
+    // rehome rate-limit bucket and 429 a real survivor's failover. This is the same "human is done"
+    // predicate `areAllHumansAccountedFor` keys on (reported a result, or has a recorded departure).
+    if (gameUserRecord.reportedResults != null || gameUserRecord.departureKind != null) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.AlreadyReported,
+        'game participant has already finished and cannot re-home',
+      )
+    }
+
     // Only a live netcode-v2 game with a coordinator session on record can be re-homed.
     const session = await getNetcodeV2Session(gameId)
     if (session === null) {
       throw new httpErrors.Conflict('game has no active netcode v2 session')
     }
 
-    const decision: NetcodeV2RehomeResponse = await this.netcodeV2Service.rehomeSession(
-      session,
-      deadRelayId,
-    )
-    ctx.body = decision
+    // The route framework uses the handler's return value as the response body (see http-api.ts) —
+    // assigning ctx.body here would be overwritten with undefined.
+    return await this.netcodeV2Service.rehomeSession(session, deadRelayId)
   }
 
   // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,

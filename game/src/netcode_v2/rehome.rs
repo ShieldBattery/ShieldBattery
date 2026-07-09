@@ -30,9 +30,11 @@ use crate::app_messages::{NetcodeV2Relay, SbUserId};
 /// `api_request_headers` in `game_state.rs`); the SB API distinguishes game-client requests by it.
 const GAME_ORIGIN: &str = "shieldbattery://game";
 
-/// The SB-server round-trip timeout. Kept well under the driver's re-escalation cadence and BW's
-/// native stall-drop so a hung server degrades to `Unavailable` rather than wedging failover.
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+/// The SB-server round-trip timeout. Must cover the server's own coordinator round trip (the SB
+/// service gives the coordinator 10s), so the DLL doesn't bail — and let the driver re-escalate a
+/// duplicate — before the server can even answer. Still comfortably under BW's native stall-drop so
+/// a genuinely hung server degrades to `Unavailable` rather than wedging failover.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(12);
 
 /// Minimum spacing between failure warnings, so a server/coordinator that keeps failing (re-asked
 /// on the driver's escalation cadence) doesn't spam the log.
@@ -104,20 +106,14 @@ pub(crate) struct ServerRehome {
     user_id: u32,
     result_code: String,
     http: reqwest::Client,
-    /// The relay this client currently believes it's homed on — the one it names as dead when it
-    /// escalates. Seeded with the home relay and advanced to a replacement's id on every successful
-    /// `NewTarget`, so a later death of the replacement names the replacement, not the original.
-    current_relay_id: Mutex<u64>,
     /// When the last failure warning was emitted, for rate limiting (see [`WARN_INTERVAL`]).
     last_warn: Mutex<Option<Instant>>,
 }
 
 impl ServerRehome {
-    async fn do_rehome(&self) -> RehomeOutcome {
-        let dead_relay_id = *self
-            .current_relay_id
-            .lock()
-            .expect("rehome relay-id mutex poisoned");
+    /// `dead_relay_id` is supplied by the driver, which now owns the current-relay identity: it's
+    /// the relay the driver was homed on when the link died, so this provider no longer guesses it.
+    async fn do_rehome(&self, dead_relay_id: u64) -> RehomeOutcome {
         info!(
             "netcode v2 re-home: asking the server to move the session off relay {dead_relay_id}"
         );
@@ -185,12 +181,11 @@ impl ServerRehome {
                     ));
                     return RehomeOutcome::Unavailable;
                 };
-                *self
-                    .current_relay_id
-                    .lock()
-                    .expect("rehome relay-id mutex poisoned") = relay_id;
                 info!("netcode v2 re-home: moving the session to relay {relay_id} at {relay_addr}");
+                // The driver adopts `relay_id` as its new current relay, so a later death names the
+                // replacement rather than the original — no DLL-side current-relay tracking.
                 RehomeOutcome::NewTarget {
+                    relay_id,
                     endpoint,
                     relay_addr,
                     server_name: target.server_name,
@@ -212,18 +207,16 @@ impl ServerRehome {
 }
 
 impl RehomeProvider for ServerRehome {
-    fn rehome(&self) -> RehomeFuture<'_> {
-        Box::pin(async move { self.do_rehome().await })
+    fn rehome(&self, dead_relay_id: u64) -> RehomeFuture<'_> {
+        Box::pin(async move { self.do_rehome(dead_relay_id).await })
     }
 }
 
 /// Builds the re-home provider from the launch context, or `None` when re-home is disabled — no
 /// `resultCode` to authenticate the SB-server request with (a game the server assigned none to).
-/// `home_relay_id` seeds the "current relay" the provider names as dead.
-pub(crate) fn build_provider(
-    context: &RehomeContext,
-    home_relay_id: u64,
-) -> Option<Arc<dyn RehomeProvider>> {
+/// The driver supplies the dead relay id at call time (it owns the current-relay identity), so this
+/// no longer needs the home relay id.
+pub(crate) fn build_provider(context: &RehomeContext) -> Option<Arc<dyn RehomeProvider>> {
     let result_code = context.result_code.clone()?;
     let url = format!(
         "{}/api/1/games/{}/netcodeV2Rehome",
@@ -234,7 +227,6 @@ pub(crate) fn build_provider(
         user_id: context.user_id.0,
         result_code,
         http: reqwest::Client::new(),
-        current_relay_id: Mutex::new(home_relay_id),
         last_warn: Mutex::new(None),
     }))
 }

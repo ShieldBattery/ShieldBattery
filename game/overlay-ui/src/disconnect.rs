@@ -149,6 +149,8 @@ pub fn render_disconnect_view(
             let mut clicked = Vec::new();
             Frame::default()
                 .fill(colors::CONTAINER_HIGH.gamma_multiply(0.85))
+                // A subtle 1px outline so the panel separates cleanly from the game behind it.
+                .stroke(Stroke::new(1.0, colors::GREY40))
                 .corner_radius(CornerRadius::same(8))
                 .inner_margin(Margin::symmetric(20, 16))
                 .show(ui, |ui| {

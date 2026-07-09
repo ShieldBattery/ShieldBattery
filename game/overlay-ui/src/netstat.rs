@@ -43,6 +43,12 @@ const NAME_MIN_WIDTH: f32 = 96.0;
 /// Minimum width of each numeric column.
 const NUM_MIN_WIDTH: f32 = 52.0;
 
+/// Calm/placeholder cutoff for the `age` column. A healthy peer's most-recent-turn age churns every
+/// frame (~0-40ms), which is unreadable flicker and never actionable, so below this the column shows
+/// a steady placeholder instead of the live number. Well under the [`stale_color`] warning threshold
+/// (~500ms), so a genuinely late arrival still surfaces its actual milliseconds.
+const AGE_CALM_THRESHOLD_MS: u64 = 200;
+
 /// Size of the buffer-directive sparkline's drawing area.
 const SPARKLINE_SIZE: Vec2 = Vec2 { x: 220.0, y: 40.0 };
 /// The sparkline's plotted line colour.
@@ -104,13 +110,17 @@ fn mono() -> FontFamily {
 /// interfere with play while it's up.
 pub fn render_netstat_view(view: &NetStatsView, ctx: &egui::Context) {
     egui::Area::new("sb_netstat_overlay".into())
-        // Top-right with a margin, clear of the top-center disconnect overlay.
-        .anchor(Align2::RIGHT_TOP, vec2(-12.0, 12.0))
+        // Top-right, pushed down clear of SC:R's top-right resource counters (minerals/gas/supply),
+        // which occupy roughly the top ~44px — so the panel reads as a distinct floating surface
+        // below them rather than overlapping the HUD. Right margin keeps it off the screen edge.
+        .anchor(Align2::RIGHT_TOP, vec2(-12.0, 54.0))
         .order(egui::Order::Foreground)
         .interactable(false)
         .show(ctx, |ui| {
             Frame::default()
                 .fill(colors::CONTAINER_HIGH.gamma_multiply(0.85))
+                // A subtle 1px outline so the panel separates cleanly from the game behind it.
+                .stroke(Stroke::new(1.0, colors::GREY40))
                 .corner_radius(CornerRadius::same(8))
                 .inner_margin(Margin::symmetric(14, 12))
                 .show(ui, |ui| {
@@ -234,7 +244,7 @@ fn draw_table(ui: &mut egui::Ui, rows: &[NetStatRowView]) {
                 );
                 num_cell(
                     ui,
-                    opt_ms(row.last_turn_age_ms),
+                    fmt_age(row.last_turn_age_ms),
                     stale_color(row.last_turn_age_ms),
                 );
                 num_cell(ui, opt_ms(row.ewma_interval_ms), SECONDARY);
@@ -329,6 +339,18 @@ fn draw_sparkline(ui: &mut egui::Ui, view: &NetStatsView) {
 fn opt_ms(value: Option<u64>) -> String {
     match value {
         Some(ms) => fmt_ms(ms),
+        None => "—".to_string(),
+    }
+}
+
+/// Formats the `age` column so it reads calm when fresh and informative when stale: a steady middle
+/// dot while the most recent turn is fresh (below [`AGE_CALM_THRESHOLD_MS`]), where the live number
+/// would only flicker; the actual milliseconds once age crosses that cutoff; and an em dash before
+/// any turn has arrived.
+fn fmt_age(age_ms: Option<u64>) -> String {
+    match age_ms {
+        Some(ms) if ms >= AGE_CALM_THRESHOLD_MS => fmt_ms(ms),
+        Some(_) => "·".to_string(),
         None => "—".to_string(),
     }
 }

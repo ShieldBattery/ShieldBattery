@@ -123,8 +123,9 @@ pub async fn establish_session(
     // The SB-server-mediated failover hook: when the home relay's process dies (fresh cert ⇒ pinned
     // trust refuses it), the driver escalates to this to move the whole group to a replacement
     // relay. `None` (no result code to authenticate the server request) keeps the pre-failover
-    // same-relay-only behavior. Seeded with the home relay's id — the relay it first names as dead.
-    let rehome = rehome::build_provider(&rehome_context, setup.home_relay.relay_id);
+    // same-relay-only behavior. The driver owns the current-relay identity and hands it to the
+    // provider at escalation time, so the provider no longer needs seeding here.
+    let rehome = rehome::build_provider(&rehome_context);
 
     let (driver, mut channels) = LinkDriver::new(link);
     // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
@@ -133,6 +134,8 @@ pub async fn establish_session(
         endpoint: ClientEndpoint::from_endpoint(endpoint.endpoint().clone()),
         relay_addr,
         server_name: home.server_name.clone(),
+        // Seeds the driver's current-relay tracking: the home relay is what a first death names dead.
+        relay_id: setup.home_relay.relay_id,
         identity,
         rehome,
         // Use the driver's built-in escalation timing (immediate on a cert/pin rejection, ~10s of

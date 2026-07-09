@@ -142,6 +142,36 @@ describe('games/game-api/GameApi#netcodeV2Rehome', () => {
     expect(netcodeV2Service.rehomeSession).not.toHaveBeenCalled()
   })
 
+  test('rejects a participant who has already submitted a result', async () => {
+    const { api, netcodeV2Service } = makeRehomeApi()
+    // Valid resultCode, but this user is done: a reported result means they're no longer an active
+    // participant, so they must not be able to drive failover (and drain the rehome rate limit).
+    vi.mocked(getUserGameRecord).mockResolvedValue({
+      resultCode: 'abc123abc123',
+      reportedResults: { userId: 1 },
+    } as any)
+
+    const err = await api.netcodeV2Rehome(makeRehomeCtx()).catch(e => e)
+
+    expect(err).toBeInstanceOf(GameResultServiceError)
+    expect((err as GameResultServiceError).code).toBe(GameResultErrorCode.AlreadyReported)
+    expect(netcodeV2Service.rehomeSession).not.toHaveBeenCalled()
+  })
+
+  test('rejects a participant whose mid-game departure was recorded', async () => {
+    const { api, netcodeV2Service } = makeRehomeApi()
+    vi.mocked(getUserGameRecord).mockResolvedValue({
+      resultCode: 'abc123abc123',
+      departureKind: 'left',
+    } as any)
+
+    const err = await api.netcodeV2Rehome(makeRehomeCtx()).catch(e => e)
+
+    expect(err).toBeInstanceOf(GameResultServiceError)
+    expect((err as GameResultServiceError).code).toBe(GameResultErrorCode.AlreadyReported)
+    expect(netcodeV2Service.rehomeSession).not.toHaveBeenCalled()
+  })
+
   test('rejects when the game has no netcode v2 session on record', async () => {
     const { api, netcodeV2Service } = makeRehomeApi()
     vi.mocked(getUserGameRecord).mockResolvedValue({ resultCode: 'abc123abc123' } as any)
@@ -164,11 +194,14 @@ describe('games/game-api/GameApi#netcodeV2Rehome', () => {
     netcodeV2Service.rehomeSession.mockResolvedValue(decision)
 
     const ctx = makeRehomeCtx()
-    await api.netcodeV2Rehome(ctx)
+    // The route framework uses the handler's RETURN VALUE as the response body (http-api.ts
+    // assigns `ctx.body = result`), so that's what must carry the decision — asserting on a
+    // handler-set ctx.body would pass while production returned null.
+    const returned = await api.netcodeV2Rehome(ctx)
 
     // The stored session id (not anything from the request) is what's re-homed, with the client's
     // reported dead relay id.
     expect(netcodeV2Service.rehomeSession).toHaveBeenCalledWith(42, 5)
-    expect(ctx.body).toEqual(decision)
+    expect(returned).toEqual(decision)
   })
 })
