@@ -88,43 +88,52 @@
 
 ### Chat follow-ups
 
-- **Send-side target scope (stubbed to All) — pivot to the `chat_box_mode` global.** The MsgFltr
-  dump was captured live (2026-07-08): children id 1="Send to player", 2="Send to everyone",
-  3="Send to allies", 4=selected player name, Accept/Cancel −2/−3 — but all three radios report
-  identical control flags (0x106) across scope switches, so the checked state is not readable from
-  the dialog. Read the `chat_box_mode` global instead (it selects the InGame* channel; samase
-  anchor: the four "InGame*" strings referenced only by `toggle_chat_box`). BinaryNinja + samase
-  analyzer task; no human run needed. Receiver-side scope filtering already works.
+- **Send-side target scope (stubbed to All) — analyzer LANDED, DLL consumption remaining.** The
+  MsgFltr dump (live 2026-07-08) proved the radio checked-state is NOT in control flags (all three
+  report 0x106), so the pin reads the `chat_box_mode` byte global instead. **samase_scarf
+  `chat_box_mode()` accessor DONE** (samase `711a5204` on `storm-create-game`, pushed; resolves on
+  all 165 test builds; RE: byte @0x11df4d0 in 1.23.10.12409, values 2=All 3=Allies
+  4=SpecificPlayer 5=Observers, only valid while the box is open ≠0; the *persistent* selection +
+  specific-player target live in `game[0x2c70]` = 8 everyone / 9 allies / 0–7 player | 0x80 obs —
+  read that if scope is needed while the box is closed). **Remaining DLL work:** bump the
+  `scr-analysis` rev to `711a5204`, add the pass-through + resolve into `NetcodeV2Bw`, and map the
+  mode → `ChatTarget` in `dialog_hook::chat_target_scope` (read at send time, box is open then).
+  Live-verifiable with a team game (send-to-allies → only allies receive). Receiver-side filtering
+  already works.
 - **Scrollable chat-history box (open decision).** The `0x5c` path feeds the classic overlay only;
   SC:R's scrollable box is fed by `sub_682140` (opaque battlenet Message). Verify first whether
   that box even renders in-game on retail under 2c — if not, this is moot.
 - **Replay-playback chat render nit.** Chat records into .rep correctly (parse-confirmed) but
   didn't visibly render during playback — likely viewer-session storm/name state. Low priority.
 
-### Overlay UI dev mode (direction agreed 2026-07-08 — not built)
+### Overlay UI dev mode — TIER 1 DONE (2026-07-08 late, SB `84d61fafb`); egui UPGRADED (`1551a185d`)
 
-Fast visual iteration for in-game egui UI (disconnect overlay first) without launching StarCraft.
-egui is renderer-agnostic; an eframe host renders identically given the same fonts + ppp.
+Built: the `game/overlay-ui` workspace crate (host-compilable, egui-only lib via a shared
+`[workspace.dependencies]` egui so DLL and preview can never drift) holding the disconnect
+view-model + all render fns + colors/fonts/style install; the DLL keeps only the
+TurnState→view-model adaptation (its build graph is unchanged — eframe/winit gated behind the
+`preview` feature, cargo-tree-verified). The `overlay-preview` eframe bin renders the same code
+with emulation knobs (rows/tier/elapsed with auto-tick, unlock/requested, self-state, ppp,
+optional PNG backdrop), persisted to JSON across restarts, plus a headless `--smoke` mode.
 
-- Extract the overlay presentation into a pure view-model + render crate (host-compilable, no BW
-  types): plain data in (`peers[] {name, seconds, tier, drop_unlocked, drop_requested}`, self
-  state), egui paint out. `draw_overlay/disconnect.rs` (`DisconnectView` + render fns) is already
-  close to liftable; the DLL adapts its live `TurnState` into the view-model.
-- Tier 1 (ship first): an eframe preview bin rendering those fns over a game-screenshot backdrop
-  with a control panel to emulate states (N disconnected users, elapsed, unlock, self-disconnect),
-  watch + auto-rebuild/relaunch with knobs persisted across restarts. Tier 2 (optional):
-  `hot-lib-reloader` for true in-process reload; the pure-fn factoring is exactly its shape.
-- In-game dev-only dylib hot reload as a follow-up (32-bit dylib behind a dev cargo feature,
-  watcher-swapped). Only egui UI qualifies — BW-native surfaces stay game-launch territory.
-- **egui upgrade — PRIORITIZED (Travis, 2026-07-08, do right after the extraction lands):** egui
-  0.35 (latest) adds CSS-like styling, better text rendering, and an MCP integration that would
-  let the agent drive/verify egui UIs directly (also relevant to the game-test-harness design's
-  egui hooks). Older-version pain is real (the overlay polish fought Grid baseline quirks — bare
-  labels only; fixed-rect/layout-wrapped labels break the row baseline). Risks: the replay/obs UI
-  and the loading screen, plus the DLL's forge/D3D11 egui render backend may need adaptation
-  across paint/texture API changes. Verify with the preview app across every overlay state + one
-  loopback game launch for the in-game surfaces (loading screen, debug panel, obs/replay UI).
-  Check the 0.x→0.35 changelogs for backend-breaking changes first.
+**egui upgraded 0.31 → 0.35** (Travis-prioritized): one real backend change (the font atlas is now
+a color image — the D3D11 path got simpler), `run_ui`/`content_rect`/`global_style` renames, a
+MouseWheel TouchPhase. Live-verified: game launches + plays on the new backend, disconnect overlay
+screenshot-checked in-game (crisp Skrifa-rendered text, layout identical, comparator silent).
+**Debug-screenshot note:** `__sbDebugGame.screenshot(gid)` returns `{path,width,height}` — it
+writes a PNG; agents can Read it for visual verification without a human.
+
+**Remaining tier-2 / follow-ups (not built):**
+- **Watch + auto-rebuild/relaunch** the preview on save (feels like hot reload for the crate); then
+  optional true in-process reload via `hot-lib-reloader` — the pure-fn-of-plain-data factoring is
+  exactly its shape (fn-body/style edits reload live; struct-layout changes need a relaunch).
+- **In-game dev-only dylib hot reload** (32-bit dylib behind a dev cargo feature, watcher-swapped):
+  edit overlay code, the running game picks it up next frame. Only egui UI qualifies — BW-native
+  surfaces stay game-launch territory.
+- **egui_mcp (dev-only):** eframe 0.35's off-by-default `inspection` feature + the new `egui_mcp`
+  crate (app listens on port 5719 under `EGUI_INSPECTION=1`) would let an agent drive/inspect the
+  preview app directly. Wire `eframe = { features = ["inspection"] }` into `overlay-preview` when
+  agent-driven preview verification is wanted; also relevant to the game-test-harness egui hooks.
 - Complements `docs/game-test-harness-design.md` (automated multi-client verification); this arc's
   view-models are what the harness's egui test-ID hooks want.
 
