@@ -2,7 +2,11 @@ import got from 'got'
 import { createPublicKey, sign } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { checkSessionsAlive, clientSigningKeyFromSeedHex } from './netcode-v2-service'
+import {
+  checkSessionsAlive,
+  clientSigningKeyFromSeedHex,
+  NetcodeV2Service,
+} from './netcode-v2-service'
 
 vi.mock('got', () => ({
   default: {
@@ -147,5 +151,124 @@ describe('netcode-v2/request signing', () => {
   test('rejects a malformed seed', () => {
     expect(() => clientSigningKeyFromSeedHex('not-hex')).toThrow('64 hex characters')
     expect(() => clientSigningKeyFromSeedHex('ab'.repeat(31))).toThrow('64 hex characters')
+  })
+})
+
+describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  // A valid self-signed DER cert (as the coordinator's byte-array JSON), so a `newTarget` decode
+  // through relayEndpointToInfo's X509 parse succeeds; its contents are irrelevant beyond parsing.
+  const RELAY_CERT_DER = [
+    ...Buffer.from(
+      'MIIDCzCCAfOgAwIBAgIUY0gCPMTEgUEmeHE4scZYjRS8sOEwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UEAwwK' +
+        'dGVzdC1yZWxheTAeFw0yNjA3MDkwOTU1NDRaFw0zNjA3MDYwOTU1NDRaMBUxEzARBgNVBAMMCnRlc3QtcmVs' +
+        'YXkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDa6ge92CEx50zoAmzI9pUQQvl6uh0/WmHKfBdI' +
+        'qdDIHy/IWcfE/5j7383EiuXp07xagLFCXn+6fjeP85U7iGsekHVPm4qnrrDITBPFZNPoQGkpOUgzJks+gEpT' +
+        'dUrMMniFPK6W+5eT6cbUjUmXfKlDGWySZ+7FqGxs1aWsfVU9HDs3VlFobb9Leq+dsbPfGMxIMMZtgti/TKj4' +
+        'kVNv7gzaQdf3EWRxhttckJlZfuWM+UmTNtrKWyilHYiOkEvSg2Bvpx+sFpbqK+9iOr3LiFbe+NrXOGLEskZM' +
+        'OZxHWx29HOQyl11YZoE+SquPRjz5KFQMdQgvOzMUewc42i6HoLTpAgMBAAGjUzBRMB0GA1UdDgQWBBQA/z4b' +
+        'mvw4DMS4O2/8uKiKlaJRFjAfBgNVHSMEGDAWgBQA/z4bmvw4DMS4O2/8uKiKlaJRFjAPBgNVHRMBAf8EBTAD' +
+        'AQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAECiLK+6liP56mdxv0w+bzzDXeLpPibUJXZfuJkRMnuxfcMNxdnq65' +
+        'AKeNiCEthU2ibJvL2dmHQW7MPhV4DIlzDBY9gGjfaosGim8t0o7Iccj00TnWlQZ7H9SfSqXfhqmDOOgWJC9q' +
+        'S1/EfInTOFKd2M7nV/A/HInZu3Vcq4LRhSh3a+HnPrcb0o0OHS6TbifhFdc2q0qorYOh7Bm0FLCeFMcw/Occ' +
+        'pDg4zfbWbyy0xaDIrzNbPRWL/FvxVd2mpGPsWB3xKyGPA6boFUsvNQZQlz4BrZ1Pvur+PnISj01rgl8FYsZ+' +
+        'lZC8tZ1GllB3DmAUBIavxKH/9FsNXk26JNuM',
+      'base64',
+    ),
+  ]
+  // Mirrors the coordinator's snake_case CoordinatorRelayEndpoint wire shape.
+  // eslint-disable-next-line camelcase
+  const newTargetRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
+
+  test('coalesces concurrent asks for the same session + dead relay into one coordinator call', async () => {
+    configureNetcodeV2()
+    // A coordinator response held open until we release it, so both asks are in flight together.
+    let resolveJson: (v: unknown) => void = () => {}
+    const json = vi.fn().mockReturnValue(
+      new Promise(resolve => {
+        resolveJson = resolve
+      }),
+    )
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const p1 = service.rehomeSession(42, 7)
+    const p2 = service.rehomeSession(42, 7)
+    resolveJson({ decision: 'newTarget', relay: newTargetRelay })
+    const [r1, r2] = await Promise.all([p1, p2])
+
+    expect(got.post).toHaveBeenCalledTimes(1)
+    expect(r1.decision).toBe('newTarget')
+    expect(r2).toEqual(r1)
+  })
+
+  test('serves a later survivor a cached newTarget without a second coordinator call', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({ decision: 'newTarget', relay: newTargetRelay })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const r1 = await service.rehomeSession(42, 7)
+    const r2 = await service.rehomeSession(42, 7)
+
+    expect(got.post).toHaveBeenCalledTimes(1)
+    expect(r1.decision).toBe('newTarget')
+    expect(r2).toEqual(r1)
+  })
+
+  test('re-asks the coordinator for a transient stay (never cached)', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({ decision: 'stay' })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    await service.rehomeSession(42, 7)
+    await service.rehomeSession(42, 7)
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+  })
+
+  test('re-asks the coordinator for a transient unavailable (never cached)', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({ decision: 'unavailable' })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    await service.rehomeSession(42, 7)
+    await service.rehomeSession(42, 7)
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+  })
+
+  test('a different dead relay on the same session is its own coordinator call', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue({ decision: 'newTarget', relay: newTargetRelay })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    await service.rehomeSession(42, 7)
+    await service.rehomeSession(42, 8)
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+  })
+
+  test('a rejected ask clears the in-flight entry so the next ask retries', async () => {
+    configureNetcodeV2()
+    const json = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({ decision: 'newTarget', relay: newTargetRelay })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    await expect(service.rehomeSession(42, 7)).rejects.toThrow('coordinator session rehome failed')
+    const r2 = await service.rehomeSession(42, 7)
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+    expect(r2.decision).toBe('newTarget')
   })
 })

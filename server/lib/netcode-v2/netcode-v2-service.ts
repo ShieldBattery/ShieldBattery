@@ -314,6 +314,12 @@ function relayEndpointToInfo(
  * clients pin come from the coordinator's session response, per relay. When disabled, games load
  * exactly as before.
  */
+/**
+ * Cap on the per-`(session, deadRelayId)` re-home target cache. One entry per relay death per live
+ * game, evicted oldest-first, so it stays small even across many games without a game-end sweep.
+ */
+const REHOME_TARGET_CACHE_MAX = 256
+
 @singleton()
 export class NetcodeV2Service {
   private config = loadConfigFromEnv()
@@ -323,6 +329,26 @@ export class NetcodeV2Service {
    * `discardGame` when the load ends.
    */
   private pendingGames = new Map<string, Map<SbUserId, Deferred<string>>>()
+
+  /**
+   * Coalesces concurrent re-home asks for the same `(session, deadRelayId)`. Every game client
+   * independently POSTs `netcodeV2Rehome` when its shared home relay dies, so a single relay death
+   * fans in as N near-simultaneous asks for one session. Without coalescing they become N coordinator
+   * round trips against a per-`(tenant, session)` rate-limit bucket, so a large game's tail survivors
+   * get 429'd and dropped despite a healthy replacement. The first ask per key runs the coordinator
+   * call; the rest await its in-flight promise. Cleared when that promise settles.
+   */
+  private rehomeInFlight = new Map<string, Promise<NetcodeV2RehomeResponse>>()
+  /**
+   * Caches the terminal `newTarget` decision per `(session, deadRelayId)`. The coordinator records a
+   * re-home decision idempotently (a repeat ask for the same dead relay returns the identical
+   * replacement), so a survivor arriving after the first one resolved can be answered straight from
+   * here — no coordinator round trip, no rate-limit token. Only `newTarget` is cached: `stay` and
+   * `unavailable` are transient (a relay can die after a `stay`; an `unavailable` clears once a
+   * replacement enrolls), so those always re-ask. Size-capped (oldest-first eviction) so it can't
+   * grow without bound the way the coordinator bucket it relieves would.
+   */
+  private rehomeTargets = new Map<string, NetcodeV2RehomeResponse>()
 
   isEnabled(): boolean {
     return !!this.config
@@ -490,6 +516,45 @@ export class NetcodeV2Service {
    * talks to the coordinator itself — it reaches this via the SB `netcodeV2Rehome` HTTP endpoint.
    */
   async rehomeSession(session: number, deadRelayId: number): Promise<NetcodeV2RehomeResponse> {
+    const key = `${session}:${deadRelayId}`
+
+    const cached = this.rehomeTargets.get(key)
+    if (cached) {
+      return cached
+    }
+    const inFlight = this.rehomeInFlight.get(key)
+    if (inFlight) {
+      return await inFlight
+    }
+
+    const promise = this.requestCoordinatorRehome(session, deadRelayId)
+    this.rehomeInFlight.set(key, promise)
+    try {
+      const response = await promise
+      if (response.decision === 'newTarget') {
+        this.cacheRehomeTarget(key, response)
+      }
+      return response
+    } finally {
+      this.rehomeInFlight.delete(key)
+    }
+  }
+
+  /** Records a terminal `newTarget` decision, evicting the oldest entry past the cap. */
+  private cacheRehomeTarget(key: string, response: NetcodeV2RehomeResponse): void {
+    if (this.rehomeTargets.size >= REHOME_TARGET_CACHE_MAX) {
+      const oldest = this.rehomeTargets.keys().next().value
+      if (oldest !== undefined) {
+        this.rehomeTargets.delete(oldest)
+      }
+    }
+    this.rehomeTargets.set(key, response)
+  }
+
+  private async requestCoordinatorRehome(
+    session: number,
+    deadRelayId: number,
+  ): Promise<NetcodeV2RehomeResponse> {
     const config = this.config
     if (!config) {
       throw new NetcodeV2ServiceError('netcode v2 is not configured')
