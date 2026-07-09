@@ -69,11 +69,11 @@ impl DatabaseSettings {
     pub fn connection_string(&self) -> SecretString {
         format!(
             "postgres://{}:{}@{}:{}/{}",
-            &self.user,
-            &self.password.expose_secret(),
-            &self.host,
-            &self.port,
-            &self.database_name
+            self.user,
+            self.password.expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
         )
         .into()
     }
@@ -81,9 +81,9 @@ impl DatabaseSettings {
     pub fn connection_string_super_without_db(&self) -> SecretString {
         format!(
             "postgres://postgres:{}@{}:{}",
-            &self.super_password.clone().unwrap().expose_secret(),
-            &self.host,
-            &self.port
+            self.super_password.clone().unwrap().expose_secret(),
+            self.host,
+            self.port
         )
         .into()
     }
@@ -91,10 +91,10 @@ impl DatabaseSettings {
     pub fn connection_string_super(&self) -> SecretString {
         format!(
             "postgres://postgres:{}@{}:{}/{}",
-            &self.super_password.clone().unwrap().expose_secret(),
-            &self.host,
-            &self.port,
-            &self.database_name
+            self.super_password.clone().unwrap().expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
         )
         .into()
     }
