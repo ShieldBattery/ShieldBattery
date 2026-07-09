@@ -50,6 +50,7 @@
     "local-dev": "run-pty local-dev.json",
     "migrate:create": "cargo sqlx migrate add",
     "migrate:run": "cargo sqlx migrate run",
+    "overlay-preview:watch": "node game/overlay-ui/watch-preview.mjs",
     "pack": "pnpm run clean && pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c prod.yml",
     "packstaging": "pnpm run clean && SB_SERVER=https://staging.shieldbattery.net pnpm run build-app-client && pnpm run build-game && electron-builder build --dir --win --x64 -c staging.yml",
     "seed-dev": "node -r ./babel-register tools/seed-dev-users.ts",
