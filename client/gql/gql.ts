@@ -54,6 +54,7 @@ type Documents = {
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n': typeof types.AdminUpdateUserPermissionsDocument
+  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n': typeof types.UserProfileOverlayLiveDocument
   '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
 }
 const documents: Documents = {
@@ -137,6 +138,8 @@ const documents: Documents = {
     types.AdminUserProfile_PermissionsFragmentDoc,
   '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n':
     types.AdminUpdateUserPermissionsDocument,
+  '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n':
+    types.UserProfileOverlayLiveDocument,
   '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n':
     types.UserProfileTwitchDocument,
 }
@@ -395,6 +398,12 @@ export function graphql(
 export function graphql(
   source: '\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n',
 ): (typeof documents)['\n  mutation AdminUpdateUserPermissions($userId: SbUserId!, $permissions: SbPermissionsInput!) {\n    userUpdatePermissions(userId: $userId, permissions: $permissions) {\n      ...AdminUserProfile_Permissions\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query UserProfileOverlayLive($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      liveStream {\n        twitchLogin\n        title\n        viewerCount\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

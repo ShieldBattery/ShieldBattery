@@ -2,8 +2,9 @@ import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import TwitchIcon from '../icons/brands/twitch.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { useNow } from '../react/date-hooks'
-import { labelSmall } from '../styles/typography'
+import { bodyMedium, bodySmall, labelSmall, singleLine } from '../styles/typography'
 
 /**
  * A shared visual language for "live" state, reused across the home feed, profiles, and anywhere
@@ -166,5 +167,93 @@ export function TwitchMark({ size, className }: { size?: number; className?: str
     <PlatformMarkRoot $size={size} className={className}>
       <TwitchGlyph />
     </PlatformMarkRoot>
+  )
+}
+
+const WatchRowRoot = styled.a`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+
+  border: 1px solid rgba(224, 29, 60, 0.35);
+  border-radius: 6px;
+  background:
+    linear-gradient(100deg, var(--theme-live-container), transparent 80%),
+    var(--theme-container-high);
+  color: inherit;
+  text-decoration: none;
+
+  &:link,
+  &:visited {
+    color: inherit;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--theme-live);
+    outline: none;
+  }
+`
+
+const WatchRowIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
+  color: var(--theme-live);
+`
+
+const WatchRowInfo = styled.div`
+  min-width: 0;
+  flex: 1;
+`
+
+const WatchRowTitle = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+`
+
+const WatchRowMeta = styled.div`
+  ${bodySmall};
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 1px;
+
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+/**
+ * A compact "watch this stream" affordance: the stream title + viewer count on a live-tinted row
+ * that links out to the broadcast. Used wherever an avatar/name is shown and there's room for a
+ * call-to-action (e.g. the profile hover card).
+ */
+export function LiveWatchRow({
+  twitchLogin,
+  title,
+  viewerCount,
+  className,
+}: {
+  twitchLogin: string
+  title: string
+  viewerCount: number
+  className?: string
+}) {
+  const { t } = useTranslation()
+  return (
+    <WatchRowRoot
+      href={`https://twitch.tv/${twitchLogin}`}
+      target='_blank'
+      rel='noopener'
+      className={className}>
+      <WatchRowIcon icon='play_arrow' size={20} />
+      <WatchRowInfo>
+        <WatchRowTitle>{title}</WatchRowTitle>
+        <WatchRowMeta>
+          <LiveDot $size={6} />
+          {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
+        </WatchRowMeta>
+      </WatchRowInfo>
+    </WatchRowRoot>
   )
 }

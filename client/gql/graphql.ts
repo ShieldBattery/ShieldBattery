@@ -766,6 +766,17 @@ export type AdminUpdateUserPermissionsMutation = {
   }
 }
 
+export type UserProfileOverlayLiveQueryVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type UserProfileOverlayLiveQuery = {
+  user: {
+    id: Types.SbUserId
+    liveStream: { twitchLogin: string; title: string; viewerCount: number } | null
+  } | null
+}
+
 export type UserProfileTwitchQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
@@ -4128,6 +4139,60 @@ export const AdminUpdateUserPermissionsDocument = {
   AdminUpdateUserPermissionsMutation,
   AdminUpdateUserPermissionsMutationVariables
 >
+export const UserProfileOverlayLiveDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserProfileOverlayLive' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'liveStream' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserProfileOverlayLiveQuery, UserProfileOverlayLiveQueryVariables>
 export const UserProfileTwitchDocument = {
   kind: 'Document',
   definitions: [

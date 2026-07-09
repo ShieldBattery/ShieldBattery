@@ -2,7 +2,14 @@ import styled from 'styled-components'
 import { LiveStreamsFeed } from '../../home/home'
 import { titleLarge } from '../../styles/typography'
 import { ProfileLiveBanner } from '../../users/user-profile'
-import { LiveDot, LivePill, TwitchMark, UptimePill, ViewerCountPill } from '../live-indicators'
+import {
+  LiveDot,
+  LivePill,
+  LiveWatchRow,
+  TwitchMark,
+  UptimePill,
+  ViewerCountPill,
+} from '../live-indicators'
 
 /** Builds a gradient placeholder thumbnail as a data URI (no remote images in dev). */
 function thumb(from: string, to: string) {
@@ -90,6 +97,16 @@ const Sidebar = styled.div`
   max-width: 100%;
 `
 
+// Mimics the width of the user profile hover card (Popover), where the watch row appears.
+const WatchRowArea = styled.div`
+  width: 288px;
+  max-width: 100%;
+  padding: 16px;
+
+  background-color: var(--theme-container-low);
+  border-radius: 8px;
+`
+
 export function LiveStreamsTest() {
   return (
     <Root>
@@ -116,6 +133,15 @@ export function LiveStreamsTest() {
         thumbnailUrl={thumb('#123a86', '#0f2033')}
         startedAt={mockStreams[0].startedAt}
       />
+
+      <SectionTitle>Profile hover-card watch row</SectionTitle>
+      <WatchRowArea>
+        <LiveWatchRow
+          twitchLogin='flash'
+          title='ASL practice, ladder grind to A rank'
+          viewerCount={1240}
+        />
+      </WatchRowArea>
     </Root>
   )
 }
