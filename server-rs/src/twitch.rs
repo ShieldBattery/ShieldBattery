@@ -67,12 +67,11 @@ const SUB_TYPE_STREAM_OFFLINE: &str = "stream.offline";
 
 /// Twitch category (game) ids we treat as StarCraft: Brood War for the home-page live-streams feed,
 /// matched against a stream's category id. Twitch's category ids are stable, so we match on id
-/// rather than the display name (which varies with capitalization/localization). Covers the three
-/// non-SC2 StarCraft categories a Remastered stream can be tagged with:
+/// rather than the display name (which varies with capitalization/localization). Twitch has no
+/// dedicated "StarCraft: Brood War" category -- BW/Remastered streams are tagged under one of:
 /// - `11989`      StarCraft
-/// - `4967`       StarCraft: Brood War
 /// - `1664649323` StarCraft: Remastered
-const STARCRAFT_CATEGORY_IDS: &[&str] = &["11989", "4967", "1664649323"];
+const STARCRAFT_CATEGORY_IDS: &[&str] = &["11989", "1664649323"];
 
 /// The thumbnail size we substitute into Twitch's `{width}x{height}` template for feed entries.
 const STREAM_THUMBNAIL_WIDTH: u32 = 320;
