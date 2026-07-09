@@ -152,15 +152,71 @@ per-slot events ("last N minutes", not lifetime aggregates); the end-of-game `ne
 summary is the seed. Build ON the UI dev mode view-model pattern (graphs iterate in the preview
 app) — sequence after that arc.
 
-### Reconnect / failover — relay death (deferred D11 half)
+### Reconnect / failover — relay death (deferred D11 half) — DESIGN SETTLED 2026-07-08, building
 
 Same-relay blips are done (see Completed). Relay-process death is distinct: a restarted relay has a
-fresh keypair, and the client's pinned-leaf-cert trust (fail-closed, by design) refuses it forever.
-Failover = coordinator-mediated re-home: coordinator tracks relay liveness, issues fresh
-certs/endpoints for a backup relay, client re-dials there and resumes via the same cursor-replay
-machinery; mesh re-homes similarly. Needs coordinator relay-liveness + a client-side relay list —
-a separate arc. Today a relay death = every client's self-disconnect notice + reconciliation sweep;
-acceptable interim.
+fresh keypair, and the client's pinned-leaf-cert trust (fail-closed, by design) refuses it forever —
+worse, the driver classifies a pin rejection as *transient* and retries forever, so today a dead
+relay shows "reconnecting…" until token expiry or BW's native ~45 s stall-drop ends the game.
+
+**Design: coordinator-mediated re-home.** Load-bearing facts (code-verified): the coordinator
+already tracks relay liveness authoritatively (persistent control WS, 10 s heartbeats, 30 s
+deadline, generation-fenced registry — `coordinator/src/registry.rs`, `api.rs::push_and_watch`);
+tokens are relay-agnostic (bind tenant/session/slot/pubkey/expiry only) so a re-homed client keeps
+its token; `MeshControl::apply_descriptor` already spins up full session state on a relay that has
+never seen the session; the driver's `LoopState` (resume cursors, dedup via `Link::rebind`,
+outbound buffer) survives reconnects, so re-home rides the same resume machinery. Scope: **in-game
+only** (client escalates only once the game has started; lobby-phase relay death stays a bounded
+load failure). Whole-group re-home: every slot homed on the dead relay moves together.
+
+1. **Coordinator `POST /session/rehome`** — a NEW client-authenticated path (not tenant-signed):
+   body carries the encoded `SignedToken` + timestamp + the relay id the client believes dead +
+   an Ed25519 signature by the client session key over a domain-separated string
+   (`rp2-rehome-v1:<ts>:<session>:<slot>:<relay_id>`). Coordinator verifies token (tenant key,
+   expiry), signature against the token's *embedded* pubkey, ±window timestamp, per-(session,slot)
+   rate limit (lenient — re-asks every ~5 s must work). Decision:
+   - Named relay still live in the registry → respond `stay` (client resumes same-relay retry —
+     covers "one client's network path is broken while the relay is fine"; never re-home the
+     group on one client's word. Individual-slot re-home = future refinement).
+   - Dead → pick R_new: prefer a live relay *already serving the session* (has mesh state, maybe
+     turn history); else lowest-id live registered relay; none → `unavailable` (client falls back
+     to today's terminal behavior). Mutate `session_relays` (all slots homed on the dead relay →
+     R_new), rebuild + push descriptors to all serving relays, replace the dead relay *in place*
+     in `authority_order`. Idempotent: concurrent requests against the same dead relay get the
+     same R_new (per-session rehome generation). Respond `RelayEndpoint{relay_id, addr, cert_der}`.
+2. **Descriptor additions (additive):** `resumed: bool` (R_new must skip SessionStart machinery —
+   the session is in flight; prevents a never-firing start gate when departed slots will never
+   dial) + `departed_slots: [(slot, kind)]` (coordinator seeds R_new's consensus with already-
+   DECIDED departures from its lifecycle accounting — critical for single-relay sessions where no
+   surviving mesh peer exists to replay `SlotDeparted`s; keeps promotion/comparator/expected sets
+   correct). An *undecided* hold at death is lost by design: survivors re-wait the fresh 30 s
+   relay floor on R_new and re-click Drop — clocks restart, correctness holds.
+3. **Client driver:** escalation classification in `reconnect_link` — immediate on a TLS
+   pin-rejection (fresh cert = restarted process, unambiguous), else after ~10 s of consecutive
+   dial failures, and only when the game has started. Budget: ~13 s QUIC idle detect + ~10 s
+   escalate + rehome round trip + dial ≈ 25 s, comfortably under BW's native ~45 s stall-drop. The
+   embedder supplies a **`RehomeProvider`** async callback at driver construction; when escalation
+   fires, the driver calls it and receives a new dial target (fresh `ClientEndpoint` bound to the
+   new pinned cert + addr + server_name) or Stay/Unavailable. Driver resumes onto the new target
+   with existing cursors. **Outbound retention ring:** keep own sent turns in a small ring
+   (~512 turns / 256 KiB cap, ample — lockstep stalls within pipe-depth turns of relay death)
+   independent of ack retirement; on a re-home dial (only), re-inject the ring as unacked so the
+   fresh relay (empty turn ring) can fan out anything a peer never received; peer `(slot,seq)`
+   dedup collapses overlaps. This closes the loss window where the dead relay acked a turn but
+   never fanned it out (architecture.md's "clients are the turn log" D11 note, realized).
+4. **SB plumbing:** client-facing `coordinator_url` added to `SessionResponse` →
+   `NetcodeV2ServerSetup` → `NetcodeV2Setup` (new env `SB_RP2_COORDINATOR_CLIENT_URL`, defaults to
+   `SB_RP2_COORDINATOR_URL`); DLL implements `RehomeProvider` with reqwest (already a dep — the
+   results2 path uses it). Must be HTTPS in production (the response's cert_der is a trust
+   anchor); dev loopback http exempt. Overlay: existing "reconnecting…" covers re-home; terminal
+   `unavailable` falls into the existing channels-closed terminal path.
+
+Accepted resets on re-home: fresh comparator SyncTracker (ordinal restart — pre-existing desync
+ordinal PK note applies), drop-hold clocks, buffer control-law re-seeds from bounds, lobby log
+empty (in-game scope), chat ephemeral. Coordinator-restart amnesia (session unknown at rehome) →
+`unavailable`; acceptable. Verification: dev stack with TWO relays (ids 1+2), kill relay 1
+mid-game → both clients re-home to 2, game resumes, comparator silent, correct results; plus
+same-relay blip regression (escalation must not fire early) and no-backup-available fallback.
 
 ### Post-cutover cleanup (final form — once v2 is *the* netcode)
 
