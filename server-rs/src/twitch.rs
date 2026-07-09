@@ -1280,11 +1280,14 @@ async fn handle_notification(
 }
 
 /// Handles a `stream.online` event by resolving the broadcaster's full stream summary and storing it.
-/// Twitch's Get Streams endpoint can lag the event by a few seconds, so a not-live (`None`) result is
-/// retried a few times before we conclude the stream really isn't live -- otherwise a streamer who
-/// just went live could be dropped until their next transition. Runs off the webhook response path
-/// (spawned by `eventsub_callback`), so a hard error is logged by the caller rather than surfaced to
-/// Twitch; the periodic refresh is the backstop.
+/// Twitch's Get Streams endpoint can lag the event (returning a not-live `None`) or hiccup with a
+/// transient `Err` for a few seconds, so both are retried before we give up -- otherwise a streamer
+/// who just went live could be dropped until their next transition. Runs off the webhook response
+/// path (spawned by `eventsub_callback`), so errors are logged by the caller rather than surfaced to
+/// Twitch. A `None` that outlasts the retries means genuinely offline, so we clear the entry; an
+/// `Err` that does is propagated *without* clearing -- we never confirmed the state, and since the
+/// dedupe entry stops Twitch from redelivering, wrongly marking offline would hide an actually-live
+/// stream until its next transition.
 async fn handle_stream_online(
     client: &TwitchClient,
     redis: &RedisPool,
@@ -1292,16 +1295,29 @@ async fn handle_stream_online(
     broadcaster_id: &str,
 ) -> eyre::Result<()> {
     for attempt in 1..=STREAM_ONLINE_LOOKUP_ATTEMPTS {
-        if let Some(stream) = client.get_stream(broadcaster_id).await? {
-            return set_stream_live(redis, sb_user_id, &LiveStreamSummary::from_stream(stream))
-                .await;
+        match client.get_stream(broadcaster_id).await {
+            Ok(Some(stream)) => {
+                return set_stream_live(redis, sb_user_id, &LiveStreamSummary::from_stream(stream))
+                    .await;
+            }
+            // Not live yet -- Get Streams is lagging the event; retry.
+            Ok(None) => {}
+            // Persistent error: give up, but leave the entry untouched rather than clearing it (see
+            // the doc comment for why we don't mark offline here).
+            Err(e) if attempt == STREAM_ONLINE_LOOKUP_ATTEMPTS => {
+                return Err(e.wrap_err("Failed to resolve stream after stream.online"));
+            }
+            // Transient error: retry.
+            Err(e) => {
+                warn!("get_stream failed resolving stream.online (attempt {attempt}): {e:?}")
+            }
         }
         if attempt < STREAM_ONLINE_LOOKUP_ATTEMPTS {
             tokio::time::sleep(STREAM_ONLINE_LOOKUP_RETRY_DELAY).await;
         }
     }
-    // Still not live after riding out the Get Streams lag -- treat as genuinely offline (e.g. a
-    // stream that ended almost immediately); the next transition or periodic refresh will correct it.
+    // Every attempt returned `None`: we rode out the lag and it's genuinely not live (e.g. a stream
+    // that ended almost immediately).
     set_stream_offline(redis, sb_user_id).await
 }
 
@@ -1435,12 +1451,13 @@ async fn eventsub_callback(
                 Err(e) => error!("EventSub dedupe check failed: {e:?}"),
             }
             // Acknowledge immediately and resolve/store the stream state off the response path.
-            // `handle_stream_online` rides out Twitch's Get Streams lag with retries (up to several
-            // seconds); doing that before responding would hold Twitch's connection open the whole
-            // time, and Twitch treats a slow webhook response as a delivery failure -- disabling the
-            // subscription after repeated ones. Recovery no longer relies on Twitch redelivery: the
-            // retry loop covers the common lag case, the periodic refresh corrects anything stale, and
-            // the dedupe check above still drops duplicate deliveries.
+            // `handle_stream_online` rides out Twitch's Get Streams lag/hiccups with retries (up to
+            // several seconds); doing that before responding would hold Twitch's connection open the
+            // whole time, and Twitch treats a slow webhook response as a delivery failure -- disabling
+            // the subscription after repeated ones. The retry loop covers transient lag/errors, the
+            // periodic refresh keeps already-tracked live entries fresh (and clears missed offlines),
+            // and the dedupe check above drops duplicate deliveries. A persistent failure here is
+            // logged and self-heals on the broadcaster's next transition.
             let client = client.clone();
             let db = db.clone();
             let redis = redis.clone();
