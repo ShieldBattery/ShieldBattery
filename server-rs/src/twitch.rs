@@ -1234,8 +1234,8 @@ fn verify_signature(
 }
 
 /// Atomically claims `message_id`, returning whether it was already claimed (i.e. this is a Twitch
-/// redelivery we should drop). The claim is released via `release_message` if handling fails, so a
-/// transient error doesn't permanently suppress redelivery of that message.
+/// redelivery we should drop). Handling runs off the webhook response path, so the claim isn't
+/// released on failure -- a lost notification is corrected by the retry loop / periodic refresh.
 async fn already_processed(redis: &RedisPool, message_id: &str) -> eyre::Result<bool> {
     let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
     let opts = SetOptions::default()
@@ -1247,16 +1247,6 @@ async fn already_processed(redis: &RedisPool, message_id: &str) -> eyre::Result<
         .wrap_err("Failed to record EventSub message id")?;
     // `None` means the key already existed, so NX declined to set it -> already processed.
     Ok(set.is_none())
-}
-
-/// Releases a dedupe claim so Twitch's redelivery of the same message can be processed again (used
-/// when handling failed).
-async fn release_message(redis: &RedisPool, message_id: &str) -> eyre::Result<()> {
-    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
-    conn.del::<_, ()>(webhook_dedupe_key(message_id))
-        .await
-        .wrap_err("Failed to release EventSub dedupe claim")?;
-    Ok(())
 }
 
 async fn handle_notification(
@@ -1293,8 +1283,9 @@ async fn handle_notification(
 /// Handles a `stream.online` event by resolving the broadcaster's full stream summary and storing it.
 /// Twitch's Get Streams endpoint can lag the event by a few seconds, so a not-live (`None`) result is
 /// retried a few times before we conclude the stream really isn't live -- otherwise a streamer who
-/// just went live could be dropped until their next transition. A hard error propagates so the caller
-/// can have Twitch redeliver the event.
+/// just went live could be dropped until their next transition. Runs off the webhook response path
+/// (spawned by `eventsub_callback`), so a hard error is logged by the caller rather than surfaced to
+/// Twitch; the periodic refresh is the backstop.
 async fn handle_stream_online(
     client: &TwitchClient,
     redis: &RedisPool,
@@ -1444,21 +1435,23 @@ async fn eventsub_callback(
                 Ok(false) => {}
                 Err(e) => error!("EventSub dedupe check failed: {e:?}"),
             }
-            match handle_notification(&client, &db, &redis, &body).await {
-                Ok(()) => StatusCode::NO_CONTENT.into_response(),
-                Err(e) => {
+            // Acknowledge immediately and resolve/store the stream state off the response path.
+            // `handle_stream_online` rides out Twitch's Get Streams lag with retries (up to several
+            // seconds); doing that before responding would hold Twitch's connection open the whole
+            // time, and Twitch treats a slow webhook response as a delivery failure -- disabling the
+            // subscription after repeated ones. Recovery no longer relies on Twitch redelivery: the
+            // retry loop covers the common lag case, the periodic refresh corrects anything stale, and
+            // the dedupe check above still drops duplicate deliveries.
+            let client = client.clone();
+            let db = db.clone();
+            let redis = redis.clone();
+            let body = body.clone();
+            tokio::spawn(async move {
+                if let Err(e) = handle_notification(&client, &db, &redis, &body).await {
                     error!("Failed to handle Twitch EventSub notification: {e:?}");
-                    // Release the claim and return non-2xx so Twitch redelivers. Otherwise a
-                    // transient failure (a Redis blip, a get_stream error) would drop this event
-                    // permanently: the dedupe entry would block redelivery, and the periodic
-                    // refresh only re-checks users already marked live, so a lost stream.online
-                    // would never recover until the next transition or re-link.
-                    if let Err(e) = release_message(&redis, message_id).await {
-                        error!("Failed to release EventSub dedupe claim: {e:?}");
-                    }
-                    StatusCode::INTERNAL_SERVER_ERROR.into_response()
                 }
-            }
+            });
+            StatusCode::NO_CONTENT.into_response()
         }
         "revocation" => {
             warn!("Twitch EventSub subscription was revoked; reconciliation will recreate it");
