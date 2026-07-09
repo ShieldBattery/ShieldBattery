@@ -2279,6 +2279,18 @@ impl BwScr {
                         let disconnect_status =
                             netcode_v2::with_turn_state(|s| s.disconnect_status())
                                 .unwrap_or_else(netcode_v2::DisconnectStatus::healthy);
+                        // A snapshot of the network-stats overlay, or `None` when it is toggled off
+                        // (or there is no session). Turn rate comes from live game data — 0 means
+                        // dynamic turn rate, whose current effective rate is 24. Safe to reach the
+                        // turn state here: the draw path holds no turn-state lock across `step`.
+                        let net_stats_turn_rate = match (*self.game_data()).turn_rate {
+                            0 => 24,
+                            rate => rate,
+                        };
+                        let net_stats = netcode_v2::with_turn_state(|s| {
+                            s.net_stats_status(Instant::now(), net_stats_turn_rate)
+                        })
+                        .flatten();
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -2309,6 +2321,7 @@ impl BwScr {
                                 size,
                                 game_thread::setup_info(),
                                 &disconnect_status,
+                                net_stats.as_ref(),
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);

@@ -73,6 +73,45 @@ export interface GameDisconnectView {
   rows: GameDisconnectRow[]
 }
 
+/** One remote slot's row of the in-game network-stats (`/netstat`) overlay. */
+export interface GameNetStatRow {
+  /** The rally-point2 slot this row is about. */
+  slot: number
+  userId: SbUserId
+  /** Milliseconds since this slot's most recent turn arrived, or null if none has yet. */
+  lastTurnAgeMs: number | null
+  /** The slot's EWMA inter-arrival interval in milliseconds, or null before two turns arrived. */
+  ewmaIntervalMs: number | null
+  /** The largest inter-arrival gap in the recent (~60s) window, in milliseconds. */
+  maxGapMs: number
+  /** Milliseconds the sim spent blocked on this slot in the recent (~60s) window. */
+  recentStallMs: number
+  /** Milliseconds the sim spent blocked on this slot over the whole game so far. */
+  lifetimeStallMs: number
+  /** How many distinct stall episodes this slot has caused. */
+  episodeCount: number
+}
+
+/**
+ * A compact read of the in-game network-stats (`/netstat`) overlay, as tracked by the game process.
+ * Present whether or not the overlay is drawn, so a headless agent can read the stats without a
+ * screenshot.
+ */
+export interface GameNetStatsView {
+  /** Whether the overlay is currently toggled on. */
+  visible: boolean
+  /** The latency buffer depth (in turns) currently in force. */
+  bufferTurns: number
+  /** How many times the buffer depth has changed since the game started. */
+  bufferChangeCount: number
+  /** Whether this client's own relay link is currently up. */
+  linkUp: boolean
+  /** How many times the own link has gone down since the game started. */
+  linkDownCount: number
+  /** One entry per remote roster slot with a storm mapping. */
+  rows: GameNetStatRow[]
+}
+
 /** A snapshot of a game process's network turn transport state, if a session is live. */
 export interface GameTurnStateSnapshot {
   /** The rally-point2 slot of the local player. */
@@ -93,6 +132,11 @@ export interface GameTurnStateSnapshot {
    * field doesn't fail to deserialize.
    */
   disconnect?: GameDisconnectView
+  /**
+   * The network-stats (`/netstat`) overlay's visibility and a compact read of its instrumentation.
+   * Optional so a still-running older DLL that predates this field doesn't fail to deserialize.
+   */
+  netStats?: GameNetStatsView
 }
 
 /** The reply payload for a `debugControl`/`queryState` request, sent as `/game/debug/state`. */

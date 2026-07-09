@@ -121,6 +121,14 @@ interface IpcInvokeables {
    */
   activeGameRequestDrop: (gameId: string, slot: number) => void
   /**
+   * Toggles the active game process's in-game network-stats (`/netstat`) overlay (debug game builds
+   * only), the same toggle the `/netstat` chat command makes. Only registered in development
+   * (`isDev`). Fire-and-forget: there's no reply; verify via
+   * {@link IpcInvokeables.activeGameDebugQueryState}'s `turnState.netStats` (the `visible` flag and
+   * the per-slot stats under `rows`).
+   */
+  activeGameToggleNetStats: (gameId: string) => void
+  /**
    * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
    * save; the only teardown that works mid-game). Only registered in development (`isDev`).
    * Fire-and-forget: there's no reply.

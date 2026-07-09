@@ -742,6 +742,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameRequestDrop', (event, gameId, slot) =>
       activeGameManager.requestGameDrop(gameId, slot),
     )
+    ipcMain.handle('activeGameToggleNetStats', (event, gameId) =>
+      activeGameManager.toggleGameNetStats(gameId),
+    )
     ipcMain.handle('activeGameForceQuit', (event, gameId) =>
       activeGameManager.forceQuitGame(gameId),
     )

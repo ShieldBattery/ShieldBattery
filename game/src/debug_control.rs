@@ -63,6 +63,11 @@ pub enum DebugControlCommand {
     /// (`turnState.disconnect.rows[..].dropRequested`, then the slot's `required` going `false` once
     /// the leave applies).
     RequestDrop { slot: u8 },
+    /// Toggle the in-game `/netstat` network-stats overlay on this client — the identical
+    /// [`crate::netcode_v2::TurnState::toggle_net_stats`] call the `/netstat` chat command makes.
+    /// Fire-and-forget: no reply — verify via `queryState` (`turnState.netStats.visible`, and the
+    /// per-slot stats under `turnState.netStats.rows`).
+    ToggleNetStats,
 }
 
 /// The chat scope for [`DebugControlCommand::SendChat`], a serde-friendly mirror of
@@ -106,6 +111,9 @@ pub struct TurnStateSnapshot {
     /// What the survivor disconnect overlay is showing right now, so verification can assert the
     /// two-tier timing and the manual-drop unlock without reading pixels.
     pub disconnect: DisconnectViewSnapshot,
+    /// The `/netstat` overlay's visibility and a compact read of its instrumentation, so a headless
+    /// agent can toggle it and assert on the stats without reading pixels.
+    pub net_stats: NetStatsSnapshot,
 }
 
 /// A read of the survivor disconnect overlay's current state, for `queryState` verification. Mirrors
@@ -166,6 +174,49 @@ pub struct DisconnectRowSnapshot {
     pub drop_unlocked: bool,
     /// Whether a drop was requested for this slot within the recent acknowledgement window.
     pub drop_requested: bool,
+}
+
+/// A compact read of the `/netstat` overlay's instrumentation, for `queryState` verification: the
+/// overlay's visibility plus the same per-slot arrival/stall figures and buffer/link history counts
+/// the overlay derives from the turn state. Present whether or not the overlay is drawn, so a
+/// headless agent can read the stats and assert on them without a screenshot.
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetStatsSnapshot {
+    /// Whether the overlay is currently toggled on.
+    pub visible: bool,
+    /// The latency buffer depth (in turns) currently in force.
+    pub buffer_turns: u32,
+    /// How many times the buffer depth has changed since the game started.
+    pub buffer_change_count: u32,
+    /// Whether this client's own relay link is currently up.
+    pub link_up: bool,
+    /// How many times the own link has gone down since the game started.
+    pub link_down_count: u32,
+    /// One entry per remote roster slot with a storm mapping.
+    pub rows: Vec<NetStatRowSnapshot>,
+}
+
+/// One remote slot's row within a [`NetStatsSnapshot`].
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetStatRowSnapshot {
+    /// The rally-point2 slot this row is about.
+    pub slot: u8,
+    /// The session user occupying that slot.
+    pub user_id: SbUserId,
+    /// Milliseconds since this slot's most recent turn arrived, or `null` if none has yet.
+    pub last_turn_age_ms: Option<u64>,
+    /// The slot's EWMA inter-arrival interval in milliseconds, or `null` before two turns arrived.
+    pub ewma_interval_ms: Option<u64>,
+    /// The largest inter-arrival gap in the recent (~60 s) window, in milliseconds.
+    pub max_gap_ms: u64,
+    /// Milliseconds the sim spent blocked on this slot in the recent (~60 s) window.
+    pub recent_stall_ms: u64,
+    /// Milliseconds the sim spent blocked on this slot over the whole game so far.
+    pub lifetime_stall_ms: u64,
+    /// How many distinct stall episodes this slot has caused.
+    pub episode_count: u32,
 }
 
 /// One rendered chat line, recorded at injection time for [`DebugControlCommand::QueryState`]
@@ -434,6 +485,23 @@ mod tests {
                         drop_requested: false,
                     }],
                 },
+                net_stats: NetStatsSnapshot {
+                    visible: true,
+                    buffer_turns: 4,
+                    buffer_change_count: 2,
+                    link_up: true,
+                    link_down_count: 1,
+                    rows: vec![NetStatRowSnapshot {
+                        slot: 1,
+                        user_id: SbUserId(22),
+                        last_turn_age_ms: Some(42),
+                        ewma_interval_ms: None,
+                        max_gap_ms: 120,
+                        recent_stall_ms: 0,
+                        lifetime_stall_ms: 0,
+                        episode_count: 0,
+                    }],
+                },
             }),
         };
 
@@ -469,9 +537,33 @@ mod tests {
                             "dropRequested": false,
                         }],
                     },
+                    "netStats": {
+                        "visible": true,
+                        "bufferTurns": 4,
+                        "bufferChangeCount": 2,
+                        "linkUp": true,
+                        "linkDownCount": 1,
+                        "rows": [{
+                            "slot": 1,
+                            "userId": 22,
+                            "lastTurnAgeMs": 42,
+                            "ewmaIntervalMs": null,
+                            "maxGapMs": 120,
+                            "recentStallMs": 0,
+                            "lifetimeStallMs": 0,
+                            "episodeCount": 0,
+                        }],
+                    },
                 },
             })
         );
+    }
+
+    #[test]
+    fn toggle_net_stats_command_parses_camel_case() {
+        let cmd: DebugControlCommand =
+            serde_json::from_str(r#"{"type":"toggleNetStats"}"#).unwrap();
+        assert_eq!(cmd, DebugControlCommand::ToggleNetStats);
     }
 
     #[test]

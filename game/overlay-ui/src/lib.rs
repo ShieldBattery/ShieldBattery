@@ -14,6 +14,7 @@
 pub mod colors;
 pub mod disconnect;
 pub mod fonts;
+pub mod netstat;
 mod style;
 
 pub use style::install_fonts_and_style;

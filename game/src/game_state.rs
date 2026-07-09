@@ -925,6 +925,11 @@ impl GameState {
                         // honors it only past its floor and confirms it solely via the slot's synced
                         // leave. No reply — verify via queryState.
                     }
+                    DebugControlCommand::ToggleNetStats => {
+                        crate::netcode_v2::with_turn_state(|s| s.toggle_net_stats());
+                        // Fire-and-forget, the same toggle the `/netstat` chat command makes. No
+                        // reply — verify via queryState's `netStats.visible`.
+                    }
                     DebugControlCommand::Screenshot => {
                         let ws_send = self.ws_send.clone();
                         return async move {

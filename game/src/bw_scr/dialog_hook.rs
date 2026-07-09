@@ -100,7 +100,14 @@ unsafe extern "C" fn chat_box_event_handler(
                 // Enter/return while the chat box was open
                 if !edit_box.is_hidden() && (key == 0xa || key == 0xd) {
                     let text = edit_box.string();
-                    if bw.handle_chat_command(text) {
+                    if is_netstat_command(text) {
+                        // Toggle the in-game network-stats overlay and swallow the message entirely:
+                        // it's a local diagnostic command, so nothing is sent to peers and nothing is
+                        // echoed as chat. Intercepted before the native cheat/slash parse and the send
+                        // tap below, and the box is cleared so the native `orig` call just closes it.
+                        netcode_v2::with_turn_state(|s| s.toggle_net_stats());
+                        edit_box.set_string(b"");
+                    } else if bw.handle_chat_command(text) {
                         // Clear the chat box text so no message gets sent
                         edit_box.set_string(b"");
                     } else if text.is_empty() {
@@ -157,6 +164,13 @@ unsafe extern "C" fn msg_filter_event_handler(
         (*game_data).game_template.allies_enabled = old;
         ret
     }
+}
+
+/// Whether a chat-box submission is the `/netstat` overlay-toggle command. Case-insensitive, with
+/// surrounding whitespace ignored, and accepting the `/netstats` spelling too.
+fn is_netstat_command(text: &str) -> bool {
+    let trimmed = text.trim();
+    trimmed.eq_ignore_ascii_case("/netstat") || trimmed.eq_ignore_ascii_case("/netstats")
 }
 
 /// The chat-target scope for the chat-box send tap in [`chat_box_event_handler`], read from BW's

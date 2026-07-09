@@ -17,7 +17,7 @@ use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
-use crate::netcode_v2::DisconnectStatus;
+use crate::netcode_v2::{DisconnectStatus, NetStatsStatus};
 
 use self::production::ProductionState;
 
@@ -27,6 +27,7 @@ pub use overlay_ui::{colors, fonts};
 
 mod disconnect;
 mod loading_screen;
+mod netstat;
 mod production;
 
 pub struct OverlayState {
@@ -289,6 +290,7 @@ impl OverlayState {
         screen_size: (u32, u32),
         setup_info: Option<&GameSetupInfo>,
         disconnect_status: &DisconnectStatus,
+        net_stats: Option<&NetStatsStatus>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -416,6 +418,8 @@ impl OverlayState {
                 // Product UX, drawn in every build: a stall-aware notice naming the players the sim
                 // is waiting on, upgrading to relay-confirmed disconnects with a manual drop.
                 self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
+                // The `/netstat` diagnostic overlay, drawn only while toggled on (a `Some` snapshot).
+                self.add_netstat_overlay(net_stats, setup_info, &ctx);
                 let debug = cfg!(debug_assertions);
                 if debug {
                     self.add_debug_ui(bw, &ctx);

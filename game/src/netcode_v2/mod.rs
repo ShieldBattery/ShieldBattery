@@ -56,7 +56,10 @@ use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{LeaveDirective, Payload};
 use tokio::sync::mpsc;
 
+mod net_stats;
 mod session;
+
+pub use net_stats::{NetStatRow, NetStatsStatus};
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
 // (`establish_session`), so only these are re-exported. The credential/session types stay internal
@@ -69,6 +72,7 @@ pub use session::{
     with_lobby_session_seed, with_turn_state,
 };
 
+use self::net_stats::NetStats;
 use crate::app_messages::SbUserId;
 use crate::bw;
 use crate::bw::players::StormPlayerId;
@@ -500,6 +504,14 @@ pub struct TurnState {
     /// window; an applied leave clears the slot's entry via [`mark_slot_left`](Self::mark_slot_left).
     /// Render-facing only.
     drop_requests: Vec<(SlotId, Instant)>,
+    /// Observation-only network-stats instrumentation for the `/netstat` overlay: per-slot turn
+    /// arrival pacing and sim-stall attribution, buffer-directive history, and own-link history.
+    /// Recorded from the receive/directive/connectivity paths; it feeds back into nothing, so it
+    /// cannot change turn or sim behavior. Render-facing only.
+    net_stats: NetStats,
+    /// Whether the `/netstat` overlay is currently toggled on (via the chat command or the debug
+    /// command). Instrumentation is recorded regardless; this only gates whether the overlay draws.
+    net_stats_visible: bool,
 }
 
 impl TurnState {
@@ -546,6 +558,8 @@ impl TurnState {
             self_link_lost: false,
             stall_start: None,
             drop_requests: Vec::new(),
+            net_stats: NetStats::new(initial_latency_turns.max(1), Instant::now()),
+            net_stats_visible: false,
         }
     }
 
@@ -759,8 +773,9 @@ impl TurnState {
 
     /// Drains every inbound turn currently available from the driver into the per-slot queues,
     /// feeding each turn's [`BufferDirective`] to the latency tracker as it goes. Never blocks.
-    /// `next_frame` is the frame the game is about to simulate.
-    fn drain_inbound(&mut self, next_frame: u32) {
+    /// `next_frame` is the frame the game is about to simulate; `now` timestamps each arrival for the
+    /// net-stats instrumentation.
+    fn drain_inbound(&mut self, next_frame: u32, now: Instant) {
         while let Ok(payload) = self.channels.inbound.try_recv() {
             if let Some(directive) = &payload.buffer_directive {
                 self.directives.observe(directive, next_frame);
@@ -772,6 +787,8 @@ impl TurnState {
                 debug_assert!(false, "inbound turn for unmapped slot {slot:?}");
                 continue;
             };
+            // Observation-only: record this slot's arrival pacing before queuing the turn.
+            self.net_stats.record_arrival(storm, now);
             if let Some(queue) = self.inbound_queues.get_mut(storm.0 as usize) {
                 queue.push_back(payload.commands);
             }
@@ -794,15 +811,31 @@ impl TurnState {
     /// [`dispatch_buffers`](Self::dispatch_buffers) to fill `player_turns[]`, then call
     /// [`apply_due_directive`](Self::apply_due_directive).
     pub fn receive_turns(&mut self, next_frame: u32) -> bool {
-        self.drain_inbound(next_frame);
-        let ready = (0..bw::MAX_STORM_PLAYERS)
-            .all(|storm| !self.required[storm] || !self.inbound_queues[storm].is_empty());
+        let now = Instant::now();
+        self.drain_inbound(next_frame, now);
+        // Which required slots are still missing a turn — the same condition readiness turns on. The
+        // per-slot blocking mask (every missing slot except our own, whose absent turn is our own
+        // pipe, not a peer stall) drives the net-stats stall attribution; readiness itself still
+        // spans every required slot including our own echo.
+        let local_storm = self.storm_id_for_slot(self.local_slot);
+        let mut blocking = [false; bw::MAX_STORM_PLAYERS];
+        let mut ready = true;
+        for (storm, blocked) in blocking.iter_mut().enumerate() {
+            if self.required[storm] && self.inbound_queues[storm].is_empty() {
+                ready = false;
+                if Some(StormPlayerId(storm as u8)) != local_storm {
+                    *blocked = true;
+                }
+            }
+        }
+        // Observation-only: attribute the current poll's blocking set to those slots' stall episodes.
+        self.net_stats.note_blocking(&blocking, now);
         if !ready {
             // Start the stall clock on the first poll we can't gather a full step; leave it running
             // across the repeated polls a sustained stall produces so it measures one continuous
             // outage rather than restarting each poll.
             if self.stall_start.is_none() {
-                self.stall_start = Some(Instant::now());
+                self.stall_start = Some(now);
             }
             return false;
         }
@@ -1050,6 +1083,9 @@ impl TurnState {
                 }
             }
         }
+        // Observation-only: capture any own-link transition this pump produced for the net-stats
+        // history (a no-op unless the up/down state actually flipped).
+        self.net_stats.record_link(!self.self_link_lost, now);
     }
 
     /// A render-side snapshot of who has lost connection, for the survivor disconnect overlay.
@@ -1105,6 +1141,57 @@ impl TurnState {
             .map(|&(_, user)| user)
     }
 
+    /// Toggles the `/netstat` overlay's visibility, returning its new state. Called from the chat
+    /// command's send tap and the debug `toggleNetStats` command; the instrumentation itself keeps
+    /// recording regardless, so toggling only affects whether the overlay draws.
+    pub fn toggle_net_stats(&mut self) -> bool {
+        self.net_stats_visible = !self.net_stats_visible;
+        self.net_stats_visible
+    }
+
+    /// Whether the `/netstat` overlay is currently toggled on.
+    pub fn net_stats_visible(&self) -> bool {
+        self.net_stats_visible
+    }
+
+    /// A render-side snapshot of the session's network stats for the `/netstat` overlay, or `None`
+    /// while the overlay is toggled off (nothing to draw). `turn_rate` is the live simulation turn
+    /// rate, read from game data at the call site. Pure read: drains no channel, mutates nothing.
+    pub fn net_stats_status(&self, now: Instant, turn_rate: u32) -> Option<NetStatsStatus> {
+        if !self.net_stats_visible {
+            return None;
+        }
+        Some(NetStatsStatus {
+            turn_rate,
+            buffer_turns: self.net_stats.buffer_turns(),
+            buffer_change_count: self.net_stats.buffer_change_count(),
+            buffer_last_change: self.net_stats.buffer_last_change(now),
+            buffer_series: self.net_stats.normalized_buffer_series(),
+            link_up: self.net_stats.link_up(),
+            link_down_count: self.net_stats.link_down_count(),
+            link_last_change: self.net_stats.link_last_change(now),
+            rows: self.net_stat_rows(now),
+        })
+    }
+
+    /// One net-stats row per remote roster slot that has been mapped to a storm id (our own slot is
+    /// excluded — its "arrivals" are our local echo, not a peer's turn stream). A slot with no storm
+    /// mapping yet is skipped, the same as elsewhere.
+    fn net_stat_rows(&self, now: Instant) -> Vec<NetStatRow> {
+        self.roster
+            .iter()
+            .filter(|&&(slot, _)| slot != self.local_slot)
+            .filter_map(|&(slot, user_id)| {
+                let storm = self.storm_id_for_slot(slot)?;
+                Some(NetStatRow {
+                    slot,
+                    user_id,
+                    stats: self.net_stats.slot_view(storm, now),
+                })
+            })
+            .collect()
+    }
+
     /// Applies any latency-buffer change due at `next_frame`, updating the pipe target the PIPE hook
     /// enforces. Call once per simulation step, after draining/observing that step's turns.
     ///
@@ -1115,6 +1202,9 @@ impl TurnState {
     pub fn apply_due_directive(&mut self, next_frame: u32) {
         if let Some(directive) = self.directives.take_due(next_frame) {
             self.latency_turns = directive.buffer_turns.max(1);
+            // Observation-only: record the new buffer depth for the net-stats history / sparkline.
+            self.net_stats
+                .record_buffer(self.latency_turns, Instant::now());
         }
     }
 
@@ -1419,6 +1509,41 @@ impl TurnState {
             slots,
             chat_log: self.chat_log.iter().cloned().collect(),
             disconnect: self.disconnect_view_snapshot(),
+            net_stats: self.net_stats_snapshot(),
+        }
+    }
+
+    /// The `/netstat` overlay's instrumentation, serialized for `queryState`. Built regardless of
+    /// the overlay's visibility (which it reports) so a headless agent can read the stats without a
+    /// screenshot; the per-slot rows come from the same [`net_stat_rows`](Self::net_stat_rows)
+    /// derivation the overlay uses.
+    #[cfg(debug_assertions)]
+    fn net_stats_snapshot(&self) -> crate::debug_control::NetStatsSnapshot {
+        use crate::debug_control::{NetStatRowSnapshot, NetStatsSnapshot};
+
+        let now = Instant::now();
+        let ms = |d: std::time::Duration| d.as_millis() as u64;
+        let rows = self
+            .net_stat_rows(now)
+            .into_iter()
+            .map(|row| NetStatRowSnapshot {
+                slot: row.slot.0,
+                user_id: row.user_id,
+                last_turn_age_ms: row.stats.last_turn_age.map(ms),
+                ewma_interval_ms: row.stats.ewma_interval.map(ms),
+                max_gap_ms: ms(row.stats.max_gap),
+                recent_stall_ms: ms(row.stats.recent_stall),
+                lifetime_stall_ms: ms(row.stats.lifetime_stall),
+                episode_count: row.stats.episode_count,
+            })
+            .collect();
+        NetStatsSnapshot {
+            visible: self.net_stats_visible,
+            buffer_turns: self.net_stats.buffer_turns(),
+            buffer_change_count: self.net_stats.buffer_change_count(),
+            link_up: self.net_stats.link_up(),
+            link_down_count: self.net_stats.link_down_count(),
+            rows,
         }
     }
 

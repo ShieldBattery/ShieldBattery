@@ -468,6 +468,21 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
+   * Toggles the active game process's in-game network-stats (`/netstat`) overlay (debug game builds
+   * only), the same toggle the `/netstat` chat command makes. Fire-and-forget: there's no reply;
+   * verify via {@link debugQueryState}'s `turnState.netStats` (the `visible` flag, plus the per-slot
+   * stats under `rows`).
+   */
+  toggleGameNetStats(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got toggleGameNetStats for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'toggleNetStats' })
+  }
+
+  /**
    * Tells the active game process to quit abruptly (debug game builds only, but the underlying
    * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
    * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,
