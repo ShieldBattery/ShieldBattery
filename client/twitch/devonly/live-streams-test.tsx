@@ -13,6 +13,7 @@ import {
   UptimePill,
   ViewerCountPill,
 } from '../live-indicators'
+import { FeaturedLiveStreamEntry } from '../live-stream-entry'
 
 /** Builds a gradient placeholder thumbnail as a data URI (no remote images in dev). */
 function thumb(from: string, to: string) {
@@ -70,6 +71,10 @@ const mockStreams = [
 const mockFeed = { liveStreams: mockStreams } as unknown as Parameters<
   typeof LiveStreamsFeed
 >[0]['query']
+
+const mockEntries = mockStreams.map(
+  s => s as unknown as Parameters<typeof FeaturedLiveStreamEntry>[0]['query'],
+)
 
 const Root = styled.div`
   padding: 24px;
@@ -152,9 +157,22 @@ export function LiveStreamsTest() {
         <FriendRow user='Bisu' isLive={true} />
         <FriendRow user='SnOw' isLive={false} />
       </FriendsArea>
+
+      <SectionTitle>Live page grid</SectionTitle>
+      <PageGrid>
+        {mockEntries.map((query, i) => (
+          <FeaturedLiveStreamEntry key={i} query={query} />
+        ))}
+      </PageGrid>
     </Root>
   )
 }
+
+const PageGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+`
 
 const FriendsArea = styled.div`
   width: 288px;

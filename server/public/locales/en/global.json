@@ -1457,6 +1457,9 @@
       "watch": "Watch stream"
     },
     "liveStreams": {
+      "empty": "No one is streaming StarCraft right now.",
+      "pageTitle": "Live streams",
+      "seeAll": "See all live streams",
       "title": "Live streams",
       "viewers_one": "{{count}} watching",
       "viewers_other": "{{count}} watching"

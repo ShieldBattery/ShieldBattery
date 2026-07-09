@@ -24,6 +24,7 @@ import {
   TermsOfServicePage,
 } from './policies/policy-displays'
 import { ReplaysRoot } from './replays/replays-root'
+import { LiveStreamsPage } from './twitch/live-streams-page'
 import { TwitchOAuthCallback } from './twitch/twitch-oauth-callback'
 import { ProfileRouteComponent } from './users/route'
 import { WhisperRouteComponent } from './whispers/route'
@@ -69,6 +70,7 @@ export function AppRoutes({
       <Route path='/games/*?' component={GamesRouteComponent} />
       <Route path='/ladder/*?' component={LadderRouteComponent} />
       <Route path='/leagues/*?' component={LeagueRoot} />
+      <Route path='/live' component={LiveStreamsPage} />
       {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
       <Route path='/maps/*?' component={MapsRoot} />
       <Route path='/play/*?' component={PlayRoot} />

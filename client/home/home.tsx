@@ -2,6 +2,7 @@ import { Suspense, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
+import { Link } from 'wouter'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { LiveGameEntry, LiveGames_FeedFragment } from '../games/live-game-entry'
@@ -19,7 +20,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { singleLine, titleSmall } from '../styles/typography'
+import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
 import {
   FeaturedLiveStreamEntry,
   LiveStreamEntry,
@@ -302,6 +303,28 @@ const LiveStreamsRoot = styled.div`
   overflow: hidden;
 `
 
+const SeeAllLink = styled(Link)`
+  ${bodyMedium};
+  display: block;
+  padding: 10px 12px;
+
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+
+  &,
+  &:link,
+  &:visited {
+    color: var(--theme-amber);
+  }
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--theme-container-high);
+    outline: none;
+  }
+`
+
 export function LiveStreamsFeed({
   query,
 }: {
@@ -326,6 +349,9 @@ export function LiveStreamsFeed({
         {rest.slice(0, 4).map(stream => (
           <LiveStreamEntry key={stream.twitchLogin} query={stream} />
         ))}
+        <SeeAllLink href='/live'>
+          {t('twitch.liveStreams.seeAll', 'See all live streams')}
+        </SeeAllLink>
       </LiveStreamsRoot>
     </HomeSection>
   )

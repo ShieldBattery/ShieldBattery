@@ -51,6 +51,7 @@ type Documents = {
   '\n  query LiveUserIds {\n    liveStreamUserIds\n  }\n': typeof types.LiveUserIdsDocument
   '\n  fragment LiveStreams_FeedFragment on Query {\n    liveStreams {\n      twitchLogin\n      viewerCount\n      ...LiveStreams_FeedEntryFragment\n    }\n  }\n': typeof types.LiveStreams_FeedFragmentFragmentDoc
   '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n': typeof types.LiveStreams_FeedEntryFragmentFragmentDoc
+  '\n  query LiveStreamsPage {\n    ...LiveStreams_FeedFragment\n  }\n': typeof types.LiveStreamsPageDocument
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n': typeof types.UserNameAuditHistoryDocument
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n': typeof types.AdminUserProfileDocument
   '\n  fragment AdminUserProfile_Permissions on SbUser {\n    id\n    permissions {\n      id\n      editPermissions\n      debug\n      banUsers\n      manageLeagues\n      manageMaps\n      manageMapPools\n      manageMatchmaking\n      manageMatchmakingTimes\n      manageMatchmakingSeasons\n      manageRallyPointServers\n      massDeleteMaps\n      moderateChatChannels\n      manageNews\n      manageBugReports\n      manageGameReports\n      manageRestrictedNames\n      manageSignupCodes\n    }\n  }\n': typeof types.AdminUserProfile_PermissionsFragmentDoc
@@ -132,6 +133,8 @@ const documents: Documents = {
     types.LiveStreams_FeedFragmentFragmentDoc,
   '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n':
     types.LiveStreams_FeedEntryFragmentFragmentDoc,
+  '\n  query LiveStreamsPage {\n    ...LiveStreams_FeedFragment\n  }\n':
+    types.LiveStreamsPageDocument,
   '\n  query UserNameAuditHistory(\n    $userId: SbUserId!\n    $displayNameLimit: Int\n    $displayNameOffset: Int\n    $loginNameLimit: Int\n    $loginNameOffset: Int\n  ) {\n    userDisplayNameAuditHistory(\n      userId: $userId\n      limit: $displayNameLimit\n      offset: $displayNameOffset\n    ) {\n      id\n      oldName\n      newName\n      changedAt\n      changedByUser {\n        id\n      }\n      changeReason\n      ipAddress\n      userAgent\n      usedToken\n    }\n    userLoginNameAuditHistory(userId: $userId, limit: $loginNameLimit, offset: $loginNameOffset) {\n      id\n      oldLoginName\n      newLoginName\n      changedAt\n      changeReason\n      ipAddress\n      userAgent\n    }\n  }\n':
     types.UserNameAuditHistoryDocument,
   '\n  query AdminUserProfile($userId: SbUserId!, $includePermissions: Boolean!) {\n    user(id: $userId) {\n      id\n      ...AdminUserProfile_Permissions @include(if: $includePermissions)\n    }\n  }\n':
@@ -382,6 +385,12 @@ export function graphql(
 export function graphql(
   source: '\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n',
 ): (typeof documents)['\n  fragment LiveStreams_FeedEntryFragment on LiveStream {\n    twitchLogin\n    twitchDisplayName\n    title\n    viewerCount\n    startedAt\n    thumbnailUrl\n    user {\n      id\n      name\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query LiveStreamsPage {\n    ...LiveStreams_FeedFragment\n  }\n',
+): (typeof documents)['\n  query LiveStreamsPage {\n    ...LiveStreams_FeedFragment\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

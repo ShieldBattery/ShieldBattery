@@ -669,6 +669,12 @@ export type LiveStreams_FeedEntryFragmentFragment = {
   user: { id: Types.SbUserId; name: string } | null
 } & { ' $fragmentName'?: 'LiveStreams_FeedEntryFragmentFragment' }
 
+export type LiveStreamsPageQueryVariables = Exact<{ [key: string]: never }>
+
+export type LiveStreamsPageQuery = {
+  ' $fragmentRefs'?: { LiveStreams_FeedFragmentFragment: LiveStreams_FeedFragmentFragment }
+}
+
 export type UserNameAuditHistoryQueryVariables = Exact<{
   userId: Types.SbUserId
   displayNameLimit?: number | null | undefined
@@ -3830,6 +3836,74 @@ export const LiveUserIdsDocument = {
     },
   ],
 } as unknown as DocumentNode<LiveUserIdsQuery, LiveUserIdsQueryVariables>
+export const LiveStreamsPageDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'LiveStreamsPage' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveStreams_FeedFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'LiveStream' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startedAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'thumbnailUrl' } },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'user' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'LiveStreams_FeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'liveStreams' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'viewerCount' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'LiveStreams_FeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<LiveStreamsPageQuery, LiveStreamsPageQueryVariables>
 export const UserNameAuditHistoryDocument = {
   kind: 'Document',
   definitions: [
