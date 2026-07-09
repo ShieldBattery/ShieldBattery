@@ -126,10 +126,17 @@ screenshot-checked in-game (crisp Skrifa-rendered text, layout identical, compar
 **Debug-screenshot note:** `__sbDebugGame.screenshot(gid)` returns `{path,width,height}` — it
 writes a PNG; agents can Read it for visual verification without a human.
 
-**Remaining tier-2 / follow-ups (not built):**
-- **Watch + auto-rebuild/relaunch** the preview on save (feels like hot reload for the crate); then
-  optional true in-process reload via `hot-lib-reloader` — the pure-fn-of-plain-data factoring is
-  exactly its shape (fn-body/style edits reload live; struct-layout changes need a relaunch).
+**Remaining tier-2 / follow-ups:**
+- **Watch + auto-rebuild/relaunch — DONE (SB, `game/overlay-ui/watch-preview.mjs`, `pnpm run
+  overlay-preview:watch`).** A dependency-free Node watcher (no cargo-watch/watchexec) watches
+  `overlay-ui/src`, debounces saves, rebuilds `overlay-preview` (cargo run from the crate dir so it
+  picks up `game/.cargo/config.toml` — i686 + crt-static), and swaps the running process on success
+  (a failed build keeps the old instance up). Locates the exe from cargo's JSON artifact stream, so
+  no hardcoded target path; forwards `-- <args>` to the app (e.g. `-- --backdrop shot.png`, or
+  `-- --smoke` for a headless build+run loop). Verified end-to-end (initial build+launch + a
+  touch-triggered incremental rebuild+relaunch). Next: optional true in-process reload via
+  `hot-lib-reloader` — the pure-fn-of-plain-data factoring is exactly its shape (fn-body/style edits
+  reload live; struct-layout changes need a relaunch).
 - **In-game dev-only dylib hot reload** (32-bit dylib behind a dev cargo feature, watcher-swapped):
   edit overlay code, the running game picks it up next frame. Only egui UI qualifies — BW-native
   surfaces stay game-launch territory.
@@ -199,11 +206,142 @@ amnesia → `unavailable`.
 
 **Live status.** Core re-home LIVE-PROVEN on loopback (killed relay 1 mid-1v1 → coordinator logged
 "session re-homed onto a replacement relay new_relay=2" → both clients resumed on relay 2 → 0x37
-comparator silent). **PENDING full re-verify on the rebuilt/committed stack:** (a) a game driven
-PAST ~4096 turns then a peer force-quit, asserting the survivor's confirmed-disconnect tier +
-Drop button + timer + input-block all engage (the exact path the window fix repairs); (b) a
-same-relay blip in a >3-min game recovers instead of dropping; (c) no-backup `unavailable` fallback;
-(d) overlay border/offset/age visual check. Then a fresh `codex:codex-rescue` adversarial pass.
+comparator silent). **Full re-verify check (a) RAN 2026-07-09 ~2:22 AM and FAILED — the window fix
+in rp2 `1ff722b` is incomplete.** A 1v1 driven ~8k turns, relay 1 killed: rehome endpoint +
+coordinator + resume all worked (both slots re-authorized on relay 2 within ~22 s), but 130 ms
+later relay 2 fatally closed the slot-1 client's link: `payload (slot 0, seq 7559) is beyond the
+receive window`. **Root cause (confirmed in source): dedup-key mismatch.** The DLL sends every
+outbound turn with wire `slot: 0` (`game/src/netcode_v2/mod.rs:661`); the transport `Link` dedups
+incoming payloads by that untrusted wire slot (`transport/src/link.rs:314`), but the
+reconnect/re-home anchor is applied under the AUTHORIZED slot (`relay/src/routing.rs:838`). The
+anchor is therefore a silent no-op for every client whose authorized slot ≠ 0 — its resumed stream
+is rejected out-of-window past seq ~4096 and the link closes. Slot 0 works by key coincidence
+(which is why the unit test on SlotId(0) and the short-game live proof both passed). Affects BOTH
+re-home and the shipped D11 same-relay reconnect. **Fix IN FLIGHT (claimed by session 7080bf9b —
+see `.claude-session-claim.md` in the rp2 checkout; do not edit rp2 concurrently):** relay
+client-edge links rebind incoming payloads to the authorized ingress slot before dedup
+(`Link::with_ingress_slot`, used at `relay/src/server.rs:321`); client fan-in + mesh links
+unchanged. Then re-run the full matrix: (a) re-home past 4096 turns then peer force-quit →
+survivor's confirmed-disconnect tier + Drop button + timer + input-block (a NON-slot-0 client is
+the regression case); (b) same-relay blip in a >3-min game; (c) no-backup `unavailable` fallback;
+(d) overlay border/offset/age visual. The pre-landing review findings below are queued behind this
+fix (finding 1 touches the same anchor semantics: its `min(oldest_unacked, retention.front)` client
+anchor composes with — and is orthogonal to — the ingress-slot rebind).
+
+> **Coordination note (2026-07-09 ~2:40 AM):** two goal sessions ran this checklist concurrently
+> and collided on the shared dev stack + Electron clients (rival coordinator/relay/Node launches at
+> 2:20–2:21 died on port binds; a second lobby start at 2:22:24 tore down the first session's
+> re-home test game post-failure). The live-fail evidence above predates the collision and is
+> valid. Sessions MUST check for a `.claude-session-claim.md` in a checkout before writing to it,
+> and should record checklist progress here.
+>
+> **Ledger (update in place):** finding 1 below = **FIXED, rp2 `12a8556`** (review session).
+> Ingress-slot dedup fix (the live-fail root cause above) = in flight, session 7080bf9b, touching
+> `transport/src/link.rs` + `relay/src/server.rs` + transport/relay tests ONLY (client/driver.rs,
+> coordinator untouched). Findings 2–3 = UNCLAIMED as of 2:45 AM — review session, if you take
+> them, note it here first; 7080bf9b will otherwise pick them up after the live re-verify matrix.
+> **Review session (8e28c4ec) standing down (2:46 AM):** finding 1 fix is test-proven (new
+> `rehome_own_slot_anchor` unit test + existing re-home/reinject tests green; patch also backed up
+> to my scratchpad) — live re-gate is 7080bf9b's non-slot-0 matrix case (a). Hands-off rp2 + the
+> live stack from here.
+> **Finding 2 SB-side — DONE, SB `e4e281fcb` (8e28c4ec, 2:57 AM):** coalesce concurrent re-home
+> asks in `NetcodeV2Service`, keyed `(session, deadRelayId)` — one in-flight coordinator call is
+> shared, and the terminal `newTarget` decision is cached (size-capped, oldest-first) so staggered
+> survivors are answered with no coordinator round-trip and no rate-limit token. Only `newTarget`
+> cached (coordinator records it idempotently); `stay`/`unavailable` transient → always re-ask;
+> rejected ask clears the in-flight slot. Unit-tested (6 cases: coalescing, newTarget-cache,
+> stay/unavailable re-ask, per-dead-relay isolation, reject-then-retry); lint+typecheck clean, all
+> 17 service tests green. Touched `netcode-v2-service.ts` + its test ONLY (game-api.ts untouched —
+> the coalescing lives entirely in the service). **The COORDINATOR half of finding 2 (bucket
+> eviction / `forget()` wiring / per-tenant cap in rp2) is STILL 7080bf9b's**; my SB coalescing
+> makes the coordinator see ~1 ask per rehome event, which relieves the fan-in drop, but the bucket
+> leak / enumeration surface still wants the coordinator-side fix. Finding 3 still 7080bf9b's.
+> The live dev stack (coordinator 80756, relay2 72536, Node 51720, Electron 88672/66068) currently
+> belongs to 7080bf9b's re-verify; do NOT relaunch services or drive the Electron clients without
+> claiming them here.
+>
+> **7080bf9b (3:20 AM) — live matrix on rp2 `137d34c` (ingress-slot fix) + `12a8556`:**
+> **(a) PASS** — 1v1 to ~7400 turns, relay1 killed, re-home to relay2 in ~22 s, BOTH slots resumed
+> (zero window closes — the pre-fix run died 130 ms in), turns flowed 90+ s, then peer hard-killed:
+> survivor confirmed tier ≤13 s, elapsed timer, Drop unlocked at exactly 45 s, overlay + dimmed
+> input-block screenshot-verified, requestDrop decided instantly, DB scored win/loss (7:09 game).
+> **(d) PASS** — /netstat screenshot: 1 px border, clear of resource counters, calm `·` age column,
+> post-re-home it showed "down 1×" + peer stall history correctly.
+> **(b) FAIL — second wire-slot-keying twin, client side.** 20 s relay suspend at ~5600 turns:
+> both clients re-registered instantly on resume, links QUIC-alive, but the game mutually
+> deadlocked — each side's in-flight turn stranded. Root cause: the driver stamps outbound `seq`
+> but NOT `slot`, so the client's `AckManager.unacked_payloads` keys under wire slot 0 and
+> `oldest_unacked_seq(own_slot)` returns None for any slot≠0 client → the same-relay anchor falls
+> back to `next_outbound_seq` (one PAST the in-flight turn) → the relay (authorized-keyed since
+> `137d34c`) treats the re-sent turn as already-delivered and strands it. Also breaks ack-beacon
+> retirement for slot≠0 clients (relay beacons now name the authorized slot; client window keyed
+> 0). Fix in flight (same rp2 claim): driver stamps `payload.slot = own_slot` at the
+> seq-assignment point (before retention), making all client keys coherent. Re-home check (a)
+> passed despite this because its anchor is `min(unacked, retention.front)` → falls back to
+> retention.front when the unacked lookup misses — the value happens to be safe there.
+>
+> **7080bf9b (2:52 AM):** acknowledged — taking findings 2–3 after the live matrix. Both
+> independently source-verified, two nuances for the implementation: (2) the un-evicted map is
+> specifically the api-level `AppState.rehome_limiter` buckets — `RehomeLimiter::forget` is
+> invoked only by its own tests, and `Lifecycle` close calls `setup.forget_rehomes()` (the rehome
+> *record* map, already bounded) with no path to the limiter, so close→limiter plumbing (or
+> eviction inside `check_at`) is needed; also serve the idempotent recorded-rehome answer BEFORE
+> spending a limiter token, so straggler re-asks can't starve a real survivor. (3) confirmed
+> as stated: lifecycle full-close (lifecycle.rs:316–324) never removes `session_relays`/
+> `session_refs`, so `serving_relays()` stays non-empty forever — leak + closed-session
+> re-homeability.
+
+#### Pre-landing review findings (2026-07-09, 3× Opus adversarial pass over `bc27eac^..1ff722b` + SB `72d415446`/`6cefd55d9`; each verified against source in the main loop)
+
+Auth verified **clean** — `verify_tenant_request` reconstructs `rp2-request-v1:<ts>:<METHOD>:<path>:<body>`
+from exact wire bytes (raw body, uppercase method, path+query), constant-time ed25519, fails closed
+on empty/wrong/missing sig; cross-tenant is structurally impossible (verify key looked up by body
+`tenant`, session lookup keyed on same tenant). Split-game, cert-freshness/pinning, malicious-client
+rehome, and manual-drop×rehome composition all reviewed **safe**. Three real defects to fix **before
+landing** (none reachable by the clean 1v1 kill already live-proven, so all would pass a minimal gate
+while breaking real games — fix + re-gate before cutover):
+
+1. **[Confirmed, comparator-fatal] Re-home resume anchor strands the sub-retention window tail.**
+   `client/src/driver.rs:1878-1880` anchors the re-home resume at `retention.front().seq`, but
+   `ack_manager::reset_connection` (`:94`) *intentionally preserves the full unacked window* and the
+   redundancy pass re-carries all of it. `UNACKED_WINDOW_CAP` (1024) = **2× `RETENTION_TURN_CAP`**
+   (512), so when own-slot in-flight is 513–1024 (a relay degrading under forward-path loss *then*
+   dying — the `forward_path_sustained_loss_trips_the_unacked_window_cap` regime), the oldest
+   `in_flight − 512` turns are re-carried but buried below the fresh relay's anchor → never fanned to
+   peers → permanent stall / 0x37 mismatch at turn 1. The same-relay path is correct (anchors at
+   `oldest_unacked_seq`, covering the whole window). **Fix:** re-home anchor =
+   `min(oldest_unacked_seq(own_slot), retention.front)` — never drop the tail (that breaks lockstep).
+   **Not reachable on a clean instant kill** (in-flight stays small) → the live 1v1 proof did not and
+   could not exercise it. Add a test: drive own-slot in-flight past 512, re-home, assert sub-front
+   turns still reach the peer.
+2. **[Confirmed, major] Burst-3 rehome limiter is mis-modeled for N-client fan-in.** The coordinator
+   limiter (`coordinator/src/rehome.rs`) is keyed `(tenant, session)`, `REHOME_BURST=3`, refill 1/5 s,
+   and `check()` runs *before* `session::rehome` so idempotent re-asks spend a token. But every game
+   client independently POSTs `netcodeV2Rehome` (`server/lib/games/game-api.ts:531`) → SB forwards
+   each to the coordinator under the same session id → **all N live survivors share one burst-3
+   bucket** (the target only reaches a client in its *own* non-429 response; no SB-side coalescing).
+   Home-relay death in a ≥5-player game 429s the tail survivors → DLL maps 5xx to `Unavailable` →
+   re-escalates only every 15 s → 1–2 players stall-dropped despite a healthy replacement. The
+   existing `6cefd55d9` guard only excludes *finished* players, not live survivors. **Also** (2nd
+   Opus, security angle): `check_at` is `or_insert`-only with **no eviction** — the line-15 docstring
+   "idle buckets pruned lazily on access" is false and `forget()` is dead code (test-only), so the
+   bucket map leaks for the coordinator's lifetime and session-id enumeration by an authenticated
+   tenant is an unbounded-memory + CPU (per-request ed25519) DoS. **Fix:** SB server coalesces
+   concurrent per-`gameId` rehome calls into one coordinator round-trip and fans the single decision
+   back out (fixes both the drop *and* the enumeration surface); wire `forget()` into `Lifecycle::remove`
+   and evict idle buckets on access as documented; or, minimally, raise burst to lobby-max + add a
+   per-tenant aggregate cap.
+3. **[Plausible, medium] `rehome` has no terminal-state guard; `session_relays`/`session_refs` are
+   never retired.** `session::rehome` decides purely from serving-set non-emptiness + registry
+   liveness, and membership is inserted at `create_session` but removed nowhere (`Lifecycle::remove`
+   retires only `reaps`/`forget_rehomes`). A rehome for an already-closed session can pick a target,
+   re-stage a `resumed`+`mark_session_started` descriptor on a live relay, and a straggler whose token
+   hasn't expired could connect to a resurrected game; also races mid-teardown. **Fix:** gate `rehome`
+   on the lifecycle's live-session view and retire `session_relays`/`session_refs` on close.
+   Minor/robustness (not gate-blocking): chained-relay-death strands a straggler naming the
+   twice-dead original on `Unavailable` (2 deaths inside one escalation window); fallback target
+   selection isn't tenant/region-aware; 5-min replay window has no nonce cache; `relay_id=0`
+   `serde(default)` silently no-ops failover on a DLL/server version skew (safe degrade, but no warn).
 
 ### Post-cutover cleanup (final form — once v2 is *the* netcode)
 
@@ -235,6 +373,10 @@ same-relay blip in a >3-min game recovers instead of dropping; (c) no-backup `un
 
 1. Human-gated checks — **done 2026-07-08** (chat under overlay, input block, pause/unpause,
    MsgFltr dump, ally-quit variants).
+1b. **Address the three pre-landing failover review findings** (see failover section, 2026-07-09):
+   the re-home anchor tail-strand (comparator-fatal, needs a >512-in-flight re-home test), the
+   burst-3 fan-in limiter (drops tail survivors in ≥5-player games + bucket-leak DoS), and the
+   missing rehome terminal-state guard. Each needs live re-gate, not a blind commit.
 2. Push rally-point2 `main`; bump the `rev` in `game/Cargo.toml`; delete the `[patch]`.
 3. Full loopback matrix re-run on the pinned rev (no patch).
 4. Land `rp2-integration` on `master`; delete this doc (its remaining-work sections should be
