@@ -169,12 +169,14 @@ outbound buffer) survives reconnects, so re-home rides the same resume machinery
 only** (client escalates only once the game has started; lobby-phase relay death stays a bounded
 load failure). Whole-group re-home: every slot homed on the dead relay moves together.
 
-1. **Coordinator `POST /session/rehome`** — a NEW client-authenticated path (not tenant-signed):
-   body carries the encoded `SignedToken` + timestamp + the relay id the client believes dead +
-   an Ed25519 signature by the client session key over a domain-separated string
-   (`rp2-rehome-v1:<ts>:<session>:<slot>:<relay_id>`). Coordinator verifies token (tenant key,
-   expiry), signature against the token's *embedded* pubkey, ±window timestamp, per-(session,slot)
-   rate limit (lenient — re-asks every ~5 s must work). Decision:
+1. **Coordinator `POST /session/rehome`** — tenant-authenticated, **app-server-mediated** (Travis,
+   2026-07-09: game clients never talk to the coordinator, even for failover — the coordinator
+   stays a private control-plane service with exactly two client kinds: tenant app servers and
+   relays). The DLL asks the SB server (results2-style game auth: gameId + userId + resultCode);
+   the SB server makes the tenant-signed `POST /session/rehome` (`rp2-request-v1` scheme, same as
+   `/session/create`) with `{tenant, session, dead_relay_id}` and relays the answer. Lenient
+   per-(tenant,session) rate limit coordinator-side (re-asks every ~5 s must work), plus normal SB
+   throttling. Decision:
    - Named relay still live in the registry → respond `stay` (client resumes same-relay retry —
      covers "one client's network path is broken while the relay is fine"; never re-home the
      group on one client's word. Individual-slot re-home = future refinement).
@@ -204,12 +206,16 @@ load failure). Whole-group re-home: every slot homed on the dead relay moves tog
    fresh relay (empty turn ring) can fan out anything a peer never received; peer `(slot,seq)`
    dedup collapses overlaps. This closes the loss window where the dead relay acked a turn but
    never fanned it out (architecture.md's "clients are the turn log" D11 note, realized).
-4. **SB plumbing:** client-facing `coordinator_url` added to `SessionResponse` →
-   `NetcodeV2ServerSetup` → `NetcodeV2Setup` (new env `SB_RP2_COORDINATOR_CLIENT_URL`, defaults to
-   `SB_RP2_COORDINATOR_URL`); DLL implements `RehomeProvider` with reqwest (already a dep — the
-   results2 path uses it). Must be HTTPS in production (the response's cert_der is a trust
-   anchor); dev loopback http exempt. Overlay: existing "reconnecting…" covers re-home; terminal
-   `unavailable` falls into the existing channels-closed terminal path.
+4. **SB plumbing:** `relayId` added to the relay info in `NetcodeV2ServerSetup`/`NetcodeV2Setup`
+   (the client names which relay it believes dead, updated after a successful re-home). New SB
+   games endpoint (results2-auth pattern) → `NetcodeV2Service.rehomeSession` (tenant-signed
+   coordinator call); a `newTarget` relay converts through the same `relayEndpointToInfo` as
+   session create, so the DLL consumes the standard `NetcodeV2RelayInfo` shape (serverName
+   included — no client-side derivation). DLL `RehomeProvider` posts to the SB server with the
+   same reqwest plumbing the results2 report uses. The SB↔client channel is already trusted/TLS in
+   production (the relay `cert_der` rides it as a trust anchor, same as at session create).
+   Overlay: existing "reconnecting…" covers re-home; terminal `unavailable` falls into the
+   existing channels-closed terminal path.
 
 Accepted resets on re-home: fresh comparator SyncTracker (ordinal restart — pre-existing desync
 ordinal PK note applies), drop-hold clocks, buffer control-law re-seeds from bounds, lobby log
