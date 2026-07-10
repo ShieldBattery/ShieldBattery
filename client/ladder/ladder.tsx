@@ -67,6 +67,7 @@ import {
   titleMedium,
   titleSmall,
 } from '../styles/typography'
+import { useIsUserLive } from '../twitch/live-state'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
   getCurrentSeasonRankings,
@@ -1322,6 +1323,7 @@ const Row = React.memo(
     }, [onSelected, player, username])
     const [buttonProps, rippleRef] = useButtonState({ onClick })
 
+    const isLive = useIsUserLive(player.userId)
     const mostPlayedRace = getMostPlayedRace(player)
 
     const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
@@ -1340,7 +1342,12 @@ const Row = React.memo(
           <span>{player.rank}</span>
         </RankCell>
         <PlayerCell>
-          <StyledAvatar user={username} image={avatarUrl} />
+          <StyledAvatar
+            user={username}
+            image={avatarUrl}
+            live={isLive}
+            liveTitle={t('twitch.live.avatarTooltip', 'Live on Twitch')}
+          />
           <PlayerNameAndRace>
             <PlayerName>{username}</PlayerName>
             <PlayerRace $race={mostPlayedRace}>{raceCharToLabel(mostPlayedRace, t)}</PlayerRace>

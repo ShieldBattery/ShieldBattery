@@ -22,7 +22,7 @@ import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
-import { LiveCornerDot, LiveLabel } from '../twitch/live-indicators'
+import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
@@ -621,7 +621,6 @@ function FriendEntry({
         onContextMenu={onContextMenu}>
         <AvatarContainer>
           <StyledAvatar userId={userId} />
-          {isLive ? <LiveCornerDot $ringColor='var(--theme-container-lowest)' /> : null}
         </AvatarContainer>
         {user ? (
           <FriendEntryName>{user.name}</FriendEntryName>

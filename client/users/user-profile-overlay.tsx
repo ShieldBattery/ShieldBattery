@@ -214,10 +214,13 @@ export function UserProfileOverlayContents({
   )
 
   // Single-user query; only runs while the overlay is mounted (i.e. visible), so it doesn't fan
-  // out across every user in a list.
+  // out across every user in a list. `suspense: false` so a first (uncached) fetch doesn't suspend
+  // and blank the surrounding surface (e.g. the chat channel behind this popover) until it resolves
+  // -- the live row just renders once the data arrives.
   const [{ data: liveData }] = useQuery({
     query: UserProfileOverlayLiveQuery,
     variables: { userId },
+    context: { suspense: false },
   })
   const liveStream = liveData?.user?.liveStream ?? undefined
 
@@ -258,7 +261,7 @@ export function UserProfileOverlayContents({
         }}>
         <AvatarContainer>
           <AvatarCircle $isLive={!!liveStream}>
-            <StyledAvatar userId={userId} />
+            <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
           <ViewProfileHover>
             {t('users.profileOverlay.viewProfile', 'View profile')}

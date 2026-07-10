@@ -99,6 +99,7 @@ const FeaturedRoot = styled.a`
 
   &:hover,
   &:focus-visible {
+    text-decoration: none;
     outline: none;
   }
 `
@@ -231,6 +232,7 @@ const RowRoot = styled.a`
   &:hover,
   &:focus-visible {
     background-color: var(--theme-container-high);
+    text-decoration: none;
     outline: none;
   }
 `

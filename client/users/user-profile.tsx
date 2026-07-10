@@ -293,9 +293,13 @@ export function UserProfilePage({
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
+  // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
+  // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
+  // render in once they arrive.
   const [{ data: twitchData }] = useQuery({
     query: UserProfileTwitchQuery,
     variables: { userId: user.id },
+    context: { suspense: false },
   })
   const twitchChannel = twitchData?.user?.twitchChannel
   const liveStream = twitchData?.user?.liveStream ?? undefined
@@ -339,7 +343,7 @@ export function UserProfilePage({
     <CenteredContentContainer>
       <TopSection>
         <AvatarCircle $isLive={isLive}>
-          <StyledAvatar userId={user.id} />
+          <StyledAvatar userId={user.id} showLiveIndicator={false} />
           {isLive ? <LiveBadge>{t('users.profile.twitch.liveBadge', 'Live')}</LiveBadge> : null}
         </AvatarCircle>
         <UsernameAndTitle>
@@ -427,6 +431,7 @@ const LiveBannerRoot = styled.a`
   &:hover,
   &:focus-visible {
     border-color: var(--theme-live);
+    text-decoration: none;
     outline: none;
   }
 `

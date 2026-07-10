@@ -1386,6 +1386,11 @@
           "empty": "You haven't blocked anyone.",
           "title": "Blocked users"
         },
+        "notifications": {
+          "description": "Choose which social activity notifies you.",
+          "friendLive": "Notify me when a friend starts streaming",
+          "title": "Notifications"
+        },
         "title": "Social"
       },
       "title": "User"
@@ -1451,8 +1456,9 @@
   },
   "twitch": {
     "live": {
+      "avatarTooltip": "Live on Twitch",
       "badge": "Live",
-      "friendLiveSnackbar": "{{user}} is now live on Twitch",
+      "friendLiveNotification": "<0>{{user}}</0> is now live on Twitch.",
       "friendLiveWatch": "Watch",
       "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
       "uptimeMinutes": "{{minutes}}m",

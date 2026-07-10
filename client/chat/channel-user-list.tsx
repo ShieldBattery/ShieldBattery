@@ -9,7 +9,7 @@ import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
-import { LiveCornerDot, LiveLabel } from '../twitch/live-indicators'
+import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
@@ -171,7 +171,6 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         onContextMenu={onContextMenu}>
         <AvatarContainer>
           <StyledAvatar userId={props.userId} />
-          {props.isLive ? <LiveCornerDot $ringColor='var(--theme-container-low)' /> : null}
         </AvatarContainer>
         {user ? (
           <UserListName>{user.name}</UserListName>

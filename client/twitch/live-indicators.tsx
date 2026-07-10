@@ -233,6 +233,7 @@ const WatchRowRoot = styled.a`
   &:hover,
   &:focus-visible {
     border-color: var(--theme-live);
+    text-decoration: none;
     outline: none;
   }
 `
