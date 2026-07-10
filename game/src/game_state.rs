@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::io;
 use std::mem;
 use std::net::Ipv4Addr;

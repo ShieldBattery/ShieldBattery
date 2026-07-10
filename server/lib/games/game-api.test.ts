@@ -50,6 +50,7 @@ function makeApi({
     gameLoader as any,
     {} as any,
     {} as any,
+    {} as any,
   )
   return { api, gameResultService }
 }
@@ -115,6 +116,7 @@ function makeRehomeApi({
     {} as any,
     vi.fn() as any,
     gameLoader as any,
+    {} as any,
     {} as any,
     netcodeV2Service as any,
   )

@@ -64,7 +64,7 @@ function makePlayer(userId: SbUserId): { slot: Slot; playerInfo: PlayerInfo } {
 }
 
 function makeUser(userId: SbUserId): SbUser {
-  return { id: userId, name: `user-${userId}` }
+  return { id: userId, name: `user-${userId}`, created: 0 }
 }
 
 function makeMapInfo(): MapInfo {
