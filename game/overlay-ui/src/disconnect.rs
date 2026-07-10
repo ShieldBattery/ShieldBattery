@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use egui::{
     Align, Align2, Color32, CornerRadius, Frame, InnerResponse, Layout, Margin, Pos2, RichText,
-    Sense, Stroke, Vec2, pos2, vec2,
+    Sense, Stroke, Vec2, WidgetText, pos2, vec2,
 };
 
 use crate::colors;
@@ -154,7 +154,12 @@ pub fn render_disconnect_view(
                 .corner_radius(CornerRadius::same(8))
                 .inner_margin(Margin::symmetric(20, 16))
                 .show(ui, |ui| {
-                    ui.vertical_centered(|ui| match view.self_state {
+                    // A plain left-aligned `vertical` so the panel hugs its content and can shrink
+                    // back after a transient widening. A centring layout here would expand to the
+                    // full available width and, fed by this auto-sized `Area`, pin the panel
+                    // permanently wide (see the note in [`draw_peers_panel`], which centres the
+                    // header by hand instead).
+                    ui.vertical(|ui| match view.self_state {
                         // TODO(tec27): Translate this
                         SelfState::Reconnecting => {
                             draw_self_notice(ui, "Lost connection to the server, reconnecting…")
@@ -189,16 +194,33 @@ fn draw_self_notice(ui: &mut egui::Ui, text: &str) {
 /// per-row sentence, so several simultaneous disconnects stack as a clean table instead of repeated
 /// shortened sentences. The header states once what the panel is; individual rows don't restate it.
 fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut Vec<u8>) {
+    // The header is centred over the rows below it, but it must NOT drive the panel's width. egui's
+    // centring layouts (`vertical_centered` and friends) expand their `min_rect` to the full
+    // available width — "pretend we used whole frame" — and because this panel lives in an
+    // auto-sized `Area` whose width feeds back into that available width, a centred container pins
+    // the panel to whatever width it ever reached and never shrinks: a single transient widening (a
+    // `drop_requested` acknowledgement, or a wide name that later leaves) would strand the panel
+    // permanently wide, with dead space to the right of the Drop button. So the panel hugs its
+    // content with a plain left-aligned `vertical` (see [`render_disconnect_view`]) and the header
+    // is measured and painted centred over the grid by hand — centring the text without letting a
+    // centring layout claim the width.
     // TODO(tec27): Translate this
-    ui.label(
-        RichText::new("Waiting for players")
-            .size(HEADER_SIZE)
-            .color(PRIMARY)
-            .strong()
-            .family(display_family()),
+    let header = RichText::new("Waiting for players")
+        .size(HEADER_SIZE)
+        .color(PRIMARY)
+        .strong()
+        .family(display_family());
+    let header_galley = WidgetText::from(header).into_galley(
+        ui,
+        Some(egui::TextWrapMode::Extend),
+        f32::INFINITY,
+        egui::TextStyle::Body,
     );
+    // Reserve the header's vertical space up front (left-aligned, only as wide as the text) so the
+    // grid lays out below it; the text is repositioned to centre once the grid's width is known.
+    let (_, header_slot) = ui.allocate_space(header_galley.size());
     ui.add_space(HEADER_GAP);
-    egui::Grid::new("sb_disconnect_rows")
+    let grid = egui::Grid::new("sb_disconnect_rows")
         .num_columns(3)
         .spacing(vec2(COLUMN_SPACING, ROW_SPACING))
         .min_col_width(COL_MIN_WIDTH)
@@ -232,6 +254,15 @@ fn draw_peers_panel(ui: &mut egui::Ui, rows: &[DisconnectRowView], clicked: &mut
                 ui.end_row();
             }
         });
+    // Centre the header over the panel content (the wider of the reserved header slot and the
+    // grid) and paint it into the space reserved above. The galley already carries its colour.
+    let content = header_slot.union(grid.response.rect);
+    let header_pos = pos2(
+        content.center().x - 0.5 * header_galley.size().x,
+        header_slot.top(),
+    );
+    ui.painter()
+        .galley(header_pos, header_galley, Color32::PLACEHOLDER);
 }
 
 /// A row's action-column cell: the manual Drop button for a [`Confirmed`](DisconnectTier::Confirmed)
@@ -347,4 +378,114 @@ fn paint_signal_lost_icon(ui: &mut egui::Ui, color: Color32) {
         Stroke::new(4.0, Color32::from_black_alpha(180)),
     );
     painter.line_segment([start, end], Stroke::new(2.0, color));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Renders `view` for one pass against `ctx` and returns the panel's on-screen width in points.
+    fn render_width(ctx: &egui::Context, view: &DisconnectView) -> f32 {
+        let raw = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                pos2(0.0, 0.0),
+                vec2(1280.0, 720.0),
+            )),
+            ..Default::default()
+        };
+        ctx.begin_pass(raw);
+        let width = render_disconnect_view(view, ctx).response.rect.width();
+        let out = ctx.end_pass();
+        let _ = ctx.tessellate(out.shapes, ctx.pixels_per_point());
+        width
+    }
+
+    fn fresh_ctx() -> egui::Context {
+        let ctx = egui::Context::default();
+        crate::install_fonts_and_style(&ctx);
+        ctx.set_pixels_per_point(1.5);
+        ctx
+    }
+
+    fn confirmed_row(name: &str, drop_requested: bool) -> DisconnectRowView {
+        DisconnectRowView {
+            slot: 0,
+            name: name.to_string(),
+            seconds: 16,
+            tier: DisconnectTier::Confirmed,
+            drop_unlocked: false,
+            drop_requested,
+        }
+    }
+
+    fn peers(rows: Vec<DisconnectRowView>) -> DisconnectView {
+        DisconnectView {
+            rows,
+            self_state: SelfState::Healthy,
+        }
+    }
+
+    /// Drives several passes and returns the panel width from the last one, so callers can compare a
+    /// settled width after some sequence of views. egui needs a couple of passes to settle grid
+    /// column state, so each step is rendered a few times.
+    fn settle_width(ctx: &egui::Context, views: &[DisconnectView]) -> f32 {
+        let mut width = 0.0;
+        for view in views {
+            for _ in 0..4 {
+                width = render_width(ctx, view);
+            }
+        }
+        width
+    }
+
+    /// The panel must shrink back after a transient widening. A `drop_requested` acknowledgement
+    /// widens the action column while it shows; once it clears, the panel has to hug its content
+    /// again rather than stranding dead space to the right of the Drop button. This regressed under
+    /// egui 0.35 when the panel was wrapped in a centring layout, whose `min_rect` grabbed the full
+    /// available width of the auto-sized `Area` and pinned the width permanently.
+    #[test]
+    fn panel_width_recovers_after_drop_requested_clears() {
+        let baseline = {
+            let ctx = fresh_ctx();
+            settle_width(&ctx, &[peers(vec![confirmed_row("Rhynso", false)])])
+        };
+
+        let ctx = fresh_ctx();
+        // Widen it transiently with the acknowledgement, then clear it.
+        settle_width(&ctx, &[peers(vec![confirmed_row("Rhynso", true)])]);
+        let recovered = settle_width(&ctx, &[peers(vec![confirmed_row("Rhynso", false)])]);
+
+        assert!(
+            (recovered - baseline).abs() < 1.0,
+            "panel stayed wide after the drop-requested label cleared: baseline={baseline}, \
+             recovered={recovered}",
+        );
+    }
+
+    /// The same recovery must hold when a wide row leaves the roster — e.g. a long-named player who
+    /// was disconnected reconnects and drops out of the panel. The remaining narrower rows should
+    /// hug, not inherit the departed row's width.
+    #[test]
+    fn panel_width_recovers_after_wide_row_leaves() {
+        let baseline = {
+            let ctx = fresh_ctx();
+            settle_width(&ctx, &[peers(vec![confirmed_row("ab", false)])])
+        };
+
+        let ctx = fresh_ctx();
+        settle_width(
+            &ctx,
+            &[peers(vec![
+                confirmed_row("ab", false),
+                confirmed_row("aVeryLongPlayerNameIndeed", false),
+            ])],
+        );
+        let recovered = settle_width(&ctx, &[peers(vec![confirmed_row("ab", false)])]);
+
+        assert!(
+            (recovered - baseline).abs() < 1.0,
+            "panel stayed wide after the long-named row left: baseline={baseline}, \
+             recovered={recovered}",
+        );
+    }
 }
