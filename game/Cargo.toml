@@ -130,7 +130,7 @@ features = ["scr-only"]
 # (version skew is rejected at the TLS handshake by design).
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "c1d553179ad1b9074cb1106cf9a779b12c555e7e"
+rev = "1cf853d3f2d431dcd8a4e33f861d400a853d1d52"
 
 [build-dependencies]
 anyhow = "1.0"
@@ -145,12 +145,6 @@ members = ["overlay-ui"]
 # the preview to match the game.
 [workspace.dependencies]
 egui = { version = "0.35", features = ["bytemuck"] }
-
-# DEV-ONLY, REMOVE BEFORE LANDING: builds against the uncommitted rally-point2 lobby-channel work
-# in the sibling checkout. At integration: commit+push rally-point2, bump the `rev` pin above, and
-# delete this patch table.
-[patch."https://github.com/ShieldBattery/rally-point2.git"]
-rally-point-client = { path = "../../rally-point2/client" }
 
 # Host-renderable overlay presentation layer. The DLL uses its lib (view-model + egui render fns +
 # font/style setup); the crate's eframe preview bin is gated behind its `preview` feature so it never
