@@ -1303,6 +1303,18 @@
     "user": {
       "account": {
         "authenticationHeader": "Autenticación",
+        "avatar": {
+          "change": "Cambiar avatar",
+          "header": "Avatar",
+          "inappropriate": "Esa imagen fue marcada como inapropiada. Elige otra.",
+          "invalidType": "Elige un archivo de imagen.",
+          "removeError": "Algo salió mal al eliminar tu avatar.",
+          "removeSuccess": "Avatar eliminado.",
+          "tooLarge": "Esa imagen es demasiado grande (máx. 5 MB).",
+          "upload": "Subir avatar",
+          "uploadError": "Algo salió mal al actualizar tu avatar.",
+          "uploadSuccess": "Avatar actualizado."
+        },
         "changeDisplayName": {
           "dialogTitle": "Cambiar nombre para mostrar",
           "success": "Nombre para mostrar cambiado con éxito."
@@ -1375,6 +1387,20 @@
         "selectLanguage": "Selecciona un idioma",
         "title": "Idioma"
       },
+      "social": {
+        "blockedUsers": {
+          "count": "{{blocked}} / {{max}}",
+          "description": "No verás los mensajes de los usuarios bloqueados en el chat ni en las partidas, y no podrán enviarte solicitudes de amistad.",
+          "empty": "No has bloqueado a nadie.",
+          "title": "Usuarios bloqueados"
+        },
+        "notifications": {
+          "description": "Elige qué actividad social te notifica.",
+          "friendLive": "Avisarme cuando un amigo empiece a transmitir",
+          "title": "Notificaciones"
+        },
+        "title": "Social"
+      },
       "title": "Usuario"
     }
   },
@@ -1438,8 +1464,9 @@
   },
   "twitch": {
     "live": {
+      "avatarTooltip": "En vivo en Twitch",
       "badge": "En vivo",
-      "friendLiveSnackbar": "{{user}} está en vivo en Twitch",
+      "friendLiveNotification": "<0>{{user}}</0> está en vivo en Twitch.",
       "friendLiveWatch": "Ver",
       "uptimeHoursMinutes": "{{hours}} h {{minutes}} min",
       "uptimeMinutes": "{{minutes}} min",

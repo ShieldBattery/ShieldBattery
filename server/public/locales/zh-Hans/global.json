@@ -1291,6 +1291,18 @@
     "user": {
       "account": {
         "authenticationHeader": "身份认证",
+        "avatar": {
+          "change": "更换头像",
+          "header": "头像",
+          "inappropriate": "该图片被标记为不当内容，请选择其他图片。",
+          "invalidType": "请选择图片文件。",
+          "removeError": "移除头像时出错。",
+          "removeSuccess": "头像已移除。",
+          "tooLarge": "图片过大（最大 5 MB）。",
+          "upload": "上传头像",
+          "uploadError": "更新头像时出错。",
+          "uploadSuccess": "头像已更新。"
+        },
         "changeDisplayName": {
           "dialogTitle": "修改显示名",
           "success": "显示名修改成功。"
@@ -1359,6 +1371,20 @@
         "selectLanguage": "选择语言",
         "title": "语言"
       },
+      "social": {
+        "blockedUsers": {
+          "count": "{{blocked}} / {{max}}",
+          "description": "您不会看到已屏蔽用户在聊天或游戏中的消息，他们也无法向您发送好友请求。",
+          "empty": "您还没有屏蔽任何人。",
+          "title": "已屏蔽的用户"
+        },
+        "notifications": {
+          "description": "选择哪些社交动态会通知您。",
+          "friendLive": "有好友开始直播时通知我",
+          "title": "通知"
+        },
+        "title": "社交"
+      },
       "title": "用户"
     }
   },
@@ -1422,8 +1448,9 @@
   },
   "twitch": {
     "live": {
+      "avatarTooltip": "正在 Twitch 上直播",
       "badge": "直播中",
-      "friendLiveSnackbar": "{{user}} 正在 Twitch 上直播",
+      "friendLiveNotification": "<0>{{user}}</0> 正在 Twitch 上直播。",
       "friendLiveWatch": "观看",
       "uptimeHoursMinutes": "{{hours}}小时{{minutes}}分钟",
       "uptimeMinutes": "{{minutes}}分钟",

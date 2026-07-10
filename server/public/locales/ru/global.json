@@ -1309,6 +1309,18 @@
     "user": {
       "account": {
         "authenticationHeader": "Аутентификация",
+        "avatar": {
+          "change": "Изменить аватар",
+          "header": "Аватар",
+          "inappropriate": "Это изображение помечено как неприемлемое. Выберите другое.",
+          "invalidType": "Выберите файл изображения.",
+          "removeError": "Не удалось удалить аватар.",
+          "removeSuccess": "Аватар удалён.",
+          "tooLarge": "Изображение слишком большое (макс. 5 МБ).",
+          "upload": "Загрузить аватар",
+          "uploadError": "Не удалось обновить аватар.",
+          "uploadSuccess": "Аватар обновлён."
+        },
         "changeDisplayName": {
           "dialogTitle": "Сменить отображаемое имя",
           "success": "Отображаемое имя успешно изменено."
@@ -1383,6 +1395,20 @@
         "selectLanguage": "Выберите язык",
         "title": "Язык"
       },
+      "social": {
+        "blockedUsers": {
+          "count": "{{blocked}} / {{max}}",
+          "description": "Вы не будете видеть сообщения заблокированных пользователей в чате и в играх, и они не смогут отправлять Вам запросы в друзья.",
+          "empty": "Вы никого не заблокировали.",
+          "title": "Заблокированные пользователи"
+        },
+        "notifications": {
+          "description": "Выберите, о каких социальных событиях получать уведомления.",
+          "friendLive": "Уведомлять, когда друг выходит в эфир",
+          "title": "Уведомления"
+        },
+        "title": "Социальное"
+      },
       "title": "Пользователь"
     }
   },
@@ -1446,8 +1472,9 @@
   },
   "twitch": {
     "live": {
+      "avatarTooltip": "В эфире на Twitch",
       "badge": "В эфире",
-      "friendLiveSnackbar": "{{user}} сейчас в эфире на Twitch",
+      "friendLiveNotification": "<0>{{user}}</0> сейчас в эфире на Twitch.",
       "friendLiveWatch": "Смотреть",
       "uptimeHoursMinutes": "{{hours}} ч {{minutes}} мин",
       "uptimeMinutes": "{{minutes}} мин",
