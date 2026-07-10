@@ -260,6 +260,19 @@ anchor composes with — and is orthogonal to — the ingress-slot rebind).
 > belongs to 7080bf9b's re-verify; do NOT relaunch services or drive the Electron clients without
 > claiming them here.
 >
+> **7080bf9b (6:30 PM) — LIVE MATRIX COMPLETE, all four green** on rp2 `27aecbe` (slot-stamp fix)
+> + `137d34c` + `12a8556`, SB `e4e281fcb` (Node restarted on it):
+> **(b) re-run PASS** — 20 s relay suspend at ~7000 turns: both clients re-registered the instant
+> the relay woke, turns resumed at normal cadence (the pre-`27aecbe` run mutually deadlocked right
+> here), no desync, no window errors. Post-blip clean-quit teardown reconciled unknown/unknown via
+> the abandoned-session force-decide — expected under no-auto-drop for a both-sides-forceQuit end,
+> not a failover defect (check (a) already proved the real drop→win path).
+> **(c) PASS** — killed the only relay mid-game: both clients entered the amber "Lost connection
+> to the server, reconnecting…" self-notice (screenshot-verified), DLL→SB rehome asks answered
+> `unavailable` and re-asked every ~20 s indefinitely, no crash, teardown clean.
+> Remaining before landing: findings 2 (coordinator half) + 3 (agent in flight, same rp2 claim),
+> fresh adversarial pass, then the landing sequence.
+>
 > **7080bf9b (3:20 AM) — live matrix on rp2 `137d34c` (ingress-slot fix) + `12a8556`:**
 > **(a) PASS** — 1v1 to ~7400 turns, relay1 killed, re-home to relay2 in ~22 s, BOTH slots resumed
 > (zero window closes — the pre-fix run died 130 ms in), turns flowed 90+ s, then peer hard-killed:
