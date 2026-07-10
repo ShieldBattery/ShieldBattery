@@ -260,6 +260,20 @@ anchor composes with — and is orthogonal to — the ingress-slot rebind).
 > belongs to 7080bf9b's re-verify; do NOT relaunch services or drive the Electron clients without
 > claiming them here.
 >
+> **7080bf9b (7:15 PM) — Codex adversarial pass over rp2 `12a8556..1516260` + SB `e4e281fcb`:
+> 4 majors, all accepted, fixes in flight (rp2 + SB agents, same claims).** (i) lifecycle close
+> never removes the session's descriptor from the `RelayDescriptors` outbox (`remove` is
+> test-only) → a relay reconnecting post-close is re-synced the dead session and re-applies it;
+> (ii) a `rehome` racing a full close can insert a recorded rehome + push descriptors AFTER close
+> cleared them (resurrection window; fix = re-validate membership under the mutation lock, bail
+> Unavailable); (iii) the limiter bucket map is only time-window bounded — unique-garbage-session
+> spray holds O(rate×window) buckets (fix = hard cardinality cap, evict stalest); (iv) SB's cached
+> `newTarget` goes stale on a chained relay death → survivors livelocked onto a dead cached relay
+> (fix = DROP the answer cache, keep in-flight coalescing — the coordinator's recorded answer is
+> liveness-checked + token-free since `1516260`, so the cache is strictly worse than asking).
+> Clean angles: version skew both directions, multi-slot/observer/mesh keying, recorded-rehome
+> fast-path liveness, anchor math incl. oversize redivert staging.
+>
 > **7080bf9b (6:30 PM) — LIVE MATRIX COMPLETE, all four green** on rp2 `27aecbe` (slot-stamp fix)
 > + `137d34c` + `12a8556`, SB `e4e281fcb` (Node restarted on it):
 > **(b) re-run PASS** — 20 s relay suspend at ~7000 turns: both clients re-registered the instant
