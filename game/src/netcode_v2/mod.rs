@@ -109,16 +109,54 @@ pub fn storm_net_key(slot: u8, user_id: SbUserId) -> [u8; 12] {
     key
 }
 
+/// A set of rally-point2 slots, bit `i` set meaning slot `i` is a member. A single-recipient chat
+/// target is just the one-bit mask [`SlotMask::single`] produces; a team-shared-control game's
+/// chat target is the union of the target's and the sender's team slots. Sessions top out at a
+/// handful of slots, so a `u32` is comfortably wide, but every bit operation here is defensive
+/// against a slot at or past that width rather than assuming one never appears.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlotMask(pub u32);
+
+impl SlotMask {
+    /// A mask containing only `slot`.
+    pub fn single(slot: SlotId) -> SlotMask {
+        let mut mask = SlotMask(0);
+        mask.insert(slot);
+        mask
+    }
+
+    /// Whether `slot` is a member of this mask. A `slot` at or past the mask's 32-bit width
+    /// contributes no bit on insert, so it can never be found a member here either — this never
+    /// panics or wraps into matching some unrelated in-range slot.
+    pub fn contains(self, slot: SlotId) -> bool {
+        self.0 & 1u32.checked_shl(slot.0 as u32).unwrap_or(0) != 0
+    }
+
+    /// Adds `slot` to this mask. A `slot` at or past the mask's 32-bit width is silently a no-op
+    /// rather than panicking or wrapping into some unrelated in-range slot's bit.
+    pub fn insert(&mut self, slot: SlotId) {
+        self.0 |= 1u32.checked_shl(slot.0 as u32).unwrap_or(0);
+    }
+
+    /// Whether this mask has no members.
+    pub fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+}
+
 /// The receiver scope a chat message names, decoded from (or encoded to) the wire's
 /// `(target_kind, target_slot)` pair the relay carries opaquely (see
 /// [`rally_point_client::ChatOut`]). Mirrors the scopes SC:R's own `MsgFltr` chat-target dialog
-/// offers: everyone, allies only, observers only, or one named player.
+/// offers: everyone, allies only, observers only, or a named player. In a team-shared-control
+/// game (Team Melee/FFA, Top vs Bottom) the dialog names one representative player for "Team N",
+/// but the actual recipients are every slot on that player's team plus every slot on the sender's
+/// own team, so `Players` carries the whole resolved set rather than a lone slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ChatTarget {
     All,
     Allies,
     Observers,
-    Player(SlotId),
+    Players(SlotMask),
 }
 
 impl ChatTarget {
@@ -128,25 +166,28 @@ impl ChatTarget {
     const WIRE_PLAYER: u32 = 3;
 
     /// Encodes this target as the `(target_kind, target_slot)` pair `ChatOut` carries on the
-    /// wire. `target_slot` is meaningless for anything but `Player`, so it's left `0`.
+    /// wire. `target_slot` is meaningless for anything but `Players`; for `Players` it carries the
+    /// mask's bits directly (bit `i` set means slot `i` is addressed) rather than a single slot
+    /// index, so a lone recipient rides as the one-bit mask [`SlotMask::single`] produces.
     pub fn to_wire(self) -> (u32, u32) {
         match self {
             ChatTarget::All => (Self::WIRE_ALL, 0),
             ChatTarget::Allies => (Self::WIRE_ALLIES, 0),
             ChatTarget::Observers => (Self::WIRE_OBSERVERS, 0),
-            ChatTarget::Player(slot) => (Self::WIRE_PLAYER, slot.0 as u32),
+            ChatTarget::Players(mask) => (Self::WIRE_PLAYER, mask.0),
         }
     }
 
     /// Decodes a wire `(target_kind, target_slot)` pair. An unrecognized `target_kind` (a future
     /// wire addition this build predates, or a non-conforming peer) degrades to `All` rather than
     /// dropping the message: `All` is the one scope the receive-side filter never hides, so it's
-    /// the safe default when the scope itself can't be read.
+    /// the safe default when the scope itself can't be read. For `WIRE_PLAYER`, `target_slot` is
+    /// read as a slot bitmask (bit `i` = slot `i`), not a single slot index.
     pub fn from_wire(target_kind: u32, target_slot: u32) -> ChatTarget {
         match target_kind {
             Self::WIRE_ALLIES => ChatTarget::Allies,
             Self::WIRE_OBSERVERS => ChatTarget::Observers,
-            Self::WIRE_PLAYER => ChatTarget::Player(SlotId(target_slot as u8)),
+            Self::WIRE_PLAYER => ChatTarget::Players(SlotMask(target_slot)),
             _ => ChatTarget::All,
         }
     }
@@ -1023,17 +1064,20 @@ impl TurnState {
         }
     }
 
-    /// The [`ChatTarget::Player`] addressing a single participant by BW storm id, or `None` if the
-    /// storm id maps to no live session slot. The transport carries the rp2 slot, which the receive
-    /// side resolves back to a storm id, so a specific-player chat is addressed by slot here.
+    /// A [`ChatTarget::Players`] single-slot mask addressing one participant by BW storm id, or
+    /// `None` if the storm id maps to no live session slot. The transport carries the rp2 slot,
+    /// which the receive side resolves back to a storm id, so a specific-player chat is addressed
+    /// by slot here.
     pub fn chat_target_for_storm(&self, storm_id: StormPlayerId) -> Option<ChatTarget> {
-        self.slot_for_storm(storm_id).map(ChatTarget::Player)
+        self.slot_for_storm(storm_id)
+            .map(|slot| ChatTarget::Players(SlotMask::single(slot)))
     }
 
     /// The rally-point2 slot mapped to a storm id, if any — the inverse of
     /// [`storm_id_for_slot`](Self::storm_id_for_slot), used to translate a storm-keyed leave back to
-    /// the slot the connectivity stream keys its drops by.
-    fn slot_for_storm(&self, storm_id: StormPlayerId) -> Option<SlotId> {
+    /// the slot the connectivity stream keys its drops by, and to translate the BW player ids of a
+    /// team-shared-control chat target's member slots into the mask [`ChatTarget::Players`] carries.
+    pub fn slot_for_storm(&self, storm_id: StormPlayerId) -> Option<SlotId> {
         self.slot_to_storm
             .iter()
             .position(|&s| s == Some(storm_id))
@@ -2682,7 +2726,7 @@ mod tests {
             ChatTarget::All,
             ChatTarget::Allies,
             ChatTarget::Observers,
-            ChatTarget::Player(PEER_SLOT),
+            ChatTarget::Players(SlotMask::single(PEER_SLOT)),
         ] {
             let (kind, slot) = target.to_wire();
             assert_eq!(ChatTarget::from_wire(kind, slot), target);
@@ -2690,10 +2734,44 @@ mod tests {
     }
 
     #[test]
+    fn chat_target_wire_round_trips_multi_slot_mask() {
+        // A team-shared-control chat target addresses several slots at once; the wire pair must
+        // carry every bit through unchanged, not just a single slot index.
+        let mut mask = SlotMask::single(SlotId(0));
+        mask.insert(SlotId(2));
+        mask.insert(SlotId(5));
+        let target = ChatTarget::Players(mask);
+        let (kind, slot) = target.to_wire();
+        assert_eq!(ChatTarget::from_wire(kind, slot), target);
+    }
+
+    #[test]
     fn chat_target_from_wire_defaults_unrecognized_kinds_to_all() {
         // A future wire addition this build predates, or a malformed peer, must degrade to `All`
         // rather than be mistaken for one of the known scopes.
         assert_eq!(ChatTarget::from_wire(99, 0), ChatTarget::All);
+    }
+
+    #[test]
+    fn slot_mask_tracks_membership_and_ignores_out_of_range_slots() {
+        let mut mask = SlotMask::single(SlotId(3));
+        assert!(mask.contains(SlotId(3)));
+        assert!(!mask.contains(SlotId(4)));
+        assert!(!mask.is_empty());
+
+        mask.insert(SlotId(7));
+        assert!(mask.contains(SlotId(7)));
+
+        // A slot at or past the mask's 32-bit width contributes no bit and matches no bit, rather
+        // than panicking or wrapping into some unrelated in-range slot's bit.
+        mask.insert(SlotId(32));
+        mask.insert(SlotId(255));
+        assert!(!mask.contains(SlotId(32)));
+        assert!(!mask.contains(SlotId(255)));
+
+        let empty = SlotMask(0);
+        assert!(empty.is_empty());
+        assert!(!empty.contains(SlotId(0)));
     }
 
     /// Minimal chat-only harness: builds a `TurnState` with live `chat_out`/`chat_in` channels and
@@ -2749,10 +2827,13 @@ mod tests {
         assert_eq!(sent.target_slot, 0);
         assert_eq!(sent.text, "gg");
 
-        assert!(state.submit_chat(ChatTarget::Player(PEER_SLOT), "hi".to_string()));
+        assert!(state.submit_chat(
+            ChatTarget::Players(SlotMask::single(PEER_SLOT)),
+            "hi".to_string()
+        ));
         let sent = chat_out_rx.try_recv().unwrap();
         assert_eq!(sent.target_kind, 3);
-        assert_eq!(sent.target_slot, PEER_SLOT.0 as u32);
+        assert_eq!(sent.target_slot, SlotMask::single(PEER_SLOT).0);
 
         // Oversize text is truncated to `CHAT_TEXT_CAPACITY` before it ever reaches the driver, on
         // a UTF-8 boundary — every session member injects this into the same fixed-size classic

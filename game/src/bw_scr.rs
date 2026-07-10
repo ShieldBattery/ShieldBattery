@@ -3137,8 +3137,10 @@ impl BwScr {
     /// its sender's BW storm id. Mirrors the scopes the `MsgFltr` chat-target dialog offers (see
     /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows only to a player
     /// currently allied with the sender; `Observers` shows only if the local player is an
-    /// observer; a named `Player` shows only to that one rp2 slot. Anything else is dropped
-    /// silently by the caller.
+    /// observer; `Players` shows only if the local rp2 slot is a member of its mask — a lone
+    /// recipient's mask has one bit, while a team-shared-control game's sender put every slot on
+    /// both the addressed team and its own team into the mask. Anything else is dropped silently
+    /// by the caller.
     unsafe fn chat_target_visible(
         &self,
         sender_storm: StormPlayerId,
@@ -3147,8 +3149,9 @@ impl BwScr {
         unsafe {
             match target {
                 netcode_v2::ChatTarget::All => true,
-                netcode_v2::ChatTarget::Player(slot) => {
-                    netcode_v2::with_turn_state(|s| s.local_slot_id() == slot).unwrap_or(false)
+                netcode_v2::ChatTarget::Players(mask) => {
+                    netcode_v2::with_turn_state(|s| mask.contains(s.local_slot_id()))
+                        .unwrap_or(false)
                 }
                 netcode_v2::ChatTarget::Observers => {
                     BwPlayerId(self.local_unique_player_id.resolve() as u8).is_observer()

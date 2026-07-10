@@ -920,9 +920,11 @@ impl GameState {
                             DebugChatTarget::All => netcode_v2::ChatTarget::All,
                             DebugChatTarget::Allies => netcode_v2::ChatTarget::Allies,
                             DebugChatTarget::Observers => netcode_v2::ChatTarget::Observers,
-                            DebugChatTarget::Player { slot } => netcode_v2::ChatTarget::Player(
-                                rally_point_client::proto::ids::SlotId(slot),
-                            ),
+                            DebugChatTarget::Player { slot } => {
+                                netcode_v2::ChatTarget::Players(netcode_v2::SlotMask::single(
+                                    rally_point_client::proto::ids::SlotId(slot),
+                                ))
+                            }
                         };
                         crate::netcode_v2::with_turn_state(|s| s.debug_queue_chat(target, text));
                         // Fire-and-forget: sent + locally echoed on the game thread's next receive
