@@ -206,7 +206,7 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     expect(r2).toEqual(r1)
   })
 
-  test('serves a later survivor a cached newTarget without a second coordinator call', async () => {
+  test('re-asks the coordinator for a staggered (non-concurrent) newTarget ask', async () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue({ decision: 'newTarget', relay: newTargetRelay })
     asMockedFunction(got.post).mockReturnValue({ json } as any)
@@ -215,9 +215,33 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     const r1 = await service.rehomeSession(42, 7)
     const r2 = await service.rehomeSession(42, 7)
 
-    expect(got.post).toHaveBeenCalledTimes(1)
+    // No terminal answer cache: once the first ask settles, a later survivor asking about the same
+    // dead relay reaches the coordinator again (the recorded-rehome answer is idempotent, token-free
+    // and re-liveness-checked), rather than being handed a possibly-stale cached target.
+    expect(got.post).toHaveBeenCalledTimes(2)
     expect(r1.decision).toBe('newTarget')
     expect(r2).toEqual(r1)
+  })
+
+  test('a later ask re-reaches the coordinator when the replacement relay has itself died', async () => {
+    configureNetcodeV2()
+    // The relay 2 the first ask is sent has since died; the coordinator now moves the group to a
+    // fresh relay 3. A cache would have livelocked survivors on the dead relay 2 forever.
+    // eslint-disable-next-line camelcase
+    const laterTargetRelay = { relay_id: 3, relay_addr: '10.0.0.3:14900', cert_der: RELAY_CERT_DER }
+    const json = vi
+      .fn()
+      .mockResolvedValueOnce({ decision: 'newTarget', relay: newTargetRelay })
+      .mockResolvedValueOnce({ decision: 'newTarget', relay: laterTargetRelay })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const r1 = await service.rehomeSession(42, 7)
+    const r2 = await service.rehomeSession(42, 7)
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+    expect(r1).toMatchObject({ decision: 'newTarget', relay: { relayId: 2 } })
+    expect(r2).toMatchObject({ decision: 'newTarget', relay: { relayId: 3 } })
   })
 
   test('re-asks the coordinator for a transient stay (never cached)', async () => {

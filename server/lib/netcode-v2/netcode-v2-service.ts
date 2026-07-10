@@ -313,13 +313,16 @@ function relayEndpointToInfo(
  * Enabled by setting `SB_RP2_COORDINATOR_URL` (plus `SB_RP2_TENANT`). The relay certificates
  * clients pin come from the coordinator's session response, per relay. When disabled, games load
  * exactly as before.
+ *
+ * Re-home asks are coalesced (see `rehomeInFlight`) but their answers are deliberately never
+ * cached: the coordinator's recorded-rehome path re-checks relay liveness in its registry on every
+ * ask and serves a repeat ask without spending a rate-limit token, so asking again is idempotent,
+ * cheap, and — crucially — always liveness-checked. A cached `newTarget` would go stale the moment
+ * that replacement relay itself dies (a chained relay death): every later survivor would be handed
+ * the now-dead replacement forever, with no coordinator call and no liveness check, livelocking the
+ * client (dial fails -> escalate -> same dead answer). Coalescing alone collapses the simultaneous
+ * burst a single relay death produces, which is the only case the rate limiter cares about.
  */
-/**
- * Cap on the per-`(session, deadRelayId)` re-home target cache. One entry per relay death per live
- * game, evicted oldest-first, so it stays small even across many games without a game-end sweep.
- */
-const REHOME_TARGET_CACHE_MAX = 256
-
 @singleton()
 export class NetcodeV2Service {
   private config = loadConfigFromEnv()
@@ -339,16 +342,6 @@ export class NetcodeV2Service {
    * call; the rest await its in-flight promise. Cleared when that promise settles.
    */
   private rehomeInFlight = new Map<string, Promise<NetcodeV2RehomeResponse>>()
-  /**
-   * Caches the terminal `newTarget` decision per `(session, deadRelayId)`. The coordinator records a
-   * re-home decision idempotently (a repeat ask for the same dead relay returns the identical
-   * replacement), so a survivor arriving after the first one resolved can be answered straight from
-   * here — no coordinator round trip, no rate-limit token. Only `newTarget` is cached: `stay` and
-   * `unavailable` are transient (a relay can die after a `stay`; an `unavailable` clears once a
-   * replacement enrolls), so those always re-ask. Size-capped (oldest-first eviction) so it can't
-   * grow without bound the way the coordinator bucket it relieves would.
-   */
-  private rehomeTargets = new Map<string, NetcodeV2RehomeResponse>()
 
   isEnabled(): boolean {
     return !!this.config
@@ -518,10 +511,6 @@ export class NetcodeV2Service {
   async rehomeSession(session: number, deadRelayId: number): Promise<NetcodeV2RehomeResponse> {
     const key = `${session}:${deadRelayId}`
 
-    const cached = this.rehomeTargets.get(key)
-    if (cached) {
-      return cached
-    }
     const inFlight = this.rehomeInFlight.get(key)
     if (inFlight) {
       return await inFlight
@@ -530,25 +519,10 @@ export class NetcodeV2Service {
     const promise = this.requestCoordinatorRehome(session, deadRelayId)
     this.rehomeInFlight.set(key, promise)
     try {
-      const response = await promise
-      if (response.decision === 'newTarget') {
-        this.cacheRehomeTarget(key, response)
-      }
-      return response
+      return await promise
     } finally {
       this.rehomeInFlight.delete(key)
     }
-  }
-
-  /** Records a terminal `newTarget` decision, evicting the oldest entry past the cap. */
-  private cacheRehomeTarget(key: string, response: NetcodeV2RehomeResponse): void {
-    if (this.rehomeTargets.size >= REHOME_TARGET_CACHE_MAX) {
-      const oldest = this.rehomeTargets.keys().next().value
-      if (oldest !== undefined) {
-        this.rehomeTargets.delete(oldest)
-      }
-    }
-    this.rehomeTargets.set(key, response)
   }
 
   private async requestCoordinatorRehome(
