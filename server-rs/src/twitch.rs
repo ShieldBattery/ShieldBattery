@@ -92,14 +92,15 @@ const RECONCILE_STARTUP_DELAY: Duration = Duration::from_secs(5);
 /// kick a reconcile immediately; this backstop catches ones we never received (e.g. delivered
 /// while the callback was unreachable) and any other subscription drift.
 const SUBSCRIPTION_RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
-/// How often the periodic refresh re-checks currently-live streamers against Twitch (refreshing
-/// their stats and clearing anyone who is no longer live).
+/// How often the periodic refresh reconciles every linked broadcaster against Twitch (refreshing
+/// stats for those live, clearing anyone no longer live, and picking up streams whose `stream.online`
+/// event was lost).
 const LIVE_REFRESH_INTERVAL: Duration = Duration::from_secs(120);
 /// How many times we poll Twitch's Get Streams after a `stream.online` event before concluding the
 /// broadcaster isn't really live. Twitch's Get Streams endpoint routinely lags the `stream.online`
 /// notification by a few seconds, so a single `None` result would otherwise drop a stream that is
-/// really coming online -- and the periodic refresh only re-checks users already marked live, so it
-/// wouldn't recover it until the next transition.
+/// really coming online. These retries keep the common case fast; a stream dropped here would
+/// otherwise stay invisible until the periodic refresh's next pass (up to `LIVE_REFRESH_INTERVAL`).
 const STREAM_ONLINE_LOOKUP_ATTEMPTS: u32 = 4;
 /// Delay between the Get Streams polls counted by `STREAM_ONLINE_LOOKUP_ATTEMPTS`.
 const STREAM_ONLINE_LOOKUP_RETRY_DELAY: Duration = Duration::from_secs(2);
@@ -453,6 +454,42 @@ impl TwitchClient {
             streams.extend(page.data);
         }
         Ok(streams)
+    }
+
+    /// Looks up Twitch users by their stable ids, batched into Twitch's 100-ids-per-request limit.
+    /// Ids Twitch no longer knows (deleted/banned accounts) are simply absent from the result.
+    async fn get_users_by_id(&self, ids: &[String]) -> eyre::Result<Vec<HelixUser>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        // Unlike `get_authenticated_user` (which resolves the token owner's own identity from a user
+        // access token), this looks up arbitrary users by id, which requires the app token.
+        let token = self.app_token().await?;
+        let mut users = Vec::new();
+        for chunk in ids.chunks(100) {
+            let params: Vec<(&str, &str)> = chunk.iter().map(|id| ("id", id.as_str())).collect();
+            let url = Url::parse_with_params(TWITCH_HELIX_USERS_URL, &params)
+                .wrap_err("Failed to build Twitch get-users URL")?;
+            let resp = self
+                .http
+                .get(url)
+                .header("Client-Id", &self.client_id)
+                .bearer_auth(&token)
+                .send()
+                .await
+                .wrap_err("Failed to get Twitch users")?;
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let text = resp.text().await.unwrap_or_default();
+                return Err(eyre!("Twitch get-users failed ({status}): {text}"));
+            }
+            let page: HelixUsersResponse = resp
+                .json()
+                .await
+                .wrap_err("Failed to parse Twitch users response")?;
+            users.extend(page.data);
+        }
+        Ok(users)
     }
 
     /// Ensures the online+offline subscriptions exist for a broadcaster, returning the ids that were
@@ -879,6 +916,31 @@ async fn upsert_connection(
     .await
 }
 
+/// Updates the stored login/display name of whichever connection currently holds this Twitch
+/// account, if any. A plain UPDATE (rather than the link-time upsert) so that an unlink racing an
+/// in-flight identity refresh can't have its deleted connection re-inserted.
+async fn update_connection_identity(
+    pool: &PgPool,
+    twitch_user_id: &str,
+    twitch_login: &str,
+    twitch_display_name: &str,
+) -> eyre::Result<()> {
+    sqlx::query!(
+        r#"
+            UPDATE twitch_connections
+            SET twitch_login = $2, twitch_display_name = $3, updated_at = now()
+            WHERE twitch_user_id = $1
+        "#,
+        twitch_user_id,
+        twitch_login,
+        twitch_display_name,
+    )
+    .execute(pool)
+    .await
+    .wrap_err("Failed to update Twitch connection identity")?;
+    Ok(())
+}
+
 async fn update_subscription_ids(
     pool: &PgPool,
     user_id: SbUserId,
@@ -1069,11 +1131,12 @@ impl TwitchMutation {
             .get(&key)
             .await
             .wrap_err("Failed to read Twitch link state")?;
-        let _: () = redis
-            .del(&key)
-            .await
-            .wrap_err("Failed to clear Twitch link state")?;
 
+        // Only delete the state once we've confirmed it belongs to the caller -- otherwise anyone
+        // who learns another flow's `state` value (e.g. from a shared link/log) could invalidate
+        // that pending link just by calling this with their own session. The GET-then-DEL here isn't
+        // atomic, but that's fine: if two of the owner's own requests race, the loser just fails the
+        // single-use code exchange at Twitch instead of the state check.
         let pending = stored
             .and_then(|s| serde_json::from_str::<PendingLink>(&s).ok())
             .filter(|p| p.user_id == i32::from(user.id));
@@ -1083,6 +1146,10 @@ impl TwitchMutation {
                 "Your Twitch linking request was invalid or expired. Please try again.",
             ));
         };
+        let _: () = redis
+            .del(&key)
+            .await
+            .wrap_err("Failed to clear Twitch link state")?;
 
         let access_token = client
             .exchange_code(&code, &pending.redirect_uri)
@@ -1308,10 +1375,10 @@ async fn handle_notification(
 /// Ordering caveat: notifications are handled in independently-spawned tasks, so a `stream.offline`
 /// processed during this handler's retry window can be overwritten afterwards if Get Streams still
 /// reports the just-ended stream (it lags on the way down too), leaving a ghost "live" entry. This
-/// is accepted: the periodic refresh clears it within `LIVE_REFRESH_INTERVAL`, while guarding here
-/// (e.g. skipping the write after a recent offline) would risk suppressing a genuine rapid
-/// re-online -- a worse state, since the refresh loop only reconciles users already tracked as
-/// live and thus would never recover it.
+/// is accepted: guarding here (e.g. skipping the write after a recent offline) would risk
+/// suppressing a genuine rapid re-online -- a worse state, since the periodic refresh reconciles
+/// every linked broadcaster and so corrects either a ghost "live" entry or a wrongly-suppressed one
+/// within `LIVE_REFRESH_INTERVAL`.
 async fn handle_stream_online(
     client: &TwitchClient,
     redis: &RedisPool,
@@ -1362,13 +1429,17 @@ async fn refresh_stream_state(
     }
 }
 
-/// Periodically reconciles the `twitch:live` Redis hash with Twitch: refreshes viewer counts/titles
-/// for streamers still live and, crucially, clears entries for anyone who is no longer live (a
-/// safety net for a missed `stream.offline` event, which would otherwise pin them "live" forever).
-/// It also clears entries that no longer correspond to a current connection: an unlink racing an
-/// in-flight `stream.online` handler, or a failed offline write during unlink, can leave an entry
-/// that no EventSub subscription remains to clear, and Twitch-side reconciliation alone would keep
-/// it fresh for as long as the broadcaster keeps streaming.
+/// Periodically reconciles the `twitch:live` Redis hash against Twitch for every linked broadcaster,
+/// not just those already marked live: refreshes viewer counts/titles for streamers who are live,
+/// clears entries for anyone who is no longer live (a safety net for a missed `stream.offline`
+/// event, which would otherwise pin them "live" forever), and recovers streams whose `stream.online`
+/// handling was lost entirely (e.g. a process crash after the webhook was acked, or a persistent
+/// Twitch/Redis failure that outlasted `handle_stream_online`'s retries) -- those would otherwise
+/// stay invisible until the broadcaster's next transition. It also drops entries that no longer
+/// correspond to a current connection: an unlink racing an in-flight `stream.online` handler, or a
+/// failed offline write during unlink, can leave an entry that no EventSub subscription remains to
+/// clear, and Twitch-side reconciliation alone would keep it fresh for as long as the broadcaster
+/// keeps streaming.
 pub async fn refresh_live_streams_loop(client: Arc<TwitchClient>, db: PgPool, redis: RedisPool) {
     let mut interval = tokio::time::interval(LIVE_REFRESH_INTERVAL);
     loop {
@@ -1384,11 +1455,6 @@ async fn refresh_all_live_streams(
     db: &PgPool,
     redis: &RedisPool,
 ) -> eyre::Result<()> {
-    let live = load_live_streams(redis).await?;
-    if live.is_empty() {
-        return Ok(());
-    }
-
     // user_id -> currently linked Twitch user id, for everyone with a connection right now.
     let connections: HashMap<SbUserId, String> = load_all_connections(db)
         .await?
@@ -1396,24 +1462,31 @@ async fn refresh_all_live_streams(
         .map(|conn| (conn.user_id, conn.twitch_user_id))
         .collect();
 
-    // broadcaster_user_id -> our SB user id, for everyone we currently believe is live. An entry
-    // can be orphaned if an unlink raced an in-flight stream.online handler (or the offline write
-    // on unlink failed): no subscription remains to clear it, and since Twitch still reports the
-    // broadcaster live, leaving it in would keep it pinned live for the rest of the stream. Drop
-    // those here instead, checking against who's actually linked right now.
-    let mut by_broadcaster: HashMap<String, SbUserId> = HashMap::new();
+    let live = load_live_streams(redis).await?;
+
+    // An entry can be orphaned if an unlink raced an in-flight stream.online handler (or the
+    // offline write on unlink failed): no subscription remains to clear it, and since Twitch still
+    // reports the broadcaster live, leaving it in would keep it pinned live for the rest of the
+    // stream. Drop those here instead, checking against who's actually linked right now. Everyone
+    // else we remember as already tracked, so we only issue an offline write below for entries that
+    // actually need clearing.
+    let mut tracked_live: HashSet<SbUserId> = HashSet::new();
     for (user_id, summary) in live {
         if connections.get(&user_id) == Some(&summary.twitch_user_id) {
-            by_broadcaster.insert(summary.twitch_user_id, user_id);
+            tracked_live.insert(user_id);
         } else {
             set_stream_offline(redis, user_id).await?;
         }
     }
-    if by_broadcaster.is_empty() {
+    if connections.is_empty() {
         return Ok(());
     }
-    let broadcaster_ids: Vec<String> = by_broadcaster.keys().cloned().collect();
 
+    // Check every linked broadcaster, not just those already tracked as live: this is what recovers
+    // a stream whose `stream.online` handling was lost entirely (a crash after the webhook was
+    // acked, or a persistent failure that outlasted the retry loop) instead of leaving it invisible
+    // until the broadcaster's next transition.
+    let broadcaster_ids: Vec<String> = connections.values().cloned().collect();
     let live_now: HashMap<String, StreamInfo> = client
         .get_streams(&broadcaster_ids)
         .await?
@@ -1421,17 +1494,22 @@ async fn refresh_all_live_streams(
         .map(|stream| (stream.user_id.clone(), stream))
         .collect();
 
-    for (broadcaster_id, sb_user_id) in by_broadcaster {
-        match live_now.get(&broadcaster_id) {
+    for (user_id, twitch_user_id) in &connections {
+        match live_now.get(twitch_user_id) {
             Some(stream) => {
                 set_stream_live(
                     redis,
-                    sb_user_id,
+                    *user_id,
                     &LiveStreamSummary::from_stream(stream.clone()),
                 )
                 .await?;
             }
-            None => set_stream_offline(redis, sb_user_id).await?,
+            // Only clear entries we're actually tracking so we don't issue an HDEL per offline
+            // connection every pass.
+            None if tracked_live.contains(user_id) => {
+                set_stream_offline(redis, *user_id).await?;
+            }
+            None => {}
         }
     }
 
@@ -1505,9 +1583,9 @@ async fn eventsub_callback(
             // several seconds); doing that before responding would hold Twitch's connection open the
             // whole time, and Twitch treats a slow webhook response as a delivery failure -- disabling
             // the subscription after repeated ones. The retry loop covers transient lag/errors, the
-            // periodic refresh keeps already-tracked live entries fresh (and clears missed offlines),
-            // and the dedupe check above drops duplicate deliveries. A persistent failure here is
-            // logged and self-heals on the broadcaster's next transition.
+            // periodic refresh reconciles every linked broadcaster (fresh stats, missed offlines, and
+            // lost onlines alike), and the dedupe check above drops duplicate deliveries. A
+            // persistent failure here is logged and self-heals within one periodic-refresh pass.
             let client = client.clone();
             let db = db.clone();
             let redis = redis.clone();
@@ -1539,9 +1617,10 @@ async fn eventsub_callback(
 
 /// Reconciles our EventSub subscriptions with Twitch: recreates any that Twitch dropped or that
 /// failed verification, and deletes orphans left over from unlinks that happened while we were
-/// down. Runs a boot pass, then keeps running -- a revocation kicks an immediate pass, and a
-/// periodic backstop interval catches any drift a kick missed. Logs and swallows errors -- this is
-/// best-effort maintenance.
+/// down. Also refreshes stored login/display names for accounts Twitch reports as renamed. Runs a
+/// boot pass, then keeps running -- a revocation kicks an immediate pass, and a periodic backstop
+/// interval catches any drift a kick missed. Logs and swallows errors -- this is best-effort
+/// maintenance.
 pub async fn reconcile_subscriptions_loop(client: Arc<TwitchClient>, db: PgPool) {
     tokio::time::sleep(RECONCILE_STARTUP_DELAY).await;
     // The first tick completes immediately, giving the boot pass. After that, a pass runs whenever
@@ -1559,6 +1638,8 @@ pub async fn reconcile_subscriptions_loop(client: Arc<TwitchClient>, db: PgPool)
     }
 }
 
+/// Reconciles our EventSub subscriptions with Twitch (see `reconcile_subscriptions_loop`), then
+/// refreshes stored Twitch identities for renamed accounts.
 async fn try_reconcile_subscriptions(client: &TwitchClient, db: &PgPool) -> eyre::Result<()> {
     let connections = load_all_connections(db).await?;
     let existing_subs = client.list_subscriptions().await?;
@@ -1639,6 +1720,57 @@ async fn try_reconcile_subscriptions(client: &TwitchClient, db: &PgPool) -> eyre
             && let Err(e) = update_subscription_ids(db, conn.user_id, &healthy_ids).await
         {
             error!("Failed to persist reconciled Twitch subscription ids: {e:?}");
+        }
+    }
+
+    // Best-effort: a failure here shouldn't count against the subscription reconciliation this pass
+    // already did.
+    if let Err(e) = refresh_connection_identities(client, db, &connections).await {
+        error!("Failed to refresh Twitch identities: {e:?}");
+    }
+
+    Ok(())
+}
+
+/// Refreshes the stored Twitch login/display names for the given connections. Twitch accounts can
+/// be renamed while their numeric id stays stable, and we otherwise only capture names at link
+/// time, leaving profile links/labels stale. Accounts Twitch no longer returns keep their
+/// last-known names.
+async fn refresh_connection_identities(
+    client: &TwitchClient,
+    db: &PgPool,
+    connections: &[TwitchConnection],
+) -> eyre::Result<()> {
+    if connections.is_empty() {
+        return Ok(());
+    }
+
+    let ids: Vec<String> = connections
+        .iter()
+        .map(|c| c.twitch_user_id.clone())
+        .collect();
+    let by_id: HashMap<String, HelixUser> = client
+        .get_users_by_id(&ids)
+        .await?
+        .into_iter()
+        .map(|u| (u.id.clone(), u))
+        .collect();
+
+    for conn in connections {
+        let Some(user) = by_id.get(&conn.twitch_user_id) else {
+            continue;
+        };
+        if user.login == conn.twitch_login && user.display_name == conn.twitch_display_name {
+            continue;
+        }
+        if let Err(e) =
+            update_connection_identity(db, &conn.twitch_user_id, &user.login, &user.display_name)
+                .await
+        {
+            error!(
+                "Failed to refresh Twitch identity for user {}: {e:?}",
+                conn.user_id
+            );
         }
     }
 
