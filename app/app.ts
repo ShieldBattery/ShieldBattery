@@ -263,7 +263,8 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
   return new Promise<TwitchOauthFlowResult>(resolve => {
     let settled = false
     let timeout: ReturnType<typeof setTimeout> | undefined
-    // Track live connections so we can forcibly tear them down when the flow finishes.
+    // Track live connections so we can forcibly tear them down when the flow finishes. Shared by
+    // both servers below, since either one might accept the browser's callback connection.
     const sockets = new Set<Socket>()
 
     const finish = (result: TwitchOauthFlowResult) => {
@@ -275,6 +276,11 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
         clearTimeout(timeout)
       }
       server.close()
+      // serverV6 may never have started listening at all (IPv6 unavailable, port already held,
+      // etc.), and closing a server that never listened reports an ERR_SERVER_NOT_RUNNING error
+      // through its close callback. Pass a no-op callback so that's swallowed here instead of
+      // going anywhere it could crash or spam logs.
+      serverV6.close(() => {})
       // server.close() stops accepting new connections but leaves already-open ones intact -- the
       // external browser holds its callback connection open with keep-alive (and may open a stray
       // favicon connection too). While any socket is still bound to the fixed loopback port, a
@@ -287,7 +293,9 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
       resolve(result)
     }
 
-    const server = http.createServer((req, res) => {
+    // Handles the redirect request on whichever loopback server (IPv4 or IPv6) receives it.
+    // Factored out so both servers below run the exact same logic.
+    const handleCallbackRequest = (req: http.IncomingMessage, res: http.ServerResponse) => {
       const requestUrl = new URL(req.url ?? '/', `http://127.0.0.1:${port}`)
       const state = requestUrl.searchParams.get('state')
       // Ignore stray hits (favicon fetches, port scans, an unrelated tab); only the redirect
@@ -309,20 +317,50 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
           errorDescription: requestUrl.searchParams.get('error_description') ?? undefined,
         })
       })
-    })
+    }
 
-    server.on('connection', socket => {
+    // Adds a connection's socket to the shared set above so finish() can tear it down. Attached to
+    // both servers so a connection accepted by either one is tracked.
+    const onConnection = (socket: Socket) => {
       sockets.add(socket)
       socket.on('close', () => {
         sockets.delete(socket)
       })
-    })
+    }
 
+    // The primary server: IPv4 loopback. This one drives the flow -- its listen callback starts
+    // the timeout and opens the browser, and its error handler fails the whole flow.
+    const server = http.createServer(handleCallbackRequest)
+    server.on('connection', onConnection)
     server.on('error', err => {
       finish({ error: 'server_failed', errorDescription: getErrorStack(err) })
     })
 
-    // Bind loopback-only so the callback isn't reachable from the network.
+    // A second, best-effort server on the IPv6 loopback address (see the comment at the `listen`
+    // calls below for why). Nothing about the flow waits on or is gated by this server: it's not
+    // involved in settling the promise except via the shared `handleCallbackRequest`/`sockets`
+    // above, should the browser happen to connect to it instead of the IPv4 one.
+    const serverV6 = http.createServer(handleCallbackRequest)
+    serverV6.on('connection', onConnection)
+    serverV6.on('error', err => {
+      // Non-fatal: this server is a nice-to-have, not a requirement. Bind failures here are
+      // expected on systems where IPv6 is disabled or unavailable (EAFNOSUPPORT, EADDRNOTAVAIL),
+      // and can also happen if a lingering socket from a previous run is still holding the port
+      // (EADDRINUSE). Either way, the flow continues IPv4-only.
+      logger.warning(
+        `Failed to bind the IPv6 loopback for the Twitch OAuth callback, continuing ` +
+          `IPv4-only: ${getErrorStack(err)}`,
+      )
+    })
+
+    // Bind loopback-only so the callback isn't reachable from the network. We bind both loopback
+    // stacks because the redirect_uri's host is `localhost` (Twitch only allows plain-http
+    // redirect URLs for the literal `localhost` host, so we can't pin this to 127.0.0.1 instead),
+    // and on some systems -- e.g. a hosts file that maps `localhost` only to `::1` -- that resolves
+    // to the IPv6 loopback address rather than the IPv4 one. Binding both means the browser reaches
+    // us whichever address it resolves `localhost` to and picks. The IPv6 bind is strictly
+    // best-effort (see its `error` handler above): only the IPv4 server's listen callback below
+    // starts the timeout and opens the browser, so systems without IPv6 work exactly as before.
     server.listen(port, '127.0.0.1', () => {
       timeout = setTimeout(() => {
         finish({
@@ -335,6 +373,7 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
         finish({ error: 'open_failed', errorDescription: getErrorStack(err) })
       })
     })
+    serverV6.listen(port, '::1')
   })
 }
 
