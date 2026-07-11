@@ -15,6 +15,7 @@ import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
 import { addMiddleware as fileStoreMiddleware, setStore } from './lib/files'
 import AwsStore from './lib/files/aws'
 import LocalFileStore from './lib/files/local-filesystem'
+import { GameServerRegionsService } from './lib/game-server-regions/game-server-regions-service'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
@@ -207,6 +208,11 @@ const rallyPointInitPromise = rallyPointService.initialize(
   routeCreatorConfig.port,
   process.env.SB_RALLY_POINT_SECRET,
 )
+
+// Resolved (not initialized) here only so its constructor registers the electron client
+// subscription before any client connects. Fetching the region list itself is demand-driven and
+// deliberately untouched by server startup -- see the class doc comment.
+container.resolve(GameServerRegionsService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)

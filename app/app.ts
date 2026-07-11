@@ -25,6 +25,7 @@ import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
+import { GameServerRegionList } from './game-server-regions/region-list'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
@@ -909,6 +910,12 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
+
+  const gameServerRegionList = container.resolve(GameServerRegionList)
+
+  ipcMain.on('gameServerRegionsSetList', (event, regions) => {
+    gameServerRegionList.setRegions(regions)
+  })
 
   const rallyPointManager = container.resolve(RallyPointManager)
 

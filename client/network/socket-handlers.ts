@@ -42,6 +42,22 @@ function networkStatusHandler({
     })
 }
 
+function gameServerRegionsHandler({
+  siteSocket,
+  ipcRenderer,
+}: {
+  siteSocket: NydusClient
+  ipcRenderer: TypedIpcRenderer
+}) {
+  siteSocket.registerRoute('/gameServerRegions', (route, event) => {
+    if (event.type === 'fullUpdate') {
+      ipcRenderer.send('gameServerRegionsSetList', event.regions)
+    } else {
+      logger.warning(`got unknown game server regions event type: ${event.type}`)
+    }
+  })
+}
+
 function rallyPointHandler({
   siteSocket,
   ipcRenderer,
@@ -108,6 +124,7 @@ function rallyPointHandler({
 
 const envSpecificHandlers = IS_ELECTRON
   ? [
+      gameServerRegionsHandler,
       rallyPointHandler,
       require('../active-game/socket-handlers').default,
       require('../download/ipc-handlers').default,

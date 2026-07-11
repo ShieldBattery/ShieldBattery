@@ -7,6 +7,7 @@ import type {
 } from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
+import { GameServerRegion } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
@@ -212,6 +213,8 @@ interface IpcInvokeables {
 /** Events that can be sent from the renderer process to the main process. */
 interface IpcRendererSendables {
   chatNewMessage: (data: { urgent: boolean }) => void
+
+  gameServerRegionsSetList: (regions: GameServerRegion[]) => void
 
   networkSiteConnected: () => void
 
