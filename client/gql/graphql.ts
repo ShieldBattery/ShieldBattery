@@ -206,7 +206,6 @@ export type AdminNewsHistoryQuery = {
       coverImagePath: string | null
       editedAt: string
       editor: { id: Types.SbUserId; name: string } | null
-      author: { id: Types.SbUserId; name: string } | null
     }>
   } | null
 }
@@ -2032,17 +2031,6 @@ export const AdminNewsHistoryDocument = {
                       {
                         kind: 'Field',
                         name: { kind: 'Name', value: 'editor' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-                          ],
-                        },
-                      },
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'author' },
                         selectionSet: {
                           kind: 'SelectionSet',
                           selections: [

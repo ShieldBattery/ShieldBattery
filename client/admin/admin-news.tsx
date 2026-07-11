@@ -90,10 +90,6 @@ const AdminNewsHistoryQuery = graphql(/* GraphQL */ `
           id
           name
         }
-        author {
-          id
-          name
-        }
       }
     }
   }
@@ -683,7 +679,9 @@ function AdminNewsEdit({ params: { id } }: { params: { id: string } }) {
     )
   }
 
-  return <NewsEditor post={post} />
+  // Keyed by id so switching directly between two edit pages (e.g. via history) remounts the
+  // editor instead of keeping the previous post's form state.
+  return <NewsEditor key={post.id} post={post} />
 }
 
 type EditablePost = NonNullable<ResultOf<typeof AdminNewsPostQuery>['newsPost']>
