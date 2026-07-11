@@ -1,441 +1,403 @@
-# ShieldBattery Netcode v2 — Build Plan (rev 3)
+# ShieldBattery Netcode v2 — Build Plan (rev 5)
 
-> **Purpose.** A high-level, sequenced task breakdown for building netcode v2 end-to-end: from
-> the in-game seam to a shippable, full-architecture relay platform. Synthesizes the two source
-> docs and the build decisions made 2026-06-23.
+> **Purpose.** Originally the sequenced task breakdown for building netcode v2 end-to-end. As of
+> rev 5 the integration arc is **built, live-proven, and landed** — this doc is now (a) a status
+> ledger for the original decisions and (b) the plan for what remains, which is essentially the
+> **productionization arc**: cloud substrate, region selection, security hardening, and the
+> platform features deferred past the loopback milestone.
 >
-> **rev 2 (2026-06-23):** hardened by a six-lens adversarial review (transport, game-seam,
-> mesh/failure-modes, AWS/cost, security, plan-coherence). Its findings are folded into the
-> decisions, workstreams, and phases below; the few still-open items live in §6. Two findings
-> reversed earlier choices: GA custom routing is a dead-end (now dropped, §D3) and the multi-tenant
-> coordinator now isolates production (§D2).
+> **Design detail lives in [`rally-point2/docs/architecture.md`](../rally-point2/docs/architecture.md)**
+> (the living design doc — transport model, mesh, failover, latency buffer, coordinator, session
+> lifecycle, and the "why not a standard reliable-ordered protocol" rationale). This doc
+> deliberately no longer duplicates it. The original source docs are gone: the SC:R seam guide
+> (`scr-netcode-replacement-guide.md`) and the integration tracker (`docs/netcode-v2.md`) were
+> both deleted once embodied in code — git history has them if ever needed.
 >
-> **rev 3 (2026-06-24):** folds in rally-point2 Phase-0 build decisions. Added the shared
-> **`transport` crate** (§5) and decision **D12** (replace Storm's UDP transport wholesale).
-> Clarified that the transport keys delivery on a per-link `seq` (Storm's own model), distinct from
-> any game-frame coordinate a higher layer (D9, open) might use. *(Superseded by rev 4 — the
-> per-link restamp was replaced with a client-assigned origin identity preserved end-to-end.)*
->
-> **rev 4 (2026-06-28):** reverses the rev-3 per-link seq model. The payload `seq` is now the
-> turn's **origin identity** — assigned once by the sending client (the sole authority for its
-> own slot's production order) and preserved end-to-end across every hop, never restamped per
-> link. Each slot carries its own monotonic seq space starting at 0, so the dedup/ack/retirement
-> key is `(slot, seq)`, not `seq` alone. Rationale: restamping at the relay would require holding
-> out-of-order turns until contiguous to stamp a game-order seq — violating the
-> forward-immediately invariant (a turn is fanned out the moment it validates, never buffered to
-> reorder first). Only the sending client knows production order; the relay only sees arrival
-> order. The ack-beacon frame correspondingly carries a `(slot, cursor)` pair. ALPN bumped
-> `rp2/3 → rp2/4`. D12 updated to reflect the new model.
->
-> - **Game seam** — [`scr-netcode-replacement-guide.md`](scr-netcode-replacement-guide.md)
->   (corrected against the binary 2026-06-23; ⚠️ markers flag the fixes).
-> - **Infrastructure brief** — the "Netcode v2 Architecture Brief."
->
-> Altitude: workstreams, phases, milestones — not file-level steps. Each phase ends in something
-> demonstrable.
+> **Rev history:** rev 2 (2026-06-23) six-lens adversarial review; rev 3 (2026-06-24) shared
+> `transport` crate + D12; rev 4 (2026-06-28) per-slot origin seq model (client-assigned,
+> preserved end-to-end); **rev 5 (2026-07-10)** post-landing synthesis — statuses below verified
+> against the actual code, not assumed.
 
 ---
 
-## 0. Decisions
+## 0. Where it stands (2026-07-10)
 
-D1–D8 settled first; D9–D11 added by the rev-2 review; D12 by rev-3 build work.
+**The arc landed on master 2026-07-09.** v2 IS the netcode: the v1 rally-point path, Storm's UDP
+transport, and the ClientReady/startWhenReady machinery are deleted (~4000 lines); there is no
+native-transport fallback by design. SB pins `rally-point2:client` at `daaef455af21`; ALPN is
+`rp2/5` (client) / `rp2-mesh/4` (mesh).
 
-| # | Decision | Consequence |
+Live-proven on the loopback stack across the full acceptance matrix: every game mode (melee, FFA,
+Team Melee/FFA, TvB, UMS scenarios, observers, solo-sessionless, replays), chat with all scopes
+(including team-addressed chat in team-force modes), synced leaves + manual-drop UX, same-relay
+reconnect blips, **relay-death re-home mid-game** (the Phase 2 "kill a relay → game survives"
+milestone), results-through-relay → signed webhooks → server-side raw-results scoring, and
+relay-side desync detection.
+
+**Nothing runs in the cloud yet.** Everything below the loopback line — Fargate, regions, prod and
+staging fleets, DDoS posture, coordinator HA — is unbuilt. That is the remaining plan (§3).
+
+---
+
+## 1. Decisions ledger
+
+The original D1–D12, each with its verified status.
+
+| # | Decision (abbreviated) | Status |
 |---|---|---|
-| **D1** | **QUIC turn data-plane lives in the game DLL.** BW's three hooks run on the **game/sync thread**; the quinn QUIC client runs on the DLL's **Tokio thread**; they are joined by a **bounded lock-free handoff** with an explicit turn-buffer ownership model. | "No IPC on the hot path" means no cross-*process* IPC (the Electron app stays control-plane only) — there *is* an in-process cross-thread boundary, and it carries buffer-lifetime + hook-reentrancy hazards that are first-class design work. |
-| **D2** | **Coordinator is a standalone Rust service; production is isolated.** Prod runs its **own** coordinator + signing key + relay fleet. **One shared** coordinator (+ fleet) serves **staging + developers only**. | Matchmaking/lobby stays in the per-tenant app server (Node `server/`); the coordinator only finds/spins up relays. Per-tenant signing keys throughout (D6). Prod never shares fate with external devs. |
-| **D3** | **v1 substrate = AWS Fargate + scale-to-zero + region beacons, with DIRECT dual-stack relay public IPs. No Global Accelerator.** | GA custom routing is IPv4-only *and* EC2-only — incompatible with Fargate/IPv6, so it's dropped. Backbone benefit is on the `S===S` hop only (no anycast last-mile). IPv6-primary client ingress is now viable. Per-game relay IP rotation becomes a real DDoS lever. |
-| **D4** | **Design for observation; defer the spectator client.** Whether the relay persists (and replicates) a per-game turn log is **open, not settled** (cost unmodeled). | The relay is command-aware (it parses turns to validate, D10), so a turn log is *feasible* — but persisting one from day one and replicating it across the mesh is **not assumed**: the per-concurrent-game storage + replication cost needs a real model first (this is the failover question, D11). *If* such a log exists, failover and observer catch-up would share one "replay from cursor X" primitive — contingent on the failover design, not a given. No spectator/late-join UI this effort. |
-| **D5** | **Environment-isolated relay fleets.** Prod fleet isolated (own coordinator, D2). Shared **staging** fleet serves SB staging + trusted devs (scale-to-zero ≈ free). Untrusted devs run a **fully local** coordinator+relay loopback (never touches the shared coordinator/fleet). | Coordinator provisions per fleet; the local-dev path is a self-contained mini-coordinator (not "no coordinator"), so the dev config still exercises tokens/leaves/consensus. |
-| **D6** | **Per-tenant signing keys + authenticated relay enrollment.** Each app server has a keypair registered with its coordinator; **each tenant has its own signing key** (not one global key); tokens carry a `kid` and are **bound to the client's QUIC connection**. The **app (Electron) generates the client's per-session Ed25519 keypair** and requests a token embedding the public key *before* the game launches — the game DLL receives `{token, private_key, relay_addr}` at launch handoff and proves key possession to the relay via a challenge-response **bound to the connection's TLS channel** (an RFC 5705 keying-material exporter folded into the signed challenge) after QUIC connect. Relays authenticate at phone-home via a coordinator-injected bootstrap secret. | Authorize/revoke/attribute per tenant; key compromise is contained to one tenant; a stolen bearer token is useless off its connection (no private key); the channel binding stops a relay the client trusts but that is malicious or mis-selected from forwarding the token and replaying the client's signature onto a different session it holds; a rogue relay can't register and MITM. App-driven keypair generation avoids a game-startup→coordinator round-trip on the load-time path. |
-| **D7** | **Region selection uses GameLift's public UDP ping beacons** — with ICMP-to-relay-region as a **first-class** fallback. | Free and independent of scale-to-zero relays, but newer (GA'd 2025-06), rate-limited (3 TPS/sender), no China, and beacon coverage must be verified against lit regions. Cache aggressively; don't hard-depend. |
-| **D8** | **Observability is first-class, built from day one.** Per-game **flight recorder** (turn stream + per-link health + events) keyed by `tenant/session/slot/turn`; the command-aware relay is the server-side vantage point. | Diagnostic data exists even when the client can't report it. Caveats: the correlation key isn't fully populated until the coordinator exists (Phase 3) — earlier phases use a placeholder; and the **flush-to-durable-store before scale-to-zero teardown** is a *design* requirement, not an afterthought. |
-| **D9** | **Runtime latency-buffer authority = the relays, NOT the coordinator.** The coordinator sets *bounds* at setup; a relay decides the live buffer size and adjusts it as conditions change. | The relays sit in a fixed priority order; the highest still in the game (serving live players) is the decision-maker — it picks the buffer and broadcasts a "set buffer size" command all clients obey, authority falling to the next relay as ones drop. It needs the **whole game's** network conditions but only sees its own home clients' links (loss/RTT, which QUIC measures per connection), so each relay attaches those conditions to the turns it forwards across the mesh; the decision-maker combines them, and the conditions also reach clients for an in-game netgraph/debug. No per-decision coordinator round-trip, so running games survive a coordinator outage. Distinct from *transport* identity — delivery/dedup keys on a per-slot origin `seq`, not a frame coordinate. The **consensus coordinate is now defined:** each `Payload` carries an `optional uint32 game_frame_count` naming which simulated step the turn belongs to, distinct from the transport-identity `(slot, seq)`; the relay preserves it verbatim across the seam (like `seq`), and lobby turns carry no frame (absent, not zero). The **sync mechanism keyed on it remains open (Phase 3):** no "set buffer size" proto message, broadcast, max-frame tracking, or future-turn scheduling exists yet — the coordinate is the input the mechanism will key on, not the mechanism itself. (Player-leave consensus is a separate, still-open decision.) (Current detail: `rally-point2/docs/architecture.md`.) |
-| **D10** | **The relay is a VALIDATING relay, not a dumb forwarder.** It binds each submitted turn to the token's slot, bounds-checks every command against `command_lengths` + var-length rules, allowlists live command ids, and **strips client-originated control commands** (`0x55`/`0x66`/`0x5f`/`0x57`/replay cmds). | It already paid the command-aware cost — so it must capture the defensive upside. Prevents slot-spoofing, control-command griefing that bypasses D9, and parser-crash desyncs. Parser is attacker-facing → fuzzed. |
-| **D11** | **Relay death mid-game is an unrecoverable lockstep stall**, and the substrate (scale-to-zero/Spot) makes relay churn routine — so failover needs a real answer, but the **mechanism is open** (not a settled Phase-2 deliverable). | Moving affected clients to another relay and recovering their missed turns at an affordable storage/replication cost is **not yet designed**. Likely ingredients — a backup relay in the token, a client reconnect+resync path, and *some* source for the missed turns — but persisting/replicating a full per-game turn log is **not assumed** (cost unmodeled). Client reconnect infrastructure (also useful for a client's own transient drops) is desirable but unplanned. **Spot is forbidden for in-flight games** regardless. |
-| **D12** | **Replace Storm's UDP transport wholesale; don't tunnel it.** The game hooks at the turn/command layer (`send_turn_message`/`storm_receive_turns`), so Storm's 12-byte UDP header (Seq1/Seq2/CLS/PlayerID/resend/checksum) sits *below* the seam and is removed. rally-point2's `Packet` + QUIC own sequencing, acks, integrity, and recovery; the wire `Payload` is `seq` + `slot` + `game_frame_count` (optional, the consensus coordinate) + raw command bytes. | Kills the old double-reliability overhead (Storm's reliability layered under the relay's). Transport keys on a **per-slot origin `seq` assigned by the sending client and preserved end-to-end** (Storm's own sender-assigned model, not a per-link restamp); each slot carries its own seq space starting at 0, so the dedup/ack/retirement key is `(slot, seq)`. `game_frame_count` rides as a read-only consensus annotation — the transport ignores it for delivery/dedup/retirement, and the relay preserves it verbatim (like `seq`), so latency-buffer and leave decisions can name the turn they apply to. `ack_bits` extends Storm's single-ack `Seq2`. Lobby commands ride the same seam today (may later move to a reliable side-channel driven by the app server); lobby turns carry no frame (absent, not zero). |
+| **D1** | QUIC data-plane in the game DLL; sync hooks ⇄ Tokio via bounded handoff | **Built as designed.** Three-hook seam (OUT/IN/PIPE), game-thread `TurnState` ⇄ Tokio `LinkDriver`; local echo is the only self-delivery path. |
+| **D2** | Standalone multi-tenant coordinator; prod isolated | **Coordinator built** (per-tenant keys/tokens/quotas basics, session lifecycle, webhooks). **Prod + staging deployments not stood up** — only dev loopback exists. |
+| **D3** | Fargate + scale-to-zero + direct dual-stack IPs, no GA | **Not started.** Note an unreconciled tension for Phase 5: D3 counts per-game IP rotation as a DDoS lever, while the enroll/advertise design assumes stable per-relay addresses. |
+| **D4** | Design for observation; defer spectator | **Still deferred, deliberately.** No persisted per-game turn log — failover (D11) settled on bounded per-slot rings instead, so the "replicated turn log" cost question dissolved. (In-session *observers* are built and live-proven — that's a different feature.) |
+| **D5** | Env-isolated fleets; untrusted dev = fully local loopback | **Loopback path proven daily** (mini coordinator + relays, pinned dev tenant key). Shared staging fleet not stood up. |
+| **D6** | Per-tenant signing keys; conn-bound tokens; app-generated session keypair; challenge-response with TLS channel binding | **Built** (RFC 5705 exporter binding, pinned relay certs, tenant-signed `rp2-request-v1` app-server API). Open: tenant enrollment/rotation lifecycle; consolidating inbound-auth + webhook signing into one per-tenant credential story; moving client pubkey submission to queue/lobby time (today it rides game load). |
+| **D7** | Region via GameLift beacons + ICMP fallback | **Not started.** Region/relay choice is entirely server/coordinator-assigned. |
+| **D8** | Observability first-class from day one | **Built (2026-07-10).** Structured logs, relay-side desync ordinals, the in-game `/netstat` overlay, **and now the flight recorder** (`relay/src/flight_recorder.rs`: bounded per-session event/sample rings + lock-free turn counters, versioned-blob `FlightSink`, dev `--flight-dir` file sink, flush at session-close + drain). Remaining: durable S3 sink + read path (Phase 5); retention/PII policy is a labeled PROPOSAL in `architecture.md` awaiting ratification. |
+| **D9** | Latency-buffer authority = relays; coordinator sets bounds | **Built, including the control law**: raise-immediately / lower-gated-by-dwell with anti-flap hysteresis, changes scheduled at a future turn, well-tested (`relay/src/consensus.rs`). Small leftovers: initial buffer directive at session start; rate-limited control-law logging. |
+| **D10** | Validating relay (slot binding, command allowlist, control-command strip) | **Built + fuzzed**: cargo-fuzz target `validate_turn` asserting binding/no-amplification/fixpoint/attribution, plus a stable-CI randomized invariant test. |
+| **D11** | Relay death / failover — *was open* | **Settled + built + live-proven.** App-server-mediated re-home (game clients NEVER talk to the coordinator — locked): DLL → SB games endpoint (results2-style auth) → tenant-signed coordinator `/session/rehome` → new relay. Reconnecting clients anchor their receive window at `min(oldest-unacked, retention-front)`; the retention ring re-carries missed turns; same-relay blips use the driver's internal re-dial with resume cursors. Drop policy: **no auto-drop** — survivor-initiated `RequestDrop` past a 30 s relay floor (45 s UI unlock); fully-abandoned sessions force-decide at 45 s. |
+| **D12** | Replace Storm UDP wholesale; per-slot origin seq | **Built as designed.** The "lobby may later move to a reliable side-channel" hedge happened: lobby commands ride a dedicated `LobbyCommand` control frame, chat rides `GameChat`, and the relay's `SessionStart` directive replaced the entire startWhenReady chain. |
 
-**Inherited (load-bearing):** three-hook seam; QUIC datagrams for turns + reliable streams for
-control; app-level forward recovery (recovery is **ours**, not QUIC's — see §4); relay mesh +
-topological dedup (degrade-to-single-relay is **open**, D11); determinism invariants (guide §5.4) as
-acceptance criteria.
-
----
-
-## 1. The system in one picture
-
-```
-   prod app server ─tenant─▶ ┌───────────────────┐        shared coordinator ◀─tenant─ staging app server
-                             │ PROD coordinator   │        ┌───────────────────┐      ◀─tenant─ dev app servers
-                             │ (own key + fleet)  │        │ STAGING+DEV coord  │
-                             └─────────┬──────────┘        │ (own key + fleet)  │      [untrusted dev: fully
-   policy (latency/leave bounds),      │ provisioning      └────────┬──────────┘       local loopback coord+relay]
-   tokens(kid, conn-bound),            │ (RunTask, scale-0)         │
-   session descriptors,                ▼                            ▼
-   per-tenant quotas             ┌──────────────┐  phone-home (authn'd)   ┌──────────────┐
-                                 │ AWS Fargate  │◀───────registry────────▶│ AWS Fargate  │
-                                 │ relay (v4+v6 │                          │ relay        │
-                                 │ direct IP)   │                          │              │
-   ┌─────────┐  token+region     └──────┬───────┘                          └──────────────┘
-   │ app/    │◀── (control plane) ──────┘
-   │Electron │
-   └────┬────┘
-        │ launch handoff (token, client privkey, home + backup relay addr)
-        ▼
-   ┌─────────────────────┐  QUIC datagrams (turns)   ┌──────────────────────────┐ backbone ┌────────┐
-   │ game/ DLL           │═════════════════════════▶ │ RELAY (home)             │◀══S===S═▶│ RELAY  │
-   │ sync hooks ⇄ Tokio  │  reliable streams         │ VALIDATES (D10) · mesh   │          │ (peer) │
-   │ (lock-free handoff) │  (chat/control/resync)    │ dedup · sets buffer (D9) │          │        │
-   └─────────────────────┘                           │ (failover/log: D11, open)│          │        │
-                                                      └──────────────────────────┘          └────────┘
-        client ──▶ home relay's DIRECT public IP (no anycast).  Region chosen via GameLift beacons.
-```
-| **B** | **Client transport** | `rally-point2:client` | quinn client; datagram turns + reliable streams; **per-slot origin payload seq** assigned by the client and preserved end-to-end (transport identity, *not* a game-frame coordinate); forward recovery (datagram-refusal-aware); PIPE counter (real monotonic count); **home-unreachable → reconnect+resync** path *(open, D11)*. |
-The transport *below* the OUT/IN hooks **is** the relay mesh. The relay — not the coordinator —
-owns the latency-buffer decision, validation, and the flight recorder (a replicated turn log is open, D4/D11).
+**Also resolved since rev 4** (was §6-open): synced player-leave determinism — proven live, not
+asserted (leave pass runs in the synced-RNG window; full leave/promotion matrix green including
+cross-relay). Deregister-on-drop, token connection-binding, and on-demand mesh dialing were
+already recorded settled; they shipped.
 
 ---
 
-## 2. Workstreams
+## 2. What the phases produced (compact done-record)
 
-| WS | Track | Lives in | Scope |
-|---|---|---|---|
-| **A** | **Game integration** | `shieldbattery:game/` | The 3 hooks (IN hook on `storm_receive_turns`, guide §5.1) + samase offsets + write `player_turns[]` + synced leave pass; SC:R-specific glue; depends on `rally-point2:client`. |
-| **B** | **Client transport** | `rally-point2:client` | quinn client; datagram turns + reliable streams; **per-slot origin payload seq** assigned by the client and preserved end-to-end (transport identity, *not* a game-frame coordinate); forward recovery (datagram-refusal-aware); PIPE counter (real monotonic count); **home-unreachable → reconnect+resync** path *(open, D11)*. |
-| **C** | **Relay** | `rally-point2:relay` | quinn server; slot→relay table; mesh `S===S`; topological dedup; per-link recovery; **command validation (D10)**; **latency-buffer decision + network-condition propagation (D9)**; turn-log store *(open, D4/D11)*; flight recorder (D8). |
-| **D** | **Coordinator** | `rally-point2:coordinator` | Multi-tenant control: registry (authn'd phone-home), region assignment, **per-tenant token issuance + quotas**, session-descriptor push (incl. backup relay), provisioning. Sets the latency-buffer **bounds**, not the live decision. **Active-player presence:** relays report opaque `(tenant, session, slot)` liveness periodically; the coordinator resolves to users via the `(tenant, session, slot)→user` map it already holds from session setup, and exposes an "is user U in a game" query so the app server can block re-queueing while a player is live. |
-| **E** | **App-server integration** | `shieldbattery:server/` | Coordinator tenant: lobby formation requests a session; relays tokens + home/backup relay to clients; enforces **client-version homogeneity** at lobby. |
-| **F** | **Client control plane** | `shieldbattery:app/` | Region beacons (+ ICMP fallback) → home region; **generate per-session Ed25519 client keypair**; token/relay fetch (pubkey embedded in token); **launch handoff** (`{token, private_key, relay_addr}` → game DLL). |
-| **G** | **Cloud / ops** | `rally-point2:infra` | Fargate task def (dual-stack, IPv4 egress for ECR pull via NAT/IGW); scratch image; **warm-pool fallback** for cold start; scale-to-zero; per-game IP rotation. **No GA.** |
-| **H** | **Observation foundations** | `rally-point2:relay`+`:coordinator` | *Design-for (D4):* a turn-log store + backlog API for observation/catch-up — **open** (D4/D11), storage/replication cost unmodeled; would share the store with D11 failover. No spectator client. |
-| **I** | **Observability & diagnostics** | all components | Structured metrics/events/traces keyed by `tenant/session/slot/turn`; per-link health; flight recorder + **flush-before-teardown** + pull-by-game post-mortem. |
-| **J** | **Resilience & failover** | `rally-point2:relay`+`:coordinator`+`:client` | *(Failover/reconnect mechanism open, D11.)* Relay-death detection + client reassignment; `S===S` partition detection + coordinated response; coordinator HA / running-games-survive-coordinator-outage; reconnect/migration; **end-to-end turn-delivery tracking** (§6). |
-| **K** | **Release engineering** | both repos + `infra` | Protocol/schema **versioning** + negotiation; cross-repo CI for `game/`→`rally-point2:client`; **SC:R-patch resilience** (hook-resolution CI + startup plausibility gates + native fallback); cutover/migration + canary (rollback on v2 health thresholds); load/scale testing. |
+Phases 0–3 hit their milestones, with the transport/mesh logic proven under loopback rather than
+netem-first as originally sketched:
 
-### How the source docs map onto the workstreams
+- **Phase 0–1:** rp2 workspace (`proto`/`transport`/`client`/`relay`/`coordinator`), SHA-pinned
+  git dependency from `game/`, the three-hook seam, real games over a single validating relay.
+- **Phase 2:** relay mesh (one QUIC connection per pair), topological fan-out + dedup, cross-relay
+  leave/promotion matrix, and — beyond the original scope caveat — the full D11 failover build.
+- **Phase 3:** coordinator end-to-end from the dev app server (sessions, tokens, descriptors,
+  webhooks, lifecycle + reaps), buffer control law with anti-flap.
+- **Beyond the plan:** the **2c native-lobby pivot** (native BW runs the real lobby; SB replaces
+  only Storm's transport + join handshake — this replaced the hand-derived lobby state that kept
+  leaking), raw end-of-game results with server-side scoring, the 0x37 `hash16`-only desync
+  comparator (majority-authoritative), and the in-game disconnect overlay + input-block UX.
 
-| Guide § / Brief § | WS | Integration point |
-|---|---|---|
-| guide §5.1 OUT `send_turn_message` | A→B→C | Native turn bytes → wire codec → home relay datagram. |
-| guide §5.1 IN — **`storm_receive_turns` (0x7b1150)**, *not* the trivial `receive_storm_turns` wrapper | C→B→A | Relay datagrams → fill `player_turns[]`, set ready flags, run synced leave pass. |
-| guide §5.1 PIPE `get_outstanding_turn_count` | B | Real monotonic `sent − executed`; or replace the flush loop outright. |
-| guide §5.3 latency / §5.8 leaves | C + D | **Relay** decision-maker sets the latency buffer from game-wide conditions; coordinator sets bounds (D9). |
-| guide §5.6/§5.7 command-aware | C + H + (D10 validation) | Relay parses native bytes to validate/index/store; forwards native bytes unchanged. |
-| guide §5.9 forward recovery | B + C | Bundle unacked turns; per-link ack bitfield — recovery is ours (see §4). |
-| brief §2.1 mesh/dedup | C | Slot→relay map drives fan-out + dedup. |
-| brief §3/§5/§6 cloud | D + G + F | Provisioning, direct-IP ingress, beacons. (GA removed.) |
-| (new) failover == catch-up | J + H | A turn log *could* serve both relay failover and observer catch-up — open (D4/D11). |
+Detail: `rally-point2/docs/architecture.md`, SB/rp2 git history.
 
 ---
 
-## 3. Build order (phases → milestones)
+## 3. Remaining work (the production arc)
 
-Sequenced so the riskiest novel work (seam + transport + mesh + failover) is proven before
-cloud-plumbing toil. Transport/mesh **logic** is proven locally under emulation (`tc`/netem,
-toxiproxy); real-WAN/backbone on the AWS substrate itself (direct relay IPs — no anycast to add).
-GA is gone, so there is no GA phase.
+### Phase 4 — Region selection *(unchanged scope, not started)*
+- GameLift ping beacons (D7) + first-class ICMP fallback → cached latency map → home region;
+  verify beacon coverage against lit regions; logical regions.
+- Today's placeholder: app-server-supplied region.
 
-### Phase 0 — Contracts, scaffolding & baseline
-*Freeze interfaces; establish the baseline you'll measure v2 against.*
-- `rally-point2` repo (Rust workspace). Shared `proto` crate: wire framing (turn datagram layout —
-  per-slot origin payload seq + slot + commands, ack bitfield; **no game-frame coordinate in the turn
-  framing**), **protocol version + negotiation**, coordinator↔relay control, coordinator↔app-server
-  API, token format (per-tenant key, `kid`, connection-binding claim).
-- Port `command_lengths` + var-length rules into shared code (for D10 validation + parsing).
-- Confirm samase resolves every symbol incl. `storm_receive_turns` and **`pending_leave_reason`**
-  (not currently exposed — must be added, and **not** via a fixed-delta from `net_players`). Define
-  **startup plausibility gates** for resolved offsets.
-- **Cross-repo dependency + CI strategy (decided 2026-06-25):** `rally-point2` lives in its own
-  GitHub repo; `game/` depends on `rally-point2:client` as a **git dependency pinned to a SHA** (no
-  crates.io — not worth a publish pipeline for a single internal consumer). Build out and test the
-  transport/relay/coordinator as far as **internal + loopback tests** allow *before* integrating into
-  the game, then integrate; the game's pin is bumped only at integration. The cross-repo integration
-  build (a `proto`/`client` change → rebuild the `game/` DLL) lands **with** that integration — the
-  dependency edge doesn't exist until WS-A wires it, so there's nothing to guard before then.
-- **Spike (parallel):** confirm Fargate task dual-stack ENI gets routable v4+v6 with direct ingress,
-  and the ECR-pull egress path (NAT/IGW) cost.
-- **Milestone:** interfaces compile + reviewed.
+### Phase 5 — AWS orchestration *(not started; several contract reshapes land here)*
+- Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, lobby-time
+  provisioning, scale-to-zero, warm-pool fallback; cold-start budget measurement.
+- **Dual-stack advertise** — **BUILT (2026-07-10, rp2 `d26aaf1`).** Additive `relay_addrs` (complete
+  set, preference order) on `RelayHello`/`RelayEntry`/`RelayEndpoint`/`RelayPeer`; `relay_addr` stays
+  primary; `addrs()`/`addr_for_family()` selection helpers; mesh dial walks candidates. Remaining here:
+  **address discovery via ECS metadata** (still explicit `--advertise-addr` flags) + SB-side per-client
+  family selection.
+- **Coordinated relay drain** — **BUILT (2026-07-10, rp2 `5d0ea11`).** SIGTERM/ctrl-c → `Draining`
+  frame → coordinator marks ineligible + set-before-ack `DrainAck`; assignment-lock linearization
+  closes the create-vs-drain race; `--drain-timeout-secs` (90 < Fargate 120s) bounds the wait,
+  leftovers abandoned to failover.
+- **Reconcile D3's per-game IP rotation vs stable enroll addresses** (see D1/D3 note above).
+- Load/scale test: N games/relay + RunTask-rate provisioning at realistic SB peak; cost model
+  (NAT, cross-AZ mesh, telemetry egress).
 
-### Phase 1 — Seam + transport, single relay (keystone)
-- WS-A: OUT/IN/PIPE hooks + native↔wire codec; **IN seam on `storm_receive_turns`**; honor §5.4
-  invariants; define the **async(Tokio)→sync(game-thread) handoff** + buffer ownership; add a
-  **hook-fired self-test** before committing a game to the new transport.
-- WS-B: quinn client; datagram turns + reliable control; **per-slot origin payload seq** assigned by
-  the client and preserved end-to-end (transport identity, not a game-frame number); forward
-  recovery that **treats datagram-send refusal as a loss event** and sizes the bundle to the live
-  `max_datagram_size()`; reliable-stream **ack-beacon fallback** when the
-  unacked window would overflow under sustained loss.
-- WS-C: minimal validating relay — one game, `C–S–C`, no mesh.
-- WS-I: instrument from the first line (placeholder session key until Phase 3); per-game flight
-  recorder with a **defined durable-store target + flush protocol**.
-- Run under netem/toxiproxy.
-- **Milestone:** a real 1v1 SC:R game runs over the new transport via a single validating relay,
-  rally-point bypassed, no desync, latency knob adjustable, flight recorder captured. *Highest-risk
-  gate.* (Consider splitting into 1a hooks+loopback / 1b single-relay if scope demands.)
+### Phase 6 — Hardening + production rollout *(reshaped: the code cutover already happened)*
+v1 is deleted from the codebase, so the original parallel-run/cohort/rollback-to-rally-point
+machinery is moot. Production rollout is now: stand up the prod coordinator + fleet (D2) and the
+shared staging fleet (D5), ship a client version that uses them (the platform already enforces
+client-version currency, so no mixed-version games), keep the old rally-point *service* running
+only until the minimum supported client is v2-only, then decommission it. Rollback = previous
+client version while the old service still exists — that window is the safety story, define its
+gate explicitly.
 
-### Phase 2 — Mesh, dedup, degradation **+ failover (D11)**
-> **Scope caveat (revised):** the **settled** Phase-2 core is the mesh — relay↔relay links, topological
-> fan-out + dedup, per-link recovery — plus carrying per-client network conditions across it (for the
-> latency-buffer decision, D9). The **failover, replicated turn log, degrade-to-single-relay, and
-> resync** items below depend on D4/D11, which are now **open** (mechanism + storage/replication cost
-> unsettled). Treat them as design work to settle *before* committing to build, not as fixed
-> deliverables. Current design detail: `rally-point2/docs/architecture.md`.
-- WS-C: relay↔relay QUIC links (**one connection per relay-pair**, §6); topological fan-out + dedup;
-  per-link recovery; carry per-client network conditions across the mesh (D9). *Open (D4/D11):* degrade
-  to `C–S–C`; a **replicated turn log**; a real **capacity model** + in-RAM turn-log bound + flush.
-- WS-J *(open, pending the D11 failover design)*: **relay-death detection + client reassignment +
-  resync-from-cursor**; `S===S` **partition** detection + coordinated (never client-independent)
-  response; reconnect path.
-- Prove logic locally under netem; prove real-WAN + backbone on **two AWS boxes in two regions,
-  direct IPs**. Same-region `C–S–C` measured as a **budget vs rally-point** (added crypto+parse+
-  telemetry under load), not a binary "no worse."
-- **Milestone:** cross-region 2v2 over `C–S===S–C` on AWS; dedup confirmed; **kill a relay
-  mid-game → game survives via reassignment**; partition one `S===S` link → deterministic outcome on
-  all clients.
+Security/tenancy items that must land before anything non-loopback:
+- **Mesh `S===S` auth** — the accept side still labels links from the dialer's *self-asserted*
+  `MeshHello.relay_id` (server-TLS-only, no client auth): any peer completing the mesh ALPN can
+  claim another relay's id. Bind the id to authenticated identity (mTLS/internal CA or
+  coordinator-issued mesh credential) and reject unexpected/duplicate ids before link
+  registration. Recent cert-pinning work covers only the dialer's trust of the acceptor.
+- **Mesh session-id tenant scoping** — `MeshPacket` carries a bare `session: u64`; the driver
+  fail-closed refuses cross-tenant collisions but the wire can't disambiguate. Likely folds into
+  mesh auth (bind a link to its tenant). Known benign gap: `MeshControl` marks a `Join` delivered
+  when enqueued, so a refused colliding `Join` isn't retried on the occupier's leave.
+- **Tenant lifecycle** — enrollment, key rotation/revocation (active/suspended/revoked checked per
+  request), how a developer gains/loses staging access; consolidate `/session/create` inbound auth
+  + webhook signing into one per-tenant credential story.
+- Confirm the untrusted-dev loopback truly never touches a shared coordinator/fleet.
 
-### Phase 3 — Coordinator MVP (multi-tenant, prod-isolated) **+ latency-buffer authority on the relays (D9)**
-- WS-D: standalone Rust service; authn'd relay phone-home registry; app-server API (session for N
-  players/regions); **per-tenant** token issuance + **quotas/rate-limits/provisioning budget**;
-  session-descriptor push incl. **backup relay**; **prod = separate deployment** (D2).
-- WS-C/J: the relay decision-maker runs the live latency-buffer decision from game-wide network
-  conditions (D9); coordinator pushes *bounds*; **running games survive coordinator outage**;
-  coordinator HA story. (Player-leave consensus is a separate, still-open decision.)
-- WS-E: Node `server/` becomes a tenant; enforces client-version homogeneity at lobby.
-- The decision-maker's buffer **control law**: asymmetric (raise fast, lower slow), hysteresis, min
-  dwell, schedule the change at an agreed future turn + anti-flap test.
-- **Milestone:** game stood up end-to-end through the coordinator from the dev app server; **staging
-  + a developer share the shared coordinator** while **prod runs its own**; induced WAN oscillation
-  does not flap the latency knob.
+Platform features — **five of six built 2026-07-10** (design/review in the main loop, implementation
+delegated, each gated on `clippy -D warnings` + `cargo test --workspace`):
+- **Active-player presence** — **BUILT (rp2 `2dd9e3f`).** Heartbeat carries the relay's live roster
+  (idle beat byte-identical, PII-free); generation-fenced coordinator presence store; drop = prompt
+  queueable signal; 35s TTL. Tenant-signed `POST /presence/query`, **fail-open** (documented rationale:
+  locking players out on infra flap is worse than the status quo). Relay stays PII-free.
+- **Flight recorder (D8)** — **BUILT (rp2 `c4817da`)** — see D8 ledger row. Durable S3 sink + read path
+  remain (Phase 5); retention/PII PROPOSAL awaits ratification.
+- **Protocol-version negotiation (WS-K)** — **BUILT (rp2 `3ce2da1`).** `RelayHello` carries a
+  `[min_protocol, protocol]` window; coordinator negotiates before enroll (WS close 4001 + 60s relay
+  backoff on refusal, downgrade on overlap); mesh acceptor refuses with a QUIC app-code before the driver
+  spawns. Skew tests both directions.
+- **End-to-end turn-delivery tracking** — **BUILT (rp2 `cb63193`).** Beacon `delivered_through` cursors
+  (final-delivery truth) shared to the authority over a new mesh-control frame; per-(origin,dest) lag +
+  hop fold; one clamped additive cushion into the buffer law (law untouched); surfaced via flight samples.
+- **Coordinator HA** — **NOT built.** RTO, registry in a shared store, hot-standby. Running games already
+  survive a coordinator outage (relays run the live game), but session *creation* and re-home don't. The
+  last unbuilt platform feature; also the backstop for review finding D1/D2 (an in-memory-only coordinator
+  is where the stale-serving-set and same-id-restart failover bugs live).
 
-### Phase 4 — Region selection
-- WS-F: ping GameLift beacons (D7) + **first-class ICMP fallback** → latency map → home region
-  (cached); verify beacon coverage maps to lit regions; logical regions.
-- **Milestone:** clients auto-select home region by measured RTT. (Phase 3 used app-server-supplied
-  region as placeholder.)
+### Phase 6b — Pre-production hardening backlog (external review 2026-07-10)
 
-### Phase 5 — AWS orchestration (Fargate, scale-to-zero, direct IP)
-- WS-G: Fargate task def (dual-stack, **IPv6-primary client ingress now viable** since GA is gone;
-  IPv4 egress for ECR pull); scratch image; lobby-time provisioning; scale-to-zero; **warm-pool
-  fallback** if the lobby doesn't hide cold start; per-game IP rotation (DDoS).
-- WS-K: load/scale test — N concurrent games per relay + simultaneous provisioning (RunTask rate
-  limits) at a realistic SB peak; cost model incl. NAT, cross-AZ `S===S`, telemetry egress,
-  1-min-from-image-pull minimum.
-- **Milestone:** relays spin up per-game on Fargate during lobby, scale to zero, **warm pool covers
-  the cold-start tail**, load test passes.
+A thorough Codex review of the rally-point2 repo, **each finding then adversarially re-verified against
+HEAD (`cb63193`) in the system's own terms** (lockstep integrity > game recoverability > resource
+exhaustion > hygiene). Only findings that survived verification are listed; the reviewer's stale/by-design
+claims were dropped after checking (transient-empty-roster teardown already preserves the maker + undecided
+holds + rebuilds the ring — the `cb4734a`-era fix holds; the unbounded coordinator-notice buffer is a
+deliberate, correctly-weighed choice; relay-ref webhook precedence is by-design for restart survival;
+μs-seeded session ids stay in JS safe-int range until ~2255; the leave-directive **apply-frame** is
+single-sourced from the `SlotDeparted` record so its determinism holds). None of these pushes the design
+toward a standard reliable-ordered protocol — they are gaps in the redundancy/reconnect model as built.
 
-### Phase 6 — Hardening, observation/observability finish, cutover
-- WS-J: reconnect/migration — QUIC migration handles the client's own path changes (Wi-Fi↔cellular);
-  **relay change / failover is an app-level resync, not QUIC migration**. **0-RTT is dropped** —
-  marginal benefit against replay surface + maintenance; reconnect uses a 1-RTT handshake.
-- WS-K: protocol-version negotiation verified across independently-deployed components; **SC:R-patch
-  runbook** (hook-resolution CI + native fallback on resolution failure); **cutover** — version-gated
-  cohorts, parallel-run vs rally-point, **rollback criteria from v2's own health thresholds**
-  (stall/desync/drop/reconnect/connection-success, via the flight recorder — not a rally-point
-  comparison), decommission gate.
-- Security: fuzz the command parser (D10); validate per-tenant key rotation + connection binding;
-  DDoS posture **without GA** (Shield Standard covers AWS L3/4 but no anycast dispersion — lean on
-  per-game IP rotation + app-layer rate limits; Shield Advanced/Spectrum as a near-term option).
-- WS-H/I: turn-log sufficiency validated (if a turn log is adopted); flight recorder egress + pull-by-game post-mortem +
-  alerting; **tenant-scoped authz on every backlog/recorder read**.
-- **Milestone:** v2 is default for migrated cohorts on a measured improvement vs baseline; support
-  can pull any recent game's recorder; rally-point retired once the decommission gate is met.
+**Almost every item here is a multi-relay / failover / cloud-lifecycle path** — the loopback-proven
+single-relay core is largely unaffected — so this is genuinely Phase-5/6 work, not a regression in what
+landed. Ranked by tier:
 
----
+> **Fix-pass status (2026-07-10 session, rp2 `daaef45..b75d756`, 6 commits, all gated on clippy
+> `-D warnings` + full workspace tests):** FIXED — B8, C4 (+a third race found during implementation),
+> B2, C2 (reset half), A1, A3, C6, D10, B9, B5 (transport scope). AWAITING TRAVIS — D1+D2 (design memo
+> below), the NEW mesh-resume-from-cursor gap (below), flight-recorder retention PROPOSAL, landing moment.
+> OPEN — the remaining resource tier (D3/D4/D7, C1/C5/C8, B1/B3/B4/B7/B12), A2, B11, B6/B10, D5/D8/D11/D13,
+> A4/A5, and B5's same-shape casts in relay `consensus.rs`/`mesh.rs`.
 
-## 4. Cross-cutting concerns
+**Lockstep-integrity (fix before multi-relay production):**
+- **Home-relay binding gap (A1) — FIXED (rp2 `414b313`).** Additive `homed_slots: Vec<SlotId>` on
+  `SessionDescriptor` (serde-default; EMPTY = unenforced, preserving legacy descriptors, dev harnesses, and the
+  descriptor-arrival race's admit-first behavior exactly); `serve_connection` refuses a slot homed elsewhere with
+  new `SLOT_NOT_HOMED_CLOSE` (0x08) before touching the roster. One correction to the sketch's premise found
+  during implementation: the coordinator computed `slot_homes` at create and DISCARDED it — nothing persisted
+  slot→relay granularity — so `SessionRefs` gained a `homes: BTreeMap<SlotId, RelayId>` (covers observers — they
+  ride in `request.players`), reassigned dead→r_new inside `rehome_inner` before the descriptor rebuild so r_new's
+  resumed descriptor gains the moved slots. No token change.
+- **Control-stream death doesn't trigger reconnect (B2) — FIXED (rp2 `7156381`).** All THREE reader-disarm sites
+  (client `driver.rs`, relay client-edge `routing.rs` — which also silently lost `RequestDrop` + clean-leave
+  intents, degrading F10 quits into drop+holds — and mesh `mesh.rs`) now treat a control-reader end on a live
+  connection as a link failure recovered by the existing reconnect machinery: client surfaces
+  `ControlStreamLost` through `absorb_link_close` (clean-stop-aware) into `is_link_failure`; relay closes the
+  connection with `CONTROL_STREAM_LOST_CLOSE` (0x07) so the client redials into fresh streams; mesh driver exits
+  `ConnectionFailed` so the dial supervisor redials + Join-time reconcile re-syncs. Unconditional, not
+  `game_started`-gated — pre-start a dead control stream stranded `SessionStart` too, and register's re-push
+  covers it. Regression tests on all three edges.
+- **Reconnect admission races the drop decision (C4) — FIXED (rp2 `25be7cd`).** `server.rs::serve_connection` read
+  departure+hold state in two non-atomic lock takes and reused the snapshot after `register`; a `HANDSHAKE_OK`
+  write failure after `release`+`reinstate_slot` erased the hold *and* the departure record with no rollback.
+  Fixed as sketched, plus a third interleaving found during implementation (an old link dying mid-admission
+  orphaned a hold+record against the freshly admitted player — a survivor's later `RequestDrop` would be honored
+  against a connected player): the hold entry's removal is now the one claim point every racing side goes through
+  (`release()` returns whether it claimed; `honor_drop_request` stands down on a lost claim; admission claims +
+  reinstates atomically via `DropHolds::take_if_pending` under one holds-lock acquisition; admission mutates
+  nothing until the ack is written; a dropped-reason `announce_departure` stands down under the roster lock if a
+  reconnect already reclaimed the seat; the mesh `SlotConnectivity(true)` mirror claims identically). The
+  abandoned force-decide keeps decide-then-release — already atomic under the decision-maker lock. Adjacent
+  pre-existing race noted, NOT fixed (backlog): `end_slot_link`'s `session_emptied` snapshot can fire the
+  emptied-session teardown (incl. `session_closed` to the coordinator + turn-ring drop) after a reconnect has
+  re-registered.
+- **Mesh forward-queue silently drops fresh turns (C2) — FIXED (rp2 `7019abd`), with a caveat that spawned the
+  NEW mesh-resume finding above.** `Full` now signals the congested link's own per-link `Notify` (mirroring the
+  client edge's lagging-slot precedent; healthy sibling links untouched, `Closed` silent) and the driver exits
+  `ConnectionFailed` into the existing dial-supervisor redial. The fix sketch's "force resume-from-cursor"
+  assumed mesh-side ring replay exists — it doesn't (see the NEW finding), so this turns an unbounded silent gap
+  into a loud bounded reset but does NOT re-feed the dropped turn; marked `TODO(mesh-resume)` at the site.
+  Per-session isolation on the shared pair deliberately not built (C5's rate caps address the spam vector).
+- **Non-transactional transport recv (B3).** `link.rs`/`mesh_link.rs` `process_incoming` commit each payload to
+  dedup then `return Err` on a later out-of-window payload in the same packet, discarding the already-accepted
+  fresh ones from the return value while dedup keeps them; reconnect preserves dedup, so the resume cursor's
+  replay is deduped away → silent per-slot stall. Boundary-only (needs the receiver ~4096 seqs behind), so it
+  degrades an already-failing link. **Fix:** make recv transactional — return the accepted-fresh payloads even
+  when a later one is out-of-window (don't hard-kill mid-packet), or two-pass window-check before committing.
+- **Same-relay resume loses oversize turns + lobby commands (B1).** Oversize turns are retained *before* their
+  one-time control-stream write but same-relay resume skips retention reinjection (that's re-home-only), and
+  lobby commands are never retained at all. A drop in the window between the local `write_all` and the relay
+  fanning out loses the frame. Narrow for oversize (rare), more reachable for pre-game lobby commands. **Fix:**
+  stage the control-stream-only subset (oversize + unacked lobby) into `pending_control_redivert` on the
+  same-relay path too, without re-injecting the datagram ring (which the prefix-gap concern rightly excludes).
+- **Outage buffer silently drops game turns (B4).** `driver.rs` drops the oldest unsequenced turn past a 256
+  cap, then assigns gapless transport seqs on resume — a semantic game turn vanishes with no gap to detect.
+  Abnormal precondition (a long outage without a lockstep stall). **Fix:** surface a terminal error (like
+  `UnackedWindowExhausted`) or backpressure the game thread; never silently discard a produced turn.
+- **Dual-authority decision-seq collision (A2, buffer half).** During the acknowledged staggered-handoff window
+  two relays can both read `Authority::SelfRelay`, both `+= 1` to the same `decision_seq`, and stamp different
+  `buffer_turns`; clients keep whichever equal-seq directive arrived first (strictly-greater lets neither
+  displace the other) → different buffers → divergence. Low reachability (rare window × coincident differing
+  decisions). **Fix:** add a globally-ordered identity — authority epoch or relay-rank alongside `decision_seq`;
+  clients break ties deterministically. (The **leave** half is already reconciled by the single-sourced
+  `SlotDeparted` apply-frame; only the buffer directive needs this.)
 
-- **Determinism invariants (guide §5.4) are acceptance criteria.** Turn-per-slot-per-turn; sync
-  command verbatim; local commands delayed; `player_turns[slot]` valid through dispatch.
-- **The latency-buffer decision runs on the relays (D9), not the coordinator.** A priority-ordered
-  relay decision-maker sets the live buffer from the game-wide network conditions (gathered from each
-  relay's home clients and carried across the mesh with the turns); the coordinator only sets bounds. No
-  per-decision runtime path blocks on the coordinator. (The cross-client sync mechanism is open: each
-  `Payload` now carries its `game_frame_count` consensus coordinate, but the "set buffer size" command,
-  broadcast, max-frame tracking, and future-turn scheduling that key on it are unbuilt — Phase 3.)
-- **The relay validates (D10).** "Control commands originate only from the coordinator-driven synced
-  path" is an invariant alongside the determinism invariants.
-- **Resilience (D11/WS-J) — partly open.** Whatever response relay death and `S===S` partition get must
-  be *coordinated*, never independent per-client decisions — but those responses themselves are **not
-  yet designed** (D11). Coordinator outage is already survivable: the relays, not the coordinator, run
-  the live game.
-- **Observability is instrument-as-you-build (D8).** Correlation by `tenant/session/slot/turn`;
-  server-side relay is the vantage point; per-link attribution is the headline capability; sample/
-  aggregate transport stats (don't bloat the datagrams); **flush before scale-to-zero teardown**.
-- **Multi-tenancy (D2/D6).** Prod isolated; per-tenant signing keys, quotas, connection-bound
-  tokens; authn'd relay enrollment; tenant-scoped data access.
-- **Versioning & patch resilience (WS-K).** Independently-deployed components negotiate a protocol
-  version; offset resolution has startup plausibility gates and a native fallback on SC:R patch day.
-- **Transport hygiene.** Recovery is **ours**, not QUIC's — app-level redundancy + ack bitfield over
-  unreliable datagrams (QUIC gives encryption/CC/migration/loss-signal). Cap the unacked window and
-  force-advance it with a reliable-stream ack-beacon under sustained loss; check `send_datagram`
-  returns as loss events; size bundles to the live `max_datagram_size()` (truncate, never drop the
-  current turn). **One QUIC connection per relay-pair** (streams don't isolate datagram congestion).
-  Pin the congestion controller explicitly (loss-based to start; BBR on the backbone if queueing
-  shows up). No 0-RTT.
+- **NEW (found during C2, 2026-07-10): mesh links have no resume-from-cursor — any mesh link death loses
+  in-flight turns permanently.** The mesh dial supervisor (`mesh_edge.rs::run_mesh_dial`) re-establishes a FRESH
+  connection with fresh transport state on every redial; `turn_ring.replay()`'s only caller is the client-facing
+  reconnect (`routing.rs`), and the Join-time reconcile re-syncs *leaves* only. So turns unacked at the moment a
+  relay-pair link dies (QUIC blip, B2's control-death reset, C2's full-queue reset) are never re-fed — a
+  permanent per-(slot,seq) gap at the peer, whose clients stall in lockstep. The loopback matrix never saw it
+  because dev mesh links never blip. C2's fix sketch said "force resume-from-cursor" assuming the machinery
+  existed; it does not. **Effectively a missing multi-relay feature, same blocking tier as A1 — needs Travis's
+  design ratification (new additive mesh frame): on link (re)establishment each side announces per-(session,
+  slot) receive cursors for shared sessions; the other side replays its turn ring past them, filtered to
+  locally-homed origins (no-echo rule). Ring + replay + dedup primitives all exist; only the mesh join-time
+  exchange is new.**
 
-### 4.1 Transport design rationale — this is *not* a standard reliable-ordered protocol
+**Game-recoverability:**
+- **Re-home leaves lifecycle serving-set stale (D1) — every failover.** `session::rehome_inner` updates
+  `SessionSetup.session_relays` but never the `Lifecycle`'s cached `serving_relays`, so after a successful
+  re-home `all_relays_closed()` can never be satisfied (dead relay never reports `SessionClosed`, `r_new` isn't
+  in the set): the final `sessionClosed` webhook never fires, the `SessionState` + its `drain_queue` task leak,
+  and the session reads `is_alive` forever (even `/sessions/alive` believes it live). Narrower premature-close
+  mode if the "dead" relay was only partitioned and reconnects. **Fix:** `Lifecycle::on_rehome` that swaps
+  dead→`r_new` in the cached set (called from `rehome_session` on `NewTarget`), or read the authoritative
+  `setup.serving_relays()` in the accounting.
+- **Same-id relay restart wedges the whole group (D2) — the sharpest.** The stay-check keys only on relay *id*:
+  a relay that restarts in place (normal with pinned ids), loses its in-memory state, and re-enrolls under the
+  same id with a *new* cert is still "enrolled + serving" ⇒ `Stay`. Clients pinned to the old cert can never
+  complete TLS, escalate, get `Stay` again — permanent wedge for every homed client. The recorded-rehome
+  ordering fix doesn't help (no re-home is ever recorded — `Stay` precedes the insert). **Fix:** record the cert
+  (or enroll incarnation/generation) each session was created under; return `Stay` only if the currently-enrolled
+  cert matches — a same-id re-enroll with a different cert reads as dead → `NewTarget` with the relay's new cert
+  so clients re-pin (a restarted relay is a valid fresh target; clients re-inject their retention ring).
 
-> Read this before "fixing" the transport. Reviewers (human and automated) repeatedly pattern-match
-> the data plane against a standard reliable-ordered protocol (TCP/QUIC-streams) and flag intentional
-> choices — out-of-order delivery, no relay-side reassembly, no retransmit-timeout, ack-only handling —
-> as bugs, pushing the design back toward something that *looks* correct but breaks lockstep. It is a
-> latency-first lockstep relay by design. The load-bearing model:
+  **D1+D2 PROPOSED design (2026-07-10 session, awaiting Travis's ratification — implementation deliberately
+  not started):**
+  - **Key D2's stay-check on the pinned CERT (fingerprint), not the enroll `generation`.** The registry already
+    mints a strictly-increasing `generation` per enroll (`registry.rs`, added for drain fencing), but it bumps on
+    every benign control-WS reconnect of a healthy relay that kept its state and cert — where `Stay` is the
+    *correct* answer — so generation-keying would turn every control-plane blip into a whole-group re-home. The
+    cert is exactly what clients pin: cert-changed ≡ clients can never complete TLS again ≡ the wedge. (A restart
+    that persisted its cert but lost session memory is also correctly `Stay`: enroll-time descriptor re-sync
+    rebuilds the relay's session state and clients reconnect through the ordinary same-relay path.) Record a
+    cert fingerprint (SHA-256 of DER) per session membership at create, update for `r_new` at re-home — an
+    in-place extension of `session_relays` under its existing lock, no new lock-order edges, no wire change.
+    Stay-check becomes: serving AND enrolled AND enrolled-cert matches recorded cert. On mismatch → dead →
+    `NewTarget`, and the replacement pick must allow `r_new == dead_relay` (the restarted relay is live,
+    enrolled, and a valid fresh target — clients re-pin its new cert and re-inject their retention ring).
+  - **D1: `Lifecycle::on_rehome(tenant, session, dead, r_new)`** swaps dead→new in the cached `serving_relays`
+    (dedup if `r_new` already present, mirroring the `session_relays` retain/replace), called from
+    `rehome_session` on `NewTarget`. Same-id-new-cert re-home is an id-level no-op swap, which is correct — the
+    lifecycle accounting is id-keyed and the restarted relay can still report `SessionClosed`. Rejected
+    alternative: having the accounting read `setup.serving_relays()` live — it couples `Lifecycle` to
+    `SessionSetup`'s locks from the notice-dispatch path (new lock-order edges through `on_session_closed`,
+    which today deliberately takes its two locks non-nested).
+- **Promotion ignores active drop holds (A3) — FIXED (rp2 `b75d756`).** `sync`/`sync_maker` now take the real
+  held-slot set; `MeshControl` carries the per-relay `DropHolds` (`with_drop_holds`, wired in `main.rs`;
+  always-empty harmless default for control planes with no turn path) and `apply_descriptor` feeds
+  `pending_slots` through, mirroring the presence-driven caller. Regression tests at both maker and registry
+  level.
+- **Beacon reader exits on a briefly-full channel (B8) — FIXED (rp2 `d486355`).** `transport/src/beacon.rs`'s
+  reader `return`ed on `TrySendError::Full`, permanently killing reverse-path retirement for the connection
+  lifetime. Now drops just that frame on `Full` (cursors are per-slot monotonic and push-on-advance, so the next
+  advance re-sends higher) and exits only on `Closed`; loopback-QUIC regression test added (verified to fail
+  against the old behavior).
+- **`UnackedWindowExhausted` still terminal (B11).** Its comment gates the resync on "the open failover design"
+  — which has since landed. **Revisit:** consider routing the trip into the re-home/resync path (gated on
+  `game_started`) rather than game-over, after confirming the replacement relay actually clears the backlog.
 
-- **Payloads are the unit of meaning; packets are just containers.** A `Payload` is one slot's commands
-  for one turn. A `Packet` is a transport envelope. A packet's `seq` is **only an ack handle** — it
-  identifies which payloads a packet carried so an incoming ack can retire them. It orders nothing and
-  requires no in-order delivery; packets may arrive in any order and that is fine.
-- **Loss recovery is redundancy, not retransmit-on-timeout.** Each packet carries a fresh payload plus
-  still-unacked recent ones up to the datagram budget. A dropped packet's payloads ride the *next*
-  packets automatically — no waiting a round-trip to detect loss and resend. Turns are tiny, so the
-  bandwidth cost is negligible; the latency saved is a whole RTT per loss, which lockstep cannot spend.
-- **Send flow.** The game says "send this turn"; the client packages that turn + any still-unacked
-  payloads into one packet (monotonic packet seq) and sends it. The relay **buffers each peer's unacked
-  payloads** (bounded per client) and builds its **own** packets — multiple payloads, its own packet
-  seqs — re-carrying them for redundancy.
-- **The relay forwards ASAP, with no inbound reordering.** A turn is validated and fanned out the
-  moment it arrives, because a peer must hold a turn *before* it simulates that turn. Buffering incoming
-  turns to put them back in order before forwarding would add exactly the latency the relay exists to
-  remove.
-- **Game ordering is a client concern, restored per slot above the transport.** Each slot's origin
-  `seq` IS that slot's authoritative game order — assigned by the sending client (the sole authority
-  for production order) and preserved end-to-end, so the client reorders by it per slot: it buffers
-  received turns by `(slot, seq)` and releases only the contiguous prefix per slot. The packet `seq`
-  is a separate, per-link ack handle that orders nothing. Because the origin seq is never restamped, a
-  datagram reorder that slips past redundancy does not scramble game order — the client's per-slot
-  reorder buffer reconstructs the sender's true order from whatever arrival order the datagrams took.
-  What redundancy cannot cover is a pure-loss gap (a turn dropped on every packet that carried it), and
-  that is the only remaining edge a higher-layer resync would close (still being designed, see D11) —
-  not reorder, and not something a perfectly-ordered per-hop transport is added to fix.
+**Resource exhaustion (cloud-lifecycle; pairs with Phase 5):**
+- **Webhook response body escapes timeout + is unbounded (D3).** `notify.rs` times out only response *headers*
+  then `.collect()`s the body with no timeout/cap; a slow/endless endpoint hangs the session's FIFO queue
+  (blocking `sessionClosed`) and can exhaust memory. **Fix:** one timeout around request+body, and a `Limited`
+  body cap; treat a hit as one failed attempt.
+- **Replayable create + never-started sessions never reaped (D4).** No idempotency/nonce (documented), so an
+  ordinary HTTP retry inside the ±5-min window mints a duplicate session; a session whose clients never dial
+  gains no accounting, so no reap ever fires — leaking `SessionState` + task + descriptors per duplicate.
+  **Fix:** tenant-scoped idempotency key returning the existing response; a never-started grace-reaper.
+- **Mesh recovery state unbounded (C1).** The mesh `AckManager` has neither the ack-beacon (`retire_through`
+  has no relay-side callers) nor an `UNACKED_WINDOW_CAP` trip — only a flush gate. Sustained mesh reverse-path
+  loss grows memory + redundancy work. Trusted links ⇒ MEDIUM. **Fix:** a mesh ack-beacon and/or a mesh
+  window cap that resets the link.
+- **Lobby caps don't protect the mesh (C5).** Past the local lobby-log cap, `routing.rs` still fans every lobby
+  command into the *unbounded* mesh control channel (no rate cap, unlike chat), growing memory and head-of-line-
+  delaying `SlotDeparted`/`LeaveDirective` behind the spam. **Fix:** `lobby::deliver` returns admit/refuse; fan
+  out to the mesh only on admit; and/or a per-slot lobby rate cap like `chat::admit`.
+- **Unbounded webhook queues + no global dispatch concurrency (D7).** One detached `drain_queue` task per
+  `SessionState`, each an unbounded channel, no fleet-wide semaphore — compounds D3/D4. **Fix:** bound the
+  per-session queue and gate dispatch behind a global `Semaphore`.
+- **Mesh handshake bypasses the admission semaphore (C8).** The permit drops before the ~5s mesh identity/control
+  setup, and `run_mesh_accept` spawns uncapped; with no mesh auth today an attacker on `MESH_ALPN` can hold open
+  arbitrarily many stalled mesh handshakes. Folds into the mesh-auth work. **Fix:** hold the permit across the
+  mesh hello/control setup, or a dedicated mesh-accept semaphore.
+- **Client-supplied receive-window anchor overflow (B7).** An unclamped resume anchor of `u64::MAX` + a turn at
+  `seq=u64::MAX` overflows the dedup prefix fold (debug panic / release wrap). Task-isolated to the attacker's own
+  slot-link, so contained. **Fix:** clamp/reject the anchor against a sane ceiling, or `checked`/`saturating`
+  prefix arithmetic.
+- **Shutdown leaves reader tasks holding the connection (B12).** Detached control/beacon reader tasks keep a
+  `connection.clone()` parked on `accept_*`, so a clean driver exit doesn't free the QUIC connection / relay slot
+  until the idle timeout (backstopped by coordinator reaps). **Fix:** `connection.close()` on the clean-exit paths
+  (wakes the readers), or retain + `abort()` the reader handles.
+- **Mesh session dedup never removed (C6) — FIXED (rp2 `b75d756`).** `deregister_seen` now runs in
+  `end_slot_link`'s session-emptied teardown alongside lobby/chat/turn-ring (chosen over the sketch's
+  `MeshControl::end_session` — the per-relay last-local-slot teardown is the pairing point and closes the leak
+  window sooner; a reconnect recreating an empty seen set at worst re-forwards once, which client dedup absorbs).
 
-**Why standard reliable-ordered streams are wrong here:** head-of-line blocking (one lost packet stalls
-every later turn on that stream) and retransmit-on-timeout (a round-trip to recover each loss) each
-freeze lockstep, where every client advances only as fast as the slowest turn. The whole point of the
-redundancy + forward-ASAP design is to pay a little bandwidth to never pay that latency.
+**Hygiene / defense-in-depth (cheap, do opportunistically):**
+- Leave-directive conflict handling: the relay forwards a consensus-rejected conflicting directive to clients
+  anyway (A4, ignores `observe_leave`'s `#[must_use]`), and the client's conflict check is `debug_assert!`
+  (A5) — release builds silently accept the first with no signal. Convergent by the single-sourcing contract,
+  but **A5 should become a runtime guard that logs/reports** (never re-opens the slot) so a contract violation
+  is observable in production.
+- `BufferBounds` inverted-bounds panic (D10) — **FIXED (rp2 `b75d756`)**: `clamp` normalizes `min>max`
+  internally (chosen over `#[serde(try_from)]` — no shadow-type precedent in the codebase).
+- Session-request validation gaps (D5): duplicate slots, oversized `external_id`/`external_ref`, oversized
+  `dev_relay_split`. Tenant is authenticated ⇒ low, but cheap to reject.
+- Transport `u32 as u8` slot narrowing (B5) — **FIXED (rp2 `b75d756`)** in the transport crate
+  (`link.rs`/`mesh_link.rs` ingress refuses a non-`SlotId`-sized wire slot as a `MalformedSlot` link failure
+  instead of a truncating cast; driver's datagram failure mode moves from silent drop to reconnect).
+  Same-shape casts in `relay/src/consensus.rs` and `relay/src/mesh.rs` flagged as follow-up (outside the
+  transport scope). Still open in this cluster: redundancy refill scans low-slot-first (B6, bounded by tiny
+  turn sizes → order by `send_count`); mesh-conditions sizing under-counts the protobuf field framing with an
+  incorrect comment (B10, absorbed by `MESH_PACKET_OVERHEAD` slack today). `proto/src/beacon.rs::decode_frame`
+  short-input panic (B9) — **FIXED (rp2 `b75d756`)**: honest `DecodeFrameError::BadLength`.
+- Orphan desync notices leak a dedup entry (D8, insert-before-dispatch with no prunable state). Golden
+  byte-vector test for the signed-token wire format is missing (D11, round-trip-only tests would let a symmetric
+  encoder/decoder change silently break deployed tokens). API player tokens use `ExpiresAt(u64::MAX)` (D6,
+  acknowledged dev placeholder — production must set a finite lifetime).
+- **Stale public docs (D13).** `README.md` still lists an unbuilt "replicated turn log"; `client/src/lib.rs`
+  describes failover as open (it landed); `relay/src/lib.rs` describes the coordinator connection as *polling*
+  (it's a held WS push) and the consensus layers as unbuilt (authority handoff, desync, synced leaves, delivery
+  tracking, flight recorder all landed). Refresh to match HEAD. (The flight-recorder claims are now *correct* —
+  it was built 2026-07-10.)
 
----
-
-## 5. Repo / project layout
-
-Two repos. Netcode-v2 services + portable client transport live in the **new all-Rust
-`rally-point2/`** (replacing `../rally-point/`, decommissioned in Phase 6). SC:R glue + app/UI stay
-in **`shieldbattery/`**.
-
-**`rally-point2/`** — Rust workspace: `proto` (wire/control/token/version + `command_lengths`),
-`transport` (per-link reliable delivery over unreliable QUIC datagrams — ack/redundancy + sequence
-buffer, ported from `game/src/netcode/`; shared by client + relay), `client` (portable client
-endpoint, consumed by `game/`), `relay` (validating relay, mesh, flight
-recorder), `coordinator` (multi-tenant control), `infra` (Fargate/beacon IaC, no GA). Prod vs
-shared-staging/dev coordinators are the **same code, separate deployments + keys** (D2).
-
-**`shieldbattery/`** — `game/` (WS-A, depends on `rally-point2:client`), `server/` (WS-E), `app/`
-(WS-F).
-
-Cross-repo dependency pinning + CI is a **Phase-0 contract decision**, not an afterthought.
-
----
-
-## 6. Open questions & unresolved risks
-
-**Netcode / transport:**
-- [ ] **End-to-end turn delivery has no bound.** Per-link recovery localizes cost, but a turn can
-  clear one link and be lost on the next; three chained per-link stalls can blow the latency budget
-  without any single link looking bad. Add end-to-end completion tracking (the authoritative relay
-  tracks per-destination final delivery, not just next-hop ack) and have the latency-buffer decision factor
-  hop count. — *WS-J.*
-- [ ] **Recovery-window vs downlink-coalescing byte budget** on a datagram — define it when
-  implementing coalescing (low-stakes: the window is small and coalescing is weak-downlink-only).
-- [ ] `S===S` inter-relay auth (mutual certs vs coordinator-issued secret). *(Connection model is
-  decided — one QUIC connection per relay-pair.)* **Deferred from coordinator-driven mesh-Join
-  wiring:** the accept side labels each link with the peer id from a *self-asserted* `MeshHello`
-  (`relay/src/mesh_edge.rs::run_mesh_accept`), and `MeshControl` registers the link under that id with
-  no auth binding. Since the mesh edge is server-TLS-only (no client auth), any peer that completes the
-  mesh ALPN can claim another relay's id and receive that peer's targeted session `Join`s — and replace
-  the real peer's sender under the same id. When this lands: bind the `MeshHello` `relay_id` to
-  authenticated relay identity (cert subject or coordinator-issued mesh credential), and reject
-  unexpected / duplicate ids *before* `links.send` registers the link.
-- [ ] **Mesh session-id tenant scoping.** `MeshPacket` carries a bare `session: u64`; ids are unique
-  only within a tenant, so the driver keys per-session state on `SessionKey` and fail-closed refuses a
-  colliding id across tenants (the wire can't disambiguate them). Settle whether a mesh link
-  authenticates for a single tenant (making the collision unreachable) or many — likely folded into
-  `S===S` auth above, the natural place to bind a link to its tenant. One benign gap remains until then:
-  `MeshControl` marks a `Join` delivered when *enqueued*, not when the driver accepts it, so a refused
-  colliding `Join` silently never forms and isn't retried on the occupier's leave. The *dangerous* half
-  (a refused tenant's later `Leave` evicting the legitimate holder) is already fixed — the driver's
-  `Leave` matches the full `SessionKey`. Close the rest with the tenant-binding decision, or by mirroring
-  the driver's collision rule in `MeshControl`.
-- [ ] **Active-player presence tracking.** The app server needs to block re-queueing for users already
-  in a game. Both directions of the control connection are built — descriptors down, a relay-level
-  liveness heartbeat up (already driving deregister-on-drop). What remains: extend that heartbeat to
-  carry opaque `(tenant, session, slot)` presence, add a coordinator-side presence store, and expose an
-  "is user U in a game" query (the coordinator resolves slot→user from the map it already holds at
-  session setup). Reporting is periodic (off the hot path); a connection drop is the prompt signal (that
-  relay's users become queueable at once), a heartbeat TTL covers a connected-but-silent relay. **No
-  user identity in the token** — the relay stays PII-free (its parser is attacker-facing and fuzzed,
-  D10); only the coordinator sees user ids, and any relay-side user identity rides the descriptor push,
-  never the client token. Open: heartbeat TTL multiple, and fail-open vs fail-closed when the presence
-  store is unavailable.
-- [ ] **Coordinated relay drain (scale-to-zero).** A relay with no clients should shut down (Phase 5),
-  but a bare exit races the coordinator assigning it a fresh session. Before shutting down, a draining
-  relay should signal the coordinator up the control connection and await an ack that it has been marked
-  ineligible for new assignments — closing the window where the coordinator otherwise only learns it is
-  gone from the connection dropping (deregister-on-drop, now settled). Builds on the liveness channel;
-  pairs with presence tracking. (A relay *moving* mid-session drops its sessions — seamless continuity
-  across that is failover/D11, not the dialer's retarget, which handles the between-session case.)
-
-**Game seam / determinism:**
-- [ ] **Synced player-leave determinism.** Agreeing the turn isn't sufficient — every client must
-  apply the leave in the same per-slot order with the same RNG state, including clients that never
-  detected the drop locally. Prove it, don't assert (guide §5.8).
-
-**Substrate / cloud:**
-- [ ] Cold-start budget: measure Fargate launch + image pull; confirm warm-pool size per lit region.
-- [ ] DDoS without anycast: validate Shield Standard coverage on raw Fargate public IPs; decide when
-  Shield Advanced / Spectrum is required (likely near-term).
-- [ ] GameLift beacon coverage maps to lit regions; rate-limit caching; ICMP-fallback parity.
-- [ ] **Dual-stack advertise address (follow-up to relay enroll).** A relay serves clients on both
-  IPv4 and IPv6 (D3 direct dual-stack IPs), but enroll today carries a single `relay_addr` — the relay
-  asserts one address via `--advertise-addr` (defaulting to `--listen`, else loopback for dev). The
-  next pass models **both families**: `RelayHello`/`RelayEntry`/`RelayPeer` carry a v4 *and* a v6
-  endpoint, and the consumers gain family selection (which a client dials, which a mesh peer dials).
-  Note this is a real contract reshape, not a bolt-on optional field, which is why it's separated from
-  the enroll loop. `RelayHello` is already `#[non_exhaustive]`, so the second family is additive.
-  Address discovery stays an explicit flag until the Fargate/ECS-metadata integration derives it
-  (observing the connection's source IP was rejected: the relay reaches the coordinator over only one
-  family but must advertise both). Stable per relay — no per-game IP rotation, so enroll addresses
-  don't churn.
-- [ ] **Coordinator↔relay control-protocol skew (part of WS-K versioning).** The control endpoint
-  (`/relay/control`) and the `RelayToCoordinator`/`CoordinatorToRelay` frames are a contract between two
-  **independently deployed** components, so a rolling deploy can run a newer coordinator against older
-  relays (or vice versa). Today both sides predate any release, so there is nothing to be skew-compatible
-  *with* — but before v2 ships, this needs the WS-K negotiation story: the frames already carry
-  `ProtocolVersion` and skip `Unknown` message kinds, so the path is version-gate the endpoint (or
-  negotiate at the `Hello`) and add explicit old-relay/new-coordinator and new-relay/old-coordinator
-  skew tests. Don't bolt on a legacy-path shim for the *current* unreleased endpoint — that would be dead
-  code.
-
-**Security / tenancy:**
-- [ ] Tenant enrollment + key rotation/revocation flow (states: active/suspended/revoked, checked
-  per request); how a developer is granted/revoked staging access.
-- [ ] Untrusted-dev local loopback: confirm it truly never touches the shared coordinator/fleet.
-
-**Observability / data:**
-- [ ] Flight-recorder durable-store target + flush protocol within Fargate `stopTimeout` (≤120s);
-  format + retention + PII policy for `session↔user`.
-
-**Coordinator HA:** RTO, registry in shared store, hot-standby — gates the multi-tenant claim.
-
-**Settled (was open — short record; detail in `rally-point2/docs/architecture.md`):**
-- **Deregister-on-drop / connection-lifetime enrollment** — a dropped or silent (missed-heartbeat)
-  control connection deregisters the relay; a generation fencing token closes the reconnect race.
-- **Token connection-binding** — the client signs the relay's nonce *plus* a TLS channel binding (RFC
-  5705 exporter) with its per-session key, defeating a mis-selected/malicious relay relaying the proof,
-  with no client TLS cert.
-- **On-demand mesh dialing** — the dial side is driven by the coordinator's descriptors (the Join
-  source's desired-peer set): one supervisor per peer, redialing on failure, retargeting on a peer's
-  address change, cancelled on removal, with abort-safe forward-channel cleanup.
+### SB-side small backlog (carried from the deleted tracker)
+Drop `netcodeV2` naming from public surfaces; submit client pubkey + region at
+matchmaking/lobby time instead of game load (no long-lived keypair without a security review);
+client desync-report hook (VOID-only); relay forward-channel byte budget (oversize amplification);
+self-desync-void rate-limit; post-promotion desync-ordinal PK collision (authority epoch, if
+revisited); observer quit classifies as drop rather than clean leave (no scoring impact); initial
+buffer directive at session start + rate-limited control-law logging; scrollable chat-history box
+decision (verify SC:R's box renders in-game at all before building the battlenet Message feed);
+replay-playback chat renders into `.rep` but not visibly during playback (low).
 
 ---
 
-*rev 2 synthesized 2026-06-23 from `scr-netcode-replacement-guide.md` (game seam) + the Netcode v2
-Architecture Brief, hardened by a six-lens adversarial review. Decisions D1–D11 are load-bearing.*
+## 4. Open questions (pruned to the genuinely open)
+
+- **Recovery-window vs downlink-coalescing byte budget** — define when implementing coalescing
+  (low-stakes: the window is small and coalescing is weak-downlink-only).
+- **DDoS without anycast** — validate Shield Standard on raw Fargate IPs; when is Shield
+  Advanced/Spectrum required (likely near-term); interacts with the IP-rotation question (§3 P5).
+- **GameLift beacon coverage** vs lit regions; rate-limit caching; ICMP-fallback parity.
+- **Coordinator↔relay control-protocol skew** — see negotiation item in §3 P6; nothing to be
+  skew-compatible *with* until a second deployment exists.
+- **Presence details** — TTL multiple, fail-open vs fail-closed (§3).
+- **Flight-recorder retention/PII policy** for `session↔user` (§3).
+
+Everything else from the old §6 is either settled (recorded in §1) or absorbed into §3 as
+concrete work items.
+
+---
+
+*rev 5 synthesized 2026-07-10: statuses verified against `rally-point2` and `shieldbattery`
+source, not carried forward on faith. rev 2's adversarial-review findings and rev 3/4's transport
+decisions remain load-bearing and live on in `rally-point2/docs/architecture.md`.*

@@ -83,6 +83,15 @@ game\build.bat x86_64          # Debug 64-bit
 ### General
 
 - Preserve `TODO(context)` and `NOTE(context)` comments unless completing the TODO
+- **Comments must stand alone.** Don't write _deictic_ comments — ones whose meaning points at
+  context outside the repo's current state: review findings ("Finding A3"), design docs, handoffs,
+  tickets, chat threads, project phases, or before/after narrative ("previously...", "the new
+  path", "today's behavior"). Those artifacts drift or get deleted, and the next reader wasn't
+  there. The test: would this comment still be true and fully comprehensible after every document,
+  conversation, and branch around the change is gone? If not, rewrite it to state the invariant,
+  hazard, or constraint in the code's own terms. Provenance and review trail belong in commit
+  messages, where such references are welcome. (`TODO(context)`/`NOTE(context)` tags are the one
+  sanctioned forward pointer.)
 - Delete unused code during refactoring
 - The GraphQL schema (`schema.graphql`) is generated from server-rs - don't edit manually
 - Don't edit translation files (`global.json`) manually - run `pnpm run gen-translations`
