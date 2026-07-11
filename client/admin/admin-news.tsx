@@ -1138,7 +1138,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   : t('admin.news.createPost', 'Create post')
               }
               onClick={submit}
-              disabled={fetching}
+              disabled={fetching || coverUploading}
             />
           </SaveRow>
         </Form>
