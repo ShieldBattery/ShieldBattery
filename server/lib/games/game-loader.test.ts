@@ -1,5 +1,6 @@
 import { register } from 'prom-client'
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
@@ -275,5 +276,57 @@ describe('games/game-loader/GameLoader', () => {
     )
     expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
     expect(updateRouteDebugInfo).toHaveBeenCalledWith('game-multi', [])
+  })
+
+  test('threads each player selected region through to createSessionForGame', async () => {
+    const region = makeGameServerRegionId('us-east')
+    const player1 = makePlayer(p1)
+    const player2 = makePlayer(p2)
+    // p1 joined with a region; p2 has none and must be sent region-less.
+    const slot1 = player1.slot.set('region', region)
+    registerActiveClients([slot1, player2.slot])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockResolvedValue(
+      new Map([
+        [p1, {} as any],
+        [p2, {} as any],
+      ]),
+    )
+
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId: 'game-region',
+      resultCodes: new Map([
+        [p1, 'code-1'],
+        [p2, 'code-2'],
+      ]),
+    } as any)
+
+    const request: GameLoadRequest = {
+      players: [slot1, player2.slot],
+      playerInfos: [player1.playerInfo, player2.playerInfo],
+      mapId,
+      gameConfig: lobbyConfig([
+        [{ id: p1, race: 't', isComputer: false }],
+        [{ id: p2, race: 'z', isComputer: false }],
+      ]),
+    }
+
+    const resultPromise = gameLoader.loadGame(request)
+
+    await vi.waitFor(() => {
+      expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+    })
+    gameLoader.registerGameAsLoaded('game-region', p1)
+    gameLoader.registerGameAsLoaded('game-region', p2)
+    await resultPromise
+
+    const { slots } = netcodeV2Service.createSessionForGame.mock.calls[0][0]
+    expect(slots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: p1, region }),
+        expect.objectContaining({ userId: p2, region: undefined }),
+      ]),
+    )
   })
 })

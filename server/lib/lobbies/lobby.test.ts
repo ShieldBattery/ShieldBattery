@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
 import {
   findSlotById,
@@ -127,6 +128,28 @@ describe('Lobbies - melee', () => {
     evaluateSummarizedJson(BOXER_LOBBY, 3)
     evaluateSummarizedJson(BOXER_LOBBY_WITH_OBSERVERS, 5)
     evaluateSummarizedJson(openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0), 6)
+  })
+
+  test('stores the host region on the host slot for session-create placement', () => {
+    const region = makeGameServerRegionId('us-east')
+    const lobby = createLobby({
+      name: 'Region host',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRegion: region,
+      allowObservers: false,
+    })
+
+    expect(lobby.host.region).toBe(region)
+    const [, , hostSlot] = findSlotByUserId(lobby, HOST_USER_ID)
+    expect(hostSlot!.region).toBe(region)
+  })
+
+  test('leaves the host region unset when the host reported none', () => {
+    expect(BOXER_LOBBY.host.region).toBeUndefined()
   })
 
   test('should find available slot', () => {

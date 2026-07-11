@@ -4,6 +4,7 @@ import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
 import { raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
+import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
   NetcodeV2RehomeResponse,
   NetcodeV2RelayInfo,
@@ -134,6 +135,12 @@ interface CoordinatorSessionRequest {
     external_ref: string
     /** Excludes this slot from the relay's desync sync-checksum comparator (serde-default false). */
     observer: boolean
+    /**
+     * The opaque id of the game-server region this slot asked to home in. Omitted when the player
+     * reported none; the coordinator then places the slot region-blind (global lowest-id relay).
+     * An unknown/unlit region also degrades to that fallback coordinator-side.
+     */
+    region?: string
   }>
   /**
    * Dev/testing only: slots that should home on a secondary relay instead of the session's primary
@@ -380,7 +387,16 @@ export class NetcodeV2Service {
     signal,
   }: {
     gameId: string
-    slots: Array<{ slot: number; userId: SbUserId; observer: boolean }>
+    slots: Array<{
+      slot: number
+      userId: SbUserId
+      observer: boolean
+      /**
+       * The player's chosen home region, forwarded to the coordinator to place this slot's relay.
+       * Omitted from the request when absent; the coordinator then places the slot region-blind.
+       */
+      region?: GameServerRegionId
+    }>
     signal: AbortSignal
   }): Promise<Map<SbUserId, NetcodeV2ServerSetup>> {
     const config = this.config
@@ -405,13 +421,14 @@ export class NetcodeV2Service {
         tenant: config.tenant,
         // eslint-disable-next-line camelcase
         external_id: gameId,
-        players: slots.map(({ slot, userId, observer }) => ({
+        players: slots.map(({ slot, userId, observer, region }) => ({
           slot,
           // eslint-disable-next-line camelcase
           client_pubkey: Array.from(Buffer.from(pubkeys.get(userId)!, 'base64')),
           // eslint-disable-next-line camelcase
           external_ref: String(userId),
           observer,
+          ...(region !== undefined ? { region } : {}),
         })),
         // eslint-disable-next-line camelcase
         ...(splitSlots.length > 0 ? { dev_relay_split: splitSlots } : {}),

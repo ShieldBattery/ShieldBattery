@@ -1,4 +1,5 @@
 import { List, Range } from 'immutable'
+import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   Lobby,
@@ -226,6 +227,7 @@ export function createLobby({
   numSlots,
   hostUserId,
   hostRace = 'r',
+  hostRegion,
   allowObservers,
   turnRate,
   useLegacyLimits = false,
@@ -237,6 +239,8 @@ export function createLobby({
   numSlots: number
   hostUserId: SbUserId
   hostRace?: RaceChar
+  /** The host's chosen home game-server region, stored on their slot for session-create placement. */
+  hostRegion?: GameServerRegionId
   allowObservers: boolean
   turnRate?: BwTurnRate | 0
   useLegacyLimits?: boolean
@@ -278,6 +282,7 @@ export function createLobby({
   } else {
     host = createHuman(hostUserId, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
   }
+  host = host.set('region', hostRegion)
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host).set('host', host)
 }
 

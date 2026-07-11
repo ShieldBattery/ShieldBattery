@@ -1,7 +1,9 @@
 import got from 'got'
 import { createPublicKey, sign } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
+import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { asMockedFunction } from '../../../common/testing/mocks'
+import { makeSbUserId } from '../../../common/users/sb-user-id'
 import {
   checkSessionsAlive,
   clientSigningKeyFromSeedHex,
@@ -14,8 +16,35 @@ vi.mock('got', () => ({
   },
 }))
 
+// The session id persistence is a best-effort DB write; stub it so the create path doesn't reach a
+// real database.
+vi.mock('../games/game-models', () => ({
+  setNetcodeV2Session: vi.fn().mockResolvedValue(undefined),
+}))
+
 /** A valid `SB_RP2_CLIENT_KEY` fixture (64 hex chars = a 32-byte Ed25519 seed). */
 const TEST_CLIENT_SEED_HEX = '11'.repeat(32)
+
+// A valid self-signed DER cert (as the coordinator's byte-array JSON), so decoding a relay endpoint
+// through relayEndpointToInfo's X509 parse succeeds; its contents are irrelevant beyond parsing.
+const RELAY_CERT_DER = [
+  ...Buffer.from(
+    'MIIDCzCCAfOgAwIBAgIUY0gCPMTEgUEmeHE4scZYjRS8sOEwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UEAwwK' +
+      'dGVzdC1yZWxheTAeFw0yNjA3MDkwOTU1NDRaFw0zNjA3MDYwOTU1NDRaMBUxEzARBgNVBAMMCnRlc3QtcmVs' +
+      'YXkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDa6ge92CEx50zoAmzI9pUQQvl6uh0/WmHKfBdI' +
+      'qdDIHy/IWcfE/5j7383EiuXp07xagLFCXn+6fjeP85U7iGsekHVPm4qnrrDITBPFZNPoQGkpOUgzJks+gEpT' +
+      'dUrMMniFPK6W+5eT6cbUjUmXfKlDGWySZ+7FqGxs1aWsfVU9HDs3VlFobb9Leq+dsbPfGMxIMMZtgti/TKj4' +
+      'kVNv7gzaQdf3EWRxhttckJlZfuWM+UmTNtrKWyilHYiOkEvSg2Bvpx+sFpbqK+9iOr3LiFbe+NrXOGLEskZM' +
+      'OZxHWx29HOQyl11YZoE+SquPRjz5KFQMdQgvOzMUewc42i6HoLTpAgMBAAGjUzBRMB0GA1UdDgQWBBQA/z4b' +
+      'mvw4DMS4O2/8uKiKlaJRFjAfBgNVHSMEGDAWgBQA/z4bmvw4DMS4O2/8uKiKlaJRFjAPBgNVHRMBAf8EBTAD' +
+      'AQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAECiLK+6liP56mdxv0w+bzzDXeLpPibUJXZfuJkRMnuxfcMNxdnq65' +
+      'AKeNiCEthU2ibJvL2dmHQW7MPhV4DIlzDBY9gGjfaosGim8t0o7Iccj00TnWlQZ7H9SfSqXfhqmDOOgWJC9q' +
+      'S1/EfInTOFKd2M7nV/A/HInZu3Vcq4LRhSh3a+HnPrcb0o0OHS6TbifhFdc2q0qorYOh7Bm0FLCeFMcw/Occ' +
+      'pDg4zfbWbyy0xaDIrzNbPRWL/FvxVd2mpGPsWB3xKyGPA6boFUsvNQZQlz4BrZ1Pvur+PnISj01rgl8FYsZ+' +
+      'lZC8tZ1GllB3DmAUBIavxKH/9FsNXk26JNuM',
+    'base64',
+  ),
+]
 
 /**
  * Stubs netcode v2 as configured (coordinator URL + tenant + client key), as `loadConfigFromEnv`
@@ -160,26 +189,6 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     vi.clearAllMocks()
   })
 
-  // A valid self-signed DER cert (as the coordinator's byte-array JSON), so a `newTarget` decode
-  // through relayEndpointToInfo's X509 parse succeeds; its contents are irrelevant beyond parsing.
-  const RELAY_CERT_DER = [
-    ...Buffer.from(
-      'MIIDCzCCAfOgAwIBAgIUY0gCPMTEgUEmeHE4scZYjRS8sOEwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UEAwwK' +
-        'dGVzdC1yZWxheTAeFw0yNjA3MDkwOTU1NDRaFw0zNjA3MDYwOTU1NDRaMBUxEzARBgNVBAMMCnRlc3QtcmVs' +
-        'YXkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDa6ge92CEx50zoAmzI9pUQQvl6uh0/WmHKfBdI' +
-        'qdDIHy/IWcfE/5j7383EiuXp07xagLFCXn+6fjeP85U7iGsekHVPm4qnrrDITBPFZNPoQGkpOUgzJks+gEpT' +
-        'dUrMMniFPK6W+5eT6cbUjUmXfKlDGWySZ+7FqGxs1aWsfVU9HDs3VlFobb9Leq+dsbPfGMxIMMZtgti/TKj4' +
-        'kVNv7gzaQdf3EWRxhttckJlZfuWM+UmTNtrKWyilHYiOkEvSg2Bvpx+sFpbqK+9iOr3LiFbe+NrXOGLEskZM' +
-        'OZxHWx29HOQyl11YZoE+SquPRjz5KFQMdQgvOzMUewc42i6HoLTpAgMBAAGjUzBRMB0GA1UdDgQWBBQA/z4b' +
-        'mvw4DMS4O2/8uKiKlaJRFjAfBgNVHSMEGDAWgBQA/z4bmvw4DMS4O2/8uKiKlaJRFjAPBgNVHRMBAf8EBTAD' +
-        'AQH/MA0GCSqGSIb3DQEBCwUAA4IBAQAECiLK+6liP56mdxv0w+bzzDXeLpPibUJXZfuJkRMnuxfcMNxdnq65' +
-        'AKeNiCEthU2ibJvL2dmHQW7MPhV4DIlzDBY9gGjfaosGim8t0o7Iccj00TnWlQZ7H9SfSqXfhqmDOOgWJC9q' +
-        'S1/EfInTOFKd2M7nV/A/HInZu3Vcq4LRhSh3a+HnPrcb0o0OHS6TbifhFdc2q0qorYOh7Bm0FLCeFMcw/Occ' +
-        'pDg4zfbWbyy0xaDIrzNbPRWL/FvxVd2mpGPsWB3xKyGPA6boFUsvNQZQlz4BrZ1Pvur+PnISj01rgl8FYsZ+' +
-        'lZC8tZ1GllB3DmAUBIavxKH/9FsNXk26JNuM',
-      'base64',
-    ),
-  ]
   // Mirrors the coordinator's snake_case CoordinatorRelayEndpoint wire shape.
   // eslint-disable-next-line camelcase
   const newTargetRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
@@ -294,5 +303,59 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
 
     expect(got.post).toHaveBeenCalledTimes(2)
     expect(r2.decision).toBe('newTarget')
+  })
+})
+
+describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  // eslint-disable-next-line camelcase
+  const HOME_RELAY = { relay_id: 1, relay_addr: '10.0.0.1:14900', cert_der: RELAY_CERT_DER }
+  /** A well-formed 32-byte pubkey (base64), as `registerPubkey` requires. */
+  const PUBKEY = Buffer.alloc(32, 7).toString('base64')
+
+  function sessionResponse(slots: number[]) {
+    return {
+      session: 100,
+      // eslint-disable-next-line camelcase
+      home_relay: HOME_RELAY,
+      tokens: slots.map(slot => ({ slot, token: [slot] })),
+      bounds: { min: 2, max: 8 },
+    }
+  }
+
+  test('forwards each slot region (snake_case) and omits it when absent', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false, region: makeGameServerRegionId('us-east') },
+        { slot: 1, userId: u2, observer: true },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    const createCall = asMockedFunction(got.post).mock.calls.find(c =>
+      String(c[0]).endsWith('/session/create'),
+    )!
+    const body = JSON.parse((createCall[1] as any).body)
+    expect(body.players).toEqual([
+      expect.objectContaining({ slot: 0, observer: false, region: 'us-east' }),
+      expect.objectContaining({ slot: 1, observer: true }),
+    ])
+    // The region-less slot must not carry the key at all (rather than a null/undefined value).
+    expect(body.players[1]).not.toHaveProperty('region')
   })
 })

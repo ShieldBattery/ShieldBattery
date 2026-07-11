@@ -1,10 +1,7 @@
 import { register } from 'prom-client'
 import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import {
-  GameServerRegionId,
-  makeGameServerRegionId,
-} from '../../../common/game-server-regions'
+import { GameServerRegionId, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
   MatchmakingCompletionType,

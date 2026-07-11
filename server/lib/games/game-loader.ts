@@ -679,6 +679,9 @@ export class GameLoader {
           slot,
           userId: p.userId!,
           observer: p.type === SlotType.Observer,
+          // The region the player selected when they queued/joined, if any. Forwarded to the
+          // coordinator to home this slot's relay; a slot with none falls back region-blind.
+          region: p.region,
         }))
         const [setups, setupsError] = (
           await Result.fromAsyncCatching(

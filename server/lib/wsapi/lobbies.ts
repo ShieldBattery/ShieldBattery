@@ -2,9 +2,11 @@ import errors from 'http-errors'
 import { Map, Record, Set } from 'immutable'
 import { NextFunc, NydusClient, NydusServer } from 'nydus'
 import { container } from 'tsyringe'
+import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
+import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import {
@@ -28,6 +30,7 @@ import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
+import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
@@ -55,6 +58,27 @@ const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length >
 
 const isValidTurnRate = (num: unknown) =>
   num === undefined || num === TURN_RATE_DYNAMIC || ALL_TURN_RATES.includes(num as BwTurnRate)
+
+// The desired region is an opaque id, loosely validated here; the handler checks it against the
+// live region list and drops it if unknown, so a client with no measured regions joins region-less.
+const isValidRegion = (region: unknown) =>
+  region === undefined || (typeof region === 'string' && region.length > 0 && region.length <= 64)
+// `rttMs` is only meaningful alongside a region; the region list check is what actually gates it.
+const isValidRttMs = (rttMs: unknown) =>
+  rttMs === undefined || (typeof rttMs === 'number' && rttMs >= 0)
+
+/**
+ * Returns `region` only when it appears in `regions`, otherwise undefined. The region list can
+ * change between a client fetching it and joining, so an unknown (or absent) region degrades to
+ * undefined — the occupant's slot is then placed region-blind at session create rather than the
+ * join being rejected.
+ */
+export function knownRegionOrUndefined(
+  region: GameServerRegionId | undefined,
+  regions: ReadonlyDeep<GameServerRegion[]>,
+): GameServerRegionId | undefined {
+  return region !== undefined && regions.some(r => r.id === region) ? region : undefined
+}
 
 class Countdown extends Record({
   timer: undefined as Deferred<void> | undefined,
@@ -86,6 +110,7 @@ export class LobbyApi {
   readonly activityRegistry = container.resolve(GameplayActivityRegistry)
   readonly gameLoader = container.resolve(GameLoader)
   readonly restrictionService = container.resolve(RestrictionService)
+  readonly gameServerRegionsService = container.resolve(GameServerRegionsService)
 
   lobbies = Map<string, Lobby>()
   lobbyClients = Map<ClientSocketsGroup, string>()
@@ -159,10 +184,12 @@ export class LobbyApi {
       gameSubType: isValidGameSubType,
       turnRate: isValidTurnRate,
       useLegacyLimits: (b: unknown) => b === undefined || b === true || b === false,
+      region: isValidRegion,
+      rttMs: isValidRttMs,
     }),
   )
   async create(data: Map<string, any>, next: NextFunc) {
-    const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits } =
+    const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits, region } =
       data.get('body') as {
         name: string
         map: SbMapId
@@ -171,9 +198,13 @@ export class LobbyApi {
         allowObservers?: boolean
         turnRate?: BwTurnRate
         useLegacyLimits?: boolean
+        region?: GameServerRegionId
+        rttMs?: number
       }
     const user = this.getUser(data)
     const client = this.getClient(data)
+
+    const hostRegion = await this._resolveRegion(region)
 
     if (!LOBBY_NAME_PATTERN.test(name)) {
       throw new errors.BadRequest('lobby name contains invalid characters')
@@ -213,6 +244,7 @@ export class LobbyApi {
       numSlots,
       hostUserId: client.userId,
       hostRace: undefined,
+      hostRegion,
       allowObservers: allowObservers ?? false,
       turnRate,
       useLegacyLimits,
@@ -232,12 +264,20 @@ export class LobbyApi {
     '/join',
     validateBody({
       name: isValidLobbyName,
+      region: isValidRegion,
+      rttMs: isValidRttMs,
     }),
   )
   async join(data: Map<string, any>, next: NextFunc) {
-    const { name } = data.get('body') as { name: string }
+    const { name, region } = data.get('body') as {
+      name: string
+      region?: GameServerRegionId
+      rttMs?: number
+    }
     const user = this.getUser(data)
     const client = this.getClient(data)
+
+    const joinRegion = await this._resolveRegion(region)
 
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
@@ -271,6 +311,7 @@ export class LobbyApi {
           )
         : Slots.createHuman(client.userId)
     }
+    player = player.set('region', joinRegion)
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
@@ -287,6 +328,22 @@ export class LobbyApi {
 
     this._publishLobbyDiff(lobby, updated)
     this._subscribeClientToLobby(lobby, user, client)
+  }
+
+  /**
+   * Validates a client-reported desired region against the live region list, returning it only if
+   * it still exists (the list can change between the client fetching it and joining). An absent or
+   * unknown region resolves to undefined so the occupant's slot is placed region-blind at session
+   * create — mirroring the matchmaking queue's region gate.
+   */
+  private async _resolveRegion(
+    region: GameServerRegionId | undefined,
+  ): Promise<GameServerRegionId | undefined> {
+    if (region === undefined) {
+      // A client with no measured/configured regions reports none; skip the region-list round trip.
+      return undefined
+    }
+    return knownRegionOrUndefined(region, await this.gameServerRegionsService.getRegions())
   }
 
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {

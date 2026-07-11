@@ -1136,6 +1136,15 @@ export class MatchmakingService {
       )
     }
 
+    // Carry each player's queued home region through to the game loader, which forwards it to the
+    // coordinator to place their relay. It was validated against the live region list when they
+    // queued; a player with no recorded region is placed region-blind.
+    slots = slots.map(s =>
+      s.userId !== undefined
+        ? s.set('region', this.playerQueueData.get(s.userId)?.region?.region)
+        : s,
+    )
+
     const entities = match.teams.flat()
     const chosenMap = mapInfo
 
