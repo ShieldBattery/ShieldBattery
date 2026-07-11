@@ -124,9 +124,9 @@ const NewsDeletePostMutation = graphql(/* GraphQL */ `
 
 const PAGE_SIZE = 20
 
-const PUBLISH_MODE_DRAFT = 'draft'
-const PUBLISH_MODE_NOW = 'now'
-const PUBLISH_MODE_SCHEDULE = 'schedule'
+export const PUBLISH_MODE_DRAFT = 'draft'
+export const PUBLISH_MODE_NOW = 'now'
+export const PUBLISH_MODE_SCHEDULE = 'schedule'
 type PublishMode =
   | typeof PUBLISH_MODE_DRAFT
   | typeof PUBLISH_MODE_NOW
@@ -138,7 +138,7 @@ type PostStatus =
   | { kind: 'published'; date: Date }
 
 /** Classifies a post's publish state given the current time (`now`, in millis). */
-function getPostStatus(publishedAt: string | null | undefined, now: number): PostStatus {
+export function getPostStatus(publishedAt: string | null | undefined, now: number): PostStatus {
   if (!publishedAt) {
     return { kind: 'draft' }
   }
@@ -147,7 +147,7 @@ function getPostStatus(publishedAt: string | null | undefined, now: number): Pos
 }
 
 /** Formats a `Date` for a `datetime-local` input value (`YYYY-MM-DDTHH:mm`, local time). */
-function toDateTimeLocalString(date: Date): string {
+export function toDateTimeLocalString(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
@@ -686,7 +686,7 @@ function AdminNewsEdit({ params: { id } }: { params: { id: string } }) {
 
 type EditablePost = NonNullable<ResultOf<typeof AdminNewsPostQuery>['newsPost']>
 
-interface NewsEditorModel {
+export interface NewsEditorModel {
   title: string
   summary: string
   content: string
@@ -745,7 +745,7 @@ const SaveRow = styled.div`
 `
 
 /** Computes the `publishedAt` value for a newly-created post (undefined leaves it a draft). */
-function createPublishedAt(model: NewsEditorModel): string | undefined {
+export function createPublishedAt(model: NewsEditorModel): string | undefined {
   switch (model.publishMode) {
     case PUBLISH_MODE_DRAFT:
       return undefined
@@ -762,7 +762,7 @@ function createPublishedAt(model: NewsEditorModel): string | undefined {
  * Computes the `publishedAt` change to send in an update, or `undefined` if the publish state is
  * unchanged (so we omit the field and leave it alone). A returned `{ value: null }` unpublishes.
  */
-function publishedAtUpdate(
+export function publishedAtUpdate(
   model: NewsEditorModel,
   originalPublishedAt: string | null,
 ): { value: string | null } | undefined {
@@ -1031,10 +1031,12 @@ const HistoryEntryChanges = styled.div`
   ${bodyMedium};
 `
 
-type NewsPostEdit = NonNullable<ResultOf<typeof AdminNewsHistoryQuery>['newsPost']>['edits'][number]
+export type NewsPostEdit = NonNullable<
+  ResultOf<typeof AdminNewsHistoryQuery>['newsPost']
+>['edits'][number]
 
 /** Field labels that changed between an edit and the next-older revision. */
-function changedFieldLabels(
+export function changedFieldLabels(
   edit: NewsPostEdit,
   older: NewsPostEdit | undefined,
   t: ReturnType<typeof useTranslation>['t'],
