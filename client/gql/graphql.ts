@@ -186,6 +186,8 @@ export type AdminNewsPostQuery = {
     summary: string
     content: string
     publishedAt: string | null
+    coverImagePath: string | null
+    coverImageUrl: string | null
     author: { id: Types.SbUserId; name: string } | null
   } | null
 }
@@ -1962,6 +1964,8 @@ export const AdminNewsPostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
                 {
                   kind: 'Field',
                   name: { kind: 'Name', value: 'author' },
