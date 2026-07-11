@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CombinedError, useMutation, useQuery } from 'urql'
@@ -111,6 +111,9 @@ export function ConnectionSettings() {
   const [, completeTwitchLink] = useMutation(CompleteTwitchLinkMutation)
   const [, unlinkTwitch] = useMutation(UnlinkTwitchMutation)
   const [busy, setBusy] = useState(false)
+  // `busy` only disables the button after a re-render, so a fast double-click can slip through
+  // before that happens; this ref guards the gap synchronously.
+  const busyRef = useRef(false)
 
   const connection = data?.myTwitchConnection
 
@@ -153,12 +156,19 @@ export function ConnectionSettings() {
   }
 
   const onConnect = () => {
+    if (busyRef.current) {
+      return
+    }
+    busyRef.current = true
     setBusy(true)
     connectTwitch()
       .catch(err => {
         logger.error(`Error linking Twitch account: ${getErrorStack(err)}`)
       })
-      .finally(() => setBusy(false))
+      .finally(() => {
+        busyRef.current = false
+        setBusy(false)
+      })
   }
 
   const connectTwitch = async () => {

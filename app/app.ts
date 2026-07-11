@@ -133,6 +133,8 @@ let mainWindow: BrowserWindow | null
 let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
+// Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
+let twitchOauthFlowActive = false
 
 export function notifyNewInstance(data: NewInstanceNotification) {
   if (mainWindow) {
@@ -236,9 +238,29 @@ const TWITCH_OAUTH_RESULT_PAGE = `<!doctype html>
  */
 function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult> {
   let redirect: URL
-  let expectedState: string | null
+  let expectedState: string
   try {
+    // authorizeUrl arrives from the renderer over IPC and is handed to shell.openExternal below --
+    // treat it as untrusted (a compromised renderer could otherwise use this to open arbitrary
+    // external URL schemes) and pin it to Twitch's authorize endpoint with our exact loopback
+    // redirect before acting on any of it.
     const parsed = new URL(authorizeUrl)
+    if (parsed.origin !== 'https://id.twitch.tv' || parsed.pathname !== '/oauth2/authorize') {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: `Authorize URL was not a Twitch authorize URL: ${parsed.href}`,
+      })
+    }
+
+    const state = parsed.searchParams.get('state')
+    if (!state) {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: 'Authorize URL was missing a state param',
+      })
+    }
+    expectedState = state
+
     const redirectUri = parsed.searchParams.get('redirect_uri')
     if (!redirectUri) {
       return Promise.resolve({
@@ -247,7 +269,16 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
       })
     }
     redirect = new URL(redirectUri)
-    expectedState = parsed.searchParams.get('state')
+    if (
+      redirect.protocol !== 'http:' ||
+      redirect.hostname !== 'localhost' ||
+      redirect.pathname !== '/twitch/callback'
+    ) {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: `Authorize URL redirect_uri was not the expected loopback redirect: ${redirect.href}`,
+      })
+    }
   } catch (err) {
     return Promise.resolve({ error: 'invalid_request', errorDescription: getErrorStack(err) })
   }
@@ -300,7 +331,7 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
       const state = requestUrl.searchParams.get('state')
       // Ignore stray hits (favicon fetches, port scans, an unrelated tab); only the redirect
       // carrying the state we issued should settle the flow.
-      if (!expectedState || state !== expectedState) {
+      if (state !== expectedState) {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
         res.end('Not found')
         return
@@ -429,11 +460,23 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 
   ipcMain.handle('twitchOauthFlow', async (event, authorizeUrl) => {
-    const result = await runTwitchOauthFlow(authorizeUrl)
-    // Bring the app back to the foreground now that the browser detour is done.
-    mainWindow?.show()
-    mainWindow?.focus()
-    return result
+    if (twitchOauthFlowActive) {
+      return {
+        error: 'flow_in_progress',
+        errorDescription: 'A Twitch account linking attempt is already in progress.',
+      } satisfies TwitchOauthFlowResult
+    }
+
+    twitchOauthFlowActive = true
+    try {
+      const result = await runTwitchOauthFlow(authorizeUrl)
+      // Bring the app back to the foreground now that the browser detour is done.
+      mainWindow?.show()
+      mainWindow?.focus()
+      return result
+    } finally {
+      twitchOauthFlowActive = false
+    }
   })
 
   let lastRunAppAtSystemStart: boolean | undefined
