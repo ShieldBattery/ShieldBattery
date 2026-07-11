@@ -1358,27 +1358,53 @@ async fn refresh_stream_state(
 /// Periodically reconciles the `twitch:live` Redis hash with Twitch: refreshes viewer counts/titles
 /// for streamers still live and, crucially, clears entries for anyone who is no longer live (a
 /// safety net for a missed `stream.offline` event, which would otherwise pin them "live" forever).
-pub async fn refresh_live_streams_loop(client: Arc<TwitchClient>, redis: RedisPool) {
+/// It also clears entries that no longer correspond to a current connection: an unlink racing an
+/// in-flight `stream.online` handler, or a failed offline write during unlink, can leave an entry
+/// that no EventSub subscription remains to clear, and Twitch-side reconciliation alone would keep
+/// it fresh for as long as the broadcaster keeps streaming.
+pub async fn refresh_live_streams_loop(client: Arc<TwitchClient>, db: PgPool, redis: RedisPool) {
     let mut interval = tokio::time::interval(LIVE_REFRESH_INTERVAL);
     loop {
         interval.tick().await;
-        if let Err(e) = refresh_all_live_streams(&client, &redis).await {
+        if let Err(e) = refresh_all_live_streams(&client, &db, &redis).await {
             error!("Twitch live-stream refresh failed: {e:?}");
         }
     }
 }
 
-async fn refresh_all_live_streams(client: &TwitchClient, redis: &RedisPool) -> eyre::Result<()> {
+async fn refresh_all_live_streams(
+    client: &TwitchClient,
+    db: &PgPool,
+    redis: &RedisPool,
+) -> eyre::Result<()> {
     let live = load_live_streams(redis).await?;
     if live.is_empty() {
         return Ok(());
     }
 
-    // broadcaster_user_id -> our SB user id, for everyone we currently believe is live.
-    let by_broadcaster: HashMap<String, SbUserId> = live
+    // user_id -> currently linked Twitch user id, for everyone with a connection right now.
+    let connections: HashMap<SbUserId, String> = load_all_connections(db)
+        .await?
         .into_iter()
-        .map(|(user_id, summary)| (summary.twitch_user_id, user_id))
+        .map(|conn| (conn.user_id, conn.twitch_user_id))
         .collect();
+
+    // broadcaster_user_id -> our SB user id, for everyone we currently believe is live. An entry
+    // can be orphaned if an unlink raced an in-flight stream.online handler (or the offline write
+    // on unlink failed): no subscription remains to clear it, and since Twitch still reports the
+    // broadcaster live, leaving it in would keep it pinned live for the rest of the stream. Drop
+    // those here instead, checking against who's actually linked right now.
+    let mut by_broadcaster: HashMap<String, SbUserId> = HashMap::new();
+    for (user_id, summary) in live {
+        if connections.get(&user_id) == Some(&summary.twitch_user_id) {
+            by_broadcaster.insert(summary.twitch_user_id, user_id);
+        } else {
+            set_stream_offline(redis, user_id).await?;
+        }
+    }
+    if by_broadcaster.is_empty() {
+        return Ok(());
+    }
     let broadcaster_ids: Vec<String> = by_broadcaster.keys().cloned().collect();
 
     let live_now: HashMap<String, StreamInfo> = client

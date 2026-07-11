@@ -142,7 +142,11 @@ pub async fn create_app(
             twitch_client.clone(),
             db_pool.clone(),
         ));
-        tokio::spawn(refresh_live_streams_loop(twitch_client, redis_pool.clone()));
+        tokio::spawn(refresh_live_streams_loop(
+            twitch_client,
+            db_pool.clone(),
+            redis_pool.clone(),
+        ));
     }
 
     let schema = build_schema()
