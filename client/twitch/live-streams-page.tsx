@@ -4,6 +4,7 @@ import { useQuery } from 'urql'
 import { graphql, useFragment } from '../gql'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, headlineMedium } from '../styles/typography'
+import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from './live-state'
 import { FeaturedLiveStreamEntry, LiveStreams_FeedFragment } from './live-stream-entry'
 
 const LiveStreamsPageQuery = graphql(/* GraphQL */ `
@@ -41,7 +42,11 @@ const EmptyText = styled.div`
 
 export function LiveStreamsPage() {
   const { t } = useTranslation()
-  const [{ data }] = useQuery({ query: LiveStreamsPageQuery, context: { ttl: 10 * 1000 } })
+  const [{ data }, reexecuteQuery] = useQuery({
+    query: LiveStreamsPageQuery,
+    context: { ttl: 10 * 1000 },
+  })
+  useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
   const { liveStreams } = useFragment(LiveStreams_FeedFragment, data) ?? { liveStreams: [] }
   const sorted = [...liveStreams].sort((a, b) => b.viewerCount - a.viewerCount)
 

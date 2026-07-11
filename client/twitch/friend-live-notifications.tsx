@@ -6,7 +6,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { addLocalNotification } from '../notifications/action-creators'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { LIVE_USER_IDS_POLL_INTERVAL_MS, LiveUserIdsQuery } from './live-state'
+import { LIVE_USER_IDS_POLL_INTERVAL_MS, LiveUserIdsQuery, useQueryPolling } from './live-state'
 
 /**
  * LocalStorage key (per user) for the "notify me when a friend goes live" preference. Read here and
@@ -21,9 +21,9 @@ export const FRIEND_LIVE_NOTIFICATIONS_KEY = 'friendLiveNotifications'
  * finishes loading) are seeded silently, so you're only told about streams that start while you're
  * here. Announcements can be turned off per user via {@link FRIEND_LIVE_NOTIFICATIONS_KEY}.
  *
- * This component also drives the app-wide live-user poll: urql won't re-run a stably-mounted query
- * on its own, so we re-execute `LiveUserIdsQuery` on an interval. urql shares that operation, so the
- * refreshed set also flows to every `useLiveUserIds()` / avatar badge.
+ * This component also drives the app-wide live-user poll via {@link useQueryPolling}, re-executing
+ * `LiveUserIdsQuery` on an interval. urql shares that operation, so the refreshed set also flows to
+ * every `useLiveUserIds()` / avatar badge.
  */
 export function FriendLiveNotifications() {
   const dispatch = useAppDispatch()
@@ -35,13 +35,7 @@ export function FriendLiveNotifications() {
   })
   const liveIds = data?.liveStreamUserIds
 
-  useEffect(() => {
-    const interval = setInterval(
-      () => reexecuteQuery({ requestPolicy: 'cache-and-network' }),
-      LIVE_USER_IDS_POLL_INTERVAL_MS,
-    )
-    return () => clearInterval(interval)
-  }, [reexecuteQuery])
+  useQueryPolling(reexecuteQuery, LIVE_USER_IDS_POLL_INTERVAL_MS)
 
   // The previous set of live user ids, so we can announce only ids that newly appear. Keyed on the
   // raw live set (not the intersection with friends) so that the friends list loading in *after* the

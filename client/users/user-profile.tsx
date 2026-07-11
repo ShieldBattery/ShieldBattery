@@ -45,6 +45,7 @@ import {
   UptimePill,
   ViewerCountPill,
 } from '../twitch/live-indicators'
+import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
 import {
   correctUsernameForProfile,
   navigateToUserProfile,
@@ -295,12 +296,14 @@ export function UserProfilePage({
 
   // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
   // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
-  // render in once they arrive.
-  const [{ data: twitchData }] = useQuery({
+  // render in once they arrive. The poll below keeps the Live badge/banner consistent with the
+  // app-wide avatar badges, which refresh on their own interval.
+  const [{ data: twitchData }, reexecuteTwitchQuery] = useQuery({
     query: UserProfileTwitchQuery,
     variables: { userId: user.id },
     context: { suspense: false },
   })
+  useQueryPolling(reexecuteTwitchQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
   const twitchChannel = twitchData?.user?.twitchChannel
   const liveStream = twitchData?.user?.liveStream ?? undefined
   const isLive = !!liveStream

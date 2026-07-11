@@ -21,6 +21,7 @@ import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
+import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
 import {
   FeaturedLiveStreamEntry,
   LiveStreamEntry,
@@ -151,7 +152,9 @@ export function Home() {
   const { t } = useTranslation()
   // TODO(tec27): Once this isn't a static news feed we should probably check for errors on loading
   // this and show a message if it fails (currently it just hides the non-static parts)
-  const [{ data }] = useQuery({ query: HomeQuery, context: { ttl: 10 * 1000 } })
+  const [{ data }, reexecuteQuery] = useQuery({ query: HomeQuery, context: { ttl: 10 * 1000 } })
+  // Keeps the live sections (live games and streams) fresh while Home stays mounted.
+  useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
 
   const hasSplash = !IS_ELECTRON
 

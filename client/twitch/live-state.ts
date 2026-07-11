@@ -1,5 +1,5 @@
-import { createContext, useMemo } from 'react'
-import { useQuery } from 'urql'
+import { createContext, useEffect, useMemo } from 'react'
+import { useQuery, UseQueryExecute } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { graphql } from '../gql'
 
@@ -43,4 +43,28 @@ export function useLiveUserIds(): ReadonlySet<SbUserId> {
     context: { ttl: LIVE_USER_IDS_POLL_INTERVAL_MS, suspense: false },
   })
   return useMemo(() => new Set(data?.liveStreamUserIds ?? []), [data?.liveStreamUserIds])
+}
+
+/**
+ * How often detail-level live-stream surfaces (the home/live-streams feeds and the profile
+ * banner) are refreshed while mounted. Less frequent than the id-set poll: stream details
+ * (titles, viewer counts) change slowly, and Twitch itself only updates viewer counts about
+ * once a minute.
+ */
+export const LIVE_STREAMS_POLL_INTERVAL_MS = 60 * 1000
+
+/**
+ * Re-executes an urql query on an interval while the caller is mounted. urql never re-runs a
+ * stably-mounted query on its own (`context.ttl` only upgrades the request policy if the
+ * operation happens to execute again), so surfaces that must stay fresh drive their own
+ * re-execution with this.
+ */
+export function useQueryPolling(reexecuteQuery: UseQueryExecute, intervalMs: number) {
+  useEffect(() => {
+    const interval = setInterval(
+      () => reexecuteQuery({ requestPolicy: 'cache-and-network' }),
+      intervalMs,
+    )
+    return () => clearInterval(interval)
+  }, [reexecuteQuery, intervalMs])
 }
