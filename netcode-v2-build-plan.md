@@ -69,8 +69,13 @@ rotation vs stable enroll addresses tension.
 ## 2. Remaining work (the production arc)
 
 ### Phase 4 — Region selection *(not started)*
-- GameLift ping beacons (D7) + first-class ICMP fallback → cached latency map → home region;
-  verify beacon coverage against lit regions; logical regions.
+- GameLift ping beacons (D7) → cached latency map → home region; verify beacon coverage against
+  lit regions; logical regions.
+- A **beacon-independent fallback** for coverage gaps / rate limits / the service going away
+  (D7 said "ICMP-to-relay-region", but scale-to-zero means there may be nothing of ours in-region
+  to ping — mechanism TBD: a tiny always-on per-region UDP echo we run (measures the real
+  protocol path, doubles as reachability), TCP-connect RTT to AWS regional endpoints, or
+  unprivileged ICMP via `IcmpSendEcho` if a region-stable target exists).
 - Today's placeholder: app-server-supplied region.
 
 ### Phase 5 — AWS orchestration *(not started, two contracts pre-built)*
@@ -163,7 +168,9 @@ Recorded so future reviews/sessions don't re-litigate (reasoning in rp2 commit m
   (low-stakes: the window is small and coalescing is weak-downlink-only).
 - **DDoS without anycast** — validate Shield Standard on raw Fargate IPs; when is Shield
   Advanced/Spectrum required (likely near-term); interacts with the IP-rotation question (§2 P5).
-- **GameLift beacon coverage** vs lit regions; rate-limit caching; ICMP-fallback parity.
+- **GameLift beacon coverage** vs lit regions; rate-limit caching; which beacon-independent
+  fallback (see §2 Phase 4 — the original ICMP idea assumed an in-region ping target that
+  scale-to-zero doesn't guarantee).
 - **Coordinator↔relay control-protocol skew** — negotiation exists (WS-K); nothing to be
   skew-compatible *with* until a second deployment exists.
 
