@@ -1716,7 +1716,13 @@ async fn try_reconcile_subscriptions(client: &TwitchClient, db: &PgPool) -> eyre
             }
         }
 
-        if healthy_ids != conn.eventsub_subscription_ids
+        // Twitch doesn't guarantee a listing order, so compare order-insensitively -- a mere
+        // reordering of the same ids shouldn't rewrite the row every pass.
+        let mut stored_sorted = conn.eventsub_subscription_ids.clone();
+        stored_sorted.sort_unstable();
+        let mut healthy_sorted = healthy_ids.clone();
+        healthy_sorted.sort_unstable();
+        if stored_sorted != healthy_sorted
             && let Err(e) = update_subscription_ids(db, conn.user_id, &healthy_ids).await
         {
             error!("Failed to persist reconciled Twitch subscription ids: {e:?}");
