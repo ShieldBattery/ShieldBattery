@@ -138,8 +138,13 @@ delegated, each gated on `clippy -D warnings` + `cargo test --workspace`):
   (idle beat byte-identical, PII-free); generation-fenced coordinator presence store; drop = prompt
   queueable signal; 35s TTL. Tenant-signed `POST /presence/query`, **fail-open** (documented rationale:
   locking players out on infra flap is worse than the status quo). Relay stays PII-free.
-- **Flight recorder (D8)** — **BUILT (rp2 `c4817da`)** — see D8 ledger row. Durable S3 sink + read path
-  remain (Phase 5); retention/PII PROPOSAL awaits ratification.
+- **Flight recorder (D8)** — **BUILT (rp2 `c4817da`)** — see D8 ledger row. Durable sink + read path remain
+  (Phase 5). **Retention/PII: RATIFIED 2026-07-10 (Travis)** — 14-day expiry ("people usually report games
+  almost immediately"); durable store = **DO Spaces** (S3-compatible, lifecycle rules supported), not S3;
+  blobs stay identity-free. Two edits still owed to rp2 `docs/architecture.md`: (1) correct the "no user
+  identity ever reaches a relay" overclaim — identity DOES transit as opaque `GameResult` payload bytes the
+  relay never parses; the true invariant is the relay never *reads* identity and the recorder never captures
+  payload bytes/chat; (2) desync-pin length — proposed 30–90d, Travis hasn't picked; recommend 30d.
 - **Protocol-version negotiation (WS-K)** — **BUILT (rp2 `3ce2da1`).** `RelayHello` carries a
   `[min_protocol, protocol]` window; coordinator negotiates before enroll (WS close 4001 + 60s relay
   backoff on refusal, downgrade on overlap); mesh acceptor refuses with a QUIC app-code before the driver
@@ -168,12 +173,27 @@ toward a standard reliable-ordered protocol — they are gaps in the redundancy/
 single-relay core is largely unaffected — so this is genuinely Phase-5/6 work, not a regression in what
 landed. Ranked by tier:
 
-> **Fix-pass status (2026-07-10 session, rp2 `daaef45..b75d756`, 6 commits, all gated on clippy
+> **Fix-pass status (2026-07-10 session, rp2 `daaef45..f140f08`, 8 commits, all gated on clippy
 > `-D warnings` + full workspace tests):** FIXED — B8, C4 (+a third race found during implementation),
-> B2, C2 (reset half), A1, A3, C6, D10, B9, B5 (transport scope). AWAITING TRAVIS — D1+D2 (design memo
-> below), the NEW mesh-resume-from-cursor gap (below), flight-recorder retention PROPOSAL, landing moment.
-> OPEN — the remaining resource tier (D3/D4/D7, C1/C5/C8, B1/B3/B4/B7/B12), A2, B11, B6/B10, D5/D8/D11/D13,
-> A4/A5, and B5's same-shape casts in relay `consensus.rs`/`mesh.rs`.
+> B2, C2 (reset half), A1, A3, C6, D10, B9, B5 (transport scope), and **D1+D2 (`0bc0b34`, design ratified
+> by Travis in-session)**. Flight-recorder retention RATIFIED + documented (`f140f08`: 14d DO Spaces
+> lifecycle, 30d desync pin, honest identity-transit wording). **Mesh resume-from-cursor ratified + BUILT
+> (`d0008da`)** — the whole lockstep-integrity tier and both coordinator failover bugs are closed. **Resource
+> tier in progress (2026-07-11): D3+D7+D4 FIXED (`3a79c59`), C1 (`d18864c`), C5 (`fd59f2f`), C8 (`f614791`)**
+> — plus transport edges **B3+B7+B1(oversize half)+B4+B12 FIXED (`78930b7`)**; B11 investigated → stays
+> terminal pending a hysteresis follow-up; B1's lobby half scoped out by design (no lobby dedup identity —
+> replay would double-apply); **A2+A4/A5+hygiene tail (B6/B10/D5/D8/D11/D6-comment/relay-casts) FIXED
+> (`8b6129a`), D13 docs refresh (`3185b08`)**.
+>
+> **BACKLOG CLOSED 2026-07-11 — AND LANDED.** Every confirmed finding is fixed, scoped-out-by-design with the
+> reasoning recorded (B1-lobby, B11), or superseded (mesh-resume replaced C2's assumption). rp2 `main`
+> `daaef45..3185b08` **PUSHED to origin** (+ Travis's `e3d539b` cargo-fmt commit on top); SB pin at
+> `e3d539b` (SB `d01928a64` + `64401d808`: Cargo.toml/lock + one test fixture gaining the additive
+> `authority_relay_id` field), game workspace clippy + 136 DLL tests green, dist DLL rebuilt via
+> `game\build.bat`. Follow-ups filed, not blocking: B11 hysteresis re-arm; mesh auth
+> proper (C8 noted); `end_slot_link`'s `session_emptied`-vs-reconnect race (C4 note); Phase 5 flight-recorder
+> DO Spaces sink + read path; SB-side game-record session-id/relay-history persistence. Optional before
+> staging: a live loopback matrix (two relays, mid-game kill, same-relay blip) on the pinned build.
 
 **Lockstep-integrity (fix before multi-relay production):**
 - **Home-relay binding gap (A1) — FIXED (rp2 `414b313`).** Additive `homed_slots: Vec<SlotId>` on
@@ -238,18 +258,21 @@ landed. Ranked by tier:
   clients break ties deterministically. (The **leave** half is already reconciled by the single-sourced
   `SlotDeparted` apply-frame; only the buffer directive needs this.)
 
-- **NEW (found during C2, 2026-07-10): mesh links have no resume-from-cursor — any mesh link death loses
-  in-flight turns permanently.** The mesh dial supervisor (`mesh_edge.rs::run_mesh_dial`) re-establishes a FRESH
-  connection with fresh transport state on every redial; `turn_ring.replay()`'s only caller is the client-facing
-  reconnect (`routing.rs`), and the Join-time reconcile re-syncs *leaves* only. So turns unacked at the moment a
-  relay-pair link dies (QUIC blip, B2's control-death reset, C2's full-queue reset) are never re-fed — a
-  permanent per-(slot,seq) gap at the peer, whose clients stall in lockstep. The loopback matrix never saw it
-  because dev mesh links never blip. C2's fix sketch said "force resume-from-cursor" assuming the machinery
-  existed; it does not. **Effectively a missing multi-relay feature, same blocking tier as A1 — needs Travis's
-  design ratification (new additive mesh frame): on link (re)establishment each side announces per-(session,
-  slot) receive cursors for shared sessions; the other side replays its turn ring past them, filtered to
-  locally-homed origins (no-echo rule). Ring + replay + dedup primitives all exist; only the mesh join-time
-  exchange is new.**
+- **Mesh resume-from-cursor (found during C2, ratified by Travis in-session) — BUILT (rp2 `d0008da`).** Any
+  mesh-pair link death used to lose in-flight/unacked turns permanently (fresh transport on redial; the ring's
+  replay had only the client-facing caller; Join reconciled leaves only) — a peer-side lockstep stall the
+  loopback matrix never saw because dev mesh links never blip. Now: after every Join each side sends an additive
+  `MeshResumeCursors` frame (per origin slot, next seq needed, derived from the session-keyed seen-registry
+  prefix, which survives the death by construction); the peer replays its ring restricted to entries stamped
+  `TurnOrigin::Local` at record time (per-entry, because even a locally-homed slot's entry can be the
+  mesh-delivered copy that won the dedup race — the no-echo rule); a `resuming` flag distinguishes
+  first-join-absent (replay nothing) from resume-absent (replay from 0; asker's dedup absorbs sparse overlap —
+  closes the gapped/never-seen-slot hole caught in review). Replies ride the driver's own backpressured
+  AckManager-tracked path, never the bounded try_send queue they could otherwise fill and reset. Known bounded
+  costs, documented at the sites: a session with zero forward-gate history on either side of a death still
+  reads as first-join (sub-second pre-history window unrecovered); a large replay occupies the shared pair
+  link's driver for the batch (ring-capped: 12,960 turns / 4 MiB), delaying other sessions on that pair —
+  latency, not correctness.
 
 **Game-recoverability:**
 - **Re-home leaves lifecycle serving-set stale (D1) — every failover.** `session::rehome_inner` updates
@@ -269,8 +292,12 @@ landed. Ranked by tier:
   cert matches — a same-id re-enroll with a different cert reads as dead → `NewTarget` with the relay's new cert
   so clients re-pin (a restarted relay is a valid fresh target; clients re-inject their retention ring).
 
-  **D1+D2 PROPOSED design (2026-07-10 session, awaiting Travis's ratification — implementation deliberately
-  not started):**
+  **D1+D2: RATIFIED by Travis + FIXED (rp2 `0bc0b34`) — implemented exactly as proposed below.** Lifecycle
+  gained `on_rehome` (idempotent swap, wired at the API handler on `NewTarget` only); sessions record each
+  serving relay's cert fingerprint (SHA-256 via the existing `ring` dep, captured from the DERs the minted
+  tokens commit clients to); the stay-check requires the pin to match; a mismatched same-id relay is its own
+  legal replacement (membership unchanged, fresh cert recorded, resumed descriptor re-staged). Every
+  regression test was verified to fail against its reverted fix. The proposal, for the record:
   - **Key D2's stay-check on the pinned CERT (fingerprint), not the enroll `generation`.** The registry already
     mints a strictly-increasing `generation` per enroll (`registry.rs`, added for drain fencing), but it bumps on
     every benign control-WS reconnect of a healthy relay that kept its state and cert — where `Stay` is the
@@ -300,34 +327,39 @@ landed. Ranked by tier:
   lifetime. Now drops just that frame on `Full` (cursors are per-slot monotonic and push-on-advance, so the next
   advance re-sends higher) and exits only on `Closed`; loopback-QUIC regression test added (verified to fail
   against the old behavior).
-- **`UnackedWindowExhausted` still terminal (B11).** Its comment gates the resync on "the open failover design"
-  — which has since landed. **Revisit:** consider routing the trip into the re-home/resync path (gated on
-  `game_started`) rather than game-over, after confirming the replacement relay actually clears the backlog.
+- **`UnackedWindowExhausted` still terminal (B11) — INVESTIGATED 2026-07-11, staying terminal by design.**
+  Traced: routing the trip into reconnect would re-trip on the FIRST post-resume send — `rebind()` deliberately
+  preserves the in-flight window (redundancy re-carries it) and the outage-buffer flush sends before any fresh
+  ack can arrive, so naive reclassification = a tight useless reconnect loop. Genuine recovery needs hysteresis
+  (a trend-based re-arm: trip only if the backlog GROWS past its level at reconnect time) — real design work,
+  filed as its own follow-up. Terminal is the safe posture until then.
 
 **Resource exhaustion (cloud-lifecycle; pairs with Phase 5):**
-- **Webhook response body escapes timeout + is unbounded (D3).** `notify.rs` times out only response *headers*
-  then `.collect()`s the body with no timeout/cap; a slow/endless endpoint hangs the session's FIFO queue
-  (blocking `sessionClosed`) and can exhaust memory. **Fix:** one timeout around request+body, and a `Limited`
-  body cap; treat a hit as one failed attempt.
-- **Replayable create + never-started sessions never reaped (D4).** No idempotency/nonce (documented), so an
-  ordinary HTTP retry inside the ±5-min window mints a duplicate session; a session whose clients never dial
-  gains no accounting, so no reap ever fires — leaking `SessionState` + task + descriptors per duplicate.
-  **Fix:** tenant-scoped idempotency key returning the existing response; a never-started grace-reaper.
-- **Mesh recovery state unbounded (C1).** The mesh `AckManager` has neither the ack-beacon (`retire_through`
-  has no relay-side callers) nor an `UNACKED_WINDOW_CAP` trip — only a flush gate. Sustained mesh reverse-path
-  loss grows memory + redundancy work. Trusted links ⇒ MEDIUM. **Fix:** a mesh ack-beacon and/or a mesh
-  window cap that resets the link.
-- **Lobby caps don't protect the mesh (C5).** Past the local lobby-log cap, `routing.rs` still fans every lobby
-  command into the *unbounded* mesh control channel (no rate cap, unlike chat), growing memory and head-of-line-
-  delaying `SlotDeparted`/`LeaveDirective` behind the spam. **Fix:** `lobby::deliver` returns admit/refuse; fan
-  out to the mesh only on admit; and/or a per-slot lobby rate cap like `chat::admit`.
-- **Unbounded webhook queues + no global dispatch concurrency (D7).** One detached `drain_queue` task per
-  `SessionState`, each an unbounded channel, no fleet-wide semaphore — compounds D3/D4. **Fix:** bound the
-  per-session queue and gate dispatch behind a global `Semaphore`.
-- **Mesh handshake bypasses the admission semaphore (C8).** The permit drops before the ~5s mesh identity/control
-  setup, and `run_mesh_accept` spawns uncapped; with no mesh auth today an attacker on `MESH_ALPN` can hold open
-  arbitrarily many stalled mesh handshakes. Folds into the mesh-auth work. **Fix:** hold the permit across the
-  mesh hello/control setup, or a dedicated mesh-accept semaphore.
+- **Webhook response body escapes timeout + is unbounded (D3) — FIXED (rp2 `3a79c59`).** One timeout spans
+  request+body; 64KiB `Limited` body cap; either hit = one failed attempt in the existing retry accounting.
+- **Replayable create + never-started sessions never reaped (D4) — FIXED (rp2 `3a79c59`).** Create is idempotent
+  per (tenant, `external_id`) returning the original response (same session/tokens), entries retiring with the
+  session (rematch-safe); never-started reaper with grace derived from token expiry (`u64::MAX` = no-expiry
+  sentinel → 15min floor), reusing the normal close's retirement via extracted `close_and_retire`; started-ness
+  proven by presence heartbeats or accounting so quiet games never false-positive.
+- **Mesh recovery state unbounded (C1) — FIXED (rp2 `d18864c`).** Delivered-through cursors ride the mesh
+  control stream as additive `MeshAckCursors` (the uni-stream beacon codec is session-blind — can't multiplex a
+  shared pair connection), push-on-advance per flush tick, feeding `retire_through`; backstop = per-session
+  8192-payload window cap → `ConnectionFailed` reset, recoverable because the resume-cursor exchange exists.
+  Per-session (not per-link) because each session owns an independent AckManager on the shared connection.
+- **Lobby caps don't protect the mesh (C5) — FIXED (rp2 `fd59f2f`).** `lobby::deliver` returns admit/refuse and
+  only admitted commands fan to the mesh; per-slot token bucket at the client edge (burst 32 ≈ a host's full
+  setup burst, 5/sec refill), mesh-received copies exempt like chat's; chat's private limiter generalized into
+  the shared `TokenBucket`. E2E test proves spam past the cap never reaches the peer while `SlotConnectivity`
+  still flows.
+- **Unbounded webhook queues + no global dispatch concurrency (D7) — FIXED (rp2 `3a79c59`).** Per-session
+  queues bounded (128) with one slot always reserved for the terminal `sessionClosed` (overflow = loud counted
+  drop of the newest ordinary notice, never reorder/evict, never the terminal — the sessionClosed-is-last proof
+  holds); fleet-wide dispatch semaphore (32), permits per-attempt and released before backoff.
+- **Mesh handshake bypasses the admission semaphore (C8) — FIXED (rp2 `f614791`).** Dedicated 8-permit
+  mesh-accept semaphore spanning exactly the handshake window (hello read → control `accept_bi`, bounded by the
+  hello timeout), released before the established link takes over; queues excess peers briefly rather than
+  refusing (the legitimate case is a few reconnecting relays). Mesh auth proper remains future work.
 - **Client-supplied receive-window anchor overflow (B7).** An unclamped resume anchor of `u64::MAX` + a turn at
   `seq=u64::MAX` overflows the dedup prefix fold (debug panic / release wrap). Task-isolated to the attacker's own
   slot-link, so contained. **Fix:** clamp/reject the anchor against a sane ceiling, or `checked`/`saturating`
@@ -369,8 +401,103 @@ landed. Ranked by tier:
   tracking, flight recorder all landed). Refresh to match HEAD. (The flight-recorder claims are now *correct* —
   it was built 2026-07-10.)
 
+### Phase 6c — second external review pass (Codex, 2026-07-11, over the landed `e3d539b` tree)
+
+Triaged against the Phase 6b decision record; the three sharpest were verified against source before
+listing. Items the review re-raised that are ALREADY acknowledged by design are at the bottom — don't
+re-chase them.
+
+**High (verified this session):**
+- **R1 — DONE (`49dce0e`) — a transient last-slot disconnect permanently closes a recoverable session.** VERIFIED; this is
+  the structural version of the `session_emptied` race noted (too narrowly) during C4. `end_slot_link`
+  marks the dropped slot's undecided hold — promising 30–45s of reconnectability — but when that same
+  disconnect empties the local roster it ALSO immediately reports `SessionClosed` and drops the turn ring,
+  lobby, chat, and mesh-dedup state. On a single-relay session the coordinator's all-relays-closed
+  retirement then fires at once: session retired, `sessionClosed` webhook sent (SB finalizes the game),
+  rehome refused — while the relay-side hold still admits the reconnect into a session whose replay state
+  is gone and whose coordinator identity is dead. **Fix sketch:** gate the emptied-roster teardown on "no
+  locally-homed slot has an undecided departure" — defer `session_closed` + the ring/lobby/chat/seen drops
+  until every local leave is decided (the abandoned-session force-decide already bounds that wait at 45s;
+  the coordinator holdout reap backstops a relay that dies mid-wait). Check the interplay with drain's
+  `drained_idle` predicate, which keys on the same emptied state.
+- **R2 — DONE (`7ab9a83`) — conflicting idempotent create corrupts lifecycle accounting.** VERIFIED (`api.rs` ~223–254): the
+  create handler derives player/observer slots from the INCOMING request and calls `register_session`
+  unconditionally after `create_session` returns — including when create replayed the (tenant,
+  external_id) cache for a request whose roster/pubkeys differ. Caller gets stale tokens; the live
+  session's holdout/reap accounting is silently overwritten. **Fix:** store a canonical request
+  fingerprint with the cached response; mismatched reuse → 409; a cache-hit replay must skip
+  `register_session` entirely.
+- **R3 — DONE (`9236f24`) — error-path session exits leave the old relay slot alive.** The B12 fix deliberately closed only
+  on `Ok` (to preserve the link-failure attribution contract its test pins). Consequence: after
+  `ControlStreamLost` (QUIC healthy, only the stream dead) the relay still sees the old slot connected,
+  so the immediate re-dial bounces off `SLOT_TAKEN` until the idle timeout; terminal exits (e.g.
+  `GameStalled`) leak the slot the same way. **Fix:** close the connection in `run`/`run_reconnecting`
+  AFTER the error is classified (not inside `session`), keeping attribution intact; update the B2-era
+  test that asserts the connection survives a control-stream death (it should now assert classification
+  happened, then the reconnect path's own close).
+- **R4 — DONE (`c982561`) — a hung `RehomeProvider` freezes the driver.** The escalation path awaits the embedder's future
+  with no deadline and no select against game teardown — a stuck app-server call stops reconnecting,
+  teardown observation, and the outage-buffer cap. **Fix:** the driver owns a deadline around the
+  provider call (treat timeout as `Unavailable` → keep the same-relay backoff) and keeps servicing the
+  seam while the ask is pending.
+
+**Medium:**
+- **R5 — DONE (`9737393`) — re-home can strand terminal closure.** Resumed descriptors publish before the lifecycle swap;
+  if `r_new` (already serving) reports `SessionClosed` in that gap, the close is evaluated against the
+  old set and `on_rehome`'s swap never re-evaluates — state + final webhook stuck forever. **Fix:**
+  `on_rehome` re-runs the all-relays-closed evaluation after swapping.
+- **R6 — DONE (`379d44a`) — the beacon reader can drop the FINAL retirement cursor** (residual of the B8 fix;
+  VERIFIED before building: `flush_beacon` pushes only on advance, so a dropped final cursor has no
+  successor). Drop-on-Full is safe only if a later advance follows; if traffic stops right there, the
+  sender re-carries unacked payloads forever. **Fix:** per-slot latest-value coalescing (`BeaconCursors`
+  cell replacing the mpsc; newest cumulative cursor always survives).
+- **R7 — DONE (`2b42f79`) — auxiliary client channels can park the whole driver loop.** Lobby/chat/leave/
+  session-start/connectivity deliveries `.send().await` inside the single select loop; a
+  retained-but-undrained embedder receiver stalls turns and acks. **Fix:** all aux deliveries are
+  non-blocking (`push_to_game`); best-effort kinds (chat, connectivity) drop on full,
+  correctness-critical kinds (leave, lobby, session-start) surface `GameStalled` like the turn path.
+- **R8 — DONE (`36b8ad3`) — mesh topological dedup's sparse set is uncapped** (`MeshSeen`'s out-of-prefix
+  `BTreeSet`). Authenticated reconnects with advancing anchors can grow it until session teardown.
+  **Fix:** sparse set capped at 4096 (aligned to the transport `RECEIVE_WINDOW`); past it the prefix
+  collapses forward over the lowest gap, so swallowed seqs read as duplicates (the safe direction —
+  a false New would re-flood a lockstep-desyncing duplicate; isolation rejected as heavier).
+- **R9 — DONE (`a3e447a`) — `proto/src/handshake.rs` doc omits the resume-cursors frame** (documented 4
+  messages; the implementation requires 5). Fixed in both the proto codec doc and relay `auth.rs`'s
+  copy of the diagram.
+
+**Low / hardening tier — ALL DONE:** ack-manager bookkeeping truncates >u8 wire slots while leaving the
+wire unchanged (`3a1c210` — validate + drop before mutating state, `MalformedSlot` at `Link::send`/
+`MeshLink::send`); a `u64::MAX`-anchored receive window classifies repeated seq `u64::MAX` as new
+rather than duplicate (`29cd4ea` — compare against the prefix top directly; unreachable in production,
+defense-in-depth at the fold); packet-seq exhaustion panics via `expect` instead of a resettable link
+error (`93ab52e` — `PacketSeqExhausted` link error, state untouched on return so a reset can retry);
+`cargo doc` emitted 89 warnings with no CI deny (`28765d5` — 0 warnings + `RUSTDOCFLAGS=-D warnings`
+docs job in CI).
+
+**Phase 6c: DONE AND LANDED.** All findings fixed on rp2 `main` (13 commits, `e3d539b..28765d5`),
+every commit gate-clean (fmt/clippy/test; doc gate from `28765d5` on) with revert-verified tests;
+rp2 `main` pushed through `28765d5`, SB `rally-point-client` pin bumped to
+`28765d5477e579cfbab5be11fdd0d470ee22a6fb`, lock refreshed, DLL rebuilt via `game\build.bat`
+(compiled unchanged — no rp2 client API signature changes), game clippy clean. R7 behavior note for
+SB: `DriverError::GameStalled` now also covers wedged leave/lobby/session-start consumers, and
+chat/connectivity deliveries drop on a full buffer instead of blocking the driver.
+
+**Already acknowledged — do not re-chase:**
+- **Home-relay auth fail-open for unknown sessions**: the deliberate A1 empty-set/descriptor-arrival
+  semantics. The review's new angle (an unrelated relay never receives the descriptor, so shadow slot
+  copies across the fleet amplify per-session resources) is real but is an extension of the mesh-auth
+  work: fold a coordinator-pushed assigned-session allowlist into that item rather than treating it as
+  an A1 regression.
+- Bootstrap secret authenticates "a relay" not a relay id; mesh TLS doesn't authenticate the dialer's
+  claimed `MeshHello` identity; coordinator HA/persistence; `ExpiresAt(u64::MAX)` dev tokens — all
+  documented production blockers already tracked above (D6's comment landed 2026-07-11).
+
 ### SB-side small backlog (carried from the deleted tracker)
-Drop `netcodeV2` naming from public surfaces; submit client pubkey + region at
+Persist the rp2 session id on the game record (required to look up flight-recorder blobs later —
+the store path is `<tenant>/<session>/<relay_id>.json`, so a prefix list recovers the relays), plus
+the relay history (home at create + each rehome dead→new + timestamps; SB mediates all of these
+moments already) for cheap relay-centric incident queries;
+drop `netcodeV2` naming from public surfaces; submit client pubkey + region at
 matchmaking/lobby time instead of game load (no long-lived keypair without a security review);
 client desync-report hook (VOID-only); relay forward-channel byte budget (oversize amplification);
 self-desync-void rate-limit; post-promotion desync-ordinal PK collision (authority epoch, if
