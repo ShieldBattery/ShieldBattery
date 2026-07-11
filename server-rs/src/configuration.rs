@@ -28,6 +28,27 @@ pub struct Settings {
     pub jwt_secret: SecretString,
     pub session_ttl: Duration,
     pub file_store: FileStoreSettings,
+    /// Twitch integration credentials. `None` disables the integration entirely (account linking
+    /// errors out and the live-streams feed stays empty), so dev/CI can run without Twitch creds.
+    pub twitch: Option<TwitchSettings>,
+    /// The public origin of this (GraphQL) server, e.g. `https://gql.shieldbattery.net`. Only
+    /// required when the Twitch integration is configured, since Twitch delivers EventSub
+    /// webhooks to `<gql_origin>/twitch/eventsub`.
+    pub gql_origin: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TwitchSettings {
+    /// The OAuth client ID of our registered Twitch application. Public (embedded in authorize
+    /// URLs the client opens), so it's a plain String.
+    pub client_id: String,
+    /// The OAuth client secret of our registered Twitch application. Only ever used server-side for
+    /// the authorization-code token exchange and app (client-credentials) token.
+    pub client_secret: SecretString,
+    /// The secret we hand to Twitch when creating EventSub subscriptions and use to verify the HMAC
+    /// signature on incoming webhook notifications. Must stay stable across restarts (it's shared
+    /// with Twitch), so it's configured rather than generated.
+    pub eventsub_secret: SecretString,
 }
 
 #[derive(Debug, Clone)]
@@ -52,11 +73,11 @@ impl DatabaseSettings {
     pub fn connection_string(&self) -> SecretString {
         format!(
             "postgres://{}:{}@{}:{}/{}",
-            &self.user,
-            &self.password.expose_secret(),
-            &self.host,
-            &self.port,
-            &self.database_name
+            self.user,
+            self.password.expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
         )
         .into()
     }
@@ -64,9 +85,9 @@ impl DatabaseSettings {
     pub fn connection_string_super_without_db(&self) -> SecretString {
         format!(
             "postgres://postgres:{}@{}:{}",
-            &self.super_password.clone().unwrap().expose_secret(),
-            &self.host,
-            &self.port
+            self.super_password.clone().unwrap().expose_secret(),
+            self.host,
+            self.port
         )
         .into()
     }
@@ -74,10 +95,10 @@ impl DatabaseSettings {
     pub fn connection_string_super(&self) -> SecretString {
         format!(
             "postgres://postgres:{}@{}:{}/{}",
-            &self.super_password.clone().unwrap().expose_secret(),
-            &self.host,
-            &self.port,
-            &self.database_name
+            self.super_password.clone().unwrap().expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
         )
         .into()
     }
@@ -106,6 +127,15 @@ pub struct SpacesFileStoreSettings {
     pub secret_access_key: SecretString,
     pub cdn_host: Option<String>,
     pub region: Option<String>,
+}
+
+/// Reads an env var, treating unset, empty, and whitespace-only values as absent (deploy
+/// configs commonly pass empty strings for optional values that aren't configured).
+fn env_var_non_empty(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }
 
 pub fn get_configuration() -> eyre::Result<Settings> {
@@ -153,6 +183,59 @@ pub fn get_configuration() -> eyre::Result<Settings> {
                 .wrap_err("Failed to parse SB_FILE_STORE JSON")
         })?;
 
+    let twitch_client_id = env_var_non_empty("SB_TWITCH_CLIENT_ID");
+    let twitch_client_secret = env_var_non_empty("SB_TWITCH_CLIENT_SECRET");
+    let twitch_eventsub_secret = env_var_non_empty("SB_TWITCH_EVENTSUB_SECRET");
+    if twitch_client_id.is_some() != twitch_client_secret.is_some()
+        || twitch_client_id.is_some() != twitch_eventsub_secret.is_some()
+    {
+        return Err(eyre!(
+            "SB_TWITCH_CLIENT_ID, SB_TWITCH_CLIENT_SECRET, and SB_TWITCH_EVENTSUB_SECRET must all \
+             be set or all unset"
+        ));
+    }
+    // Twitch requires EventSub webhook secrets to be 10-100 ASCII characters.
+    if let Some(s) = &twitch_eventsub_secret
+        && !(s.is_ascii() && (10..=100).contains(&s.len()))
+    {
+        return Err(eyre!(
+            "SB_TWITCH_EVENTSUB_SECRET must be 10-100 ASCII characters (Twitch's requirement for \
+             EventSub webhook secrets)"
+        ));
+    }
+    let twitch = twitch_client_id.map(|client_id| TwitchSettings {
+        client_id,
+        client_secret: twitch_client_secret.unwrap().into(),
+        eventsub_secret: twitch_eventsub_secret.unwrap().into(),
+    });
+
+    let gql_origin = env_var_non_empty("SB_GQL_ORIGIN");
+    if twitch.is_some() && gql_origin.is_none() {
+        return Err(eyre!(
+            "SB_GQL_ORIGIN must be set when the Twitch integration is configured (Twitch delivers \
+             EventSub webhooks to <SB_GQL_ORIGIN>/twitch/eventsub)"
+        ));
+    }
+    // Validated as a plain origin (no path/query/fragment) whenever set, since it's used to build
+    // the EventSub callback URL by string concatenation.
+    if let Some(origin) = &gql_origin {
+        let url = origin.parse::<Url>().wrap_err(
+            "SB_GQL_ORIGIN must be a plain http(s) origin with no path (e.g. \
+                        https://gql.example.com)",
+        )?;
+        let valid = matches!(url.scheme(), "http" | "https")
+            && url.host().is_some()
+            && url.path() == "/"
+            && url.query().is_none()
+            && url.fragment().is_none();
+        if !valid {
+            return Err(eyre!(
+                "SB_GQL_ORIGIN must be a plain http(s) origin with no path (e.g. \
+                 https://gql.example.com)"
+            ));
+        }
+    }
+
     Ok(Settings {
         env,
         app_host: host,
@@ -190,5 +273,7 @@ pub fn get_configuration() -> eyre::Result<Settings> {
                 .wrap_err("SB_SESSION_TTL is not a valid integer")?,
         ),
         file_store,
+        twitch,
+        gql_origin,
     })
 }

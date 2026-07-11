@@ -10,6 +10,7 @@ use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
 use crate::matchmaking::admin::{MatchmakingConfigMutation, MatchmakingConfigQuery};
 use crate::news::{NewsMutation, NewsQuery};
+use crate::twitch::{TwitchMutation, TwitchQuery};
 use crate::users::{UsersMutation, UsersQuery};
 
 pub type SbSchema = Schema<Query, Mutation, EmptySubscription>;
@@ -21,6 +22,7 @@ pub struct Query(
     GamesQuery,
     LeaguesQuery,
     NewsQuery,
+    TwitchQuery,
     UsersQuery,
     MatchmakingConfigQuery,
 );
@@ -29,6 +31,7 @@ pub struct Query(
 pub struct Mutation(
     GameReportsMutation,
     NewsMutation,
+    TwitchMutation,
     UsersMutation,
     MatchmakingConfigMutation,
 );

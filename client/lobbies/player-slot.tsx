@@ -26,8 +26,20 @@ const StyledComputerAvatar = styled(ComputerAvatar)`
   ${avatarStyles};
 `
 
-const StyledAvatar = styled(ConnectedAvatar)`
-  ${avatarStyles};
+const PlayerAvatarContainer = styled.div`
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-left: 1px; /* To align with bordered empty slot avatar area */
+  margin-right: 16px;
+
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const PlayerAvatar = styled(ConnectedAvatar)`
+  width: 24px;
+  height: 24px;
 `
 
 export interface PlayerSlotProps {
@@ -68,7 +80,13 @@ export function PlayerSlot({
   const { t } = useTranslation()
   const user = useAppSelector(s => userId && s.users.byId.get(userId))
 
-  const avatar = isComputer ? <StyledComputerAvatar /> : <StyledAvatar userId={userId!} />
+  const avatar = isComputer ? (
+    <StyledComputerAvatar />
+  ) : (
+    <PlayerAvatarContainer>
+      <PlayerAvatar userId={userId!} />
+    </PlayerAvatarContainer>
+  )
   const displayName = isComputer ? (
     t('game.playerName.computer', 'Computer')
   ) : (

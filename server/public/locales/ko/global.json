@@ -1291,6 +1291,18 @@
     "user": {
       "account": {
         "authenticationHeader": "인증",
+        "avatar": {
+          "change": "아바타 변경",
+          "header": "아바타",
+          "inappropriate": "해당 이미지가 부적절한 것으로 표시되었습니다. 다른 이미지를 선택해 주세요.",
+          "invalidType": "이미지 파일을 선택해 주세요.",
+          "removeError": "아바타를 제거하는 중 문제가 발생했습니다.",
+          "removeSuccess": "아바타가 제거되었습니다.",
+          "tooLarge": "이미지가 너무 큽니다 (최대 5MB).",
+          "upload": "아바타 업로드",
+          "uploadError": "아바타를 업데이트하는 중 문제가 발생했습니다.",
+          "uploadSuccess": "아바타가 업데이트되었습니다."
+        },
         "changeDisplayName": {
           "dialogTitle": "표시 이름 변경",
           "success": "표시 이름이 성공적으로 변경되었습니다."
@@ -1336,9 +1348,42 @@
         "rateLimited": "로그인 이름은 30일마다 한 번 변경할 수 있어요.",
         "unknownError": "문제가 발생했습니다. 나중에 다시 시도해 주세요."
       },
+      "connections": {
+        "description": "외부 계정을 ShieldBattery 프로필에 연동합니다.",
+        "title": "연동",
+        "twitch": {
+          "connect": "연동하기",
+          "connectedAs": "{{channel}}(으)로 연동됨",
+          "connectedSnackbar": "Twitch 계정이 연동되었습니다.",
+          "disconnect": "연동 해제",
+          "disconnectedSnackbar": "Twitch 계정 연동이 해제되었습니다.",
+          "errors": {
+            "alreadyLinked": "이 Twitch 계정은 이미 다른 ShieldBattery 계정에 연동되어 있습니다.",
+            "generic": "Twitch 계정을 연동하는 중 문제가 발생했습니다. 다시 시도해 주세요.",
+            "invalidState": "Twitch 연동 요청이 만료되었습니다. 다시 시도해 주세요.",
+            "notConfigured": "지금은 Twitch 연동을 사용할 수 없습니다."
+          },
+          "name": "Twitch",
+          "notConnected": "연동되지 않음"
+        }
+      },
       "language": {
         "selectLanguage": "언어 선택",
         "title": "언어"
+      },
+      "social": {
+        "blockedUsers": {
+          "count": "{{blocked}} / {{max}}",
+          "description": "차단한 사용자의 메시지는 채팅이나 게임에서 표시되지 않으며, 친구 요청도 보낼 수 없습니다.",
+          "empty": "차단한 사용자가 없습니다.",
+          "title": "차단한 사용자"
+        },
+        "notifications": {
+          "description": "어떤 소셜 활동을 알림으로 받을지 선택하세요.",
+          "friendLive": "친구가 방송을 시작하면 알림 받기",
+          "title": "알림"
+        },
+        "title": "소셜"
       },
       "title": "사용자"
     }
@@ -1399,6 +1444,24 @@
       "noProblems": "이제 로컬 설치에 문제가 없습니다.",
       "starcraftVersionContents": "현재 설치된 StarCraft는 구버전입니다. ShieldBattery는 Battle.net에서 제공되는 최신 리마스터 버전만 지원합니다. <2><0>최신 버전</0></2>을 설치한 후 ShieldBattery를 다시 실행해 주세요.",
       "title": "StarCraft 설치 문제 감지됨"
+    }
+  },
+  "twitch": {
+    "live": {
+      "avatarTooltip": "Twitch에서 라이브 중",
+      "badge": "라이브",
+      "friendLiveNotification": "<0>{{user}}</0>님이 지금 Twitch에서 라이브 중입니다.",
+      "friendLiveWatch": "보기",
+      "uptimeHoursMinutes": "{{hours}}시간 {{minutes}}분",
+      "uptimeMinutes": "{{minutes}}분",
+      "watch": "방송 보기"
+    },
+    "liveStreams": {
+      "empty": "지금 스타크래프트를 방송 중인 사람이 없습니다.",
+      "pageTitle": "라이브 방송",
+      "seeAll": "라이브 방송 모두 보기",
+      "title": "라이브 방송",
+      "viewers_other": "시청자 {{count}}명"
     }
   },
   "user": {
@@ -1490,7 +1553,10 @@
         "stats": "통계",
         "summary": "요약"
       },
-      "totalGames": "총 게임 수"
+      "totalGames": "총 게임 수",
+      "twitch": {
+        "liveBadge": "라이브"
+      }
     },
     "profileOverlay": {
       "info": "정보",

@@ -46,6 +46,7 @@ deadpool-redis = "0.23"
 dotenvy = "0.15"
 gethostname = "1.1"
 enumset = "1.1"
+hmac = "0.13"
 ipnetwork = { version = "0.21", features = ["serde"] }
 itertools = "0.15"
 jsonwebtoken = { version = "10.4", default-features = false, features = ["aws_lc_rs"] }

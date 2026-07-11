@@ -257,7 +257,7 @@ mod tests {
             },
         ));
 
-        assert!(data.is_ok(), "{:?}", &data);
+        assert!(data.is_ok(), "{:?}", data);
         let data: serde_json::Value = serde_json::from_str(&data.unwrap()).unwrap();
 
         assert_eq!(
@@ -283,7 +283,7 @@ mod tests {
             })
             .await;
 
-        assert!(res.is_ok(), "{:?}", &res);
+        assert!(res.is_ok(), "{:?}", res);
     }
 
     #[tokio::test]
@@ -320,7 +320,7 @@ mod tests {
             .await;
 
         route.assert_async().await;
-        assert!(res.is_ok(), "{:?}", &res);
+        assert!(res.is_ok(), "{:?}", res);
     }
 
     #[tokio::test]
@@ -356,6 +356,6 @@ mod tests {
             .await;
 
         route.assert_async().await;
-        assert!(res.is_err(), "{:?}", &res);
+        assert!(res.is_err(), "{:?}", res);
     }
 }

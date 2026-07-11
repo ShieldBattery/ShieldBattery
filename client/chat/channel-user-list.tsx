@@ -9,6 +9,8 @@ import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { LiveLabel } from '../twitch/live-indicators'
+import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
@@ -55,12 +57,23 @@ const UserListOverline = styled.div<{ $firstOverline: boolean }>`
   line-height: 36px;
 `
 
+const AvatarContainer = styled.div`
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin: 2px 16px 2px 0;
+`
+
 const StyledAvatar = styled(ConnectedAvatar)`
   flex-shrink: 0;
   width: 32px;
   height: 32px;
+`
 
-  margin: 2px 16px 2px 0;
+const EntryLiveLabel = styled(LiveLabel)`
+  flex-shrink: 0;
+  margin-left: 8px;
 `
 const LoadingName = styled.div`
   width: 64px;
@@ -124,6 +137,7 @@ const UserListName = styled.span`
 interface UserListEntryProps {
   userId: SbUserId
   faded?: boolean
+  isLive?: boolean
   style?: React.CSSProperties
 }
 
@@ -155,12 +169,15 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         $isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <StyledAvatar userId={props.userId} />
+        <AvatarContainer>
+          <StyledAvatar userId={props.userId} />
+        </AvatarContainer>
         {user ? (
           <UserListName>{user.name}</UserListName>
         ) : (
           <LoadingName aria-label={t('common.loading.username', 'Username loading…')} />
         )}
+        {props.isLive ? <EntryLiveLabel /> : null}
       </UserListEntryItem>
     </div>
   )
@@ -181,11 +198,13 @@ interface HeaderRowData {
 interface ActiveRowData {
   type: UserListRowType.Active
   userId: SbUserId
+  isLive: boolean
 }
 
 interface FadedRowData {
   type: UserListRowType.Faded
   userId: SbUserId
+  isLive: boolean
 }
 
 type UserListRowData = HeaderRowData | ActiveRowData | FadedRowData
@@ -199,6 +218,7 @@ interface UserListProps {
 
 export const UserList = React.memo(({ active, idle, offline, className }: UserListProps) => {
   const { t } = useTranslation()
+  const liveUserIds = useLiveUserIds()
 
   const rowData = useMemo((): ReadonlyArray<UserListRowData> => {
     let result: UserListRowData[] = [
@@ -208,7 +228,13 @@ export const UserList = React.memo(({ active, idle, offline, className }: UserLi
         count: active.length,
       },
     ]
-    result = result.concat(active.map(userId => ({ type: UserListRowType.Active, userId })))
+    result = result.concat(
+      active.map(userId => ({
+        type: UserListRowType.Active,
+        userId,
+        isLive: liveUserIds.has(userId),
+      })),
+    )
 
     if (idle.length) {
       result.push({
@@ -216,7 +242,13 @@ export const UserList = React.memo(({ active, idle, offline, className }: UserLi
         label: t('chat.userList.idle', 'Idle'),
         count: idle.length,
       })
-      result = result.concat(idle.map(userId => ({ type: UserListRowType.Faded, userId })))
+      result = result.concat(
+        idle.map(userId => ({
+          type: UserListRowType.Faded,
+          userId,
+          isLive: liveUserIds.has(userId),
+        })),
+      )
     }
 
     if (offline.length) {
@@ -225,11 +257,17 @@ export const UserList = React.memo(({ active, idle, offline, className }: UserLi
         label: t('chat.userList.offline', 'Offline'),
         count: offline.length,
       })
-      result = result.concat(offline.map(userId => ({ type: UserListRowType.Faded, userId })))
+      result = result.concat(
+        offline.map(userId => ({
+          type: UserListRowType.Faded,
+          userId,
+          isLive: liveUserIds.has(userId),
+        })),
+      )
     }
 
     return result
-  }, [active, idle, offline, t])
+  }, [active, idle, offline, liveUserIds, t])
 
   const renderRow = useCallback((index: number, row: UserListRowData) => {
     if (row.type === UserListRowType.Header) {
@@ -242,7 +280,14 @@ export const UserList = React.memo(({ active, idle, offline, className }: UserLi
       )
     } else {
       const faded = row.type === UserListRowType.Faded
-      return <ConnectedUserListEntry userId={row.userId} key={row.userId} faded={faded} />
+      return (
+        <ConnectedUserListEntry
+          userId={row.userId}
+          key={row.userId}
+          faded={faded}
+          isLive={row.isLive}
+        />
+      )
     }
   }, [])
 

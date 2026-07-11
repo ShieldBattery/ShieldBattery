@@ -1356,6 +1356,25 @@
         "rateLimited": "You can only change your login name once every 30 days.",
         "unknownError": "Something went wrong, please try again later."
       },
+      "connections": {
+        "description": "Link external accounts to your ShieldBattery profile.",
+        "title": "Connections",
+        "twitch": {
+          "connect": "Connect",
+          "connectedAs": "Connected as {{channel}}",
+          "connectedSnackbar": "Twitch account connected.",
+          "disconnect": "Disconnect",
+          "disconnectedSnackbar": "Twitch account disconnected.",
+          "errors": {
+            "alreadyLinked": "That Twitch account is already linked to another ShieldBattery account.",
+            "generic": "Something went wrong linking your Twitch account. Please try again.",
+            "invalidState": "Your Twitch linking request expired. Please try again.",
+            "notConfigured": "Twitch linking is not available right now."
+          },
+          "name": "Twitch",
+          "notConnected": "Not connected"
+        }
+      },
       "language": {
         "selectLanguage": "Select a language",
         "title": "Language"
@@ -1366,6 +1385,11 @@
           "description": "You won't see messages from blocked users in chat or in games, and they can't send you friend requests.",
           "empty": "You haven't blocked anyone.",
           "title": "Blocked users"
+        },
+        "notifications": {
+          "description": "Choose which social activity notifies you.",
+          "friendLive": "Notify me when a friend starts streaming",
+          "title": "Notifications"
         },
         "title": "Social"
       },
@@ -1428,6 +1452,25 @@
       "noProblems": "Your local installation is now free of problems.",
       "starcraftVersionContents": "Your StarCraft installation is out of date. ShieldBattery supports installations of the latest Remastered version from Battle.net. Please install the <2><0>latest version</0></2> and restart ShieldBattery.",
       "title": "Installation problems detected"
+    }
+  },
+  "twitch": {
+    "live": {
+      "avatarTooltip": "Live on Twitch",
+      "badge": "Live",
+      "friendLiveNotification": "<0>{{user}}</0> is now live on Twitch.",
+      "friendLiveWatch": "Watch",
+      "uptimeHoursMinutes": "{{hours}}h {{minutes}}m",
+      "uptimeMinutes": "{{minutes}}m",
+      "watch": "Watch stream"
+    },
+    "liveStreams": {
+      "empty": "No one is streaming StarCraft right now.",
+      "pageTitle": "Live streams",
+      "seeAll": "See all live streams",
+      "title": "Live streams",
+      "viewers_one": "{{count}} watching",
+      "viewers_other": "{{count}} watching"
     }
   },
   "user": {
@@ -1519,7 +1562,10 @@
         "stats": "Stats",
         "summary": "Summary"
       },
-      "totalGames": "Total games"
+      "totalGames": "Total games",
+      "twitch": {
+        "liveBadge": "Live"
+      }
     },
     "profileOverlay": {
       "info": "Info",

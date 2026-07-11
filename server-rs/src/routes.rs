@@ -49,6 +49,10 @@ use crate::redis::RedisPool;
 use crate::schema::{SbSchema, build_schema};
 use crate::sessions::{SbSession, jwt_middleware};
 use crate::state::AppState;
+use crate::twitch::{
+    TwitchClient, TwitchModule, create_twitch_api, reconcile_subscriptions_loop,
+    refresh_live_streams_loop,
+};
 use crate::users::names::{NameChecker, create_names_api};
 use crate::users::{CurrentUser, CurrentUserRepo, UsersModule};
 
@@ -131,6 +135,20 @@ pub async fn create_app(
         load_matchmaker_config(&db_pool).await,
     ));
 
+    // Only present when Twitch is configured; disables the integration otherwise.
+    let twitch_client = TwitchClient::from_settings(&settings);
+    if let Some(twitch_client) = twitch_client.clone() {
+        tokio::spawn(reconcile_subscriptions_loop(
+            twitch_client.clone(),
+            db_pool.clone(),
+        ));
+        tokio::spawn(refresh_live_streams_loop(
+            twitch_client,
+            db_pool.clone(),
+            redis_pool.clone(),
+        ));
+    }
+
     let schema = build_schema()
         .extension(Tracing)
         .extension(ErrorLoggerExtension)
@@ -141,6 +159,8 @@ pub async fn create_app(
         .data(file_store.clone())
         .data(name_checker.clone())
         .data(matchmaker_config.clone())
+        .data(twitch_client.clone())
+        .module(TwitchModule::new(db_pool.clone(), redis_pool.clone()))
         .module(MapsModule::new(db_pool.clone()))
         .module(GamesModule::new(db_pool.clone()))
         .module(GameReportsModule::new(db_pool.clone()))
@@ -193,12 +213,17 @@ pub async fn create_app(
             settings.jwt_secret.expose_secret().as_ref(),
         )),
         graphql_schema: schema.clone(),
+        twitch_client,
     };
 
     Ok(Router::new()
         .route("/healthcheck", get(health_check))
         .route("/gql", get(graphql_handler).post(graphql_handler))
         .route("/gql/ws", get(graphql_ws_handler))
+        // Twitch EventSub webhook -- external-facing (Twitch calls it) and unauthenticated (verified
+        // by HMAC signature instead), so it stays on the main router rather than behind
+        // `only_unforwarded_clients`.
+        .nest("/twitch", create_twitch_api())
         .nest("/users/names", names_router)
         .nest("/matchmaker", matchmaker_router)
         .layer(

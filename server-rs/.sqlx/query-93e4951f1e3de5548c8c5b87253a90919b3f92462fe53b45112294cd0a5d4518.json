@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM twitch_connections\n            WHERE user_id = $1\n            RETURNING eventsub_subscription_ids\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "eventsub_subscription_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "eventsub_subscription_ids"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "93e4951f1e3de5548c8c5b87253a90919b3f92462fe53b45112294cd0a5d4518"
+}

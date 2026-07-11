@@ -9,6 +9,8 @@ import { readFile } from 'fs/promises'
 import ReplayParser, { ReplayHeader } from 'jssuh'
 import fs, { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
+import http from 'node:http'
+import type { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pipeline } from 'stream/promises'
@@ -16,7 +18,7 @@ import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { getErrorStack } from '../common/errors'
-import { FsDirent, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { ReplayShieldBatteryData } from '../common/replays'
 import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
@@ -131,6 +133,10 @@ let mainWindow: BrowserWindow | null
 let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
+// Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
+let twitchOauthFlowActive = false
+// Settles the in-flight Twitch OAuth flow early (set while one is running).
+let cancelActiveTwitchOauthFlow: (() => void) | undefined
 
 export function notifyNewInstance(data: NewInstanceNotification) {
   if (mainWindow) {
@@ -196,6 +202,222 @@ async function createScrSettings() {
   return settings
 }
 
+/** How long we'll wait for the user to complete the Twitch authorization in their browser. */
+const TWITCH_OAUTH_TIMEOUT_MS = 5 * 60 * 1000
+
+/** The page shown in the user's browser once the flow finishes and they can return to the app. */
+const TWITCH_OAUTH_RESULT_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShieldBattery</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif; background: #10151e; color: #e0e7f0; }
+  .card { text-align: center; padding: 32px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 8px; }
+  p { margin: 0; color: #abbeda; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Return to ShieldBattery</h1>
+    <p>You can close this browser tab now.</p>
+  </div>
+</body>
+</html>`
+
+/**
+ * Runs the Twitch OAuth authorization flow for the desktop app. Rather than an in-app window (which
+ * would force users to sign into Twitch again), we open the authorize URL in the user's real browser
+ * -- reusing their existing Twitch session -- and capture the redirect with a temporary loopback
+ * HTTP server. The server binds the `localhost` port taken from the authorize URL's `redirect_uri`
+ * (a fixed port registered with Twitch; see `DESKTOP_REDIRECT_URI` in server-rs `twitch.rs`) and
+ * resolves with the `code`/`state` -- or an error -- from the first redirect whose `state` matches
+ * the one we started with.
+ */
+function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult> {
+  let redirect: URL
+  let expectedState: string
+  try {
+    // authorizeUrl arrives from the renderer over IPC and is handed to shell.openExternal below --
+    // treat it as untrusted (a compromised renderer could otherwise use this to open arbitrary
+    // external URL schemes) and pin it to Twitch's authorize endpoint with our exact loopback
+    // redirect before acting on any of it.
+    const parsed = new URL(authorizeUrl)
+    if (parsed.origin !== 'https://id.twitch.tv' || parsed.pathname !== '/oauth2/authorize') {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: `Authorize URL was not a Twitch authorize URL: ${parsed.href}`,
+      })
+    }
+
+    const state = parsed.searchParams.get('state')
+    if (!state) {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: 'Authorize URL was missing a state param',
+      })
+    }
+    expectedState = state
+
+    const redirectUri = parsed.searchParams.get('redirect_uri')
+    if (!redirectUri) {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: 'Authorize URL was missing a redirect_uri',
+      })
+    }
+    redirect = new URL(redirectUri)
+    if (
+      redirect.protocol !== 'http:' ||
+      redirect.hostname !== 'localhost' ||
+      redirect.pathname !== '/twitch/callback'
+    ) {
+      return Promise.resolve({
+        error: 'invalid_request',
+        errorDescription: `Authorize URL redirect_uri was not the expected loopback redirect: ${redirect.href}`,
+      })
+    }
+  } catch (err) {
+    return Promise.resolve({ error: 'invalid_request', errorDescription: getErrorStack(err) })
+  }
+
+  const port = Number(redirect.port)
+  if (!port) {
+    return Promise.resolve({
+      error: 'invalid_request',
+      errorDescription: `Authorize URL redirect_uri had no port: ${redirect.href}`,
+    })
+  }
+
+  return new Promise<TwitchOauthFlowResult>(resolve => {
+    let settled = false
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    // Track live connections so we can forcibly tear them down when the flow finishes. Shared by
+    // both servers below, since either one might accept the browser's callback connection.
+    const sockets = new Set<Socket>()
+
+    const finish = (result: TwitchOauthFlowResult) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      // Cancellation settles like a decline; once settled the loopback port and single-flight
+      // lock are released, so there's nothing left to cancel.
+      cancelActiveTwitchOauthFlow = undefined
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+      server.close()
+      // serverV6 may never have started listening at all (IPv6 unavailable, port already held,
+      // etc.), and closing a server that never listened reports an ERR_SERVER_NOT_RUNNING error
+      // through its close callback. Pass a no-op callback so that's swallowed here instead of
+      // going anywhere it could crash or spam logs.
+      serverV6.close(() => {})
+      // server.close() stops accepting new connections but leaves already-open ones intact -- the
+      // external browser holds its callback connection open with keep-alive (and may open a stray
+      // favicon connection too). While any socket is still bound to the fixed loopback port, a
+      // second link attempt can't re-bind it and fails with EADDRINUSE (particularly on Windows).
+      // resetAndDestroy() sends an RST so the port is released immediately, with no lingering
+      // TIME_WAIT socket to block the rebind.
+      for (const socket of sockets) {
+        socket.resetAndDestroy()
+      }
+      resolve(result)
+    }
+
+    // Lets the caller settle this flow early (e.g. the user abandoned the browser tab) instead of
+    // waiting out the full timeout.
+    cancelActiveTwitchOauthFlow = () =>
+      finish({ error: 'access_denied', errorDescription: 'The link attempt was canceled.' })
+
+    // Handles the redirect request on whichever loopback server (IPv4 or IPv6) receives it.
+    // Factored out so both servers below run the exact same logic.
+    const handleCallbackRequest = (req: http.IncomingMessage, res: http.ServerResponse) => {
+      const requestUrl = new URL(req.url ?? '/', `http://127.0.0.1:${port}`)
+      const state = requestUrl.searchParams.get('state')
+      // Ignore stray hits (favicon fetches, port scans, an unrelated tab); only the redirect
+      // carrying the state we issued should settle the flow.
+      if (state !== expectedState) {
+        res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
+        res.end('Not found')
+        return
+      }
+
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
+      // Settle only once the result page has flushed to the browser, since finish() resets the
+      // connection out from under it.
+      res.end(TWITCH_OAUTH_RESULT_PAGE, () => {
+        finish({
+          code: requestUrl.searchParams.get('code') ?? undefined,
+          state: state ?? undefined,
+          error: requestUrl.searchParams.get('error') ?? undefined,
+          errorDescription: requestUrl.searchParams.get('error_description') ?? undefined,
+        })
+      })
+    }
+
+    // Adds a connection's socket to the shared set above so finish() can tear it down. Attached to
+    // both servers so a connection accepted by either one is tracked.
+    const onConnection = (socket: Socket) => {
+      sockets.add(socket)
+      socket.on('close', () => {
+        sockets.delete(socket)
+      })
+    }
+
+    // The primary server: IPv4 loopback. This one drives the flow -- its listen callback starts
+    // the timeout and opens the browser, and its error handler fails the whole flow.
+    const server = http.createServer(handleCallbackRequest)
+    server.on('connection', onConnection)
+    server.on('error', err => {
+      finish({ error: 'server_failed', errorDescription: getErrorStack(err) })
+    })
+
+    // A second, best-effort server on the IPv6 loopback address (see the comment at the `listen`
+    // calls below for why). Nothing about the flow waits on or is gated by this server: it's not
+    // involved in settling the promise except via the shared `handleCallbackRequest`/`sockets`
+    // above, should the browser happen to connect to it instead of the IPv4 one.
+    const serverV6 = http.createServer(handleCallbackRequest)
+    serverV6.on('connection', onConnection)
+    serverV6.on('error', err => {
+      // Non-fatal: this server is a nice-to-have, not a requirement. Bind failures here are
+      // expected on systems where IPv6 is disabled or unavailable (EAFNOSUPPORT, EADDRNOTAVAIL),
+      // and can also happen if a lingering socket from a previous run is still holding the port
+      // (EADDRINUSE). Either way, the flow continues IPv4-only.
+      logger.warning(
+        `Failed to bind the IPv6 loopback for the Twitch OAuth callback, continuing ` +
+          `IPv4-only: ${getErrorStack(err)}`,
+      )
+    })
+
+    // Bind loopback-only so the callback isn't reachable from the network. We bind both loopback
+    // stacks because the redirect_uri's host is `localhost` (Twitch only allows plain-http
+    // redirect URLs for the literal `localhost` host, so we can't pin this to 127.0.0.1 instead),
+    // and on some systems -- e.g. a hosts file that maps `localhost` only to `::1` -- that resolves
+    // to the IPv6 loopback address rather than the IPv4 one. Binding both means the browser reaches
+    // us whichever address it resolves `localhost` to and picks. The IPv6 bind is strictly
+    // best-effort (see its `error` handler above): only the IPv4 server's listen callback below
+    // starts the timeout and opens the browser, so systems without IPv6 work exactly as before.
+    server.listen(port, '127.0.0.1', () => {
+      timeout = setTimeout(() => {
+        finish({
+          error: 'timeout',
+          errorDescription: 'Timed out waiting for Twitch authorization.',
+        })
+      }, TWITCH_OAUTH_TIMEOUT_MS)
+
+      shell.openExternal(authorizeUrl).catch(err => {
+        finish({ error: 'open_failed', errorDescription: getErrorStack(err) })
+      })
+    })
+    serverV6.listen(port, '::1')
+  })
+}
+
 function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsManager) {
   ipcMain.handle('logMessage', (event, level, message) => {
     logger.log(level, message)
@@ -245,6 +467,29 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       focused: mainWindow.isFocused(),
       maximized: mainWindow.isMaximized(),
     }
+  })
+
+  ipcMain.handle('twitchOauthFlow', async (event, authorizeUrl) => {
+    if (twitchOauthFlowActive) {
+      return {
+        error: 'flow_in_progress',
+        errorDescription: 'A Twitch account linking attempt is already in progress.',
+      } satisfies TwitchOauthFlowResult
+    }
+
+    twitchOauthFlowActive = true
+    try {
+      const result = await runTwitchOauthFlow(authorizeUrl)
+      // Bring the app back to the foreground now that the browser detour is done.
+      mainWindow?.show()
+      mainWindow?.focus()
+      return result
+    } finally {
+      twitchOauthFlowActive = false
+    }
+  })
+  ipcMain.handle('twitchOauthFlowCancel', () => {
+    cancelActiveTwitchOauthFlow?.()
   })
 
   let lastRunAppAtSystemStart: boolean | undefined

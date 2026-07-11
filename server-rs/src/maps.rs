@@ -184,7 +184,7 @@ impl MapFile {
             "map_images/{}/{}/{}-{size}.jpg",
             &hash[0..2],
             &hash[2..4],
-            &hash
+            hash
         )
     }
 

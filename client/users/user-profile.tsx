@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useQuery } from 'urql'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { GameRecordJson } from '../../common/games/games'
 import { getRankedTypesByActivity } from '../../common/ladder/ladder'
@@ -15,6 +16,9 @@ import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { graphql } from '../gql'
+import TwitchIcon from '../icons/brands/twitch.svg'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { TabItem, Tabs } from '../material/tabs'
 import { replace } from '../navigation/routing'
@@ -24,12 +28,24 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { selectableTextContainer } from '../styles/text-selection'
 import {
   bodyLarge,
+  bodySmall,
   headlineLarge,
+  labelLarge,
   labelMedium,
+  labelSmall,
   singleLine,
   titleLarge,
   TitleMedium,
+  titleSmall,
 } from '../styles/typography'
+import {
+  LivePill,
+  TWITCH_PURPLE,
+  TwitchMark,
+  UptimePill,
+  ViewerCountPill,
+} from '../twitch/live-indicators'
+import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
 import {
   correctUsernameForProfile,
   navigateToUserProfile,
@@ -149,13 +165,13 @@ const TopSection = styled.div`
   align-items: center;
 `
 
-const AvatarCircle = styled.div`
+const AvatarCircle = styled.div<{ $isLive?: boolean }>`
   width: 100px;
   height: 100px;
   position: relative;
 
   background-color: var(--color-blue30);
-  border: 12px solid var(--color-blue40);
+  border: 12px solid ${props => (props.$isLive ? 'var(--theme-live)' : 'var(--color-blue40)')};
   border-radius: 50%;
 `
 
@@ -166,6 +182,71 @@ const StyledAvatar = styled(ConnectedAvatar)`
   top: calc(50% - 28px);
   left: calc(50% - 28px);
 `
+
+const LiveBadge = styled.div`
+  ${labelSmall};
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+
+  border-radius: 10px;
+  background-color: var(--theme-live);
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+`
+
+const TwitchChannelLink = styled.a`
+  ${bodyLarge};
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+
+  &,
+  &:link,
+  &:visited {
+    color: var(--theme-on-surface-variant);
+  }
+
+  &:hover {
+    color: var(--theme-on-surface);
+  }
+`
+
+const TwitchChannelIcon = styled(TwitchIcon)`
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: ${TWITCH_PURPLE};
+`
+
+const UserProfileTwitchQuery = graphql(/* GraphQL */ `
+  query UserProfileTwitch($userId: SbUserId!) {
+    user(id: $userId) {
+      id
+      twitchChannel {
+        twitchLogin
+        twitchDisplayName
+      }
+      liveStream {
+        twitchLogin
+        title
+        gameName
+        viewerCount
+        startedAt
+        thumbnailUrl
+      }
+    }
+  }
+`)
 
 const UsernameAndTitle = styled.div`
   ${selectableTextContainer};
@@ -213,6 +294,20 @@ export function UserProfilePage({
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
 
+  // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
+  // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
+  // render in once they arrive. The poll below keeps the Live badge/banner consistent with the
+  // app-wide avatar badges, which refresh on their own interval.
+  const [{ data: twitchData }, reexecuteTwitchQuery] = useQuery({
+    query: UserProfileTwitchQuery,
+    variables: { userId: user.id },
+    context: { suspense: false },
+  })
+  useQueryPolling(reexecuteTwitchQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
+  const twitchChannel = twitchData?.user?.twitchChannel
+  const liveStream = twitchData?.user?.liveStream ?? undefined
+  const isLive = !!liveStream
+
   let content: React.ReactNode
   switch (subPage) {
     case UserProfileSubPage.Summary:
@@ -250,14 +345,35 @@ export function UserProfilePage({
   return (
     <CenteredContentContainer>
       <TopSection>
-        <AvatarCircle>
-          <StyledAvatar userId={user.id} />
+        <AvatarCircle $isLive={isLive}>
+          <StyledAvatar userId={user.id} showLiveIndicator={false} />
+          {isLive ? <LiveBadge>{t('users.profile.twitch.liveBadge', 'Live')}</LiveBadge> : null}
         </AvatarCircle>
         <UsernameAndTitle>
           <Username>{user.name}</Username>
           <TitleMedium>{title}</TitleMedium>
+          {twitchChannel ? (
+            <TwitchChannelLink
+              href={`https://twitch.tv/${twitchChannel.twitchLogin}`}
+              target='_blank'
+              rel='noopener'>
+              <TwitchChannelIcon />
+              <span>{twitchChannel.twitchDisplayName}</span>
+            </TwitchChannelLink>
+          ) : null}
         </UsernameAndTitle>
       </TopSection>
+
+      {liveStream ? (
+        <ProfileLiveBanner
+          twitchLogin={liveStream.twitchLogin}
+          title={liveStream.title}
+          gameName={liveStream.gameName}
+          viewerCount={liveStream.viewerCount}
+          thumbnailUrl={liveStream.thumbnailUrl}
+          startedAt={liveStream.startedAt}
+        />
+      ) : null}
 
       <TabArea>
         <Tabs activeTab={subPage} onChange={onTabChange}>
@@ -286,6 +402,188 @@ export function UserProfilePage({
       {content}
       <BottomSpacer />
     </CenteredContentContainer>
+  )
+}
+
+const LiveBannerContainer = styled.div`
+  width: 100%;
+  max-width: 720px;
+  margin: 0 0 32px;
+  padding: 0 24px;
+`
+
+const LiveBannerRoot = styled.a`
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+
+  border: 1px solid rgba(224, 29, 60, 0.35);
+  border-radius: 8px;
+  background:
+    linear-gradient(100deg, var(--theme-live-container), transparent 70%),
+    var(--theme-container-low);
+  color: inherit;
+  text-decoration: none;
+  contain: content;
+
+  &:link,
+  &:visited {
+    color: inherit;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--theme-live);
+    text-decoration: none;
+    outline: none;
+  }
+`
+
+const BannerThumb = styled.div`
+  position: relative;
+  width: 176px;
+  aspect-ratio: 16 / 9;
+  flex-shrink: 0;
+
+  border-radius: 6px;
+  overflow: hidden;
+`
+
+const BannerThumbImg = styled.img`
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+  background-color: var(--theme-container-highest);
+`
+
+const BannerViewerCorner = styled.div`
+  position: absolute;
+  top: 6px;
+  right: 6px;
+`
+
+const BannerUptimeCorner = styled.div`
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+`
+
+const BannerBody = styled.div`
+  min-width: 0;
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+`
+
+const BannerTop = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const BannerCategory = styled.div`
+  ${bodySmall};
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+`
+
+const BannerMark = styled.div`
+  margin-left: auto;
+`
+
+const BannerTitle = styled.div`
+  ${titleSmall};
+  margin-top: 8px;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+`
+
+const BannerFoot = styled.div`
+  margin-top: auto;
+  padding-top: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+`
+
+const BannerViewers = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+const WatchButton = styled.div`
+  ${labelLarge};
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+
+  border-radius: 6px;
+  background-color: var(--theme-live);
+  color: #fff;
+  white-space: nowrap;
+`
+
+export function ProfileLiveBanner({
+  twitchLogin,
+  title,
+  gameName,
+  viewerCount,
+  thumbnailUrl,
+  startedAt,
+}: {
+  twitchLogin: string
+  title: string
+  gameName: string
+  viewerCount: number
+  thumbnailUrl: string
+  startedAt: string
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <LiveBannerContainer>
+      <LiveBannerRoot href={`https://twitch.tv/${twitchLogin}`} target='_blank' rel='noopener'>
+        <BannerThumb>
+          <BannerThumbImg src={thumbnailUrl} alt='' loading='lazy' />
+          <BannerViewerCorner>
+            <ViewerCountPill count={viewerCount} />
+          </BannerViewerCorner>
+          <BannerUptimeCorner>
+            <UptimePill startedAt={startedAt} />
+          </BannerUptimeCorner>
+        </BannerThumb>
+        <BannerBody>
+          <BannerTop>
+            <LivePill />
+            <BannerCategory>{gameName}</BannerCategory>
+            <BannerMark>
+              <TwitchMark />
+            </BannerMark>
+          </BannerTop>
+          <BannerTitle>{title}</BannerTitle>
+          <BannerFoot>
+            <BannerViewers>
+              {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
+            </BannerViewers>
+            <WatchButton>
+              <MaterialIcon icon='play_arrow' size={18} />
+              {t('twitch.live.watch', 'Watch stream')}
+            </WatchButton>
+          </BannerFoot>
+        </BannerBody>
+      </LiveBannerRoot>
+    </LiveBannerContainer>
   )
 }
 

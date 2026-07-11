@@ -13,6 +13,7 @@ import {
   FriendRequestNotificationUi,
   FriendStartNotificationUi,
 } from '../social/relationship-notifications'
+import { StreamLiveNotificationUi } from '../twitch/friend-live-notification-ui'
 
 /**
  * Returns whether we have a renderable UI for a particular notification. If we don't,
@@ -29,6 +30,7 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.LeagueUnban:
     case NotificationType.GameReportActioned:
     case NotificationType.GamePointsRefunded:
+    case NotificationType.StreamLive:
       return true
     case NotificationType.PartyInvite:
       return false
@@ -124,6 +126,15 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
           ref={ref}
           showDivider={showDivider}
           read={notification.read}
+        />
+      )
+    case NotificationType.StreamLive:
+      return (
+        <StreamLiveNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          userId={notification.with}
         />
       )
     default:

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { useQuery } from 'urql'
 import {
   LadderPlayer,
   getRankedTypesByActivity,
@@ -17,6 +18,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserStats } from '../../common/users/user-stats'
 import { ConnectedAvatar } from '../avatars/avatar'
+import { graphql } from '../gql'
 import { longTimestamp } from '../i18n/date-formats'
 import { LadderPlayerIcon } from '../matchmaking/rank-icon'
 import { Popover, PopoverProps } from '../material/popover'
@@ -33,6 +35,7 @@ import {
   titleLarge,
   titleSmall,
 } from '../styles/typography'
+import { LiveWatchRow } from '../twitch/live-indicators'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 
@@ -40,6 +43,19 @@ const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   month: 'long',
   year: 'numeric',
 })
+
+const UserProfileOverlayLiveQuery = graphql(/* GraphQL */ `
+  query UserProfileOverlayLive($userId: SbUserId!) {
+    user(id: $userId) {
+      id
+      liveStream {
+        twitchLogin
+        title
+        viewerCount
+      }
+    }
+  }
+`)
 
 export interface ConnectedUserProfileOverlayProps {
   userId: SbUserId
@@ -119,13 +135,13 @@ const AvatarContainer = styled.div`
   flex-shrink: 0;
 `
 
-const AvatarCircle = styled.div`
+const AvatarCircle = styled.div<{ $isLive?: boolean }>`
   width: 64px;
   height: 64px;
   position: relative;
 
   background-color: var(--color-blue30);
-  border: 8px solid var(--color-blue40);
+  border: 8px solid ${props => (props.$isLive ? 'var(--theme-live)' : 'var(--color-blue40)')};
   border-radius: 50%;
 `
 
@@ -197,6 +213,17 @@ export function UserProfileOverlayContents({
     profile ? s.matchmakingSeasons.byId.get(profile.seasonId) : undefined,
   )
 
+  // Single-user query; only runs while the overlay is mounted (i.e. visible), so it doesn't fan
+  // out across every user in a list. `suspense: false` so a first (uncached) fetch doesn't suspend
+  // and blank the surrounding surface (e.g. the chat channel behind this popover) until it resolves
+  // -- the live row just renders once the data arrives.
+  const [{ data: liveData }] = useQuery({
+    query: UserProfileOverlayLiveQuery,
+    variables: { userId },
+    context: { suspense: false },
+  })
+  const liveStream = liveData?.user?.liveStream ?? undefined
+
   const username = user?.name
 
   useEffect(() => {
@@ -233,8 +260,8 @@ export function UserProfileOverlayContents({
           navigateToUserProfile(userId, username ?? '')
         }}>
         <AvatarContainer>
-          <AvatarCircle>
-            <StyledAvatar userId={userId} />
+          <AvatarCircle $isLive={!!liveStream}>
+            <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
           <ViewProfileHover>
             {t('users.profileOverlay.viewProfile', 'View profile')}
@@ -249,6 +276,13 @@ export function UserProfileOverlayContents({
           <Title>{t('users.titles.novice', 'Novice')}</Title>
         </UsernameAndTitle>
       </IdentityArea>
+      {liveStream ? (
+        <LiveWatchRow
+          twitchLogin={liveStream.twitchLogin}
+          title={liveStream.title}
+          viewerCount={liveStream.viewerCount}
+        />
+      ) : null}
       {profile ? (
         <>
           <div>

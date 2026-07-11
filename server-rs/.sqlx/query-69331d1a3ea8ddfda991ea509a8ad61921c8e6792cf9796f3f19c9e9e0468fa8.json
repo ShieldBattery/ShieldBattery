@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,\n                eventsub_subscription_ids\n            FROM twitch_connections\n            WHERE user_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "twitch_user_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "twitch_login",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_login"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "twitch_display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "linked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "linked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "eventsub_subscription_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "eventsub_subscription_ids"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "69331d1a3ea8ddfda991ea509a8ad61921c8e6792cf9796f3f19c9e9e0468fa8"
+}

@@ -2,6 +2,7 @@ import { Suspense, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
+import { Link } from 'wouter'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { LiveGameEntry, LiveGames_FeedFragment } from '../games/live-game-entry'
@@ -19,7 +20,13 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { singleLine, titleSmall } from '../styles/typography'
+import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
+import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
+import {
+  FeaturedLiveStreamEntry,
+  LiveStreamEntry,
+  LiveStreams_FeedFragment,
+} from '../twitch/live-stream-entry'
 import { BottomLinks } from './bottom-links'
 import { HomeSection, HomeSectionTitle } from './home-section'
 import { useLastSeenUrgentMessage } from './last-seen-urgent-message'
@@ -136,6 +143,7 @@ const HomeQuery = graphql(/* GraphQL */ `
     }
 
     ...LiveGames_FeedFragment
+    ...LiveStreams_FeedFragment
     ...Leagues_HomeFeedFragment
   }
 `)
@@ -144,7 +152,9 @@ export function Home() {
   const { t } = useTranslation()
   // TODO(tec27): Once this isn't a static news feed we should probably check for errors on loading
   // this and show a message if it fails (currently it just hides the non-static parts)
-  const [{ data }] = useQuery({ query: HomeQuery, context: { ttl: 10 * 1000 } })
+  const [{ data }, reexecuteQuery] = useQuery({ query: HomeQuery, context: { ttl: 10 * 1000 } })
+  // Keeps the live sections (live games and streams) fresh while Home stays mounted.
+  useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
 
   const hasSplash = !IS_ELECTRON
 
@@ -188,6 +198,7 @@ export function Home() {
                 </SupportIcons>
               </SupportSection>
               <LiveGamesFeed query={data} />
+              <LiveStreamsFeed query={data} />
               <LeagueHomeFeed query={data} />
             </RightSection>
             <BottomLinksArea>
@@ -287,4 +298,64 @@ export function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames
       </LiveGamesRoot>
     </HomeSection>
   ) : null
+}
+
+const LiveStreamsRoot = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  border-radius: 4px;
+  overflow: hidden;
+`
+
+const SeeAllLink = styled(Link)`
+  ${bodyMedium};
+  display: block;
+  padding: 10px 12px;
+
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+
+  &,
+  &:link,
+  &:visited {
+    color: var(--theme-amber);
+  }
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--theme-container-high);
+    outline: none;
+  }
+`
+
+export function LiveStreamsFeed({
+  query,
+}: {
+  query?: FragmentType<typeof LiveStreams_FeedFragment>
+}) {
+  const { t } = useTranslation()
+  const { liveStreams } = useFragment(LiveStreams_FeedFragment, query) ?? { liveStreams: [] }
+
+  if (liveStreams.length === 0) {
+    return null
+  }
+
+  // The most-watched stream is featured as a hero card; the rest become compact rows.
+  const sorted = [...liveStreams].sort((a, b) => b.viewerCount - a.viewerCount)
+  const [featured, ...rest] = sorted
+
+  return (
+    <HomeSection>
+      <HomeSectionTitle>{t('twitch.liveStreams.title', 'Live streams')}</HomeSectionTitle>
+      <LiveStreamsRoot>
+        <FeaturedLiveStreamEntry key={featured.twitchLogin} query={featured} />
+        {rest.slice(0, 4).map(stream => (
+          <LiveStreamEntry key={stream.twitchLogin} query={stream} />
+        ))}
+        <SeeAllLink href='/live'>
+          {t('twitch.liveStreams.seeAll', 'See all live streams')}
+        </SeeAllLink>
+      </LiveStreamsRoot>
+    </HomeSection>
+  )
 }

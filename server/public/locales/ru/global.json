@@ -1309,6 +1309,18 @@
     "user": {
       "account": {
         "authenticationHeader": "Аутентификация",
+        "avatar": {
+          "change": "Изменить аватар",
+          "header": "Аватар",
+          "inappropriate": "Это изображение помечено как неприемлемое. Выберите другое.",
+          "invalidType": "Выберите файл изображения.",
+          "removeError": "Не удалось удалить аватар.",
+          "removeSuccess": "Аватар удалён.",
+          "tooLarge": "Изображение слишком большое (макс. 5 МБ).",
+          "upload": "Загрузить аватар",
+          "uploadError": "Не удалось обновить аватар.",
+          "uploadSuccess": "Аватар обновлён."
+        },
         "changeDisplayName": {
           "dialogTitle": "Сменить отображаемое имя",
           "success": "Отображаемое имя успешно изменено."
@@ -1360,9 +1372,42 @@
         "rateLimited": "Вы можете менять имя для входа только раз в 30 дней.",
         "unknownError": "Что-то пошло не так. Пожалуйста, повторите попытку позже."
       },
+      "connections": {
+        "description": "Привяжите внешние аккаунты к своему профилю ShieldBattery.",
+        "title": "Подключения",
+        "twitch": {
+          "connect": "Подключить",
+          "connectedAs": "Подключено как {{channel}}",
+          "connectedSnackbar": "Аккаунт Twitch подключён.",
+          "disconnect": "Отключить",
+          "disconnectedSnackbar": "Аккаунт Twitch отключён.",
+          "errors": {
+            "alreadyLinked": "Этот аккаунт Twitch уже привязан к другому аккаунту ShieldBattery.",
+            "generic": "При привязке аккаунта Twitch произошла ошибка. Попробуйте ещё раз.",
+            "invalidState": "Срок действия запроса на привязку Twitch истёк. Попробуйте ещё раз.",
+            "notConfigured": "Привязка Twitch сейчас недоступна."
+          },
+          "name": "Twitch",
+          "notConnected": "Не подключено"
+        }
+      },
       "language": {
         "selectLanguage": "Выберите язык",
         "title": "Язык"
+      },
+      "social": {
+        "blockedUsers": {
+          "count": "{{blocked}} / {{max}}",
+          "description": "Вы не будете видеть сообщения заблокированных пользователей в чате и в играх, и они не смогут отправлять Вам запросы в друзья.",
+          "empty": "Вы никого не заблокировали.",
+          "title": "Заблокированные пользователи"
+        },
+        "notifications": {
+          "description": "Выберите, о каких социальных событиях получать уведомления.",
+          "friendLive": "Уведомлять, когда друг выходит в эфир",
+          "title": "Уведомления"
+        },
+        "title": "Социальное"
       },
       "title": "Пользователь"
     }
@@ -1423,6 +1468,27 @@
       "noProblems": "С вашей установкой теперь всё в порядке.",
       "starcraftVersionContents": "Ваша установка StarCraft устарела. ShieldBattery поддерживает только последнюю версию Remastered с Battle.net. Пожалуйста, установите <2><0>последнюю версию</0></2> и перезапустите ShieldBattery.",
       "title": "Обнаружены проблемы с установкой"
+    }
+  },
+  "twitch": {
+    "live": {
+      "avatarTooltip": "В эфире на Twitch",
+      "badge": "В эфире",
+      "friendLiveNotification": "<0>{{user}}</0> сейчас в эфире на Twitch.",
+      "friendLiveWatch": "Смотреть",
+      "uptimeHoursMinutes": "{{hours}} ч {{minutes}} мин",
+      "uptimeMinutes": "{{minutes}} мин",
+      "watch": "Смотреть стрим"
+    },
+    "liveStreams": {
+      "empty": "Сейчас никто не стримит StarCraft.",
+      "pageTitle": "Прямые трансляции",
+      "seeAll": "Все трансляции",
+      "title": "Прямые трансляции",
+      "viewers_one": "{{count}} зритель",
+      "viewers_few": "{{count}} зрителя",
+      "viewers_many": "{{count}} зрителей",
+      "viewers_other": "{{count}} зрителя"
     }
   },
   "user": {
@@ -1514,7 +1580,10 @@
         "stats": "Статистика",
         "summary": "Краткое содержание"
       },
-      "totalGames": "Всего игр"
+      "totalGames": "Всего игр",
+      "twitch": {
+        "liveBadge": "В эфире"
+      }
     },
     "profileOverlay": {
       "info": "Информация",

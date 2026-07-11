@@ -41,6 +41,7 @@ use crate::redis::RedisPool;
 use crate::sessions::SbSession;
 use crate::state::AppState;
 use crate::telemetry::spawn_with_tracing;
+use crate::twitch::{LiveStream, LiveStreamLoader, TwitchChannel, TwitchChannelLoader};
 use crate::users::auth::{get_stored_credentials, hash_password, validate_credentials};
 use crate::users::permissions::{PermissionsLoader, RequiredPermission, SbPermissions};
 
@@ -107,6 +108,20 @@ impl SbUser {
             .load_one(self.id)
             .await?
             .ok_or(graphql_error("NOT_FOUND", "User not found"))
+    }
+
+    /// The Twitch channel this user has linked, if any (shown on their profile).
+    async fn twitch_channel(&self, ctx: &Context<'_>) -> Result<Option<TwitchChannel>> {
+        ctx.data::<DataLoader<TwitchChannelLoader>>()?
+            .load_one(self.id)
+            .await
+    }
+
+    /// This user's current Twitch stream, if they are live right now.
+    async fn live_stream(&self, ctx: &Context<'_>) -> Result<Option<LiveStream>> {
+        ctx.data::<DataLoader<LiveStreamLoader>>()?
+            .load_one(self.id)
+            .await
     }
 }
 

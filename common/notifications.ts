@@ -25,6 +25,8 @@ export enum NotificationType {
   GameReportActioned = 'gameReportActioned',
   /** Ranked points this user lost in a game were refunded after the game was nullified. */
   GamePointsRefunded = 'gamePointsRefunded',
+  /** A friend has started live-streaming on Twitch. */
+  StreamLive = 'streamLive',
 }
 
 export type SbNotification =
@@ -37,6 +39,7 @@ export type SbNotification =
   | LeagueUnbanNotification
   | GameReportActionedNotification
   | GamePointsRefundedNotification
+  | StreamLiveNotification
 
 export interface BaseNotification {
   /**
@@ -109,6 +112,17 @@ export interface GameReportActionedNotification extends BaseNotification {
  */
 export interface GamePointsRefundedNotification extends BaseNotification {
   type: NotificationType.GamePointsRefunded
+}
+
+/**
+ * A friend has started live-streaming on Twitch. Generated locally on the client from the live-user
+ * set (not persisted server-side), so it's transient and per-device. Users can opt out of these.
+ */
+export interface StreamLiveNotification extends BaseNotification {
+  type: NotificationType.StreamLive
+  local: true
+  /** The friend who is now live. */
+  with: SbUserId
 }
 
 export type NotificationEvent =

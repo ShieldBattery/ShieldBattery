@@ -52,6 +52,8 @@ import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
+import { FriendLiveNotifications } from './twitch/friend-live-notifications'
+import { LiveUsersContext, useLiveUserIds } from './twitch/live-state'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
 
@@ -501,6 +503,13 @@ const UserButton = styled.button`
   }
 `
 
+const UserButtonAvatarContainer = styled.div`
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+`
+
 const UserButtonAvatar = styled(ConnectedAvatar)`
   width: 40px;
   height: 40px;
@@ -561,7 +570,9 @@ function AppBarUser({
       ref={ref}
       data-test='app-bar-user-button'
       aria-label={t('navigation.bar.userMenu', 'User menu')}>
-      <UserButtonAvatar userId={user.id} />
+      <UserButtonAvatarContainer>
+        <UserButtonAvatar userId={user.id} />
+      </UserButtonAvatarContainer>
       <UserButtonNameAndTitle>
         <Tooltip
           text={user.name}
@@ -848,21 +859,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useUserLocalStorageValue('socialSidebarOpen', isLoggedIn)
   const [sidebarPinned, setSidebarPinned] = useUserLocalStorageValue('socialSidebarPinned', true)
 
+  // App-wide live-user set, provided to every avatar (etc.) so they can badge "live" state without
+  // each running its own query.
+  const liveUsers = useLiveUserIds()
+
   return (
-    <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned} data-test='main-layout'>
-      <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
-      {children}
-      {isLoggedIn ? (
-        <SocialSidebar
-          onVisibilityChange={setSidebarOpen}
-          visible={sidebarOpen}
-          onPinnedChange={setSidebarPinned}
-          pinned={sidebarPinned}
-        />
-      ) : (
-        <div></div>
-      )}
-      <NotificationPopups />
-    </Root>
+    <LiveUsersContext.Provider value={liveUsers}>
+      <Root $sidebarOpen={sidebarOpen} $sidebarPinned={sidebarPinned} data-test='main-layout'>
+        <AppBar onToggleSocial={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+        {children}
+        {isLoggedIn ? (
+          <SocialSidebar
+            onVisibilityChange={setSidebarOpen}
+            visible={sidebarOpen}
+            onPinnedChange={setSidebarPinned}
+            pinned={sidebarPinned}
+          />
+        ) : (
+          <div></div>
+        )}
+        {isLoggedIn ? <FriendLiveNotifications /> : null}
+        <NotificationPopups />
+      </Root>
+    </LiveUsersContext.Provider>
   )
 }

@@ -22,6 +22,8 @@ import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, labelMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
+import { LiveLabel } from '../twitch/live-indicators'
+import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { useUserOverlays } from '../users/user-overlays'
@@ -219,11 +221,13 @@ interface HeaderData {
 interface OnlineData {
   type: FriendsListRowType.Online
   userId: SbUserId
+  isLive: boolean
 }
 
 interface OfflineData {
   type: FriendsListRowType.Offline
   userId: SbUserId
+  isLive: boolean
 }
 
 type FriendsListRowData = HeaderData | OnlineData | OfflineData
@@ -236,6 +240,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     useUserEntriesSelector(friends),
     areUserEntriesEqual,
   )
+  const liveUserIds = useLiveUserIds()
   const friendsByStatus = useMemo(() => {
     const result = new Map<FriendActivityStatus, SbUserId[]>()
     for (const [id] of sortedFriendUserEntries) {
@@ -245,7 +250,12 @@ function VirtualizedFriendsList({ height }: { height: number }) {
   }, [friendActivityStatus, sortedFriendUserEntries])
 
   const rowData = useMemo((): ReadonlyArray<FriendsListRowData> => {
-    const onlineFriends = friendsByStatus.get(FriendActivityStatus.Online) ?? []
+    // Surface live friends first within each group (Array.sort is stable, so the existing name
+    // order is preserved among equally-live friends).
+    const liveFirst = (ids: SbUserId[]) =>
+      [...ids].sort((a, b) => (liveUserIds.has(b) ? 1 : 0) - (liveUserIds.has(a) ? 1 : 0))
+
+    const onlineFriends = liveFirst(friendsByStatus.get(FriendActivityStatus.Online) ?? [])
     let result: FriendsListRowData[] = [
       {
         type: FriendsListRowType.Header,
@@ -255,10 +265,14 @@ function VirtualizedFriendsList({ height }: { height: number }) {
     ]
 
     result = result.concat(
-      onlineFriends.map(userId => ({ type: FriendsListRowType.Online, userId })),
+      onlineFriends.map(userId => ({
+        type: FriendsListRowType.Online,
+        userId,
+        isLive: liveUserIds.has(userId),
+      })),
     )
 
-    const offlineFriends = friendsByStatus.get(FriendActivityStatus.Offline) ?? []
+    const offlineFriends = liveFirst(friendsByStatus.get(FriendActivityStatus.Offline) ?? [])
     if (offlineFriends.length > 0) {
       result.push({
         type: FriendsListRowType.Header,
@@ -267,12 +281,16 @@ function VirtualizedFriendsList({ height }: { height: number }) {
       })
 
       result = result.concat(
-        offlineFriends.map(userId => ({ type: FriendsListRowType.Offline, userId })),
+        offlineFriends.map(userId => ({
+          type: FriendsListRowType.Offline,
+          userId,
+          isLive: liveUserIds.has(userId),
+        })),
       )
     }
 
     return result
-  }, [friendsByStatus, t])
+  }, [friendsByStatus, liveUserIds, t])
 
   const renderRow = useCallback((index: number, row: FriendsListRowData) => {
     if (row.type === FriendsListRowType.Header) {
@@ -283,7 +301,7 @@ function VirtualizedFriendsList({ height }: { height: number }) {
       )
     } else {
       const faded = row.type === FriendsListRowType.Offline
-      return <FriendEntry userId={row.userId} faded={faded} key={row.userId} />
+      return <FriendEntry userId={row.userId} faded={faded} isLive={row.isLive} key={row.userId} />
     }
   }, [])
 
@@ -478,13 +496,24 @@ function VirtualizedFriendRequestsList({ height }: { height: number }) {
   )
 }
 
+const AvatarContainer = styled.div`
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  margin: 2px 16px 2px 0;
+`
+
 const StyledAvatar = styled(ConnectedAvatar)`
   width: 32px;
   height: 32px;
 
   display: inline-block;
+`
 
-  margin: 2px 16px 2px 0;
+const EntryLiveLabel = styled(LiveLabel)`
+  flex-shrink: 0;
+  margin-left: 8px;
 `
 const LoadingName = styled.div`
   width: 64px;
@@ -556,11 +585,13 @@ const FriendEntryName = styled.div`
 function FriendEntry({
   userId,
   faded = false,
+  isLive = false,
   style,
   actions,
 }: {
   userId: SbUserId
   faded?: boolean
+  isLive?: boolean
   style?: React.CSSProperties
   actions?: React.ReactNode
 }) {
@@ -588,12 +619,15 @@ function FriendEntry({
         $isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <StyledAvatar userId={userId} />
+        <AvatarContainer>
+          <StyledAvatar userId={userId} />
+        </AvatarContainer>
         {user ? (
           <FriendEntryName>{user.name}</FriendEntryName>
         ) : (
           <LoadingName aria-label={t('social.friendsList.loadingUsername', 'Username loading…')} />
         )}
+        {isLive ? <EntryLiveLabel /> : null}
         {actions ? <FriendEntryActions>{actions}</FriendEntryActions> : null}
       </FriendEntryRoot>
     </div>

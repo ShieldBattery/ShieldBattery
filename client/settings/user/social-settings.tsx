@@ -5,18 +5,25 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { IconButton } from '../../material/button'
+import { CheckBox } from '../../material/check-box'
+import { useUserLocalStorageValue } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { unblockUser } from '../../social/action-creators'
 import { useRelationshipsLoader } from '../../social/friends-list'
 import { userRelationshipErrorToString } from '../../social/relationship-errors'
 import { bodyLarge, labelLarge, singleLine, titleLarge, titleSmall } from '../../styles/typography'
+import { FRIEND_LIVE_NOTIFICATIONS_KEY } from '../../twitch/friend-live-notifications'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
 
 const Root = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+`
+
+const NotificationsSection = styled.div`
+  margin-bottom: 24px;
 `
 
 const SectionHeader = styled.div`
@@ -98,8 +105,30 @@ export function UserSocialSettings() {
   const blocks = useAppSelector(s => s.relationships.blocks)
   const blockedEntries = useAppSelector(useUserEntriesSelector(blocks), areUserEntriesEqual)
 
+  const [friendLiveEnabled, setFriendLiveEnabled] = useUserLocalStorageValue(
+    FRIEND_LIVE_NOTIFICATIONS_KEY,
+    true,
+  )
+
   return (
     <Root>
+      <NotificationsSection>
+        <HeaderTitle>{t('settings.user.social.notifications.title', 'Notifications')}</HeaderTitle>
+        <Description>
+          {t(
+            'settings.user.social.notifications.description',
+            'Choose which social activity notifies you.',
+          )}
+        </Description>
+        <CheckBox
+          checked={friendLiveEnabled}
+          onChange={e => setFriendLiveEnabled(e.target.checked)}
+          label={t(
+            'settings.user.social.notifications.friendLive',
+            'Notify me when a friend starts streaming',
+          )}
+        />
+      </NotificationsSection>
       <SectionHeader>
         <HeaderTitle>{t('settings.user.social.blockedUsers.title', 'Blocked users')}</HeaderTitle>
         <BlockCount>

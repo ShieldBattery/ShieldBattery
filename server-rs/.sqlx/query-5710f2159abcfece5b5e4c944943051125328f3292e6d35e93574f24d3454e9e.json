@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE twitch_connections\n            SET twitch_login = $2, twitch_display_name = $3, updated_at = now()\n            WHERE twitch_user_id = $1\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5710f2159abcfece5b5e4c944943051125328f3292e6d35e93574f24d3454e9e"
+}

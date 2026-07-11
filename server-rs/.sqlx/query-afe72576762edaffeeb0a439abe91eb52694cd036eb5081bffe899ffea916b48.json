@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT user_id, twitch_user_id, twitch_login, twitch_display_name, linked_at,\n                eventsub_subscription_ids\n            FROM twitch_connections\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "twitch_user_id",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "twitch_login",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_login"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "twitch_display_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "twitch_display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "linked_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "linked_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "eventsub_subscription_ids",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "twitch_connections",
+            "name": "eventsub_subscription_ids"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "afe72576762edaffeeb0a439abe91eb52694cd036eb5081bffe899ffea916b48"
+}
