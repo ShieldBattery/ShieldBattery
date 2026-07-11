@@ -1,15 +1,68 @@
+import { ResultOf } from '@graphql-typed-document-node/core'
+import { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { Link } from 'wouter'
+import { urlPath } from '../../common/urls'
+import { FragmentType, graphql, useFragment } from '../gql'
+import { HomeSection, HomeSectionTitle } from '../home/home-section'
 import { useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
-import {
-  newsDateFormatter,
-  STATIC_NEWS_ENTRIES,
-  StaticNewsFeedEntry,
-  StaticNewsImage,
-} from './static-news-entries'
+import { NewsImage, newsDateFormatter } from './news-image'
+
+export const News_HomeFeedFragment = graphql(/* GraphQL */ `
+  fragment News_HomeFeedFragment on Query {
+    newsPosts(first: 10) {
+      edges {
+        node {
+          id
+          title
+          summary
+          publishedAt
+          coverImageUrl
+          coverImageSmallUrl
+        }
+      }
+    }
+  }
+`)
+
+type NewsFeedPost = ResultOf<typeof News_HomeFeedFragment>['newsPosts']['edges'][number]['node']
+
+const SectionHeader = styled.div`
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+`
+
+const SeeAllLink = styled(Link)`
+  ${bodyMedium};
+  flex-shrink: 0;
+
+  font-weight: 600;
+  text-decoration: none;
+
+  &,
+  &:link,
+  &:visited {
+    color: var(--theme-amber);
+  }
+
+  &:hover,
+  &:focus-visible {
+    text-decoration: underline;
+    outline: none;
+  }
+`
+
+const UnavailableText = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
 
 const Root = styled.div`
   display: flex;
@@ -17,7 +70,7 @@ const Root = styled.div`
   gap: 16px;
 `
 
-const OneUpEntry = styled(StaticNewsPreview)`
+const OneUpEntry = styled(NewsPreview)`
   ${containerStyles(ContainerLevel.Low)};
 
   width: 100%;
@@ -48,7 +101,7 @@ const TwoUpEntries = styled.div`
   gap: 16px;
 `
 
-const TwoUpEntry = styled(StaticNewsPreview)`
+const TwoUpEntry = styled(NewsPreview)`
   ${containerStyles(ContainerLevel.Low)};
 
   width: 100%;
@@ -155,8 +208,6 @@ const EntryPreviewSummaryText = styled.div`
 `
 
 const RemainingEntriesList = styled.div`
-  padding-blow: 4px;
-
   display: grid;
   grid-template-columns: max-content 1fr;
 
@@ -164,72 +215,93 @@ const RemainingEntriesList = styled.div`
   column-gap: 16px;
 `
 
-export function StaticNewsFeed() {
-  const smallEntries = STATIC_NEWS_ENTRIES.slice(-10).slice(0, -3)
-  const bigEntries = STATIC_NEWS_ENTRIES.slice(-3)
+export function NewsFeed({
+  query,
+  hasError,
+}: {
+  query?: FragmentType<typeof News_HomeFeedFragment>
+  hasError?: boolean
+}) {
+  const { t } = useTranslation()
+  const data = useFragment(News_HomeFeedFragment, query)
+  const posts = data?.newsPosts.edges.map(e => e.node) ?? []
+
+  const primary = posts[0]
+  const twoUp = posts.slice(1, 3)
+  const remaining = posts.slice(3, 10)
+
+  let body: ReactNode = null
+  if (posts.length > 0) {
+    body = (
+      <Root>
+        <OneUpEntry data-test='news-feed-primary' post={primary} />
+
+        {twoUp.length > 0 ? (
+          <TwoUpEntries>
+            {twoUp.map(post => (
+              <TwoUpEntry key={post.id} post={post} />
+            ))}
+          </TwoUpEntries>
+        ) : null}
+
+        {remaining.length > 0 ? (
+          <RemainingEntriesList>
+            {remaining.map(post => (
+              <RemainingEntry key={post.id} post={post} />
+            ))}
+          </RemainingEntriesList>
+        ) : null}
+      </Root>
+    )
+  } else if (hasError) {
+    body = (
+      <UnavailableText>{t('news.unavailable', 'News is unavailable right now.')}</UnavailableText>
+    )
+  }
 
   return (
-    <Root>
-      {bigEntries.length > 0 && (
-        <OneUpEntry
-          entry={bigEntries[bigEntries.length - 1]}
-          index={STATIC_NEWS_ENTRIES.length - 1}
-        />
-      )}
+    <HomeSection>
+      <SectionHeader>
+        <HomeSectionTitle data-test='latest-news-title'>
+          {t('home.latestNewsTitle', 'Latest news')}
+        </HomeSectionTitle>
+        {posts.length > 0 ? (
+          <SeeAllLink href='/news'>{t('news.seeAll', 'See all news')}</SeeAllLink>
+        ) : null}
+      </SectionHeader>
 
-      {bigEntries.length > 2 && (
-        <TwoUpEntries>
-          {bigEntries
-            .slice(0, 2)
-            .map((entry, index) => (
-              <TwoUpEntry
-                key={index}
-                entry={entry}
-                index={STATIC_NEWS_ENTRIES.length - 3 + index}
-              />
-            ))
-            .reverse()}
-        </TwoUpEntries>
-      )}
-
-      {smallEntries.length > 0 && (
-        <RemainingEntriesList>
-          {smallEntries
-            .map((entry, index) => (
-              <RemainingEntry
-                key={index}
-                entry={entry}
-                index={STATIC_NEWS_ENTRIES.length - 10 + index}
-              />
-            ))
-            .reverse()}
-        </RemainingEntriesList>
-      )}
-    </Root>
+      {body}
+    </HomeSection>
   )
 }
 
-function StaticNewsPreview({
-  entry,
-  index,
+function NewsPreview({
+  post,
   className,
+  ...rest
 }: {
-  entry: StaticNewsFeedEntry
-  index: number
+  post: NewsFeedPost
   className?: string
+  'data-test'?: string
 }) {
   const [buttonProps, rippleRef] = useButtonState({})
 
   return (
-    <LinkButton {...buttonProps} className={className} href={`/static-news/${index}`}>
+    <LinkButton {...buttonProps} {...rest} className={className} href={urlPath`/news/${post.id}`}>
       <EntryPreviewImageContainer>
-        <StaticNewsImage index={index} />
+        <NewsImage
+          id={post.id}
+          coverImageUrl={post.coverImageUrl}
+          coverImageSmallUrl={post.coverImageSmallUrl}
+        />
       </EntryPreviewImageContainer>
       <EntryPreviewText>
-        <EntryPreviewDate>{newsDateFormatter.format(entry.date)}</EntryPreviewDate>
-        <EntryPreviewTitle>{entry.title}</EntryPreviewTitle>
+        <EntryPreviewDate>
+          {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
+        </EntryPreviewDate>
+        <EntryPreviewTitle>{post.title}</EntryPreviewTitle>
         <EntryPreviewSummary>
-          <EntryPreviewSummaryText>{entry.summary}</EntryPreviewSummaryText>
+          <EntryPreviewSummaryText>{post.summary}</EntryPreviewSummaryText>
         </EntryPreviewSummary>
       </EntryPreviewText>
       <Ripple ref={rippleRef} />
@@ -268,13 +340,15 @@ const RemainingEntryTitle = styled.div`
   grid-column: 2;
 `
 
-function RemainingEntry({ entry, index }: { entry: StaticNewsFeedEntry; index: number }) {
+function RemainingEntry({ post }: { post: NewsFeedPost }) {
   const [buttonProps, rippleRef] = useButtonState({})
 
   return (
-    <RemainingEntryRoot {...buttonProps} href={`/static-news/${index}`}>
-      <RemainingEntryDate>{newsDateFormatter.format(entry.date)}</RemainingEntryDate>
-      <RemainingEntryTitle>{entry.title}</RemainingEntryTitle>
+    <RemainingEntryRoot {...buttonProps} href={urlPath`/news/${post.id}`}>
+      <RemainingEntryDate>
+        {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
+      </RemainingEntryDate>
+      <RemainingEntryTitle>{post.title}</RemainingEntryTitle>
       <Ripple ref={rippleRef} />
     </RemainingEntryRoot>
   )

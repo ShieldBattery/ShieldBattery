@@ -15,7 +15,7 @@ import { LeagueHomeFeed } from '../leagues/league-home-feed'
 import { TextButton } from '../material/button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
-import { StaticNewsFeed } from '../news/static-news-feed'
+import { NewsFeed } from '../news/news-feed'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
@@ -145,14 +145,16 @@ const HomeQuery = graphql(/* GraphQL */ `
     ...LiveGames_FeedFragment
     ...LiveStreams_FeedFragment
     ...Leagues_HomeFeedFragment
+    ...News_HomeFeedFragment
   }
 `)
 
 export function Home() {
   const { t } = useTranslation()
-  // TODO(tec27): Once this isn't a static news feed we should probably check for errors on loading
-  // this and show a message if it fails (currently it just hides the non-static parts)
-  const [{ data }, reexecuteQuery] = useQuery({ query: HomeQuery, context: { ttl: 10 * 1000 } })
+  const [{ data, error }, reexecuteQuery] = useQuery({
+    query: HomeQuery,
+    context: { ttl: 10 * 1000 },
+  })
   // Keeps the live sections (live games and streams) fresh while Home stays mounted.
   useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
 
@@ -166,12 +168,7 @@ export function Home() {
           <GridLayout>
             <LeftSection>
               <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
-              <HomeSection>
-                <HomeSectionTitle data-test='latest-news-title'>
-                  {t('home.latestNewsTitle', 'Latest news')}
-                </HomeSectionTitle>
-                <StaticNewsFeed />
-              </HomeSection>
+              <NewsFeed query={data} hasError={!!error} />
             </LeftSection>
             <RightSection>
               <SupportSection>
