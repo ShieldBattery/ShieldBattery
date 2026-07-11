@@ -112,6 +112,10 @@ services:
       - SB_SESSION_TTL
       - SB_FILE_STORE
       - SB_DISCORD_WEBHOOK_URL
+      - SB_GQL_ORIGIN
+      - SB_TWITCH_CLIENT_ID
+      - SB_TWITCH_CLIENT_SECRET
+      - SB_TWITCH_EVENTSUB_SECRET
     networks:
       - frontend
       - backend

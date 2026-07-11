@@ -137,6 +137,7 @@ pub struct TwitchClient {
     client_id: String,
     client_secret: SecretString,
     eventsub_secret: SecretString,
+    /// The URL Twitch delivers EventSub webhook notifications to (`<gql origin>/twitch/eventsub`).
     eventsub_callback_url: String,
     /// The redirect URI for the web linking flow (`<canonical host>/twitch/callback`). The desktop
     /// flow uses the fixed `DESKTOP_REDIRECT_URI` instead; see `redirect_uri_for`.
@@ -148,14 +149,22 @@ impl TwitchClient {
     /// Builds a client from settings, returning `None` if Twitch isn't configured.
     pub fn from_settings(settings: &Settings) -> Option<Arc<Self>> {
         let twitch = settings.twitch.as_ref()?;
-        let host = settings.canonical_host.trim_end_matches('/');
+        let canonical_host = settings.canonical_host.trim_end_matches('/');
+        // EventSub webhooks are delivered to this (GraphQL) server, which is served on a different
+        // host than the main web server in production, so the callback must use our own public
+        // origin rather than the canonical (web) host.
+        let gql_origin = settings
+            .gql_origin
+            .as_deref()
+            .expect("checked in get_configuration")
+            .trim_end_matches('/');
         Some(Arc::new(Self {
             http: reqwest::Client::new(),
             client_id: twitch.client_id.clone(),
             client_secret: twitch.client_secret.clone(),
             eventsub_secret: twitch.eventsub_secret.clone(),
-            eventsub_callback_url: format!("{host}/twitch/eventsub"),
-            web_redirect_uri: format!("{host}/twitch/callback"),
+            eventsub_callback_url: format!("{gql_origin}/twitch/eventsub"),
+            web_redirect_uri: format!("{canonical_host}/twitch/callback"),
             app_token: RwLock::new(None),
         }))
     }

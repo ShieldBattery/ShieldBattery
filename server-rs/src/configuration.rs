@@ -31,6 +31,10 @@ pub struct Settings {
     /// Twitch integration credentials. `None` disables the integration entirely (account linking
     /// errors out and the live-streams feed stays empty), so dev/CI can run without Twitch creds.
     pub twitch: Option<TwitchSettings>,
+    /// The public origin of this (GraphQL) server, e.g. `https://gql.shieldbattery.net`. Only
+    /// required when the Twitch integration is configured, since Twitch delivers EventSub
+    /// webhooks to `<gql_origin>/twitch/eventsub`.
+    pub gql_origin: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -187,6 +191,14 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         eventsub_secret: twitch_eventsub_secret.unwrap().into(),
     });
 
+    let gql_origin = std::env::var("SB_GQL_ORIGIN").ok();
+    if twitch.is_some() && gql_origin.is_none() {
+        return Err(eyre!(
+            "SB_GQL_ORIGIN must be set when the Twitch integration is configured (Twitch delivers \
+             EventSub webhooks to <SB_GQL_ORIGIN>/twitch/eventsub)"
+        ));
+    }
+
     Ok(Settings {
         env,
         app_host: host,
@@ -225,5 +237,6 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         ),
         file_store,
         twitch,
+        gql_origin,
     })
 }
