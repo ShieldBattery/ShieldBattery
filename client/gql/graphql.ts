@@ -231,6 +231,9 @@ export type NewsUpdatePostMutation = {
     content: string
     publishedAt: string | null
     updatedAt: string
+    coverImagePath: string | null
+    coverImageUrl: string | null
+    coverImageSmallUrl: string | null
   }
 }
 
@@ -2146,6 +2149,9 @@ export const NewsUpdatePostDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'content' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'updatedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImagePath' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
               ],
             },
           },

@@ -119,6 +119,9 @@ const NewsUpdatePostMutation = graphql(/* GraphQL */ `
       content
       publishedAt
       updatedAt
+      coverImagePath
+      coverImageUrl
+      coverImageSmallUrl
     }
   }
 `)

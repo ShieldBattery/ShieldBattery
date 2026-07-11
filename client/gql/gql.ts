@@ -16,9 +16,9 @@ import * as types from './graphql'
 type Documents = {
   '\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.AdminNewsListDocument
   '\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      coverImagePath\n      coverImageUrl\n      author {\n        id\n        name\n      }\n    }\n  }\n': typeof types.AdminNewsPostDocument
-  '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n': typeof types.AdminNewsHistoryDocument
+  '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n      }\n    }\n  }\n': typeof types.AdminNewsHistoryDocument
   '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n': typeof types.NewsCreatePostDocument
-  '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n': typeof types.NewsUpdatePostDocument
+  '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n': typeof types.NewsUpdatePostDocument
   '\n  mutation NewsDeletePost($id: UUID!) {\n    newsDeletePost(id: $id)\n  }\n': typeof types.NewsDeletePostDocument
   '\n  query AdminMatchmakingConfig {\n    matchmakingConfig {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n      perMode {\n        matchmakingType\n        config {\n          weightRatingVariance\n          weightWinProb\n          weightLatency\n          uncertaintyK\n          minQuality\n          adaptiveComfortableMultiplier\n          adaptiveDecayPerMissing\n          populationHalfLifeSeconds\n        }\n      }\n      defaults {\n        searchIntervalSeconds\n        maxPlayersExamined\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n    }\n  }\n': typeof types.AdminMatchmakingConfigDocument
   '\n  mutation AdminUpdateMatchmakingConfig($config: MatchmakerConfigInput!) {\n    updateMatchmakingConfig(config: $config) {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        minQuality\n      }\n    }\n  }\n': typeof types.AdminUpdateMatchmakingConfigDocument
@@ -73,11 +73,11 @@ const documents: Documents = {
     types.AdminNewsListDocument,
   '\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      coverImagePath\n      coverImageUrl\n      author {\n        id\n        name\n      }\n    }\n  }\n':
     types.AdminNewsPostDocument,
-  '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n':
+  '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n      }\n    }\n  }\n':
     types.AdminNewsHistoryDocument,
   '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n':
     types.NewsCreatePostDocument,
-  '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n':
+  '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n':
     types.NewsUpdatePostDocument,
   '\n  mutation NewsDeletePost($id: UUID!) {\n    newsDeletePost(id: $id)\n  }\n':
     types.NewsDeletePostDocument,
@@ -206,8 +206,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n',
-): (typeof documents)['\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n']
+  source: '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n      }\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -218,8 +218,8 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n',
-): (typeof documents)['\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n']
+  source: '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n',
+): (typeof documents)['\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n      coverImagePath\n      coverImageUrl\n      coverImageSmallUrl\n    }\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
