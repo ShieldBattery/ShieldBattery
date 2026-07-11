@@ -129,6 +129,15 @@ pub struct SpacesFileStoreSettings {
     pub region: Option<String>,
 }
 
+/// Reads an env var, treating unset, empty, and whitespace-only values as absent (deploy
+/// configs commonly pass empty strings for optional values that aren't configured).
+fn env_var_non_empty(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 pub fn get_configuration() -> eyre::Result<Settings> {
     #[cfg(test)]
     let env = Env::Test;
@@ -174,9 +183,9 @@ pub fn get_configuration() -> eyre::Result<Settings> {
                 .wrap_err("Failed to parse SB_FILE_STORE JSON")
         })?;
 
-    let twitch_client_id = std::env::var("SB_TWITCH_CLIENT_ID").ok();
-    let twitch_client_secret = std::env::var("SB_TWITCH_CLIENT_SECRET").ok();
-    let twitch_eventsub_secret = std::env::var("SB_TWITCH_EVENTSUB_SECRET").ok();
+    let twitch_client_id = env_var_non_empty("SB_TWITCH_CLIENT_ID");
+    let twitch_client_secret = env_var_non_empty("SB_TWITCH_CLIENT_SECRET");
+    let twitch_eventsub_secret = env_var_non_empty("SB_TWITCH_EVENTSUB_SECRET");
     if twitch_client_id.is_some() != twitch_client_secret.is_some()
         || twitch_client_id.is_some() != twitch_eventsub_secret.is_some()
     {
@@ -185,18 +194,46 @@ pub fn get_configuration() -> eyre::Result<Settings> {
              be set or all unset"
         ));
     }
+    // Twitch requires EventSub webhook secrets to be 10-100 ASCII characters.
+    if let Some(s) = &twitch_eventsub_secret
+        && !(s.is_ascii() && (10..=100).contains(&s.len()))
+    {
+        return Err(eyre!(
+            "SB_TWITCH_EVENTSUB_SECRET must be 10-100 ASCII characters (Twitch's requirement for \
+             EventSub webhook secrets)"
+        ));
+    }
     let twitch = twitch_client_id.map(|client_id| TwitchSettings {
         client_id,
         client_secret: twitch_client_secret.unwrap().into(),
         eventsub_secret: twitch_eventsub_secret.unwrap().into(),
     });
 
-    let gql_origin = std::env::var("SB_GQL_ORIGIN").ok();
+    let gql_origin = env_var_non_empty("SB_GQL_ORIGIN");
     if twitch.is_some() && gql_origin.is_none() {
         return Err(eyre!(
             "SB_GQL_ORIGIN must be set when the Twitch integration is configured (Twitch delivers \
              EventSub webhooks to <SB_GQL_ORIGIN>/twitch/eventsub)"
         ));
+    }
+    // Validated as a plain origin (no path/query/fragment) whenever set, since it's used to build
+    // the EventSub callback URL by string concatenation.
+    if let Some(origin) = &gql_origin {
+        let url = origin.parse::<Url>().wrap_err(
+            "SB_GQL_ORIGIN must be a plain http(s) origin with no path (e.g. \
+                        https://gql.example.com)",
+        )?;
+        let valid = matches!(url.scheme(), "http" | "https")
+            && url.host().is_some()
+            && url.path() == "/"
+            && url.query().is_none()
+            && url.fragment().is_none();
+        if !valid {
+            return Err(eyre!(
+                "SB_GQL_ORIGIN must be a plain http(s) origin with no path (e.g. \
+                 https://gql.example.com)"
+            ));
+        }
     }
 
     Ok(Settings {
