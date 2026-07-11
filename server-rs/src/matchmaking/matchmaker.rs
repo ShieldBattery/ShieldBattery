@@ -10,6 +10,7 @@ use rand::{RngExt, seq::SliceRandom};
 use strum::IntoEnumIterator;
 
 use crate::matchmaking::MatchmakingType;
+use crate::matchmaking::backbone::BackboneRttTable;
 use crate::matchmaking::config::MatchmakerConfig;
 
 /*
@@ -25,13 +26,11 @@ Where:
     - W_lat  = "How many seconds I would wait to drop a match's latency by one turn-rate step"
 
 `max_latency` is the estimated one-way latency (in milliseconds) of the candidate match's worst
-pairwise link, derived from each player's rally-point server pings (see [`match_latency`]). Latency
-only changes the play experience in discrete jumps — the game holds a fixed turn rate / input buffer
-until latency crosses a threshold, so anything under ~100ms one-way plays identically. The quality
-formula therefore penalizes `latency_value(max_latency)` (a count of turn-rate steps) rather than
-raw milliseconds (see [`latency_value`]). Routeability is a hard constraint rather than a penalty: a
-candidate where any player pair shares no pinged rally-point server is rejected outright, since the
-game loader couldn't build a route for it and the launch would fail (see [`match_latency`]).
+pairwise link, derived from each player's chosen region and their measured round-trip time to it
+(see [`match_latency`]). Latency only changes the play experience in discrete jumps — the game holds
+a fixed turn rate / input buffer until latency crosses a threshold, so anything under ~100ms one-way
+plays identically. The quality formula therefore penalizes `latency_value(max_latency)` (a count of
+turn-rate steps) rather than raw milliseconds (see [`latency_value`]).
 
 Skill variance is computed over each player's *effective rating* (rating − k*σ), so newly-placed
 players with high uncertainty contribute less variance and match more freely until their rating
@@ -87,13 +86,14 @@ pub struct Player {
     /// map could be chosen and the match would fail downstream. Veto/fixed modes have no entry here
     /// and are unconstrained.
     pub map_selections: HashMap<MatchmakingType, Vec<MapId>>,
-    /// Most recently reported round-trip ping (ms) from this player to each rally-point server,
-    /// keyed by server id. The matchmaker uses these to estimate a candidate match's latency by
-    /// reproducing the route selection the game server performs at launch (see [`match_latency`]).
-    /// Players are required to have measured their pings before queueing (the Node.js side waits for
-    /// a ping result before enqueuing), so this is normally non-empty; a player carrying no pings
-    /// contributes no latency information and matches involving them are not penalized.
-    pub server_pings: HashMap<u32, f32>,
+    /// The game server region this player asked to home in, if any. Combined with `rtt_ms` and the
+    /// backbone table to estimate a candidate match's latency (see [`match_latency`]). A player with
+    /// no region (dev loopback, or no coordinator-configured regions) contributes no latency
+    /// information and matches involving them are not penalized.
+    pub region: Option<String>,
+    /// This player's measured round-trip time (ms) to `region`. Present only alongside a `region`;
+    /// a player missing either carries no latency signal.
+    pub rtt_ms: Option<f32>,
 }
 
 /// Returns the conservative skill estimate: the player's rating minus `uncertainty_k` standard
@@ -104,47 +104,32 @@ fn effective_rating(player: &Player, mode: MatchmakingType, uncertainty_k: f32) 
     mode_rating.rating - uncertainty_k * mode_rating.uncertainty.unwrap_or(0.0)
 }
 
-/// Estimates the one-way latency (ms) of a candidate match by reproducing the route selection the
-/// game server performs at launch, or returns `None` if the match is *unrouteable* and must be
-/// rejected. The game meshes players with one rally-point route per pair, choosing for each pair the
-/// server that minimizes their combined round-trip ping (see `RallyPointService::createBestRoute` on
-/// the Node.js side); that pair's estimated one-way latency is `combined / 2`. A lockstep game is
-/// bottlenecked by its slowest link, so the match's latency is the maximum across all pairs.
+/// Estimates the one-way latency (ms) of a candidate match as its worst pairwise link. Each pair's
+/// one-way estimate is `rtt_a/2 + backbone(region_a, region_b)/2 + rtt_b/2`, where `rtt` is a
+/// player's measured round-trip time to their chosen region and `backbone` is the static
+/// region-to-region round-trip time (0 within a region, a conservative default for an unconfigured
+/// pair — see [`BackboneRttTable`]). A lockstep game is bottlenecked by its slowest link, so the
+/// match's latency is the maximum across all pairs.
 ///
-/// `createBestRoute` can only build a route when both players pinged a common server; if their pings
-/// are disjoint it throws and the launch fails. So a pair where both players carry ping data but
-/// share no server makes the whole match unrouteable, and we return `None` so the caller rejects it
-/// rather than forming a match that can't launch.
-///
-/// Players measure their pings before queueing, so every player normally carries ping data. A pair
-/// where one side carries *no* pings at all is a defensive degenerate case (the loader would also
-/// fail it, but it shouldn't occur in practice); rather than wedge such a player out of matchmaking
-/// entirely we skip the pair, contributing no latency information instead of blocking the match.
-fn match_latency(entries: &[&QueueEntry]) -> Option<f32> {
+/// A player missing either a region or a measured rtt carries no latency signal, so any pair
+/// involving them is skipped and contributes nothing — matching the region-blind fallback for
+/// players with no coordinator-configured regions. With no contributing pairs the estimate is 0.
+fn match_latency(entries: &[&QueueEntry], backbone: &BackboneRttTable) -> f32 {
     let mut worst = 0.0f32;
     for (i, a) in entries.iter().enumerate() {
-        let a_pings = &a.player.server_pings;
         for b in &entries[i + 1..] {
-            let b_pings = &b.player.server_pings;
-            // A pair with no ping data on either side carries no routing information; don't block on
-            // it (see the doc comment above).
-            if a_pings.is_empty() || b_pings.is_empty() {
-                continue;
-            }
-            let best_combined = a_pings
-                .iter()
-                .filter_map(|(server, &ping_a)| b_pings.get(server).map(|&ping_b| ping_a + ping_b))
-                .fold(f32::INFINITY, f32::min);
-            if best_combined.is_finite() {
-                worst = worst.max(best_combined / 2.0);
-            } else {
-                // Both players pinged servers but share none: the loader can't route this pair, so
-                // the whole match is unrouteable.
-                return None;
+            if let (Some(region_a), Some(rtt_a), Some(region_b), Some(rtt_b)) = (
+                a.player.region.as_deref(),
+                a.player.rtt_ms,
+                b.player.region.as_deref(),
+                b.player.rtt_ms,
+            ) {
+                let one_way = rtt_a / 2.0 + backbone.rtt(region_a, region_b) / 2.0 + rtt_b / 2.0;
+                worst = worst.max(one_way);
             }
         }
     }
-    Some(worst)
+    worst
 }
 
 /// Converts an estimated one-way latency (ms) into the number of turn-rate "steps" it costs — the
@@ -172,6 +157,10 @@ pub struct Matchmaker<T: QueueSelector> {
     /// fresh on each search tick and replaceable via [`Matchmaker::set_config`] so an admin change
     /// takes effect without a restart.
     config: Arc<MatchmakerConfig>,
+    /// Static region-to-region backbone latency table, supplied once at construction from
+    /// process-level config. Unlike `config` it isn't hot-swapped — the region topology is set at
+    /// deploy time.
+    backbone: BackboneRttTable,
     queue: Vec<QueueEntry>,
     queue_sizes: HashMap<MatchmakingType, usize>,
     /// Smoothed (EWMA) estimate of how many players have recently been queued for each mode, used to
@@ -215,9 +204,8 @@ pub struct Match {
     pub team_a_rating: f32,
     pub team_b_rating: f32,
     /// Estimated one-way latency (ms) of the match's worst pairwise link (see [`match_latency`]).
-    /// Recorded in raw milliseconds for calibration (it joins against the launch-time route latency
-    /// in `games.routes`); the quality score itself penalizes `latency_value(max_latency)` weighted
-    /// by `WEIGHT_LATENCY`, not these raw ms.
+    /// Recorded in raw milliseconds for calibration; the quality score itself penalizes
+    /// `latency_value(max_latency)` weighted by `WEIGHT_LATENCY`, not these raw ms.
     pub max_latency: f32,
 }
 
@@ -262,8 +250,13 @@ impl QueueSelector for RandomQueueSelector {
 }
 
 impl Matchmaker<RandomQueueSelector> {
-    pub fn new(config: Arc<MatchmakerConfig>) -> Matchmaker<RandomQueueSelector> {
-        Matchmaker::with_queue_selector(config, RandomQueueSelector)
+    pub fn new(
+        config: Arc<MatchmakerConfig>,
+        backbone: BackboneRttTable,
+    ) -> Matchmaker<RandomQueueSelector> {
+        let mut matchmaker = Matchmaker::with_queue_selector(config, RandomQueueSelector);
+        matchmaker.backbone = backbone;
+        matchmaker
     }
 }
 
@@ -313,6 +306,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         Self {
             start,
             config,
+            backbone: BackboneRttTable::default(),
             queue: Vec::new(),
             queue_sizes: HashMap::new(),
             population_estimate: HashMap::new(),
@@ -546,13 +540,10 @@ impl<T: QueueSelector> Matchmaker<T> {
                         return None;
                     }
 
-                    // Reject candidates the game loader couldn't route. If any player pair pinged
-                    // servers but shares none, `RallyPointService.createBestRoute` would fail to pick
-                    // a server both can use and the launch would fail. Scoring such a match instead
-                    // of rejecting it lets a low-population queue repeatedly form the same impossible
-                    // pair, send it through accept/load, fail, and requeue it. Computed here so the
+                    // Estimated one-way latency of this candidate's worst pairwise link, from each
+                    // player's region and measured rtt (see [`match_latency`]). Computed here so the
                     // value can be reused for the quality score below.
-                    let max_latency = match_latency(&queue_entries)?;
+                    let max_latency = match_latency(&queue_entries, &self.backbone);
 
                     let mut oldest_queue_time = queue_entries[0].queue_time;
                     let mut count = 0;
@@ -642,6 +633,7 @@ impl<T: QueueSelector> Matchmaker<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::matchmaking::backbone::BackboneRttTable;
     use crate::matchmaking::config::ModeConfig;
     use std::collections::HashMap;
     use std::time::Duration;
@@ -694,7 +686,8 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::new(),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         }
     }
 
@@ -716,7 +709,8 @@ mod tests {
                 })
                 .collect(),
             map_selections: HashMap::new(),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         }
     }
 
@@ -984,10 +978,16 @@ mod tests {
         );
     }
 
-    /// Builds a player rated for `mode` with the given round-trip pings (`[server_id, ping_ms]`).
-    fn make_player_with_pings(id: usize, mode: MatchmakingType, pings: &[(u32, f32)]) -> Player {
+    /// Builds a player rated for `mode` who chose `region` and measured `rtt_ms` round-trip to it.
+    fn make_player_with_region(
+        id: usize,
+        mode: MatchmakingType,
+        region: &str,
+        rtt_ms: f32,
+    ) -> Player {
         Player {
-            server_pings: pings.iter().copied().collect(),
+            region: Some(region.to_string()),
+            rtt_ms: Some(rtt_ms),
             ..make_player(id, 1000.0, mode)
         }
     }
@@ -1004,23 +1004,157 @@ mod tests {
     }
 
     #[test]
-    fn find_matches_with_latency_penalty() {
+    fn latency_same_region_is_rtt_halves_only() {
         let mut matchmaker =
-            Matchmaker::with_queue_selector(config_with_min_quality(-85.0), TestQueueSelector);
-        // Both players ping rally-point server 0 at 200ms round-trip. The match's only pair shares
-        // that server, so combined = 400ms and estimated one-way latency = 200ms.
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        // Both players home in the same region, so backbone(region, region) == 0 and the one-way
+        // estimate is rtt_a/2 + 0 + rtt_b/2 = 15 + 25 = 40ms.
         matchmaker
-            .insert_player(make_player_with_pings(
+            .insert_player(make_player_with_region(
                 0,
                 MatchmakingType::Match1v1,
-                &[(0, 200.0)],
+                "us-east",
+                30.0,
             ))
             .unwrap();
         matchmaker
-            .insert_player(make_player_with_pings(
+            .insert_player(make_player_with_region(
                 1,
                 MatchmakingType::Match1v1,
-                &[(0, 200.0)],
+                "us-east",
+                50.0,
+            ))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 40.0);
+    }
+
+    #[test]
+    fn latency_cross_region_uses_backbone_table_entry() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        matchmaker.backbone = BackboneRttTable::new([("us-east|eu-west".to_string(), 90.0)]);
+        // Cross-region estimate: rtt_a/2 + backbone/2 + rtt_b/2 = 10 + 45 + 20 = 75ms.
+        matchmaker
+            .insert_player(make_player_with_region(
+                0,
+                MatchmakingType::Match1v1,
+                "us-east",
+                20.0,
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_region(
+                1,
+                MatchmakingType::Match1v1,
+                "eu-west",
+                40.0,
+            ))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 75.0);
+    }
+
+    #[test]
+    fn latency_cross_region_missing_pair_uses_default_backbone() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        // No backbone entry for this pair, so the conservative default (150ms RTT) is used:
+        // rtt_a/2 + 150/2 + rtt_b/2 = 10 + 75 + 20 = 105ms.
+        matchmaker
+            .insert_player(make_player_with_region(
+                0,
+                MatchmakingType::Match1v1,
+                "us-east",
+                20.0,
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_region(
+                1,
+                MatchmakingType::Match1v1,
+                "ap-south",
+                40.0,
+            ))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 105.0);
+    }
+
+    #[test]
+    fn latency_regionless_players_carry_no_penalty() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        // Both players are region-less (dev loopback / no coordinator-configured regions). Latency is
+        // unknown, so no penalty is applied and the estimate is 0 — matching the region-blind
+        // fallback.
+        matchmaker
+            .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player(1, 1000.0, MatchmakingType::Match1v1))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 0.0);
+    }
+
+    #[test]
+    fn latency_one_regionless_player_skips_the_pair() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+        matchmaker.backbone = BackboneRttTable::new([("us-east|eu-west".to_string(), 90.0)]);
+        // Player 0 has a region and rtt, player 1 has neither. The pair has no shared latency signal,
+        // so it's skipped and contributes nothing (estimate 0), rather than assuming a distance.
+        matchmaker
+            .insert_player(make_player_with_region(
+                0,
+                MatchmakingType::Match1v1,
+                "us-east",
+                20.0,
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player(1, 1000.0, MatchmakingType::Match1v1))
+            .unwrap();
+
+        let result =
+            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].max_latency, 0.0);
+    }
+
+    #[test]
+    fn find_matches_with_latency_penalty() {
+        let mut matchmaker =
+            Matchmaker::with_queue_selector(config_with_min_quality(-85.0), TestQueueSelector);
+        matchmaker.backbone = BackboneRttTable::new([("eu-west|us-east".to_string(), 200.0)]);
+        // Cross-region pair: rtt_a/2 + backbone/2 + rtt_b/2 = 50 + 100 + 50 = 200ms one-way.
+        matchmaker
+            .insert_player(make_player_with_region(
+                0,
+                MatchmakingType::Match1v1,
+                "us-east",
+                100.0,
+            ))
+            .unwrap();
+        matchmaker
+            .insert_player(make_player_with_region(
+                1,
+                MatchmakingType::Match1v1,
+                "eu-west",
+                100.0,
             ))
             .unwrap();
 
@@ -1053,161 +1187,43 @@ mod tests {
     }
 
     #[test]
-    fn find_matches_no_ping_data_treated_as_zero() {
-        let mut matchmaker =
-            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        matchmaker
-            .insert_player(make_player(0, 1000.0, MatchmakingType::Match1v1))
-            .unwrap();
-        matchmaker
-            .insert_player(make_player(1, 1000.0, MatchmakingType::Match1v1))
-            .unwrap();
-
-        // Defensive: players are required to have pings before queueing, but if a player somehow
-        // carries none, latency is unknown and no penalty is applied rather than blocking the match.
-        // With equal ratings: variance ≈ 0, win_prob_diff ≈ 0. Quality ≈ 0.
-        let result =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].max_latency, 0.0);
-    }
-
-    #[test]
-    fn latency_picks_lowest_combined_server() {
-        let mut matchmaker =
-            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        // Player 0 is closest to server 1, player 1 is closest to server 2, but the cheapest server
-        // they *share* is server 0 (combined 80ms → 40ms one-way). The lopsided servers must not be
-        // chosen since the other player pings them poorly.
-        matchmaker
-            .insert_player(make_player_with_pings(
-                0,
-                MatchmakingType::Match1v1,
-                &[(0, 40.0), (1, 10.0), (2, 500.0)],
-            ))
-            .unwrap();
-        matchmaker
-            .insert_player(make_player_with_pings(
-                1,
-                MatchmakingType::Match1v1,
-                &[(0, 40.0), (1, 500.0), (2, 10.0)],
-            ))
-            .unwrap();
-
-        let result =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].max_latency, 40.0);
-    }
-
-    #[test]
-    fn latency_no_shared_server_rejects_match() {
-        let mut matchmaker =
-            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        // Both players have pings, but to disjoint servers. The game loader's `createBestRoute` could
-        // not pick a server both can use, so the launch would fail; the matchmaker must not form this
-        // match (even at the most lenient quality threshold) rather than repeatedly matching the same
-        // impossible pair and failing to launch.
-        matchmaker
-            .insert_player(make_player_with_pings(
-                0,
-                MatchmakingType::Match1v1,
-                &[(1, 20.0)],
-            ))
-            .unwrap();
-        matchmaker
-            .insert_player(make_player_with_pings(
-                1,
-                MatchmakingType::Match1v1,
-                &[(2, 20.0)],
-            ))
-            .unwrap();
-
-        let result =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match1v1], Instant::now());
-        assert!(
-            result.is_empty(),
-            "expected no match when players share no pinged rally-point server",
-        );
-    }
-
-    #[test]
-    fn latency_unrouteable_pair_rejects_team_match() {
-        let mut matchmaker =
-            Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        // A 2v2 where three players share server 0 but player 2 only pinged server 1. Every team
-        // split still leaves at least one pair involving player 2 with no shared server, so the match
-        // is unrouteable regardless of how teams are formed and must be rejected.
-        matchmaker
-            .insert_player(make_player_with_pings(
-                0,
-                MatchmakingType::Match2v2,
-                &[(0, 20.0)],
-            ))
-            .unwrap();
-        matchmaker
-            .insert_player(make_player_with_pings(
-                1,
-                MatchmakingType::Match2v2,
-                &[(0, 20.0)],
-            ))
-            .unwrap();
-        matchmaker
-            .insert_player(make_player_with_pings(
-                2,
-                MatchmakingType::Match2v2,
-                &[(1, 20.0)],
-            ))
-            .unwrap();
-        matchmaker
-            .insert_player(make_player_with_pings(
-                3,
-                MatchmakingType::Match2v2,
-                &[(0, 20.0)],
-            ))
-            .unwrap();
-
-        let result =
-            matchmaker.find_matches_for_modes(&[MatchmakingType::Match2v2], Instant::now());
-        assert!(
-            result.is_empty(),
-            "expected no match when a player pair shares no pinged rally-point server",
-        );
-    }
-
-    #[test]
     fn latency_team_mode_uses_worst_pair_across_all_pairs() {
         let mut matchmaker =
             Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        // A 2v2 has six pairwise links. Three players ping server 0 at 20ms; player 2 pings it at
-        // 200ms. The worst link is therefore any pair involving player 2: (20 + 200) / 2 = 110ms.
-        // Latency is independent of how the matcher splits the teams — it's the worst pair overall.
+        // A 2v2 has six pairwise links. Three players home in "us-east" at 20ms; player 2 homes in
+        // "us-east" too but at 200ms. Same region, so every pair's backbone term is 0. The worst link
+        // is any pair involving player 2: 20/2 + 0 + 200/2 = 110ms. Latency is independent of how the
+        // matcher splits the teams — it's the worst pair overall.
         matchmaker
-            .insert_player(make_player_with_pings(
+            .insert_player(make_player_with_region(
                 0,
                 MatchmakingType::Match2v2,
-                &[(0, 20.0)],
+                "us-east",
+                20.0,
             ))
             .unwrap();
         matchmaker
-            .insert_player(make_player_with_pings(
+            .insert_player(make_player_with_region(
                 1,
                 MatchmakingType::Match2v2,
-                &[(0, 20.0)],
+                "us-east",
+                20.0,
             ))
             .unwrap();
         matchmaker
-            .insert_player(make_player_with_pings(
+            .insert_player(make_player_with_region(
                 2,
                 MatchmakingType::Match2v2,
-                &[(0, 200.0)],
+                "us-east",
+                200.0,
             ))
             .unwrap();
         matchmaker
-            .insert_player(make_player_with_pings(
+            .insert_player(make_player_with_region(
                 3,
                 MatchmakingType::Match2v2,
-                &[(0, 20.0)],
+                "us-east",
+                20.0,
             ))
             .unwrap();
 
@@ -1237,7 +1253,8 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::new(),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         };
         let certain = Player {
             id: 1,
@@ -1249,7 +1266,8 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::new(),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         };
 
         let mut mm = Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
@@ -1292,7 +1310,8 @@ mod tests {
                 ),
             ]),
             map_selections: HashMap::new(),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         };
         let player_b = Player {
             id: 1,
@@ -1313,7 +1332,8 @@ mod tests {
                 ),
             ]),
             map_selections: HashMap::new(),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         };
         matchmaker.insert_player(player_a).unwrap();
         matchmaker.insert_player(player_b).unwrap();
@@ -1350,7 +1370,8 @@ mod tests {
                 },
             )]),
             map_selections: HashMap::from([(mode, maps.iter().map(|m| m.to_string()).collect())]),
-            server_pings: HashMap::new(),
+            region: None,
+            rtt_ms: None,
         }
     }
 

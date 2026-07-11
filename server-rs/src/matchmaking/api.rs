@@ -1,3 +1,4 @@
+use crate::matchmaking::backbone::BackboneRttTable;
 use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
     Match, Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
@@ -81,13 +82,14 @@ struct QueueRequest {
     /// Per-mode ratings. One entry per queued mode; the set of modes the player queues for is
     /// derived from these entries.
     mode_ratings: Vec<PlayerModeRatingDto>,
-    /// The player's most recent round-trip pings (ms) to each rally-point server, as
-    /// `[server_id, ping]` pairs. Used to estimate a candidate match's latency (see
-    /// [`crate::matchmaking::matchmaker::match_latency`]). The Node.js side waits for the client to
-    /// measure its pings before enqueuing, so this is normally populated; an empty list is tolerated
-    /// and yields no latency penalty.
+    /// The game server region this player asked to home in, if any. Combined with `rtt_ms` and the
+    /// backbone table to estimate a candidate match's latency. Absent for players with no
+    /// coordinator-configured regions (dev loopback), which contribute no latency signal.
     #[serde(default)]
-    server_pings: Vec<(u32, f32)>,
+    region: Option<String>,
+    /// The player's measured round-trip time (ms) to `region`. Present only alongside `region`.
+    #[serde(default)]
+    rtt_ms: Option<f32>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -104,9 +106,12 @@ struct QueueTicket {
     /// modes) on requeue.
     mode_ratings: Vec<PlayerModeRatingDto>,
     queue_time: u64,
-    /// Per-server pings preserved from queue time, as `[server_id, ping]` pairs. Reused as-is on
-    /// requeue rather than re-measured (a requeue is rare and the pings are still a good estimate).
-    server_pings: Vec<(u32, f32)>,
+    /// Region and measured rtt preserved from queue time. Reused as-is on requeue rather than
+    /// re-measured (a requeue is rare and the values are still a good estimate).
+    #[serde(default)]
+    region: Option<String>,
+    #[serde(default)]
+    rtt_ms: Option<f32>,
     process_token: Uuid,
 }
 
@@ -139,7 +144,8 @@ fn lock_matchmaker(
 fn build_player(
     id: usize,
     mode_ratings: Vec<PlayerModeRatingDto>,
-    server_pings: Vec<(u32, f32)>,
+    region: Option<String>,
+    rtt_ms: Option<f32>,
 ) -> Player {
     let mut ratings = HashMap::new();
     let mut map_selections = HashMap::new();
@@ -159,7 +165,8 @@ fn build_player(
         id,
         ratings,
         map_selections,
-        server_pings: server_pings.into_iter().collect(),
+        region,
+        rtt_ms,
     }
 }
 
@@ -177,12 +184,8 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
                 map_selections: entry.player.map_selections.get(&mode).cloned(),
             })
             .collect(),
-        server_pings: entry
-            .player
-            .server_pings
-            .iter()
-            .map(|(&server, &ping)| (server, ping))
-            .collect(),
+        region: entry.player.region.clone(),
+        rtt_ms: entry.player.rtt_ms,
         queue_time: entry
             .queue_time
             .duration_since(matchmaker_start)
@@ -389,7 +392,10 @@ pub fn create_matchmaking_api(
     metrics::describe_metrics();
 
     let state = MatchmakingApiState {
-        matchmaker: Arc::new(Mutex::new(Matchmaker::new(config.load_full()))),
+        matchmaker: Arc::new(Mutex::new(Matchmaker::new(
+            config.load_full(),
+            BackboneRttTable::from_env(),
+        ))),
         config,
         process_token: Uuid::new_v4(),
     };
@@ -411,7 +417,7 @@ async fn insert_player(
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
     let modes: Vec<MatchmakingType> = payload.mode_ratings.iter().map(|r| r.mode).collect();
-    let player = build_player(payload.id, payload.mode_ratings, payload.server_pings);
+    let player = build_player(payload.id, payload.mode_ratings, payload.region, payload.rtt_ms);
     {
         let mut matchmaker = lock_matchmaker(&state.matchmaker);
         matchmaker.insert_player(player)?;
@@ -468,7 +474,7 @@ async fn requeue_player(
     let mut matchmaker = lock_matchmaker(&state.matchmaker);
     let queue_time = matchmaker.start() + Duration::from_millis(ticket.queue_time);
     match matchmaker.requeue_player(
-        build_player(ticket.id, ticket.mode_ratings, ticket.server_pings),
+        build_player(ticket.id, ticket.mode_ratings, ticket.region, ticket.rtt_ms),
         queue_time,
     ) {
         Ok(_) => {
@@ -524,7 +530,8 @@ mod tests {
                     },
                 )]),
                 map_selections: HashMap::new(),
-                server_pings: HashMap::new(),
+                region: None,
+                rtt_ms: None,
             },
             modes: MatchmakingType::Match1v1.into(),
         };
@@ -540,7 +547,8 @@ mod tests {
                     },
                 )]),
                 map_selections: HashMap::new(),
-                server_pings: HashMap::new(),
+                region: None,
+                rtt_ms: None,
             },
             modes: MatchmakingType::Match1v1.into(),
         };
@@ -556,7 +564,8 @@ mod tests {
                     },
                 )]),
                 map_selections: HashMap::new(),
-                server_pings: HashMap::new(),
+                region: None,
+                rtt_ms: None,
             },
             modes: MatchmakingType::Match1v1.into(),
         };

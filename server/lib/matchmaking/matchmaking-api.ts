@@ -139,9 +139,19 @@ export class MatchmakingApi {
           .unique((a, b) => a.matchmakingType === b.matchmakingType)
           .required(),
         identifiers: joiClientIdentifiers(ctx).required(),
+        // The desired region is optional and only loosely validated here (it's an opaque id): the
+        // service checks it against the live region list at queue time and drops it if unknown, so a
+        // client with no measured regions can queue region-less. `rttMs` is only meaningful with a
+        // region and is required alongside one.
+        region: Joi.string().max(64),
+        rttMs: Joi.number().min(0).when('region', {
+          is: Joi.exist(),
+          then: Joi.required(),
+          otherwise: Joi.forbidden(),
+        }),
       }),
     })
-    const { clientId, preferences, identifiers } = body
+    const { clientId, preferences, identifiers, region, rttMs } = body
 
     await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 
@@ -204,6 +214,7 @@ export class MatchmakingApi {
       clientId,
       identifiers,
       processedPreferences,
+      { region, rttMs },
     )
 
     // Persist the preferences used for this search so they're pre-filled next session and usable for

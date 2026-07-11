@@ -1,6 +1,11 @@
 import { Immutable } from 'immer'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
+import {
+  GameServerRegionId,
+  GameServerRegionLatencies,
+  RegionLatency,
+} from '../../common/game-server-regions'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
   DraftChatMessageRequest,
@@ -33,20 +38,73 @@ import { clearMatchmakingState, hasAcceptedAtom } from './matchmaking-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
+/** The player's chosen home region and their measured round-trip time (ms) to it. */
+export interface DesiredRegion {
+  region: GameServerRegionId
+  rttMs: number
+}
+
+/**
+ * How long to keep polling the app for a first region measurement before queueing region-less. The
+ * app sweeps regions at startup and a full sweep takes ~2s, so a few seconds covers the cold case
+ * where the player hits "find match" before the first sweep finishes.
+ */
+const REGION_RESOLVE_TIMEOUT_MS = 4000
+/** How often to re-poll the app's latency table while waiting for a first measurement. */
+const REGION_POLL_INTERVAL_MS = 500
+
+/**
+ * Picks the lowest-RTT region from a measured latency table — the "Auto" resolution. Returns
+ * undefined when the table has no measurements yet. Exported as the seam a later "Server region"
+ * setting hooks into: a manual override picks its region here instead of the measured minimum.
+ */
+export function pickAutoRegion(latencies: GameServerRegionLatencies): DesiredRegion | undefined {
+  let best: RegionLatency | undefined
+  for (const latency of Object.values(latencies)) {
+    if (latency && (best === undefined || latency.rttMs < best.rttMs)) {
+      best = latency
+    }
+  }
+  return best ? { region: best.regionId, rttMs: best.rttMs } : undefined
+}
+
+/**
+ * Resolves the player's desired region from the app's measured latency table before queueing. If no
+ * region has been measured yet, polls briefly (the startup sweep may still be in flight) and, if
+ * still empty, resolves to undefined so the player queues region-less — a user with no
+ * coordinator-configured regions (dev loopback) must still be able to queue. This client-side wait
+ * takes the place of the server's old ping-measurement gate.
+ */
+export async function resolveDesiredRegion(): Promise<DesiredRegion | undefined> {
+  const readTable = async () =>
+    pickAutoRegion((await ipcRenderer.invoke('gameServerRegionsGetLatencies')) ?? {})
+
+  let resolved = await readTable()
+  const deadline = Date.now() + REGION_RESOLVE_TIMEOUT_MS
+  while (!resolved && Date.now() < deadline) {
+    await new Promise(resolve => setTimeout(resolve, REGION_POLL_INTERVAL_MS))
+    resolved = await readTable()
+  }
+  return resolved
+}
+
 export function findMatch(
   preferences: Immutable<MatchmakingPreferences[]>,
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    ipcRenderer.send('rallyPointRefreshPings')
-
     const findPromise = Promise.resolve().then(async () => {
-      const identifiers = (await ipcRenderer.invoke('securityGetClientIds')) ?? []
+      const [identifiers, desiredRegion] = await Promise.all([
+        (async () => (await ipcRenderer.invoke('securityGetClientIds')) ?? [])(),
+        resolveDesiredRegion(),
+      ])
 
       const body: FindMatchRequest = {
         clientId,
         preferences: preferences as any,
         identifiers,
+        region: desiredRegion?.region,
+        rttMs: desiredRegion?.rttMs,
       }
 
       return fetchJson<void>(apiUrl`matchmaking/find`, {

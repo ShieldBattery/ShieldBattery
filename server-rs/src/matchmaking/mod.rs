@@ -8,6 +8,7 @@ use crate::users::SbUserId;
 
 pub mod admin;
 pub mod api;
+pub mod backbone;
 pub mod config;
 pub mod matchmaker;
 mod metrics;

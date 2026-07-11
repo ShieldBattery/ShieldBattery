@@ -6,11 +6,13 @@ use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use server::matchmaking::MatchmakingType;
+use server::matchmaking::backbone::BackboneRttTable;
 use server::matchmaking::config::MatchmakerConfig;
 use server::matchmaking::matchmaker::{Matchmaker, Player, PlayerModeRating};
 
 fn bench_1v1(c: &mut Criterion) {
-    let mut matchmaker = Matchmaker::new(Arc::new(MatchmakerConfig::default()));
+    let mut matchmaker =
+        Matchmaker::new(Arc::new(MatchmakerConfig::default()), BackboneRttTable::default());
     for player in (0..1000).map(|n| Player {
         id: n,
         ratings: HashMap::from([(
@@ -21,7 +23,8 @@ fn bench_1v1(c: &mut Criterion) {
             },
         )]),
         map_selections: HashMap::new(),
-        server_pings: HashMap::new(),
+        region: None,
+        rtt_ms: None,
     }) {
         matchmaker.insert_player(player).unwrap();
     }
@@ -31,7 +34,8 @@ fn bench_1v1(c: &mut Criterion) {
 }
 
 fn bench_2v2(c: &mut Criterion) {
-    let mut matchmaker = Matchmaker::new(Arc::new(MatchmakerConfig::default()));
+    let mut matchmaker =
+        Matchmaker::new(Arc::new(MatchmakerConfig::default()), BackboneRttTable::default());
     for player in (0..1000).map(|n| Player {
         id: n,
         ratings: HashMap::from([(
@@ -42,7 +46,8 @@ fn bench_2v2(c: &mut Criterion) {
             },
         )]),
         map_selections: HashMap::new(),
-        server_pings: HashMap::new(),
+        region: None,
+        rtt_ms: None,
     }) {
         matchmaker.insert_player(player).unwrap();
     }

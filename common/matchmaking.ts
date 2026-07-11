@@ -3,6 +3,7 @@ import { IntRange, SetRequired, Simplify, Tagged } from 'type-fest'
 import { assertUnreachable } from './assert-unreachable'
 import { BasicChannelInfo } from './chat'
 import { binarySearch } from './data-structures/arrays'
+import { GameServerRegionId } from './game-server-regions'
 import { Jsonify } from './json'
 import { MapInfoJson, SbMapId } from './maps'
 import { AssignedRaceChar, RaceChar } from './races'
@@ -1189,6 +1190,15 @@ export interface FindMatchRequest {
   /** Array with one entry per queued type. Order is not significant. */
   preferences: MatchmakingPreferences[]
   identifiers: [type: number, hashStr: string][]
+  /**
+   * The game server region the player wants to home in, resolved by the client from its measured
+   * latency table (lowest-RTT region, i.e. Auto). Omitted when the client has no measured regions
+   * (dev loopback, or no coordinator-configured regions); the server tolerates its absence and the
+   * player simply carries no latency signal into matchmaking.
+   */
+  region?: GameServerRegionId
+  /** The player's measured round-trip time (ms) to `region`. Present only alongside `region`. */
+  rttMs?: number
 }
 
 export interface DraftProvisionalPickRequest {
