@@ -18,10 +18,6 @@ export class HomePage extends SocialSidebar {
     return this.page.locator('[data-test=news-post-title]')
   }
 
-  async navigateToHome(): Promise<void> {
-    await this.page.goto('/')
-  }
-
   async goToJoinedChatChannel(channelName: string): Promise<void> {
     const channelLink = this.channelLinkLocator(channelName)
     await channelLink.click()

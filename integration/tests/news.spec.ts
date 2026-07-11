@@ -28,8 +28,8 @@ test('home page news feed links to the newest post', async () => {
 
   await verificationDialogPage.closeDialog()
 
-  await homePage.navigateToHome()
-
+  // Logging in lands on the home page already; navigating again would reload and re-open the
+  // email verification dialog over the feed.
   const primaryCard = homePage.newsFeedPrimaryLocator()
   await expect(primaryCard).toContainText(NEWEST_POST_TITLE)
 
