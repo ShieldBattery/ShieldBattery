@@ -224,6 +224,25 @@ describe('news/news-service', () => {
     })
   })
 
+  test('retries after a transient DB error instead of stalling scheduled publishing', async () => {
+    testState.posts.push({ id: 'p1', publishedAt: BASE_TIME + 1000 })
+    await emitNewsPostsChanged()
+
+    // The reconcile triggered by the scheduled-publish timer fails (the timer is already cleared
+    // at this point, so without a retry the signal would never fire)...
+    getLatestPublishedNewsPostMock.mockRejectedValueOnce(new Error('db went away'))
+    await runNextTimer()
+    expect(client1.publish).not.toHaveBeenCalledWith(NEWS_POSTS_PATH, expect.anything())
+
+    // ...but a retry timer was armed, and the next pass publishes the event.
+    await runNextTimer()
+    expect(client1.publish).toHaveBeenCalledWith(NEWS_POSTS_PATH, {
+      type: 'newsPostChange',
+      id: 'p1',
+      publishedAt: BASE_TIME + 1000,
+    })
+  })
+
   test('clamps and re-arms for a post scheduled beyond the max timeout', async () => {
     const publishedAt = BASE_TIME + MAX_TIMEOUT_MS + 10000
     testState.posts.push({ id: 'p1', publishedAt })

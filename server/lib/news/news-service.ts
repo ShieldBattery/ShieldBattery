@@ -21,6 +21,9 @@ const MAX_TIMEOUT_MS = 2 ** 31 - 1
 // that the post is reliably visible as published (and we don't busy-loop re-arming right at the
 // boundary).
 const SCHEDULED_PUBLISH_SLOP_MS = 1000
+// How long to wait before retrying after a reconcile pass fails (e.g. a transient DB error), so
+// scheduled publishing recovers without needing another post mutation.
+const RECONCILE_RETRY_MS = 60 * 1000
 
 interface LatestNewsPost {
   id: string
@@ -136,6 +139,9 @@ export class NewsService {
       latest = post ? { id: post.id, publishedAt: Number(post.publishedAt) } : undefined
     } catch (err) {
       logger.error({ err }, 'failed to retrieve the latest published news post')
+      // A transient DB error must not stall scheduled publishing — the timer that may have
+      // triggered this reconcile has already been cleared — so retry on a delay.
+      this.armReconcileTimer(this.takeTimerGeneration(), RECONCILE_RETRY_MS)
       return
     }
 
@@ -148,18 +154,42 @@ export class NewsService {
     await this.armScheduledPublishTimer()
   }
 
-  private async armScheduledPublishTimer(): Promise<void> {
+  /**
+   * Invalidates any pending reconcile timer and returns the generation a replacement timer should
+   * be armed under.
+   */
+  private takeTimerGeneration(): number {
     const generation = ++this.scheduledPublishGeneration
     if (this.scheduledPublishTimer !== undefined) {
       this.clock.clearTimeout(this.scheduledPublishTimer)
       this.scheduledPublishTimer = undefined
     }
+    return generation
+  }
+
+  /** Arms a timer that queues a reconcile pass after `delay`, unless `generation` is stale. */
+  private armReconcileTimer(generation: number, delay: number): void {
+    if (generation !== this.scheduledPublishGeneration) {
+      return
+    }
+    this.scheduledPublishTimer = this.clock.setTimeout(() => {
+      if (generation !== this.scheduledPublishGeneration) {
+        return
+      }
+      this.scheduledPublishTimer = undefined
+      this.queueLatestNewsPostReconcile()
+    }, delay)
+  }
+
+  private async armScheduledPublishTimer(): Promise<void> {
+    const generation = this.takeTimerGeneration()
 
     let nextTime: Date | undefined
     try {
       nextTime = await getNextScheduledNewsPostTime()
     } catch (err) {
       logger.error({ err }, 'failed to retrieve the next scheduled news post time')
+      this.armReconcileTimer(generation, RECONCILE_RETRY_MS)
       return
     }
 
@@ -172,12 +202,6 @@ export class NewsService {
       Math.max(Number(nextTime) - this.clock.now() + SCHEDULED_PUBLISH_SLOP_MS, 0),
       MAX_TIMEOUT_MS,
     )
-    this.scheduledPublishTimer = this.clock.setTimeout(() => {
-      if (generation !== this.scheduledPublishGeneration) {
-        return
-      }
-      this.scheduledPublishTimer = undefined
-      this.queueLatestNewsPostReconcile()
-    }, delay)
+    this.armReconcileTimer(generation, delay)
   }
 }
