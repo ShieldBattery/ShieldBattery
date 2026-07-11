@@ -31,3 +31,19 @@ export interface GameServerRegionsEvent {
   type: 'fullUpdate'
   regions: GameServerRegion[]
 }
+
+/** A region's measured latency, as produced by a single measurement attempt. */
+export interface RegionLatency {
+  regionId: GameServerRegionId
+  rttMs: number
+  /** Which path produced `rttMs`: the UDP ping beacon, or the TCP-connect fallback. */
+  source: 'beacon' | 'fallback'
+  /** Wall-clock time (`Date.now()`) the measurement completed. */
+  measuredAt: number
+}
+
+/**
+ * A region-id-keyed table of the latest measured latencies. A region absent from the table means
+ * neither the beacon nor the fallback measurement succeeded for it.
+ */
+export type GameServerRegionLatencies = Partial<Record<GameServerRegionId, RegionLatency>>

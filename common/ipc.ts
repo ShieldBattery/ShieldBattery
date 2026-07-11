@@ -7,7 +7,7 @@ import type {
 } from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
-import { GameServerRegion } from './game-server-regions'
+import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
@@ -158,6 +158,13 @@ interface IpcInvokeables {
   fsStat: (filePath: string) => Promise<FsStats>
   fsUnlink: (filePath: string) => Promise<void>
 
+  /**
+   * Returns the current region -> latency table. Empty before the region latency manager's first
+   * sweep completes (unless a previous run's measurements were persisted to disk, in which case
+   * those are returned as a stale hint until the first sweep replaces them).
+   */
+  gameServerRegionsGetLatencies: () => GameServerRegionLatencies
+
   logMessage: (level: string, message: string) => void
 
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
@@ -259,6 +266,9 @@ interface IpcMainSendables {
     replayPath: string
   }) => void
   activeGameStatus: (status: ReportedGameStatus) => void
+
+  /** Sent after each region latency sweep completes, with the full region -> latency table. */
+  gameServerRegionsLatenciesUpdated: (latencies: GameServerRegionLatencies) => void
 
   rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
 

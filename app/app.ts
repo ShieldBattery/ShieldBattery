@@ -25,6 +25,7 @@ import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
+import { RegionLatencyManager } from './game-server-regions/region-latency-manager'
 import { GameServerRegionList } from './game-server-regions/region-list'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
@@ -915,6 +916,17 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.on('gameServerRegionsSetList', (event, regions) => {
     gameServerRegionList.setRegions(regions)
+  })
+
+  const regionLatencyManager = container.resolve(RegionLatencyManager)
+  regionLatencyManager.start().catch(() => {})
+
+  ipcMain.handle('gameServerRegionsGetLatencies', () => regionLatencyManager.getLatencies())
+  regionLatencyManager.on('updated', latencies => {
+    TypedIpcSender.from(mainWindow?.webContents).send(
+      'gameServerRegionsLatenciesUpdated',
+      latencies,
+    )
   })
 
   const rallyPointManager = container.resolve(RallyPointManager)
