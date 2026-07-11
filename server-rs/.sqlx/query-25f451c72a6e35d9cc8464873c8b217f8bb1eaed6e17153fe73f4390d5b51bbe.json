@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT id, editor_id as \"editor_id: _\", author_id as \"author_id: _\",\n                    cover_image_path, title, summary, content, published_at, edited_at\n                FROM news_post_edits\n                WHERE post_id = $1\n                ORDER BY edited_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "editor_id: _",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "editor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "author_id: _",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "author_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "cover_image_path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "cover_image_path"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "published_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "published_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "edited_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "news_post_edits",
+            "name": "edited_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "25f451c72a6e35d9cc8464873c8b217f8bb1eaed6e17153fe73f4390d5b51bbe"
+}
