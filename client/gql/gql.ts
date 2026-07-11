@@ -14,6 +14,12 @@ import * as types from './graphql'
  * Learn more about it here: https://the-guild.dev/graphql/codegen/plugins/presets/preset-client#reducing-bundle-size
  */
 type Documents = {
+  '\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n': typeof types.AdminNewsListDocument
+  '\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      author {\n        id\n        name\n      }\n    }\n  }\n': typeof types.AdminNewsPostDocument
+  '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n': typeof types.AdminNewsHistoryDocument
+  '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n': typeof types.NewsCreatePostDocument
+  '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n': typeof types.NewsUpdatePostDocument
+  '\n  mutation NewsDeletePost($id: UUID!) {\n    newsDeletePost(id: $id)\n  }\n': typeof types.NewsDeletePostDocument
   '\n  query AdminMatchmakingConfig {\n    matchmakingConfig {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n      perMode {\n        matchmakingType\n        config {\n          weightRatingVariance\n          weightWinProb\n          weightLatency\n          uncertaintyK\n          minQuality\n          adaptiveComfortableMultiplier\n          adaptiveDecayPerMissing\n          populationHalfLifeSeconds\n        }\n      }\n      defaults {\n        searchIntervalSeconds\n        maxPlayersExamined\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n    }\n  }\n': typeof types.AdminMatchmakingConfigDocument
   '\n  mutation AdminUpdateMatchmakingConfig($config: MatchmakerConfigInput!) {\n    updateMatchmakingConfig(config: $config) {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        minQuality\n      }\n    }\n  }\n': typeof types.AdminUpdateMatchmakingConfigDocument
   '\n  query RestrictedNames {\n    restrictedNames {\n      id\n      pattern\n      kind\n      reason\n      createdAt\n      createdBy {\n        id\n      }\n    }\n  }\n': typeof types.RestrictedNamesDocument
@@ -63,6 +69,18 @@ type Documents = {
   '\n  query UserProfileTwitch($userId: SbUserId!) {\n    user(id: $userId) {\n      id\n      twitchChannel {\n        twitchLogin\n        twitchDisplayName\n      }\n      liveStream {\n        twitchLogin\n        title\n        gameName\n        viewerCount\n        startedAt\n        thumbnailUrl\n      }\n    }\n  }\n': typeof types.UserProfileTwitchDocument
 }
 const documents: Documents = {
+  '\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n':
+    types.AdminNewsListDocument,
+  '\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      author {\n        id\n        name\n      }\n    }\n  }\n':
+    types.AdminNewsPostDocument,
+  '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n':
+    types.AdminNewsHistoryDocument,
+  '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n':
+    types.NewsCreatePostDocument,
+  '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n':
+    types.NewsUpdatePostDocument,
+  '\n  mutation NewsDeletePost($id: UUID!) {\n    newsDeletePost(id: $id)\n  }\n':
+    types.NewsDeletePostDocument,
   '\n  query AdminMatchmakingConfig {\n    matchmakingConfig {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n      perMode {\n        matchmakingType\n        config {\n          weightRatingVariance\n          weightWinProb\n          weightLatency\n          uncertaintyK\n          minQuality\n          adaptiveComfortableMultiplier\n          adaptiveDecayPerMissing\n          populationHalfLifeSeconds\n        }\n      }\n      defaults {\n        searchIntervalSeconds\n        maxPlayersExamined\n        weightRatingVariance\n        weightWinProb\n        weightLatency\n        uncertaintyK\n        minQuality\n        adaptiveComfortableMultiplier\n        adaptiveDecayPerMissing\n        populationHalfLifeSeconds\n      }\n    }\n  }\n':
     types.AdminMatchmakingConfigDocument,
   '\n  mutation AdminUpdateMatchmakingConfig($config: MatchmakerConfigInput!) {\n    updateMatchmakingConfig(config: $config) {\n      searchIntervalSeconds\n      maxPlayersExamined\n      global {\n        minQuality\n      }\n    }\n  }\n':
@@ -172,6 +190,42 @@ const documents: Documents = {
  */
 export function graphql(source: string): unknown
 
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminNewsList($first: Int, $after: String) {\n    newsPosts(includeUnpublished: true, first: $first, after: $after) {\n      edges {\n        node {\n          id\n          title\n          summary\n          publishedAt\n          updatedAt\n          author {\n            id\n            name\n          }\n        }\n      }\n      pageInfo {\n        hasNextPage\n        endCursor\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      author {\n        id\n        name\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminNewsPost($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      author {\n        id\n        name\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n',
+): (typeof documents)['\n  query AdminNewsHistory($id: UUID!) {\n    newsPost(id: $id) {\n      id\n      title\n      edits {\n        title\n        summary\n        content\n        publishedAt\n        coverImagePath\n        editedAt\n        editor {\n          id\n          name\n        }\n        author {\n          id\n          name\n        }\n      }\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n',
+): (typeof documents)['\n  mutation NewsCreatePost($post: NewsPostCreation!) {\n    newsCreatePost(post: $post) {\n      id\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n',
+): (typeof documents)['\n  mutation NewsUpdatePost($id: UUID!, $updates: NewsPostUpdates!) {\n    newsUpdatePost(id: $id, updates: $updates) {\n      id\n      title\n      summary\n      content\n      publishedAt\n      updatedAt\n    }\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  mutation NewsDeletePost($id: UUID!) {\n    newsDeletePost(id: $id)\n  }\n',
+): (typeof documents)['\n  mutation NewsDeletePost($id: UUID!) {\n    newsDeletePost(id: $id)\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
