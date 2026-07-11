@@ -35,4 +35,13 @@ export class Clock {
   setTimeout(fn: () => void, timeoutMillis: number): TimeoutId {
     return setTimeout(fn, timeoutMillis)
   }
+
+  /**
+   * Cancels a timeout previously scheduled via `setTimeout`.
+   *
+   * @see window.clearTimeout
+   */
+  clearTimeout(id: TimeoutId): void {
+    clearTimeout(id)
+  }
 }

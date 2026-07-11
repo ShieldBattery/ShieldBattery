@@ -1,5 +1,5 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
@@ -11,6 +11,7 @@ import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
+import { useLastSeenNewsPost } from './last-seen-news-post'
 import { NewsImage, newsDateFormatter } from './news-image'
 
 export const News_HomeFeedFragment = graphql(/* GraphQL */ `
@@ -229,6 +230,13 @@ export function NewsFeed({
   const primary = posts[0]
   const twoUp = posts.slice(1, 3)
   const remaining = posts.slice(3, 10)
+
+  const [lastSeenNewsPost, markNewsPostSeen] = useLastSeenNewsPost()
+  useEffect(() => {
+    if (primary && primary.id !== lastSeenNewsPost) {
+      markNewsPostSeen(primary.id)
+    }
+  }, [lastSeenNewsPost, markNewsPostSeen, primary])
 
   let body: ReactNode = null
   if (posts.length > 0) {

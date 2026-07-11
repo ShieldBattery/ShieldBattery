@@ -41,6 +41,7 @@ import {
   useNavigationMenuState,
 } from './navigation/navigation-menu'
 import { push } from './navigation/routing'
+import { useHasNewNewsPost } from './news/last-seen-news-post'
 import { NotificationsButton } from './notifications/app-bar-entry'
 import NotificationPopups from './notifications/notifications-popup'
 import { useShowPolicyNotificationsIfNeeded } from './policies/show-notifications'
@@ -609,7 +610,9 @@ function AppBar({
   const [settingsButton, setSettingsButton] = useState<HTMLButtonElement | null>(null)
   useButtonHotkey({ elem: settingsButton, hotkey: ALT_S })
 
-  const homeHasPip = useHasNewUrgentMessage()
+  const hasNewUrgentMessage = useHasNewUrgentMessage()
+  const hasNewNewsPost = useHasNewNewsPost()
+  const homeHasPip = hasNewUrgentMessage || hasNewNewsPost
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
