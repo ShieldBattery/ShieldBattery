@@ -1297,6 +1297,14 @@ async fn handle_notification(
 /// `Err` that does is propagated *without* clearing -- we never confirmed the state, and since the
 /// dedupe entry stops Twitch from redelivering, wrongly marking offline would hide an actually-live
 /// stream until its next transition.
+///
+/// Ordering caveat: notifications are handled in independently-spawned tasks, so a `stream.offline`
+/// processed during this handler's retry window can be overwritten afterwards if Get Streams still
+/// reports the just-ended stream (it lags on the way down too), leaving a ghost "live" entry. This
+/// is accepted: the periodic refresh clears it within `LIVE_REFRESH_INTERVAL`, while guarding here
+/// (e.g. skipping the write after a recent offline) would risk suppressing a genuine rapid
+/// re-online -- a worse state, since the refresh loop only reconciles users already tracked as
+/// live and thus would never recover it.
 async fn handle_stream_online(
     client: &TwitchClient,
     redis: &RedisPool,

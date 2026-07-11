@@ -44,8 +44,3 @@ export function useLiveUserIds(): ReadonlySet<SbUserId> {
   })
   return useMemo(() => new Set(data?.liveStreamUserIds ?? []), [data?.liveStreamUserIds])
 }
-
-/** Whether a specific user is currently live-streaming (any category). */
-export function useIsUserLive(userId: SbUserId): boolean {
-  return useLiveUserIds().has(userId)
-}

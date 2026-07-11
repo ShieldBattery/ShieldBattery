@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { debounce } from 'lodash-es'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ContextProp,
@@ -67,7 +67,7 @@ import {
   titleMedium,
   titleSmall,
 } from '../styles/typography'
-import { useIsUserLive } from '../twitch/live-state'
+import { LiveUsersContext } from '../twitch/live-state'
 import { navigateToUserProfile } from '../users/action-creators'
 import {
   getCurrentSeasonRankings,
@@ -1323,7 +1323,7 @@ const Row = React.memo(
     }, [onSelected, player, username])
     const [buttonProps, rippleRef] = useButtonState({ onClick })
 
-    const isLive = useIsUserLive(player.userId)
+    const isLive = useContext(LiveUsersContext).has(player.userId)
     const mostPlayedRace = getMostPlayedRace(player)
 
     const division = ladderPlayerToMatchmakingDivision(player, bonusPool)
