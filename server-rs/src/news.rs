@@ -303,9 +303,13 @@ fn small_variant_path(path: &str) -> String {
 }
 
 /// Ensures an admin-supplied cover image path points inside the news images directory rather than an
-/// arbitrary file-store location.
+/// arbitrary file-store location. `..` segments are rejected as well, since the file store keeps
+/// them when building URLs, which would let the path escape the directory when dereferenced.
 fn validate_cover_image_path(path: &str) -> Result<()> {
-    if path.starts_with("news-images/") {
+    if path.starts_with("news-images/")
+        && !path.contains('\\')
+        && path.split('/').all(|c| c != "..")
+    {
         Ok(())
     } else {
         Err(graphql_error(
@@ -637,10 +641,9 @@ impl NewsPostRepo {
         .await
         .map_err(|e| match e {
             sqlx::Error::RowNotFound => graphql_error("NOT_FOUND", "News post not found"),
-            e => graphql_error(
-                "INTERNAL_SERVER_ERROR",
-                format!("Failed to update news post in DB: {e}"),
-            ),
+            e => eyre::Report::new(e)
+                .wrap_err("Failed to update news post in DB")
+                .into(),
         })?;
 
         sqlx::query!(
