@@ -135,6 +135,8 @@ let systemTray: SystemTray
 let gameServer: GameServer
 // Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
 let twitchOauthFlowActive = false
+// Settles the in-flight Twitch OAuth flow early (set while one is running).
+let cancelActiveTwitchOauthFlow: (() => void) | undefined
 
 export function notifyNewInstance(data: NewInstanceNotification) {
   if (mainWindow) {
@@ -303,6 +305,9 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
         return
       }
       settled = true
+      // Cancellation settles like a decline; once settled the loopback port and single-flight
+      // lock are released, so there's nothing left to cancel.
+      cancelActiveTwitchOauthFlow = undefined
       if (timeout) {
         clearTimeout(timeout)
       }
@@ -323,6 +328,11 @@ function runTwitchOauthFlow(authorizeUrl: string): Promise<TwitchOauthFlowResult
       }
       resolve(result)
     }
+
+    // Lets the caller settle this flow early (e.g. the user abandoned the browser tab) instead of
+    // waiting out the full timeout.
+    cancelActiveTwitchOauthFlow = () =>
+      finish({ error: 'access_denied', errorDescription: 'The link attempt was canceled.' })
 
     // Handles the redirect request on whichever loopback server (IPv4 or IPv6) receives it.
     // Factored out so both servers below run the exact same logic.
@@ -477,6 +487,9 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     } finally {
       twitchOauthFlowActive = false
     }
+  })
+  ipcMain.handle('twitchOauthFlowCancel', () => {
+    cancelActiveTwitchOauthFlow?.()
   })
 
   let lastRunAppAtSystemStart: boolean | undefined

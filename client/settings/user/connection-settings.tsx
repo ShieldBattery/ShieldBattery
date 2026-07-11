@@ -16,7 +16,12 @@ import {
   titleLarge,
   TitleMedium,
 } from '../../styles/typography'
-import { runTwitchOAuthFlow, TwitchOAuthResult } from '../../twitch/twitch-oauth'
+import {
+  cancelTwitchOAuthFlow,
+  openTwitchOAuthPopup,
+  runTwitchOAuthFlow,
+  TwitchOAuthResult,
+} from '../../twitch/twitch-oauth'
 
 const ConnectionSettingsQuery = graphql(/* GraphQL */ `
   query ConnectionSettings {
@@ -160,8 +165,13 @@ export function ConnectionSettings() {
       return
     }
     busyRef.current = true
+    // Opened synchronously in the click handler, before any await: by the time the authorize URL
+    // arrives from the mutation below, the click's transient user activation may have expired and
+    // a `window.open` made then would be eaten by popup blockers. Not needed on desktop, where the
+    // flow opens the user's system browser instead.
+    const popup = IS_ELECTRON ? undefined : openTwitchOAuthPopup()
     setBusy(true)
-    connectTwitch()
+    connectTwitch(popup)
       .catch(err => {
         logger.error(`Error linking Twitch account: ${getErrorStack(err)}`)
       })
@@ -171,18 +181,26 @@ export function ConnectionSettings() {
       })
   }
 
-  const connectTwitch = async () => {
+  const connectTwitch = async (popup: Window | null | undefined) => {
     // The desktop app runs the OAuth flow in the user's real browser via a loopback redirect, which
     // needs a different (fixed localhost) redirect URI than the web callback.
-    const startResult = await startTwitchLink({ desktop: IS_ELECTRON })
+    let startResult
+    try {
+      startResult = await startTwitchLink({ desktop: IS_ELECTRON })
+    } catch (err) {
+      popup?.close()
+      throw err
+    }
     if (startResult.error || !startResult.data) {
+      popup?.close()
       showLinkError(startResult.error)
       return
     }
 
+    // From here, `runTwitchOAuthFlow` owns `popup`: navigating, waiting on it, and closing it.
     let oauth: TwitchOAuthResult
     try {
-      oauth = await runTwitchOAuthFlow(startResult.data.twitchStartLink.url)
+      oauth = await runTwitchOAuthFlow(startResult.data.twitchStartLink.url, popup)
     } catch (err) {
       // The popup was blocked or the user closed it before finishing -- not worth a scary error.
       logger.warning(`Twitch OAuth popup did not complete: ${getErrorStack(err)}`)
@@ -240,6 +258,38 @@ export function ConnectionSettings() {
       .finally(() => setBusy(false))
   }
 
+  let connectionAction
+  if (connection) {
+    connectionAction = (
+      <TextButton
+        label={t('settings.user.connections.twitch.disconnect', 'Disconnect')}
+        disabled={busy}
+        onClick={onDisconnect}
+        testName='twitch-disconnect-button'
+      />
+    )
+  } else if (busy && IS_ELECTRON) {
+    // The desktop flow waits on the user's system browser for up to `TWITCH_OAUTH_TIMEOUT_MS`;
+    // let them bail out instead of being stuck busy that whole time. The web popup manages itself
+    // (it settles when the user closes it), so it just keeps the disabled Connect button below.
+    connectionAction = (
+      <TextButton
+        label={t('common.actions.cancel', 'Cancel')}
+        onClick={() => cancelTwitchOAuthFlow()}
+        testName='twitch-cancel-button'
+      />
+    )
+  } else {
+    connectionAction = (
+      <FilledButton
+        label={t('settings.user.connections.twitch.connect', 'Connect')}
+        disabled={busy}
+        onClick={onConnect}
+        testName='twitch-connect-button'
+      />
+    )
+  }
+
   return (
     <Root>
       <Section>
@@ -263,21 +313,7 @@ export function ConnectionSettings() {
                 : t('settings.user.connections.twitch.notConnected', 'Not connected')}
             </ServiceStatus>
           </ServiceInfo>
-          {connection ? (
-            <TextButton
-              label={t('settings.user.connections.twitch.disconnect', 'Disconnect')}
-              disabled={busy}
-              onClick={onDisconnect}
-              testName='twitch-disconnect-button'
-            />
-          ) : (
-            <FilledButton
-              label={t('settings.user.connections.twitch.connect', 'Connect')}
-              disabled={busy}
-              onClick={onConnect}
-              testName='twitch-connect-button'
-            />
-          )}
+          {connectionAction}
         </ServiceCard>
       </Section>
     </Root>

@@ -134,6 +134,8 @@ interface IpcInvokeables {
    * -- captured from the redirect to our callback URL.
    */
   twitchOauthFlow: (authorizeUrl: string) => Promise<TwitchOauthFlowResult>
+  /** Settles an in-flight `twitchOauthFlow` early, as if the user had declined. */
+  twitchOauthFlowCancel: () => void
 
   windowGetStatus: () => Promise<{ focused: boolean; maximized: boolean }>
 }

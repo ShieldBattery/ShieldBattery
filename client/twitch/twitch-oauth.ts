@@ -32,12 +32,30 @@ export interface TwitchOAuthResult {
 const ipcRenderer = new TypedIpcRenderer()
 
 /**
+ * Opens the placeholder popup window for the web OAuth flow. Must be called synchronously inside
+ * the user's click gesture: the authorize URL only arrives after a server round-trip, and by then
+ * the click's transient activation may have expired and popup blockers would eat the window. The
+ * flow navigates it to the real URL via `runTwitchOAuthFlow`. Returns null if a popup blocker
+ * denied it. Never call this in the desktop app (the flow runs in the system browser there).
+ */
+export function openTwitchOAuthPopup(): Window | null {
+  return window.open('about:blank', 'sbTwitchOauth', 'popup=yes,width=600,height=800')
+}
+
+/**
  * Runs the Twitch OAuth authorization flow and resolves with its result. Rejects if the flow window
  * can't be opened or the user closes it before completing (web only; in the desktop app a closed
  * window resolves with an `access_denied` error instead).
+ *
+ * `popup`, web-only, is a placeholder window from `openTwitchOAuthPopup` to navigate to
+ * `authorizeUrl` rather than opening a new window with it (see that function for why). Ignored on
+ * the desktop path.
  */
-export function runTwitchOAuthFlow(authorizeUrl: string): Promise<TwitchOAuthResult> {
-  return IS_ELECTRON ? runElectronFlow(authorizeUrl) : runWebPopupFlow(authorizeUrl)
+export function runTwitchOAuthFlow(
+  authorizeUrl: string,
+  popup?: Window | null,
+): Promise<TwitchOAuthResult> {
+  return IS_ELECTRON ? runElectronFlow(authorizeUrl) : runWebPopupFlow(authorizeUrl, popup)
 }
 
 async function runElectronFlow(authorizeUrl: string): Promise<TwitchOAuthResult> {
@@ -48,9 +66,37 @@ async function runElectronFlow(authorizeUrl: string): Promise<TwitchOAuthResult>
   return { type: TWITCH_OAUTH_MESSAGE_TYPE, ...result }
 }
 
-function runWebPopupFlow(authorizeUrl: string): Promise<TwitchOAuthResult> {
+/**
+ * Cancels an in-flight desktop OAuth flow (e.g. the user abandoned the external browser tab),
+ * settling it as a decline. No-op on the web, where the popup flow settles itself when the
+ * window closes.
+ */
+export function cancelTwitchOAuthFlow() {
+  if (IS_ELECTRON) {
+    ipcRenderer.invoke('twitchOauthFlowCancel')?.catch(() => {})
+  }
+}
+
+/**
+ * Runs the web popup flow. `preopened` distinguishes the popup's provenance:
+ * - `null`: a placeholder popup was requested but blocked, so the flow can't proceed.
+ * - a `Window`: a placeholder popup from `openTwitchOAuthPopup`, navigated to `authorizeUrl` here.
+ * - `undefined`: no placeholder was pre-opened; open `authorizeUrl` directly.
+ */
+function runWebPopupFlow(
+  authorizeUrl: string,
+  preopened?: Window | null,
+): Promise<TwitchOAuthResult> {
   return new Promise((resolve, reject) => {
-    const popup = window.open(authorizeUrl, 'sbTwitchOauth', 'popup=yes,width=600,height=800')
+    let popup: Window | null
+    if (preopened) {
+      preopened.location.href = authorizeUrl
+      popup = preopened
+    } else if (preopened === undefined) {
+      popup = window.open(authorizeUrl, 'sbTwitchOauth', 'popup=yes,width=600,height=800')
+    } else {
+      popup = null
+    }
     if (!popup) {
       reject(new Error('Could not open the Twitch authorization window. Check your popup blocker.'))
       return
