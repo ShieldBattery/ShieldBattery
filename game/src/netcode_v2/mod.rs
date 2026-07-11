@@ -2033,6 +2033,7 @@ mod tests {
             buffer_turns: 4,
             apply_at_frame: 10,
             decision_seq: 1,
+            authority_relay_id: None,
         });
         in_tx.try_send(turn).unwrap();
 
