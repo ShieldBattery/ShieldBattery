@@ -50,7 +50,7 @@ use crate::schema::{SbSchema, build_schema};
 use crate::sessions::{SbSession, jwt_middleware};
 use crate::state::AppState;
 use crate::twitch::{
-    TwitchClient, TwitchModule, create_twitch_api, reconcile_subscriptions,
+    TwitchClient, TwitchModule, create_twitch_api, reconcile_subscriptions_loop,
     refresh_live_streams_loop,
 };
 use crate::users::names::{NameChecker, create_names_api};
@@ -138,7 +138,7 @@ pub async fn create_app(
     // Only present when Twitch is configured; disables the integration otherwise.
     let twitch_client = TwitchClient::from_settings(&settings);
     if let Some(twitch_client) = twitch_client.clone() {
-        tokio::spawn(reconcile_subscriptions(
+        tokio::spawn(reconcile_subscriptions_loop(
             twitch_client.clone(),
             db_pool.clone(),
         ));

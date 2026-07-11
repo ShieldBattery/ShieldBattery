@@ -35,7 +35,7 @@ use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use sqlx::PgPool;
-use tokio::sync::RwLock;
+use tokio::sync::{Notify, RwLock};
 use tracing::{error, warn};
 use url::Url;
 use uuid::Uuid;
@@ -88,6 +88,10 @@ const WEBHOOK_MAX_AGE_SECONDS: i64 = 600;
 /// Delay before boot reconciliation runs, giving the HTTP server time to bind so that the
 /// verification callbacks for any (re)created subscriptions can succeed.
 const RECONCILE_STARTUP_DELAY: Duration = Duration::from_secs(5);
+/// How often subscriptions are reconciled with Twitch after the boot pass. Revocations we receive
+/// kick a reconcile immediately; this backstop catches ones we never received (e.g. delivered
+/// while the callback was unreachable) and any other subscription drift.
+const SUBSCRIPTION_RECONCILE_INTERVAL: Duration = Duration::from_secs(60 * 60);
 /// How often the periodic refresh re-checks currently-live streamers against Twitch (refreshing
 /// their stats and clearing anyone who is no longer live).
 const LIVE_REFRESH_INTERVAL: Duration = Duration::from_secs(120);
@@ -143,6 +147,8 @@ pub struct TwitchClient {
     /// flow uses the fixed `DESKTOP_REDIRECT_URI` instead; see `redirect_uri_for`.
     web_redirect_uri: String,
     app_token: RwLock<Option<CachedAppToken>>,
+    /// Signals the reconcile loop to run a pass now (e.g. when Twitch revokes a subscription).
+    reconcile_kick: Notify,
 }
 
 impl TwitchClient {
@@ -166,6 +172,7 @@ impl TwitchClient {
             eventsub_callback_url: format!("{gql_origin}/twitch/eventsub"),
             web_redirect_uri: format!("{canonical_host}/twitch/callback"),
             app_token: RwLock::new(None),
+            reconcile_kick: Notify::new(),
         }))
     }
 
@@ -1513,7 +1520,10 @@ async fn eventsub_callback(
             StatusCode::NO_CONTENT.into_response()
         }
         "revocation" => {
-            warn!("Twitch EventSub subscription was revoked; reconciliation will recreate it");
+            warn!(
+                "Twitch EventSub subscription was revoked; kicking reconciliation to recreate it"
+            );
+            client.reconcile_kick.notify_one();
             StatusCode::NO_CONTENT.into_response()
         }
         other => {
@@ -1524,16 +1534,28 @@ async fn eventsub_callback(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Boot reconciliation
+// Subscription reconciliation
 // ---------------------------------------------------------------------------------------------
 
-/// Reconciles our EventSub subscriptions with Twitch on startup: recreates any that Twitch dropped
-/// or that failed verification, and deletes orphans left over from unlinks that happened while we
-/// were down. Logs and swallows errors -- this is best-effort maintenance.
-pub async fn reconcile_subscriptions(client: Arc<TwitchClient>, db: PgPool) {
+/// Reconciles our EventSub subscriptions with Twitch: recreates any that Twitch dropped or that
+/// failed verification, and deletes orphans left over from unlinks that happened while we were
+/// down. Runs a boot pass, then keeps running -- a revocation kicks an immediate pass, and a
+/// periodic backstop interval catches any drift a kick missed. Logs and swallows errors -- this is
+/// best-effort maintenance.
+pub async fn reconcile_subscriptions_loop(client: Arc<TwitchClient>, db: PgPool) {
     tokio::time::sleep(RECONCILE_STARTUP_DELAY).await;
-    if let Err(e) = try_reconcile_subscriptions(&client, &db).await {
-        error!("Twitch EventSub reconciliation failed: {e:?}");
+    // The first tick completes immediately, giving the boot pass. After that, a pass runs whenever
+    // a revocation kicks `reconcile_kick` (a kick during a pass is stored and re-runs it once),
+    // with the periodic tick as a backstop for revocations we never received.
+    let mut interval = tokio::time::interval(SUBSCRIPTION_RECONCILE_INTERVAL);
+    loop {
+        tokio::select! {
+            _ = interval.tick() => {}
+            _ = client.reconcile_kick.notified() => {}
+        }
+        if let Err(e) = try_reconcile_subscriptions(&client, &db).await {
+            error!("Twitch EventSub reconciliation failed: {e:?}");
+        }
     }
 }
 
