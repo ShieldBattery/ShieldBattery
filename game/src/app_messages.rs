@@ -538,6 +538,15 @@ pub struct NetcodeV2RosterEntry {
     pub slot: u8,
     /// The ShieldBattery user occupying that slot.
     pub user_id: SbUserId,
+    /// The coordinator-assigned home relay for this slot at session create, surfaced in the
+    /// `/netstat` per-player home column. `None` from an older server that omits it; peers' later
+    /// re-homes are not client-observable, so this stays the create-time assignment.
+    #[serde(default)]
+    pub home_relay_id: Option<u64>,
+    /// The home relay's region label at session create (e.g. `local-a`), or `None` when the setup
+    /// carried none. Rendered beside the relay id in the `/netstat` home column.
+    #[serde(default)]
+    pub home_region: Option<String>,
 }
 
 /// The netcode v2 launch handoff (app → game DLL): everything one client needs to authorize a

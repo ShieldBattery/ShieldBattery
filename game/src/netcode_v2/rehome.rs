@@ -182,6 +182,10 @@ impl ServerRehome {
                     return RehomeOutcome::Unavailable;
                 };
                 info!("netcode v2 re-home: moving the session to relay {relay_id} at {relay_addr}");
+                // Record the move for the `/netstat` header's live relay id and its event ticker. The
+                // turn state lives on the BW thread, so this briefly takes its lock; a `None` return
+                // (no live turn state) is a harmless miss for a render-only surface.
+                super::session::with_turn_state(|s| s.record_rehome(relay_id, Instant::now()));
                 // The driver adopts `relay_id` as its new current relay, so a later death names the
                 // replacement rather than the original — no DLL-side current-relay tracking.
                 RehomeOutcome::NewTarget {

@@ -6,7 +6,9 @@
 //!
 //! This is a diagnostic surface shown during live play (toggled by the `/netstat` chat command), so
 //! it stays compact, translucent, and anchored top-right where it can't collide with the
-//! top-center disconnect overlay.
+//! top-center disconnect overlay. It serves two readers at once: a player triaging lag live (calm
+//! when healthy, amber when not), and an operator reading a screenshot in a bug report hours later
+//! (the identity header and event ticker carry the ids and recent history an incident lookup needs).
 
 use egui::{
     Align2, Color32, CornerRadius, FontFamily, FontId, Frame, Margin, Pos2, Rect, RichText, Stroke,
@@ -28,7 +30,7 @@ const HEALTHY: Color32 = Color32::from_rgb(0x81, 0xC7, 0x84);
 
 /// Text size for the panel title.
 const TITLE_SIZE: f32 = 18.0;
-/// Text size for the header stat lines (turn rate / buffer / link).
+/// Text size for the header stat lines (identity / buffer / link).
 const HEADER_SIZE: f32 = 14.0;
 /// Text size for the per-slot table (both the column header and the rows). Monospace, so the numeric
 /// columns line up.
@@ -40,6 +42,8 @@ const ROW_SPACING: f32 = 4.0;
 /// Minimum width of the player-name column, so short names don't let the table jitter in width as
 /// values change.
 const NAME_MIN_WIDTH: f32 = 96.0;
+/// Minimum width of the per-player home column (`r1 local-a`-style text).
+const HOME_MIN_WIDTH: f32 = 78.0;
 /// Minimum width of each numeric column.
 const NUM_MIN_WIDTH: f32 = 52.0;
 
@@ -49,16 +53,25 @@ const NUM_MIN_WIDTH: f32 = 52.0;
 /// (~500ms), so a genuinely late arrival still surfaces its actual milliseconds.
 const AGE_CALM_THRESHOLD_MS: u64 = 200;
 
-/// Size of the buffer-directive sparkline's drawing area.
-const SPARKLINE_SIZE: Vec2 = Vec2 { x: 220.0, y: 40.0 };
-/// The sparkline's plotted line colour.
-const SPARKLINE_LINE: Color32 = colors::BLUE80;
+/// Size of each time-sampled history strip's drawing area.
+const STRIP_SIZE: Vec2 = Vec2 { x: 208.0, y: 28.0 };
+/// The strips' plotted line colour.
+const STRIP_LINE: Color32 = colors::BLUE80;
+/// The arrival-gap strip scales its plot against at least this many milliseconds, so a healthy
+/// game's tiny inter-arrival jitter reads as a calm line near the floor rather than being amplified
+/// to full height. Only a genuine gap taller than this lifts the trace.
+const GAP_STRIP_FLOOR_MS: u64 = 800;
 
-/// One remote slot's row in the network-stats table: a player name with its turn-arrival and
-/// sim-stall attribution numbers. Holds no BW or turn-state types.
+/// One remote slot's row in the network-stats table: a player name and home relay, with its
+/// turn-arrival and sim-stall attribution numbers. Holds no BW or turn-state types.
 pub struct NetStatRowView {
     /// The player's display name.
     pub name: String,
+    /// This slot's home relay at session create, pre-formatted as `r<id>` or `r<id> <region>`, or
+    /// `None` when the setup carried none (rendered as an em dash). Peers' later re-homes are not
+    /// observable client-side, so this is always the create-time home — only the header's own relay
+    /// tracks re-homes live.
+    pub home: Option<String>,
     /// Milliseconds since this slot's most recent turn arrived, or `None` if none has yet.
     pub last_turn_age_ms: Option<u64>,
     /// The slot's EWMA inter-arrival interval in milliseconds, or `None` before two turns have
@@ -74,12 +87,27 @@ pub struct NetStatRowView {
     pub episode_count: u32,
 }
 
+/// One line of the recent-events ticker: an in-game timestamp and a one-line description of what
+/// happened. Rendered as `mm:ss  <text>`.
+pub struct NetEventView {
+    /// Seconds since game start, formatted to `mm:ss` at render.
+    pub elapsed_secs: u64,
+    /// The event description (e.g. `buffer 2 → 3 turns`, `link back (2.1s)`, `re-homed relay 2 → 1`).
+    pub text: String,
+}
+
 /// Everything the network-stats overlay needs to draw itself, resolved from the turn state's
 /// instrumentation and game setup. The render path takes only this (plus an egui context), so it
 /// renders identically in the game DLL and the host preview.
 pub struct NetStatsView {
-    /// The current simulation turn rate (turns per second).
-    pub turn_rate: u32,
+    /// The rally-point2 session id — the key an incident lookup enters into the admin game page and
+    /// the flight recorder blobs.
+    pub session_id: u64,
+    /// This client's current home relay id, live truth: it advances when the session re-homes off a
+    /// dead relay.
+    pub relay_id: u64,
+    /// The current relay's region label (e.g. `local-b`), or `None` when the setup carried none.
+    pub region: Option<String>,
     /// The latency buffer depth (in turns) currently in force.
     pub buffer_turns: u32,
     /// How many times the buffer depth has changed since the game started.
@@ -92,10 +120,14 @@ pub struct NetStatsView {
     pub link_down_count: u32,
     /// Seconds since the most recent own-link transition, or `None` if it has never changed.
     pub link_last_change_secs: Option<u64>,
-    /// The buffer-directive series for the sparkline, each point normalized to `[0, 1]` on both
-    /// axes: `x` is time across the series span (0 oldest, 1 newest), `y` is the value across the
-    /// series' min..max (0 lowest, 1 highest). Fewer than two points draws no line.
-    pub buffer_series: Vec<(f32, f32)>,
+    /// Buffer depth sampled once per second, oldest first. Drawn as a stepped line; fewer than two
+    /// samples draws a "gathering" placeholder.
+    pub buffer_samples: Vec<u32>,
+    /// The worst remote per-slot arrival gap (milliseconds) in each one-second window, oldest first.
+    /// Shares the strips' x-axis with [`buffer_samples`](Self::buffer_samples).
+    pub gap_samples_ms: Vec<u64>,
+    /// The recent-events ticker, oldest first. Empty omits the section.
+    pub events: Vec<NetEventView>,
     /// One row per remote slot.
     pub rows: Vec<NetStatRowView>,
 }
@@ -128,13 +160,15 @@ pub fn render_netstat_view(view: &NetStatsView, ctx: &egui::Context) {
                     ui.add_space(8.0);
                     draw_table(ui, &view.rows);
                     ui.add_space(10.0);
-                    draw_sparkline(ui, view);
+                    draw_strips(ui, view);
+                    draw_events(ui, &view.events);
                 });
         });
 }
 
-/// Draws the title and the three header stat lines: turn rate, buffer depth (with its change
-/// summary), and own-link state (with its history summary).
+/// Draws the title and the three header lines: the identity line (session + current relay + region)
+/// an incident lookup keys on, the buffer depth with its change summary, and the own-link state with
+/// its history summary.
 fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
     ui.label(
         RichText::new("Network stats")
@@ -145,28 +179,29 @@ fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
     );
     ui.add_space(6.0);
 
+    let relay = match &view.region {
+        Some(region) => format!("relay {} ({region})", view.relay_id),
+        None => format!("relay {}", view.relay_id),
+    };
+    ui.label(
+        RichText::new(format!("session {}   ·   {relay}", view.session_id))
+            .size(HEADER_SIZE)
+            .color(SECONDARY)
+            .family(mono()),
+    );
+
+    let buffer_summary = match view.buffer_last_change_secs {
+        Some(secs) => format!("changed {}×, last {}s ago", view.buffer_change_count, secs),
+        None => "steady since start".to_string(),
+    };
     ui.label(
         RichText::new(format!(
-            "Turn rate {}/s   ·   buffer {} turns",
-            view.turn_rate, view.buffer_turns
+            "buffer {} turns   ·   {buffer_summary}",
+            view.buffer_turns
         ))
         .size(HEADER_SIZE)
         .color(SECONDARY)
         .family(mono()),
-    );
-
-    let buffer_summary = match view.buffer_last_change_secs {
-        Some(secs) => format!(
-            "buffer changed {}×, last {}s ago",
-            view.buffer_change_count, secs
-        ),
-        None => "buffer steady since start".to_string(),
-    };
-    ui.label(
-        RichText::new(buffer_summary)
-            .size(HEADER_SIZE)
-            .color(SECONDARY)
-            .family(mono()),
     );
 
     ui.horizontal(|ui| {
@@ -182,10 +217,7 @@ fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
                 .family(mono()),
         );
         let history = match view.link_last_change_secs {
-            Some(secs) => format!(
-                "(down {}×, last change {}s ago)",
-                view.link_down_count, secs
-            ),
+            Some(secs) => format!("(down {}×, last change {}s ago)", view.link_down_count, secs),
             None => "(no drops)".to_string(),
         };
         ui.label(
@@ -201,18 +233,18 @@ fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
 /// keeps the numeric columns aligned as their values change.
 fn draw_table(ui: &mut egui::Ui, rows: &[NetStatRowView]) {
     egui::Grid::new("sb_netstat_rows")
-        .num_columns(7)
+        .num_columns(8)
         .spacing(vec2(COLUMN_SPACING, ROW_SPACING))
         .min_col_width(NUM_MIN_WIDTH)
         .show(ui, |ui| {
-            for (idx, &heading) in ["Player", "age", "intv", "gap", "st60", "life", "ep"]
+            for (idx, &heading) in ["Player", "home", "age", "intv", "gap", "st60", "life", "ep"]
                 .iter()
                 .enumerate()
             {
-                let width = if idx == 0 {
-                    NAME_MIN_WIDTH
-                } else {
-                    NUM_MIN_WIDTH
+                let width = match idx {
+                    0 => NAME_MIN_WIDTH,
+                    1 => HOME_MIN_WIDTH,
+                    _ => NUM_MIN_WIDTH,
                 };
                 ui.allocate_ui(vec2(width, ROW_SIZE + 2.0), |ui| {
                     ui.label(
@@ -240,6 +272,12 @@ fn draw_table(ui: &mut egui::Ui, rows: &[NetStatRowView]) {
                     RichText::new(&row.name)
                         .size(ROW_SIZE)
                         .color(PRIMARY)
+                        .family(mono()),
+                );
+                ui.label(
+                    RichText::new(row.home.as_deref().unwrap_or("—"))
+                        .size(ROW_SIZE)
+                        .color(SECONDARY)
                         .family(mono()),
                 );
                 num_cell(
@@ -279,17 +317,50 @@ fn num_cell(ui: &mut egui::Ui, text: String, color: Color32) {
     );
 }
 
-/// The buffer-directive sparkline: a labelled, framed strip with the normalized value series drawn
-/// as connected line segments. Uses only painter primitives, so it needs no plotting dependency.
-fn draw_sparkline(ui: &mut egui::Ui, view: &NetStatsView) {
+/// Draws the time-sampled history strips: buffer depth (stepped) and worst per-slot arrival gap
+/// (line), both sampled at 1 Hz so their shared x-axis is wall time. Each labels its current value
+/// on the right edge, so the graph and the number never need cross-referencing.
+fn draw_strips(ui: &mut egui::Ui, view: &NetStatsView) {
+    let buffer_points = buffer_strip_points(&view.buffer_samples);
+    let buffer_value = view
+        .buffer_samples
+        .last()
+        .map_or_else(|| "—".to_string(), |&v| format!("buffer {v}t"));
+    draw_strip(ui, "buffer depth", &buffer_points, true, buffer_value, SECONDARY);
+
+    ui.add_space(6.0);
+
+    let gap_points = gap_strip_points(&view.gap_samples_ms);
+    let last_gap = view.gap_samples_ms.last().copied();
+    let gap_value = last_gap.map_or_else(|| "—".to_string(), |v| format!("gap {}", fmt_ms(v)));
+    let gap_value_color = match last_gap {
+        Some(ms) if ms >= 500 => WARNING,
+        _ => SECONDARY,
+    };
+    draw_strip(ui, "worst gap", &gap_points, false, gap_value, gap_value_color);
+}
+
+/// Draws one labelled history strip: a caption, a framed plot of `points` (each already normalized
+/// to `[0, 1]` on the y-axis, indexed oldest-first on the x-axis), and the current value labelled at
+/// the strip's top-right corner. `step` holds each sample's level until the next (a staircase);
+/// otherwise the samples connect directly. Uses only painter primitives, so it needs no plotting
+/// dependency. Fewer than two points draws a placeholder.
+fn draw_strip(
+    ui: &mut egui::Ui,
+    caption: &str,
+    points: &[f32],
+    step: bool,
+    value_text: String,
+    value_color: Color32,
+) {
     ui.label(
-        RichText::new("buffer history")
+        RichText::new(caption)
             .size(ROW_SIZE)
             .color(SECONDARY)
             .family(mono()),
     );
     ui.add_space(2.0);
-    let (rect, _) = ui.allocate_exact_size(SPARKLINE_SIZE, egui::Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(STRIP_SIZE, egui::Sense::hover());
     let painter = ui.painter_at(rect);
     painter.rect_filled(
         rect,
@@ -303,11 +374,11 @@ fn draw_sparkline(ui: &mut egui::Ui, view: &NetStatsView) {
         egui::StrokeKind::Inside,
     );
 
-    if view.buffer_series.len() < 2 {
+    if points.len() < 2 {
         painter.text(
             rect.center(),
             Align2::CENTER_CENTER,
-            "no changes",
+            "gathering…",
             FontId::new(ROW_SIZE, mono()),
             SECONDARY,
         );
@@ -320,19 +391,80 @@ fn draw_sparkline(ui: &mut egui::Ui, view: &NetStatsView) {
         pos2(rect.left() + inset, rect.top() + inset),
         pos2(rect.right() - inset, rect.bottom() - inset),
     );
-    let map = |(t, v): (f32, f32)| -> Pos2 {
+    let last = points.len() - 1;
+    let map = |idx: usize, value: f32| -> Pos2 {
         pos2(
-            plot.left() + t.clamp(0.0, 1.0) * plot.width(),
-            // A normalized value of 1 is the highest buffer depth, so it maps to the top of the strip.
-            plot.bottom() - v.clamp(0.0, 1.0) * plot.height(),
+            plot.left() + (idx as f32 / last as f32) * plot.width(),
+            // A normalized value of 1 is the strip's peak, so it maps to the top.
+            plot.bottom() - value.clamp(0.0, 1.0) * plot.height(),
         )
     };
-    for pair in view.buffer_series.windows(2) {
-        painter.line_segment(
-            [map(pair[0]), map(pair[1])],
-            Stroke::new(1.5, SPARKLINE_LINE),
+    for idx in 0..last {
+        let a = map(idx, points[idx]);
+        let b = map(idx + 1, points[idx + 1]);
+        if step {
+            // Hold the level across the interval, then step to the next sample's level.
+            let corner = pos2(b.x, a.y);
+            painter.line_segment([a, corner], Stroke::new(1.5, STRIP_LINE));
+            painter.line_segment([corner, b], Stroke::new(1.5, STRIP_LINE));
+        } else {
+            painter.line_segment([a, b], Stroke::new(1.5, STRIP_LINE));
+        }
+    }
+
+    painter.text(
+        pos2(rect.right() - 4.0, rect.top() + 3.0),
+        Align2::RIGHT_TOP,
+        value_text,
+        FontId::new(ROW_SIZE, mono()),
+        value_color,
+    );
+}
+
+/// Draws the recent-events ticker: `mm:ss  <text>` lines, oldest first. Omitted entirely when there
+/// are no events, so a clean game shows nothing here.
+fn draw_events(ui: &mut egui::Ui, events: &[NetEventView]) {
+    if events.is_empty() {
+        return;
+    }
+    ui.add_space(10.0);
+    ui.label(
+        RichText::new("recent events")
+            .size(ROW_SIZE)
+            .color(SECONDARY)
+            .family(mono()),
+    );
+    ui.add_space(2.0);
+    for event in events {
+        ui.label(
+            RichText::new(format!("{}  {}", fmt_mmss(event.elapsed_secs), event.text))
+                .size(ROW_SIZE)
+                .color(SECONDARY)
+                .family(mono()),
         );
     }
+}
+
+/// Normalizes buffer-depth samples to `[0, 1]` across their own min..max, so a flat run sits at the
+/// bottom and each directive change reads as a step. A flat series (zero range) pins to the bottom
+/// rather than dividing by zero.
+fn buffer_strip_points(values: &[u32]) -> Vec<f32> {
+    let min = values.iter().copied().min().unwrap_or(0);
+    let max = values.iter().copied().max().unwrap_or(0);
+    let range = max.saturating_sub(min).max(1) as f32;
+    values.iter().map(|&v| (v - min) as f32 / range).collect()
+}
+
+/// Normalizes arrival-gap samples to `[0, 1]` against `max(observed max, GAP_STRIP_FLOOR_MS)`, so a
+/// healthy game's small gaps read low and calm and only a real spike lifts the trace.
+fn gap_strip_points(values: &[u64]) -> Vec<f32> {
+    let scale = values
+        .iter()
+        .copied()
+        .max()
+        .unwrap_or(0)
+        .max(GAP_STRIP_FLOOR_MS) as f32;
+    values.iter().map(|&v| v as f32 / scale).collect()
 }
 
 /// Renders a value as `Some` milliseconds, or an em dash for `None`.
@@ -365,6 +497,11 @@ fn fmt_ms(ms: u64) -> String {
     } else {
         format!("{}m{}s", ms / 60_000, (ms % 60_000) / 1000)
     }
+}
+
+/// Formats whole seconds as `mm:ss` (minutes grow past two digits on a long game).
+fn fmt_mmss(secs: u64) -> String {
+    format!("{:02}:{:02}", secs / 60, secs % 60)
 }
 
 /// Amber once any stall time (or episode) has accrued, muted otherwise — so a clean slot reads quiet.

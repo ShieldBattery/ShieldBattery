@@ -60,7 +60,7 @@ mod net_stats;
 mod rehome;
 mod session;
 
-pub use net_stats::{NetStatRow, NetStatsStatus};
+pub use net_stats::{NetEvent, NetStatRow, NetStatsStatus};
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
 // (`establish_session`), so only these are re-exported. The credential/session types stay internal
@@ -407,6 +407,15 @@ impl DisconnectStatus {
 #[cfg(debug_assertions)]
 const CHAT_LOG_CAPACITY: usize = 64;
 
+/// One slot's home relay at session create, for the `/netstat` per-player home column. Both fields
+/// are `None` when the launch handoff carried no home data (an older server or a region-less dev
+/// setup), which renders as an em dash.
+struct SlotHome {
+    slot: SlotId,
+    relay_id: Option<u64>,
+    region: Option<String>,
+}
+
 /// The game-thread-owned state the three hooks operate on.
 ///
 /// Created once per game after the home relay link is up (see module docs). Not `Sync`: it is
@@ -437,6 +446,11 @@ pub struct TurnState {
     /// ([`populate_identity_slots`](Self::populate_identity_slots)) and to build the joined-player
     /// set (storm id ≡ rp2 slot).
     roster: Vec<(SlotId, SbUserId)>,
+    /// Each slot's home relay at session create, for the `/netstat` per-player home column. Seeded
+    /// from the launch handoff ([`set_slot_homes`](Self::set_slot_homes)); empty for a sessionless
+    /// game or an older server that carried no home data. Peers' later re-homes are app-server-
+    /// mediated per client group and not observable here, so this stays the create-time assignment.
+    slot_homes: Vec<SlotHome>,
     /// Local origin slot (which slot our own outbound turns belong to). The relay rebinds the wire
     /// `slot` from the token regardless; this is for our own bookkeeping/echo.
     local_slot: SlotId,
@@ -577,6 +591,7 @@ impl TurnState {
             latency_turns: initial_latency_turns.max(1),
             slot_to_storm: [None; bw::MAX_STORM_PLAYERS],
             roster,
+            slot_homes: Vec::new(),
             local_slot,
             turns_in_flight: 0,
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
@@ -678,6 +693,33 @@ impl TurnState {
     /// Looks up the BW storm id for a rally-point2 slot, if mapped.
     pub fn storm_id_for_slot(&self, slot: SlotId) -> Option<StormPlayerId> {
         self.slot_to_storm.get(slot.0 as usize).copied().flatten()
+    }
+
+    /// Seeds the `/netstat` operator header identity: the session id, this client's own home relay id
+    /// at session create, and that relay's region. Called once from session establish.
+    pub fn set_net_stats_identity(&mut self, session_id: u64, relay_id: u64, region: Option<String>) {
+        self.net_stats.set_identity(session_id, relay_id, region);
+    }
+
+    /// Seeds each slot's home relay assignment for the `/netstat` per-player home column, from the
+    /// launch handoff's roster. Called once from session establish; slots the handoff carried no home
+    /// data for render an em dash.
+    pub fn set_slot_homes(&mut self, homes: Vec<(SlotId, Option<u64>, Option<String>)>) {
+        self.slot_homes = homes
+            .into_iter()
+            .map(|(slot, relay_id, region)| SlotHome {
+                slot,
+                relay_id,
+                region,
+            })
+            .collect();
+    }
+
+    /// Adopts a new current relay id after the session re-homes off a dead relay, so the `/netstat`
+    /// header's relay id is live truth and the move lands in the event ticker. Driven from the async
+    /// re-home provider once it commits to a replacement relay.
+    pub fn record_rehome(&mut self, new_relay_id: u64, now: Instant) {
+        self.net_stats.record_rehome(new_relay_id, now);
     }
 
     /// OUT hook body: hand a fully-assembled local turn to the driver. `commands` is the native
@@ -871,8 +913,11 @@ impl TurnState {
                 }
             }
         }
-        // Observation-only: attribute the current poll's blocking set to those slots' stall episodes.
+        // Observation-only: attribute the current poll's blocking set to those slots' stall episodes,
+        // then take the once-a-second history-strip sample (self-gated, so calling it every poll is
+        // cheap). This is the in-game per-poll cadence, so it keeps sampling through a stall.
         self.net_stats.note_blocking(&blocking, now);
+        self.net_stats.sample(now);
         if !ready {
             // Start the stall clock on the first poll we can't gather a full step; leave it running
             // across the repeated polls a sustained stall produces so it measures one continuous
@@ -1201,37 +1246,45 @@ impl TurnState {
     }
 
     /// A render-side snapshot of the session's network stats for the `/netstat` overlay, or `None`
-    /// while the overlay is toggled off (nothing to draw). `turn_rate` is the live simulation turn
-    /// rate, read from game data at the call site. Pure read: drains no channel, mutates nothing.
-    pub fn net_stats_status(&self, now: Instant, turn_rate: u32) -> Option<NetStatsStatus> {
+    /// while the overlay is toggled off (nothing to draw). Pure read: drains no channel, mutates
+    /// nothing.
+    pub fn net_stats_status(&self, now: Instant) -> Option<NetStatsStatus> {
         if !self.net_stats_visible {
             return None;
         }
         Some(NetStatsStatus {
-            turn_rate,
+            session_id: self.net_stats.session_id(),
+            relay_id: self.net_stats.relay_id(),
+            region: self.net_stats.region().map(str::to_string),
             buffer_turns: self.net_stats.buffer_turns(),
             buffer_change_count: self.net_stats.buffer_change_count(),
             buffer_last_change: self.net_stats.buffer_last_change(now),
-            buffer_series: self.net_stats.normalized_buffer_series(),
             link_up: self.net_stats.link_up(),
             link_down_count: self.net_stats.link_down_count(),
             link_last_change: self.net_stats.link_last_change(now),
+            buffer_samples: self.net_stats.buffer_samples(),
+            gap_samples: self.net_stats.gap_samples(),
+            events: self.net_stats.recent_events(),
             rows: self.net_stat_rows(now),
         })
     }
 
     /// One net-stats row per remote roster slot that has been mapped to a storm id (our own slot is
     /// excluded — its "arrivals" are our local echo, not a peer's turn stream). A slot with no storm
-    /// mapping yet is skipped, the same as elsewhere.
+    /// mapping yet is skipped, the same as elsewhere. Each row carries its home relay from the launch
+    /// handoff, resolved the same way the disconnect overlay resolves names.
     fn net_stat_rows(&self, now: Instant) -> Vec<NetStatRow> {
         self.roster
             .iter()
             .filter(|&&(slot, _)| slot != self.local_slot)
             .filter_map(|&(slot, user_id)| {
                 let storm = self.storm_id_for_slot(slot)?;
+                let home = self.slot_homes.iter().find(|h| h.slot == slot);
                 Some(NetStatRow {
                     slot,
                     user_id,
+                    home_relay_id: home.and_then(|h| h.relay_id),
+                    home_region: home.and_then(|h| h.region.clone()),
                     stats: self.net_stats.slot_view(storm, now),
                 })
             })

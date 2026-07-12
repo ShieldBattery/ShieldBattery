@@ -113,8 +113,10 @@ pub async fn establish_session(
         home,
         roots,
     } = SessionCredentials::from_setup(setup)?;
-    // The slot is the one the coordinator signed into the token, not a separately-sent value.
+    // The slot and session are the ones the coordinator signed into the token, not separately-sent
+    // values. The session id is the key the `/netstat` operator header carries for incident lookup.
     let local_slot = identity.token().claims.slot;
+    let session_id = identity.token().claims.session.0;
     let endpoint = credentials::bind_endpoint(roots)?;
 
     // Dial the home relay, trying its candidate addresses in preference order (v6 then v4).
@@ -178,6 +180,29 @@ pub async fn establish_session(
     // Storm ids come straight from the roster (storm id ≡ rp2 slot), so seed the slot→storm
     // identity map up front here rather than learning it from a Storm join.
     turn_state.populate_identity_slots();
+    // Seed the `/netstat` operator header and per-player home column from the launch handoff. The
+    // header's own relay id starts at the home relay and advances live on a re-home; each slot's home
+    // is the create-time assignment (peers' re-homes are not client-observable). Our own region is
+    // the home entry the roster carries for our slot.
+    let own_region = setup
+        .roster
+        .iter()
+        .find(|entry| entry.slot == local_slot.0)
+        .and_then(|entry| entry.home_region.clone());
+    turn_state.set_net_stats_identity(session_id, setup.home_relay.relay_id, own_region);
+    turn_state.set_slot_homes(
+        setup
+            .roster
+            .iter()
+            .map(|entry| {
+                (
+                    SlotId(entry.slot),
+                    entry.home_relay_id,
+                    entry.home_region.clone(),
+                )
+            })
+            .collect(),
+    );
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             link: SessionLink::Relay(endpoint),
