@@ -42,9 +42,10 @@ protocol (rationale in `architecture.md`).
 **Nothing runs in the cloud yet** — Fargate, regions, prod/staging fleets, DDoS posture,
 coordinator HA are all unbuilt. That is §2.
 
-**Worth doing soon:** a live loopback matrix run (two relays, mid-game relay kill, same-relay blip)
-on the **current** pinned build — the 6c fixes (13 commits, including the emptied-session-close and
-driver-loop reworks) have unit/integration coverage but no live game behind them yet.
+**Live loopback matrix: DONE on the region-arc pin (2026-07-11/12).** Mid-game relay kill →
+re-home 2→1 with clean resume + correct win/loss (region e2e), and a same-relay ~20s
+suspend/resume blip with clean recovery, comparator silent (netstat live pass — the reworked
+overlay's event ticker recorded the outage itself). Both legs ran on `a351106`+.
 
 ## 1. Decisions ledger (compact)
 
@@ -138,14 +139,15 @@ explicitly.
 ### SB-side small backlog (carried from the deleted tracker)
 ~~Persist the rp2 session id + relay history on the game record~~ (DONE 2026-07-11: session id was
 already persisted; `games.netcode_v2_relays` home/rehome events + admin game-page display landed
-with Phase 4); `/netstat` polish: sample the buffer-history graph on a time cadence (today it only
-gains points when the buffer size changes, so the graph is mostly empty), show each player's
-current relay(s) (changes on rehome, genuinely informative under per-player homes), drop the
-constant "Turn rate 24/s" row; remove the lobby turn-rate setting (inert under v2 — a TR8-feel
-emulation for UMS players is a future idea with different UI); fix or delete the
-`docs/USEFUL_QUERIES.md` saved query that joins the dropped `rally_point_servers`/`games.routes`;
-translate the new region-settings strings (`translate-i18n` pass — only `en` is generated);
-drop `netcodeV2` naming from public surfaces; client desync-report hook (VOID-only);
+with Phase 4); ~~`/netstat` polish~~ (DONE 2026-07-12: reworked per `docs/netstat-design.md` —
+identity header with live session/relay id, 1 Hz-sampled buffer + worst-gap strips, a recent-events
+ticker, per-player create-time home relay/region column, turn-rate row gone; a TR8-feel emulation
+for UMS players remains a future idea with different UI); ~~remove the lobby turn-rate setting~~,
+~~USEFUL_QUERIES fix~~, ~~region-settings translations~~ (all DONE 2026-07-12);
+drop `netcodeV2` naming from public surfaces (surveyed: the only user-visible instance is the
+admin game-page debug section title — everything else is internal identifiers + the two DLL-facing
+route names; low urgency, rename needs a target-naming decision); client desync-report hook
+(VOID-only);
 relay forward-channel byte budget (oversize amplification); self-desync-void rate-limit;
 post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
 classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
