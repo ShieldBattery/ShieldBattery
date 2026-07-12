@@ -32,10 +32,6 @@ import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
 import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
 
-// Overrides the default rally-point bind port in the game. Not recommended for use outside of
-// specific development testing, as it can cause game processes to conflict with each other.
-const RALLY_POINT_PORT = Number(process.env.SB_RALLY_POINT_PORT ?? 0)
-
 // How long to wait for a `/game/debug/state` reply before giving up. A release DLL doesn't
 // recognize `debugControl` at all, so a query to one never gets a reply and always times out.
 const DEBUG_QUERY_TIMEOUT_MS = 5000
@@ -835,14 +831,13 @@ async function doLaunch(
 
   log.debug(`Attempting to launch "${appPath}" with StarCraft path: "${starcraftPath}"`)
 
-  const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
   const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
   // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
   // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
   const logNameArg = `-log-name=${gameLogBaseName()}`
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
-    `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} ` +
+    `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
     `-launch ${legacyCursorSizingArg} ${logNameArg}`
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if

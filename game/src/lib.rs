@@ -543,9 +543,6 @@ fn try_parse_args() -> Option<Args> {
     let game_id = args.next()?.into_string().ok()?;
     let server_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let user_data_path = args.next()?.into();
-    // Vestigial rally-point v1 UDP port, still passed positionally by the launcher; consumed to keep
-    // the argument order but no longer used (all turn traffic rides the rally-point2 relay).
-    let _rally_point_port = args.next()?.into_string().ok()?.parse::<u16>().ok()?;
     let mut use_legacy_cursor_sizing = false;
     let mut log_name = "game".to_owned();
 
