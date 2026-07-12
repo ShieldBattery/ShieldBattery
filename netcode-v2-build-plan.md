@@ -133,7 +133,20 @@ explicitly.
 - `UnackedWindowExhausted` stays terminal by design; genuine recovery needs a trend-based
   hysteresis re-arm (trip only if the backlog grows past its level at reconnect time) — real
   design work if ever wanted.
-- Initial buffer directive at session start; rate-limited control-law logging (D9 leftovers).
+- **Computed initial buffer at session start** (upgrades the old "initial buffer directive" D9
+  leftover). Today every session starts at the tenant-minimum depth and the control law's first
+  correction lands ~10s in — i.e. *after* the opening worker split. But the native lobby already
+  runs over the relay session, so between first client dial and `SessionStart` the relay observes
+  each client's real link stats on the real path: have the authority relay run the control law
+  over that lobby window and stamp the computed initial depth onto the `SessionStart` directive
+  (additive field; absent → clients keep today's tenant-min seed). Supporting: an SB-supplied
+  estimate hint at session create (worst-pairwise from region RTTs + backbone table, ~42ms/turn,
+  clamped to bounds) as the cold floor for clients/peers the lobby window couldn't observe —
+  check whether per-client conditions cross the mesh pre-start; if not, authority folds own
+  clients' real stats + hop cushion + the hint. Relay-computed, bounds-clamped — no new
+  client-claimed input. Acceptance: the `/netstat` events ticker stops showing `buffer 1 → N`
+  corrections in the first ~30s of games that need a deeper buffer.
+- Rate-limited control-law logging (the other D9 leftover).
 - Live loopback matrix on the current pinned build (see §0).
 
 ### SB-side small backlog (carried from the deleted tracker)
