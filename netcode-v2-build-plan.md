@@ -133,19 +133,26 @@ explicitly.
 - `UnackedWindowExhausted` stays terminal by design; genuine recovery needs a trend-based
   hysteresis re-arm (trip only if the backlog grows past its level at reconnect time) — real
   design work if ever wanted.
-- **Computed initial buffer at session start** (upgrades the old "initial buffer directive" D9
-  leftover). Today every session starts at the tenant-minimum depth and the control law's first
-  correction lands ~10s in — i.e. *after* the opening worker split. But the native lobby already
-  runs over the relay session, so between first client dial and `SessionStart` the relay observes
-  each client's real link stats on the real path: have the authority relay run the control law
-  over that lobby window and stamp the computed initial depth onto the `SessionStart` directive
-  (additive field; absent → clients keep today's tenant-min seed). Supporting: an SB-supplied
-  estimate hint at session create (worst-pairwise from region RTTs + backbone table, ~42ms/turn,
-  clamped to bounds) as the cold floor for clients/peers the lobby window couldn't observe —
-  check whether per-client conditions cross the mesh pre-start; if not, authority folds own
-  clients' real stats + hop cushion + the hint. Relay-computed, bounds-clamped — no new
-  client-claimed input. Acceptance: the `/netstat` events ticker stops showing `buffer 1 → N`
-  corrections in the first ~30s of games that need a deeper buffer.
+- **Computed initial buffer at session start** — *BUILT both repos 2026-07-11, live acceptance
+  pending a dev-stack restart.* The authority relay sizes an initial depth once, at the
+  session-start coverage latch, and stamps it onto `SessionStart` (new optional protobuf field;
+  absent → clients keep the tenant-min seed): inputs are pre-start conditions (new: a handshake
+  sample at slot registration + a 500ms pre-start tick — the receive-driven sampler never fires
+  pre-start since lobby traffic rides the control stream) run through the existing target formula,
+  plus an SB-supplied `latency_estimate_ms` create hint (worst-pairwise one-way, ms; ms→turns
+  conversion lives relay-side), plus a +1 hop cushion for multi-relay sessions. A fully-observed
+  single-relay session ignores the hint (a stale estimate must not distort what the window saw);
+  per-client conditions confirmed to NOT cross the mesh pre-start (they ride the forwarded-turn
+  envelope only). The authority adopts the depth as its current buffer (else the first-frame
+  re-affirm — which is also the old-client convergence path — would clobber it back to min); mesh
+  peers adopt off the broadcast; resumed relays stamp absent so a re-push never resizes a live
+  game. rp2 `263a1d6..16de546` (4 commits, unpushed, gates green); SB Node `1234a8b98`+`268987563`
+  +`364a2e9b0` (rttMs plumbing — it never reached session create before — backbone util mirroring
+  server-rs, additive request field); SB DLL changes UNCOMMITTED (need the rp2 push + pin bump;
+  temp `[patch]` active in game/Cargo.toml, dist DLL built with it). Remaining: live acceptance —
+  cross-region loopback game opens at the stamped depth (expect 4: hint 121ms→3 + 1 cushion) with
+  no early upward ticker correction; same-region control opens at observed min. Then: Travis's
+  rp2 push go-ahead → bump pin → drop `[patch]` → commit DLL.
 - Rate-limited control-law logging (the other D9 leftover).
 - Live loopback matrix on the current pinned build (see §0).
 
