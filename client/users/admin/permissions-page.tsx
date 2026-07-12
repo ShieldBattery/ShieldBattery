@@ -67,7 +67,6 @@ const PermissionsFragment = graphql(/* GraphQL */ `
       manageMatchmaking
       manageMatchmakingTimes
       manageMatchmakingSeasons
-      manageRallyPointServers
       massDeleteMaps
       moderateChatChannels
       manageNews
@@ -214,12 +213,6 @@ function PermissionsEditor({
           <CheckBox
             {...bindCheckable('manageMatchmakingSeasons')}
             label='Manage matchmaking seasons'
-            inputProps={inputProps}
-            disabled={fetching}
-          />
-          <CheckBox
-            {...bindCheckable('manageRallyPointServers')}
-            label='Manage rally-point servers'
             inputProps={inputProps}
             disabled={fetching}
           />

@@ -41,8 +41,9 @@ pub struct MatchFoundMessage {
     /// Effective team ratings used to compute `win_probability`.
     pub team_a_rating: f32,
     pub team_b_rating: f32,
-    /// Estimated one-way latency (ms) of the match's worst pairwise link, computed from the
-    /// players' rally-point server pings (raw latency input to `quality`).
+    /// Estimated one-way latency (ms) of the match's worst pairwise link, computed from each
+    /// player's measured RTT to their desired game server region plus the region-to-region
+    /// backbone RTT (raw latency input to `quality`).
     pub max_latency: f32,
 }
 

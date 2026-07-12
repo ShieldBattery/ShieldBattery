@@ -76,7 +76,6 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.InvalidClient:
     case MatchmakingServiceErrorCode.TooManyPlayers:
     case MatchmakingServiceErrorCode.InvalidDraftPick:
-    case MatchmakingServiceErrorCode.PingMeasurementFailed:
       throw asHttpError(400, err)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
     case MatchmakingServiceErrorCode.UserBanned:

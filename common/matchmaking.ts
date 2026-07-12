@@ -1170,11 +1170,6 @@ export enum MatchmakingServiceErrorCode {
   InvalidMaps = 'invalidMaps',
   MatchAlreadyStarting = 'matchAlreadyStarting',
   MatchmakingDisabled = 'matchmakingDisabled',
-  /**
-   * The client couldn't measure its rally-point pings in time, so the matchmaker has no latency
-   * estimate to find a match with.
-   */
-  PingMeasurementFailed = 'pingMeasurementFailed',
   NotInQueue = 'notInQueue',
   NoActiveMatch = 'noActiveMatch',
   TooManyPlayers = 'tooManyPlayers',

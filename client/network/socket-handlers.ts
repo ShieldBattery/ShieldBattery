@@ -1,7 +1,5 @@
 import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { UpdateRallyPointClientPingBatchRequest } from '../../common/rally-point'
-import { apiUrl } from '../../common/urls'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
@@ -13,8 +11,6 @@ import news from '../news/socket-handlers'
 import notifications from '../notifications/socket-handlers'
 import users from '../users/socket-handlers'
 import whispers from '../whispers/socket-handlers'
-import { clientId } from './client-id'
-import { fetchJson } from './fetch'
 import { isConnectedAtom } from './network-atoms'
 import siteSocket from './site-socket'
 
@@ -58,74 +54,9 @@ function gameServerRegionsHandler({
   })
 }
 
-function rallyPointHandler({
-  siteSocket,
-  ipcRenderer,
-}: {
-  siteSocket: NydusClient
-  ipcRenderer: TypedIpcRenderer
-}) {
-  siteSocket.registerRoute('/rallyPoint/serverList', (route, event) => {
-    if (event.type === 'fullUpdate') {
-      ipcRenderer.send('rallyPointSetServers', event.servers)
-    } else if (event.type === 'upsert') {
-      ipcRenderer.send('rallyPointUpsertServer', event.server)
-    } else if (event.type === 'delete') {
-      ipcRenderer.send('rallyPointDeleteServer', event.id)
-    } else {
-      logger.warning(`got unknown rally-point serverList event type: ${event.type}`)
-    }
-  })
-
-  const pingsToSend = new Map<number, number>()
-  let sendTimeout: ReturnType<typeof setTimeout> | undefined
-
-  const sendPings = () => {
-    const toSend = Array.from(pingsToSend.entries())
-    pingsToSend.clear()
-    sendTimeout = undefined
-
-    if (!toSend.length) {
-      return
-    }
-
-    dispatch((_, getState) => {
-      const {
-        auth: { self },
-      } = getState()
-      if (!self) {
-        return
-      }
-
-      const reqBody = {
-        pings: toSend,
-      } satisfies UpdateRallyPointClientPingBatchRequest
-      fetchJson(apiUrl`rally-point/pings/${self.user.id}/${clientId}/batch`, {
-        method: 'put',
-        body: JSON.stringify(reqBody),
-      }).catch(err => {
-        logger.error(
-          `error while reporting rally-point pings (${JSON.stringify(toSend)}): ${
-            err.stack ?? err
-          }`,
-        )
-      })
-    })
-  }
-
-  ipcRenderer.on('rallyPointPingResult', (event, server, ping) => {
-    pingsToSend.set(server.id, ping)
-
-    if (!sendTimeout) {
-      sendTimeout = setTimeout(sendPings, 333)
-    }
-  })
-}
-
 const envSpecificHandlers = IS_ELECTRON
   ? [
       gameServerRegionsHandler,
-      rallyPointHandler,
       require('../active-game/socket-handlers').default,
       require('../download/ipc-handlers').default,
       require('../lobbies/electron-socket-handlers').default,

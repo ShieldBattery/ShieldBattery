@@ -1090,43 +1090,6 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
           </ExpandIconContainer>
         </DebugSectionTitle>
         <DebugCollapsibleContent $open={open} layout transition={transition}>
-          {debugInfo.routes.length > 0 && (
-            <div>
-              <DebugSubsectionTitle>
-                {t('gameDetails.debugInfo.routes', 'Network Routes')}
-              </DebugSubsectionTitle>
-              <DebugTableContainer>
-                <DebugTable>
-                  <thead>
-                    <tr>
-                      <th>{t('gameDetails.debugInfo.player1', 'Player 1')}</th>
-                      <th>{t('gameDetails.debugInfo.player2', 'Player 2')}</th>
-                      <th>{t('gameDetails.debugInfo.server', 'Server')}</th>
-                      <th>{t('gameDetails.debugInfo.latency', 'Latency (ms)')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {debugInfo.routes.map((route, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <ConnectedUsername userId={route.p1} />
-                        </td>
-                        <td>
-                          <ConnectedUsername userId={route.p2} />
-                        </td>
-                        <td>
-                          {route.serverDescription
-                            ? `${route.serverDescription} (${route.server})`
-                            : route.server}
-                        </td>
-                        <td>{route.latency.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </DebugTable>
-              </DebugTableContainer>
-            </div>
-          )}
           <div>
             <DebugSubsectionTitle>
               {t('gameDetails.debugInfo.reportedResults', 'Individual Reports Summary')}

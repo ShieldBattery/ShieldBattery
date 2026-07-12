@@ -811,14 +811,13 @@ impl UsersMutation {
                     manage_matchmaking = $8,
                     manage_matchmaking_seasons = $9,
                     manage_matchmaking_times = $10,
-                    manage_rally_point_servers = $11,
-                    mass_delete_maps = $12,
-                    moderate_chat_channels = $13,
-                    manage_news = $14,
-                    manage_bug_reports = $15,
-                    manage_game_reports = $16,
-                    manage_restricted_names = $17,
-                    manage_signup_codes = $18
+                    mass_delete_maps = $11,
+                    moderate_chat_channels = $12,
+                    manage_news = $13,
+                    manage_bug_reports = $14,
+                    manage_game_reports = $15,
+                    manage_restricted_names = $16,
+                    manage_signup_codes = $17
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -831,7 +830,6 @@ impl UsersMutation {
             permissions.manage_matchmaking,
             permissions.manage_matchmaking_seasons,
             permissions.manage_matchmaking_times,
-            permissions.manage_rally_point_servers,
             permissions.mass_delete_maps,
             permissions.moderate_chat_channels,
             permissions.manage_news,
@@ -1248,7 +1246,7 @@ impl CurrentUserRepo {
                     SELECT user_id as "id", edit_permissions, debug, ban_users, manage_leagues,
                         manage_maps, manage_map_pools, manage_matchmaking,
                         manage_matchmaking_seasons, manage_matchmaking_times,
-                        manage_rally_point_servers, mass_delete_maps, moderate_chat_channels,
+                        mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
                         manage_restricted_names, manage_signup_codes
                     FROM permissions

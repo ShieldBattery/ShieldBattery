@@ -34,7 +34,6 @@ import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
-import { RallyPointManager } from './rally-point/rally-point-manager'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
@@ -927,24 +926,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       'gameServerRegionsLatenciesUpdated',
       latencies,
     )
-  })
-
-  const rallyPointManager = container.resolve(RallyPointManager)
-
-  ipcMain.on('rallyPointSetServers', (event, servers) => {
-    rallyPointManager.setServers(servers)
-  })
-  ipcMain.on('rallyPointUpsertServer', (event, server) => {
-    rallyPointManager.upsertServer(server)
-  })
-  ipcMain.on('rallyPointDeleteServer', (event, id) => {
-    rallyPointManager.deleteServer(id)
-  })
-  ipcMain.on('rallyPointRefreshPings', () => {
-    rallyPointManager.refreshPings()
-  })
-  rallyPointManager.on('ping', (server, ping) => {
-    TypedIpcSender.from(mainWindow?.webContents).send('rallyPointPingResult', server, ping)
   })
 }
 

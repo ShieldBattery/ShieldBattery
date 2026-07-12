@@ -76,7 +76,6 @@ type Game {
 	disputeReviewed: Boolean!
 	gameLength: Int
 	results: [ReconciledPlayerResultEntry!]
-	routes: [GameRoute!]
 	map: UploadedMap!
 }
 
@@ -260,13 +259,6 @@ type GameReportUserStats {
 	abusive: Int!
 	duplicate: Int!
 	pending: Int!
-}
-
-type GameRoute {
-	p1: Int!
-	p2: Int!
-	server: Int!
-	latency: Float!
 }
 
 """
@@ -800,7 +792,6 @@ type SbPermissions {
 	manageMatchmaking: Boolean!
 	manageMatchmakingSeasons: Boolean!
 	manageMatchmakingTimes: Boolean!
-	manageRallyPointServers: Boolean!
 	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!
@@ -825,7 +816,6 @@ input SbPermissionsInput {
 	manageMatchmaking: Boolean!
 	manageMatchmakingSeasons: Boolean!
 	manageMatchmakingTimes: Boolean!
-	manageRallyPointServers: Boolean!
 	massDeleteMaps: Boolean!
 	moderateChatChannels: Boolean!
 	manageNews: Boolean!

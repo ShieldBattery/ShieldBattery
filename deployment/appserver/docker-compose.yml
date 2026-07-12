@@ -23,10 +23,6 @@ services:
     # Required for proper handling of kernel signals (eg. ctrl-c); for more info, see:
     # https://github.com/nodejs/docker-node/blob/master/docs/BestPractices.md#handling-kernel-signals
     init: true
-    ports:
-      # rally-point route creator server
-      - '14099:14099/tcp'
-      - '14099:14099/udp'
     environment:
       # This controls what addresses nginx_proxy will forward to this
       - VIRTUAL_HOST=${SB_VIRTUAL_HOST}
@@ -40,14 +36,11 @@ services:
       - SB_JWT_SECRET
       - SB_REDIS_HOST=redis
       - SB_REDIS_PORT=6379
-      - 'SB_ROUTE_CREATOR_HOST=::'
-      - SB_ROUTE_CREATOR_PORT=14099
       - SB_FILE_STORE
       - SB_MAP_PARSER_MAX_CONCURRENT=${SB_MAP_PARSER_MAX_CONCURRENT:-1}
       - SB_REPLAY_WORKER_CONCURRENCY=${SB_REPLAY_WORKER_CONCURRENCY:-1}
       - SB_SPRITE_DATA=server/bw_sprite_data
       - SB_SESSION_TTL
-      - SB_RALLY_POINT_SECRET
       - SB_MAILGUN_KEY
       - SB_MAILGUN_DOMAIN
       - SB_MAILGUN_FROM

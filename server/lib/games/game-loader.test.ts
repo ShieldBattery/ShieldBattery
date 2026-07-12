@@ -14,7 +14,7 @@ import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { findUsersById } from '../users/user-model'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType, GameLoadRequest } from './game-loader'
-import { deleteRecordForGame, updateGameConfig, updateRouteDebugInfo } from './game-models'
+import { deleteRecordForGame, updateGameConfig } from './game-models'
 import { registerGame } from './registration'
 
 vi.mock('./registration', () => ({
@@ -23,7 +23,6 @@ vi.mock('./registration', () => ({
 vi.mock('./game-models', () => ({
   updateGameConfig: vi.fn().mockResolvedValue(undefined),
   deleteRecordForGame: vi.fn().mockResolvedValue(undefined),
-  updateRouteDebugInfo: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('../models/games-users', () => ({
   deleteUserRecordsForGame: vi.fn().mockResolvedValue(undefined),
@@ -109,7 +108,6 @@ describe('games/game-loader/GameLoader', () => {
     asMockedFunction(deleteRecordForGame).mockResolvedValue(undefined)
     asMockedFunction(deleteUserRecordsForGame).mockResolvedValue(undefined)
     asMockedFunction(updateGameConfig).mockResolvedValue(undefined)
-    asMockedFunction(updateRouteDebugInfo).mockResolvedValue(undefined)
 
     publisher = { publish: vi.fn() }
     activityRegistry = { getClientForUser: vi.fn() }
@@ -275,7 +273,6 @@ describe('games/game-loader/GameLoader', () => {
       expect.objectContaining({ useNetcodeV2: true }),
     )
     expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
-    expect(updateRouteDebugInfo).toHaveBeenCalledWith('game-multi', [])
   })
 
   test('threads each player selected region through to createSessionForGame', async () => {

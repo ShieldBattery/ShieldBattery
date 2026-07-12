@@ -22,7 +22,6 @@ import { updateEmailTemplates } from './lib/mail/update-templates'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
-import { RallyPointService } from './lib/rally-point/rally-point-service'
 import { Redis } from './lib/redis/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
@@ -40,9 +39,6 @@ if (!process.env.SB_CANONICAL_HOST) {
 }
 if (!process.env.SB_JWT_SECRET) {
   throw new Error('SB_JWT_SECRET must be specified')
-}
-if (!process.env.SB_RALLY_POINT_SECRET) {
-  throw new Error('SB_RALLY_POINT_SECRET must be specified')
 }
 if (!process.env.SB_SERVER_RS_URL) {
   throw new Error('SB_SERVER_RS_URL must be specified')
@@ -198,17 +194,6 @@ container.register<http.Server>(http.Server, { useValue: mainServer })
 
 const websocketServer = container.resolve(WebsocketServer)
 
-const routeCreatorConfig = {
-  host: process.env.SB_ROUTE_CREATOR_HOST || '::',
-  port: Number(process.env.SB_ROUTE_CREATOR_PORT || 0),
-}
-const rallyPointService = container.resolve(RallyPointService)
-const rallyPointInitPromise = rallyPointService.initialize(
-  routeCreatorConfig.host,
-  routeCreatorConfig.port,
-  process.env.SB_RALLY_POINT_SECRET,
-)
-
 // Resolved (not initialized) here only so its constructor registers the electron client
 // subscription before any client connects. Fetching the region list itself is demand-driven and
 // deliberately untouched by server startup -- see the class doc comment.
@@ -296,8 +281,6 @@ container.resolve(GameServerRegionsService)
   }
 
   try {
-    await rallyPointInitPromise
-
     const stats: any = await compilePromise
 
     if (stats) {

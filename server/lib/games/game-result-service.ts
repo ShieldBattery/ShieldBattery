@@ -238,7 +238,7 @@ const RECONCILE_INCOMPLETE_RESULTS_MINUTES = 15
  * with a session id is instead covered by the coordinator liveness probe backstop below, which asks
  * rather than blind-forces.
  * TODO(tec27): Use a more accurate method for detecting legacy games in progress, like pinging the
- * server from the game client periodically, or integrating with rally-point
+ * server from the game client periodically.
  */
 const FORCE_RECONCILE_TIMEOUT_MINUTES = 3 * 60
 /**

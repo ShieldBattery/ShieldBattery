@@ -148,13 +148,6 @@ export function findMatch(
               'You must select at least one map in the settings for each chosen matchmaking type.',
             )
             break
-          case MatchmakingServiceErrorCode.PingMeasurementFailed:
-            message = i18n.t(
-              'matchmaking.findMatch.errors.pingMeasurementFailed',
-              "Couldn't measure your connection to the game servers. Please check your connection " +
-                'and try again.',
-            )
-            break
           default:
             logger.error(
               `Unhandled error code while queueing for matchmaking as a solo player: ${err.code}`,

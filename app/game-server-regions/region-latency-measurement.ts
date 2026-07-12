@@ -10,8 +10,7 @@ import { monotonicNow } from '../time/monotonic-now'
 // Routine measurement failures are reported through return values; only genuinely unexpected
 // errors are logged, straight to the console.
 
-// NOTE: We take the median so this should generally be odd, same reasoning as the v1
-// rally-point-manager.
+// NOTE: We take the median, so this should generally be odd.
 export const BEACON_PING_ATTEMPTS = 5
 // Beacons rate-limit to ~3 datagrams/sec per sender.
 export const BEACON_ATTEMPT_SPACING_MS = 400

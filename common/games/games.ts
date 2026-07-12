@@ -47,19 +47,7 @@ export interface GameRecord {
 
 export type GameRecordJson = Jsonify<GameRecord>
 
-export interface GameRouteDebugInfo {
-  p1: SbUserId
-  p2: SbUserId
-  /** A rally-point server ID. */
-  server: number
-  /** The rally-point server description/name. */
-  serverDescription?: string
-  /** The estimated latency between the players (1-way) in milliseconds. */
-  latency: number
-}
-
 export interface GameDebugInfo {
-  routes: GameRouteDebugInfo[]
   reportedResults: Array<{
     userId: SbUserId
     reportedAt?: Date
@@ -89,7 +77,6 @@ export type GameDebugInfoJson = Jsonify<GameDebugInfo>
 
 export function toGameDebugInfoJson(debugInfo: GameDebugInfo): GameDebugInfoJson {
   return {
-    routes: debugInfo.routes,
     reportedResults: debugInfo.reportedResults.map(result => ({
       userId: result.userId,
       reportedAt: result.reportedAt ? Number(result.reportedAt) : undefined,

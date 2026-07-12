@@ -22,7 +22,7 @@ import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { deleteRecordForGame, updateGameConfig, updateRouteDebugInfo } from './game-models'
+import { deleteRecordForGame, updateGameConfig } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
@@ -635,15 +635,6 @@ export class GameLoader {
           },
         })
       }
-
-      // Games no longer connect players over direct routes, so there's no per-pair route/latency
-      // data to record — write an empty list so existing readers of this game's debug info keep
-      // working.
-      Promise.resolve()
-        .then(() => updateRouteDebugInfo(gameId, []))
-        .catch(err => {
-          log.error({ err }, 'error updating route debug info')
-        })
 
       if (useNetcodeV2) {
         // Assign each participant a rally-point2 slot, wait for their per-session pubkeys, and

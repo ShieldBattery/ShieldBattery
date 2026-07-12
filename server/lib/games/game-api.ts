@@ -64,7 +64,7 @@ import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
-import { countCompletedGames, getGameRoutes, getGames, getNetcodeV2Session } from './game-models'
+import { countCompletedGames, getGames, getNetcodeV2Session } from './game-models'
 import {
   GamePointsRefundErrorCode,
   GamePointsRefundService,
@@ -366,8 +366,7 @@ export class GameApi {
     let debugInfo: GameDebugInfo | undefined
     if (ctx.session?.permissions?.debug) {
       try {
-        const [routes, reportedResults, allReplays] = await Promise.all([
-          getGameRoutes(gameId),
+        const [reportedResults, allReplays] = await Promise.all([
           getGameReportedResults(gameId),
           getAllReplaysForGame(gameId),
         ])
@@ -402,7 +401,6 @@ export class GameApi {
         })
 
         debugInfo = {
-          routes,
           reportedResults: debugReportedResults,
           replays: replayDebugInfo.length > 0 ? replayDebugInfo : undefined,
         }

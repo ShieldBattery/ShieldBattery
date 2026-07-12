@@ -6,7 +6,7 @@ import {
   getTeamSizeForFormat,
   MatchupFilter,
 } from '../../../common/games/game-filters'
-import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games'
+import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
 import { ReconciledResults } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -168,27 +168,6 @@ export async function updateGameConfig(gameId: string, config: GameConfig): Prom
     await client.query(sql`
       UPDATE games
       SET config = ${config}
-      WHERE id = ${gameId}
-    `)
-  } finally {
-    done()
-  }
-}
-
-/**
- * Updates the route debug info for the specified game. This should be used when the game is in the
- * process of loading, and all players have had their rally-point routes determined and created.
- */
-export async function updateRouteDebugInfo(
-  gameId: string,
-  routeDebugInfo: GameRouteDebugInfo[],
-  withClient?: DbClient,
-): Promise<void> {
-  const { client, done } = await db(withClient)
-  try {
-    await client.query(sql`
-      UPDATE games
-      SET routes = ${routeDebugInfo}
       WHERE id = ${gameId}
     `)
   } finally {
@@ -666,44 +645,3 @@ export async function findKnownCompleteUnreconciledGames(
   }
 }
 
-/**
- * Retrieves route debug information for a specific game, with server descriptions.
- */
-export async function getGameRoutes(gameId: string): Promise<GameRouteDebugInfo[]> {
-  const { client, done } = await db()
-  try {
-    const result = await client.query<{ routes: GameRouteDebugInfo[] | null }>(sql`
-      SELECT routes
-      FROM games
-      WHERE id = ${gameId}
-    `)
-
-    if (!result.rowCount || !result.rows[0].routes) {
-      return []
-    }
-
-    const routes = result.rows[0].routes
-
-    // Get server descriptions for all unique server IDs
-    const serverIds = [...new Set(routes.map(r => r.server))]
-    if (serverIds.length === 0) {
-      return routes
-    }
-
-    const serversResult = await client.query<{ id: number; description: string }>(sql`
-      SELECT id, description
-      FROM rally_point_servers
-      WHERE id = ANY(${serverIds})
-    `)
-
-    const serverDescriptions = new Map(serversResult.rows.map(row => [row.id, row.description]))
-
-    // Add server descriptions to routes
-    return routes.map(route => ({
-      ...route,
-      serverDescription: serverDescriptions.get(route.server),
-    }))
-  } finally {
-    done()
-  }
-}

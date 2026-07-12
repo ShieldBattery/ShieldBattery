@@ -199,12 +199,6 @@ importers:
       pug:
         specifier: ^3.0.4
         version: 3.0.4
-      rally-point-creator:
-        specifier: ^3.0.0
-        version: 3.0.0
-      rally-point-server:
-        specifier: ^3.0.1
-        version: 3.0.1
       regexparam:
         specifier: ^3.0.0
         version: 3.0.0
@@ -614,9 +608,6 @@ importers:
       pretty-bytes:
         specifier: ^7.1.0
         version: 7.1.0
-      rally-point-player:
-        specifier: ^3.0.0
-        version: 3.0.0
       react:
         specifier: ^19.2.7
         version: 19.2.7
@@ -8992,18 +8983,6 @@ packages:
 
   quote-unquote@1.0.0:
     resolution: {integrity: sha512-twwRO/ilhlG/FIgYeKGFqyHhoEhqgnKVkcmqMKi2r524gz3ZbDTcyFt38E9xjJI2vT+KbRNHVbnJ/e0I25Azwg==}
-
-  rally-point-creator@3.0.0:
-    resolution: {integrity: sha512-JT/2/9SPa0csc73NmL+djknWhoPjjJ2BCKI1fAdDL4/iqrrMDZ3InADm2tTrXf3mIVNb1OoGSKGNUbiWcbhlrA==}
-    engines: {node: '>= 20.0.0'}
-
-  rally-point-player@3.0.0:
-    resolution: {integrity: sha512-GsFrmq1VmxISt0aMqp9eGOiNF8rwNmpp2LJjFPYb7fXXlvNirAOnE3PY9PIcIkTY6WUSqcv8SInQBIGJXu34xQ==}
-    engines: {node: '>= 20.0.0'}
-
-  rally-point-server@3.0.1:
-    resolution: {integrity: sha512-jc7movc02Vz3UFpXO8E+3Nn0c2TuW8aXJ14ibUZ3zER+tSrV47BVljEWecD+BJigU6wuDGWaYyKjI80YzJ9UtA==}
-    engines: {node: '>= 20.0.0'}
 
   random-bytes@1.0.0:
     resolution: {integrity: sha512-iv7LhNVO047HzYR3InF6pUcUsPQiHTM1Qal51DcGSuZFBil1aBBWG5eHPNek7bvILMaYJ/8RU1e8w1AMdHmLQQ==}
@@ -20199,12 +20178,6 @@ snapshots:
       underscore.string: 3.3.6
 
   quote-unquote@1.0.0: {}
-
-  rally-point-creator@3.0.0: {}
-
-  rally-point-player@3.0.0: {}
-
-  rally-point-server@3.0.1: {}
 
   random-bytes@1.0.0: {}
 

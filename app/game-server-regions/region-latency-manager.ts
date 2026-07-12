@@ -100,8 +100,7 @@ async function defaultSubscribeToResume(onResume: () => void): Promise<() => voi
 
 /**
  * Maintains a region -> latency table, re-measured on region list changes, network changes, and a
- * periodic timer. Successor to `rally-point-manager.ts`'s role of keeping ping data fresh, but for
- * game server regions rather than rally-point relays.
+ * periodic timer.
  */
 @singleton()
 export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvents> {

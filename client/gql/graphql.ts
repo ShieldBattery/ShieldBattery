@@ -142,7 +142,6 @@ export type SbPermissionsInput = {
   manageMatchmakingSeasons: boolean
   manageMatchmakingTimes: boolean
   manageNews: boolean
-  manageRallyPointServers: boolean
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
   massDeleteMaps: boolean
@@ -884,7 +883,6 @@ export type AdminUserProfileQuery = {
           manageMatchmaking: boolean
           manageMatchmakingTimes: boolean
           manageMatchmakingSeasons: boolean
-          manageRallyPointServers: boolean
           massDeleteMaps: boolean
           moderateChatChannels: boolean
           manageNews: boolean
@@ -910,7 +908,6 @@ export type AdminUserProfile_PermissionsFragment = {
     manageMatchmaking: boolean
     manageMatchmakingTimes: boolean
     manageMatchmakingSeasons: boolean
-    manageRallyPointServers: boolean
     massDeleteMaps: boolean
     moderateChatChannels: boolean
     manageNews: boolean
@@ -1815,7 +1812,6 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
@@ -4884,7 +4880,6 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },
@@ -4980,7 +4975,6 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmaking' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingTimes' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageMatchmakingSeasons' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'manageRallyPointServers' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'massDeleteMaps' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'moderateChatChannels' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageNews' } },

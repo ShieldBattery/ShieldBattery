@@ -78,8 +78,6 @@ const eventToAction: EventToActionMap = {
       console.error('Error downloading map: ' + err.stack)
     })
 
-    ipcRenderer.send('rallyPointRefreshPings')
-
     return {
       type: LOBBY_INIT_DATA,
       payload: event,

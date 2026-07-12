@@ -14,7 +14,6 @@ import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
 import { MapExtension } from './maps'
-import { ResolvedRallyPointServer } from './rally-point'
 import { ReplayShieldBatteryData } from './replays'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
@@ -225,11 +224,6 @@ interface IpcRendererSendables {
 
   networkSiteConnected: () => void
 
-  rallyPointSetServers: (servers: [id: number, server: ResolvedRallyPointServer][]) => void
-  rallyPointUpsertServer: (server: ResolvedRallyPointServer) => void
-  rallyPointDeleteServer: (id: number) => void
-  rallyPointRefreshPings: () => void
-
   updaterGetState: () => void
   updaterQuitAndInstall: () => void
 
@@ -269,8 +263,6 @@ interface IpcMainSendables {
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */
   gameServerRegionsLatenciesUpdated: (latencies: GameServerRegionLatencies) => void
-
-  rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
 
   replaysOpen: (replayPaths: string[]) => void
 
