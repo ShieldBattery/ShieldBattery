@@ -68,15 +68,23 @@ rotation vs stable enroll addresses tension.
 
 ## 2. Remaining work (the production arc)
 
-### Phase 4 — Region selection *(not started)*
-- GameLift ping beacons (D7) → cached latency map → home region; verify beacon coverage against
-  lit regions; logical regions.
-- A **beacon-independent fallback** for coverage gaps / rate limits / the service going away
-  (D7 said "ICMP-to-relay-region", but scale-to-zero means there may be nothing of ours in-region
-  to ping — mechanism TBD: a tiny always-on per-region UDP echo we run (measures the real
-  protocol path, doubles as reachability), TCP-connect RTT to AWS regional endpoints, or
-  unprivileged ICMP via `IcmpSendEcho` if a region-stable target exists).
-- Today's placeholder: app-server-supplied region.
+### Phase 4 — Region selection *(BUILT + e2e-proven 2026-07-11; see `docs/region-selection-design.md`)*
+- **Per-player home relays** end to end: coordinator region config (`--regions` JSON) +
+  `GET /regions` + region-tagged relay enroll (refusal close 4002) + per-slot region placement +
+  region-preferring rehome (rp2 `eea3776..a351106`, pushed); SB: region list distribution, app-side
+  beacon measurement (UDP echo primary, TCP-connect fallback), matchmaking `(region, rtt)` +
+  `SB_REGION_BACKBONE_RTT_JSON` three-term latency, lobby/queue → session-create per-slot regions,
+  Server region setting (Auto default), `dev-beacon` loopback ping endpoints with artificial delay.
+- **Live-proven on loopback**: two fake regions at 10/80ms delays → settings showed
+  "Auto — Local A (11ms)" / manual pick; a cross-region lobby game homed slot 0 on relay 1 and
+  slot 1 on relay 2 (meshed, production path); mid-game relay kill re-homed 2→1 with clean resume
+  and a correct win/loss; the admin game page shows session id + home/rehome relay history
+  (`games.netcode_v2_relays`).
+- **Remaining for production regions**: verify GameLift beacon coverage against the real region
+  list + pick real fallback endpoints (config makes both explicit per region); backbone RTT table
+  values; region config deployment story (Phase 5/6).
+- The v1 rally-point pipeline (service, app manager, IPC, admin UI, deps, `rally_point_servers`,
+  `games.routes`, launch-arg port) is **deleted**.
 
 ### Phase 5 — AWS orchestration *(not started, two contracts pre-built)*
 - Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, lobby-time
@@ -128,10 +136,16 @@ explicitly.
 - Live loopback matrix on the current pinned build (see §0).
 
 ### SB-side small backlog (carried from the deleted tracker)
-Persist the rp2 session id on the game record (required to look up flight-recorder blobs — a
-prefix list of `<tenant>/<session>/` recovers the relays), plus relay history (home at create +
-each rehome dead→new + timestamps; SB mediates all these moments) for relay-centric incident
-queries; drop `netcodeV2` naming from public surfaces; client desync-report hook (VOID-only);
+~~Persist the rp2 session id + relay history on the game record~~ (DONE 2026-07-11: session id was
+already persisted; `games.netcode_v2_relays` home/rehome events + admin game-page display landed
+with Phase 4); `/netstat` polish: sample the buffer-history graph on a time cadence (today it only
+gains points when the buffer size changes, so the graph is mostly empty), show each player's
+current relay(s) (changes on rehome, genuinely informative under per-player homes), drop the
+constant "Turn rate 24/s" row; remove the lobby turn-rate setting (inert under v2 — a TR8-feel
+emulation for UMS players is a future idea with different UI); fix or delete the
+`docs/USEFUL_QUERIES.md` saved query that joins the dropped `rally_point_servers`/`games.routes`;
+translate the new region-settings strings (`translate-i18n` pass — only `en` is generated);
+drop `netcodeV2` naming from public surfaces; client desync-report hook (VOID-only);
 relay forward-channel byte budget (oversize amplification); self-desync-void rate-limit;
 post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
 classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
