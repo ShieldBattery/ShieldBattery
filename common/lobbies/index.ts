@@ -2,7 +2,6 @@ import { List, Record } from 'immutable'
 import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
-import { BwTurnRate } from '../network'
 import { SbUserId } from '../users/sb-user-id'
 import { Slot, SlotType } from './slot'
 
@@ -38,7 +37,6 @@ export class Lobby extends Record({
   /** All lobbies have at least one team (even Melee and FFA). */
   teams: List<Team>(),
   host: new Slot(),
-  turnRate: undefined as BwTurnRate | 0 | undefined,
   useLegacyLimits: false,
 }) {}
 

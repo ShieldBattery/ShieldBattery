@@ -32,7 +32,6 @@ import {
   createUmsComputer,
 } from '../../../common/lobbies/slot'
 import { MapForce, MapInfo, getTeamNames, numTeams, toMapInfoJson } from '../../../common/maps'
-import { BwTurnRate } from '../../../common/network'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 
@@ -229,7 +228,6 @@ export function createLobby({
   hostRace = 'r',
   hostRegion,
   allowObservers,
-  turnRate,
   useLegacyLimits = false,
 }: {
   name: string
@@ -242,7 +240,6 @@ export function createLobby({
   /** The host's chosen home game-server region, stored on their slot for session-create placement. */
   hostRegion?: GameServerRegionId
   allowObservers: boolean
-  turnRate?: BwTurnRate | 0
   useLegacyLimits?: boolean
 }) {
   let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
@@ -269,7 +266,6 @@ export function createLobby({
     gameSubType: +gameSubType,
     teams,
     host: new Slot(),
-    turnRate,
     useLegacyLimits,
   })
   let host

@@ -25,7 +25,6 @@ import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
-import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -55,9 +54,6 @@ const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
-
-const isValidTurnRate = (num: unknown) =>
-  num === undefined || num === TURN_RATE_DYNAMIC || ALL_TURN_RATES.includes(num as BwTurnRate)
 
 // The desired region is an opaque id, loosely validated here; the handler checks it against the
 // live region list and drops it if unknown, so a client with no measured regions joins region-less.
@@ -182,25 +178,24 @@ export class LobbyApi {
       map: nonEmptyString,
       gameType: isValidGameType,
       gameSubType: isValidGameSubType,
-      turnRate: isValidTurnRate,
       useLegacyLimits: (b: unknown) => b === undefined || b === true || b === false,
       region: isValidRegion,
       rttMs: isValidRttMs,
     }),
   )
   async create(data: Map<string, any>, next: NextFunc) {
-    const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits, region } =
-      data.get('body') as {
-        name: string
-        map: SbMapId
-        gameType: GameType
-        gameSubType?: number
-        allowObservers?: boolean
-        turnRate?: BwTurnRate
-        useLegacyLimits?: boolean
-        region?: GameServerRegionId
-        rttMs?: number
-      }
+    const { name, map, gameType, gameSubType, allowObservers, useLegacyLimits, region } = data.get(
+      'body',
+    ) as {
+      name: string
+      map: SbMapId
+      gameType: GameType
+      gameSubType?: number
+      allowObservers?: boolean
+      useLegacyLimits?: boolean
+      region?: GameServerRegionId
+      rttMs?: number
+    }
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -246,7 +241,6 @@ export class LobbyApi {
       hostRace: undefined,
       hostRegion,
       allowObservers: allowObservers ?? false,
-      turnRate,
       useLegacyLimits,
     })
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
@@ -846,7 +840,6 @@ export class LobbyApi {
       gameSource: GameSource.Lobby,
       gameSourceExtra: {
         host: lobby.host.userId,
-        turnRate: lobby.turnRate,
         useLegacyLimits: lobby.useLegacyLimits,
       },
       lockedAlliances: false,

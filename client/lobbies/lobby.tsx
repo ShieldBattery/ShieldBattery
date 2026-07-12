@@ -15,7 +15,6 @@ import {
   Team,
 } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import { BwTurnRate } from '../../common/network'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
@@ -157,16 +156,6 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
     default:
       msg satisfies never
       return null
-  }
-}
-
-function turnRateToLabel(turnRate: BwTurnRate | 0 | undefined, t: WithTranslation['t']): string {
-  if (turnRate === 0) {
-    return t('lobbies.lobby.turnRateDynamic', 'DTR')
-  } else if (!turnRate) {
-    return t('lobbies.lobby.turnRateAuto', 'Auto')
-  } else {
-    return String(turnRate)
   }
 }
 
@@ -373,10 +362,6 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
-          </InfoItem>
-          <InfoItem>
-            <InfoLabel as='span'>{t('lobbies.lobby.turnRate', 'Turn rate')}</InfoLabel>
-            <InfoValue as='span'>{turnRateToLabel(lobby.turnRate, t)}</InfoValue>
           </InfoItem>
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.unitLimit', 'Unit limit')}</InfoLabel>

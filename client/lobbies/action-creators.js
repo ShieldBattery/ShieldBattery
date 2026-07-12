@@ -43,7 +43,7 @@ import { fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
 
 export const createLobby =
-  ({ name, map, gameType, gameSubType, turnRate, useLegacyLimits, allowObservers = true }) =>
+  ({ name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true }) =>
   dispatch => {
     // Resolve the host's home region the same way matchmaking does before queueing, so their slot
     // homes on a nearby relay at session create. Falls through region-less if nothing's measured or
@@ -57,7 +57,6 @@ export const createLobby =
             map,
             gameType,
             gameSubType,
-            turnRate,
             useLegacyLimits,
             allowObservers,
             region: desiredRegion?.region,

@@ -792,9 +792,6 @@
       "mapRequired": "Select a map to play",
       "selectMap": "Select map",
       "title": "Create lobby",
-      "turnRate": "Turn rate",
-      "turnRateAuto": "Auto",
-      "turnRateDynamic": "DTR (Not recommended)",
       "useLegacyLimits": "Use legacy unit limit"
     },
     "errors": {
@@ -819,9 +816,6 @@
       "gameType": "Game type",
       "leaveLobby": "Leave lobby",
       "startGame": "Start game",
-      "turnRate": "Turn rate",
-      "turnRateAuto": "Auto",
-      "turnRateDynamic": "DTR",
       "unitLimit": "Unit limit",
       "unitLimitExtended": "Extended",
       "unitLimitLegacy": "Legacy"

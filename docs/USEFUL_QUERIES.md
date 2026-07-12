@@ -121,42 +121,6 @@ GROUP BY matchmaking_type
 ORDER BY matchmaking_type;
 ```
 
-## Predicted vs. actual match latency
-
-Validates the latency input to the quality formula before trusting `WEIGHT_LATENCY`. The matcher
-estimates a match's latency at *queue time* from each player's rally-point pings (stored as
-`match_formations.max_latency`, the worst pairwise one-way link). When the game actually launches, the
-game loader re-picks routes from *fresh* pings and records the real per-pair latency in `games.routes`
-— so the worst actual route latency is the ground truth for what the matcher predicted. A small
-`avg_bias_ms` / `median_abs_error_ms` means the queue-time estimate is trustworthy and the latency
-weight can be tuned against it; a large error means pings drift too much between queue and launch for
-the term to be reliable.
-
-```sql
-WITH paired AS (
-  SELECT
-    f.matchmaking_type,
-    f.max_latency AS predicted_ms,
-    -- Worst actual one-way link, mirroring how max_latency takes the max across pairs.
-    (SELECT max((r->>'latency')::real) FROM unnest(g.routes) AS r) AS actual_ms
-  FROM matchmaking_match_formations f
-  JOIN games g ON g.id = f.game_id
-  WHERE g.routes IS NOT NULL AND array_length(g.routes, 1) > 0
-)
-SELECT
-  matchmaking_type,
-  count(*) AS games,
-  round(avg(predicted_ms)::numeric, 1) AS avg_predicted_ms,
-  round(avg(actual_ms)::numeric, 1) AS avg_actual_ms,
-  -- Signed: positive means the game ended up laggier than the matcher predicted.
-  round(avg(actual_ms - predicted_ms)::numeric, 1) AS avg_bias_ms,
-  round((percentile_cont(0.5)
-    WITHIN GROUP (ORDER BY abs(actual_ms - predicted_ms)))::numeric, 1) AS median_abs_error_ms
-FROM paired
-GROUP BY matchmaking_type
-ORDER BY matchmaking_type;
-```
-
 ## Queue health by skill band (search time + abandonment rate)
 
 Uses the rating captured at queue time to show where matchmaking is painful: which skill bands wait
@@ -319,22 +283,33 @@ GROUP BY f.matchmaking_type, day
 ORDER BY f.matchmaking_type, day;
 ```
 
-## Recent game rally-point routes + estimated latency, 1 route per row
+## Recent games and the relays that served them, 1 relay event per row
 
-Change the first common table expression to select the game entries you care about.
+Netcode v2 replaced the old rally-point routing pipeline (`rally_point_servers` and `games.routes`
+are both gone; nothing has written to them since the cutover). What a game's session actually used
+is recorded on `games.netcode_v2_session` (the rally-point2 coordinator's session id) and
+`games.netcode_v2_relays` (a JSON array of relay-serving events: the home relay(s) at session
+create, plus any later rehome onto a replacement). Unnesting that array gives one row per event,
+keyed to the session id, which is what you'd hand an operator alongside a `/netstat` screenshot to
+pull flight-recorder blobs. Adjust the `LIMIT`/filter to the games you care about.
 
 ```sql
-WITH game_routes AS (
-	SELECT g.id, g.start_time, g.routes FROM games g
-	WHERE g.routes IS NOT NULL
-	ORDER BY g.start_time DESC
-	LIMIT 10
-) SELECT g.id AS game_id, u1.name AS p1, u2.name AS p2, r.description AS "server", g.route->>'latency' AS latency
-FROM (SELECT g.id, UNNEST(g.routes) AS route, g.start_time FROM game_routes g) g
-JOIN rally_point_servers r ON (route->>'server')::NUMERIC = r.id
-JOIN users u1 ON (g.route->>'p1')::NUMERIC = u1.id
-JOIN users u2 ON (g.route->>'p2')::NUMERIC = u2.id
-ORDER BY g.start_time, p1;
+SELECT
+  g.id AS game_id,
+  g.start_time,
+  g.netcode_v2_session AS session_id,
+  event->>'kind' AS event_kind,
+  (event->>'relayId')::int AS relay_id,
+  event->>'relayAddr' AS relay_addr,
+  (event->>'deadRelayId')::int AS dead_relay_id,
+  (event->>'newRelayId')::int AS new_relay_id,
+  event->>'newRelayAddr' AS new_relay_addr,
+  to_timestamp((event->>'at')::bigint / 1000.0) AS event_time
+FROM games g,
+  jsonb_array_elements(g.netcode_v2_relays) AS event
+WHERE g.netcode_v2_relays IS NOT NULL
+ORDER BY g.start_time DESC, event_time
+LIMIT 50;
 ```
 
 ## Veto count for each map in the current map pool

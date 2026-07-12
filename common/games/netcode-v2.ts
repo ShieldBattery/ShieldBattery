@@ -1,3 +1,4 @@
+import { GameServerRegionId } from '../game-server-regions'
 import { SbUserId } from '../users/sb-user-id'
 
 /**
@@ -29,6 +30,20 @@ export interface NetcodeV2RelayInfo {
 export interface NetcodeV2RosterEntry {
   slot: number
   userId: SbUserId
+  /**
+   * The rally-point2 relay this slot was homed on at session create: either its `slot_homes`
+   * override, or the session's `home_relay` for every slot without one. A peer's later re-home
+   * isn't reflected here — re-homing is per-client-group and not observable by other clients — so
+   * this is create-time truth, not live state.
+   */
+  homeRelayId: number
+  /**
+   * The game-server region this slot requested at session create, if any. The coordinator doesn't
+   * echo back which region a slot actually ended up served from, so a slot whose requested region
+   * had no live relay still reports that requested region here even though `homeRelayId` points
+   * elsewhere.
+   */
+  homeRegion?: GameServerRegionId
 }
 
 /**

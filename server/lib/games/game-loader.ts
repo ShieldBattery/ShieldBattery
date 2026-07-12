@@ -94,14 +94,6 @@ const LoadingDatas = {
   },
 }
 
-export interface GameSetupGameInfo {
-  gameId: string
-  seed: number
-  turnRate?: BwTurnRate | 0
-  userLatency?: BwUserLatency
-  useLegacyLimits?: boolean
-}
-
 /**
  * Parameters to `GameLoader.loadGame`.
  */

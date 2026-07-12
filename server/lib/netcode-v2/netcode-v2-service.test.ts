@@ -453,4 +453,68 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       expect.objectContaining({ kind: 'home', relayId: 2, relayAddr: '10.0.0.2:14900' }),
     ])
   })
+
+  test('roster entries carry the session home relay and requested region, omitting region when absent', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+
+    const result = await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false, region: makeGameServerRegionId('us-east') },
+        { slot: 1, userId: u2, observer: true },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    // The roster is shared by every player's setup, so any player's copy proves the shape.
+    const roster = result.get(u1)!.roster
+    expect(roster).toEqual([
+      { slot: 0, userId: u1, homeRelayId: 1, homeRegion: 'us-east' },
+      { slot: 1, userId: u2, homeRelayId: 1 },
+    ])
+    expect(roster[1]).not.toHaveProperty('homeRegion')
+  })
+
+  test('roster entries use their slot_homes override relay for homeRelayId', async () => {
+    configureNetcodeV2()
+    // eslint-disable-next-line camelcase
+    const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
+    const json = vi.fn().mockResolvedValue({
+      ...sessionResponse([0, 1]),
+      // eslint-disable-next-line camelcase
+      slot_homes: [{ slot: 1, relay: secondaryRelay }],
+    })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+
+    const result = await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false },
+        { slot: 1, userId: u2, observer: false },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    const roster = result.get(u1)!.roster
+    // Slot 0 has no override, so it homes on the session's primary home relay; slot 1's override
+    // names the secondary relay instead.
+    expect(roster).toEqual([
+      { slot: 0, userId: u1, homeRelayId: 1 },
+      { slot: 1, userId: u2, homeRelayId: 2 },
+    ])
+  })
 })
