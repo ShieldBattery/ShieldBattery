@@ -434,6 +434,48 @@ describe('matchmaking/matchmaking-service', () => {
     })
   })
 
+  test('forwards each queued player rtt to the game loader alongside their region', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+    // A queued with a region + rtt; B queues with neither, so B must reach the loader region-blind
+    // and without an rtt entry.
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 24 })
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 12.5,
+        skillVariance: 30000,
+        winProbability: 0.42,
+        teamARating: 1500,
+        teamBRating: 1600,
+        maxLatency: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    const request = gameLoader.loadGame.mock.calls[0][0]
+    const slotForA = request.players.find((p: any) => p.userId === USER_A)
+    const slotForB = request.players.find((p: any) => p.userId === USER_B)
+    expect(slotForA.region).toBe(REGION_US_EAST)
+    expect(slotForB.region).toBeUndefined()
+    expect(request.rttMsByUserId).toEqual(new Map([[USER_A, 24]]))
+  })
+
   test('records the match formation telemetry for a match that fails to start', async () => {
     asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
     asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])

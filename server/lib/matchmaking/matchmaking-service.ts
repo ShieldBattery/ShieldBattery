@@ -1145,6 +1145,18 @@ export class MatchmakingService {
         : s,
     )
 
+    // Each player's measured round-trip time to that region, carried to the game loader alongside
+    // `region` — but kept off the `Slot` itself (unlike `region`) since `rttMs` is never meant to
+    // reach another player.
+    const rttMsByUserId = new Map<SbUserId, number>()
+    for (const s of slots) {
+      const rttMs =
+        s.userId !== undefined ? this.playerQueueData.get(s.userId)?.region?.rttMs : undefined
+      if (rttMs !== undefined) {
+        rttMsByUserId.set(s.userId!, rttMs)
+      }
+    }
+
     const entities = match.teams.flat()
     const chosenMap = mapInfo
 
@@ -1227,6 +1239,7 @@ export class MatchmakingService {
       mapId: chosenMap.id,
       gameConfig,
       ratings,
+      rttMsByUserId,
     })
 
     if (loadResult.isError()) {

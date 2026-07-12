@@ -123,6 +123,14 @@ export interface GameLoadRequest {
    * matchmaking games.
    */
   ratings?: Array<[id: SbUserId, rating: number]>
+  /**
+   * Each player's measured round-trip time (ms) to their home region, keyed by user id. Read when
+   * building the netcode v2 session-create roster, alongside the region already carried on each
+   * player's `Slot`. Kept off `Slot` itself (rather than a field there, alongside `region`) because
+   * `Slot` is broadcast wholesale to lobby members and per-player rtt is not for peers' eyes; a
+   * user with no entry is forwarded to the coordinator without a latency sample.
+   */
+  rttMsByUserId?: ReadonlyMap<SbUserId, number>
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
 }
@@ -244,6 +252,7 @@ export class GameLoader {
     mapId,
     gameConfig,
     ratings,
+    rttMsByUserId,
     signal,
   }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
     const gameLoaded = createDeferred<Result<GameLoadResult, GameLoaderError>>()
@@ -266,11 +275,17 @@ export class GameLoader {
           }),
         )
 
-        this.doGameLoad({ gameId, mapId, gameConfig, resultCodes, playerInfos, ratings }).onFailure(
-          err => {
-            this.maybeCancelLoadingFromSystem(gameId, err)
-          },
-        )
+        this.doGameLoad({
+          gameId,
+          mapId,
+          gameConfig,
+          resultCodes,
+          playerInfos,
+          ratings,
+          rttMsByUserId,
+        }).onFailure(err => {
+          this.maybeCancelLoadingFromSystem(gameId, err)
+        })
 
         rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
           const loadingData = this.loadingGames.get(gameId)
@@ -466,6 +481,7 @@ export class GameLoader {
     resultCodes,
     playerInfos,
     ratings,
+    rttMsByUserId,
   }: {
     gameId: string
     mapId: SbMapId
@@ -473,6 +489,7 @@ export class GameLoader {
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
     ratings?: Array<[id: SbUserId, rating: number]>
+    rttMsByUserId?: ReadonlyMap<SbUserId, number>
   }): AsyncResult<void, GameLoaderError> {
     return Result.fromAsync(async () => {
       if (!this.loadingGames.has(gameId)) {
@@ -665,6 +682,9 @@ export class GameLoader {
           // The region the player selected when they queued/joined, if any. Forwarded to the
           // coordinator to home this slot's relay; a slot with none falls back region-blind.
           region: p.region,
+          // The player's measured round-trip time to that region, if recorded. Combined with every
+          // other slot's region/rtt to estimate the session's worst pairwise latency.
+          rttMs: rttMsByUserId?.get(p.userId!),
         }))
         const [setups, setupsError] = (
           await Result.fromAsyncCatching(

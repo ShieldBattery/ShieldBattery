@@ -48,6 +48,7 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import validateBody from '../websockets/validate-body'
+import { LobbyPlayerRttStore } from './lobby-player-rtt-store'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
@@ -114,6 +115,7 @@ export class LobbyApi {
   lobbyCountdowns = Map<string, Countdown>()
   loadingLobbies = Map<string, AbortController>()
   subscribedSockets = Map<string, ListSubscription>()
+  readonly lobbyPlayerRtt = new LobbyPlayerRttStore()
 
   constructor(
     readonly nydus: NydusServer,
@@ -184,18 +186,17 @@ export class LobbyApi {
     }),
   )
   async create(data: Map<string, any>, next: NextFunc) {
-    const { name, map, gameType, gameSubType, allowObservers, useLegacyLimits, region } = data.get(
-      'body',
-    ) as {
-      name: string
-      map: SbMapId
-      gameType: GameType
-      gameSubType?: number
-      allowObservers?: boolean
-      useLegacyLimits?: boolean
-      region?: GameServerRegionId
-      rttMs?: number
-    }
+    const { name, map, gameType, gameSubType, allowObservers, useLegacyLimits, region, rttMs } =
+      data.get('body') as {
+        name: string
+        map: SbMapId
+        gameType: GameType
+        gameSubType?: number
+        allowObservers?: boolean
+        useLegacyLimits?: boolean
+        region?: GameServerRegionId
+        rttMs?: number
+      }
     const user = this.getUser(data)
     const client = this.getClient(data)
 
@@ -249,6 +250,9 @@ export class LobbyApi {
 
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyClients = this.lobbyClients.set(client, name)
+    if (rttMs !== undefined) {
+      this.lobbyPlayerRtt.set(name, client.userId, rttMs)
+    }
     this._subscribeClientToLobby(lobby, user, client)
 
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
@@ -263,7 +267,7 @@ export class LobbyApi {
     }),
   )
   async join(data: Map<string, any>, next: NextFunc) {
-    const { name, region } = data.get('body') as {
+    const { name, region, rttMs } = data.get('body') as {
       name: string
       region?: GameServerRegionId
       rttMs?: number
@@ -319,6 +323,9 @@ export class LobbyApi {
 
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyClients = this.lobbyClients.set(client, name)
+    if (rttMs !== undefined) {
+      this.lobbyPlayerRtt.set(name, client.userId, rttMs)
+    }
 
     this._publishLobbyDiff(lobby, updated)
     this._subscribeClientToLobby(lobby, user, client)
@@ -778,9 +785,11 @@ export class LobbyApi {
       })
       this.lobbies = this.lobbies.delete(lobby.name)
       this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
+      this.lobbyPlayerRtt.deleteLobby(lobby.name)
       this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+      this.lobbyPlayerRtt.deleteUser(lobby.name, client.userId)
       this._publishLobbyDiff(
         lobby,
         updatedLobby,
@@ -871,6 +880,7 @@ export class LobbyApi {
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
+        rttMsByUserId: this.lobbyPlayerRtt.getAll(lobbyName),
         signal: abortController.signal,
       })
 
@@ -951,6 +961,7 @@ export class LobbyApi {
     this.lobbies = this.lobbies.delete(lobby.name)
     this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+    this.lobbyPlayerRtt.deleteLobby(lobby.name)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)

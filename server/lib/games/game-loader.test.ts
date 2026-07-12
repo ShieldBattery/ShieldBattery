@@ -326,4 +326,55 @@ describe('games/game-loader/GameLoader', () => {
       ]),
     )
   })
+
+  test('threads each player measured rtt through to createSessionForGame', async () => {
+    const player1 = makePlayer(p1)
+    const player2 = makePlayer(p2)
+    registerActiveClients([player1.slot, player2.slot])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockResolvedValue(
+      new Map([
+        [p1, {} as any],
+        [p2, {} as any],
+      ]),
+    )
+
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId: 'game-rtt',
+      resultCodes: new Map([
+        [p1, 'code-1'],
+        [p2, 'code-2'],
+      ]),
+    } as any)
+
+    const request: GameLoadRequest = {
+      players: [player1.slot, player2.slot],
+      playerInfos: [player1.playerInfo, player2.playerInfo],
+      mapId,
+      gameConfig: lobbyConfig([
+        [{ id: p1, race: 't', isComputer: false }],
+        [{ id: p2, race: 'z', isComputer: false }],
+      ]),
+      // p1 has a recorded rtt; p2 has none and must be sent without one.
+      rttMsByUserId: new Map([[p1, 42]]),
+    }
+
+    const resultPromise = gameLoader.loadGame(request)
+
+    await vi.waitFor(() => {
+      expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+    })
+    gameLoader.registerGameAsLoaded('game-rtt', p1)
+    gameLoader.registerGameAsLoaded('game-rtt', p2)
+    await resultPromise
+
+    const { slots } = netcodeV2Service.createSessionForGame.mock.calls[0][0]
+    expect(slots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: p1, rttMs: 42 }),
+        expect.objectContaining({ userId: p2, rttMs: undefined }),
+      ]),
+    )
+  })
 })
