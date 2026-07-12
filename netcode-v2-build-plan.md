@@ -267,9 +267,10 @@ route names; low urgency, rename needs a target-naming decision); client desync-
 (VOID-only);
 ~~relay forward-channel byte budget (oversize amplification)~~ (DONE 2026-07-12, rp2 local
 `e6d126b`, unpushed: per-slot aggregate byte budget alongside the count bound, isolates via the
-existing lagging-peer signal, client-edge only); **self-desync-void rate-limit** (DEFERRED — the
-term maps to no clear mechanism in the current relay code; needs Travis's context on what it
-refers to before it can be scoped);
+existing lagging-peer signal, client-edge only); ~~self-desync-void rate-limit~~ (DROPPED
+2026-07-12 — an unrecognized orphan item from a prior developer; maps to no mechanism in the
+relay code and Travis has no recollection of it, so it can't be scoped or actioned; git history
+keeps the original wording if it ever resurfaces with context);
 post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
 classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
 decision (verify SC:R's box renders in-game at all before building the battlenet Message feed);
