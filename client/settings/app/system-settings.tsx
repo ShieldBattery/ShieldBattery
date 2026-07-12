@@ -1,7 +1,21 @@
+import { TFunction } from 'i18next'
+import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import {
+  GameServerRegion,
+  GameServerRegionId,
+  GameServerRegionLatencies,
+} from '../../../common/game-server-regions'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
+import {
+  gameServerRegionLatenciesAtom,
+  gameServerRegionsAtom,
+} from '../../game-server-regions/game-server-regions-atoms'
+import { pickAutoRegion } from '../../game-server-regions/region-resolution'
 import { CheckBox } from '../../material/check-box'
+import { SelectOption } from '../../material/select/option'
+import { Select } from '../../material/select/select'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
@@ -10,26 +24,73 @@ const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
 `
 
+/**
+ * Sentinel model value for the "Auto" option -- `GameServerRegionId`s are opaque server-provided
+ * strings, so an empty string can't collide with a real region id.
+ */
+const AUTO_REGION_VALUE = ''
+
+function getAutoOptionLabel(
+  regions: ReadonlyArray<GameServerRegion>,
+  latencies: GameServerRegionLatencies,
+  t: TFunction,
+): string {
+  const resolved = pickAutoRegion(latencies)
+  if (!resolved || resolved.rttMs === null) {
+    return t('settings.app.system.serverRegion.autoPlain', 'Auto (recommended)')
+  }
+
+  const region = regions.find(r => r.id === resolved.region)
+  return t('settings.app.system.serverRegion.autoResolved', 'Auto — {{region}} ({{rtt}}ms)', {
+    region: region?.displayName ?? resolved.region,
+    rtt: Math.round(resolved.rttMs),
+  })
+}
+
+function getRegionOptionLabel(
+  region: GameServerRegion,
+  latencies: GameServerRegionLatencies,
+  t: TFunction,
+): string {
+  const rttMs = latencies[region.id]?.rttMs
+  return rttMs === undefined
+    ? region.displayName
+    : t('settings.app.system.serverRegion.regionWithPing', '{{region}} ({{rtt}}ms)', {
+        region: region.displayName,
+        rtt: Math.round(rttMs),
+      })
+}
+
 interface AppSystemSettingsModel {
   quickOpenReplays: boolean
 
   runAppAtSystemStart: boolean
   runAppAtSystemStartMinimized: boolean
+
+  gameServerRegion: string
 }
 
 export function AppSystemSettings() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const localSettings = useAppSelector(s => s.settings.local)
+  const regions = useAtomValue(gameServerRegionsAtom)
+  const latencies = useAtomValue(gameServerRegionLatenciesAtom)
 
-  const { bindCheckable, getInputValue, submit, form } = useForm<AppSystemSettingsModel>(
-    {
-      quickOpenReplays: localSettings.quickOpenReplays,
-      runAppAtSystemStart: localSettings.runAppAtSystemStart,
-      runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
-    },
-    {},
-  )
+  const { bindCheckable, bindCustom, getInputValue, submit, form } =
+    useForm<AppSystemSettingsModel>(
+      {
+        quickOpenReplays: localSettings.quickOpenReplays,
+        runAppAtSystemStart: localSettings.runAppAtSystemStart,
+        runAppAtSystemStartMinimized: localSettings.runAppAtSystemStartMinimized,
+        gameServerRegion:
+          localSettings.gameServerRegion !== undefined &&
+          regions.some(r => r.id === localSettings.gameServerRegion)
+            ? localSettings.gameServerRegion
+            : AUTO_REGION_VALUE,
+      },
+      {},
+    )
 
   useFormCallbacks(form, {
     onValidatedChange: model => {
@@ -39,6 +100,10 @@ export function AppSystemSettings() {
             quickOpenReplays: model.quickOpenReplays,
             runAppAtSystemStart: model.runAppAtSystemStart,
             runAppAtSystemStartMinimized: model.runAppAtSystemStartMinimized,
+            gameServerRegion:
+              model.gameServerRegion === AUTO_REGION_VALUE
+                ? undefined
+                : (model.gameServerRegion as GameServerRegionId),
           },
           {
             onSuccess: () => {},
@@ -77,6 +142,27 @@ export function AppSystemSettings() {
             disabled={!getInputValue('runAppAtSystemStart')}
           />
         </SectionContainer>
+        {regions.length > 0 ? (
+          <SectionContainer>
+            <SectionOverline>{t('settings.app.system.networkOverline', 'Network')}</SectionOverline>
+            <Select
+              {...bindCustom('gameServerRegion')}
+              label={t('settings.app.system.serverRegion.label', 'Server region')}
+              tabIndex={0}>
+              <SelectOption
+                value={AUTO_REGION_VALUE}
+                text={getAutoOptionLabel(regions, latencies, t)}
+              />
+              {regions.map(region => (
+                <SelectOption
+                  key={region.id}
+                  value={region.id}
+                  text={getRegionOptionLabel(region, latencies, t)}
+                />
+              ))}
+            </Select>
+          </SectionContainer>
+        ) : null}
       </FormContainer>
     </form>
   )

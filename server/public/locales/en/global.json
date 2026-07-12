@@ -540,10 +540,17 @@
       "detailedResults": "Detailed Individual Results",
       "downloadReplay": "Download replay",
       "hasReport": "Has Report",
-      "latency": "Latency (ms)",
+      "netcodeV2": {
+        "address": "Address",
+        "at": "At",
+        "event": "Event",
+        "home": "Home",
+        "rehome": "Rehome",
+        "relay": "Relay",
+        "session": "Session: {{session}}",
+        "title": "Netcode v2"
+      },
       "player": "Player",
-      "player1": "Player 1",
-      "player2": "Player 2",
       "replay": "Replay",
       "reportedAPM": "APM",
       "reportedAt": "Reported At",
@@ -553,8 +560,6 @@
       "reportedResults": "Individual Reports Summary",
       "reportedTime": "Reported Time",
       "reportTitle": "Report from <1></1>:",
-      "routes": "Network Routes",
-      "server": "Server",
       "title": "Debug Information"
     },
     "errorLoading": "There was a problem loading this game.",
@@ -1242,8 +1247,15 @@
       },
       "system": {
         "filesOverline": "Files",
+        "networkOverline": "Network",
         "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
+        "serverRegion": {
+          "autoPlain": "Auto (recommended)",
+          "autoResolved": "Auto — {{region}} ({{rtt}}ms)",
+          "label": "Server region",
+          "regionWithPing": "{{region}} ({{rtt}}ms)"
+        },
         "startMinimized": "Start minimized",
         "startupOverline": "Startup",
         "title": "System"

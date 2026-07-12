@@ -28,6 +28,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   legacyCursorSizing: false,
   useCustomCursorSize: false,
   customCursorSize: 0.25,
+  gameServerRegion: undefined,
 }
 
 export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = {

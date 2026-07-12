@@ -37,7 +37,7 @@ import {
   LOBBY_START_COUNTDOWN,
   LOBBY_START_COUNTDOWN_BEGIN,
 } from '../actions'
-import { resolveDesiredRegion } from '../matchmaking/action-creators'
+import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
@@ -61,7 +61,9 @@ export const createLobby =
             useLegacyLimits,
             allowObservers,
             region: desiredRegion?.region,
-            rttMs: desiredRegion?.rttMs,
+            // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire
+            // format only distinguishes "present" from "absent", so a null rtt is sent as absent.
+            rttMs: desiredRegion?.rttMs ?? undefined,
           }),
         )
       })
@@ -75,7 +77,7 @@ export const joinLobby = name => dispatch => {
         createSiteSocketAction(LOBBY_JOIN_BEGIN, LOBBY_JOIN, '/lobbies/join', {
           name,
           region: desiredRegion?.region,
-          rttMs: desiredRegion?.rttMs,
+          rttMs: desiredRegion?.rttMs ?? undefined,
         }),
       )
     })

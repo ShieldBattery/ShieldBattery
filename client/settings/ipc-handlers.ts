@@ -3,6 +3,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings } from '../../common/settings/local-settings'
 import { audioManager } from '../audio/audio-manager'
 import { dispatch } from '../dispatch-registry'
+import { manualGameServerRegionAtom } from '../game-server-regions/game-server-regions-atoms'
 import { jotaiStore } from '../jotai-store'
 import { checkShieldBatteryFiles } from '../starcraft/check-shieldbattery-files-ipc'
 import { starcraftPathValid, starcraftVersionValid } from '../starcraft/health-state'
@@ -12,6 +13,8 @@ export default function registerModule({ ipcRenderer }: { ipcRenderer: TypedIpcR
   let lastPath = ''
   let lastPathWasValid = false
   const afterLocalSettingsChange = (settings: Partial<LocalSettings>) => {
+    jotaiStore.set(manualGameServerRegionAtom, settings.gameServerRegion)
+
     if (settings.masterVolume !== lastMasterVolume) {
       audioManager.setMasterVolume(settings.masterVolume!)
     }

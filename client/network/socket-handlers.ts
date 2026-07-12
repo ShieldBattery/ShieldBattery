@@ -3,6 +3,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
+import { gameServerRegionsAtom } from '../game-server-regions/game-server-regions-atoms'
 import games from '../games/socket-handlers'
 import { jotaiStore } from '../jotai-store'
 import lobbies from '../lobbies/socket-handlers'
@@ -48,6 +49,7 @@ function gameServerRegionsHandler({
   siteSocket.registerRoute('/gameServerRegions', (route, event) => {
     if (event.type === 'fullUpdate') {
       ipcRenderer.send('gameServerRegionsSetList', event.regions)
+      jotaiStore.set(gameServerRegionsAtom, event.regions)
     } else {
       logger.warning(`got unknown game server regions event type: ${event.type}`)
     }
@@ -59,6 +61,7 @@ const envSpecificHandlers = IS_ELECTRON
       gameServerRegionsHandler,
       require('../active-game/socket-handlers').default,
       require('../download/ipc-handlers').default,
+      require('../game-server-regions/ipc-handlers').default,
       require('../lobbies/electron-socket-handlers').default,
       require('../matchmaking/socket-handlers').default,
       require('../replays/ipc-handlers').default,

@@ -1186,10 +1186,11 @@ export interface FindMatchRequest {
   preferences: MatchmakingPreferences[]
   identifiers: [type: number, hashStr: string][]
   /**
-   * The game server region the player wants to home in, resolved by the client from its measured
-   * latency table (lowest-RTT region, i.e. Auto). Omitted when the client has no measured regions
-   * (dev loopback, or no coordinator-configured regions); the server tolerates its absence and the
-   * player simply carries no latency signal into matchmaking.
+   * The game server region the player wants to home in: their manually-selected region if they
+   * have one and it's still in the server-provided region list, otherwise resolved by the client
+   * from its measured latency table (lowest-RTT region, i.e. Auto). Omitted when the client has no
+   * measured regions (dev loopback, or no coordinator-configured regions); the server tolerates its
+   * absence and the player simply carries no latency signal into matchmaking.
    */
   region?: GameServerRegionId
   /** The player's measured round-trip time (ms) to `region`. Present only alongside `region`. */
