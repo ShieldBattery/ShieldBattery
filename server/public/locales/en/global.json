@@ -571,6 +571,7 @@
     "infoDate": "Date",
     "infoDuration": "Duration",
     "infoGameType": "Type",
+    "notFound": "This game could not be found.",
     "statusFinal": "Final",
     "statusLive": "Live",
     "summary": {
