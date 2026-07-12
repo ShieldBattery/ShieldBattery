@@ -33,8 +33,9 @@ channels (`GameStalled` covers wedged leave/lobby/session-start consumers; chat/
 on full); failed/terminal connections close promptly post-classification; rustdoc is a `-D
 warnings` CI gate.
 
-Current pins: SB `rally-point-client` at `44fc2168be26…` (rp2 `main` tip, pushed); ALPN `rp2/5`
-(client) / `rp2-mesh/4` (mesh). Standing rules: consume rp2's re-exported quinn/rustls/proto (never
+Current pins: SB `rally-point-client` at `3b24dedcd3e9…` (rp2 `main` tip, pushed; the Phase 6
+security arc — see below); ALPN `rp2/5` (client) / `rp2-mesh/5` (mesh — bumped by the mesh-auth
+arc). Standing rules: consume rp2's re-exported quinn/rustls/proto (never
 direct deps); any rp2 change = push rp2 → bump the SB `rev` pin → rebuild via `game\build.bat`;
 relay stays PII-free; wire changes additive only; no drift toward a standard reliable-ordered
 protocol (rationale in `architecture.md`).
@@ -139,11 +140,11 @@ natural per-task IP churn + Shield Standard).
 ### Phase 6 — Hardening + production rollout
 
 **Security/tenancy blockers before anything non-loopback:**
-- **Mesh `S===S` auth** *(BUILT on rp2 local `main` 2026-07-12, unpushed; adversarial review DONE
-  — 1 HIGH + 1 MEDIUM found and fixed; awaits Travis's push go-ahead)* — the accept side no longer
-  trusts the dialer's self-asserted `MeshHello.relay_id`. Shipped shape (no CA, no new credential
-  kind, nothing paid): relay identity = the SHA-256 fingerprint of its self-generated TLS cert.
-  Legs, each a gate-clean commit reviewed line-by-line in the main loop:
+- **Mesh `S===S` auth** *(LANDED 2026-07-12 — rp2 `main` pushed `44fc216..3b24ded`, SB pin bumped
+  `7c94786ec`, DLL rebuilt, 142 DLL tests + game clippy green; two adversarial passes closed)* —
+  the accept side no longer trusts the dialer's self-asserted `MeshHello.relay_id`. Shipped shape
+  (no CA, no new credential kind, nothing paid): relay identity = the SHA-256 fingerprint of its
+  self-generated TLS cert. Legs, each a gate-clean commit reviewed line-by-line in the main loop:
   - `2c0a310` coordinator distributes the enrolled fleet's `(relay_id, cert fingerprint)` set to
     every relay (additive `MeshPeers` control frame, republished under the registry lock on every
     membership change).
@@ -232,7 +233,7 @@ natural per-task IP churn + Shield Standard).
   `relay_id → pubkey` map, or a signed bootstrap token carrying the id) — the per-relay side of
   this same tenant-lifecycle item. This is the natural next security piece after the arc; needs a
   design conversation (how relays get provisioned identities in the DO/Fargate substrate).
-- **Finite token lifetimes** *(BUILT `8f33192`, unpushed)* — the `ExpiresAt(u64::MAX)` dev
+- **Finite token lifetimes** *(LANDED `8f33192`)* — the `ExpiresAt(u64::MAX)` dev
   placeholder is replaced by a configurable fixed lifetime from create (`--player-token-lifetime-secs`
   / env, default 6h ≈ 2× the longest game ever observed ~3h). Tokens are checked only when
   presented — at every connect/reconnect (initial, same-relay blip, re-home) — so expiry mid-game
