@@ -15,6 +15,7 @@ import {
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { addNetcodeV2RelayEvents, setNetcodeV2Session } from '../games/game-models'
 import log from '../logging/logger'
+import { worstPairwiseLatencyMs } from './latency-estimate'
 
 /**
  * How many pubkeys we'll hold for a single loading game before ignoring further submissions. A
@@ -150,6 +151,13 @@ interface CoordinatorSessionRequest {
    * coordinator ignores it unless a second relay is enrolled.
    */
   dev_relay_split?: number[]
+  /**
+   * The estimated worst pairwise one-way latency (ms) across the session's players, computed from
+   * each slot's region + measured rtt. Omitted when no player pair carries enough signal to compute
+   * it. The coordinator forwards this to relays as a fallback for the initial buffer depth, used
+   * only until a relay's own pre-start observation of its home clients covers the whole session.
+   */
+  latency_estimate_ms?: number
 }
 
 interface CoordinatorRelayEndpoint {
@@ -399,6 +407,12 @@ export class NetcodeV2Service {
        * Omitted from the request when absent; the coordinator then places the slot region-blind.
        */
       region?: GameServerRegionId
+      /**
+       * The player's measured round-trip time (ms) to `region`, if recorded. Combined with every
+       * other slot's region/rtt into the session's `latency_estimate_ms` hint; never forwarded to
+       * the coordinator per-slot.
+       */
+      rttMs?: number
     }>
     signal: AbortSignal
   }): Promise<Map<SbUserId, NetcodeV2ServerSetup>> {
@@ -420,6 +434,18 @@ export class NetcodeV2Service {
         ? slots.map(s => s.slot).filter(slot => config.splitRelaySlots!.has(slot))
         : []
 
+      // A fallback for the relay's own initial buffer computation, covering conditions the
+      // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
+      // never crosses the mesh). Rounded up so the estimate never under-covers a fractional ms.
+      const latencyEstimateMs = worstPairwiseLatencyMs(
+        slots.map(({ region, rttMs }) => ({ region, rttMs })),
+      )
+      const latencyEstimateField =
+        latencyEstimateMs !== undefined
+          ? // eslint-disable-next-line camelcase
+            { latency_estimate_ms: Math.ceil(latencyEstimateMs) }
+          : {}
+
       const request: CoordinatorSessionRequest = {
         tenant: config.tenant,
         // eslint-disable-next-line camelcase
@@ -435,6 +461,7 @@ export class NetcodeV2Service {
         })),
         // eslint-disable-next-line camelcase
         ...(splitSlots.length > 0 ? { dev_relay_split: splitSlots } : {}),
+        ...latencyEstimateField,
       }
 
       let session: CoordinatorSessionResponse

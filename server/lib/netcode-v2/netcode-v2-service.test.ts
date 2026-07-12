@@ -393,6 +393,114 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     expect(body.players[1]).not.toHaveProperty('region')
   })
 
+  test('adds a ceiled latency_estimate_ms to the request body when slots carry a latency signal', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        {
+          slot: 0,
+          userId: u1,
+          observer: false,
+          region: makeGameServerRegionId('us-east'),
+          rttMs: 21,
+        },
+        {
+          slot: 1,
+          userId: u2,
+          observer: false,
+          region: makeGameServerRegionId('us-east'),
+          rttMs: 22,
+        },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    const createCall = asMockedFunction(got.post).mock.calls.find(c =>
+      String(c[0]).endsWith('/session/create'),
+    )!
+    const body = JSON.parse((createCall[1] as any).body)
+    // Same region, so the one-way estimate is rtt halves only: 21/2 + 22/2 = 21.5ms, ceiled to 22.
+    expect(body.latency_estimate_ms).toBe(22)
+  })
+
+  test("uses the configured backbone table for a cross-region pair's latency_estimate_ms", async () => {
+    vi.stubEnv('SB_REGION_BACKBONE_RTT_JSON', JSON.stringify({ 'us-east|eu-west': 90 }))
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        {
+          slot: 0,
+          userId: u1,
+          observer: false,
+          region: makeGameServerRegionId('us-east'),
+          rttMs: 20,
+        },
+        {
+          slot: 1,
+          userId: u2,
+          observer: false,
+          region: makeGameServerRegionId('eu-west'),
+          rttMs: 40,
+        },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    const createCall = asMockedFunction(got.post).mock.calls.find(c =>
+      String(c[0]).endsWith('/session/create'),
+    )!
+    const body = JSON.parse((createCall[1] as any).body)
+    // one_way = 20/2 + 90/2 + 40/2 = 10 + 45 + 20 = 75ms.
+    expect(body.latency_estimate_ms).toBe(75)
+  })
+
+  test('omits latency_estimate_ms entirely when no slot pair carries a latency signal', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false },
+        { slot: 1, userId: u2, observer: false },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    const createCall = asMockedFunction(got.post).mock.calls.find(c =>
+      String(c[0]).endsWith('/session/create'),
+    )!
+    const body = JSON.parse((createCall[1] as any).body)
+    expect(body).not.toHaveProperty('latency_estimate_ms')
+  })
+
   test('records a home event for the home relay', async () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue(sessionResponse([0]))
