@@ -157,10 +157,17 @@ natural per-task IP churn + Shield Standard).
     ECDSA P-256 + Ed25519, RSA refused) closes the copy-a-public-cert hole; an **atomic**
     duplicate-id refusal (`try_enroll`, check+insert under one lock — a review fix over the
     initial check-then-insert TOCTOU) keeps one live connection per id.
-  - `335065e` **mesh session-id tenant scoping**: `MeshPacket` carries an additive tenant tag;
-    the transport demuxes by `(tenant, session)`, so the same numeric id under two tenants no
-    longer collides (the class is gone, not just refused). The legacy fail-close collision guard
-    stays for tenant-absent frames.
+  - `335065e` **mesh session-id tenant scoping (transport layer)**: `MeshPacket` carries an
+    additive tenant tag and the transport `MeshLink` demuxes datagrams by `(tenant, session)`.
+    **Scope correction (Codex review):** this fixed the transport datagram demux only — the
+    relay's driver-level `joined` map (`relay/src/mesh.rs`) is still keyed by the bare `SessionId`
+    with a fail-close guard that *refuses* a second tenant sharing a session id, rather than
+    serving both. So on a shared coordinator two tenants with a colliding session id still can't
+    both mesh through the same relay pair (one stalls). Fully closing it needs a tenant on every
+    mesh control-stream frame + report + ack-cursor frame (they all carry a bare `session`), a
+    broad wire change to lockstep-critical code — recorded as a follow-up below, not a quick fix.
+    The behavior is *safe* (fail-closed refusal, never cross-wiring), and colliding μs-seeded ids
+    on the one shared staging/dev fleet are rare.
   - **Adversarial-review fixes** (a dedicated opus reviewer attacked the trust boundaries; each
     finding independently verified in the main loop before fixing):
     - `99657a6` **[HIGH] version-downgrade defeated the whole enroll-binding leg.** PoP + the
@@ -171,27 +178,60 @@ natural per-task IP churn + Shield Standard).
       now mandatory** — `MIN_SUPPORTED = 3` (sub-v3 refused at negotiation), the challenge +
       `try_enroll` run unconditionally, the sub-threshold enroll branch is deleted, and a
       compile-time assert (`MIN_SUPPORTED ≥ ENROLL_POP_MIN`) guards against regression.
-      **DECISION FOR TRAVIS TO RATIFY:** this drops v2 relay backward-compat to make the security
-      check unskippable. It costs nothing (pre-production, zero deployed relays) and the allowance
-      *was* the hole — but it's a deliberate design change made during autonomous review-fixing.
+      **RATIFIED by Travis 2026-07-12** ("backwards compatibility on this stuff does not matter at
+      all right now, none of it has been deployed to anyone"). Dropping v2 relay backward-compat to
+      make the security check unskippable.
     - `33ddab0` **[MEDIUM] mesh peer-auth was off by default.** `--require-mesh-peer-auth`
       defaulted false though its doc said "production sets this," leaving a coordinator-driven
       relay with an unauthenticated mesh-accept window from boot to first fleet push. Fix: a
       coordinator-driven relay (`has_coordinator`) always fails closed regardless of the flag;
       dev/static `--mesh-peer` keeps the default-off behavior.
+  - **Second review pass (Codex, over `44fc216..805febf`) — triaged 2026-07-12.** No new
+    high/critical; corroborated the two above (Codex reviewed pre-fix). Fixed: `f5240c1`
+    **[low] token expiry failed open on a pre-epoch clock** (`unix_now` returned 0 → every real
+    expiry read as future → expired tokens admitted; now `u64::MAX` = fail closed); `fcad0d2`
+    **[med] enroll-handshake ordering** — a relay reconnecting with a queued notice or mid-drain
+    sent that frame ahead of the PoP proof and was refused, locking it out of re-enrolling; fix
+    completes the challenge (new enrollment phase, shared challenge-answer + close-classify
+    helpers) before any application frame; `3b24ded` **[low] provisional-sweep race** — a
+    descriptor applying as a mark expires could spuriously reap the session (self-healing); fix =
+    decision-maker existence check before reaping. Dismissed as by-design:
+    the provisional window pausing on a coordinator outage / restarting on reconnect (intentional —
+    don't reap when descriptors can't arrive).
+  - **Recorded follow-ups from the Codex pass** (real, not yet built):
+    - **Tenant scoping incomplete at the relay driver layer** (the `335065e` scope correction
+      above) — the `joined` map + mesh control/report/ack frames need a tenant to serve (not
+      refuse) two same-id tenants on a shared coordinator. Broad wire change; safe as-is.
+    - **Admit-first slot homed elsewhere isn't disconnected** — a client admitted before its
+      descriptor, then homed on a *different* relay by that descriptor, keeps its connection here
+      (leg D's provisional sweep only reaps sessions with *no* descriptor). Needs a per-slot
+      re-check on descriptor apply. Overlaps the assigned-session-allowlist item.
+    - **No revocation of established mesh links** — cert rotation or fleet removal doesn't tear
+      down an already-verified mesh link (the fingerprint pin is single-shot at accept). Needs a
+      re-verification / teardown-on-fleet-change path.
   - **Still open in this item:** the **coordinator-pushed assigned-session allowlist** (the
     shadow-slot amplification angle on the home-relay fail-open) was *not* built as a distinct
     mechanism — peer authentication now blocks a rogue relay from joining the mesh at all, which
     closes the fleet-amplification path; whether a per-session peer allowlist is still wanted on
-    top is a Travis call (§3 folded it into this item). Also pending: a Codex adversarial pass was
-    launched over the arc; cross-check its findings against the two above when it surfaces.
-- **Tenant lifecycle** — enrollment, key rotation/revocation (active/suspended/revoked per
-  request), staging access story; consolidate `/session/create` inbound auth + webhook signing
-  into one per-tenant credential; move client pubkey submission to queue/lobby time (today it
-  rides game load; no long-lived keypair without a security review — the queue/lobby-join
-  requests that already carry `(region, rttMs)` are the natural vehicle: same surfaces, same
-  lifetime). Registry shape decided 2026-07-12: config-file tenants (no database in v1) with
-  per-tenant state + current/next keys, so rotation is a config edit and reload, not a schema.
+    top is a Travis call (§3 folded it into this item).
+- **Tenant lifecycle + per-relay identity provisioning** — enrollment, key rotation/revocation
+  (active/suspended/revoked per request), staging access story; consolidate `/session/create`
+  inbound auth + webhook signing into one per-tenant credential; move client pubkey submission to
+  queue/lobby time (today it rides game load; no long-lived keypair without a security review —
+  the queue/lobby-join requests that already carry `(region, rttMs)` are the natural vehicle: same
+  surfaces, same lifetime). Registry shape decided 2026-07-12: config-file tenants (no database in
+  v1) with per-tenant state + current/next keys, so rotation is a config edit and reload, not a
+  schema. **Sharpened by the Codex review (the one design gap the mesh-auth arc left open):**
+  enroll proof-of-possession binds a connection to *a* certificate the relay holds the key for, but
+  it does **not** bind a `relay_id` to a *specific* expected identity — the coordinator accepts
+  whatever `relay_id` a PoP-verified Hello claims, and the atomic duplicate-id refusal only
+  protects an *already-live* id. So a bootstrap-secret holder can enroll as an **offline** relay's
+  id with its own (proven) cert; the coordinator then distributes the attacker's fingerprint for
+  that id and clients/peers pin it. Closing this needs the coordinator to know each `relay_id`'s
+  expected identity ahead of time (a per-relay enrollment credential / pre-registered
+  `relay_id → pubkey` map, or a signed bootstrap token carrying the id) — the per-relay side of
+  this same tenant-lifecycle item. This is the natural next security piece after the arc; needs a
+  design conversation (how relays get provisioned identities in the DO/Fargate substrate).
 - **Finite token lifetimes** *(BUILT `8f33192`, unpushed)* — the `ExpiresAt(u64::MAX)` dev
   placeholder is replaced by a configurable fixed lifetime from create (`--player-token-lifetime-secs`
   / env, default 6h ≈ 2× the longest game ever observed ~3h). Tokens are checked only when
