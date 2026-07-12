@@ -16,7 +16,9 @@ import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socke
 
 const apiHandlers = fs
   .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
-  .filter(filename => /\.(js|ts)$/.test(filename))
+  // Colocated .test.ts files live beside the API modules; requiring one here would pull the test
+  // framework into the server process.
+  .filter(filename => /\.(js|ts)$/.test(filename) && !/\.test\.(js|ts)$/.test(filename))
   .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
