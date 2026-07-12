@@ -69,27 +69,50 @@ rotation vs stable enroll addresses tension.
 
 ## 2. Remaining work (the production arc)
 
-### Phase 4 — Region selection *(BUILT + e2e-proven 2026-07-11; see `docs/region-selection-design.md`)*
-- **Per-player home relays** end to end: coordinator region config (`--regions` JSON) +
-  `GET /regions` + region-tagged relay enroll (refusal close 4002) + per-slot region placement +
+### Phase 4 — Region selection *(BUILT + e2e-proven 2026-07-11; design detail in this section — the
+former `docs/region-selection-design.md` is deleted, full text in git history)*
+- **Per-player home relays** end to end: coordinator region config (`--regions` JSON: per region an
+  opaque `id`, `display_name`, GameLift-style UDP `beacon`, always-up TCP `fallback` — one registry
+  so ids and measurement targets can't drift) + unauthenticated `GET /regions` (pubkey-endpoint
+  precedent; SB is the only intended caller) + region-tagged relay enroll (unknown-region refusal
+  close 4002) + per-slot region placement (slots sharing a region share a relay; distinct regions
+  mesh; region-less/unlit degrades to the global lowest-id fallback, never rejects) +
   region-preferring rehome (rp2 `eea3776..a351106`, pushed); SB: region list distribution, app-side
-  beacon measurement (UDP echo primary, TCP-connect fallback), matchmaking `(region, rtt)` +
-  `SB_REGION_BACKBONE_RTT_JSON` three-term latency, lobby/queue → session-create per-slot regions,
-  Server region setting (Auto default), `dev-beacon` loopback ping endpoints with artificial delay.
+  beacon measurement (UDP echo median-of-5 primary, TCP-connect fallback — fallback is
+  ranking-only so TCP-vs-UDP skew is fine; total failure surfaces the manual picker), matchmaking
+  `(region, rtt)` + `SB_REGION_BACKBONE_RTT_JSON` three-term latency
+  (`rtt_a/2 + backbone/2 + rtt_b/2`, worst pair), lobby/queue → session-create per-slot regions,
+  Server region setting (Auto default, renders its resolution; a manual pick that disappears from
+  the region list is treated as Auto), `dev-beacon` loopback ping endpoints with artificial delay.
 - **Live-proven on loopback**: two fake regions at 10/80ms delays → settings showed
   "Auto — Local A (11ms)" / manual pick; a cross-region lobby game homed slot 0 on relay 1 and
   slot 1 on relay 2 (meshed, production path); mid-game relay kill re-homed 2→1 with clean resume
   and a correct win/loss; the admin game page shows session id + home/rehome relay history
-  (`games.netcode_v2_relays`).
-- **Remaining for production regions**: verify GameLift beacon coverage against the real region
-  list + pick real fallback endpoints (config makes both explicit per region); backbone RTT table
-  values; region config deployment story (Phase 5/6).
+  (`games.netcode_v2_relays`). Dev recipe: `dev-beacon --listen 127.0.0.1:20000=10 --listen
+  127.0.0.1:20010=80`, a regions JSON naming them (`local-a`/`local-b`), two relays enrolled with
+  `--region` — different desired regions then produce a real meshed cross-relay session (this
+  replaced the `dev_relay_split` escape hatch, deleted 2026-07-12 both repos).
+- **Remaining for production regions**:
+  - **Beacon coverage verification** — when the real region list exists, verify every listed AWS
+    region actually has a GameLift beacon (no China; some regions may lack one) and pick each
+    region's always-up TCP fallback endpoint (e.g. a regional AWS API endpoint); the config makes
+    both explicit per region, so this is list-building, not code.
+  - **Backbone RTT table values** — `SB_REGION_BACKBONE_RTT_JSON` (sorted-pair keys, same-region
+    0) needs real numbers; an unconfigured pair defaults to a conservative 150ms, which is fine
+    for match quality but now also feeds the initial-buffer hint, so it inflates cross-region
+    initial buffers until set. Static config for now; could later be derived from live mesh RTTs
+    (the relays measure those) — sourcing idea, not committed work.
+  - **Region config deployment/admin story** — how `--regions` (and the backbone table) ship and
+    change in production; Phase 5/6 territory alongside tenant enrollment.
 - The v1 rally-point pipeline (service, app manager, IPC, admin UI, deps, `rally_point_servers`,
   `games.routes`, launch-arg port) is **deleted**.
 
 ### Phase 5 — AWS orchestration *(not started, two contracts pre-built)*
 - Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, lobby-time
-  provisioning, scale-to-zero, warm-pool fallback; cold-start budget measurement.
+  provisioning, scale-to-zero, warm-pool fallback; cold-start budget measurement. With it: a
+  per-region fallback *ordering* for unlit regions (today an unlit region falls back to the global
+  lowest-id relay), and a local-dev way to simulate provisioning (a region with no relay gaining
+  one on demand) so rp2's provisioning path is testable without AWS.
 - Pre-built on the rp2 side: **dual-stack advertise** (`relay_addrs`, `d26aaf1`) and **coordinated
   relay drain** (SIGTERM → `Draining`/`DrainAck`, 90s bound, `5d0ea11`). Remaining here: address
   discovery via ECS metadata (still explicit `--advertise-addr` flags) + SB-side per-client
@@ -113,7 +136,9 @@ rotation vs stable enroll addresses tension.
 - **Tenant lifecycle** — enrollment, key rotation/revocation (active/suspended/revoked per
   request), staging access story; consolidate `/session/create` inbound auth + webhook signing
   into one per-tenant credential; move client pubkey submission to queue/lobby time (today it
-  rides game load; no long-lived keypair without a security review).
+  rides game load; no long-lived keypair without a security review — the queue/lobby-join
+  requests that already carry `(region, rttMs)` are the natural vehicle: same surfaces, same
+  lifetime).
 - **Finite token lifetimes** — API player tokens still use the `ExpiresAt(u64::MAX)` dev
   placeholder.
 - Confirm the untrusted-dev loopback truly never touches a shared coordinator/fleet.
