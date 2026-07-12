@@ -33,7 +33,7 @@ channels (`GameStalled` covers wedged leave/lobby/session-start consumers; chat/
 on full); failed/terminal connections close promptly post-classification; rustdoc is a `-D
 warnings` CI gate.
 
-Current pins: SB `rally-point-client` at `28765d5477e5…` (rp2 `main` tip, pushed); ALPN `rp2/5`
+Current pins: SB `rally-point-client` at `44fc2168be26…` (rp2 `main` tip, pushed); ALPN `rp2/5`
 (client) / `rp2-mesh/4` (mesh). Standing rules: consume rp2's re-exported quinn/rustls/proto (never
 direct deps); any rp2 change = push rp2 → bump the SB `rev` pin → rebuild via `game\build.bat`;
 relay stays PII-free; wire changes additive only; no drift toward a standard reliable-ordered
@@ -108,6 +108,19 @@ former `docs/region-selection-design.md` is deleted, full text in git history)*
   `games.routes`, launch-arg port) is **deleted**.
 
 ### Phase 5 — AWS orchestration *(not started, two contracts pre-built)*
+
+**Substrate decisions (ratified with Travis 2026-07-12):** coordinator runs on DigitalOcean
+beside the SB app servers — docker-compose, single restart-tolerant instance (HA right-sizing
+under Phase 6); tenant/region registry stays config-file, no database in v1; coordinator secrets
+via `.env`; relay secrets injected by the ECS task definition from SSM Parameter Store (free
+tier; not Secrets Manager); relay↔coordinator control stays public WSS guarded by the existing
+bootstrap secret — no VPN/tailnet layer (Tailscale remains for box admin only); provisioning
+calls use a narrowly-scoped IAM user key (RunTask/StopTask/DescribeTasks on the relay task
+family) in the coordinator `.env`; relay IPs are stable for a task's lifetime and fresh per
+task, advertised at enroll via ECS-metadata discovery — which settles the former
+per-game-IP-rotation vs stable-enroll-address tension (no rotation machinery; DDoS baseline =
+natural per-task IP churn + Shield Standard).
+
 - Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, lobby-time
   provisioning, scale-to-zero, warm-pool fallback; cold-start budget measurement. With it: a
   per-region fallback *ordering* for unlit regions (today an unlit region falls back to the global
@@ -120,32 +133,88 @@ former `docs/region-selection-design.md` is deleted, full text in git history)*
 - **Flight-recorder durable sink + read path** (DO Spaces, 14-day lifecycle rules) — the dev
   `--flight-dir` file sink exists; production needs the S3-compatible sink and a way to fetch
   blobs by `<tenant>/<session>/<relay_id>.json`.
-- Reconcile D3's per-game IP rotation vs stable enroll addresses.
 - Load/scale test: N games/relay + RunTask-rate provisioning at realistic SB peak; cost model
   (NAT, cross-AZ mesh, telemetry egress).
 
 ### Phase 6 — Hardening + production rollout
 
 **Security/tenancy blockers before anything non-loopback:**
-- **Mesh `S===S` auth** — accept side trusts the dialer's self-asserted `MeshHello.relay_id`
-  (server-TLS-only). Bind id to authenticated identity (mTLS/internal CA or coordinator-issued
-  mesh credential); reject unexpected/duplicate ids before link registration. Fold in the
-  **coordinator-pushed assigned-session allowlist** (closes the shadow-slot amplification angle on
-  the deliberate home-relay fail-open) and **mesh session-id tenant scoping** (`MeshPacket` carries
-  a bare `session: u64`; driver fail-closes on collision but the wire can't disambiguate).
+- **Mesh `S===S` auth** *(BUILT on rp2 local `main` 2026-07-12, unpushed; adversarial review DONE
+  — 1 HIGH + 1 MEDIUM found and fixed; awaits Travis's push go-ahead)* — the accept side no longer
+  trusts the dialer's self-asserted `MeshHello.relay_id`. Shipped shape (no CA, no new credential
+  kind, nothing paid): relay identity = the SHA-256 fingerprint of its self-generated TLS cert.
+  Legs, each a gate-clean commit reviewed line-by-line in the main loop:
+  - `2c0a310` coordinator distributes the enrolled fleet's `(relay_id, cert fingerprint)` set to
+    every relay (additive `MeshPeers` control frame, republished under the registry lock on every
+    membership change).
+  - `50ca99f` the mesh dialer presents its serving cert as TLS client identity; the acceptor
+    (request-not-require client-cert verifier) pins the presented leaf against the fleet set,
+    refusing with distinct close codes (no-cert / unknown-id / fingerprint-mismatch). ALPN
+    `rp2-mesh/4`→`/5`. Enforced when the fleet map is non-empty; `--require-mesh-peer-auth` fails
+    closed even during the pre-first-push startup window.
+  - `e2dc426` enroll now binds identity for real: a nonce proof-of-possession (relay signs
+    `ENROLL_POP_CONTEXT ++ nonce` with its TLS key, coordinator verifies via rustls-webpki —
+    ECDSA P-256 + Ed25519, RSA refused) closes the copy-a-public-cert hole; an **atomic**
+    duplicate-id refusal (`try_enroll`, check+insert under one lock — a review fix over the
+    initial check-then-insert TOCTOU) keeps one live connection per id.
+  - `335065e` **mesh session-id tenant scoping**: `MeshPacket` carries an additive tenant tag;
+    the transport demuxes by `(tenant, session)`, so the same numeric id under two tenants no
+    longer collides (the class is gone, not just refused). The legacy fail-close collision guard
+    stays for tenant-absent frames.
+  - **Adversarial-review fixes** (a dedicated opus reviewer attacked the trust boundaries; each
+    finding independently verified in the main loop before fixing):
+    - `99657a6` **[HIGH] version-downgrade defeated the whole enroll-binding leg.** PoP + the
+      duplicate-id refusal ran only at negotiated version ≥ `ENROLL_POP_MIN` (3), but
+      `MIN_SUPPORTED` was 2 and the version is self-asserted in the Hello — so a bootstrap-secret
+      holder advertising a v2 window negotiated down, skipped the challenge, and hit the
+      unconditional-replace `enroll` path, impersonating any relay with any cert. Fix: **PoP is
+      now mandatory** — `MIN_SUPPORTED = 3` (sub-v3 refused at negotiation), the challenge +
+      `try_enroll` run unconditionally, the sub-threshold enroll branch is deleted, and a
+      compile-time assert (`MIN_SUPPORTED ≥ ENROLL_POP_MIN`) guards against regression.
+      **DECISION FOR TRAVIS TO RATIFY:** this drops v2 relay backward-compat to make the security
+      check unskippable. It costs nothing (pre-production, zero deployed relays) and the allowance
+      *was* the hole — but it's a deliberate design change made during autonomous review-fixing.
+    - `33ddab0` **[MEDIUM] mesh peer-auth was off by default.** `--require-mesh-peer-auth`
+      defaulted false though its doc said "production sets this," leaving a coordinator-driven
+      relay with an unauthenticated mesh-accept window from boot to first fleet push. Fix: a
+      coordinator-driven relay (`has_coordinator`) always fails closed regardless of the flag;
+      dev/static `--mesh-peer` keeps the default-off behavior.
+  - **Still open in this item:** the **coordinator-pushed assigned-session allowlist** (the
+    shadow-slot amplification angle on the home-relay fail-open) was *not* built as a distinct
+    mechanism — peer authentication now blocks a rogue relay from joining the mesh at all, which
+    closes the fleet-amplification path; whether a per-session peer allowlist is still wanted on
+    top is a Travis call (§3 folded it into this item). Also pending: a Codex adversarial pass was
+    launched over the arc; cross-check its findings against the two above when it surfaces.
 - **Tenant lifecycle** — enrollment, key rotation/revocation (active/suspended/revoked per
   request), staging access story; consolidate `/session/create` inbound auth + webhook signing
   into one per-tenant credential; move client pubkey submission to queue/lobby time (today it
   rides game load; no long-lived keypair without a security review — the queue/lobby-join
   requests that already carry `(region, rttMs)` are the natural vehicle: same surfaces, same
-  lifetime).
-- **Finite token lifetimes** — API player tokens still use the `ExpiresAt(u64::MAX)` dev
-  placeholder.
+  lifetime). Registry shape decided 2026-07-12: config-file tenants (no database in v1) with
+  per-tenant state + current/next keys, so rotation is a config edit and reload, not a schema.
+- **Finite token lifetimes** *(BUILT `8f33192`, unpushed)* — the `ExpiresAt(u64::MAX)` dev
+  placeholder is replaced by a configurable fixed lifetime from create (`--player-token-lifetime-secs`
+  / env, default 6h ≈ 2× the longest game ever observed ~3h). Tokens are checked only when
+  presented — at every connect/reconnect (initial, same-relay blip, re-home) — so expiry mid-game
+  is harmless while a connection lives, and a post-expiry reconnect refusal degrades to the normal
+  disconnect UX (hold → RequestDrop / abandoned force-decide), never a hang. Consequence kept by
+  design: never-started sessions are held ~the token lifetime before reaping, since a valid
+  token means a straggler could still connect. Additive escape hatch if marathon games ever
+  matter: mint fresh tokens on the rehome response (noted, not built).
+- **Client admit-first admission is now bounded** *(BUILT `805febf`, unpushed)* — a session
+  admitted on a valid token with no applied descriptor is provisional (10s); the relay's sweep
+  tears it down if no descriptor names it in time (`PROVISIONAL_EXPIRED_CLOSE`, retryable), so a
+  stale/misrouted token can no longer park a session on an arbitrary fleet relay indefinitely.
+  Armed only while the coordinator control connection is up (an outage restarts every window on
+  reconnect rather than reaping on time debt); dev/static `--mesh-peer` never arms.
 - Confirm the untrusted-dev loopback truly never touches a shared coordinator/fleet.
 
-**Coordinator HA** — the one unbuilt platform feature. RTO, registry in a shared store,
-hot-standby. Running games survive a coordinator outage (relays run the live game), but session
-creation and re-home don't.
+**Coordinator HA** *(right-sized 2026-07-12)* — deliberately not hot-standby: a single
+restart-tolerant instance (docker restart policy) on the DO box beside the app servers. Running
+games survive an outage (relays run the live game); session create / re-home / presence pause
+until restart, and relay re-enroll + heartbeats repopulate the registry (relay-ref webhook
+precedence exists for exactly this). Hot standby + a shared registry store stay a documented
+future option if scale demands it.
 
 **Rollout story** (reshaped — the code cutover already happened): stand up prod coordinator +
 fleet (D2) and shared staging fleet (D5); ship a client version that uses them (platform enforces
@@ -176,14 +245,12 @@ explicitly.
   envelope only). The authority adopts the depth as its current buffer (else the first-frame
   re-affirm — which is also the old-client convergence path — would clobber it back to min); mesh
   peers adopt off the broadcast; resumed relays stamp absent so a re-push never resizes a live
-  game. rp2 `263a1d6..16de546` (4 commits, unpushed, gates green); SB Node `1234a8b98`+`268987563`
-  +`364a2e9b0` (rttMs plumbing — it never reached session create before — backbone util mirroring
-  server-rs, additive request field); SB DLL changes UNCOMMITTED (need the rp2 push + pin bump;
-  temp `[patch]` active in game/Cargo.toml, dist DLL built with it). Remaining: live acceptance —
-  cross-region loopback game opens at the stamped depth (expect 4: hint 121ms→3 + 1 cushion) with
-  no early upward ticker correction; same-region control opens at observed min. Then: Travis's
-  rp2 push go-ahead → bump pin → drop `[patch]` → commit DLL.
-- Rate-limited control-law logging (the other D9 leftover).
+  game. Landed: rp2 `263a1d6..16de546` pushed; SB Node `1234a8b98`+`268987563`+`364a2e9b0`
+  (rttMs plumbing — it never reached session create before — backbone util mirroring server-rs,
+  additive request field); DLL leg `077a68c32`; pin now `44fc216` (after the `dev_relay_split`
+  removal).
+- ~~Rate-limited control-law logging (the other D9 leftover)~~ — **already DONE** (`c1d5531`,
+  `trace_control_inputs`, frame-gated at 600 turns); the earlier "leftover" note was stale.
 - Live loopback matrix on the current pinned build (see §0).
 
 ### SB-side small backlog (carried from the deleted tracker)
@@ -198,7 +265,11 @@ drop `netcodeV2` naming from public surfaces (surveyed: the only user-visible in
 admin game-page debug section title — everything else is internal identifiers + the two DLL-facing
 route names; low urgency, rename needs a target-naming decision); client desync-report hook
 (VOID-only);
-relay forward-channel byte budget (oversize amplification); self-desync-void rate-limit;
+~~relay forward-channel byte budget (oversize amplification)~~ (DONE 2026-07-12, rp2 local
+`e6d126b`, unpushed: per-slot aggregate byte budget alongside the count bound, isolates via the
+existing lagging-peer signal, client-edge only); **self-desync-void rate-limit** (DEFERRED — the
+term maps to no clear mechanism in the current relay code; needs Travis's context on what it
+refers to before it can be scoped);
 post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
 classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
 decision (verify SC:R's box renders in-game at all before building the battlenet Message feed);
@@ -232,8 +303,9 @@ Recorded so future reviews/sessions don't re-litigate (reasoning in rp2 commit m
 
 - **Recovery-window vs downlink-coalescing byte budget** — define when implementing coalescing
   (low-stakes: the window is small and coalescing is weak-downlink-only).
-- **DDoS without anycast** — validate Shield Standard on raw Fargate IPs; when is Shield
-  Advanced/Spectrum required (likely near-term); interacts with the IP-rotation question (§2 P5).
+- **DDoS without anycast** — baseline decided 2026-07-12: natural per-task IP churn + Shield
+  Standard on raw Fargate IPs. Open half: when Shield Advanced/Spectrum becomes necessary —
+  revisit if targeted attacks materialize.
 - **GameLift beacon coverage** vs lit regions; rate-limit caching; which beacon-independent
   fallback (see §2 Phase 4 — the original ICMP idea assumed an in-region ping target that
   scale-to-zero doesn't guarantee).
