@@ -146,12 +146,6 @@ interface CoordinatorSessionRequest {
     region?: string
   }>
   /**
-   * Dev/testing only: slots that should home on a secondary relay instead of the session's primary
-   * home, to force a genuine cross-relay (meshed) session. Omitted on a production request; the
-   * coordinator ignores it unless a second relay is enrolled.
-   */
-  dev_relay_split?: number[]
-  /**
    * The estimated worst pairwise one-way latency (ms) across the session's players, computed from
    * each slot's region + measured rtt. Omitted when no player pair carries enough signal to compute
    * it. The coordinator forwards this to relays as a fallback for the initial buffer depth, used
@@ -180,7 +174,7 @@ interface CoordinatorSessionResponse {
   /**
    * Per-slot home overrides: slots homed on a relay other than `home_relay`. Empty when every slot
    * shares one relay; populated for a cross-region session (each slot homes in its requested
-   * region) or a dev-forced cross-relay split.
+   * region, and the relays mesh).
    */
   slot_homes?: CoordinatorSlotHome[]
   tokens: Array<{ slot: number; token: number[] }>
@@ -216,14 +210,6 @@ export interface NetcodeV2Config {
   tenant: string
   /** TLS server name clients validate the relay certificate against. */
   relayServerName: string
-  /**
-   * Dev/testing knob: slot numbers that should home on a secondary relay instead of the session's
-   * primary home relay, so cross-relay games can be exercised without a real network split between
-   * players. Sent to the coordinator as the session-create request's `dev_relay_split` hint, which
-   * homes those slots on a second relay; the coordinator ignores it when only one relay is enrolled.
-   * Configured via SB_RP2_SPLIT_RELAYS (comma-separated slot numbers).
-   */
-  splitRelaySlots?: Set<number>
 }
 
 /**
@@ -256,21 +242,10 @@ export function loadConfigFromEnv(): NetcodeV2Config | undefined {
     throw new Error('SB_RP2_CLIENT_KEY must be 64 hex characters (a 32-byte Ed25519 seed)')
   }
 
-  const splitRelaysRaw = process.env.SB_RP2_SPLIT_RELAYS
-  const splitRelaySlots = splitRelaysRaw
-    ? new Set(
-        splitRelaysRaw
-          .split(',')
-          .map(s => Number(s.trim()))
-          .filter(slot => Number.isInteger(slot)),
-      )
-    : undefined
-
   return {
     coordinatorUrl,
     tenant,
     relayServerName: process.env.SB_RP2_RELAY_SERVER_NAME ?? 'localhost',
-    splitRelaySlots,
   }
 }
 
@@ -428,12 +403,6 @@ export class NetcodeV2Service {
         signal,
       )
 
-      // Dev cross-relay split: the slots (present in this game) the operator flagged to home on a
-      // secondary relay, forwarded to the coordinator as its `dev_relay_split` hint.
-      const splitSlots = config.splitRelaySlots
-        ? slots.map(s => s.slot).filter(slot => config.splitRelaySlots!.has(slot))
-        : []
-
       // A fallback for the relay's own initial buffer computation, covering conditions the
       // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
       // never crosses the mesh). Rounded up so the estimate never under-covers a fractional ms.
@@ -459,8 +428,6 @@ export class NetcodeV2Service {
           observer,
           ...(region !== undefined ? { region } : {}),
         })),
-        // eslint-disable-next-line camelcase
-        ...(splitSlots.length > 0 ? { dev_relay_split: splitSlots } : {}),
         ...latencyEstimateField,
       }
 
@@ -529,8 +496,8 @@ export class NetcodeV2Service {
       }
 
       const homeRelay = relayEndpointToInfo(session.home_relay, config)
-      // Per-slot home overrides from the coordinator's dev cross-relay split: each listed slot
-      // homes on its own relay instead of the session's primary home. Empty on a normal session.
+      // Per-slot home overrides: each listed slot homes on its own relay instead of the session's
+      // primary home (a cross-region session; the relays mesh). Empty when every slot shares one.
       const slotHomeBySlot = new Map(
         (session.slot_homes ?? []).map(({ slot, relay }) => [
           slot,
@@ -539,8 +506,8 @@ export class NetcodeV2Service {
       )
       if (slotHomeBySlot.size > 0) {
         log.info(
-          `netcode v2 dev split-relays active for game ${gameId}: slot(s) ` +
-            `${[...slotHomeBySlot.keys()].join(', ')} homing on a secondary relay`,
+          `netcode v2 cross-relay session for game ${gameId}: slot(s) ` +
+            `${[...slotHomeBySlot.keys()].join(', ')} homing off the primary relay`,
         )
       }
 
