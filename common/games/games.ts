@@ -19,6 +19,7 @@ import {
   GameSortOption,
 } from './game-filters'
 import { MatchupString } from './matchups'
+import { NetcodeV2RelayEvent } from './netcode-v2'
 import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export const GET_GAMES_LIMIT = 40
@@ -58,6 +59,12 @@ export interface GameDebugInfo {
   }>
   /** All replays uploaded for this game. */
   replays?: GameReplayDebugInfo[]
+  /** The netcode-v2 (rally-point2) coordinator session and relay-serving history, if any. */
+  netcodeV2: {
+    /** The coordinator session id persisted for this game, or `null` if it never had one. */
+    session: number | null
+    relays: NetcodeV2RelayEvent[]
+  }
 }
 
 export interface GameReplayDebugInfo {
@@ -83,6 +90,7 @@ export function toGameDebugInfoJson(debugInfo: GameDebugInfo): GameDebugInfoJson
       reportedResults: result.reportedResults,
     })),
     replays: debugInfo.replays,
+    netcodeV2: debugInfo.netcodeV2,
   }
 }
 

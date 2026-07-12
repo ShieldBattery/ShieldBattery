@@ -97,6 +97,31 @@ export type NetcodeV2RehomeResponse =
   | { decision: 'newTarget'; relay: NetcodeV2RelayInfo }
 
 /**
+ * One relay-serving-history event appended to `games.netcode_v2_relays`: either the relay(s) that
+ * served a session from creation, or a later rehome that moved the group to a replacement.
+ * Discriminated by `kind`; new variants can be added without a version bump since each row carries
+ * its own shape.
+ */
+export interface NetcodeV2HomeRelayEvent {
+  kind: 'home'
+  relayId: number
+  relayAddr: string
+  /** Unix ms when this event was recorded. */
+  at: number
+}
+
+export interface NetcodeV2RehomeRelayEvent {
+  kind: 'rehome'
+  deadRelayId: number
+  newRelayId: number
+  newRelayAddr: string
+  /** Unix ms when this event was recorded. */
+  at: number
+}
+
+export type NetcodeV2RelayEvent = NetcodeV2HomeRelayEvent | NetcodeV2RehomeRelayEvent
+
+/**
  * How a player's rally-point2 slot departed a game: a graceful quit vs. an unclean drop
  * (disconnect/crash/force-quit).
  */

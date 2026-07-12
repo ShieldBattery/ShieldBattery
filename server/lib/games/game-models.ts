@@ -8,6 +8,7 @@ import {
 } from '../../../common/games/game-filters'
 import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
+import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { ReconciledResults } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
@@ -152,6 +153,60 @@ export async function getNetcodeV2Session(gameId: string): Promise<number | null
     const raw = result.rows[0]?.netcode_v2_session
     // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
     return raw === null || raw === undefined ? null : Number(raw)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Appends relay-serving-history events to a game's `netcode_v2_relays` record: the session's serving
+ * relay(s) at create time, or a later rehome that moved it to a replacement. A no-op for an empty
+ * list, so callers can pass through a deduped/filtered set without a special-case guard.
+ */
+export async function addNetcodeV2RelayEvents(
+  gameId: string,
+  events: NetcodeV2RelayEvent[],
+): Promise<void> {
+  if (events.length === 0) {
+    return
+  }
+
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET netcode_v2_relays = COALESCE(netcode_v2_relays, '[]'::jsonb) || ${JSON.stringify(events)}::jsonb
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a game's persisted netcode-v2 coordinator session id and relay-serving history, for the
+ * admin debug view. `session` is `null` for a game that never persisted a coordinator session id
+ * (not a netcode-v2 game, or the write failed); `relays` is empty when there's no history on record.
+ */
+export async function getNetcodeV2DebugInfo(
+  gameId: string,
+): Promise<{ session: number | null; relays: NetcodeV2RelayEvent[] }> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      netcode_v2_session: string | null
+      netcode_v2_relays: NetcodeV2RelayEvent[] | null
+    }>(sql`
+      SELECT netcode_v2_session, netcode_v2_relays
+      FROM games
+      WHERE id = ${gameId}
+    `)
+    const row = result.rows[0]
+    return {
+      // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
+      session: row?.netcode_v2_session != null ? Number(row.netcode_v2_session) : null,
+      relays: row?.netcode_v2_relays ?? [],
+    }
   } finally {
     done()
   }
@@ -644,4 +699,3 @@ export async function findKnownCompleteUnreconciledGames(
     done()
   }
 }
-

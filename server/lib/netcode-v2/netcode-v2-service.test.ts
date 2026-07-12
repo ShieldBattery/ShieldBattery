@@ -4,6 +4,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
+import { addNetcodeV2RelayEvents } from '../games/game-models'
 import {
   checkSessionsAlive,
   clientSigningKeyFromSeedHex,
@@ -16,10 +17,11 @@ vi.mock('got', () => ({
   },
 }))
 
-// The session id persistence is a best-effort DB write; stub it so the create path doesn't reach a
-// real database.
+// The session id + relay history persistence are best-effort DB writes; stub them so the
+// create/rehome paths don't reach a real database.
 vi.mock('../games/game-models', () => ({
   setNetcodeV2Session: vi.fn().mockResolvedValue(undefined),
+  addNetcodeV2RelayEvents: vi.fn().mockResolvedValue(undefined),
 }))
 
 /** A valid `SB_RP2_CLIENT_KEY` fixture (64 hex chars = a 32-byte Ed25519 seed). */
@@ -205,8 +207,8 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    const p1 = service.rehomeSession(42, 7)
-    const p2 = service.rehomeSession(42, 7)
+    const p1 = service.rehomeSession('game-1', 42, 7)
+    const p2 = service.rehomeSession('game-1', 42, 7)
     resolveJson({ decision: 'newTarget', relay: newTargetRelay })
     const [r1, r2] = await Promise.all([p1, p2])
 
@@ -215,14 +217,44 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     expect(r2).toEqual(r1)
   })
 
+  test('records exactly one rehome event under coalesced concurrent asks', async () => {
+    configureNetcodeV2()
+    let resolveJson: (v: unknown) => void = () => {}
+    const json = vi.fn().mockReturnValue(
+      new Promise(resolve => {
+        resolveJson = resolve
+      }),
+    )
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const p1 = service.rehomeSession('game-1', 42, 7)
+    const p2 = service.rehomeSession('game-1', 42, 7)
+    const p3 = service.rehomeSession('game-1', 42, 7)
+    resolveJson({ decision: 'newTarget', relay: newTargetRelay })
+    await Promise.all([p1, p2, p3])
+
+    // Three coalesced asks for the same (session, deadRelayId) collapse into a single coordinator
+    // round trip and must record a single rehome event, not one per asker.
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledTimes(1)
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledWith('game-1', [
+      expect.objectContaining({
+        kind: 'rehome',
+        deadRelayId: 7,
+        newRelayId: 2,
+        newRelayAddr: '10.0.0.2:14900',
+      }),
+    ])
+  })
+
   test('re-asks the coordinator for a staggered (non-concurrent) newTarget ask', async () => {
     configureNetcodeV2()
     const json = vi.fn().mockResolvedValue({ decision: 'newTarget', relay: newTargetRelay })
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    const r1 = await service.rehomeSession(42, 7)
-    const r2 = await service.rehomeSession(42, 7)
+    const r1 = await service.rehomeSession('game-1', 42, 7)
+    const r2 = await service.rehomeSession('game-1', 42, 7)
 
     // No terminal answer cache: once the first ask settles, a later survivor asking about the same
     // dead relay reaches the coordinator again (the recorded-rehome answer is idempotent, token-free
@@ -245,8 +277,8 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    const r1 = await service.rehomeSession(42, 7)
-    const r2 = await service.rehomeSession(42, 7)
+    const r1 = await service.rehomeSession('game-1', 42, 7)
+    const r2 = await service.rehomeSession('game-1', 42, 7)
 
     expect(got.post).toHaveBeenCalledTimes(2)
     expect(r1).toMatchObject({ decision: 'newTarget', relay: { relayId: 2 } })
@@ -259,8 +291,8 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    await service.rehomeSession(42, 7)
-    await service.rehomeSession(42, 7)
+    await service.rehomeSession('game-1', 42, 7)
+    await service.rehomeSession('game-1', 42, 7)
 
     expect(got.post).toHaveBeenCalledTimes(2)
   })
@@ -271,8 +303,8 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    await service.rehomeSession(42, 7)
-    await service.rehomeSession(42, 7)
+    await service.rehomeSession('game-1', 42, 7)
+    await service.rehomeSession('game-1', 42, 7)
 
     expect(got.post).toHaveBeenCalledTimes(2)
   })
@@ -283,8 +315,8 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    await service.rehomeSession(42, 7)
-    await service.rehomeSession(42, 8)
+    await service.rehomeSession('game-1', 42, 7)
+    await service.rehomeSession('game-1', 42, 8)
 
     expect(got.post).toHaveBeenCalledTimes(2)
   })
@@ -298,8 +330,10 @@ describe('netcode-v2/NetcodeV2Service#rehomeSession', () => {
     asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
-    await expect(service.rehomeSession(42, 7)).rejects.toThrow('coordinator session rehome failed')
-    const r2 = await service.rehomeSession(42, 7)
+    await expect(service.rehomeSession('game-1', 42, 7)).rejects.toThrow(
+      'coordinator session rehome failed',
+    )
+    const r2 = await service.rehomeSession('game-1', 42, 7)
 
     expect(got.post).toHaveBeenCalledTimes(2)
     expect(r2.decision).toBe('newTarget')
@@ -357,5 +391,66 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     ])
     // The region-less slot must not carry the key at all (rather than a null/undefined value).
     expect(body.players[1]).not.toHaveProperty('region')
+  })
+
+  test('records a home event for the home relay', async () => {
+    configureNetcodeV2()
+    const json = vi.fn().mockResolvedValue(sessionResponse([0]))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    service.registerPubkey('game-1', u1, PUBKEY)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false }],
+      signal: new AbortController().signal,
+    })
+
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledWith('game-1', [
+      expect.objectContaining({ kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900' }),
+    ])
+  })
+
+  test('records one deduped home event per distinct relay across a dev cross-relay split', async () => {
+    configureNetcodeV2()
+    // eslint-disable-next-line camelcase
+    const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
+    const json = vi.fn().mockResolvedValue({
+      ...sessionResponse([0, 1, 2]),
+      // eslint-disable-next-line camelcase
+      slot_homes: [
+        { slot: 1, relay: secondaryRelay },
+        // A second slot homing on the same secondary relay must not duplicate its home event.
+        { slot: 2, relay: secondaryRelay },
+      ],
+    })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+    const u3 = makeSbUserId(3)
+    service.registerPubkey('game-1', u1, PUBKEY)
+    service.registerPubkey('game-1', u2, PUBKEY)
+    service.registerPubkey('game-1', u3, PUBKEY)
+
+    await service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [
+        { slot: 0, userId: u1, observer: false },
+        { slot: 1, userId: u2, observer: false },
+        { slot: 2, userId: u3, observer: false },
+      ],
+      signal: new AbortController().signal,
+    })
+
+    expect(addNetcodeV2RelayEvents).toHaveBeenCalledTimes(1)
+    const [, events] = asMockedFunction(addNetcodeV2RelayEvents).mock.calls[0]
+    expect(events).toEqual([
+      expect.objectContaining({ kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900' }),
+      expect.objectContaining({ kind: 'home', relayId: 2, relayAddr: '10.0.0.2:14900' }),
+    ])
   })
 })

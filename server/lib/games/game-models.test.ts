@@ -1,14 +1,17 @@
 import { describe, expect, test, vi } from 'vitest'
+import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
 import {
+  addNetcodeV2RelayEvents,
   findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   getGames,
   getGamesForUser,
+  getNetcodeV2DebugInfo,
   getRecentGamesForUser,
   setNetcodeV2Session,
 } from './game-models'
@@ -185,5 +188,54 @@ describe('games/game-models/setNetcodeV2Session', () => {
     expect(template.text).toContain('SET')
     expect(template.text).toContain('netcode_v2_session')
     expect(template.values).toEqual([1234567890123, 'game-1'])
+  })
+})
+
+describe('games/game-models/addNetcodeV2RelayEvents', () => {
+  test('appends the events as a jsonb array onto the (possibly-null) existing history', async () => {
+    const query = mockDbClient([])
+    const events: NetcodeV2RelayEvent[] = [
+      { kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900', at: 1000 },
+    ]
+
+    await addNetcodeV2RelayEvents('game-1', events)
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('UPDATE games')
+    expect(template.text).toContain("COALESCE(netcode_v2_relays, '[]'::jsonb)")
+    expect(template.text).toContain('||')
+    expect(template.values).toEqual([JSON.stringify(events), 'game-1'])
+  })
+
+  test('is a no-op for an empty event list', async () => {
+    const query = mockDbClient([])
+
+    await addNetcodeV2RelayEvents('game-1', [])
+
+    expect(query).not.toHaveBeenCalled()
+  })
+})
+
+describe('games/game-models/getNetcodeV2DebugInfo', () => {
+  test('normalizes the BIGINT session id and returns the relay history', async () => {
+    const relays: NetcodeV2RelayEvent[] = [
+      { kind: 'home', relayId: 1, relayAddr: '10.0.0.1:14900', at: 1000 },
+    ]
+    // eslint-disable-next-line camelcase
+    mockDbClient([{ netcode_v2_session: '1234567890123', netcode_v2_relays: relays }])
+
+    const result = await getNetcodeV2DebugInfo('game-1')
+
+    expect(result).toEqual({ session: 1234567890123, relays })
+  })
+
+  test('returns a null session and empty relay list for a game with no netcode-v2 history', async () => {
+    // eslint-disable-next-line camelcase
+    mockDbClient([{ netcode_v2_session: null, netcode_v2_relays: null }])
+
+    const result = await getNetcodeV2DebugInfo('game-1')
+
+    expect(result).toEqual({ session: null, relays: [] })
   })
 })

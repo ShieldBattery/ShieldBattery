@@ -64,7 +64,12 @@ import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
-import { countCompletedGames, getGames, getNetcodeV2Session } from './game-models'
+import {
+  countCompletedGames,
+  getGames,
+  getNetcodeV2DebugInfo,
+  getNetcodeV2Session,
+} from './game-models'
 import {
   GamePointsRefundErrorCode,
   GamePointsRefundService,
@@ -366,9 +371,10 @@ export class GameApi {
     let debugInfo: GameDebugInfo | undefined
     if (ctx.session?.permissions?.debug) {
       try {
-        const [reportedResults, allReplays] = await Promise.all([
+        const [reportedResults, allReplays, netcodeV2] = await Promise.all([
           getGameReportedResults(gameId),
           getAllReplaysForGame(gameId),
+          getNetcodeV2DebugInfo(gameId),
         ])
 
         const replayDebugInfo = await Promise.all(
@@ -403,6 +409,7 @@ export class GameApi {
         debugInfo = {
           reportedResults: debugReportedResults,
           replays: replayDebugInfo.length > 0 ? replayDebugInfo : undefined,
+          netcodeV2,
         }
       } catch (err) {
         // Log error but don't fail the request
@@ -637,7 +644,7 @@ export class GameApi {
 
     // The route framework uses the handler's return value as the response body (see http-api.ts) —
     // assigning ctx.body here would be overwritten with undefined.
-    return await this.netcodeV2Service.rehomeSession(session, deadRelayId)
+    return await this.netcodeV2Service.rehomeSession(gameId, session, deadRelayId)
   }
 
   // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,

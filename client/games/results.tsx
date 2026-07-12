@@ -951,6 +951,13 @@ const ReportTitle = styled.div`
   color: var(--theme-on-surface);
 `
 
+const NetcodeV2SessionLine = styled.div`
+  ${bodyMedium};
+  margin-bottom: 8px;
+  color: var(--theme-on-surface);
+  user-select: text;
+`
+
 const DebugTableContainer = styled.div`
   width: 100%;
   margin-bottom: 16px;
@@ -1206,6 +1213,56 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                     </DebugTableContainer>
                   </div>
                 ))}
+            </div>
+          )}
+          {debugInfo.netcodeV2.session !== null && (
+            <div>
+              <DebugSubsectionTitle>
+                {t('gameDetails.debugInfo.netcodeV2.title', 'Netcode v2')}
+              </DebugSubsectionTitle>
+              <NetcodeV2SessionLine>
+                {t('gameDetails.debugInfo.netcodeV2.session', 'Session: {{session}}', {
+                  session: debugInfo.netcodeV2.session,
+                })}
+              </NetcodeV2SessionLine>
+              <DebugTableContainer>
+                <DebugTable>
+                  <thead>
+                    <tr>
+                      <th>{t('gameDetails.debugInfo.netcodeV2.event', 'Event')}</th>
+                      <th>{t('gameDetails.debugInfo.netcodeV2.relay', 'Relay')}</th>
+                      <th>{t('gameDetails.debugInfo.netcodeV2.address', 'Address')}</th>
+                      <th>{t('gameDetails.debugInfo.netcodeV2.at', 'At')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {debugInfo.netcodeV2.relays.map((event, i) => (
+                      <tr key={i}>
+                        {event.kind === 'home' ? (
+                          <>
+                            <td>{t('gameDetails.debugInfo.netcodeV2.home', 'Home')}</td>
+                            <td>{event.relayId}</td>
+                            <td>{event.relayAddr}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td>{t('gameDetails.debugInfo.netcodeV2.rehome', 'Rehome')}</td>
+                            <td>
+                              {event.deadRelayId} {'->'} {event.newRelayId}
+                            </td>
+                            <td>{event.newRelayAddr}</td>
+                          </>
+                        )}
+                        <td>
+                          <Tooltip text={longTimestampWithSeconds.format(event.at)} position='top'>
+                            {longTimestamp.format(event.at)}
+                          </Tooltip>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DebugTable>
+              </DebugTableContainer>
             </div>
           )}
         </DebugCollapsibleContent>

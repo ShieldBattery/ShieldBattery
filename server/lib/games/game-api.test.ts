@@ -203,7 +203,7 @@ describe('games/game-api/GameApi#netcodeV2Rehome', () => {
 
     // The stored session id (not anything from the request) is what's re-homed, with the client's
     // reported dead relay id.
-    expect(netcodeV2Service.rehomeSession).toHaveBeenCalledWith(42, 5)
+    expect(netcodeV2Service.rehomeSession).toHaveBeenCalledWith('game-1', 42, 5)
     expect(returned).toEqual(decision)
   })
 })

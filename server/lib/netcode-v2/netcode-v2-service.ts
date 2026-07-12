@@ -7,11 +7,12 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
   NetcodeV2RehomeResponse,
+  NetcodeV2RelayEvent,
   NetcodeV2RelayInfo,
   NetcodeV2ServerSetup,
 } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { setNetcodeV2Session } from '../games/game-models'
+import { addNetcodeV2RelayEvents, setNetcodeV2Session } from '../games/game-models'
 import log from '../logging/logger'
 
 /**
@@ -168,8 +169,9 @@ interface CoordinatorSessionResponse {
   session: number
   home_relay: CoordinatorRelayEndpoint
   /**
-   * Per-slot home overrides. Empty on a production session (every slot homes on `home_relay`);
-   * populated only for a dev-forced cross-relay split.
+   * Per-slot home overrides: slots homed on a relay other than `home_relay`. Empty when every slot
+   * shares one relay; populated for a cross-region session (each slot homes in its requested
+   * region) or a dev-forced cross-relay split.
    */
   slot_homes?: CoordinatorSlotHome[]
   tokens: Array<{ slot: number; token: number[] }>
@@ -470,6 +472,34 @@ export class NetcodeV2Service {
         log.warn({ err, gameId }, `failed to persist netcode v2 session id for game ${gameId}`)
       }
 
+      // Records the session's serving relay(s) at create — the home relay, plus any slot-home
+      // override relays (a cross-region session homes slots on different relays) — for the admin
+      // debug view's relay-serving history. Deduped by relay id since several slots' overrides can
+      // name the same relay. Non-fatal for the same reason as the session id write above.
+      try {
+        const homeEvents = new Map<number, NetcodeV2RelayEvent>()
+        const at = Date.now()
+        homeEvents.set(session.home_relay.relay_id, {
+          kind: 'home',
+          relayId: session.home_relay.relay_id,
+          relayAddr: session.home_relay.relay_addr,
+          at,
+        })
+        for (const { relay } of session.slot_homes ?? []) {
+          if (!homeEvents.has(relay.relay_id)) {
+            homeEvents.set(relay.relay_id, {
+              kind: 'home',
+              relayId: relay.relay_id,
+              relayAddr: relay.relay_addr,
+              at,
+            })
+          }
+        }
+        await addNetcodeV2RelayEvents(gameId, Array.from(homeEvents.values()))
+      } catch (err) {
+        log.warn({ err, gameId }, `failed to persist netcode v2 relay history for game ${gameId}`)
+      }
+
       const homeRelay = relayEndpointToInfo(session.home_relay, config)
       // Per-slot home overrides from the coordinator's dev cross-relay split: each listed slot
       // homes on its own relay instead of the session's primary home. Empty on a normal session.
@@ -524,8 +554,16 @@ export class NetcodeV2Service {
    *
    * This is a tenant-signed control-plane call (like `/session/create`); the game client never
    * talks to the coordinator itself — it reaches this via the SB `netcodeV2Rehome` HTTP endpoint.
+   *
+   * @param gameId the game the session belongs to, for recording a `newTarget` decision in the
+   *   game's relay-serving history. Passed by the caller (which already resolved it to look up the
+   *   session) rather than looked up again here.
    */
-  async rehomeSession(session: number, deadRelayId: number): Promise<NetcodeV2RehomeResponse> {
+  async rehomeSession(
+    gameId: string,
+    session: number,
+    deadRelayId: number,
+  ): Promise<NetcodeV2RehomeResponse> {
     const key = `${session}:${deadRelayId}`
 
     const inFlight = this.rehomeInFlight.get(key)
@@ -533,7 +571,7 @@ export class NetcodeV2Service {
       return await inFlight
     }
 
-    const promise = this.requestCoordinatorRehome(session, deadRelayId)
+    const promise = this.requestCoordinatorRehome(gameId, session, deadRelayId)
     this.rehomeInFlight.set(key, promise)
     try {
       return await promise
@@ -543,6 +581,7 @@ export class NetcodeV2Service {
   }
 
   private async requestCoordinatorRehome(
+    gameId: string,
     session: number,
     deadRelayId: number,
   ): Promise<NetcodeV2RehomeResponse> {
@@ -579,11 +618,32 @@ export class NetcodeV2Service {
     switch (response.decision) {
       case 'stay':
         return { decision: 'stay' }
-      case 'newTarget':
+      case 'newTarget': {
         if (!response.relay) {
           throw new NetcodeV2ServiceError('coordinator returned a newTarget rehome without a relay')
         }
-        return { decision: 'newTarget', relay: relayEndpointToInfo(response.relay, config) }
+        const relay = response.relay
+
+        // Recorded once per coordinator decision (this method is the single-flight path behind
+        // `rehomeSession`'s coalescing, so N survivors asking about the same dead relay at once
+        // still produce one event) for the admin debug view's relay-serving history. Non-fatal —
+        // the rehome itself already succeeded and must reach the caller either way.
+        try {
+          await addNetcodeV2RelayEvents(gameId, [
+            {
+              kind: 'rehome',
+              deadRelayId,
+              newRelayId: relay.relay_id,
+              newRelayAddr: relay.relay_addr,
+              at: Date.now(),
+            },
+          ])
+        } catch (err) {
+          log.warn({ err, gameId }, `failed to persist netcode v2 rehome event for game ${gameId}`)
+        }
+
+        return { decision: 'newTarget', relay: relayEndpointToInfo(relay, config) }
+      }
       case 'unavailable':
         return { decision: 'unavailable' }
       default:
