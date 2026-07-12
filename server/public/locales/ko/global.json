@@ -537,10 +537,17 @@
       "detailedResults": "개별 상세 결과",
       "downloadReplay": "리플레이 다운로드",
       "hasReport": "보고함",
-      "latency": "지연 시간 (ms)",
+      "netcodeV2": {
+        "address": "주소",
+        "at": "시각",
+        "event": "이벤트",
+        "home": "배정",
+        "rehome": "재배정",
+        "relay": "릴레이",
+        "session": "세션: {{session}}",
+        "title": "Netcode v2"
+      },
       "player": "플레이어",
-      "player1": "플레이어 1",
-      "player2": "플레이어 2",
       "replay": "리플레이",
       "reportedAPM": "APM",
       "reportedAt": "보고 시각",
@@ -550,8 +557,6 @@
       "reportedResults": "개별 보고 요약",
       "reportedTime": "보고 시간",
       "reportTitle": "<1></1>의 보고:",
-      "routes": "네트워크 경로",
-      "server": "서버",
       "title": "디버그 정보"
     },
     "errorLoading": "이 게임 로딩하는 데 문제가 발생했어.",
@@ -563,6 +568,7 @@
     "infoDate": "날짜",
     "infoDuration": "기간",
     "infoGameType": "유형",
+    "notFound": "게임을 찾을 수 없습니다.",
     "statusFinal": "마지막",
     "statusLive": "라이브",
     "summary": {
@@ -783,9 +789,6 @@
       "mapRequired": "플레이할 맵을 선택해 주세요",
       "selectMap": "맵 선택",
       "title": "로비 만들기",
-      "turnRate": "턴 속도",
-      "turnRateAuto": "자동",
-      "turnRateDynamic": "DTR (권장하지 않음)",
       "useLegacyLimits": "옛 유닛 제한 사용"
     },
     "errors": {
@@ -809,9 +812,6 @@
       "gameType": "게임 방식",
       "leaveLobby": "로비 나가기",
       "startGame": "게임 시작",
-      "turnRate": "턴 속도",
-      "turnRateAuto": "자동",
-      "turnRateDynamic": "DTR",
       "unitLimit": "유닛 제한",
       "unitLimitExtended": "확장",
       "unitLimitLegacy": "오리지널"
@@ -1041,7 +1041,6 @@
         "dialogTitle": "게임 검색 오류",
         "invalidMaps": "선택한 각 매치메이킹 유형마다 설정에서 맵을 하나 이상 선택해야 합니다.",
         "matchmakingDisabled": "현재 매치메이킹이 비활성화되어 있습니다",
-        "pingMeasurementFailed": "게임 서버와의 연결 상태를 측정하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.",
         "searchAgainError": "경기 검색 중 문제가 발생했습니다",
         "somethingWentWrong": "문제가 발생했습니다 :(",
         "userOffline": "서버와의 연결이 끊어졌습니다. 다시 연결한 후 시도해 주세요."
@@ -1237,8 +1236,15 @@
       },
       "system": {
         "filesOverline": "파일",
+        "networkOverline": "네트워크",
         "replayQuickOpen": "ShieldBattery로 연 리플레이를 미리보기 없이 바로 실행",
         "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
+        "serverRegion": {
+          "autoPlain": "자동 (권장)",
+          "autoResolved": "자동 — {{region}} ({{rtt}}ms)",
+          "label": "서버 지역",
+          "regionWithPing": "{{region}} ({{rtt}}ms)"
+        },
         "startMinimized": "최소화된 상태로 시작",
         "startupOverline": "시작 설정",
         "title": "시스템"

@@ -543,10 +543,17 @@
       "detailedResults": "Resultados Individuales Detallados",
       "downloadReplay": "Descargar replay",
       "hasReport": "Ha reportado",
-      "latency": "Latencia (ms)",
+      "netcodeV2": {
+        "address": "Dirección",
+        "at": "Fecha",
+        "event": "Evento",
+        "home": "Asignación",
+        "rehome": "Reasignación",
+        "relay": "Relay",
+        "session": "Sesión: {{session}}",
+        "title": "Netcode v2"
+      },
       "player": "Jugador",
-      "player1": "Jugador 1",
-      "player2": "Jugador 2",
       "replay": "Replay",
       "reportedAPM": "APM",
       "reportedAt": "Reportado el",
@@ -556,8 +563,6 @@
       "reportedResults": "Resumen de Informes Individuales",
       "reportedTime": "Duración informada",
       "reportTitle": "Informe de <1></1>:",
-      "routes": "Rutas de Red",
-      "server": "Servidor",
       "title": "Información de Depuración"
     },
     "errorLoading": "Hubo un problema al cargar este juego.",
@@ -569,6 +574,7 @@
     "infoDate": "Fecha",
     "infoDuration": "Duración",
     "infoGameType": "Tipo",
+    "notFound": "No se pudo encontrar esta partida.",
     "statusFinal": "Final",
     "statusLive": "En vivo",
     "summary": {
@@ -789,9 +795,6 @@
       "mapRequired": "Selecciona un mapa para jugar",
       "selectMap": "Seleccionar mapa",
       "title": "Crear lobby",
-      "turnRate": "Ritmo de turno",
-      "turnRateAuto": "Auto",
-      "turnRateDynamic": "Dinámico (No recomendado)",
       "useLegacyLimits": "Usar límite de unidad heredado"
     },
     "errors": {
@@ -817,9 +820,6 @@
       "gameType": "Tipo de juego",
       "leaveLobby": "Salir del lobby",
       "startGame": "Empezar juego",
-      "turnRate": "Ritmo de turno",
-      "turnRateAuto": "Auto",
-      "turnRateDynamic": "Dinámico",
       "unitLimit": "Límite de unidad",
       "unitLimitExtended": "Extendido",
       "unitLimitLegacy": "Legado"
@@ -1049,7 +1049,6 @@
         "dialogTitle": "Error al buscar un partido",
         "invalidMaps": "Debes seleccionar al menos un mapa en los ajustes para cada tipo de emparejamiento elegido.",
         "matchmakingDisabled": "El emparejamiento está actualmente deshabilitado",
-        "pingMeasurementFailed": "No se pudo medir tu conexión con los servidores de juego. Comprueba tu conexión e inténtalo de nuevo.",
         "searchAgainError": "Hubo un problema al buscar un partido",
         "somethingWentWrong": "Algo salió mal :(",
         "userOffline": "Se ha interrumpido la conexión con el servidor. Por favor, reconéctate e inténtalo de nuevo."
@@ -1249,8 +1248,15 @@
       },
       "system": {
         "filesOverline": "Archivos",
+        "networkOverline": "Red",
         "replayQuickOpen": "Inicie los replays abiertos con ShieldBattery inmediatamente sin vista previa",
         "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
+        "serverRegion": {
+          "autoPlain": "Automática (recomendada)",
+          "autoResolved": "Automática — {{region}} ({{rtt}}ms)",
+          "label": "Región del servidor",
+          "regionWithPing": "{{region}} ({{rtt}}ms)"
+        },
         "startMinimized": "Iniciar minimizado",
         "startupOverline": "Puesta en marcha",
         "title": "Sistema"
