@@ -21,9 +21,14 @@ export class LobbyPlayerRttStore {
     byUser.set(userId, rttMs)
   }
 
-  /** A snapshot of every occupant's recorded rtt for a lobby; empty if none has been recorded. */
+  /**
+   * A snapshot of every occupant's recorded rtt for a lobby; empty if none has been recorded.
+   * Copied, not a live view: callers hold it across async game-load work, where a concurrent
+   * leave/kick must not mutate what they read.
+   */
   getAll(lobbyName: string): ReadonlyMap<SbUserId, number> {
-    return this.byLobby.get(lobbyName) ?? new Map()
+    const byUser = this.byLobby.get(lobbyName)
+    return byUser ? new Map(byUser) : new Map()
   }
 
   /** Drops a single occupant's recorded rtt, e.g. when they leave, are kicked, or are banned. */
