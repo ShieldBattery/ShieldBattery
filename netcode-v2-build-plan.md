@@ -133,8 +133,13 @@ explicitly.
 - `UnackedWindowExhausted` stays terminal by design; genuine recovery needs a trend-based
   hysteresis re-arm (trip only if the backlog grows past its level at reconnect time) — real
   design work if ever wanted.
-- **Computed initial buffer at session start** — *BUILT both repos 2026-07-11, live acceptance
-  pending a dev-stack restart.* The authority relay sizes an initial depth once, at the
+- **Computed initial buffer at session start** — *BUILT both repos + LIVE ACCEPTANCE PASSED
+  2026-07-11/12.* Cross-region loopback game (auto local-a vs manual local-b): both DLLs logged
+  "session-start directive received with initial buffer depth 4 turns" (= hint 121ms → 3 + 1 hop
+  cushion; slot 1's copy arrived via the mesh-peer fan-out path), /netstat ticker's FIRST event was
+  the dwell step-down `4 → 3` (no upward correction, no pre-game event), steady state 2 (target 1 +
+  in-game hop cushion — correct). Same-region control game: "depth 1 turns" both clients, overlay
+  read `buffer 1 turns · steady since start`. The authority relay sizes an initial depth once, at the
   session-start coverage latch, and stamps it onto `SessionStart` (new optional protobuf field;
   absent → clients keep the tenant-min seed): inputs are pre-start conditions (new: a handshake
   sample at slot registration + a 500ms pre-start tick — the receive-driven sampler never fires
