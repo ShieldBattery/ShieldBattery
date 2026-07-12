@@ -542,7 +542,26 @@ impl GameState {
                         _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
                         received = session_start.recv() => {
                             match received {
-                                Some(()) => info!("Netcode v2 session-start directive received; starting game"),
+                                // The authoring relay sized an initial latency-buffer depth for this
+                                // session: stamp it onto the live turn state now, before countdown and
+                                // `seed_netcode_v2_pipe`, so the first pipe fill runs at that depth
+                                // instead of the tenant-minimum seed. Applied only here, in this single
+                                // pre-start receive — the background drain below discards any re-push,
+                                // so a mid-game re-delivery never resizes a running buffer.
+                                Some(Some(turns)) => {
+                                    netcode_v2::with_turn_state(|s| s.set_initial_latency_turns(turns));
+                                    info!(
+                                        "Netcode v2 session-start directive received with initial \
+                                        buffer depth {turns} turns; starting game"
+                                    );
+                                }
+                                // A depth-less directive (an authority relay that predates the field,
+                                // or a resumed re-home re-push mid-flight): keep the depth already
+                                // seeded at session establish.
+                                Some(None) => debug!(
+                                    "Netcode v2 session-start directive received without an initial \
+                                    buffer depth; keeping the seeded depth and starting game"
+                                ),
                                 None => warn!(
                                     "Netcode v2 session-start channel closed before a directive; starting anyway"
                                 ),

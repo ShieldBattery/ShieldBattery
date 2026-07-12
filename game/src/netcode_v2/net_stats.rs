@@ -313,6 +313,14 @@ impl NetStats {
             .unwrap_or(Duration::ZERO)
     }
 
+    /// Re-seeds the current buffer depth WITHOUT recording a change: no counter moves, no timestamp
+    /// updates, no ticker event fires. For the session's relay-computed initial depth, stamped before
+    /// the first frame — the buffer strip should simply start at this depth rather than show it as a
+    /// mid-game correction. Use [`record_buffer`](Self::record_buffer) for an actual in-game change.
+    pub fn seed_buffer_turns(&mut self, value: u32) {
+        self.buffer_turns = value;
+    }
+
     /// Records a buffer-depth change (a relay directive that actually moved the depth). A no-op when
     /// the value is unchanged, so a redundant directive doesn't inflate the change count or push a
     /// spurious event.

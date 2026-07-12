@@ -1307,6 +1307,22 @@ impl TurnState {
         }
     }
 
+    /// Stamps the session's relay-computed initial latency-buffer depth onto the pipe before the
+    /// first frame, in place of the tenant-minimum depth [`new`](Self::new) seeded. Floored at 1 for
+    /// the same reason [`apply_due_directive`](Self::apply_due_directive) floors: a 0 target
+    /// permanently stops the PIPE loop (`outstanding < 0` is never true for a `u32`), a lockstep
+    /// deadlock.
+    ///
+    /// Re-seeds the net-stats buffer notion to the same depth WITHOUT recording a change event: this
+    /// is the depth the `/netstat` buffer strip should start at, not a mid-game correction, so the
+    /// event ticker must show no buffer change for it. Only the single pre-start receive of the
+    /// session-start directive calls this; a directive re-delivered mid-game never resizes a live
+    /// buffer.
+    pub fn set_initial_latency_turns(&mut self, turns: u32) {
+        self.latency_turns = turns.max(1);
+        self.net_stats.seed_buffer_turns(self.latency_turns);
+    }
+
     /// Surfaces coordinated synced leaves due at `next_frame` as `(storm id, native leave reason)`
     /// pairs — mapping each departing slot to its storm id and dropping it from the readiness set
     /// (`mark_slot_left`) so a step gated on it can proceed. The IN hook calls this at the *top* of
@@ -2095,6 +2111,60 @@ mod tests {
         assert_eq!(state.latency_turns(), 2, "not due yet");
         state.apply_due_directive(10);
         assert_eq!(state.latency_turns(), 4, "applied at its frame");
+    }
+
+    #[test]
+    fn set_initial_latency_stamps_the_depth_without_a_change_event() {
+        let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        // The harness seeds the tenant-minimum depth of 2, mirrored into net-stats.
+        assert_eq!(state.latency_turns(), 2);
+        assert_eq!(state.net_stats.buffer_turns(), 2);
+
+        // Stamping the session's computed initial depth retargets the pipe and re-seeds net-stats to
+        // match, but records no ticker change — the buffer strip starts at this depth, it is not a
+        // mid-game correction.
+        state.set_initial_latency_turns(5);
+        assert_eq!(state.latency_turns(), 5);
+        assert_eq!(state.net_stats.buffer_turns(), 5);
+        assert_eq!(state.net_stats.buffer_change_count(), 0);
+        assert!(state.net_stats.recent_events().is_empty());
+
+        // Floored at 1: a 0 depth would permanently stall the pipe loop.
+        state.set_initial_latency_turns(0);
+        assert_eq!(state.latency_turns(), 1);
+        assert_eq!(state.net_stats.buffer_turns(), 1);
+        assert_eq!(state.net_stats.buffer_change_count(), 0);
+    }
+
+    #[test]
+    fn a_directive_applies_on_top_of_a_stamped_initial_depth() {
+        let (mut state, in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
+            turn_state();
+        state.map_slot(PEER_SLOT, PEER_STORM);
+
+        // Stamp the session's computed initial depth before frame 0; net-stats records no change.
+        state.set_initial_latency_turns(5);
+        assert_eq!(state.latency_turns(), 5);
+        assert_eq!(state.net_stats.buffer_change_count(), 0);
+
+        // A later relay directive resizes the live buffer normally, off the stamped depth of 5.
+        let mut turn = peer_turn(PEER_SLOT, b"x");
+        turn.buffer_directive = Some(BufferDirective {
+            buffer_turns: 4,
+            apply_at_frame: 10,
+            decision_seq: 1,
+            authority_relay_id: None,
+        });
+        in_tx.try_send(turn).unwrap();
+        assert!(state.receive_turns(0));
+        assert_eq!(state.latency_turns(), 5, "not due yet");
+        state.apply_due_directive(10);
+        assert_eq!(state.latency_turns(), 4, "directive applied on top of the stamp");
+        // Unlike the initial stamp, an in-game directive does record a ticker change — and it moved
+        // from the stamped 5, confirming the stamp updated the net-stats buffer notion.
+        assert_eq!(state.net_stats.buffer_turns(), 4);
+        assert_eq!(state.net_stats.buffer_change_count(), 1);
     }
 
     #[test]

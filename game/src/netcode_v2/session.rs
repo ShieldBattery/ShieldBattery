@@ -84,7 +84,7 @@ struct ParkedChannels {
     _chat_out: mpsc::Receiver<ChatOut>,
     _chat_in: mpsc::Sender<(SlotId, ChatOut)>,
     _request_drop: mpsc::Receiver<SlotId>,
-    _session_start: mpsc::Sender<()>,
+    _session_start: mpsc::Sender<Option<u32>>,
     _connectivity: mpsc::Sender<(SlotId, bool)>,
 }
 
@@ -100,14 +100,16 @@ static SESSION: Mutex<Option<NetcodeV2Session>> = Mutex::new(None);
 /// `has_computers` is whether the game contains AI players; it drives the turn state's
 /// self-closing behavior when the last remote human leaves (see [`TurnState::should_self_close`]).
 ///
-/// Returns the receiver end of the relay's session-start directive: the driver forwards a unit on
-/// it once every expected slot has connected, session-wide. The init path awaits it once to gate
-/// the game start; the turn state never reads it, so it is lifted out of the turn channels here.
+/// Returns the receiver end of the relay's session-start directive: the driver forwards its payload
+/// on it once every expected slot has connected, session-wide. The payload is the session's computed
+/// initial latency-buffer depth — `Some(turns)` when the authoring relay sized one, `None` when it
+/// sized none. The init path awaits it once to gate the game start (applying any carried depth before
+/// the first frame); the turn state never reads it, so it is lifted out of the turn channels here.
 pub async fn establish_session(
     setup: &NetcodeV2Setup,
     has_computers: bool,
     rehome_context: RehomeContext,
-) -> Result<mpsc::Receiver<()>, SessionError> {
+) -> Result<mpsc::Receiver<Option<u32>>, SessionError> {
     let SessionCredentials {
         identity,
         home,
