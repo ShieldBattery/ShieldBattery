@@ -3669,7 +3669,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac6c3320f9abac597dcbc668774ef006702672474aad53c6d596b62e487b40b1"
 dependencies = [
  "heck",
- "itertools 0.12.1",
+ "itertools 0.14.0",
  "log",
  "multimap",
  "once_cell",
@@ -3689,7 +3689,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9120690fafc389a67ba3803df527d0ec9cbbc9cc45e4cc20b332996dfb672425"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "syn",
@@ -3831,7 +3831,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "rally-point-client"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=16de546c6f0f5687e2dcca1f5f5e02aca9a2e04a#16de546c6f0f5687e2dcca1f5f5e02aca9a2e04a"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=44fc2168be263834810999283eeffc87d14ba1a7#44fc2168be263834810999283eeffc87d14ba1a7"
 dependencies = [
  "rally-point-proto",
  "rally-point-transport",
@@ -3845,7 +3845,7 @@ dependencies = [
 [[package]]
 name = "rally-point-proto"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=16de546c6f0f5687e2dcca1f5f5e02aca9a2e04a#16de546c6f0f5687e2dcca1f5f5e02aca9a2e04a"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=44fc2168be263834810999283eeffc87d14ba1a7#44fc2168be263834810999283eeffc87d14ba1a7"
 dependencies = [
  "bytes",
  "prost",
@@ -3858,7 +3858,7 @@ dependencies = [
 [[package]]
 name = "rally-point-transport"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=16de546c6f0f5687e2dcca1f5f5e02aca9a2e04a#16de546c6f0f5687e2dcca1f5f5e02aca9a2e04a"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=44fc2168be263834810999283eeffc87d14ba1a7#44fc2168be263834810999283eeffc87d14ba1a7"
 dependencies = [
  "prost",
  "quinn",
