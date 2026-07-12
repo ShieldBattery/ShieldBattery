@@ -24,6 +24,10 @@ const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
 `
 
+const NetworkOverline = styled(SectionOverline)`
+  margin-bottom: 8px;
+`
+
 /**
  * Sentinel model value for the "Auto" option -- `GameServerRegionId`s are opaque server-provided
  * strings, so an empty string can't collide with a real region id.
@@ -144,7 +148,7 @@ export function AppSystemSettings() {
         </SectionContainer>
         {regions.length > 0 ? (
           <SectionContainer>
-            <SectionOverline>{t('settings.app.system.networkOverline', 'Network')}</SectionOverline>
+            <NetworkOverline>{t('settings.app.system.networkOverline', 'Network')}</NetworkOverline>
             <Select
               {...bindCustom('gameServerRegion')}
               label={t('settings.app.system.serverRegion.label', 'Server region')}
