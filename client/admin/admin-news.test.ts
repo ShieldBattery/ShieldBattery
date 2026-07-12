@@ -3,6 +3,7 @@ import {
   changedFieldLabels,
   createPublishedAt,
   getPostStatus,
+  insertInlineImage,
   NewsEditorModel,
   NewsPostEdit,
   PUBLISH_MODE_DRAFT,
@@ -277,5 +278,68 @@ describe('changedFieldLabels', () => {
       'Publish date',
       'Cover image',
     ])
+  })
+})
+
+describe('insertInlineImage', () => {
+  test('inserts the snippet at the cursor position when the selection is empty', () => {
+    const content = 'Before after'
+    const cursor = 'Before'.length
+
+    const result = insertInlineImage(content, 'https://example.com/a.png', {
+      start: cursor,
+      end: cursor,
+    })
+
+    expect(result.content).toBe('Before![](https://example.com/a.png) after')
+    expect(result.cursor).toBe(cursor + 2)
+  })
+
+  test('replaces a non-empty selection with the snippet', () => {
+    const content = 'Before SELECTED after'
+    const start = content.indexOf('SELECTED')
+    const end = start + 'SELECTED'.length
+
+    const result = insertInlineImage(content, 'https://example.com/a.png', { start, end })
+
+    expect(result.content).toBe('Before ![](https://example.com/a.png) after')
+    expect(result.cursor).toBe(start + 2)
+  })
+
+  test('appends to non-empty content with a blank-line separator, trimming trailing whitespace', () => {
+    const content = 'Existing paragraph.\n\n  '
+
+    const result = insertInlineImage(content, 'https://example.com/a.png')
+
+    expect(result.content).toBe('Existing paragraph.\n\n![](https://example.com/a.png)')
+    expect(result.cursor).toBe(result.content.indexOf('![') + 2)
+  })
+
+  test('inserts into empty content without a separator', () => {
+    const result = insertInlineImage('', 'https://example.com/a.png')
+
+    expect(result.content).toBe('![](https://example.com/a.png)')
+    expect(result.cursor).toBe(2)
+  })
+
+  test('inserts into whitespace-only content without a separator', () => {
+    const result = insertInlineImage('   \n  ', 'https://example.com/a.png')
+
+    expect(result.content).toBe('![](https://example.com/a.png)')
+    expect(result.cursor).toBe(2)
+  })
+
+  test('cursor always lands right after the "![" of the inserted snippet', () => {
+    const cases: Array<[string, { start: number; end: number } | undefined]> = [
+      ['', undefined],
+      ['Some content', undefined],
+      ['Some content', { start: 5, end: 5 }],
+      ['Some content', { start: 5, end: 9 }],
+    ]
+
+    for (const [content, selection] of cases) {
+      const result = insertInlineImage(content, 'https://example.com/a.png', selection)
+      expect(result.cursor).toBe(result.content.indexOf('![') + 2)
+    }
   })
 })

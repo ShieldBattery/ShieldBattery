@@ -174,7 +174,7 @@ export function NewsPostPage({ params }: { params: { id: string } }) {
             })}
           </PostAuthor>
         ) : null}
-        <StyledMarkdown source={post.content} />
+        <StyledMarkdown source={post.content} allowMedia={true} />
       </Content>
 
       <BottomLinks />

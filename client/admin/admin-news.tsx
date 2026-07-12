@@ -754,6 +754,12 @@ const SaveRow = styled.div`
   gap: 8px;
 `
 
+const InsertImageRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
 const CoverSection = styled.div`
   ${containerStyles(ContainerLevel.Low)};
 
@@ -810,6 +816,37 @@ const CoverHint = styled.div`
 const HiddenFileInput = styled.input`
   display: none;
 `
+
+/**
+ * Splices an image markdown snippet (`![](url)`) into editor content. When a cursor selection is
+ * given the snippet replaces it; otherwise the snippet is appended as its own block. Returns the
+ * new content and the cursor position inside the snippet's alt-text brackets.
+ */
+export function insertInlineImage(
+  content: string,
+  url: string,
+  selection?: { start: number; end: number },
+): { content: string; cursor: number } {
+  const snippet = `![](${url})`
+
+  if (selection) {
+    const { start, end } = selection
+    return {
+      content: content.slice(0, start) + snippet + content.slice(end),
+      cursor: start + 2,
+    }
+  }
+
+  if (content.trim() === '') {
+    return { content: snippet, cursor: 2 }
+  }
+
+  const trimmed = content.replace(/\s+$/, '')
+  return {
+    content: `${trimmed}\n\n${snippet}`,
+    cursor: trimmed.length + 2 + 2,
+  }
+}
 
 /** Computes the `publishedAt` value for a newly-created post (undefined leaves it a draft). */
 export function createPublishedAt(model: NewsEditorModel): string | undefined {
@@ -871,6 +908,11 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverError, setCoverError] = useState<string | undefined>(undefined)
 
+  const imageFileInputRef = useRef<HTMLInputElement>(null)
+  const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const [imageUploading, setImageUploading] = useState(false)
+  const [imageError, setImageError] = useState<string | undefined>(undefined)
+
   const onCoverFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     // Reset the input so selecting the same file again still fires a change event.
@@ -915,6 +957,59 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     setCoverImageUrl(null)
   }
 
+  const onImageFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset the input so selecting the same file again still fires a change event.
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      setImageError(t('admin.news.form.imageInvalidType', 'Please choose an image file.'))
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageError(t('admin.news.form.imageTooLarge', 'That image is too large (max 5 MB).'))
+      return
+    }
+
+    setImageError(undefined)
+    setImageUploading(true)
+    const formData = new FormData()
+    formData.append('image', file)
+    // Inline images intentionally reuse the cover upload pipeline.
+    fetchJson<NewsCoverImageUploadResponse>(apiUrl`news/cover-images`, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(result => {
+        setImageUploading(false)
+        // Read the content from the DOM element rather than the form state this closure captured
+        // when the upload started, so text typed while the upload was in flight isn't lost.
+        const textarea = contentInputRef.current
+        const currentContent = textarea?.value ?? getInputValue('content')
+        const selection =
+          textarea && textarea.selectionStart !== null && textarea.selectionEnd !== null
+            ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+            : undefined
+        const { content, cursor } = insertInlineImage(currentContent, result.url, selection)
+        setInputValue('content', content)
+        requestAnimationFrame(() => {
+          if (textarea) {
+            textarea.focus()
+            textarea.setSelectionRange(cursor, cursor)
+          }
+        })
+      })
+      .catch(err => {
+        setImageUploading(false)
+        setImageError(
+          t('admin.news.form.imageUploadError', 'Something went wrong uploading the image.'),
+        )
+        logger.error(`Error uploading news inline image: ${getErrorStack(err)}`)
+      })
+  }
+
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
   let scheduledAt = toDateTimeLocalString(new Date())
   if (post?.publishedAt) {
@@ -947,7 +1042,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     },
   }
 
-  const { submit, bindInput, form, getInputValue } = useForm<NewsEditorModel>(defaults, validations)
+  const { submit, bindInput, form, getInputValue, setInputValue } = useForm<NewsEditorModel>(
+    defaults,
+    validations,
+  )
 
   useFormCallbacks(form, {
     onSubmit: model => {
@@ -1047,13 +1145,33 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           <FormArea>
             <ContentField
               {...bindInput('content')}
+              ref={contentInputRef}
               label={t('admin.news.form.content', 'Content (Markdown)')}
               multiline={true}
               rows={18}
               maxRows={40}
             />
-            <MarkdownPreview source={getInputValue('content')} />
+            <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
           </FormArea>
+          <InsertImageRow>
+            <HiddenFileInput
+              ref={imageFileInputRef}
+              type='file'
+              accept='image/*'
+              onChange={onImageFileSelected}
+              data-test='news-inline-image-file-input'
+            />
+            <OutlinedButton
+              label={t('admin.news.form.insertImage', 'Insert image')}
+              iconStart={<MaterialIcon icon='add_photo_alternate' />}
+              onClick={() => imageFileInputRef.current?.click()}
+              disabled={imageUploading}
+            />
+            {imageUploading ? (
+              <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
+            ) : null}
+            {imageError ? <ErrorText>{imageError}</ErrorText> : null}
+          </InsertImageRow>
           <CoverSection>
             <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
             <CoverPreview>
@@ -1138,7 +1256,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   : t('admin.news.createPost', 'Create post')
               }
               onClick={submit}
-              disabled={fetching || coverUploading}
+              disabled={fetching || coverUploading || imageUploading}
             />
           </SaveRow>
         </Form>

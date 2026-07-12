@@ -1,9 +1,10 @@
 import { lazy, Suspense } from 'react'
 import type { Components } from 'react-markdown'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
 import { LoadingDotsArea } from '../progress/dots'
 import {
+  bodyMedium,
   headlineLarge,
   headlineMedium,
   headlineSmall,
@@ -103,6 +104,8 @@ const Root = styled.div`
 export interface MarkdownProps {
   source: string
   className?: string
+  /** Whether markdown images render as actual inline media (images/video) rather than links. */
+  allowMedia?: boolean
 }
 
 const COMPONENTS: Components = {
@@ -110,11 +113,77 @@ const COMPONENTS: Components = {
   img: ({ alt, src }) => <ExternalLink href={src!}>{alt}</ExternalLink>,
 }
 
-export function Markdown({ source, className }: MarkdownProps) {
+const VIDEO_EXTENSIONS = ['.mp4', '.webm']
+
+function isVideoUrl(src: string): boolean {
+  let url: URL
+  try {
+    url = new URL(src, window.location.href)
+  } catch {
+    return false
+  }
+  const pathname = url.pathname.toLowerCase()
+  return VIDEO_EXTENSIONS.some(ext => pathname.endsWith(ext))
+}
+
+const mediaStyle = css`
+  display: block;
+  max-width: 100%;
+  max-height: min(640px, 70vh);
+  margin: 16px auto 8px;
+  border-radius: 4px;
+`
+
+const Video = styled.video`
+  ${mediaStyle};
+`
+
+const Image = styled.img`
+  ${mediaStyle};
+`
+
+const Caption = styled.span`
+  ${bodyMedium};
+  display: block;
+  margin-bottom: 16px;
+  color: var(--theme-on-surface-variant);
+  text-align: center;
+`
+
+function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
+  if (!src) {
+    return null
+  }
+
+  return (
+    <>
+      {isVideoUrl(src) ? (
+        <Video
+          src={src}
+          autoPlay={true}
+          loop={true}
+          muted={true}
+          playsInline={true}
+          controls={true}
+        />
+      ) : (
+        <Image src={src} alt={alt ?? ''} loading='lazy' draggable={false} />
+      )}
+      {title ? <Caption>{title}</Caption> : null}
+    </>
+  )
+}
+
+const MEDIA_COMPONENTS: Components = {
+  a: ({ href, children }) => <ExternalLink href={href!}>{children}</ExternalLink>,
+  img: ({ alt, src, title }) => <MarkdownMedia src={src} alt={alt} title={title} />,
+}
+
+export function Markdown({ source, className, allowMedia }: MarkdownProps) {
   return (
     <Suspense fallback={<LoadingDotsArea />}>
       <Root className={className}>
-        <LoadableMarkdown skipHtml={true} components={COMPONENTS}>
+        <LoadableMarkdown skipHtml={true} components={allowMedia ? MEDIA_COMPONENTS : COMPONENTS}>
           {source}
         </LoadableMarkdown>
       </Root>
