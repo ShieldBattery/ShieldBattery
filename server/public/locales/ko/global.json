@@ -490,6 +490,7 @@
       "useMapSettings": "유즈맵 설정"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "{{regions}}에서 게임 서버를 시작하는 중…",
       "title": "게임 실행 중…"
     },
     "mapName": {
@@ -1243,6 +1244,7 @@
           "autoPlain": "자동 (권장)",
           "autoResolved": "자동 — {{region}} ({{rtt}}ms)",
           "label": "서버 지역",
+          "locked": "로비나 매치메이킹 중에는 변경할 수 없습니다.",
           "regionWithPing": "{{region}} ({{rtt}}ms)"
         },
         "startMinimized": "최소화된 상태로 시작",

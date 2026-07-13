@@ -496,6 +496,7 @@
       "useMapSettings": "Usar configuración del mapa"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "Iniciando un servidor de juego en {{regions}}…",
       "title": "Iniciando el juego…"
     },
     "mapName": {
@@ -1255,6 +1256,7 @@
           "autoPlain": "Automática (recomendada)",
           "autoResolved": "Automática — {{region}} ({{rtt}}ms)",
           "label": "Región del servidor",
+          "locked": "Bloqueado mientras estés en un lobby o en emparejamiento.",
           "regionWithPing": "{{region}} ({{rtt}}ms)"
         },
         "startMinimized": "Iniciar minimizado",

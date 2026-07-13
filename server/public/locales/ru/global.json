@@ -499,6 +499,7 @@
       "useMapSettings": "Использовать настройки карты"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "Запуск игрового сервера в {{regions}}…",
       "title": "Запуск игры…"
     },
     "mapName": {
@@ -1261,6 +1262,7 @@
           "autoPlain": "Авто (рекомендуется)",
           "autoResolved": "Авто — {{region}} ({{rtt}} мс)",
           "label": "Регион сервера",
+          "locked": "Нельзя изменить, находясь в лобби или в матчмейкинге.",
           "regionWithPing": "{{region}} ({{rtt}} мс)"
         },
         "startMinimized": "Запускать в свернутом виде",

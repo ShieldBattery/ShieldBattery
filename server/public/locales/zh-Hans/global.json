@@ -490,6 +490,7 @@
       "useMapSettings": "使用地图设置"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "正在 {{regions}} 启动游戏服务器…",
       "title": "正在启动游戏…"
     },
     "mapName": {
@@ -1243,6 +1244,7 @@
           "autoPlain": "自动（推荐）",
           "autoResolved": "自动 — {{region}} ({{rtt}}ms)",
           "label": "服务器地区",
+          "locked": "在房间或匹配中时无法更改。",
           "regionWithPing": "{{region}} ({{rtt}}ms)"
         },
         "startMinimized": "启动时自动最小化",
