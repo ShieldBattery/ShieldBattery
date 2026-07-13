@@ -12,7 +12,9 @@ until it returns and relays re-enroll on their own.
   `RP2_REV` pin, no registry) and tailscale (admin access).
 - `sample.env` — copy to `.env` and fill in.
 - `config/` — mounted read-only into the coordinator: `regions.json` (region
-  registry) and `ecs.json` (per-region Fargate launch config). Samples included.
+  registry), `ecs.json` (per-region Fargate launch config), and `tenants.json`
+  (tenant registry: state, verification keys, webhook URL — no secrets; each
+  tenant names the `.env` variable holding its signing key). Samples included.
 - `tailscale/serve.json` — which services the tailnet can reach. One entry per
   service; the proxy dials the compose service name per connection, so container
   restarts need no re-plumbing (there are no manual iptables rules anywhere in
@@ -31,7 +33,8 @@ persist on the `coordinator_data` volume, so restarts never re-issue.
 ## First-time setup
 
 1. Copy this directory to the box, `cp sample.env .env`, fill it in; write
-   `config/regions.json` and `config/ecs.json` from the samples.
+   `config/regions.json`, `config/ecs.json`, and `config/tenants.json` from the
+   samples.
 2. `docker-compose build coordinator && docker-compose up -d`
 
 ## The direct-exposure rule
@@ -48,8 +51,11 @@ daemon must NAT v6 natively (Docker ≥ 27, or `"ip6tables": true` in
 `/etc/docker/daemon.json`) — older daemons route published v6 ports through the
 userland proxy, which replaces peer addresses just like a reverse proxy would.
 
-## Not yet deployable — one coordinator piece pending
+## Tenant operations
 
-**Tenant registry config**: production tenants (per-tenant signing keys,
-current/next for rotation) need a config file; today only the dev tenant flag
-exists. Tracked in `netcode-v2-build-plan.md` §Phase 5/6.
+Rotating the app server's request key: add the new pubkey as a second entry in
+the tenant's `client_pubkeys`, restart the coordinator, roll the app servers to
+the new key, then remove the old entry. Suspending a tenant (`"state":
+"suspended"`) refuses new game sessions while everything its running games rely
+on keeps working; `"revoked"` refuses all service. State changes apply on
+restart.
