@@ -910,6 +910,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
 
   const imageFileInputRef = useRef<HTMLInputElement>(null)
   const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  // Tracks whether the content field has ever been focused: a textarea's selectionStart/End
+  // default to 0 before any user interaction, so a selection is only a real cursor position once
+  // the field has been focused at some point.
+  const contentEverFocusedRef = useRef(false)
   const [imageUploading, setImageUploading] = useState(false)
   const [imageError, setImageError] = useState<string | undefined>(undefined)
 
@@ -989,7 +993,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
         const textarea = contentInputRef.current
         const currentContent = textarea?.value ?? getInputValue('content')
         const selection =
-          textarea && textarea.selectionStart !== null && textarea.selectionEnd !== null
+          textarea &&
+          contentEverFocusedRef.current &&
+          textarea.selectionStart !== null &&
+          textarea.selectionEnd !== null
             ? { start: textarea.selectionStart, end: textarea.selectionEnd }
             : undefined
         const { content, cursor } = insertInlineImage(currentContent, result.url, selection)
@@ -1146,6 +1153,9 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             <ContentField
               {...bindInput('content')}
               ref={contentInputRef}
+              onFocus={() => {
+                contentEverFocusedRef.current = true
+              }}
               label={t('admin.news.form.content', 'Content (Markdown)')}
               multiline={true}
               rows={18}
