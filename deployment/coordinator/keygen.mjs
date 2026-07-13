@@ -32,7 +32,9 @@ console.log(`
 ── coordinator .env ────────────────────────────────────────────────────────────
 COORDINATOR_BOOTSTRAP_SECRET=${bootstrapSecret}
 COORDINATOR_TENANT_<NAME>_SIGNING_KEY=${signingPkcs8B64}
-   (rename <NAME>; tenants.json's "signing_key_env" must match the final name)
+   (rename <NAME>; tenants.json's "signing_key_env" must match the final name.
+    This is the coordinator's OWN signing identity for the tenant — it mints
+    player tokens and signs webhooks — not a tenant-held secret.)
 
 ── config/tenants.json ─────────────────────────────────────────────────────────
 "client_pubkeys": ["${clientPubHex}"]
