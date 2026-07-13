@@ -372,6 +372,12 @@ for UMS players remains a future idea with different UI); ~~remove the lobby tur
 **lock the relay/region setting while in a gameplay activity** (matchmaking or lobby — keeps an
 activity's warm-signal region set fixed at join; ratified 2026-07-12, part of the provisioning
 arc leg 3);
+**localized region display names** (PARKED 2026-07-12 until the production region list exists,
+approach decided: client-side — render regions via `t('gameServerRegions.name.' + id,
+region.displayName)` so translated ids localize and unknown ids fall back to the server-provided
+English name; extraction-hint file seeds the known ids into `en/global.json`; coordinator config
+and wire stay language-free; touches the settings Select, the Auto-resolution label, and the
+provisioning status line);
 drop `netcodeV2` naming from public surfaces (surveyed: the only user-visible instance is the
 admin game-page debug section title — everything else is internal identifiers + the two DLL-facing
 route names; low urgency, rename needs a target-naming decision); client desync-report hook
