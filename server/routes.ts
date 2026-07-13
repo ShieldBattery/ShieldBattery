@@ -17,8 +17,8 @@ import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-con
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
-import { getNewsPageMeta } from './lib/news/news-page-meta'
 import { NewsService } from './lib/news/news-service'
+import { PageMetadataContext, resolvePageMetadata } from './lib/page-metadata/page-metadata'
 import { getCspNonce } from './lib/security/csp'
 import { getJwt } from './lib/session/jwt-session-middleware'
 import { monotonicNow } from './lib/time/monotonic-now'
@@ -86,6 +86,10 @@ export default function applyRoutes(
     publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
     graphqlOrigin,
   }
+  const pageMetadataContext: PageMetadataContext = {
+    canonicalHost: process.env.SB_CANONICAL_HOST!.replace(/\/$/, ''),
+    publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
+  }
 
   router.get('/config', async ctx => {
     ctx.body = serverConfig
@@ -149,7 +153,7 @@ export default function applyRoutes(
             : undefined,
       }
       const webpackAssets = await getWebpackAssets()
-      const pageMeta = await getNewsPageMeta(ctx.path, publicAssetsConfig.publicAssetsUrl)
+      const pageMeta = await resolvePageMetadata(ctx.path, pageMetadataContext)
       await ctx.render('index', {
         initData,
         pageMeta,
