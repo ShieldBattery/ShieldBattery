@@ -334,7 +334,15 @@ export function MarkdownToolbar({
   const { t } = useTranslation()
 
   return (
-    <Root className={className}>
+    <Root
+      className={className}
+      onMouseDown={event => {
+        // Keep focus (and the selection) in the editor textarea while a toolbar button is
+        // clicked: preventing mousedown's default stops the button from stealing focus, which
+        // would otherwise blur/refocus the field on every click and make it (and anything
+        // re-rendering with it) visibly flicker.
+        event.preventDefault()
+      }}>
       <IconButton
         icon={<MaterialIcon icon='format_h2' />}
         title={t('markdown.toolbar.heading', 'Heading')}
