@@ -32,6 +32,15 @@ box before first start; use `COORDINATOR_ACME_STAGING=true` for a dry run
 without spending production issuance rate limits. The account key and certs
 persist on the `coordinator_data` volume, so restarts never re-issue.
 
+## Upgrades
+
+The box tracks the `:stable` tag. To ship a new coordinator: pick the main
+commit whose image you want (CI publishes one per commit), run the
+rally-point2 repo's **"Promote coordinator image to stable"** workflow from the
+GitHub Actions tab with that full SHA (it retags — digest-identical to what was
+tested), then on the box: `docker-compose pull && docker-compose up -d`.
+Rollback = promote the previous SHA and pull again.
+
 ## First-time setup
 
 1. Copy this directory to the box, `cp sample.env .env`, fill it in; write
