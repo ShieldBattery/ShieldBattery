@@ -493,6 +493,7 @@
       "useMapSettings": "Use map settings"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "Starting a game server in {{regions}}…",
       "title": "Launching game…"
     },
     "mapName": {
@@ -1249,6 +1250,7 @@
           "autoPlain": "Auto (recommended)",
           "autoResolved": "Auto — {{region}} ({{rtt}}ms)",
           "label": "Server region",
+          "locked": "Locked while in a lobby or matchmaking.",
           "regionWithPing": "{{region}} ({{rtt}}ms)"
         },
         "startMinimized": "Start minimized",

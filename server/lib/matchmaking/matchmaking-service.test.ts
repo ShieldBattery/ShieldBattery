@@ -117,6 +117,9 @@ describe('matchmaking/matchmaking-service', () => {
   let gameServerRegionsService: {
     getRegions: ReturnType<typeof vi.fn>
   }
+  let netcodeV2Service: {
+    warmRegions: ReturnType<typeof vi.fn>
+  }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
 
   function createFakeClient(userId: SbUserId, clientId: string): ClientSocketsGroup {
@@ -207,6 +210,9 @@ describe('matchmaking/matchmaking-service', () => {
     gameServerRegionsService = {
       getRegions: vi.fn().mockResolvedValue([{ id: REGION_US_EAST }]),
     }
+    netcodeV2Service = {
+      warmRegions: vi.fn(),
+    }
 
     asMockedFunction(getMatchmakingRating).mockImplementation(async (userId: SbUserId) =>
       makeMmr(userId),
@@ -230,12 +236,44 @@ describe('matchmaking/matchmaking-service', () => {
       restrictionService as any,
       redisSubscriber as any,
       gameServerRegionsService as any,
+      netcodeV2Service as any,
     )
   })
 
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+  })
+
+  test('warms the queued region when a player queues with one', async () => {
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
+
+    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
+  })
+
+  test('does not warm when a player queues without a region', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
+  })
+
+  test('re-warms queued regions on the renewal interval while players are queued', async () => {
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
+    netcodeV2Service.warmRegions.mockClear()
+
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
+  })
+
+  test('stops re-warming once the queue empties', async () => {
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
+    await service.cancel(USER_A)
+    netcodeV2Service.warmRegions.mockClear()
+
+    await vi.advanceTimersByTimeAsync(120_000)
+
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
   })
 
   test('recovers from an orphaned Rust queue entry by canceling and retrying once', async () => {

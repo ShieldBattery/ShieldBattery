@@ -38,6 +38,7 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -108,6 +109,7 @@ export class LobbyApi {
   readonly gameLoader = container.resolve(GameLoader)
   readonly restrictionService = container.resolve(RestrictionService)
   readonly gameServerRegionsService = container.resolve(GameServerRegionsService)
+  readonly netcodeV2Service = container.resolve(NetcodeV2Service)
 
   lobbies = Map<string, Lobby>()
   lobbyClients = Map<ClientSocketsGroup, string>()
@@ -256,6 +258,7 @@ export class LobbyApi {
     this._subscribeClientToLobby(lobby, user, client)
 
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    this._warmLobbyRegions(lobby)
   }
 
   @Api(
@@ -329,6 +332,7 @@ export class LobbyApi {
 
     this._publishLobbyDiff(lobby, updated)
     this._subscribeClientToLobby(lobby, user, client)
+    this._warmLobbyRegions(updated)
   }
 
   /**
@@ -345,6 +349,22 @@ export class LobbyApi {
       return undefined
     }
     return knownRegionOrUndefined(region, await this.gameServerRegionsService.getRegions())
+  }
+
+  /**
+   * Signals the coordinator to keep every region occupied by a human slot in this lobby warm, so a
+   * game server is ready by the time the lobby launches. Best-effort and debounced downstream, so
+   * it's safe to call on every occupancy change.
+   */
+  _warmLobbyRegions(lobby: Lobby) {
+    const regions = getHumanSlots(lobby)
+      .map(slot => slot.region)
+      .filter((region): region is GameServerRegionId => region !== undefined)
+      .toSet()
+      .toArray()
+    if (regions.length > 0) {
+      this.netcodeV2Service.warmRegions(regions)
+    }
   }
 
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
@@ -462,6 +482,7 @@ export class LobbyApi {
     const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
+    this._warmLobbyRegions(updated)
   }
 
   @Api(
@@ -502,6 +523,7 @@ export class LobbyApi {
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
+    this._warmLobbyRegions(updated)
   }
 
   @Api(
@@ -670,6 +692,7 @@ export class LobbyApi {
       const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)!
       this.lobbies = this.lobbies.set(lobby.name, updated)
       this._publishLobbyDiff(lobby, updated)
+      this._warmLobbyRegions(updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
       const client = this.activityRegistry.getClientForUser(playerToKick.userId!)
       if (!client) {
@@ -729,6 +752,7 @@ export class LobbyApi {
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._warmLobbyRegions(updated)
   }
 
   @Api('/removeObserver')
@@ -756,6 +780,7 @@ export class LobbyApi {
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._warmLobbyRegions(updated)
   }
 
   @Api('/leave')
@@ -796,6 +821,7 @@ export class LobbyApi {
         removalType === REMOVAL_TYPE_KICK ? client.userId : undefined,
         removalType === REMOVAL_TYPE_BAN ? client.userId : undefined,
       )
+      this._warmLobbyRegions(updatedLobby)
     }
     this.lobbyClients = this.lobbyClients.delete(client)
     this.activityRegistry.unregisterClientForUser(client.userId)
@@ -830,6 +856,9 @@ export class LobbyApi {
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
+
+    // Last chance to warm the lobby's regions before a session is created for it.
+    this._warmLobbyRegions(lobby)
 
     const lobbyName = lobby.name
     const countdownTimer = createDeferred<void>()

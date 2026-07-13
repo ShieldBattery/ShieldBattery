@@ -4,6 +4,7 @@ import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
 import { raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
+import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
   NetcodeV2RehomeResponse,
@@ -30,7 +31,35 @@ const MAX_PUBKEYS_PER_GAME = 16
  */
 const SESSIONS_ALIVE_CHUNK_SIZE = 512
 
+/**
+ * How long a warm signal for a region suppresses further warm signals for that same region. The
+ * coordinator holds a region warm for several minutes per `POST /regions/warm`, so re-sending inside
+ * this window is wasted traffic; it's chosen well under the coordinator's hold so a region stays warm
+ * across back-to-back debounced signals.
+ */
+const WARM_SIGNAL_DEBOUNCE_MS = 30_000
+
+/**
+ * The hard ceiling on total time spent polling `POST /session/create` through `202 provisioning`
+ * replies before giving up. The coordinator caps its own provisioning hold well under this, so
+ * reaching this bound means a real outage rather than a slow provision.
+ */
+const PROVISIONING_POLL_CEILING_MS = 120_000
+
 export class NetcodeV2ServiceError extends Error {}
+
+/**
+ * Waits `ms` milliseconds, rejecting early with an `AbortError` if `signal` aborts first. The timer
+ * is cleared on either outcome so an aborted wait leaves nothing pending.
+ */
+async function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  const [delay, clearDelay] = timeoutPromise(ms)
+  try {
+    await raceAbort(signal, delay)
+  } finally {
+    clearDelay()
+  }
+}
 
 /** A raw 32-byte Ed25519 seed as 64 hex characters — the `SB_RP2_CLIENT_KEY` format. */
 const ED25519_SEED_HEX_PATTERN = /^[0-9a-f]{64}$/i
@@ -205,6 +234,26 @@ interface CoordinatorRehomeResponse {
   relay?: CoordinatorRelayEndpoint
 }
 
+/**
+ * The `202` body `POST /session/create` returns while a requested region has no relay yet. Nothing
+ * is created; the caller re-POSTs the byte-identical request after `retryAfterMs` until it gets a
+ * `200`. `regions` names the regions still being provisioned, for surfacing to players.
+ */
+interface CoordinatorProvisioningResponse {
+  status: 'provisioning'
+  regions: string[]
+  retryAfterMs: number
+}
+
+/**
+ * The `POST /regions/warm` response. `warmed` are the regions the coordinator is now holding warm;
+ * `unknown` are ids it doesn't recognize (a stale region list on our side — an ops signal).
+ */
+interface CoordinatorWarmResponse {
+  warmed: string[]
+  unknown: string[]
+}
+
 export interface NetcodeV2Config {
   coordinatorUrl: string
   tenant: string
@@ -336,8 +385,70 @@ export class NetcodeV2Service {
    */
   private rehomeInFlight = new Map<string, Promise<NetcodeV2RehomeResponse>>()
 
+  /**
+   * When each region was last sent in a `POST /regions/warm`, in `Date.now()` ms. Drives the warm
+   * signal debounce so a region posted recently is skipped until the window elapses.
+   */
+  private warmRegionLastSent = new Map<GameServerRegionId, number>()
+
   isEnabled(): boolean {
     return !!this.config
+  }
+
+  /**
+   * Asks the coordinator to hold the given regions warm (spin up/keep a relay ready), so a session
+   * created for them shortly after can be served without a provisioning wait. Best-effort: never
+   * throws, is a no-op when the service is disabled, and callers do not await it. A region posted
+   * within `WARM_SIGNAL_DEBOUNCE_MS` is skipped; all due regions are batched into one signed POST.
+   */
+  warmRegions(regions: ReadonlyArray<GameServerRegionId>): void {
+    const config = this.config
+    if (!config) {
+      return
+    }
+
+    const now = Date.now()
+    const due: GameServerRegionId[] = []
+    for (const region of regions) {
+      const lastSent = this.warmRegionLastSent.get(region)
+      if (lastSent === undefined || now - lastSent >= WARM_SIGNAL_DEBOUNCE_MS) {
+        // Stamp when the POST is dispatched, not on its success, so a failing coordinator can't turn
+        // the debounce into a hot retry loop.
+        this.warmRegionLastSent.set(region, now)
+        due.push(region)
+      }
+    }
+    if (due.length === 0) {
+      return
+    }
+
+    this.postWarmRegions(config, due).catch(err => {
+      log.warn({ err }, 'netcode v2 warm-regions request failed')
+    })
+  }
+
+  private async postWarmRegions(
+    config: NetcodeV2Config,
+    regions: GameServerRegionId[],
+  ): Promise<void> {
+    const url = `${config.coordinatorUrl}/regions/warm`
+    const bodyStr = JSON.stringify({ tenant: config.tenant, regions })
+    const response = await got
+      .post(url, {
+        body: bodyStr,
+        headers: {
+          'content-type': 'application/json',
+          ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+        },
+        timeout: { request: 10000 },
+      })
+      .json<CoordinatorWarmResponse>()
+    if (response.unknown.length > 0) {
+      log.warn(
+        { unknownRegions: response.unknown },
+        'netcode v2 coordinator does not recognize some warmed regions',
+      )
+    }
   }
 
   /**
@@ -371,6 +482,7 @@ export class NetcodeV2Service {
     gameId,
     slots,
     signal,
+    onProvisioning,
   }: {
     gameId: string
     slots: Array<{
@@ -390,6 +502,12 @@ export class NetcodeV2Service {
       rttMs?: number
     }>
     signal: AbortSignal
+    /**
+     * Called at most once, the first time the coordinator answers create with `202 provisioning`,
+     * with the regions still being provisioned. Lets the caller extend its load deadline and tell
+     * players a game server is being brought up while the create POST keeps polling.
+     */
+    onProvisioning?: (regions: string[]) => void
   }): Promise<Map<SbUserId, NetcodeV2ServerSetup>> {
     const config = this.config
     if (!config) {
@@ -431,27 +549,7 @@ export class NetcodeV2Service {
         ...latencyEstimateField,
       }
 
-      let session: CoordinatorSessionResponse
-      try {
-        // Serialize the body ourselves and sign those exact bytes (rather than
-        // handing `got` a `json:` object) so the signature covers precisely what
-        // goes on the wire — the coordinator verifies over the raw body.
-        const url = `${config.coordinatorUrl}/session/create`
-        const bodyStr = JSON.stringify(request)
-        session = await got
-          .post(url, {
-            body: bodyStr,
-            headers: {
-              'content-type': 'application/json',
-              ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
-            },
-            timeout: { request: 10000 },
-            signal,
-          })
-          .json<CoordinatorSessionResponse>()
-      } catch (err) {
-        throw new NetcodeV2ServiceError('coordinator session create failed', { cause: err })
-      }
+      const session = await this.createCoordinatorSession(config, request, signal, onProvisioning)
 
       log.info(
         `netcode v2 session ${session.session} created for game ${gameId} ` +
@@ -547,6 +645,70 @@ export class NetcodeV2Service {
       return result
     } finally {
       this.discardGame(gameId)
+    }
+  }
+
+  /**
+   * Posts the session-create request and returns the coordinator's session response, polling through
+   * any `202 provisioning` replies until a `200` arrives. Every attempt re-serializes and re-signs
+   * the same request object (fresh timestamps) and sends byte-identical body bytes, which the
+   * coordinator's idempotency depends on. Aborts promptly on `signal`, and gives up with a create
+   * failure past `PROVISIONING_POLL_CEILING_MS` (unreachable outside a real outage, since the
+   * coordinator caps its own hold well under that).
+   */
+  private async createCoordinatorSession(
+    config: NetcodeV2Config,
+    request: CoordinatorSessionRequest,
+    signal: AbortSignal,
+    onProvisioning?: (regions: string[]) => void,
+  ): Promise<CoordinatorSessionResponse> {
+    const url = `${config.coordinatorUrl}/session/create`
+    // Serialize the body ourselves and sign those exact bytes (rather than handing `got` a `json:`
+    // object) so the signature covers precisely what goes on the wire — the coordinator verifies
+    // over the raw body — and so every poll attempt sends identical bytes.
+    const bodyStr = JSON.stringify(request)
+    const pollDeadline = Date.now() + PROVISIONING_POLL_CEILING_MS
+    let announcedProvisioning = false
+
+    for (;;) {
+      let response: { statusCode: number; body: string }
+      try {
+        response = await got.post(url, {
+          body: bodyStr,
+          headers: {
+            'content-type': 'application/json',
+            ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+          },
+          timeout: { request: 10000 },
+          signal,
+        })
+      } catch (err) {
+        throw new NetcodeV2ServiceError('coordinator session create failed', { cause: err })
+      }
+
+      if (response.statusCode !== 202) {
+        return JSON.parse(response.body) as CoordinatorSessionResponse
+      }
+
+      const provisioning = JSON.parse(response.body) as CoordinatorProvisioningResponse
+      if (!announcedProvisioning) {
+        announcedProvisioning = true
+        onProvisioning?.(provisioning.regions ?? [])
+      }
+
+      if (Date.now() >= pollDeadline) {
+        throw new NetcodeV2ServiceError(
+          'coordinator session create failed: still provisioning past the poll ceiling',
+        )
+      }
+
+      const retryMs = Math.min(Math.max(provisioning.retryAfterMs ?? 2000, 500), 10_000)
+      try {
+        await abortableDelay(retryMs, signal)
+      } catch (err) {
+        // An aborted wait ends the create the same way an aborted request does.
+        throw new NetcodeV2ServiceError('coordinator session create failed', { cause: err })
+      }
     }
   }
 

@@ -68,6 +68,7 @@ import {
   MatchmakingMatchFailPhase,
   MatchmakingRating,
 } from '../matchmaking/models'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
@@ -349,6 +350,13 @@ async function pickMap(
 const PROCESS_TOKEN_POLL_INTERVAL_MS = 5000
 
 /**
+ * How often, while any player is queued, to re-signal the coordinator to keep the queued players'
+ * regions warm so a match forms onto an already-ready relay. Kept under the coordinator's warm hold
+ * so a region stays warm across a long search.
+ */
+const WARM_RENEWAL_INTERVAL_MS = 60_000
+
+/**
  * How many consecutive process-token fetch failures we tolerate before assuming server-rs has
  * restarted. A single failure is usually a transient hiccup and shouldn't eject the whole queue.
  */
@@ -369,6 +377,8 @@ export class MatchmakingService {
 
   private lastKnownProcessToken: string | undefined
   private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
+  /** Runs while any player is queued, re-warming their regions. Self-stops when the queue empties. */
+  private warmRenewalInterval: ReturnType<typeof setInterval> | undefined
   /** Consecutive process-token fetch failures; reset to 0 on any success. */
   private consecutiveTokenFailures = 0
   /**
@@ -451,6 +461,7 @@ export class MatchmakingService {
     private restrictionService: RestrictionService,
     private redisSubscriber: RedisSubscriber,
     private gameServerRegionsService: GameServerRegionsService,
+    private netcodeV2Service: NetcodeV2Service,
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
@@ -528,6 +539,11 @@ export class MatchmakingService {
     // it if it's unknown (the list can change between the client fetching it and queueing). An
     // absent or unknown region is tolerated — the player simply carries no latency signal.
     const region = await this.resolveQueuedRegion(desiredRegion)
+    if (region) {
+      // Signal the coordinator to keep this region warm so a match forms onto an already-ready
+      // relay; the renewal interval below keeps it warm for the duration of a long search.
+      this.netcodeV2Service.warmRegions([region.region])
+    }
 
     // Load MMR for all queued types in parallel
     const typeDataEntries = await Promise.all(
@@ -605,6 +621,7 @@ export class MatchmakingService {
     }
 
     this.startProcessTokenWatchdog()
+    this.startWarmRenewal()
     this.subscribeUserToQueueUpdates(
       clientSockets,
       typeDataEntries.map(d => ({ matchmakingType: d.type, race: d.race })),
@@ -1405,6 +1422,37 @@ export class MatchmakingService {
     this.matchesFoundMetric.labels(event.mode).inc()
 
     this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
+  }
+
+  private startWarmRenewal(): void {
+    if (this.warmRenewalInterval) return
+    this.warmRenewalInterval = setInterval(() => {
+      this.renewWarmRegions()
+    }, WARM_RENEWAL_INTERVAL_MS)
+  }
+
+  private stopWarmRenewal(): void {
+    if (this.warmRenewalInterval) {
+      clearInterval(this.warmRenewalInterval)
+      this.warmRenewalInterval = undefined
+    }
+  }
+
+  private renewWarmRegions(): void {
+    if (this.playerQueueData.size === 0) {
+      this.stopWarmRenewal()
+      return
+    }
+
+    const regions = new Set<GameServerRegionId>()
+    for (const data of this.playerQueueData.values()) {
+      if (data.region) {
+        regions.add(data.region.region)
+      }
+    }
+    if (regions.size > 0) {
+      this.netcodeV2Service.warmRegions([...regions])
+    }
   }
 
   private startProcessTokenWatchdog(): void {

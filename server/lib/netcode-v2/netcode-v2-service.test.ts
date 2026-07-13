@@ -344,6 +344,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
     vi.clearAllMocks()
+    vi.useRealTimers()
   })
 
   // eslint-disable-next-line camelcase
@@ -361,10 +362,27 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     }
   }
 
+  /** A `200` create reply carrying `response` as the session body. */
+  function createOk(response: unknown) {
+    return { statusCode: 200, body: JSON.stringify(response) }
+  }
+
+  /** A `202` create reply asking the caller to re-post after `retryAfterMs`. */
+  function createProvisioning(regions: string[], retryAfterMs: number) {
+    return {
+      statusCode: 202,
+      body: JSON.stringify({ status: 'provisioning', regions, retryAfterMs }),
+    }
+  }
+
+  /** Stubs `got.post` to answer the create POST with a single `200` carrying `response`. */
+  function mockSessionResponse(response: unknown) {
+    asMockedFunction(got.post).mockResolvedValue(createOk(response) as any)
+  }
+
   test('forwards each slot region (snake_case) and omits it when absent', async () => {
     configureNetcodeV2()
-    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    mockSessionResponse(sessionResponse([0, 1]))
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -395,8 +413,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   test('adds a ceiled latency_estimate_ms to the request body when slots carry a latency signal', async () => {
     configureNetcodeV2()
-    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    mockSessionResponse(sessionResponse([0, 1]))
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -436,8 +453,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
   test("uses the configured backbone table for a cross-region pair's latency_estimate_ms", async () => {
     vi.stubEnv('SB_REGION_BACKBONE_RTT_JSON', JSON.stringify({ 'us-east|eu-west': 90 }))
     configureNetcodeV2()
-    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    mockSessionResponse(sessionResponse([0, 1]))
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -476,8 +492,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   test('omits latency_estimate_ms entirely when no slot pair carries a latency signal', async () => {
     configureNetcodeV2()
-    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    mockSessionResponse(sessionResponse([0, 1]))
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -503,8 +518,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   test('records a home event for the home relay', async () => {
     configureNetcodeV2()
-    const json = vi.fn().mockResolvedValue(sessionResponse([0]))
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    mockSessionResponse(sessionResponse([0]))
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -525,7 +539,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     configureNetcodeV2()
     // eslint-disable-next-line camelcase
     const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
-    const json = vi.fn().mockResolvedValue({
+    mockSessionResponse({
       ...sessionResponse([0, 1, 2]),
       // eslint-disable-next-line camelcase
       slot_homes: [
@@ -534,7 +548,6 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
         { slot: 2, relay: secondaryRelay },
       ],
     })
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -564,8 +577,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   test('roster entries carry the session home relay and requested region, omitting region when absent', async () => {
     configureNetcodeV2()
-    const json = vi.fn().mockResolvedValue(sessionResponse([0, 1]))
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    mockSessionResponse(sessionResponse([0, 1]))
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -595,12 +607,11 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     configureNetcodeV2()
     // eslint-disable-next-line camelcase
     const secondaryRelay = { relay_id: 2, relay_addr: '10.0.0.2:14900', cert_der: RELAY_CERT_DER }
-    const json = vi.fn().mockResolvedValue({
+    mockSessionResponse({
       ...sessionResponse([0, 1]),
       // eslint-disable-next-line camelcase
       slot_homes: [{ slot: 1, relay: secondaryRelay }],
     })
-    asMockedFunction(got.post).mockReturnValue({ json } as any)
     const service = new NetcodeV2Service()
 
     const u1 = makeSbUserId(1)
@@ -624,5 +635,199 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       { slot: 0, userId: u1, homeRelayId: 1 },
       { slot: 1, userId: u2, homeRelayId: 2 },
     ])
+  })
+
+  test('polls through a 202 provisioning reply and re-posts the identical signed body', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post)
+      .mockResolvedValueOnce(createProvisioning(['us-east'], 2000) as any)
+      .mockResolvedValueOnce(createOk(sessionResponse([0])) as any)
+    const service = new NetcodeV2Service()
+    const onProvisioning = vi.fn()
+
+    const u1 = makeSbUserId(1)
+    service.registerPubkey('game-1', u1, PUBKEY)
+
+    const resultPromise = service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false }],
+      signal: new AbortController().signal,
+      onProvisioning,
+    })
+    await vi.advanceTimersByTimeAsync(2100)
+    const result = await resultPromise
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+    const [firstCall, secondCall] = asMockedFunction(got.post).mock.calls
+    // The coordinator's idempotency depends on identical body bytes across attempts.
+    expect((secondCall[1] as any).body).toBe((firstCall[1] as any).body)
+    // Each attempt is freshly signed.
+    expect((firstCall[1] as any).headers['x-rp2-signature']).toMatch(/^[0-9a-f]{128}$/)
+    expect((secondCall[1] as any).headers['x-rp2-signature']).toMatch(/^[0-9a-f]{128}$/)
+    expect(onProvisioning).toHaveBeenCalledTimes(1)
+    expect(onProvisioning).toHaveBeenCalledWith(['us-east'])
+    expect(result.get(u1)).toBeDefined()
+  })
+
+  test('announces provisioning only once across repeated 202 replies', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post)
+      .mockResolvedValueOnce(createProvisioning(['us-east'], 1000) as any)
+      .mockResolvedValueOnce(createProvisioning(['us-east'], 1000) as any)
+      .mockResolvedValueOnce(createOk(sessionResponse([0])) as any)
+    const service = new NetcodeV2Service()
+    const onProvisioning = vi.fn()
+
+    const u1 = makeSbUserId(1)
+    service.registerPubkey('game-1', u1, PUBKEY)
+
+    const resultPromise = service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false }],
+      signal: new AbortController().signal,
+      onProvisioning,
+    })
+    await vi.advanceTimersByTimeAsync(3000)
+    await resultPromise
+
+    expect(got.post).toHaveBeenCalledTimes(3)
+    expect(onProvisioning).toHaveBeenCalledTimes(1)
+  })
+
+  test('aborting mid-poll ends the create with a create failure', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockResolvedValue(createProvisioning(['us-east'], 5000) as any)
+    const service = new NetcodeV2Service()
+    const controller = new AbortController()
+
+    const u1 = makeSbUserId(1)
+    service.registerPubkey('game-1', u1, PUBKEY)
+
+    const resultPromise = service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false }],
+      signal: controller.signal,
+    })
+
+    // The first POST returns 202; abort while the retry wait is still counting down.
+    await vi.advanceTimersByTimeAsync(1000)
+    controller.abort()
+
+    await expect(resultPromise).rejects.toThrow('coordinator session create failed')
+  })
+
+  test('gives up with a create failure once the provisioning poll ceiling is exceeded', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    // The coordinator never stops provisioning, so only the poll ceiling can end the loop.
+    asMockedFunction(got.post).mockResolvedValue(createProvisioning(['us-east'], 10_000) as any)
+    const service = new NetcodeV2Service()
+
+    const u1 = makeSbUserId(1)
+    service.registerPubkey('game-1', u1, PUBKEY)
+
+    const resultPromise = service.createSessionForGame({
+      gameId: 'game-1',
+      slots: [{ slot: 0, userId: u1, observer: false }],
+      signal: new AbortController().signal,
+    })
+
+    // The rejection lands while the poll runs out its ceiling, so attach the expectation before
+    // advancing rather than leaving the rejection briefly unhandled.
+    await Promise.all([
+      expect(resultPromise).rejects.toThrow('coordinator session create failed'),
+      vi.advanceTimersByTimeAsync(130_000),
+    ])
+  })
+})
+
+describe('netcode-v2/NetcodeV2Service#warmRegions', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+    vi.useRealTimers()
+  })
+
+  const R1 = makeGameServerRegionId('us-east')
+  const R2 = makeGameServerRegionId('eu-west')
+
+  function mockWarmOk() {
+    const json = vi.fn().mockResolvedValue({ warmed: [], unknown: [] })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+  }
+
+  test('is a no-op when the service is disabled', () => {
+    const service = new NetcodeV2Service()
+
+    service.warmRegions([R1])
+
+    expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test('batches multiple regions into a single signed POST', () => {
+    configureNetcodeV2()
+    mockWarmOk()
+    const service = new NetcodeV2Service()
+
+    service.warmRegions([R1, R2])
+
+    expect(got.post).toHaveBeenCalledTimes(1)
+    const [url, options] = asMockedFunction(got.post).mock.calls[0]
+    expect(url).toBe('http://coordinator.example/regions/warm')
+    expect(JSON.parse((options as any).body)).toEqual({
+      tenant: 'sb-dev',
+      regions: ['us-east', 'eu-west'],
+    })
+    expect((options as any).headers).toEqual(
+      expect.objectContaining({
+        'content-type': 'application/json',
+        'x-rp2-timestamp': expect.stringMatching(/^\d+$/),
+        'x-rp2-signature': expect.stringMatching(/^[0-9a-f]{128}$/),
+      }),
+    )
+  })
+
+  test('debounces a region posted again within the window', () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    mockWarmOk()
+    const service = new NetcodeV2Service()
+
+    service.warmRegions([R1])
+    service.warmRegions([R1])
+
+    expect(got.post).toHaveBeenCalledTimes(1)
+  })
+
+  test('re-posts a region after the debounce window elapses', () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    mockWarmOk()
+    const service = new NetcodeV2Service()
+
+    service.warmRegions([R1])
+    vi.advanceTimersByTime(30_000)
+    service.warmRegions([R1])
+
+    expect(got.post).toHaveBeenCalledTimes(2)
+  })
+
+  test('swallows a failed warm request but still holds the debounce', async () => {
+    vi.useFakeTimers()
+    configureNetcodeV2()
+    const json = vi.fn().mockRejectedValue(new Error('coordinator down'))
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = new NetcodeV2Service()
+
+    expect(() => service.warmRegions([R1])).not.toThrow()
+    await vi.advanceTimersByTimeAsync(0)
+    // A second call inside the window is still debounced even though the first POST failed — the
+    // stamp is set when the request is dispatched, not on its success.
+    service.warmRegions([R1])
+
+    expect(got.post).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,5 +1,5 @@
 import { register } from 'prom-client'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { beforeEach, describe, expect, Mock, test, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
@@ -96,7 +96,20 @@ describe('games/game-loader/GameLoader', () => {
   let netcodeV2Service: {
     isEnabled: ReturnType<typeof vi.fn>
     discardGame: ReturnType<typeof vi.fn>
-    createSessionForGame: ReturnType<typeof vi.fn>
+    createSessionForGame: Mock<
+      (args: {
+        gameId: string
+        slots: Array<{
+          slot: number
+          userId: SbUserId
+          observer: boolean
+          region?: unknown
+          rttMs?: number
+        }>
+        signal: AbortSignal
+        onProvisioning?: (regions: string[]) => void
+      }) => Promise<Map<SbUserId, unknown>>
+    >
   }
   let gameLoader: GameLoader
 
@@ -376,5 +389,117 @@ describe('games/game-loader/GameLoader', () => {
         expect.objectContaining({ userId: p2, rttMs: undefined }),
       ]),
     )
+  })
+
+  test('publishes a provisioning status to every player when the coordinator reports provisioning', async () => {
+    const player1 = makePlayer(p1)
+    const player2 = makePlayer(p2)
+    registerActiveClients([player1.slot, player2.slot])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockImplementation(async ({ onProvisioning }) => {
+      onProvisioning?.(['us-east', 'eu-west'])
+      return new Map([
+        [p1, {} as any],
+        [p2, {} as any],
+      ])
+    })
+
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId: 'game-prov',
+      resultCodes: new Map([
+        [p1, 'code-1'],
+        [p2, 'code-2'],
+      ]),
+    } as any)
+
+    const request: GameLoadRequest = {
+      players: [player1.slot, player2.slot],
+      playerInfos: [player1.playerInfo, player2.playerInfo],
+      mapId,
+      gameConfig: lobbyConfig([
+        [{ id: p1, race: 't', isComputer: false }],
+        [{ id: p2, race: 'z', isComputer: false }],
+      ]),
+    }
+
+    const resultPromise = gameLoader.loadGame(request)
+
+    await vi.waitFor(() => {
+      expect(publisher.publish).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          type: 'setLoadingStatus',
+          gameId: 'game-prov',
+          status: 'provisioningGameServer',
+          regions: ['us-east', 'eu-west'],
+        }),
+      )
+    })
+    gameLoader.registerGameAsLoaded('game-prov', p1)
+    gameLoader.registerGameAsLoaded('game-prov', p2)
+    await resultPromise
+  })
+
+  test('extends the load deadline on provisioning so the load survives past the base timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      const player1 = makePlayer(p1)
+      const player2 = makePlayer(p2)
+      registerActiveClients([player1.slot, player2.slot])
+      asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+      netcodeV2Service.isEnabled.mockReturnValue(true)
+      netcodeV2Service.createSessionForGame.mockImplementation(async ({ onProvisioning }) => {
+        onProvisioning?.(['us-east'])
+        return new Map([
+          [p1, {} as any],
+          [p2, {} as any],
+        ])
+      })
+
+      asMockedFunction(registerGame).mockResolvedValue({
+        gameId: 'game-extend',
+        resultCodes: new Map([
+          [p1, 'code-1'],
+          [p2, 'code-2'],
+        ]),
+      } as any)
+
+      const request: GameLoadRequest = {
+        players: [player1.slot, player2.slot],
+        playerInfos: [player1.playerInfo, player2.playerInfo],
+        mapId,
+        gameConfig: lobbyConfig([
+          [{ id: p1, race: 't', isComputer: false }],
+          [{ id: p2, race: 'z', isComputer: false }],
+        ]),
+      }
+
+      const resultPromise = gameLoader.loadGame(request)
+
+      // Drain the load's async setup (all awaited work resolves on already-resolved promises), so
+      // the provisioning callback runs and extends the deadline before we cross the base timeout.
+      for (let i = 0; i < 100; i++) {
+        await Promise.resolve()
+      }
+      expect(publisher.publish).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ type: 'setLoadingStatus' }),
+      )
+
+      // The base timeout (75s) would cancel here without the extension.
+      await vi.advanceTimersByTimeAsync(80_000)
+      const canceled = publisher.publish.mock.calls.some(
+        (call: any[]) => call[1]?.type === 'cancelLoading',
+      )
+      expect(canceled).toBe(false)
+
+      gameLoader.registerGameAsLoaded('game-extend', p1)
+      gameLoader.registerGameAsLoaded('game-extend', p2)
+      const result = await resultPromise
+      expect(result.isOk()).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

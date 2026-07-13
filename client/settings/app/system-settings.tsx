@@ -13,10 +13,12 @@ import {
   gameServerRegionsAtom,
 } from '../../game-server-regions/game-server-regions-atoms'
 import { pickAutoRegion } from '../../game-server-regions/region-resolution'
+import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchmaking-atoms'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { bodySmall } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
 
@@ -26,6 +28,11 @@ const IndentedCheckBox = styled(CheckBox)`
 
 const NetworkOverline = styled(SectionOverline)`
   margin-bottom: 8px;
+`
+
+const RegionLockedText = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
 `
 
 /**
@@ -80,6 +87,12 @@ export function AppSystemSettings() {
   const localSettings = useAppSelector(s => s.settings.local)
   const regions = useAtomValue(gameServerRegionsAtom)
   const latencies = useAtomValue(gameServerRegionLatenciesAtom)
+  const isMatchmaking = useAtomValue(isMatchmakingAtom)
+  const isMatchLaunching = useAtomValue(matchLaunchingAtom)
+  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  // The region a game homes on is chosen when queueing/joining, so changing it mid-activity would
+  // have no effect on the game about to launch; lock it while the user is in one of those.
+  const regionLocked = isMatchmaking || isMatchLaunching || inLobby
 
   const { bindCheckable, bindCustom, getInputValue, submit, form } =
     useForm<AppSystemSettingsModel>(
@@ -152,6 +165,7 @@ export function AppSystemSettings() {
             <Select
               {...bindCustom('gameServerRegion')}
               label={t('settings.app.system.serverRegion.label', 'Server region')}
+              disabled={regionLocked}
               tabIndex={0}>
               <SelectOption
                 value={AUTO_REGION_VALUE}
@@ -165,6 +179,14 @@ export function AppSystemSettings() {
                 />
               ))}
             </Select>
+            {regionLocked ? (
+              <RegionLockedText>
+                {t(
+                  'settings.app.system.serverRegion.locked',
+                  'Locked while in a lobby or matchmaking.',
+                )}
+              </RegionLockedText>
+            ) : null}
           </SectionContainer>
         ) : null}
       </FormContainer>

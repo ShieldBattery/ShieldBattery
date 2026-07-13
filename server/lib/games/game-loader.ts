@@ -3,7 +3,8 @@ import { Counter } from 'prom-client'
 import { singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
-import rejectOnTimeout from '../../../common/async/reject-on-timeout'
+import { extendableDeadline } from '../../../common/async/extendable-deadline'
+import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
@@ -27,6 +28,13 @@ import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 75 * 1000
+
+/**
+ * Extra time added once to a load's deadline when the coordinator reports it's still provisioning a
+ * game server. The base timeout matches the coordinator's provisioning-hold cap, so a load that
+ * waits out a full provision would otherwise trip the timeout before the game itself begins loading.
+ */
+const PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS = 90 * 1000
 
 export enum GameLoadErrorType {
   /** The game load request was canceled before it completed. */
@@ -84,6 +92,8 @@ const createLoadingData = Record({
   abortController: null as unknown as AbortController,
   deferred: null as unknown as Deferred<Result<GameLoadResult, GameLoaderError>>,
   signal: null as unknown as AbortSignal,
+  /** Pushes the load's timeout deadline further out. Defaults to a no-op until a deadline is armed. */
+  extendDeadline: ((_ms: number) => {}) as (ms: number) => void,
 })
 
 type LoadingData = ReturnType<typeof createLoadingData>
@@ -262,6 +272,7 @@ export class GameLoader {
     registerGame(mapId, gameConfig).then(
       ({ gameId, resultCodes }) => {
         const abortController = new AbortController()
+        const deadline = extendableDeadline(gameLoaded, GAME_LOAD_TIMEOUT, 'game load timed out')
         this.loadingGames = this.loadingGames.set(
           gameId,
           createLoadingData({
@@ -272,6 +283,7 @@ export class GameLoader {
             signal: signal
               ? AbortSignal.any([signal, abortController.signal])
               : abortController.signal,
+            extendDeadline: deadline.extend,
           }),
         )
 
@@ -287,7 +299,7 @@ export class GameLoader {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
 
-        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
+        deadline.expired.catch(() => {
           const loadingData = this.loadingGames.get(gameId)
           if (!loadingData) {
             // Something else must have already dealt with it
@@ -459,6 +471,29 @@ export class GameLoader {
     })
 
     return true
+  }
+
+  /**
+   * Runs once per load, the first time the coordinator reports a game server is still being
+   * provisioned: tells every player which regions are coming up and extends the load deadline so
+   * waiting out the provision doesn't trip the base timeout.
+   */
+  private handleGameServerProvisioning(gameId: string, regions: string[]): void {
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return
+    }
+
+    const regionIds = regions.map(makeGameServerRegionId)
+    for (const player of loadingData.players) {
+      this.publisher.publish(gameUserPath(gameId, player.userId!), {
+        type: 'setLoadingStatus',
+        gameId,
+        status: 'provisioningGameServer',
+        regions: regionIds,
+      })
+    }
+    loadingData.extendDeadline(PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS)
   }
 
   isLoadingOrRecentlyLoaded(gameId: string) {
@@ -688,7 +723,12 @@ export class GameLoader {
         }))
         const [setups, setupsError] = (
           await Result.fromAsyncCatching(
-            this.netcodeV2Service.createSessionForGame({ gameId, slots, signal }),
+            this.netcodeV2Service.createSessionForGame({
+              gameId,
+              slots,
+              signal,
+              onProvisioning: regions => this.handleGameServerProvisioning(gameId, regions),
+            }),
           )
         ).toTuple()
         if (setupsError) {
