@@ -122,11 +122,62 @@ task, advertised at enroll via ECS-metadata discovery — which settles the form
 per-game-IP-rotation vs stable-enroll-address tension (no rotation machinery; DDoS baseline =
 natural per-task IP churn + Shield Standard).
 
-- Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, lobby-time
-  provisioning, scale-to-zero, warm-pool fallback; cold-start budget measurement. With it: a
-  per-region fallback *ordering* for unlit regions (today an unlit region falls back to the global
-  lowest-id relay), and a local-dev way to simulate provisioning (a region with no relay gaining
-  one on demand) so rp2's provisioning path is testable without AWS.
+**Provisioning + relay-identity design (ratified with Travis 2026-07-12):** relay identity is
+born at launch — the coordinator (the sole launcher of relay tasks) mints `(relay_id, one-time
+enroll token, region)` at RunTask, passes them via container env overrides, and records them in
+a **SQLite ledger** on the compose volume (tokens stored hashed; task ARN, cert-fingerprint
+binding, lifecycle state, timestamps). Enroll, after the unchanged PoP challenge: unknown id ⇒
+token required, validated + consumed, fingerprint bound; re-enroll ⇒ same fingerprint required,
+no token; task end ⇒ id tombstoned, never enrollable again. Token-less Hellos are refused
+whenever a provisioner is configured; dev/loopback without one keeps today's self-asserted-id
+path. **This closes the offline-relay-id takeover (the Phase 6 design gate) structurally** — an
+id is live, launching, or retired; the "offline but claimable" class no longer exists.
+Env-override visibility (DescribeTasks / CloudTrail readers, i.e. account-internal only) is
+accepted: single-use + a launch deadline + a source-IP cross-check at enroll. Addresses are
+coordinator-sourced for provisioned relays via one resolution rule — `ledger.addrs.or(hello.addrs)`
+— with the ledger populated from DescribeTasks → ENI → public addrs (adds
+`ec2:DescribeNetworkInterfaces` to the narrow IAM policy); dev relays keep Hello self-report; no
+new address wire fields.
+
+**Warm/scale policy (same conversation):** warm signals are tenant-signed, idempotent, TTL'd
+(`POST /regions/warm`), renewed by *activity* — matchmaking renews while queued; lobbies renew on
+join/slot-change/countdown, debounced — so an idle-for-days lobby lapses and its relay drains.
+The relay/region setting is **locked while in a gameplay activity** (matchmaking or lobby; new SB
+item) so an activity's region set is fixed at join. Hold-until-ready backstop: a create naming an
+unlit region ⇒ the coordinator kicks RunTask and returns an additive `provisioning` response; SB
+holds the launch with visible status, capped ~60–90s (calibrate after measuring), then falls back
+to the nearest lit region — **fallback ordering derived from the backbone RTT table**, not a
+second config. v1 scale target is 0-or-1 relay per region but the loop is target-N from day one;
+the loop is written against a `Provisioner` trait (`EcsProvisioner` + a local `ProcessProvisioner`
+spawning relay binaries) so mint→launch→enroll→drain→retire, deadline sweeps, and `startedBy`
+orphan reconciliation are all testable without AWS. Cold-start measurement (RunTask→enrolled
+distribution, free from ledger timestamps) is an early task once one region stands — it
+calibrates the hold cap. Budget guardrail: beat the old rally-point ~$70/mo (peak-hour min-1
+pins in busy regions are ~$9/mo each if the cold tail annoys). **IaC = plain Terraform** (state
+in S3/Spaces — it holds secrets, never git; OpenTofu is the drop-in license hedge; CDK rejected —
+slow opaque deploys).
+
+Build order: (1) ledger + token enroll (rp2); (2) provisioner trait + loop + sweeps (rp2);
+(3) warm + pending-create + SB signals/hold/setting-lock; (4) Terraform + scratch image + DO
+compose; then stand up one region and measure.
+
+> **Status (2026-07-12): legs 1–3 BUILT, both repos; leg 4 remains.** rp2 local `main` (UNPUSHED,
+> awaiting go-ahead) = `6766a70` ledger + one-time-token enroll (close 4005, OptionalPeerAddr,
+> coordinator-sourced addr override), `090437b` Provisioner trait + reconcile loop +
+> ProcessProvisioner + real-relay e2e (drain via the assignment lock + new `clear_draining`),
+> `987ef0f` POST /regions/warm + hold-until-ready create (202, nothing minted while pending,
+> cap→fallback), `10667a0` EcsProvisioner (early-Running at ENI-attach, expected-IP set,
+> rustls+ring only, fake-tested — no live AWS). SB `d45fa72ef` (this branch) = warm signals
+> (queue join + 60s renewal + lobby occupancy/countdown, 30s debounce), 202 poll loop
+> (byte-identical re-signed re-POST), game-loader 90s deadline extension via new
+> `common/async/extendable-deadline.ts` (the 75s base timeout equals the coordinator hold cap),
+> `setLoadingStatus` event + LaunchingGameDialog status line, region-setting lock. None of the
+> rp2 legs touch the client crate's API, so the eventual pin bump is routine. Leg 4 still to do,
+> plus: live loopback pass of the provisioning path (ProcessProvisioner dev stack), translate-i18n
+> for the two new strings, cold-start measurement to calibrate the hold cap.
+
+- Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, scale-to-zero per
+  the policy above; cold-start budget measurement.
 - Pre-built on the rp2 side: **dual-stack advertise** (`relay_addrs`, `d26aaf1`) and **coordinated
   relay drain** (SIGTERM → `Draining`/`DrainAck`, 90s bound, `5d0ea11`). Remaining here: address
   discovery via ECS metadata (still explicit `--advertise-addr` flags) + SB-side per-client
@@ -228,11 +279,11 @@ natural per-task IP churn + Shield Standard).
   whatever `relay_id` a PoP-verified Hello claims, and the atomic duplicate-id refusal only
   protects an *already-live* id. So a bootstrap-secret holder can enroll as an **offline** relay's
   id with its own (proven) cert; the coordinator then distributes the attacker's fingerprint for
-  that id and clients/peers pin it. Closing this needs the coordinator to know each `relay_id`'s
-  expected identity ahead of time (a per-relay enrollment credential / pre-registered
-  `relay_id → pubkey` map, or a signed bootstrap token carrying the id) — the per-relay side of
-  this same tenant-lifecycle item. This is the natural next security piece after the arc; needs a
-  design conversation (how relays get provisioned identities in the DO/Fargate substrate).
+  that id and clients/peers pin it. **Design ratified 2026-07-12 — the launch-minted identity
+  ledger in §Phase 5's provisioning block (in build):** relay ids are coordinator-minted per task
+  with a one-time enroll token, so there is no offline-but-claimable id class at all. The
+  *tenant*-credential half of this item (enrollment/rotation/consolidation, pubkey-at-queue-time)
+  remains open.
 - **Finite token lifetimes** *(LANDED `8f33192`)* — the `ExpiresAt(u64::MAX)` dev
   placeholder is replaced by a configurable fixed lifetime from create (`--player-token-lifetime-secs`
   / env, default 6h ≈ 2× the longest game ever observed ~3h). Tokens are checked only when
@@ -302,6 +353,9 @@ identity header with live session/relay id, 1 Hz-sampled buffer + worst-gap stri
 ticker, per-player create-time home relay/region column, turn-rate row gone; a TR8-feel emulation
 for UMS players remains a future idea with different UI); ~~remove the lobby turn-rate setting~~,
 ~~USEFUL_QUERIES fix~~, ~~region-settings translations~~ (all DONE 2026-07-12);
+**lock the relay/region setting while in a gameplay activity** (matchmaking or lobby — keeps an
+activity's warm-signal region set fixed at join; ratified 2026-07-12, part of the provisioning
+arc leg 3);
 drop `netcodeV2` naming from public surfaces (surveyed: the only user-visible instance is the
 admin game-page debug section title — everything else is internal identifiers + the two DLL-facing
 route names; low urgency, rename needs a target-naming decision); client desync-report hook
