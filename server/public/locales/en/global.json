@@ -5,12 +5,12 @@
         "delete": "Delete",
         "edit": "Edit",
         "history": "Edit history",
+        "menu": "Actions",
         "publishNow": "Publish now",
         "unpublish": "Unpublish"
       },
       "backToList": "Back to list",
       "column": {
-        "actions": "Actions",
         "author": "Author",
         "status": "Status",
         "title": "Title",
@@ -956,6 +956,17 @@
       "twilight": "Twilight"
     }
   },
+  "markdown": {
+    "toolbar": {
+      "bold": "Bold",
+      "heading": "Heading",
+      "italic": "Italic",
+      "link": "Link",
+      "orderedList": "Numbered list",
+      "quote": "Quote",
+      "unorderedList": "Bulleted list"
+    }
+  },
   "matchmaking": {
     "acceptMatch": {
       "body": "All players must ready up for the match to start.",
@@ -1152,6 +1163,7 @@
     },
     "byAuthor": "by {{name}}",
     "draft": "Draft",
+    "manageNews": "Manage news",
     "seeAll": "See all news",
     "unavailable": "News is unavailable right now."
   },

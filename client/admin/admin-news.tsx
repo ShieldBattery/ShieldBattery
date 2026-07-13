@@ -18,8 +18,16 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
+import {
+  applyMarkdownFormat,
+  MarkdownFormatKind,
+  MarkdownToolbar,
+} from '../markdown/markdown-toolbar'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { DateTimeTextField } from '../material/datetime-text-field'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
@@ -289,10 +297,11 @@ const UpdatedCell = styled.div`
 
 const ActionsCell = styled.div`
   flex: 0 0 auto;
+  width: 48px;
 
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
 `
 
 const EmDash = styled.span`
@@ -453,7 +462,7 @@ function AdminNewsList() {
             <StatusCell>{t('admin.news.column.status', 'Status')}</StatusCell>
             <AuthorCell>{t('admin.news.column.author', 'Author')}</AuthorCell>
             <UpdatedCell>{t('admin.news.column.updated', 'Updated')}</UpdatedCell>
-            <ActionsCell>{t('admin.news.column.actions', 'Actions')}</ActionsCell>
+            <ActionsCell />
           </ListHeaderRow>
           {pageCursors.map((cursor, i) => (
             <NewsListPage
@@ -569,6 +578,8 @@ function NewsPostRow({
 }) {
   const { t } = useTranslation()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
   const status = getPostStatus(post.publishedAt, now)
 
   if (confirmingDelete) {
@@ -613,39 +624,66 @@ function NewsPostRow({
       <UpdatedCell>{longTimestamp.format(new Date(post.updatedAt))}</UpdatedCell>
       <ActionsCell>
         <IconButton
-          icon={<MaterialIcon icon='edit' />}
-          title={t('admin.news.action.edit', 'Edit')}
-          onClick={() => push(urlPath`/admin/news/${post.id}`)}
+          ref={anchorRef}
+          icon={<MaterialIcon icon='more_vert' />}
+          title={t('admin.news.action.menu', 'Actions')}
+          onClick={openMenu}
           disabled={mutating}
         />
-        <IconButton
-          icon={<MaterialIcon icon='history' />}
-          title={t('admin.news.action.history', 'Edit history')}
-          onClick={() => push(urlPath`/admin/news/${post.id}/history`)}
-          disabled={mutating}
-        />
-        {status.kind !== 'published' ? (
-          <IconButton
-            icon={<MaterialIcon icon='publish' />}
-            title={t('admin.news.action.publishNow', 'Publish now')}
-            onClick={() => onPublishNow(post.id)}
-            disabled={mutating}
-          />
-        ) : null}
-        {status.kind !== 'draft' ? (
-          <IconButton
-            icon={<MaterialIcon icon='unpublished' />}
-            title={t('admin.news.action.unpublish', 'Unpublish')}
-            onClick={() => onUnpublish(post.id)}
-            disabled={mutating}
-          />
-        ) : null}
-        <IconButton
-          icon={<MaterialIcon icon='delete' />}
-          title={t('admin.news.action.delete', 'Delete')}
-          onClick={() => setConfirmingDelete(true)}
-          disabled={mutating}
-        />
+        <Popover
+          open={menuOpen}
+          onDismiss={closeMenu}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX='right'
+          originY='top'>
+          <MenuList>
+            <MenuItem
+              icon={<MaterialIcon icon='edit' />}
+              text={t('admin.news.action.edit', 'Edit')}
+              onClick={() => {
+                closeMenu()
+                push(urlPath`/admin/news/${post.id}`)
+              }}
+            />
+            <MenuItem
+              icon={<MaterialIcon icon='history' />}
+              text={t('admin.news.action.history', 'Edit history')}
+              onClick={() => {
+                closeMenu()
+                push(urlPath`/admin/news/${post.id}/history`)
+              }}
+            />
+            {status.kind !== 'published' ? (
+              <MenuItem
+                icon={<MaterialIcon icon='publish' />}
+                text={t('admin.news.action.publishNow', 'Publish now')}
+                onClick={() => {
+                  closeMenu()
+                  onPublishNow(post.id)
+                }}
+              />
+            ) : null}
+            {status.kind !== 'draft' ? (
+              <MenuItem
+                icon={<MaterialIcon icon='unpublished' />}
+                text={t('admin.news.action.unpublish', 'Unpublish')}
+                onClick={() => {
+                  closeMenu()
+                  onUnpublish(post.id)
+                }}
+              />
+            ) : null}
+            <DestructiveMenuItem
+              icon={<MaterialIcon icon='delete' />}
+              text={t('admin.news.action.delete', 'Delete')}
+              onClick={() => {
+                closeMenu()
+                setConfirmingDelete(true)
+              }}
+            />
+          </MenuList>
+        </Popover>
       </ActionsCell>
     </RowRoot>
   )
@@ -710,9 +748,17 @@ const FormArea = styled.div`
   align-items: stretch;
 `
 
-const ContentField = styled(TextField)`
+const EditorColumn = styled.div`
   flex: 1 1 50%;
   min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const ContentField = styled(TextField)`
+  width: 100%;
 `
 
 const MarkdownPreview = styled(Markdown)`
@@ -744,6 +790,10 @@ const PublishControl = styled.div`
   border-radius: 4px;
 `
 
+const ScheduleField = styled(DateTimeTextField)`
+  max-width: 320px;
+`
+
 const ScheduleHint = styled.div`
   ${bodyMedium};
   color: var(--theme-on-surface-variant);
@@ -752,12 +802,6 @@ const ScheduleHint = styled.div`
 const SaveRow = styled.div`
   display: flex;
   gap: 8px;
-`
-
-const InsertImageRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
 `
 
 const CoverSection = styled.div`
@@ -1017,6 +1061,26 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
       })
   }
 
+  const onFormat = (kind: MarkdownFormatKind) => {
+    const textarea = contentInputRef.current
+    const currentContent = textarea?.value ?? getInputValue('content')
+    const selection =
+      textarea &&
+      contentEverFocusedRef.current &&
+      textarea.selectionStart !== null &&
+      textarea.selectionEnd !== null
+        ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+        : undefined
+    const result = applyMarkdownFormat(kind, currentContent, selection)
+    setInputValue('content', result.content)
+    requestAnimationFrame(() => {
+      if (textarea) {
+        textarea.focus()
+        textarea.setSelectionRange(result.selectionStart, result.selectionEnd)
+      }
+    })
+  }
+
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
   let scheduledAt = toDateTimeLocalString(new Date())
   if (post?.publishedAt) {
@@ -1150,38 +1214,40 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             maxRows={4}
           />
           <FormArea>
-            <ContentField
-              {...bindInput('content')}
-              ref={contentInputRef}
-              onFocus={() => {
-                contentEverFocusedRef.current = true
-              }}
-              label={t('admin.news.form.content', 'Content (Markdown)')}
-              multiline={true}
-              rows={18}
-              maxRows={40}
-            />
+            <EditorColumn>
+              <MarkdownToolbar onFormat={onFormat}>
+                <HiddenFileInput
+                  ref={imageFileInputRef}
+                  type='file'
+                  accept='image/*'
+                  onChange={onImageFileSelected}
+                  data-test='news-inline-image-file-input'
+                />
+                <IconButton
+                  icon={<MaterialIcon icon='add_photo_alternate' />}
+                  title={t('admin.news.form.insertImage', 'Insert image')}
+                  onClick={() => imageFileInputRef.current?.click()}
+                  disabled={imageUploading}
+                />
+                {imageUploading ? (
+                  <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
+                ) : null}
+              </MarkdownToolbar>
+              <ContentField
+                {...bindInput('content')}
+                ref={contentInputRef}
+                onFocus={() => {
+                  contentEverFocusedRef.current = true
+                }}
+                label={t('admin.news.form.content', 'Content (Markdown)')}
+                multiline={true}
+                rows={18}
+                maxRows={40}
+              />
+              {imageError ? <ErrorText>{imageError}</ErrorText> : null}
+            </EditorColumn>
             <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
           </FormArea>
-          <InsertImageRow>
-            <HiddenFileInput
-              ref={imageFileInputRef}
-              type='file'
-              accept='image/*'
-              onChange={onImageFileSelected}
-              data-test='news-inline-image-file-input'
-            />
-            <OutlinedButton
-              label={t('admin.news.form.insertImage', 'Insert image')}
-              iconStart={<MaterialIcon icon='add_photo_alternate' />}
-              onClick={() => imageFileInputRef.current?.click()}
-              disabled={imageUploading}
-            />
-            {imageUploading ? (
-              <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
-            ) : null}
-            {imageError ? <ErrorText>{imageError}</ErrorText> : null}
-          </InsertImageRow>
           <CoverSection>
             <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
             <CoverPreview>
@@ -1244,7 +1310,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             </RadioGroup>
             {currentPublishMode === PUBLISH_MODE_SCHEDULE ? (
               <>
-                <DateTimeTextField
+                <ScheduleField
                   {...bindInput('scheduledAt')}
                   label={t('admin.news.form.scheduleDate', 'Publish date and time')}
                   floatingLabel={true}
