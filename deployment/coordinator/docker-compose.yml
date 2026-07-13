@@ -1,0 +1,80 @@
+version: '3.7'
+
+# The netcode-v2 coordinator box: the rally-point2 coordinator (session placement,
+# relay enrollment ledger, Fargate relay provisioning), a certbot that keeps its
+# TLS certificate current, and a tailscale node for private admin access.
+#
+# The coordinator terminates its own TLS and is exposed directly (no reverse
+# proxy): relay enrollment verifies the transport-level peer address against the
+# addresses recorded at task launch, and a proxy in front would replace every
+# peer with itself.
+
+volumes:
+  coordinator_data: # the relay-identity ledger (SQLite)
+  certs: # certbot-managed certificate for ${COORDINATOR_DOMAIN}
+  certbot_webroot:
+  tailscale_state: # tailnet node identity; losing it churns a new node per recreate
+
+networks:
+  coordinator:
+
+services:
+  coordinator:
+    # Built straight from the rally-point2 repo at a pinned rev — no registry
+    # involved. Upgrading = bump RP2_REV in .env, `docker-compose build coordinator`,
+    # `docker-compose up -d`.
+    build:
+      context: https://github.com/ShieldBattery/rally-point2.git#${RP2_REV:?set RP2_REV in .env}
+      dockerfile: coordinator/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Direct exposure, both families: relays (WSS control connections) and app
+      # servers (signed HTTP) connect here from the public internet.
+      - '443:14910/tcp'
+    networks:
+      - coordinator
+    volumes:
+      - coordinator_data:/data
+      - certs:/certs:ro
+      - ./config:/config:ro
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '50m'
+        max-file: '4'
+
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    ports:
+      # HTTP-01 challenges only; nothing else listens on 80.
+      - '80:80/tcp'
+    networks:
+      - coordinator
+    volumes:
+      - certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    # Renewal loop. The FIRST certificate is issued manually once (see README);
+    # after that this container keeps it current.
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --standalone; sleep 12h & wait $${!}; done'
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    restart: unless-stopped
+    hostname: ${TAILSCALE_HOSTNAME:-rp2-coordinator}
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY:-}
+      # Userspace networking: no tun device, no NET_ADMIN, no iptables. Tailnet
+      # traffic reaches services through the serve config below, which proxies
+      # per-connection to compose service names (Docker DNS resolves the current
+      # container each time, so service restarts need no re-plumbing).
+      - TS_USERSPACE=true
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_EXTRA_ARGS=${TAILSCALE_EXTRA_ARGS:-}
+    networks:
+      - coordinator
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - ./tailscale:/config:ro

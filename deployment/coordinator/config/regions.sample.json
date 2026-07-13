@@ -1,0 +1,16 @@
+{
+  "regions": [
+    {
+      "id": "us-east",
+      "display_name": "US East",
+      "beacon": "gamelift-ping.us-east-1.api.aws:443",
+      "fallback": "dynamodb.us-east-1.amazonaws.com:443"
+    },
+    {
+      "id": "eu-central",
+      "display_name": "EU Central",
+      "beacon": "gamelift-ping.eu-central-1.api.aws:443",
+      "fallback": "dynamodb.eu-central-1.amazonaws.com:443"
+    }
+  ]
+}
