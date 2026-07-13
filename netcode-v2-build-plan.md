@@ -172,9 +172,25 @@ compose; then stand up one region and measure.
 > (byte-identical re-signed re-POST), game-loader 90s deadline extension via new
 > `common/async/extendable-deadline.ts` (the 75s base timeout equals the coordinator hold cap),
 > `setLoadingStatus` event + LaunchingGameDialog status line, region-setting lock. None of the
-> rp2 legs touch the client crate's API, so the eventual pin bump is routine. Leg 4 still to do,
-> plus: live loopback pass of the provisioning path (ProcessProvisioner dev stack), translate-i18n
-> for the two new strings, cold-start measurement to calibrate the hold cap.
+> rp2 legs touch the client crate's API, so the eventual pin bump is routine.
+>
+> **LANDED same day (Travis's go-ahead):** rp2 `main` pushed through `07d7c20` (the four legs +
+> a distroless coordinator Dockerfile); SB pin bumped to `10667a0…` (`186541e87`, DLL rebuilt,
+> 144 tests + clippy green, lock churn rev-only). `deployment/coordinator/` added (`09513fbd9`):
+> compose building the coordinator from the rp2 repo at an `RP2_REV` pin, certbot renewal, and a
+> modernized tailscale sidecar (official image, userspace networking, persisted node state,
+> `TS_SERVE_CONFIG` proxying to compose service names per-connection — replaces the appserver's
+> boot-time-IP iptables approach; consider back-porting there).
+>
+> **Leg 4 remaining:** two rp2 legs the deployment README flags — **coordinator native TLS**
+> (terminate in-process off the certbot volume; a TLS proxy would break the enrollment ledger's
+> peer-address gate, so direct exposure is a documented rule) and the **tenant registry config
+> file** (production tenant keys + rotation; only `--dev-tenant` exists today — this is the
+> Phase 6 tenant-lifecycle item's config-shape half). Then Terraform (VPC dual-stack, cluster,
+> task family + SSM secrets, ECR + replication, the narrow IAM user), the relay's own container
+> image, one-region standup + cold-start measurement (calibrates the 75s hold cap). Also owed:
+> live loopback pass of the provisioning path (ProcessProvisioner dev stack), translate-i18n for
+> the two new strings.
 
 - Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, scale-to-zero per
   the policy above; cold-start budget measurement.
