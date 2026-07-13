@@ -57,10 +57,14 @@ task was launched, and any proxy would replace every peer with itself. If a
 proxy ever becomes necessary, that gate has to be re-designed first, not worked
 around.
 
-IPv6 corollary: if the coordinator's hostname serves an AAAA record, the Docker
-daemon must NAT v6 natively (Docker ≥ 27, or `"ip6tables": true` in
-`/etc/docker/daemon.json`) — older daemons route published v6 ports through the
-userland proxy, which replaces peer addresses just like a reverse proxy would.
+IPv6 corollary: if the coordinator's hostname serves an AAAA record, install
+Docker Engine ≥ 27 (Docker's own apt repo, not the distro package) — that's
+where `ip6tables` NAT became the default; older daemons route published v6
+ports through the userland proxy, which replaces peer addresses just like a
+reverse proxy would. The compose network already sets `enable_ipv6: true` (the
+container must hold a v6 address for same-family DNAT to apply). Verify after
+first start: `curl -6 https://<domain>/regions` from any v6 host should work,
+and the droplet itself must have been created with IPv6 enabled.
 
 ## Tenant operations
 

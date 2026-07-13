@@ -21,6 +21,13 @@ volumes:
 
 networks:
   coordinator:
+    # IPv6 on the container network is what lets inbound v6 to the published
+    # port reach the coordinator via same-family DNAT with the REAL peer
+    # address — a v4-only container would push v6 traffic through the userland
+    # proxy, which rewrites every peer to itself (the reverse-proxy problem in
+    # miniature). Docker 27+ auto-allocates a ULA subnet; no address config
+    # needed.
+    enable_ipv6: true
 
 services:
   coordinator:
