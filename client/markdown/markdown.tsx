@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import type { Components } from 'react-markdown'
+import type { Components, ExtraProps } from 'react-markdown'
 import styled, { css } from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
 import { makePublicAssetUrl } from '../network/server-url'
@@ -109,8 +109,41 @@ export interface MarkdownProps {
   allowMedia?: boolean
 }
 
+/**
+ * The hast element type react-markdown passes to component renderers as `node` (`Element` from
+ * `hast` — that package isn't directly importable here, but react-markdown's types expose it).
+ */
+export type HastElement = NonNullable<ExtraProps['node']>
+
+/**
+ * Recursively collects the `src` of every `img` element in a hast element's subtree. Recursion
+ * matters because a linked image can nest the img under other inline elements, e.g.
+ * `[*![x](url)*](href)` puts it under an emphasis.
+ */
+export function collectImgSrcs(element: HastElement): string[] {
+  const srcs: string[] = []
+  for (const child of element.children ?? []) {
+    if (child.type !== 'element') {
+      continue
+    }
+    if (child.tagName === 'img' && typeof child.properties?.src === 'string') {
+      srcs.push(child.properties.src)
+    }
+    srcs.push(...collectImgSrcs(child))
+  }
+  return srcs
+}
+
 const COMPONENTS: Components = {
-  a: ({ href, children }) => <ExternalLink href={href!}>{children}</ExternalLink>,
+  a: ({ node, href, children }) => {
+    // Markdown images render as links here, so keeping the anchor around a link-wrapped image
+    // (`[![alt](img)](href)`) would nest anchors — invalid HTML. Rendering just the children
+    // loses no information, since the images themselves already render as links.
+    if (node && collectImgSrcs(node).length > 0) {
+      return <>{children}</>
+    }
+    return <ExternalLink href={href!}>{children}</ExternalLink>
+  },
   // `alt || src` so an image with empty alt text doesn't become an invisible, unlabeled link.
   img: ({ alt, src }) => <ExternalLink href={src!}>{alt || src}</ExternalLink>,
 }
@@ -171,18 +204,25 @@ export function isTrustedMediaUrl(src: string, trustedOrigin: string): boolean {
   }
 }
 
+/**
+ * Returns the origin our public assets/file store is served from (media URLs matching it may
+ * render as actual inline media), or `undefined` if it can't be determined (in which case
+ * everything is treated as untrusted).
+ */
+function getTrustedOrigin(): string | undefined {
+  try {
+    return new URL(makePublicAssetUrl('/')).origin
+  } catch {
+    return undefined
+  }
+}
+
 function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
   if (!src) {
     return null
   }
 
-  let trustedOrigin: string | undefined
-  try {
-    trustedOrigin = new URL(makePublicAssetUrl('/')).origin
-  } catch {
-    trustedOrigin = undefined
-  }
-
+  const trustedOrigin = getTrustedOrigin()
   if (!trustedOrigin || !isTrustedMediaUrl(src, trustedOrigin)) {
     // Not served from our own file store: fall back to the same link rendering used for non-media
     // markdown images, rather than pointing an <img>/<video> tag at an arbitrary third-party host.
@@ -209,7 +249,18 @@ function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?
 }
 
 const MEDIA_COMPONENTS: Components = {
-  a: ({ href, children }) => <ExternalLink href={href!}>{children}</ExternalLink>,
+  a: ({ node, href, children }) => {
+    // An untrusted image inside a link falls back to rendering as a link itself, so keeping the
+    // outer anchor would nest anchors — invalid HTML; render just the children instead. A trusted
+    // image wrapped in a link is the legit clickable-image pattern (`<a><img></a>` is valid), so
+    // that keeps its anchor.
+    const trustedOrigin = getTrustedOrigin()
+    const imgSrcs = node ? collectImgSrcs(node) : []
+    if (imgSrcs.some(src => !trustedOrigin || !isTrustedMediaUrl(src, trustedOrigin))) {
+      return <>{children}</>
+    }
+    return <ExternalLink href={href!}>{children}</ExternalLink>
+  },
   img: ({ alt, src, title }) => <MarkdownMedia src={src} alt={alt} title={title} />,
 }
 
