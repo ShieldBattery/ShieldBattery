@@ -1,13 +1,19 @@
+import slug from 'slug'
 import {
   NEWS_STOCK_IMAGES,
   NEWS_STOCK_IMAGES_PATH_PREFIX,
   newsStockImageIndex,
 } from '../../../common/news'
+import { decodePrettyId, encodePrettyId } from '../../../common/pretty-id'
 import { getUrl } from '../files'
 import type { PageMetadataResolver } from '../page-metadata/types'
 import { getPublishedNewsPostMeta } from './news-post-models'
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/**
+ * Matches the 22-char base64url "pretty" ID scheme used for news post routes (see
+ * `common/pretty-id.ts`). Raw (unencoded) UUIDs and anything else don't match.
+ */
+const PRETTY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
 
 function stockImageUrl(id: string, publicAssetsUrl: string): string {
   const name = NEWS_STOCK_IMAGES[newsStockImageIndex(id)]
@@ -18,23 +24,25 @@ function stockImageUrl(id: string, publicAssetsUrl: string): string {
  * Resolves the Open Graph/Twitter Card metadata for a news post permalink (registered for the
  * `/news/:id/*?` route in `page-metadata.ts`).
  *
- * `params.id` is expected to be the post's raw UUID; anything else returns `undefined` (so we
- * never hit the database with garbage), as does a post that doesn't exist or isn't currently
- * published. Either case falls back to the default site-wide metadata.
+ * `params.id` is expected to be the post's pretty (base64url-encoded) id; anything else — a raw
+ * UUID, a malformed id, etc. — returns `undefined` (so we never hit the database with garbage), as
+ * does a post that doesn't exist or isn't currently published. Either case falls back to the
+ * default site-wide metadata.
  */
 export const newsPostPageMetadata: PageMetadataResolver = async (params, context) => {
-  const id = params.id
-  if (!id || !UUID_PATTERN.test(id)) {
+  const routeId = params.id
+  if (!routeId || !PRETTY_ID_PATTERN.test(routeId)) {
     return undefined
   }
 
+  const id = decodePrettyId(routeId)
   const post = await getPublishedNewsPostMeta(id)
   if (!post) {
     return undefined
   }
 
   return {
-    url: `${context.canonicalHost}/news/${id}`,
+    url: `${context.canonicalHost}/news/${encodePrettyId(id)}/${slug(post.title)}`,
     type: 'article',
     title: post.title,
     // Meta descriptions are single-line, so collapse any newlines/whitespace runs in the summary.

@@ -3,7 +3,6 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { urlPath } from '../../common/urls'
 import { graphql } from '../gql'
 import { OutlinedButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
@@ -19,6 +18,7 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { newsDateFormatter } from './news-image'
+import { urlForNewsPost } from './news-url'
 
 const NewsArchiveQuery = graphql(/* GraphQL */ `
   query NewsArchive($first: Int, $after: String) {
@@ -166,7 +166,7 @@ function NewsArchiveEntry({ post }: { post: NewsArchivePost }) {
   const [buttonProps, rippleRef] = useButtonState({})
 
   return (
-    <EntryRoot {...buttonProps} href={urlPath`/news/${post.id}`}>
+    <EntryRoot {...buttonProps} href={urlForNewsPost(post.id, post.title)}>
       <EntryDate>
         {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
       </EntryDate>

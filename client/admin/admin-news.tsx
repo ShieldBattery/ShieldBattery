@@ -32,6 +32,7 @@ import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
+import { urlForNewsPost } from '../news/news-url'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -1214,7 +1215,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               <TextButton
                 label={t('admin.news.viewPost', 'View post')}
                 iconStart={<MaterialIcon icon='open_in_new' />}
-                onClick={() => push(urlPath`/news/${post.id}`)}
+                onClick={() => push(urlForNewsPost(post.id, post.title))}
               />
             ) : null}
             <TextButton

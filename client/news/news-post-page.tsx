@@ -1,17 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import slug from 'slug'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { graphql } from '../gql'
 import { BottomLinks } from '../home/bottom-links'
 import { Markdown } from '../markdown/markdown'
 import { CopyLinkButton } from '../navigation/copy-link-button'
-import { push } from '../navigation/routing'
+import { push, replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { bodyLarge, headlineLarge, headlineSmall, labelMedium } from '../styles/typography'
-import { NewsImage, newsDateFormatter } from './news-image'
+import { newsDateFormatter, NewsImage } from './news-image'
+import { fromRouteNewsPostId, RouteNewsPostId, urlForNewsPost } from './news-url'
 
 const NewsPostQuery = graphql(/* GraphQL */ `
   query NewsPost($id: UUID!) {
@@ -147,23 +149,48 @@ const ErrorText = styled.div`
   text-align: center;
 `
 
-export function NewsPostPage({ params }: { params: { id: string } }) {
+/** Matches the 22-char base64url pretty ID format used for news post routes. */
+const ROUTE_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
+
+export function NewsPostPage({ params }: { params: { id: string; '*'?: string } }) {
   const { t } = useTranslation()
+
+  const id = useMemo(() => {
+    if (!ROUTE_ID_PATTERN.test(params.id)) {
+      return undefined
+    }
+    try {
+      return fromRouteNewsPostId(params.id as RouteNewsPostId)
+    } catch {
+      return undefined
+    }
+  }, [params.id])
+
   const [{ data, fetching, error }] = useQuery({
     query: NewsPostQuery,
-    variables: { id: params.id },
+    variables: { id: id ?? '' },
+    pause: !id,
   })
 
   const post = data?.newsPost
   const now = useNow(60_000)
 
   useEffect(() => {
-    // A missing or (for non-admins) unpublished post resolves to null rather than an error, so send
-    // the visitor home like the old static news page did on an invalid index.
-    if (!fetching && data && !post) {
+    // An invalid route id, or a missing/(for non-admins) unpublished post (which resolves to null
+    // rather than an error), sends the visitor home like the old static news page did on an
+    // invalid index.
+    if (!id || (!fetching && data && !post)) {
       push('/')
     }
-  }, [fetching, data, post])
+  }, [id, fetching, data, post])
+
+  useEffect(() => {
+    // Upgrades slugless/mismatched links (including the `_` placeholder used before the post's
+    // title is known) to the canonical URL, once the post has loaded.
+    if (post && params['*'] !== slug(post.title)) {
+      replace(urlForNewsPost(post.id, post.title))
+    }
+  }, [post, params])
 
   if (error) {
     return <ErrorText>{t('news.unavailable', 'News is unavailable right now.')}</ErrorText>

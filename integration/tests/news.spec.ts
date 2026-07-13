@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { encodePrettyId } from '../../common/pretty-id'
 import { EmailVerificationDialogPage } from '../pages/email-verification-dialog-page'
 import { HomePage } from '../pages/home-page'
 import { LoginPage } from '../pages/login-page'
@@ -53,7 +54,7 @@ test('home page news feed links to the newest post', async () => {
 })
 
 test('news post permalinks serve Open Graph tags for the post', async ({ request }) => {
-  const response = await request.get(`/news/${NEWEST_POST_ID}`)
+  const response = await request.get(`/news/${encodePrettyId(NEWEST_POST_ID)}`)
   const html = await response.text()
 
   expect(extractMetaContent(html, 'property', 'og:title')).toBe(NEWEST_POST_TITLE)

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { encodePrettyId } from '../../../common/pretty-id'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { getUrl } from '../files'
 import { PageMetadataContext } from '../page-metadata/page-metadata'
@@ -24,6 +25,7 @@ const CONTEXT: PageMetadataContext = {
 // Hashes to the 'ashworld0' stock image (index 0), verified against the shared implementation in
 // common/news.ts.
 const UUID = '5eed0000-0000-0000-0000-000000000023'
+const PRETTY_ID = encodePrettyId(UUID)
 
 describe('news/news-page-meta', () => {
   describe('newsPostPageMetadata', () => {
@@ -39,10 +41,18 @@ describe('news/news-page-meta', () => {
       getUrlMock.mockClear()
     })
 
-    test('returns undefined for a non-uuid id without querying the model', async () => {
-      const result = await newsPostPageMetadata({ id: 'not-a-uuid' }, CONTEXT)
+    test('returns undefined for a raw (unencoded) uuid without querying the model', async () => {
+      const result = await newsPostPageMetadata({ id: UUID }, CONTEXT)
 
       expect(result).toBeUndefined()
+      expect(getPublishedNewsPostMetaMock).not.toHaveBeenCalled()
+    })
+
+    test('returns undefined for a malformed id without querying the model', async () => {
+      expect(await newsPostPageMetadata({ id: 'not-a-pretty-id-at-all!' }, CONTEXT)).toBeUndefined()
+      expect(await newsPostPageMetadata({ id: PRETTY_ID.slice(0, -1) }, CONTEXT)).toBeUndefined()
+      expect(await newsPostPageMetadata({ id: `${PRETTY_ID}X` }, CONTEXT)).toBeUndefined()
+
       expect(getPublishedNewsPostMetaMock).not.toHaveBeenCalled()
     })
 
@@ -53,10 +63,18 @@ describe('news/news-page-meta', () => {
       expect(getPublishedNewsPostMetaMock).not.toHaveBeenCalled()
     })
 
+    test('decodes the pretty id back to the raw uuid before querying the model', async () => {
+      getPublishedNewsPostMetaMock.mockResolvedValueOnce({ ...BASE_POST })
+
+      await newsPostPageMetadata({ id: PRETTY_ID }, CONTEXT)
+
+      expect(getPublishedNewsPostMetaMock).toHaveBeenCalledWith(UUID)
+    })
+
     test('returns undefined when the post is not found/unpublished', async () => {
       getPublishedNewsPostMetaMock.mockResolvedValueOnce(undefined)
 
-      const result = await newsPostPageMetadata({ id: UUID }, CONTEXT)
+      const result = await newsPostPageMetadata({ id: PRETTY_ID }, CONTEXT)
 
       expect(result).toBeUndefined()
     })
@@ -67,10 +85,10 @@ describe('news/news-page-meta', () => {
         coverImagePath: 'news-images/ab/cd/xyz.jpg',
       })
 
-      const result = await newsPostPageMetadata({ id: UUID }, CONTEXT)
+      const result = await newsPostPageMetadata({ id: PRETTY_ID }, CONTEXT)
 
       expect(result).toEqual({
-        url: `https://shieldbattery.net/news/${UUID}`,
+        url: `https://shieldbattery.net/news/${PRETTY_ID}/update-1040`,
         type: 'article',
         title: 'Update 10.4.0',
         description: 'Automatic replay uploads, replay viewing from game results, and more!',
@@ -83,26 +101,26 @@ describe('news/news-page-meta', () => {
     test('falls back to a deterministic stock image when there is no cover', async () => {
       getPublishedNewsPostMetaMock.mockResolvedValueOnce({ ...BASE_POST, coverImagePath: null })
 
-      const result = await newsPostPageMetadata({ id: UUID }, CONTEXT)
+      const result = await newsPostPageMetadata({ id: PRETTY_ID }, CONTEXT)
 
       expect(result?.image).toBe(`${CONTEXT.publicAssetsUrl}images/static-news/ashworld0.jpg`)
 
       // Deterministic: the same id always maps to the same stock image.
       getPublishedNewsPostMetaMock.mockResolvedValueOnce({ ...BASE_POST, coverImagePath: null })
-      const again = await newsPostPageMetadata({ id: UUID }, CONTEXT)
+      const again = await newsPostPageMetadata({ id: PRETTY_ID }, CONTEXT)
 
       expect(again?.image).toBe(result?.image)
     })
 
-    test('builds the url from the context canonical host', async () => {
+    test('builds a canonical, slugged url from the context canonical host', async () => {
       getPublishedNewsPostMetaMock.mockResolvedValueOnce({ ...BASE_POST })
 
       const result = await newsPostPageMetadata(
-        { id: UUID },
+        { id: PRETTY_ID },
         { ...CONTEXT, canonicalHost: 'https://staging.example.com' },
       )
 
-      expect(result?.url).toBe(`https://staging.example.com/news/${UUID}`)
+      expect(result?.url).toBe(`https://staging.example.com/news/${PRETTY_ID}/update-1040`)
     })
   })
 })

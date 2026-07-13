@@ -3,7 +3,6 @@ import { ReactNode, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
-import { urlPath } from '../../common/urls'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { HomeSection, HomeSectionTitle } from '../home/home-section'
@@ -14,6 +13,7 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyMedium, singleLine, titleMedium, titleSmall } from '../styles/typography'
 import { useLastSeenNewsPost } from './last-seen-news-post'
 import { NewsImage, newsDateFormatter } from './news-image'
+import { urlForNewsPost } from './news-url'
 
 export const News_HomeFeedFragment = graphql(/* GraphQL */ `
   fragment News_HomeFeedFragment on Query {
@@ -311,7 +311,11 @@ function NewsPreview({
   const [buttonProps, rippleRef] = useButtonState({})
 
   return (
-    <LinkButton {...buttonProps} {...rest} className={className} href={urlPath`/news/${post.id}`}>
+    <LinkButton
+      {...buttonProps}
+      {...rest}
+      className={className}
+      href={urlForNewsPost(post.id, post.title)}>
       <EntryPreviewImageContainer>
         <NewsImage
           id={post.id}
@@ -368,7 +372,7 @@ function RemainingEntry({ post }: { post: NewsFeedPost }) {
   const [buttonProps, rippleRef] = useButtonState({})
 
   return (
-    <RemainingEntryRoot {...buttonProps} href={urlPath`/news/${post.id}`}>
+    <RemainingEntryRoot {...buttonProps} href={urlForNewsPost(post.id, post.title)}>
       <RemainingEntryDate>
         {post.publishedAt ? newsDateFormatter.format(new Date(post.publishedAt)) : ''}
       </RemainingEntryDate>
