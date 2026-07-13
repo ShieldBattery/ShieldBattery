@@ -85,14 +85,19 @@ const TitleRow = styled.div`
 `
 
 const TitleAndCopyLink = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  position: relative;
 `
 
 const Title = styled.div`
   ${headlineLarge};
   text-align: center;
+`
+
+const PositionedCopyLinkButton = styled(CopyLinkButton)`
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
 `
 
 const DraftLabel = styled.div`
@@ -170,7 +175,7 @@ export function NewsPostPage({ params }: { params: { id: string } }) {
           {isDraft ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
           <TitleAndCopyLink>
             <Title data-test='news-post-title'>{post.title}</Title>
-            <CopyLinkButton
+            <PositionedCopyLinkButton
               tooltipPosition='right'
               startingText={t('news.copyLink', 'Copy link to news post')}
             />
