@@ -5,6 +5,7 @@ import { useQuery } from 'urql'
 import { graphql } from '../gql'
 import { BottomLinks } from '../home/bottom-links'
 import { Markdown } from '../markdown/markdown'
+import { CopyLinkButton } from '../navigation/copy-link-button'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
@@ -79,6 +80,12 @@ const TitleRow = styled.div`
 
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 8px;
+`
+
+const TitleAndCopyLink = styled.div`
+  display: flex;
   align-items: center;
   gap: 8px;
 `
@@ -161,7 +168,13 @@ export function NewsPostPage({ params }: { params: { id: string } }) {
       <Content>
         <TitleRow>
           {isDraft ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
-          <Title data-test='news-post-title'>{post.title}</Title>
+          <TitleAndCopyLink>
+            <Title data-test='news-post-title'>{post.title}</Title>
+            <CopyLinkButton
+              tooltipPosition='right'
+              startingText={t('news.copyLink', 'Copy link to news post')}
+            />
+          </TitleAndCopyLink>
         </TitleRow>
         {post.publishedAt ? (
           <PostDate>{newsDateFormatter.format(new Date(post.publishedAt))}</PostDate>
