@@ -3,7 +3,7 @@ import httpErrors from 'http-errors'
 import mime from 'mime'
 import sharp, { FormatEnum } from 'sharp'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
-import { NewsCoverImageUploadResponse } from '../../../common/news'
+import { NewsImageUploadResponse } from '../../../common/news'
 import { getUrl, writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath } from '../files/images'
@@ -14,13 +14,13 @@ import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 
-const coverImageUploadThrottle = createThrottle('newscoverimage', {
+const imageUploadThrottle = createThrottle('newsimages', {
   rate: 5,
   burst: 10,
   window: 60000,
 })
 
-// The widths that cover images are resized down to, matching the `srcSet` the feed/detail pages
+// The widths that news images are resized down to, matching the `srcSet` the feed/detail pages
 // serve (large + a half-resolution `_0.5x` sibling).
 const LARGE_IMAGE_WIDTH = 1600
 const SMALL_IMAGE_WIDTH = 800
@@ -30,7 +30,7 @@ const ALLOWED_FORMATS: ReadonlyArray<keyof FormatEnum> = ['jpeg', 'png']
 const FALLBACK_FORMAT: keyof FormatEnum = 'png'
 
 /**
- * Inserts the `_0.5x` size suffix before the file extension of a cover image path
+ * Inserts the `_0.5x` size suffix before the file extension of a news image path
  * (e.g. `news-images/ab/cd/xyz.jpg` -> `news-images/ab/cd/xyz_0.5x.jpg`). This must match the
  * server-rs `small_variant_path` used to derive `coverImageSmallUrl` from the stored path.
  */
@@ -45,14 +45,14 @@ function smallVariantPath(path: string): string {
 
 @httpApi('/news')
 export class NewsApi {
-  @httpPost('/cover-images')
+  @httpPost('/images')
   @httpBefore(
     ensureLoggedIn,
     checkAllPermissions('manageNews'),
-    throttleMiddleware(coverImageUploadThrottle, ctx => String(ctx.session!.user.id)),
+    throttleMiddleware(imageUploadThrottle, ctx => String(ctx.session!.user.id)),
     handleMultipartFiles(MAX_IMAGE_SIZE_BYTES),
   )
-  async uploadCoverImage(ctx: RouterContext): Promise<NewsCoverImageUploadResponse> {
+  async uploadImage(ctx: RouterContext): Promise<NewsImageUploadResponse> {
     const imageFile = ctx.request.files?.image
     if (!imageFile) {
       throw new httpErrors.BadRequest('an image file must be provided')

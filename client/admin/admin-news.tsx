@@ -7,7 +7,7 @@ import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
 import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
-import { NewsCoverImageUploadResponse } from '../../common/news'
+import { NewsImageUploadResponse } from '../../common/news'
 import { apiUrl, urlPath } from '../../common/urls'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
@@ -891,7 +891,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     setCoverUploading(true)
     const formData = new FormData()
     formData.append('image', file)
-    fetchJson<NewsCoverImageUploadResponse>(apiUrl`news/cover-images`, {
+    fetchJson<NewsImageUploadResponse>(apiUrl`news/images`, {
       method: 'POST',
       body: formData,
     })
