@@ -1,18 +1,22 @@
 version: '3.7'
 
 # The netcode-v2 coordinator box: the rally-point2 coordinator (session placement,
-# relay enrollment ledger, Fargate relay provisioning), a certbot that keeps its
-# TLS certificate current, and a tailscale node for private admin access.
+# relay enrollment ledger, Fargate relay provisioning) and a tailscale node for
+# private admin access.
 #
-# The coordinator terminates its own TLS and is exposed directly (no reverse
-# proxy): relay enrollment verifies the transport-level peer address against the
+# TLS terminates inside the coordinator itself: it obtains and renews its Let's
+# Encrypt certificate in-process (ACME TLS-ALPN-01, answered on the same port —
+# no certbot, no port 80). The coordinator is exposed directly with no reverse
+# proxy: relay enrollment verifies the transport-level peer address against the
 # addresses recorded at task launch, and a proxy in front would replace every
 # peer with itself.
+#
+# IPv6: if this host serves an AAAA record, Docker must NAT v6 natively
+# (Docker >= 27, or `"ip6tables": true` in the daemon config) so v6 peers arrive
+# with their real addresses rather than through the userland proxy.
 
 volumes:
-  coordinator_data: # the relay-identity ledger (SQLite)
-  certs: # certbot-managed certificate for ${COORDINATOR_DOMAIN}
-  certbot_webroot:
+  coordinator_data: # the relay-identity ledger (SQLite) + the ACME cert cache
   tailscale_state: # tailnet node identity; losing it churns a new node per recreate
 
 networks:
@@ -30,34 +34,19 @@ services:
     env_file: .env
     ports:
       # Direct exposure, both families: relays (WSS control connections) and app
-      # servers (signed HTTP) connect here from the public internet.
+      # servers (signed HTTPS) connect here from the public internet, and the ACME
+      # TLS-ALPN-01 challenge is answered here too.
       - '443:14910/tcp'
     networks:
       - coordinator
     volumes:
       - coordinator_data:/data
-      - certs:/certs:ro
       - ./config:/config:ro
     logging:
       driver: 'json-file'
       options:
         max-size: '50m'
         max-file: '4'
-
-  certbot:
-    image: certbot/certbot
-    restart: unless-stopped
-    ports:
-      # HTTP-01 challenges only; nothing else listens on 80.
-      - '80:80/tcp'
-    networks:
-      - coordinator
-    volumes:
-      - certs:/etc/letsencrypt
-      - certbot_webroot:/var/www/certbot
-    # Renewal loop. The FIRST certificate is issued manually once (see README);
-    # after that this container keeps it current.
-    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew --standalone; sleep 12h & wait $${!}; done'
 
   tailscale:
     image: tailscale/tailscale:latest
