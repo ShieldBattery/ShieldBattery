@@ -139,7 +139,9 @@ export type PublishedMessage =
   | { type: 'matchmaking'; data: PublishedMatchmakingMessage }
   | { type: 'gameReport'; data: PublishedGameReportMessage }
 
-export type PublishedNewsMessage = { type: 'urgentMessageChanged'; data: undefined }
+export type PublishedNewsMessage =
+  | { type: 'urgentMessageChanged'; data: undefined }
+  | { type: 'newsPostsChanged'; data: undefined }
 
 export type PublishedUserMessage =
   | {

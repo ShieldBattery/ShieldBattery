@@ -537,6 +537,8 @@ type Mutation {
 	"""
 	resolveSiblingReports(id: UUID!, resolution: GameReportResolution!, notes: String): Int!
 	newsCreatePost(post: NewsPostCreation!): NewsPost!
+	newsUpdatePost(id: UUID!, updates: NewsPostUpdates!): NewsPost!
+	newsDeletePost(id: UUID!): Boolean!
 	"""
 	Sets (or clears, if message is not provided) the urgent message at the top of the home page.
 	"""
@@ -589,6 +591,16 @@ type NewsPost {
 	publishedAt: DateTime
 	updatedAt: DateTime!
 	author: SbUser
+	"""
+	A fully-qualified URL to this post's cover image, or null if it has none.
+	"""
+	coverImageUrl: String
+	"""
+	A fully-qualified URL to the half-resolution variant of this post's cover image, or null if
+	it has none.
+	"""
+	coverImageSmallUrl: String
+	edits: [NewsPostEdit!]!
 }
 
 type NewsPostConnection {
@@ -608,6 +620,7 @@ type NewsPostConnection {
 
 input NewsPostCreation {
 	authorId: SbUserId
+	coverImagePath: String
 	title: String!
 	summary: String!
 	content: String!
@@ -626,6 +639,32 @@ type NewsPostEdge {
 	A cursor for use in pagination
 	"""
 	cursor: String!
+}
+
+type NewsPostEdit {
+	id: UUID!
+	coverImagePath: String
+	title: String!
+	summary: String!
+	content: String!
+	publishedAt: DateTime
+	editedAt: DateTime!
+	editor: SbUser
+	author: SbUser
+}
+
+"""
+Partial updates for an existing news post. Fields omitted from the input are left unchanged.
+For `publishedAt` and `coverImagePath`, an explicit null clears the current value (e.g.
+unpublishing a post), so a single mutation covers editing, publishing now, scheduling, and
+unpublishing.
+"""
+input NewsPostUpdates {
+	title: String
+	summary: String
+	content: String
+	publishedAt: DateTime
+	coverImagePath: String
 }
 
 """
@@ -666,6 +705,11 @@ type Query {
 	futureLeagues: [League!]!
 	pastLeagues: [League!]!
 	newsPosts(includeUnpublished: Boolean, after: String, before: String, first: Int, last: Int): NewsPostConnection!
+	"""
+	Retrieves a single news post by ID. Published posts are visible to everyone; unpublished or
+	scheduled posts are only returned to users with the ManageNews permission (for draft preview).
+	"""
+	newsPost(id: UUID!): NewsPost
 	urgentMessage: UrgentMessage
 	"""
 	The current user's linked Twitch connection, or `null` if they haven't linked one.

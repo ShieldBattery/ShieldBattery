@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                INSERT INTO news_posts (author_id, title, summary, content,\n                    published_at, updated_at)\n                VALUES ($1, $2, $3, $4, $5, $6)\n                RETURNING id, author_id as \"author_id: _\", cover_image_path, title, summary,\n                    content, published_at, updated_at\n            ",
+  "query": "\n                UPDATE news_posts\n                SET\n                    title = COALESCE($2, title),\n                    summary = COALESCE($3, summary),\n                    content = COALESCE($4, content),\n                    published_at = CASE WHEN $5 THEN $6 ELSE published_at END,\n                    cover_image_path = CASE WHEN $7 THEN $8 ELSE cover_image_path END,\n                    updated_at = NOW()\n                WHERE id = $1\n                RETURNING id, author_id as \"author_id: _\", cover_image_path, title, summary,\n                    content, published_at, updated_at\n            ",
   "describe": {
     "columns": [
       {
@@ -94,12 +94,14 @@
     ],
     "parameters": {
       "Left": [
-        "Int4",
+        "Uuid",
         "Text",
         "Text",
         "Text",
+        "Bool",
         "Timestamptz",
-        "Timestamptz"
+        "Bool",
+        "Text"
       ]
     },
     "nullable": [
@@ -113,5 +115,5 @@
       false
     ]
   },
-  "hash": "7ac946c4059a0724d0c817d22880e9ad3bf63e8a3bdafb5955c3cd621f80ac37"
+  "hash": "15ab5ba3bb45fa2bb7fd3c8c05aaed20e3bc6a2e06f9e71f4c90dc9989879ac9"
 }
