@@ -4,7 +4,7 @@ import {
   newsStockImageIndex,
 } from '../../../common/news'
 import { getUrl } from '../files'
-import type { PageMetadataResolver } from '../page-metadata/page-metadata'
+import type { PageMetadataResolver } from '../page-metadata/types'
 import { getPublishedNewsPostMeta } from './news-post-models'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
