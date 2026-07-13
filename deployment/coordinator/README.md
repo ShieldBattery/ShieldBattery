@@ -8,8 +8,9 @@ until it returns and relays re-enroll on their own.
 
 ## Layout
 
-- `docker-compose.yml` — coordinator (built from the rally-point2 repo at the
-  `RP2_REV` pin, no registry) and tailscale (admin access).
+- `docker-compose.yml` — coordinator (`shieldbattery/rp2-coordinator`, pinned by
+  the `RP2_VERSION` tag — CI publishes one per rally-point2 main commit, tagged
+  with the commit SHA) and tailscale (admin access).
 - `sample.env` — copy to `.env` and fill in.
 - `config/` — mounted read-only into the coordinator: `regions.json` (region
   registry), `ecs.json` (per-region Fargate launch config), and `tenants.json`
@@ -35,7 +36,7 @@ persist on the `coordinator_data` volume, so restarts never re-issue.
 1. Copy this directory to the box, `cp sample.env .env`, fill it in; write
    `config/regions.json`, `config/ecs.json`, and `config/tenants.json` from the
    samples.
-2. `docker-compose build coordinator && docker-compose up -d`
+2. `docker-compose pull && docker-compose up -d`
 
 ## The direct-exposure rule
 

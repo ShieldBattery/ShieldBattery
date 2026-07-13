@@ -24,12 +24,13 @@ networks:
 
 services:
   coordinator:
-    # Built straight from the rally-point2 repo at a pinned rev — no registry
-    # involved. Upgrading = bump RP2_REV in .env, `docker-compose build coordinator`,
-    # `docker-compose up -d`.
-    build:
-      context: https://github.com/ShieldBattery/rally-point2.git#${RP2_REV:?set RP2_REV in .env}
-      dockerfile: coordinator/Dockerfile
+    # CI publishes an image per rally-point2 main commit, tagged with the full
+    # SHA (plus a moving `latest`). Upgrading = bump RP2_VERSION in .env,
+    # `docker-compose pull coordinator`, `docker-compose up -d`; rolling back is
+    # the same with the previous tag. (coordinator/Dockerfile in the
+    # rally-point2 repo still builds the identical image from source if ever
+    # needed.)
+    image: shieldbattery/rp2-coordinator:${RP2_VERSION:?set RP2_VERSION in .env}
     restart: unless-stopped
     env_file: .env
     ports:
