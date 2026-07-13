@@ -313,9 +313,12 @@ bits in here, and keep this lean:
   participation isn't DB-enforced; delete after). In dev the replay URL has **no
   Content-Disposition** (Local FileStore can't set headers — documented, not a bug; Spaces sets it).
 
-- **Dynamic news (T2 public/admin, T3 badge).** Navigation gotcha app-wide: a bare
-  `history.pushState` often doesn't re-render — follow it with
-  `dispatchEvent(new PopStateEvent('popstate'))`.
+- **Dynamic news (T2 public/admin, T3 badge).** Public pages + admin editor are GraphQL/HTTP-driven
+  and work in a plain browser at :5555 — no Electron needed (Electron only for the live-badge pip,
+  which needs the nydus socket). Navigation gotcha app-wide: a bare `history.pushState` often
+  doesn't re-render — follow it with `dispatchEvent(new PopStateEvent('popstate'))`. Login page has
+  TWO "Log in" buttons (app-bar nav + form submit) — click the *last* match;
+  `claude-admin`/`shieldbattery` has `manageNews` (re-run `pnpm run seed-dev` if unsure).
   - *Public*: feed cards are `a[href^="/news/"]`; archive `/news` has a "Load more" button (assert
     unique hrefs across the cursor seam). Coverless posts get a deterministic stock srcSet
     (`static-news/*.jpg`, hash of UUID); uploaded covers serve `news-images/...` 800w/1600w. Feed
@@ -327,19 +330,36 @@ bits in here, and keep this lean:
     marks-seen instantly, so the pip never shows (that's correct, not a missed event). LastSeen
     lives in per-user localStorage `news.lastSeenNewsPost`. Scheduled posts flip via a server timer
     (~1s slop past the minute); immediate publish/unpublish push within ~2s.
-  - *Admin* (`/admin/news`, needs manageNews): list row actions are icon-text buttons
+  - *Admin* (`/admin/news`, needs manageNews; editor at `/admin/news/:id`, reach via double
+    `history.pushState`): list row actions are icon-text buttons
     `edit|history|publish|unpublished|delete`; drafts sort first. Delete confirm is inline (not
-    `role=dialog`) — snapshot for the "Delete"/"Cancel" refs. Schedule = radio + playwright `fill`
-    on `input[type=datetime-local]` (local-TZ `YYYY-MM-DDTHH:mm`). Multiline markdown content must
-    be set via the native value setter — a shell-arg `fill` silently drops everything past the
-    first newline. Cover upload: `page.setInputFiles('input[type=file]', <jpg>)` → POST
-    `/api/1/news/cover-images` → sharded pair under `server/uploaded_files/news-images/` (full +
-    `_0.5x`); the save button disables while the upload is in flight. Every mutation writes one
-    `news_post_edits` row (CASCADE on post delete) — count rows to prove the audit trail.
+    `role=dialog`) — snapshot for the "Delete"/"Cancel" refs. In the editor the *first* `textarea`
+    is the summary, the *second* is the content — don't `querySelector('textarea')` blindly.
+    Schedule = radio + playwright `fill` on `input[type=datetime-local]` (local-TZ
+    `YYYY-MM-DDTHH:mm`). Multiline markdown content must be set via the native value setter — a
+    shell-arg `fill` silently drops everything past the first newline. Cover upload:
+    `page.setInputFiles('input[type=file]', <jpg>)` → POST `/api/1/news/images` → sharded pair
+    under `server/uploaded_files/news-images/` (full + `_0.5x`). Inline image upload:
+    `page.setInputFiles('[data-test=news-inline-image-file-input]', path)` (pass Windows paths via
+    `String.raw` — double-backslash escapes get eaten through bash quoting and the call silently
+    no-ops). Save = button matching /save changes/i, disabled while an upload is in flight; success
+    shows a "saved" snackbar in `body.innerText`. Every mutation writes one `news_post_edits` row
+    (CASCADE on post delete) — count rows to prove the audit trail.
+  - *OG/meta tags*: `curl -s localhost:5555/news/<uuid> | tr '\n' ' '` before grepping `<meta`
+    tags — a multi-line summary puts a newline inside the content attribute and line-based grep
+    silently misses the tag. Check: cover post → `/files/news-images/...` og:image; coverless →
+    deterministic `/images/static-news/<name>.jpg`; draft/unknown-uuid/other routes → default tags.
+  - *Media-origin restriction*: dev post `019f5c2c-0593-7474-8424-99ad2ec7559d` is a fixture with
+    a file-store cover + external picsum/mp4/webm inline media — externals must render as `<a>`
+    (0 `<video>`), file-store images as loaded `<img>`. Cover images use `srcSet` only (empty
+    `src` attribute on the `<img>` is normal — check `srcset`/`naturalWidth`).
   - *Guards*: the GraphQL patch arg is `updates` (`newsUpdatePost(id, updates: {...})`); non-admin →
     `FORBIDDEN`, Node upload endpoint → 403. Test the Node endpoint with an **absolute**
     `http://localhost:5555/...` URL + Bearer JWT — a relative fetch from `shieldbattery://app/`
     hits the app-shell protocol handler and fake-200s.
+  - *Server code isn't hot-reloaded* — after editing `server/`, restart `pnpm run start-server`;
+    killing the task can orphan the child node.exe holding :5555 (new boot dies with EADDRINUSE but
+    curl still answers with **old** code) — `netstat -ano | findstr :5555` and kill the PID.
 
 ### Known issues / open questions (prune when resolved)
 
