@@ -313,6 +313,34 @@ bits in here, and keep this lean:
   participation isn't DB-enforced; delete after). In dev the replay URL has **no
   Content-Disposition** (Local FileStore can't set headers — documented, not a bug; Spaces sets it).
 
+- **Dynamic news (T2 public/admin, T3 badge).** Navigation gotcha app-wide: a bare
+  `history.pushState` often doesn't re-render — follow it with
+  `dispatchEvent(new PopStateEvent('popstate'))`.
+  - *Public*: feed cards are `a[href^="/news/"]`; archive `/news` has a "Load more" button (assert
+    unique hrefs across the cursor seam). Coverless posts get a deterministic stock srcSet
+    (`static-news/*.jpg`, hash of UUID); uploaded covers serve `news-images/...` 800w/1600w. Feed
+    freshness rides the HomeQuery poll (60s, `LIVE_STREAMS_POLL_INTERVAL_MS`) — wait a full minute
+    or remount home before calling staleness a bug. Legacy `/static-news/:index` → seed UUID
+    `5eed0000-...-00(index+1)`; 23 seeded posts (`migrations/20260711120000_seed_news_posts.sql`).
+  - *Badge (two clients)*: pip = `[class*=MenuItemPip]` on the Home nav item; pushed on `/newsPosts`
+    by Node `NewsService`. Park the receiver on `/ladder` first — a client sitting on home
+    marks-seen instantly, so the pip never shows (that's correct, not a missed event). LastSeen
+    lives in per-user localStorage `news.lastSeenNewsPost`. Scheduled posts flip via a server timer
+    (~1s slop past the minute); immediate publish/unpublish push within ~2s.
+  - *Admin* (`/admin/news`, needs manageNews): list row actions are icon-text buttons
+    `edit|history|publish|unpublished|delete`; drafts sort first. Delete confirm is inline (not
+    `role=dialog`) — snapshot for the "Delete"/"Cancel" refs. Schedule = radio + playwright `fill`
+    on `input[type=datetime-local]` (local-TZ `YYYY-MM-DDTHH:mm`). Multiline markdown content must
+    be set via the native value setter — a shell-arg `fill` silently drops everything past the
+    first newline. Cover upload: `page.setInputFiles('input[type=file]', <jpg>)` → POST
+    `/api/1/news/cover-images` → sharded pair under `server/uploaded_files/news-images/` (full +
+    `_0.5x`); the save button disables while the upload is in flight. Every mutation writes one
+    `news_post_edits` row (CASCADE on post delete) — count rows to prove the audit trail.
+  - *Guards*: the GraphQL patch arg is `updates` (`newsUpdatePost(id, updates: {...})`); non-admin →
+    `FORBIDDEN`, Node upload endpoint → 403. Test the Node endpoint with an **absolute**
+    `http://localhost:5555/...` URL + Bearer JWT — a relative fetch from `shieldbattery://app/`
+    hits the app-shell protocol handler and fake-200s.
+
 ### Known issues / open questions (prune when resolved)
 
 Unconfirmed oddities seen during verification — heads-ups, not asserted bugs. Reproduce on a clean
