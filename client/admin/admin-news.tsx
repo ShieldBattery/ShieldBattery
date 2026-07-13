@@ -1026,7 +1026,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     const formData = new FormData()
     formData.append('image', file)
     // Inline images intentionally reuse the cover upload pipeline.
-    fetchJson<NewsCoverImageUploadResponse>(apiUrl`news/cover-images`, {
+    fetchJson<NewsImageUploadResponse>(apiUrl`news/images`, {
       method: 'POST',
       body: formData,
     })
