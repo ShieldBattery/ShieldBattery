@@ -11,6 +11,7 @@ export type MarkdownFormatKind =
   | 'quote'
   | 'unorderedList'
   | 'orderedList'
+  | 'horizontalRule'
   | 'link'
 
 interface FormatResult {
@@ -67,18 +68,32 @@ function toggleInlineMarker(
   }
 }
 
+/** How to rewrite a single line spanned by a line-prefix action. */
+interface LinePlan {
+  /** Number of characters stripped from the start of the line. */
+  strip: number
+  /** New prefix string inserted at the start of the line (after stripping). */
+  prefix: string
+}
+
 /**
- * Toggles a line prefix (e.g. `> ` for a quote) across every line spanned by a selection.
+ * Rewrites the start of every line spanned by a selection, according to a caller-provided plan,
+ * and maps the original selection through the edit.
  *
- * If every spanned line already has the prefix, it's removed from all of them; otherwise it's
- * added to all of them. The full modified line range ends up selected.
+ * `planLines` receives the spanned lines (split on `\n`) and returns, for each one, how many
+ * characters to strip from its start and what prefix (if any) to put in their place.
+ *
+ * The returned selection preserves the original selection's position *within the text*, rather
+ * than selecting the whole modified line range: a caret sitting exactly at a line's start lands
+ * immediately after that line's new prefix (it stays attached to the text it was in front of),
+ * and a caret anywhere else on the line shifts by however much that line's prefix changed length.
+ * This means e.g. a caret in the middle of a word stays in the same spot in the text, and
+ * selecting whole lines and toggling a prefix keeps exactly that text selected afterwards.
  */
 function toggleLinePrefix(
   content: string,
   selection: { start: number; end: number },
-  hasPrefix: (line: string) => boolean,
-  removePrefix: (line: string) => string,
-  addPrefix: (line: string, index: number) => string,
+  planLines: (lines: string[]) => LinePlan[],
 ): FormatResult {
   const { start, end } = selection
   const lineStart = content.lastIndexOf('\n', start - 1) + 1
@@ -86,19 +101,48 @@ function toggleLinePrefix(
   const lineEnd = nextNewline === -1 ? content.length : nextNewline
 
   const lines = content.slice(lineStart, lineEnd).split('\n')
-  const newLines = lines.every(hasPrefix)
-    ? lines.map(removePrefix)
-    : lines.map((line, i) => addPrefix(line, i))
-  const newSpan = newLines.join('\n')
+  const plans = planLines(lines)
+
+  // For each spanned line: its original start offset, and the cumulative length delta
+  // (new prefix length - stripped length) contributed by every earlier spanned line.
+  const lineStarts: number[] = []
+  const deltaBefore: number[] = []
+  let offset = lineStart
+  let delta = 0
+  for (let i = 0; i < lines.length; i++) {
+    lineStarts.push(offset)
+    deltaBefore.push(delta)
+    delta += plans[i].prefix.length - plans[i].strip
+    offset += lines[i].length + 1 // +1 for the '\n' separating this line from the next
+  }
+
+  const newSpan = lines.map((line, i) => plans[i].prefix + line.slice(plans[i].strip)).join('\n')
+
+  const mapPos = (pos: number): number => {
+    // Find the last spanned line whose start is <= pos; that's the line `pos` is on.
+    let i = 0
+    for (let j = 1; j < lineStarts.length; j++) {
+      if (lineStarts[j] <= pos) {
+        i = j
+      }
+    }
+    const { strip, prefix } = plans[i]
+    const lineOrigin = lineStarts[i]
+    return pos <= lineOrigin + strip
+      ? lineOrigin + deltaBefore[i] + prefix.length
+      : pos + deltaBefore[i] + (prefix.length - strip)
+  }
 
   return {
     content: content.slice(0, lineStart) + newSpan + content.slice(lineEnd),
-    selectionStart: lineStart,
-    selectionEnd: lineStart + newSpan.length,
+    selectionStart: mapPos(start),
+    selectionEnd: mapPos(end),
   }
 }
 
-const HEADING_PREFIX = '## '
+const HEADING_H2_PREFIX = '## '
+const HEADING_H3_PREFIX = '### '
+const HEADING_PATTERN = /^#{1,6} /
 const QUOTE_PREFIX = '> '
 const UNORDERED_LIST_PREFIX = '- '
 const ORDERED_LIST_PATTERN = /^\d+\.\s+/
@@ -106,50 +150,92 @@ const LINK_URL_PATTERN = /^https?:\/\/\S+$/
 const LINK_TEXT_PLACEHOLDER = 'link text'
 const LINK_URL_PLACEHOLDER = 'url'
 
+/**
+ * Cycles the heading level of every spanned line: none -> H2 -> H3 -> none.
+ *
+ * If every spanned line is already H2, they all become H3; if every spanned line is already H3,
+ * the heading is removed; otherwise every spanned line is normalized to H2 (replacing any
+ * existing `#` prefix instead of stacking onto it).
+ */
 function applyHeading(content: string, selection: { start: number; end: number }): FormatResult {
-  return toggleLinePrefix(
-    content,
-    selection,
-    line => line.startsWith(HEADING_PREFIX),
-    line => line.slice(HEADING_PREFIX.length),
-    line => HEADING_PREFIX + line.replace(/^#{1,6} /, ''),
-  )
+  return toggleLinePrefix(content, selection, lines => {
+    if (lines.every(line => line.startsWith(HEADING_H2_PREFIX))) {
+      return lines.map(() => ({ strip: HEADING_H2_PREFIX.length, prefix: HEADING_H3_PREFIX }))
+    }
+    if (lines.every(line => line.startsWith(HEADING_H3_PREFIX))) {
+      return lines.map(() => ({ strip: HEADING_H3_PREFIX.length, prefix: '' }))
+    }
+    return lines.map(line => {
+      const match = line.match(HEADING_PATTERN)
+      return { strip: match ? match[0].length : 0, prefix: HEADING_H2_PREFIX }
+    })
+  })
 }
 
 function applyQuote(content: string, selection: { start: number; end: number }): FormatResult {
-  return toggleLinePrefix(
-    content,
-    selection,
-    line => line.startsWith(QUOTE_PREFIX),
-    line => line.slice(QUOTE_PREFIX.length),
-    line => QUOTE_PREFIX + line,
-  )
+  return toggleLinePrefix(content, selection, lines => {
+    const remove = lines.every(line => line.startsWith(QUOTE_PREFIX))
+    return lines.map(() =>
+      remove ? { strip: QUOTE_PREFIX.length, prefix: '' } : { strip: 0, prefix: QUOTE_PREFIX },
+    )
+  })
 }
 
 function applyUnorderedList(
   content: string,
   selection: { start: number; end: number },
 ): FormatResult {
-  return toggleLinePrefix(
-    content,
-    selection,
-    line => line.startsWith(UNORDERED_LIST_PREFIX),
-    line => line.slice(UNORDERED_LIST_PREFIX.length),
-    line => UNORDERED_LIST_PREFIX + line,
-  )
+  return toggleLinePrefix(content, selection, lines => {
+    const remove = lines.every(line => line.startsWith(UNORDERED_LIST_PREFIX))
+    return lines.map(() =>
+      remove
+        ? { strip: UNORDERED_LIST_PREFIX.length, prefix: '' }
+        : { strip: 0, prefix: UNORDERED_LIST_PREFIX },
+    )
+  })
 }
 
 function applyOrderedList(
   content: string,
   selection: { start: number; end: number },
 ): FormatResult {
-  return toggleLinePrefix(
-    content,
-    selection,
-    line => ORDERED_LIST_PATTERN.test(line),
-    line => line.replace(ORDERED_LIST_PATTERN, ''),
-    (line, i) => `${i + 1}. ${line.replace(ORDERED_LIST_PATTERN, '')}`,
-  )
+  return toggleLinePrefix(content, selection, lines => {
+    const matches = lines.map(line => line.match(ORDERED_LIST_PATTERN))
+    if (matches.every(match => match !== null)) {
+      return matches.map(match => ({ strip: match![0].length, prefix: '' }))
+    }
+    return lines.map((line, i) => ({
+      strip: matches[i]?.[0].length ?? 0,
+      prefix: `${i + 1}. `,
+    }))
+  })
+}
+
+/**
+ * Inserts a `---` horizontal rule as its own block, right after the selection end (any selected
+ * text is left in place, not deleted).
+ *
+ * The rule is always separated from preceding text by a blank line: `text\n---` would parse as a
+ * setext H2 heading rather than a paragraph followed by a rule, so if there's non-whitespace
+ * content before the insertion point, it's kept (trailing whitespace trimmed) and joined to the
+ * rule with a blank line. If there's only whitespace (or nothing) before the insertion point,
+ * it's dropped and the rule simply starts the content. The rule is always followed by a blank
+ * line, and any leading whitespace on the remaining content is stripped so it doesn't pile up.
+ */
+function applyHorizontalRule(
+  content: string,
+  selection: { start: number; end: number },
+): FormatResult {
+  const before = content.slice(0, selection.end)
+  const after = content.slice(selection.end).replace(/^\s+/, '')
+
+  const block = before.trim() === '' ? '---\n\n' : `${before.replace(/\s+$/, '')}\n\n---\n\n`
+
+  return {
+    content: block + after,
+    selectionStart: block.length,
+    selectionEnd: block.length,
+  }
 }
 
 function applyLink(content: string, selection: { start: number; end: number }): FormatResult {
@@ -212,6 +298,8 @@ export function applyMarkdownFormat(
       return applyUnorderedList(content, sel)
     case 'orderedList':
       return applyOrderedList(content, sel)
+    case 'horizontalRule':
+      return applyHorizontalRule(content, sel)
     case 'link':
       return applyLink(content, sel)
     default:
@@ -283,6 +371,12 @@ export function MarkdownToolbar({
         title={t('markdown.toolbar.orderedList', 'Numbered list')}
         disabled={disabled}
         onClick={() => onFormat('orderedList')}
+      />
+      <IconButton
+        icon={<MaterialIcon icon='horizontal_rule' />}
+        title={t('markdown.toolbar.horizontalRule', 'Divider')}
+        disabled={disabled}
+        onClick={() => onFormat('horizontalRule')}
       />
       <Divider />
       <IconButton

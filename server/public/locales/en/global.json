@@ -960,6 +960,7 @@
     "toolbar": {
       "bold": "Bold",
       "heading": "Heading",
+      "horizontalRule": "Divider",
       "italic": "Italic",
       "link": "Link",
       "orderedList": "Numbered list",
