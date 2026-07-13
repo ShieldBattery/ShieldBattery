@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import type { Components } from 'react-markdown'
 import styled, { css } from 'styled-components'
 import { ExternalLink } from '../navigation/external-link'
+import { makePublicAssetUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
 import {
   bodyMedium,
@@ -110,7 +111,8 @@ export interface MarkdownProps {
 
 const COMPONENTS: Components = {
   a: ({ href, children }) => <ExternalLink href={href!}>{children}</ExternalLink>,
-  img: ({ alt, src }) => <ExternalLink href={src!}>{alt}</ExternalLink>,
+  // `alt || src` so an image with empty alt text doesn't become an invisible, unlabeled link.
+  img: ({ alt, src }) => <ExternalLink href={src!}>{alt || src}</ExternalLink>,
 }
 
 const VIDEO_EXTENSIONS = ['.mp4', '.webm']
@@ -150,9 +152,41 @@ const Caption = styled.span`
   text-align: center;
 `
 
+/**
+ * Returns whether `src` is an absolute URL whose origin exactly matches `trustedOrigin`.
+ *
+ * This gates which markdown image/video URLs are allowed to render as actual inline media: without
+ * it, a news post's markdown could make every viewer's client fetch from arbitrary third-party
+ * hosts just by embedding `![](url)`. Untrusted URLs aren't dropped, they just fall back to
+ * rendering as a plain link instead of media.
+ */
+export function isTrustedMediaUrl(src: string, trustedOrigin: string): boolean {
+  try {
+    // `new URL` is given no base, so a relative `src` throws here rather than silently resolving
+    // against `window.location`. `data:`/`javascript:` URLs parse fine but their `.origin` is the
+    // literal string `'null'`, which can never match a real origin.
+    return new URL(src).origin === trustedOrigin
+  } catch {
+    return false
+  }
+}
+
 function MarkdownMedia({ src, alt, title }: { src?: string; alt?: string; title?: string }) {
   if (!src) {
     return null
+  }
+
+  let trustedOrigin: string | undefined
+  try {
+    trustedOrigin = new URL(makePublicAssetUrl('/')).origin
+  } catch {
+    trustedOrigin = undefined
+  }
+
+  if (!trustedOrigin || !isTrustedMediaUrl(src, trustedOrigin)) {
+    // Not served from our own file store: fall back to the same link rendering used for non-media
+    // markdown images, rather than pointing an <img>/<video> tag at an arbitrary third-party host.
+    return <ExternalLink href={src}>{alt || src}</ExternalLink>
   }
 
   return (

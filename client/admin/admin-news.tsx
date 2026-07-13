@@ -862,16 +862,31 @@ const HiddenFileInput = styled.input`
 `
 
 /**
- * Splices an image markdown snippet (`![](url)`) into editor content. When a cursor selection is
- * given the snippet replaces it; otherwise the snippet is appended as its own block. Returns the
- * new content and the cursor position inside the snippet's alt-text brackets.
+ * Strips a filename down to something reasonable to use as image alt text: drops the extension,
+ * removes characters that would break markdown image syntax, and turns `-`/`_` runs into spaces.
+ *
+ * E.g. `"my-cool_screenshot v2.png"` -> `"my cool screenshot v2"`.
+ */
+export function altTextFromFilename(filename: string): string {
+  const dotIndex = filename.lastIndexOf('.')
+  const base = dotIndex > 0 ? filename.slice(0, dotIndex) : filename
+  const withoutBrackets = base.replace(/[[\]()]/g, '')
+  const spaced = withoutBrackets.replace(/[-_]+/g, ' ')
+  return spaced.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Splices an image markdown snippet (`![altText](url)`) into editor content. When a cursor
+ * selection is given the snippet replaces it; otherwise the snippet is appended as its own block.
+ * Returns the new content and the cursor position right after the snippet's opening `![`.
  */
 export function insertInlineImage(
   content: string,
   url: string,
+  altText: string,
   selection?: { start: number; end: number },
 ): { content: string; cursor: number } {
-  const snippet = `![](${url})`
+  const snippet = `![${altText}](${url})`
 
   if (selection) {
     const { start, end } = selection
@@ -1025,7 +1040,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     setImageUploading(true)
     const formData = new FormData()
     formData.append('image', file)
-    // Inline images intentionally reuse the cover upload pipeline.
+    // Inline images upload through the same endpoint/pipeline as cover images.
     fetchJson<NewsImageUploadResponse>(apiUrl`news/images`, {
       method: 'POST',
       body: formData,
@@ -1043,7 +1058,12 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           textarea.selectionEnd !== null
             ? { start: textarea.selectionStart, end: textarea.selectionEnd }
             : undefined
-        const { content, cursor } = insertInlineImage(currentContent, result.url, selection)
+        const { content, cursor } = insertInlineImage(
+          currentContent,
+          result.url,
+          altTextFromFilename(file.name),
+          selection,
+        )
         setInputValue('content', content)
         requestAnimationFrame(() => {
           if (textarea) {
