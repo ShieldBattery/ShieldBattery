@@ -17,6 +17,7 @@ import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-con
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
 import logger from './lib/logging/logger'
+import { getNewsPageMeta } from './lib/news/news-page-meta'
 import { NewsService } from './lib/news/news-service'
 import { getCspNonce } from './lib/security/csp'
 import { getJwt } from './lib/session/jwt-session-middleware'
@@ -148,8 +149,10 @@ export default function applyRoutes(
             : undefined,
       }
       const webpackAssets = await getWebpackAssets()
+      const pageMeta = await getNewsPageMeta(ctx.path, publicAssetsConfig.publicAssetsUrl)
       await ctx.render('index', {
         initData,
+        pageMeta,
         cspNonce: getCspNonce(ctx),
         analyticsId: process.env.SB_ANALYTICS_ID,
         assetsOrigin:
