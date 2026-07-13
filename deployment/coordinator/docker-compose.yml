@@ -1,5 +1,3 @@
-version: '3.7'
-
 # The netcode-v2 coordinator box: the rally-point2 coordinator (session placement,
 # relay enrollment ledger, Fargate relay provisioning) and a tailscale node for
 # private admin access.
