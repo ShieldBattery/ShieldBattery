@@ -25,12 +25,14 @@ networks:
 services:
   coordinator:
     # CI publishes an image per rally-point2 main commit, tagged with the full
-    # SHA (plus a moving `latest`). Upgrading = bump RP2_VERSION in .env,
-    # `docker-compose pull coordinator`, `docker-compose up -d`; rolling back is
-    # the same with the previous tag. (coordinator/Dockerfile in the
-    # rally-point2 repo still builds the identical image from source if ever
-    # needed.)
-    image: shieldbattery/rp2-coordinator:${RP2_VERSION:?set RP2_VERSION in .env}
+    # SHA (plus a moving `latest`). RP2_REF carries its own separator so either
+    # pinning style works from .env alone: a tag (`RP2_REF=:<commit sha>`) or,
+    # preferred for production because tags are mutable and digests are not, the
+    # digest the publish run prints (`RP2_REF=@sha256:...`). Upgrade/rollback =
+    # change RP2_REF, `docker-compose pull coordinator`, `docker-compose up -d`.
+    # (coordinator/Dockerfile in the rally-point2 repo still builds the identical
+    # image from source if ever needed.)
+    image: ghcr.io/shieldbattery/rp2-coordinator${RP2_REF:?set RP2_REF in .env}
     restart: unless-stopped
     env_file: .env
     ports:

@@ -8,9 +8,10 @@ until it returns and relays re-enroll on their own.
 
 ## Layout
 
-- `docker-compose.yml` — coordinator (`shieldbattery/rp2-coordinator`, pinned by
-  the `RP2_VERSION` tag — CI publishes one per rally-point2 main commit, tagged
-  with the commit SHA) and tailscale (admin access).
+- `docker-compose.yml` — coordinator (`ghcr.io/shieldbattery/rp2-coordinator`,
+  pinned by `RP2_REF` — CI publishes an image per rally-point2 main commit; pin
+  the commit-SHA tag, or the digest for production) and tailscale (admin
+  access).
 - `sample.env` — copy to `.env` and fill in.
 - `config/` — mounted read-only into the coordinator: `regions.json` (region
   registry), `ecs.json` (per-region Fargate launch config), and `tenants.json`
