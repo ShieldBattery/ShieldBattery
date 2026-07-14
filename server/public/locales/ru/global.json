@@ -160,6 +160,9 @@
       "codePattern": "Неверный код. Он должен выглядеть как {{example}}."
     },
     "restriction": {
+      "avatarUpload": {
+        "notification": "Вашей учетной записи ограничен доступ к загрузке аватаров."
+      },
       "chat": {
         "notification": "Вашей учетной записи ограничен доступ к отправке сообщений в чат."
       },
@@ -1434,6 +1437,8 @@
           "tooLarge": "Изображение слишком большое (макс. 5 МБ).",
           "upload": "Загрузить аватар",
           "uploadError": "Не удалось обновить аватар.",
+          "uploadRestricted": "Загрузка аватаров ограничена до {{date}}",
+          "uploadRestrictedError": "Загрузка аватаров для вашей учетной записи сейчас ограничена.",
           "uploadSuccess": "Аватар обновлён."
         },
         "changeDisplayName": {
@@ -1681,6 +1686,14 @@
     },
     "profile": {
       "achievements": "Достижения",
+      "admin": {
+        "avatarRemoved": "Аватар удалён",
+        "avatarRemoveError": "Не удалось удалить аватар",
+        "removeAvatarAction": "Удалить аватар",
+        "removeAvatarBody": "Аватар пользователя {{user}} будет удалён навсегда. Это действие нельзя отменить.",
+        "removeAvatarTitle": "Удалить аватар?",
+        "removeAvatarTooltip": "Удалить аватар (администратор)"
+      },
       "copyLink": "Скопировать ссылку на профиль",
       "latestGames": "Последние игры",
       "points": "Очки",
@@ -1715,6 +1728,7 @@
         "griefing": "Саботаж",
         "harassment": "Преследование",
         "hate_speech": "Речь ненависти",
+        "inappropriate_content": "Неприемлемый контент",
         "left_game": "Покинул игру",
         "other": "Прочее",
         "spam": "Спам",

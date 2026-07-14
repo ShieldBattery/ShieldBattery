@@ -33,6 +33,8 @@ function kindToIcon(kind: RestrictionKind): string {
       return 'flag'
     case RestrictionKind.Matchmaking:
       return 'block'
+    case RestrictionKind.AvatarUpload:
+      return 'no_accounts'
     default:
       return kind satisfies never
   }
@@ -78,6 +80,12 @@ export function UserRestrictedNotificationUi({
       intro = t(
         'auth.restriction.matchmaking.notification',
         'Your account has been restricted from matchmaking.',
+      )
+      break
+    case RestrictionKind.AvatarUpload:
+      intro = t(
+        'auth.restriction.avatarUpload.notification',
+        'Your account has been restricted from uploading avatars.',
       )
       break
     default:

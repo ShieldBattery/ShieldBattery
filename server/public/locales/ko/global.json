@@ -160,6 +160,9 @@
       "codePattern": "유효하지 않은 코드입니다. {{example}}처럼 보여야 해요."
     },
     "restriction": {
+      "avatarUpload": {
+        "notification": "아바타 업로드가 제한되었습니다."
+      },
       "chat": {
         "notification": "채팅 메시지 전송이 제한되었습니다."
       },
@@ -1416,6 +1419,8 @@
           "tooLarge": "이미지가 너무 큽니다 (최대 5MB).",
           "upload": "아바타 업로드",
           "uploadError": "아바타를 업데이트하는 중 문제가 발생했습니다.",
+          "uploadRestricted": "{{date}}까지 아바타 업로드가 제한됩니다",
+          "uploadRestrictedError": "현재 아바타 업로드가 제한되어 있습니다.",
           "uploadSuccess": "아바타가 업데이트되었습니다."
         },
         "changeDisplayName": {
@@ -1654,6 +1659,14 @@
     },
     "profile": {
       "achievements": "업적",
+      "admin": {
+        "avatarRemoved": "아바타가 제거되었습니다",
+        "avatarRemoveError": "아바타를 제거하는 중 문제가 발생했습니다",
+        "removeAvatarAction": "아바타 제거",
+        "removeAvatarBody": "{{user}}님의 아바타를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+        "removeAvatarTitle": "아바타를 제거하시겠습니까?",
+        "removeAvatarTooltip": "아바타 제거 (관리자)"
+      },
       "copyLink": "프로필 링크 복사",
       "latestGames": "최근 게임",
       "points": "점수",
@@ -1688,6 +1701,7 @@
         "griefing": "고의적 방해",
         "harassment": "괴롭힘",
         "hate_speech": "혐오 발언",
+        "inappropriate_content": "부적절한 콘텐츠",
         "left_game": "게임 이탈",
         "other": "기타",
         "spam": "스팸",

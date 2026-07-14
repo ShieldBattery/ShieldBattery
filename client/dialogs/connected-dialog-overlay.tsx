@@ -42,6 +42,7 @@ import {
 import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
 import { StarcraftHealthCheckupDialog } from '../starcraft/starcraft-health'
 import { dialogScrimOpacity } from '../styles/colors'
+import { RemoveUserAvatarDialog } from '../users/remove-user-avatar-dialog'
 import { CreateWhisper as CreateWhisperSessionDialog } from '../whispers/create-whisper'
 import { closeDialogById } from './action-creators'
 import { DialogState } from './dialog-reducer'
@@ -113,6 +114,8 @@ function getDialog(dialogType: DialogType): {
       return { component: PostMatchDialog }
     case DialogType.PrivacyPolicy:
       return { component: PrivacyPolicyDialog }
+    case DialogType.RemoveUserAvatar:
+      return { component: RemoveUserAvatarDialog }
     case DialogType.ReplayInfo:
       return { component: ReplayInfoDialog }
     case DialogType.ReplayLoad:

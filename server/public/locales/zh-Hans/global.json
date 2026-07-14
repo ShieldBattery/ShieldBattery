@@ -160,6 +160,9 @@
       "codePattern": "无效的代码，格式应为 {{example}}。"
     },
     "restriction": {
+      "avatarUpload": {
+        "notification": "你的账户已被限制上传头像。"
+      },
       "chat": {
         "notification": "你的账户已被限制发送聊天消息。"
       },
@@ -1416,6 +1419,8 @@
           "tooLarge": "图片过大（最大 5 MB）。",
           "upload": "上传头像",
           "uploadError": "更新头像时出错。",
+          "uploadRestricted": "头像上传已被限制至 {{date}}",
+          "uploadRestrictedError": "你目前已被限制上传头像。",
           "uploadSuccess": "头像已更新。"
         },
         "changeDisplayName": {
@@ -1654,6 +1659,14 @@
     },
     "profile": {
       "achievements": "成就",
+      "admin": {
+        "avatarRemoved": "头像已移除",
+        "avatarRemoveError": "移除头像时出错",
+        "removeAvatarAction": "移除头像",
+        "removeAvatarBody": "这将永久删除 {{user}} 的头像。此操作无法撤销。",
+        "removeAvatarTitle": "移除头像？",
+        "removeAvatarTooltip": "移除头像（管理员）"
+      },
       "copyLink": "复制个人资料链接",
       "latestGames": "最近游戏",
       "points": "积分",
@@ -1688,6 +1701,7 @@
         "griefing": "恶意破坏",
         "harassment": "骚扰",
         "hate_speech": "仇恨言论",
+        "inappropriate_content": "不当内容",
         "left_game": "中途退出游戏",
         "other": "其他",
         "spam": "垃圾信息",

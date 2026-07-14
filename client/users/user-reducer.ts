@@ -146,6 +146,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.users)
   },
 
+  ['@users/avatarCleared'](state, { payload: { userId } }) {
+    const userState = state.byId.get(userId)
+    if (userState) {
+      userState.avatarUrl = undefined
+    }
+  },
+
   ['@users/getBatchUserInfo'](state, action) {
     if (!action.error) {
       updateUsers(state, action.payload.userInfos)

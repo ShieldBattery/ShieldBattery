@@ -16,11 +16,15 @@ import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { ComingSoon } from '../coming-soon/coming-soon'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
+import { IconButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
+import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
@@ -261,6 +265,14 @@ const UsernameRow = styled.div`
   gap: 4px;
 `
 
+const RemoveAvatarButton = styled(IconButton)`
+  color: var(--theme-on-surface-variant);
+
+  &:hover {
+    color: var(--theme-error);
+  }
+`
+
 const Username = styled.div`
   ${headlineLarge};
   ${singleLine};
@@ -301,8 +313,14 @@ export function UserProfilePage({
   seasons,
 }: UserProfilePageProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   // TODO(tec27): Build the title feature :)
   const title = t('users.titles.novice', 'Novice')
+
+  const canRemoveAvatar = useHasAnyPermission('banUsers') && !!user.avatarUrl
+  const onRemoveAvatarClick = () => {
+    dispatch(openDialog({ type: DialogType.RemoveUserAvatar, initData: { userId: user.id } }))
+  }
 
   // `suspense: false` so a first (uncached) fetch doesn't suspend the profile page (blanking it
   // behind a loading fallback) just to resolve the optional Twitch channel/live state -- these
@@ -366,6 +384,16 @@ export function UserProfilePage({
               tooltipPosition='right'
               startingText={t('users.profile.copyLink', 'Copy link to profile')}
             />
+            {canRemoveAvatar ? (
+              <Tooltip
+                text={t('users.profile.admin.removeAvatarTooltip', 'Remove avatar (admin)')}
+                position='right'>
+                <RemoveAvatarButton
+                  icon={<MaterialIcon icon='no_photography' />}
+                  onClick={onRemoveAvatarClick}
+                />
+              </Tooltip>
+            ) : null}
           </UsernameRow>
           <TitleMedium>{title}</TitleMedium>
           {twitchChannel ? (

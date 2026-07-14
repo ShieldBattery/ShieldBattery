@@ -10,6 +10,7 @@ import {
 } from '../../../common/constants'
 import { getErrorStack } from '../../../common/errors'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
+import { RestrictionKind } from '../../../common/users/restrictions'
 import { LOGIN_NAME_CHANGE_COOLDOWN_MS } from '../../../common/users/sb-user'
 import { UserErrorCode } from '../../../common/users/user-network'
 import { removeUserAvatar, uploadUserAvatar } from '../../auth/action-creators'
@@ -33,6 +34,7 @@ import {
   required,
 } from '../../forms/validators'
 import { graphql, useFragment } from '../../gql'
+import { longTimestamp } from '../../i18n/date-formats'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { useAutoFocusRef } from '../../material/auto-focus'
@@ -44,13 +46,14 @@ import { TextField } from '../../material/text-field'
 import { Tooltip } from '../../material/tooltip'
 import { isFetchError } from '../../network/fetch-errors'
 import { useNow } from '../../react/date-hooks'
-import { useAppDispatch } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
 import {
   BodyLarge,
   bodyLarge,
   BodyMedium,
+  bodyMedium,
   labelMedium,
   titleLarge,
   TitleMedium,
@@ -134,6 +137,11 @@ const AvatarActions = styled.div`
   gap: 8px;
 `
 
+const AvatarRestrictionText = styled.div`
+  ${bodyMedium};
+  color: var(--theme-error);
+`
+
 const HiddenFileInput = styled.input`
   display: none;
 `
@@ -175,6 +183,9 @@ export function AccountSettings() {
   const snackbarController = useSnackbarController()
   const avatarFileInputRef = useRef<HTMLInputElement>(null)
   const [avatarUpdating, setAvatarUpdating] = useState(false)
+  const avatarRestriction = useAppSelector(s =>
+    s.auth.self?.restrictions.get(RestrictionKind.AvatarUpload),
+  )
 
   useEffect(() => {
     if (currentUser && reduxEmailVerified !== currentUser.emailVerified) {
@@ -215,16 +226,23 @@ export function AccountSettings() {
         },
         onError: err => {
           setAvatarUpdating(false)
-          const message =
-            isFetchError(err) && err.code === UserErrorCode.InappropriateImage
-              ? t(
-                  'settings.user.account.avatar.inappropriate',
-                  'That image was flagged as inappropriate. Please choose a different one.',
-                )
-              : t(
-                  'settings.user.account.avatar.uploadError',
-                  'Something went wrong updating your avatar.',
-                )
+          let message: string
+          if (isFetchError(err) && err.code === UserErrorCode.InappropriateImage) {
+            message = t(
+              'settings.user.account.avatar.inappropriate',
+              'That image was flagged as inappropriate. Please choose a different one.',
+            )
+          } else if (isFetchError(err) && err.code === UserErrorCode.AvatarUploadRestricted) {
+            message = t(
+              'settings.user.account.avatar.uploadRestrictedError',
+              'You are currently restricted from uploading avatars.',
+            )
+          } else {
+            message = t(
+              'settings.user.account.avatar.uploadError',
+              'Something went wrong updating your avatar.',
+            )
+          }
           snackbarController.showSnackbar(message)
           logger.error(`Error uploading avatar: ${getErrorStack(err)}`)
         },
@@ -295,10 +313,18 @@ export function AccountSettings() {
                   ? t('settings.user.account.avatar.change', 'Change avatar')
                   : t('settings.user.account.avatar.upload', 'Upload avatar')
               }
-              disabled={avatarUpdating}
+              disabled={avatarUpdating || !!avatarRestriction}
               onClick={() => avatarFileInputRef.current?.click()}
               testName='upload-avatar-button'
             />
+            {avatarRestriction ? (
+              <AvatarRestrictionText data-test='avatar-upload-restricted-text'>
+                {t('settings.user.account.avatar.uploadRestricted', {
+                  defaultValue: 'Restricted from uploading avatars until {{date}}',
+                  date: longTimestamp.format(avatarRestriction.endTime),
+                })}
+              </AvatarRestrictionText>
+            ) : null}
             {selfUser?.avatarUrl ? (
               <TextButton
                 label={t('common.actions.remove', 'Remove')}

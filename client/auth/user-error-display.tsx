@@ -94,9 +94,11 @@ function UserError({ error }: { error: FetchError }) {
         </span>
       )
 
-    // InappropriateImage is only produced by the avatar upload flow, which surfaces its own message
-    // (see account-settings.tsx); it never reaches this auth-focused display.
+    // InappropriateImage and AvatarUploadRestricted are only produced by the avatar upload flow,
+    // which surfaces its own messages (see account-settings.tsx); they never reach this
+    // auth-focused display.
     case UserErrorCode.InappropriateImage:
+    case UserErrorCode.AvatarUploadRestricted:
     case UserErrorCode.NotAllowedOnSelf:
     case UserErrorCode.NotFound:
       break

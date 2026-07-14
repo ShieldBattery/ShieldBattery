@@ -63,6 +63,7 @@ export enum UserErrorCode {
   MachineBanned = 'machineBanned',
   TooManyAccounts = 'tooManyAccounts',
   InappropriateImage = 'inappropriateImage',
+  AvatarUploadRestricted = 'avatarUploadRestricted',
 }
 
 /** Information returned for /users/:id/profile, intended to be able to fill out a profile page. */
@@ -249,6 +250,15 @@ export interface AdminGetUserIpsResponse {
   ips: UserIpInfoJson[]
   relatedUsers: Array<[ip: string, infos: Array<UserIpInfoJson>]>
   users: SbUser[]
+}
+
+/**
+ * The response returned when an admin removes another user's avatar. Deliberately returns a
+ * `SbUser` (not a `SelfUser`/`SelfUserJson`) since the target user is not the requester and
+ * `SelfUser` includes private fields such as their email.
+ */
+export interface AdminRemoveUserAvatarResponse {
+  user: SbUser
 }
 
 export interface EmailChangedEvent {

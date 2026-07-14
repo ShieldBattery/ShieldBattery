@@ -160,6 +160,9 @@
       "codePattern": "Invalid code. It should look like {{example}}."
     },
     "restriction": {
+      "avatarUpload": {
+        "notification": "Your account has been restricted from uploading avatars."
+      },
       "chat": {
         "notification": "Your account has been restricted from sending chat messages."
       },
@@ -1422,6 +1425,8 @@
           "tooLarge": "That image is too large (max 5 MB).",
           "upload": "Upload avatar",
           "uploadError": "Something went wrong updating your avatar.",
+          "uploadRestricted": "Restricted from uploading avatars until {{date}}",
+          "uploadRestrictedError": "You are currently restricted from uploading avatars.",
           "uploadSuccess": "Avatar updated."
         },
         "changeDisplayName": {
@@ -1663,6 +1668,14 @@
     },
     "profile": {
       "achievements": "Achievements",
+      "admin": {
+        "avatarRemoved": "Avatar removed",
+        "avatarRemoveError": "There was a problem removing the avatar",
+        "removeAvatarAction": "Remove avatar",
+        "removeAvatarBody": "This will permanently delete {{user}}'s avatar. This can't be undone.",
+        "removeAvatarTitle": "Remove avatar?",
+        "removeAvatarTooltip": "Remove avatar (admin)"
+      },
       "copyLink": "Copy link to profile",
       "latestGames": "Latest games",
       "points": "Points",
@@ -1697,6 +1710,7 @@
         "griefing": "Griefing",
         "harassment": "Harassment",
         "hate_speech": "Hate speech",
+        "inappropriate_content": "Inappropriate content",
         "left_game": "Left the game",
         "other": "Other",
         "spam": "Spam",

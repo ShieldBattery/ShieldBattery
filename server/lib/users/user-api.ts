@@ -41,6 +41,7 @@ import {
 import {
   ALL_RESTRICTION_KINDS,
   RESTRICTION_REASONS_BY_KIND,
+  RestrictionKind,
 } from '../../../common/users/restrictions'
 import { SbUser, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -55,6 +56,7 @@ import {
   AdminGetBansResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
+  AdminRemoveUserAvatarResponse,
   AuthEvent,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
@@ -280,6 +282,7 @@ export class UserApi {
     private chatService: ChatService,
     private replayService: ReplayService,
     private imageService: ImageService,
+    private restrictionService: RestrictionService,
   ) {
     container.resolve(PasswordResetCleanupJob)
     container.resolve(SignupCodeCleanupJob)
@@ -908,6 +911,16 @@ export class UserApi {
       }).required(),
     })
 
+    // Removing an avatar stays allowed while restricted, so this check is only done here
+    if (
+      await this.restrictionService.isRestricted(ctx.session!.user.id, RestrictionKind.AvatarUpload)
+    ) {
+      throw new UserApiError(
+        UserErrorCode.AvatarUploadRestricted,
+        'User is restricted from uploading avatars',
+      )
+    }
+
     const avatarFile = ctx.request.files?.avatar
     if (!avatarFile) {
       throw new httpErrors.BadRequest('an avatar file must be provided')
@@ -928,7 +941,7 @@ export class UserApi {
     const avatarPath = createImagePath('user-avatars', imageExtension)
     const buffer = await image.toBuffer()
 
-    const { userInfo, previousPath } = await this.userService.updateCurrentUserAvatar(
+    const { userInfo, previousPath } = await this.userService.updateUserAvatar(
       params.id,
       { path: avatarPath, data: buffer, contentType: mime.getType(imageExtension) ?? undefined },
       ctx,
@@ -957,7 +970,7 @@ export class UserApi {
       }).required(),
     })
 
-    const { userInfo, previousPath } = await this.userService.updateCurrentUserAvatar(
+    const { userInfo, previousPath } = await this.userService.updateUserAvatar(
       params.id,
       undefined,
       ctx,
@@ -1234,6 +1247,7 @@ export class AdminUserApi {
   constructor(
     private banEnacter: BanEnacter,
     private restrictionService: RestrictionService,
+    private userService: UserService,
   ) {}
 
   @httpGet('/:id/bans')
@@ -1442,6 +1456,44 @@ export class AdminUserApi {
         infos.map(i => toUserIpInfoJson(i)),
       ]),
       users: otherUsers.concat(user),
+    }
+  }
+
+  @httpDelete('/:id/avatar')
+  @httpBefore(checkAllPermissions('banUsers'))
+  async removeAvatar(ctx: RouterContext): Promise<AdminRemoveUserAvatarResponse> {
+    const { params } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }).required(),
+    })
+
+    const user = await findUserById(params.id)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    const { userInfo, previousPath } = await this.userService.updateUserAvatar(
+      params.id,
+      undefined,
+      ctx,
+    )
+
+    if (previousPath) {
+      deleteFile(previousPath).catch(err =>
+        ctx.log.error({ err }, 'error deleting previous avatar file'),
+      )
+    }
+
+    // NOTE: `userInfo.user` is a `SelfUser` (includes email), so we build the `SbUser` response
+    // explicitly rather than reusing it wholesale.
+    return {
+      user: {
+        id: userInfo.user.id,
+        name: userInfo.user.name,
+        created: userInfo.user.created,
+        avatarUrl: userInfo.user.avatarUrl,
+      },
     }
   }
 
