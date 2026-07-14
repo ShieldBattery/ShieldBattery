@@ -13,6 +13,7 @@ import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
+import { smallVariantPath } from './news-image-paths'
 
 const imageUploadThrottle = createThrottle('newsimages', {
   rate: 5,
@@ -28,20 +29,6 @@ const SMALL_IMAGE_WIDTH = 800
 // Formats we keep as-is; anything else is re-encoded to the fallback.
 const ALLOWED_FORMATS: ReadonlyArray<keyof FormatEnum> = ['jpeg', 'png']
 const FALLBACK_FORMAT: keyof FormatEnum = 'png'
-
-/**
- * Inserts the `_0.5x` size suffix before the file extension of a news image path
- * (e.g. `news-images/ab/cd/xyz.jpg` -> `news-images/ab/cd/xyz_0.5x.jpg`). This must match the
- * server-rs `small_variant_path` used to derive `coverImageSmallUrl` from the stored path.
- */
-function smallVariantPath(path: string): string {
-  const dot = path.lastIndexOf('.')
-  const slash = path.lastIndexOf('/')
-  if (dot > slash) {
-    return `${path.slice(0, dot)}_0.5x${path.slice(dot)}`
-  }
-  return `${path}_0.5x`
-}
 
 @httpApi('/news')
 export class NewsApi {
