@@ -1,3 +1,14 @@
+/**
+ * Matches the 22-char base64url "pretty" ID scheme produced by {@link encodePrettyId}. Raw
+ * (unencoded) UUIDs and anything else don't match.
+ */
+const PRETTY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
+
+/** Returns whether `value` looks like a "pretty" (base64url-encoded) ID. */
+export function isPrettyId(value: string): boolean {
+  return PRETTY_ID_PATTERN.test(value)
+}
+
 const toBase64 = (() => {
   if (typeof Buffer !== 'undefined') {
     return (bytes: Uint8Array) => Buffer.from(bytes).toString('base64')

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { encodePrettyId } from '../../common/pretty-id'
+import { extractMetaContent } from '../meta-tag-utils'
 import { EmailVerificationDialogPage } from '../pages/email-verification-dialog-page'
 import { HomePage } from '../pages/home-page'
 import { LoginPage } from '../pages/login-page'
@@ -7,19 +8,6 @@ import { LoginPage } from '../pages/login-page'
 // The newest seeded news post (see migrations/20260711120000_seed_news_posts.sql).
 const NEWEST_POST_TITLE = 'Update 10.4.0'
 const NEWEST_POST_ID = '5eed0000-0000-0000-0000-000000000023'
-
-/**
- * Extracts the `content` attribute of the first `<meta>` tag matching the given `property`/`name`
- * attribute, regardless of attribute order or quote style.
- */
-function extractMetaContent(
-  html: string,
-  attr: 'property' | 'name',
-  key: string,
-): string | undefined {
-  const tag = html.match(new RegExp(`<meta[^>]*${attr}=["']${key}["'][^>]*>`, 'i'))?.[0]
-  return tag?.match(/content=["']([^"']*)["']/i)?.[1]
-}
 
 let loginPage: LoginPage
 let homePage: HomePage

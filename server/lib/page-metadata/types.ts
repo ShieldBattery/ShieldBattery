@@ -1,16 +1,6 @@
-/**
- * Server-rendered Open Graph/Twitter Card metadata for a page, rendered into the page's
- * `<head>` by `server/views/index.pug`.
- */
-export interface PageMetadata {
-  url: string
-  type: 'website' | 'article'
-  title: string
-  description: string
-  image: string
-  /** ISO 8601 timestamp of when the page's content was published. Article pages only. */
-  publishedTime?: string
-}
+import type { PageMetadata } from '../../../common/page-metadata'
+
+export type { PageMetadata }
 
 /** Values available to every {@link PageMetadataResolver}, regardless of the matched route. */
 export interface PageMetadataContext {
@@ -18,6 +8,11 @@ export interface PageMetadataContext {
   canonicalHost: string
   /** The base URL that public assets (images, fonts, etc.) are served from. */
   publicAssetsUrl: string
+}
+
+/** The site-wide default preview image, used when a page has no more specific image. */
+export function defaultPageImage(context: PageMetadataContext): string {
+  return `${context.canonicalHost}/images/logo-and-text-1200x630.png`
 }
 
 /**

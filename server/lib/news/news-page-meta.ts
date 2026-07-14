@@ -4,16 +4,10 @@ import {
   NEWS_STOCK_IMAGES_PATH_PREFIX,
   newsStockImageIndex,
 } from '../../../common/news'
-import { decodePrettyId, encodePrettyId } from '../../../common/pretty-id'
+import { decodePrettyId, encodePrettyId, isPrettyId } from '../../../common/pretty-id'
 import { getUrl } from '../files'
 import type { PageMetadataResolver } from '../page-metadata/types'
 import { getPublishedNewsPostMeta } from './news-post-models'
-
-/**
- * Matches the 22-char base64url "pretty" ID scheme used for news post routes (see
- * `common/pretty-id.ts`). Raw (unencoded) UUIDs and anything else don't match.
- */
-const PRETTY_ID_PATTERN = /^[A-Za-z0-9_-]{22}$/
 
 function stockImageUrl(id: string, publicAssetsUrl: string): string {
   const name = NEWS_STOCK_IMAGES[newsStockImageIndex(id)]
@@ -31,7 +25,7 @@ function stockImageUrl(id: string, publicAssetsUrl: string): string {
  */
 export const newsPostPageMetadata: PageMetadataResolver = async (params, context) => {
   const routeId = params.id
-  if (!routeId || !PRETTY_ID_PATTERN.test(routeId)) {
+  if (!routeId || !isPrettyId(routeId)) {
     return undefined
   }
 

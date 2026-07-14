@@ -1,7 +1,10 @@
 import { parse } from 'regexparam'
+import { gamePageMetadata } from '../games/game-page-meta'
+import { leaguePageMetadata } from '../leagues/league-page-meta'
 import logger from '../logging/logger'
 import { newsPostPageMetadata } from '../news/news-page-meta'
-import { PageMetadata, PageMetadataContext, PageMetadataResolver } from './types'
+import { userPageMetadata } from '../users/user-page-meta'
+import { defaultPageImage, PageMetadata, PageMetadataContext, PageMetadataResolver } from './types'
 
 export * from './types'
 
@@ -10,11 +13,58 @@ interface RouteDefinition {
   resolver: PageMetadataResolver
 }
 
+/** Builds a {@link RouteDefinition} for a page whose metadata never depends on the route match. */
+function staticRoute(pattern: string, title: string, description: string): RouteDefinition {
+  const canonicalPath = pattern.replace(/\/\*\?$/, '')
+
+  return {
+    pattern,
+    resolver: async (_params, context) => ({
+      url: context.canonicalHost + canonicalPath,
+      type: 'website',
+      title,
+      description,
+      image: defaultPageImage(context),
+    }),
+  }
+}
+
 // Route patterns use the same syntax as the client's wouter routes (`client/app-routes.tsx`) —
 // `regexparam` is wouter's own route parser under the hood. When a client route should get its
 // own server-rendered preview metadata, register its matching pattern here.
 const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/news/:id/*?', resolver: newsPostPageMetadata },
+  { pattern: '/leagues/:id/*?', resolver: leaguePageMetadata },
+  { pattern: '/users/:id/*?', resolver: userPageMetadata },
+  { pattern: '/games/:id/*?', resolver: gamePageMetadata },
+
+  staticRoute(
+    '/download',
+    'Download ShieldBattery',
+    'Download ShieldBattery to play StarCraft: Brood War online with modern matchmaking, ladder ' +
+      'rankings, leagues, and more.',
+  ),
+  staticRoute(
+    '/faq',
+    'ShieldBattery FAQ',
+    'Answers to frequently asked questions about ShieldBattery.',
+  ),
+  staticRoute(
+    '/ladder/*?',
+    'ShieldBattery Ladder',
+    'See the best StarCraft: Brood War players on the ShieldBattery ladder rankings.',
+  ),
+  staticRoute(
+    '/leagues',
+    'ShieldBattery Leagues',
+    'Compete against other StarCraft: Brood War players in leagues on ShieldBattery.',
+  ),
+  staticRoute('/news', 'ShieldBattery News', 'The latest news and updates from ShieldBattery.'),
+  staticRoute(
+    '/live',
+    'ShieldBattery Live Streams',
+    'Watch ShieldBattery players streaming StarCraft: Brood War live right now.',
+  ),
 ]
 
 // Patterns are fixed at startup, so parse them once rather than on every request.
@@ -65,6 +115,6 @@ function defaultPageMetadata(context: PageMetadataContext): PageMetadata {
     type: 'website',
     title: 'ShieldBattery',
     description: 'Play StarCraft 1 on the premier community-run platform.',
-    image: `${context.canonicalHost}/images/logo-and-text-1200x630.png`,
+    image: defaultPageImage(context),
   }
 }
