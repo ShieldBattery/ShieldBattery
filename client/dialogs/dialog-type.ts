@@ -28,6 +28,7 @@ export enum DialogType {
   MatchmakingBanned = 'matchmakingBanned',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
+  RemoveUserAvatar = 'removeUserAvatar',
   ReplayInfo = 'replayInfo',
   ReplayLoad = 'replayLoad',
   ReportGame = 'reportGame',
@@ -134,6 +135,12 @@ export type PostMatchDialogPayload = BaseDialogPayload<
   }
 >
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>
+type RemoveUserAvatarDialogPayload = BaseDialogPayload<
+  typeof DialogType.RemoveUserAvatar,
+  {
+    userId: SbUserId
+  }
+>
 type ReplayInfoDialogPayload = BaseDialogPayload<
   typeof DialogType.ReplayInfo,
   {
@@ -189,6 +196,7 @@ export type DialogPayload =
   | MatchmakingBannedDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
+  | RemoveUserAvatarDialogPayload
   | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
   | ReportGameDialogPayload

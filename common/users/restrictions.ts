@@ -4,6 +4,7 @@ export enum RestrictionKind {
   Chat = 'chat',
   Reporting = 'reporting',
   Matchmaking = 'matchmaking',
+  AvatarUpload = 'avatar_upload',
 }
 
 export const ALL_RESTRICTION_KINDS: ReadonlyArray<RestrictionKind> = Object.values(RestrictionKind)
@@ -20,6 +21,8 @@ export enum RestrictionReason {
   Cheating = 'cheating',
   LeftGame = 'left_game',
   Griefing = 'griefing',
+  // Avatar upload restriction reasons
+  InappropriateContent = 'inappropriate_content',
 }
 
 export function restrictionReasonToLabel(reason: RestrictionReason, t: TFunction): string {
@@ -42,6 +45,8 @@ export function restrictionReasonToLabel(reason: RestrictionReason, t: TFunction
       return t('users.restrictions.reason.left_game', 'Left the game')
     case RestrictionReason.Griefing:
       return t('users.restrictions.reason.griefing', 'Griefing')
+    case RestrictionReason.InappropriateContent:
+      return t('users.restrictions.reason.inappropriate_content', 'Inappropriate content')
     default:
       return reason satisfies never
   }
@@ -72,6 +77,12 @@ export const RESTRICTION_REASONS_BY_KIND: Record<
     RestrictionReason.Cheating,
     RestrictionReason.LeftGame,
     RestrictionReason.Griefing,
+  ],
+  [RestrictionKind.AvatarUpload]: [
+    RestrictionReason.InappropriateContent,
+    RestrictionReason.Harassment,
+    RestrictionReason.HateSpeech,
+    RestrictionReason.Other,
   ],
 }
 

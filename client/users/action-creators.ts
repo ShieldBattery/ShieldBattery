@@ -11,6 +11,7 @@ import {
   AdminGetPermissionsResponse,
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
+  AdminRemoveUserAvatarResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetMatchHistoryQueryParams,
@@ -209,6 +210,24 @@ export function adminGetUserIps(
       signal: spec.signal,
     })
     dispatch({ type: '@users/adminGetUserIps', payload: res })
+
+    return res
+  })
+}
+
+export function adminRemoveUserAvatar(
+  userId: SbUserId,
+  spec: RequestHandlingSpec<AdminRemoveUserAvatarResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminRemoveUserAvatarResponse>(
+      apiUrl`admin/users/${userId}/avatar`,
+      {
+        method: 'DELETE',
+        signal: spec.signal,
+      },
+    )
+    dispatch({ type: '@users/avatarCleared', payload: { userId } })
 
     return res
   })

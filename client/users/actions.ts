@@ -18,6 +18,7 @@ export type UserActions =
   | AdminGetUserBanHistory
   | AdminBanUser
   | AdminGetUserIps
+  | AdminAvatarCleared
   | GetUserRankingHistory
 
 export interface GetUserProfile {
@@ -67,6 +68,12 @@ export interface AdminBanUser {
 export interface AdminGetUserIps {
   type: '@users/adminGetUserIps'
   payload: AdminGetUserIpsResponse
+}
+
+/** An admin removed a user's avatar. */
+export interface AdminAvatarCleared {
+  type: '@users/avatarCleared'
+  payload: { userId: SbUserId }
 }
 
 export type GetUserRankingHistory = {

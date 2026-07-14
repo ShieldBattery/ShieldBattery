@@ -121,15 +121,17 @@ export class UserService {
   }
 
   /**
-   * Sets (or clears, when `avatar` is `undefined`) the current user's avatar, returning the updated
-   * user info along with the previously-stored path (so the caller can delete the orphaned file).
-   * Refreshes the cached user data and, if `ctx` is provided, the current session.
+   * Sets (or clears, when `avatar` is `undefined`) a user's avatar, returning the updated user info
+   * along with the previously-stored path (so the caller can delete the orphaned file). Works for
+   * any user ID, not just the current user (e.g. admin moderation removing another user's avatar).
+   * Refreshes the cached user data and, if `ctx` is provided and its session belongs to the
+   * affected user, the current session.
    *
    * When setting an avatar, the file is written to the store *before* the DB is updated so the DB
    * never references a file that doesn't exist; if the DB update then fails, the just-written file
    * is cleaned up.
    */
-  async updateCurrentUserAvatar(
+  async updateUserAvatar(
     id: SbUserId,
     avatar: { path: string; data: Buffer; contentType?: string } | undefined,
     ctx?: Koa.Context,
