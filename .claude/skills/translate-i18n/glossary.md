@@ -65,6 +65,11 @@ consistent. (Seed — extend over time.)
 
 ### es
 - Register: informal **tú** (matches the existing file: Introduce, Selecciona, tu instalación).
+- **news post → noticia** (Noticia creada, Crear noticia); required-field validation follows the
+  in-file "Introduce …" imperative style. Statuses agree with feminine "noticia"
+  (Publicada/Programada/Creada/Editada).
+- **link → enlace** in new strings (dominant in-file: 5× enlace vs 2× link; matches
+  "Copiar enlace a la liga").
 - Team sizes use the **`1x1` / `2x2` / `3x3`** format (the `x` convention, per the term export).
 - Map names kept in recognized English forms: **Fastest, Hunters, Big Game Hunters, BGH** (the export
   keeps "Fastest" English).
@@ -79,6 +84,9 @@ consistent. (Seed — extend over time.)
   as `one`). Preserve existing one/few/many and add `other`.
 - Type labels kept English (the export keeps `1v1 Fastest` fully Latin): **2v2 Fastest / BGH /
   Hunters**. Solo→Соло, Team→Команда in the descriptions.
+- **news post → новость**; required-field validation follows the in-file "Введите …" imperative
+  style. Quotes use **«»** (in-file precedent), ё is written out (ещё). "by <user>" attribution
+  prefix → **"автор: "** (works for both created and edited history entries).
 - In-file term renderings to match: matchmaking→матчмейкинг, map pool→Пул карт, queue→очередь,
   veto→Вето, ban→забанить, kick→кикнуть, unrated→Без рейтинга.
 
@@ -98,6 +106,9 @@ consistent. (Seed — extend over time.)
 - **veto → 거부** (래더 "맵 거부"), **matchup → 종족전**, **ladder → 래더**, **queue → 대기열**,
   **map pool → 맵 풀**, **MMR → MMR** (kept).
 - Rank → 순위; tier/grade → 등급 (both already used in-file).
+- **news → 소식** (matches home's 최신 소식), **publish → 게시** (게시됨/지금 게시/게시 취소),
+  **cover image → 대표 이미지** (Korean CMS convention), **draft → 초안**, **schedule(d) →
+  예약(됨)**. Required-field validation follows the in-file "…을 입력하세요" style.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -108,3 +119,7 @@ consistent. (Seed — extend over time.)
   in-game term export and Chinese community usage). Team sizes use the `1v1`/`2v2`/`3v3` format.
 - In-file term renderings to match: queue→队列, matchmaking→匹配, map pool→地图池, veto→否决,
   ladder→天梯, ranked→排位.
+- **news (posts) → 新闻** (home's legacy 最新消息 header kept as-is), **publish → 发布**,
+  **scheduled publish → 定时发布** (status chip 已定时, "Scheduled for X" → 将于 X 发布),
+  **draft → 草稿**, **cover image → 封面图片**. Use full-width punctuation（），：；and “”quotes;
+  required-field validation follows the in-file 请输入… style.
