@@ -1672,6 +1672,7 @@
     },
     "profile": {
       "achievements": "Logros",
+      "copyLink": "Copiar enlace al perfil",
       "latestGames": "Últimos juegos",
       "points": "Puntos",
       "rank": "Rango",

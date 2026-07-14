@@ -8,6 +8,7 @@ import DevLists from './lists/devonly/routes'
 import DevLobbies from './lobbies/devonly/routes'
 import DevMatchmaking from './matchmaking/devonly/routes'
 import DevMaterial from './material/devonly/routes'
+import { DevPageMetadata } from './page-metadata/devonly/routes'
 import { DevStarcraft } from './starcraft/devonly/dev-starcraft'
 import { DevTwitch } from './twitch/devonly/dev-twitch'
 
@@ -43,6 +44,7 @@ export default function Dev() {
             ['Download components', 'download', DevDownload],
             ['Home components', 'home', DevHome],
             ['Ladder components', 'ladder', DevLadder],
+            ['Link previews', 'page-metadata', DevPageMetadata],
             ['List components', 'lists', DevLists],
             ['Lobby components', 'lobbies', DevLobbies],
             ['Matchmaking components', 'matchmaking', DevMatchmaking],

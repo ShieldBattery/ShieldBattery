@@ -1654,6 +1654,7 @@
     },
     "profile": {
       "achievements": "업적",
+      "copyLink": "프로필 링크 복사",
       "latestGames": "최근 게임",
       "points": "점수",
       "rank": "순위",

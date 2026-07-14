@@ -1663,6 +1663,7 @@
     },
     "profile": {
       "achievements": "Achievements",
+      "copyLink": "Copy link to profile",
       "latestGames": "Latest games",
       "points": "Points",
       "rank": "Rank",

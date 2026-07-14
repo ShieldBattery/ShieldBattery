@@ -348,13 +348,6 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
 
   return (
     <DetailsRoot>
-      <meta property='og:title' content={`ShieldBattery League - ${league.name}`} />
-      <meta property='og:description' content={league.description} />
-      {league.imagePath ? <meta property='og:image' content={league.imagePath} /> : undefined}
-      <meta name='twitter:title' content={`ShieldBattery League - ${league.name}`} />
-      <meta name='twitter:description' content={league.description} />
-      {league.imagePath ? <meta name='twitter:image' content={league.imagePath} /> : undefined}
-
       <LeagueDetailsHeader league={league} />
       <TabsAndJoin>
         <Tabs activeTab={activeTab} onChange={onTabChange}>
