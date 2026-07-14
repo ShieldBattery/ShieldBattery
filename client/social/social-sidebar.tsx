@@ -687,7 +687,9 @@ const EntryButton = styled.div`
 
   opacity: 0;
 
-  ${EntryRoot}:hover &, ${EntryRoot}:focus-within & {
+  ${EntryRoot}:hover &,
+  ${EntryRoot}:focus-visible &,
+  ${EntryRoot}:has(:focus-visible) & {
     opacity: 1;
   }
 `
