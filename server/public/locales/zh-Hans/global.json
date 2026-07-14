@@ -1,4 +1,93 @@
 {
+  "admin": {
+    "news": {
+      "action": {
+        "delete": "删除",
+        "edit": "编辑",
+        "history": "编辑历史",
+        "menu": "操作",
+        "publishNow": "立即发布",
+        "unpublish": "取消发布"
+      },
+      "backToList": "返回列表",
+      "column": {
+        "author": "作者",
+        "status": "状态",
+        "title": "标题",
+        "updated": "更新时间"
+      },
+      "confirmDelete": "确定删除“{{title}}”吗？此操作无法撤销。",
+      "created": "新闻已创建",
+      "createPost": "创建新闻",
+      "createTitle": "创建新闻",
+      "deleteError": "删除新闻时出错：",
+      "editPost": "编辑新闻",
+      "editTitle": "编辑新闻",
+      "field": {
+        "content": "内容",
+        "cover": "封面图片",
+        "publish": "发布日期",
+        "summary": "摘要",
+        "title": "标题"
+      },
+      "form": {
+        "content": "内容（Markdown）",
+        "contentRequired": "请输入内容",
+        "cover": "封面图片",
+        "coverChange": "更换封面",
+        "coverInvalidType": "请选择图片文件。",
+        "coverNone": "无封面图片（将使用默认图片）",
+        "coverRemove": "移除封面",
+        "coverTooLarge": "图片过大（最大 5 MB）。",
+        "coverUpload": "上传封面",
+        "coverUploadError": "上传封面图片时出了点问题。",
+        "coverUploading": "上传中…",
+        "imageInvalidType": "请选择图片文件。",
+        "imageTooLarge": "图片过大（最大 5 MB）。",
+        "imageUploadError": "上传图片时出了点问题。",
+        "imageUploading": "上传中…",
+        "insertImage": "插入图片",
+        "publish": "发布",
+        "publishDraft": "草稿（不发布）",
+        "publishNow": "立即发布",
+        "publishSchedule": "定时发布",
+        "scheduleDate": "发布日期和时间",
+        "scheduleHint": "选择未来的时间将定时发布；选择过去的时间将立即发布。",
+        "scheduleRequired": "请选择有效的日期和时间",
+        "summary": "摘要",
+        "summaryRequired": "请输入摘要",
+        "title": "标题",
+        "titleRequired": "请输入标题"
+      },
+      "history": {
+        "by": "由 ",
+        "byUnknown": "由未知用户",
+        "changed": "已更改：{{fields}}",
+        "created": "已创建",
+        "edited": "已编辑",
+        "empty": "这篇新闻没有编辑历史。",
+        "noFieldChanges": "没有字段更改",
+        "title": "编辑历史"
+      },
+      "historyPublished": "发布于 {{date}}",
+      "historyScheduled": "将于 {{date}} 发布",
+      "loadError": "加载新闻时出错：",
+      "loadMore": "加载更多",
+      "newPost": "新建新闻",
+      "notFound": "未找到此 ID 对应的新闻。",
+      "refresh": "刷新",
+      "saveChanges": "保存更改",
+      "saved": "新闻已保存",
+      "status": {
+        "draft": "草稿",
+        "published": "已发布",
+        "scheduled": "已定时"
+      },
+      "title": "管理新闻",
+      "updateError": "更新新闻时出错：",
+      "viewPost": "查看新闻"
+    }
+  },
   "auth": {
     "emailValidator": {
       "pattern": "请输入真实有效的电子邮件地址",
@@ -304,6 +393,7 @@
       "close": "关闭",
       "copy": "复制",
       "decline": "拒绝",
+      "delete": "删除",
       "download": "下载",
       "edit": "编辑",
       "hide": "隐藏",
@@ -862,6 +952,18 @@
       "twilight": "暮光"
     }
   },
+  "markdown": {
+    "toolbar": {
+      "bold": "加粗",
+      "heading": "标题",
+      "horizontalRule": "分割线",
+      "italic": "斜体",
+      "link": "链接",
+      "orderedList": "有序列表",
+      "quote": "引用",
+      "unorderedList": "无序列表"
+    }
+  },
   "matchmaking": {
     "acceptMatch": {
       "body": "所有玩家准备完成后游戏才会开始。",
@@ -1047,6 +1149,19 @@
   },
   "network": {
     "notConnectedText": "未连接"
+  },
+  "news": {
+    "archive": {
+      "error": "新闻暂时不可用。",
+      "loadMore": "加载更多",
+      "title": "新闻"
+    },
+    "byAuthor": "作者：{{name}}",
+    "copyLink": "复制新闻链接",
+    "draft": "草稿",
+    "manageNews": "管理新闻",
+    "seeAll": "查看所有新闻",
+    "unavailable": "新闻暂时不可用。"
   },
   "notifications": {
     "activityButton": {

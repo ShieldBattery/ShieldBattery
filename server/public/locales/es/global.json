@@ -1,4 +1,93 @@
 {
+  "admin": {
+    "news": {
+      "action": {
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "history": "Historial de ediciones",
+        "menu": "Acciones",
+        "publishNow": "Publicar ahora",
+        "unpublish": "Despublicar"
+      },
+      "backToList": "Volver a la lista",
+      "column": {
+        "author": "Autor",
+        "status": "Estado",
+        "title": "Título",
+        "updated": "Actualizado"
+      },
+      "confirmDelete": "¿Eliminar \"{{title}}\"? Esto no se puede deshacer.",
+      "created": "Noticia creada",
+      "createPost": "Crear noticia",
+      "createTitle": "Crear noticia",
+      "deleteError": "Error al eliminar la noticia:",
+      "editPost": "Editar noticia",
+      "editTitle": "Editar noticia",
+      "field": {
+        "content": "Contenido",
+        "cover": "Imagen de portada",
+        "publish": "Fecha de publicación",
+        "summary": "Resumen",
+        "title": "Título"
+      },
+      "form": {
+        "content": "Contenido (Markdown)",
+        "contentRequired": "Introduce el contenido",
+        "cover": "Imagen de portada",
+        "coverChange": "Cambiar portada",
+        "coverInvalidType": "Elige un archivo de imagen.",
+        "coverNone": "Sin imagen de portada (se usará una imagen predeterminada)",
+        "coverRemove": "Quitar portada",
+        "coverTooLarge": "Esa imagen es demasiado grande (máx. 5 MB).",
+        "coverUpload": "Subir portada",
+        "coverUploadError": "Algo salió mal al subir la imagen de portada.",
+        "coverUploading": "Subiendo…",
+        "imageInvalidType": "Elige un archivo de imagen.",
+        "imageTooLarge": "Esa imagen es demasiado grande (máx. 5 MB).",
+        "imageUploadError": "Algo salió mal al subir la imagen.",
+        "imageUploading": "Subiendo…",
+        "insertImage": "Insertar imagen",
+        "publish": "Publicación",
+        "publishDraft": "Borrador (sin publicar)",
+        "publishNow": "Publicar ahora",
+        "publishSchedule": "Programar",
+        "scheduleDate": "Fecha y hora de publicación",
+        "scheduleHint": "Una fecha y hora en el futuro programa la noticia; una en el pasado la publica de inmediato.",
+        "scheduleRequired": "Elige una fecha y hora válidas",
+        "summary": "Resumen",
+        "summaryRequired": "Introduce un resumen",
+        "title": "Título",
+        "titleRequired": "Introduce un título"
+      },
+      "history": {
+        "by": "por ",
+        "byUnknown": "por un usuario desconocido",
+        "changed": "Cambios: {{fields}}",
+        "created": "Creada",
+        "edited": "Editada",
+        "empty": "Esta noticia no tiene historial de ediciones.",
+        "noFieldChanges": "Sin cambios registrados en los campos",
+        "title": "Historial de ediciones"
+      },
+      "historyPublished": "Publicada el {{date}}",
+      "historyScheduled": "Programada para el {{date}}",
+      "loadError": "Error al cargar las noticias:",
+      "loadMore": "Cargar más",
+      "newPost": "Nueva noticia",
+      "notFound": "No se encontró ninguna noticia con este ID.",
+      "refresh": "Actualizar",
+      "saveChanges": "Guardar cambios",
+      "saved": "Noticia guardada",
+      "status": {
+        "draft": "Borrador",
+        "published": "Publicada",
+        "scheduled": "Programada"
+      },
+      "title": "Gestionar noticias",
+      "updateError": "Error al actualizar la noticia:",
+      "viewPost": "Ver noticia"
+    }
+  },
   "auth": {
     "emailValidator": {
       "pattern": "Ingresa una dirección de correo electrónico válida",
@@ -306,6 +395,7 @@
       "close": "Cerrar",
       "copy": "Copiar",
       "decline": "Rechazar",
+      "delete": "Eliminar",
       "download": "Descargar",
       "edit": "Editar",
       "hide": "Esconder",
@@ -870,6 +960,18 @@
       "twilight": "Crepúsculo"
     }
   },
+  "markdown": {
+    "toolbar": {
+      "bold": "Negrita",
+      "heading": "Encabezado",
+      "horizontalRule": "Separador",
+      "italic": "Cursiva",
+      "link": "Enlace",
+      "orderedList": "Lista numerada",
+      "quote": "Cita",
+      "unorderedList": "Lista con viñetas"
+    }
+  },
   "matchmaking": {
     "acceptMatch": {
       "body": "Todos los jugadores deben prepararse para que comience el partido.",
@@ -1059,6 +1161,19 @@
   },
   "network": {
     "notConnectedText": "No conectado"
+  },
+  "news": {
+    "archive": {
+      "error": "Las noticias no están disponibles en este momento.",
+      "loadMore": "Cargar más",
+      "title": "Noticias"
+    },
+    "byAuthor": "por {{name}}",
+    "copyLink": "Copiar enlace a la noticia",
+    "draft": "Borrador",
+    "manageNews": "Gestionar noticias",
+    "seeAll": "Ver todas las noticias",
+    "unavailable": "Las noticias no están disponibles en este momento."
   },
   "notifications": {
     "activityButton": {
