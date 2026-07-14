@@ -5,6 +5,7 @@ import { useQuery } from 'urql'
 import { graphql } from '../gql'
 import { BottomLinks } from '../home/bottom-links'
 import { Markdown } from '../markdown/markdown'
+import { CopyLinkButton } from '../navigation/copy-link-button'
 import { push } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
@@ -33,7 +34,9 @@ const Root = styled(CenteredContentContainer)`
   position: relative;
 
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax so the track's auto minimum can't inflate past the container when content (e.g. a long
+     title) has a large intrinsic width — 1fr alone means minmax(auto, 1fr). */
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(auto, 1fr) auto;
 
   --_header-height: 480px;
@@ -76,6 +79,10 @@ const Content = styled.div`
 
 const TitleRow = styled.div`
   margin-top: round(var(--_header-height) * 0.45, 1px);
+  /* Without this cap the intrinsic size of a long title propagates up through this (also
+     intrinsically-sized) box, letting TitleAndCopyLink's own max-width resolve against an
+     already-overflowing parent instead of the real content width. */
+  max-width: 100%;
 
   display: flex;
   flex-direction: column;
@@ -83,9 +90,27 @@ const TitleRow = styled.div`
   gap: 8px;
 `
 
+const TitleAndCopyLink = styled.div`
+  position: relative;
+  /* Reserve symmetric space for the copy-link button so the title text stays visually centered
+     and the button can't extend past the content edge (and get clipped) when a long title makes
+     this box span the full content width. The max-width keeps a long unbreakable word from
+     inflating this box past the container (which would push the button offscreen again). */
+  padding-inline: 56px;
+  max-width: 100%;
+`
+
 const Title = styled.div`
   ${headlineLarge};
   text-align: center;
+  overflow-wrap: break-word;
+`
+
+const PositionedCopyLinkButton = styled(CopyLinkButton)`
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
 `
 
 const DraftLabel = styled.div`
@@ -161,7 +186,13 @@ export function NewsPostPage({ params }: { params: { id: string } }) {
       <Content>
         <TitleRow>
           {isDraft ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
-          <Title data-test='news-post-title'>{post.title}</Title>
+          <TitleAndCopyLink>
+            <Title data-test='news-post-title'>{post.title}</Title>
+            <PositionedCopyLinkButton
+              tooltipPosition='right'
+              startingText={t('news.copyLink', 'Copy link to news post')}
+            />
+          </TitleAndCopyLink>
         </TitleRow>
         {post.publishedAt ? (
           <PostDate>{newsDateFormatter.format(new Date(post.publishedAt))}</PostDate>

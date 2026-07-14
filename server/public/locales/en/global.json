@@ -1163,6 +1163,7 @@
       "title": "News"
     },
     "byAuthor": "by {{name}}",
+    "copyLink": "Copy link to news post",
     "draft": "Draft",
     "manageNews": "Manage news",
     "seeAll": "See all news",
