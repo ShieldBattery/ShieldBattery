@@ -160,6 +160,9 @@
       "codePattern": "Código inválido. Debe tener este formato: {{example}}."
     },
     "restriction": {
+      "avatarUpload": {
+        "notification": "Tu cuenta ha sido restringida para subir avatares."
+      },
       "chat": {
         "notification": "Tu cuenta ha sido restringida para enviar mensajes de chat."
       },
@@ -1428,6 +1431,8 @@
           "tooLarge": "Esa imagen es demasiado grande (máx. 5 MB).",
           "upload": "Subir avatar",
           "uploadError": "Algo salió mal al actualizar tu avatar.",
+          "uploadRestricted": "Subida de avatares restringida hasta el {{date}}",
+          "uploadRestrictedError": "Actualmente tienes restringida la subida de avatares.",
           "uploadSuccess": "Avatar actualizado."
         },
         "changeDisplayName": {
@@ -1672,6 +1677,14 @@
     },
     "profile": {
       "achievements": "Logros",
+      "admin": {
+        "avatarRemoved": "Avatar eliminado",
+        "avatarRemoveError": "Algo salió mal al eliminar el avatar",
+        "removeAvatarAction": "Eliminar avatar",
+        "removeAvatarBody": "Esto eliminará permanentemente el avatar de {{user}}. No se puede deshacer.",
+        "removeAvatarTitle": "¿Eliminar avatar?",
+        "removeAvatarTooltip": "Eliminar avatar (admin)"
+      },
       "copyLink": "Copiar enlace al perfil",
       "latestGames": "Últimos juegos",
       "points": "Puntos",
@@ -1706,6 +1719,7 @@
         "griefing": "Sabotaje",
         "harassment": "Acoso",
         "hate_speech": "Discurso de odio",
+        "inappropriate_content": "Contenido inapropiado",
         "left_game": "Abandonó la partida",
         "other": "Otros",
         "spam": "Spam",
