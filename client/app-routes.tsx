@@ -17,7 +17,9 @@ import { LeagueRoot } from './leagues/league-routes'
 import { MainLayoutLoadingDotsArea } from './main-layout'
 import { MapsRoot } from './maps/maps-root'
 import { AnimatedSwitch } from './navigation/animated-switch'
-import { StaticNewsRoute } from './news/static-news-details'
+import { NewsArchivePage } from './news/news-archive-page'
+import { NewsPostPage } from './news/news-post-page'
+import { StaticNewsRedirect } from './news/static-news-redirect'
 import {
   AcceptableUsePage,
   PrivacyPolicyPage,
@@ -73,9 +75,11 @@ export function AppRoutes({
       <Route path='/live' component={LiveStreamsPage} />
       {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
       <Route path='/maps/*?' component={MapsRoot} />
+      <Route path='/news/:id' component={NewsPostPage} />
+      <Route path='/news' component={NewsArchivePage} />
       <Route path='/play/*?' component={PlayRoot} />
       <Route path='/replays/*?' component={ReplaysRoot} />
-      <Route path='/static-news/*?' component={StaticNewsRoute} />
+      <Route path='/static-news/:id' component={StaticNewsRedirect} />
       <Route path='/users/*?' component={ProfileRouteComponent} />
       <Route path='/whispers/*?' component={WhisperRouteComponent} />
       <Route component={Home} />

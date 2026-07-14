@@ -13,5 +13,3 @@ const ON = () => true
 export const DEV_ERROR = DEV()
 /** Show the "dev mode" indicator on the site (don't move this past dev mode). */
 export const DEV_INDICATOR = DEV()
-/** Add a news/landing/home page. */
-export const NEWS_PAGE = DEV()

@@ -505,6 +505,7 @@ export type HomePageContentQuery = {
     LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment
     LiveStreams_FeedFragmentFragment: LiveStreams_FeedFragmentFragment
     Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment
+    News_HomeFeedFragmentFragment: News_HomeFeedFragmentFragment
   }
 }
 
@@ -544,6 +545,51 @@ export type Leagues_HomeFeedEntryFragmentFragment = ({
 } & {
   ' $fragmentRefs'?: { Leagues_LeagueBadgeFragmentFragment: Leagues_LeagueBadgeFragmentFragment }
 }) & { ' $fragmentName'?: 'Leagues_HomeFeedEntryFragmentFragment' }
+
+export type NewsArchiveQueryVariables = Exact<{
+  first?: number | null | undefined
+  after?: string | null | undefined
+}>
+
+export type NewsArchiveQuery = {
+  newsPosts: {
+    edges: Array<{
+      node: { id: string; title: string; summary: string; publishedAt: string | null }
+    }>
+    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  }
+}
+
+export type News_HomeFeedFragmentFragment = {
+  newsPosts: {
+    edges: Array<{
+      node: {
+        id: string
+        title: string
+        summary: string
+        publishedAt: string | null
+        coverImageUrl: string | null
+        coverImageSmallUrl: string | null
+      }
+    }>
+  }
+} & { ' $fragmentName'?: 'News_HomeFeedFragmentFragment' }
+
+export type NewsPostQueryVariables = Exact<{
+  id: string
+}>
+
+export type NewsPostQuery = {
+  newsPost: {
+    id: string
+    title: string
+    content: string
+    publishedAt: string | null
+    coverImageUrl: string | null
+    coverImageSmallUrl: string | null
+    author: { id: Types.SbUserId; name: string } | null
+  } | null
+}
 
 export type AccountSettings_CurrentUserFragment = {
   id: Types.SbUserId
@@ -1461,6 +1507,61 @@ export const Leagues_HomeFeedFragmentFragmentDoc = {
     },
   ],
 } as unknown as DocumentNode<Leagues_HomeFeedFragmentFragment, unknown>
+export const News_HomeFeedFragmentFragmentDoc = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'News_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsPosts' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'IntValue', value: '10' },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<News_HomeFeedFragmentFragment, unknown>
 export const AccountSettings_CurrentUserFragmentDoc = {
   kind: 'Document',
   definitions: [
@@ -2915,6 +3016,7 @@ export const HomePageContentDocument = {
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveStreams_FeedFragment' } },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'News_HomeFeedFragment' } },
         ],
       },
     },
@@ -3263,8 +3365,197 @@ export const HomePageContentDocument = {
         ],
       },
     },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'News_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsPosts' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'IntValue', value: '10' },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
   ],
 } as unknown as DocumentNode<HomePageContentQuery, HomePageContentQueryVariables>
+export const NewsArchiveDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'NewsArchive' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsPosts' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'first' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'after' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'after' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'pageInfo' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'hasNextPage' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'endCursor' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<NewsArchiveQuery, NewsArchiveQueryVariables>
+export const NewsPostDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'NewsPost' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UUID' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsPost' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'id' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'id' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'content' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'author' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<NewsPostQuery, NewsPostQueryVariables>
 export const AccountSettingsDocument = {
   kind: 'Document',
   definitions: [

@@ -1054,6 +1054,17 @@
   "network": {
     "notConnectedText": "Not connected"
   },
+  "news": {
+    "archive": {
+      "error": "News is unavailable right now.",
+      "loadMore": "Load more",
+      "title": "News"
+    },
+    "byAuthor": "by {{name}}",
+    "draft": "Draft",
+    "seeAll": "See all news",
+    "unavailable": "News is unavailable right now."
+  },
   "notifications": {
     "activityButton": {
       "read": "Notifications (Alt + N)",
