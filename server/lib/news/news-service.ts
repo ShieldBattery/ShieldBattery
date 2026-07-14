@@ -148,7 +148,13 @@ export class NewsService {
     const current = this.latestNewsPost
     if (current?.id !== latest?.id || current?.publishedAt !== latest?.publishedAt) {
       this.latestNewsPost = latest
-      this.publisher.publish(NEWS_POSTS_PATH, toNewsPostEvent(latest))
+      try {
+        this.publisher.publish(NEWS_POSTS_PATH, toNewsPostEvent(latest))
+      } catch (err) {
+        // A publish failure must not reject this pass — the reconcile promise is chained and
+        // awaited on the assumption that it never rejects.
+        swallowNonBuiltins(err)
+      }
     }
 
     await this.armScheduledPublishTimer()
