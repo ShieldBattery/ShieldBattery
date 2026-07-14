@@ -733,3 +733,31 @@ pub enum PublishedNewsMessage {
     UrgentMessageChanged(()),
     NewsPostsChanged(()),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn small_variant_paths() {
+        // These cases must match the `smallVariantPath` tests in the Node server's
+        // news-image-paths.test.ts, since the two implementations derive URLs for the same stored
+        // files and drift between them would 404 the small cover variant.
+        let cases = [
+            (
+                "news-images/ab/cd/xyz.jpg",
+                "news-images/ab/cd/xyz_0.5x.jpg",
+            ),
+            (
+                "news-images/ab/cd/archive.tar.gz",
+                "news-images/ab/cd/archive.tar_0.5x.gz",
+            ),
+            ("news-images/ab/cd/noext", "news-images/ab/cd/noext_0.5x"),
+            ("news-images/ab.cd/noext", "news-images/ab.cd/noext_0.5x"),
+            ("noext", "noext_0.5x"),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(small_variant_path(input), expected, "input: {input}");
+        }
+    }
+}

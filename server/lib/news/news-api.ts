@@ -1,0 +1,81 @@
+import { RouterContext } from '@koa/router'
+import httpErrors from 'http-errors'
+import mime from 'mime'
+import sharp, { FormatEnum } from 'sharp'
+import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
+import { NewsImageUploadResponse } from '../../../common/news'
+import { getUrl, writeFile } from '../files'
+import { handleMultipartFiles } from '../files/handle-multipart-files'
+import { createImagePath } from '../files/images'
+import { httpApi } from '../http/http-api'
+import { httpBefore, httpPost } from '../http/route-decorators'
+import { checkAllPermissions } from '../permissions/check-permissions'
+import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
+import { smallVariantPath } from './news-image-paths'
+
+const imageUploadThrottle = createThrottle('newsimages', {
+  rate: 5,
+  burst: 10,
+  window: 60000,
+})
+
+// The widths that news images are resized down to, matching the `srcSet` the feed/detail pages
+// serve (large + a half-resolution `_0.5x` sibling).
+const LARGE_IMAGE_WIDTH = 1600
+const SMALL_IMAGE_WIDTH = 800
+
+// Formats we keep as-is; anything else is re-encoded to the fallback.
+const ALLOWED_FORMATS: ReadonlyArray<keyof FormatEnum> = ['jpeg', 'png']
+const FALLBACK_FORMAT: keyof FormatEnum = 'png'
+
+@httpApi('/news')
+export class NewsApi {
+  @httpPost('/images')
+  @httpBefore(
+    ensureLoggedIn,
+    checkAllPermissions('manageNews'),
+    throttleMiddleware(imageUploadThrottle, ctx => String(ctx.session!.user.id)),
+    handleMultipartFiles(MAX_IMAGE_SIZE_BYTES),
+  )
+  async uploadImage(ctx: RouterContext): Promise<NewsImageUploadResponse> {
+    const imageFile = ctx.request.files?.image
+    if (!imageFile) {
+      throw new httpErrors.BadRequest('an image file must be provided')
+    }
+    if (Array.isArray(imageFile)) {
+      throw new httpErrors.BadRequest('only one image file can be uploaded')
+    }
+
+    const image = sharp(imageFile.filepath)
+    const metadata = await image.metadata()
+    const useFallback = !metadata.format || !ALLOWED_FORMATS.includes(metadata.format)
+    const imageExtension = useFallback ? FALLBACK_FORMAT : metadata.format
+
+    const renderVariant = (width: number): Promise<Buffer> => {
+      // Cap the width, preserving aspect ratio and never upscaling smaller images.
+      let pipeline = image.clone().resize({ width, withoutEnlargement: true })
+      if (useFallback) {
+        pipeline = pipeline.toFormat(FALLBACK_FORMAT)
+      }
+      return pipeline.toBuffer()
+    }
+
+    const [largeBuffer, smallBuffer] = await Promise.all([
+      renderVariant(LARGE_IMAGE_WIDTH),
+      renderVariant(SMALL_IMAGE_WIDTH),
+    ])
+
+    const path = createImagePath('news-images', imageExtension)
+    const smallPath = smallVariantPath(path)
+    const contentType = mime.getType(imageExtension) ?? undefined
+
+    await Promise.all([
+      writeFile(path, largeBuffer, { acl: 'public-read', type: contentType }),
+      writeFile(smallPath, smallBuffer, { acl: 'public-read', type: contentType }),
+    ])
+
+    return { path, url: getUrl(path), smallUrl: getUrl(smallPath) }
+  }
+}

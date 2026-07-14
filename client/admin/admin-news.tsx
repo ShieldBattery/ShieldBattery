@@ -1,11 +1,14 @@
 import { ResultOf } from '@graphql-typed-document-node/core'
-import { useState } from 'react'
+import { ChangeEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { Route, Switch } from 'wouter'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
-import { urlPath } from '../../common/urls'
+import { getErrorStack } from '../../common/errors'
+import { MAX_IMAGE_SIZE_BYTES } from '../../common/images'
+import { NewsImageUploadResponse } from '../../common/news'
+import { apiUrl, urlPath } from '../../common/urls'
 import { useSelfUser } from '../auth/auth-utils'
 import { useForm, useFormCallbacks, ValidatorMap } from '../forms/form-hook'
 import { required } from '../forms/validators'
@@ -13,12 +16,14 @@ import { graphql } from '../gql'
 import { NewsPostCreation, NewsPostUpdates } from '../gql/graphql'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { DateTimeTextField } from '../material/datetime-text-field'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
+import { fetchJson } from '../network/fetch'
 import { LoadingDotsArea } from '../progress/dots'
 import { useNow } from '../react/date-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -66,6 +71,8 @@ const AdminNewsPostQuery = graphql(/* GraphQL */ `
       summary
       content
       publishedAt
+      coverImagePath
+      coverImageUrl
       author {
         id
         name
@@ -112,6 +119,9 @@ const NewsUpdatePostMutation = graphql(/* GraphQL */ `
       content
       publishedAt
       updatedAt
+      coverImagePath
+      coverImageUrl
+      coverImageSmallUrl
     }
   }
 `)
@@ -744,6 +754,63 @@ const SaveRow = styled.div`
   gap: 8px;
 `
 
+const CoverSection = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+
+  padding: 16px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  border-radius: 4px;
+`
+
+const CoverLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const CoverPreview = styled.div`
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 2 / 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 4px;
+  overflow: hidden;
+`
+
+const CoverImage = styled.img`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`
+
+const CoverPlaceholder = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const CoverActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const CoverHint = styled.div`
+  ${bodyMedium};
+  color: var(--theme-on-surface-variant);
+`
+
+const HiddenFileInput = styled.input`
+  display: none;
+`
+
 /** Computes the `publishedAt` value for a newly-created post (undefined leaves it a draft). */
 export function createPublishedAt(model: NewsEditorModel): string | undefined {
   switch (model.publishMode) {
@@ -798,6 +865,56 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const fetching = creating || updating
   const error = createError ?? updateError
 
+  const coverFileInputRef = useRef<HTMLInputElement>(null)
+  const [coverImagePath, setCoverImagePath] = useState<string | null>(post?.coverImagePath ?? null)
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(post?.coverImageUrl ?? null)
+  const [coverUploading, setCoverUploading] = useState(false)
+  const [coverError, setCoverError] = useState<string | undefined>(undefined)
+
+  const onCoverFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset the input so selecting the same file again still fires a change event.
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      setCoverError(t('admin.news.form.coverInvalidType', 'Please choose an image file.'))
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setCoverError(t('admin.news.form.coverTooLarge', 'That image is too large (max 5 MB).'))
+      return
+    }
+
+    setCoverError(undefined)
+    setCoverUploading(true)
+    const formData = new FormData()
+    formData.append('image', file)
+    fetchJson<NewsImageUploadResponse>(apiUrl`news/images`, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(result => {
+        setCoverUploading(false)
+        setCoverImagePath(result.path)
+        setCoverImageUrl(result.url)
+      })
+      .catch(err => {
+        setCoverUploading(false)
+        setCoverError(
+          t('admin.news.form.coverUploadError', 'Something went wrong uploading the cover image.'),
+        )
+        logger.error(`Error uploading news cover image: ${getErrorStack(err)}`)
+      })
+  }
+
+  const onRemoveCover = () => {
+    setCoverError(undefined)
+    setCoverImagePath(null)
+    setCoverImageUrl(null)
+  }
+
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
   let scheduledAt = toDateTimeLocalString(new Date())
   if (post?.publishedAt) {
@@ -849,6 +966,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
         if (publishedChange) {
           updates.publishedAt = publishedChange.value
         }
+        if (coverImagePath !== (post.coverImagePath ?? null)) {
+          // Send the new path, or an explicit null to clear it; omit when unchanged.
+          updates.coverImagePath = coverImagePath
+        }
 
         if (Object.keys(updates).length === 0) {
           push('/admin/news')
@@ -873,6 +994,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
           summary: model.summary,
           content: model.content,
           ...(publishedAt !== undefined ? { publishedAt } : {}),
+          ...(coverImagePath !== null ? { coverImagePath } : {}),
         }
 
         createPost({ post: creation })
@@ -932,6 +1054,48 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             />
             <MarkdownPreview source={getInputValue('content')} />
           </FormArea>
+          <CoverSection>
+            <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
+            <CoverPreview>
+              {coverImageUrl ? (
+                <CoverImage src={coverImageUrl} alt='' draggable={false} />
+              ) : (
+                <CoverPlaceholder>
+                  {t('admin.news.form.coverNone', 'No cover image (a stock image will be used)')}
+                </CoverPlaceholder>
+              )}
+            </CoverPreview>
+            <HiddenFileInput
+              ref={coverFileInputRef}
+              type='file'
+              accept='image/*'
+              onChange={onCoverFileSelected}
+              data-test='news-cover-file-input'
+            />
+            <CoverActions>
+              <OutlinedButton
+                label={
+                  coverImageUrl
+                    ? t('admin.news.form.coverChange', 'Change cover')
+                    : t('admin.news.form.coverUpload', 'Upload cover')
+                }
+                iconStart={<MaterialIcon icon='image' />}
+                onClick={() => coverFileInputRef.current?.click()}
+                disabled={coverUploading}
+              />
+              {coverImageUrl ? (
+                <TextButton
+                  label={t('admin.news.form.coverRemove', 'Remove cover')}
+                  onClick={onRemoveCover}
+                  disabled={coverUploading}
+                />
+              ) : null}
+            </CoverActions>
+            {coverUploading ? (
+              <CoverHint>{t('admin.news.form.coverUploading', 'Uploading…')}</CoverHint>
+            ) : null}
+            {coverError ? <ErrorText>{coverError}</ErrorText> : null}
+          </CoverSection>
           <PublishControl>
             <RadioGroup
               {...bindInput('publishMode')}
@@ -974,7 +1138,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   : t('admin.news.createPost', 'Create post')
               }
               onClick={submit}
-              disabled={fetching}
+              disabled={fetching || coverUploading}
             />
           </SaveRow>
         </Form>
