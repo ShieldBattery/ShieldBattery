@@ -1,4 +1,79 @@
 {
+  "admin": {
+    "news": {
+      "action": {
+        "delete": "Delete",
+        "edit": "Edit",
+        "history": "Edit history",
+        "publishNow": "Publish now",
+        "unpublish": "Unpublish"
+      },
+      "backToList": "Back to list",
+      "column": {
+        "actions": "Actions",
+        "author": "Author",
+        "status": "Status",
+        "title": "Title",
+        "updated": "Updated"
+      },
+      "confirmDelete": "Delete \"{{title}}\"? This cannot be undone.",
+      "created": "News post created",
+      "createPost": "Create post",
+      "createTitle": "Create news post",
+      "deleteError": "Error deleting post:",
+      "editPost": "Edit post",
+      "editTitle": "Edit news post",
+      "field": {
+        "content": "Content",
+        "cover": "Cover image",
+        "publish": "Publish date",
+        "summary": "Summary",
+        "title": "Title"
+      },
+      "form": {
+        "content": "Content (Markdown)",
+        "contentRequired": "Content is required",
+        "publish": "Publish",
+        "publishDraft": "Draft (not published)",
+        "publishNow": "Publish now",
+        "publishSchedule": "Schedule",
+        "scheduleDate": "Publish date and time",
+        "scheduleHint": "A future date/time schedules the post; a past date/time publishes it immediately.",
+        "scheduleRequired": "Choose a valid date and time",
+        "summary": "Summary",
+        "summaryRequired": "Summary is required",
+        "title": "Title",
+        "titleRequired": "Title is required"
+      },
+      "history": {
+        "by": "by ",
+        "byUnknown": "by an unknown user",
+        "changed": "Changed: {{fields}}",
+        "created": "Created",
+        "edited": "Edited",
+        "empty": "No edit history for this post.",
+        "noFieldChanges": "No tracked field changes",
+        "title": "Edit history"
+      },
+      "historyPublished": "Published {{date}}",
+      "historyScheduled": "Scheduled for {{date}}",
+      "loadError": "Error loading news posts:",
+      "loadMore": "Load more",
+      "newPost": "New post",
+      "notFound": "No news post found with this ID.",
+      "refresh": "Refresh",
+      "saveChanges": "Save changes",
+      "saved": "News post saved",
+      "status": {
+        "draft": "Draft",
+        "published": "Published",
+        "scheduled": "Scheduled"
+      },
+      "title": "Manage news",
+      "updateError": "Error updating post:",
+      "viewPost": "View post"
+    }
+  },
   "auth": {
     "emailValidator": {
       "pattern": "Enter a valid email address",
@@ -305,6 +380,7 @@
       "close": "Close",
       "copy": "Copy",
       "decline": "Decline",
+      "delete": "Delete",
       "download": "Download",
       "edit": "Edit",
       "hide": "Hide",
