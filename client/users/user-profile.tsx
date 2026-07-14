@@ -21,6 +21,7 @@ import TwitchIcon from '../icons/brands/twitch.svg'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
 import { TabItem, Tabs } from '../material/tabs'
+import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -254,9 +255,18 @@ const UsernameAndTitle = styled.div`
   margin-left: 24px;
 `
 
+const UsernameRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
 const Username = styled.div`
   ${headlineLarge};
   ${singleLine};
+  /* Allows the username to shrink (truncating with an ellipsis) so the copy-link button next to
+     it stays visible even for very long names. */
+  min-width: 0;
   color: var(--theme-amber);
 `
 
@@ -350,7 +360,13 @@ export function UserProfilePage({
           {isLive ? <LiveBadge>{t('users.profile.twitch.liveBadge', 'Live')}</LiveBadge> : null}
         </AvatarCircle>
         <UsernameAndTitle>
-          <Username>{user.name}</Username>
+          <UsernameRow>
+            <Username>{user.name}</Username>
+            <CopyLinkButton
+              tooltipPosition='right'
+              startingText={t('users.profile.copyLink', 'Copy link to profile')}
+            />
+          </UsernameRow>
           <TitleMedium>{title}</TitleMedium>
           {twitchChannel ? (
             <TwitchChannelLink

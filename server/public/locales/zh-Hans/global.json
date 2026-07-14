@@ -1654,6 +1654,7 @@
     },
     "profile": {
       "achievements": "成就",
+      "copyLink": "复制个人资料链接",
       "latestGames": "最近游戏",
       "points": "积分",
       "rank": "排名",
