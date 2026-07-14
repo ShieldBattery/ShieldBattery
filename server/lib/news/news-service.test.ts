@@ -243,6 +243,40 @@ describe('news/news-service', () => {
     })
   })
 
+  test('does not break the reconcile chain when publish throws synchronously', async () => {
+    // A publish failure (e.g. a builtin error surfacing a bug) must not reject the reconcile
+    // promise -- it's chained and awaited on the assumption that it never rejects.
+    vi.spyOn(publisher, 'publish').mockImplementationOnce(() => {
+      throw new TypeError('boom')
+    })
+
+    testState.posts.push({ id: 'p1', publishedAt: BASE_TIME - 1000 })
+    await emitNewsPostsChanged()
+
+    // The chain keeps processing reconciles after the throw.
+    testState.posts.push({ id: 'p2', publishedAt: BASE_TIME - 500 })
+    await emitNewsPostsChanged()
+
+    expect(client1.publish).toHaveBeenCalledWith(NEWS_POSTS_PATH, {
+      type: 'newsPostChange',
+      id: 'p2',
+      publishedAt: BASE_TIME - 500,
+    })
+
+    // The subscribe seed still works for users connecting after the failure.
+    const client2 = connector.connectClient(
+      { id: makeSbUserId(2), name: 'Two', created: 1577836800000 },
+      'two',
+    )
+    await flush()
+
+    expect(client2.publish).toHaveBeenCalledWith(NEWS_POSTS_PATH, {
+      type: 'newsPostChange',
+      id: 'p2',
+      publishedAt: BASE_TIME - 500,
+    })
+  })
+
   test('clamps and re-arms for a post scheduled beyond the max timeout', async () => {
     const publishedAt = BASE_TIME + MAX_TIMEOUT_MS + 10000
     testState.posts.push({ id: 'p1', publishedAt })

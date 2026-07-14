@@ -153,7 +153,7 @@ export class NewsService {
       } catch (err) {
         // A publish failure must not reject this pass — the reconcile promise is chained and
         // awaited on the assumption that it never rejects.
-        swallowNonBuiltins(err)
+        logger.error({ err }, 'failed to publish news post change')
       }
     }
 
