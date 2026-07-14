@@ -1,7 +1,7 @@
 import { assertUnreachable } from '../../../../common/assert-unreachable'
 import { Clock, TimeoutId } from '../clock'
 
-type ScheduledTimeout = [fn: () => void, timeoutMillis: number]
+type ScheduledTimeout = [fn: () => void, timeoutMillis: number, id: TimeoutId]
 
 export enum StopCriteria {
   EmptyQueue,
@@ -58,7 +58,8 @@ export class FakeClock extends Clock {
   // TODO(tec27): Build a system for only running X timeouts. This auto setup only works if the
   // timeout setting terminates (e.g. a called timeout doesn't schedule an additional timeout).
   override setTimeout(fn: () => void, timeoutMillis: number): TimeoutId {
-    this.timeoutsToRun.push([fn, this.currentTime + timeoutMillis])
+    this.currentTimeoutId = (Number(this.currentTimeoutId) + 1) as unknown as TimeoutId
+    this.timeoutsToRun.push([fn, this.currentTime + timeoutMillis, this.currentTimeoutId])
     if (this.autoRunTimeouts && !this.timeoutRunnerScheduled) {
       this.timeoutRunnerScheduled = true
       this.timeoutsCompletedPromise = new Promise(resolve => {
@@ -72,8 +73,11 @@ export class FakeClock extends Clock {
       })
     }
 
-    this.currentTimeoutId = (Number(this.currentTimeoutId) + 1) as unknown as TimeoutId
     return this.currentTimeoutId
+  }
+
+  override clearTimeout(id: TimeoutId): void {
+    this.timeoutsToRun = this.timeoutsToRun.filter(([, , timeoutId]) => timeoutId !== id)
   }
 
   /**
