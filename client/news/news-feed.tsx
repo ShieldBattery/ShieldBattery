@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Link } from 'wouter'
 import { urlPath } from '../../common/urls'
+import { useSelfPermissions } from '../auth/auth-utils'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { HomeSection, HomeSectionTitle } from '../home/home-section'
 import { useButtonState } from '../material/button'
@@ -40,7 +41,14 @@ const SectionHeader = styled.div`
   gap: 16px;
 `
 
-const SeeAllLink = styled(Link)`
+const HeaderLinks = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-shrink: 0;
+`
+
+const HeaderLink = styled(Link)`
   ${bodyMedium};
   flex-shrink: 0;
 
@@ -224,6 +232,7 @@ export function NewsFeed({
   hasError?: boolean
 }) {
   const { t } = useTranslation()
+  const perms = useSelfPermissions()
   const data = useFragment(News_HomeFeedFragment, query)
   const posts = data?.newsPosts.edges.map(e => e.node) ?? []
 
@@ -273,9 +282,16 @@ export function NewsFeed({
         <HomeSectionTitle data-test='latest-news-title'>
           {t('home.latestNewsTitle', 'Latest news')}
         </HomeSectionTitle>
-        {posts.length > 0 ? (
-          <SeeAllLink href='/news'>{t('news.seeAll', 'See all news')}</SeeAllLink>
-        ) : null}
+        <HeaderLinks>
+          {perms?.manageNews ? (
+            <HeaderLink href='/admin/news' data-test='manage-news-link'>
+              {t('news.manageNews', 'Manage news')}
+            </HeaderLink>
+          ) : null}
+          {posts.length > 0 ? (
+            <HeaderLink href='/news'>{t('news.seeAll', 'See all news')}</HeaderLink>
+          ) : null}
+        </HeaderLinks>
       </SectionHeader>
 
       {body}

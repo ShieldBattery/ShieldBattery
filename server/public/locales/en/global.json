@@ -5,12 +5,12 @@
         "delete": "Delete",
         "edit": "Edit",
         "history": "Edit history",
+        "menu": "Actions",
         "publishNow": "Publish now",
         "unpublish": "Unpublish"
       },
       "backToList": "Back to list",
       "column": {
-        "actions": "Actions",
         "author": "Author",
         "status": "Status",
         "title": "Title",
@@ -42,6 +42,11 @@
         "coverUpload": "Upload cover",
         "coverUploadError": "Something went wrong uploading the cover image.",
         "coverUploading": "Uploading…",
+        "imageInvalidType": "Please choose an image file.",
+        "imageTooLarge": "That image is too large (max 5 MB).",
+        "imageUploadError": "Something went wrong uploading the image.",
+        "imageUploading": "Uploading…",
+        "insertImage": "Insert image",
         "publish": "Publish",
         "publishDraft": "Draft (not published)",
         "publishNow": "Publish now",
@@ -951,6 +956,18 @@
       "twilight": "Twilight"
     }
   },
+  "markdown": {
+    "toolbar": {
+      "bold": "Bold",
+      "heading": "Heading",
+      "horizontalRule": "Divider",
+      "italic": "Italic",
+      "link": "Link",
+      "orderedList": "Numbered list",
+      "quote": "Quote",
+      "unorderedList": "Bulleted list"
+    }
+  },
   "matchmaking": {
     "acceptMatch": {
       "body": "All players must ready up for the match to start.",
@@ -1147,6 +1164,7 @@
     },
     "byAuthor": "by {{name}}",
     "draft": "Draft",
+    "manageNews": "Manage news",
     "seeAll": "See all news",
     "unavailable": "News is unavailable right now."
   },

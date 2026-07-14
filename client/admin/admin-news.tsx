@@ -18,8 +18,16 @@ import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { Markdown } from '../markdown/markdown'
+import {
+  applyMarkdownFormat,
+  MarkdownFormatKind,
+  MarkdownToolbar,
+} from '../markdown/markdown-toolbar'
 import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
 import { DateTimeTextField } from '../material/datetime-text-field'
+import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { RadioButton, RadioGroup } from '../material/radio'
 import { TextField } from '../material/text-field'
 import { push } from '../navigation/routing'
@@ -289,10 +297,11 @@ const UpdatedCell = styled.div`
 
 const ActionsCell = styled.div`
   flex: 0 0 auto;
+  width: 48px;
 
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
 `
 
 const EmDash = styled.span`
@@ -453,7 +462,7 @@ function AdminNewsList() {
             <StatusCell>{t('admin.news.column.status', 'Status')}</StatusCell>
             <AuthorCell>{t('admin.news.column.author', 'Author')}</AuthorCell>
             <UpdatedCell>{t('admin.news.column.updated', 'Updated')}</UpdatedCell>
-            <ActionsCell>{t('admin.news.column.actions', 'Actions')}</ActionsCell>
+            <ActionsCell />
           </ListHeaderRow>
           {pageCursors.map((cursor, i) => (
             <NewsListPage
@@ -569,6 +578,8 @@ function NewsPostRow({
 }) {
   const { t } = useTranslation()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
   const status = getPostStatus(post.publishedAt, now)
 
   if (confirmingDelete) {
@@ -613,39 +624,66 @@ function NewsPostRow({
       <UpdatedCell>{longTimestamp.format(new Date(post.updatedAt))}</UpdatedCell>
       <ActionsCell>
         <IconButton
-          icon={<MaterialIcon icon='edit' />}
-          title={t('admin.news.action.edit', 'Edit')}
-          onClick={() => push(urlPath`/admin/news/${post.id}`)}
+          ref={anchorRef}
+          icon={<MaterialIcon icon='more_vert' />}
+          title={t('admin.news.action.menu', 'Actions')}
+          onClick={openMenu}
           disabled={mutating}
         />
-        <IconButton
-          icon={<MaterialIcon icon='history' />}
-          title={t('admin.news.action.history', 'Edit history')}
-          onClick={() => push(urlPath`/admin/news/${post.id}/history`)}
-          disabled={mutating}
-        />
-        {status.kind !== 'published' ? (
-          <IconButton
-            icon={<MaterialIcon icon='publish' />}
-            title={t('admin.news.action.publishNow', 'Publish now')}
-            onClick={() => onPublishNow(post.id)}
-            disabled={mutating}
-          />
-        ) : null}
-        {status.kind !== 'draft' ? (
-          <IconButton
-            icon={<MaterialIcon icon='unpublished' />}
-            title={t('admin.news.action.unpublish', 'Unpublish')}
-            onClick={() => onUnpublish(post.id)}
-            disabled={mutating}
-          />
-        ) : null}
-        <IconButton
-          icon={<MaterialIcon icon='delete' />}
-          title={t('admin.news.action.delete', 'Delete')}
-          onClick={() => setConfirmingDelete(true)}
-          disabled={mutating}
-        />
+        <Popover
+          open={menuOpen}
+          onDismiss={closeMenu}
+          anchorX={anchorX ?? 0}
+          anchorY={anchorY ?? 0}
+          originX='right'
+          originY='top'>
+          <MenuList>
+            <MenuItem
+              icon={<MaterialIcon icon='edit' />}
+              text={t('admin.news.action.edit', 'Edit')}
+              onClick={() => {
+                closeMenu()
+                push(urlPath`/admin/news/${post.id}`)
+              }}
+            />
+            <MenuItem
+              icon={<MaterialIcon icon='history' />}
+              text={t('admin.news.action.history', 'Edit history')}
+              onClick={() => {
+                closeMenu()
+                push(urlPath`/admin/news/${post.id}/history`)
+              }}
+            />
+            {status.kind !== 'published' ? (
+              <MenuItem
+                icon={<MaterialIcon icon='publish' />}
+                text={t('admin.news.action.publishNow', 'Publish now')}
+                onClick={() => {
+                  closeMenu()
+                  onPublishNow(post.id)
+                }}
+              />
+            ) : null}
+            {status.kind !== 'draft' ? (
+              <MenuItem
+                icon={<MaterialIcon icon='unpublished' />}
+                text={t('admin.news.action.unpublish', 'Unpublish')}
+                onClick={() => {
+                  closeMenu()
+                  onUnpublish(post.id)
+                }}
+              />
+            ) : null}
+            <DestructiveMenuItem
+              icon={<MaterialIcon icon='delete' />}
+              text={t('admin.news.action.delete', 'Delete')}
+              onClick={() => {
+                closeMenu()
+                setConfirmingDelete(true)
+              }}
+            />
+          </MenuList>
+        </Popover>
       </ActionsCell>
     </RowRoot>
   )
@@ -710,9 +748,17 @@ const FormArea = styled.div`
   align-items: stretch;
 `
 
-const ContentField = styled(TextField)`
+const EditorColumn = styled.div`
   flex: 1 1 50%;
   min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const ContentField = styled(TextField)`
+  width: 100%;
 `
 
 const MarkdownPreview = styled(Markdown)`
@@ -742,6 +788,10 @@ const PublishControl = styled.div`
   gap: 12px;
 
   border-radius: 4px;
+`
+
+const ScheduleField = styled(DateTimeTextField)`
+  max-width: 320px;
 `
 
 const ScheduleHint = styled.div`
@@ -811,6 +861,52 @@ const HiddenFileInput = styled.input`
   display: none;
 `
 
+/**
+ * Strips a filename down to something reasonable to use as image alt text: drops the extension,
+ * removes characters that would break markdown image syntax, and turns `-`/`_` runs into spaces.
+ *
+ * E.g. `"my-cool_screenshot v2.png"` -> `"my cool screenshot v2"`.
+ */
+export function altTextFromFilename(filename: string): string {
+  const dotIndex = filename.lastIndexOf('.')
+  const base = dotIndex > 0 ? filename.slice(0, dotIndex) : filename
+  const withoutBrackets = base.replace(/[[\]()]/g, '')
+  const spaced = withoutBrackets.replace(/[-_]+/g, ' ')
+  return spaced.replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Splices an image markdown snippet (`![altText](url)`) into editor content. When a cursor
+ * selection is given the snippet replaces it; otherwise the snippet is appended as its own block.
+ * Returns the new content and the cursor position right after the snippet's opening `![`.
+ */
+export function insertInlineImage(
+  content: string,
+  url: string,
+  altText: string,
+  selection?: { start: number; end: number },
+): { content: string; cursor: number } {
+  const snippet = `![${altText}](${url})`
+
+  if (selection) {
+    const { start, end } = selection
+    return {
+      content: content.slice(0, start) + snippet + content.slice(end),
+      cursor: start + 2,
+    }
+  }
+
+  if (content.trim() === '') {
+    return { content: snippet, cursor: 2 }
+  }
+
+  const trimmed = content.replace(/\s+$/, '')
+  return {
+    content: `${trimmed}\n\n${snippet}`,
+    cursor: trimmed.length + 2 + 2,
+  }
+}
+
 /** Computes the `publishedAt` value for a newly-created post (undefined leaves it a draft). */
 export function createPublishedAt(model: NewsEditorModel): string | undefined {
   switch (model.publishMode) {
@@ -871,6 +967,15 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverError, setCoverError] = useState<string | undefined>(undefined)
 
+  const imageFileInputRef = useRef<HTMLInputElement>(null)
+  const contentInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  // Tracks whether the content field has ever been focused: a textarea's selectionStart/End
+  // default to 0 before any user interaction, so a selection is only a real cursor position once
+  // the field has been focused at some point.
+  const contentEverFocusedRef = useRef(false)
+  const [imageUploading, setImageUploading] = useState(false)
+  const [imageError, setImageError] = useState<string | undefined>(undefined)
+
   const onCoverFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     // Reset the input so selecting the same file again still fires a change event.
@@ -915,6 +1020,87 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     setCoverImageUrl(null)
   }
 
+  const onImageFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    // Reset the input so selecting the same file again still fires a change event.
+    event.target.value = ''
+    if (!file) {
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      setImageError(t('admin.news.form.imageInvalidType', 'Please choose an image file.'))
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setImageError(t('admin.news.form.imageTooLarge', 'That image is too large (max 5 MB).'))
+      return
+    }
+
+    setImageError(undefined)
+    setImageUploading(true)
+    const formData = new FormData()
+    formData.append('image', file)
+    // Inline images upload through the same endpoint/pipeline as cover images.
+    fetchJson<NewsImageUploadResponse>(apiUrl`news/images`, {
+      method: 'POST',
+      body: formData,
+    })
+      .then(result => {
+        setImageUploading(false)
+        // Read the content from the DOM element rather than the form state this closure captured
+        // when the upload started, so text typed while the upload was in flight isn't lost.
+        const textarea = contentInputRef.current
+        const currentContent = textarea?.value ?? getInputValue('content')
+        const selection =
+          textarea &&
+          contentEverFocusedRef.current &&
+          textarea.selectionStart !== null &&
+          textarea.selectionEnd !== null
+            ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+            : undefined
+        const { content, cursor } = insertInlineImage(
+          currentContent,
+          result.url,
+          altTextFromFilename(file.name),
+          selection,
+        )
+        setInputValue('content', content)
+        requestAnimationFrame(() => {
+          if (textarea) {
+            textarea.focus()
+            textarea.setSelectionRange(cursor, cursor)
+          }
+        })
+      })
+      .catch(err => {
+        setImageUploading(false)
+        setImageError(
+          t('admin.news.form.imageUploadError', 'Something went wrong uploading the image.'),
+        )
+        logger.error(`Error uploading news inline image: ${getErrorStack(err)}`)
+      })
+  }
+
+  const onFormat = (kind: MarkdownFormatKind) => {
+    const textarea = contentInputRef.current
+    const currentContent = textarea?.value ?? getInputValue('content')
+    const selection =
+      textarea &&
+      contentEverFocusedRef.current &&
+      textarea.selectionStart !== null &&
+      textarea.selectionEnd !== null
+        ? { start: textarea.selectionStart, end: textarea.selectionEnd }
+        : undefined
+    const result = applyMarkdownFormat(kind, currentContent, selection)
+    setInputValue('content', result.content)
+    requestAnimationFrame(() => {
+      if (textarea) {
+        textarea.focus()
+        textarea.setSelectionRange(result.selectionStart, result.selectionEnd)
+      }
+    })
+  }
+
   let publishMode: PublishMode = PUBLISH_MODE_DRAFT
   let scheduledAt = toDateTimeLocalString(new Date())
   if (post?.publishedAt) {
@@ -947,7 +1133,10 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
     },
   }
 
-  const { submit, bindInput, form, getInputValue } = useForm<NewsEditorModel>(defaults, validations)
+  const { submit, bindInput, form, getInputValue, setInputValue } = useForm<NewsEditorModel>(
+    defaults,
+    validations,
+  )
 
   useFormCallbacks(form, {
     onSubmit: model => {
@@ -1045,14 +1234,39 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             maxRows={4}
           />
           <FormArea>
-            <ContentField
-              {...bindInput('content')}
-              label={t('admin.news.form.content', 'Content (Markdown)')}
-              multiline={true}
-              rows={18}
-              maxRows={40}
-            />
-            <MarkdownPreview source={getInputValue('content')} />
+            <EditorColumn>
+              <MarkdownToolbar onFormat={onFormat}>
+                <HiddenFileInput
+                  ref={imageFileInputRef}
+                  type='file'
+                  accept='image/*'
+                  onChange={onImageFileSelected}
+                  data-test='news-inline-image-file-input'
+                />
+                <IconButton
+                  icon={<MaterialIcon icon='add_photo_alternate' />}
+                  title={t('admin.news.form.insertImage', 'Insert image')}
+                  onClick={() => imageFileInputRef.current?.click()}
+                  disabled={imageUploading}
+                />
+                {imageUploading ? (
+                  <CoverHint>{t('admin.news.form.imageUploading', 'Uploading…')}</CoverHint>
+                ) : null}
+              </MarkdownToolbar>
+              <ContentField
+                {...bindInput('content')}
+                ref={contentInputRef}
+                onFocus={() => {
+                  contentEverFocusedRef.current = true
+                }}
+                label={t('admin.news.form.content', 'Content (Markdown)')}
+                multiline={true}
+                rows={18}
+                maxRows={40}
+              />
+              {imageError ? <ErrorText>{imageError}</ErrorText> : null}
+            </EditorColumn>
+            <MarkdownPreview source={getInputValue('content')} allowMedia={true} />
           </FormArea>
           <CoverSection>
             <CoverLabel>{t('admin.news.form.cover', 'Cover image')}</CoverLabel>
@@ -1116,7 +1330,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
             </RadioGroup>
             {currentPublishMode === PUBLISH_MODE_SCHEDULE ? (
               <>
-                <DateTimeTextField
+                <ScheduleField
                   {...bindInput('scheduledAt')}
                   label={t('admin.news.form.scheduleDate', 'Publish date and time')}
                   floatingLabel={true}
@@ -1138,7 +1352,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   : t('admin.news.createPost', 'Create post')
               }
               onClick={submit}
-              disabled={fetching || coverUploading}
+              disabled={fetching || coverUploading || imageUploading}
             />
           </SaveRow>
         </Form>
