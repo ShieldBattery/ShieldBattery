@@ -84,25 +84,26 @@ class; the tenant-credential consolidation half remains (§2).
 
 ### The launch path (rough order)
 
-1. **Relay-measured backbone RTTs** *(ratified 2026-07-15 — wanted before launch; closes the
-   last hand-maintained region-pair table).* The backbone table becomes telemetry instead of
-   config. Mechanism: region B's GameLift beacon is always up regardless of our fleet and speaks
-   the same UDP echo clients ping, so a relay in region A measures A→B by pinging B's beacon
-   directly — no second relay required, no scale-to-zero chicken-and-egg. Legs:
-   - **rp2**: coordinator pushes the region registry's beacon targets to relays over the control
-     connection (additive frame, the TenantKeys/MeshPeers pattern); relays ping other regions'
-     beacons on a slow cadence (median-of-N like the client measurement; beacons are third-party
-     — be polite) and report per-region RTT in the existing heartbeat; coordinator aggregates per
-     region *pair* with last-known retention (relays are ephemeral — values persist across a
-     region's scale-to-zero gaps, e.g. alongside the ledger) and serves the pair table on the
-     existing `GET /regions` response.
-   - **SB**: consume the served table (the `/regions` fetch already exists), refresh with the
-     region list, demote `SB_REGION_BACKBONE_RTT_JSON` to an explicit override. Unmeasured pairs
-     keep the 150ms default, so bootstrap behavior is unchanged. Both the matchmaker (server-rs)
-     and the Node latency-estimate util read the same source so they can't drift.
-   - Until it lands, public inter-AWS-region latency data pasted into the env var once covers a
-     launch (the 150ms default is fine for match quality but inflates cross-region initial
-     buffers).
+1. **Relay-measured backbone RTTs** *(BUILT 2026-07-15; landing steps remain).* The backbone
+   table is telemetry: relays ping other regions' always-up GameLift beacons (median-of-5
+   nonce-matched echoes, ≥400ms spacing, one sweep at startup + 6h backstop — task churn
+   re-measures naturally), report medians on the existing heartbeat, and the coordinator
+   aggregates per pair (canonical a<b, last-write-wins beyond a 5ms noise dead-band,
+   generation-fenced ingest) with last-known retention in a ledger v2 table, serving
+   `backbone_rtts` on `GET /regions` (field omitted while empty). The provisioning loop
+   bootstraps coverage: a region with unmeasured pairs gets a transient target of 1 (max-merged
+   with warm demand, 5min hold, exponential backoff 10min→6h against dead beacons), so standup /
+   add-a-region / lost-ledger all self-seed. SB consumes the served table both sides —
+   `GameServerRegionsService` caches it beside the region list (deliberately outside the
+   client-publish diff) and server-rs polls `/regions` into an ArcSwap table each 5min —
+   with `SB_REGION_BACKBONE_RTT_JSON` demoted to a per-pair override that wins where it names a
+   pair. rp2 commits `4bc6ec5..4e1a5a4` (local main, UNPUSHED), SB `9440588dd`+`a1f6364bf`
+   (rp2-integration). Loopback acceptance green end to end (two dev-beacon regions → sweep →
+   heartbeat → served pair; both directions proven; retention across a dead fleet proven).
+   **Remaining:** push rp2 + bump the SB pin (routine — client crate untouched), coordinator
+   re-promote to `:stable` (deploy order: coordinator before relay images, though both skew
+   directions are harmless here by construction), then watch staging measure its three real
+   pairs.
 2. **Flight-recorder durable sink + read path** (D8's owed half). The dev `--flight-dir` file
    sink exists; production relays currently *discard* recordings at session close. Needs the
    S3-compatible sink (DO Spaces; policy ratified: 14-day lifecycle, 30-day desync pin) and a way
