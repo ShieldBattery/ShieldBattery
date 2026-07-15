@@ -1,535 +1,172 @@
-# ShieldBattery Netcode v2 — Build Plan (rev 6)
+# ShieldBattery Netcode v2 — Build Plan (rev 7)
 
 > **Purpose.** Originally the sequenced task breakdown for building netcode v2 end-to-end. The
-> integration arc is **built, live-proven, landed, and thrice-reviewed** — this doc is now the plan
-> for what remains: the **productionization arc** (cloud substrate, region selection, security
-> hardening) plus the deferred platform/SB backlog. Done-work detail deliberately lives elsewhere:
-> **design in [`rally-point2/docs/architecture.md`](../rally-point2/docs/architecture.md)**, the
+> integration arc landed long ago (v2 IS the netcode) and, as of 2026-07-15, **the staging cloud
+> substrate is live and the full relay lifecycle is proven with a real game** — this doc is now
+> the plan for what remains: **the road to production launch** plus the hardening/polish backlog.
+> Done-work detail deliberately lives elsewhere: **design in
+> [`rally-point2/docs/architecture.md`](../rally-point2/docs/architecture.md)**, **ops runbooks in
+> `rally-point2/infra/terraform/README.md` and `deployment/coordinator/README.md`**, the
 > finding-level review record in rp2 commit messages, and prior revisions of this file in git
 > history.
 >
 > **Rev history:** rev 2 (2026-06-23) six-lens adversarial review; rev 3 (2026-06-24) shared
 > `transport` crate + D12; rev 4 (2026-06-28) per-slot origin seq model; rev 5 (2026-07-10)
-> post-landing synthesis; **rev 6 (2026-07-11)** re-synthesis after the review passes closed —
-> done-detail pruned to pointers, remaining work is the document.
+> post-landing synthesis; rev 6 (2026-07-11) re-synthesis after the review passes closed;
+> **rev 7 (2026-07-15)** re-synthesis after the staging standup — the provisioning/config arcs'
+> build detail pruned to pointers, remaining work regrouped as a launch path.
 
 ---
 
-## 0. Where it stands (2026-07-11)
+## 0. Where it stands (2026-07-15)
 
 **The arc landed on master 2026-07-09; v2 IS the netcode** (v1 rally-point path, Storm UDP, and
 ClientReady/startWhenReady deleted, ~4000 lines; no native-transport fallback by design).
-Live-proven on the loopback stack across the full acceptance matrix: every game mode (melee, FFA,
-team modes, UMS, observers, solo-sessionless, replays), chat in all scopes, synced leaves +
-manual-drop UX, same-relay reconnect blips, **relay-death re-home mid-game**, results → signed
-webhooks → server-side scoring, and relay-side desync detection.
+Live-proven on loopback across the full acceptance matrix (every game mode, chat, synced leaves,
+manual-drop UX, reconnect blips, mid-game relay-death re-home, results → signed webhooks →
+scoring, desync detection), and three adversarial review passes are fully closed (rev-2, Codex
+6b, Codex 6c — per-finding rationale in rp2 commit messages).
 
-**Three review passes are fully closed** (rev-2 adversarial; Codex 6b over `cb63193`, fixed in
-`daaef45..3185b08`; Codex 6c over `e3d539b`, fixed in `e3d539b..28765d5` — 13 commits, one per
-finding, each gate-clean with revert-verified tests). Per-finding rationale lives in those commit
-messages. Highlights that changed behavior contracts: the emptied-session close now defers while a
-held+undecided+homed departure promises a reconnect; the client driver never blocks on embedder
-channels (`GameStalled` covers wedged leave/lobby/session-start consumers; chat/connectivity drop
-on full); failed/terminal connections close promptly post-classification; rustdoc is a `-D
-warnings` CI gate.
+**Staging runs in the cloud and scales itself (2026-07-15).** The staging coordinator
+(https://staging-rp2-coordinator.shieldbattery.net, DO box, in-process ACME TLS, direct-exposed
+by rule) provisions Fargate relays on demand across us-east-1/us-west-2/eu-central-1. The full
+hands-off lifecycle is live-proven end to end: matchmaking queue join → warm signal → coordinator
+mints `(relay_id, one-time token)` → RunTask → **enroll 22s after launch** (PoP + ledger token +
+ENI source-address gate + tenant-key push) → real 1v1 served **over the relay's IPv6 address**
+(dual-stack chain proven; `games.netcode_v2_relays` recorded it) → clean lockstep → session close
+→ webhook delivered + recorded → idle 600s → coordinated drain → task stopped, id retired. An
+idle fleet runs zero tasks; the desync chain (comparator → event → webhook → no-majority void)
+was also validated live, courtesy of a debug tool that diverges simulations by design (renamed
+`forceUnsyncedLeave` accordingly).
 
-Current pins: SB `rally-point-client` at `3b24dedcd3e9…` (rp2 `main` tip, pushed; the Phase 6
-security arc — see below); ALPN `rp2/5` (client) / `rp2-mesh/5` (mesh — bumped by the mesh-auth
-arc). Standing rules: consume rp2's re-exported quinn/rustls/proto (never
-direct deps); any rp2 change = push rp2 → bump the SB `rev` pin → rebuild via `game\build.bat`;
-relay stays PII-free; wire changes additive only; no drift toward a standard reliable-ordered
-protocol (rationale in `architecture.md`).
+**Configuration is one-spot by design (ratified + shipped 2026-07-14/15).** Every operational
+fact is declared in exactly one place; everything else is a generated file, a naming convention,
+or a control-plane push:
+1. **`rally-point2/infra/terraform/region-catalog.json`** — the only region declaration
+   (per-region facts + per-environment membership/CIDRs; staging and prod run different sets).
+   Both terraform stacks derive from it; the fleet stack *generates* the coordinator's
+   `ecs.json` AND `regions.json` as outputs; the promote workflow reads its region list from the
+   ECR replication config at run time. *Add a region = one catalog edit → two applies → copy two
+   generated files → restart.*
+2. **Coordinator box `config/tenants.json` + `.env`** — the only place a tenant exists. Relays
+   receive tenant verifying keys over the control connection (`TenantKeys` frame, pushed at
+   enroll before any descriptor), so no tenant material exists in AWS. *Add a tenant =
+   `keygen.mjs <id>` → paste the printed entry → set the printed env var → restart. No AWS.*
+3. **SB app server `.env`** — the tenant's own credential (`SB_RP2_CLIENT_KEY`), coordinator
+   URL, and (until the backbone leg below lands) `SB_REGION_BACKBONE_RTT_JSON`.
 
-**Nothing runs in the cloud yet** — Fargate, regions, prod/staging fleets, DDoS posture,
-coordinator HA are all unbuilt. That is §2.
-
-**Live loopback matrix: DONE on the region-arc pin (2026-07-11/12).** Mid-game relay kill →
-re-home 2→1 with clean resume + correct win/loss (region e2e), and a same-relay ~20s
-suspend/resume blip with clean recovery, comparator silent (netstat live pass — the reworked
-overlay's event ticker recorded the outage itself). Both legs ran on `a351106`+.
+Current pins: SB `rally-point-client` at rp2 `f4aa417f…` (main tip is `3a02fca`, log-ANSI fix —
+next pin bump picks it up); ALPN `rp2/5` / `rp2-mesh/5`. Coordinator image channel `:stable`
+(promote workflow), relay image channel `:latest` on staging / `:stable` on prod (ECR, OIDC
+publish, per-region retag promote). Standing rules: consume rp2's re-exported
+quinn/rustls/proto (never direct deps); any rp2 change = push rp2 → bump the SB `rev` pin →
+rebuild via `game\build.bat`; **coordinator deploys before relay images** (relays need its
+tenant-key push); relay stays PII-free; wire changes additive only; no drift toward a standard
+reliable-ordered protocol (rationale in `architecture.md`).
 
 ## 1. Decisions ledger (compact)
 
 D1 (QUIC in DLL, three-hook seam), D4 (defer spectator; in-session observers ARE built), D8
-(observability: logs, desync ordinals, `/netstat`, flight recorder), D9 (relay-owned buffer
-control law), D10 (validating relay, fuzzed), D11 (app-server-mediated re-home; no auto-drop —
-survivor `RequestDrop` past 30s floor / 45s UI; abandoned sessions force-decide at 45s), D12
-(Storm replaced wholesale; per-slot origin seq; lobby/chat/start on control frames): **built as
-designed**. D2 (multi-tenant coordinator) and D5 (env-isolated fleets): **software built,
-deployments not stood up**. D3 (Fargate + scale-to-zero + dual-stack) and D7 (GameLift beacon
-region selection): **not started**. D6 (tokens/keys/challenge-binding): **built**, with lifecycle
-leftovers in §2 Phase 6.
-
-Leftovers extracted from "done" decisions (tracked in §2): D6 tenant enrollment/rotation +
-credential consolidation + pubkey-at-queue-time; D8 durable flight-recorder sink + read path
-(policy ratified: 14-day DO Spaces lifecycle, 30-day desync pin, identity-transit wording fixed);
-D9 initial buffer directive at session start + rate-limited control-law logging; D3's per-game IP
-rotation vs stable enroll addresses tension.
+(observability: logs, desync ordinals, `/netstat`, flight recorder — durable sink still owed,
+§2), D9 (relay-owned buffer control law + computed initial depth), D10 (validating relay,
+fuzzed), D11 (app-server-mediated re-home; no auto-drop), D12 (Storm replaced wholesale):
+**built as designed**. D3 (Fargate + scale-to-zero + dual-stack) and D7 (GameLift beacon region
+selection): **built AND live on staging**. D2 (multi-tenant coordinator) / D5 (env-isolated
+fleets): **software built; staging deployment live; prod not stood up**. D6
+(tokens/keys/challenge-binding): **built** — launch-minted identity closed the offline-takeover
+class; the tenant-credential consolidation half remains (§2).
 
 ---
 
-## 2. Remaining work (the production arc)
+## 2. Remaining work — the road to launch
 
-### Phase 4 — Region selection *(BUILT + e2e-proven 2026-07-11; design detail in this section — the
-former `docs/region-selection-design.md` is deleted, full text in git history)*
-- **Per-player home relays** end to end: coordinator region config (`--regions` JSON: per region an
-  opaque `id`, `display_name`, GameLift-style UDP `beacon`, always-up TCP `fallback` — one registry
-  so ids and measurement targets can't drift) + unauthenticated `GET /regions` (pubkey-endpoint
-  precedent; SB is the only intended caller) + region-tagged relay enroll (unknown-region refusal
-  close 4002) + per-slot region placement (slots sharing a region share a relay; distinct regions
-  mesh; region-less/unlit degrades to the global lowest-id fallback, never rejects) +
-  region-preferring rehome (rp2 `eea3776..a351106`, pushed); SB: region list distribution, app-side
-  beacon measurement (UDP echo median-of-5 primary, TCP-connect fallback — fallback is
-  ranking-only so TCP-vs-UDP skew is fine; total failure surfaces the manual picker), matchmaking
-  `(region, rtt)` + `SB_REGION_BACKBONE_RTT_JSON` three-term latency
-  (`rtt_a/2 + backbone/2 + rtt_b/2`, worst pair), lobby/queue → session-create per-slot regions,
-  Server region setting (Auto default, renders its resolution; a manual pick that disappears from
-  the region list is treated as Auto), `dev-beacon` loopback ping endpoints with artificial delay.
-- **Live-proven on loopback**: two fake regions at 10/80ms delays → settings showed
-  "Auto — Local A (11ms)" / manual pick; a cross-region lobby game homed slot 0 on relay 1 and
-  slot 1 on relay 2 (meshed, production path); mid-game relay kill re-homed 2→1 with clean resume
-  and a correct win/loss; the admin game page shows session id + home/rehome relay history
-  (`games.netcode_v2_relays`). Dev recipe: `dev-beacon --listen 127.0.0.1:20000=10 --listen
-  127.0.0.1:20010=80`, a regions JSON naming them (`local-a`/`local-b`), two relays enrolled with
-  `--region` — different desired regions then produce a real meshed cross-relay session (this
-  replaced the `dev_relay_split` escape hatch, deleted 2026-07-12 both repos).
-- **Remaining for production regions**:
-  - **Beacon coverage verification** — when the real region list exists, verify every listed AWS
-    region actually has a GameLift beacon (no China; some regions may lack one) and pick each
-    region's always-up TCP fallback endpoint (e.g. a regional AWS API endpoint); the config makes
-    both explicit per region, so this is list-building, not code.
-  - **Backbone RTT table values** — `SB_REGION_BACKBONE_RTT_JSON` (sorted-pair keys, same-region
-    0) needs real numbers; an unconfigured pair defaults to a conservative 150ms, which is fine
-    for match quality but now also feeds the initial-buffer hint, so it inflates cross-region
-    initial buffers until set. **Committed fix (pre-launch): relay-measured backbone — see
-    §Phase 5 "Configuration topology" work items.** Until that lands, public inter-AWS-region
-    latency data pasted once covers a launch.
-  - **Region config deployment/admin story** — how `--regions` (and the backbone table) ship and
-    change in production; Phase 5/6 territory alongside tenant enrollment.
-- The v1 rally-point pipeline (service, app manager, IPC, admin UI, deps, `rally_point_servers`,
-  `games.routes`, launch-arg port) is **deleted**.
+### The launch path (rough order)
 
-### Phase 5 — AWS orchestration *(not started, two contracts pre-built)*
+1. **Relay-measured backbone RTTs** *(ratified 2026-07-15 — wanted before launch; closes the
+   last hand-maintained region-pair table).* The backbone table becomes telemetry instead of
+   config. Mechanism: region B's GameLift beacon is always up regardless of our fleet and speaks
+   the same UDP echo clients ping, so a relay in region A measures A→B by pinging B's beacon
+   directly — no second relay required, no scale-to-zero chicken-and-egg. Legs:
+   - **rp2**: coordinator pushes the region registry's beacon targets to relays over the control
+     connection (additive frame, the TenantKeys/MeshPeers pattern); relays ping other regions'
+     beacons on a slow cadence (median-of-N like the client measurement; beacons are third-party
+     — be polite) and report per-region RTT in the existing heartbeat; coordinator aggregates per
+     region *pair* with last-known retention (relays are ephemeral — values persist across a
+     region's scale-to-zero gaps, e.g. alongside the ledger) and serves the pair table on the
+     existing `GET /regions` response.
+   - **SB**: consume the served table (the `/regions` fetch already exists), refresh with the
+     region list, demote `SB_REGION_BACKBONE_RTT_JSON` to an explicit override. Unmeasured pairs
+     keep the 150ms default, so bootstrap behavior is unchanged. Both the matchmaker (server-rs)
+     and the Node latency-estimate util read the same source so they can't drift.
+   - Until it lands, public inter-AWS-region latency data pasted into the env var once covers a
+     launch (the 150ms default is fine for match quality but inflates cross-region initial
+     buffers).
+2. **Flight-recorder durable sink + read path** (D8's owed half). The dev `--flight-dir` file
+   sink exists; production relays currently *discard* recordings at session close. Needs the
+   S3-compatible sink (DO Spaces; policy ratified: 14-day lifecycle, 30-day desync pin) and a way
+   to fetch blobs by `<tenant>/<session>/<relay_id>.json` (the game record's session id + relay
+   history make them findable). This is prod incident forensics — want it before real traffic.
+3. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
+   `/session/create` inbound auth + webhook signing into one per-tenant credential; move client
+   pubkey submission from game load to queue/lobby-join time (those requests already carry
+   `(region, rttMs)` — same surfaces, same lifetime; no long-lived keypair without a security
+   review).
+4. **Prod region list** — catalog entries whenever chosen, plus the activation checklist per
+   region: verify a GameLift beacon actually exists there (no China; some regions lack one),
+   pick the TCP fallback endpoint, distinct CIDRs per environment. List-building, not code.
+5. **Prod standup** — prod coordinator box (same deployment dir + runbook as staging) + prod
+   fleet apply (`prod.tfvars`; task defs pull `:stable`, so promote a soaked relay sha first) +
+   prod tenant minted via keygen. Runbooks: `infra/terraform/README.md`,
+   `deployment/coordinator/README.md`.
+6. **Rollout execution**: ship a client version pointed at prod (platform enforces
+   client-version currency, so no mixed-version games); keep the old rally-point *service*
+   running only until the minimum supported client is v2-only, then decommission. Rollback =
+   previous client version while the old service exists — **define that gate explicitly** (still
+   undefined).
+7. **Load/scale test + cost model** at realistic SB peak: N games/relay, RunTask-rate
+   provisioning, egress cost (the one usage-scaling AWS line item; idle fleet ≈ $0, logs are
+   noise). More cold-start datapoints accumulate free in the ledger as regions get used — 22s is
+   a single point; recalibrate the 75s hold cap when there's a distribution.
 
-**Substrate decisions (ratified with Travis 2026-07-12):** coordinator runs on DigitalOcean
-beside the SB app servers — docker-compose, single restart-tolerant instance (HA right-sizing
-under Phase 6); tenant/region registry stays config-file, no database in v1; coordinator secrets
-via `.env`; relay secrets injected by the ECS task definition from SSM Parameter Store (free
-tier; not Secrets Manager); relay↔coordinator control stays public WSS guarded by the existing
-bootstrap secret — no VPN/tailnet layer (Tailscale remains for box admin only); provisioning
-calls use a narrowly-scoped IAM user key (RunTask/StopTask/DescribeTasks on the relay task
-family) in the coordinator `.env`; relay IPs are stable for a task's lifetime and fresh per
-task, advertised at enroll via ECS-metadata discovery — which settles the former
-per-game-IP-rotation vs stable-enroll-address tension (no rotation machinery; DDoS baseline =
-natural per-task IP churn + Shield Standard).
+### Hardening follow-ups (filed, non-blocking)
 
-**Provisioning + relay-identity design (ratified with Travis 2026-07-12):** relay identity is
-born at launch — the coordinator (the sole launcher of relay tasks) mints `(relay_id, one-time
-enroll token, region)` at RunTask, passes them via container env overrides, and records them in
-a **SQLite ledger** on the compose volume (tokens stored hashed; task ARN, cert-fingerprint
-binding, lifecycle state, timestamps). Enroll, after the unchanged PoP challenge: unknown id ⇒
-token required, validated + consumed, fingerprint bound; re-enroll ⇒ same fingerprint required,
-no token; task end ⇒ id tombstoned, never enrollable again. Token-less Hellos are refused
-whenever a provisioner is configured; dev/loopback without one keeps today's self-asserted-id
-path. **This closes the offline-relay-id takeover (the Phase 6 design gate) structurally** — an
-id is live, launching, or retired; the "offline but claimable" class no longer exists.
-Env-override visibility (DescribeTasks / CloudTrail readers, i.e. account-internal only) is
-accepted: single-use + a launch deadline + a source-IP cross-check at enroll. Addresses are
-coordinator-sourced for provisioned relays via one resolution rule — `ledger.addrs.or(hello.addrs)`
-— with the ledger populated from DescribeTasks → ENI → public addrs (adds
-`ec2:DescribeNetworkInterfaces` to the narrow IAM policy); dev relays keep Hello self-report; no
-new address wire fields.
-
-**Warm/scale policy (same conversation):** warm signals are tenant-signed, idempotent, TTL'd
-(`POST /regions/warm`), renewed by *activity* — matchmaking renews while queued; lobbies renew on
-join/slot-change/countdown, debounced — so an idle-for-days lobby lapses and its relay drains.
-The relay/region setting is **locked while in a gameplay activity** (matchmaking or lobby; new SB
-item) so an activity's region set is fixed at join. Hold-until-ready backstop: a create naming an
-unlit region ⇒ the coordinator kicks RunTask and returns an additive `provisioning` response; SB
-holds the launch with visible status, capped ~60–90s (calibrate after measuring), then falls back
-to the nearest lit region — **fallback ordering derived from the backbone RTT table**, not a
-second config. v1 scale target is 0-or-1 relay per region but the loop is target-N from day one;
-the loop is written against a `Provisioner` trait (`EcsProvisioner` + a local `ProcessProvisioner`
-spawning relay binaries) so mint→launch→enroll→drain→retire, deadline sweeps, and `startedBy`
-orphan reconciliation are all testable without AWS. Cold-start measurement (RunTask→enrolled
-distribution, free from ledger timestamps) is an early task once one region stands — it
-calibrates the hold cap. Budget guardrail: beat the old rally-point ~$70/mo (peak-hour min-1
-pins in busy regions are ~$9/mo each if the cold tail annoys). **IaC = plain Terraform** (state
-in S3/Spaces — it holds secrets, never git; OpenTofu is the drop-in license hedge; CDK rejected —
-slow opaque deploys).
-
-Build order: (1) ledger + token enroll (rp2); (2) provisioner trait + loop + sweeps (rp2);
-(3) warm + pending-create + SB signals/hold/setting-lock; (4) Terraform + scratch image + DO
-compose; then stand up one region and measure.
-
-> **Status (2026-07-12): legs 1–3 BUILT, both repos; leg 4 remains.** rp2 local `main` (UNPUSHED,
-> awaiting go-ahead) = `6766a70` ledger + one-time-token enroll (close 4005, OptionalPeerAddr,
-> coordinator-sourced addr override), `090437b` Provisioner trait + reconcile loop +
-> ProcessProvisioner + real-relay e2e (drain via the assignment lock + new `clear_draining`),
-> `987ef0f` POST /regions/warm + hold-until-ready create (202, nothing minted while pending,
-> cap→fallback), `10667a0` EcsProvisioner (early-Running at ENI-attach, expected-IP set,
-> rustls+ring only, fake-tested — no live AWS). SB `d45fa72ef` (this branch) = warm signals
-> (queue join + 60s renewal + lobby occupancy/countdown, 30s debounce), 202 poll loop
-> (byte-identical re-signed re-POST), game-loader 90s deadline extension via new
-> `common/async/extendable-deadline.ts` (the 75s base timeout equals the coordinator hold cap),
-> `setLoadingStatus` event + LaunchingGameDialog status line, region-setting lock. None of the
-> rp2 legs touch the client crate's API, so the eventual pin bump is routine.
->
-> **LANDED same day (Travis's go-ahead):** rp2 `main` pushed through `07d7c20` (the four legs +
-> a distroless coordinator Dockerfile); SB pin bumped to `10667a0…` (`186541e87`, DLL rebuilt,
-> 144 tests + clippy green, lock churn rev-only). `deployment/coordinator/` added (`09513fbd9`):
-> compose building the coordinator from the rp2 repo at an `RP2_REV` pin, certbot renewal, and a
-> modernized tailscale sidecar (official image, userspace networking, persisted node state,
-> `TS_SERVE_CONFIG` proxying to compose service names per-connection — replaces the appserver's
-> boot-time-IP iptables approach; consider back-porting there).
->
-> **STAGING COORDINATOR LIVE (2026-07-13):** https://staging-rp2-coordinator.shieldbattery.net —
-> production LE cert via in-process ACME, /regions 200 over both IP families, tenant `tec27-dev`
-> enrolled, tenant-signed `/regions/warm` verified end-to-end from a dev machine. Phase-1 posture:
-> ledger + ECS config both OFF (they turn on together when the Fargate substrate exists). Image
-> pipeline: ghcr.io/shieldbattery/rp2-coordinator (per-commit SHA tags; manual promote-to-:stable
-> workflow in the rp2 repo; deployment pulls via RP2_REF). NOTE: re-promote :stable to pick up the
-> /data volume-ownership fix (rp2 `0a45038`) before standing up another box.
->
-> **TERRAFORM + RELAY IMAGE + CONFIG TOPOLOGY BUILT (2026-07-14):** rp2 local `main` =
-> `a1b8cc8` (tenant verifying keys pushed to relays over the control connection —
-> additive `TenantKeys` frame, post-enroll strictly before the first descriptor;
-> relay registry watch-swapped, empty-start in coordinator mode, `--tenant-pubkey`
-> ignored there with a warn; deploy-order rule: coordinator before relay images) +
-> `7e4fa9a` (relay Dockerfile — distroless nonroot, stateless on disk — + ECR
-> publish/promote workflows; auth = GitHub OIDC federation into a Terraform-created
-> publisher role, NO stored AWS credential; promote retags per region and derives its
-> region list from the replication config at run time) + `f4aa417` (infra/terraform
-> driven by `region-catalog.json` — THE one region declaration, per-env membership +
-> CIDRs; provider-6 per-resource `region`, no aliases, one for_eached module; account
-> stack works from the cross-env union; fleet emits `ecs_json` AND `regions_json`
-> verbatim; task env = coordinator URL + SSM secret ONLY, zero tenant material in
-> AWS; stopTimeout 120 vs the 90s drain; narrow IAM incl. PassRole +
-> ecr:DescribeRegistry). All UNPUSHED awaiting go-ahead. Gates green (cargo suite 22
-> binaries 0 fail; terraform fmt+validate, TF 1.15.8 / AWS provider 6.54); apply is
-> Travis's (agent authors, Travis applies). Beacons need no infra (public GameLift
-> ping endpoints). Staging tracks `:latest`, prod `:stable`; x86_64 default, ARM64 =
-> later cost lever. SB half: keygen.mjs prints a paste-ready tenants.json entry
-> (add-tenant = keygen → paste → env var → restart, zero AWS), deployment README
-> documents both one-spot flows, ecs.sample.json aligned.
->
-> **STAGING PROVISIONING LIVE + E2E GAME VERIFIED (2026-07-15).** Travis applied both
-> stacks with his own credentials (aws login worked with Terraform throughout); publish
-> workflow via OIDC succeeded first try; coordinator promoted + box wired (ecs_json +
-> regions_json + access keys; ledger + ECS config flipped on together). Then the full
-> path, live: matchmaking queue join → warm(us-west) → coordinator minted relay_id=1 +
-> RunTask → **enrolled 22s after launch** (negotiated v3; tenant keys pushed over the
-> control connection — first production use of the TenantKeys frame) → 1v1 match →
-> session created home_relay=1 → **real game over the Fargate relay, dialed via its
-> IPv6 address** (games.netcode_v2_relays recorded `[2600:1f14:…]:14900` — the whole
-> dual-stack chain proven) → clean lockstep (buffer settled at 1, ewma turn interval
-> 41ms) → session closed, webhook delivered through the dev funnel and recorded.
-> Cold-start datapoint: 22s RunTask→enrolled, comfortably inside the 75s hold cap.
-> **Bonus adversarial validation:** the game's result voided as no-majority because the
-> test ended it with the debug `forceLeave` — which is a deliberately *local,
-> non-consensus* injection, so the 1v1 simulations diverged and the comparator/desync
-> policy chain (event → webhook → void) fired correctly end to end on real infra. The
-> debug command is renamed `forceUnsyncedLeave` so nobody mistakes it for a synced
-> leave again; verify-app/verify-pr skills updated (1v1 = guaranteed void; team games =
-> majority-discard). Relay CloudWatch logs were full of ANSI codes — fixed rp2
-> `3a02fca` (color only on a real terminal; also `5a9dab9` real backend bucket names).
->
-> **Scale-to-zero CONFIRMED (same night):** 600s after the session closed (relay-idle
-> window + one reconcile tick), the coordinator drained relay 1 — Draining → set+ack →
-> clean exit → deregistered, 150ms end to end — and the task stopped. The full
-> hands-off lifecycle (mint → launch → enroll 22s → serve a game over IPv6 → idle →
-> drain → retire) is live-proven; an idle fleet runs zero tasks.
->
-> **Remaining in this leg:** more cold-start datapoints as regions get used. Queued nearby: rp2 accept PKCS#8 v1
-> keys (from_pkcs8_maybe_unchecked), loopback ProcessProvisioner pass (now largely
-> redundant — the ECS path is live-proven; keep for AWS-free regression testing),
-> ECS-metadata address discovery + SB per-client family selection (below), prod region
-> list (catalog entries whenever chosen), /netstat polish: mark departed players' rows
-> (age column is the only signal today).
-
-#### Configuration topology (ratified 2026-07-14)
-
-**Principle: every operational fact is declared in exactly one place; everything else derives** —
-via a generated file, a naming convention, or a control-plane push. The as-built leg violates
-this twice: adding a region touches five-plus hand-edited spots (fleet tfvars, the static module
-blocks + provider aliases, the account stack's per-region ECR/settings/replication resources,
-the promote workflow's hardcoded region list, the coordinator's `regions.json` — plus the SB
-backbone table), and adding a tenant requires a terraform apply because the relay task
-definition carries the tenant key material (a consequence of the relay only learning tenant
-keys via env today). Staging and prod also need *different* region sets (staging = the three
-current ones; prod = those plus more), which the static-module shape can't express.
-
-**Hand-declared surfaces after the rework — exactly three, each owned by a different party:**
-1. **`infra/terraform/region-catalog.json`** (rp2) — the one region declaration. Shape:
-   a `regions` map (id → `{aws_region, display_name}`, optional beacon/fallback overrides —
-   defaults are formulaic from `aws_region`: `gamelift-ping.<r>.api.aws:443` /
-   `dynamodb.<r>.amazonaws.com:443`) plus an `environments` map (env → region id → VPC CIDR;
-   presence = enabled, so staging lists 3 while prod lists more). Both terraform stacks read
-   this file: the fleet stack `for_each`es its environment's entries (AWS provider 6.x
-   per-resource `region` replaces provider aliases — proven against provider 6.54 for every
-   resource type we use), and the account stack derives the all-env union for ECR replicas,
-   replication destinations, `dualStackIPv6` settings, and the publisher policy.
-2. **Coordinator box: `config/tenants.json` + `.env`** — tenants (state, client pubkeys,
-   webhook, signing-key env var) + box-local knobs (domain, secrets, image pin). After rp2
-   leg D below, this is the ONLY place a tenant exists; AWS is never touched for tenant changes.
-3. **SB app server `.env`** — the tenant's own credential (`SB_RP2_CLIENT_KEY`), coordinator
-   URL, and (until a measured-RTT source exists) the backbone table — pre-existing surface,
-   unchanged.
-
-**Everything else derives:** `config/ecs.json` AND `config/regions.json` become
-`terraform output` artifacts of the fleet stack (regions.json was hand-written until now —
-that's the region duplication killed); `.env` AWS creds from outputs; all names
-(`rp2-relays-<env>`, `rp2-relay-<env>`, `started_by`, SSM paths) by convention from the
-environment; relay identity per-launch from the coordinator; **tenant verifying keys pushed to
-relays over the control connection**; the promote workflow derives its region list from the ECR
-replication config (`aws ecr describe-registry`) at run time.
-
-**Work items:**
-- **rp2 leg D — tenant keys over the control connection**: additive `CoordinatorToRelay::TenantKeys`
-  frame (full-set declarative replace: `(kid, tenant, Ed25519 verifying key)` per tenant, derived
-  by the coordinator from its own per-tenant signing keys); pushed on every relay enroll BEFORE
-  the first descriptor set so a descriptor never lands on a relay that can't verify its clients'
-  tokens; coordinator-driven relays start with an empty token registry and stop generating/
-  logging the dev keypair; `--tenant-pubkey` remains the dev/loopback seed. Old relays decode
-  the unknown frame and ignore it (the MeshPeers forward-compat pattern). Task definitions drop
-  `RELAY_TENANT_PUBKEY`/`RELAY_KID`/`RELAY_TENANT` entirely.
-- **Terraform rework**: region-catalog.json as above; fleet + account stacks go fully dynamic
-  (`for_each` + per-resource `region`, provider aliases deleted); tenant variables deleted;
-  new `regions_json` output alongside `ecs_json`.
-- **promote-relay.yml**: replace the hardcoded region loop with describe-registry derivation.
-- **keygen.mjs**: also print a paste-ready `tenants.json` entry, so minting a tenant is
-  keygen → paste → set env var → restart.
-- **Runbooks** rewritten around the two flows below.
-
-**The two flows afterward:**
-- *Add/remove a region*: one edit to region-catalog.json → apply account + fleet →
-  `terraform output` the two config files onto the coordinator box → restart. (Optional SB
-  backbone entries; absent pairs default 150ms.)
-- *Add a tenant*: keygen → paste the entry into tenants.json → set the signing-key env var →
-  restart the coordinator. No AWS, no terraform, no relay changes.
-
-**Accepted two-party facts (set once each at bootstrap, not duplication):** the bootstrap
-secret (coordinator `.env` + `TF_VAR_…` at apply), the coordinator URL (task def env, SB
-`.env`, DNS/ACME), per-component image pins (`RP2_REF`, `relay_image_tag`).
-
-**Relay-measured backbone RTTs (ratified 2026-07-15 — WANTED BEFORE LAUNCH; closes the last
-hand-maintained region-pair table):** the backbone table becomes telemetry instead of config.
-Mechanism: region B's GameLift beacon is always up regardless of our fleet and speaks the same
-UDP echo clients ping, so a relay in region A measures A→B by pinging B's beacon directly — no
-second relay required, no scale-to-zero chicken-and-egg. Legs:
-- **rp2**: coordinator pushes the region registry's beacon targets to relays over the control
-  connection (additive frame, the TenantKeys/MeshPeers pattern); relays ping the other regions'
-  beacons on a slow cadence (median-of-N like the client measurement; beacons are third-party —
-  be polite) and report per-region RTT in the existing heartbeat; coordinator aggregates per
-  region *pair* with last-known retention (relays are ephemeral — values persist across a
-  region's scale-to-zero gaps, e.g. alongside the ledger) and serves the pair table on the
-  existing `GET /regions` response.
-- **SB**: consume the served table (the `/regions` fetch already exists), refresh on the same
-  cadence as the region list, and demote `SB_REGION_BACKBONE_RTT_JSON` to an explicit override;
-  a pair with no measurement yet keeps the 150ms default, so bootstrap behavior is unchanged and
-  real values simply take over as the fleet gets exercised. Both matchmaker (server-rs) and the
-  Node latency-estimate util read the same source so they can't drift.
-
-- Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, scale-to-zero per
-  the policy above; cold-start budget measurement.
-- Pre-built on the rp2 side: **dual-stack advertise** (`relay_addrs`, `d26aaf1`) and **coordinated
-  relay drain** (SIGTERM → `Draining`/`DrainAck`, 90s bound, `5d0ea11`). Remaining here: address
-  discovery via ECS metadata (still explicit `--advertise-addr` flags) + SB-side per-client
-  address-family selection.
-- **Flight-recorder durable sink + read path** (DO Spaces, 14-day lifecycle rules) — the dev
-  `--flight-dir` file sink exists; production needs the S3-compatible sink and a way to fetch
-  blobs by `<tenant>/<session>/<relay_id>.json`.
-- Load/scale test: N games/relay + RunTask-rate provisioning at realistic SB peak; cost model
-  (NAT, cross-AZ mesh, telemetry egress).
-
-### Phase 6 — Hardening + production rollout
-
-**Security/tenancy blockers before anything non-loopback:**
-- **Mesh `S===S` auth** *(LANDED 2026-07-12 — rp2 `main` pushed `44fc216..3b24ded`, SB pin bumped
-  `7c94786ec`, DLL rebuilt, 142 DLL tests + game clippy green; two adversarial passes closed)* —
-  the accept side no longer trusts the dialer's self-asserted `MeshHello.relay_id`. Shipped shape
-  (no CA, no new credential kind, nothing paid): relay identity = the SHA-256 fingerprint of its
-  self-generated TLS cert. Legs, each a gate-clean commit reviewed line-by-line in the main loop:
-  - `2c0a310` coordinator distributes the enrolled fleet's `(relay_id, cert fingerprint)` set to
-    every relay (additive `MeshPeers` control frame, republished under the registry lock on every
-    membership change).
-  - `50ca99f` the mesh dialer presents its serving cert as TLS client identity; the acceptor
-    (request-not-require client-cert verifier) pins the presented leaf against the fleet set,
-    refusing with distinct close codes (no-cert / unknown-id / fingerprint-mismatch). ALPN
-    `rp2-mesh/4`→`/5`. Enforced when the fleet map is non-empty; `--require-mesh-peer-auth` fails
-    closed even during the pre-first-push startup window.
-  - `e2dc426` enroll now binds identity for real: a nonce proof-of-possession (relay signs
-    `ENROLL_POP_CONTEXT ++ nonce` with its TLS key, coordinator verifies via rustls-webpki —
-    ECDSA P-256 + Ed25519, RSA refused) closes the copy-a-public-cert hole; an **atomic**
-    duplicate-id refusal (`try_enroll`, check+insert under one lock — a review fix over the
-    initial check-then-insert TOCTOU) keeps one live connection per id.
-  - `335065e` **mesh session-id tenant scoping (transport layer)**: `MeshPacket` carries an
-    additive tenant tag and the transport `MeshLink` demuxes datagrams by `(tenant, session)`.
-    **Scope correction (Codex review):** this fixed the transport datagram demux only — the
-    relay's driver-level `joined` map (`relay/src/mesh.rs`) is still keyed by the bare `SessionId`
-    with a fail-close guard that *refuses* a second tenant sharing a session id, rather than
-    serving both. So on a shared coordinator two tenants with a colliding session id still can't
-    both mesh through the same relay pair (one stalls). Fully closing it needs a tenant on every
-    mesh control-stream frame + report + ack-cursor frame (they all carry a bare `session`), a
-    broad wire change to lockstep-critical code — recorded as a follow-up below, not a quick fix.
-    The behavior is *safe* (fail-closed refusal, never cross-wiring), and colliding μs-seeded ids
-    on the one shared staging/dev fleet are rare.
-  - **Adversarial-review fixes** (a dedicated opus reviewer attacked the trust boundaries; each
-    finding independently verified in the main loop before fixing):
-    - `99657a6` **[HIGH] version-downgrade defeated the whole enroll-binding leg.** PoP + the
-      duplicate-id refusal ran only at negotiated version ≥ `ENROLL_POP_MIN` (3), but
-      `MIN_SUPPORTED` was 2 and the version is self-asserted in the Hello — so a bootstrap-secret
-      holder advertising a v2 window negotiated down, skipped the challenge, and hit the
-      unconditional-replace `enroll` path, impersonating any relay with any cert. Fix: **PoP is
-      now mandatory** — `MIN_SUPPORTED = 3` (sub-v3 refused at negotiation), the challenge +
-      `try_enroll` run unconditionally, the sub-threshold enroll branch is deleted, and a
-      compile-time assert (`MIN_SUPPORTED ≥ ENROLL_POP_MIN`) guards against regression.
-      **RATIFIED by Travis 2026-07-12** ("backwards compatibility on this stuff does not matter at
-      all right now, none of it has been deployed to anyone"). Dropping v2 relay backward-compat to
-      make the security check unskippable.
-    - `33ddab0` **[MEDIUM] mesh peer-auth was off by default.** `--require-mesh-peer-auth`
-      defaulted false though its doc said "production sets this," leaving a coordinator-driven
-      relay with an unauthenticated mesh-accept window from boot to first fleet push. Fix: a
-      coordinator-driven relay (`has_coordinator`) always fails closed regardless of the flag;
-      dev/static `--mesh-peer` keeps the default-off behavior.
-  - **Second review pass (Codex, over `44fc216..805febf`) — triaged 2026-07-12.** No new
-    high/critical; corroborated the two above (Codex reviewed pre-fix). Fixed: `f5240c1`
-    **[low] token expiry failed open on a pre-epoch clock** (`unix_now` returned 0 → every real
-    expiry read as future → expired tokens admitted; now `u64::MAX` = fail closed); `fcad0d2`
-    **[med] enroll-handshake ordering** — a relay reconnecting with a queued notice or mid-drain
-    sent that frame ahead of the PoP proof and was refused, locking it out of re-enrolling; fix
-    completes the challenge (new enrollment phase, shared challenge-answer + close-classify
-    helpers) before any application frame; `3b24ded` **[low] provisional-sweep race** — a
-    descriptor applying as a mark expires could spuriously reap the session (self-healing); fix =
-    decision-maker existence check before reaping. Dismissed as by-design:
-    the provisional window pausing on a coordinator outage / restarting on reconnect (intentional —
-    don't reap when descriptors can't arrive).
-  - **Recorded follow-ups from the Codex pass** (real, not yet built):
-    - **Tenant scoping incomplete at the relay driver layer** (the `335065e` scope correction
-      above) — the `joined` map + mesh control/report/ack frames need a tenant to serve (not
-      refuse) two same-id tenants on a shared coordinator. Broad wire change; safe as-is.
-    - **Admit-first slot homed elsewhere isn't disconnected** — a client admitted before its
-      descriptor, then homed on a *different* relay by that descriptor, keeps its connection here
-      (leg D's provisional sweep only reaps sessions with *no* descriptor). Needs a per-slot
-      re-check on descriptor apply. Overlaps the assigned-session-allowlist item.
-    - **No revocation of established mesh links** — cert rotation or fleet removal doesn't tear
-      down an already-verified mesh link (the fingerprint pin is single-shot at accept). Needs a
-      re-verification / teardown-on-fleet-change path.
-  - **Still open in this item:** the **coordinator-pushed assigned-session allowlist** (the
-    shadow-slot amplification angle on the home-relay fail-open) was *not* built as a distinct
-    mechanism — peer authentication now blocks a rogue relay from joining the mesh at all, which
-    closes the fleet-amplification path; whether a per-session peer allowlist is still wanted on
-    top is a Travis call (§3 folded it into this item).
-- **Tenant lifecycle + per-relay identity provisioning** — enrollment, key rotation/revocation
-  (active/suspended/revoked per request), staging access story; consolidate `/session/create`
-  inbound auth + webhook signing into one per-tenant credential; move client pubkey submission to
-  queue/lobby time (today it rides game load; no long-lived keypair without a security review —
-  the queue/lobby-join requests that already carry `(region, rttMs)` are the natural vehicle: same
-  surfaces, same lifetime). Registry shape decided 2026-07-12: config-file tenants (no database in
-  v1) with per-tenant state + current/next keys, so rotation is a config edit and reload, not a
-  schema. **Sharpened by the Codex review (the one design gap the mesh-auth arc left open):**
-  enroll proof-of-possession binds a connection to *a* certificate the relay holds the key for, but
-  it does **not** bind a `relay_id` to a *specific* expected identity — the coordinator accepts
-  whatever `relay_id` a PoP-verified Hello claims, and the atomic duplicate-id refusal only
-  protects an *already-live* id. So a bootstrap-secret holder can enroll as an **offline** relay's
-  id with its own (proven) cert; the coordinator then distributes the attacker's fingerprint for
-  that id and clients/peers pin it. **Design ratified 2026-07-12 — the launch-minted identity
-  ledger in §Phase 5's provisioning block (in build):** relay ids are coordinator-minted per task
-  with a one-time enroll token, so there is no offline-but-claimable id class at all. The
-  *tenant*-credential half of this item (enrollment/rotation/consolidation, pubkey-at-queue-time)
-  remains open.
-- **Finite token lifetimes** *(LANDED `8f33192`)* — the `ExpiresAt(u64::MAX)` dev
-  placeholder is replaced by a configurable fixed lifetime from create (`--player-token-lifetime-secs`
-  / env, default 6h ≈ 2× the longest game ever observed ~3h). Tokens are checked only when
-  presented — at every connect/reconnect (initial, same-relay blip, re-home) — so expiry mid-game
-  is harmless while a connection lives, and a post-expiry reconnect refusal degrades to the normal
-  disconnect UX (hold → RequestDrop / abandoned force-decide), never a hang. Consequence kept by
-  design: never-started sessions are held ~the token lifetime before reaping, since a valid
-  token means a straggler could still connect. Additive escape hatch if marathon games ever
-  matter: mint fresh tokens on the rehome response (noted, not built).
-- **Client admit-first admission is now bounded** *(BUILT `805febf`, unpushed)* — a session
-  admitted on a valid token with no applied descriptor is provisional (10s); the relay's sweep
-  tears it down if no descriptor names it in time (`PROVISIONAL_EXPIRED_CLOSE`, retryable), so a
-  stale/misrouted token can no longer park a session on an arbitrary fleet relay indefinitely.
-  Armed only while the coordinator control connection is up (an outage restarts every window on
-  reconnect rather than reaping on time debt); dev/static `--mesh-peer` never arms.
+- **Mesh/relay follow-ups from the review passes**: driver-layer tenant scoping (the `joined`
+  map + mesh control/report/ack frames carry a bare session id; a colliding session id across
+  tenants is *refused*, never cross-wired — serving both needs a broad wire change);
+  admit-first slot homed elsewhere isn't disconnected on descriptor apply; no revocation of
+  established mesh links on fleet change (fingerprint pin is single-shot at accept); the
+  per-session peer allowlist on top of mesh auth remains a Travis call.
+- `UnackedWindowExhausted` stays terminal by design; genuine recovery needs trend-based
+  hysteresis re-arm — real design work if ever wanted.
+- rp2 accept PKCS#8 v1 signing keys (`from_pkcs8_maybe_unchecked`) — dev ergonomics; openssl and
+  node both emit v1 and ring demands v2 (keygen.mjs hand-assembles v2 today).
+- SB per-client address-family selection (dual-stack relays advertise both families; clients
+  currently take what resolves — deliberate deferral).
 - Confirm the untrusted-dev loopback truly never touches a shared coordinator/fleet.
+- Loopback ProcessProvisioner pass — the ECS path is live-proven, so this is now an AWS-free
+  regression option, not a gate.
 
-**Coordinator HA** *(right-sized 2026-07-12)* — deliberately not hot-standby: a single
-restart-tolerant instance (docker restart policy) on the DO box beside the app servers. Running
-games survive an outage (relays run the live game); session create / re-home / presence pause
-until restart, and relay re-enroll + heartbeats repopulate the registry (relay-ref webhook
-precedence exists for exactly this). Hot standby + a shared registry store stay a documented
-future option if scale demands it.
+### SB-side small backlog
 
-**Rollout story** (reshaped — the code cutover already happened): stand up prod coordinator +
-fleet (D2) and shared staging fleet (D5); ship a client version that uses them (platform enforces
-client-version currency, so no mixed-version games); keep the old rally-point *service* running
-only until the minimum supported client is v2-only, then decommission. Rollback = previous client
-version while the old service exists — that window is the safety story; define its gate
-explicitly.
+- **/netstat: mark departed players' rows** (the climbing `age` column is the only signal
+  today; a "left" marker makes it explicit — noted live 2026-07-15).
+- **Localized region display names** (parked until the prod region list exists; approach
+  decided: client-side `t('gameServerRegions.name.' + id, region.displayName)` with an
+  extraction-hint file — coordinator config and wire stay language-free).
+- Drop `netcodeV2` naming from public surfaces (only user-visible instance is the admin
+  game-page debug title; needs a target-naming decision).
+- Client desync-report hook (VOID-only games).
+- Post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
+  classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
+  decision (verify SC:R's box renders in-game at all first); replay-playback chat renders into
+  `.rep` but not visibly during playback (low); TR8-feel emulation for UMS remains a future idea.
 
-**Engineering follow-ups** (filed during the review passes, none blocking):
-- `UnackedWindowExhausted` stays terminal by design; genuine recovery needs a trend-based
-  hysteresis re-arm (trip only if the backlog grows past its level at reconnect time) — real
-  design work if ever wanted.
-- **Computed initial buffer at session start** — *BUILT both repos + LIVE ACCEPTANCE PASSED
-  2026-07-11/12.* Cross-region loopback game (auto local-a vs manual local-b): both DLLs logged
-  "session-start directive received with initial buffer depth 4 turns" (= hint 121ms → 3 + 1 hop
-  cushion; slot 1's copy arrived via the mesh-peer fan-out path), /netstat ticker's FIRST event was
-  the dwell step-down `4 → 3` (no upward correction, no pre-game event), steady state 2 (target 1 +
-  in-game hop cushion — correct). Same-region control game: "depth 1 turns" both clients, overlay
-  read `buffer 1 turns · steady since start`. The authority relay sizes an initial depth once, at the
-  session-start coverage latch, and stamps it onto `SessionStart` (new optional protobuf field;
-  absent → clients keep the tenant-min seed): inputs are pre-start conditions (new: a handshake
-  sample at slot registration + a 500ms pre-start tick — the receive-driven sampler never fires
-  pre-start since lobby traffic rides the control stream) run through the existing target formula,
-  plus an SB-supplied `latency_estimate_ms` create hint (worst-pairwise one-way, ms; ms→turns
-  conversion lives relay-side), plus a +1 hop cushion for multi-relay sessions. A fully-observed
-  single-relay session ignores the hint (a stale estimate must not distort what the window saw);
-  per-client conditions confirmed to NOT cross the mesh pre-start (they ride the forwarded-turn
-  envelope only). The authority adopts the depth as its current buffer (else the first-frame
-  re-affirm — which is also the old-client convergence path — would clobber it back to min); mesh
-  peers adopt off the broadcast; resumed relays stamp absent so a re-push never resizes a live
-  game. Landed: rp2 `263a1d6..16de546` pushed; SB Node `1234a8b98`+`268987563`+`364a2e9b0`
-  (rttMs plumbing — it never reached session create before — backbone util mirroring server-rs,
-  additive request field); DLL leg `077a68c32`; pin now `44fc216` (after the `dev_relay_split`
-  removal).
-- ~~Rate-limited control-law logging (the other D9 leftover)~~ — **already DONE** (`c1d5531`,
-  `trace_control_inputs`, frame-gated at 600 turns); the earlier "leftover" note was stale.
-- Live loopback matrix on the current pinned build (see §0).
+### Phase 4 leftovers absorbed above
 
-### SB-side small backlog (carried from the deleted tracker)
-~~Persist the rp2 session id + relay history on the game record~~ (DONE 2026-07-11: session id was
-already persisted; `games.netcode_v2_relays` home/rehome events + admin game-page display landed
-with Phase 4); ~~`/netstat` polish~~ (DONE 2026-07-12: reworked per `docs/netstat-design.md` —
-identity header with live session/relay id, 1 Hz-sampled buffer + worst-gap strips, a recent-events
-ticker, per-player create-time home relay/region column, turn-rate row gone; a TR8-feel emulation
-for UMS players remains a future idea with different UI); ~~remove the lobby turn-rate setting~~,
-~~USEFUL_QUERIES fix~~, ~~region-settings translations~~ (all DONE 2026-07-12);
-**lock the relay/region setting while in a gameplay activity** (matchmaking or lobby — keeps an
-activity's warm-signal region set fixed at join; ratified 2026-07-12, part of the provisioning
-arc leg 3);
-**localized region display names** (PARKED 2026-07-12 until the production region list exists,
-approach decided: client-side — render regions via `t('gameServerRegions.name.' + id,
-region.displayName)` so translated ids localize and unknown ids fall back to the server-provided
-English name; extraction-hint file seeds the known ids into `en/global.json`; coordinator config
-and wire stay language-free; touches the settings Select, the Auto-resolution label, and the
-provisioning status line);
-drop `netcodeV2` naming from public surfaces (surveyed: the only user-visible instance is the
-admin game-page debug section title — everything else is internal identifiers + the two DLL-facing
-route names; low urgency, rename needs a target-naming decision); client desync-report hook
-(VOID-only);
-~~relay forward-channel byte budget (oversize amplification)~~ (DONE 2026-07-12, rp2 local
-`e6d126b`, unpushed: per-slot aggregate byte budget alongside the count bound, isolates via the
-existing lagging-peer signal, client-edge only); ~~self-desync-void rate-limit~~ (DROPPED
-2026-07-12 — an unrecognized orphan item from a prior developer; maps to no mechanism in the
-relay code and Travis has no recollection of it, so it can't be scoped or actioned; git history
-keeps the original wording if it ever resurfaces with context);
-post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
-classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
-decision (verify SC:R's box renders in-game at all before building the battlenet Message feed);
-replay-playback chat renders into `.rep` but not visibly during playback (low).
+Region selection is built + e2e-proven (loopback dev recipe: `dev-beacon` with two delayed
+listeners + a regions JSON + two `--region` relays → real meshed cross-relay sessions). Its three
+production leftovers all live in the launch path now: backbone values (item 1), beacon
+coverage/fallbacks (item 4), and the region config deployment story (solved — the catalog).
 
 ---
 
@@ -539,38 +176,52 @@ Recorded so future reviews/sessions don't re-litigate (reasoning in rp2 commit m
 `architecture.md`):
 - **No auto-drop** of disconnected players; holds decided only by survivor `RequestDrop` (30s
   floor) or the 45s abandoned-session force-decide.
-- **Game clients never talk to the coordinator** — re-home is app-server-mediated (results2-style
-  auth), locked.
-- **B1 lobby half scoped out**: lobby commands have no dedup identity, so a same-relay-resume
-  replay would double-apply; the oversize-turn half is handled.
-- **Unbounded coordinator-notice buffer** is a deliberate, weighed choice (delivery over memory).
-- **Relay-ref webhook precedence** is by-design for restart survival; μs-seeded session ids stay
-  in JS safe-int range until ~2255.
-- **Home-relay fail-open for unknown sessions** (empty homed set = unenforced) preserves the
-  descriptor-arrival race's admit-first behavior; the fleet-amplification angle is folded into the
-  mesh-auth item above, not an A1 regression.
+- **Game clients never talk to the coordinator** — re-home is app-server-mediated
+  (results2-style auth), locked.
+- **Nothing sits in front of the coordinator or the relays** — no proxy, LB, or NAT anywhere:
+  the enrollment ledger gates on transport peer addresses, and the coordinator resolves relay
+  addresses from the task ENI. A proxy would replace every peer with itself; re-design the gate
+  before ever adding one. (This also settled ECS-metadata self-discovery: provisioned relays
+  never self-advertise at all.)
+- **Relay IPs are stable per task and fresh per launch** — no per-game rotation machinery; DDoS
+  baseline = natural per-task churn + Shield Standard.
+- **Coordinator HA is a single restart-tolerant instance** (docker restart policy) — running
+  games survive an outage (relays run the live game); create/re-home/presence pause until
+  restart and relays re-enroll. Hot standby stays a documented future option.
+- **A 1v1 checksum divergence voids** (no-majority by construction; deliberately unattributable
+  — a loss-dodger could self-desync); team games discard the diverged minority and resolve from
+  the majority. `forceUnsyncedLeave` diverges simulations *by design* — it's a testing tool,
+  never a way to end a game that needs a scored result.
 - **Presence fail-open** (35s TTL): locking players out on infra flap is worse than the status
   quo.
-- **Never-started sessions** keep today's immediate emptied-roster close (nothing force-decides
-  their holds, so deferral would be unbounded); their holds still survive and admit a quick
-  re-dial.
+- **B1 lobby half scoped out**: lobby commands have no dedup identity, so a same-relay-resume
+  replay would double-apply; the oversize-turn half is handled.
+- **Unbounded coordinator-notice buffer** is a deliberate, weighed choice (delivery over
+  memory); **relay-ref webhook precedence** is by-design for restart survival; μs-seeded session
+  ids stay in JS safe-int range until ~2255.
+- **Home-relay fail-open for unknown sessions** (empty homed set = unenforced) preserves the
+  descriptor-arrival race's admit-first behavior; the fleet-amplification angle is closed by
+  mesh peer auth.
+- **Never-started sessions** keep the immediate emptied-roster close (nothing force-decides
+  their holds, so deferral would be unbounded); their holds still survive a quick re-dial.
+- **Finite player tokens** (default 6h) are checked only at (re)connect; mid-game expiry is
+  harmless; never-started sessions are held ~the token lifetime before reaping. Escape hatch if
+  marathon games matter: mint fresh tokens on the rehome response (noted, not built).
 
 ## 4. Open questions (genuinely open)
 
+- **DDoS without anycast** — baseline decided (per-task churn + Shield Standard on raw Fargate
+  IPs). Open half: the trigger for Shield Advanced/Spectrum — revisit if targeted attacks
+  materialize.
 - **Recovery-window vs downlink-coalescing byte budget** — define when implementing coalescing
   (low-stakes: the window is small and coalescing is weak-downlink-only).
-- **DDoS without anycast** — baseline decided 2026-07-12: natural per-task IP churn + Shield
-  Standard on raw Fargate IPs. Open half: when Shield Advanced/Spectrum becomes necessary —
-  revisit if targeted attacks materialize.
-- **GameLift beacon coverage** vs lit regions; rate-limit caching; which beacon-independent
-  fallback (see §2 Phase 4 — the original ICMP idea assumed an in-region ping target that
-  scale-to-zero doesn't guarantee).
-- **Coordinator↔relay control-protocol skew** — negotiation exists (WS-K); nothing to be
-  skew-compatible *with* until a second deployment exists.
+- **Coordinator↔relay control-protocol skew** — negotiation exists; becomes real the day the
+  prod coordinator exists beside staging (deploy-order rule covers the current single
+  deployment).
 
 ---
 
-*rev 6 synthesized 2026-07-11 after Phase 6b/6c closed: statuses verified against `rally-point2`
-`28765d5` and the SB tree, not carried forward on faith. The finding-level review record (6b:
-`daaef45..3185b08`; 6c: `e3d539b..28765d5`) lives in rp2 commit messages; rev 5's full text is in
-this file's git history.*
+*rev 7 synthesized 2026-07-15 after the staging standup: statuses verified against rp2 `3a02fca`
+/ SB `rp2-integration` `552bc3a03` and the live staging fleet, not carried forward on faith. The
+provisioning/config-topology build record (per-leg rationale, gates, review trail) lives in rp2
+commit messages `a1b8cc8`/`7e4fa9a`/`f4aa417` and this file's rev-6 text in git history.*
