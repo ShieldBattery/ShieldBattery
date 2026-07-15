@@ -513,12 +513,12 @@ pub struct TurnState {
     /// remote humans. A human-only game left alone is one whose winner is about to report a result,
     /// which must not race the session closing.
     has_computers: bool,
-    /// Slots the `forceLeave` debug command has queued for a forced synced leave on the game thread.
-    /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_leaves`), which
+    /// Slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game thread.
+    /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_unsynced_leaves`), which
     /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
     /// exercising the leave/reconnect paths without a real human quit.
     #[cfg(debug_assertions)]
-    forced_leaves: Vec<SlotId>,
+    forced_unsynced_leaves: Vec<SlotId>,
     /// Set by the `forceDesync` debug command; drained by the IN hook on the game thread (see
     /// `bw_scr::apply_forced_desync`), which perturbs the local player's minerals so this client's
     /// simulation diverges from its peers. Debug-only trigger for observing how a desync propagates.
@@ -605,7 +605,7 @@ impl TurnState {
             local_only: false,
             has_computers,
             #[cfg(debug_assertions)]
-            forced_leaves: Vec::new(),
+            forced_unsynced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
             forced_desync: false,
             #[cfg(debug_assertions)]
@@ -1328,7 +1328,7 @@ impl TurnState {
     /// (`mark_slot_left`) so a step gated on it can proceed. The IN hook calls this at the *top* of
     /// the receive step, before the readiness check (a due leave is what unstalls the step), then
     /// writes each returned storm's `pending_leave_reason` for the synced-leave pass to drain in the
-    /// RNG window — the production twin of the debug `forceLeave` path, sourced from the relay's
+    /// RNG window — the production twin of the debug `forceUnsyncedLeave` path, sourced from the relay's
     /// directive instead of a local injection.
     ///
     /// A due leave for a slot with no storm id yet (unmapped — shouldn't happen in-game; slots map at
@@ -1522,19 +1522,19 @@ impl TurnState {
         }
     }
 
-    /// Queues a slot for a forced synced leave, for the `forceLeave` debug-control command. The
-    /// game thread drains this on its next receive (see `bw_scr::apply_forced_leaves`); nothing is
+    /// Queues a slot for a forced synced leave, for the `forceUnsyncedLeave` debug-control command. The
+    /// game thread drains this on its next receive (see `bw_scr::apply_forced_unsynced_leaves`); nothing is
     /// applied here, so this is safe to call from the async side.
     #[cfg(debug_assertions)]
-    pub fn debug_force_leave(&mut self, slot: SlotId) {
-        self.forced_leaves.push(slot);
+    pub fn debug_force_unsynced_leave(&mut self, slot: SlotId) {
+        self.forced_unsynced_leaves.push(slot);
     }
 
-    /// Drains the slots queued by [`debug_force_leave`](Self::debug_force_leave), in queue order.
+    /// Drains the slots queued by [`debug_force_unsynced_leave`](Self::debug_force_unsynced_leave), in queue order.
     /// Called once per receive on the game thread.
     #[cfg(debug_assertions)]
-    pub fn take_forced_leaves(&mut self) -> Vec<SlotId> {
-        std::mem::take(&mut self.forced_leaves)
+    pub fn take_forced_unsynced_leaves(&mut self) -> Vec<SlotId> {
+        std::mem::take(&mut self.forced_unsynced_leaves)
     }
 
     /// Arms a one-shot mineral perturbation for the `forceDesync` debug-control command. The game
@@ -2245,15 +2245,15 @@ mod tests {
     }
 
     #[test]
-    fn forced_leaves_drain_in_order_then_empty() {
+    fn forced_unsynced_leaves_drain_in_order_then_empty() {
         let (mut state, _in_tx, _out_rx, _leave_tx, _leave_intent_rx, _lobby_out_rx, _lobby_in_tx) =
             turn_state();
-        state.debug_force_leave(PEER_SLOT);
-        state.debug_force_leave(LOCAL_SLOT);
+        state.debug_force_unsynced_leave(PEER_SLOT);
+        state.debug_force_unsynced_leave(LOCAL_SLOT);
 
-        assert_eq!(state.take_forced_leaves(), vec![PEER_SLOT, LOCAL_SLOT]);
+        assert_eq!(state.take_forced_unsynced_leaves(), vec![PEER_SLOT, LOCAL_SLOT]);
         // A second drain finds nothing: `take` left the queue empty.
-        assert!(state.take_forced_leaves().is_empty());
+        assert!(state.take_forced_unsynced_leaves().is_empty());
     }
 
     #[test]

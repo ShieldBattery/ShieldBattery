@@ -36,7 +36,7 @@ pub enum DebugControlCommand {
     /// Force a synced leave of a mapped slot on THIS client. Writes the slot's
     /// `pending_leave_reason` on the game thread so the native synced-leave pass applies it like a
     /// real drop, and drops the slot from the readiness set so a stalled step can proceed.
-    ForceLeave { slot: u8 },
+    ForceUnsyncedLeave { slot: u8 },
     /// Deliberately diverge THIS client's simulation from its peers by adding a large amount to the
     /// local player's minerals on the game thread. A resource-state change that only one client
     /// makes desyncs BW's lockstep once the diverged value is spent or otherwise checked, so this is
@@ -279,7 +279,7 @@ pub struct DebugScreenshot {
 ///
 /// This is a blocking call meant to run on a worker thread (`tokio::task::spawn_blocking`), never
 /// on the game thread: it only reads pixels back from the window through GDI/DWM and never
-/// touches BW memory, unlike [`DebugControlCommand::ForceLeave`], which has to run on the game
+/// touches BW memory, unlike [`DebugControlCommand::ForceUnsyncedLeave`], which has to run on the game
 /// thread to touch native state safely.
 pub fn capture_screenshot() -> DebugScreenshotResponse {
     match try_capture_screenshot() {
@@ -436,10 +436,10 @@ mod tests {
     }
 
     #[test]
-    fn force_leave_command_parses_camel_case_with_slot() {
+    fn force_unsynced_leave_command_parses_camel_case_with_slot() {
         let cmd: DebugControlCommand =
-            serde_json::from_str(r#"{"type":"forceLeave","slot":2}"#).unwrap();
-        assert_eq!(cmd, DebugControlCommand::ForceLeave { slot: 2 });
+            serde_json::from_str(r#"{"type":"forceUnsyncedLeave","slot":2}"#).unwrap();
+        assert_eq!(cmd, DebugControlCommand::ForceUnsyncedLeave { slot: 2 });
     }
 
     #[test]

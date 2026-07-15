@@ -135,13 +135,21 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      this env (validated PR #1286, both 1v1 and 2v2). For **2v2**, the whole losing *team* must
      leave: have the user leave both of one team's windows.
    - **Debug-tooling drop (unattended, netcode-v2 debug builds).** The debug DLL exposes a
-     game-control surface over CDP — `window.__sbDebugGame.forceLeave(gameId, slot)` injects a
-     synced drop of `slot` on the calling client, so the caller takes the allied-victory path and
-     the game **ends with no human at the keyboard**; `forceQuit(gameId)` then hard-tears-down any
-     window still sitting on a result/victory dialog (see verify-app for the whole surface +
-     details). This needs the **debug DLL** (which this tier already builds — the surface compiles
-     out of release) and a dev app session (`isDev`-gated senders). Two caveats: it's a **per-client
-     trigger, not consensus** (right for a 1v1 opponent-drop — the one remaining client; a 3+ player
+     game-control surface over CDP — `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)`
+     injects a **local, non-consensus** drop of `slot` on the calling client only (it deliberately
+     bypasses the synced-leave machinery — that's its testing purpose), so the caller takes the
+     allied-victory path and the game **ends with no human at the keyboard**; `forceQuit(gameId)`
+     then hard-tears-down any window still sitting on a result/victory dialog (see verify-app for
+     the whole surface + details). This needs the **debug DLL** (which this tier already builds —
+     the surface compiles out of release) and a dev app session (`isDev`-gated senders).
+     **Never use it to produce a scored result on a netcode-v2 matchmaking game**: the unsynced
+     injection forks the calling client's simulation from everyone else's, and the relay's
+     checksum comparator reports the divergence to the desync policy. In a **1v1 that's a
+     guaranteed void** (any divergence is no-majority by construction — verified live); in a
+     team game the lone diverged client is discarded and the majority's reports may still
+     resolve the game, but the injecting client's result is unreliable either way. Two further
+     caveats: it's a **per-client
+     trigger, not consensus** (a 3+ player
      game needs the slot injected on *every* remaining client on the same turn), and a one-sided
      drop makes the two clients report contradictory results, so the game can reconcile **disputed
      → no MMR delta**, same as the kill path. So this is the tool for driving the **netcode
@@ -405,5 +413,8 @@ path before treating one as real; delete it once resolved.
   leave gracefully rather than killing the process. (The matcher-side writes — formation,
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)
   On a **debug DLL build**, `window.__sbDebugGame.forceQuit(gameId)` dismisses/tears down the hung
-  survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceLeave` can end the
-  game unattended — but neither escapes the disputed-reconcile / no-MMR outcome (T4 "Decisive finish").
+  survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceUnsyncedLeave` can
+  end the game unattended — but neither escapes the no-MMR outcome (T4 "Decisive finish"), and on
+  netcode-v2 matchmaking games `forceUnsyncedLeave` diverges the simulations by design: a 1v1
+  voids outright under the desync policy, and a team game discards the injecting client as the
+  diverged minority.

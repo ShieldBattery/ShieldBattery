@@ -347,14 +347,14 @@ mod tests {
     }
 
     #[test]
-    fn debug_control_force_leave_dispatches_to_game_state() {
+    fn debug_control_force_unsynced_leave_dispatches_to_game_state() {
         let result = handle_app_message(
-            r#"{"command":"debugControl","payload":{"type":"forceLeave","slot":2}}"#.into(),
+            r#"{"command":"debugControl","payload":{"type":"forceUnsyncedLeave","slot":2}}"#.into(),
         );
         assert!(matches!(
             result,
             Ok(MessageResult::Game(GameStateMessage::DebugControl(
-                DebugControlCommand::ForceLeave { slot: 2 }
+                DebugControlCommand::ForceUnsyncedLeave { slot: 2 }
             )))
         ));
     }

@@ -921,9 +921,9 @@ impl GameState {
                         .map(|_| ())
                         .boxed();
                     }
-                    DebugControlCommand::ForceLeave { slot } => {
+                    DebugControlCommand::ForceUnsyncedLeave { slot } => {
                         crate::netcode_v2::with_turn_state(|s| {
-                            s.debug_force_leave(rally_point_client::proto::ids::SlotId(slot))
+                            s.debug_force_unsynced_leave(rally_point_client::proto::ids::SlotId(slot))
                         });
                         // Fire-and-forget: the injection applies on the game thread's next receive;
                         // verify via queryState. No reply.

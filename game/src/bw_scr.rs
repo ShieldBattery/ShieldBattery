@@ -416,11 +416,11 @@ enum TurnReceiveOutcome {
     Stall,
 }
 
-/// The leave reason the `forceLeave` debug command writes into `pending_leave_reason`. BW's
+/// The leave reason the `forceUnsyncedLeave` debug command writes into `pending_leave_reason`. BW's
 /// "dropped" reason (`0x40000006` → `strPLAYER_WAS_DROPPED`), so a forced leave reads on this
 /// client exactly as a real drop does — same string, same synced-leave handling.
 #[cfg(debug_assertions)]
-const FORCED_LEAVE_REASON: i32 = 0x40000006u32 as i32;
+const FORCED_UNSYNCED_LEAVE_REASON: i32 = 0x40000006u32 as i32;
 
 /// The amount the `forceDesync` debug command adds to the local player's minerals. A visible,
 /// obviously-divergent resource change; on its own it only desyncs indirectly (once the extra
@@ -2622,10 +2622,10 @@ impl BwScr {
             if netcode_v2::with_turn_state(|s| s.should_self_close()).unwrap_or(false) {
                 netcode_v2::begin_local_only();
             }
-            // Debug-only: the `forceLeave` command's local (non-consensus) injection — same effect,
+            // Debug-only: the `forceUnsyncedLeave` command's local (non-consensus) injection — same effect,
             // sourced from a queued slot rather than a relay directive. Must also precede the receive.
             #[cfg(debug_assertions)]
-            self.apply_forced_leaves(nc);
+            self.apply_forced_unsynced_leaves(nc);
             // Debug-only: the `forceDesync` command's one-shot mineral perturbation on this client.
             #[cfg(debug_assertions)]
             self.apply_forced_desync();
@@ -2934,7 +2934,7 @@ impl BwScr {
     /// authority relay's directive, so every client applies the identical leave at the identical
     /// frame and the native drain is deterministic across all of them (including clients that never
     /// observed the drop locally). It is the consensus-backed twin of the debug-only, per-client
-    /// [`apply_forced_leaves`](Self::apply_forced_leaves).
+    /// [`apply_forced_unsynced_leaves`](Self::apply_forced_unsynced_leaves).
     unsafe fn apply_due_leaves(&self, nc: &NetcodeV2Bw, next_frame: u32) {
         unsafe {
             let Some(due) = netcode_v2::with_turn_state(|s| s.take_due_leaves(next_frame)) else {
@@ -2946,8 +2946,8 @@ impl BwScr {
         }
     }
 
-    /// Debug-only `forceLeave` application, run at the top of the IN hook. Drains the slots the
-    /// `forceLeave` command queued on the turn state and, for each one that maps to a storm id,
+    /// Debug-only `forceUnsyncedLeave` application, run at the top of the IN hook. Drains the slots the
+    /// `forceUnsyncedLeave` command queued on the turn state and, for each one that maps to a storm id,
     /// writes that storm's `pending_leave_reason` mailbox and drops the slot from the readiness set.
     /// The existing native synced-leave pass ([`run_synced_leave_pass`](Self::run_synced_leave_pass))
     /// then detects the written reason and applies it in the synced-RNG window on a ready step,
@@ -2965,19 +2965,19 @@ impl BwScr {
     /// same turn — which is what the (still-unbuilt) coordinated-leave consensus will do. This is the
     /// trigger, NOT the consensus; it deliberately does no cross-client coordination.
     #[cfg(debug_assertions)]
-    unsafe fn apply_forced_leaves(&self, nc: &NetcodeV2Bw) {
+    unsafe fn apply_forced_unsynced_leaves(&self, nc: &NetcodeV2Bw) {
         unsafe {
-            let Some(forced) = netcode_v2::with_turn_state(|s| s.take_forced_leaves()) else {
+            let Some(forced) = netcode_v2::with_turn_state(|s| s.take_forced_unsynced_leaves()) else {
                 // No live session — nothing to force.
                 return;
             };
             for slot in forced {
                 let storm = netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten();
                 let Some(storm) = storm else {
-                    warn!("netcode v2: forceLeave for unmapped slot {slot:?}; skipping");
+                    warn!("netcode v2: forceUnsyncedLeave for unmapped slot {slot:?}; skipping");
                     continue;
                 };
-                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = FORCED_LEAVE_REASON;
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = FORCED_UNSYNCED_LEAVE_REASON;
                 netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
             }
         }
@@ -3046,7 +3046,7 @@ impl BwScr {
     }
 
     /// Debug-only `sendChat` application, run on the game thread alongside
-    /// [`apply_forced_leaves`](Self::apply_forced_leaves)/[`apply_forced_desync`](Self::apply_forced_desync).
+    /// [`apply_forced_unsynced_leaves`](Self::apply_forced_unsynced_leaves)/[`apply_forced_desync`](Self::apply_forced_desync).
     /// Drains the messages the `sendChat` command queued and sends + locally echoes each one
     /// through [`send_chat_message`](Self::send_chat_message) — the exact path the in-game chat
     /// box's own send tap uses — so a debug-triggered message is indistinguishable downstream from

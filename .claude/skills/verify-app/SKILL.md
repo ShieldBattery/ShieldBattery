@@ -230,9 +230,14 @@ Poll both instances in the same loop for a two-client game. If the session does 
   Game-relevant: `gameClient.status` is the full `ReportedGameStatus` (state, error,
   `networkStatus`, …) — assert on this instead of grepping the game DLL log.
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
-  `queryGameState(gameId)`, `forceLeave(gameId, slot)`, `forceQuit(gameId)`, and
+  `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceQuit(gameId)`, and
   `screenshot(gameId)` for driving/inspecting a running game over CDP (a release DLL doesn't
-  implement these, so query calls time out). `forceQuit` is the reliable way to tear a launched
+  implement these, so query calls time out). `forceUnsyncedLeave` injects a **local,
+  non-consensus** leave — on a netcode-v2 matchmaking game it diverges the calling client's
+  simulation, which **voids a 1v1 outright** under the desync policy (larger games discard the
+  diverged client and may still resolve from the majority), so never use it when the test needs
+  a scored win/loss (a human leaving via the in-game menu is the clean path; see verify-pr T4).
+  `forceQuit` is the reliable way to tear a launched
   game down between checks — it works even mid-game, when the process would otherwise sit at the
   native victory dialog.
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).

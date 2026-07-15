@@ -131,8 +131,8 @@ rootElemPromise
       window.__sbDebugGame = {
         queryGameState: gameId =>
           new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
-        forceLeave: (gameId, slot) =>
-          new TypedIpcRenderer().invoke('activeGameForceLeave', gameId, slot),
+        forceUnsyncedLeave: (gameId, slot) =>
+          new TypedIpcRenderer().invoke('activeGameForceUnsyncedLeave', gameId, slot),
         forceDesync: gameId => new TypedIpcRenderer().invoke('activeGameForceDesync', gameId),
         sendChat: (gameId, text) =>
           new TypedIpcRenderer().invoke('activeGameSendChat', gameId, text),

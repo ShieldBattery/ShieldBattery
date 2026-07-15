@@ -94,7 +94,7 @@ interface IpcInvokeables {
    * callers should verify the effect via {@link IpcInvokeables.activeGameDebugQueryState} (the
    * slot's `required` flag becomes `false`).
    */
-  activeGameForceLeave: (gameId: string, slot: number) => void
+  activeGameForceUnsyncedLeave: (gameId: string, slot: number) => void
   /**
    * Tells the active game process to deliberately desync this client's simulation from its peers by
    * perturbing the local player's minerals (debug game builds only). Only registered in development

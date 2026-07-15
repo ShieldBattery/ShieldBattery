@@ -731,7 +731,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     ipcMain.handle('activeGameDebugScreenshot', (event, gameId) =>
       activeGameManager.debugScreenshot(gameId),
     )
-    ipcMain.handle('activeGameForceLeave', (event, gameId, slot) =>
+    ipcMain.handle('activeGameForceUnsyncedLeave', (event, gameId, slot) =>
       activeGameManager.forceGameLeave(gameId, slot),
     )
     ipcMain.handle('activeGameForceDesync', (event, gameId) =>

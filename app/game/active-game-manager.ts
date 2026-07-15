@@ -415,7 +415,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       return
     }
 
-    this.emit('gameCommand', gameId, 'debugControl', { type: 'forceLeave', slot })
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'forceUnsyncedLeave', slot })
   }
 
   /**
