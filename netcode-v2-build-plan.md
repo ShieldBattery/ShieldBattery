@@ -182,6 +182,14 @@ compose; then stand up one region and measure.
 > `TS_SERVE_CONFIG` proxying to compose service names per-connection — replaces the appserver's
 > boot-time-IP iptables approach; consider back-porting there).
 >
+> **STAGING COORDINATOR LIVE (2026-07-13):** https://staging-rp2-coordinator.shieldbattery.net —
+> production LE cert via in-process ACME, /regions 200 over both IP families, tenant `tec27-dev`
+> enrolled, tenant-signed `/regions/warm` verified end-to-end from a dev machine. Phase-1 posture:
+> ledger + ECS config both OFF (they turn on together when the Fargate substrate exists). Image
+> pipeline: ghcr.io/shieldbattery/rp2-coordinator (per-commit SHA tags; manual promote-to-:stable
+> workflow in the rp2 repo; deployment pulls via RP2_REF). NOTE: re-promote :stable to pick up the
+> /data volume-ownership fix (rp2 `0a45038`) before standing up another box.
+>
 > **Leg 4 remaining:** two rp2 legs the deployment README flags — **coordinator native TLS**
 > (terminate in-process off the certbot volume; a TLS proxy would break the enrollment ledger's
 > peer-address gate, so direct exposure is a documented rule) and the **tenant registry config
