@@ -190,15 +190,106 @@ compose; then stand up one region and measure.
 > workflow in the rp2 repo; deployment pulls via RP2_REF). NOTE: re-promote :stable to pick up the
 > /data volume-ownership fix (rp2 `0a45038`) before standing up another box.
 >
-> **Leg 4 remaining:** two rp2 legs the deployment README flags — **coordinator native TLS**
-> (terminate in-process off the certbot volume; a TLS proxy would break the enrollment ledger's
-> peer-address gate, so direct exposure is a documented rule) and the **tenant registry config
-> file** (production tenant keys + rotation; only `--dev-tenant` exists today — this is the
-> Phase 6 tenant-lifecycle item's config-shape half). Then Terraform (VPC dual-stack, cluster,
-> task family + SSM secrets, ECR + replication, the narrow IAM user), the relay's own container
-> image, one-region standup + cold-start measurement (calibrates the 75s hold cap). Also owed:
-> live loopback pass of the provisioning path (ProcessProvisioner dev stack), translate-i18n for
-> the two new strings.
+> **TERRAFORM + RELAY IMAGE + CONFIG TOPOLOGY BUILT (2026-07-14):** rp2 local `main` =
+> `a1b8cc8` (tenant verifying keys pushed to relays over the control connection —
+> additive `TenantKeys` frame, post-enroll strictly before the first descriptor;
+> relay registry watch-swapped, empty-start in coordinator mode, `--tenant-pubkey`
+> ignored there with a warn; deploy-order rule: coordinator before relay images) +
+> `7e4fa9a` (relay Dockerfile — distroless nonroot, stateless on disk — + ECR
+> publish/promote workflows; auth = GitHub OIDC federation into a Terraform-created
+> publisher role, NO stored AWS credential; promote retags per region and derives its
+> region list from the replication config at run time) + `f4aa417` (infra/terraform
+> driven by `region-catalog.json` — THE one region declaration, per-env membership +
+> CIDRs; provider-6 per-resource `region`, no aliases, one for_eached module; account
+> stack works from the cross-env union; fleet emits `ecs_json` AND `regions_json`
+> verbatim; task env = coordinator URL + SSM secret ONLY, zero tenant material in
+> AWS; stopTimeout 120 vs the 90s drain; narrow IAM incl. PassRole +
+> ecr:DescribeRegistry). All UNPUSHED awaiting go-ahead. Gates green (cargo suite 22
+> binaries 0 fail; terraform fmt+validate, TF 1.15.8 / AWS provider 6.54); apply is
+> Travis's (agent authors, Travis applies). Beacons need no infra (public GameLift
+> ping endpoints). Staging tracks `:latest`, prod `:stable`; x86_64 default, ARM64 =
+> later cost lever. SB half: keygen.mjs prints a paste-ready tenants.json entry
+> (add-tenant = keygen → paste → env var → restart, zero AWS), deployment README
+> documents both one-spot flows, ecs.sample.json aligned.
+>
+> **Remaining in this leg:** Travis applies (account → staging fleet → GitHub var
+> `RELAY_ECR_ROLE_ARN` → publish once → wire the staging box per infra/terraform/README:
+> ecs_json + regions_json + access keys — re-promote coordinator :stable AFTER the rp2
+> push so it carries `a1b8cc8`'s tenant-key push, which relay images require);
+> one-region standup + cold-start measurement from ledger timestamps (calibrates the
+> 75s hold cap); live loopback pass of the provisioning path (ProcessProvisioner dev
+> stack — no AWS needed, runnable anytime). Queued nearby: rp2 accept PKCS#8 v1 keys
+> (from_pkcs8_maybe_unchecked), SB pin bump to rp2 tip once pushed (client crate
+> untouched by all three legs — routine), ECS-metadata address discovery + SB
+> per-client family selection (below), prod region list (catalog entries whenever
+> chosen).
+
+#### Configuration topology (ratified 2026-07-14)
+
+**Principle: every operational fact is declared in exactly one place; everything else derives** —
+via a generated file, a naming convention, or a control-plane push. The as-built leg violates
+this twice: adding a region touches five-plus hand-edited spots (fleet tfvars, the static module
+blocks + provider aliases, the account stack's per-region ECR/settings/replication resources,
+the promote workflow's hardcoded region list, the coordinator's `regions.json` — plus the SB
+backbone table), and adding a tenant requires a terraform apply because the relay task
+definition carries the tenant key material (a consequence of the relay only learning tenant
+keys via env today). Staging and prod also need *different* region sets (staging = the three
+current ones; prod = those plus more), which the static-module shape can't express.
+
+**Hand-declared surfaces after the rework — exactly three, each owned by a different party:**
+1. **`infra/terraform/region-catalog.json`** (rp2) — the one region declaration. Shape:
+   a `regions` map (id → `{aws_region, display_name}`, optional beacon/fallback overrides —
+   defaults are formulaic from `aws_region`: `gamelift-ping.<r>.api.aws:443` /
+   `dynamodb.<r>.amazonaws.com:443`) plus an `environments` map (env → region id → VPC CIDR;
+   presence = enabled, so staging lists 3 while prod lists more). Both terraform stacks read
+   this file: the fleet stack `for_each`es its environment's entries (AWS provider 6.x
+   per-resource `region` replaces provider aliases — proven against provider 6.54 for every
+   resource type we use), and the account stack derives the all-env union for ECR replicas,
+   replication destinations, `dualStackIPv6` settings, and the publisher policy.
+2. **Coordinator box: `config/tenants.json` + `.env`** — tenants (state, client pubkeys,
+   webhook, signing-key env var) + box-local knobs (domain, secrets, image pin). After rp2
+   leg D below, this is the ONLY place a tenant exists; AWS is never touched for tenant changes.
+3. **SB app server `.env`** — the tenant's own credential (`SB_RP2_CLIENT_KEY`), coordinator
+   URL, and (until a measured-RTT source exists) the backbone table — pre-existing surface,
+   unchanged.
+
+**Everything else derives:** `config/ecs.json` AND `config/regions.json` become
+`terraform output` artifacts of the fleet stack (regions.json was hand-written until now —
+that's the region duplication killed); `.env` AWS creds from outputs; all names
+(`rp2-relays-<env>`, `rp2-relay-<env>`, `started_by`, SSM paths) by convention from the
+environment; relay identity per-launch from the coordinator; **tenant verifying keys pushed to
+relays over the control connection**; the promote workflow derives its region list from the ECR
+replication config (`aws ecr describe-registry`) at run time.
+
+**Work items:**
+- **rp2 leg D — tenant keys over the control connection**: additive `CoordinatorToRelay::TenantKeys`
+  frame (full-set declarative replace: `(kid, tenant, Ed25519 verifying key)` per tenant, derived
+  by the coordinator from its own per-tenant signing keys); pushed on every relay enroll BEFORE
+  the first descriptor set so a descriptor never lands on a relay that can't verify its clients'
+  tokens; coordinator-driven relays start with an empty token registry and stop generating/
+  logging the dev keypair; `--tenant-pubkey` remains the dev/loopback seed. Old relays decode
+  the unknown frame and ignore it (the MeshPeers forward-compat pattern). Task definitions drop
+  `RELAY_TENANT_PUBKEY`/`RELAY_KID`/`RELAY_TENANT` entirely.
+- **Terraform rework**: region-catalog.json as above; fleet + account stacks go fully dynamic
+  (`for_each` + per-resource `region`, provider aliases deleted); tenant variables deleted;
+  new `regions_json` output alongside `ecs_json`.
+- **promote-relay.yml**: replace the hardcoded region loop with describe-registry derivation.
+- **keygen.mjs**: also print a paste-ready `tenants.json` entry, so minting a tenant is
+  keygen → paste → set env var → restart.
+- **Runbooks** rewritten around the two flows below.
+
+**The two flows afterward:**
+- *Add/remove a region*: one edit to region-catalog.json → apply account + fleet →
+  `terraform output` the two config files onto the coordinator box → restart. (Optional SB
+  backbone entries; absent pairs default 150ms.)
+- *Add a tenant*: keygen → paste the entry into tenants.json → set the signing-key env var →
+  restart the coordinator. No AWS, no terraform, no relay changes.
+
+**Accepted two-party facts (set once each at bootstrap, not duplication):** the bootstrap
+secret (coordinator `.env` + `TF_VAR_…` at apply), the coordinator URL (task def env, SB
+`.env`, DNS/ACME), per-component image pins (`RP2_REF`, `relay_image_tag`). **Known leftover:**
+the SB backbone RTT table still names region pairs — future option is serving coordinator-side
+estimates via `/regions`; stays its own backlog item.
 
 - Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, scale-to-zero per
   the policy above; cold-start budget measurement.
