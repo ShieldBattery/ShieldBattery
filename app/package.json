@@ -19,6 +19,7 @@
     "@shieldbattery/stimpack": "^1.1.1",
     "@shieldbattery/windows-registry": "^1.0.0",
     "archiver": "^8.0.0",
+    "better-sqlite3": "12.11.1",
     "bl": "^6.1.6",
     "core-js": "^3.49.0",
     "electron-is-dev": "^3.0.1",

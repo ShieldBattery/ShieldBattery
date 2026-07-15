@@ -9,4 +9,5 @@ overrides:
   '@types/unist': ^3.0.3
 
 allowBuilds:
+  better-sqlite3: true
   core-js: true
