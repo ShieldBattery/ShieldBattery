@@ -21,7 +21,6 @@
     "archiver": "^8.0.0",
     "bl": "^6.1.6",
     "core-js": "^3.49.0",
-    "deep-equal": "^2.2.3",
     "electron-is-dev": "^3.0.1",
     "electron-localshortcut": "^3.2.1",
     "electron-updater": "^6.8.9",

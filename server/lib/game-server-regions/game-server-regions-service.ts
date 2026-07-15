@@ -1,4 +1,4 @@
-import deepEqual from 'deep-equal'
+import { isDeepStrictEqual } from 'node:util'
 import got from 'got'
 import { NydusServer } from 'nydus'
 import { singleton } from 'tsyringe'
@@ -177,7 +177,7 @@ export class GameServerRegionsService {
     this.lastFetchedAt = this.clock.monotonicNow()
     this.lastFailedAt = undefined
 
-    if (!deepEqual(updated, this.regions)) {
+    if (!isDeepStrictEqual(updated, this.regions)) {
       this.regions = updated
       log.info(`game server regions: updated list (${updated.length} region(s))`)
       this.nydus.publish(REGIONS_UPDATE_PATH, this.currentEvent())

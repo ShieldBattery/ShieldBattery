@@ -1,4 +1,4 @@
-import deepEqual from 'deep-equal'
+import { isDeepStrictEqual } from 'node:util'
 import fs, { promises as fsPromises } from 'fs'
 import debounce from 'lodash/debounce'
 import { EventEmitter } from 'node:events'
@@ -93,7 +93,7 @@ abstract class SettingsManager<T> extends EventEmitter<SettingsEvents<T>> {
   async merge(settings: Readonly<Partial<T>>): Promise<void> {
     await this.initialized
     const merged = { ...this.settings, ...settings }
-    if (!deepEqual(merged, this.settings)) {
+    if (!isDeepStrictEqual(merged, this.settings)) {
       this.settings = merged
       this.emitChange()
 
@@ -116,7 +116,7 @@ abstract class SettingsManager<T> extends EventEmitter<SettingsEvents<T>> {
     await this.initialized
     const contents = await fsPromises.readFile(this.filepath, { encoding: 'utf8' })
     const newData = JSON.parse(contents) as T
-    if (!deepEqual(newData, this.settings)) {
+    if (!isDeepStrictEqual(newData, this.settings)) {
       this.settings = newData
       this.emitChange()
       log.verbose(
@@ -541,7 +541,7 @@ export class ScrSettingsManager extends SettingsManager<ScrSettings> {
     await this.initialized
     const contents = await fsPromises.readFile(this.blizzardFilepath, { encoding: 'utf8' })
     const newData = JSON.parse(contents)
-    if (!deepEqual(newData, this.blizzardSettings)) {
+    if (!isDeepStrictEqual(newData, this.blizzardSettings)) {
       this.blizzardSettings = newData
     }
   }
