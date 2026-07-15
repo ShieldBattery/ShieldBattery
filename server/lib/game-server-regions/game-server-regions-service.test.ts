@@ -2,9 +2,11 @@ import got from 'got'
 import { EventEmitter } from 'node:events'
 import { NydusServer } from 'nydus'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { GameServerRegionsEvent } from '../../../common/game-server-regions'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { FakeClock } from '../time/testing/fake-clock'
 import { ClientSocketsGroup, ClientSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 import { GameServerRegionsService } from './game-server-regions-service'
 
 vi.mock('got', () => ({
@@ -73,7 +75,7 @@ describe('game-server-regions/GameServerRegionsService', () => {
 
   function makeService(): GameServerRegionsService {
     return new GameServerRegionsService(
-      nydus as unknown as NydusServer,
+      new TypedPublisher<GameServerRegionsEvent>(nydus as unknown as NydusServer),
       clientSocketsManager as unknown as ClientSocketsManager,
       clock,
     )

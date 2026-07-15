@@ -1,7 +1,7 @@
-import { isDeepStrictEqual } from 'node:util'
 import fs, { promises as fsPromises } from 'fs'
 import debounce from 'lodash/debounce'
 import { EventEmitter } from 'node:events'
+import { isDeepStrictEqual } from 'node:util'
 import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'

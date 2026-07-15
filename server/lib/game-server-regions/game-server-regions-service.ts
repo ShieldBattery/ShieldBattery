@@ -1,6 +1,5 @@
-import { isDeepStrictEqual } from 'node:util'
 import got from 'got'
-import { NydusServer } from 'nydus'
+import { isDeepStrictEqual } from 'node:util'
 import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import {
@@ -12,6 +11,7 @@ import log from '../logging/logger'
 import { loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { Clock } from '../time/clock'
 import { ClientSocketsManager } from '../websockets/socket-groups'
+import { TypedPublisher } from '../websockets/typed-publisher'
 
 const REGIONS_UPDATE_PATH = '/gameServerRegions'
 
@@ -83,13 +83,13 @@ export class GameServerRegionsService {
   private inFlightFetch: Promise<GameServerRegion[]> | undefined
 
   constructor(
-    private nydus: NydusServer,
+    private publisher: TypedPublisher<GameServerRegionsEvent>,
     private clientSocketsManager: ClientSocketsManager,
     private clock: Clock,
   ) {
     this.clientSocketsManager.on('newClient', c => {
       if (c.clientType === 'electron') {
-        c.subscribe(REGIONS_UPDATE_PATH, () => {
+        c.subscribe<GameServerRegionsEvent>(REGIONS_UPDATE_PATH, () => {
           // Never block the subscription on the coordinator round trip: hand back whatever's
           // cached now (empty before the first successful fetch), and let a fullUpdate publish
           // catch this client up if a triggered fetch changes the list.
@@ -180,7 +180,7 @@ export class GameServerRegionsService {
     if (!isDeepStrictEqual(updated, this.regions)) {
       this.regions = updated
       log.info(`game server regions: updated list (${updated.length} region(s))`)
-      this.nydus.publish(REGIONS_UPDATE_PATH, this.currentEvent())
+      this.publisher.publish(REGIONS_UPDATE_PATH, this.currentEvent())
     }
 
     return this.regions
