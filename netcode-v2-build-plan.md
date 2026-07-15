@@ -20,8 +20,10 @@
 
 ## 0. Where it stands (2026-07-15)
 
-**The arc landed on master 2026-07-09; v2 IS the netcode** (v1 rally-point path, Storm UDP, and
-ClientReady/startWhenReady deleted, ~4000 lines; no native-transport fallback by design).
+**The arc completed 2026-07-09 and lives on the SB `rp2-integration` branch — not yet on master
+(an accidental early merge there was rolled back; Travis lands master himself); v2 IS the
+netcode** (v1 rally-point path, Storm UDP, and ClientReady/startWhenReady deleted, ~4000 lines;
+no native-transport fallback by design).
 Live-proven on loopback across the full acceptance matrix (every game mode, chat, synced leaves,
 manual-drop UX, reconnect blips, mid-game relay-death re-home, results → signed webhooks →
 scoring, desync detection), and three adversarial review passes are fully closed (rev-2, Codex
@@ -106,24 +108,35 @@ class; the tenant-credential consolidation half remains (§2).
    S3-compatible sink (DO Spaces; policy ratified: 14-day lifecycle, 30-day desync pin) and a way
    to fetch blobs by `<tenant>/<session>/<relay_id>.json` (the game record's session id + relay
    history make them findable). This is prod incident forensics — want it before real traffic.
-3. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
+3. **Monitoring hookup for the rp2 infra** *(noted 2026-07-15 — shape not yet ratified, decide
+   when picked up).* The Grafana/Prometheus stack (`deployment/monitoring/`: tailnet-only
+   scraping, provisioned dashboards) should cover the new infra before real traffic. Natural
+   shape: coordinator exposes Prometheus `/metrics` reachable only through the box's tailscale
+   sidecar (the public listener stays untouched — see the no-proxy rule, §3) plus node_exporter
+   on the box like the other server types; relays are ephemeral scale-to-zero Fargate tasks, so
+   they're not scrape targets — fleet health exports coordinator-side from what it already holds
+   (heartbeats + ledger: tasks per region, enroll/drain counts, cold-start ms, active
+   sessions/games, webhook delivery failures, desync events; the item-1 backbone pair table
+   doubles as a panel). Dashboard: provisioned JSON — new rally-point dashboard vs. panels on
+   `matchmaking-health` is a build-time choice.
+4. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
    `/session/create` inbound auth + webhook signing into one per-tenant credential; move client
    pubkey submission from game load to queue/lobby-join time (those requests already carry
    `(region, rttMs)` — same surfaces, same lifetime; no long-lived keypair without a security
    review).
-4. **Prod region list** — catalog entries whenever chosen, plus the activation checklist per
+5. **Prod region list** — catalog entries whenever chosen, plus the activation checklist per
    region: verify a GameLift beacon actually exists there (no China; some regions lack one),
    pick the TCP fallback endpoint, distinct CIDRs per environment. List-building, not code.
-5. **Prod standup** — prod coordinator box (same deployment dir + runbook as staging) + prod
+6. **Prod standup** — prod coordinator box (same deployment dir + runbook as staging) + prod
    fleet apply (`prod.tfvars`; task defs pull `:stable`, so promote a soaked relay sha first) +
    prod tenant minted via keygen. Runbooks: `infra/terraform/README.md`,
    `deployment/coordinator/README.md`.
-6. **Rollout execution**: ship a client version pointed at prod (platform enforces
+7. **Rollout execution**: ship a client version pointed at prod (platform enforces
    client-version currency, so no mixed-version games); keep the old rally-point *service*
    running only until the minimum supported client is v2-only, then decommission. Rollback =
    previous client version while the old service exists — **define that gate explicitly** (still
    undefined).
-7. **Load/scale test + cost model** at realistic SB peak: N games/relay, RunTask-rate
+8. **Load/scale test + cost model** at realistic SB peak: N games/relay, RunTask-rate
    provisioning, egress cost (the one usage-scaling AWS line item; idle fleet ≈ $0, logs are
    noise). More cold-start datapoints accumulate free in the ledger as regions get used — 22s is
    a single point; recalibrate the 75s hold cap when there's a distribution.
