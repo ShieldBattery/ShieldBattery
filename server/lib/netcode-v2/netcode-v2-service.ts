@@ -14,9 +14,14 @@ import {
   NetcodeV2ServerSetup,
 } from '../../../common/games/netcode-v2'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { addNetcodeV2RelayEvents, setNetcodeV2Session } from '../games/game-models'
 import log from '../logging/logger'
 import { worstPairwiseLatencyMs } from './latency-estimate'
+import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './netcode-v2-config'
+
+export { loadConfigFromEnv }
+export type { NetcodeV2Config }
 
 /**
  * How many pubkeys we'll hold for a single loading game before ignoring further submissions. A
@@ -60,9 +65,6 @@ async function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
     clearDelay()
   }
 }
-
-/** A raw 32-byte Ed25519 seed as 64 hex characters — the `SB_RP2_CLIENT_KEY` format. */
-const ED25519_SEED_HEX_PATTERN = /^[0-9a-f]{64}$/i
 
 /** How the timestamp + method + path + body are combined into the bytes a request signature covers. */
 const REQUEST_SIGNATURE_MESSAGE_PREFIX = 'rp2-request-v1:'
@@ -254,50 +256,6 @@ interface CoordinatorWarmResponse {
   unknown: string[]
 }
 
-export interface NetcodeV2Config {
-  coordinatorUrl: string
-  tenant: string
-  /** TLS server name clients validate the relay certificate against. */
-  relayServerName: string
-}
-
-/**
- * Loads netcode v2's coordinator config from the environment. Exported so other modules that need
- * to talk to the same coordinator (e.g. the departures webhook's tenant pubkey fetch) share this
- * as their one source of truth for `coordinatorUrl`/`tenant`, rather than re-reading the env vars
- * themselves.
- */
-export function loadConfigFromEnv(): NetcodeV2Config | undefined {
-  const coordinatorUrl = process.env.SB_RP2_COORDINATOR_URL
-  if (!coordinatorUrl) {
-    return undefined
-  }
-
-  const tenant = process.env.SB_RP2_TENANT
-  if (!tenant) {
-    throw new Error('SB_RP2_COORDINATOR_URL is set but SB_RP2_TENANT is missing')
-  }
-
-  // The client key is required whenever the coordinator is configured: every
-  // coordinator-bound request is signed with it, so a missing/malformed key
-  // must fail loudly here (config time) rather than at the first request. This
-  // validates presence + format; `getClientSigningKey` builds the actual
-  // KeyObject from the same env var.
-  const clientKeySeedHex = process.env.SB_RP2_CLIENT_KEY
-  if (!clientKeySeedHex) {
-    throw new Error('SB_RP2_COORDINATOR_URL is set but SB_RP2_CLIENT_KEY is missing')
-  }
-  if (!ED25519_SEED_HEX_PATTERN.test(clientKeySeedHex)) {
-    throw new Error('SB_RP2_CLIENT_KEY must be 64 hex characters (a 32-byte Ed25519 seed)')
-  }
-
-  return {
-    coordinatorUrl,
-    tenant,
-    relayServerName: process.env.SB_RP2_RELAY_SERVER_NAME ?? 'localhost',
-  }
-}
-
 /**
  * Converts a coordinator relay endpoint (a Rust `SocketAddr` display string — `ip:port`, with
  * IPv6 addresses bracketed — plus the relay's cert DER) into the relay endpoint shape clients
@@ -390,6 +348,8 @@ export class NetcodeV2Service {
    * signal debounce so a region posted recently is skipped until the window elapses.
    */
   private warmRegionLastSent = new Map<GameServerRegionId, number>()
+
+  constructor(private gameServerRegionsService: GameServerRegionsService) {}
 
   isEnabled(): boolean {
     return !!this.config
@@ -524,8 +484,12 @@ export class NetcodeV2Service {
       // A fallback for the relay's own initial buffer computation, covering conditions the
       // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
       // never crosses the mesh). Rounded up so the estimate never under-covers a fractional ms.
+      // `getBackboneRtts` never rejects and resolves immediately once the region list has been
+      // fetched once, so this never fails or blocks session create beyond that first-ever fetch.
+      const servedBackboneRtts = await this.gameServerRegionsService.getBackboneRtts()
       const latencyEstimateMs = worstPairwiseLatencyMs(
         slots.map(({ region, rttMs }) => ({ region, rttMs })),
+        servedBackboneRtts,
       )
       const latencyEstimateField =
         latencyEstimateMs !== undefined

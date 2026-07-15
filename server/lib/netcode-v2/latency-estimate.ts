@@ -1,5 +1,9 @@
 import log from '../logging/logger'
 
+// This module mirrors `server-rs/src/matchmaking/backbone.rs` on the matchmaker side: the two
+// deliberately share the same key canonicalization, default RTT, and served-base +
+// operator-override composition, so a change to one must be carried over to the other.
+
 /** Environment variable holding the backbone table as a JSON object of `"id_a|id_b": rtt_ms` pairs. */
 const BACKBONE_ENV_VAR = 'SB_REGION_BACKBONE_RTT_JSON'
 
@@ -28,11 +32,12 @@ function canonicalizeConfigKey(raw: string): string | undefined {
 }
 
 /**
- * A static table of region-to-region backbone round-trip times (ms), operator-supplied via
- * `SB_REGION_BACKBONE_RTT_JSON`. A pair paired with itself is always 0; a pair absent from the
- * table falls back to `DEFAULT_BACKBONE_RTT_MS`. Keys are canonicalized as the two region ids
- * sorted lexicographically and joined with a single `'|'`, so region ids must not themselves
- * contain `'|'`.
+ * A table of region-to-region backbone round-trip times (ms), composed from a served base (e.g.
+ * the coordinator's measured pairs) with `SB_REGION_BACKBONE_RTT_JSON` overlaid per-pair on top —
+ * an operator override wins over the served value for any pair it names. A pair paired with itself
+ * is always 0; a pair present in neither source falls back to `DEFAULT_BACKBONE_RTT_MS`. Keys are
+ * canonicalized as the two region ids sorted lexicographically and joined with a single `'|'`, so
+ * region ids must not themselves contain `'|'`.
  */
 export class BackboneRttTable {
   private readonly rtts: Map<string, number>
@@ -83,6 +88,18 @@ export class BackboneRttTable {
   }
 
   /**
+   * Builds the effective table for a session: `served` (e.g. the coordinator-measured pairs) as
+   * the base, with `SB_REGION_BACKBONE_RTT_JSON` applied per-pair on top of it — canonicalizing and
+   * dropping malformed keys the same way `fromEnv` does, and winning over a served entry for any
+   * pair it names. `served` defaults to empty, the correct state before a coordinator has measured
+   * anything (or when none is configured); a pair present in neither source still falls back to
+   * `DEFAULT_BACKBONE_RTT_MS` via `rtt()`.
+   */
+  static build(served: ReadonlyMap<string, number> = new Map()): BackboneRttTable {
+    return new BackboneRttTable([...served, ...BackboneRttTable.fromEnv().rtts])
+  }
+
+  /**
    * The backbone round-trip time (ms) between two regions: 0 for the same region, the configured
    * value for a known pair, or `DEFAULT_BACKBONE_RTT_MS` for an unconfigured pair.
    */
@@ -104,20 +121,25 @@ export interface LatencyEstimateInput {
  * Estimates a session's worst pairwise one-way latency (ms) across its players, for use as the
  * `latency_estimate_ms` hint on session create. Each pair's one-way estimate is
  * `rttA/2 + backbone(regionA, regionB)/2 + rttB/2`, where `rtt` is a player's measured round-trip
- * time to their chosen region and `backbone` is the static region-to-region round-trip time from
- * `SB_REGION_BACKBONE_RTT_JSON` (0 within a region, a conservative default for an unconfigured
- * pair). A lockstep game is bottlenecked by its slowest link, so the estimate is the maximum across
- * all pairs.
+ * time to their chosen region and `backbone` is the region-to-region round-trip time from
+ * `BackboneRttTable.build(servedRtts)` (0 within a region, a conservative default for a pair
+ * neither served nor overridden). A lockstep game is bottlenecked by its slowest link, so the
+ * estimate is the maximum across all pairs.
  *
  * A player missing either a region or a measured rtt carries no latency signal, so any pair
  * involving them is skipped and contributes nothing. Returns undefined when no pair is computable
  * (fewer than two players carry a signal), so the caller can omit the hint entirely rather than
  * sending a meaningless 0.
+ *
+ * @param servedRtts the served base for the backbone table (e.g. the coordinator's measured
+ *   pairs), keyed in the same canonical `"id_a|id_b"` form `BackboneRttTable` uses internally.
+ *   Defaults to empty, the correct state when none is available.
  */
 export function worstPairwiseLatencyMs(
   players: readonly LatencyEstimateInput[],
+  servedRtts: ReadonlyMap<string, number> = new Map(),
 ): number | undefined {
-  const backbone = BackboneRttTable.fromEnv()
+  const backbone = BackboneRttTable.build(servedRtts)
 
   let worst: number | undefined
   for (let i = 0; i < players.length; i++) {

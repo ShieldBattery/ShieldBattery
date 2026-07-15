@@ -8,7 +8,7 @@ import {
   makeGameServerRegionId,
 } from '../../../common/game-server-regions'
 import log from '../logging/logger'
-import { loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
+import { loadConfigFromEnv } from '../netcode-v2/netcode-v2-config'
 import { Clock } from '../time/clock'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -37,8 +37,25 @@ interface CoordinatorRegion {
   fallback: string
 }
 
+/**
+ * One region pair's relay-measured backbone round-trip time, as served by the coordinator on
+ * `GET /regions`. Sorted pair (`a < b`); `measured_at` is a unix-seconds timestamp that drifts on
+ * nearly every fetch as relays re-measure, so it's parsed but never compared for change detection.
+ */
+interface CoordinatorBackboneRtt {
+  a: string
+  b: string
+  rtt_ms: number
+  measured_at: number
+}
+
 interface CoordinatorRegionsResponse {
   regions: CoordinatorRegion[]
+  /**
+   * Absent on a coordinator that predates backbone RTT serving, and omitted by a current
+   * coordinator when the fleet hasn't measured any pair yet — both cases are just an empty table.
+   */
+  backbone_rtts?: CoordinatorBackboneRtt[]
 }
 
 function toGameServerRegion(region: CoordinatorRegion): GameServerRegion {
@@ -48,6 +65,20 @@ function toGameServerRegion(region: CoordinatorRegion): GameServerRegion {
     beacon: region.beacon,
     fallback: region.fallback,
   }
+}
+
+/**
+ * Maps the coordinator's sorted-pair backbone RTT list into the `"a|b" -> rtt_ms` lookup shape
+ * `BackboneRttTable` consumes, keyed exactly as served since the coordinator already sorts `a < b`.
+ */
+function toBackboneRttMap(
+  entries: CoordinatorBackboneRtt[] | undefined,
+): ReadonlyMap<string, number> {
+  const map = new Map<string, number>()
+  for (const entry of entries ?? []) {
+    map.set(`${entry.a}|${entry.b}`, entry.rtt_ms)
+  }
+  return map
 }
 
 /**
@@ -73,6 +104,12 @@ function toGameServerRegion(region: CoordinatorRegion): GameServerRegion {
 @singleton()
 export class GameServerRegionsService {
   private regions: GameServerRegion[] = []
+  /**
+   * The served backbone RTT pair table, keyed `"a|b"`. Cached beside `regions` on the same
+   * fetch/TTL machinery, but kept out of `currentEvent()`/the publish change-detection — see
+   * `fetchAndApply`.
+   */
+  private backboneRtts: ReadonlyMap<string, number> = new Map()
   private readonly config = loadConfigFromEnv()
 
   /** Monotonic time of the last successful fetch; undefined until one has ever succeeded. */
@@ -115,6 +152,25 @@ export class GameServerRegionsService {
 
     this.refreshInBackgroundIfStale()
     return this.regions as ReadonlyDeep<GameServerRegion[]>
+  }
+
+  /**
+   * The served backbone RTT pair table (keyed `"a|b"`, `a < b` lexicographically), for combining
+   * with an operator override into the effective table a session's latency estimate uses.
+   *
+   * Shares `getRegions()`'s staleness/refresh logic: awaits the first fetch if the cache has never
+   * been populated, otherwise returns the cache immediately and kicks a background re-fetch if it's
+   * stale. Empty (rather than throwing or blocking indefinitely) whenever no coordinator is
+   * configured, a fetch is failing, or none has served any pair yet.
+   */
+  async getBackboneRtts(): Promise<ReadonlyMap<string, number>> {
+    if (this.lastFetchedAt === undefined) {
+      await this.ensureFetch()
+      return this.backboneRtts
+    }
+
+    this.refreshInBackgroundIfStale()
+    return this.backboneRtts
   }
 
   /** Kicks a background re-fetch if the cache is stale (or was never populated). Never blocks. */
@@ -160,11 +216,13 @@ export class GameServerRegionsService {
   /** Runs one refresh attempt. Never throws — a failure is logged and the cache left as-is. */
   private async fetchAndApply(coordinatorUrl: string): Promise<GameServerRegion[]> {
     let updated: GameServerRegion[]
+    let updatedBackboneRtts: ReadonlyMap<string, number>
     try {
       const response = await got
         .get(`${coordinatorUrl}/regions`, { timeout: { request: 10000 } })
         .json<CoordinatorRegionsResponse>()
       updated = response.regions.map(toGameServerRegion)
+      updatedBackboneRtts = toBackboneRttMap(response.backbone_rtts)
     } catch (err) {
       this.lastFailedAt = this.clock.monotonicNow()
       log.error(
@@ -176,6 +234,12 @@ export class GameServerRegionsService {
 
     this.lastFetchedAt = this.clock.monotonicNow()
     this.lastFailedAt = undefined
+    // Cached on every successful fetch regardless of whether the region list changed below — pair
+    // RTTs (measured_at especially) drift on nearly every fetch, and must never gate or enter the
+    // client-facing publish, which stays keyed on the region list only (clients have no use for
+    // backbone RTTs, and the list already publishes rarely; the pair table would make it publish on
+    // nearly every fetch instead).
+    this.backboneRtts = updatedBackboneRtts
 
     if (!isDeepStrictEqual(updated, this.regions)) {
       this.regions = updated

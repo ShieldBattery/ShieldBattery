@@ -36,9 +36,24 @@ function wireRegion(id: string, displayName: string, suffix: string) {
   }
 }
 
-/** Queues one resolved `got.get(...).json()` response. */
-function mockCoordinatorRegionsOnce(regions: unknown[]) {
-  const json = vi.fn().mockResolvedValue({ regions })
+/** A `GET /regions` `backbone_rtts` entry, in the coordinator's snake_case wire shape. */
+function wireBackboneRtt(a: string, b: string, rttMs: number, measuredAt: number) {
+  // eslint-disable-next-line camelcase
+  return { a, b, rtt_ms: rttMs, measured_at: measuredAt }
+}
+
+/**
+ * Queues one resolved `got.get(...).json()` response. `backboneRtts` is omitted from the body
+ * entirely (rather than sent as `[]`) when left undefined, matching a coordinator predating
+ * backbone RTT serving.
+ */
+function mockCoordinatorRegionsOnce(regions: unknown[], backboneRtts?: unknown[]) {
+  const body: Record<string, unknown> = { regions }
+  if (backboneRtts !== undefined) {
+    // eslint-disable-next-line camelcase
+    body.backbone_rtts = backboneRtts
+  }
+  const json = vi.fn().mockResolvedValue(body)
   asMockedFunction(got.get).mockReturnValueOnce({ json } as any)
 }
 
@@ -241,6 +256,57 @@ describe('game-server-regions/GameServerRegionsService', () => {
       { id: 'us-east', displayName: 'US East', beacon: 'beacon-a', fallback: 'fallback-a' },
     ])
     // The failure did not re-publish (nothing changed).
+    expect(nydus.publish).toHaveBeenCalledTimes(1)
+  })
+
+  test('getBackboneRtts() awaits and returns the parsed served pair table on the first-ever fetch', async () => {
+    configureCoordinator()
+    mockCoordinatorRegionsOnce(
+      [wireRegion('us-east', 'US East', 'a')],
+      [wireBackboneRtt('eu-west', 'us-east', 90, 1_700_000_000)],
+    )
+    const service = makeService()
+
+    const backboneRtts = await service.getBackboneRtts()
+
+    expect(backboneRtts).toEqual(new Map([['eu-west|us-east', 90]]))
+  })
+
+  test('an absent backbone_rtts field (an old coordinator) yields an empty served pair table', async () => {
+    configureCoordinator()
+    mockCoordinatorRegionsOnce([wireRegion('us-east', 'US East', 'a')])
+    const service = makeService()
+
+    const backboneRtts = await service.getBackboneRtts()
+
+    expect(backboneRtts).toEqual(new Map())
+  })
+
+  test('a fetch where only backbone_rtts changed does not publish', async () => {
+    configureCoordinator()
+    mockCoordinatorRegionsOnce(
+      [wireRegion('us-east', 'US East', 'a')],
+      [wireBackboneRtt('eu-west', 'us-east', 90, 1_700_000_000)],
+    )
+    const service = makeService()
+    await service.getRegions()
+    expect(nydus.publish).toHaveBeenCalledTimes(1)
+
+    // Same region list, but a re-measured rtt_ms/measured_at — the shape every later fetch takes
+    // in steady state, since relays re-measure independently of whether the region list changes.
+    clock.setCurrentTime(clock.monotonicNow() + CACHE_TTL_MS)
+    mockCoordinatorRegionsOnce(
+      [wireRegion('us-east', 'US East', 'a')],
+      [wireBackboneRtt('eu-west', 'us-east', 95, 1_700_000_555)],
+    )
+    await service.getRegions()
+
+    // The served pair table did update from the background re-fetch...
+    await vi.waitFor(async () => {
+      expect(await service.getBackboneRtts()).toEqual(new Map([['eu-west|us-east', 95]]))
+    })
+    // ...but the region-list-only publish gate saw no change, so no second publish happened.
+    expect(got.get).toHaveBeenCalledTimes(2)
     expect(nydus.publish).toHaveBeenCalledTimes(1)
   })
 })
