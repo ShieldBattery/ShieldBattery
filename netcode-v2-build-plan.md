@@ -101,8 +101,9 @@ former `docs/region-selection-design.md` is deleted, full text in git history)*
   - **Backbone RTT table values** — `SB_REGION_BACKBONE_RTT_JSON` (sorted-pair keys, same-region
     0) needs real numbers; an unconfigured pair defaults to a conservative 150ms, which is fine
     for match quality but now also feeds the initial-buffer hint, so it inflates cross-region
-    initial buffers until set. Static config for now; could later be derived from live mesh RTTs
-    (the relays measure those) — sourcing idea, not committed work.
+    initial buffers until set. **Committed fix (pre-launch): relay-measured backbone — see
+    §Phase 5 "Configuration topology" work items.** Until that lands, public inter-AWS-region
+    latency data pasted once covers a launch.
   - **Region config deployment/admin story** — how `--regions` (and the backbone table) ship and
     change in production; Phase 5/6 territory alongside tenant enrollment.
 - The v1 rally-point pipeline (service, app manager, IPC, admin UI, deps, `rally_point_servers`,
@@ -309,9 +310,25 @@ replication config (`aws ecr describe-registry`) at run time.
 
 **Accepted two-party facts (set once each at bootstrap, not duplication):** the bootstrap
 secret (coordinator `.env` + `TF_VAR_…` at apply), the coordinator URL (task def env, SB
-`.env`, DNS/ACME), per-component image pins (`RP2_REF`, `relay_image_tag`). **Known leftover:**
-the SB backbone RTT table still names region pairs — future option is serving coordinator-side
-estimates via `/regions`; stays its own backlog item.
+`.env`, DNS/ACME), per-component image pins (`RP2_REF`, `relay_image_tag`).
+
+**Relay-measured backbone RTTs (ratified 2026-07-15 — WANTED BEFORE LAUNCH; closes the last
+hand-maintained region-pair table):** the backbone table becomes telemetry instead of config.
+Mechanism: region B's GameLift beacon is always up regardless of our fleet and speaks the same
+UDP echo clients ping, so a relay in region A measures A→B by pinging B's beacon directly — no
+second relay required, no scale-to-zero chicken-and-egg. Legs:
+- **rp2**: coordinator pushes the region registry's beacon targets to relays over the control
+  connection (additive frame, the TenantKeys/MeshPeers pattern); relays ping the other regions'
+  beacons on a slow cadence (median-of-N like the client measurement; beacons are third-party —
+  be polite) and report per-region RTT in the existing heartbeat; coordinator aggregates per
+  region *pair* with last-known retention (relays are ephemeral — values persist across a
+  region's scale-to-zero gaps, e.g. alongside the ledger) and serves the pair table on the
+  existing `GET /regions` response.
+- **SB**: consume the served table (the `/regions` fetch already exists), refresh on the same
+  cadence as the region list, and demote `SB_REGION_BACKBONE_RTT_JSON` to an explicit override;
+  a pair with no measurement yet keeps the 150ms default, so bootstrap behavior is unchanged and
+  real values simply take over as the fleet gets exercised. Both matchmaker (server-rs) and the
+  Node latency-estimate util read the same source so they can't drift.
 
 - Fargate task def (dual-stack ENI, IPv4 egress for ECR pull), scratch image, scale-to-zero per
   the policy above; cold-start budget measurement.
