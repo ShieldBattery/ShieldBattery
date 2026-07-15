@@ -212,17 +212,39 @@ compose; then stand up one region and measure.
 > (add-tenant = keygen → paste → env var → restart, zero AWS), deployment README
 > documents both one-spot flows, ecs.sample.json aligned.
 >
-> **Remaining in this leg:** Travis applies (account → staging fleet → GitHub var
-> `RELAY_ECR_ROLE_ARN` → publish once → wire the staging box per infra/terraform/README:
-> ecs_json + regions_json + access keys — re-promote coordinator :stable AFTER the rp2
-> push so it carries `a1b8cc8`'s tenant-key push, which relay images require);
-> one-region standup + cold-start measurement from ledger timestamps (calibrates the
-> 75s hold cap); live loopback pass of the provisioning path (ProcessProvisioner dev
-> stack — no AWS needed, runnable anytime). Queued nearby: rp2 accept PKCS#8 v1 keys
-> (from_pkcs8_maybe_unchecked), SB pin bump to rp2 tip once pushed (client crate
-> untouched by all three legs — routine), ECS-metadata address discovery + SB
-> per-client family selection (below), prod region list (catalog entries whenever
-> chosen).
+> **STAGING PROVISIONING LIVE + E2E GAME VERIFIED (2026-07-15).** Travis applied both
+> stacks with his own credentials (aws login worked with Terraform throughout); publish
+> workflow via OIDC succeeded first try; coordinator promoted + box wired (ecs_json +
+> regions_json + access keys; ledger + ECS config flipped on together). Then the full
+> path, live: matchmaking queue join → warm(us-west) → coordinator minted relay_id=1 +
+> RunTask → **enrolled 22s after launch** (negotiated v3; tenant keys pushed over the
+> control connection — first production use of the TenantKeys frame) → 1v1 match →
+> session created home_relay=1 → **real game over the Fargate relay, dialed via its
+> IPv6 address** (games.netcode_v2_relays recorded `[2600:1f14:…]:14900` — the whole
+> dual-stack chain proven) → clean lockstep (buffer settled at 1, ewma turn interval
+> 41ms) → session closed, webhook delivered through the dev funnel and recorded.
+> Cold-start datapoint: 22s RunTask→enrolled, comfortably inside the 75s hold cap.
+> **Bonus adversarial validation:** the game's result voided as no-majority because the
+> test ended it with the debug `forceLeave` — which is a deliberately *local,
+> non-consensus* injection, so the 1v1 simulations diverged and the comparator/desync
+> policy chain (event → webhook → void) fired correctly end to end on real infra. The
+> debug command is renamed `forceUnsyncedLeave` so nobody mistakes it for a synced
+> leave again; verify-app/verify-pr skills updated (1v1 = guaranteed void; team games =
+> majority-discard). Relay CloudWatch logs were full of ANSI codes — fixed rp2
+> `3a02fca` (color only on a real terminal; also `5a9dab9` real backend bucket names).
+>
+> **Scale-to-zero CONFIRMED (same night):** 600s after the session closed (relay-idle
+> window + one reconcile tick), the coordinator drained relay 1 — Draining → set+ack →
+> clean exit → deregistered, 150ms end to end — and the task stopped. The full
+> hands-off lifecycle (mint → launch → enroll 22s → serve a game over IPv6 → idle →
+> drain → retire) is live-proven; an idle fleet runs zero tasks.
+>
+> **Remaining in this leg:** more cold-start datapoints as regions get used. Queued nearby: rp2 accept PKCS#8 v1
+> keys (from_pkcs8_maybe_unchecked), loopback ProcessProvisioner pass (now largely
+> redundant — the ECS path is live-proven; keep for AWS-free regression testing),
+> ECS-metadata address discovery + SB per-client family selection (below), prod region
+> list (catalog entries whenever chosen), /netstat polish: mark departed players' rows
+> (age column is the only signal today).
 
 #### Configuration topology (ratified 2026-07-14)
 

@@ -19,9 +19,19 @@ health checks, and logs.
 | Rust GraphQL server | `cargo run` in `server-rs/` | 5556 | GraphQL API (`/gql`) |
 | Webpack dev server | `pnpm run dev` | 5566 | Electron renderer bundle + hot reload |
 | GraphQL codegen watch | `pnpm run gen-graphql --watch` | — | Regenerates `client/gql/` on schema change (optional) |
+| Tailscale funnel | `node tools/dev-funnel.mjs` | — | **Required when `.env` points at a remote rp2 coordinator** (see below) |
 | Electron app | `pnpm run app` (or see verify-app) | — | The actual desktop client |
 
 Config (ports, DB creds, `DATABASE_URL`) lives in `.env`. `SB_CANONICAL_HOST` is `http://localhost:5555`.
+
+> **Remote coordinator ⇒ run the funnel.** When `SB_RP2_COORDINATOR_URL` in `.env` names a
+> non-loopback coordinator (e.g. the staging one), that coordinator delivers game-event webhooks
+> (relay-reported results, session-closed) to this machine via the tenant's registered funnel
+> hostname. Start `node tools/dev-funnel.mjs` as a background process alongside the servers — it
+> no-ops when the coordinator is loopback, so it's always safe to run. Without it, games played
+> against the remote coordinator produce **no local errors** but their results hang unreconciled
+> or void — a confusing failure that looks like a results bug. Verify it's serving by reading its
+> output (it prints the public `https://….ts.net` hostname when engaged).
 
 ## Start order
 
