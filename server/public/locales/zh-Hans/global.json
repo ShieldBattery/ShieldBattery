@@ -1145,6 +1145,7 @@
       "logOutErrorMessage": "遇到错误。请稍后再试。",
       "logOutErrorTitle": "登出失败",
       "reportBug": "反馈 bug",
+      "settings": "设置",
       "viewProfile": "查看资料",
       "whisperCloseError": "关闭私聊会话时遇到错误：{{errorMessage}}",
       "whispers": "私聊"

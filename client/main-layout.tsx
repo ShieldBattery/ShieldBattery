@@ -660,6 +660,14 @@ function AppBar({
                 navigateToUserProfile(selfUser.id, selfUser.name)
               }}
             />
+            <MenuItem
+              icon={<MaterialIcon icon='settings' />}
+              text={t('navigation.leftNav.settings', 'Settings')}
+              onClick={() => {
+                closeProfileOverlay()
+                dispatch(openSettings())
+              }}
+            />
             {IS_ELECTRON ? (
               <MenuItem
                 icon={<MaterialIcon icon='bug_report' />}

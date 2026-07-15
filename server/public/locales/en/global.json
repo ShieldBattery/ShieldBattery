@@ -1151,6 +1151,7 @@
       "logOutErrorMessage": "Something went wrong. Please try again later.",
       "logOutErrorTitle": "Logging out failed",
       "reportBug": "Report a bug",
+      "settings": "Settings",
       "viewProfile": "View profile",
       "whisperCloseError": "Error closing whisper session: {{errorMessage}}",
       "whispers": "Whispers"

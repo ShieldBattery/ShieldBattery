@@ -1157,6 +1157,7 @@
       "logOutErrorMessage": "Algo salió mal. Por favor, intenta de nuevo más tarde.",
       "logOutErrorTitle": "Error al cerrar sesión",
       "reportBug": "Reportar un error",
+      "settings": "Ajustes",
       "viewProfile": "Ver perfil",
       "whisperCloseError": "Error al cerrar la sesión de susurro: {{errorMessage}}",
       "whispers": "Susurros"

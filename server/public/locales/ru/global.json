@@ -1163,6 +1163,7 @@
       "logOutErrorMessage": "Что-то пошло не так. Пожалуйста, попробуйте позже.",
       "logOutErrorTitle": "Не удалось выйти из системы",
       "reportBug": "Сообщить об ошибке",
+      "settings": "Настройки",
       "viewProfile": "Просмотреть профиль",
       "whisperCloseError": "Ошибка при закрытии приватной переписки: {{errorMessage}}",
       "whispers": "Приватные сообщения"

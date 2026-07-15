@@ -1145,6 +1145,7 @@
       "logOutErrorMessage": "문제가 발생했습니다. 나중에 다시 시도해 주세요.",
       "logOutErrorTitle": "로그아웃에 실패했습니다",
       "reportBug": "버그 신고",
+      "settings": "설정",
       "viewProfile": "프로필 보기",
       "whisperCloseError": "귓속말 세션을 종료하는 중 오류가 발생했습니다: {{errorMessage}}",
       "whispers": "귓속말"
