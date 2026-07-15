@@ -9,13 +9,7 @@ import logger from '../../logging/logger'
 import { FilledButton, TextButton } from '../../material/button'
 import { Card } from '../../material/card'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
-import {
-  bodyLarge,
-  labelMedium,
-  singleLine,
-  titleLarge,
-  TitleMedium,
-} from '../../styles/typography'
+import { bodyLarge, labelMedium, singleLine, TitleMedium } from '../../styles/typography'
 import {
   cancelTwitchOAuthFlow,
   openTwitchOAuthPopup,
@@ -66,11 +60,6 @@ const Root = styled.div`
 `
 
 const Section = styled.div``
-
-const SectionHeader = styled.div`
-  ${titleLarge};
-  margin-bottom: 8px;
-`
 
 const SectionDescription = styled.div`
   ${bodyLarge};
@@ -293,7 +282,6 @@ export function ConnectionSettings() {
   return (
     <Root>
       <Section>
-        <SectionHeader>{t('settings.user.connections.title', 'Connections')}</SectionHeader>
         <SectionDescription>
           {t(
             'settings.user.connections.description',
