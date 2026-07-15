@@ -417,7 +417,12 @@ async fn insert_player(
     Json(payload): Json<QueueRequest>,
 ) -> Result<StatusCode, MatchmakerError> {
     let modes: Vec<MatchmakingType> = payload.mode_ratings.iter().map(|r| r.mode).collect();
-    let player = build_player(payload.id, payload.mode_ratings, payload.region, payload.rtt_ms);
+    let player = build_player(
+        payload.id,
+        payload.mode_ratings,
+        payload.region,
+        payload.rtt_ms,
+    );
     {
         let mut matchmaker = lock_matchmaker(&state.matchmaker);
         matchmaker.insert_player(player)?;

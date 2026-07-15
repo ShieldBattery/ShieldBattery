@@ -884,9 +884,7 @@ impl PreviewApp {
             .spacing(vec2(8.0, 6.0))
             .show(ui, |ui| {
                 ui.label("Session id");
-                changed |= ui
-                    .add(egui::DragValue::new(&mut n.session_id))
-                    .changed();
+                changed |= ui.add(egui::DragValue::new(&mut n.session_id)).changed();
                 ui.end_row();
 
                 ui.label("Relay id");
@@ -978,7 +976,9 @@ impl PreviewApp {
             }
         });
 
-        changed |= ui.checkbox(&mut n.homes_known, "per-player homes known").changed();
+        changed |= ui
+            .checkbox(&mut n.homes_known, "per-player homes known")
+            .changed();
         ui.horizontal(|ui| {
             ui.label("Events:");
             changed |= ui.checkbox(&mut n.event_buffer, "buffer").changed();

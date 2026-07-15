@@ -697,7 +697,12 @@ impl TurnState {
 
     /// Seeds the `/netstat` operator header identity: the session id, this client's own home relay id
     /// at session create, and that relay's region. Called once from session establish.
-    pub fn set_net_stats_identity(&mut self, session_id: u64, relay_id: u64, region: Option<String>) {
+    pub fn set_net_stats_identity(
+        &mut self,
+        session_id: u64,
+        relay_id: u64,
+        region: Option<String>,
+    ) {
         self.net_stats.set_identity(session_id, relay_id, region);
     }
 
@@ -2160,7 +2165,11 @@ mod tests {
         assert!(state.receive_turns(0));
         assert_eq!(state.latency_turns(), 5, "not due yet");
         state.apply_due_directive(10);
-        assert_eq!(state.latency_turns(), 4, "directive applied on top of the stamp");
+        assert_eq!(
+            state.latency_turns(),
+            4,
+            "directive applied on top of the stamp"
+        );
         // Unlike the initial stamp, an in-game directive does record a ticker change — and it moved
         // from the stamped 5, confirming the stamp updated the net-stats buffer notion.
         assert_eq!(state.net_stats.buffer_turns(), 4);
@@ -2251,7 +2260,10 @@ mod tests {
         state.debug_force_unsynced_leave(PEER_SLOT);
         state.debug_force_unsynced_leave(LOCAL_SLOT);
 
-        assert_eq!(state.take_forced_unsynced_leaves(), vec![PEER_SLOT, LOCAL_SLOT]);
+        assert_eq!(
+            state.take_forced_unsynced_leaves(),
+            vec![PEER_SLOT, LOCAL_SLOT]
+        );
         // A second drain finds nothing: `take` left the queue empty.
         assert!(state.take_forced_unsynced_leaves().is_empty());
     }

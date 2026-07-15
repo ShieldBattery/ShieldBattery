@@ -217,7 +217,10 @@ fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
                 .family(mono()),
         );
         let history = match view.link_last_change_secs {
-            Some(secs) => format!("(down {}×, last change {}s ago)", view.link_down_count, secs),
+            Some(secs) => format!(
+                "(down {}×, last change {}s ago)",
+                view.link_down_count, secs
+            ),
             None => "(no drops)".to_string(),
         };
         ui.label(
@@ -326,7 +329,14 @@ fn draw_strips(ui: &mut egui::Ui, view: &NetStatsView) {
         .buffer_samples
         .last()
         .map_or_else(|| "—".to_string(), |&v| format!("buffer {v}t"));
-    draw_strip(ui, "buffer depth", &buffer_points, true, buffer_value, SECONDARY);
+    draw_strip(
+        ui,
+        "buffer depth",
+        &buffer_points,
+        true,
+        buffer_value,
+        SECONDARY,
+    );
 
     ui.add_space(6.0);
 
@@ -337,7 +347,14 @@ fn draw_strips(ui: &mut egui::Ui, view: &NetStatsView) {
         Some(ms) if ms >= 500 => WARNING,
         _ => SECONDARY,
     };
-    draw_strip(ui, "worst gap", &gap_points, false, gap_value, gap_value_color);
+    draw_strip(
+        ui,
+        "worst gap",
+        &gap_points,
+        false,
+        gap_value,
+        gap_value_color,
+    );
 }
 
 /// Draws one labelled history strip: a caption, a framed plot of `points` (each already normalized

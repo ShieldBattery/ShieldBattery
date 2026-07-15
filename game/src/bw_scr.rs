@@ -2282,10 +2282,9 @@ impl BwScr {
                         // A snapshot of the network-stats overlay, or `None` when it is toggled off
                         // (or there is no session). Safe to reach the turn state here: the draw path
                         // holds no turn-state lock across `step`.
-                        let net_stats = netcode_v2::with_turn_state(|s| {
-                            s.net_stats_status(Instant::now())
-                        })
-                        .flatten();
+                        let net_stats =
+                            netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
+                                .flatten();
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -2967,7 +2966,8 @@ impl BwScr {
     #[cfg(debug_assertions)]
     unsafe fn apply_forced_unsynced_leaves(&self, nc: &NetcodeV2Bw) {
         unsafe {
-            let Some(forced) = netcode_v2::with_turn_state(|s| s.take_forced_unsynced_leaves()) else {
+            let Some(forced) = netcode_v2::with_turn_state(|s| s.take_forced_unsynced_leaves())
+            else {
                 // No live session — nothing to force.
                 return;
             };
@@ -2977,7 +2977,8 @@ impl BwScr {
                     warn!("netcode v2: forceUnsyncedLeave for unmapped slot {slot:?}; skipping");
                     continue;
                 };
-                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = FORCED_UNSYNCED_LEAVE_REASON;
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) =
+                    FORCED_UNSYNCED_LEAVE_REASON;
                 netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
             }
         }

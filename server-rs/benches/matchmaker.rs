@@ -11,8 +11,10 @@ use server::matchmaking::config::MatchmakerConfig;
 use server::matchmaking::matchmaker::{Matchmaker, Player, PlayerModeRating};
 
 fn bench_1v1(c: &mut Criterion) {
-    let mut matchmaker =
-        Matchmaker::new(Arc::new(MatchmakerConfig::default()), BackboneRttTable::default());
+    let mut matchmaker = Matchmaker::new(
+        Arc::new(MatchmakerConfig::default()),
+        BackboneRttTable::default(),
+    );
     for player in (0..1000).map(|n| Player {
         id: n,
         ratings: HashMap::from([(
@@ -34,8 +36,10 @@ fn bench_1v1(c: &mut Criterion) {
 }
 
 fn bench_2v2(c: &mut Criterion) {
-    let mut matchmaker =
-        Matchmaker::new(Arc::new(MatchmakerConfig::default()), BackboneRttTable::default());
+    let mut matchmaker = Matchmaker::new(
+        Arc::new(MatchmakerConfig::default()),
+        BackboneRttTable::default(),
+    );
     for player in (0..1000).map(|n| Player {
         id: n,
         ratings: HashMap::from([(

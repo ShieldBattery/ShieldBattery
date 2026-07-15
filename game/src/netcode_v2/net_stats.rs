@@ -371,10 +371,13 @@ impl NetStats {
         let from = self.relay_id;
         self.relay_id = new_relay_id;
         self.region = None;
-        self.push_event(now, NetEvent::Rehomed {
-            from,
-            to: new_relay_id,
-        });
+        self.push_event(
+            now,
+            NetEvent::Rehomed {
+                from,
+                to: new_relay_id,
+            },
+        );
     }
 
     /// Appends an event to the ticker ring, dropping the oldest once it is full.
