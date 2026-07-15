@@ -1,11 +1,18 @@
-//! Static region-to-region backbone latency table used to estimate a candidate match's latency.
+//! Region-to-region backbone latency table used to estimate a candidate match's latency.
 //!
 //! Each queued player reports the region they want to home in and their measured round-trip time to
 //! it. The matchmaker estimates a pair's one-way latency as `rtt_a/2 + backbone(a, b)/2 + rtt_b/2`,
-//! where `backbone(a, b)` is the static region-to-region round-trip time from this table (0 within a
-//! region). The table is operator-supplied via the `SB_REGION_BACKBONE_RTT_JSON` environment
-//! variable; an unconfigured pair falls back to a conservative default.
+//! where `backbone(a, b)` is the region-to-region round-trip time from this table (0 within a
+//! region). The table is composed from two sources (see [`BackboneRttTable::compose`]): the rp2
+//! coordinator's measured pairs as the base (fetched from `GET /regions`), with the operator-supplied
+//! `SB_REGION_BACKBONE_RTT_JSON` overlaid per-pair on top (the override wins for any pair it names). A
+//! pair present in neither falls back to a conservative default.
+//!
+//! This mirrors `server/lib/netcode-v2/latency-estimate.ts` on the Node side: the two deliberately
+//! share the same key canonicalization, default RTT, and served-base + operator-override composition,
+//! so a change to one must be mirrored in the other.
 
+use serde::Deserialize;
 use std::collections::HashMap;
 
 /// Environment variable holding the backbone table as a JSON object of `"id_a|id_b": rtt_ms` pairs.
@@ -71,10 +78,11 @@ impl BackboneRttTable {
         Ok(Self::new(raw))
     }
 
-    /// Loads the table from `SB_REGION_BACKBONE_RTT_JSON`, falling back to an empty table (every
-    /// cross-region pair then uses [`DEFAULT_BACKBONE_RTT_MS`]) when the variable is unset or
-    /// unparseable. An empty table is the correct dev-loopback state, so an unset variable is not an
-    /// error.
+    /// Loads the operator override layer from `SB_REGION_BACKBONE_RTT_JSON`, falling back to an empty
+    /// table when the variable is unset or unparseable. This layer is overlaid on top of the
+    /// coordinator-served pairs by [`BackboneRttTable::compose`]; an unset variable (the correct
+    /// dev-loopback state) simply contributes no overrides, so it is not an error. In isolation
+    /// (no served base) every cross-region pair it doesn't name resolves to [`DEFAULT_BACKBONE_RTT_MS`].
     pub fn from_env() -> Self {
         match std::env::var(BACKBONE_ENV_VAR) {
             Ok(json) => match Self::from_json(&json) {
@@ -88,6 +96,26 @@ impl BackboneRttTable {
         }
     }
 
+    /// Composes the lookup table the matchmaker reads from the coordinator-served pairs (`served`,
+    /// the base) and an operator override (`override_table`, overlaid per-pair on top — the override
+    /// wins for any pair it names). Served pair ids are re-canonicalized defensively, even though the
+    /// coordinator emits them already sorted. A pair present in neither source falls back to
+    /// [`DEFAULT_BACKBONE_RTT_MS`] at lookup time (see [`BackboneRttTable::rtt`]).
+    ///
+    /// With `served` empty this yields exactly the override layer, which is the table's state when no
+    /// coordinator is configured (dev loopback).
+    pub fn compose(served: &[ServedPairRtt], override_table: &BackboneRttTable) -> Self {
+        let mut rtts: HashMap<String, f32> = served
+            .iter()
+            .map(|pair| (pair_key(&pair.a, &pair.b), pair.rtt_ms))
+            .collect();
+        // Operator overrides win per pair, so they are applied on top of the served base.
+        for (key, &rtt) in &override_table.rtts {
+            rtts.insert(key.clone(), rtt);
+        }
+        Self { rtts }
+    }
+
     /// The backbone round-trip time (ms) between two regions: 0 for the same region, the configured
     /// value for a known pair, or [`DEFAULT_BACKBONE_RTT_MS`] for an unconfigured pair.
     pub fn rtt(&self, a: &str, b: &str) -> f32 {
@@ -99,6 +127,47 @@ impl BackboneRttTable {
             .copied()
             .unwrap_or(DEFAULT_BACKBONE_RTT_MS)
     }
+}
+
+/// One region pair's backbone RTT as served by the rp2 coordinator on `GET /regions`. The coordinator
+/// emits the pair already sorted (`a` < `b`) and includes a `measured_at` timestamp that the
+/// matchmaker ignores (it only needs the RTT), so that field is intentionally not represented here.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServedPairRtt {
+    pub a: String,
+    pub b: String,
+    /// Round-trip time (ms) between the two regions. The wire value is an integer; it is stored as
+    /// `f32` to match the table's value type.
+    pub rtt_ms: f32,
+}
+
+/// The subset of the coordinator's `GET /regions` response the matchmaker consumes. The region list
+/// (also in that response) is the Node server's concern and is ignored here; only the served backbone
+/// pairs are extracted.
+#[derive(Debug, Deserialize)]
+struct RegionsResponse {
+    /// Absent on coordinators predating backbone-RTT serving (and omitted when the fleet has measured
+    /// nothing yet), so it defaults to empty. Held as raw values so a single malformed entry is
+    /// dropped individually rather than failing the whole parse.
+    #[serde(default)]
+    backbone_rtts: Vec<serde_json::Value>,
+}
+
+/// Parses the coordinator's `GET /regions` JSON body, extracting only the served backbone-RTT pairs.
+/// A missing `backbone_rtts` field (an older coordinator, or an empty served table) yields an empty
+/// list. Individual entries that don't match [`ServedPairRtt`] are dropped with a warning rather than
+/// failing the whole response, so one malformed pair can't blank the table. Returns an error only
+/// when the body isn't valid JSON of the expected top-level shape.
+pub fn parse_served_backbone_rtts(json: &str) -> Result<Vec<ServedPairRtt>, serde_json::Error> {
+    let response: RegionsResponse = serde_json::from_str(json)?;
+    let mut pairs = Vec::with_capacity(response.backbone_rtts.len());
+    for entry in response.backbone_rtts {
+        match serde_json::from_value::<ServedPairRtt>(entry) {
+            Ok(pair) => pairs.push(pair),
+            Err(e) => tracing::warn!("ignoring malformed served backbone RTT entry: {e:?}"),
+        }
+    }
+    Ok(pairs)
 }
 
 #[cfg(test)]
@@ -162,5 +231,102 @@ mod tests {
             ("us-east|eu-west".to_string(), 90.0),
         ]);
         assert_eq!(table.rtt("us-east", "eu-west"), 90.0);
+    }
+
+    fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
+        ServedPairRtt {
+            a: a.to_string(),
+            b: b.to_string(),
+            rtt_ms,
+        }
+    }
+
+    #[test]
+    fn compose_served_only_uses_served_value() {
+        let table = BackboneRttTable::compose(
+            &[served("us-east", "eu-west", 90.0)],
+            &BackboneRttTable::default(),
+        );
+        assert_eq!(table.rtt("us-east", "eu-west"), 90.0);
+        // Served pairs are canonicalized, so lookups stay order-independent.
+        assert_eq!(table.rtt("eu-west", "us-east"), 90.0);
+    }
+
+    #[test]
+    fn compose_override_only_uses_override_value() {
+        let override_table = BackboneRttTable::new([("us-east|eu-west".to_string(), 42.0)]);
+        let table = BackboneRttTable::compose(&[], &override_table);
+        assert_eq!(table.rtt("us-east", "eu-west"), 42.0);
+    }
+
+    #[test]
+    fn compose_override_beats_served_per_pair() {
+        let served_pairs = [
+            served("us-east", "eu-west", 90.0),
+            served("ap-south", "us-east", 200.0),
+        ];
+        // The override names only one of the two served pairs (in the reverse id order, to prove
+        // canonicalization), so the other keeps its served value.
+        let override_table = BackboneRttTable::new([("eu-west|us-east".to_string(), 55.0)]);
+        let table = BackboneRttTable::compose(&served_pairs, &override_table);
+        assert_eq!(table.rtt("us-east", "eu-west"), 55.0);
+        assert_eq!(table.rtt("ap-south", "us-east"), 200.0);
+    }
+
+    #[test]
+    fn compose_pair_in_neither_uses_default() {
+        let override_table = BackboneRttTable::new([("us-east|ap-south".to_string(), 120.0)]);
+        let table =
+            BackboneRttTable::compose(&[served("us-east", "eu-west", 90.0)], &override_table);
+        assert_eq!(
+            table.rtt("us-east", "ap-northeast"),
+            DEFAULT_BACKBONE_RTT_MS
+        );
+        // Same region is still free.
+        assert_eq!(table.rtt("us-east", "us-east"), 0.0);
+    }
+
+    #[test]
+    fn parse_extracts_served_pairs_when_present() {
+        let json = r#"{
+            "regions": [{"id": "us-east", "displayName": "US East"}],
+            "backbone_rtts": [
+                {"a": "eu-central", "b": "us-east", "rtt_ms": 87, "measured_at": 1752555555}
+            ]
+        }"#;
+        let pairs = parse_served_backbone_rtts(json).unwrap();
+        assert_eq!(pairs.len(), 1);
+        assert_eq!(pairs[0].a, "eu-central");
+        assert_eq!(pairs[0].b, "us-east");
+        assert_eq!(pairs[0].rtt_ms, 87.0);
+    }
+
+    #[test]
+    fn parse_absent_field_yields_empty() {
+        // A coordinator that doesn't serve the field at all (and a response with no region list).
+        let pairs = parse_served_backbone_rtts(r#"{"regions": [{"id": "us-east"}]}"#).unwrap();
+        assert!(pairs.is_empty());
+    }
+
+    #[test]
+    fn parse_drops_malformed_entries_keeping_valid_ones() {
+        let json = r#"{
+            "backbone_rtts": [
+                {"a": "eu-central", "b": "us-east", "rtt_ms": 87},
+                {"a": "eu-central"},
+                {"b": "us-east", "rtt_ms": 50},
+                {"a": "ap-south", "b": "us-east", "rtt_ms": 200}
+            ]
+        }"#;
+        let pairs = parse_served_backbone_rtts(json).unwrap();
+        // The two well-formed entries survive; the two missing a required field are dropped.
+        assert_eq!(pairs.len(), 2);
+        assert_eq!(pairs[0].a, "eu-central");
+        assert_eq!(pairs[1].a, "ap-south");
+    }
+
+    #[test]
+    fn parse_rejects_non_json_body() {
+        assert!(parse_served_backbone_rtts("not json at all").is_err());
     }
 }

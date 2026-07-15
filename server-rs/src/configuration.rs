@@ -35,6 +35,11 @@ pub struct Settings {
     /// required when the Twitch integration is configured, since Twitch delivers EventSub
     /// webhooks to `<gql_origin>/twitch/eventsub`.
     pub gql_origin: Option<String>,
+    /// Base URL of the rp2 coordinator, e.g. `http://localhost:5555` (the same `SB_RP2_COORDINATOR_URL`
+    /// the Node server on this box reads). `None` disables the backbone-RTT fetch loop entirely: the
+    /// matchmaker's backbone table is then built from `SB_REGION_BACKBONE_RTT_JSON` alone, which is the
+    /// correct dev-loopback posture. Empty/whitespace is treated as unset.
+    pub rp2_coordinator_url: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -209,6 +214,8 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         eventsub_secret: twitch_eventsub_secret.unwrap().into(),
     });
 
+    let rp2_coordinator_url = env_var_non_empty("SB_RP2_COORDINATOR_URL");
+
     let gql_origin = env_var_non_empty("SB_GQL_ORIGIN");
     if twitch.is_some() && gql_origin.is_none() {
         return Err(eyre!(
@@ -275,5 +282,6 @@ pub fn get_configuration() -> eyre::Result<Settings> {
         file_store,
         twitch,
         gql_origin,
+        rp2_coordinator_url,
     })
 }

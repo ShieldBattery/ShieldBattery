@@ -1,4 +1,4 @@
-use crate::matchmaking::backbone::BackboneRttTable;
+use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt, parse_served_backbone_rtts};
 use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
     Match, Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
@@ -18,6 +18,7 @@ use axum::routing::{delete, get};
 use axum::{Json, Router, extract::State, routing::post};
 use base64::Engine as _;
 use base64::prelude::BASE64_STANDARD;
+use color_eyre::eyre::{self, Context as _, eyre};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -34,6 +35,14 @@ const MAX_PUBLISH_ATTEMPTS: u32 = 3;
 
 /// Delay between the publish attempts counted by [MAX_PUBLISH_ATTEMPTS].
 const PUBLISH_RETRY_DELAY: Duration = Duration::from_millis(200);
+
+/// How often [run_backbone_fetch_loop] polls the coordinator's `GET /regions` for the served backbone
+/// RTT table. Backbone RTTs are stable, so a coarse cadence is plenty.
+const BACKBONE_FETCH_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
+/// Per-request timeout for the coordinator `GET /regions` fetch, so a hung coordinator can't stall a
+/// fetch (and therefore the loop) indefinitely.
+const BACKBONE_FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Serialize)]
 struct ApiError {
@@ -124,6 +133,10 @@ struct MatchmakingApiState {
     /// it into the matchmaker, so an admin edit (which replaces the pointee — separate change) takes
     /// effect without a restart.
     config: Arc<ArcSwap<MatchmakerConfig>>,
+    /// The live, swappable backbone RTT table, refreshed by [run_backbone_fetch_loop] when a
+    /// coordinator is configured. The search loop reads it each tick and pushes it into the
+    /// matchmaker (mirroring `config`), so a refreshed served table takes effect without a restart.
+    backbone: Arc<ArcSwap<BackboneRttTable>>,
     process_token: Uuid,
 }
 
@@ -280,8 +293,10 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         // and have the fresh queue entry incorrectly removed.
         let selected = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
-            // Push the latest config into the matchmaker so an admin edit takes effect this tick.
+            // Push the latest config and backbone table into the matchmaker so an admin edit or a
+            // coordinator refresh takes effect this tick.
             matchmaker.set_config(config);
+            matchmaker.set_backbone(state.backbone.load().as_ref().clone());
             // Roll the population estimate forward before searching so the adaptive quality threshold
             // reflects recent population rather than the post-drain residual queue size.
             matchmaker.update_population_estimates(tick_start);
@@ -373,6 +388,83 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
     std::process::exit(1);
 }
 
+/// Periodically fetches the rp2 coordinator's served backbone RTT table and swaps the composed
+/// (served-base + operator-override) table into `backbone`. Runs an immediate fetch at startup, then
+/// one every [BACKBONE_FETCH_INTERVAL]. A failed fetch keeps the current table; the error is logged
+/// only when the loop transitions between working and failing (tracked by `was_failing`), so a
+/// sustained outage doesn't spam a line per tick. Only spawned when a coordinator URL is configured;
+/// it runs for the lifetime of the process (dropped when the process exits, like the search loop).
+async fn run_backbone_fetch_loop(
+    coordinator_url: String,
+    override_table: BackboneRttTable,
+    backbone: Arc<ArcSwap<BackboneRttTable>>,
+) {
+    let client = reqwest::Client::new();
+    let regions_url = format!("{}/regions", coordinator_url.trim_end_matches('/'));
+    // The first tick of a fresh interval fires immediately, giving the startup fetch for free.
+    let mut interval = tokio::time::interval(BACKBONE_FETCH_INTERVAL);
+    let mut was_failing = false;
+    loop {
+        interval.tick().await;
+        let result = fetch_served_backbone_rtts(&client, &regions_url).await;
+        was_failing = apply_backbone_fetch_result(result, &override_table, &backbone, was_failing);
+    }
+}
+
+/// Fetches and parses the coordinator's served backbone RTT pairs from `GET <regions_url>`, applying a
+/// [BACKBONE_FETCH_TIMEOUT] request timeout. Returns the served pairs on success; any transport,
+/// HTTP-status, or parse failure is surfaced as an error for [apply_backbone_fetch_result] to handle.
+async fn fetch_served_backbone_rtts(
+    client: &reqwest::Client,
+    regions_url: &str,
+) -> eyre::Result<Vec<ServedPairRtt>> {
+    let resp = client
+        .get(regions_url)
+        .timeout(BACKBONE_FETCH_TIMEOUT)
+        .send()
+        .await
+        .wrap_err("backbone RTT request to the coordinator failed")?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(eyre!("coordinator /regions returned HTTP {status}"));
+    }
+    let body = resp
+        .text()
+        .await
+        .wrap_err("failed to read the coordinator /regions body")?;
+    parse_served_backbone_rtts(&body).wrap_err("failed to parse the coordinator /regions response")
+}
+
+/// Applies the outcome of one backbone fetch to the shared table. On success it recomposes the table
+/// (served base + operator override) and swaps it in; on failure it keeps the current table. Logs a
+/// single line on each transition — an error on working→failing and an info notice on failing→working
+/// — so a sustained outage doesn't log every tick. Returns the `was_failing` state for the next call.
+fn apply_backbone_fetch_result(
+    result: eyre::Result<Vec<ServedPairRtt>>,
+    override_table: &BackboneRttTable,
+    backbone: &ArcSwap<BackboneRttTable>,
+    was_failing: bool,
+) -> bool {
+    match result {
+        Ok(served) => {
+            let pair_count = served.len();
+            backbone.store(Arc::new(BackboneRttTable::compose(&served, override_table)));
+            if was_failing {
+                tracing::info!(
+                    "backbone RTT fetch recovered; refreshed the served table ({pair_count} pairs)"
+                );
+            }
+            false
+        }
+        Err(e) => {
+            if !was_failing {
+                tracing::error!("backbone RTT fetch failed, keeping the current table: {e:?}");
+            }
+            true
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ProcessTokenResponse {
@@ -388,21 +480,42 @@ async fn get_process_token(State(state): State<MatchmakingApiState>) -> Json<Pro
 pub fn create_matchmaking_api(
     redis_pool: RedisPool,
     config: Arc<ArcSwap<MatchmakerConfig>>,
+    coordinator_url: Option<String>,
 ) -> Router<AppState> {
     metrics::describe_metrics();
+
+    // The operator override (`SB_REGION_BACKBONE_RTT_JSON`), read once at startup and overlaid on top
+    // of the coordinator-served table on every refresh (see `BackboneRttTable::compose`).
+    let backbone_override = BackboneRttTable::from_env();
+    // The live, swappable backbone table. Seeded override-only (no served pairs yet); this is also its
+    // permanent state when no coordinator is configured. When one is, the fetch loop below refreshes
+    // it; the search loop reads it each tick, like `config`.
+    let initial_backbone = BackboneRttTable::compose(&[], &backbone_override);
+    let backbone = Arc::new(ArcSwap::from_pointee(initial_backbone.clone()));
 
     let state = MatchmakingApiState {
         matchmaker: Arc::new(Mutex::new(Matchmaker::new(
             config.load_full(),
-            BackboneRttTable::from_env(),
+            initial_backbone,
         ))),
         config,
+        backbone: backbone.clone(),
         process_token: Uuid::new_v4(),
     };
 
     // Spawn the autonomous match-finding loop. It runs for the lifetime of the process, and is
     // supervised so a panic restarts it rather than silently stopping all matchmaking.
     tokio::spawn(supervise_search_loop(state.clone(), redis_pool));
+
+    // When a coordinator URL is configured, keep the backbone table refreshed from its `GET /regions`.
+    // Without one (dev loopback) the table stays override-only and no fetch task is spawned.
+    if let Some(coordinator_url) = coordinator_url {
+        tokio::spawn(run_backbone_fetch_loop(
+            coordinator_url,
+            backbone_override,
+            backbone,
+        ));
+    }
 
     Router::new()
         .route("/", post(insert_player))
@@ -513,11 +626,22 @@ async fn cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::deduplicate_matches;
+    use super::{apply_backbone_fetch_result, deduplicate_matches, fetch_served_backbone_rtts};
     use crate::matchmaking::MatchmakingType;
+    use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt};
     use crate::matchmaking::matchmaker::{Match, Player, PlayerModeRating, QueueEntry};
+    use arc_swap::ArcSwap;
+    use color_eyre::eyre::eyre;
     use std::collections::HashMap;
     use std::time::Instant;
+
+    fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
+        ServedPairRtt {
+            a: a.to_string(),
+            b: b.to_string(),
+            rtt_ms,
+        }
+    }
 
     #[test]
     fn deduplication_keeps_first_match_per_player() {
@@ -606,5 +730,119 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].team_a[0].player.id, 0);
         assert_eq!(result[0].team_b[0].player.id, 1);
+    }
+
+    #[test]
+    fn fetch_success_swaps_in_composed_table() {
+        // An operator override that wins over a served pair of the same key.
+        let override_table = BackboneRttTable::new([("eu-west|us-east".to_string(), 55.0)]);
+        let backbone = ArcSwap::from_pointee(BackboneRttTable::compose(&[], &override_table));
+
+        let served_pairs = vec![
+            served("us-east", "eu-west", 90.0),
+            served("ap-south", "us-east", 200.0),
+        ];
+        let was_failing =
+            apply_backbone_fetch_result(Ok(served_pairs), &override_table, &backbone, false);
+
+        assert!(!was_failing);
+        let table = backbone.load();
+        // Override wins for the pair it names; the other served pair is applied as-is.
+        assert_eq!(table.rtt("us-east", "eu-west"), 55.0);
+        assert_eq!(table.rtt("ap-south", "us-east"), 200.0);
+    }
+
+    #[test]
+    fn fetch_failure_keeps_current_table() {
+        let override_table = BackboneRttTable::new([("eu-west|us-east".to_string(), 55.0)]);
+        // Seed with a previously-fetched served value so we can prove a failure leaves it intact.
+        let seeded =
+            BackboneRttTable::compose(&[served("ap-south", "us-east", 200.0)], &override_table);
+        let backbone = ArcSwap::from_pointee(seeded);
+
+        let was_failing =
+            apply_backbone_fetch_result(Err(eyre!("boom")), &override_table, &backbone, false);
+
+        assert!(was_failing);
+        let table = backbone.load();
+        assert_eq!(table.rtt("ap-south", "us-east"), 200.0);
+        assert_eq!(table.rtt("eu-west", "us-east"), 55.0);
+    }
+
+    #[test]
+    fn fetch_result_tracks_was_failing_transitions() {
+        let override_table = BackboneRttTable::default();
+        let backbone = ArcSwap::from_pointee(BackboneRttTable::default());
+
+        // working -> failing, then failing -> failing (stays failing).
+        assert!(apply_backbone_fetch_result(
+            Err(eyre!("x")),
+            &override_table,
+            &backbone,
+            false
+        ));
+        assert!(apply_backbone_fetch_result(
+            Err(eyre!("y")),
+            &override_table,
+            &backbone,
+            true
+        ));
+        // failing -> working (recovery), then working -> working.
+        assert!(!apply_backbone_fetch_result(
+            Ok(vec![]),
+            &override_table,
+            &backbone,
+            true
+        ));
+        assert!(!apply_backbone_fetch_result(
+            Ok(vec![]),
+            &override_table,
+            &backbone,
+            false
+        ));
+    }
+
+    #[tokio::test]
+    async fn fetch_served_backbone_rtts_parses_success() {
+        let mut server = mockito::Server::new_async().await;
+        let body = serde_json::json!({
+            "regions": [],
+            "backbone_rtts": [
+                {"a": "eu-central", "b": "us-east", "rtt_ms": 87, "measured_at": 1752555555}
+            ]
+        });
+        let route = server
+            .mock("GET", "/regions")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body.to_string())
+            .create_async()
+            .await;
+
+        let client = reqwest::Client::new();
+        let url = format!("{}/regions", server.url());
+        let served = fetch_served_backbone_rtts(&client, &url).await.unwrap();
+
+        route.assert_async().await;
+        assert_eq!(served.len(), 1);
+        assert_eq!(served[0].a, "eu-central");
+        assert_eq!(served[0].rtt_ms, 87.0);
+    }
+
+    #[tokio::test]
+    async fn fetch_served_backbone_rtts_errors_on_http_failure() {
+        let mut server = mockito::Server::new_async().await;
+        let route = server
+            .mock("GET", "/regions")
+            .with_status(500)
+            .create_async()
+            .await;
+
+        let client = reqwest::Client::new();
+        let url = format!("{}/regions", server.url());
+        let result = fetch_served_backbone_rtts(&client, &url).await;
+
+        route.assert_async().await;
+        assert!(result.is_err());
     }
 }

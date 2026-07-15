@@ -157,9 +157,10 @@ pub struct Matchmaker<T: QueueSelector> {
     /// fresh on each search tick and replaceable via [`Matchmaker::set_config`] so an admin change
     /// takes effect without a restart.
     config: Arc<MatchmakerConfig>,
-    /// Static region-to-region backbone latency table, supplied once at construction from
-    /// process-level config. Unlike `config` it isn't hot-swapped — the region topology is set at
-    /// deploy time.
+    /// Region-to-region backbone latency table used to estimate a candidate match's latency. Read
+    /// fresh on each search tick and replaceable via [`Matchmaker::set_backbone`], so a refreshed
+    /// coordinator-served table (or an operator override change) takes effect without a restart, like
+    /// `config`.
     backbone: BackboneRttTable,
     queue: Vec<QueueEntry>,
     queue_sizes: HashMap<MatchmakingType, usize>,
@@ -320,6 +321,13 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// effect on the next search tick; the queue and population history are untouched.
     pub fn set_config(&mut self, config: Arc<MatchmakerConfig>) {
         self.config = config;
+    }
+
+    /// Replaces the active backbone RTT table (e.g. after the coordinator fetch loop refreshes the
+    /// served pairs). Takes effect on the next search tick; the queue and population history are
+    /// untouched.
+    pub fn set_backbone(&mut self, backbone: BackboneRttTable) {
+        self.backbone = backbone;
     }
 
     /// Returns the instant at which this matchmaker was created. Queue times in serialized tickets
