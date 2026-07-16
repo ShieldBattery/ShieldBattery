@@ -1,0 +1,7 @@
+{
+  "endpoint": "https://nyc3.digitaloceanspaces.com",
+  "region": "us-east-1",
+  "bucket": "sb-rp2-flight",
+  "accessKeyEnv": "FLIGHT_STORE_ACCESS_KEY",
+  "secretKeyEnv": "FLIGHT_STORE_SECRET_KEY"
+}
