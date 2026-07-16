@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
+import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   ALL_GAME_FORMATS,
@@ -14,13 +15,14 @@ import {
 } from '../../common/games/game-filters'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
-import { filterColorCodes } from '../../common/maps'
+import { filterColorCodes, MapInfoJson } from '../../common/maps'
 import { replayGameTypeToLabel } from '../../common/replays'
 import {
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
 } from '../../common/replays-library'
+import { viewGame } from '../games/action-creators'
 import { DayHeader, formatDayHeaderLabel, getDayBoundaries } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
 import {
@@ -31,9 +33,10 @@ import {
   WatchReplayOverlay,
 } from '../games/game-list-entry'
 import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
-import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
+import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
+import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import {
   ButtonStateStyleProps,
   FilledButton,
@@ -47,10 +50,11 @@ import { MenuList } from '../material/menu/menu'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Ripple } from '../material/ripple'
+import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -110,21 +114,23 @@ function parseSource(value: string): 'sb' | 'bnet' | undefined {
 
 // ---- Layout ----------------------------------------------------------------------------------
 
-const PageRow = styled.div`
+const PageColumn = styled.div`
   display: flex;
-  flex-direction: row;
-  gap: 24px;
+  flex-direction: column;
+  gap: 8px;
   min-height: 100%;
   padding: 24px 0;
 `
 
-const MainColumn = styled.div`
+const BodyRow = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 24px;
+`
+
+const ListColumn = styled.div`
   flex-grow: 1;
   min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
 `
 
 const CountLine = styled.div`
@@ -163,6 +169,28 @@ const EmptyStatePath = styled.div`
   word-break: break-all;
 `
 
+// ---- SB game map resolution -------------------------------------------------------------------
+
+/** Game ids we've already tried to fetch this session, so unmount/remount cycles from the
+ * virtualized list (and genuine 404s for games the server no longer knows) don't refetch. */
+const requestedGameIds = new Set<string>()
+
+function useSbGameMap(gameId: string | undefined): ReadonlyDeep<MapInfoJson> | undefined {
+  const dispatch = useAppDispatch()
+  const game = useAppSelector(s => (gameId ? s.games.byId.get(gameId) : undefined))
+  const map = useAppSelector(s => (game?.mapId ? s.maps.byId.get(game.mapId) : undefined))
+
+  useEffect(() => {
+    if (!gameId || game || requestedGameIds.has(gameId)) return
+    requestedGameIds.add(gameId)
+    // Deliberately no abort on unmount: the response is tiny and caching it in the store is the
+    // point. Errors fall back to the placeholder tile.
+    dispatch(viewGame(gameId, { onSuccess: () => {}, onError: () => {} }))
+  }, [gameId, game, dispatch])
+
+  return map
+}
+
 // ---- Row -------------------------------------------------------------------------------------
 
 const ReplayRowContainer = styled.div<ButtonStateStyleProps & { $selected: boolean }>`
@@ -186,6 +214,13 @@ const ReplayRowContainer = styled.div<ButtonStateStyleProps & { $selected: boole
 
 const PlaceholderIcon = styled(MaterialIcon)`
   opacity: 0.5;
+`
+
+const StyledMapThumbnail = styled(ReduxMapThumbnail)`
+  ${elevationPlus1};
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
 `
 
 const ParseErrorPlayers = styled.div`
@@ -226,8 +261,6 @@ function playersToDisplayTeams(
 interface ReplayListEntryProps {
   entry: ReplayLibraryEntry
   selected: boolean
-  /** When true, the leading cell shows a relative time (for duration sorts); otherwise clock time. */
-  relativeTime: boolean
   computerLabel: string
   watchTitle: string
   onSelect: (id: number) => void
@@ -237,13 +270,13 @@ interface ReplayListEntryProps {
 function ReplayListEntry({
   entry,
   selected,
-  relativeTime,
   computerLabel,
   watchTitle,
   onSelect,
   onWatch,
 }: ReplayListEntryProps) {
   const { t } = useTranslation()
+  const map = useSbGameMap(entry.parseError ? undefined : entry.sbGameId)
   const [buttonProps, rippleRef] = useButtonState({
     onClick: () => onSelect(entry.id),
     onDoubleClick: () => onWatch(entry),
@@ -251,11 +284,7 @@ function ReplayListEntry({
 
   const leading = (
     <Tooltip text={longTimestamp.format(entry.gameTime)} position='right'>
-      <GameDate>
-        {relativeTime
-          ? narrowDuration.format(entry.gameTime)
-          : shortTimestamp.format(entry.gameTime)}
-      </GameDate>
+      <GameDate>{narrowDuration.format(entry.gameTime)}</GameDate>
     </Tooltip>
   )
 
@@ -272,9 +301,20 @@ function ReplayListEntry({
 
   const thumbnail = (
     <ThumbnailContainer>
-      <MapNoImageContainer>
-        <PlaceholderIcon icon={entry.parseError ? 'error' : 'map'} size={36} />
-      </MapNoImageContainer>
+      {map ? (
+        <StyledMapThumbnail
+          key={map.hash}
+          mapId={map.id}
+          size={64}
+          forceAspectRatio={1}
+          hasMapPreviewAction={false}
+          hasFavoriteAction={false}
+        />
+      ) : (
+        <MapNoImageContainer>
+          <PlaceholderIcon icon={entry.parseError ? 'error' : 'map'} size={36} />
+        </MapNoImageContainer>
+      )}
       <WatchReplayOverlay>
         <Tooltip text={watchTitle} position='top'>
           <IconButton
@@ -328,6 +368,14 @@ const InspectorRoot = styled.div`
   overflow-y: auto;
 `
 
+const InspectorMapThumbnail = styled(ReduxMapThumbnail)`
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+
+  border-radius: 8px;
+`
+
 const InspectorEmpty = styled.div`
   ${bodyMedium};
 
@@ -346,15 +394,31 @@ const InspectorHeader = styled.div`
   gap: 8px;
 `
 
+const InspectorChipsRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+`
+
 const InspectorModeChip = styled.div`
   ${labelMedium};
 
-  align-self: flex-start;
   padding: 2px 10px;
 
   border-radius: 999px;
   background-color: rgb(from var(--theme-primary) r g b / 0.16);
   color: var(--color-blue80);
+`
+
+const InspectorSourceChip = styled.div`
+  ${labelMedium};
+
+  padding: 2px 10px;
+
+  border-radius: 999px;
+  background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
+  color: var(--theme-on-surface-variant);
 `
 
 const InspectorMapName = styled.div`
@@ -398,6 +462,7 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
   const { t } = useTranslation()
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+  const map = useSbGameMap(entry?.sbGameId)
 
   if (!entry) {
     return (
@@ -410,6 +475,9 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
   }
 
   const mode = replayGameTypeToLabel(entry.gameType, t)
+  const sourceLabel = entry.sbGameId
+    ? t('replays.library.filters.sourceSb', 'ShieldBattery')
+    : t('replays.library.filters.sourceBnet', 'Battle.net')
   const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
   const teamLabels =
     layout && shouldShowTeamLabels(layout)
@@ -417,6 +485,13 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
           t('game.teamName.number', { defaultValue: 'Team {{teamNumber}}', teamNumber: i + 1 }),
         )
       : undefined
+
+  const chips = (
+    <InspectorChipsRow>
+      <InspectorModeChip>{mode}</InspectorModeChip>
+      <InspectorSourceChip>{sourceLabel}</InspectorSourceChip>
+    </InspectorChipsRow>
+  )
 
   const actions = (
     <InspectorActions>
@@ -454,10 +529,20 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
 
   return (
     <InspectorRoot>
+      {map ? (
+        <InspectorMapThumbnail
+          key={map.hash}
+          mapId={map.id}
+          forceAspectRatio={1}
+          hasMapPreviewAction={false}
+          hasFavoriteAction={false}
+        />
+      ) : null}
+
       {entry.parseError ? (
         <>
           <InspectorHeader>
-            <InspectorModeChip>{mode}</InspectorModeChip>
+            {chips}
             <InspectorMapName>{entry.fileName}</InspectorMapName>
           </InspectorHeader>
           <InspectorErrorNote>
@@ -467,7 +552,7 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
       ) : (
         <>
           <InspectorHeader>
-            <InspectorModeChip>{mode}</InspectorModeChip>
+            {chips}
             <InspectorMapName>{filterColorCodes(entry.mapName)}</InspectorMapName>
             <InspectorSubline>
               {longTimestamp.format(entry.gameTime)} ·{' '}
@@ -696,7 +781,6 @@ export function ReplayLibrary() {
       <ReplayListEntry
         entry={entry}
         selected={entry.id === focusedEntry?.id}
-        relativeTime={isDurationSort}
         computerLabel={computerLabel}
         watchTitle={watchTitle}
         onSelect={setFocusedId}
@@ -799,80 +883,80 @@ export function ReplayLibrary() {
 
   return (
     <CenteredContentContainer ref={setScrollParent} $targetWidth={1280}>
-      <PageRow>
-        <MainColumn>
-          <GameFilterBar
-            showRankedCustom={false}
-            duration={duration}
-            setDuration={v => setDurationParam(v === GameDurationFilter.All ? '' : v)}
-            sort={sort}
-            setSort={v => setSortParam(v === GameSortOption.LatestFirst ? '' : v)}
-            mapName={mapName}
-            setMapName={setMapNameParam}
-            playerName={playerName}
-            setPlayerName={setPlayerNameParam}
-            format={format}
-            setFormat={v => setFormatParam(v ?? '')}
-            matchup={matchup}
-            setMatchup={v => setMatchupParam(v ?? '')}
-            hasExtraFilters={hasExtraFilters}
-            onClearExtraFilters={() => {
-              setGameTypeParam('')
-              setSourceParam('')
-            }}>
-            <FilterChip
-              label={
-                gameType !== undefined
-                  ? replayGameTypeToLabel(gameType, t)
-                  : t('replays.library.filters.mode', 'Mode')
-              }
-              selected={gameType !== undefined}>
+      <PageColumn>
+        <GameFilterBar
+          showRankedCustom={false}
+          duration={duration}
+          setDuration={v => setDurationParam(v === GameDurationFilter.All ? '' : v)}
+          sort={sort}
+          setSort={v => setSortParam(v === GameSortOption.LatestFirst ? '' : v)}
+          mapName={mapName}
+          setMapName={setMapNameParam}
+          playerName={playerName}
+          setPlayerName={setPlayerNameParam}
+          format={format}
+          setFormat={v => setFormatParam(v ?? '')}
+          matchup={matchup}
+          setMatchup={v => setMatchupParam(v ?? '')}
+          hasExtraFilters={hasExtraFilters}
+          onClearExtraFilters={() => {
+            setGameTypeParam('')
+            setSourceParam('')
+          }}>
+          <FilterChip
+            label={
+              gameType !== undefined
+                ? replayGameTypeToLabel(gameType, t)
+                : t('replays.library.filters.mode', 'Mode')
+            }
+            selected={gameType !== undefined}>
+            <SelectableMenuItem
+              text={t('replays.library.filters.modeAny', 'Any mode')}
+              selected={gameType === undefined}
+              onClick={() => setGameTypeParam('')}
+            />
+            {REPLAY_GAME_TYPES.map(gt => (
               <SelectableMenuItem
-                text={t('replays.library.filters.modeAny', 'Any mode')}
-                selected={gameType === undefined}
-                onClick={() => setGameTypeParam('')}
+                key={gt}
+                text={replayGameTypeToLabel(gt, t)}
+                selected={gameType === gt}
+                onClick={() => setGameTypeParam(String(gt))}
               />
-              {REPLAY_GAME_TYPES.map(gt => (
-                <SelectableMenuItem
-                  key={gt}
-                  text={replayGameTypeToLabel(gt, t)}
-                  selected={gameType === gt}
-                  onClick={() => setGameTypeParam(String(gt))}
-                />
-              ))}
-            </FilterChip>
+            ))}
+          </FilterChip>
 
-            <FilterChip label={sourceLabel} selected={source !== undefined}>
-              <SelectableMenuItem
-                text={t('replays.library.filters.sourceAny', 'Any source')}
-                selected={source === undefined}
-                onClick={() => setSourceParam('')}
-              />
-              <SelectableMenuItem
-                text={t('replays.library.filters.sourceSb', 'ShieldBattery')}
-                selected={source === 'sb'}
-                onClick={() => setSourceParam('sb')}
-              />
-              <SelectableMenuItem
-                text={t('replays.library.filters.sourceBnet', 'Battle.net')}
-                selected={source === 'bnet'}
-                onClick={() => setSourceParam('bnet')}
-              />
-            </FilterChip>
-          </GameFilterBar>
+          <FilterChip label={sourceLabel} selected={source !== undefined}>
+            <SelectableMenuItem
+              text={t('replays.library.filters.sourceAny', 'Any source')}
+              selected={source === undefined}
+              onClick={() => setSourceParam('')}
+            />
+            <SelectableMenuItem
+              text={t('replays.library.filters.sourceSb', 'ShieldBattery')}
+              selected={source === 'sb'}
+              onClick={() => setSourceParam('sb')}
+            />
+            <SelectableMenuItem
+              text={t('replays.library.filters.sourceBnet', 'Battle.net')}
+              selected={source === 'bnet'}
+              onClick={() => setSourceParam('bnet')}
+            />
+          </FilterChip>
+        </GameFilterBar>
 
-          {countLine}
+        {countLine}
 
-          {listContent}
-        </MainColumn>
+        <BodyRow>
+          <ListColumn>{listContent}</ListColumn>
 
-        <Inspector
-          entry={focusedEntry}
-          computerLabel={computerLabel}
-          onWatch={watchEntry}
-          onReveal={revealEntry}
-        />
-      </PageRow>
+          <Inspector
+            entry={focusedEntry}
+            computerLabel={computerLabel}
+            onWatch={watchEntry}
+            onReveal={revealEntry}
+          />
+        </BodyRow>
+      </PageColumn>
     </CenteredContentContainer>
   )
 }
