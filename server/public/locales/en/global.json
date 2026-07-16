@@ -1246,6 +1246,8 @@
       "replayCount_other": "{{count}} replays",
       "scanning": "Scanning replays… {{done}}/{{total}}",
       "showInExplorer": "Show in Explorer",
+      "sourceTagBnet": "B.NET",
+      "sourceTagSb": "SB",
       "watchReplay": "Watch replay"
     },
     "loading": {

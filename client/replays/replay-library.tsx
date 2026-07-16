@@ -36,6 +36,8 @@ import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from '../games/player-te
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
+import Logo from '../logos/logo-no-bg.svg'
+import { MapNoImage } from '../maps/map-image'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import {
   ButtonStateStyleProps,
@@ -349,7 +351,12 @@ function ReplayListEntry({
 
 // ---- Inspector -------------------------------------------------------------------------------
 
-const InspectorRoot = styled.div`
+// Mirrors `DayHeader`'s own box (see `client/games/day-header.tsx`): 16px top padding + 20px
+// `titleSmall` line-height + 8px bottom padding. Used to align the panel with the first replay
+// row instead of the day separator above it, when the list is day-grouped.
+const DAY_HEADER_HEIGHT_PX = 44
+
+const InspectorRoot = styled.div<{ $alignWithFirstRow: boolean }>`
   ${containerStyles(ContainerLevel.Low)};
 
   flex-shrink: 0;
@@ -359,6 +366,7 @@ const InspectorRoot = styled.div`
   top: 24px;
   max-height: calc(100vh - 96px);
   padding: 24px;
+  margin-top: ${props => (props.$alignWithFirstRow ? `${DAY_HEADER_HEIGHT_PX}px` : '0')};
 
   display: flex;
   flex-direction: column;
@@ -374,6 +382,15 @@ const InspectorMapThumbnail = styled(ReduxMapThumbnail)`
   aspect-ratio: 1;
 
   border-radius: 8px;
+`
+
+const InspectorMapPlaceholder = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+
+  border-radius: 8px;
+  contain: content;
 `
 
 const InspectorEmpty = styled.div`
@@ -411,14 +428,34 @@ const InspectorModeChip = styled.div`
   color: var(--color-blue80);
 `
 
-const InspectorSourceChip = styled.div`
+const SbSourceLogo = styled(Logo)`
+  width: 16px;
+  height: 16px;
+`
+
+const InspectorSourceBadgeSb = styled.div`
   ${labelMedium};
 
-  padding: 2px 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 
-  border-radius: 999px;
-  background-color: rgb(from var(--theme-on-surface) r g b / 0.12);
+  padding: 2px 8px;
+
+  border-radius: 6px;
+  background-color: var(--theme-primary);
+  color: var(--theme-on-primary);
+`
+
+const InspectorSourceBadgeBnet = styled.div`
+  ${labelMedium};
+
+  padding: 2px 8px;
+
+  border-radius: 6px;
+  border: 1px solid var(--theme-outline);
   color: var(--theme-on-surface-variant);
+  text-transform: uppercase;
 `
 
 const InspectorMapName = styled.div`
@@ -454,11 +491,13 @@ const InspectorErrorNote = styled.div`
 interface InspectorProps {
   entry: ReplayLibraryEntry | undefined
   computerLabel: string
+  /** True when the list is day-grouped, so the panel's top should align with the first row. */
+  alignWithFirstRow: boolean
   onWatch: (entry: ReplayLibraryEntry) => void
   onReveal: (entry: ReplayLibraryEntry) => void
 }
 
-function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) {
+function Inspector({ entry, computerLabel, alignWithFirstRow, onWatch, onReveal }: InspectorProps) {
   const { t } = useTranslation()
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
@@ -466,7 +505,7 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
 
   if (!entry) {
     return (
-      <InspectorRoot>
+      <InspectorRoot $alignWithFirstRow={alignWithFirstRow}>
         <InspectorEmpty>
           {t('replays.library.inspector.empty', 'Select a replay to see its details')}
         </InspectorEmpty>
@@ -475,9 +514,6 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
   }
 
   const mode = replayGameTypeToLabel(entry.gameType, t)
-  const sourceLabel = entry.sbGameId
-    ? t('replays.library.filters.sourceSb', 'ShieldBattery')
-    : t('replays.library.filters.sourceBnet', 'Battle.net')
   const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
   const teamLabels =
     layout && shouldShowTeamLabels(layout)
@@ -489,7 +525,16 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
   const chips = (
     <InspectorChipsRow>
       <InspectorModeChip>{mode}</InspectorModeChip>
-      <InspectorSourceChip>{sourceLabel}</InspectorSourceChip>
+      {entry.sbGameId ? (
+        <InspectorSourceBadgeSb>
+          <SbSourceLogo />
+          {t('replays.library.sourceTagSb', 'SB')}
+        </InspectorSourceBadgeSb>
+      ) : (
+        <InspectorSourceBadgeBnet>
+          {t('replays.library.sourceTagBnet', 'B.NET')}
+        </InspectorSourceBadgeBnet>
+      )}
     </InspectorChipsRow>
   )
 
@@ -528,16 +573,19 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
   )
 
   return (
-    <InspectorRoot>
+    <InspectorRoot $alignWithFirstRow={alignWithFirstRow}>
       {map ? (
         <InspectorMapThumbnail
           key={map.hash}
           mapId={map.id}
           forceAspectRatio={1}
-          hasMapPreviewAction={false}
-          hasFavoriteAction={false}
+          showInfoLayer={true}
         />
-      ) : null}
+      ) : (
+        <InspectorMapPlaceholder>
+          <MapNoImage />
+        </InspectorMapPlaceholder>
+      )}
 
       {entry.parseError ? (
         <>
@@ -553,7 +601,7 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
         <>
           <InspectorHeader>
             {chips}
-            <InspectorMapName>{filterColorCodes(entry.mapName)}</InspectorMapName>
+            {!map ? <InspectorMapName>{filterColorCodes(entry.mapName)}</InspectorMapName> : null}
             <InspectorSubline>
               {longTimestamp.format(entry.gameTime)} ·{' '}
               {getGameDurationString((entry.durationFrames * 1000) / 24)}
@@ -952,6 +1000,7 @@ export function ReplayLibrary() {
           <Inspector
             entry={focusedEntry}
             computerLabel={computerLabel}
+            alignWithFirstRow={!isDurationSort}
             onWatch={watchEntry}
             onReveal={revealEntry}
           />
