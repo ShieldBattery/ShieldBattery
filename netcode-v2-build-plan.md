@@ -69,8 +69,8 @@ reliable-ordered protocol (rationale in `architecture.md`).
 ## 1. Decisions ledger (compact)
 
 D1 (QUIC in DLL, three-hook seam), D4 (defer spectator; in-session observers ARE built), D8
-(observability: logs, desync ordinals, `/netstat`, flight recorder — durable sink still owed,
-§2), D9 (relay-owned buffer control law + computed initial depth), D10 (validating relay,
+(observability: logs, desync ordinals, `/netstat`, flight recorder — durable sink + read path
+built 2026-07-16, staging setup remains, §2), D9 (relay-owned buffer control law + computed initial depth), D10 (validating relay,
 fuzzed), D11 (app-server-mediated re-home; no auto-drop), D12 (Storm replaced wholesale):
 **built as designed**. D3 (Fargate + scale-to-zero + dual-stack) and D7 (GameLift beacon region
 selection): **built AND live on staging**. D2 (multi-tenant coordinator) / D5 (env-isolated
@@ -112,11 +112,32 @@ class; the tenant-credential consolidation half remains (§2).
    `2f43f20` stores per-direction slots and serves the round-half-up average (wire shape
    unchanged; ledger schema v3, one row per pair+origin). `SB_REGION_BACKBONE_RTT_JSON` is now
    an emergency per-pair override only. Nothing remains on this item.
-2. **Flight-recorder durable sink + read path** (D8's owed half). The dev `--flight-dir` file
-   sink exists; production relays currently *discard* recordings at session close. Needs the
-   S3-compatible sink (DO Spaces; policy ratified: 14-day lifecycle, 30-day desync pin) and a way
-   to fetch blobs by `<tenant>/<session>/<relay_id>.json` (the game record's session id + relay
-   history make them findable). This is prod incident forensics — want it before real traffic.
+2. **Flight-recorder durable sink + read path** (D8's owed half) — **BUILT 2026-07-16; staging
+   setup remains.** Relays stay credential-free: each flushed recording ships up the existing WSS
+   control connection as an additive `RelayToCoordinator::FlightRecording` frame (tenant/session +
+   relay-computed `desynced` flag + blob JSON as an opaque string, skew-proof; relay identity =
+   the connection's enrolled id, never a frame field; own bounded pipe so blobs never delay
+   webhook-bearing notices; drain flush fan-out capped below the queue depth). The coordinator is
+   the sole Spaces credential holder (`--flight-store` JSON names env-var NAMES, fail-closed —
+   tenants.json pattern; aws-sdk-s3 pinned =1.119.0 on the existing ring-only smithy stack):
+   stores `flight/<tenant>/<session>/<relay_id>.json` vs `desync/...` — retention class is a key
+   *prefix* because S3-compatible lifecycle rules filter by prefix, not tag (14d / 30d rules,
+   paste-ready in `deployment/coordinator/README.md`). Pinning = relay's flag OR the coordinator's
+   TTL'd desync mark (set in `handle_desync` before any webhook gate), plus a convergence sweep
+   moving a session's earlier unpinned blobs when a pinned one lands — covers restart/reorder, so
+   ALL relays' blobs of a desynced session end up pinned (why coordinator-mediated beat
+   relay-direct-to-S3: only the coordinator sees every desync). Reads: tenant-signed
+   `POST /flight/blobs` (list) / `POST /flight/blob` (fetch verbatim); tenant comes from the
+   signature only — cross-tenant reads structurally impossible; ingest refuses non-key-safe tenant
+   ids (an id with `/` would alias another tenant's key space). Ops: `deployment/coordinator/
+   tools/fetch-flight.mjs` signs like the app server (game record's `netcode_v2_session` +
+   `netcode_v2_relays` → blobs). rp2 local main `43ec857`+`ccdb566`+`7cb9349` (UNPUSHED — Travis's
+   push gate; client crate untouched, pin bump is rev-only); SB `1d8a86fa4` (deployment surface).
+   Gates green (fmt/clippy/test/rustdoc); startup smoke verified all three `--flight-store` paths
+   against the real binary. **Remaining:** push + coordinator image promote (before relay images,
+   as always); one-time DO setup (bucket `sb-rp2-flight`, scoped Spaces key, lifecycle rules —
+   README steps); staging verify = a real game's blob listable/fetchable, then a
+   `forceUnsyncedLeave` 1v1 to watch the desync pin land both relays' blobs under `desync/`.
 3. **Monitoring hookup for the rp2 infra** *(noted 2026-07-15 — shape not yet ratified, decide
    when picked up).* The Grafana/Prometheus stack (`deployment/monitoring/`: tailnet-only
    scraping, provisioned dashboards) should cover the new infra before real traffic. Natural
