@@ -443,8 +443,8 @@ const InspectorSourceBadgeSb = styled.div`
   padding: 2px 8px;
 
   border-radius: 6px;
-  background-color: var(--theme-primary);
-  color: var(--theme-on-primary);
+  border: 1px solid var(--theme-outline);
+  color: var(--theme-on-surface-variant);
 `
 
 const InspectorSourceBadgeBnet = styled.div`
