@@ -97,7 +97,7 @@ class; the tenant-credential consolidation half remains (§2).
    `GameServerRegionsService` caches it beside the region list (deliberately outside the
    client-publish diff) and server-rs polls `/regions` into an ArcSwap table each 5min —
    with `SB_REGION_BACKBONE_RTT_JSON` demoted to a per-pair override that wins where it names a
-   pair. rp2 commits `4bc6ec5..4e1a5a4` (local main, UNPUSHED), SB `9440588dd`+`a1f6364bf`
+   pair. rp2 commits `4bc6ec5..e7dce1a` (local main, UNPUSHED), SB `9440588dd`+`a1f6364bf`
    (rp2-integration). Loopback acceptance green end to end (two dev-beacon regions → sweep →
    heartbeat → served pair; both directions proven; retention across a dead fleet proven).
    **Remaining:** push rp2 + bump the SB pin (routine — client crate untouched), coordinator
