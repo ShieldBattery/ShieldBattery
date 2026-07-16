@@ -11,6 +11,7 @@ import {
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { renderGamesWithDayHeaders } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
 import { GameListEntry } from '../games/game-list-entry'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
@@ -237,7 +238,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
       </MatchHistoryContainer>
     )
   } else {
-    const gameItems = games.map(game => (
+    const gameItems = renderGamesWithDayHeaders(games, sort, t, game => (
       <GameListEntry key={game.id} game={game} showResult={true} forUserId={userId} />
     ))
 
