@@ -1,63 +1,71 @@
 import { debounce } from 'lodash-es'
-import { Fragment, useEffect, useRef, useState } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
-import { GroupedVirtuoso, GroupedVirtuosoHandle } from 'react-virtuoso'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   ALL_GAME_FORMATS,
-  createEmptyMatchup,
-  decodeMatchup,
   EncodedMatchupString,
-  encodeMatchup,
   GameDurationFilter,
   GameFormat,
-  getDurationLabel,
+  GameSortOption,
+  makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
-import { RaceChar } from '../../common/races'
 import { replayGameTypeToLabel } from '../../common/replays'
 import {
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
 } from '../../common/replays-library'
-import { MatchupFilter } from '../games/matchup-filter'
+import { DayHeader, formatDayHeaderLabel, getDayBoundaries } from '../games/day-header'
+import { GameFilterBar } from '../games/game-filter-bar'
+import {
+  GameDate,
+  GameListEntryLayout,
+  MapNoImageContainer,
+  ThumbnailContainer,
+  WatchReplayOverlay,
+} from '../games/game-list-entry'
 import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 import { longTimestamp, narrowDuration, shortTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
-import { FilledButton, IconButton, OutlinedButton, TextButton } from '../material/button'
+import {
+  ButtonStateStyleProps,
+  FilledButton,
+  IconButton,
+  TextButton,
+  useButtonState,
+} from '../material/button'
 import { FilterChip } from '../material/filter-chip'
+import { MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
-import { TextField } from '../material/text-field'
+import { Ripple } from '../material/ripple'
+import { Tooltip } from '../material/tooltip'
+import { useLocationSearchParam } from '../navigation/router-hooks'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
-import { getRaceColor } from '../styles/colors'
+import { CenteredContentContainer } from '../styles/centered-container'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   bodyLarge,
   bodyMedium,
-  bodySmall,
-  headlineSmall,
-  labelLarge,
   labelMedium,
-  labelSmall,
   singleLine,
   titleLarge,
-  titleMedium,
   titleSmall,
 } from '../styles/typography'
 import { startReplay } from './action-creators'
 import {
-  formatFileSize,
-  getDayBoundaries,
   getReplayDisplayTeams,
-  getReplayMatchupBadge,
   groupReplaysByDay,
-  ReplayMatchupBadge,
   ReplayTeamLayout,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
@@ -67,152 +75,63 @@ const ipcRenderer = new TypedIpcRenderer()
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
-const DURATION_OPTIONS = [
-  GameDurationFilter.All,
-  GameDurationFilter.Under10,
-  GameDurationFilter.From10To20,
-  GameDurationFilter.From20To30,
-  GameDurationFilter.Over30,
-] as const
-
 // Raw numeric game types offered in the Mode filter, mirroring `SupportedReplayGameType` in
 // common/replays.ts (which isn't exported). Labeled via `replayGameTypeToLabel`.
 const REPLAY_GAME_TYPES = [2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 15] as const
 
-const dayGroupDateFormat = new Intl.DateTimeFormat(navigator.language, {
-  weekday: 'long',
-  month: 'long',
-  day: 'numeric',
-})
-const dayGroupDateFormatWithYear = new Intl.DateTimeFormat(navigator.language, {
-  weekday: 'long',
-  month: 'long',
-  day: 'numeric',
-  year: 'numeric',
-})
+function parseDuration(value: string): GameDurationFilter {
+  return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
+    ? (value as GameDurationFilter)
+    : GameDurationFilter.All
+}
+
+function parseSort(value: string): GameSortOption {
+  return Object.values(GameSortOption).includes(value as GameSortOption)
+    ? (value as GameSortOption)
+    : GameSortOption.LatestFirst
+}
+
+function parseFormat(value: string): GameFormat | undefined {
+  return ALL_GAME_FORMATS.includes(value as GameFormat) ? (value as GameFormat) : undefined
+}
+
+function parseMatchup(value: string): EncodedMatchupString | undefined {
+  return value ? makeEncodedMatchupString(value) : undefined
+}
+
+function parseGameType(value: string): number | undefined {
+  const parsed = Number.parseInt(value, 10)
+  return (REPLAY_GAME_TYPES as readonly number[]).includes(parsed) ? parsed : undefined
+}
+
+function parseSource(value: string): 'sb' | 'bnet' | undefined {
+  return value === 'sb' || value === 'bnet' ? value : undefined
+}
 
 // ---- Layout ----------------------------------------------------------------------------------
 
-const Root = styled.div`
-  width: 100%;
-  height: 100%;
-
-  display: flex;
-  flex-direction: column;
-
-  background-color: var(--theme-surface);
-  overflow: hidden;
-`
-
-const Header = styled.div`
-  flex-shrink: 0;
-  padding: 16px 24px 8px;
-
-  display: flex;
-  align-items: center;
-  gap: 16px;
-`
-
-const PageTitle = styled.div`
-  ${headlineSmall};
-  min-width: 0;
-`
-
-const Toolbar = styled.div`
-  flex-shrink: 0;
-  padding: 8px 24px 16px;
-
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-`
-
-const SearchField = styled(TextField)`
-  width: 320px;
-  flex-shrink: 0;
-`
-
-const Body = styled.div`
-  flex-grow: 1;
-  min-height: 0;
-
+const PageRow = styled.div`
   display: flex;
   flex-direction: row;
+  gap: 24px;
+  min-height: 100%;
+  padding: 24px 0;
 `
 
-const ListColumn = styled.div`
+const MainColumn = styled.div`
   flex-grow: 1;
   min-width: 0;
 
   display: flex;
   flex-direction: column;
+  gap: 8px;
 `
 
-const ListScroll = styled.div`
-  position: relative;
-  flex-grow: 1;
-  min-height: 0;
-
-  padding: 0 8px 24px 24px;
-
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-`
-
-const StatusBar = styled.div`
-  ${bodySmall};
-  flex-shrink: 0;
-  height: 36px;
-  padding: 0 24px;
-
-  display: flex;
-  align-items: center;
-  gap: 16px;
-
-  border-top: 1px solid var(--theme-outline-variant);
+const CountLine = styled.div`
+  ${labelMedium};
+  align-self: flex-end;
+  padding: 0 6px;
   color: var(--theme-on-surface-variant);
-`
-
-const StatusHints = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  min-width: 0;
-`
-
-const StatusHint = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-`
-
-const StatusSpacer = styled.div`
-  flex-grow: 1;
-`
-
-const StatusIndexed = styled.div`
-  ${singleLine};
-  flex-shrink: 0;
-`
-
-const Kbd = styled.kbd`
-  ${labelSmall};
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
-
-  border: 1px solid var(--theme-outline);
-  border-radius: 4px;
-  background-color: rgb(from var(--theme-on-surface) r g b / 0.06);
-  color: var(--theme-on-surface-variant);
-  font-family: inherit;
 `
 
 // ---- Empty / loading states ------------------------------------------------------------------
@@ -226,7 +145,7 @@ const CenteredState = styled.div`
   justify-content: center;
   gap: 12px;
 
-  height: 100%;
+  min-height: 320px;
   padding: 32px;
   text-align: center;
 
@@ -244,160 +163,49 @@ const EmptyStatePath = styled.div`
   word-break: break-all;
 `
 
-// ---- Day group header ------------------------------------------------------------------------
-
-const DayHeaderRoot = styled.div`
-  ${titleSmall};
-
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-
-  padding: 16px 8px 8px;
-
-  background-color: var(--theme-surface);
-  color: var(--theme-on-surface);
-`
-
-const DayHeaderCount = styled.span`
-  ${labelMedium};
-  color: var(--theme-on-surface-variant);
-`
-
-const DayHeaderRule = styled.div`
-  flex-grow: 1;
-  height: 1px;
-  align-self: center;
-
-  background-color: var(--theme-outline-variant);
-`
-
-// ---- Matchup badge ---------------------------------------------------------------------------
-
-const MatchupBadgeRoot = styled.div`
-  ${titleSmall};
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-`
-
-const RaceLetter = styled.span<{ $race: RaceChar }>`
-  color: ${props => getRaceColor(props.$race)};
-`
-
-const MatchupVs = styled.span`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
-`
-
-const MatchupText = styled.span`
-  ${labelLarge};
-  color: var(--theme-on-surface-variant);
-`
-
-function MatchupBadge({ badge }: { badge: ReplayMatchupBadge }) {
-  if (badge.kind === 'text') {
-    return <MatchupText>{badge.text}</MatchupText>
-  }
-
-  return (
-    <MatchupBadgeRoot>
-      {badge.races.map((race, i) => (
-        <Fragment key={i}>
-          {i > 0 ? <MatchupVs>v</MatchupVs> : null}
-          <RaceLetter $race={race}>{race.toUpperCase()}</RaceLetter>
-        </Fragment>
-      ))}
-    </MatchupBadgeRoot>
-  )
-}
-
 // ---- Row -------------------------------------------------------------------------------------
 
-const RowRoot = styled.div<{ $focused: boolean }>`
+const ReplayRowContainer = styled.div<ButtonStateStyleProps & { $selected: boolean }>`
   position: relative;
   width: 100%;
-  min-height: 48px;
-  padding: 6px 8px;
 
-  display: grid;
-  grid-template-columns: 12px 64px 56px minmax(0, 1fr) minmax(80px, 200px) 64px 36px;
-  align-items: center;
-  gap: 12px;
-
-  border-radius: 6px;
+  border-radius: 8px;
+  contain: content;
   cursor: pointer;
 
   background-color: ${props =>
-    props.$focused ? 'rgb(from var(--theme-on-surface) r g b / 0.1)' : 'transparent'};
+    props.$selected ? 'rgb(from var(--theme-on-surface) r g b / 0.1)' : 'transparent'};
 
   &:hover {
     background-color: ${props =>
-      props.$focused
+      props.$selected
         ? 'rgb(from var(--theme-on-surface) r g b / 0.12)'
         : 'rgb(from var(--theme-on-surface) r g b / 0.06)'};
   }
 `
 
-const RowDot = styled.div`
-  width: 12px;
+const PlaceholderIcon = styled(MaterialIcon)`
+  opacity: 0.5;
 `
 
-const RowTime = styled.div`
-  ${bodyMedium};
-  ${singleLine};
+const ParseErrorPlayers = styled.div`
+  ${titleSmall};
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
   color: var(--theme-on-surface-variant);
 `
 
-const RowMatchup = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-`
-
-const RowPlayers = styled(PlayerTeamsDisplay)`
+const ParseErrorFileName = styled.span`
+  ${singleLine};
   min-width: 0;
 `
 
-const RowMap = styled.div`
-  ${bodyMedium};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-`
-
-const RowDuration = styled.div`
-  ${bodyMedium};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-`
-
-const RowPlayButton = styled(IconButton)`
-  width: 36px;
-  min-height: 36px;
-  opacity: 0;
-
-  color: var(--theme-on-surface);
-
-  ${RowRoot}:hover & {
-    opacity: 1;
-  }
-
-  &:focus-visible {
-    opacity: 1;
-  }
-`
-
-const RowErrorFileName = styled.div`
-  ${bodyMedium};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-`
-
-const RowErrorIcon = styled(MaterialIcon).attrs({ icon: 'error', size: 20 })`
+const RowErrorIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 20 })`
+  flex-shrink: 0;
   color: var(--theme-error);
 `
 
@@ -415,195 +223,108 @@ function playersToDisplayTeams(
   )
 }
 
-interface ReplayRowProps {
+interface ReplayListEntryProps {
   entry: ReplayLibraryEntry
-  focused: boolean
+  selected: boolean
+  /** When true, the leading cell shows a relative time (for duration sorts); otherwise clock time. */
+  relativeTime: boolean
   computerLabel: string
-  onFocus: (id: number) => void
-  onWatch: (entry: ReplayLibraryEntry) => void
   watchTitle: string
-}
-
-function ReplayRow({
-  entry,
-  focused,
-  computerLabel,
-  onFocus,
-  onWatch,
-  watchTitle,
-}: ReplayRowProps) {
-  const layout = getReplayDisplayTeams(entry.players)
-
-  return (
-    <RowRoot
-      $focused={focused}
-      onClick={() => onFocus(entry.id)}
-      onDoubleClick={() => onWatch(entry)}>
-      <RowDot />
-      <RowTime>{shortTimestamp.format(entry.gameTime)}</RowTime>
-      <RowMatchup>
-        {entry.parseError ? (
-          <RowErrorIcon />
-        ) : (
-          <MatchupBadge badge={getReplayMatchupBadge(layout)} />
-        )}
-      </RowMatchup>
-      {entry.parseError ? (
-        <RowErrorFileName>{entry.fileName}</RowErrorFileName>
-      ) : (
-        <RowPlayers teams={playersToDisplayTeams(layout, computerLabel)} />
-      )}
-      <RowMap>{entry.parseError ? '' : filterColorCodes(entry.mapName)}</RowMap>
-      <RowDuration>
-        {entry.parseError ? '' : getGameDurationString((entry.durationFrames * 1000) / 24)}
-      </RowDuration>
-      <RowPlayButton
-        icon={<MaterialIcon icon='play_arrow' />}
-        title={watchTitle}
-        onClick={event => {
-          event.stopPropagation()
-          onWatch(entry)
-        }}
-      />
-    </RowRoot>
-  )
-}
-
-// ---- Hero card -------------------------------------------------------------------------------
-
-const HeroCardRoot = styled.div`
-  margin: 16px 0 8px;
-  padding: 20px 24px;
-
-  display: flex;
-  align-items: center;
-  gap: 24px;
-
-  border: 1px solid rgb(from var(--theme-amber) r g b / 0.5);
-  border-radius: 12px;
-  background: linear-gradient(
-    120deg,
-    rgb(from var(--theme-amber) r g b / 0.12),
-    var(--theme-container-low) 65%
-  );
-`
-
-const HeroInfo = styled.div`
-  min-width: 0;
-  flex-grow: 1;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const HeroEyebrow = styled.div`
-  ${labelMedium};
-
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  color: var(--theme-amber);
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-`
-
-const HeroPlayers = styled(PlayerTeamsDisplay)`
-  min-width: 0;
-`
-
-const HeroErrorName = styled.div`
-  ${titleMedium};
-  ${singleLine};
-`
-
-const HeroMeta = styled.div`
-  ${bodyMedium};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-`
-
-const HeroActions = styled.div`
-  flex-shrink: 0;
-
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-`
-
-const WatchButtonLabel = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-`
-
-interface HeroCardProps {
-  entry: ReplayLibraryEntry
-  computerLabel: string
+  onSelect: (id: number) => void
   onWatch: (entry: ReplayLibraryEntry) => void
 }
 
-function HeroCard({ entry, computerLabel, onWatch }: HeroCardProps) {
+function ReplayListEntry({
+  entry,
+  selected,
+  relativeTime,
+  computerLabel,
+  watchTitle,
+  onSelect,
+  onWatch,
+}: ReplayListEntryProps) {
   const { t } = useTranslation()
-  const layout = getReplayDisplayTeams(entry.players)
-  const mode = replayGameTypeToLabel(entry.gameType, t)
-  const meta = entry.parseError
-    ? mode
-    : [
-        filterColorCodes(entry.mapName),
-        mode,
-        getGameDurationString((entry.durationFrames * 1000) / 24),
-      ]
-        .filter(Boolean)
-        .join(' · ')
+  const [buttonProps, rippleRef] = useButtonState({
+    onClick: () => onSelect(entry.id),
+    onDoubleClick: () => onWatch(entry),
+  })
+
+  const leading = (
+    <Tooltip text={longTimestamp.format(entry.gameTime)} position='right'>
+      <GameDate>
+        {relativeTime
+          ? narrowDuration.format(entry.gameTime)
+          : shortTimestamp.format(entry.gameTime)}
+      </GameDate>
+    </Tooltip>
+  )
+
+  const players = entry.parseError ? (
+    <ParseErrorPlayers>
+      <RowErrorIcon />
+      <ParseErrorFileName>{entry.fileName}</ParseErrorFileName>
+    </ParseErrorPlayers>
+  ) : (
+    <PlayerTeamsDisplay
+      teams={playersToDisplayTeams(getReplayDisplayTeams(entry.players), computerLabel)}
+    />
+  )
+
+  const thumbnail = (
+    <ThumbnailContainer>
+      <MapNoImageContainer>
+        <PlaceholderIcon icon={entry.parseError ? 'error' : 'map'} size={36} />
+      </MapNoImageContainer>
+      <WatchReplayOverlay>
+        <Tooltip text={watchTitle} position='top'>
+          <IconButton
+            styledAs='div'
+            icon={<MaterialIcon icon='play_circle' />}
+            onClick={event => {
+              event.stopPropagation()
+              onWatch(entry)
+            }}
+          />
+        </Tooltip>
+      </WatchReplayOverlay>
+    </ThumbnailContainer>
+  )
 
   return (
-    <HeroCardRoot>
-      <HeroInfo>
-        <HeroEyebrow>
-          <MaterialIcon icon='star' size={16} />
-          {t('replays.library.latestReplay', 'Latest replay')} ·{' '}
-          {narrowDuration.format(entry.gameTime)}
-        </HeroEyebrow>
-        {entry.parseError ? (
-          <HeroErrorName>{entry.fileName}</HeroErrorName>
-        ) : (
-          <HeroPlayers teams={playersToDisplayTeams(layout, computerLabel)} />
-        )}
-        <HeroMeta>{meta}</HeroMeta>
-      </HeroInfo>
-      <HeroActions>
-        <FilledButton
-          label={
-            <WatchButtonLabel>
-              {t('replays.library.watchReplay', 'Watch replay')}
-              <Kbd>⏎</Kbd>
-            </WatchButtonLabel>
-          }
-          iconStart={<MaterialIcon icon='play_arrow' />}
-          onClick={() => onWatch(entry)}
-        />
-      </HeroActions>
-    </HeroCardRoot>
+    <ReplayRowContainer {...buttonProps} $selected={selected}>
+      <GameListEntryLayout
+        leading={leading}
+        players={players}
+        duration={
+          entry.parseError ? '—' : getGameDurationString((entry.durationFrames * 1000) / 24)
+        }
+        mapName={entry.parseError ? '—' : filterColorCodes(entry.mapName)}
+        gameTypeLabel={entry.parseError ? '' : replayGameTypeToLabel(entry.gameType, t)}
+        thumbnail={thumbnail}
+      />
+      <Ripple ref={rippleRef} />
+    </ReplayRowContainer>
   )
 }
 
 // ---- Inspector -------------------------------------------------------------------------------
 
 const InspectorRoot = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+
   flex-shrink: 0;
-  width: 360px;
-  height: 100%;
+  width: 340px;
+  align-self: flex-start;
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 96px);
   padding: 24px;
 
   display: flex;
   flex-direction: column;
   gap: 20px;
 
-  border-left: 1px solid var(--theme-outline-variant);
-  background-color: var(--theme-container-lowest);
+  border-radius: 8px;
   overflow-y: auto;
 `
 
@@ -613,7 +334,7 @@ const InspectorEmpty = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  min-height: 160px;
 
   color: var(--theme-on-surface-variant);
   text-align: center;
@@ -653,26 +374,12 @@ const InspectorSection = styled.div`
 
 const InspectorActions = styled.div`
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
 `
 
-const FullWidthFilledButton = styled(FilledButton)`
-  width: 100%;
-`
-
-const FullWidthOutlinedButton = styled(OutlinedButton)`
-  width: 100%;
-`
-
-const InspectorSpacer = styled.div`
+const WatchButton = styled(FilledButton)`
   flex-grow: 1;
-`
-
-const InspectorFooter = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
 `
 
 const InspectorErrorNote = styled.div`
@@ -689,6 +396,8 @@ interface InspectorProps {
 
 function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) {
   const { t } = useTranslation()
+  const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
+  const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
 
   if (!entry) {
     return (
@@ -701,13 +410,47 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
   }
 
   const mode = replayGameTypeToLabel(entry.gameType, t)
-  const duration = getGameDurationString((entry.durationFrames * 1000) / 24)
-  const layout = getReplayDisplayTeams(entry.players)
-  const teamLabels = shouldShowTeamLabels(layout)
-    ? layout.teams.map((_, i) =>
-        t('game.teamName.number', { defaultValue: 'Team {{teamNumber}}', teamNumber: i + 1 }),
-      )
-    : undefined
+  const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
+  const teamLabels =
+    layout && shouldShowTeamLabels(layout)
+      ? layout.teams.map((_, i) =>
+          t('game.teamName.number', { defaultValue: 'Team {{teamNumber}}', teamNumber: i + 1 }),
+        )
+      : undefined
+
+  const actions = (
+    <InspectorActions>
+      <WatchButton
+        label={t('replays.library.watchReplay', 'Watch replay')}
+        iconStart={<MaterialIcon icon='play_arrow' />}
+        onClick={() => onWatch(entry)}
+      />
+      <IconButton
+        ref={anchor}
+        icon={<MaterialIcon icon='more_vert' />}
+        title={t('replays.library.moreActions', 'More actions')}
+        onClick={openMenu}
+      />
+      <Popover
+        open={menuOpen}
+        onDismiss={closeMenu}
+        anchorX={anchorX ?? 0}
+        anchorY={anchorY ?? 0}
+        originX='right'
+        originY='top'>
+        <MenuList dense={true}>
+          <MenuItem
+            icon={<MaterialIcon icon='folder_open' />}
+            text={t('replays.library.showInExplorer', 'Show in Explorer')}
+            onClick={() => {
+              closeMenu()
+              onReveal(entry)
+            }}
+          />
+        </MenuList>
+      </Popover>
+    </InspectorActions>
+  )
 
   return (
     <InspectorRoot>
@@ -727,180 +470,25 @@ function Inspector({ entry, computerLabel, onWatch, onReveal }: InspectorProps) 
             <InspectorModeChip>{mode}</InspectorModeChip>
             <InspectorMapName>{filterColorCodes(entry.mapName)}</InspectorMapName>
             <InspectorSubline>
-              {longTimestamp.format(entry.gameTime)} · {duration}
+              {longTimestamp.format(entry.gameTime)} ·{' '}
+              {getGameDurationString((entry.durationFrames * 1000) / 24)}
             </InspectorSubline>
           </InspectorHeader>
           <InspectorSection>
             <PlayerTeamsDisplay
-              teams={playersToDisplayTeams(layout, computerLabel)}
+              teams={playersToDisplayTeams(layout!, computerLabel)}
               teamLabels={teamLabels}
             />
           </InspectorSection>
         </>
       )}
 
-      <InspectorActions>
-        <FullWidthFilledButton
-          label={t('replays.library.watchReplay', 'Watch replay')}
-          iconStart={<MaterialIcon icon='play_arrow' />}
-          onClick={() => onWatch(entry)}
-        />
-        <FullWidthOutlinedButton
-          label={t('replays.library.showInExplorer', 'Show in Explorer')}
-          iconStart={<MaterialIcon icon='folder_open' />}
-          onClick={() => onReveal(entry)}
-        />
-      </InspectorActions>
-
-      <InspectorSpacer />
-
-      <InspectorFooter>
-        {entry.fileName} · {formatFileSize(entry.fileSize)}
-      </InspectorFooter>
+      {actions}
     </InspectorRoot>
   )
 }
 
-// ---- Matchup filter chip ---------------------------------------------------------------------
-
-const MatchupPanel = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  width: 320px;
-
-  border-radius: 8px;
-  background-color: var(--theme-container-high);
-`
-
-const MatchupPanelSection = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const MatchupPanelLabel = styled.div`
-  ${labelMedium};
-  color: var(--theme-on-surface-variant);
-`
-
-const FormatChips = styled.div`
-  display: flex;
-  gap: 8px;
-`
-
-interface MatchupFilterChipProps {
-  format?: GameFormat
-  matchup?: EncodedMatchupString
-  onFormatChange: (format?: GameFormat) => void
-  onMatchupChange: (matchup?: EncodedMatchupString) => void
-}
-
-function MatchupFilterChip({
-  format,
-  matchup,
-  onFormatChange,
-  onMatchupChange,
-}: MatchupFilterChipProps) {
-  const { t } = useTranslation()
-  const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition<HTMLButtonElement>(
-    'left',
-    'bottom',
-  )
-  const [open, openPopover, closePopover] = usePopoverController({ refreshAnchorPos })
-
-  return (
-    <>
-      <FilterChip
-        ref={anchorRef}
-        label={format ?? t('replays.library.filters.matchup', 'Matchup')}
-        icon={<MaterialIcon icon='swords' size={18} />}
-        selected={!!format || open}
-        onClick={e => (open ? closePopover() : openPopover(e))}
-      />
-      <Popover
-        open={open}
-        onDismiss={closePopover}
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}
-        originX='left'
-        originY='top'>
-        <MatchupPanel>
-          <MatchupPanelSection>
-            <MatchupPanelLabel>{t('replays.library.filters.format', 'Format')}</MatchupPanelLabel>
-            <FormatChips>
-              {ALL_GAME_FORMATS.map(f => (
-                <FilterChip
-                  key={f}
-                  label={f}
-                  selected={format === f}
-                  onClick={() => {
-                    if (format === f) {
-                      onFormatChange(undefined)
-                      onMatchupChange(undefined)
-                    } else {
-                      onFormatChange(f)
-                      onMatchupChange(undefined)
-                    }
-                  }}
-                />
-              ))}
-            </FormatChips>
-          </MatchupPanelSection>
-          {format ? (
-            <MatchupPanelSection>
-              <MatchupPanelLabel>
-                {t('replays.library.filters.matchup', 'Matchup')}
-              </MatchupPanelLabel>
-              <MatchupFilter
-                matchup={decodeMatchup(format, matchup) ?? createEmptyMatchup(format)}
-                onMatchupChange={m => {
-                  const hasRace = [...m.team1, ...m.team2].some(r => r !== undefined)
-                  onMatchupChange(hasRace ? encodeMatchup(m) : undefined)
-                }}
-              />
-            </MatchupPanelSection>
-          ) : null}
-        </MatchupPanel>
-      </Popover>
-    </>
-  )
-}
-
 // ---- Main component --------------------------------------------------------------------------
-
-const SlashHint = styled.div`
-  ${labelMedium};
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-
-  border: 1px solid var(--theme-outline);
-  border-radius: 4px;
-  color: var(--theme-on-surface-variant);
-`
-
-function formatDayLabel(
-  dayStartMs: number,
-  todayStartMs: number,
-  yesterdayStartMs: number,
-  t: ReturnType<typeof useTranslation>['t'],
-): string {
-  if (dayStartMs === todayStartMs) {
-    return t('replays.library.today', 'Today')
-  }
-  if (dayStartMs === yesterdayStartMs) {
-    return t('replays.library.yesterday', 'Yesterday')
-  }
-  // Old replays span years, so include the year whenever it isn't the current one.
-  return new Date(dayStartMs).getFullYear() === new Date(todayStartMs).getFullYear()
-    ? dayGroupDateFormat.format(dayStartMs)
-    : dayGroupDateFormatWithYear.format(dayStartMs)
-}
 
 export function ReplayLibrary() {
   const { t } = useTranslation()
@@ -908,53 +496,59 @@ export function ReplayLibrary() {
 
   const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry>>([])
   const [hasLoaded, setHasLoaded] = useState(false)
-  const [maps, setMaps] = useState<ReadonlyArray<string>>([])
   const [status, setStatus] = useState<ReplayLibraryStatus>()
   const [backfill, setBackfill] = useState<{ done: number; total: number }>()
   const [refreshToken, setRefreshToken] = useState(0)
 
-  const [source, setSource] = useState<'sb' | 'bnet'>()
-  const [mapName, setMapName] = useState<string>()
-  const [gameType, setGameType] = useState<number>()
-  const [duration, setDuration] = useState(GameDurationFilter.All)
-  const [format, setFormat] = useState<GameFormat>()
-  const [matchup, setMatchup] = useState<EncodedMatchupString>()
-  const [searchInput, setSearchInput] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchFocused, setSearchFocused] = useState(false)
-
   const [focusedId, setFocusedId] = useState<number>()
+  const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
+  const groupedRef = useRef<GroupedVirtuosoHandle>(null)
+  const flatRef = useRef<VirtuosoHandle>(null)
 
-  const [scrollParent, setScrollParent] = useState<HTMLDivElement | null>(null)
-  const virtuosoRef = useRef<GroupedVirtuosoHandle>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
-  const searchDebounceRef = useRef(debounce((value: string) => setSearchQuery(value), 150))
+  const [durationParam, setDurationParam] = useLocationSearchParam('duration')
+  const [sortParam, setSortParam] = useLocationSearchParam('sort')
+  const [mapName, setMapNameParam] = useLocationSearchParam('mapName')
+  const [playerName, setPlayerNameParam] = useLocationSearchParam('playerName')
+  const [formatParam, setFormatParam] = useLocationSearchParam('format')
+  const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
+  const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
+  const [sourceParam, setSourceParam] = useLocationSearchParam('source')
+
+  const duration = parseDuration(durationParam)
+  const sort = parseSort(sortParam)
+  const format = parseFormat(formatParam)
+  const matchup = parseMatchup(matchupParam)
+  const gameType = parseGameType(gameTypeParam)
+  const source = parseSource(sourceParam)
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const watchTitle = t('replays.library.watchReplay', 'Watch replay')
 
+  const hasExtraFilters = gameType !== undefined || source !== undefined
   const hasActiveFilters =
-    source !== undefined ||
-    mapName !== undefined ||
-    gameType !== undefined ||
     duration !== GameDurationFilter.All ||
-    format !== undefined ||
+    !!mapName ||
+    !!playerName ||
+    !!format ||
     !!matchup ||
-    searchQuery !== ''
+    hasExtraFilters
+
+  const isDurationSort =
+    sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
 
   // Run (and re-run) the library query whenever the filters change or the index signals a change.
   useEffect(() => {
     let cancelled = false
-    const filters: ReplayLibraryFilters = {}
+    const filters: ReplayLibraryFilters = { sort }
     if (source !== undefined) filters.source = source
-    if (mapName !== undefined) filters.mapName = mapName
+    if (mapName) filters.mapName = mapName
+    if (playerName) filters.playerName = playerName
     if (gameType !== undefined) filters.gameType = gameType
     if (duration !== GameDurationFilter.All) filters.duration = duration
     if (format !== undefined) {
       filters.format = format
       if (matchup) filters.matchup = matchup
     }
-    if (searchQuery) filters.searchQuery = searchQuery
 
     ipcRenderer
       .invoke('replayLibraryQuery', filters)
@@ -968,17 +562,11 @@ export function ReplayLibrary() {
     return () => {
       cancelled = true
     }
-  }, [source, mapName, gameType, duration, format, matchup, searchQuery, refreshToken])
+  }, [source, mapName, playerName, gameType, duration, format, matchup, sort, refreshToken])
 
-  // Fetch the map list + index status (and refresh them whenever the index changes).
+  // Fetch the index status (and refresh it whenever the index changes).
   useEffect(() => {
     let cancelled = false
-    ipcRenderer
-      .invoke('replayLibraryGetMaps')
-      ?.then(result => {
-        if (!cancelled && result) setMaps(result)
-      })
-      .catch(swallowNonBuiltins)
     ipcRenderer
       .invoke('replayLibraryStatus')
       ?.then(result => {
@@ -1012,12 +600,6 @@ export function ReplayLibrary() {
     }
   }, [])
 
-  // Cancel any pending debounced search on unmount.
-  useEffect(() => {
-    const searchDebounce = searchDebounceRef.current
-    return () => searchDebounce.cancel()
-  }, [])
-
   const focusedEntry = entries.find(e => e.id === focusedId) ?? entries[0]
   const focusedIndex = focusedEntry ? entries.findIndex(e => e.id === focusedEntry.id) : -1
 
@@ -1028,10 +610,15 @@ export function ReplayLibrary() {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
   }
 
+  const scrollToIndex = (index: number) => {
+    // Only one of these lists is mounted at a time, so the other ref is null.
+    groupedRef.current?.scrollIntoView({ index })
+    flatRef.current?.scrollIntoView({ index })
+  }
   const focusIndex = (index: number) => {
     if (index < 0 || index >= entries.length) return
     setFocusedId(entries[index].id)
-    virtuosoRef.current?.scrollIntoView({ index })
+    scrollToIndex(index)
   }
   const moveFocus = (delta: number) => {
     if (entries.length === 0) return
@@ -1040,54 +627,19 @@ export function ReplayLibrary() {
     focusIndex(next)
   }
 
-  const onSearchChange = (value: string) => {
-    setSearchInput(value)
-    searchDebounceRef.current(value)
-  }
-  const clearSearch = () => {
-    searchDebounceRef.current.cancel()
-    setSearchInput('')
-    setSearchQuery('')
-  }
   const clearAllFilters = () => {
-    setSource(undefined)
-    setMapName(undefined)
-    setGameType(undefined)
-    setDuration(GameDurationFilter.All)
-    setFormat(undefined)
-    setMatchup(undefined)
-    clearSearch()
+    setDurationParam('')
+    setMapNameParam('')
+    setPlayerNameParam('')
+    setFormatParam('')
+    setMatchupParam('')
+    setGameTypeParam('')
+    setSourceParam('')
+    // `sort` is a view option (not a filter), so it's intentionally left untouched.
   }
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      const isEnter = event.code === ENTER || event.code === ENTER_NUMPAD
-
-      // Shift+Enter watches the newest replay from anywhere on the page (even while searching).
-      if (isEnter && event.shiftKey) {
-        if (entries[0]) watchEntry(entries[0])
-        return true
-      }
-
-      // `/` focuses the search field from anywhere on the page.
-      if (event.code === 'Slash' && !searchFocused) {
-        searchInputRef.current?.focus()
-        return true
-      }
-
-      if (searchFocused) {
-        if (event.code === 'Escape') {
-          if (searchInput) {
-            clearSearch()
-          } else {
-            searchInputRef.current?.blur()
-          }
-          return true
-        }
-        // Let all other keys type normally.
-        return false
-      }
-
       switch (event.code) {
         case 'ArrowUp':
           moveFocus(-1)
@@ -1106,15 +658,6 @@ export function ReplayLibrary() {
           return true
         case 'End':
           focusIndex(entries.length - 1)
-          return true
-        case 'Escape':
-          if (hasActiveFilters) {
-            clearAllFilters()
-            return true
-          }
-          return false
-        case 'KeyE':
-          if (focusedEntry) revealEntry(focusedEntry)
           return true
         case ENTER:
         case ENTER_NUMPAD: {
@@ -1135,7 +678,6 @@ export function ReplayLibrary() {
     },
   })
 
-  const heroEntry = entries[0]
   const dayGroups = groupReplaysByDay(entries)
   const groupCounts = dayGroups.map(g => g.entries.length)
   const { todayStartMs, yesterdayStartMs } = getDayBoundaries()
@@ -1147,7 +689,23 @@ export function ReplayLibrary() {
     sourceLabel = t('replays.library.filters.sourceBnet', 'Battle.net')
   }
 
-  let listContent
+  const renderRow = (index: number) => {
+    const entry = entries[index]
+    if (!entry) return null
+    return (
+      <ReplayListEntry
+        entry={entry}
+        selected={entry.id === focusedEntry?.id}
+        relativeTime={isDurationSort}
+        computerLabel={computerLabel}
+        watchTitle={watchTitle}
+        onSelect={setFocusedId}
+        onWatch={watchEntry}
+      />
+    )
+  }
+
+  let listContent: React.ReactNode = null
   if (!hasLoaded) {
     listContent = <LoadingDotsArea />
   } else if (entries.length === 0) {
@@ -1176,217 +734,145 @@ export function ReplayLibrary() {
         </CenteredState>
       )
     }
-  } else {
-    listContent = (
-      <ListScroll ref={setScrollParent}>
-        {heroEntry ? (
-          <HeroCard entry={heroEntry} computerLabel={computerLabel} onWatch={watchEntry} />
-        ) : null}
-        {scrollParent ? (
-          <GroupedVirtuoso
-            ref={virtuosoRef}
-            customScrollParent={scrollParent}
-            groupCounts={groupCounts}
-            groupContent={index => {
-              const group = dayGroups[index]
-              return (
-                <DayHeaderRoot>
-                  <span>{formatDayLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)}</span>
-                  <DayHeaderCount>
-                    <Trans t={t} i18nKey='replays.library.replayCount' count={group.entries.length}>
-                      {{ count: group.entries.length }} replays
-                    </Trans>
-                  </DayHeaderCount>
-                  <DayHeaderRule />
-                </DayHeaderRoot>
-              )
-            }}
-            itemContent={index => {
-              const entry = entries[index]
-              if (!entry) return null
-              return (
-                <ReplayRow
-                  entry={entry}
-                  focused={entry.id === focusedEntry?.id}
-                  computerLabel={computerLabel}
-                  watchTitle={watchTitle}
-                  onFocus={setFocusedId}
-                  onWatch={watchEntry}
-                />
-              )
-            }}
-          />
-        ) : null}
-      </ListScroll>
+  } else if (scrollParent) {
+    // NOTE: `Virtuoso` and `GroupedVirtuoso` share the same underlying component type, so
+    // switching between them reconciles as a prop update and leaves stale group state behind.
+    // Distinct keys force a full remount when the list mode changes.
+    listContent = isDurationSort ? (
+      <Virtuoso
+        key='flat'
+        ref={flatRef}
+        customScrollParent={scrollParent}
+        totalCount={entries.length}
+        itemContent={renderRow}
+      />
+    ) : (
+      <GroupedVirtuoso
+        key='grouped'
+        ref={groupedRef}
+        customScrollParent={scrollParent}
+        groupCounts={groupCounts}
+        groupContent={index => {
+          const group = dayGroups[index]
+          return (
+            <DayHeader
+              label={formatDayHeaderLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)}
+              countLabel={t('replays.library.replayCount', {
+                defaultValue: '{{count}} replays',
+                count: group.entries.length,
+              })}
+            />
+          )
+        }}
+        itemContent={renderRow}
+      />
     )
   }
 
-  const indexedCount = status?.totalIndexed ?? entries.length
+  let countLine: React.ReactNode = null
+  if (backfill && backfill.total > 0) {
+    countLine = (
+      <CountLine>
+        {t('replays.library.scanning', {
+          defaultValue: 'Scanning replays… {{done}}/{{total}}',
+          done: backfill.done,
+          total: backfill.total,
+        })}
+      </CountLine>
+    )
+  } else if (hasLoaded) {
+    countLine = (
+      <CountLine>
+        {hasActiveFilters
+          ? t('replays.library.filteredCount', {
+              defaultValue: '{{shown}} of {{total}} replays',
+              shown: entries.length,
+              total: status?.totalIndexed ?? entries.length,
+            })
+          : t('replays.library.replayCount', {
+              defaultValue: '{{count}} replays',
+              count: status?.totalIndexed ?? entries.length,
+            })}
+      </CountLine>
+    )
+  }
 
   return (
-    <Root>
-      <Header>
-        <PageTitle>{t('replays.library.title', 'Library')}</PageTitle>
-        <StatusSpacer />
-        {status?.watchedFolder ? (
-          <IconButton
-            icon={<MaterialIcon icon='folder_open' />}
-            title={t('replays.library.openFolder', 'Open replays folder')}
-            onClick={() => {
-              ipcRenderer
-                .invoke('pathsShowItemInFolder', status.watchedFolder)
-                ?.catch(swallowNonBuiltins)
-            }}
-          />
-        ) : null}
-      </Header>
+    <CenteredContentContainer ref={setScrollParent} $targetWidth={1280}>
+      <PageRow>
+        <MainColumn>
+          <GameFilterBar
+            showRankedCustom={false}
+            duration={duration}
+            setDuration={v => setDurationParam(v === GameDurationFilter.All ? '' : v)}
+            sort={sort}
+            setSort={v => setSortParam(v === GameSortOption.LatestFirst ? '' : v)}
+            mapName={mapName}
+            setMapName={setMapNameParam}
+            playerName={playerName}
+            setPlayerName={setPlayerNameParam}
+            format={format}
+            setFormat={v => setFormatParam(v ?? '')}
+            matchup={matchup}
+            setMatchup={v => setMatchupParam(v ?? '')}
+            hasExtraFilters={hasExtraFilters}
+            onClearExtraFilters={() => {
+              setGameTypeParam('')
+              setSourceParam('')
+            }}>
+            <FilterChip
+              label={
+                gameType !== undefined
+                  ? replayGameTypeToLabel(gameType, t)
+                  : t('replays.library.filters.mode', 'Mode')
+              }
+              selected={gameType !== undefined}>
+              <SelectableMenuItem
+                text={t('replays.library.filters.modeAny', 'Any mode')}
+                selected={gameType === undefined}
+                onClick={() => setGameTypeParam('')}
+              />
+              {REPLAY_GAME_TYPES.map(gt => (
+                <SelectableMenuItem
+                  key={gt}
+                  text={replayGameTypeToLabel(gt, t)}
+                  selected={gameType === gt}
+                  onClick={() => setGameTypeParam(String(gt))}
+                />
+              ))}
+            </FilterChip>
 
-      <Toolbar>
-        <SearchField
-          ref={searchInputRef}
-          value={searchInput}
-          label={t('common.actions.search', 'Search')}
-          dense={true}
-          allowErrors={false}
-          leadingIcons={[<MaterialIcon icon='search' key='search' />]}
-          trailingIcons={
-            !searchInput && !searchFocused ? [<SlashHint key='slash'>/</SlashHint>] : []
-          }
-          onChange={event => onSearchChange(event.target.value)}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-        />
+            <FilterChip label={sourceLabel} selected={source !== undefined}>
+              <SelectableMenuItem
+                text={t('replays.library.filters.sourceAny', 'Any source')}
+                selected={source === undefined}
+                onClick={() => setSourceParam('')}
+              />
+              <SelectableMenuItem
+                text={t('replays.library.filters.sourceSb', 'ShieldBattery')}
+                selected={source === 'sb'}
+                onClick={() => setSourceParam('sb')}
+              />
+              <SelectableMenuItem
+                text={t('replays.library.filters.sourceBnet', 'Battle.net')}
+                selected={source === 'bnet'}
+                onClick={() => setSourceParam('bnet')}
+              />
+            </FilterChip>
+          </GameFilterBar>
 
-        <FilterChip label={sourceLabel} selected={source !== undefined}>
-          <SelectableMenuItem
-            text={t('replays.library.filters.sourceAny', 'Any source')}
-            selected={source === undefined}
-            onClick={() => setSource(undefined)}
-          />
-          <SelectableMenuItem
-            text={t('replays.library.filters.sourceSb', 'ShieldBattery')}
-            selected={source === 'sb'}
-            onClick={() => setSource('sb')}
-          />
-          <SelectableMenuItem
-            text={t('replays.library.filters.sourceBnet', 'Battle.net')}
-            selected={source === 'bnet'}
-            onClick={() => setSource('bnet')}
-          />
-        </FilterChip>
+          {countLine}
 
-        <MatchupFilterChip
-          format={format}
-          matchup={matchup}
-          onFormatChange={setFormat}
-          onMatchupChange={setMatchup}
-        />
+          {listContent}
+        </MainColumn>
 
-        <FilterChip
-          label={mapName ?? t('replays.library.filters.map', 'Map')}
-          selected={mapName !== undefined}>
-          <SelectableMenuItem
-            text={t('replays.library.filters.mapAny', 'Any map')}
-            selected={mapName === undefined}
-            onClick={() => setMapName(undefined)}
-          />
-          {maps.map(m => (
-            <SelectableMenuItem
-              key={m}
-              text={filterColorCodes(m)}
-              selected={mapName === m}
-              onClick={() => setMapName(m)}
-            />
-          ))}
-        </FilterChip>
-
-        <FilterChip
-          label={
-            gameType !== undefined
-              ? replayGameTypeToLabel(gameType, t)
-              : t('replays.library.filters.mode', 'Mode')
-          }
-          selected={gameType !== undefined}>
-          <SelectableMenuItem
-            text={t('replays.library.filters.modeAny', 'Any mode')}
-            selected={gameType === undefined}
-            onClick={() => setGameType(undefined)}
-          />
-          {REPLAY_GAME_TYPES.map(gt => (
-            <SelectableMenuItem
-              key={gt}
-              text={replayGameTypeToLabel(gt, t)}
-              selected={gameType === gt}
-              onClick={() => setGameType(gt)}
-            />
-          ))}
-        </FilterChip>
-
-        <FilterChip
-          label={getDurationLabel(duration, t)}
-          icon={<MaterialIcon icon='timer' filled={false} size={18} />}
-          selected={duration !== GameDurationFilter.All}>
-          {DURATION_OPTIONS.map(d => (
-            <SelectableMenuItem
-              key={d}
-              text={getDurationLabel(d, t)}
-              selected={duration === d}
-              onClick={() => setDuration(d)}
-            />
-          ))}
-        </FilterChip>
-
-        {hasActiveFilters ? (
-          <TextButton
-            label={t('common.actions.clear', 'Clear')}
-            iconStart={<MaterialIcon icon='close' />}
-            onClick={clearAllFilters}
-          />
-        ) : null}
-      </Toolbar>
-
-      <Body>
-        <ListColumn>{listContent}</ListColumn>
         <Inspector
           entry={focusedEntry}
           computerLabel={computerLabel}
           onWatch={watchEntry}
           onReveal={revealEntry}
         />
-      </Body>
-
-      <StatusBar>
-        <StatusHints>
-          <StatusHint>
-            <Kbd>↑↓</Kbd> {t('replays.library.hints.navigate', 'Navigate')}
-          </StatusHint>
-          <StatusHint>
-            <Kbd>⏎</Kbd> {t('replays.library.hints.watch', 'Watch')}
-          </StatusHint>
-          <StatusHint>
-            <Kbd>⇧⏎</Kbd> {t('replays.library.hints.watchLatest', 'Watch latest')}
-          </StatusHint>
-          <StatusHint>
-            <Kbd>/</Kbd> {t('replays.library.hints.search', 'Search')}
-          </StatusHint>
-          <StatusHint>
-            <Kbd>E</Kbd> {t('replays.library.hints.explorer', 'Explorer')}
-          </StatusHint>
-        </StatusHints>
-        <StatusSpacer />
-        <StatusIndexed>
-          {backfill && backfill.total > 0
-            ? t('replays.library.indexing', {
-                defaultValue: 'Indexing… {{done}}/{{total}}',
-                done: backfill.done,
-                total: backfill.total,
-              })
-            : t('replays.library.indexed', {
-                defaultValue: '{{count}} replays indexed',
-                count: indexedCount,
-              })}
-        </StatusIndexed>
-      </StatusBar>
-    </Root>
+      </PageRow>
+    </CenteredContentContainer>
   )
 }

@@ -30,7 +30,6 @@ export class ReplayLibraryService {
 
     const ipcMain = new TypedIpcMain()
     ipcMain.handle('replayLibraryQuery', async (_event, filters) => this.db.query(filters))
-    ipcMain.handle('replayLibraryGetMaps', async () => this.db.getDistinctMapNames())
     ipcMain.handle('replayLibraryStatus', async () => this.getStatus())
   }
 

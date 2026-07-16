@@ -1,5 +1,5 @@
-import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { startOfLocalDay } from '../games/day-header'
 
 /**
  * The way a replay's players are laid out for display:
@@ -70,81 +70,11 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
   return layout.kind === 'teams' && layout.teams.some(t => t.length > 1)
 }
 
-/**
- * A short descriptor of the replay's matchup shown in the compact matchup column. Either a list of
- * per-side races (e.g. Terran vs Zerg, rendered as colored letters) or a plain text label (e.g.
- * `2v2`, `FFA`).
- */
-export type ReplayMatchupBadge =
-  | { kind: 'races'; races: RaceChar[] }
-  | { kind: 'text'; text: string }
-
-/** Derives the compact matchup badge for a replay's team layout. */
-export function getReplayMatchupBadge(layout: ReplayTeamLayout): ReplayMatchupBadge {
-  const { kind, teams } = layout
-
-  if (kind === 'oneVsOne') {
-    return { kind: 'races', races: [teams[0][0].race, teams[1][0].race] }
-  }
-
-  if (kind === 'teams') {
-    if (teams.length === 2 && teams[0].length === 1 && teams[1].length === 1) {
-      return { kind: 'races', races: [teams[0][0].race, teams[1][0].race] }
-    }
-    if (teams.length === 2) {
-      return { kind: 'text', text: `${teams[0].length}v${teams[1].length}` }
-    }
-    return { kind: 'text', text: 'FFA' }
-  }
-
-  // Flat layout: a single lonely player shows just their race, otherwise treat as a free-for-all.
-  const total = teams.reduce((sum, t) => sum + t.length, 0)
-  if (total <= 1) {
-    const only = teams[0]?.[0]
-    return only ? { kind: 'races', races: [only.race] } : { kind: 'text', text: 'FFA' }
-  }
-  return { kind: 'text', text: 'FFA' }
-}
-
-/** Formats a byte count as a short human-readable size (e.g. `1.2 MB`, `840 KB`). */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} B`
-  }
-  const units = ['KB', 'MB', 'GB', 'TB']
-  let value = bytes / 1024
-  let unitIndex = 0
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024
-    unitIndex += 1
-  }
-  // Show one decimal place under 10, none above (e.g. `1.2 MB` but `24 MB`).
-  const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10
-  return `${rounded} ${units[unitIndex]}`
-}
-
 /** A day's worth of replays, identified by the local start-of-day timestamp. */
 export interface ReplayDayGroup {
   /** The local start-of-day (midnight) for this group, as unix ms. Stable key for the group. */
   dayStartMs: number
   entries: ReplayLibraryEntry[]
-}
-
-/** Returns the local start-of-day (midnight) timestamp, in unix ms, for a given instant. */
-export function startOfLocalDay(ms: number): number {
-  const d = new Date(ms)
-  d.setHours(0, 0, 0, 0)
-  return d.getTime()
-}
-
-/**
- * Returns the local start-of-day timestamps for today and yesterday (used to label day-group
- * headers). Kept out of component render bodies so the `Date.now()` read doesn't trip the
- * render-purity lint rule.
- */
-export function getDayBoundaries(): { todayStartMs: number; yesterdayStartMs: number } {
-  const todayStartMs = startOfLocalDay(Date.now())
-  return { todayStartMs, yesterdayStartMs: startOfLocalDay(todayStartMs - 1) }
 }
 
 /**

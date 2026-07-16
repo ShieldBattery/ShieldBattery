@@ -2,6 +2,7 @@ import {
   decodeMatchup,
   GameDurationFilter,
   GameFormat,
+  GameSortOption,
   getTeamSizeForFormat,
   MatchupFilter,
 } from '../../common/games/game-filters'
@@ -31,41 +32,42 @@ export interface ReplaySqlQuery {
 }
 
 /**
- * Builds an FTS5 MATCH expression from a free-text query. Each whitespace-delimited term becomes a
- * quoted prefix token, combined with implicit AND. Returns undefined for an empty query.
+ * Escapes `\`, `%`, and `_` in `value` so it can be safely embedded as a substring inside a
+ * `LIKE ... ESCAPE '\'` pattern (i.e. `%${escapeLike(value)}%`).
  */
-export function buildFtsMatchQuery(searchQuery: string | undefined): string | undefined {
-  if (!searchQuery) {
-    return undefined
-  }
-
-  const terms = searchQuery
-    .trim()
-    .split(/\s+/)
-    .filter(t => t.length > 0)
-    // Escape embedded double quotes by doubling them, then quote the term and add a prefix wildcard
-    // so partial names/maps match.
-    .map(t => `"${t.replace(/"/g, '""')}"*`)
-
-  return terms.length > 0 ? terms.join(' ') : undefined
+export function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, ch => `\\${ch}`)
 }
 
 /**
- * Builds the SQL statement for the cheap, row-level part of a replay query (source, map name, game
- * type, duration bucket, and free-text search). Format and matchup filters are applied in JS
- * afterwards via `replayPassesTeamFilters`, since they require the per-player team layout. Results
- * are ordered newest-first.
+ * Maps a {@link GameSortOption} (defaulting to newest-first) to the `ORDER BY` clause body used in
+ * the replay query. Parse-error rows have NULL `game_time`/`duration_frames`; `NULLS LAST` is used
+ * where an ascending sort would otherwise put them first (SQLite treats NULL as the smallest value).
+ */
+function buildOrderByClause(sort: GameSortOption): string {
+  switch (sort) {
+    case GameSortOption.LatestFirst:
+      return 'r.game_time DESC'
+    case GameSortOption.OldestFirst:
+      return 'r.game_time ASC NULLS LAST'
+    case GameSortOption.ShortestFirst:
+      return 'r.duration_frames ASC NULLS LAST, r.game_time DESC'
+    case GameSortOption.LongestFirst:
+      return 'r.duration_frames DESC, r.game_time DESC'
+    default:
+      return sort satisfies never
+  }
+}
+
+/**
+ * Builds the SQL statement for the cheap, row-level part of a replay query (source, map name,
+ * player name, game type, duration bucket). Format and matchup filters are applied in JS afterwards
+ * via `replayPassesTeamFilters`, since they require the per-player team layout. Results are ordered
+ * per `filters.sort` (defaulting to newest-first).
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
   const params: Array<string | number> = []
-
-  const ftsMatch = buildFtsMatchQuery(filters.searchQuery)
-  const useFts = ftsMatch !== undefined
-  if (ftsMatch !== undefined) {
-    whereClauses.push('replay_fts MATCH ?')
-    params.push(ftsMatch)
-  }
 
   if (filters.source === 'sb') {
     whereClauses.push('r.sb_game_id IS NOT NULL')
@@ -74,8 +76,15 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
   }
 
   if (filters.mapName !== undefined) {
-    whereClauses.push('r.map_name = ?')
-    params.push(filters.mapName)
+    whereClauses.push("r.map_name LIKE ? ESCAPE '\\'")
+    params.push(`%${escapeLike(filters.mapName)}%`)
+  }
+
+  if (filters.playerName !== undefined) {
+    whereClauses.push(
+      "EXISTS (SELECT 1 FROM replay_players p WHERE p.replay_id = r.id AND p.name LIKE ? ESCAPE '\\')",
+    )
+    params.push(`%${escapeLike(filters.playerName)}%`)
   }
 
   if (filters.gameType !== undefined) {
@@ -106,11 +115,9 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     }
   }
 
-  const from = useFts
-    ? 'FROM replays r JOIN replay_fts ON replay_fts.rowid = r.id'
-    : 'FROM replays r'
   const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : ''
-  const sql = `SELECT r.* ${from}${where} ORDER BY r.game_time DESC`
+  const orderBy = buildOrderByClause(filters.sort ?? GameSortOption.LatestFirst)
+  const sql = `SELECT r.* FROM replays r${where} ORDER BY ${orderBy}`
 
   return { sql, params }
 }

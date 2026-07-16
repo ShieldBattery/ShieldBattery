@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -47,15 +48,7 @@ const BaseCell = styled.div`
   flex: 1 1 auto;
 `
 
-const ResultAndDateCell = styled(BaseCell)`
-  width: 128px;
-
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-`
-
-const DateOnlyCell = styled(BaseCell)`
+const LeadingCell = styled(BaseCell)`
   width: 128px;
 
   display: flex;
@@ -101,7 +94,8 @@ const GameListEntryResult = styled.div<{ $result: ReconciledResult }>`
   flex-shrink: 0;
 `
 
-const GameDate = styled.div`
+/** The muted, single-line text style used for the date/time in the leading cell of a game row. */
+export const GameDate = styled.div`
   ${labelMedium};
   ${singleLine};
   color: var(--theme-on-surface-variant);
@@ -133,7 +127,8 @@ const GameType = styled.div`
   text-align: right;
 `
 
-const ThumbnailContainer = styled.div`
+/** Positioned wrapper for a 64×64 thumbnail (or placeholder) plus its hover overlay. */
+export const ThumbnailContainer = styled.div`
   position: relative;
   flex-shrink: 0;
 `
@@ -145,7 +140,8 @@ const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   flex-shrink: 0;
 `
 
-const MapNoImageContainer = styled.div`
+/** A 64×64 tile used when no real map thumbnail is available; holds a centered placeholder icon. */
+export const MapNoImageContainer = styled.div`
   ${elevationPlus1};
   width: 64px;
   height: 64px;
@@ -163,7 +159,11 @@ const MapNoImageIcon = styledWithAttrs(MaterialIcon, { icon: 'question_mark', si
   opacity: 0.5;
 `
 
-const WatchReplayOverlay = styled.div`
+/**
+ * A hover-reveal overlay over a game/replay thumbnail that surfaces a "watch replay" control. Keys
+ * off `GameListEntryRoot`, so any row that renders the layout gets the hover behavior for free.
+ */
+export const WatchReplayOverlay = styled.div`
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -181,6 +181,61 @@ const WatchReplayOverlay = styled.div`
     opacity: 1;
   }
 `
+
+export interface GameListEntryLayoutProps {
+  /** Content of the leading cell (e.g. the result + date, or a date/time on its own). */
+  leading: React.ReactNode
+  /** Content of the players cell (a players/teams display). */
+  players: React.ReactNode
+  /** Preformatted game duration text (e.g. `12:34`, or `—` when unknown). */
+  duration: string
+  /** Map name text (already color-code-stripped). */
+  mapName: string
+  /** Game type / mode label. */
+  gameTypeLabel: string
+  /** Thumbnail cell content (a `ThumbnailContainer` with a thumbnail or placeholder + overlay). */
+  thumbnail: React.ReactNode
+  className?: string
+  /** Extra content rendered inside the row root after the cells (e.g. a `Ripple`). */
+  children?: React.ReactNode
+}
+
+/**
+ * The purely presentational layout for a game/replay list row: the row root plus the four cells
+ * (leading, players, duration, map + game type). Carries no data dependencies so it can back both
+ * real games (see `GameListEntry`) and local replay files.
+ */
+export function GameListEntryLayout({
+  leading,
+  players,
+  duration,
+  mapName,
+  gameTypeLabel,
+  thumbnail,
+  className,
+  children,
+}: GameListEntryLayoutProps) {
+  return (
+    <GameListEntryRoot className={className}>
+      <LeadingCell>{leading}</LeadingCell>
+
+      <PlayersCell>{players}</PlayersCell>
+
+      <GameLengthCell>{duration}</GameLengthCell>
+
+      <MapAndGameTypeCell>
+        <MapNameAndGameTypeContainer>
+          <MapName title={mapName}>{mapName}</MapName>
+          <GameType>{gameTypeLabel}</GameType>
+        </MapNameAndGameTypeContainer>
+
+        {thumbnail}
+      </MapAndGameTypeCell>
+
+      {children}
+    </GameListEntryRoot>
+  )
+}
 
 export interface GameListEntryProps {
   game: ReadonlyDeep<GameRecordJson>
@@ -248,32 +303,24 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
 
   return (
     <LinkButton {...buttonProps} href={getGameResultsUrl(game.id)}>
-      <GameListEntryRoot>
-        {showResult && forUserId ? (
-          <ResultAndDateCell>
-            <GameListEntryResult $result={result}>
-              {getResultLabel(result, t, true)}
-            </GameListEntryResult>
-            {dateCell}
-          </ResultAndDateCell>
-        ) : (
-          <DateOnlyCell>{dateCell}</DateOnlyCell>
-        )}
-
-        <PlayersCell>
-          <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />
-        </PlayersCell>
-
-        <GameLengthCell>
-          {game.gameLength ? getGameDurationString(game.gameLength) : '—'}
-        </GameLengthCell>
-
-        <MapAndGameTypeCell>
-          <MapNameAndGameTypeContainer>
-            <MapName title={mapName}>{mapName}</MapName>
-            <GameType>{gameType}</GameType>
-          </MapNameAndGameTypeContainer>
-
+      <GameListEntryLayout
+        leading={
+          showResult && forUserId ? (
+            <>
+              <GameListEntryResult $result={result}>
+                {getResultLabel(result, t, true)}
+              </GameListEntryResult>
+              {dateCell}
+            </>
+          ) : (
+            dateCell
+          )
+        }
+        players={<GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />}
+        duration={game.gameLength ? getGameDurationString(game.gameLength) : '—'}
+        mapName={mapName}
+        gameTypeLabel={gameType}
+        thumbnail={
           <ThumbnailContainer>
             {map ? (
               <StyledMapThumbnail
@@ -301,10 +348,9 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
               </WatchReplayOverlay>
             )}
           </ThumbnailContainer>
-        </MapAndGameTypeCell>
-
+        }>
         <Ripple ref={rippleRef} />
-      </GameListEntryRoot>
+      </GameListEntryLayout>
     </LinkButton>
   )
 }

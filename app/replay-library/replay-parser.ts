@@ -180,9 +180,9 @@ function readReplayHeader(filePath: string, encoding?: string): Promise<ParsedRe
       }
     })
 
-    pipeline(readStream, parser).catch(err => {
+    pipeline(readStream, parser).catch((err: unknown) => {
       clearTimeout(timeout)
-      reject(err)
+      reject(err instanceof Error ? err : new Error(String(err)))
     })
     parser.resume()
   })

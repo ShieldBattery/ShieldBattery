@@ -178,12 +178,13 @@ interface IpcInvokeables {
     replayPath: string,
   ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
 
-  /** Returns all indexed replays matching `filters`, newest-first (the UI virtualizes the list). */
+  /**
+   * Returns all indexed replays matching `filters`, ordered per `filters.sort` (newest-first by
+   * default; the UI virtualizes the list).
+   */
   replayLibraryQuery: (
     filters: ReplayLibraryFilters,
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
-  /** Distinct map names in the index, for the map filter chip. */
-  replayLibraryGetMaps: () => Promise<string[]>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
 

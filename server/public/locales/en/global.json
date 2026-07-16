@@ -626,6 +626,10 @@
     "activity": {
       "title": "Games"
     },
+    "dayHeader": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
     "list": {
       "noMatchingGames": "No matching games.",
       "retrievingError": "There was an error retrieving the games."
@@ -1223,11 +1227,8 @@
       "clearFilters": "Clear filters",
       "empty": "No replays yet",
       "emptyBody": "Replays you watch and play will show up here automatically.",
+      "filteredCount": "{{shown}} of {{total}} replays",
       "filters": {
-        "format": "Format",
-        "map": "Map",
-        "mapAny": "Any map",
-        "matchup": "Matchup",
         "mode": "Mode",
         "modeAny": "Any mode",
         "source": "Source",
@@ -1235,30 +1236,17 @@
         "sourceBnet": "Battle.net",
         "sourceSb": "ShieldBattery"
       },
-      "hints": {
-        "explorer": "Explorer",
-        "navigate": "Navigate",
-        "search": "Search",
-        "watch": "Watch",
-        "watchLatest": "Watch latest"
-      },
-      "indexed_one": "{{count}} replays indexed",
-      "indexed_other": "{{count}} replays indexed",
-      "indexing": "Indexing… {{done}}/{{total}}",
       "inspector": {
         "empty": "Select a replay to see its details",
         "parseError": "This replay could not be read."
       },
-      "latestReplay": "Latest replay",
+      "moreActions": "More actions",
       "noMatches": "No replays match",
-      "openFolder": "Open replays folder",
       "replayCount_one": "{{count}} replay",
       "replayCount_other": "{{count}} replays",
+      "scanning": "Scanning replays… {{done}}/{{total}}",
       "showInExplorer": "Show in Explorer",
-      "title": "Library",
-      "today": "Today",
-      "watchReplay": "Watch replay",
-      "yesterday": "Yesterday"
+      "watchReplay": "Watch replay"
     },
     "loading": {
       "dialogTitle": "Loading replay…",

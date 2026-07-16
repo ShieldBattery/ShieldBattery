@@ -2,13 +2,14 @@ import { describe, expect, test } from 'vitest'
 import {
   decodeMatchup,
   GameDurationFilter,
+  GameSortOption,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 import { RaceChar } from '../../common/races'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
 import {
-  buildFtsMatchQuery,
   buildReplaySqlQuery,
+  escapeLike,
   getReplayTeamRaces,
   replayMatchesFormat,
   replayMatchesMatchup,
@@ -23,20 +24,13 @@ function player(
   return { slot: 0, team, race, name: 'p', isComputer: false, ...overrides }
 }
 
-describe('app/replay-library/replay-queries/buildFtsMatchQuery', () => {
-  test('undefined/empty query returns undefined', () => {
-    expect(buildFtsMatchQuery(undefined)).toBeUndefined()
-    expect(buildFtsMatchQuery('')).toBeUndefined()
-    expect(buildFtsMatchQuery('   ')).toBeUndefined()
+describe('app/replay-library/replay-queries/escapeLike', () => {
+  test('leaves plain text untouched', () => {
+    expect(escapeLike('Fighting Spirit')).toBe('Fighting Spirit')
   })
 
-  test('builds quoted prefix tokens joined with AND (space)', () => {
-    expect(buildFtsMatchQuery('flash')).toBe('"flash"*')
-    expect(buildFtsMatchQuery('  neo   sylphid ')).toBe('"neo"* "sylphid"*')
-  })
-
-  test('escapes embedded double quotes', () => {
-    expect(buildFtsMatchQuery('a"b')).toBe('"a""b"*')
+  test('escapes backslash, percent, and underscore', () => {
+    expect(escapeLike('100%_\\win')).toBe('100\\%\\_\\\\win')
   })
 })
 
@@ -53,11 +47,29 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     expect(buildReplaySqlQuery({ source: 'sb' }).params).toEqual([])
   })
 
-  test('map name and game type become parameterized equality checks', () => {
+  test('map name becomes a case-insensitive substring LIKE check', () => {
     const { sql, params } = buildReplaySqlQuery({ mapName: 'Fighting Spirit', gameType: 2 })
-    expect(sql).toContain('r.map_name = ?')
+    expect(sql).toContain("r.map_name LIKE ? ESCAPE '\\'")
     expect(sql).toContain('r.game_type = ?')
-    expect(params).toEqual(['Fighting Spirit', 2])
+    expect(params).toEqual(['%Fighting Spirit%', 2])
+  })
+
+  test('map name escapes LIKE wildcard characters in the substring', () => {
+    const { params } = buildReplaySqlQuery({ mapName: '100%_off\\map' })
+    expect(params).toEqual(['%100\\%\\_off\\\\map%'])
+  })
+
+  test('player name becomes an EXISTS subquery over replay_players', () => {
+    const { sql, params } = buildReplaySqlQuery({ playerName: 'flash' })
+    expect(sql).toContain(
+      "EXISTS (SELECT 1 FROM replay_players p WHERE p.replay_id = r.id AND p.name LIKE ? ESCAPE '\\')",
+    )
+    expect(params).toEqual(['%flash%'])
+  })
+
+  test('player name escapes LIKE wildcard characters in the substring', () => {
+    const { params } = buildReplaySqlQuery({ playerName: '100%_off\\player' })
+    expect(params).toEqual(['%100\\%\\_off\\\\player%'])
   })
 
   test('duration buckets convert to frame thresholds (24 fps)', () => {
@@ -78,12 +90,32 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     )
   })
 
-  test('search adds an FTS join and match param first', () => {
-    const { sql, params } = buildReplaySqlQuery({ searchQuery: 'flash', mapName: 'Python' })
-    expect(sql).toContain('JOIN replay_fts ON replay_fts.rowid = r.id')
-    expect(sql).toContain('replay_fts MATCH ?')
-    // FTS match param comes before the other row-level params.
-    expect(params).toEqual(['"flash"*', 'Python'])
+  test('no sort defaults to newest-first', () => {
+    expect(buildReplaySqlQuery({}).sql).toContain('ORDER BY r.game_time DESC')
+  })
+
+  test('LatestFirst orders by game_time DESC', () => {
+    expect(buildReplaySqlQuery({ sort: GameSortOption.LatestFirst }).sql).toContain(
+      'ORDER BY r.game_time DESC',
+    )
+  })
+
+  test('OldestFirst orders by game_time ASC, nulls last', () => {
+    expect(buildReplaySqlQuery({ sort: GameSortOption.OldestFirst }).sql).toContain(
+      'ORDER BY r.game_time ASC NULLS LAST',
+    )
+  })
+
+  test('ShortestFirst orders by duration_frames ASC (nulls last), then game_time DESC', () => {
+    expect(buildReplaySqlQuery({ sort: GameSortOption.ShortestFirst }).sql).toContain(
+      'ORDER BY r.duration_frames ASC NULLS LAST, r.game_time DESC',
+    )
+  })
+
+  test('LongestFirst orders by duration_frames DESC, then game_time DESC', () => {
+    expect(buildReplaySqlQuery({ sort: GameSortOption.LongestFirst }).sql).toContain(
+      'ORDER BY r.duration_frames DESC, r.game_time DESC',
+    )
   })
 })
 

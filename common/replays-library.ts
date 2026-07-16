@@ -1,4 +1,9 @@
-import { EncodedMatchupString, GameDurationFilter, GameFormat } from './games/game-filters'
+import {
+  EncodedMatchupString,
+  GameDurationFilter,
+  GameFormat,
+  GameSortOption,
+} from './games/game-filters'
 import { RaceChar } from './races'
 import { SbUserId } from './users/sb-user-id'
 
@@ -53,7 +58,10 @@ export interface ReplayLibraryEntry {
 export interface ReplayLibraryFilters {
   /** `sb` = produced by ShieldBattery (has an SB game id), `bnet` = everything else. */
   source?: 'sb' | 'bnet'
+  /** Case-insensitive substring to match against the map name. */
   mapName?: string
+  /** Case-insensitive substring to match against any player's name. */
+  playerName?: string
   /** Raw numeric game type to match exactly. */
   gameType?: number
   duration?: GameDurationFilter
@@ -61,8 +69,8 @@ export interface ReplayLibraryFilters {
   format?: GameFormat
   /** Encoded matchup filter with wildcards; only applied together with `format`. */
   matchup?: EncodedMatchupString
-  /** Free-text prefix search over player names and map name. */
-  searchQuery?: string
+  /** Result ordering. Defaults to newest-first when omitted. */
+  sort?: GameSortOption
 }
 
 /** High-level status of the replay index, for surfacing indexing progress in the UI. */

@@ -83,6 +83,12 @@ export interface GameFilterBarProps {
   setFormat: (v?: GameFormat) => void
   matchup?: EncodedMatchupString
   setMatchup: (v?: EncodedMatchupString) => void
+  /** Extra filter chips rendered between the Ranked/Custom section and the built-in filters. */
+  children?: React.ReactNode
+  /** Whether any caller-supplied (`children`) filter is active, so the Clear button appears. */
+  hasExtraFilters?: boolean
+  /** Called from the Clear button (alongside the built-in resets) to clear the extra filters. */
+  onClearExtraFilters?: () => void
   className?: string
 }
 
@@ -108,6 +114,9 @@ export function GameFilterBar({
   setFormat,
   matchup,
   setMatchup,
+  children,
+  hasExtraFilters = false,
+  onClearExtraFilters,
   className,
 }: GameFilterBarProps) {
   const { t } = useTranslation()
@@ -118,7 +127,8 @@ export function GameFilterBar({
   const hasActiveFilters =
     (showRankedCustom && (ranked || custom)) ||
     duration !== GameDurationFilter.All ||
-    hasAdvancedFilters
+    hasAdvancedFilters ||
+    hasExtraFilters
 
   return (
     <FilterBarContainer className={className}>
@@ -141,6 +151,8 @@ export function GameFilterBar({
           />
         </>
       )}
+
+      {children}
 
       <FilterChip
         label={getDurationLabel(duration, t)}
@@ -175,6 +187,7 @@ export function GameFilterBar({
             setPlayerName('')
             setFormat(undefined)
             setMatchup(undefined)
+            onClearExtraFilters?.()
           }}
         />
       )}

@@ -11,7 +11,7 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import { IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery, replayPassesTeamFilters } from './replay-queries'
 
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -57,9 +57,7 @@ export class ReplayDb {
   private readonly getIdByPathStmt: Statement
   private readonly insertReplayStmt: Statement
   private readonly insertPlayerStmt: Statement
-  private readonly insertFtsStmt: Statement
   private readonly deleteReplayByIdStmt: Statement
-  private readonly deleteFtsStmt: Statement
 
   private readonly upsertTxn: (record: IndexedReplay) => void
   private readonly deleteTxn: (paths: string[]) => void
@@ -81,15 +79,12 @@ export class ReplayDb {
       INSERT INTO replay_players (replay_id, slot, team, name, race, is_computer, sb_user_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
-    this.insertFtsStmt = this.db.prepare('INSERT INTO replay_fts (rowid, content) VALUES (?, ?)')
     this.deleteReplayByIdStmt = this.db.prepare('DELETE FROM replays WHERE id = ?')
-    this.deleteFtsStmt = this.db.prepare('DELETE FROM replay_fts WHERE rowid = ?')
 
     this.upsertTxn = this.db.transaction((record: IndexedReplay) => {
       const existing = this.getIdByPathStmt.get(record.path) as { id: number } | undefined
       if (existing) {
-        // Cascade removes players; FTS is content-less so we clear it explicitly.
-        this.deleteFtsStmt.run(existing.id)
+        // Cascade removes players.
         this.deleteReplayByIdStmt.run(existing.id)
       }
 
@@ -118,15 +113,12 @@ export class ReplayDb {
           p.sbUserId ?? null,
         )
       }
-
-      this.insertFtsStmt.run(id, buildFtsContent(record))
     })
 
     this.deleteTxn = this.db.transaction((paths: string[]) => {
       for (const p of paths) {
         const row = this.getIdByPathStmt.get(p) as { id: number } | undefined
         if (row) {
-          this.deleteFtsStmt.run(row.id)
           this.deleteReplayByIdStmt.run(row.id)
         }
       }
@@ -162,9 +154,14 @@ export class ReplayDb {
           sb_user_id INTEGER
         );
         CREATE INDEX idx_replay_players_replay_id ON replay_players (replay_id);
-
-        CREATE VIRTUAL TABLE replay_fts USING fts5(content);
       `)
+    }
+    if (version < 2) {
+      // The FTS free-text index was replaced by LIKE-based substring filtering.
+      this.db.exec('DROP TABLE IF EXISTS replay_fts')
+    }
+
+    if (version < SCHEMA_VERSION) {
       this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
     }
   }
@@ -199,21 +196,10 @@ export class ReplayDb {
     return row.count
   }
 
-  /** Distinct, non-empty map names of successfully-parsed replays, for a filter chip. */
-  getDistinctMapNames(): string[] {
-    const rows = this.db
-      .prepare(
-        `SELECT DISTINCT map_name FROM replays
-         WHERE parse_error = 0 AND map_name IS NOT NULL AND map_name <> ''
-         ORDER BY map_name COLLATE NOCASE`,
-      )
-      .all() as Array<{ map_name: string }>
-    return rows.map(r => r.map_name)
-  }
-
   /**
-   * Runs a filtered query, returning all matching entries newest-first. The row-level filters run in
-   * SQL; format/matchup filters run in JS over the loaded players.
+   * Runs a filtered query, returning all matching entries ordered per `filters.sort` (defaulting to
+   * newest-first). The row-level filters run in SQL; format/matchup filters run in JS over the
+   * loaded players.
    */
   query(filters: ReplayLibraryFilters): { entries: ReplayLibraryEntry[]; total: number } {
     const { sql, params } = buildReplaySqlQuery(filters)
@@ -264,10 +250,6 @@ export class ReplayDb {
 
     return result
   }
-}
-
-function buildFtsContent(record: IndexedReplay): string {
-  return [record.mapName, ...record.players.map(p => p.name)].filter(s => s.length > 0).join(' ')
 }
 
 function rowToEntry(row: DbReplayRow, playerRows: DbPlayerRow[]): ReplayLibraryEntry {

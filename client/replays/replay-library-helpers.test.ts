@@ -3,7 +3,6 @@ import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import {
   getReplayDisplayTeams,
-  getReplayMatchupBadge,
   groupReplaysByDay,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
@@ -103,35 +102,6 @@ describe('getReplayDisplayTeams', () => {
     expect(layout.kind).toBe('flat')
     expect(layout.teams).toHaveLength(1)
     expect(layout.teams[0]).toHaveLength(1)
-  })
-})
-
-describe('getReplayMatchupBadge', () => {
-  test('shows race letters for a 1v1', () => {
-    const layout = getReplayDisplayTeams([
-      makePlayer({ slot: 0, team: 1, race: 't' }),
-      makePlayer({ slot: 1, team: 1, race: 'z' }),
-    ])
-    expect(getReplayMatchupBadge(layout)).toEqual({ kind: 'races', races: ['t', 'z'] })
-  })
-
-  test('shows team sizes for a 2v2', () => {
-    const layout = getReplayDisplayTeams([
-      makePlayer({ slot: 0, team: 1, race: 't' }),
-      makePlayer({ slot: 1, team: 1, race: 't' }),
-      makePlayer({ slot: 2, team: 2, race: 'z' }),
-      makePlayer({ slot: 3, team: 2, race: 'z' }),
-    ])
-    expect(getReplayMatchupBadge(layout)).toEqual({ kind: 'text', text: '2v2' })
-  })
-
-  test('shows FFA for a multiplayer free-for-all', () => {
-    const layout = getReplayDisplayTeams([
-      makePlayer({ slot: 0, team: 1, race: 't' }),
-      makePlayer({ slot: 1, team: 2, race: 'z' }),
-      makePlayer({ slot: 2, team: 3, race: 'p' }),
-    ])
-    expect(getReplayMatchupBadge(layout)).toEqual({ kind: 'text', text: 'FFA' })
   })
 })
 
