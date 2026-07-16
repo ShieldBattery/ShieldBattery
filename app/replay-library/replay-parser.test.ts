@@ -2,7 +2,12 @@ import { ReplayHeader, ReplayPlayer, ReplayRace } from 'jssuh'
 import { describe, expect, test } from 'vitest'
 import { NON_EXISTING_USER_ID, ReplayShieldBatteryData } from '../../common/replays'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
-import { makeParseErrorRecord, mapReplayHeaderToRecord, ReplayFileInfo } from './replay-parser'
+import {
+  headerNeedsUtf8Redecode,
+  makeParseErrorRecord,
+  mapReplayHeaderToRecord,
+  ReplayFileInfo,
+} from './replay-parser'
 
 const FILE_INFO: ReplayFileInfo = {
   path: 'C:\\replays\\game.rep',
@@ -154,5 +159,32 @@ describe('app/replay-library/replay-parser/makeParseErrorRecord', () => {
     expect(record.path).toBe(FILE_INFO.path)
     expect(record.fileSize).toBe(FILE_INFO.fileSize)
     expect(record.contentHash).toBe(FILE_INFO.contentHash)
+  })
+})
+
+describe('headerNeedsUtf8Redecode', () => {
+  test('remastered replay with mangled non-ASCII strings needs the utf8 pass', () => {
+    // 투혼 1.4 as UTF-8 bytes mis-decoded by jssuh's cp1252 fallback
+    const header = makeHeader({ remastered: true, mapName: 'íˆ¬í˜¼ 1.4' })
+    expect(headerNeedsUtf8Redecode(header)).toBe(true)
+  })
+
+  test('remastered replay with non-ASCII player names needs the utf8 pass', () => {
+    const header = makeHeader({
+      remastered: true,
+      mapName: 'Fighting Spirit',
+      players: [{ name: 'ë°©í˜¸', id: 0, race: 'zerg', team: 1, isComputer: false }],
+    })
+    expect(headerNeedsUtf8Redecode(header)).toBe(true)
+  })
+
+  test('remastered replay with all-ASCII strings does not', () => {
+    const header = makeHeader({ remastered: true, mapName: 'Polypoid', gameName: 'ladder game' })
+    expect(headerNeedsUtf8Redecode(header)).toBe(false)
+  })
+
+  test('1.16 replay never re-decodes (cp949 auto handling is correct for its era)', () => {
+    const header = makeHeader({ remastered: false, mapName: '투혼 1.4' })
+    expect(headerNeedsUtf8Redecode(header)).toBe(false)
   })
 })

@@ -32,6 +32,11 @@ declare module 'jssuh' {
   }
 
   export default class ReplayParser extends Transform {
+    /**
+     * @param opts `encoding` selects how header strings are decoded: `'auto'` (default) tries
+     *   cp949 then cp1252; any iconv-lite encoding name (e.g. `'utf8'`) forces that encoding.
+     */
+    constructor(opts?: { encoding?: string })
     rawScrSection(tag: string, callback: (bytes: Buffer) => void): void
   }
 }

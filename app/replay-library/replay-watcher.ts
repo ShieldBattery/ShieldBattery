@@ -13,6 +13,12 @@ import {
 
 /** Debounce window for coalescing filesystem events into a single reconcile. */
 const WATCH_DEBOUNCE_MS = 500
+/**
+ * How many replays are parsed concurrently during a backfill. Each parse streams the entire file
+ * (SC:R sections like Sbat live near the end), so this is IO-bound and benefits from overlap; the
+ * synchronous DB writes still serialize naturally on the event loop.
+ */
+const PARSE_CONCURRENCY = 8
 /** Yield back to the event loop after parsing this many files, so indexing stays non-blocking. */
 const PARSE_YIELD_EVERY = 8
 
@@ -147,15 +153,23 @@ export class ReplayWatcher {
     this.backfillProgress = { done, total }
     this.callbacks.onProgress({ done, total })
 
-    for (const filePath of toParse) {
-      await this.indexFile(filePath, files.get(filePath)!)
-      done++
-      if (done % PARSE_YIELD_EVERY === 0 || done === total) {
-        this.backfillProgress = done < total ? { done, total } : undefined
-        this.callbacks.onProgress({ done, total })
-        await new Promise<void>(resolve => setImmediate(resolve))
+    let nextIndex = 0
+    const worker = async () => {
+      while (nextIndex < toParse.length) {
+        const filePath = toParse[nextIndex]
+        nextIndex++
+        await this.indexFile(filePath, files.get(filePath)!)
+        done++
+        if (done % PARSE_YIELD_EVERY === 0 || done === total) {
+          this.backfillProgress = done < total ? { done, total } : undefined
+          this.callbacks.onProgress({ done, total })
+          await new Promise<void>(resolve => setImmediate(resolve))
+        }
       }
     }
+    await Promise.all(
+      Array.from({ length: Math.min(PARSE_CONCURRENCY, toParse.length) }, () => worker()),
+    )
 
     this.backfillProgress = undefined
     this.callbacks.onChange()

@@ -1252,7 +1252,7 @@
       "latestReplay": "Latest replay",
       "noMatches": "No replays match",
       "openFolder": "Open replays folder",
-      "replayCount_one": "{{count}} replays",
+      "replayCount_one": "{{count}} replay",
       "replayCount_other": "{{count}} replays",
       "showInExplorer": "Show in Explorer",
       "title": "Library",

@@ -109,12 +109,31 @@ interface ParsedReplay {
 }
 
 /**
+ * Returns true if a parsed header has strings that need re-decoding as UTF-8. jssuh's `auto`
+ * encoding only ever tries cp949 → cp1252 (a 1.16-era heuristic), but Remastered replays store
+ * strings as UTF-8, so non-ASCII names come out mangled. ASCII-only strings decode identically in
+ * all three encodings, so those never need the second pass.
+ */
+export function headerNeedsUtf8Redecode(header: ReplayHeader): boolean {
+  if (!header.remastered) {
+    return false
+  }
+  // eslint-disable-next-line no-control-regex
+  const nonAscii = /[^\x00-\x7f]/
+  return (
+    nonAscii.test(header.mapName) ||
+    nonAscii.test(header.gameName) ||
+    header.players.some(p => nonAscii.test(p.name))
+  )
+}
+
+/**
  * Reads and parses a replay's header + ShieldBattery section, using the same approach as the
  * `replayParseMetadata` IPC handler. Rejects if the header can't be read.
  */
-function readReplayHeader(filePath: string): Promise<ParsedReplay> {
+function readReplayHeader(filePath: string, encoding?: string): Promise<ParsedReplay> {
   return new Promise((resolve, reject) => {
-    const parser = new ReplayParser()
+    const parser = encoding !== undefined ? new ReplayParser({ encoding }) : new ReplayParser()
     let header: ReplayHeader | undefined
     parser.on('replayHeader', h => {
       header = h
@@ -144,6 +163,9 @@ function readReplayHeader(filePath: string): Promise<ParsedReplay> {
 
 /** Parses a replay file into an `IndexedReplay`. Rejects if the header can't be parsed. */
 export async function parseReplayFile(fileInfo: ReplayFileInfo): Promise<IndexedReplay> {
-  const { header, sbData } = await readReplayHeader(fileInfo.path)
-  return mapReplayHeaderToRecord(fileInfo, header, sbData)
+  let parsed = await readReplayHeader(fileInfo.path)
+  if (headerNeedsUtf8Redecode(parsed.header)) {
+    parsed = await readReplayHeader(fileInfo.path, 'utf8')
+  }
+  return mapReplayHeaderToRecord(fileInfo, parsed.header, parsed.sbData)
 }

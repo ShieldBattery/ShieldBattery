@@ -1,6 +1,6 @@
 import { debounce } from 'lodash-es'
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle } from 'react-virtuoso'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
@@ -83,6 +83,12 @@ const dayGroupDateFormat = new Intl.DateTimeFormat(navigator.language, {
   weekday: 'long',
   month: 'long',
   day: 'numeric',
+})
+const dayGroupDateFormatWithYear = new Intl.DateTimeFormat(navigator.language, {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
 })
 
 // ---- Layout ----------------------------------------------------------------------------------
@@ -317,7 +323,7 @@ const RowRoot = styled.div<{ $focused: boolean }>`
   padding: 6px 8px;
 
   display: grid;
-  grid-template-columns: 12px 64px 56px minmax(0, 1fr) minmax(80px, 200px) 56px 36px;
+  grid-template-columns: 12px 64px 56px minmax(0, 1fr) minmax(80px, 200px) 64px 36px;
   align-items: center;
   gap: 12px;
 
@@ -890,7 +896,10 @@ function formatDayLabel(
   if (dayStartMs === yesterdayStartMs) {
     return t('replays.library.yesterday', 'Yesterday')
   }
-  return dayGroupDateFormat.format(dayStartMs)
+  // Old replays span years, so include the year whenever it isn't the current one.
+  return new Date(dayStartMs).getFullYear() === new Date(todayStartMs).getFullYear()
+    ? dayGroupDateFormat.format(dayStartMs)
+    : dayGroupDateFormatWithYear.format(dayStartMs)
 }
 
 export function ReplayLibrary() {
@@ -1184,10 +1193,9 @@ export function ReplayLibrary() {
                 <DayHeaderRoot>
                   <span>{formatDayLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)}</span>
                   <DayHeaderCount>
-                    {t('replays.library.replayCount', {
-                      defaultValue: '{{count}} replays',
-                      count: group.entries.length,
-                    })}
+                    <Trans t={t} i18nKey='replays.library.replayCount' count={group.entries.length}>
+                      {{ count: group.entries.length }} replays
+                    </Trans>
                   </DayHeaderCount>
                   <DayHeaderRule />
                 </DayHeaderRoot>
