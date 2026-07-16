@@ -34,6 +34,7 @@ import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
+import { setupReplayLibrary } from './replay-library'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
@@ -1281,6 +1282,18 @@ app.on('ready', () => {
       setupAnalytics(currentSession())
       gameServer = createGameServer(localSettings)
       await createWindow()
+
+      try {
+        setupReplayLibrary({
+          dbPath: path.join(app.getPath('userData'), 'replay-library.sqlite'),
+          watchedFolder: path.join(app.getPath('documents'), 'Starcraft', 'maps', 'replays'),
+          getSender: () => TypedIpcSender.from(mainWindow?.webContents),
+        })
+      } catch (err) {
+        // A failure to set up the replay index shouldn't take down the whole app.
+        logger.error(`Error setting up the replay library: ${getErrorStack(err)}`)
+      }
+
       systemTray = new SystemTray(mainWindow, () => app.quit())
 
       TypedIpcSender.from(mainWindow?.webContents).send(

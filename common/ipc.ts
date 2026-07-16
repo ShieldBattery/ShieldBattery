@@ -15,6 +15,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { MapExtension } from './maps'
 import { ReplayShieldBatteryData } from './replays'
+import { ReplayLibraryEntry, ReplayLibraryFilters, ReplayLibraryStatus } from './replays-library'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 import { SbUserId } from './users/sb-user-id'
@@ -175,6 +176,15 @@ interface IpcInvokeables {
     replayPath: string,
   ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
 
+  /** Returns all indexed replays matching `filters`, newest-first (the UI virtualizes the list). */
+  replayLibraryQuery: (
+    filters: ReplayLibraryFilters,
+  ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
+  /** Distinct map names in the index, for the map filter chip. */
+  replayLibraryGetMaps: () => Promise<string[]>
+  /** Current status of the replay index (total indexed, backfill progress, watched folder). */
+  replayLibraryStatus: () => Promise<ReplayLibraryStatus>
+
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.
    * Returns the file path if it exists and has correct hash, null otherwise.
@@ -258,6 +268,11 @@ interface IpcMainSendables {
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */
   gameServerRegionsLatenciesUpdated: (latencies: GameServerRegionLatencies) => void
+
+  /** Sent whenever the replay index changes (files added/removed/updated). */
+  replayLibraryChanged: () => void
+  /** Sent as the replay index backfills, so the UI can show progress. */
+  replayLibraryBackfillProgress: (progress: { done: number; total: number }) => void
 
   replaysOpen: (replayPaths: string[]) => void
 

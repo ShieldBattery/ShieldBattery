@@ -1,98 +1,15 @@
 import { Immutable } from 'immer'
-import * as React from 'react'
 import { useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { GameConfigPlayer } from '../../common/games/configuration'
 import { GameRecordJson } from '../../common/games/games'
 import { ReconciledPlayerResult } from '../../common/games/results'
-import { RaceChar } from '../../common/races'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { RaceIcon } from '../lobbies/race-icon'
 import { useAppSelector } from '../redux-hooks'
 import { RootState } from '../root-reducer'
-import { labelMedium, singleLine, titleSmall } from '../styles/typography'
-
-const GamePreviewPlayers = styled.div`
-  display: flex;
-  gap: 16px;
-`
-
-const GamePreviewTeam = styled.div`
-  min-width: 0;
-  width: calc(50% - 8px);
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const GamePreviewTeamOverline = styled.div`
-  ${labelMedium};
-  ${singleLine};
-
-  color: var(--theme-on-surface-variant);
-`
-
-const GamePreviewPlayerContainer = styled.div`
-  height: 20px;
-
-  display: flex;
-  align-items: center;
-`
-
-const GamePreviewPlayerName = styled.span`
-  ${titleSmall};
-  ${singleLine};
-`
-
-const GamePreviewPlayerRaceRoot = styled.div`
-  position: relative;
-  width: auto;
-  height: 20px;
-  margin-right: 4px;
-`
-
-const GamePreviewPlayerAssignedRace = styled(RaceIcon)`
-  width: auto;
-  height: 100%;
-  aspect-ratio: 1;
-`
-
-const GamePreviewPlayerRandomIcon = styled(RaceIcon)`
-  position: absolute;
-  /*
-    NOTE(tec27): For reasons I don't fully understand, 0 positions this at a place where it is
-    clipped by the parent element.
-  */
-  bottom: 2px;
-  right: 0;
-
-  && {
-    width: 12px;
-    height: 12px;
-  }
-
-  & > * {
-    text-shadow: 0 0 2px rgba(0, 0, 0, 0.7);
-  }
-`
-
-interface GamePreviewPlayerRaceProps {
-  race: RaceChar
-  isRandom: boolean
-}
-
-function GamePreviewPlayerRace({ race, isRandom }: GamePreviewPlayerRaceProps) {
-  return (
-    <GamePreviewPlayerRaceRoot>
-      <GamePreviewPlayerAssignedRace race={race} />
-      {isRandom && race !== 'r' ? <GamePreviewPlayerRandomIcon race={'r'} /> : null}
-    </GamePreviewPlayerRaceRoot>
-  )
-}
+import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from './player-teams-display'
 
 function usePlayersSelector(game: Immutable<GameRecordJson>) {
   return useCallback(
@@ -152,9 +69,20 @@ export function GamePlayersDisplay({
     return new Map<SbUserId, ReconciledPlayerResult>(Array.isArray(results) ? results : [])
   }, [results])
 
+  const toDisplayPlayer = (player: GameConfigPlayer): PlayerTeamsDisplayPlayer => {
+    const result = player.isComputer ? undefined : resultsById.get(player.id)
+    return {
+      race: result?.race ?? player.race,
+      isRandom: player.race === 'r',
+      name: player.isComputer
+        ? t('game.playerName.computer', 'Computer')
+        : (playersMapping.get(player.id)?.name ?? t('game.playerName.unknown', 'Unknown player')),
+    }
+  }
+
   // TODO(2Pac): Handle game types which can have more than two teams
-  let firstTeamElems: React.ReactNode[] = []
-  let secondTeamElems: React.ReactNode[] = []
+  let teams: ReadonlyArray<ReadonlyArray<PlayerTeamsDisplayPlayer>>
+  let teamLabels: ReadonlyArray<string> | undefined
 
   if (game.config.gameType === 'topVBottom') {
     // Sort the teams so that the team with the user whose profile this is being displayed on comes
@@ -176,7 +104,7 @@ export function GamePlayersDisplay({
     })
     const [teamTop, teamBottom] = sortedTeams
 
-    const mapTeamToElems = (team: ReadonlyArray<GameConfigPlayer>) => {
+    const mapTeam = (team: ReadonlyArray<GameConfigPlayer>) => {
       return team
         .toSorted((a, b) => {
           const aName = playersMapping.get(a.id)?.name
@@ -190,39 +118,13 @@ export function GamePlayersDisplay({
 
           return aName.localeCompare(bName)
         })
-        .map((player, i) => {
-          const result = player.isComputer ? undefined : resultsById.get(player.id)
-          return (
-            <GamePreviewPlayerContainer key={`player-${i}`}>
-              <GamePreviewPlayerRace
-                race={result?.race ?? player.race}
-                isRandom={player.race === 'r'}
-              />
-              <GamePreviewPlayerName>
-                {player.isComputer
-                  ? t('game.playerName.computer', 'Computer')
-                  : (playersMapping.get(player.id)?.name ??
-                    t('game.playerName.unknown', 'Unknown player'))}
-              </GamePreviewPlayerName>
-            </GamePreviewPlayerContainer>
-          )
-        })
+        .map(toDisplayPlayer)
     }
 
-    firstTeamElems = mapTeamToElems(teamTop)
-    secondTeamElems = mapTeamToElems(teamBottom)
+    teams = [mapTeam(teamTop), mapTeam(teamBottom)]
 
     if (showTeamLabels) {
-      firstTeamElems.unshift(
-        <GamePreviewTeamOverline key={'team-top'}>
-          {t('game.teamName.top', 'Top')}
-        </GamePreviewTeamOverline>,
-      )
-      secondTeamElems.unshift(
-        <GamePreviewTeamOverline key={'team-bottom'}>
-          {t('game.teamName.bottom', 'Bottom')}
-        </GamePreviewTeamOverline>,
-      )
+      teamLabels = [t('game.teamName.top', 'Top'), t('game.teamName.bottom', 'Bottom')]
     }
   } else {
     // TODO(tec27): Handle UMS game types with 2 teams? Always add team labels for 1v1?
@@ -248,35 +150,21 @@ export function GamePlayersDisplay({
       return aName.localeCompare(bName)
     })
 
-    for (const [i, player] of sortedPlayers.entries()) {
-      const result = player.isComputer ? undefined : resultsById.get(player.id)
-      const playerElem = (
-        <GamePreviewPlayerContainer key={`player-${i}`}>
-          <GamePreviewPlayerRace
-            race={result?.race ?? player.race}
-            isRandom={player.race === 'r'}
-          />
-          <GamePreviewPlayerName>
-            {player.isComputer
-              ? t('game.playerName.computer', 'Computer')
-              : (playersMapping.get(player.id)?.name ??
-                t('game.playerName.unknown', 'Unknown player'))}
-          </GamePreviewPlayerName>
-        </GamePreviewPlayerContainer>
-      )
+    const firstTeam: PlayerTeamsDisplayPlayer[] = []
+    const secondTeam: PlayerTeamsDisplayPlayer[] = []
 
-      if (firstTeamElems.length === secondTeamElems.length) {
-        firstTeamElems.push(playerElem)
+    for (const player of sortedPlayers) {
+      const displayPlayer = toDisplayPlayer(player)
+
+      if (firstTeam.length === secondTeam.length) {
+        firstTeam.push(displayPlayer)
       } else {
-        secondTeamElems.push(playerElem)
+        secondTeam.push(displayPlayer)
       }
     }
+
+    teams = [firstTeam, secondTeam]
   }
 
-  return (
-    <GamePreviewPlayers className={className}>
-      <GamePreviewTeam>{firstTeamElems}</GamePreviewTeam>
-      <GamePreviewTeam>{secondTeamElems}</GamePreviewTeam>
-    </GamePreviewPlayers>
-  )
+  return <PlayerTeamsDisplay teams={teams} teamLabels={teamLabels} className={className} />
 }
