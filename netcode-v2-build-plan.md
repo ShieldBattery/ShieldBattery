@@ -98,22 +98,20 @@ class; the tenant-credential consolidation half remains (§2).
    client-publish diff) and server-rs polls `/regions` into an ArcSwap table each 5min —
    with `SB_REGION_BACKBONE_RTT_JSON` demoted to a per-pair override that wins where it names a
    pair. rp2 `4bc6ec5..2f43f20` PUSHED; SB `9440588dd`+`a1f6364bf`, pin at `2f43f20`
-   (`6bae4a1b0`; client crate untouched across the arc). **STAGING LIVE-VERIFIED 2026-07-16:**
-   the coverage bootstrap launched all three regions on the promoted coordinator's first boot,
-   relays enrolled in 14–22s (six cold-start datapoints now, vs the old single 22s point) and
-   all three pairs measured within ~35s of restart (eu-central|us-east 90, eu-central|us-west
-   151, us-east|us-west 54/65 — see below). Two live findings, both fixed same night:
-   (1) **GameLift beacons echo on UDP :7770, not :443** (`e495f79` fixes the fleet-stack
-   formula; the box's `regions.json` was hand-fixed to match) — until then every beacon
-   consumer was silently degraded, including game clients TCP-falling-back for their region
-   pings, so this fix also upgraded client measurements to true UDP; the first bootstrap
-   attempt's no-measurement backoff caught it exactly as designed. (2) **Directional asymmetry
-   is real** (us-east↔us-west measured 54 one way, 65 the other, persistently) and flip-flopped
-   the single-value pair store every beat — `2f43f20` stores per-direction slots and serves
-   the round-half-up average (wire shape unchanged; ledger schema v3, one row per pair+origin).
-   **Remaining:** re-promote the coordinator `:stable` (picks up 2f43f20; ledger migrates
-   v2→v3 on boot and refills within a heartbeat) and confirm us-east|us-west settles at a
-   steady 60.
+   (`6bae4a1b0`; client crate untouched across the arc). **DONE — STAGING LIVE-VERIFIED
+   2026-07-16 on rp2 `2f43f20`:** coverage bootstrap launched all three regions on boot, relays
+   enrolled in 14–22s (nine cold-start datapoints across three boots, vs the old single 22s
+   point), all six pair *directions* measured and served within ~40s of restart, and the table
+   held steady thereafter (us-east|us-west 59 = avg(62,55); eu-central|us-east 91;
+   eu-central|us-west 149 — verified stable over sampled heartbeat cycles, change-log silent
+   after the initial fills). Two live findings were found and fixed during the standup:
+   (1) **GameLift beacons echo on UDP :7770, not :443** (`e495f79`; the wrong port had every
+   beacon consumer silently degraded — game clients included, which had been TCP-falling-back
+   for region pings; they now get true UDP measurements with no SB change). (2) **Directional
+   asymmetry is real** (us-east↔us-west: 62 from one end, 55 from the other, persistent), so
+   `2f43f20` stores per-direction slots and serves the round-half-up average (wire shape
+   unchanged; ledger schema v3, one row per pair+origin). `SB_REGION_BACKBONE_RTT_JSON` is now
+   an emergency per-pair override only. Nothing remains on this item.
 2. **Flight-recorder durable sink + read path** (D8's owed half). The dev `--flight-dir` file
    sink exists; production relays currently *discard* recordings at session close. Needs the
    S3-compatible sink (DO Spaces; policy ratified: 14-day lifecycle, 30-day desync pin) and a way
