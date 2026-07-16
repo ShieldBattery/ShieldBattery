@@ -57,8 +57,8 @@ or a control-plane push:
 3. **SB app server `.env`** — the tenant's own credential (`SB_RP2_CLIENT_KEY`), coordinator
    URL, and (until the backbone leg below lands) `SB_REGION_BACKBONE_RTT_JSON`.
 
-Current pins: SB `rally-point-client` at rp2 `e7dce1a…` (= main tip, 2026-07-15: the backbone-RTT
-arc + log-ANSI fix); ALPN `rp2/5` / `rp2-mesh/5`. Coordinator image channel `:stable`
+Current pins: SB `rally-point-client` at rp2 `2f43f20…` (= main tip, 2026-07-16: backbone-RTT
+arc + beacon-port fix + per-direction pair store); ALPN `rp2/5` / `rp2-mesh/5`. Coordinator image channel `:stable`
 (promote workflow), relay image channel `:latest` on staging / `:stable` on prod (ECR, OIDC
 publish, per-region retag promote). Standing rules: consume rp2's re-exported
 quinn/rustls/proto (never direct deps); any rp2 change = push rp2 → bump the SB `rev` pin →
@@ -97,16 +97,23 @@ class; the tenant-credential consolidation half remains (§2).
    `GameServerRegionsService` caches it beside the region list (deliberately outside the
    client-publish diff) and server-rs polls `/regions` into an ArcSwap table each 5min —
    with `SB_REGION_BACKBONE_RTT_JSON` demoted to a per-pair override that wins where it names a
-   pair. rp2 `4bc6ec5..e7dce1a` PUSHED (2026-07-15); SB `9440588dd`+`a1f6364bf`, pin bumped to
-   `e7dce1a` (rev-only lock churn + the known itertools re-resolve flip; DLL rebuilt via
-   build.bat, 142 tests + clippy green — client crate untouched, DLL behaviorally unchanged).
-   Loopback acceptance green end to end (two dev-beacon regions → sweep → heartbeat → served
-   pair; both directions proven; retention across a dead fleet proven). **Remaining:**
-   coordinator re-promote to `:stable` (deploy order: coordinator before relay images, though
-   both skew directions are harmless here by construction; staging relays pick up `:latest` on
-   next task launch automatically), then watch staging measure its three real pairs — the
-   coverage bootstrap should light up all three regions on its own once the promoted
-   coordinator restarts with a provisioner.
+   pair. rp2 `4bc6ec5..2f43f20` PUSHED; SB `9440588dd`+`a1f6364bf`, pin at `2f43f20`
+   (`6bae4a1b0`; client crate untouched across the arc). **STAGING LIVE-VERIFIED 2026-07-16:**
+   the coverage bootstrap launched all three regions on the promoted coordinator's first boot,
+   relays enrolled in 14–22s (six cold-start datapoints now, vs the old single 22s point) and
+   all three pairs measured within ~35s of restart (eu-central|us-east 90, eu-central|us-west
+   151, us-east|us-west 54/65 — see below). Two live findings, both fixed same night:
+   (1) **GameLift beacons echo on UDP :7770, not :443** (`e495f79` fixes the fleet-stack
+   formula; the box's `regions.json` was hand-fixed to match) — until then every beacon
+   consumer was silently degraded, including game clients TCP-falling-back for their region
+   pings, so this fix also upgraded client measurements to true UDP; the first bootstrap
+   attempt's no-measurement backoff caught it exactly as designed. (2) **Directional asymmetry
+   is real** (us-east↔us-west measured 54 one way, 65 the other, persistently) and flip-flopped
+   the single-value pair store every beat — `2f43f20` stores per-direction slots and serves
+   the round-half-up average (wire shape unchanged; ledger schema v3, one row per pair+origin).
+   **Remaining:** re-promote the coordinator `:stable` (picks up 2f43f20; ledger migrates
+   v2→v3 on boot and refills within a heartbeat) and confirm us-east|us-west settles at a
+   steady 60.
 2. **Flight-recorder durable sink + read path** (D8's owed half). The dev `--flight-dir` file
    sink exists; production relays currently *discard* recordings at session close. Needs the
    S3-compatible sink (DO Spaces; policy ratified: 14-day lifecycle, 30-day desync pin) and a way
