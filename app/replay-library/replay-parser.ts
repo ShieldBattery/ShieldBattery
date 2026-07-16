@@ -15,6 +15,23 @@ import { parseShieldbatteryReplayData } from '../replays/parse-shieldbattery-rep
 /** Number of bytes from the start of the file hashed for a cheap content identity. */
 const CONTENT_HASH_BYTES = 8 * 1024
 
+/**
+ * Maximum time a single replay parse may take before it's treated as a parse error. Guards the
+ * backfill against corrupt files whose parse neither resolves nor rejects (which would otherwise
+ * stall a backfill worker forever).
+ */
+const PARSE_TIMEOUT_MS = 15 * 1000
+
+/**
+ * Truncates a header string at its first NUL. jssuh's forced-encoding path (unlike its `auto`
+ * path) decodes the entire fixed-width field, including whatever bytes sit past the terminator, so
+ * strings from a utf8 re-parse can carry trailing garbage.
+ */
+function stripAtNul(value: string): string {
+  const nul = value.indexOf('\0')
+  return nul === -1 ? value : value.slice(0, nul)
+}
+
 /** Identity/metadata for a replay file on disk, independent of its parsed contents. */
 export interface ReplayFileInfo {
   path: string
@@ -54,7 +71,7 @@ export function mapReplayHeaderToRecord(
     return {
       slot: p.id,
       team: p.team,
-      name: p.name,
+      name: stripAtNul(p.name),
       race: replayRaceToChar(p.race),
       isComputer: p.isComputer,
       sbUserId: sbUserId !== undefined && sbUserId !== NON_EXISTING_USER_ID ? sbUserId : undefined,
@@ -65,7 +82,7 @@ export function mapReplayHeaderToRecord(
     ...fileInfo,
     // The replay's random seed is the unix-seconds timestamp of when the game started.
     gameTime: header.seed * 1000,
-    mapName: filterColorCodes(header.mapName),
+    mapName: filterColorCodes(stripAtNul(header.mapName)),
     gameType: header.gameType,
     durationFrames: header.durationFrames,
     sbGameId: sbData?.gameId,
@@ -134,6 +151,12 @@ export function headerNeedsUtf8Redecode(header: ReplayHeader): boolean {
 function readReplayHeader(filePath: string, encoding?: string): Promise<ParsedReplay> {
   return new Promise((resolve, reject) => {
     const parser = encoding !== undefined ? new ReplayParser({ encoding }) : new ReplayParser()
+    const readStream = createReadStream(filePath)
+    const timeout = setTimeout(() => {
+      readStream.destroy()
+      reject(new Error(`Timed out parsing replay ${filePath}`))
+    }, PARSE_TIMEOUT_MS)
+
     let header: ReplayHeader | undefined
     parser.on('replayHeader', h => {
       header = h
@@ -149,6 +172,7 @@ function readReplayHeader(filePath: string, encoding?: string): Promise<ParsedRe
     })
 
     parser.on('end', () => {
+      clearTimeout(timeout)
       if (header) {
         resolve({ header, sbData })
       } else {
@@ -156,7 +180,10 @@ function readReplayHeader(filePath: string, encoding?: string): Promise<ParsedRe
       }
     })
 
-    pipeline(createReadStream(filePath), parser).catch(reject)
+    pipeline(readStream, parser).catch(err => {
+      clearTimeout(timeout)
+      reject(err)
+    })
     parser.resume()
   })
 }

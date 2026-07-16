@@ -162,6 +162,20 @@ describe('app/replay-library/replay-parser/makeParseErrorRecord', () => {
   })
 })
 
+describe('header string sanitization', () => {
+  test('strips NUL terminators and trailing field garbage from names', () => {
+    // jssuh's forced-encoding path decodes the whole fixed-width field, so a utf8 re-parse can
+    // yield strings like 'name\0<leftover bytes>'
+    const header = makeHeader({
+      mapName: '투혼 1.4\0abc',
+      players: [{ name: 'SgT.FaT\0xy', id: 0, race: 'zerg', team: 1, isComputer: false }],
+    })
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    expect(record.mapName).toBe('투혼 1.4')
+    expect(record.players[0].name).toBe('SgT.FaT')
+  })
+})
+
 describe('headerNeedsUtf8Redecode', () => {
   test('remastered replay with mangled non-ASCII strings needs the utf8 pass', () => {
     // 투혼 1.4 as UTF-8 bytes mis-decoded by jssuh's cp1252 fallback
