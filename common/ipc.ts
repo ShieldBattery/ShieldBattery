@@ -171,6 +171,8 @@ interface IpcInvokeables {
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
 
   pathsGetDocumentsPath: () => Promise<string>
+  /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
+  pathsShowItemInFolder: (path: string) => Promise<void>
 
   replayParseMetadata: (
     replayPath: string,

@@ -1219,6 +1219,47 @@
     },
     "fileDropError": "There was a problem opening the replay file",
     "fileDropText": "Drop replays here to watch them with ShieldBattery.",
+    "library": {
+      "clearFilters": "Clear filters",
+      "empty": "No replays yet",
+      "emptyBody": "Replays you watch and play will show up here automatically.",
+      "filters": {
+        "format": "Format",
+        "map": "Map",
+        "mapAny": "Any map",
+        "matchup": "Matchup",
+        "mode": "Mode",
+        "modeAny": "Any mode",
+        "source": "Source",
+        "sourceAny": "Any source",
+        "sourceBnet": "Battle.net",
+        "sourceSb": "ShieldBattery"
+      },
+      "hints": {
+        "explorer": "Explorer",
+        "navigate": "Navigate",
+        "search": "Search",
+        "watch": "Watch",
+        "watchLatest": "Watch latest"
+      },
+      "indexed_one": "{{count}} replays indexed",
+      "indexed_other": "{{count}} replays indexed",
+      "indexing": "Indexing… {{done}}/{{total}}",
+      "inspector": {
+        "empty": "Select a replay to see its details",
+        "parseError": "This replay could not be read."
+      },
+      "latestReplay": "Latest replay",
+      "noMatches": "No replays match",
+      "openFolder": "Open replays folder",
+      "replayCount_one": "{{count}} replays",
+      "replayCount_other": "{{count}} replays",
+      "showInExplorer": "Show in Explorer",
+      "title": "Library",
+      "today": "Today",
+      "watchReplay": "Watch replay",
+      "yesterday": "Yesterday"
+    },
     "loading": {
       "dialogTitle": "Loading replay…",
       "errorGeneric": "Something went wrong while loading the replay.",
@@ -1228,10 +1269,7 @@
     "local": {
       "duration": "Duration: {{durationStr}}",
       "gameType": "Game type: {{gameTypeLabel}}",
-      "loadingError": "There was a problem loading the replay",
-      "rootFolderName": "Replays",
-      "title": "Local Replays",
-      "watchReplay": "Watch replay"
+      "loadingError": "There was a problem loading the replay"
     },
     "replayInfoDialog": {
       "title": "Replay info",

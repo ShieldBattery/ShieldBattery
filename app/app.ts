@@ -638,6 +638,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     return app.getPath('documents')
   })
 
+  ipcMain.handle('pathsShowItemInFolder', async (event, path) => {
+    shell.showItemInFolder(path)
+  })
+
   ipcMain.handle('securityGetClientIds', async event => {
     await cacheIdsIfNeeded((await localSettings.get()).starcraftPath)
     return cachedIds
