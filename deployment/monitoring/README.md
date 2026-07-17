@@ -8,7 +8,7 @@ a change means copying these files onto the box (see [Deploying](#deploying)).
 
 ```
 docker-compose.yml                              the stack (tailscale, grafana, prometheus, node_exporter)
-prometheus/prometheus.yml                       scrape config (which targets Prometheus pulls /metrics from)
+prometheus/prometheus.yml                       scrape config (which targets Prometheus pulls /metrics from, incl. the rp2 coordinator's own /metrics and its node_exporter)
 grafana/provisioning/datasources/*.yaml         datasources created on Grafana startup (config-as-code)
 grafana/provisioning/dashboards/*.yaml          dashboard *providers* (where Grafana loads dashboards from)
 grafana/dashboards/*.json                       the dashboards themselves
@@ -34,6 +34,9 @@ The chain:
 3. Each dashboard JSON references the datasource by `uid: prometheus` and queries metric names exposed
    by the scrape targets (e.g. `matchmaker_*` from server-rs `/metrics`, scraped via the `server_rs`
    job in `prometheus/prometheus.yml`).
+4. `grafana/dashboards/rally-point.json` is provisioned the same way, reading `rp2_*` series scraped
+   via the `rp2_coordinator` job — see `../coordinator/README.md`'s Metrics section for what the
+   coordinator's `/metrics` exposes.
 
 Editing a dashboard in the Grafana UI works (`allowUiUpdates: true`), but the JSON file on disk wins
 on the next rescan — so **export the JSON back into `grafana/dashboards/` and commit it** to persist a

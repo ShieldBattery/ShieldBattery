@@ -73,6 +73,32 @@ container must hold a v6 address for same-family DNAT to apply). Verify after
 first start: `curl -6 https://<domain>/regions` from any v6 host should work,
 and the droplet itself must have been created with IPv6 enabled.
 
+## Metrics
+
+`COORDINATOR_METRICS_LISTEN` (`[::]:14911` in the sample env) turns on a
+second, separate HTTP listener serving Prometheus `/metrics` in plain text —
+absent unless the variable is set, with no effect on the public listener. It
+exposes fleet state (relays by region and state, launch/enroll/drain/reap
+rates, cold-start timings), session activity (active sessions and creates by
+tenant, webhook notice queue depth and delivery outcomes), flight-recording
+outcomes (stored/refused/lost, pinned count), and the measured backbone RTTs
+between regions.
+
+It's plaintext with no authentication, which is sound because of how it's
+reachable at all: compose never publishes the port (see the `node_exporter`
+and `coordinator` service definitions in `docker-compose.yml`), so the only
+path to it is the tailscale sidecar's `serve.json` forward — tailnet-only by
+construction, not by a rule someone has to remember to enforce. Quick check
+from any machine on the tailnet (substitute this box's actual
+`TAILSCALE_HOSTNAME` if it isn't the default):
+
+```sh
+curl http://rp2-coordinator:14911/metrics
+```
+
+See `../monitoring` for the Prometheus scrape job and Grafana dashboard that
+read these series.
+
 ## Relay fleet
 
 The Fargate substrate the provisioner launches relays into is defined in the

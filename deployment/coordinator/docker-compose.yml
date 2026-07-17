@@ -75,3 +75,27 @@ services:
     volumes:
       - tailscale_state:/var/lib/tailscale
       - ./tailscale:/config:ro
+
+  node_exporter:
+    # Host metrics (CPU, memory, disk, network) for this box, in the same shape
+    # the monitoring stack already scrapes from every other server type. This
+    # sidecar has no v6/peer-address concerns of its own — unlike the
+    # coordinator service, it never inspects who's connecting — so it just
+    # joins the plain `coordinator` network like any other container; the
+    # tailscale sidecar's userspace proxying (serve.json) reaches it by compose
+    # service name, the same way it reaches the coordinator's metrics port.
+    # Nothing here is published to the host: the tailnet forward is the only
+    # path in.
+    image: prom/node-exporter:latest
+    restart: unless-stopped
+    networks:
+      - coordinator
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
