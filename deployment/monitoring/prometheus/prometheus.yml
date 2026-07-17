@@ -9,9 +9,15 @@ scrape_configs:
 
   - job_name: 'node'
     static_configs:
-      # rp2-coordinator: see the rp2_coordinator job below for what this
-      # hostname is.
-      - targets: ['localhost:9100', 'sb-staging:9100', 'sb-prod:9100', 'rp2-coordinator:9100']
+      # The *-rp2-coordinator hostnames: see the rp2_coordinator job below.
+      - targets:
+          [
+            'localhost:9100',
+            'sb-staging:9100',
+            'sb-prod:9100',
+            'staging-rp2-coordinator:9100',
+            'rp2-coordinator:9100',
+          ]
 
   - job_name: 'app_server'
     static_configs:
@@ -21,9 +27,10 @@ scrape_configs:
     static_configs:
       - targets: ['sb-staging:8001', 'sb-prod:8001']
 
-  # rp2-coordinator is the coordinator box's tailnet hostname (its
-  # TAILSCALE_HOSTNAME; rp2-coordinator is only the sample default). The
-  # production coordinator's target gets added once it stands up.
+  # The coordinator boxes' tailnet hostnames (each box's TAILSCALE_HOSTNAME):
+  # staging-rp2-coordinator is the staging box; rp2-coordinator is the
+  # production box, listed ahead of its standup, so it reads as a down target
+  # until that box exists.
   - job_name: 'rp2_coordinator'
     static_configs:
-      - targets: ['rp2-coordinator:14911']
+      - targets: ['staging-rp2-coordinator:14911', 'rp2-coordinator:14911']
