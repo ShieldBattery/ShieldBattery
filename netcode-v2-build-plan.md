@@ -170,11 +170,11 @@ class; the tenant-credential consolidation half remains (§2).
    (deployment surfaces) + `670ac379a` (scrape targets: `staging-rp2-coordinator` is the
    staging box's tailnet name; `rp2-coordinator` is reserved for prod and pre-listed, so prod
    standup needs no monitoring change — it reads as a down target until then). Gates green;
-   /metrics smoke-verified on the real binary. **Staging setup remaining (Travis):** promote
-   coordinator image → box .env `COORDINATOR_METRICS_LISTEN=[::]:14911` + updated
-   compose/serve.json → `docker compose up -d` → monitoring box: copy prometheus.yml +
-   dashboard JSON, recreate the prometheus container → verify targets up + dashboard populates
-   during a staging game.
+   /metrics smoke-verified on the real binary. **Staging setup DEFERRED (Travis, 2026-07-17:
+   not redeploying the monitoring VM for now):** promote coordinator image → box .env
+   `COORDINATOR_METRICS_LISTEN=[::]:14911` + updated compose/serve.json → `docker compose
+   up -d` → monitoring box: copy prometheus.yml + dashboard JSON, recreate the prometheus
+   container → verify targets up + dashboard populates during a staging game.
 4. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
    `/session/create` inbound auth + webhook signing into one per-tenant credential; move client
    pubkey submission from game load to queue/lobby-join time (those requests already carry
