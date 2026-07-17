@@ -182,10 +182,18 @@ class; the tenant-credential consolidation half remains (§2).
    the tenant's request key and the coordinator's signing key hold private halves on opposite
    parties on purpose (a literal single credential would let either party forge as the other),
    and the coordinator's key also mints the player tokens relays verify — do not re-chase a
-   merge. **Remaining half (buildable): move client pubkey submission from game load to
-   queue/lobby-join time** (those requests already carry `(region, rttMs)` — same surfaces;
-   keypair stays per-game, just born at queue time; deletes the load-time pubkey PUT +
-   `waitForPubkeys` deferred machinery from the most fragile part of the flow).
+   merge. **Pubkey-timing half DONE — built + staging live-verified 2026-07-17 (SB
+   `8f639fdd5`).** Pubkeys now ride matchmaking find (REQUIRED there) and lobby create/join
+   (optional — solo-vs-AI lobbies never use v2), stored per-player server-side (queue data;
+   the lobby rtt store widened → `LobbyPlayerNetworkStore`), threaded into `GameLoadRequest`
+   beside `rttMsByUserId`; the load-time PUT + `waitForPubkeys` deferred machinery is DELETED
+   and a multi-human load missing a pubkey fails fast instead of hanging to the load timeout.
+   App-side the keypair lives in a pending slot COPIED (not moved) onto each launched game —
+   a requeue after a failed launch forms a new game with no new client request, so the private
+   half must survive the queue episode (invariant commented in active-game-manager). Verified:
+   two-client staging lobby 1v1 (session 1784273010240772, relay 14 over IPv6) — both clients
+   reached playing (join-time pubkeys satisfied relay connection auth), clean win/loss recorded
+   via the webhook funnel. **Item 4 fully closed.**
 5. **Prod region list** — **DONE 2026-07-17 (ratified + catalog committed, rp2 `f517e80`).**
    Eleven regions: us-east/us-west/eu-central (existing) + kr (Seoul), ca-east (Montreal),
    sa-east (São Paulo), eu-north (Stockholm), hk (Hong Kong), sg (Singapore), au (Sydney),
