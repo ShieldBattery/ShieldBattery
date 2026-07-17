@@ -147,17 +147,31 @@ class; the tenant-credential consolidation half remains (§2).
    debug-tool lore: `forceUnsyncedLeave` on the caller's own slot is an ordinary drop (game
    scored normally, NO desync); `forceDesync(gameId)` is the reliable desync trigger — verify-app
    + verify-pr skills updated. Nothing remains on this item.
-3. **Monitoring hookup for the rp2 infra** *(noted 2026-07-15 — shape not yet ratified, decide
-   when picked up).* The Grafana/Prometheus stack (`deployment/monitoring/`: tailnet-only
-   scraping, provisioned dashboards) should cover the new infra before real traffic. Natural
-   shape: coordinator exposes Prometheus `/metrics` reachable only through the box's tailscale
-   sidecar (the public listener stays untouched — see the no-proxy rule, §3) plus node_exporter
-   on the box like the other server types; relays are ephemeral scale-to-zero Fargate tasks, so
-   they're not scrape targets — fleet health exports coordinator-side from what it already holds
-   (heartbeats + ledger: tasks per region, enroll/drain counts, cold-start ms, active
-   sessions/games, webhook delivery failures, desync events; the item-1 backbone pair table
-   doubles as a panel). Dashboard: provisioned JSON — new rally-point dashboard vs. panels on
-   `matchmaking-health` is a build-time choice.
+3. **Monitoring hookup for the rp2 infra** — **BUILT 2026-07-16; staging setup remains.**
+   Shape ratified same day: sidecar-only exposure, new dedicated dashboard, panels only (no
+   Alertmanager exists; alert thresholds want prod baselines — revisit at/after prod standup).
+   Coordinator: `--metrics-listen`/`COORDINATOR_METRICS_LISTEN` brings up a second plaintext
+   HTTP listener serving hand-rolled Prometheus text exposition (no new deps; scrape-time
+   gauges over existing state + static counters at event sites; labels bounded to
+   region/tenant/state/result/reason). ~20 `rp2_*` families: relays by region+state,
+   launch/enroll/drain/reap counters, cold-start histogram (enroll−launch from ledger
+   timestamps, FirstEnroll only), active sessions by tenant (loading/started), created/holds/
+   closed/desyncs (desyncs counted behind the notice dedup so redelivery can't inflate; drains
+   counted once at the relay's Draining announcement — scale-down stops the task which prompts
+   that same announcement), webhook notices pending/dropped + delivery outcomes, flight
+   recordings stored/refused/lost + pinned, per-direction backbone RTTs, beacon-backoff gauge
+   (the reconcile loop publishes its loop-local coverage phase). Relays are NOT scrape targets
+   (settled). SB side: coordinator box gains node_exporter + serve.json forwards 14911/9100
+   (tailnet-only by shape — the port is never published; public listener untouched per the
+   no-proxy rule); monitoring box gains the `rp2_coordinator` scrape job + provisioned
+   `rally-point.json` dashboard (14 panels: fleet/sessions/delivery/backbone; stat panels
+   red-threshold at nonzero). rp2 local main `ce72cd9` (UNPUSHED — Travis's push gate; client
+   crate untouched, pin bump rev-only); SB `0c6423aba`. Gates green; /metrics smoke-verified on
+   the real binary. **Staging setup remaining:** push rp2 + promote coordinator image → box
+   .env `COORDINATOR_METRICS_LISTEN=[::]:14911` + updated compose/serve.json → `docker compose
+   up -d` → monitoring box: copy prometheus.yml (confirm the coordinator box's actual
+   TAILSCALE_HOSTNAME — sample default `rp2-coordinator`) + dashboard JSON, recreate the
+   prometheus container → verify targets up + dashboard populates during a staging game.
 4. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
    `/session/create` inbound auth + webhook signing into one per-tenant credential; move client
    pubkey submission from game load to queue/lobby-join time (those requests already carry
