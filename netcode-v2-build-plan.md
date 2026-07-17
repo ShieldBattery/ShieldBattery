@@ -134,10 +134,19 @@ class; the tenant-credential consolidation half remains (§2).
    `netcode_v2_relays` → blobs). rp2 local main `43ec857`+`ccdb566`+`7cb9349` (UNPUSHED — Travis's
    push gate; client crate untouched, pin bump is rev-only); SB `1d8a86fa4` (deployment surface).
    Gates green (fmt/clippy/test/rustdoc); startup smoke verified all three `--flight-store` paths
-   against the real binary. **Remaining:** push + coordinator image promote (before relay images,
-   as always); one-time DO setup (bucket `sb-rp2-flight`, scoped Spaces key, lifecycle rules —
-   README steps); staging verify = a real game's blob listable/fetchable, then a
-   `forceUnsyncedLeave` 1v1 to watch the desync pin land both relays' blobs under `desync/`.
+   against the real binary. **DONE — STAGING LIVE-VERIFIED 2026-07-17** (rp2 pushed `7cb9349`, SB
+   pin `a7e1369bc`; bucket `staging-rp2-flight` + both lifecycle rules applied; the box's one
+   misconfig — sample bucket name left in flight-store.json — fail-signaled as designed: 500s on
+   reads, logged PUT losses, games/results untouched): normal leg = staging 1v1 (session
+   1784266232751393, relay 13) produced a complete blob (11 events incl. the full
+   connect→start→drop-hold→leave-decided→close story, 24 samples, ~3.5k turns/slot, 10 KB),
+   listed + fetched via `fetch-flight.mjs` moments after close; desync leg = `forceDesync` 1v1
+   (session …395) fired the comparator (`desync_detected` ordinal 1399 `no_majority:true` in the
+   blob; both diverged clients reported "win" — the exact contradiction the void policy exists
+   for) and the blob landed `pinned:true` under `desync/`. Verification also corrected the
+   debug-tool lore: `forceUnsyncedLeave` on the caller's own slot is an ordinary drop (game
+   scored normally, NO desync); `forceDesync(gameId)` is the reliable desync trigger — verify-app
+   + verify-pr skills updated. Nothing remains on this item.
 3. **Monitoring hookup for the rp2 infra** *(noted 2026-07-15 — shape not yet ratified, decide
    when picked up).* The Grafana/Prometheus stack (`deployment/monitoring/`: tailnet-only
    scraping, provisioned dashboards) should cover the new infra before real traffic. Natural

@@ -230,16 +230,27 @@ Poll both instances in the same loop for a two-client game. If the session does 
   Game-relevant: `gameClient.status` is the full `ReportedGameStatus` (state, error,
   `networkStatus`, …) — assert on this instead of grepping the game DLL log.
 - **Debug-game control surface (dev builds + debug DLL)**: `window.__sbDebugGame` exposes
-  `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceQuit(gameId)`, and
-  `screenshot(gameId)` for driving/inspecting a running game over CDP (a release DLL doesn't
-  implement these, so query calls time out). `forceUnsyncedLeave` injects a **local,
-  non-consensus** leave — on a netcode-v2 matchmaking game it diverges the calling client's
-  simulation, which **voids a 1v1 outright** under the desync policy (larger games discard the
-  diverged client and may still resolve from the majority), so never use it when the test needs
-  a scored win/loss (a human leaving via the in-game menu is the clean path; see verify-pr T4).
-  `forceQuit` is the reliable way to tear a launched
-  game down between checks — it works even mid-game, when the process would otherwise sit at the
-  native victory dialog.
+  `queryGameState(gameId)`, `forceUnsyncedLeave(gameId, slot)`, `forceDesync(gameId)`,
+  `sendChat(gameId, text)`, `requestDrop(gameId, slot)`, `toggleNetStats(gameId)`,
+  `forceQuit(gameId)`, and `screenshot(gameId)` for driving/inspecting a running game over CDP
+  (a release DLL doesn't implement these, so query calls time out). The three game-enders differ
+  in ways that matter — pick deliberately:
+  - **`forceDesync(gameId)` is THE desync trigger.** It perturbs the calling client's own sim
+    state (local player's minerals), so **both clients keep playing** while their sync checksums
+    diverge — the relay comparator fires within seconds (verified live on staging: `hasResult`
+    ~10s after the call), a 1v1 **voids** (no-majority), team games discard the caller as the
+    diverged minority. Use it to exercise desync policy / desync-flagged paths (e.g. the
+    flight-recorder pin).
+  - **`forceUnsyncedLeave(gameId, slot)` does NOT reliably desync.** It injects a local,
+    non-consensus leave of `slot` on the calling client. Targeting the caller's **own** slot
+    (or omitting `slot`) just ends the caller: it stops emitting checksums before any diverged
+    one crosses the wire, so the opponent sees an ordinary drop and the game **scores normally**
+    (win/loss, no void — verified live). Its legit use is ending a game unattended via the
+    allied-victory path (see verify-pr T4), not triggering desyncs.
+  - **`forceQuit(gameId)`** is the reliable teardown between checks — a hard process-level end
+    that works even mid-game or at the native victory dialog. The opponent sees a drop.
+  None of the three produces a clean MMR-scored finish on its own; a human leaving via the
+  in-game menu is the clean path when the test needs a real scored result (verify-pr T4).
 - **UI state**: `playwright-cli -s=cN snapshot` and `... console` (renderer console / errors).
 - **App logs**: `%APPDATA%\ShieldBattery-Local\logs\app.0.log` — shared across instances, so grep by
   the message you expect rather than assuming ordering.
