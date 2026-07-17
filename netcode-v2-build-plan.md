@@ -165,13 +165,16 @@ class; the tenant-credential consolidation half remains (§2).
    (tailnet-only by shape — the port is never published; public listener untouched per the
    no-proxy rule); monitoring box gains the `rp2_coordinator` scrape job + provisioned
    `rally-point.json` dashboard (14 panels: fleet/sessions/delivery/backbone; stat panels
-   red-threshold at nonzero). rp2 local main `ce72cd9` (UNPUSHED — Travis's push gate; client
-   crate untouched, pin bump rev-only); SB `0c6423aba`. Gates green; /metrics smoke-verified on
-   the real binary. **Staging setup remaining:** push rp2 + promote coordinator image → box
-   .env `COORDINATOR_METRICS_LISTEN=[::]:14911` + updated compose/serve.json → `docker compose
-   up -d` → monitoring box: copy prometheus.yml (confirm the coordinator box's actual
-   TAILSCALE_HOSTNAME — sample default `rp2-coordinator`) + dashboard JSON, recreate the
-   prometheus container → verify targets up + dashboard populates during a staging game.
+   red-threshold at nonzero). rp2 main `ce72cd9` PUSHED 2026-07-17; SB pin bumped `42936db79`
+   (rev-only lock churn, DLL rebuilt via build.bat, 142 tests + clippy green). SB `0c6423aba`
+   (deployment surfaces) + `670ac379a` (scrape targets: `staging-rp2-coordinator` is the
+   staging box's tailnet name; `rp2-coordinator` is reserved for prod and pre-listed, so prod
+   standup needs no monitoring change — it reads as a down target until then). Gates green;
+   /metrics smoke-verified on the real binary. **Staging setup remaining (Travis):** promote
+   coordinator image → box .env `COORDINATOR_METRICS_LISTEN=[::]:14911` + updated
+   compose/serve.json → `docker compose up -d` → monitoring box: copy prometheus.yml +
+   dashboard JSON, recreate the prometheus container → verify targets up + dashboard populates
+   during a staging game.
 4. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
    `/session/create` inbound auth + webhook signing into one per-tenant credential; move client
    pubkey submission from game load to queue/lobby-join time (those requests already carry
