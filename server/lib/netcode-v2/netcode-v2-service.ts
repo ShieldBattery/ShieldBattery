@@ -3,7 +3,6 @@ import { createPrivateKey, KeyObject, sign, X509Certificate } from 'node:crypto'
 import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
 import { raceAbort } from '../../../common/async/abort-signals'
-import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
@@ -22,12 +21,6 @@ import { ED25519_SEED_HEX_PATTERN, loadConfigFromEnv, NetcodeV2Config } from './
 
 export { loadConfigFromEnv }
 export type { NetcodeV2Config }
-
-/**
- * How many pubkeys we'll hold for a single loading game before ignoring further submissions. A
- * safety net on memory only — the API layer restricts submissions to game participants.
- */
-const MAX_PUBKEYS_PER_GAME = 16
 
 /**
  * How many session ids `checkSessionsAlive` will ask about in a single `POST /sessions/alive`
@@ -306,9 +299,10 @@ function relayEndpointToInfo(
 }
 
 /**
- * Server-side control plane for netcode v2 (rally-point2): collects each player's per-session
- * public key during game loading, requests a session from the coordinator, and produces the
- * per-player handoff (token + relays + roster) the game loader publishes to clients.
+ * Server-side control plane for netcode v2 (rally-point2): takes each player's per-session public
+ * key (submitted at queue/lobby-join time and threaded in on the slots), requests a session from
+ * the coordinator, and produces the per-player handoff (token + relays + roster) the game loader
+ * publishes to clients.
  *
  * Enabled by setting `SB_RP2_COORDINATOR_URL` (plus `SB_RP2_TENANT`). The relay certificates
  * clients pin come from the coordinator's session response, per relay. When disabled, games load
@@ -326,12 +320,6 @@ function relayEndpointToInfo(
 @singleton()
 export class NetcodeV2Service {
   private config = loadConfigFromEnv()
-  /**
-   * Per loading game, a deferred per user resolving to their submitted pubkey (base64). Created
-   * lazily from whichever side arrives first (submission or session setup awaiting it); swept by
-   * `discardGame` when the load ends.
-   */
-  private pendingGames = new Map<string, Map<SbUserId, Deferred<string>>>()
 
   /**
    * Coalesces concurrent re-home asks for the same `(session, deadRelayId)`. Every game client
@@ -412,29 +400,9 @@ export class NetcodeV2Service {
   }
 
   /**
-   * Records a player's per-session public key for a loading game. Returns false (without
-   * recording) if the key is malformed. A repeated submission keeps the first key.
-   */
-  registerPubkey(gameId: string, userId: SbUserId, pubkey: string): boolean {
-    // NOTE(netcode-v2): Buffer.from silently skips invalid base64 rather than throwing; the API
-    // layer's Joi validation is the real format gate, this length check is the belt to it.
-    if (Buffer.from(pubkey, 'base64').length !== 32) {
-      return false
-    }
-
-    const pending = this.getOrCreatePending(gameId)
-    if (pending.size >= MAX_PUBKEYS_PER_GAME && !pending.has(userId)) {
-      return false
-    }
-
-    this.getOrCreateWaiter(pending, userId).resolve(pubkey)
-    return true
-  }
-
-  /**
-   * Requests a rally-point2 session for a loading game: waits until every listed player has
-   * submitted their public key, then asks the coordinator to mint the session, and returns each
-   * player's server-side handoff. Cleans up all pubkey state for the game regardless of outcome.
+   * Requests a rally-point2 session for a loading game from each participant's slot (its per-session
+   * public key included), asks the coordinator to mint the session, and returns each player's
+   * server-side handoff. Fails fast if any slot is missing its public key.
    *
    * @param slots the rally-point2 slot assignment for every participant, in slot order
    */
@@ -460,6 +428,13 @@ export class NetcodeV2Service {
        * the coordinator per-slot.
        */
       rttMs?: number
+      /**
+       * base64 of the player's per-session public key, submitted at queue/lobby-join time. Required
+       * for every slot: a missing key fails create fast (the coordinator embeds it in the slot's
+       * session token). Optional in the type so callers thread it in from a per-user lookup that may
+       * come up empty, which this method then rejects.
+       */
+      pubkey?: string
     }>
     signal: AbortSignal
     /**
@@ -474,142 +449,142 @@ export class NetcodeV2Service {
       throw new NetcodeV2ServiceError('netcode v2 is not configured')
     }
 
-    try {
-      const pubkeys = await this.waitForPubkeys(
-        gameId,
-        slots.map(s => s.userId),
-        signal,
-      )
+    // A fallback for the relay's own initial buffer computation, covering conditions the
+    // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
+    // never crosses the mesh). Rounded up so the estimate never under-covers a fractional ms.
+    // `getBackboneRtts` never rejects and resolves immediately once the region list has been
+    // fetched once, so this never fails or blocks session create beyond that first-ever fetch.
+    const servedBackboneRtts = await this.gameServerRegionsService.getBackboneRtts()
+    const latencyEstimateMs = worstPairwiseLatencyMs(
+      slots.map(({ region, rttMs }) => ({ region, rttMs })),
+      servedBackboneRtts,
+    )
+    const latencyEstimateField =
+      latencyEstimateMs !== undefined
+        ? // eslint-disable-next-line camelcase
+          { latency_estimate_ms: Math.ceil(latencyEstimateMs) }
+        : {}
 
-      // A fallback for the relay's own initial buffer computation, covering conditions the
-      // pre-start window can't observe itself (e.g. a multi-relay session, where pre-start traffic
-      // never crosses the mesh). Rounded up so the estimate never under-covers a fractional ms.
-      // `getBackboneRtts` never rejects and resolves immediately once the region list has been
-      // fetched once, so this never fails or blocks session create beyond that first-ever fetch.
-      const servedBackboneRtts = await this.gameServerRegionsService.getBackboneRtts()
-      const latencyEstimateMs = worstPairwiseLatencyMs(
-        slots.map(({ region, rttMs }) => ({ region, rttMs })),
-        servedBackboneRtts,
-      )
-      const latencyEstimateField =
-        latencyEstimateMs !== undefined
-          ? // eslint-disable-next-line camelcase
-            { latency_estimate_ms: Math.ceil(latencyEstimateMs) }
-          : {}
-
-      const request: CoordinatorSessionRequest = {
-        tenant: config.tenant,
-        // eslint-disable-next-line camelcase
-        external_id: gameId,
-        players: slots.map(({ slot, userId, observer, region }) => ({
+    const request: CoordinatorSessionRequest = {
+      tenant: config.tenant,
+      // eslint-disable-next-line camelcase
+      external_id: gameId,
+      players: slots.map(({ slot, userId, observer, region, pubkey }) => {
+        if (pubkey === undefined) {
+          // Every slot of a netcode v2 (multi-human) game must carry a public key — it's collected
+          // at queue/lobby-join time. A gap means the join-time submission was lost, so fail the
+          // load fast rather than minting a session a client can't authenticate to.
+          throw new NetcodeV2ServiceError(
+            `no netcode v2 public key for slot ${slot} (user ${userId})`,
+          )
+        }
+        return {
           slot,
           // eslint-disable-next-line camelcase
-          client_pubkey: Array.from(Buffer.from(pubkeys.get(userId)!, 'base64')),
+          client_pubkey: Array.from(Buffer.from(pubkey, 'base64')),
           // eslint-disable-next-line camelcase
           external_ref: String(userId),
           observer,
           ...(region !== undefined ? { region } : {}),
-        })),
-        ...latencyEstimateField,
-      }
-
-      const session = await this.createCoordinatorSession(config, request, signal, onProvisioning)
-
-      log.info(
-        `netcode v2 session ${session.session} created for game ${gameId} ` +
-          `(home relay ${session.home_relay.relay_id})`,
-      )
-
-      // Persisted so the reconciliation sweep can later ask the coordinator whether this session
-      // is still alive instead of blind-forcing on a timeout. Non-fatal: a game whose session id
-      // fails to persist just falls back to the legacy timeout-based sweep for its backstop.
-      try {
-        await setNetcodeV2Session(gameId, session.session)
-      } catch (err) {
-        log.warn({ err, gameId }, `failed to persist netcode v2 session id for game ${gameId}`)
-      }
-
-      // Records the session's serving relay(s) at create — the home relay, plus any slot-home
-      // override relays (a cross-region session homes slots on different relays) — for the admin
-      // debug view's relay-serving history. Deduped by relay id since several slots' overrides can
-      // name the same relay. Non-fatal for the same reason as the session id write above.
-      try {
-        const homeEvents = new Map<number, NetcodeV2RelayEvent>()
-        const at = Date.now()
-        homeEvents.set(session.home_relay.relay_id, {
-          kind: 'home',
-          relayId: session.home_relay.relay_id,
-          relayAddr: session.home_relay.relay_addr,
-          at,
-        })
-        for (const { relay } of session.slot_homes ?? []) {
-          if (!homeEvents.has(relay.relay_id)) {
-            homeEvents.set(relay.relay_id, {
-              kind: 'home',
-              relayId: relay.relay_id,
-              relayAddr: relay.relay_addr,
-              at,
-            })
-          }
         }
-        await addNetcodeV2RelayEvents(gameId, Array.from(homeEvents.values()))
-      } catch (err) {
-        log.warn({ err, gameId }, `failed to persist netcode v2 relay history for game ${gameId}`)
-      }
-
-      const homeRelay = relayEndpointToInfo(session.home_relay, config)
-      // Per-slot home overrides: each listed slot homes on its own relay instead of the session's
-      // primary home (a cross-region session; the relays mesh). Empty when every slot shares one.
-      const slotHomeBySlot = new Map(
-        (session.slot_homes ?? []).map(({ slot, relay }) => [
-          slot,
-          relayEndpointToInfo(relay, config),
-        ]),
-      )
-      if (slotHomeBySlot.size > 0) {
-        log.info(
-          `netcode v2 cross-relay session for game ${gameId}: slot(s) ` +
-            `${[...slotHomeBySlot.keys()].join(', ')} homing off the primary relay`,
-        )
-      }
-
-      const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
-
-      // The full slot roster, shared by every player's setup: who occupies each slot, plus the
-      // create-time home relay/region the `/netstat` overlay shows per player. `region` here is
-      // what the slot requested, not necessarily where it ended up homed — the coordinator doesn't
-      // echo per-slot serving regions back.
-      const roster: NetcodeV2RosterEntry[] = slots.map(({ slot, userId, region }) => ({
-        slot,
-        userId,
-        homeRelayId: (slotHomeBySlot.get(slot) ?? homeRelay).relayId,
-        ...(region !== undefined ? { homeRegion: region } : {}),
-      }))
-
-      const result = new Map<SbUserId, NetcodeV2ServerSetup>()
-      for (const { slot, token } of session.tokens) {
-        const userId = userBySlot.get(slot)
-        if (userId === undefined) {
-          throw new NetcodeV2ServiceError(`coordinator returned a token for unknown slot ${slot}`)
-        }
-
-        result.set(userId, {
-          token: Buffer.from(token).toString('base64'),
-          homeRelay: slotHomeBySlot.get(slot) ?? homeRelay,
-          roster,
-          // Floored defensively: a misconfigured or unexpected coordinator bound of 0 would leave
-          // the pipe with no latency at all to absorb the network round-trip.
-          initialBufferTurns: Math.max(1, session.bounds.min),
-        })
-      }
-      if (result.size !== slots.length) {
-        throw new NetcodeV2ServiceError('coordinator response was missing a token for a player')
-      }
-
-      return result
-    } finally {
-      this.discardGame(gameId)
+      }),
+      ...latencyEstimateField,
     }
+
+    const session = await this.createCoordinatorSession(config, request, signal, onProvisioning)
+
+    log.info(
+      `netcode v2 session ${session.session} created for game ${gameId} ` +
+        `(home relay ${session.home_relay.relay_id})`,
+    )
+
+    // Persisted so the reconciliation sweep can later ask the coordinator whether this session
+    // is still alive instead of blind-forcing on a timeout. Non-fatal: a game whose session id
+    // fails to persist just falls back to the legacy timeout-based sweep for its backstop.
+    try {
+      await setNetcodeV2Session(gameId, session.session)
+    } catch (err) {
+      log.warn({ err, gameId }, `failed to persist netcode v2 session id for game ${gameId}`)
+    }
+
+    // Records the session's serving relay(s) at create — the home relay, plus any slot-home
+    // override relays (a cross-region session homes slots on different relays) — for the admin
+    // debug view's relay-serving history. Deduped by relay id since several slots' overrides can
+    // name the same relay. Non-fatal for the same reason as the session id write above.
+    try {
+      const homeEvents = new Map<number, NetcodeV2RelayEvent>()
+      const at = Date.now()
+      homeEvents.set(session.home_relay.relay_id, {
+        kind: 'home',
+        relayId: session.home_relay.relay_id,
+        relayAddr: session.home_relay.relay_addr,
+        at,
+      })
+      for (const { relay } of session.slot_homes ?? []) {
+        if (!homeEvents.has(relay.relay_id)) {
+          homeEvents.set(relay.relay_id, {
+            kind: 'home',
+            relayId: relay.relay_id,
+            relayAddr: relay.relay_addr,
+            at,
+          })
+        }
+      }
+      await addNetcodeV2RelayEvents(gameId, Array.from(homeEvents.values()))
+    } catch (err) {
+      log.warn({ err, gameId }, `failed to persist netcode v2 relay history for game ${gameId}`)
+    }
+
+    const homeRelay = relayEndpointToInfo(session.home_relay, config)
+    // Per-slot home overrides: each listed slot homes on its own relay instead of the session's
+    // primary home (a cross-region session; the relays mesh). Empty when every slot shares one.
+    const slotHomeBySlot = new Map(
+      (session.slot_homes ?? []).map(({ slot, relay }) => [
+        slot,
+        relayEndpointToInfo(relay, config),
+      ]),
+    )
+    if (slotHomeBySlot.size > 0) {
+      log.info(
+        `netcode v2 cross-relay session for game ${gameId}: slot(s) ` +
+          `${[...slotHomeBySlot.keys()].join(', ')} homing off the primary relay`,
+      )
+    }
+
+    const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
+
+    // The full slot roster, shared by every player's setup: who occupies each slot, plus the
+    // create-time home relay/region the `/netstat` overlay shows per player. `region` here is
+    // what the slot requested, not necessarily where it ended up homed — the coordinator doesn't
+    // echo per-slot serving regions back.
+    const roster: NetcodeV2RosterEntry[] = slots.map(({ slot, userId, region }) => ({
+      slot,
+      userId,
+      homeRelayId: (slotHomeBySlot.get(slot) ?? homeRelay).relayId,
+      ...(region !== undefined ? { homeRegion: region } : {}),
+    }))
+
+    const result = new Map<SbUserId, NetcodeV2ServerSetup>()
+    for (const { slot, token } of session.tokens) {
+      const userId = userBySlot.get(slot)
+      if (userId === undefined) {
+        throw new NetcodeV2ServiceError(`coordinator returned a token for unknown slot ${slot}`)
+      }
+
+      result.set(userId, {
+        token: Buffer.from(token).toString('base64'),
+        homeRelay: slotHomeBySlot.get(slot) ?? homeRelay,
+        roster,
+        // Floored defensively: a misconfigured or unexpected coordinator bound of 0 would leave
+        // the pipe with no latency at all to absorb the network round-trip.
+        initialBufferTurns: Math.max(1, session.bounds.min),
+      })
+    }
+    if (result.size !== slots.length) {
+      throw new NetcodeV2ServiceError('coordinator response was missing a token for a player')
+    }
+
+    return result
   }
 
   /**
@@ -782,53 +757,6 @@ export class NetcodeV2Service {
         // An unrecognized decision is treated as "can't move right now" rather than trusted.
         return { decision: 'unavailable' }
     }
-  }
-
-  /** Drops all pubkey state for a game (canceled, finished, or session established). */
-  discardGame(gameId: string) {
-    const pending = this.pendingGames.get(gameId)
-    if (pending) {
-      this.pendingGames.delete(gameId)
-      for (const waiter of pending.values()) {
-        // No-op for waiters that already resolved with a pubkey
-        waiter.reject(new NetcodeV2ServiceError('game load ended before session setup completed'))
-      }
-    }
-  }
-
-  private async waitForPubkeys(
-    gameId: string,
-    userIds: SbUserId[],
-    signal: AbortSignal,
-  ): Promise<Map<SbUserId, string>> {
-    const pending = this.getOrCreatePending(gameId)
-    const waits = userIds.map(userId =>
-      this.getOrCreateWaiter(pending, userId).then(pubkey => [userId, pubkey] as const),
-    )
-    return new Map(await raceAbort(signal, Promise.all(waits)))
-  }
-
-  private getOrCreatePending(gameId: string): Map<SbUserId, Deferred<string>> {
-    let pending = this.pendingGames.get(gameId)
-    if (!pending) {
-      pending = new Map()
-      this.pendingGames.set(gameId, pending)
-    }
-    return pending
-  }
-
-  private getOrCreateWaiter(
-    pending: Map<SbUserId, Deferred<string>>,
-    userId: SbUserId,
-  ): Deferred<string> {
-    let waiter = pending.get(userId)
-    if (!waiter) {
-      waiter = createDeferred<string>()
-      // Avoid unhandled rejection noise when a game is discarded with no one awaiting this user
-      waiter.catch(() => {})
-      pending.set(userId, waiter)
-    }
-    return waiter
   }
 }
 

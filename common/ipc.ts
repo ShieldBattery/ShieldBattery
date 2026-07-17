@@ -135,11 +135,12 @@ interface IpcInvokeables {
    */
   activeGameForceQuit: (gameId: string) => void
   /**
-   * Generates the per-session Ed25519 keypair for a netcode v2 game and returns the base64 raw
-   * public key (to be submitted to the server), or null if `gameId` is not the active game. The
-   * private key stays in the main process until it's handed to the game process at launch.
+   * Generates a per-session Ed25519 keypair for netcode v2 and returns the base64 raw public key
+   * (to be submitted to the server at queue/lobby-join time). The keypair is held as pending in the
+   * main process until the next launched game adopts it; the private key never leaves the main
+   * process except in the game-process handoff at launch.
    */
-  activeGameGenNetcodeV2Keys: (gameId: string) => string | null
+  activeGameGenNetcodeV2SessionKeys: () => string
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
   /**
    * Delivers the server's netcode v2 session handoff (token/relays/roster); the main process

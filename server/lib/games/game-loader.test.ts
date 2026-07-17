@@ -95,7 +95,6 @@ describe('games/game-loader/GameLoader', () => {
   let restrictionService: { checkMultipleRestrictions: ReturnType<typeof vi.fn> }
   let netcodeV2Service: {
     isEnabled: ReturnType<typeof vi.fn>
-    discardGame: ReturnType<typeof vi.fn>
     createSessionForGame: Mock<
       (args: {
         gameId: string
@@ -105,6 +104,7 @@ describe('games/game-loader/GameLoader', () => {
           observer: boolean
           region?: unknown
           rttMs?: number
+          pubkey?: string
         }>
         signal: AbortSignal
         onProvisioning?: (regions: string[]) => void
@@ -127,7 +127,6 @@ describe('games/game-loader/GameLoader', () => {
     restrictionService = { checkMultipleRestrictions: vi.fn().mockResolvedValue([]) }
     netcodeV2Service = {
       isEnabled: vi.fn().mockReturnValue(true),
-      discardGame: vi.fn(),
       createSessionForGame: vi.fn().mockResolvedValue(new Map()),
     }
 
@@ -387,6 +386,61 @@ describe('games/game-loader/GameLoader', () => {
       expect.arrayContaining([
         expect.objectContaining({ userId: p1, rttMs: 42 }),
         expect.objectContaining({ userId: p2, rttMs: undefined }),
+      ]),
+    )
+  })
+
+  test('threads each player netcode v2 pubkey through to createSessionForGame', async () => {
+    const player1 = makePlayer(p1)
+    const player2 = makePlayer(p2)
+    registerActiveClients([player1.slot, player2.slot])
+    asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
+    netcodeV2Service.isEnabled.mockReturnValue(true)
+    netcodeV2Service.createSessionForGame.mockResolvedValue(
+      new Map([
+        [p1, {} as any],
+        [p2, {} as any],
+      ]),
+    )
+
+    asMockedFunction(registerGame).mockResolvedValue({
+      gameId: 'game-pubkey',
+      resultCodes: new Map([
+        [p1, 'code-1'],
+        [p2, 'code-2'],
+      ]),
+    } as any)
+
+    const pubkey1 = Buffer.alloc(32, 1).toString('base64')
+    const pubkey2 = Buffer.alloc(32, 2).toString('base64')
+    const request: GameLoadRequest = {
+      players: [player1.slot, player2.slot],
+      playerInfos: [player1.playerInfo, player2.playerInfo],
+      mapId,
+      gameConfig: lobbyConfig([
+        [{ id: p1, race: 't', isComputer: false }],
+        [{ id: p2, race: 'z', isComputer: false }],
+      ]),
+      netcodeV2PubkeyByUserId: new Map([
+        [p1, pubkey1],
+        [p2, pubkey2],
+      ]),
+    }
+
+    const resultPromise = gameLoader.loadGame(request)
+
+    await vi.waitFor(() => {
+      expect(netcodeV2Service.createSessionForGame).toHaveBeenCalledTimes(1)
+    })
+    gameLoader.registerGameAsLoaded('game-pubkey', p1)
+    gameLoader.registerGameAsLoaded('game-pubkey', p2)
+    await resultPromise
+
+    const { slots } = netcodeV2Service.createSessionForGame.mock.calls[0][0]
+    expect(slots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: p1, pubkey: pubkey1 }),
+        expect.objectContaining({ userId: p2, pubkey: pubkey2 }),
       ]),
     )
   })

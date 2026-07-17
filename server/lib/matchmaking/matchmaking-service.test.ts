@@ -76,6 +76,8 @@ const CLIENT_A = 'CLIENT_A'
 const CLIENT_B = 'CLIENT_B'
 const GAME_ID = 'game-1'
 const REGION_US_EAST: GameServerRegionId = makeGameServerRegionId('us-east')
+/** A stand-in per-session public key (base64); the service stores it verbatim without validating. */
+const DEFAULT_PUBKEY = Buffer.alloc(32, 7).toString('base64')
 
 function makePreferences(): MatchmakingPreferences {
   return {
@@ -144,11 +146,12 @@ describe('matchmaking/matchmaking-service', () => {
     userId: SbUserId,
     clientId: string,
     desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
+    clientPubkey: string = DEFAULT_PUBKEY,
   ) {
     const prefs = makePreferences()
     prefs.matchmakingType = MatchmakingType.Match1v1
     ;(prefs as any).userId = userId
-    await service.find(userId, clientId, [], [prefs], desiredRegion)
+    await service.find(userId, clientId, [], [prefs], clientPubkey, desiredRegion)
   }
 
   async function queueMultiPlayer(
@@ -162,7 +165,7 @@ describe('matchmaking/matchmaking-service', () => {
       ;(prefs as any).userId = userId
       return prefs
     })
-    await service.find(userId, clientId, [], allPrefs)
+    await service.find(userId, clientId, [], allPrefs, DEFAULT_PUBKEY)
   }
 
   function completionsFor(userId: SbUserId, completionType: MatchmakingCompletionType) {
@@ -512,6 +515,71 @@ describe('matchmaking/matchmaking-service', () => {
     expect(slotForA.region).toBe(REGION_US_EAST)
     expect(slotForB.region).toBeUndefined()
     expect(request.rttMsByUserId).toEqual(new Map([[USER_A, 24]]))
+    // Both players submitted a pubkey when they queued; each reaches the loader keyed by user id.
+    expect(request.netcodeV2PubkeyByUserId).toEqual(
+      new Map([
+        [USER_A, DEFAULT_PUBKEY],
+        [USER_B, DEFAULT_PUBKEY],
+      ]),
+    )
+  })
+
+  test('preserves a queued player pubkey across a requeue', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+    // A distinct key for A so the final assertion proves A's own key survived, not a coincidence.
+    const pubkeyA = Buffer.alloc(32, 3).toString('base64')
+    await queuePlayer(USER_A, CLIENT_A, undefined, pubkeyA)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    // B cancels before the match is processed, so A is requeued as innocent (its queue data — pubkey
+    // included — is kept, only `queuedAt` is refreshed).
+    await service.cancel(USER_B)
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-a')
+
+    // A fresh opponent queues and a new match forms; the load must carry A's original pubkey.
+    await queuePlayer(USER_B, CLIENT_B)
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a2' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b2' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    const request = gameLoader.loadGame.mock.calls[0][0]
+    expect(request.netcodeV2PubkeyByUserId.get(USER_A)).toBe(pubkeyA)
   })
 
   test('records the match formation telemetry for a match that fails to start', async () => {

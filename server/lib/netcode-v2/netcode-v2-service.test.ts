@@ -10,6 +10,7 @@ import {
   checkSessionsAlive,
   clientSigningKeyFromSeedHex,
   NetcodeV2Service,
+  NetcodeV2ServiceError,
 } from './netcode-v2-service'
 
 vi.mock('got', () => ({
@@ -367,7 +368,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
   // eslint-disable-next-line camelcase
   const HOME_RELAY = { relay_id: 1, relay_addr: '10.0.0.1:14900', cert_der: RELAY_CERT_DER }
-  /** A well-formed 32-byte pubkey (base64), as `registerPubkey` requires. */
+  /** A well-formed 32-byte pubkey (base64), carried in on each slot. */
   const PUBKEY = Buffer.alloc(32, 7).toString('base64')
 
   function sessionResponse(slots: number[]) {
@@ -405,14 +406,18 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
       slots: [
-        { slot: 0, userId: u1, observer: false, region: makeGameServerRegionId('us-east') },
-        { slot: 1, userId: u2, observer: true },
+        {
+          slot: 0,
+          userId: u1,
+          observer: false,
+          region: makeGameServerRegionId('us-east'),
+          pubkey: PUBKEY,
+        },
+        { slot: 1, userId: u2, observer: true, pubkey: PUBKEY },
       ],
       signal: new AbortController().signal,
     })
@@ -436,8 +441,6 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
@@ -446,6 +449,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 0,
           userId: u1,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('us-east'),
           rttMs: 21,
         },
@@ -453,6 +457,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 1,
           userId: u2,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('us-east'),
           rttMs: 22,
         },
@@ -476,8 +481,6 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
@@ -486,6 +489,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 0,
           userId: u1,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('us-east'),
           rttMs: 20,
         },
@@ -493,6 +497,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 1,
           userId: u2,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('eu-west'),
           rttMs: 40,
         },
@@ -515,8 +520,6 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
@@ -525,6 +528,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 0,
           userId: u1,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('us-east'),
           rttMs: 20,
         },
@@ -532,6 +536,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 1,
           userId: u2,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('eu-west'),
           rttMs: 40,
         },
@@ -555,8 +560,6 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
@@ -565,6 +568,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 0,
           userId: u1,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('us-east'),
           rttMs: 20,
         },
@@ -572,6 +576,7 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           slot: 1,
           userId: u2,
           observer: false,
+          pubkey: PUBKEY,
           region: makeGameServerRegionId('eu-west'),
           rttMs: 40,
         },
@@ -594,14 +599,12 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
       slots: [
-        { slot: 0, userId: u1, observer: false },
-        { slot: 1, userId: u2, observer: false },
+        { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
+        { slot: 1, userId: u2, observer: false, pubkey: PUBKEY },
       ],
       signal: new AbortController().signal,
     })
@@ -619,11 +622,10 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const service = makeService()
 
     const u1 = makeSbUserId(1)
-    service.registerPubkey('game-1', u1, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
-      slots: [{ slot: 0, userId: u1, observer: false }],
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
     })
 
@@ -650,16 +652,13 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
     const u3 = makeSbUserId(3)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
-    service.registerPubkey('game-1', u3, PUBKEY)
 
     await service.createSessionForGame({
       gameId: 'game-1',
       slots: [
-        { slot: 0, userId: u1, observer: false },
-        { slot: 1, userId: u2, observer: false },
-        { slot: 2, userId: u3, observer: false },
+        { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
+        { slot: 1, userId: u2, observer: false, pubkey: PUBKEY },
+        { slot: 2, userId: u3, observer: false, pubkey: PUBKEY },
       ],
       signal: new AbortController().signal,
     })
@@ -679,14 +678,18 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     const result = await service.createSessionForGame({
       gameId: 'game-1',
       slots: [
-        { slot: 0, userId: u1, observer: false, region: makeGameServerRegionId('us-east') },
-        { slot: 1, userId: u2, observer: true },
+        {
+          slot: 0,
+          userId: u1,
+          observer: false,
+          region: makeGameServerRegionId('us-east'),
+          pubkey: PUBKEY,
+        },
+        { slot: 1, userId: u2, observer: true, pubkey: PUBKEY },
       ],
       signal: new AbortController().signal,
     })
@@ -713,14 +716,12 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
-    service.registerPubkey('game-1', u1, PUBKEY)
-    service.registerPubkey('game-1', u2, PUBKEY)
 
     const result = await service.createSessionForGame({
       gameId: 'game-1',
       slots: [
-        { slot: 0, userId: u1, observer: false },
-        { slot: 1, userId: u2, observer: false },
+        { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
+        { slot: 1, userId: u2, observer: false, pubkey: PUBKEY },
       ],
       signal: new AbortController().signal,
     })
@@ -744,11 +745,10 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const onProvisioning = vi.fn()
 
     const u1 = makeSbUserId(1)
-    service.registerPubkey('game-1', u1, PUBKEY)
 
     const resultPromise = service.createSessionForGame({
       gameId: 'game-1',
-      slots: [{ slot: 0, userId: u1, observer: false }],
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
       onProvisioning,
     })
@@ -778,11 +778,10 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const onProvisioning = vi.fn()
 
     const u1 = makeSbUserId(1)
-    service.registerPubkey('game-1', u1, PUBKEY)
 
     const resultPromise = service.createSessionForGame({
       gameId: 'game-1',
-      slots: [{ slot: 0, userId: u1, observer: false }],
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
       onProvisioning,
     })
@@ -801,11 +800,10 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const controller = new AbortController()
 
     const u1 = makeSbUserId(1)
-    service.registerPubkey('game-1', u1, PUBKEY)
 
     const resultPromise = service.createSessionForGame({
       gameId: 'game-1',
-      slots: [{ slot: 0, userId: u1, observer: false }],
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: controller.signal,
     })
 
@@ -824,11 +822,10 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     const service = makeService()
 
     const u1 = makeSbUserId(1)
-    service.registerPubkey('game-1', u1, PUBKEY)
 
     const resultPromise = service.createSessionForGame({
       gameId: 'game-1',
-      slots: [{ slot: 0, userId: u1, observer: false }],
+      slots: [{ slot: 0, userId: u1, observer: false, pubkey: PUBKEY }],
       signal: new AbortController().signal,
     })
 
@@ -838,6 +835,29 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
       expect(resultPromise).rejects.toThrow('coordinator session create failed'),
       vi.advanceTimersByTimeAsync(130_000),
     ])
+  })
+
+  test('fails fast (never contacting the coordinator) when a slot is missing its pubkey', async () => {
+    configureNetcodeV2()
+    mockSessionResponse(sessionResponse([0, 1]))
+    const service = makeService()
+
+    const u1 = makeSbUserId(1)
+    const u2 = makeSbUserId(2)
+
+    await expect(
+      service.createSessionForGame({
+        gameId: 'game-1',
+        slots: [
+          { slot: 0, userId: u1, observer: false, pubkey: PUBKEY },
+          // Slot 1's join-time pubkey never arrived; the whole create must fail rather than wait.
+          { slot: 1, userId: u2, observer: false },
+        ],
+        signal: new AbortController().signal,
+      }),
+    ).rejects.toBeInstanceOf(NetcodeV2ServiceError)
+
+    expect(got.post).not.toHaveBeenCalled()
   })
 })
 

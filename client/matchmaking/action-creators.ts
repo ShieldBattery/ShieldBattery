@@ -40,9 +40,13 @@ export function findMatch(
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const findPromise = Promise.resolve().then(async () => {
-      const [identifiers, desiredRegion] = await Promise.all([
+      const [identifiers, desiredRegion, clientPubkey] = await Promise.all([
         (async () => (await ipcRenderer.invoke('securityGetClientIds')) ?? [])(),
         resolveDesiredRegion(),
+        // Generate this session's netcode v2 keypair in the app and submit the public half; the
+        // private half stays in the app until the launched game adopts it. Undefined outside
+        // Electron (like every invoke here), where matchmaking can't be reached anyway.
+        ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys'),
       ])
 
       const body: FindMatchRequest = {
@@ -53,6 +57,7 @@ export function findMatch(
         // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire format
         // only distinguishes "present" from "absent", so a null rtt is sent the same as no rtt.
         rttMs: desiredRegion?.rttMs ?? undefined,
+        clientPubkey,
       }
 
       return fetchJson<void>(apiUrl`matchmaking/find`, {

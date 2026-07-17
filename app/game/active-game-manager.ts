@@ -57,8 +57,9 @@ interface ActiveGameInfo {
   promise?: Promise<any>
   config?: GameLaunchConfig
   /**
-   * The per-session netcode v2 keypair, generated on request during loading. The private key is
-   * held here (never sent to the server) until it's merged into the game process handoff.
+   * The per-session netcode v2 keypair for this game, adopted (as a copy) from the manager's pending
+   * keypair generated at queue/lobby-join time. The private key is held here (never sent to the
+   * server) until it's merged into the game process handoff.
    */
   netcodeV2Keys?: NetcodeV2KeyPair
   /**
@@ -127,6 +128,22 @@ export type ActiveGameManagerEvents = {
 @singleton()
 export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   private activeGame: ActiveGameInfo | null = null
+  /**
+   * The per-session netcode v2 keypair generated when the player last joined a queue/lobby (via
+   * {@link generateNetcodeV2SessionKeys}), awaiting adoption by the next launched game. Each
+   * generate call overwrites it, so only the most recent join's keypair is held.
+   *
+   * When a game launches, this is *copied* onto its `activeGame.netcodeV2Keys` rather than moved: a
+   * matchmaking requeue after a failed launch forms a new game with no new client key request, and
+   * the server reuses the pubkey originally submitted at join, so the private half must remain
+   * available across the whole queue episode.
+   *
+   * An orphaned pending keypair (search canceled, lobby left) is deliberately never cleaned up: the
+   * private half never leaves this process, and it is only ever adopted by the next launched game —
+   * whose server-side pubkey came from the same join that generated it — so it is harmless, and
+   * cancel-path plumbing to clear it would buy nothing.
+   */
+  private pendingNetcodeV2Keys?: NetcodeV2KeyPair
   private serverPort = 0
   /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
   private pendingDebugQueries = new Map<string, PendingDebugReply<GameDebugState>[]>()
@@ -207,13 +224,19 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       },
       err => this.handleGameLaunchError(gameId, err),
     )
-    // The netcode v2 keypair and session handoff are strictly per-game — carrying them over from
-    // a previous (hung) game would reuse its keypair and could satisfy the new game's setup gate
-    // with the old game's session.
+    // A relaunch of the *same* game id carries that game's already-generated keypair and session
+    // handoff forward — reusing them is correct since it's the same session. A *different* game id
+    // must not inherit the old (hung) game's session, so it instead adopts a copy of the pending
+    // session keypair generated when this queue/lobby episode joined. Copying (not moving) keeps the
+    // pending keypair available for a later requeue relaunch, whose server-side pubkey is the same
+    // one that generated it.
     const carried = current?.id === gameId ? current : undefined
+    const netcodeV2Keys =
+      carried?.netcodeV2Keys ??
+      (this.pendingNetcodeV2Keys ? { ...this.pendingNetcodeV2Keys } : undefined)
     this.activeGame = {
       ...current,
-      netcodeV2Keys: carried?.netcodeV2Keys,
+      netcodeV2Keys,
       netcodeV2Setup: carried?.netcodeV2Setup,
       // A fresh launch's transport is unknown until the new game's init reports it; this also
       // applies when relaunching the same game id, so don't carry it over from `current` either.
@@ -229,20 +252,14 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   }
 
   /**
-   * Generates (or returns the already-generated) per-session netcode v2 keypair for the active
-   * game, returning the base64 raw public key, or null if `gameId` is not the active game. The
-   * private key never leaves this process except in the game-process handoff.
+   * Generates a fresh per-session netcode v2 keypair, holds it as the pending keypair for the next
+   * launched game to adopt, and returns the base64 raw public key (submitted to the server at
+   * queue/lobby-join time). The private key never leaves this process except in the game-process
+   * handoff.
    */
-  generateNetcodeV2Keys(gameId: string): string | null {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
-      log.verbose(`Got generateNetcodeV2Keys for ${gameId}, but it is not the active game`)
-      return null
-    }
-
-    if (!this.activeGame.netcodeV2Keys) {
-      this.activeGame.netcodeV2Keys = generateNetcodeV2KeyPair()
-    }
-    return this.activeGame.netcodeV2Keys.publicKey
+  generateNetcodeV2SessionKeys(): string {
+    this.pendingNetcodeV2Keys = generateNetcodeV2KeyPair()
+    return this.pendingNetcodeV2Keys.publicKey
   }
 
   /**

@@ -122,6 +122,12 @@ interface PlayerQueueData {
    * one no longer in the region list at queue time). Read at session create to place the slot.
    */
   region?: QueuedPlayerRegion
+  /**
+   * base64 of the player's per-session netcode v2 public key, submitted when they queued. Read at
+   * match time to build the coordinator session token; survives a requeue (only `queuedAt` is
+   * reset). Kept off the wire-visible `Slot` (like rtt) since no peer needs it.
+   */
+  clientPubkey: string
 }
 
 /**
@@ -488,6 +494,7 @@ export class MatchmakingService {
     clientId: string,
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
+    clientPubkey: string,
     desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
@@ -509,7 +516,14 @@ export class MatchmakingService {
     }
 
     try {
-      await this.queueSoloPlayer(userId, clientId, identifiers, allPreferences, desiredRegion)
+      await this.queueSoloPlayer(
+        userId,
+        clientId,
+        identifiers,
+        allPreferences,
+        clientPubkey,
+        desiredRegion,
+      )
     } catch (err) {
       // Clear out the activity registry for this user, since they didn't actually make it into the
       // queue
@@ -528,6 +542,7 @@ export class MatchmakingService {
     clientId: string,
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
+    clientPubkey: string,
     desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
@@ -574,6 +589,7 @@ export class MatchmakingService {
       ),
       queuedAt: monotonicNow(),
       region,
+      clientPubkey,
     })
     this.queueEntries.set(userId, {
       types: new Set(typeDataEntries.map(d => d.type)),
@@ -1174,6 +1190,18 @@ export class MatchmakingService {
       }
     }
 
+    // Each player's per-session netcode v2 public key, submitted when they queued and carried to the
+    // game loader to build the coordinator session token — kept off the `Slot` (like `rttMs`) since
+    // no peer needs it.
+    const netcodeV2PubkeyByUserId = new Map<SbUserId, string>()
+    for (const s of slots) {
+      const pubkey =
+        s.userId !== undefined ? this.playerQueueData.get(s.userId)?.clientPubkey : undefined
+      if (pubkey !== undefined) {
+        netcodeV2PubkeyByUserId.set(s.userId!, pubkey)
+      }
+    }
+
     const entities = match.teams.flat()
     const chosenMap = mapInfo
 
@@ -1257,6 +1285,7 @@ export class MatchmakingService {
       gameConfig,
       ratings,
       rttMsByUserId,
+      netcodeV2PubkeyByUserId,
     })
 
     if (loadResult.isError()) {

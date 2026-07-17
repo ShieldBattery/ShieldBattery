@@ -26,11 +26,7 @@ import {
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
-import {
-  NetcodeV2RehomeRequest,
-  NetcodeV2RehomeResponse,
-  SubmitNetcodeV2PubkeyRequest,
-} from '../../../common/games/netcode-v2'
+import { NetcodeV2RehomeRequest, NetcodeV2RehomeResponse } from '../../../common/games/netcode-v2'
 import {
   GameResultErrorCode,
   isRawStoredGameResults,
@@ -495,34 +491,6 @@ export class GameApi {
       if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }
-    }
-
-    ctx.status = 204
-  }
-
-  @httpPut('/:gameId/netcodeV2Pubkey')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
-  async submitNetcodeV2Pubkey(ctx: RouterContext): Promise<void> {
-    const {
-      params: { gameId },
-      body: { pubkey },
-    } = validateRequest(ctx, {
-      params: GAME_ID_PARAM,
-      body: Joi.object<SubmitNetcodeV2PubkeyRequest>({
-        pubkey: Joi.string().base64().max(64).required(),
-      }).required(),
-    })
-
-    if (!this.netcodeV2Service.isEnabled()) {
-      throw new httpErrors.NotFound('netcode v2 is not enabled')
-    }
-    // Only participants of the loading game may register a key — anyone else could otherwise fill
-    // the game's pubkey state and grief the load.
-    if (!this.gameLoader.isLoadingForUser(gameId, ctx.session!.user.id)) {
-      throw new httpErrors.Conflict('game must be loading for this user')
-    }
-    if (!this.netcodeV2Service.registerPubkey(gameId, ctx.session!.user.id, pubkey)) {
-      throw new httpErrors.BadRequest('invalid pubkey')
     }
 
     ctx.status = 204

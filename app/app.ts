@@ -716,8 +716,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       return null
     }
   })
-  ipcMain.handle('activeGameGenNetcodeV2Keys', (event, gameId) =>
-    activeGameManager.generateNetcodeV2Keys(gameId),
+  ipcMain.handle('activeGameGenNetcodeV2SessionKeys', () =>
+    activeGameManager.generateNetcodeV2SessionKeys(),
   )
   ipcMain.handle('activeGameSetNetcodeV2Setup', (event, gameId, setup) =>
     activeGameManager.setNetcodeV2Setup(gameId, setup),
