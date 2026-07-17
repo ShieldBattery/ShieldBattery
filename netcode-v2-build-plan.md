@@ -175,11 +175,17 @@ class; the tenant-credential consolidation half remains (§2).
    `COORDINATOR_METRICS_LISTEN=[::]:14911` + updated compose/serve.json → `docker compose
    up -d` → monitoring box: copy prometheus.yml + dashboard JSON, recreate the prometheus
    container → verify targets up + dashboard populates during a staging game.
-4. **Tenant lifecycle, credential half** (the identity-ledger half is closed): consolidate
-   `/session/create` inbound auth + webhook signing into one per-tenant credential; move client
-   pubkey submission from game load to queue/lobby-join time (those requests already carry
-   `(region, rttMs)` — same surfaces, same lifetime; no long-lived keypair without a security
-   review).
+4. **Tenant lifecycle, credential half** — **RE-SCOPED 2026-07-17 (Travis): the credential
+   consolidation is already done** — the tenant-registry arc delivered it (one tenant identity;
+   tenants.json + per-tenant signing key by env-var name; keygen mints everything in one run;
+   `client_pubkeys` 2-key rotation window). The mirror-image two-key design is FINAL by design:
+   the tenant's request key and the coordinator's signing key hold private halves on opposite
+   parties on purpose (a literal single credential would let either party forge as the other),
+   and the coordinator's key also mints the player tokens relays verify — do not re-chase a
+   merge. **Remaining half (buildable): move client pubkey submission from game load to
+   queue/lobby-join time** (those requests already carry `(region, rttMs)` — same surfaces;
+   keypair stays per-game, just born at queue time; deletes the load-time pubkey PUT +
+   `waitForPubkeys` deferred machinery from the most fragile part of the flow).
 5. **Prod region list** — **DONE 2026-07-17 (ratified + catalog committed, rp2 `f517e80`).**
    Eleven regions: us-east/us-west/eu-central (existing) + kr (Seoul), ca-east (Montreal),
    sa-east (São Paulo), eu-north (Stockholm), hk (Hong Kong), sg (Singapore), au (Sydney),
