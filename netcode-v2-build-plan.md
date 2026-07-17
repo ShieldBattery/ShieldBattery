@@ -180,13 +180,25 @@ class; the tenant-credential consolidation half remains (§2).
    pubkey submission from game load to queue/lobby-join time (those requests already carry
    `(region, rttMs)` — same surfaces, same lifetime; no long-lived keypair without a security
    review).
-5. **Prod region list** — catalog entries whenever chosen, plus the activation checklist per
-   region: verify a GameLift beacon actually exists there (no China; some regions lack one),
-   pick the TCP fallback endpoint, distinct CIDRs per environment. List-building, not code.
+5. **Prod region list** — **DONE 2026-07-17 (ratified + catalog committed, rp2 `f517e80`).**
+   Eleven regions: us-east/us-west/eu-central (existing) + kr (Seoul), ca-east (Montreal),
+   sa-east (São Paulo), eu-north (Stockholm), hk (Hong Kong), sg (Singapore), au (Sydney),
+   mx (Querétaro). Prod CIDRs 10.84..10.94/22; staging set unchanged. Activation checklist
+   worked: beacons live-probed (UDP :7770 nonce-echo 3/3) in all but mx-central-1, which has
+   NO GameLift beacon (NXDOMAIN, absent from AWS's list). **mx ships anyway by design, zero
+   code:** clients catch the failed beacon measurement and rank mx via TCP-connect fallback;
+   backbone mx pairs fill one-directional from the mx relay's outbound sweeps (served value =
+   average of present directions; coverage counts either) — and the formulaic hostname means
+   AWS shipping the beacon later upgrades measurement to UDP with no config change (invariant
+   documented in `infra/terraform/README.md`).
 6. **Prod standup** — prod coordinator box (same deployment dir + runbook as staging) + prod
    fleet apply (`prod.tfvars`; task defs pull `:stable`, so promote a soaked relay sha first) +
    prod tenant minted via keygen. Runbooks: `infra/terraform/README.md`,
-   `deployment/coordinator/README.md`.
+   `deployment/coordinator/README.md`. Inherited from item 5: **enable the ap-east-1 and
+   mx-central-1 account opt-ins BEFORE any apply** (ECR replication errors otherwise); verify
+   Fargate dual-stack works in mx-central-1 (new region). The prod box's tailnet name should be
+   `rp2-coordinator` — the monitoring scrape config already lists it as a (currently down)
+   target.
 7. **Rollout execution**: ship a client version pointed at prod (platform enforces
    client-version currency, so no mixed-version games); keep the old rally-point *service*
    running only until the minimum supported client is v2-only, then decommission. Rollback =
