@@ -1,6 +1,49 @@
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
+
+/** Which subset of the library the rail is currently pointed at, driven by the `view` URL param. */
+export type LibraryView = { kind: 'all' } | { kind: 'starred' } | { kind: 'playlist'; id: number }
+
+const PLAYLIST_VIEW_PREFIX = 'pl-'
+
+/** Parses the `view` URL param into a `LibraryView`. Unrecognized/malformed values fall back to `all`. */
+export function parseView(value: string): LibraryView {
+  if (value === 'starred') {
+    return { kind: 'starred' }
+  }
+  if (value.startsWith(PLAYLIST_VIEW_PREFIX)) {
+    const id = Number.parseInt(value.slice(PLAYLIST_VIEW_PREFIX.length), 10)
+    if (Number.isFinite(id)) {
+      return { kind: 'playlist', id }
+    }
+  }
+  return { kind: 'all' }
+}
+
+/** Encodes a `LibraryView` back into the `view` URL param (empty string for the default `all`). */
+export function encodeView(view: LibraryView): string {
+  switch (view.kind) {
+    case 'all':
+      return ''
+    case 'starred':
+      return 'starred'
+    case 'playlist':
+      return `${PLAYLIST_VIEW_PREFIX}${view.id}`
+    default:
+      return assertUnreachable(view)
+  }
+}
+
+/**
+ * True when `view` is a playlist and the user hasn't chosen an explicit sort (`sortParam` is the
+ * raw, possibly-empty `sort` URL param). In that case results come back in the playlist's manual
+ * order, which shouldn't be day-grouped like the date sorts are.
+ */
+export function isManualPlaylistOrder(view: LibraryView, sortParam: string): boolean {
+  return view.kind === 'playlist' && !sortParam
+}
 
 /**
  * The way a replay's players are laid out for display:

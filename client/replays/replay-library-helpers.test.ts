@@ -2,8 +2,11 @@ import { describe, expect, test } from 'vitest'
 import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import {
+  encodeView,
   getReplayDisplayTeams,
   groupReplaysByDay,
+  isManualPlaylistOrder,
+  parseView,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
 
@@ -168,5 +171,53 @@ describe('groupReplaysByDay', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0].unreadable).toBe(true)
     expect(groups[0].entries.map(e => e.id)).toEqual([2, 1])
+  })
+})
+
+describe('parseView / encodeView', () => {
+  test('parses an empty value as the "all" view', () => {
+    expect(parseView('')).toEqual({ kind: 'all' })
+  })
+
+  test('parses "starred" as the starred view', () => {
+    expect(parseView('starred')).toEqual({ kind: 'starred' })
+  })
+
+  test('parses "pl-<id>" as a playlist view', () => {
+    expect(parseView('pl-42')).toEqual({ kind: 'playlist', id: 42 })
+  })
+
+  test('falls back to "all" for malformed playlist ids', () => {
+    expect(parseView('pl-notanumber')).toEqual({ kind: 'all' })
+    expect(parseView('pl-')).toEqual({ kind: 'all' })
+  })
+
+  test('falls back to "all" for unrecognized values', () => {
+    expect(parseView('something-else')).toEqual({ kind: 'all' })
+  })
+
+  test('round-trips through encodeView', () => {
+    expect(encodeView({ kind: 'all' })).toBe('')
+    expect(encodeView({ kind: 'starred' })).toBe('starred')
+    expect(encodeView({ kind: 'playlist', id: 42 })).toBe('pl-42')
+    expect(parseView(encodeView({ kind: 'playlist', id: 7 }))).toEqual({
+      kind: 'playlist',
+      id: 7,
+    })
+  })
+})
+
+describe('isManualPlaylistOrder', () => {
+  test('is true only for a playlist view with no explicit sort', () => {
+    expect(isManualPlaylistOrder({ kind: 'playlist', id: 1 }, '')).toBe(true)
+  })
+
+  test('is false when a sort is explicitly chosen', () => {
+    expect(isManualPlaylistOrder({ kind: 'playlist', id: 1 }, 'latest')).toBe(false)
+  })
+
+  test('is false for non-playlist views', () => {
+    expect(isManualPlaylistOrder({ kind: 'all' }, '')).toBe(false)
+    expect(isManualPlaylistOrder({ kind: 'starred' }, '')).toBe(false)
   })
 })

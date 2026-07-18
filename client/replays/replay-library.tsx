@@ -24,6 +24,7 @@ import {
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
+  ReplayPlaylist,
 } from '../../common/replays-library'
 import { DayHeader, formatDayHeaderLabel, getDayBoundaries } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
@@ -62,10 +63,15 @@ import { startReplay } from './action-creators'
 import { useSbGameMap } from './replay-hooks'
 import { ReplayInspector } from './replay-inspector'
 import {
+  encodeView,
   getReplayDisplayTeams,
   groupReplaysByDay,
+  isManualPlaylistOrder,
+  LibraryView,
+  parseView,
   playersToDisplayTeams,
 } from './replay-library-helpers'
+import { ReplayLibraryRail } from './replay-library-rail'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -105,9 +111,14 @@ function parseModeFilter(value: string): SupportedReplayGameType | 'others' | un
     : undefined
 }
 
-/** Assembles the query filters (everything but paging) from the current filter/sort values. */
+/**
+ * Assembles the query filters (everything but paging) from the current view and filter/sort
+ * values. `sort` is `undefined` in a playlist's manual order, which the query treats as "use the
+ * playlist's arrangement".
+ */
 function buildFilters(
-  sort: GameSortOption,
+  view: LibraryView,
+  sort: GameSortOption | undefined,
   mapName: string,
   playerName: string,
   gameType: number | 'others' | undefined,
@@ -115,7 +126,13 @@ function buildFilters(
   format: GameFormat | undefined,
   matchup: EncodedMatchupString | undefined,
 ): ReplayLibraryFilters {
-  const filters: ReplayLibraryFilters = { sort }
+  const filters: ReplayLibraryFilters = {}
+  if (view.kind === 'starred') {
+    filters.starred = true
+  } else if (view.kind === 'playlist') {
+    filters.playlistId = view.id
+  }
+  if (sort !== undefined) filters.sort = sort
   if (mapName) filters.mapName = mapName
   if (playerName) filters.playerName = playerName
   if (gameType !== undefined) filters.gameType = gameType
@@ -237,13 +254,31 @@ const RowErrorIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 20 })`
   color: var(--theme-error);
 `
 
+const LeadingRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`
+
+const RowStarIcon = styledWithAttrs(MaterialIcon, { icon: 'star', size: 16 })`
+  flex-shrink: 0;
+  color: var(--theme-amber);
+`
+
+const StarOverlayButton = styled(IconButton)<{ $starred: boolean }>`
+  color: ${props => (props.$starred ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
+`
+
 interface ReplayListEntryProps {
   entry: ReplayLibraryEntry
   selected: boolean
   computerLabel: string
   watchTitle: string
+  starTitle: string
+  unstarTitle: string
   onSelect: (id: number) => void
   onWatch: (entry: ReplayLibraryEntry) => void
+  onToggleStar: (entry: ReplayLibraryEntry) => void
 }
 
 function ReplayListEntry({
@@ -251,8 +286,11 @@ function ReplayListEntry({
   selected,
   computerLabel,
   watchTitle,
+  starTitle,
+  unstarTitle,
   onSelect,
   onWatch,
+  onToggleStar,
 }: ReplayListEntryProps) {
   const { t } = useTranslation()
   const map = useSbGameMap(entry.parseError ? undefined : entry.sbGameId)
@@ -261,12 +299,22 @@ function ReplayListEntry({
     onDoubleClick: () => onWatch(entry),
   })
 
-  const leading = entry.parseError ? (
+  const starred = entry.starredAt !== undefined
+
+  const dateElem = entry.parseError ? (
     <GameDate>—</GameDate>
   ) : (
     <Tooltip text={longTimestamp.format(entry.gameTime)} position='right'>
       <GameDate>{narrowDuration.format(entry.gameTime)}</GameDate>
     </Tooltip>
+  )
+  const leading = starred ? (
+    <LeadingRow>
+      {dateElem}
+      <RowStarIcon />
+    </LeadingRow>
+  ) : (
+    dateElem
   )
 
   const players = entry.parseError ? (
@@ -308,6 +356,17 @@ function ReplayListEntry({
             }}
           />
         </Tooltip>
+        <Tooltip text={starred ? unstarTitle : starTitle} position='top'>
+          <StarOverlayButton
+            styledAs='div'
+            $starred={starred}
+            icon={<MaterialIcon icon='star' filled={starred} />}
+            onClick={event => {
+              event.stopPropagation()
+              onToggleStar(entry)
+            }}
+          />
+        </Tooltip>
       </WatchReplayOverlay>
     </ThumbnailContainer>
   )
@@ -340,6 +399,10 @@ export function ReplayLibrary() {
   const [isLoadingNext, setIsLoadingNext] = useState(false)
   const [status, setStatus] = useState<ReplayLibraryStatus>()
   const [backfill, setBackfill] = useState<{ done: number; total: number }>()
+  const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>([])
+  // Bumped on every index change so entry-scoped fetches (e.g. the inspector's playlist
+  // membership) know to refresh.
+  const [changeToken, setChangeToken] = useState(0)
   const [observerToken, restartObserver] = useRefreshToken()
 
   const [focusedId, setFocusedId] = useState<number>()
@@ -358,16 +421,22 @@ export function ReplayLibrary() {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
+  const [viewParam, setViewParam] = useLocationSearchParam('view')
 
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam)
   const gameType = parseModeFilter(gameTypeParam)
+  const view = parseView(viewParam)
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const watchTitle = t('replays.library.watchReplay', 'Watch replay')
+  const starTitle = t('replays.library.star', 'Star')
+  const unstarTitle = t('replays.library.unstar', 'Unstar')
 
+  // The view is navigation rather than a filter: it isn't included here, and clearing filters
+  // leaves it alone.
   const hasActiveFilters =
     duration !== GameDurationFilter.All ||
     !!mapName ||
@@ -378,6 +447,19 @@ export function ReplayLibrary() {
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
+  const manualOrder = isManualPlaylistOrder(view, sortParam)
+  // A playlist's manual order has no meaningful day boundaries, so it renders flat like the
+  // duration sorts do.
+  const useFlatList = isDurationSort || manualOrder
+  const effectiveSort = manualOrder ? undefined : sort
+
+  const reset = () => {
+    queryEpochRef.current += 1
+    setEntries(undefined)
+    setTotal(undefined)
+    setIsLoadingNext(false)
+    restartObserver()
+  }
 
   // Fetches the index status. Called once on mount and again (debounced) on every index change.
   const fetchStatus = useEffectEvent(() => {
@@ -408,7 +490,16 @@ export function ReplayLibrary() {
 
     ipcRenderer
       .invoke('replayLibraryQuery', {
-        ...buildFilters(sort, mapName, playerName, gameType, duration, format, matchup),
+        ...buildFilters(
+          view,
+          effectiveSort,
+          mapName,
+          playerName,
+          gameType,
+          duration,
+          format,
+          matchup,
+        ),
         offset: 0,
         limit,
       })
@@ -420,13 +511,33 @@ export function ReplayLibrary() {
       .catch(swallowNonBuiltins)
   })
 
+  // Fetches the playlists for the rail. Called once on mount and again (debounced) on every index
+  // change. Doubles as the consistency check for the current view: if the playlist being viewed no
+  // longer exists (deleted, or a stale URL), we fall back to the whole library.
+  const fetchPlaylists = useEffectEvent(() => {
+    ipcRenderer
+      .invoke('replayLibraryListPlaylists')
+      ?.then(result => {
+        if (!result) return
+        setPlaylists(result)
+        if (view.kind === 'playlist' && !result.some(p => p.id === view.id)) {
+          setViewParam('')
+          reset()
+        }
+      })
+      .catch(swallowNonBuiltins)
+  })
+
   // Listen for index change + backfill events only while mounted.
   useEffect(() => {
     fetchStatus()
+    fetchPlaylists()
 
     const handleChanged = debounce(() => {
       refreshLoadedWindow()
       fetchStatus()
+      fetchPlaylists()
+      setChangeToken(token => token + 1)
     }, 300)
     const handleProgress = (_event: unknown, progress: { done: number; total: number }) => {
       setBackfill(progress)
@@ -454,6 +565,48 @@ export function ReplayLibrary() {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
   }
 
+  const toggleStar = (entry: ReplayLibraryEntry) => {
+    const starred = entry.starredAt === undefined
+    // Update optimistically; the resulting index-changed event will confirm (or correct) shortly.
+    setEntries(prev =>
+      prev?.map(e =>
+        e.id === entry.id ? { ...e, starredAt: starred ? Date.now() : undefined } : e,
+      ),
+    )
+    setStatus(prev =>
+      prev ? { ...prev, starredCount: Math.max(0, prev.starredCount + (starred ? 1 : -1)) } : prev,
+    )
+    ipcRenderer.invoke('replayLibrarySetStarred', entry.id, starred)?.catch(swallowNonBuiltins)
+  }
+
+  const addToPlaylist = (playlistId: number, entry: ReplayLibraryEntry) => {
+    ipcRenderer
+      .invoke('replayLibraryAddToPlaylist', playlistId, [entry.id])
+      ?.catch(swallowNonBuiltins)
+  }
+
+  const removeFromCurrentPlaylist = (entry: ReplayLibraryEntry) => {
+    if (view.kind !== 'playlist') return
+    ipcRenderer
+      .invoke('replayLibraryRemoveFromPlaylist', view.id, [entry.id])
+      ?.catch(swallowNonBuiltins)
+  }
+
+  // Only meaningful in a playlist's manual order, where the loaded index (contiguous from offset
+  // 0) matches the playlist's manual index.
+  const moveFocusedBy = (delta: number) => {
+    if (view.kind !== 'playlist' || !manualOrder || !focusedEntry || focusedIndex < 0) return
+    const toIndex = focusedIndex + delta
+    if (toIndex < 0 || toIndex >= (total ?? loadedEntries.length)) return
+    ipcRenderer
+      .invoke('replayLibraryMovePlaylistEntry', view.id, focusedEntry.id, toIndex)
+      ?.catch(swallowNonBuiltins)
+  }
+
+  const canMoveUp = manualOrder && focusedIndex > 0
+  const canMoveDown =
+    manualOrder && focusedIndex >= 0 && focusedIndex < (total ?? loadedEntries.length) - 1
+
   const scrollToIndex = (index: number) => {
     // Only one of these lists is mounted at a time, so the other ref is null.
     groupedRef.current?.scrollIntoView({ index })
@@ -471,21 +624,22 @@ export function ReplayLibrary() {
     focusIndex(next)
   }
 
-  const reset = () => {
-    queryEpochRef.current += 1
-    setEntries(undefined)
-    setTotal(undefined)
-    setIsLoadingNext(false)
-    restartObserver()
-  }
-
   const onLoadNextData = () => {
     setIsLoadingNext(true)
     const epoch = queryEpochRef.current
 
     ipcRenderer
       .invoke('replayLibraryQuery', {
-        ...buildFilters(sort, mapName, playerName, gameType, duration, format, matchup),
+        ...buildFilters(
+          view,
+          effectiveSort,
+          mapName,
+          playerName,
+          gameType,
+          duration,
+          format,
+          matchup,
+        ),
         offset: entries?.length ?? 0,
         limit: LOAD_CHUNK_SIZE,
       })
@@ -541,6 +695,13 @@ export function ReplayLibrary() {
         case 'End':
           focusIndex(loadedEntries.length - 1)
           return true
+        case 'Delete':
+          // Removes from the current playlist only; replay files on disk are never touched.
+          if (view.kind === 'playlist' && focusedEntry) {
+            removeFromCurrentPlaylist(focusedEntry)
+            return true
+          }
+          return false
         case ENTER:
         case ENTER_NUMPAD: {
           const active = document.activeElement
@@ -573,8 +734,11 @@ export function ReplayLibrary() {
         selected={entry.id === focusedEntry?.id}
         computerLabel={computerLabel}
         watchTitle={watchTitle}
+        starTitle={starTitle}
+        unstarTitle={unstarTitle}
         onSelect={setFocusedId}
         onWatch={watchEntry}
+        onToggleStar={toggleStar}
       />
     )
   }
@@ -592,6 +756,26 @@ export function ReplayLibrary() {
             iconStart={<MaterialIcon icon='close' />}
             onClick={clearAllFilters}
           />
+        </CenteredState>
+      )
+    } else if (view.kind === 'starred') {
+      listContent = (
+        <CenteredState>
+          <EmptyStateTitle>
+            {t('replays.library.starredEmpty', 'No starred replays')}
+          </EmptyStateTitle>
+          <div>
+            {t('replays.library.starredEmptyBody', 'Star replays to keep them handy here.')}
+          </div>
+        </CenteredState>
+      )
+    } else if (view.kind === 'playlist') {
+      listContent = (
+        <CenteredState>
+          <EmptyStateTitle>
+            {t('replays.library.playlistEmpty', 'This playlist is empty')}
+          </EmptyStateTitle>
+          <div>{t('replays.library.playlistEmptyBody', 'Add replays to it from the library.')}</div>
         </CenteredState>
       )
     } else if (backfill && backfill.total > 0) {
@@ -616,7 +800,7 @@ export function ReplayLibrary() {
     // NOTE: `Virtuoso` and `GroupedVirtuoso` share the same underlying component type, so
     // switching between them reconciles as a prop update and leaves stale group state behind.
     // Distinct keys force a full remount when the list mode changes.
-    listContent = isDurationSort ? (
+    listContent = useFlatList ? (
       <Virtuoso
         key='flat'
         ref={flatRef}
@@ -649,6 +833,23 @@ export function ReplayLibrary() {
     )
   }
 
+  // The unfiltered size of the current view, so "x of y" is measured against what's actually
+  // being browsed rather than the whole index.
+  let viewTotal: number | undefined
+  switch (view.kind) {
+    case 'all':
+      viewTotal = status?.totalIndexed
+      break
+    case 'starred':
+      viewTotal = status?.starredCount
+      break
+    case 'playlist':
+      viewTotal = playlists.find(p => p.id === view.id)?.count
+      break
+    default:
+      viewTotal = view satisfies never
+  }
+
   let countLine: React.ReactNode = null
   if (backfill && backfill.total > 0) {
     countLine = (
@@ -667,11 +868,11 @@ export function ReplayLibrary() {
           ? t('replays.library.filteredCount', {
               defaultValue: '{{shown}} of {{total}} replays',
               shown: total ?? loadedEntries.length,
-              total: status?.totalIndexed ?? loadedEntries.length,
+              total: viewTotal ?? loadedEntries.length,
             })
           : t('replays.library.replayCount', {
               defaultValue: '{{count}} replays',
-              count: status?.totalIndexed ?? total ?? loadedEntries.length,
+              count: viewTotal ?? total ?? loadedEntries.length,
             })}
       </CountLine>
     )
@@ -689,7 +890,9 @@ export function ReplayLibrary() {
           }}
           sort={sort}
           setSort={v => {
-            setSortParam(v === GameSortOption.LatestFirst ? '' : v)
+            // Inside a playlist even `latest` stays explicit in the URL, since an absent sort
+            // means the playlist's manual order there.
+            setSortParam(v === GameSortOption.LatestFirst && view.kind !== 'playlist' ? '' : v)
             reset()
           }}
           mapName={mapName}
@@ -723,6 +926,19 @@ export function ReplayLibrary() {
         {countLine}
 
         <BodyRow>
+          <ReplayLibraryRail
+            view={view}
+            totalIndexed={status?.totalIndexed ?? 0}
+            starredCount={status?.starredCount ?? 0}
+            playlists={playlists}
+            onSelectView={v => {
+              const encoded = encodeView(v)
+              if (encoded === viewParam) return
+              setViewParam(encoded)
+              reset()
+            }}
+          />
+
           <ListColumn>
             <InfiniteScrollList
               nextLoadingEnabled={true}
@@ -736,9 +952,22 @@ export function ReplayLibrary() {
 
           <ReplayInspector
             entry={focusedEntry}
-            alignWithFirstRow={!isDurationSort}
+            alignWithFirstRow={!useFlatList}
+            playlists={playlists}
+            changeToken={changeToken}
+            inPlaylistView={view.kind === 'playlist'}
+            canReorder={manualOrder}
+            canMoveUp={canMoveUp}
+            canMoveDown={canMoveDown}
             onWatch={watchEntry}
             onReveal={revealEntry}
+            onToggleStar={toggleStar}
+            onAddToPlaylist={addToPlaylist}
+            onRemoveFromPlaylist={() => {
+              if (focusedEntry) removeFromCurrentPlaylist(focusedEntry)
+            }}
+            onMoveUp={() => moveFocusedBy(-1)}
+            onMoveDown={() => moveFocusedBy(1)}
           />
         </BodyRow>
       </PageColumn>

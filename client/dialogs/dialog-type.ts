@@ -15,6 +15,8 @@ export enum DialogType {
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
   ChannelUserPermissions = 'channelUserPermissions',
+  CreatePlaylist = 'createPlaylist',
+  DeletePlaylist = 'deletePlaylist',
   Download = 'download',
   EmailVerification = 'emailVerification',
   ExternalLink = 'externalLink',
@@ -29,6 +31,7 @@ export enum DialogType {
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
+  RenamePlaylist = 'renamePlaylist',
   ReplayInfo = 'replayInfo',
   ReplayLoad = 'replayLoad',
   ReportGame = 'reportGame',
@@ -76,6 +79,20 @@ type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
   {
     userChannelEntry: UserChannelEntry
     onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => void
+  }
+>
+type CreatePlaylistDialogPayload = BaseDialogPayload<
+  typeof DialogType.CreatePlaylist,
+  {
+    /** Called with the new playlist's id/name once it's been created (before the dialog closes). */
+    onCreated: (id: number, name: string) => void
+  }
+>
+type DeletePlaylistDialogPayload = BaseDialogPayload<
+  typeof DialogType.DeletePlaylist,
+  {
+    playlistId: number
+    name: string
   }
 >
 type DownloadDialogPayload = BaseDialogPayload<typeof DialogType.Download>
@@ -141,6 +158,13 @@ type RemoveUserAvatarDialogPayload = BaseDialogPayload<
     userId: SbUserId
   }
 >
+type RenamePlaylistDialogPayload = BaseDialogPayload<
+  typeof DialogType.RenamePlaylist,
+  {
+    playlistId: number
+    currentName: string
+  }
+>
 type ReplayInfoDialogPayload = BaseDialogPayload<
   typeof DialogType.ReplayInfo,
   {
@@ -183,6 +207,8 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
+  | CreatePlaylistDialogPayload
+  | DeletePlaylistDialogPayload
   | DownloadDialogPayload
   | EmailVerificationDialogPayload
   | ExternalLinkDialogPayload
@@ -197,6 +223,7 @@ export type DialogPayload =
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload
+  | RenamePlaylistDialogPayload
   | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
   | ReportGameDialogPayload

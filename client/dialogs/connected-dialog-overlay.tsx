@@ -31,6 +31,11 @@ import {
   TermsOfServiceDialog,
 } from '../policies/policy-displays'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import {
+  CreatePlaylistDialog,
+  DeletePlaylistDialog,
+  RenamePlaylistDialog,
+} from '../replays/playlist-dialogs'
 import { ReplayInfoDialog } from '../replays/replay-info-display'
 import { ReplayLoadDialog } from '../replays/replay-load-dialog'
 import {
@@ -88,6 +93,10 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelBanUserDialog }
     case DialogType.ChannelUserPermissions:
       return { component: ChannelUserPermissionsDialog }
+    case DialogType.CreatePlaylist:
+      return { component: CreatePlaylistDialog }
+    case DialogType.DeletePlaylist:
+      return { component: DeletePlaylistDialog }
     case DialogType.Download:
       return { component: DownloadDialog }
     case DialogType.EmailVerification:
@@ -116,6 +125,8 @@ function getDialog(dialogType: DialogType): {
       return { component: PrivacyPolicyDialog }
     case DialogType.RemoveUserAvatar:
       return { component: RemoveUserAvatarDialog }
+    case DialogType.RenamePlaylist:
+      return { component: RenamePlaylistDialog }
     case DialogType.ReplayInfo:
       return { component: ReplayInfoDialog }
     case DialogType.ReplayLoad:
