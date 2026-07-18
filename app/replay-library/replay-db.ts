@@ -8,10 +8,10 @@ import {
   ReplayLibraryPlayer,
 } from '../../common/replays-library'
 import { makeSbUserId } from '../../common/users/sb-user-id'
-import { IndexedReplay } from './replay-parser'
-import { buildReplaySqlQuery, replayPassesTeamFilters } from './replay-queries'
+import { deriveTeamLayout, IndexedReplay } from './replay-parser'
+import { buildReplaySqlQuery } from './replay-queries'
 
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -28,6 +28,8 @@ interface DbReplayRow {
   duration_frames: number | null
   sb_game_id: string | null
   parse_error: number
+  team_size: number | null
+  matchup: string | null
 }
 
 interface DbPlayerRow {
@@ -74,8 +76,8 @@ export class ReplayDb {
     this.insertReplayStmt = this.db.prepare(`
       INSERT INTO replays (
         path, file_mtime, file_size, content_hash, game_time, map_name, game_type,
-        duration_frames, sb_game_id, parse_error
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        duration_frames, sb_game_id, parse_error, team_size, matchup
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     this.insertPlayerStmt = this.db.prepare(`
       INSERT INTO replay_players (replay_id, slot, team, name, race, is_computer, sb_user_id)
@@ -104,6 +106,8 @@ export class ReplayDb {
         record.durationFrames,
         record.sbGameId ?? null,
         record.parseError ? 1 : 0,
+        record.teamSize,
+        record.matchup,
       )
       const id = Number(info.lastInsertRowid)
 
@@ -175,9 +179,58 @@ export class ReplayDb {
       `)
     }
 
+    if (version < 4) {
+      // Derived team-layout columns so format/matchup filters run in SQL; values are recomputed
+      // from replay_players for pre-v4 rows.
+      this.db.exec(`
+        ALTER TABLE replays ADD COLUMN team_size INTEGER;
+        ALTER TABLE replays ADD COLUMN matchup TEXT;
+      `)
+      this.backfillTeamLayout()
+    }
+
     if (version < SCHEMA_VERSION) {
       this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
     }
+  }
+
+  /**
+   * Populates `team_size`/`matchup` for rows that predate their addition, deriving them from each
+   * replay's players via the same `deriveTeamLayout` the parser uses. Replays with no players are
+   * left untouched (the columns default to `NULL`).
+   */
+  private backfillTeamLayout(): void {
+    const playerRows = this.db
+      .prepare('SELECT replay_id, team, race FROM replay_players ORDER BY replay_id')
+      .all() as Array<Pick<DbPlayerRow, 'replay_id' | 'team' | 'race'>>
+
+    const playersByReplay = new Map<number, ReplayLibraryPlayer[]>()
+    for (const row of playerRows) {
+      const player: ReplayLibraryPlayer = {
+        slot: 0,
+        team: row.team ?? 0,
+        name: '',
+        race: (row.race ?? 'r') as RaceChar,
+        isComputer: false,
+      }
+      const players = playersByReplay.get(row.replay_id)
+      if (players) {
+        players.push(player)
+      } else {
+        playersByReplay.set(row.replay_id, [player])
+      }
+    }
+
+    const updateTeamLayoutStmt = this.db.prepare(
+      'UPDATE replays SET team_size = ?, matchup = ? WHERE id = ?',
+    )
+    const backfillTxn = this.db.transaction(() => {
+      for (const [replayId, players] of playersByReplay) {
+        const { teamSize, matchup } = deriveTeamLayout(players)
+        updateTeamLayoutStmt.run(teamSize, matchup, replayId)
+      }
+    })
+    backfillTxn()
   }
 
   /** Returns the current index state keyed by file path, for reconciliation. */
@@ -226,32 +279,13 @@ export class ReplayDb {
    * Runs a filtered query, returning the page of matching entries selected by `filters.offset`/
    * `filters.limit` (offset defaults to 0, an omitted limit returns everything), ordered per
    * `filters.sort` (defaulting to newest-first). `total` is the count of matches across all pages.
-   * The row-level filters run in SQL; format/matchup filters run in JS over the loaded players.
-   *
-   * When a format filter is set, players have to be loaded for every matching row up front (the
-   * team layout can only be checked in JS), so all matching rows are fetched and the page is
-   * sliced in JS after filtering. Otherwise, paging is pushed into SQL (`LIMIT`/`OFFSET`) so a
-   * large library doesn't get fully materialized per query, and players are only loaded for the
-   * rows in the requested page.
+   * All filters (including format/matchup) run in SQL; paging is pushed into SQL (`LIMIT`/`OFFSET`)
+   * so a large library doesn't get fully materialized per query, and players are only loaded for
+   * the rows in the requested page.
    */
   query(filters: ReplayLibraryFilters): { entries: ReplayLibraryEntry[]; total: number } {
     const { sql, countSql, params } = buildReplaySqlQuery(filters)
     const offset = filters.offset ?? 0
-
-    if (filters.format) {
-      const rows = this.db.prepare(sql).all(...params) as DbReplayRow[]
-      const playersByReplay = this.getPlayersForReplayIds(rows.map(r => r.id))
-      const allEntries = rows
-        .map(r => rowToEntry(r, playersByReplay.get(r.id) ?? []))
-        .filter(e => replayPassesTeamFilters(e.players, filters))
-
-      const page =
-        filters.limit !== undefined
-          ? allEntries.slice(offset, offset + filters.limit)
-          : allEntries.slice(offset)
-
-      return { entries: page, total: allEntries.length }
-    }
 
     const total = (this.db.prepare(countSql).get(...params) as { count: number }).count
     const pageRows = this.db

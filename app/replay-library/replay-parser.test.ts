@@ -1,8 +1,11 @@
 import { ReplayHeader, ReplayPlayer, ReplayRace } from 'jssuh'
 import { describe, expect, test } from 'vitest'
+import { RaceChar } from '../../common/races'
 import { NON_EXISTING_USER_ID, ReplayShieldBatteryData } from '../../common/replays'
+import { ReplayLibraryPlayer } from '../../common/replays-library'
 import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import {
+  getReplayTeamRaces,
   headerNeedsUtf8Redecode,
   makeParseErrorRecord,
   mapReplayHeaderToRecord,
@@ -48,6 +51,14 @@ function makeUserIds(entries: Record<number, number>): SbUserId[] {
     ids.push(makeSbUserId(entries[i] ?? NON_EXISTING_USER_ID))
   }
   return ids
+}
+
+function player(
+  team: number,
+  race: RaceChar,
+  overrides: Partial<ReplayLibraryPlayer> = {},
+): ReplayLibraryPlayer {
+  return { slot: 0, team, race, name: 'p', isComputer: false, ...overrides }
 }
 
 describe('app/replay-library/replay-parser/mapReplayHeaderToRecord', () => {
@@ -147,6 +158,52 @@ describe('app/replay-library/replay-parser/mapReplayHeaderToRecord', () => {
 
     expect(record.mapName).toBe('Neo Sylphid')
   })
+
+  test('plain 1v1 (single team split into two teams) derives team size and matchup', () => {
+    const header = makeHeader({
+      players: [
+        makePlayer({ id: 0, race: 'protoss', team: 0 }),
+        makePlayer({ id: 1, race: 'zerg', team: 0 }),
+      ],
+    })
+
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+
+    expect(record.teamSize).toBe(1)
+    expect(record.matchup).toBe('p-z')
+  })
+
+  test('2v2 derives team size and matchup', () => {
+    const header = makeHeader({
+      gameType: 15,
+      players: [
+        makePlayer({ id: 0, race: 'protoss', team: 1 }),
+        makePlayer({ id: 1, race: 'terran', team: 1 }),
+        makePlayer({ id: 2, race: 'zerg', team: 2 }),
+        makePlayer({ id: 3, race: 'zerg', team: 2 }),
+      ],
+    })
+
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+
+    expect(record.teamSize).toBe(2)
+    expect(record.matchup).toBe('pt-zz')
+  })
+
+  test('undeterminable layout (three players on one team) yields null team size and matchup', () => {
+    const header = makeHeader({
+      players: [
+        makePlayer({ id: 0, race: 'protoss', team: 0 }),
+        makePlayer({ id: 1, race: 'terran', team: 0 }),
+        makePlayer({ id: 2, race: 'zerg', team: 0 }),
+      ],
+    })
+
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+
+    expect(record.teamSize).toBeNull()
+    expect(record.matchup).toBeNull()
+  })
 })
 
 describe('app/replay-library/replay-parser/makeParseErrorRecord', () => {
@@ -159,6 +216,35 @@ describe('app/replay-library/replay-parser/makeParseErrorRecord', () => {
     expect(record.path).toBe(FILE_INFO.path)
     expect(record.fileSize).toBe(FILE_INFO.fileSize)
     expect(record.contentHash).toBe(FILE_INFO.contentHash)
+    expect(record.teamSize).toBeNull()
+    expect(record.matchup).toBeNull()
+  })
+})
+
+describe('app/replay-library/replay-parser/getReplayTeamRaces', () => {
+  test('two teams are returned as-is', () => {
+    expect(getReplayTeamRaces([player(0, 'p'), player(1, 'z')])).toEqual([['p'], ['z']])
+  })
+
+  test('single team of two is split into two teams', () => {
+    expect(getReplayTeamRaces([player(0, 'p'), player(0, 'z')])).toEqual([['p'], ['z']])
+  })
+
+  test('single team of more than two cannot be resolved', () => {
+    expect(getReplayTeamRaces([player(0, 'p'), player(0, 'z'), player(0, 't')])).toBeNull()
+  })
+
+  test('four players across two teams', () => {
+    const teams = getReplayTeamRaces([
+      player(1, 'p'),
+      player(1, 't'),
+      player(2, 'z'),
+      player(2, 'z'),
+    ])
+    expect(teams).toEqual([
+      ['p', 't'],
+      ['z', 'z'],
+    ])
   })
 })
 

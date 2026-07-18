@@ -3,27 +3,12 @@ import {
   decodeMatchup,
   GameDurationFilter,
   GameSortOption,
+  getTeamSizeForFormat,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
-import { RaceChar } from '../../common/races'
+import { expandMatchupFilter } from '../../common/games/matchups'
 import { FEATURED_REPLAY_GAME_TYPES, SupportedReplayGameType } from '../../common/replays'
-import { ReplayLibraryPlayer } from '../../common/replays-library'
-import {
-  buildReplaySqlQuery,
-  escapeLike,
-  getReplayTeamRaces,
-  replayMatchesFormat,
-  replayMatchesMatchup,
-  replayPassesTeamFilters,
-} from './replay-queries'
-
-function player(
-  team: number,
-  race: RaceChar,
-  overrides: Partial<ReplayLibraryPlayer> = {},
-): ReplayLibraryPlayer {
-  return { slot: 0, team, race, name: 'p', isComputer: false, ...overrides }
-}
+import { buildReplaySqlQuery, escapeLike } from './replay-queries'
 
 describe('app/replay-library/replay-queries/escapeLike', () => {
   test('leaves plain text untouched', () => {
@@ -142,108 +127,36 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   })
 })
 
-describe('app/replay-library/replay-queries/getReplayTeamRaces', () => {
-  test('two teams are returned as-is', () => {
-    expect(getReplayTeamRaces([player(0, 'p'), player(1, 'z')])).toEqual([['p'], ['z']])
+describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup filters', () => {
+  test('format alone filters by team size', () => {
+    const { sql, params } = buildReplaySqlQuery({ format: '2v2' })
+    expect(sql).toContain('r.team_size = ?')
+    expect(params).toEqual([getTeamSizeForFormat('2v2')])
   })
 
-  test('single team of two is split into two teams', () => {
-    expect(getReplayTeamRaces([player(0, 'p'), player(0, 'z')])).toEqual([['p'], ['z']])
+  test('format with a concrete matchup adds an IN clause over the expanded matchup strings', () => {
+    const matchup = makeEncodedMatchupString('p-z')
+    const { sql, params } = buildReplaySqlQuery({ format: '1v1', matchup })
+    const expanded = expandMatchupFilter(decodeMatchup('1v1', matchup)!)
+    const placeholders = expanded.map(() => '?').join(', ')
+
+    expect(sql).toContain(`r.matchup IN (${placeholders})`)
+    expect(params).toEqual([getTeamSizeForFormat('1v1'), ...expanded])
   })
 
-  test('single team of more than two cannot be resolved', () => {
-    expect(getReplayTeamRaces([player(0, 'p'), player(0, 'z'), player(0, 't')])).toBeNull()
+  test('wildcard-only matchup adds no matchup clause', () => {
+    const { sql, params } = buildReplaySqlQuery({
+      format: '1v1',
+      matchup: makeEncodedMatchupString('_-_'),
+    })
+    expect(sql).not.toContain('r.matchup')
+    expect(params).toEqual([getTeamSizeForFormat('1v1')])
   })
 
-  test('four players across two teams', () => {
-    const teams = getReplayTeamRaces([
-      player(1, 'p'),
-      player(1, 't'),
-      player(2, 'z'),
-      player(2, 'z'),
-    ])
-    expect(teams).toEqual([
-      ['p', 't'],
-      ['z', 'z'],
-    ])
-  })
-})
-
-describe('app/replay-library/replay-queries/replayMatchesFormat', () => {
-  test('1v1 matches a two-team, one-per-team replay', () => {
-    expect(replayMatchesFormat([player(0, 'p'), player(1, 'z')], '1v1')).toBe(true)
-  })
-
-  test('2v2 does not match a 1v1', () => {
-    expect(replayMatchesFormat([player(0, 'p'), player(1, 'z')], '2v2')).toBe(false)
-  })
-
-  test('2v2 matches four players across two teams', () => {
-    expect(
-      replayMatchesFormat([player(1, 'p'), player(1, 't'), player(2, 'z'), player(2, 'z')], '2v2'),
-    ).toBe(true)
-  })
-})
-
-describe('app/replay-library/replay-queries/replayMatchesMatchup', () => {
-  const players = [player(0, 'p'), player(1, 'z')]
-
-  test('exact matchup matches (team-order-agnostic)', () => {
-    expect(
-      replayMatchesMatchup(players, decodeMatchup('1v1', makeEncodedMatchupString('p-z'))!),
-    ).toBe(true)
-    // Reversed order still matches, since the canonical form sorts teams.
-    expect(
-      replayMatchesMatchup(players, decodeMatchup('1v1', makeEncodedMatchupString('z-p'))!),
-    ).toBe(true)
-  })
-
-  test('wildcard slot matches any race', () => {
-    expect(
-      replayMatchesMatchup(players, decodeMatchup('1v1', makeEncodedMatchupString('p-_'))!),
-    ).toBe(true)
-  })
-
-  test('non-matching matchup is rejected', () => {
-    expect(
-      replayMatchesMatchup(players, decodeMatchup('1v1', makeEncodedMatchupString('p-t'))!),
-    ).toBe(false)
-  })
-})
-
-describe('app/replay-library/replay-queries/replayPassesTeamFilters', () => {
-  const players = [player(0, 'p'), player(1, 'z')]
-
-  test('no format filter always passes', () => {
-    expect(replayPassesTeamFilters(players, {})).toBe(true)
-  })
-
-  test('format-only filter applies the team shape', () => {
-    expect(replayPassesTeamFilters(players, { format: '1v1' })).toBe(true)
-    expect(replayPassesTeamFilters(players, { format: '2v2' })).toBe(false)
-  })
-
-  test('fully-wildcard matchup is treated as format-only', () => {
-    expect(
-      replayPassesTeamFilters(players, {
-        format: '1v1',
-        matchup: makeEncodedMatchupString('_-_'),
-      }),
-    ).toBe(true)
-  })
-
-  test('constrained matchup is enforced', () => {
-    expect(
-      replayPassesTeamFilters(players, {
-        format: '1v1',
-        matchup: makeEncodedMatchupString('p-z'),
-      }),
-    ).toBe(true)
-    expect(
-      replayPassesTeamFilters(players, {
-        format: '1v1',
-        matchup: makeEncodedMatchupString('t-z'),
-      }),
-    ).toBe(false)
+  test('matchup without format adds no clause', () => {
+    const { sql, params } = buildReplaySqlQuery({ matchup: makeEncodedMatchupString('p-z') })
+    expect(sql).not.toContain('r.team_size')
+    expect(sql).not.toContain('r.matchup')
+    expect(params).toEqual([])
   })
 })

@@ -3,7 +3,9 @@ import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { open } from 'node:fs/promises'
 import { pipeline } from 'node:stream/promises'
+import { computeMatchupString } from '../../common/games/matchups'
 import { filterColorCodes } from '../../common/maps'
+import { RaceChar } from '../../common/races'
 import {
   NON_EXISTING_USER_ID,
   ReplayShieldBatteryData,
@@ -55,6 +57,68 @@ export interface IndexedReplay extends ReplayFileInfo {
   sbGameId?: string
   parseError: boolean
   players: ReplayLibraryPlayer[]
+  /**
+   * Team size (see `getReplayTeamRaces`) when the players resolve to exactly two equal-sized teams —
+   * the shape `GameFormat` filters select on. `null` for any other layout (unresolvable, uneven, or
+   * more than two teams).
+   */
+  teamSize: number | null
+  /**
+   * Canonical matchup string (see `computeMatchupString`) derived from the players' team layout.
+   * `null` when the layout can't be resolved.
+   */
+  matchup: string | null
+}
+
+/**
+ * Groups a replay's players into teams (arrays of races), mirroring the server's `getTeamsFromConfig`
+ * semantics so format/matchup filtering behaves consistently:
+ *
+ * - 2+ non-empty teams: returned as-is
+ * - exactly 1 team of exactly 2 players (e.g. a melee 1v1): split into two 1-player teams
+ * - anything else (e.g. a >2-player melee where teams can't be determined): `null`
+ */
+export function getReplayTeamRaces(
+  players: ReadonlyArray<ReplayLibraryPlayer>,
+): RaceChar[][] | null {
+  const byTeam = new Map<number, RaceChar[]>()
+  for (const p of players) {
+    const races = byTeam.get(p.team)
+    if (races) {
+      races.push(p.race)
+    } else {
+      byTeam.set(p.team, [p.race])
+    }
+  }
+
+  const teams = Array.from(byTeam.values()).filter(t => t.length > 0)
+  if (teams.length >= 2) {
+    return teams
+  }
+  if (teams.length === 1) {
+    if (teams[0].length === 2) {
+      return [[teams[0][0]], [teams[0][1]]]
+    }
+    return null
+  }
+  return null
+}
+
+/**
+ * Derives the immutable team-size/matchup identity for a set of players, computed once at parse
+ * time so `format`/`matchup` filters can run in SQL instead of re-deriving team layout on every
+ * query. Also used by the schema migration that backfills these columns for pre-existing rows, so
+ * parse-time and migrated values can never drift apart.
+ */
+export function deriveTeamLayout(players: ReadonlyArray<ReplayLibraryPlayer>): {
+  teamSize: number | null
+  matchup: string | null
+} {
+  const teams = getReplayTeamRaces(players)
+  const teamSize =
+    teams && teams.length === 2 && teams[0].length === teams[1].length ? teams[0].length : null
+  const matchup = teams ? (computeMatchupString(teams) ?? null) : null
+  return { teamSize, matchup }
 }
 
 /**
@@ -77,6 +141,7 @@ export function mapReplayHeaderToRecord(
       sbUserId: sbUserId !== undefined && sbUserId !== NON_EXISTING_USER_ID ? sbUserId : undefined,
     }
   })
+  const { teamSize, matchup } = deriveTeamLayout(players)
 
   return {
     ...fileInfo,
@@ -88,6 +153,8 @@ export function mapReplayHeaderToRecord(
     sbGameId: sbData?.gameId,
     parseError: false,
     players,
+    teamSize,
+    matchup,
   }
 }
 
@@ -104,6 +171,8 @@ export function makeParseErrorRecord(fileInfo: ReplayFileInfo): IndexedReplay {
     durationFrames: 0,
     sbGameId: undefined,
     parseError: true,
+    teamSize: null,
+    matchup: null,
     players: [],
   }
 }

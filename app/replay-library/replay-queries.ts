@@ -1,15 +1,12 @@
 import {
   decodeMatchup,
   GameDurationFilter,
-  GameFormat,
   GameSortOption,
   getTeamSizeForFormat,
-  MatchupFilter,
 } from '../../common/games/game-filters'
-import { computeMatchupString, expandMatchupFilter } from '../../common/games/matchups'
-import { RaceChar } from '../../common/races'
+import { expandMatchupFilter } from '../../common/games/matchups'
 import { FEATURED_REPLAY_GAME_TYPES } from '../../common/replays'
-import { ReplayLibraryFilters, ReplayLibraryPlayer } from '../../common/replays-library'
+import { ReplayLibraryFilters } from '../../common/replays-library'
 
 /**
  * Frames per second used to convert replay durations to real time. This matches the conversion the
@@ -65,11 +62,12 @@ function buildOrderByClause(sort: GameSortOption): string {
 }
 
 /**
- * Builds the SQL statements for the cheap, row-level part of a replay query (map name, player name,
- * game type, duration bucket). Format and matchup filters are applied in JS afterwards via
- * `replayPassesTeamFilters`, since they require the per-player team layout. `sql` is ordered per
- * `filters.sort` (defaulting to newest-first) and has no paging applied; `countSql` reuses the same
- * `WHERE` clause and `params` to total the matches, without an `ORDER BY`.
+ * Builds the SQL statements for a replay query, covering every filter (map name, player name, game
+ * type, duration bucket, format, matchup) — nothing is filtered in JS afterwards. Format/matchup
+ * matching reads the `team_size`/`matchup` columns computed once at parse time (see
+ * `mapReplayHeaderToRecord`). `sql` is ordered per `filters.sort` (defaulting to newest-first) and
+ * has no paging applied; `countSql` reuses the same `WHERE` clause and `params` to total the
+ * matches, without an `ORDER BY`.
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
@@ -119,106 +117,28 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     }
   }
 
+  if (filters.format !== undefined) {
+    whereClauses.push('r.team_size = ?')
+    params.push(getTeamSizeForFormat(filters.format))
+
+    // Matchup is only meaningful alongside a format (it decodes against the format's team size),
+    // and a fully-wildcard matchup constrains nothing, so it's a no-op.
+    const decoded = filters.matchup ? decodeMatchup(filters.format, filters.matchup) : undefined
+    const hasNonWildcard = decoded
+      ? [...decoded.team1, ...decoded.team2].some(r => r !== undefined)
+      : false
+    if (decoded && hasNonWildcard) {
+      const matchupStrings = expandMatchupFilter(decoded)
+      const placeholders = matchupStrings.map(() => '?').join(', ')
+      whereClauses.push(`r.matchup IN (${placeholders})`)
+      params.push(...matchupStrings)
+    }
+  }
+
   const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : ''
   const orderBy = buildOrderByClause(filters.sort ?? GameSortOption.LatestFirst)
   const sql = `SELECT r.* FROM replays r${where} ORDER BY ${orderBy}`
   const countSql = `SELECT COUNT(*) AS count FROM replays r${where}`
 
   return { sql, countSql, params }
-}
-
-/**
- * Groups a replay's players into teams (arrays of races), mirroring the server's `getTeamsFromConfig`
- * semantics so format/matchup filtering behaves consistently:
- *
- * - 2+ non-empty teams: returned as-is
- * - exactly 1 team of exactly 2 players (e.g. a melee 1v1): split into two 1-player teams
- * - anything else (e.g. a >2-player melee where teams can't be determined): `null`
- */
-export function getReplayTeamRaces(
-  players: ReadonlyArray<ReplayLibraryPlayer>,
-): RaceChar[][] | null {
-  const byTeam = new Map<number, RaceChar[]>()
-  for (const p of players) {
-    const races = byTeam.get(p.team)
-    if (races) {
-      races.push(p.race)
-    } else {
-      byTeam.set(p.team, [p.race])
-    }
-  }
-
-  const teams = Array.from(byTeam.values()).filter(t => t.length > 0)
-  if (teams.length >= 2) {
-    return teams
-  }
-  if (teams.length === 1) {
-    if (teams[0].length === 2) {
-      return [[teams[0][0]], [teams[0][1]]]
-    }
-    return null
-  }
-  return null
-}
-
-/** Returns true if the replay has exactly two teams, each of the format's team size. */
-export function replayMatchesFormat(
-  players: ReadonlyArray<ReplayLibraryPlayer>,
-  format: GameFormat,
-): boolean {
-  const teams = getReplayTeamRaces(players)
-  if (!teams) {
-    return false
-  }
-  const teamSize = getTeamSizeForFormat(format)
-  return teams.length === 2 && teams.every(t => t.length === teamSize)
-}
-
-/**
- * Returns true if the replay's canonical matchup is one of those the (wildcard-expanded) filter
- * allows. Team-order-agnostic, matching the server's `assigned_matchup = ANY(...)` behavior.
- */
-export function replayMatchesMatchup(
-  players: ReadonlyArray<ReplayLibraryPlayer>,
-  matchup: MatchupFilter,
-): boolean {
-  const teams = getReplayTeamRaces(players)
-  if (!teams) {
-    return false
-  }
-  const matchupStr = computeMatchupString(teams)
-  if (!matchupStr) {
-    return false
-  }
-  return expandMatchupFilter(matchup).includes(matchupStr)
-}
-
-/**
- * Evaluates the format + matchup filters against a replay's players. Mirrors the server's
- * match-history semantics: the format filter constrains the team shape, and the matchup filter is
- * only applied when it constrains at least one race (a fully-wildcard matchup is a no-op). Replays
- * with no format filter always pass.
- */
-export function replayPassesTeamFilters(
-  players: ReadonlyArray<ReplayLibraryPlayer>,
-  filters: Pick<ReplayLibraryFilters, 'format' | 'matchup'>,
-): boolean {
-  if (!filters.format) {
-    return true
-  }
-  if (!replayMatchesFormat(players, filters.format)) {
-    return false
-  }
-
-  const matchup = filters.matchup ? decodeMatchup(filters.format, filters.matchup) : undefined
-  if (!matchup) {
-    return true
-  }
-
-  const hasNonWildcard = [...matchup.team1, ...matchup.team2].some(r => r !== undefined)
-  if (!hasNonWildcard) {
-    return true
-  }
-
-  return replayMatchesMatchup(players, matchup)
 }
