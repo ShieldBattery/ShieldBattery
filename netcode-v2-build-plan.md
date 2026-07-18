@@ -106,9 +106,13 @@ coordinator) / D5 (env-isolated fleets): **software built; staging live; prod no
 
 3. **Rollout execution** — ship a client version pointed at prod (platform enforces
    client-version currency, so no mixed-version games); keep the old rally-point *service*
-   running only until the minimum supported client is v2-only, then decommission. Rollback =
-   previous client version while the old service exists — **the rollback gate is STILL UNDEFINED
-   (what signal/threshold triggers it, who calls it) — define it with Travis before shipping.**
+   running only until the minimum supported client is v2-only, then decommission.
+   **Rollback strategy = FIX FORWARD (Travis, 2026-07-18): the platform's user base is small
+   enough that a bad rollout is corrected by shipping a fix, not by reverting the client. No
+   formal rollback gate — no signal/threshold/owner to define.** (The mechanical fallback still
+   exists incidentally — the old service stays up through the transition for un-updated clients —
+   but it is not the planned recovery path. Revisit if the user base grows enough that a botched
+   rollout would be costly.)
 
 4. **Load/scale test + cost model** at realistic SB peak: N games/relay, RunTask-rate
    provisioning, egress cost (the one usage-scaling AWS line item; idle fleet ≈ $0). Cold-start
@@ -255,7 +259,6 @@ Recorded so future reviews/sessions don't re-litigate (reasoning in rp2 commit m
 
 ## 4. Open questions (genuinely open)
 
-- **The rollout rollback gate** (§2 item 3) — the one undefined thing on the path.
 - **DDoS without anycast** — baseline decided (per-task churn + Shield Standard on raw Fargate
   IPs). Open half: the trigger for Shield Advanced/Spectrum — revisit if targeted attacks
   materialize.
@@ -268,5 +271,5 @@ Recorded so future reviews/sessions don't re-litigate (reasoning in rp2 commit m
 lists (address-before-prod + opportunistic) collapsed to a pointer now that all are implemented and
 pushed (rp2 `f517e80..9781527`, SB pin bumped) — per-finding detail lives in
 `netcode-v2-review-triage.md` and the ten commit messages. The launch path (prod standup, rollout +
-the undefined rollback gate, load/cost test) is unchanged from rev 8. Prior revs' full text in git
+rollout, load/cost test) is unchanged from rev 8. Prior revs' full text in git
 history.*
