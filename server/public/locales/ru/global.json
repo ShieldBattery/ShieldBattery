@@ -632,6 +632,10 @@
     "activity": {
       "title": "Игры"
     },
+    "dayHeader": {
+      "today": "Сегодня",
+      "yesterday": "Вчера"
+    },
     "list": {
       "noMatchingGames": "Нет подходящих игр.",
       "retrievingError": "Произошла ошибка при получении игр."
@@ -1231,6 +1235,32 @@
     },
     "fileDropError": "Не удалось открыть реплей",
     "fileDropText": "Перетаскивайте реплеи сюда, чтобы смотреть их на ShieldBattery.",
+    "library": {
+      "clearFilters": "Сбросить фильтры",
+      "empty": "Реплеев пока нет",
+      "emptyBody": "Реплеи сыгранных и просмотренных игр будут появляться здесь автоматически.",
+      "filteredCount": "{{shown}} из {{total}} реплеев",
+      "filters": {
+        "mode": "Режим",
+        "modeAny": "Любой режим",
+        "modeOthers": "Другие"
+      },
+      "inspector": {
+        "empty": "Выберите реплей, чтобы увидеть подробности",
+        "parseError": "Не удалось прочитать этот реплей."
+      },
+      "moreActions": "Другие действия",
+      "noMatches": "Нет подходящих реплеев",
+      "replayCount_one": "{{count}} реплей",
+      "replayCount_few": "{{count}} реплея",
+      "replayCount_many": "{{count}} реплеев",
+      "replayCount_other": "{{count}} реплея",
+      "scanning": "Сканирование реплеев… {{done}}/{{total}}",
+      "showInExplorer": "Показать в проводнике",
+      "sourceTagBnet": "B.NET",
+      "sourceTagSb": "SB",
+      "watchReplay": "Посмотреть реплей"
+    },
     "loading": {
       "dialogTitle": "Загрузка реплея…",
       "errorGeneric": "Что-то пошло не так при загрузке реплея.",
@@ -1240,10 +1270,7 @@
     "local": {
       "duration": "Продолжительность: {{durationStr}}",
       "gameType": "Тип игры: {{gameTypeLabel}}",
-      "loadingError": "Не удалось загрузить реплей",
-      "rootFolderName": "Реплеи",
-      "title": "Локальные реплеи",
-      "watchReplay": "Посмотреть реплей"
+      "loadingError": "Не удалось загрузить реплей"
     },
     "replayInfoDialog": {
       "title": "Информация о реплее",
