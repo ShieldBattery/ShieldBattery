@@ -140,6 +140,10 @@ both sides.
 > absent). Use the `getByRole` locator (or a `snapshot` ref click) instead. If a rare transient
 > `Error / Gone` (410) dialog pops, close it via its exact `× Close` ref from a snapshot (the role
 > locator `Close` is ambiguous with the window control) and redo the login.
+> **If every click times out with `<iframe id="react-refresh-overlay"> intercepts pointer events`**,
+> webpack's HMR error overlay is covering the page (it can linger, fully transparent, after a
+> transient dev error). Remove it, then retry the click:
+> `playwright-cli -s=cN eval "(document.getElementById('react-refresh-overlay')?.remove(), 'x')"`.
 
 Examples:
 

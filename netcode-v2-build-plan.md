@@ -181,11 +181,17 @@ follow-ups below.
 
 ### SB-side small backlog
 
-- **Localized region display names** — UNPARKED now that the prod region list exists (11 regions
-  incl. kr/ca-east/sa-east/eu-north/hk/sg/au/mx). Approach decided: client-side
-  `t('gameServerRegions.name.' + id, region.displayName)` with an extraction-hint file —
-  coordinator config and wire stay language-free.
-- **/netstat: mark departed players' rows** (the climbing `age` column is the only signal today).
+- **Localized region display names — DONE (2026-07-18).** Landed as a literal-key registry
+  (`client/game-server-regions/region-names.ts`, which is also the extraction-hint file — a
+  dynamic `t(key)` would trip i18next-parser's `failOnWarnings`) covering all 11 prod region ids,
+  wired into both render sites (launching dialog + settings region picker), es/ko/ru/zh-Hans
+  translated. Coordinator config and wire stay language-free; the served `displayName` remains the
+  fallback for a region id with no registry entry.
+- **/netstat: mark departed players' rows — DONE (2026-07-18).** Departed rows render inert
+  (struck-through grey name, warning colours suppressed) with a `left`/`drop` tag (drop = amber);
+  recorded at both leave-apply paths (relay-directed `take_due_leaves` + the debug forced leave),
+  exposed for headless assertion via `queryState` `netStats.rows[].departed`, and live-verified on
+  a loopback game (forced opponent drop, screenshot + queryState).
 - Drop `netcodeV2` naming from public surfaces (only user-visible instance is the admin game-page
   debug title; needs a target-naming decision).
 - Client desync-report hook (VOID-only games).
