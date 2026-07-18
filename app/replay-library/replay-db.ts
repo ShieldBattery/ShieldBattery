@@ -11,7 +11,7 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import { IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery, replayPassesTeamFilters } from './replay-queries'
 
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -166,6 +166,15 @@ export class ReplayDb {
       this.db.exec('DROP TABLE IF EXISTS replay_fts')
     }
 
+    if (version < 3) {
+      // Every ORDER BY now sorts by parse_error first (to pin unreadable replays last), so the
+      // old game_time-only index can no longer serve the common newest-first ordering.
+      this.db.exec(`
+        DROP INDEX IF EXISTS idx_replays_game_time;
+        CREATE INDEX idx_replays_parse_error_game_time ON replays (parse_error, game_time DESC);
+      `)
+    }
+
     if (version < SCHEMA_VERSION) {
       this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
     }
@@ -220,17 +229,17 @@ export class ReplayDb {
    * The row-level filters run in SQL; format/matchup filters run in JS over the loaded players.
    *
    * When a format filter is set, players have to be loaded for every matching row up front (the
-   * team layout can only be checked in JS), so the page is sliced after filtering. Otherwise,
-   * players are only loaded for the rows in the requested page, since row order/count is already
-   * final at that point.
+   * team layout can only be checked in JS), so all matching rows are fetched and the page is
+   * sliced in JS after filtering. Otherwise, paging is pushed into SQL (`LIMIT`/`OFFSET`) so a
+   * large library doesn't get fully materialized per query, and players are only loaded for the
+   * rows in the requested page.
    */
   query(filters: ReplayLibraryFilters): { entries: ReplayLibraryEntry[]; total: number } {
-    const { sql, params } = buildReplaySqlQuery(filters)
-    const rows = this.db.prepare(sql).all(...params) as DbReplayRow[]
-
+    const { sql, countSql, params } = buildReplaySqlQuery(filters)
     const offset = filters.offset ?? 0
 
     if (filters.format) {
+      const rows = this.db.prepare(sql).all(...params) as DbReplayRow[]
       const playersByReplay = this.getPlayersForReplayIds(rows.map(r => r.id))
       const allEntries = rows
         .map(r => rowToEntry(r, playersByReplay.get(r.id) ?? []))
@@ -244,12 +253,14 @@ export class ReplayDb {
       return { entries: page, total: allEntries.length }
     }
 
-    const pageRows =
-      filters.limit !== undefined ? rows.slice(offset, offset + filters.limit) : rows.slice(offset)
+    const total = (this.db.prepare(countSql).get(...params) as { count: number }).count
+    const pageRows = this.db
+      .prepare(`${sql} LIMIT ? OFFSET ?`)
+      .all(...params, filters.limit ?? -1, offset) as DbReplayRow[]
     const playersByReplay = this.getPlayersForReplayIds(pageRows.map(r => r.id))
     const entries = pageRows.map(r => rowToEntry(r, playersByReplay.get(r.id) ?? []))
 
-    return { entries, total: rows.length }
+    return { entries, total }
   }
 
   close(): void {

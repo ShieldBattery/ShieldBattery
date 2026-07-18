@@ -56,6 +56,7 @@ import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
+import { isFetchError } from '../network/fetch-errors'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
@@ -197,7 +198,8 @@ const EmptyStatePath = styled.div`
 // ---- SB game map resolution -------------------------------------------------------------------
 
 /** Game ids we've already tried to fetch this session, so unmount/remount cycles from the
- * virtualized list (and genuine 404s for games the server no longer knows) don't refetch. */
+ * virtualized list (and genuine 404s for games the server no longer knows) don't refetch.
+ * Non-4xx failures (network blips, 5xx) are evicted on error so a later mount can retry them. */
 const requestedGameIds = new Set<string>()
 
 function useSbGameMap(gameId: string | undefined): ReadonlyDeep<MapInfoJson> | undefined {
@@ -210,7 +212,16 @@ function useSbGameMap(gameId: string | undefined): ReadonlyDeep<MapInfoJson> | u
     requestedGameIds.add(gameId)
     // Deliberately no abort on unmount: the response is tiny and caching it in the store is the
     // point. Errors fall back to the placeholder tile.
-    dispatch(viewGame(gameId, { onSuccess: () => {}, onError: () => {} }))
+    dispatch(
+      viewGame(gameId, {
+        onSuccess: () => {},
+        onError: err => {
+          if (!isFetchError(err) || err.status < 400 || err.status >= 500) {
+            requestedGameIds.delete(gameId)
+          }
+        },
+      }),
+    )
   }, [gameId, game, dispatch])
 
   return map

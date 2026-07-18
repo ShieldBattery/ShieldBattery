@@ -28,7 +28,10 @@ const DURATION_30_MIN_FRAMES = durationMsToFrames(30 * 60 * 1000)
 
 /** A parameterized SQL statement (with `?` placeholders). */
 export interface ReplaySqlQuery {
+  /** The full ordered select, without any `LIMIT`/`OFFSET` (callers append their own paging). */
   sql: string
+  /** A `COUNT(*)` query sharing `sql`'s `WHERE` clause and `params`, with no `ORDER BY`. */
+  countSql: string
   params: Array<string | number>
 }
 
@@ -62,10 +65,11 @@ function buildOrderByClause(sort: GameSortOption): string {
 }
 
 /**
- * Builds the SQL statement for the cheap, row-level part of a replay query (map name, player name,
+ * Builds the SQL statements for the cheap, row-level part of a replay query (map name, player name,
  * game type, duration bucket). Format and matchup filters are applied in JS afterwards via
- * `replayPassesTeamFilters`, since they require the per-player team layout. Results are ordered per
- * `filters.sort` (defaulting to newest-first).
+ * `replayPassesTeamFilters`, since they require the per-player team layout. `sql` is ordered per
+ * `filters.sort` (defaulting to newest-first) and has no paging applied; `countSql` reuses the same
+ * `WHERE` clause and `params` to total the matches, without an `ORDER BY`.
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
@@ -118,8 +122,9 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
   const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : ''
   const orderBy = buildOrderByClause(filters.sort ?? GameSortOption.LatestFirst)
   const sql = `SELECT r.* FROM replays r${where} ORDER BY ${orderBy}`
+  const countSql = `SELECT COUNT(*) AS count FROM replays r${where}`
 
-  return { sql, params }
+  return { sql, countSql, params }
 }
 
 /**

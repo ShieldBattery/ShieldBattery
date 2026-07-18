@@ -136,7 +136,7 @@ export class ReplayWatcher {
       }
     }
 
-    const toParse: string[] = []
+    let toParse: string[] = []
     const newFilePaths: string[] = []
     for (const [filePath, meta] of files) {
       const ex = existing.get(filePath)
@@ -185,13 +185,14 @@ export class ReplayWatcher {
       }))
       const moves = matchRenamedReplays(vanishedList, newFileIdentities)
 
+      const movedToPaths = new Set<string>()
       for (const move of moves) {
         this.db.updateReplayFile(move.id, move.toPath, files.get(move.toPath)!.mtime)
         vanished.delete(move.fromPath)
-        const toParseIndex = toParse.indexOf(move.toPath)
-        if (toParseIndex !== -1) {
-          toParse.splice(toParseIndex, 1)
-        }
+        movedToPaths.add(move.toPath)
+      }
+      if (movedToPaths.size > 0) {
+        toParse = toParse.filter(p => !movedToPaths.has(p))
       }
       moveCount = moves.length
       if (moveCount > 0) {

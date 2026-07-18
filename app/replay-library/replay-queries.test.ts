@@ -49,6 +49,21 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     expect(params).toEqual(['%Fighting Spirit%', 2])
   })
 
+  test('countSql reuses the WHERE clause and params, without an ORDER BY', () => {
+    const { countSql, params } = buildReplaySqlQuery({ mapName: 'Fighting Spirit', gameType: 2 })
+    expect(countSql).toBe(
+      "SELECT COUNT(*) AS count FROM replays r WHERE r.map_name LIKE ? ESCAPE '\\' AND r.game_type = ?",
+    )
+    expect(countSql).not.toContain('ORDER BY')
+    expect(params).toEqual(['%Fighting Spirit%', 2])
+  })
+
+  test('sql has no LIMIT/OFFSET applied', () => {
+    const { sql } = buildReplaySqlQuery({ mapName: 'Fighting Spirit' })
+    expect(sql).not.toContain('LIMIT')
+    expect(sql).not.toContain('OFFSET')
+  })
+
   test('gameType "others" becomes a NOT IN check against the featured game types', () => {
     const { sql, params } = buildReplaySqlQuery({ gameType: 'others' })
     const placeholders = FEATURED_REPLAY_GAME_TYPES.map(() => '?').join(', ')
