@@ -547,7 +547,7 @@
       "detailedResults": "Подробные результаты по каждому игроку",
       "downloadReplay": "Скачать реплей",
       "hasReport": "Есть отчет",
-      "netcodeV2": {
+      "network": {
         "address": "Адрес",
         "at": "Время",
         "event": "Событие",
@@ -555,7 +555,7 @@
         "rehome": "Переназначение",
         "relay": "Релей",
         "session": "Сессия: {{session}}",
-        "title": "Netcode v2"
+        "title": "Сеть"
       },
       "player": "Игрок",
       "replay": "Реплей",

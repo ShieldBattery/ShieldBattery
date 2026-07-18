@@ -538,7 +538,7 @@
       "detailedResults": "개별 상세 결과",
       "downloadReplay": "리플레이 다운로드",
       "hasReport": "보고함",
-      "netcodeV2": {
+      "network": {
         "address": "주소",
         "at": "시각",
         "event": "이벤트",
@@ -546,7 +546,7 @@
         "rehome": "재배정",
         "relay": "릴레이",
         "session": "세션: {{session}}",
-        "title": "Netcode v2"
+        "title": "네트워크"
       },
       "player": "플레이어",
       "replay": "리플레이",

@@ -541,7 +541,7 @@
       "detailedResults": "Detailed Individual Results",
       "downloadReplay": "Download replay",
       "hasReport": "Has Report",
-      "netcodeV2": {
+      "network": {
         "address": "Address",
         "at": "At",
         "event": "Event",
@@ -549,7 +549,7 @@
         "rehome": "Rehome",
         "relay": "Relay",
         "session": "Session: {{session}}",
-        "title": "Netcode v2"
+        "title": "Network"
       },
       "player": "Player",
       "replay": "Replay",

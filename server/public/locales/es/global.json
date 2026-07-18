@@ -544,7 +544,7 @@
       "detailedResults": "Resultados Individuales Detallados",
       "downloadReplay": "Descargar replay",
       "hasReport": "Ha reportado",
-      "netcodeV2": {
+      "network": {
         "address": "Dirección",
         "at": "Fecha",
         "event": "Evento",
@@ -552,7 +552,7 @@
         "rehome": "Reasignación",
         "relay": "Relay",
         "session": "Sesión: {{session}}",
-        "title": "Netcode v2"
+        "title": "Red"
       },
       "player": "Jugador",
       "replay": "Replay",

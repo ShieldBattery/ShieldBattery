@@ -951,7 +951,7 @@ const ReportTitle = styled.div`
   color: var(--theme-on-surface);
 `
 
-const NetcodeV2SessionLine = styled.div`
+const NetworkSessionLine = styled.div`
   ${bodyMedium};
   margin-bottom: 8px;
   color: var(--theme-on-surface);
@@ -1218,21 +1218,21 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
           {debugInfo.netcodeV2.session !== null && (
             <div>
               <DebugSubsectionTitle>
-                {t('gameDetails.debugInfo.netcodeV2.title', 'Netcode v2')}
+                {t('gameDetails.debugInfo.network.title', 'Network')}
               </DebugSubsectionTitle>
-              <NetcodeV2SessionLine>
-                {t('gameDetails.debugInfo.netcodeV2.session', 'Session: {{session}}', {
+              <NetworkSessionLine>
+                {t('gameDetails.debugInfo.network.session', 'Session: {{session}}', {
                   session: debugInfo.netcodeV2.session,
                 })}
-              </NetcodeV2SessionLine>
+              </NetworkSessionLine>
               <DebugTableContainer>
                 <DebugTable>
                   <thead>
                     <tr>
-                      <th>{t('gameDetails.debugInfo.netcodeV2.event', 'Event')}</th>
-                      <th>{t('gameDetails.debugInfo.netcodeV2.relay', 'Relay')}</th>
-                      <th>{t('gameDetails.debugInfo.netcodeV2.address', 'Address')}</th>
-                      <th>{t('gameDetails.debugInfo.netcodeV2.at', 'At')}</th>
+                      <th>{t('gameDetails.debugInfo.network.event', 'Event')}</th>
+                      <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
+                      <th>{t('gameDetails.debugInfo.network.address', 'Address')}</th>
+                      <th>{t('gameDetails.debugInfo.network.at', 'At')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1240,13 +1240,13 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                       <tr key={i}>
                         {event.kind === 'home' ? (
                           <>
-                            <td>{t('gameDetails.debugInfo.netcodeV2.home', 'Home')}</td>
+                            <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
                             <td>{event.relayId}</td>
                             <td>{event.relayAddr}</td>
                           </>
                         ) : (
                           <>
-                            <td>{t('gameDetails.debugInfo.netcodeV2.rehome', 'Rehome')}</td>
+                            <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
                             <td>
                               {event.deadRelayId} {'->'} {event.newRelayId}
                             </td>

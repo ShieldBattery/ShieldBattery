@@ -538,7 +538,7 @@
       "detailedResults": "个人详细战绩",
       "downloadReplay": "下载录像",
       "hasReport": "已提交",
-      "netcodeV2": {
+      "network": {
         "address": "地址",
         "at": "时间",
         "event": "事件",
@@ -546,7 +546,7 @@
         "rehome": "重新分配",
         "relay": "中继",
         "session": "会话：{{session}}",
-        "title": "Netcode v2"
+        "title": "网络"
       },
       "player": "玩家",
       "replay": "录像",
