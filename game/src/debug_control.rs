@@ -197,6 +197,16 @@ pub struct NetStatsSnapshot {
     pub rows: Vec<NetStatRowSnapshot>,
 }
 
+/// How a departed player left, within a [`NetStatRowSnapshot`].
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DepartureSnapshot {
+    /// A deliberate exit (quit, surrender).
+    Left,
+    /// An unclean drop (the peer stopped responding).
+    Dropped,
+}
+
 /// One remote slot's row within a [`NetStatsSnapshot`].
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -217,6 +227,8 @@ pub struct NetStatRowSnapshot {
     pub lifetime_stall_ms: u64,
     /// How many distinct stall episodes this slot has caused.
     pub episode_count: u32,
+    /// How this player departed the session, or `null` while they are still in the game.
+    pub departed: Option<DepartureSnapshot>,
 }
 
 /// One rendered chat line, recorded at injection time for [`DebugControlCommand::QueryState`]
@@ -500,6 +512,7 @@ mod tests {
                         recent_stall_ms: 0,
                         lifetime_stall_ms: 0,
                         episode_count: 0,
+                        departed: Some(DepartureSnapshot::Dropped),
                     }],
                 },
             }),
@@ -552,6 +565,7 @@ mod tests {
                             "recentStallMs": 0,
                             "lifetimeStallMs": 0,
                             "episodeCount": 0,
+                            "departed": "dropped",
                         }],
                     },
                 },

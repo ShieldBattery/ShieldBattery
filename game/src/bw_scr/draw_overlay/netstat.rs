@@ -1,8 +1,10 @@
-use overlay_ui::netstat::{NetEventView, NetStatRowView, NetStatsView, render_netstat_view};
+use overlay_ui::netstat::{
+    NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
+};
 
 use crate::app_messages::{GameSetupInfo, SbUser, SbUserId};
 use crate::bw_scr::draw_overlay::OverlayState;
-use crate::netcode_v2::{NetEvent, NetStatsStatus};
+use crate::netcode_v2::{DepartureKind, NetEvent, NetStatsStatus};
 
 /// Builds the display view from the network-stats snapshot and the session's user list, resolving
 /// each row's user id to a name and formatting each event into a line. The single place net-stats
@@ -30,6 +32,10 @@ fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView
             recent_stall_ms: row.stats.recent_stall.as_millis() as u64,
             lifetime_stall_ms: row.stats.lifetime_stall.as_millis() as u64,
             episode_count: row.stats.episode_count,
+            departure: row.stats.departed.map(|kind| match kind {
+                DepartureKind::Left => RowDeparture::Left,
+                DepartureKind::Dropped => RowDeparture::Dropped,
+            }),
         })
         .collect();
     let events = status

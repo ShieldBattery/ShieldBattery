@@ -60,7 +60,7 @@ mod net_stats;
 mod rehome;
 mod session;
 
-pub use net_stats::{NetEvent, NetStatRow, NetStatsStatus};
+pub use net_stats::{DepartureKind, NetEvent, NetStatRow, NetStatsStatus};
 
 // The turn state is driven from `bw_scr.rs` (the three hooks) and stood up from `game_state.rs`
 // (`establish_session`), so only these are re-exported. The credential/session types stay internal
@@ -1296,6 +1296,15 @@ impl TurnState {
             .collect()
     }
 
+    /// Observation-only: tags a slot's `/netstat` row with how it departed, classified from the
+    /// native leave reason its leave applied with. Idempotent per slot — the first record wins.
+    /// [`take_due_leaves`](Self::take_due_leaves) records the relay-directed leaves itself; this
+    /// entry point is for leave applications driven from outside the turn state (the debug
+    /// forced-leave injection).
+    pub fn record_departure(&mut self, storm: StormPlayerId, reason: u32) {
+        self.net_stats.record_departure(storm, reason);
+    }
+
     /// Applies any latency-buffer change due at `next_frame`, updating the pipe target the PIPE hook
     /// enforces. Call once per simulation step, after draining/observing that step's turns.
     ///
@@ -1362,6 +1371,8 @@ impl TurnState {
             match self.storm_id_for_slot(slot) {
                 Some(storm) => {
                     self.mark_slot_left(storm);
+                    // Observation-only: tag the slot's net-stats row with how it departed.
+                    self.net_stats.record_departure(storm, reason);
                     out.push((storm, reason));
                 }
                 None => warn!("netcode v2: coordinated leave for unmapped slot {slot:?}; skipping"),
@@ -1639,7 +1650,7 @@ impl TurnState {
     /// derivation the overlay uses.
     #[cfg(debug_assertions)]
     fn net_stats_snapshot(&self) -> crate::debug_control::NetStatsSnapshot {
-        use crate::debug_control::{NetStatRowSnapshot, NetStatsSnapshot};
+        use crate::debug_control::{DepartureSnapshot, NetStatRowSnapshot, NetStatsSnapshot};
 
         let now = Instant::now();
         let ms = |d: std::time::Duration| d.as_millis() as u64;
@@ -1655,6 +1666,10 @@ impl TurnState {
                 recent_stall_ms: ms(row.stats.recent_stall),
                 lifetime_stall_ms: ms(row.stats.lifetime_stall),
                 episode_count: row.stats.episode_count,
+                departed: row.stats.departed.map(|kind| match kind {
+                    DepartureKind::Left => DepartureSnapshot::Left,
+                    DepartureKind::Dropped => DepartureSnapshot::Dropped,
+                }),
             })
             .collect();
         NetStatsSnapshot {
@@ -2344,6 +2359,11 @@ mod tests {
             "the left peer no longer gates readiness"
         );
         assert_eq!(dispatched(&state), vec![(LOCAL_STORM, b"local2".to_vec())]);
+        // The applied leave also tagged the peer's net-stats row with how it departed.
+        assert_eq!(
+            state.net_stat_rows(Instant::now())[0].stats.departed,
+            Some(DepartureKind::Dropped),
+        );
     }
 
     #[test]

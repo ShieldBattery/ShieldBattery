@@ -2979,7 +2979,11 @@ impl BwScr {
                 };
                 *nc.pending_leave_reason.resolve().add(storm.0 as usize) =
                     FORCED_UNSYNCED_LEAVE_REASON;
-                netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
+                netcode_v2::with_turn_state(|s| {
+                    s.mark_slot_left(storm);
+                    // Observation-only: tag the slot's net-stats row with how it departed.
+                    s.record_departure(storm, FORCED_UNSYNCED_LEAVE_REASON as u32);
+                });
             }
         }
     }

@@ -62,6 +62,16 @@ const STRIP_LINE: Color32 = colors::BLUE80;
 /// to full height. Only a genuine gap taller than this lifts the trace.
 const GAP_STRIP_FLOOR_MS: u64 = 800;
 
+/// How a departed slot left the session, for the row's departure tag. A drop is the anomalous
+/// case, so it renders amber where a deliberate leave stays muted.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum RowDeparture {
+    /// A deliberate exit (quit, surrender); tagged `left`.
+    Left,
+    /// An unclean drop (the peer stopped responding); tagged `drop`.
+    Dropped,
+}
+
 /// One remote slot's row in the network-stats table: a player name and home relay, with its
 /// turn-arrival and sim-stall attribution numbers. Holds no BW or turn-state types.
 pub struct NetStatRowView {
@@ -85,6 +95,10 @@ pub struct NetStatRowView {
     pub lifetime_stall_ms: u64,
     /// How many distinct stall episodes this slot has caused.
     pub episode_count: u32,
+    /// How this player departed the session, or `None` while they are still in the game. A departed
+    /// row renders inert — struck-through muted name, a `left`/`drop` tag, and no warning colours,
+    /// since its numbers can only go stale from here.
+    pub departure: Option<RowDeparture>,
 }
 
 /// One line of the recent-events ticker: an in-game timestamp and a one-line description of what
@@ -271,39 +285,68 @@ fn draw_table(ui: &mut egui::Ui, rows: &[NetStatRowView]) {
             }
 
             for row in rows {
-                ui.label(
-                    RichText::new(&row.name)
-                        .size(ROW_SIZE)
-                        .color(PRIMARY)
-                        .family(mono()),
-                );
+                // A departed player's numbers can only go stale (their age climbs forever), so the
+                // whole row mutes: struck-through name, a departure tag, and no warning colours.
+                let departed = row.departure.is_some();
+                match row.departure {
+                    Some(departure) => {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(&row.name)
+                                    .size(ROW_SIZE)
+                                    .color(SECONDARY)
+                                    .family(mono())
+                                    .strikethrough(),
+                            );
+                            let (tag, tag_color) = match departure {
+                                RowDeparture::Left => ("left", SECONDARY),
+                                RowDeparture::Dropped => ("drop", WARNING),
+                            };
+                            ui.label(
+                                RichText::new(tag)
+                                    .size(ROW_SIZE)
+                                    .color(tag_color)
+                                    .family(mono()),
+                            );
+                        });
+                    }
+                    None => {
+                        ui.label(
+                            RichText::new(&row.name)
+                                .size(ROW_SIZE)
+                                .color(PRIMARY)
+                                .family(mono()),
+                        );
+                    }
+                }
                 ui.label(
                     RichText::new(row.home.as_deref().unwrap_or("—"))
                         .size(ROW_SIZE)
                         .color(SECONDARY)
                         .family(mono()),
                 );
+                let quiet = |color: Color32| if departed { SECONDARY } else { color };
                 num_cell(
                     ui,
                     fmt_age(row.last_turn_age_ms),
-                    stale_color(row.last_turn_age_ms),
+                    quiet(stale_color(row.last_turn_age_ms)),
                 );
                 num_cell(ui, opt_ms(row.ewma_interval_ms), SECONDARY);
-                num_cell(ui, fmt_ms(row.max_gap_ms), gap_color(row.max_gap_ms));
+                num_cell(ui, fmt_ms(row.max_gap_ms), quiet(gap_color(row.max_gap_ms)));
                 num_cell(
                     ui,
                     fmt_ms(row.recent_stall_ms),
-                    stall_color(row.recent_stall_ms),
+                    quiet(stall_color(row.recent_stall_ms)),
                 );
                 num_cell(
                     ui,
                     fmt_ms(row.lifetime_stall_ms),
-                    stall_color(row.lifetime_stall_ms),
+                    quiet(stall_color(row.lifetime_stall_ms)),
                 );
                 num_cell(
                     ui,
                     row.episode_count.to_string(),
-                    stall_color(row.episode_count as u64),
+                    quiet(stall_color(row.episode_count as u64)),
                 );
                 ui.end_row();
             }

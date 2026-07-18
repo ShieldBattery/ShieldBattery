@@ -40,6 +40,28 @@ const STRIP_CAPACITY: usize = 120;
 /// How many recent events the ticker retains, oldest dropped first.
 const EVENT_CAP: usize = 5;
 
+/// How a departed slot left the session, as its native leave reason classifies it. BW renders
+/// reason `0x4000_0006` as "player was dropped" and any other reason as a deliberate exit, so the
+/// same split drives the overlay's row tag.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum DepartureKind {
+    /// A deliberate exit (quit, surrender).
+    Left,
+    /// An unclean drop (the peer stopped responding).
+    Dropped,
+}
+
+impl DepartureKind {
+    /// Classifies a native leave reason (the `pending_leave_reason` value the leave applies with).
+    pub fn from_reason(reason: u32) -> Self {
+        if reason == 0x4000_0006 {
+            DepartureKind::Dropped
+        } else {
+            DepartureKind::Left
+        }
+    }
+}
+
 /// One remote slot's instrumentation: turn-arrival pacing and sim-stall attribution.
 #[derive(Default)]
 struct SlotStats {
@@ -59,6 +81,9 @@ struct SlotStats {
     episode_count: u32,
     /// When the currently-open episode began, while the sim is blocked on this slot right now.
     episode_start: Option<Instant>,
+    /// How this slot departed the session, once its leave has applied; `None` while it is still in
+    /// the game.
+    departed: Option<DepartureKind>,
 }
 
 impl SlotStats {
@@ -139,6 +164,7 @@ impl SlotStats {
             recent_stall,
             lifetime_stall,
             episode_count: self.episode_count,
+            departed: self.departed,
         }
     }
 }
@@ -158,6 +184,8 @@ pub struct SlotStatView {
     pub recent_stall: Duration,
     pub lifetime_stall: Duration,
     pub episode_count: u32,
+    /// How this slot departed the session, or `None` while it is still in the game.
+    pub departed: Option<DepartureKind>,
 }
 
 /// A single notable moment in the session's network life, for the recent-events ticker. Timestamped
@@ -266,6 +294,18 @@ impl NetStats {
     pub fn record_arrival(&mut self, storm: StormPlayerId, now: Instant) {
         if let Some(slot) = self.slots.get_mut(storm.0 as usize) {
             slot.record_arrival(now);
+        }
+    }
+
+    /// Records that a slot's departure has applied, classified from the native leave reason it
+    /// applied with. The first record for a slot wins — a slot departs exactly once (the same
+    /// contract [`LeaveTracker`](rally_point_client::LeaveTracker) enforces), so a redundant later
+    /// record can't reclassify it.
+    pub fn record_departure(&mut self, storm: StormPlayerId, reason: u32) {
+        if let Some(slot) = self.slots.get_mut(storm.0 as usize)
+            && slot.departed.is_none()
+        {
+            slot.departed = Some(DepartureKind::from_reason(reason));
         }
     }
 
@@ -711,6 +751,40 @@ mod tests {
             events[4].event,
             NetEvent::BufferChanged { from: 5, to: 6 }
         ));
+    }
+
+    #[test]
+    fn a_departure_tags_the_slot_and_the_first_record_wins() {
+        let t0 = Instant::now();
+        let mut stats = NetStats::new(2, t0);
+        assert_eq!(stats.slot_view(STORM, t0).departed, None);
+
+        stats.record_departure(STORM, 0x4000_0006);
+        assert_eq!(
+            stats.slot_view(STORM, t0).departed,
+            Some(DepartureKind::Dropped)
+        );
+
+        // A redundant later record for an already-departed slot can't reclassify it.
+        stats.record_departure(STORM, 1);
+        assert_eq!(
+            stats.slot_view(STORM, t0).departed,
+            Some(DepartureKind::Dropped)
+        );
+
+        // Other slots are untouched.
+        assert_eq!(stats.slot_view(StormPlayerId(3), t0).departed, None);
+    }
+
+    #[test]
+    fn a_non_drop_reason_classifies_as_a_deliberate_leave() {
+        let t0 = Instant::now();
+        let mut stats = NetStats::new(2, t0);
+        stats.record_departure(STORM, 1);
+        assert_eq!(
+            stats.slot_view(STORM, t0).departed,
+            Some(DepartureKind::Left)
+        );
     }
 
     #[test]

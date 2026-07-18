@@ -17,7 +17,9 @@ use egui::{Color32, Rect, pos2, vec2};
 use overlay_ui::disconnect::{
     DisconnectRowView, DisconnectTier, DisconnectView, SelfState, render_disconnect_view,
 };
-use overlay_ui::netstat::{NetEventView, NetStatRowView, NetStatsView, render_netstat_view};
+use overlay_ui::netstat::{
+    NetEventView, NetStatRowView, NetStatsView, RowDeparture, render_netstat_view,
+};
 use serde::{Deserialize, Serialize};
 
 /// Parsed command line.
@@ -176,16 +178,18 @@ fn run_smoke() {
                     recent_stall_ms: 0,
                     lifetime_stall_ms: 0,
                     episode_count: 0,
+                    departure: None,
                 },
                 NetStatRowView {
                     name: "tec27".to_string(),
                     home: None,
-                    last_turn_age_ms: Some(1300),
+                    last_turn_age_ms: Some(63_000),
                     ewma_interval_ms: Some(210),
                     max_gap_ms: 1800,
                     recent_stall_ms: 2400,
                     lifetime_stall_ms: 90_000,
                     episode_count: 7,
+                    departure: Some(RowDeparture::Dropped),
                 },
             ],
         },
@@ -334,6 +338,9 @@ struct NetStatsKnobs {
     /// The recent-stall milliseconds applied to every other synthesized row (the rest stay clean),
     /// so the stall columns' colouring and formatting can be eyeballed.
     stall_ms: u64,
+    /// How many trailing synthesized rows render as departed (alternating left/drop tags), so the
+    /// muted departed-row styling can be eyeballed.
+    departed_count: usize,
     shape: BufferShape,
     /// Whether synthesized rows carry a home relay (`r1 local-a`) or an em dash.
     homes_known: bool,
@@ -363,6 +370,7 @@ impl Default for NetStatsKnobs {
             gap_peak_ms: 1500,
             row_count: 3,
             stall_ms: 1500,
+            departed_count: 0,
             shape: BufferShape::Step,
             homes_known: true,
             event_buffer: true,
@@ -416,6 +424,7 @@ impl NetStatScenario {
                 n.gap_peak_ms = 60;
                 n.row_count = 2;
                 n.stall_ms = 0;
+                n.departed_count = 0;
                 n.shape = BufferShape::Flat;
                 n.homes_known = true;
                 n.event_buffer = false;
@@ -435,6 +444,7 @@ impl NetStatScenario {
                 n.gap_peak_ms = 1800;
                 n.row_count = 3;
                 n.stall_ms = 2400;
+                n.departed_count = 1;
                 n.shape = BufferShape::Sawtooth;
                 n.homes_known = true;
                 n.event_buffer = true;
@@ -454,6 +464,7 @@ impl NetStatScenario {
                 n.gap_peak_ms = 700;
                 n.row_count = 2;
                 n.stall_ms = 300;
+                n.departed_count = 0;
                 n.shape = BufferShape::Step;
                 n.homes_known = true;
                 n.event_buffer = false;
@@ -473,6 +484,7 @@ impl NetStatScenario {
                 n.gap_peak_ms = 60;
                 n.row_count = 2;
                 n.stall_ms = 0;
+                n.departed_count = 0;
                 n.shape = BufferShape::Flat;
                 n.homes_known = false;
                 n.event_buffer = false;
@@ -642,15 +654,29 @@ impl PreviewApp {
                     let region = if relay == 1 { "local-a" } else { "local-b" };
                     format!("r{relay} {region}")
                 });
+                let departure = (i >= k.row_count.saturating_sub(k.departed_count)).then(|| {
+                    if i % 2 == 0 {
+                        RowDeparture::Left
+                    } else {
+                        RowDeparture::Dropped
+                    }
+                });
                 NetStatRowView {
                     name: format!("Player {}", i + 1),
                     home,
-                    last_turn_age_ms: Some(if stalled { 900 } else { 40 } + i as u64 * 5),
+                    // A departed player's last turn keeps aging, so give departed rows a
+                    // minutes-old age.
+                    last_turn_age_ms: Some(if departure.is_some() {
+                        63_000 + i as u64 * 1000
+                    } else {
+                        if stalled { 900 } else { 40 } + i as u64 * 5
+                    }),
                     ewma_interval_ms: Some(1000 / k.turn_rate.max(1) as u64 + i as u64 * 3),
                     max_gap_ms: if stalled { 1600 } else { 90 },
                     recent_stall_ms: recent,
                     lifetime_stall_ms: recent * 12,
                     episode_count: if stalled { 3 + i as u32 } else { 0 },
+                    departure,
                 }
             })
             .collect();
@@ -951,6 +977,12 @@ impl PreviewApp {
                 ui.label("Stall ms (every other row)");
                 changed |= ui
                     .add(egui::DragValue::new(&mut n.stall_ms).range(0..=600_000))
+                    .changed();
+                ui.end_row();
+
+                ui.label("Departed rows (trailing)");
+                changed |= ui
+                    .add(egui::DragValue::new(&mut n.departed_count).range(0..=11))
                     .changed();
                 ui.end_row();
 
