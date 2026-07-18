@@ -460,6 +460,9 @@
       "label": "筛选",
       "mapName": "地图名称",
       "matchup": "对阵",
+      "mode": "模式",
+      "modeAny": "所有模式",
+      "modeOthers": "其他",
       "playerName": "玩家名称",
       "ranked": "排位",
       "sort": {
@@ -1222,11 +1225,6 @@
       "empty": "暂无录像",
       "emptyBody": "您游玩或观看的录像将自动显示在这里。",
       "filteredCount": "{{shown}}/{{total}} 个录像",
-      "filters": {
-        "mode": "模式",
-        "modeAny": "所有模式",
-        "modeOthers": "其他"
-      },
       "inspector": {
         "empty": "选择一个录像以查看详情",
         "parseError": "无法读取此录像。"

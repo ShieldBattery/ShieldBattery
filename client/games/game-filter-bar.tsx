@@ -14,6 +14,11 @@ import {
   getDurationLabel,
   getSortLabel,
 } from '../../common/games/game-filters'
+import {
+  FEATURED_REPLAY_GAME_TYPES,
+  replayGameTypeToLabel,
+  SupportedReplayGameType,
+} from '../../common/replays'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextButton } from '../material/button'
@@ -83,12 +88,10 @@ export interface GameFilterBarProps {
   setFormat: (v?: GameFormat) => void
   matchup?: EncodedMatchupString
   setMatchup: (v?: EncodedMatchupString) => void
-  /** Extra filter chips rendered between the Ranked/Custom section and the built-in filters. */
-  children?: React.ReactNode
-  /** Whether any caller-supplied (`children`) filter is active, so the Clear button appears. */
-  hasExtraFilters?: boolean
-  /** Called from the Clear button (alongside the built-in resets) to clear the extra filters. */
-  onClearExtraFilters?: () => void
+  /** When true, shows the game mode (game type) filter chip. */
+  showGameType?: boolean
+  gameType?: SupportedReplayGameType | 'others'
+  setGameType?: (v: SupportedReplayGameType | 'others' | undefined) => void
   className?: string
 }
 
@@ -114,9 +117,9 @@ export function GameFilterBar({
   setFormat,
   matchup,
   setMatchup,
-  children,
-  hasExtraFilters = false,
-  onClearExtraFilters,
+  showGameType = false,
+  gameType,
+  setGameType,
   className,
 }: GameFilterBarProps) {
   const { t } = useTranslation()
@@ -128,7 +131,14 @@ export function GameFilterBar({
     (showRankedCustom && (ranked || custom)) ||
     duration !== GameDurationFilter.All ||
     hasAdvancedFilters ||
-    hasExtraFilters
+    (showGameType && gameType !== undefined)
+
+  let gameTypeLabel = t('game.filters.mode', 'Mode')
+  if (gameType === 'others') {
+    gameTypeLabel = t('game.filters.modeOthers', 'Others')
+  } else if (gameType !== undefined) {
+    gameTypeLabel = replayGameTypeToLabel(gameType, t)
+  }
 
   return (
     <FilterBarContainer className={className}>
@@ -152,7 +162,28 @@ export function GameFilterBar({
         </>
       )}
 
-      {children}
+      {showGameType && (
+        <FilterChip label={gameTypeLabel} selected={gameType !== undefined}>
+          <SelectableMenuItem
+            text={t('game.filters.modeAny', 'Any mode')}
+            selected={gameType === undefined}
+            onClick={() => setGameType?.(undefined)}
+          />
+          {FEATURED_REPLAY_GAME_TYPES.map(gt => (
+            <SelectableMenuItem
+              key={gt}
+              text={replayGameTypeToLabel(gt, t)}
+              selected={gameType === gt}
+              onClick={() => setGameType?.(gt)}
+            />
+          ))}
+          <SelectableMenuItem
+            text={t('game.filters.modeOthers', 'Others')}
+            selected={gameType === 'others'}
+            onClick={() => setGameType?.('others')}
+          />
+        </FilterChip>
+      )}
 
       <FilterChip
         label={getDurationLabel(duration, t)}
@@ -187,7 +218,7 @@ export function GameFilterBar({
             setPlayerName('')
             setFormat(undefined)
             setMatchup(undefined)
-            onClearExtraFilters?.()
+            setGameType?.(undefined)
           }}
         />
       )}

@@ -466,6 +466,9 @@
       "label": "Filtros",
       "mapName": "Nombre del mapa",
       "matchup": "Enfrentamiento",
+      "mode": "Modo",
+      "modeAny": "Cualquier modo",
+      "modeOthers": "Otros",
       "playerName": "Nombre del jugador",
       "ranked": "Clasificatoria",
       "sort": {
@@ -1234,11 +1237,6 @@
       "empty": "Aún no hay replays",
       "emptyBody": "Los replays que veas y juegues aparecerán aquí automáticamente.",
       "filteredCount": "{{shown}} de {{total}} replays",
-      "filters": {
-        "mode": "Modo",
-        "modeAny": "Cualquier modo",
-        "modeOthers": "Otros"
-      },
       "inspector": {
         "empty": "Selecciona un replay para ver sus detalles",
         "parseError": "No se pudo leer este replay."

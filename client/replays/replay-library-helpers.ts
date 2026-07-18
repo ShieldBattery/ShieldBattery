@@ -1,5 +1,6 @@
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
 import { startOfLocalDay } from '../games/day-header'
+import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
 /**
  * The way a replay's players are laid out for display:
@@ -68,6 +69,20 @@ export function getReplayDisplayTeams(
 /** Whether a given layout should render "Team 1 / Team 2" labels (genuine team games only). */
 export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
   return layout.kind === 'teams' && layout.teams.some(t => t.length > 1)
+}
+
+export function playersToDisplayTeams(
+  layout: ReplayTeamLayout,
+  computerLabel: string,
+): PlayerTeamsDisplayPlayer[][] {
+  return layout.teams.map(team =>
+    team.map(player => ({
+      race: player.race,
+      isRandom: false,
+      name: player.isComputer ? computerLabel : player.name,
+      nameColor: 'normal' as const,
+    })),
+  )
 }
 
 /** A stable, non-day `dayStartMs` key marking the trailing group of unreadable replays. */

@@ -460,6 +460,9 @@
       "label": "필터",
       "mapName": "맵 이름",
       "matchup": "종족전",
+      "mode": "게임 방식",
+      "modeAny": "모든 방식",
+      "modeOthers": "기타",
       "playerName": "플레이어 이름",
       "ranked": "랭크전",
       "sort": {
@@ -1222,11 +1225,6 @@
       "empty": "아직 리플레이가 없습니다",
       "emptyBody": "시청하거나 플레이한 리플레이가 여기에 자동으로 표시됩니다.",
       "filteredCount": "리플레이 {{total}}개 중 {{shown}}개",
-      "filters": {
-        "mode": "게임 방식",
-        "modeAny": "모든 방식",
-        "modeOthers": "기타"
-      },
       "inspector": {
         "empty": "리플레이를 선택하면 상세 정보가 표시됩니다",
         "parseError": "이 리플레이를 읽을 수 없습니다."

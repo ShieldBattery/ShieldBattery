@@ -463,6 +463,9 @@
       "label": "Filters",
       "mapName": "Map name",
       "matchup": "Matchup",
+      "mode": "Mode",
+      "modeAny": "Any mode",
+      "modeOthers": "Others",
       "playerName": "Player name",
       "ranked": "Ranked",
       "sort": {
@@ -1228,11 +1231,6 @@
       "empty": "No replays yet",
       "emptyBody": "Replays you watch and play will show up here automatically.",
       "filteredCount": "{{shown}} of {{total}} replays",
-      "filters": {
-        "mode": "Mode",
-        "modeAny": "Any mode",
-        "modeOthers": "Others"
-      },
       "inspector": {
         "empty": "Select a replay to see its details",
         "parseError": "This replay could not be read."
