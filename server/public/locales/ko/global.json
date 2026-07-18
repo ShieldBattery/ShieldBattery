@@ -635,6 +635,21 @@
       "pointsRefundedNotification": "게임이 검토되어, 회원님이 잃은 랭크 점수가 복구되었습니다."
     }
   },
+  "gameServerRegions": {
+    "name": {
+      "au": "호주",
+      "ca-east": "캐나다 동부",
+      "eu-central": "유럽 중부",
+      "eu-north": "유럽 북부",
+      "hk": "홍콩",
+      "kr": "한국",
+      "mx": "멕시코",
+      "sa-east": "남미 동부",
+      "sg": "싱가포르",
+      "us-east": "미국 동부",
+      "us-west": "미국 서부"
+    }
+  },
   "home": {
     "latestNewsTitle": "최신 소식",
     "supportTitle": "프로젝트 후원하기"

@@ -635,6 +635,21 @@
       "pointsRefundedNotification": "经过审核，您在一场对局中失去的排位积分已返还给您。"
     }
   },
+  "gameServerRegions": {
+    "name": {
+      "au": "澳大利亚",
+      "ca-east": "加拿大东部",
+      "eu-central": "欧洲中部",
+      "eu-north": "欧洲北部",
+      "hk": "香港",
+      "kr": "韩国",
+      "mx": "墨西哥",
+      "sa-east": "南美东部",
+      "sg": "新加坡",
+      "us-east": "美国东部",
+      "us-west": "美国西部"
+    }
+  },
   "home": {
     "latestNewsTitle": "最新消息",
     "supportTitle": "支持这个项目"

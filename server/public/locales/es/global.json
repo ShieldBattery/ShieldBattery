@@ -641,6 +641,21 @@
       "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada."
     }
   },
+  "gameServerRegions": {
+    "name": {
+      "au": "Australia",
+      "ca-east": "Canadá Este",
+      "eu-central": "Europa Central",
+      "eu-north": "Europa del Norte",
+      "hk": "Hong Kong",
+      "kr": "Corea",
+      "mx": "México",
+      "sa-east": "Sudamérica Este",
+      "sg": "Singapur",
+      "us-east": "EE. UU. Este",
+      "us-west": "EE. UU. Oeste"
+    }
+  },
   "home": {
     "latestNewsTitle": "Últimas noticias",
     "supportTitle": "Apoya el proyecto"

@@ -12,6 +12,7 @@ import {
   gameServerRegionLatenciesAtom,
   gameServerRegionsAtom,
 } from '../../game-server-regions/game-server-regions-atoms'
+import { getRegionDisplayName } from '../../game-server-regions/region-names'
 import { pickAutoRegion } from '../../game-server-regions/region-resolution'
 import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchmaking-atoms'
 import { CheckBox } from '../../material/check-box'
@@ -53,7 +54,7 @@ function getAutoOptionLabel(
 
   const region = regions.find(r => r.id === resolved.region)
   return t('settings.app.system.serverRegion.autoResolved', 'Auto — {{region}} ({{rtt}}ms)', {
-    region: region?.displayName ?? resolved.region,
+    region: region ? getRegionDisplayName(region, t) : resolved.region,
     rtt: Math.round(resolved.rttMs),
   })
 }
@@ -64,10 +65,11 @@ function getRegionOptionLabel(
   t: TFunction,
 ): string {
   const rttMs = latencies[region.id]?.rttMs
+  const displayName = getRegionDisplayName(region, t)
   return rttMs === undefined
-    ? region.displayName
+    ? displayName
     : t('settings.app.system.serverRegion.regionWithPing', '{{region}} ({{rtt}}ms)', {
-        region: region.displayName,
+        region: displayName,
         rtt: Math.round(rttMs),
       })
 }

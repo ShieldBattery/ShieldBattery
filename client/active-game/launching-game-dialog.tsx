@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { gameServerRegionsAtom } from '../game-server-regions/game-server-regions-atoms'
+import { getRegionDisplayName } from '../game-server-regions/region-names'
 import { gameLoadingStatusAtom } from '../games/game-atoms'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
@@ -26,9 +27,10 @@ export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
 
   let statusLine: string | undefined
   if (loadingStatus?.status === 'provisioningGameServer') {
-    const regionNames = loadingStatus.regions.map(
-      id => regions.find(r => r.id === id)?.displayName ?? (id as string),
-    )
+    const regionNames = loadingStatus.regions.map(id => {
+      const region = regions.find(r => r.id === id)
+      return region ? getRegionDisplayName(region, t) : (id as string)
+    })
     statusLine = t(
       'game.launchingGameDialog.provisioningGameServer',
       'Starting a game server in {{regions}}…',

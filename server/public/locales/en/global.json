@@ -638,6 +638,21 @@
       "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed."
     }
   },
+  "gameServerRegions": {
+    "name": {
+      "au": "Australia",
+      "ca-east": "Canada East",
+      "eu-central": "EU Central",
+      "eu-north": "EU North",
+      "hk": "Hong Kong",
+      "kr": "Korea",
+      "mx": "Mexico",
+      "sa-east": "SA East",
+      "sg": "Singapore",
+      "us-east": "US East",
+      "us-west": "US West"
+    }
+  },
   "home": {
     "latestNewsTitle": "Latest news",
     "supportTitle": "Support the project"
