@@ -45,17 +45,25 @@ export function escapeLike(value: string): string {
  * the replay query. Parse-error rows store zeroed `game_time`/`duration_frames` (see
  * `makeParseErrorRecord`), so every branch leads with `r.parse_error ASC` to pin them after readable
  * replays explicitly, rather than leaving them wherever zero happens to sort.
+ *
+ * Every branch also ends with `r.id ASC` as a final tiebreaker: rows commonly tie on `game_time`
+ * (e.g. a same-game autoreplay and manual save share the seed-derived timestamp), and without a
+ * deterministic tiebreaker, paginated `LIMIT`/`OFFSET` windows can duplicate or skip rows across
+ * chunks when ties are ordered differently between queries. It's `ASC` specifically (not `DESC`)
+ * because SQLite indexes implicitly append the rowid in ascending order, so `game_time DESC, id
+ * ASC` still lets the `(parse_error, game_time DESC)` index fully serve the default sort without an
+ * extra sort step.
  */
 function buildOrderByClause(sort: GameSortOption): string {
   switch (sort) {
     case GameSortOption.LatestFirst:
-      return 'r.parse_error ASC, r.game_time DESC'
+      return 'r.parse_error ASC, r.game_time DESC, r.id ASC'
     case GameSortOption.OldestFirst:
-      return 'r.parse_error ASC, r.game_time ASC'
+      return 'r.parse_error ASC, r.game_time ASC, r.id ASC'
     case GameSortOption.ShortestFirst:
-      return 'r.parse_error ASC, r.duration_frames ASC, r.game_time DESC'
+      return 'r.parse_error ASC, r.duration_frames ASC, r.game_time DESC, r.id ASC'
     case GameSortOption.LongestFirst:
-      return 'r.parse_error ASC, r.duration_frames DESC, r.game_time DESC'
+      return 'r.parse_error ASC, r.duration_frames DESC, r.game_time DESC, r.id ASC'
     default:
       return sort satisfies never
   }
@@ -133,6 +141,14 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
       whereClauses.push(`r.matchup IN (${placeholders})`)
       params.push(...matchupStrings)
     }
+  }
+
+  // Parse-error rows store zeroed values (see `makeParseErrorRecord`), so an active filter's match
+  // against them would be against garbage rather than a real value. Filters constrain known values,
+  // so a parse-error row's unknown values must never satisfy one; excluding them here only when a
+  // filter is active leaves the unfiltered view showing them (pinned last by the ORDER BY above).
+  if (whereClauses.length > 0) {
+    whereClauses.push('r.parse_error = 0')
   }
 
   const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : ''

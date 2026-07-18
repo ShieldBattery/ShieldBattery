@@ -23,7 +23,10 @@ describe('app/replay-library/replay-queries/escapeLike', () => {
 describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   test('no filters yields a plain newest-first query', () => {
     const { sql, params } = buildReplaySqlQuery({})
-    expect(sql).toBe('SELECT r.* FROM replays r ORDER BY r.parse_error ASC, r.game_time DESC')
+    expect(sql).toBe(
+      'SELECT r.* FROM replays r ORDER BY r.parse_error ASC, r.game_time DESC, r.id ASC',
+    )
+    expect(sql).not.toContain('WHERE')
     expect(params).toEqual([])
   })
 
@@ -37,7 +40,8 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   test('countSql reuses the WHERE clause and params, without an ORDER BY', () => {
     const { countSql, params } = buildReplaySqlQuery({ mapName: 'Fighting Spirit', gameType: 2 })
     expect(countSql).toBe(
-      "SELECT COUNT(*) AS count FROM replays r WHERE r.map_name LIKE ? ESCAPE '\\' AND r.game_type = ?",
+      "SELECT COUNT(*) AS count FROM replays r WHERE r.map_name LIKE ? ESCAPE '\\' " +
+        'AND r.game_type = ? AND r.parse_error = 0',
     )
     expect(countSql).not.toContain('ORDER BY')
     expect(params).toEqual(['%Fighting Spirit%', 2])
@@ -54,6 +58,11 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     const placeholders = FEATURED_REPLAY_GAME_TYPES.map(() => '?').join(', ')
     expect(sql).toContain(`r.game_type NOT IN (${placeholders})`)
     expect(params).toEqual([...FEATURED_REPLAY_GAME_TYPES])
+  })
+
+  test('gameType filter excludes parse-error rows (their game_type is zeroed, not "others")', () => {
+    const { sql } = buildReplaySqlQuery({ gameType: 'others' })
+    expect(sql).toContain('r.parse_error = 0')
   })
 
   test('numeric gameType matches exactly', () => {
@@ -98,31 +107,38 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     )
   })
 
+  test('duration filter excludes parse-error rows (their duration_frames is zeroed)', () => {
+    const { sql } = buildReplaySqlQuery({ duration: GameDurationFilter.Under10 })
+    expect(sql).toContain('r.parse_error = 0')
+  })
+
   test('no sort defaults to newest-first', () => {
-    expect(buildReplaySqlQuery({}).sql).toContain('ORDER BY r.parse_error ASC, r.game_time DESC')
+    expect(buildReplaySqlQuery({}).sql).toContain(
+      'ORDER BY r.parse_error ASC, r.game_time DESC, r.id ASC',
+    )
   })
 
-  test('LatestFirst orders by parse_error ASC, then game_time DESC', () => {
+  test('LatestFirst orders by parse_error ASC, game_time DESC, then id ASC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.LatestFirst }).sql).toContain(
-      'ORDER BY r.parse_error ASC, r.game_time DESC',
+      'ORDER BY r.parse_error ASC, r.game_time DESC, r.id ASC',
     )
   })
 
-  test('OldestFirst orders by parse_error ASC, then game_time ASC', () => {
+  test('OldestFirst orders by parse_error ASC, game_time ASC, then id ASC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.OldestFirst }).sql).toContain(
-      'ORDER BY r.parse_error ASC, r.game_time ASC',
+      'ORDER BY r.parse_error ASC, r.game_time ASC, r.id ASC',
     )
   })
 
-  test('ShortestFirst orders by parse_error ASC, duration_frames ASC, then game_time DESC', () => {
+  test('ShortestFirst orders by parse_error ASC, duration_frames ASC, game_time DESC, then id ASC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.ShortestFirst }).sql).toContain(
-      'ORDER BY r.parse_error ASC, r.duration_frames ASC, r.game_time DESC',
+      'ORDER BY r.parse_error ASC, r.duration_frames ASC, r.game_time DESC, r.id ASC',
     )
   })
 
-  test('LongestFirst orders by parse_error ASC, duration_frames DESC, then game_time DESC', () => {
+  test('LongestFirst orders by parse_error ASC, duration_frames DESC, game_time DESC, then id ASC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.LongestFirst }).sql).toContain(
-      'ORDER BY r.parse_error ASC, r.duration_frames DESC, r.game_time DESC',
+      'ORDER BY r.parse_error ASC, r.duration_frames DESC, r.game_time DESC, r.id ASC',
     )
   })
 })

@@ -134,70 +134,80 @@ export class ReplayDb {
     })
   }
 
+  // Atomic (SQLite DDL is transactional) so a crash mid-migration rolls back to the previous
+  // version instead of leaving a half-applied schema whose re-run fails (e.g. a repeated
+  // `ALTER TABLE ... ADD COLUMN` throwing `duplicate column name`); `user_version` participates in
+  // the same transaction, so it only advances once every step below has succeeded.
   private migrate(): void {
-    const version = Number(this.db.pragma('user_version', { simple: true }))
-    if (version < 1) {
-      this.db.exec(`
-        CREATE TABLE replays (
-          id INTEGER PRIMARY KEY,
-          path TEXT UNIQUE NOT NULL,
-          file_mtime INTEGER,
-          file_size INTEGER,
-          content_hash TEXT,
-          game_time INTEGER,
-          map_name TEXT,
-          game_type INTEGER,
-          duration_frames INTEGER,
-          sb_game_id TEXT,
-          parse_error INTEGER NOT NULL DEFAULT 0
-        );
-        CREATE INDEX idx_replays_game_time ON replays (game_time DESC);
+    this.db.transaction(() => {
+      const version = Number(this.db.pragma('user_version', { simple: true }))
+      if (version < 1) {
+        this.db.exec(`
+          CREATE TABLE replays (
+            id INTEGER PRIMARY KEY,
+            path TEXT UNIQUE NOT NULL,
+            file_mtime INTEGER,
+            file_size INTEGER,
+            content_hash TEXT,
+            game_time INTEGER,
+            map_name TEXT,
+            game_type INTEGER,
+            duration_frames INTEGER,
+            sb_game_id TEXT,
+            parse_error INTEGER NOT NULL DEFAULT 0
+          );
+          CREATE INDEX idx_replays_game_time ON replays (game_time DESC);
 
-        CREATE TABLE replay_players (
-          replay_id INTEGER NOT NULL REFERENCES replays (id) ON DELETE CASCADE,
-          slot INTEGER,
-          team INTEGER,
-          name TEXT,
-          race TEXT,
-          is_computer INTEGER,
-          sb_user_id INTEGER
-        );
-        CREATE INDEX idx_replay_players_replay_id ON replay_players (replay_id);
-      `)
-    }
-    if (version < 2) {
-      // The FTS free-text index was replaced by LIKE-based substring filtering.
-      this.db.exec('DROP TABLE IF EXISTS replay_fts')
-    }
+          CREATE TABLE replay_players (
+            replay_id INTEGER NOT NULL REFERENCES replays (id) ON DELETE CASCADE,
+            slot INTEGER,
+            team INTEGER,
+            name TEXT,
+            race TEXT,
+            is_computer INTEGER,
+            sb_user_id INTEGER
+          );
+          CREATE INDEX idx_replay_players_replay_id ON replay_players (replay_id);
+        `)
+      }
+      if (version < 2) {
+        // The FTS free-text index was replaced by LIKE-based substring filtering.
+        this.db.exec('DROP TABLE IF EXISTS replay_fts')
+      }
 
-    if (version < 3) {
-      // Every ORDER BY now sorts by parse_error first (to pin unreadable replays last), so the
-      // old game_time-only index can no longer serve the common newest-first ordering.
-      this.db.exec(`
-        DROP INDEX IF EXISTS idx_replays_game_time;
-        CREATE INDEX idx_replays_parse_error_game_time ON replays (parse_error, game_time DESC);
-      `)
-    }
+      if (version < 3) {
+        // Every ORDER BY now sorts by parse_error first (to pin unreadable replays last), so the
+        // old game_time-only index can no longer serve the common newest-first ordering.
+        this.db.exec(`
+          DROP INDEX IF EXISTS idx_replays_game_time;
+          CREATE INDEX idx_replays_parse_error_game_time ON replays (parse_error, game_time DESC);
+        `)
+      }
 
-    if (version < 4) {
-      // Derived team-layout columns so format/matchup filters run in SQL; values are recomputed
-      // from replay_players for pre-v4 rows.
-      this.db.exec(`
-        ALTER TABLE replays ADD COLUMN team_size INTEGER;
-        ALTER TABLE replays ADD COLUMN matchup TEXT;
-      `)
-      this.backfillTeamLayout()
-    }
+      if (version < 4) {
+        // Derived team-layout columns so format/matchup filters run in SQL; values are recomputed
+        // from replay_players for pre-v4 rows.
+        this.db.exec(`
+          ALTER TABLE replays ADD COLUMN team_size INTEGER;
+          ALTER TABLE replays ADD COLUMN matchup TEXT;
+        `)
+        this.backfillTeamLayout()
+      }
 
-    if (version < SCHEMA_VERSION) {
-      this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
-    }
+      if (version < SCHEMA_VERSION) {
+        this.db.pragma(`user_version = ${SCHEMA_VERSION}`)
+      }
+    })()
   }
 
   /**
    * Populates `team_size`/`matchup` for rows that predate their addition, deriving them from each
    * replay's players via the same `deriveTeamLayout` the parser uses. Replays with no players are
    * left untouched (the columns default to `NULL`).
+   *
+   * Called from within `migrate()`'s own transaction; the `db.transaction` used below nests inside
+   * it, which better-sqlite3 automatically turns into a savepoint rather than a separate
+   * transaction, so this doesn't need to change.
    */
   private backfillTeamLayout(): void {
     const playerRows = this.db
