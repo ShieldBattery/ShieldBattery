@@ -720,6 +720,13 @@ export function ReplayLibrary() {
   // already been loaded) and replaces it wholesale. Used to pick up backfill progress and
   // added/removed files without collapsing the user's scroll position.
   const refreshLoadedWindow = useStableCallback(() => {
+    // Invalidate any in-flight next-page load: it computed its offset against the pre-refresh
+    // entries, so letting it append after the wholesale replacement would leave a gap in the
+    // loaded window (which the id-dedupe in `onLoadNextData` can then never fill). Clearing
+    // `isLoadingNext` here is required for the same reason — the invalidated load's `finally`
+    // deliberately won't touch it once its epoch is stale.
+    queryEpochRef.current += 1
+    setIsLoadingNext(false)
     const epoch = queryEpochRef.current
     const limit = Math.max(LOAD_CHUNK_SIZE, entries?.length ?? 0)
 
