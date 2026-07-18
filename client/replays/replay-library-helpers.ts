@@ -70,23 +70,40 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
   return layout.kind === 'teams' && layout.teams.some(t => t.length > 1)
 }
 
+/** A stable, non-day `dayStartMs` key marking the trailing group of unreadable replays. */
+const UNREADABLE_GROUP_KEY = -1
+
 /** A day's worth of replays, identified by the local start-of-day timestamp. */
 export interface ReplayDayGroup {
   /** The local start-of-day (midnight) for this group, as unix ms. Stable key for the group. */
   dayStartMs: number
   entries: ReplayLibraryEntry[]
+  /** Whether this is the trailing group of parse-error replays, rather than a calendar day. */
+  unreadable?: boolean
 }
 
 /**
- * Groups replays into consecutive calendar-day buckets (by local time). Input is expected to be
- * ordered newest-first (as the replay query returns it); the output preserves that ordering, both
- * across groups and within each group.
+ * Groups replays into consecutive calendar-day buckets (by local time), with parse-error entries
+ * collected into a single trailing `unreadable` group instead of being bucketed by their (zeroed)
+ * `gameTime`. Input is expected to be ordered newest-first with parse-error entries trailing (as the
+ * replay query returns it); the output preserves that ordering, both across groups and within each
+ * group.
  */
 export function groupReplaysByDay(entries: ReadonlyArray<ReplayLibraryEntry>): ReplayDayGroup[] {
   const groups: ReplayDayGroup[] = []
   let current: ReplayDayGroup | undefined
 
   for (const entry of entries) {
+    if (entry.parseError) {
+      if (!current || !current.unreadable) {
+        current = { dayStartMs: UNREADABLE_GROUP_KEY, entries: [entry], unreadable: true }
+        groups.push(current)
+      } else {
+        current.entries.push(entry)
+      }
+      continue
+    }
+
     const dayStartMs = startOfLocalDay(entry.gameTime)
     if (!current || current.dayStartMs !== dayStartMs) {
       current = { dayStartMs, entries: [entry] }

@@ -32,6 +32,22 @@ function makeEntry(id: number, gameTime: number): ReplayLibraryEntry {
   }
 }
 
+/** Mirrors `makeParseErrorRecord`: zeroed `gameTime`/`durationFrames`, `parseError: true`. */
+function makeParseErrorEntry(id: number): ReplayLibraryEntry {
+  return {
+    id,
+    path: `C:\\replays\\${id}.rep`,
+    fileName: `${id}.rep`,
+    fileSize: 1000,
+    gameTime: 0,
+    mapName: '',
+    gameType: 2,
+    durationFrames: 0,
+    parseError: true,
+    players: [],
+  }
+}
+
 describe('getReplayDisplayTeams', () => {
   test('splits a single team of two into a 1v1', () => {
     const players = [
@@ -124,5 +140,33 @@ describe('groupReplaysByDay', () => {
 
   test('returns no groups for an empty list', () => {
     expect(groupReplaysByDay([])).toEqual([])
+  })
+
+  test('trailing parse-error entries land in a single unreadable group after the day groups', () => {
+    const day1 = new Date(2024, 4, 10, 21, 30).getTime()
+    const day2 = new Date(2024, 4, 9, 12, 0).getTime()
+
+    const entries = [
+      makeEntry(3, day1),
+      makeEntry(2, day2),
+      makeParseErrorEntry(102),
+      makeParseErrorEntry(101),
+    ]
+    const groups = groupReplaysByDay(entries)
+
+    expect(groups).toHaveLength(3)
+    expect(groups[0].entries.map(e => e.id)).toEqual([3])
+    expect(groups[1].entries.map(e => e.id)).toEqual([2])
+    expect(groups[2].unreadable).toBe(true)
+    expect(groups[2].entries.map(e => e.id)).toEqual([102, 101])
+  })
+
+  test('a list of only parse-error entries yields just the unreadable group', () => {
+    const entries = [makeParseErrorEntry(2), makeParseErrorEntry(1)]
+    const groups = groupReplaysByDay(entries)
+
+    expect(groups).toHaveLength(1)
+    expect(groups[0].unreadable).toBe(true)
+    expect(groups[0].entries.map(e => e.id)).toEqual([2, 1])
   })
 })

@@ -42,19 +42,20 @@ export function escapeLike(value: string): string {
 
 /**
  * Maps a {@link GameSortOption} (defaulting to newest-first) to the `ORDER BY` clause body used in
- * the replay query. Parse-error rows have NULL `game_time`/`duration_frames`; `NULLS LAST` is used
- * where an ascending sort would otherwise put them first (SQLite treats NULL as the smallest value).
+ * the replay query. Parse-error rows store zeroed `game_time`/`duration_frames` (see
+ * `makeParseErrorRecord`), so every branch leads with `r.parse_error ASC` to pin them after readable
+ * replays explicitly, rather than leaving them wherever zero happens to sort.
  */
 function buildOrderByClause(sort: GameSortOption): string {
   switch (sort) {
     case GameSortOption.LatestFirst:
-      return 'r.game_time DESC'
+      return 'r.parse_error ASC, r.game_time DESC'
     case GameSortOption.OldestFirst:
-      return 'r.game_time ASC NULLS LAST'
+      return 'r.parse_error ASC, r.game_time ASC'
     case GameSortOption.ShortestFirst:
-      return 'r.duration_frames ASC NULLS LAST, r.game_time DESC'
+      return 'r.parse_error ASC, r.duration_frames ASC, r.game_time DESC'
     case GameSortOption.LongestFirst:
-      return 'r.duration_frames DESC, r.game_time DESC'
+      return 'r.parse_error ASC, r.duration_frames DESC, r.game_time DESC'
     default:
       return sort satisfies never
   }

@@ -307,7 +307,9 @@ function ReplayListEntry({
     onDoubleClick: () => onWatch(entry),
   })
 
-  const leading = (
+  const leading = entry.parseError ? (
+    <GameDate>—</GameDate>
+  ) : (
     <Tooltip text={longTimestamp.format(entry.gameTime)} position='right'>
       <GameDate>{narrowDuration.format(entry.gameTime)}</GameDate>
     </Tooltip>
@@ -945,7 +947,11 @@ export function ReplayLibrary() {
           const group = dayGroups[index]
           return (
             <DayHeader
-              label={formatDayHeaderLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)}
+              label={
+                group.unreadable
+                  ? t('replays.library.unreadableReplays', 'Unreadable replays')
+                  : formatDayHeaderLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)
+              }
               countLabel={t('replays.library.replayCount', {
                 defaultValue: '{{count}} replays',
                 count: group.entries.length,

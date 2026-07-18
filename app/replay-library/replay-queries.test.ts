@@ -38,7 +38,7 @@ describe('app/replay-library/replay-queries/escapeLike', () => {
 describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   test('no filters yields a plain newest-first query', () => {
     const { sql, params } = buildReplaySqlQuery({})
-    expect(sql).toBe('SELECT r.* FROM replays r ORDER BY r.game_time DESC')
+    expect(sql).toBe('SELECT r.* FROM replays r ORDER BY r.parse_error ASC, r.game_time DESC')
     expect(params).toEqual([])
   })
 
@@ -99,30 +99,30 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
   })
 
   test('no sort defaults to newest-first', () => {
-    expect(buildReplaySqlQuery({}).sql).toContain('ORDER BY r.game_time DESC')
+    expect(buildReplaySqlQuery({}).sql).toContain('ORDER BY r.parse_error ASC, r.game_time DESC')
   })
 
-  test('LatestFirst orders by game_time DESC', () => {
+  test('LatestFirst orders by parse_error ASC, then game_time DESC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.LatestFirst }).sql).toContain(
-      'ORDER BY r.game_time DESC',
+      'ORDER BY r.parse_error ASC, r.game_time DESC',
     )
   })
 
-  test('OldestFirst orders by game_time ASC, nulls last', () => {
+  test('OldestFirst orders by parse_error ASC, then game_time ASC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.OldestFirst }).sql).toContain(
-      'ORDER BY r.game_time ASC NULLS LAST',
+      'ORDER BY r.parse_error ASC, r.game_time ASC',
     )
   })
 
-  test('ShortestFirst orders by duration_frames ASC (nulls last), then game_time DESC', () => {
+  test('ShortestFirst orders by parse_error ASC, duration_frames ASC, then game_time DESC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.ShortestFirst }).sql).toContain(
-      'ORDER BY r.duration_frames ASC NULLS LAST, r.game_time DESC',
+      'ORDER BY r.parse_error ASC, r.duration_frames ASC, r.game_time DESC',
     )
   })
 
-  test('LongestFirst orders by duration_frames DESC, then game_time DESC', () => {
+  test('LongestFirst orders by parse_error ASC, duration_frames DESC, then game_time DESC', () => {
     expect(buildReplaySqlQuery({ sort: GameSortOption.LongestFirst }).sql).toContain(
-      'ORDER BY r.duration_frames DESC, r.game_time DESC',
+      'ORDER BY r.parse_error ASC, r.duration_frames DESC, r.game_time DESC',
     )
   })
 })
