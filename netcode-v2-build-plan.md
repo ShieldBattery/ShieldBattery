@@ -192,9 +192,21 @@ follow-ups below.
   recorded at both leave-apply paths (relay-directed `take_due_leaves` + the debug forced leave),
   exposed for headless assertion via `queryState` `netStats.rows[].departed`, and live-verified on
   a loopback game (forced opponent drop, screenshot + queryState).
-- Drop `netcodeV2` naming from public surfaces (only user-visible instance is the admin game-page
-  debug title; needs a target-naming decision).
-- Client desync-report hook (VOID-only games).
+- **Drop `netcodeV2` naming from public surfaces — DONE (2026-07-18).** Travis picked "Network";
+  the game-details debug section title (the only user-visible instance) and its i18n key namespace
+  renamed, translations carried over. No "Netcode v2" remains in any locale catalog; the
+  `debugInfo.netcodeV2` API field name stays (not user-visible, renaming would ripple server types
+  for no user benefit).
+- **Client desync-report hook — PUNTED (2026-07-18, Travis), possibly forever.** The motivating
+  case was fog-of-war divergence, which no checksum path (relay 0x37 comparator, BW native check,
+  or a client-side mirror of either) can see — and client-side fog detection is inherently
+  client-asserted: a dishonest client just lies, so it could only ever catch *accidental*
+  divergence between honest clients. With the VOID-only effect ceiling, a lone untrusted report is
+  precisely a loss-dodger's free void button, and quorum can't fix the 1v1 case (the opponent
+  won't corroborate). If ever revisited, the only shape that survives the trust analysis is a
+  zero-policy-effect diagnostic (cross-client fog-state hash on a dedicated control frame, latched
+  into game logs for incident reading) — build it the week a fog-divergence bug needs chasing, not
+  before.
 - Post-promotion desync-ordinal PK collision (authority epoch, if revisited); observer quit
   classifies as drop rather than clean leave (no scoring impact); scrollable chat-history box
   decision (verify SC:R's box renders in-game at all first); replay-playback chat renders into
