@@ -47,15 +47,18 @@ stacks derive from it); (2) coordinator box `config/tenants.json` + `.env` — t
 tenant exists (keygen.mjs one-shot mint; relays get verifying keys pushed at enroll); (3) SB app
 server `.env` — the tenant's own credential + coordinator URL.
 
-**Current pins:** SB `rally-point-client` at rp2 `9781527` (= main tip 2026-07-18: the
-external-review fix arc; DLL rebuilt via `game\build.bat`, 142 game tests + clippy green, lock
-churn rev-only) — so new game **clients** carry the client-side transport at `9781527`. ALPN
-`rp2/5` / `rp2-mesh/5`. **The relay + coordinator fixes are NOT live on the fleet yet**: the
-relay-side arc (mesh dedup, R5/R6, R2/R3/R4/R7/R9) rides the relay image, and the C-series rides
-the coordinator image, so both reach staging/prod only once `9781527` images are published and
-deployed — relays pick up a new `:latest` on their next provision, the coordinator wants a
-`:stable` re-promote + box restart. Channels: coordinator `:stable` (manual promote), relay
-`:latest` staging / `:stable` prod.
+**Current pins:** SB `rally-point-client` at rp2 `a7349ca` (= main tip 2026-07-18: the
+external-review fix arc + the ALPN/protocol reset to a clean v1 baseline; DLL rebuilt via
+`game\build.bat`, 142 game tests + clippy green, lock churn rev-only). **ALPN is now `rp2/1` /
+`rp2-mesh/1`** (reset from `/5` before first prod ship — nothing shipped, so no compat surface
+lost). This is WIRE-BREAKING against any `/5` build: the staging fleet must be redeployed on
+`a7349ca` images before an `a7349ca` client can reach it (they can't mix). **The relay +
+coordinator fixes (and the ALPN) are NOT live on the fleet yet**: the relay-side arc (mesh dedup,
+R5/R6, R2/R3/R4/R7/R9, ALPN) rides the relay image, the C-series + ALPN ride the coordinator
+image, so both reach staging/prod only once `a7349ca` images are published and deployed — relays
+pick up a new `:latest` on their next provision, the coordinator wants a `:stable` re-promote +
+box restart. Channels: coordinator `:stable` (manual promote), relay `:latest` staging /
+`:stable` prod.
 
 **Standing rules** (violating these has bitten before): consume rp2's re-exported
 quinn/rustls/proto (never direct deps); any rp2 change = push rp2 main → bump the SB `rev` pin →
