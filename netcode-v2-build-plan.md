@@ -102,6 +102,77 @@ coordinator) / D5 (env-isolated fleets): **software built; staging live; prod no
    datapoints keep accumulating free in the ledger (nine so far, 14–22s); recalibrate the 75s
    provisioning hold cap when there's a real distribution.
 
+### External review triage (2026-07-17, rp2 `f517e80`)
+
+An external dev reviewed the whole rp2 repo (12 "high" + ~12 "medium" + ~7 "low"). Every finding
+was re-verified against the code by four adversarial agents (facts, not the reviewer's severity);
+no P0. Verdicts + categorization below; full per-finding evidence/fix-shapes in the session's
+agent reports (rp2 file:line anchors). Reviewer was strong — correctly declined to flag intentional
+unordered-transport behavior; several "highs" verified NARROWER than written; four were non-issues.
+
+**Address before prod** — player-facing correctness (no attacker needed):
+- **T1+T2 (+R1+R8) — the mesh-dedup seam.** Multi-relay mesh permanently dies past ~4096 turns/slot
+  (redial re-opens a base-0 receive window; any seq ≥4096 rejected forever), and an oversize mesh
+  turn triggers it early (delivered over the control stream, never recorded in the datagram dedup —
+  the client `Link` has `deliver_external`/`anchor` for exactly this; `MeshLink` has neither). R1/R8
+  share the root: `observe_turn_frame` runs BEFORE `mark_seen` dedup (unlike the desync comparator,
+  deliberately after), so reflooded duplicates corrupt the leave-decision frame history (a
+  frame-inflating cheater can strand survivors) and mis-stamp the hop-budget origin. ONE coherent
+  fix: give `MeshLink` an anchor + `deliver_external` (or forward-collapse), and move
+  `observe_turn_frame` into `deliver_turn_to_locals`. CONFIRMED. M+S.
+- **R2** — a client that blips while another player's leave is decided hangs forever on reconnect;
+  decided leaves are replayed to new mesh links but never to reconnecting clients. CONFIRMED. S/M.
+- **C4** — draining relays count toward warm capacity but can't take placement → replacement doesn't
+  launch until the old relay disconnects. CONFIRMED. S (one-line: count `!draining`).
+- **C8** — every Fargate relay task leaves a permanent coordinator outbox shell; session cleanup
+  scans all of them. Grows continuously under scale-to-zero. CONFIRMED. M.
+
+**Address before prod** — cheap admission/resource bounds the direct-exposure rule calls for
+(reachable by a *compromised enrolled relay* — high bar, but the coordinator is a single
+direct-exposed box):
+- **C2** — flight-upload takes ownership of the ≤4 MiB payload before acquiring an upload permit →
+  misbehaving relay + slow S3 OOMs the box. CONFIRMED. S/M (acquire before spawn).
+- **C1** — heartbeat presence isn't ownership-validated (sibling Departure/Desync/Result frames
+  are); a relay can forge a victim's presence. NARROWER than stated (presence only, NOT results;
+  35s-TTL self-heal). CONFIRMED. M (add the existing `relay_serves_session` check).
+- **C6** — control-WebSocket keeps 64 MiB library message default; no pre-Hello socket cap; heartbeat
+  vectors uncapped (RTT *store* is already bounded — that sub-claim PARTLY). CONFIRMED. M.
+- **R5** — mesh accept spawns a task holding a live connection before the handshake permit;
+  pre-auth reachable on a public relay. CONFIRMED. S/M (permit before spawn).
+- **R6** — one peer stalling a control stream (connection still alive) freezes every session on that
+  relay-pair link, unbounded memory. CONFIRMED. M (bounded writer + timeout→reset).
+
+**Address before prod** — prod-standup footguns + CI (natural to do while standing up prod):
+- **I1** — `promote-coordinator.yml` interpolates the SHA input into a `packages:write` shell job
+  (injection); the sibling `promote-relay.yml` ALREADY does it safely — copy the env-var+quote+regex
+  pattern. CONFIRMED. S.
+- **I2** — relay promotion retags region-by-region with no all-or-nothing preflight, no `concurrency`
+  group → half-promoted fleet. CONFIRMED. M.
+- **C10** — flight-store misconfig detected only on first use (exactly the staging sample-bucket
+  incident); add a bounded startup probe. CONFIRMED. S.
+- **C7** — ECS config lacks `deny_unknown_fields` (typo'd security-group silently defaults) and a
+  zero provision-interval panics the provisioning loop while the API stays healthy. Tenant-config
+  half was ALREADY safe (PARTLY). CONFIRMED (the two real parts). S.
+
+**Opportunistic** (real, cheap, narrow — pre-prod if time, else fast-follow): R3 (teardown race —
+narrowed: maker survives; non-started sessions only), R4 (presence-stream-only death → stale
+authority; treat reader death as link failure), R7 (relay/client equal-seq directive tiebreak
+disagree — bounded QoS blip), R9 (consensus counter overflow — release wraps, but debug/tests
+panic), I4-cert_der (one wrong doc line), I5-slice (`.dockerignore` + `--locked` on the Dockerfiles),
+I6-terraform (a `fmt`/`validate` CI gate).
+
+**Backlog**: C3 (per-tenant session quota — gated on UNTRUSTED multi-tenancy; a global emergency
+ceiling is a cheap subset worth pulling forward), C9 (webhook per-tenant fairness — same gating),
+C5 (concurrent uploads defeat desync pinning — one blob, narrow), T3-main (richer sparse reconnect
+state — real design work; the "hang" is really a delayed self-healing window-close), C11/C12
+(trivial, honest caller never triggers), MSRV CI leg, and the reviewer's structural takeaway (a
+mesh-session transport adapter + session-lifecycle owner — the "right" long shape; the A-batch
+point-fixes cover the concrete instances).
+
+**No action**: T4 (path-MTU race — common outcome is by-design recovery, lossy outcome unreachable
+at real turn sizes), I3 (dev-beacon — dev-only, in no shipped image), I4 mesh-auth/region-count half
+(unsubstantiated — doc matches code), C7 tenant-entry half (already `deny_unknown_fields`).
+
 ### Hardening follow-ups (filed, non-blocking)
 
 - **Mesh/relay follow-ups from the review passes**: driver-layer tenant scoping (the `joined`
