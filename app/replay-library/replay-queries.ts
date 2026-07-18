@@ -8,6 +8,7 @@ import {
 } from '../../common/games/game-filters'
 import { computeMatchupString, expandMatchupFilter } from '../../common/games/matchups'
 import { RaceChar } from '../../common/races'
+import { FEATURED_REPLAY_GAME_TYPES } from '../../common/replays'
 import { ReplayLibraryFilters, ReplayLibraryPlayer } from '../../common/replays-library'
 
 /**
@@ -60,20 +61,14 @@ function buildOrderByClause(sort: GameSortOption): string {
 }
 
 /**
- * Builds the SQL statement for the cheap, row-level part of a replay query (source, map name,
- * player name, game type, duration bucket). Format and matchup filters are applied in JS afterwards
- * via `replayPassesTeamFilters`, since they require the per-player team layout. Results are ordered
- * per `filters.sort` (defaulting to newest-first).
+ * Builds the SQL statement for the cheap, row-level part of a replay query (map name, player name,
+ * game type, duration bucket). Format and matchup filters are applied in JS afterwards via
+ * `replayPassesTeamFilters`, since they require the per-player team layout. Results are ordered per
+ * `filters.sort` (defaulting to newest-first).
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
   const params: Array<string | number> = []
-
-  if (filters.source === 'sb') {
-    whereClauses.push('r.sb_game_id IS NOT NULL')
-  } else if (filters.source === 'bnet') {
-    whereClauses.push('r.sb_game_id IS NULL')
-  }
 
   if (filters.mapName !== undefined) {
     whereClauses.push("r.map_name LIKE ? ESCAPE '\\'")
@@ -87,7 +82,11 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     params.push(`%${escapeLike(filters.playerName)}%`)
   }
 
-  if (filters.gameType !== undefined) {
+  if (filters.gameType === 'others') {
+    const placeholders = FEATURED_REPLAY_GAME_TYPES.map(() => '?').join(', ')
+    whereClauses.push(`r.game_type NOT IN (${placeholders})`)
+    params.push(...FEATURED_REPLAY_GAME_TYPES)
+  } else if (filters.gameType !== undefined) {
     whereClauses.push('r.game_type = ?')
     params.push(filters.gameType)
   }

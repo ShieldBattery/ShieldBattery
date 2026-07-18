@@ -197,22 +197,42 @@ export class ReplayDb {
   }
 
   /**
-   * Runs a filtered query, returning all matching entries ordered per `filters.sort` (defaulting to
-   * newest-first). The row-level filters run in SQL; format/matchup filters run in JS over the
-   * loaded players.
+   * Runs a filtered query, returning the page of matching entries selected by `filters.offset`/
+   * `filters.limit` (offset defaults to 0, an omitted limit returns everything), ordered per
+   * `filters.sort` (defaulting to newest-first). `total` is the count of matches across all pages.
+   * The row-level filters run in SQL; format/matchup filters run in JS over the loaded players.
+   *
+   * When a format filter is set, players have to be loaded for every matching row up front (the
+   * team layout can only be checked in JS), so the page is sliced after filtering. Otherwise,
+   * players are only loaded for the rows in the requested page, since row order/count is already
+   * final at that point.
    */
   query(filters: ReplayLibraryFilters): { entries: ReplayLibraryEntry[]; total: number } {
     const { sql, params } = buildReplaySqlQuery(filters)
     const rows = this.db.prepare(sql).all(...params) as DbReplayRow[]
 
-    const playersByReplay = this.getPlayersForReplayIds(rows.map(r => r.id))
-    let entries = rows.map(r => rowToEntry(r, playersByReplay.get(r.id) ?? []))
+    const offset = filters.offset ?? 0
 
     if (filters.format) {
-      entries = entries.filter(e => replayPassesTeamFilters(e.players, filters))
+      const playersByReplay = this.getPlayersForReplayIds(rows.map(r => r.id))
+      const allEntries = rows
+        .map(r => rowToEntry(r, playersByReplay.get(r.id) ?? []))
+        .filter(e => replayPassesTeamFilters(e.players, filters))
+
+      const page =
+        filters.limit !== undefined
+          ? allEntries.slice(offset, offset + filters.limit)
+          : allEntries.slice(offset)
+
+      return { entries: page, total: allEntries.length }
     }
 
-    return { entries, total: entries.length }
+    const pageRows =
+      filters.limit !== undefined ? rows.slice(offset, offset + filters.limit) : rows.slice(offset)
+    const playersByReplay = this.getPlayersForReplayIds(pageRows.map(r => r.id))
+    const entries = pageRows.map(r => rowToEntry(r, playersByReplay.get(r.id) ?? []))
+
+    return { entries, total: rows.length }
   }
 
   close(): void {

@@ -16,7 +16,7 @@ import {
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes, MapInfoJson } from '../../common/maps'
-import { replayGameTypeToLabel } from '../../common/replays'
+import { FEATURED_REPLAY_GAME_TYPES, replayGameTypeToLabel } from '../../common/replays'
 import {
   ReplayLibraryEntry,
   ReplayLibraryFilters,
@@ -33,7 +33,7 @@ import {
   WatchReplayOverlay,
 } from '../games/game-list-entry'
 import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
-import { longTimestamp, narrowDuration } from '../i18n/date-formats'
+import { longTimestamp, narrowDuration, NarrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import Logo from '../logos/logo-no-bg.svg'
@@ -81,9 +81,8 @@ const ipcRenderer = new TypedIpcRenderer()
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
-// Raw numeric game types offered in the Mode filter, mirroring `SupportedReplayGameType` in
-// common/replays.ts (which isn't exported). Labeled via `replayGameTypeToLabel`.
-const REPLAY_GAME_TYPES = [2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 15] as const
+/** Number of replay entries shown per page. */
+const PAGE_SIZE = 100
 
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
@@ -105,13 +104,18 @@ function parseMatchup(value: string): EncodedMatchupString | undefined {
   return value ? makeEncodedMatchupString(value) : undefined
 }
 
-function parseGameType(value: string): number | undefined {
+function parseModeFilter(value: string): number | 'others' | undefined {
+  if (value === 'others') {
+    return 'others'
+  }
   const parsed = Number.parseInt(value, 10)
-  return (REPLAY_GAME_TYPES as readonly number[]).includes(parsed) ? parsed : undefined
+  return (FEATURED_REPLAY_GAME_TYPES as readonly number[]).includes(parsed) ? parsed : undefined
 }
 
-function parseSource(value: string): 'sb' | 'bnet' | undefined {
-  return value === 'sb' || value === 'bnet' ? value : undefined
+/** Parses the `page` search param: a positive integer, defaulting to 1 (absent/garbage → 1). */
+function parsePage(value: string): number {
+  const parsed = Number.parseInt(value, 10)
+  return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1
 }
 
 // ---- Layout ----------------------------------------------------------------------------------
@@ -139,6 +143,20 @@ const CountLine = styled.div`
   ${labelMedium};
   align-self: flex-end;
   padding: 0 6px;
+  color: var(--theme-on-surface-variant);
+`
+
+const PagerRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 0;
+`
+
+const PagerLabel = styled.div`
+  ${bodyMedium};
+  padding: 0 8px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -324,6 +342,7 @@ function ReplayListEntry({
             icon={<MaterialIcon icon='play_circle' />}
             onClick={event => {
               event.stopPropagation()
+              onSelect(entry.id)
               onWatch(entry)
             }}
           />
@@ -418,16 +437,6 @@ const InspectorChipsRow = styled.div`
   gap: 8px;
 `
 
-const InspectorModeChip = styled.div`
-  ${labelMedium};
-
-  padding: 2px 10px;
-
-  border-radius: 999px;
-  background-color: rgb(from var(--theme-primary) r g b / 0.16);
-  color: var(--color-blue80);
-`
-
 const SbSourceLogo = styled(Logo)`
   width: 16px;
   height: 16px;
@@ -464,6 +473,11 @@ const InspectorMapName = styled.div`
 
 const InspectorSubline = styled.div`
   ${bodyMedium};
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
   color: var(--theme-on-surface-variant);
 `
 
@@ -513,7 +527,6 @@ function Inspector({ entry, computerLabel, alignWithFirstRow, onWatch, onReveal 
     )
   }
 
-  const mode = replayGameTypeToLabel(entry.gameType, t)
   const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
   const teamLabels =
     layout && shouldShowTeamLabels(layout)
@@ -524,7 +537,6 @@ function Inspector({ entry, computerLabel, alignWithFirstRow, onWatch, onReveal 
 
   const chips = (
     <InspectorChipsRow>
-      <InspectorModeChip>{mode}</InspectorModeChip>
       {entry.sbGameId ? (
         <InspectorSourceBadgeSb>
           <SbSourceLogo />
@@ -603,8 +615,9 @@ function Inspector({ entry, computerLabel, alignWithFirstRow, onWatch, onReveal 
             {chips}
             {!map ? <InspectorMapName>{filterColorCodes(entry.mapName)}</InspectorMapName> : null}
             <InspectorSubline>
-              {longTimestamp.format(entry.gameTime)} ·{' '}
-              {getGameDurationString((entry.durationFrames * 1000) / 24)}
+              <NarrowDuration to={entry.gameTime} />
+              <span>·</span>
+              <span>{getGameDurationString((entry.durationFrames * 1000) / 24)}</span>
             </InspectorSubline>
           </InspectorHeader>
           <InspectorSection>
@@ -629,6 +642,7 @@ export function ReplayLibrary() {
 
   const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry>>([])
   const [hasLoaded, setHasLoaded] = useState(false)
+  const [total, setTotal] = useState<number>()
   const [status, setStatus] = useState<ReplayLibraryStatus>()
   const [backfill, setBackfill] = useState<{ done: number; total: number }>()
   const [refreshToken, setRefreshToken] = useState(0)
@@ -645,19 +659,19 @@ export function ReplayLibrary() {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
-  const [sourceParam, setSourceParam] = useLocationSearchParam('source')
+  const [pageParam, setPageParam] = useLocationSearchParam('page')
 
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam)
-  const gameType = parseGameType(gameTypeParam)
-  const source = parseSource(sourceParam)
+  const gameType = parseModeFilter(gameTypeParam)
+  const page = parsePage(pageParam)
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const watchTitle = t('replays.library.watchReplay', 'Watch replay')
 
-  const hasExtraFilters = gameType !== undefined || source !== undefined
+  const hasExtraFilters = gameType !== undefined
   const hasActiveFilters =
     duration !== GameDurationFilter.All ||
     !!mapName ||
@@ -669,11 +683,11 @@ export function ReplayLibrary() {
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
 
-  // Run (and re-run) the library query whenever the filters change or the index signals a change.
+  // Run (and re-run) the library query whenever the filters, sort, or page change, or the index
+  // signals a change.
   useEffect(() => {
     let cancelled = false
-    const filters: ReplayLibraryFilters = { sort }
-    if (source !== undefined) filters.source = source
+    const filters: ReplayLibraryFilters = { sort, offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE }
     if (mapName) filters.mapName = mapName
     if (playerName) filters.playerName = playerName
     if (gameType !== undefined) filters.gameType = gameType
@@ -688,14 +702,33 @@ export function ReplayLibrary() {
       ?.then(result => {
         if (cancelled || !result) return
         setEntries(result.entries)
+        setTotal(result.total)
         setHasLoaded(true)
+
+        if (page > 1 && result.entries.length === 0 && result.total > 0) {
+          const lastPage = Math.max(1, Math.ceil(result.total / PAGE_SIZE))
+          if (page > lastPage) {
+            setPageParam(lastPage === 1 ? '' : String(lastPage))
+          }
+        }
       })
       .catch(swallowNonBuiltins)
 
     return () => {
       cancelled = true
     }
-  }, [source, mapName, playerName, gameType, duration, format, matchup, sort, refreshToken])
+  }, [
+    mapName,
+    playerName,
+    gameType,
+    duration,
+    format,
+    matchup,
+    sort,
+    page,
+    refreshToken,
+    setPageParam,
+  ])
 
   // Fetch the index status (and refresh it whenever the index changes).
   useEffect(() => {
@@ -767,8 +800,13 @@ export function ReplayLibrary() {
     setFormatParam('')
     setMatchupParam('')
     setGameTypeParam('')
-    setSourceParam('')
+    setPageParam('')
     // `sort` is a view option (not a filter), so it's intentionally left untouched.
+  }
+
+  const goToPage = (targetPage: number) => {
+    setPageParam(targetPage <= 1 ? '' : String(targetPage))
+    scrollParent?.scrollTo({ top: 0 })
   }
 
   useKeyListener({
@@ -815,12 +853,14 @@ export function ReplayLibrary() {
   const groupCounts = dayGroups.map(g => g.entries.length)
   const { todayStartMs, yesterdayStartMs } = getDayBoundaries()
 
-  let sourceLabel = t('replays.library.filters.source', 'Source')
-  if (source === 'sb') {
-    sourceLabel = t('replays.library.filters.sourceSb', 'ShieldBattery')
-  } else if (source === 'bnet') {
-    sourceLabel = t('replays.library.filters.sourceBnet', 'Battle.net')
+  let modeLabel = t('replays.library.filters.mode', 'Mode')
+  if (gameType === 'others') {
+    modeLabel = t('replays.library.filters.modeOthers', 'Others')
+  } else if (gameType !== undefined) {
+    modeLabel = replayGameTypeToLabel(gameType, t)
   }
+
+  const totalPages = Math.max(1, Math.ceil((total ?? 0) / PAGE_SIZE))
 
   const renderRow = (index: number) => {
     const entry = entries[index]
@@ -918,12 +958,12 @@ export function ReplayLibrary() {
         {hasActiveFilters
           ? t('replays.library.filteredCount', {
               defaultValue: '{{shown}} of {{total}} replays',
-              shown: entries.length,
+              shown: total ?? entries.length,
               total: status?.totalIndexed ?? entries.length,
             })
           : t('replays.library.replayCount', {
               defaultValue: '{{count}} replays',
-              count: status?.totalIndexed ?? entries.length,
+              count: status?.totalIndexed ?? total ?? entries.length,
             })}
       </CountLine>
     )
@@ -935,59 +975,67 @@ export function ReplayLibrary() {
         <GameFilterBar
           showRankedCustom={false}
           duration={duration}
-          setDuration={v => setDurationParam(v === GameDurationFilter.All ? '' : v)}
+          setDuration={v => {
+            setDurationParam(v === GameDurationFilter.All ? '' : v)
+            setPageParam('')
+          }}
           sort={sort}
-          setSort={v => setSortParam(v === GameSortOption.LatestFirst ? '' : v)}
+          setSort={v => {
+            setSortParam(v === GameSortOption.LatestFirst ? '' : v)
+            setPageParam('')
+          }}
           mapName={mapName}
-          setMapName={setMapNameParam}
+          setMapName={v => {
+            setMapNameParam(v)
+            setPageParam('')
+          }}
           playerName={playerName}
-          setPlayerName={setPlayerNameParam}
+          setPlayerName={v => {
+            setPlayerNameParam(v)
+            setPageParam('')
+          }}
           format={format}
-          setFormat={v => setFormatParam(v ?? '')}
+          setFormat={v => {
+            setFormatParam(v ?? '')
+            setPageParam('')
+          }}
           matchup={matchup}
-          setMatchup={v => setMatchupParam(v ?? '')}
+          setMatchup={v => {
+            setMatchupParam(v ?? '')
+            setPageParam('')
+          }}
           hasExtraFilters={hasExtraFilters}
           onClearExtraFilters={() => {
             setGameTypeParam('')
-            setSourceParam('')
+            setPageParam('')
           }}>
-          <FilterChip
-            label={
-              gameType !== undefined
-                ? replayGameTypeToLabel(gameType, t)
-                : t('replays.library.filters.mode', 'Mode')
-            }
-            selected={gameType !== undefined}>
+          <FilterChip label={modeLabel} selected={gameType !== undefined}>
             <SelectableMenuItem
               text={t('replays.library.filters.modeAny', 'Any mode')}
               selected={gameType === undefined}
-              onClick={() => setGameTypeParam('')}
+              onClick={() => {
+                setGameTypeParam('')
+                setPageParam('')
+              }}
             />
-            {REPLAY_GAME_TYPES.map(gt => (
+            {FEATURED_REPLAY_GAME_TYPES.map(gt => (
               <SelectableMenuItem
                 key={gt}
                 text={replayGameTypeToLabel(gt, t)}
                 selected={gameType === gt}
-                onClick={() => setGameTypeParam(String(gt))}
+                onClick={() => {
+                  setGameTypeParam(String(gt))
+                  setPageParam('')
+                }}
               />
             ))}
-          </FilterChip>
-
-          <FilterChip label={sourceLabel} selected={source !== undefined}>
             <SelectableMenuItem
-              text={t('replays.library.filters.sourceAny', 'Any source')}
-              selected={source === undefined}
-              onClick={() => setSourceParam('')}
-            />
-            <SelectableMenuItem
-              text={t('replays.library.filters.sourceSb', 'ShieldBattery')}
-              selected={source === 'sb'}
-              onClick={() => setSourceParam('sb')}
-            />
-            <SelectableMenuItem
-              text={t('replays.library.filters.sourceBnet', 'Battle.net')}
-              selected={source === 'bnet'}
-              onClick={() => setSourceParam('bnet')}
+              text={t('replays.library.filters.modeOthers', 'Others')}
+              selected={gameType === 'others'}
+              onClick={() => {
+                setGameTypeParam('others')
+                setPageParam('')
+              }}
             />
           </FilterChip>
         </GameFilterBar>
@@ -995,7 +1043,44 @@ export function ReplayLibrary() {
         {countLine}
 
         <BodyRow>
-          <ListColumn>{listContent}</ListColumn>
+          <ListColumn>
+            {listContent}
+            {hasLoaded && totalPages > 1 && (
+              <PagerRow>
+                <IconButton
+                  icon={<MaterialIcon icon='first_page' />}
+                  title={t('replays.library.pager.firstPage', 'First page')}
+                  disabled={page === 1}
+                  onClick={() => goToPage(1)}
+                />
+                <IconButton
+                  icon={<MaterialIcon icon='chevron_left' />}
+                  title={t('replays.library.pager.previousPage', 'Previous page')}
+                  disabled={page === 1}
+                  onClick={() => goToPage(page - 1)}
+                />
+                <PagerLabel>
+                  {t('replays.library.pager.pageOfTotal', {
+                    defaultValue: 'Page {{page}} of {{totalPages}}',
+                    page,
+                    totalPages,
+                  })}
+                </PagerLabel>
+                <IconButton
+                  icon={<MaterialIcon icon='chevron_right' />}
+                  title={t('replays.library.pager.nextPage', 'Next page')}
+                  disabled={page === totalPages}
+                  onClick={() => goToPage(page + 1)}
+                />
+                <IconButton
+                  icon={<MaterialIcon icon='last_page' />}
+                  title={t('replays.library.pager.lastPage', 'Last page')}
+                  disabled={page === totalPages}
+                  onClick={() => goToPage(totalPages)}
+                />
+              </PagerRow>
+            )}
+          </ListColumn>
 
           <Inspector
             entry={focusedEntry}

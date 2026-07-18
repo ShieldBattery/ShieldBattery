@@ -56,14 +56,15 @@ export interface ReplayLibraryEntry {
  * on it". Format/matchup semantics mirror the server's match-history filtering.
  */
 export interface ReplayLibraryFilters {
-  /** `sb` = produced by ShieldBattery (has an SB game id), `bnet` = everything else. */
-  source?: 'sb' | 'bnet'
   /** Case-insensitive substring to match against the map name. */
   mapName?: string
   /** Case-insensitive substring to match against any player's name. */
   playerName?: string
-  /** Raw numeric game type to match exactly. */
-  gameType?: number
+  /**
+   * A raw numeric game type to match exactly, or `'others'` to match any game type outside
+   * `FEATURED_REPLAY_GAME_TYPES`.
+   */
+  gameType?: number | 'others'
   duration?: GameDurationFilter
   /** Team-size shape (e.g. `1v1`). Required for `matchup` to take effect. */
   format?: GameFormat
@@ -71,6 +72,10 @@ export interface ReplayLibraryFilters {
   matchup?: EncodedMatchupString
   /** Result ordering. Defaults to newest-first when omitted. */
   sort?: GameSortOption
+  /** Number of matching entries to skip from the start of the results (for pagination). */
+  offset?: number
+  /** Maximum number of entries to return. When omitted, all matches are returned. */
+  limit?: number
 }
 
 /** High-level status of the replay index, for surfacing indexing progress in the UI. */

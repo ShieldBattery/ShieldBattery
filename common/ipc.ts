@@ -179,8 +179,9 @@ interface IpcInvokeables {
   ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
 
   /**
-   * Returns all indexed replays matching `filters`, ordered per `filters.sort` (newest-first by
-   * default; the UI virtualizes the list).
+   * Returns the page of indexed replays matching `filters` selected by `filters.offset`/
+   * `filters.limit`, ordered per `filters.sort` (newest-first by default), plus `total`, the
+   * number of matches across all pages.
    */
   replayLibraryQuery: (
     filters: ReplayLibraryFilters,

@@ -6,6 +6,7 @@ import {
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 import { RaceChar } from '../../common/races'
+import { FEATURED_REPLAY_GAME_TYPES, SupportedReplayGameType } from '../../common/replays'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
 import {
   buildReplaySqlQuery,
@@ -41,17 +42,24 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     expect(params).toEqual([])
   })
 
-  test('source sb / bnet map to null checks with no params', () => {
-    expect(buildReplaySqlQuery({ source: 'sb' }).sql).toContain('r.sb_game_id IS NOT NULL')
-    expect(buildReplaySqlQuery({ source: 'bnet' }).sql).toContain('r.sb_game_id IS NULL')
-    expect(buildReplaySqlQuery({ source: 'sb' }).params).toEqual([])
-  })
-
   test('map name becomes a case-insensitive substring LIKE check', () => {
     const { sql, params } = buildReplaySqlQuery({ mapName: 'Fighting Spirit', gameType: 2 })
     expect(sql).toContain("r.map_name LIKE ? ESCAPE '\\'")
     expect(sql).toContain('r.game_type = ?')
     expect(params).toEqual(['%Fighting Spirit%', 2])
+  })
+
+  test('gameType "others" becomes a NOT IN check against the featured game types', () => {
+    const { sql, params } = buildReplaySqlQuery({ gameType: 'others' })
+    const placeholders = FEATURED_REPLAY_GAME_TYPES.map(() => '?').join(', ')
+    expect(sql).toContain(`r.game_type NOT IN (${placeholders})`)
+    expect(params).toEqual([...FEATURED_REPLAY_GAME_TYPES])
+  })
+
+  test('numeric gameType matches exactly', () => {
+    const { sql, params } = buildReplaySqlQuery({ gameType: SupportedReplayGameType.Melee })
+    expect(sql).toContain('r.game_type = ?')
+    expect(params).toEqual([SupportedReplayGameType.Melee])
   })
 
   test('map name escapes LIKE wildcard characters in the substring', () => {

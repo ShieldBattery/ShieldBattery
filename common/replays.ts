@@ -21,7 +21,7 @@ export function replayRaceToChar(name: ReplayRace): RaceChar {
 
 // TODO(2Pac): Create this enum as a subset from an enum of all possible game types that `jssuh`
 // should expose, so we don't have to use these magic numbers here.
-enum SupportedReplayGameType {
+export enum SupportedReplayGameType {
   Melee = 2,
   FreeForAll = 3,
   OneVsOne = 4,
@@ -35,6 +35,18 @@ enum SupportedReplayGameType {
   TeamCaptureTheFlag = 13,
   TopVsBottom = 15,
 }
+
+/**
+ * The game types offered as standalone options in the replay Mode filter. Anything else is
+ * grouped under the filter's "Others" option.
+ */
+export const FEATURED_REPLAY_GAME_TYPES: ReadonlyArray<SupportedReplayGameType> = [
+  SupportedReplayGameType.Melee,
+  SupportedReplayGameType.FreeForAll,
+  SupportedReplayGameType.OneVsOne,
+  SupportedReplayGameType.UseMapSettings,
+  SupportedReplayGameType.TopVsBottom,
+]
 
 export function replayGameTypeToLabel(gameType: SupportedReplayGameType, t: TFunction): string {
   switch (gameType) {
