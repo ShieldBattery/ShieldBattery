@@ -164,6 +164,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/archiver": "^8.0.0",
     "@types/bcrypt": "^6.0.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/body-parser": "^1.19.6",
     "@types/connect": "^3.4.38",
     "@types/css-tree": "^2.3.11",
