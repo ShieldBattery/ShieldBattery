@@ -219,6 +219,18 @@ interface IpcInvokeables {
   ) => Promise<Array<{ id: number; name: string }>>
   /** Finds the indexed replay produced by a ShieldBattery game, if one has been indexed. */
   replayLibraryFindByGameId: (gameId: string) => Promise<number | undefined>
+  /**
+   * Saves a downloaded server replay into the watched replay library folder (verifying its hash
+   * first), so the local replay library indexes it. If an identical file is already saved there,
+   * it's left in place rather than duplicated. Resolves to the absolute path of the saved (or
+   * pre-existing) file.
+   */
+  replayLibrarySaveReplay: (
+    gameId: string,
+    filename: string,
+    expectedHash: string,
+    data: ArrayBuffer,
+  ) => Promise<string>
 
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.

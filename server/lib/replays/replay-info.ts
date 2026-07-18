@@ -36,15 +36,14 @@ export async function getReplayInfosForGames({
         .map(async game => {
           const bestReplay = replayByGameId.get(game.id)!
           const mapName = mapNameById.get(game.mapId) ?? 'Unknown Map'
+          const filename = generateReplayFilename(game, mapName)
           try {
             return {
               gameId: game.id,
               id: bestReplay.id,
-              url: await replayService.getReplayDownloadUrl(
-                bestReplay.id,
-                generateReplayFilename(game, mapName),
-              ),
+              url: await replayService.getReplayDownloadUrl(bestReplay.id, filename),
               hash: bestReplay.hash.toString('hex'),
+              filename,
             } satisfies GameReplayInfo
           } catch (err) {
             logger.error({ err }, `Error retrieving replay download URL for game ${game.id}`)

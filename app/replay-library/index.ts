@@ -5,6 +5,7 @@ import createDeferred, { Deferred } from '../../common/async/deferred'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcMain, TypedIpcSender } from '../../common/ipc'
 import log from '../logger'
+import { saveReplayToLibrary } from './replay-save'
 import {
   CallRequest,
   FromWorkerMessage,
@@ -85,6 +86,11 @@ export class ReplayLibraryService {
     )
     ipcMain.handle('replayLibraryFindByGameId', async (_event, gameId) =>
       this.call('findReplayIdByGameId', gameId),
+    )
+    ipcMain.handle(
+      'replayLibrarySaveReplay',
+      async (_event, gameId, filename, expectedHash, data) =>
+        saveReplayToLibrary(this.options.watchedFolder, gameId, filename, expectedHash, data),
     )
 
     this.startWorker()

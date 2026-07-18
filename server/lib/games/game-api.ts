@@ -343,6 +343,7 @@ export class GameApi {
             id: bestReplay.id,
             url: await this.replayService.getReplayDownloadUrl(bestReplay.id, filename),
             hash: bestReplay.hash.toString('hex'),
+            filename,
           }
         }
       } catch (err) {

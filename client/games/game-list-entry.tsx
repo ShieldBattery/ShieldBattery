@@ -17,7 +17,8 @@ import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { watchReplayFromUrl } from '../replays/action-creators'
+import { saveReplayToLibrary, watchReplayFromUrl } from '../replays/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   bodyMedium,
@@ -173,6 +174,7 @@ export const WatchReplayOverlay = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
 
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -246,6 +248,7 @@ export interface GameListEntryProps {
 export function GameListEntry({ game, showResult = false, forUserId }: GameListEntryProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
   const replayInfo = useAppSelector(s => s.games.replayInfoById.get(game.id))
 
@@ -289,6 +292,35 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
                   'There was a problem downloading or loading the replay. Please try again later.',
                 ),
             ),
+          )
+        },
+      }),
+    )
+  }
+
+  const onSaveReplay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // This is needed to prevent the link from being followed
+    e.preventDefault()
+
+    if (!replayInfo) return
+
+    dispatch(
+      saveReplayToLibrary(replayInfo, {
+        onSuccess: result => {
+          snackbarController.showSnackbar(
+            result.alreadySaved
+              ? t(
+                  'gameDetails.saveReplayAlreadySaved',
+                  "This game's replay is already in your library",
+                )
+              : t('gameDetails.saveReplaySuccess', 'Replay saved to your library'),
+          )
+        },
+        onError: err => {
+          logger.error(`Error saving replay: ${getErrorStack(err)}`)
+          snackbarController.showSnackbar(
+            t('gameDetails.saveReplayError', 'There was a problem saving the replay'),
           )
         },
       }),
@@ -343,6 +375,13 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
                     styledAs='div'
                     icon={<MaterialIcon icon='play_circle' />}
                     onClick={onWatchReplay}
+                  />
+                </Tooltip>
+                <Tooltip text={t('gameDetails.buttonSaveReplay', 'Save replay')} position='top'>
+                  <IconButton
+                    styledAs='div'
+                    icon={<MaterialIcon icon='save' />}
+                    onClick={onSaveReplay}
                   />
                 </Tooltip>
               </WatchReplayOverlay>
