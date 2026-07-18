@@ -22,7 +22,7 @@ import { buildReplaySqlQuery } from './replay-queries'
 // too. `build/Release/` is where the Electron-ABI build lands (this install has no prebuilds dir).
 const betterSqlite3Addon = require('better-sqlite3/build/Release/better_sqlite3.node')
 
-const SCHEMA_VERSION = 6
+const SCHEMA_VERSION = 7
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -362,6 +362,13 @@ export class ReplayDb {
           );
           CREATE INDEX idx_playlist_entries_playlist ON playlist_entries (playlist_id, position);
         `)
+      }
+
+      if (version < 7) {
+        // Old replays use 0 (not just NON_EXISTING_USER_ID) for empty/observer slots in the
+        // ShieldBattery section; rows indexed before the parser learned that need the same
+        // treatment so consumers never see a bogus user id.
+        this.db.exec('UPDATE replay_players SET sb_user_id = NULL WHERE sb_user_id = 0')
       }
 
       if (version < SCHEMA_VERSION) {
