@@ -106,9 +106,12 @@ coordinator) / D5 (env-isolated fleets): **software built; staging live; prod no
 
 An external dev reviewed the whole rp2 repo (12 "high" + ~12 "medium" + ~7 "low"). Every finding
 was re-verified against the code by four adversarial agents (facts, not the reviewer's severity);
-no P0. Verdicts + categorization below; full per-finding evidence/fix-shapes in the session's
-agent reports (rp2 file:line anchors). Reviewer was strong — correctly declined to flag intentional
-unordered-transport behavior; several "highs" verified NARROWER than written; four were non-issues.
+no P0. Verdicts + categorization below; **full per-finding detail — precise rp2 file:line anchors,
+failure mechanism, existing mitigations, and exact fix shape, enough to fix each without the
+original review — is in [`netcode-v2-review-triage.md`](netcode-v2-review-triage.md)** (the
+address-before-prod + opportunistic sets in implementable depth; backlog stays at the granularity
+below). Reviewer was strong — correctly declined to flag intentional unordered-transport behavior;
+several "highs" verified NARROWER than written; four were non-issues.
 
 **Address before prod** — player-facing correctness (no attacker needed):
 - **T1+T2 (+R1+R8) — the mesh-dedup seam.** Multi-relay mesh permanently dies past ~4096 turns/slot
