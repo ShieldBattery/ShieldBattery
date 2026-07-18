@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
@@ -6,8 +6,10 @@ import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
 import { ReplayLibraryEntry, ReplayPlaylist } from '../../common/replays-library'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { getGameResultsUrl } from '../games/action-creators'
 import {
   GameSidePanel,
   GameSidePanelActions,
@@ -26,8 +28,11 @@ import { FilledButton, IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
-import { useAppDispatch } from '../redux-hooks'
+import { push } from '../navigation/routing'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyMedium, labelMedium } from '../styles/typography'
+import { getBatchUserInfo } from '../users/action-creators'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { useSbGameMap } from './replay-hooks'
 import {
   getReplayDisplayTeams,
@@ -176,6 +181,30 @@ export function ReplayInspector({
     }
   }, [entryId, changeToken])
 
+  const playerUserIds =
+    entry && !entry.parseError
+      ? entry.players.map(p => p.sbUserId).filter((id): id is SbUserId => id !== undefined)
+      : undefined
+  const playerUserEntries = useAppSelector(
+    useUserEntriesSelector(playerUserIds),
+    areUserEntriesEqual,
+  )
+
+  const dispatchPlayerUserInfo = useEffectEvent(() => {
+    if (!entry || entry.parseError) {
+      return
+    }
+    for (const player of entry.players) {
+      if (player.sbUserId !== undefined) {
+        dispatch(getBatchUserInfo(player.sbUserId))
+      }
+    }
+  })
+
+  useEffect(() => {
+    dispatchPlayerUserInfo()
+  }, [entryId])
+
   if (!entry) {
     return (
       <GameSidePanelEmpty alignWithFirstRow={alignWithFirstRow}>
@@ -185,6 +214,9 @@ export function ReplayInspector({
   }
 
   const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
+  const resolvedNames = new Map<SbUserId, string>(
+    playerUserEntries.filter((e): e is [SbUserId, string] => e[1] !== undefined),
+  )
   const teamLabels =
     layout && shouldShowTeamLabels(layout)
       ? layout.teams.map((_, i) =>
@@ -276,6 +308,16 @@ export function ReplayInspector({
               }}
             />
           ) : null}
+          {entry.sbGameId && !entry.parseError ? (
+            <MenuItem
+              icon={<MaterialIcon icon='open_in_new' />}
+              text={t('replays.library.viewGamePage', 'View game page')}
+              onClick={() => {
+                closeMenu()
+                push(getGameResultsUrl(entry.sbGameId!))
+              }}
+            />
+          ) : null}
           <MenuItem
             icon={<MaterialIcon icon='folder_open' />}
             text={t('replays.library.showInExplorer', 'Show in Explorer')}
@@ -355,7 +397,7 @@ export function ReplayInspector({
           </GameSidePanelHeader>
           <GameSidePanelSection>
             <PlayerTeamsDisplay
-              teams={playersToDisplayTeams(layout!, computerLabel)}
+              teams={playersToDisplayTeams(layout!, computerLabel, resolvedNames)}
               teamLabels={teamLabels}
             />
           </GameSidePanelSection>

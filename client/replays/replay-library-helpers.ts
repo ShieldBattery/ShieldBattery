@@ -1,5 +1,6 @@
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
@@ -114,15 +115,24 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
   return layout.kind === 'teams' && layout.teams.some(t => t.length > 1)
 }
 
+/**
+ * Converts a display layout into `PlayerTeamsDisplay` props. For players whose `sbUserId` resolves
+ * to an entry in `resolvedNames`, shows that (current) name instead of the raw in-replay one;
+ * falls back to the in-replay name while unresolved or for non-SB replays.
+ */
 export function playersToDisplayTeams(
   layout: ReplayTeamLayout,
   computerLabel: string,
+  resolvedNames?: ReadonlyMap<SbUserId, string>,
 ): PlayerTeamsDisplayPlayer[][] {
   return layout.teams.map(team =>
     team.map(player => ({
       race: player.race,
       isRandom: false,
-      name: player.isComputer ? computerLabel : player.name,
+      name: player.isComputer
+        ? computerLabel
+        : ((player.sbUserId !== undefined ? resolvedNames?.get(player.sbUserId) : undefined) ??
+          player.name),
       nameColor: 'normal' as const,
     })),
   )

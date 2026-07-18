@@ -1,12 +1,14 @@
 import { describe, expect, test } from 'vitest'
 import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import {
   encodeView,
   getReplayDisplayTeams,
   groupReplaysByDay,
   isManualPlaylistOrder,
   parseView,
+  playersToDisplayTeams,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
 
@@ -121,6 +123,61 @@ describe('getReplayDisplayTeams', () => {
     expect(layout.kind).toBe('flat')
     expect(layout.teams).toHaveLength(1)
     expect(layout.teams[0]).toHaveLength(1)
+  })
+})
+
+describe('playersToDisplayTeams', () => {
+  const computerLabel = 'Computer'
+
+  test('uses the in-replay name when no resolved names map is given', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel)
+    expect(teams[0][0].name).toBe('raw-name')
+  })
+
+  test("uses the resolved name when the player's sbUserId is present in the map", () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'stale-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const resolvedNames = new Map([[makeSbUserId(1), 'current-name']])
+    const teams = playersToDisplayTeams(layout, computerLabel, resolvedNames)
+    expect(teams[0][0].name).toBe('current-name')
+  })
+
+  test('falls back to the in-replay name when the sbUserId has no entry in the map', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const resolvedNames = new Map([[makeSbUserId(2), 'someone-else']])
+    const teams = playersToDisplayTeams(layout, computerLabel, resolvedNames)
+    expect(teams[0][0].name).toBe('raw-name')
+  })
+
+  test('falls back to the in-replay name for players without an sbUserId', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'bnet-name' }),
+    ])
+    const resolvedNames = new Map([[makeSbUserId(1), 'current-name']])
+    const teams = playersToDisplayTeams(layout, computerLabel, resolvedNames)
+    expect(teams[0][0].name).toBe('bnet-name')
+  })
+
+  test('always shows the computer label for computer players, ignoring resolved names', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({
+        slot: 0,
+        team: 1,
+        race: 't',
+        name: 'Computer',
+        isComputer: true,
+        sbUserId: makeSbUserId(1),
+      }),
+    ])
+    const resolvedNames = new Map([[makeSbUserId(1), 'current-name']])
+    const teams = playersToDisplayTeams(layout, computerLabel, resolvedNames)
+    expect(teams[0][0].name).toBe(computerLabel)
   })
 })
 
