@@ -1239,13 +1239,6 @@
       },
       "moreActions": "More actions",
       "noMatches": "No replays match",
-      "pager": {
-        "firstPage": "First page",
-        "lastPage": "Last page",
-        "nextPage": "Next page",
-        "pageOfTotal": "Page {{page}} of {{totalPages}}",
-        "previousPage": "Previous page"
-      },
       "replayCount_one": "{{count}} replay",
       "replayCount_other": "{{count}} replays",
       "scanning": "Scanning replays… {{done}}/{{total}}",

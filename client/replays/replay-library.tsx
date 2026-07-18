@@ -36,6 +36,7 @@ import { PlayerTeamsDisplay, PlayerTeamsDisplayPlayer } from '../games/player-te
 import { longTimestamp, narrowDuration, NarrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
+import InfiniteScrollList from '../lists/infinite-scroll-list'
 import Logo from '../logos/logo-no-bg.svg'
 import { MapNoImage } from '../maps/map-image'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
@@ -55,7 +56,9 @@ import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
+import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -81,8 +84,8 @@ const ipcRenderer = new TypedIpcRenderer()
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
-/** Number of replay entries shown per page. */
-const PAGE_SIZE = 100
+/** Number of replay entries fetched per infinite-scroll chunk. */
+const LOAD_CHUNK_SIZE = 100
 
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
@@ -112,10 +115,26 @@ function parseModeFilter(value: string): number | 'others' | undefined {
   return (FEATURED_REPLAY_GAME_TYPES as readonly number[]).includes(parsed) ? parsed : undefined
 }
 
-/** Parses the `page` search param: a positive integer, defaulting to 1 (absent/garbage → 1). */
-function parsePage(value: string): number {
-  const parsed = Number.parseInt(value, 10)
-  return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1
+/** Assembles the query filters (everything but paging) from the current filter/sort values. */
+function buildFilters(
+  sort: GameSortOption,
+  mapName: string,
+  playerName: string,
+  gameType: number | 'others' | undefined,
+  duration: GameDurationFilter,
+  format: GameFormat | undefined,
+  matchup: EncodedMatchupString | undefined,
+): ReplayLibraryFilters {
+  const filters: ReplayLibraryFilters = { sort }
+  if (mapName) filters.mapName = mapName
+  if (playerName) filters.playerName = playerName
+  if (gameType !== undefined) filters.gameType = gameType
+  if (duration !== GameDurationFilter.All) filters.duration = duration
+  if (format !== undefined) {
+    filters.format = format
+    if (matchup) filters.matchup = matchup
+  }
+  return filters
 }
 
 // ---- Layout ----------------------------------------------------------------------------------
@@ -143,20 +162,6 @@ const CountLine = styled.div`
   ${labelMedium};
   align-self: flex-end;
   padding: 0 6px;
-  color: var(--theme-on-surface-variant);
-`
-
-const PagerRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px 0;
-`
-
-const PagerLabel = styled.div`
-  ${bodyMedium};
-  padding: 0 8px;
   color: var(--theme-on-surface-variant);
 `
 
@@ -640,17 +645,21 @@ export function ReplayLibrary() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry>>([])
-  const [hasLoaded, setHasLoaded] = useState(false)
+  const [entries, setEntries] = useState<ReadonlyArray<ReplayLibraryEntry>>()
   const [total, setTotal] = useState<number>()
+  const [isLoadingNext, setIsLoadingNext] = useState(false)
   const [status, setStatus] = useState<ReplayLibraryStatus>()
   const [backfill, setBackfill] = useState<{ done: number; total: number }>()
-  const [refreshToken, setRefreshToken] = useState(0)
+  const [observerToken, restartObserver] = useRefreshToken()
 
   const [focusedId, setFocusedId] = useState<number>()
   const [scrollParent, setScrollParent] = useState<HTMLElement | null>(null)
   const groupedRef = useRef<GroupedVirtuosoHandle>(null)
   const flatRef = useRef<VirtuosoHandle>(null)
+
+  // Guards against IPC responses for a query that's since been superseded by a `reset()` (e.g. the
+  // user changed filters while a request was in flight).
+  const queryEpochRef = useRef(0)
 
   const [durationParam, setDurationParam] = useLocationSearchParam('duration')
   const [sortParam, setSortParam] = useLocationSearchParam('sort')
@@ -659,14 +668,12 @@ export function ReplayLibrary() {
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
-  const [pageParam, setPageParam] = useLocationSearchParam('page')
 
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam)
   const gameType = parseModeFilter(gameTypeParam)
-  const page = parsePage(pageParam)
 
   const computerLabel = t('game.playerName.computer', 'Computer')
   const watchTitle = t('replays.library.watchReplay', 'Watch replay')
@@ -683,74 +690,48 @@ export function ReplayLibrary() {
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
 
-  // Run (and re-run) the library query whenever the filters, sort, or page change, or the index
-  // signals a change.
-  useEffect(() => {
-    let cancelled = false
-    const filters: ReplayLibraryFilters = { sort, offset: (page - 1) * PAGE_SIZE, limit: PAGE_SIZE }
-    if (mapName) filters.mapName = mapName
-    if (playerName) filters.playerName = playerName
-    if (gameType !== undefined) filters.gameType = gameType
-    if (duration !== GameDurationFilter.All) filters.duration = duration
-    if (format !== undefined) {
-      filters.format = format
-      if (matchup) filters.matchup = matchup
-    }
-
-    ipcRenderer
-      .invoke('replayLibraryQuery', filters)
-      ?.then(result => {
-        if (cancelled || !result) return
-        setEntries(result.entries)
-        setTotal(result.total)
-        setHasLoaded(true)
-
-        if (page > 1 && result.entries.length === 0 && result.total > 0) {
-          const lastPage = Math.max(1, Math.ceil(result.total / PAGE_SIZE))
-          if (page > lastPage) {
-            setPageParam(lastPage === 1 ? '' : String(lastPage))
-          }
-        }
-      })
-      .catch(swallowNonBuiltins)
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    mapName,
-    playerName,
-    gameType,
-    duration,
-    format,
-    matchup,
-    sort,
-    page,
-    refreshToken,
-    setPageParam,
-  ])
-
-  // Fetch the index status (and refresh it whenever the index changes).
-  useEffect(() => {
-    let cancelled = false
+  // Fetches the index status. Called once on mount and again (debounced) on every index change.
+  const fetchStatus = useStableCallback(() => {
     ipcRenderer
       .invoke('replayLibraryStatus')
       ?.then(result => {
-        if (!cancelled && result) {
+        if (result) {
           setStatus(result)
           setBackfill(result.backfill)
         }
       })
       .catch(swallowNonBuiltins)
+  })
 
-    return () => {
-      cancelled = true
-    }
-  }, [refreshToken])
+  // Re-queries just the currently-loaded window of entries (offset 0, enough to cover what's
+  // already been loaded) and replaces it wholesale. Used to pick up backfill progress and
+  // added/removed files without collapsing the user's scroll position.
+  const refreshLoadedWindow = useStableCallback(() => {
+    const epoch = queryEpochRef.current
+    const limit = Math.max(LOAD_CHUNK_SIZE, entries?.length ?? 0)
+
+    ipcRenderer
+      .invoke('replayLibraryQuery', {
+        ...buildFilters(sort, mapName, playerName, gameType, duration, format, matchup),
+        offset: 0,
+        limit,
+      })
+      ?.then(result => {
+        if (epoch !== queryEpochRef.current || !result) return
+        setEntries(result.entries)
+        setTotal(result.total)
+      })
+      .catch(swallowNonBuiltins)
+  })
 
   // Listen for index change + backfill events only while mounted.
   useEffect(() => {
-    const handleChanged = debounce(() => setRefreshToken(token => token + 1), 300)
+    fetchStatus()
+
+    const handleChanged = debounce(() => {
+      refreshLoadedWindow()
+      fetchStatus()
+    }, 300)
     const handleProgress = (_event: unknown, progress: { done: number; total: number }) => {
       setBackfill(progress)
     }
@@ -764,10 +745,11 @@ export function ReplayLibrary() {
       ipcRenderer.removeAllListeners('replayLibraryChanged')
       ipcRenderer.removeAllListeners('replayLibraryBackfillProgress')
     }
-  }, [])
+  }, [fetchStatus, refreshLoadedWindow])
 
-  const focusedEntry = entries.find(e => e.id === focusedId) ?? entries[0]
-  const focusedIndex = focusedEntry ? entries.findIndex(e => e.id === focusedEntry.id) : -1
+  const loadedEntries = entries ?? []
+  const focusedEntry = loadedEntries.find(e => e.id === focusedId) ?? loadedEntries[0]
+  const focusedIndex = focusedEntry ? loadedEntries.findIndex(e => e.id === focusedEntry.id) : -1
 
   const watchEntry = (entry: ReplayLibraryEntry) => {
     dispatch(startReplay({ path: entry.path, name: entry.fileName }))
@@ -782,16 +764,54 @@ export function ReplayLibrary() {
     flatRef.current?.scrollIntoView({ index })
   }
   const focusIndex = (index: number) => {
-    if (index < 0 || index >= entries.length) return
-    setFocusedId(entries[index].id)
+    if (index < 0 || index >= loadedEntries.length) return
+    setFocusedId(loadedEntries[index].id)
     scrollToIndex(index)
   }
   const moveFocus = (delta: number) => {
-    if (entries.length === 0) return
+    if (loadedEntries.length === 0) return
     const base = focusedIndex < 0 ? 0 : focusedIndex
-    const next = Math.min(Math.max(base + delta, 0), entries.length - 1)
+    const next = Math.min(Math.max(base + delta, 0), loadedEntries.length - 1)
     focusIndex(next)
   }
+
+  const reset = () => {
+    queryEpochRef.current += 1
+    setEntries(undefined)
+    setTotal(undefined)
+    setIsLoadingNext(false)
+    restartObserver()
+  }
+
+  const onLoadNextData = () => {
+    setIsLoadingNext(true)
+    const epoch = queryEpochRef.current
+
+    ipcRenderer
+      .invoke('replayLibraryQuery', {
+        ...buildFilters(sort, mapName, playerName, gameType, duration, format, matchup),
+        offset: entries?.length ?? 0,
+        limit: LOAD_CHUNK_SIZE,
+      })
+      ?.then(result => {
+        if (epoch !== queryEpochRef.current || !result) return
+        // The index can change between fetches (files added/removed), so the same offset can
+        // re-serve entries we've already loaded; dedupe on append to avoid duplicate React keys.
+        setEntries(prev => {
+          const existingIds = new Set((prev ?? []).map(e => e.id))
+          return (prev ?? []).concat(result.entries.filter(e => !existingIds.has(e.id)))
+        })
+        setTotal(result.total)
+      })
+      .catch(swallowNonBuiltins)
+      .finally(() => {
+        if (epoch === queryEpochRef.current) {
+          setIsLoadingNext(false)
+        }
+      })
+  }
+
+  const hasNextData = entries === undefined || (total !== undefined && entries.length < total)
 
   const clearAllFilters = () => {
     setDurationParam('')
@@ -800,13 +820,8 @@ export function ReplayLibrary() {
     setFormatParam('')
     setMatchupParam('')
     setGameTypeParam('')
-    setPageParam('')
+    reset()
     // `sort` is a view option (not a filter), so it's intentionally left untouched.
-  }
-
-  const goToPage = (targetPage: number) => {
-    setPageParam(targetPage <= 1 ? '' : String(targetPage))
-    scrollParent?.scrollTo({ top: 0 })
   }
 
   useKeyListener({
@@ -828,7 +843,7 @@ export function ReplayLibrary() {
           focusIndex(0)
           return true
         case 'End':
-          focusIndex(entries.length - 1)
+          focusIndex(loadedEntries.length - 1)
           return true
         case ENTER:
         case ENTER_NUMPAD: {
@@ -849,7 +864,7 @@ export function ReplayLibrary() {
     },
   })
 
-  const dayGroups = groupReplaysByDay(entries)
+  const dayGroups = groupReplaysByDay(loadedEntries)
   const groupCounts = dayGroups.map(g => g.entries.length)
   const { todayStartMs, yesterdayStartMs } = getDayBoundaries()
 
@@ -860,10 +875,8 @@ export function ReplayLibrary() {
     modeLabel = replayGameTypeToLabel(gameType, t)
   }
 
-  const totalPages = Math.max(1, Math.ceil((total ?? 0) / PAGE_SIZE))
-
   const renderRow = (index: number) => {
-    const entry = entries[index]
+    const entry = loadedEntries[index]
     if (!entry) return null
     return (
       <ReplayListEntry
@@ -878,7 +891,7 @@ export function ReplayLibrary() {
   }
 
   let listContent: React.ReactNode = null
-  if (!hasLoaded) {
+  if (entries === undefined) {
     listContent = <LoadingDotsArea />
   } else if (entries.length === 0) {
     if (hasActiveFilters) {
@@ -915,7 +928,7 @@ export function ReplayLibrary() {
         key='flat'
         ref={flatRef}
         customScrollParent={scrollParent}
-        totalCount={entries.length}
+        totalCount={loadedEntries.length}
         itemContent={renderRow}
       />
     ) : (
@@ -952,18 +965,18 @@ export function ReplayLibrary() {
         })}
       </CountLine>
     )
-  } else if (hasLoaded) {
+  } else if (entries !== undefined) {
     countLine = (
       <CountLine>
         {hasActiveFilters
           ? t('replays.library.filteredCount', {
               defaultValue: '{{shown}} of {{total}} replays',
-              shown: total ?? entries.length,
-              total: status?.totalIndexed ?? entries.length,
+              shown: total ?? loadedEntries.length,
+              total: status?.totalIndexed ?? loadedEntries.length,
             })
           : t('replays.library.replayCount', {
               defaultValue: '{{count}} replays',
-              count: status?.totalIndexed ?? total ?? entries.length,
+              count: status?.totalIndexed ?? total ?? loadedEntries.length,
             })}
       </CountLine>
     )
@@ -977,37 +990,37 @@ export function ReplayLibrary() {
           duration={duration}
           setDuration={v => {
             setDurationParam(v === GameDurationFilter.All ? '' : v)
-            setPageParam('')
+            reset()
           }}
           sort={sort}
           setSort={v => {
             setSortParam(v === GameSortOption.LatestFirst ? '' : v)
-            setPageParam('')
+            reset()
           }}
           mapName={mapName}
           setMapName={v => {
             setMapNameParam(v)
-            setPageParam('')
+            reset()
           }}
           playerName={playerName}
           setPlayerName={v => {
             setPlayerNameParam(v)
-            setPageParam('')
+            reset()
           }}
           format={format}
           setFormat={v => {
             setFormatParam(v ?? '')
-            setPageParam('')
+            reset()
           }}
           matchup={matchup}
           setMatchup={v => {
             setMatchupParam(v ?? '')
-            setPageParam('')
+            reset()
           }}
           hasExtraFilters={hasExtraFilters}
           onClearExtraFilters={() => {
             setGameTypeParam('')
-            setPageParam('')
+            reset()
           }}>
           <FilterChip label={modeLabel} selected={gameType !== undefined}>
             <SelectableMenuItem
@@ -1015,7 +1028,7 @@ export function ReplayLibrary() {
               selected={gameType === undefined}
               onClick={() => {
                 setGameTypeParam('')
-                setPageParam('')
+                reset()
               }}
             />
             {FEATURED_REPLAY_GAME_TYPES.map(gt => (
@@ -1025,7 +1038,7 @@ export function ReplayLibrary() {
                 selected={gameType === gt}
                 onClick={() => {
                   setGameTypeParam(String(gt))
-                  setPageParam('')
+                  reset()
                 }}
               />
             ))}
@@ -1034,7 +1047,7 @@ export function ReplayLibrary() {
               selected={gameType === 'others'}
               onClick={() => {
                 setGameTypeParam('others')
-                setPageParam('')
+                reset()
               }}
             />
           </FilterChip>
@@ -1044,42 +1057,14 @@ export function ReplayLibrary() {
 
         <BodyRow>
           <ListColumn>
-            {listContent}
-            {hasLoaded && totalPages > 1 && (
-              <PagerRow>
-                <IconButton
-                  icon={<MaterialIcon icon='first_page' />}
-                  title={t('replays.library.pager.firstPage', 'First page')}
-                  disabled={page === 1}
-                  onClick={() => goToPage(1)}
-                />
-                <IconButton
-                  icon={<MaterialIcon icon='chevron_left' />}
-                  title={t('replays.library.pager.previousPage', 'Previous page')}
-                  disabled={page === 1}
-                  onClick={() => goToPage(page - 1)}
-                />
-                <PagerLabel>
-                  {t('replays.library.pager.pageOfTotal', {
-                    defaultValue: 'Page {{page}} of {{totalPages}}',
-                    page,
-                    totalPages,
-                  })}
-                </PagerLabel>
-                <IconButton
-                  icon={<MaterialIcon icon='chevron_right' />}
-                  title={t('replays.library.pager.nextPage', 'Next page')}
-                  disabled={page === totalPages}
-                  onClick={() => goToPage(page + 1)}
-                />
-                <IconButton
-                  icon={<MaterialIcon icon='last_page' />}
-                  title={t('replays.library.pager.lastPage', 'Last page')}
-                  disabled={page === totalPages}
-                  onClick={() => goToPage(totalPages)}
-                />
-              </PagerRow>
-            )}
+            <InfiniteScrollList
+              nextLoadingEnabled={true}
+              isLoadingNext={isLoadingNext}
+              hasNextData={hasNextData}
+              refreshToken={observerToken}
+              onLoadNextData={onLoadNextData}>
+              {listContent}
+            </InfiniteScrollList>
           </ListColumn>
 
           <Inspector
