@@ -1,5 +1,10 @@
 # Netcode v2 — external review triage detail (rp2 `f517e80`, 2026-07-17)
 
+> **STATUS 2026-07-18: address-before-prod + opportunistic sets are all IMPLEMENTED** — ten
+> commits on rp2 local main (`f517e80..9781527`), unpushed; see build plan §2's triage status
+> note for the land/verify checklist. The per-finding detail below is now the *rationale record*
+> for those commits (anchors describe the pre-fix code at `f517e80`).
+
 Per-finding implementation detail for the external rp2 review, verified against code by four
 adversarial agents. Companion to `netcode-v2-build-plan.md` §2 (which holds the categorization +
 one-line verdicts); this file holds enough to fix each actionable finding WITHOUT the original

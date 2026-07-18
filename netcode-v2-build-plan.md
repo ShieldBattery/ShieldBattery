@@ -1,4 +1,4 @@
-# ShieldBattery Netcode v2 — Build Plan (rev 8)
+# ShieldBattery Netcode v2 — Build Plan (rev 9)
 
 > **Purpose.** The plan for what remains on the road to production launch, plus the
 > hardening/polish backlog. The build arc is DONE: v2 IS the netcode, the staging cloud substrate
@@ -13,19 +13,23 @@
 > **Rev history:** rev 2 (2026-06-23) six-lens adversarial review; rev 3 (2026-06-24) shared
 > `transport` crate + D12; rev 4 (2026-06-28) per-slot origin seq model; rev 5 (2026-07-10)
 > post-landing synthesis; rev 6 (2026-07-11) re-synthesis after the review passes closed; rev 7
-> (2026-07-15) launch-path regrouping after the staging standup; **rev 8 (2026-07-17)** —
-> re-synthesis after launch-path items 1–5 closed; only prod standup, rollout, and the load test
-> remain.
+> (2026-07-15) launch-path regrouping after the staging standup; rev 8 (2026-07-17) re-synthesis
+> after launch-path items 1–5 closed; **rev 9 (2026-07-18)** — external-review fix arc landed (all
+> actionable findings implemented, rp2 pushed, SB pin bumped to `9781527`), §2's per-finding lists
+> collapsed to the triage doc + commits; the launch path (prod standup, rollout, load test) is
+> unchanged.
 
 ---
 
-## 0. Where it stands (2026-07-17)
+## 0. Where it stands (2026-07-18)
 
 **The arc lives on the SB `rp2-integration` branch — not yet on master (an accidental early merge
 there was rolled back; Travis lands master himself); v2 IS the netcode** (v1 rally-point path,
 Storm UDP, and ClientReady/startWhenReady deleted; no native-transport fallback by design).
 Live-proven across the full acceptance matrix on loopback AND on the staging cloud substrate;
-three adversarial review passes fully closed (rev-2, Codex 6b, Codex 6c).
+four adversarial review passes fully closed (rev-2, Codex 6b, Codex 6c, and the 2026-07-18
+external review — its fixes landed, see §2). The mesh-dedup fixes still owe a **multi-relay
+live-verify** (they only reproduce cross-relay).
 
 **Staging runs in the cloud and scales itself.** The staging coordinator
 (https://staging-rp2-coordinator.shieldbattery.net, DO box, in-process ACME TLS, direct-exposed by
@@ -43,9 +47,15 @@ stacks derive from it); (2) coordinator box `config/tenants.json` + `.env` — t
 tenant exists (keygen.mjs one-shot mint; relays get verifying keys pushed at enroll); (3) SB app
 server `.env` — the tenant's own credential + coordinator URL.
 
-**Current pins:** SB `rally-point-client` at rp2 `f517e80` (= main tip 2026-07-17: Prometheus
-metrics listener + prod region catalog); ALPN `rp2/5` / `rp2-mesh/5`. Coordinator image channel
-`:stable` (manual promote workflow), relay `:latest` on staging / `:stable` on prod.
+**Current pins:** SB `rally-point-client` at rp2 `9781527` (= main tip 2026-07-18: the
+external-review fix arc; DLL rebuilt via `game\build.bat`, 142 game tests + clippy green, lock
+churn rev-only) — so new game **clients** carry the client-side transport at `9781527`. ALPN
+`rp2/5` / `rp2-mesh/5`. **The relay + coordinator fixes are NOT live on the fleet yet**: the
+relay-side arc (mesh dedup, R5/R6, R2/R3/R4/R7/R9) rides the relay image, and the C-series rides
+the coordinator image, so both reach staging/prod only once `9781527` images are published and
+deployed — relays pick up a new `:latest` on their next provision, the coordinator wants a
+`:stable` re-promote + box restart. Channels: coordinator `:stable` (manual promote), relay
+`:latest` staging / `:stable` prod.
 
 **Standing rules** (violating these has bitten before): consume rp2's re-exported
 quinn/rustls/proto (never direct deps); any rp2 change = push rp2 main → bump the SB `rev` pin →
@@ -102,82 +112,50 @@ coordinator) / D5 (env-isolated fleets): **software built; staging live; prod no
    datapoints keep accumulating free in the ledger (nine so far, 14–22s); recalibrate the 75s
    provisioning hold cap when there's a real distribution.
 
-### External review triage (2026-07-17, rp2 `f517e80`)
+### External review triage (2026-07-17 → fixed 2026-07-18)
 
 An external dev reviewed the whole rp2 repo (12 "high" + ~12 "medium" + ~7 "low"). Every finding
 was re-verified against the code by four adversarial agents (facts, not the reviewer's severity);
-no P0. Verdicts + categorization below; **full per-finding detail — precise rp2 file:line anchors,
-failure mechanism, existing mitigations, and exact fix shape, enough to fix each without the
-original review — is in [`netcode-v2-review-triage.md`](netcode-v2-review-triage.md)** (the
-address-before-prod + opportunistic sets in implementable depth; backlog stays at the granularity
-below). Reviewer was strong — correctly declined to flag intentional unordered-transport behavior;
-several "highs" verified NARROWER than written; four were non-issues.
+no P0. The reviewer was strong — correctly declined to flag the intentional unordered-transport
+behavior; several "highs" verified NARROWER than written, and four were non-issues.
 
-**Address before prod** — player-facing correctness (no attacker needed):
-- **T1+T2 (+R1+R8) — the mesh-dedup seam.** Multi-relay mesh permanently dies past ~4096 turns/slot
-  (redial re-opens a base-0 receive window; any seq ≥4096 rejected forever), and an oversize mesh
-  turn triggers it early (delivered over the control stream, never recorded in the datagram dedup —
-  the client `Link` has `deliver_external`/`anchor` for exactly this; `MeshLink` has neither). R1/R8
-  share the root: `observe_turn_frame` runs BEFORE `mark_seen` dedup (unlike the desync comparator,
-  deliberately after), so reflooded duplicates corrupt the leave-decision frame history (a
-  frame-inflating cheater can strand survivors) and mis-stamp the hop-budget origin. ONE coherent
-  fix: give `MeshLink` an anchor + `deliver_external` (or forward-collapse), and move
-  `observe_turn_frame` into `deliver_turn_to_locals`. CONFIRMED. M+S.
-- **R2** — a client that blips while another player's leave is decided hangs forever on reconnect;
-  decided leaves are replayed to new mesh links but never to reconnecting clients. CONFIRMED. S/M.
-- **C4** — draining relays count toward warm capacity but can't take placement → replacement doesn't
-  launch until the old relay disconnects. CONFIRMED. S (one-line: count `!draining`).
-- **C8** — every Fargate relay task leaves a permanent coordinator outbox shell; session cleanup
-  scans all of them. Grows continuously under scale-to-zero. CONFIRMED. M.
+**Every actionable finding is fixed and landed.** The entire *address-before-prod* set (the
+T1/T2/R1/R8 mesh-dedup seam, R2 reconnect leave-replay, C1/C2/C4/C6/C7/C8/C10, R5/R6, I1/I2) and
+the entire *opportunistic* set (R3/R4/R7/R9, I4/I5/I6) landed as ten commits on rp2 main
+`f517e80..9781527` — one per finding-cluster, all rp2 gates green (fmt, clippy `-D warnings`,
+`test --workspace` 22 suites, rustdoc). Pushed, SB pin bumped to `9781527` (see §0). Per-finding
+anchors, mechanism, and exact fix shape are in
+[`netcode-v2-review-triage.md`](netcode-v2-review-triage.md) (now a rationale record); the fixes
+are in the commit messages. Two things still owed:
+- **Multi-relay live-verify** of the mesh fixes (T1/T2/R1/R2/R8) — they only reproduce cross-relay,
+  so single-relay staging won't exercise them; use the loopback cross-relay recipe or a
+  region-split staging game. Do this before relying on the mesh fixes in prod.
+- **Terraform CI gate (I6)** is unproven until its first run (no terraform on the dev box); if the
+  stacks aren't fmt-clean the first CI run fails loud rather than silently.
+- **Coordinator image re-promote** — the C-series fixes reach staging/prod only on the next
+  `:stable` promote of a `9781527` image (§0 pin note).
 
-**Address before prod** — cheap admission/resource bounds the direct-exposure rule calls for
-(reachable by a *compromised enrolled relay* — high bar, but the coordinator is a single
-direct-exposed box):
-- **C2** — flight-upload takes ownership of the ≤4 MiB payload before acquiring an upload permit →
-  misbehaving relay + slow S3 OOMs the box. CONFIRMED. S/M (acquire before spawn).
-- **C1** — heartbeat presence isn't ownership-validated (sibling Departure/Desync/Result frames
-  are); a relay can forge a victim's presence. NARROWER than stated (presence only, NOT results;
-  35s-TTL self-heal). CONFIRMED. M (add the existing `relay_serves_session` check).
-- **C6** — control-WebSocket keeps 64 MiB library message default; no pre-Hello socket cap; heartbeat
-  vectors uncapped (RTT *store* is already bounded — that sub-claim PARTLY). CONFIRMED. M.
-- **R5** — mesh accept spawns a task holding a live connection before the handshake permit;
-  pre-auth reachable on a public relay. CONFIRMED. S/M (permit before spawn).
-- **R6** — one peer stalling a control stream (connection still alive) freezes every session on that
-  relay-pair link, unbounded memory. CONFIRMED. M (bounded writer + timeout→reset).
+The T1 fix went anchor-AND-forward-collapse rather than the anchor-only shape the triage sketched:
+the collapse also covers a *fresh* relay joining a mid-game session (empty forward gate — e.g. a
+rehome target past ~4096 turns), which an anchor alone can't.
 
-**Address before prod** — prod-standup footguns + CI (natural to do while standing up prod):
-- **I1** — `promote-coordinator.yml` interpolates the SHA input into a `packages:write` shell job
-  (injection); the sibling `promote-relay.yml` ALREADY does it safely — copy the env-var+quote+regex
-  pattern. CONFIRMED. S.
-- **I2** — relay promotion retags region-by-region with no all-or-nothing preflight, no `concurrency`
-  group → half-promoted fleet. CONFIRMED. M.
-- **C10** — flight-store misconfig detected only on first use (exactly the staging sample-bucket
-  incident); add a bounded startup probe. CONFIRMED. S.
-- **C7** — ECS config lacks `deny_unknown_fields` (typo'd security-group silently defaults) and a
-  zero provision-interval panics the provisioning loop while the API stays healthy. Tenant-config
-  half was ALREADY safe (PARTLY). CONFIRMED (the two real parts). S.
-
-**Opportunistic** (real, cheap, narrow — pre-prod if time, else fast-follow): R3 (teardown race —
-narrowed: maker survives; non-started sessions only), R4 (presence-stream-only death → stale
-authority; treat reader death as link failure), R7 (relay/client equal-seq directive tiebreak
-disagree — bounded QoS blip), R9 (consensus counter overflow — release wraps, but debug/tests
-panic), I4-cert_der (one wrong doc line), I5-slice (`.dockerignore` + `--locked` on the Dockerfiles),
-I6-terraform (a `fmt`/`validate` CI gate).
-
-**Backlog**: C3 (per-tenant session quota — gated on UNTRUSTED multi-tenancy; a global emergency
-ceiling is a cheap subset worth pulling forward), C9 (webhook per-tenant fairness — same gating),
-C5 (concurrent uploads defeat desync pinning — one blob, narrow), T3-main (richer sparse reconnect
-state — real design work; the "hang" is really a delayed self-healing window-close), C11/C12
-(trivial, honest caller never triggers), MSRV CI leg, and the reviewer's structural takeaway (a
-mesh-session transport adapter + session-lifecycle owner — the "right" long shape; the A-batch
-point-fixes cover the concrete instances).
-
-**No action**: T4 (path-MTU race — common outcome is by-design recovery, lossy outcome unreachable
-at real turn sizes), I3 (dev-beacon — dev-only, in no shipped image), I4 mesh-auth/region-count half
-(unsubstantiated — doc matches code), C7 tenant-entry half (already `deny_unknown_fields`).
+**Deliberately no action** (recorded so a future review doesn't re-chase): T4 (path-MTU race —
+common outcome is by-design recovery, lossy outcome unreachable at real turn sizes), I3
+(dev-beacon — dev-only, in no shipped image), the I4 mesh-auth/region-count half (unsubstantiated,
+doc matches code), the C7 tenant-entry half (already `deny_unknown_fields`). The deferred review
+*backlog* (C3/C5/C9/C11/C12, T3-main, MSRV, the structural takeaway) is in the hardening
+follow-ups below.
 
 ### Hardening follow-ups (filed, non-blocking)
 
+- **External-review backlog** (deferred at the 2026-07-18 triage — real but not launch-blocking):
+  C3 (per-tenant session quota — gated on UNTRUSTED multi-tenancy; a global emergency ceiling is a
+  cheap subset worth pulling forward), C9 (webhook per-tenant fairness — same gating), C5
+  (concurrent uploads defeat desync pinning — one blob, narrow), T3-main (richer sparse reconnect
+  state — real design work; the "hang" is really a delayed self-healing window-close), C11/C12
+  (trivial, honest caller never triggers), the MSRV CI leg, and the reviewer's structural takeaway
+  (a mesh-session transport adapter + session-lifecycle owner — the "right" long shape; the
+  point-fixes just landed cover the concrete instances).
 - **Mesh/relay follow-ups from the review passes**: driver-layer tenant scoping (the `joined`
   map + mesh control/report/ack frames carry a bare session id; a colliding session id across
   tenants is *refused*, never cross-wired — serving both needs a broad wire change);
@@ -283,7 +261,9 @@ Recorded so future reviews/sessions don't re-litigate (reasoning in rp2 commit m
 
 ---
 
-*rev 8 synthesized 2026-07-17 after launch-path items 1–5 closed: statuses verified against rp2
-`f517e80` / SB `rp2-integration` `3c22ade35` and the live staging fleet. The items' closure
-records (what shipped, verification evidence, commits) live in rev 7's text in git history and in
-the rp2/SB commit messages.*
+*rev 9 synthesized 2026-07-18 after the external-review fix arc landed: rev 8's §2 per-finding
+lists (address-before-prod + opportunistic) collapsed to a pointer now that all are implemented and
+pushed (rp2 `f517e80..9781527`, SB pin bumped) — per-finding detail lives in
+`netcode-v2-review-triage.md` and the ten commit messages. The launch path (prod standup, rollout +
+the undefined rollback gate, load/cost test) is unchanged from rev 8. Prior revs' full text in git
+history.*
