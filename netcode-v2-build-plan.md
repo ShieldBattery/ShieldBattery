@@ -118,6 +118,20 @@ coordinator) / D5 (env-isolated fleets): **software built; staging live; prod no
    provisioning, egress cost (the one usage-scaling AWS line item; idle fleet ≈ $0). Cold-start
    datapoints keep accumulating free in the ledger (nine so far, 14–22s); recalibrate the 75s
    provisioning hold cap when there's a real distribution.
+   **Tooling built + loopback-proven (2026-07-18 overnight):** `rally-point-loadgen` (rp2
+   `loadgen/`, README carries the design + playbook) drives real sessions — signed creates, real
+   tokens, QUIC dials, validator-clean turn streams with well-formed 0x37 syncs — with no game
+   clients. Loopback release-build results: 400 concurrent 2p sessions (1.15M turns) and 50×8p
+   (~67k datagram deliveries/s, 3.0M turns) both flawless — zero stalls, zero errored endings,
+   fan-out p99 1.4–1.5 ms, relay peak ~2.9 cores / 281 MB at the heaviest tier; cross-relay mesh
+   adds ~85 µs on loopback; desync knob trips the relay comparator at the chosen ordinal.
+   ProcessProvisioner pass: spawn → enroll (~10 ms local) → placement verified 20/20
+   (coverage-bootstrap holds one relay per region until the backbone pair measures, so local
+   scale-to-zero wasn't observed in-window — drain is unit-tested + staging-proven). Two fixes
+   fell out: loadgen's 202 `retryAfterMs` parse, and a runbook note that the process provisioner
+   needs the coordinator on an explicit v4 listen on Windows. **Remaining = the cloud runs
+   (playbook steps 1–6 in the README), gated on Travis** — staging fleet redeploy first (still on
+   `/5`-era images).
 
 ### External review triage (2026-07-17 → fixed 2026-07-18)
 
@@ -155,14 +169,16 @@ follow-ups below.
 
 ### Hardening follow-ups (filed, non-blocking)
 
-- **External-review backlog** (deferred at the 2026-07-18 triage — real but not launch-blocking):
-  C3 (per-tenant session quota — gated on UNTRUSTED multi-tenancy; a global emergency ceiling is a
-  cheap subset worth pulling forward), C9 (webhook per-tenant fairness — same gating), C5
+- **External-review backlog** (deferred at the 2026-07-18 triage — real but not launch-blocking).
+  **Landed 2026-07-18 late (rp2 `8df253b`/`ef8ab07`, SB pin `c1d8da35c`):** the C3 global
+  emergency ceiling subset (`--max-sessions`, 503 at the cap, idempotent replays exempt), C11
+  (fingerprint carries `latency_estimate_ms`), C12 (flight-store S3 read capped at the write-side
+  4 MiB), and the MSRV CI leg (pinned 1.88 cargo-check job). **Still open:** C3-full (per-tenant
+  quota — gated on UNTRUSTED multi-tenancy), C9 (webhook per-tenant fairness — same gating), C5
   (concurrent uploads defeat desync pinning — one blob, narrow), T3-main (richer sparse reconnect
-  state — real design work; the "hang" is really a delayed self-healing window-close), C11/C12
-  (trivial, honest caller never triggers), the MSRV CI leg, and the reviewer's structural takeaway
-  (a mesh-session transport adapter + session-lifecycle owner — the "right" long shape; the
-  point-fixes just landed cover the concrete instances).
+  state — real design work; the "hang" is really a delayed self-healing window-close), and the
+  reviewer's structural takeaway (a mesh-session transport adapter + session-lifecycle owner —
+  the "right" long shape; the point-fixes cover the concrete instances).
 - **Mesh/relay follow-ups from the review passes**: driver-layer tenant scoping (the `joined`
   map + mesh control/report/ack frames carry a bare session id; a colliding session id across
   tenants is *refused*, never cross-wired — serving both needs a broad wire change);
@@ -171,13 +187,28 @@ follow-ups below.
   per-session peer allowlist on top of mesh auth remains a Travis call.
 - `UnackedWindowExhausted` stays terminal by design; genuine recovery needs trend-based
   hysteresis re-arm — real design work if ever wanted.
-- rp2 accept PKCS#8 v1 signing keys (`from_pkcs8_maybe_unchecked`) — dev ergonomics; openssl and
-  node both emit v1 and ring demands v2 (keygen.mjs hand-assembles v2 today).
+- ~~rp2 accept PKCS#8 v1 signing keys~~ — DONE (2026-07-18, in the same rp2 batch):
+  `enroll_from_pkcs8` now takes v1 (openssl/Node) and v2 (ring) documents alike. keygen.mjs's
+  v2 hand-assembly still works and can be simplified whenever it's next touched.
 - SB per-client address-family selection (dual-stack relays advertise both families; clients
   currently take what resolves — deliberate deferral).
-- Confirm the untrusted-dev loopback truly never touches a shared coordinator/fleet.
-- Loopback ProcessProvisioner pass — the ECS path is live-proven, so this is an AWS-free
-  regression option, not a gate.
+- ~~Confirm the untrusted-dev loopback truly never touches a shared coordinator/fleet~~ —
+  CONFIRMED (2026-07-18 audit). Default posture is v2-off; the dev `sample.env` ships every
+  `SB_RP2_*` line commented with loopback example values (`127.0.0.1:14910`/sb-dev/dev seed), and
+  only `deployment/appserver/sample.env` (the operator template) names a cloud hostname, with an
+  empty key. Every shared surface fails closed against an accident: tenant requests need an
+  enrolled client pubkey (401 otherwise), relay enrollment on the shared coordinators needs the
+  bootstrap secret + ledger-minted id, clients only learn relay addresses from their own
+  coordinator's session response, and a region-less loopback coordinator serves no beacon targets
+  so no measurement traffic leaves the box.
+- ~~Loopback ProcessProvisioner pass~~ — RUN (2026-07-18, via `rally-point-loadgen`): ledger +
+  `--provision-relay-bin` coordinator spawned per-region local relays, enrolled ~10 ms, placed
+  20/20 cross-region sessions cleanly. Scale-down wasn't observed in the local window —
+  coverage-bootstrap demand holds one relay per configured region until the backbone-RTT pair
+  measures (by design; the drain path is unit-tested and staging-proven). Windows note: the
+  process provisioner's launched relays dial the coordinator's v4 default, so the coordinator
+  needs an explicit `--listen 127.0.0.1:14910` locally (the `[::]` default is v6-only on
+  Windows).
 
 ### SB-side small backlog
 
