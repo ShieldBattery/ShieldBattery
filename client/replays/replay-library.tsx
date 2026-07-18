@@ -905,6 +905,10 @@ export function ReplayLibrary() {
           />
         </CenteredState>
       )
+    } else if (backfill && backfill.total > 0) {
+      // A backfill is still populating the index; don't claim there are no replays while it's
+      // just getting started.
+      listContent = <LoadingDotsArea />
     } else {
       listContent = (
         <CenteredState>

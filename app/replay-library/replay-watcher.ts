@@ -3,7 +3,8 @@ import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { getErrorStack } from '../../common/errors'
 import log from '../logger'
-import { ReplayDb } from './replay-db'
+import { matchRenamedReplays, NewFileIdentity, VanishedReplay } from './rename-matcher'
+import { ExistingReplayInfo, ReplayDb } from './replay-db'
 import {
   computeContentHash,
   makeParseErrorRecord,
@@ -21,6 +22,11 @@ const WATCH_DEBOUNCE_MS = 500
 const PARSE_CONCURRENCY = 8
 /** Yield back to the event loop after parsing this many files, so indexing stays non-blocking. */
 const PARSE_YIELD_EVERY = 8
+/**
+ * Minimum time between change notifications while a reconcile is still parsing, so a long
+ * backfill fills the list in progressively instead of only at the end.
+ */
+const CHANGE_NOTIFY_INTERVAL_MS = 1000
 
 interface FileMeta {
   mtime: number
@@ -34,8 +40,9 @@ export interface ReplayWatcherCallbacks {
 
 /**
  * Watches the replay folder and keeps the index reconciled with disk. Reconciliation (used both for
- * the initial backfill and for change events) scans for `.rep` files, parses new/changed ones, and
- * prunes entries for files that no longer exist.
+ * the initial backfill and for change events) scans for `.rep` files, parses new/changed ones,
+ * re-points moved/renamed files at their new path by content identity instead of re-parsing them,
+ * and prunes entries for files that no longer exist.
  */
 export class ReplayWatcher {
   private watcher: FSWatcher | undefined
@@ -122,27 +129,84 @@ export class ReplayWatcher {
     const files = await this.scanReplayFiles()
     const existing = this.db.getExistingReplays()
 
-    const toDelete: string[] = []
-    for (const existingPath of existing.keys()) {
+    const vanished = new Map<string, ExistingReplayInfo>()
+    for (const [existingPath, info] of existing) {
       if (!files.has(existingPath)) {
-        toDelete.push(existingPath)
+        vanished.set(existingPath, info)
       }
-    }
-    if (toDelete.length > 0) {
-      this.db.deleteByPaths(toDelete)
     }
 
     const toParse: string[] = []
+    const newFilePaths: string[] = []
     for (const [filePath, meta] of files) {
       const ex = existing.get(filePath)
       if (!ex || ex.fileMtime !== meta.mtime || ex.fileSize !== meta.size) {
         toParse.push(filePath)
+        if (!ex) {
+          newFilePaths.push(filePath)
+        }
       }
+    }
+
+    // Precomputed hashes for brand-new files, filled in below when there's a chance they're
+    // actually moved/renamed replays; threaded through to `indexFile` either way so a file hashed
+    // here is never hashed again during parsing.
+    const hashes = new Map<string, string>()
+    let moveCount = 0
+    if (vanished.size > 0 && newFilePaths.length > 0) {
+      let nextHashIndex = 0
+      const hashWorker = async () => {
+        while (nextHashIndex < newFilePaths.length) {
+          const filePath = newFilePaths[nextHashIndex]
+          nextHashIndex++
+          try {
+            hashes.set(filePath, await computeContentHash(filePath))
+          } catch {
+            // File likely vanished mid-scan; it'll be handled (and skipped) by the parse loop.
+          }
+        }
+      }
+      await Promise.all(
+        Array.from({ length: Math.min(PARSE_CONCURRENCY, newFilePaths.length) }, () =>
+          hashWorker(),
+        ),
+      )
+
+      const vanishedList: VanishedReplay[] = Array.from(vanished, ([vpath, info]) => ({
+        path: vpath,
+        id: info.id,
+        fileSize: info.fileSize,
+        contentHash: info.contentHash,
+      }))
+      const newFileIdentities: NewFileIdentity[] = Array.from(hashes, ([npath, contentHash]) => ({
+        path: npath,
+        contentHash,
+        fileSize: files.get(npath)!.size,
+      }))
+      const moves = matchRenamedReplays(vanishedList, newFileIdentities)
+
+      for (const move of moves) {
+        this.db.updateReplayFile(move.id, move.toPath, files.get(move.toPath)!.mtime)
+        vanished.delete(move.fromPath)
+        const toParseIndex = toParse.indexOf(move.toPath)
+        if (toParseIndex !== -1) {
+          toParse.splice(toParseIndex, 1)
+        }
+      }
+      moveCount = moves.length
+      if (moveCount > 0) {
+        log.verbose(`Re-pointed ${moveCount} moved/renamed replay(s)`)
+      }
+    }
+
+    const toDelete = Array.from(vanished.keys())
+    if (toDelete.length > 0) {
+      this.db.deleteByPaths(toDelete)
     }
 
     if (toParse.length === 0) {
       this.backfillProgress = undefined
-      if (toDelete.length > 0) {
+      if (toDelete.length > 0 || moveCount > 0) {
         this.callbacks.onChange()
       }
       return
@@ -154,15 +218,20 @@ export class ReplayWatcher {
     this.callbacks.onProgress({ done, total })
 
     let nextIndex = 0
+    let lastChangeNotify = Date.now()
     const worker = async () => {
       while (nextIndex < toParse.length) {
         const filePath = toParse[nextIndex]
         nextIndex++
-        await this.indexFile(filePath, files.get(filePath)!)
+        await this.indexFile(filePath, files.get(filePath)!, hashes.get(filePath))
         done++
         if (done % PARSE_YIELD_EVERY === 0 || done === total) {
           this.backfillProgress = done < total ? { done, total } : undefined
           this.callbacks.onProgress({ done, total })
+          if (done < total && Date.now() - lastChangeNotify >= CHANGE_NOTIFY_INTERVAL_MS) {
+            lastChangeNotify = Date.now()
+            this.callbacks.onChange()
+          }
           await new Promise<void>(resolve => setImmediate(resolve))
         }
       }
@@ -175,10 +244,14 @@ export class ReplayWatcher {
     this.callbacks.onChange()
   }
 
-  private async indexFile(filePath: string, meta: FileMeta): Promise<void> {
+  private async indexFile(
+    filePath: string,
+    meta: FileMeta,
+    precomputedHash?: string,
+  ): Promise<void> {
     let fileInfo: ReplayFileInfo
     try {
-      const contentHash = await computeContentHash(filePath)
+      const contentHash = precomputedHash ?? (await computeContentHash(filePath))
       fileInfo = { path: filePath, fileMtime: meta.mtime, fileSize: meta.size, contentHash }
     } catch (err) {
       // File likely vanished between the scan and hashing; a later reconcile will catch up.

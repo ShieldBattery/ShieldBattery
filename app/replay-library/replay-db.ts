@@ -45,6 +45,7 @@ export interface ExistingReplayInfo {
   id: number
   fileMtime: number | null
   fileSize: number | null
+  contentHash: string | null
 }
 
 /**
@@ -58,6 +59,7 @@ export class ReplayDb {
   private readonly insertReplayStmt: Statement
   private readonly insertPlayerStmt: Statement
   private readonly deleteReplayByIdStmt: Statement
+  private readonly updateReplayFileStmt: Statement
 
   private readonly upsertTxn: (record: IndexedReplay) => void
   private readonly deleteTxn: (paths: string[]) => void
@@ -80,6 +82,9 @@ export class ReplayDb {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     this.deleteReplayByIdStmt = this.db.prepare('DELETE FROM replays WHERE id = ?')
+    this.updateReplayFileStmt = this.db.prepare(
+      'UPDATE replays SET path = ?, file_mtime = ? WHERE id = ?',
+    )
 
     this.upsertTxn = this.db.transaction((record: IndexedReplay) => {
       const existing = this.getIdByPathStmt.get(record.path) as { id: number } | undefined
@@ -169,11 +174,18 @@ export class ReplayDb {
   /** Returns the current index state keyed by file path, for reconciliation. */
   getExistingReplays(): Map<string, ExistingReplayInfo> {
     const rows = this.db
-      .prepare('SELECT id, path, file_mtime, file_size FROM replays')
-      .all() as Array<Pick<DbReplayRow, 'id' | 'path' | 'file_mtime' | 'file_size'>>
+      .prepare('SELECT id, path, file_mtime, file_size, content_hash FROM replays')
+      .all() as Array<
+      Pick<DbReplayRow, 'id' | 'path' | 'file_mtime' | 'file_size' | 'content_hash'>
+    >
     const result = new Map<string, ExistingReplayInfo>()
     for (const row of rows) {
-      result.set(row.path, { id: row.id, fileMtime: row.file_mtime, fileSize: row.file_size })
+      result.set(row.path, {
+        id: row.id,
+        fileMtime: row.file_mtime,
+        fileSize: row.file_size,
+        contentHash: row.content_hash,
+      })
     }
     return result
   }
@@ -188,6 +200,11 @@ export class ReplayDb {
     if (paths.length > 0) {
       this.deleteTxn(paths)
     }
+  }
+
+  /** Points an existing index entry at a new path (a moved/renamed file), keeping its parsed data. */
+  updateReplayFile(id: number, newPath: string, fileMtime: number): void {
+    this.updateReplayFileStmt.run(newPath, fileMtime, id)
   }
 
   /** Number of replays currently in the index (including parse-error rows). */
