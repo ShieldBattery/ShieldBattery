@@ -130,7 +130,7 @@ features = ["scr-only"]
 # (version skew is rejected at the TLS handshake by design).
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "80edd77ee2b23cdb79df95caf3728b1068f09480"
+rev = "0ac517c56b0663d383e3b8f358dcca7d1e733676"
 
 [build-dependencies]
 anyhow = "1.0"
