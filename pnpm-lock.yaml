@@ -62,8 +62,8 @@ importers:
         specifier: ^9.0.0
         version: 9.0.0(@babel/core@7.29.7)(@types/koa@3.0.3)(ejs@3.1.10)(handlebars@4.7.9)(lodash@4.18.1)(pug@3.0.4)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@shieldbattery/broodrep':
-        specifier: ^0.3.0
-        version: 0.3.0
+        specifier: ^0.4.1
+        version: 0.4.1
       babel-plugin-const-enum:
         specifier: ^1.2.0
         version: 1.2.0(@babel/core@7.29.7)
@@ -560,9 +560,6 @@ importers:
       jotai-immer:
         specifier: ^0.4.3
         version: 0.4.3(immer@11.1.8)(jotai@2.20.1(@babel/core@7.29.7)(@babel/template@7.29.7)(@types/react@19.2.17)(react@19.2.7))
-      jssuh:
-        specifier: ^1.6.0
-        version: 1.6.0
       keycode:
         specifier: ^2.2.1
         version: 2.2.1
@@ -3955,8 +3952,8 @@ packages:
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
-  '@shieldbattery/broodrep@0.3.0':
-    resolution: {integrity: sha512-C8+Fk0osZEj314H7vGIIpkWoX2rdTIiurLs0Y5cnpol1Lou0X5jwii4hBV5jZS8FQa7h0mnQBvMn2wdpylvfgQ==}
+  '@shieldbattery/broodrep@0.4.1':
+    resolution: {integrity: sha512-5fKGKJmjD8JKVPC1M7tHPMTowfsuqer+Xs9c1ir28N9Va1v8bUn0WIEpTU29i2v0N4EJBhECe297ASeOj1oWOA==}
     engines: {node: '>= 22.12.0'}
 
   '@sindresorhus/is@4.6.0':
@@ -7567,9 +7564,6 @@ packages:
   jsonwebtoken@9.0.3:
     resolution: {integrity: sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==}
     engines: {node: '>=12', npm: '>=6'}
-
-  jssuh@1.6.0:
-    resolution: {integrity: sha512-RAkdek7gFLbFe7Q3HzeEnYo+HG3f8cyQ34q7LNtWmIV4C0z+y9awGO4gTQQA3UDTZacTZNRa7ZdgKVlsXVgEpw==}
 
   jstransformer@1.0.0:
     resolution: {integrity: sha512-C9YK3Rf8q6VAPDCCU9fnqo3mAfOH6vUGnMcP4AQAYIEpWtfGLpwOTmZ+igtdK5y+VvI2n3CyYSzy4Qh34eq24A==}
@@ -14119,7 +14113,7 @@ snapshots:
       domhandler: 5.0.3
       selderee: 0.11.0
 
-  '@shieldbattery/broodrep@0.3.0': {}
+  '@shieldbattery/broodrep@0.4.1': {}
 
   '@sindresorhus/is@4.6.0': {}
 
@@ -18496,12 +18490,6 @@ snapshots:
       lodash.once: 4.1.1
       ms: 2.1.3
       semver: 7.8.4
-
-  jssuh@1.6.0:
-    dependencies:
-      bl: 6.1.6
-      iconv-lite: 0.6.3
-      implode-decoder: 1.0.2
 
   jstransformer@1.0.0:
     dependencies:

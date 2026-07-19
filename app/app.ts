@@ -6,8 +6,7 @@ import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
 import { readFile } from 'fs/promises'
-import ReplayParser, { ReplayHeader } from 'jssuh'
-import fs, { createReadStream } from 'node:fs'
+import { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
 import http from 'node:http'
 import type { Socket } from 'node:net'
@@ -19,7 +18,6 @@ import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
-import { ReplayShieldBatteryData } from '../common/replays'
 import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
@@ -35,7 +33,7 @@ import { ReplayStore } from './game/replay-store'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
 import { setupReplayLibrary } from './replay-library'
-import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
+import { parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
@@ -878,33 +876,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
 
   ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
-    return new Promise((resolve, reject) => {
-      const parser = new ReplayParser()
-      let headerData: ReplayHeader
-      parser.on('replayHeader', header => {
-        headerData = header
-      })
-
-      let shieldBatteryData: ReplayShieldBatteryData | undefined
-      parser.rawScrSection('Sbat', buffer => {
-        try {
-          shieldBatteryData = parseShieldbatteryReplayData(buffer)
-        } catch (err) {
-          logger.error(
-            `Error parsing the replay's ShieldBattery data section: ${(err as any).stack ?? err}`,
-          )
-        }
-      })
-
-      parser.on('end', () => {
-        resolve({ headerData, shieldBatteryData })
-      })
-
-      const promise = pipeline(fs.createReadStream(replayPath), parser)
-      promise.catch((err: Error) => reject(err))
-
-      parser.resume()
-    })
+    return parseReplayMetadata(replayPath)
   })
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())

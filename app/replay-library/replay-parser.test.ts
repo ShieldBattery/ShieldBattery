@@ -1,12 +1,11 @@
-import { ReplayHeader, ReplayPlayer, ReplayRace } from 'jssuh'
+import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
 import { describe, expect, test } from 'vitest'
 import { RaceChar } from '../../common/races'
-import { NON_EXISTING_USER_ID, ReplayShieldBatteryData } from '../../common/replays'
+import { NON_EXISTING_USER_ID } from '../../common/replays'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
-import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import {
   getReplayTeamRaces,
-  headerNeedsUtf8Redecode,
   makeParseErrorRecord,
   mapReplayHeaderToRecord,
   ReplayFileInfo,
@@ -19,38 +18,58 @@ const FILE_INFO: ReplayFileInfo = {
   contentHash: 'abc123',
 }
 
-function makePlayer(overrides: Partial<ReplayPlayer> & Pick<ReplayPlayer, 'id'>): ReplayPlayer {
+function makePlayer(overrides: Partial<Player> & Pick<Player, 'slotId'>): Player {
   return {
-    name: `player${overrides.id}`,
-    race: 'terran' as ReplayRace,
+    name: `player${overrides.slotId}`,
+    networkId: 0,
+    playerType: 'human',
+    race: 't',
     team: 0,
-    isComputer: false,
+    isEmpty: false,
+    isObserver: false,
     ...overrides,
   }
 }
 
 function makeHeader(overrides: Partial<ReplayHeader> = {}): ReplayHeader {
   return {
-    gameName: 'Test Game',
-    mapName: 'Fighting Spirit',
-    gameType: 2,
-    gameSubtype: 0,
-    players: [],
-    durationFrames: 14_400,
+    engine: 'broodWar',
+    frames: 14_400,
     // Unix seconds; the mapper multiplies by 1000 for the stored game time.
-    seed: 1_700_000_000,
-    remastered: true,
+    startTime: 1_700_000_000,
+    title: 'Test Game',
+    mapWidth: 128,
+    mapHeight: 128,
+    availableSlots: 8,
+    speed: 'fastest',
+    gameType: 'melee',
+    gameSubType: 0,
+    hostName: 'Host',
+    mapName: 'Fighting Spirit',
     ...overrides,
   }
 }
 
-/** Builds an 8-length userIds array, defaulting empty slots to `NON_EXISTING_USER_ID`. */
-function makeUserIds(entries: Record<number, number>): SbUserId[] {
-  const ids: SbUserId[] = []
+/** Builds an 8-length userIds tuple, defaulting empty slots to `NON_EXISTING_USER_ID`. */
+function makeUserIds(entries: Record<number, number>): ShieldBatteryData['userIds'] {
+  const ids: number[] = []
   for (let i = 0; i < 8; i++) {
-    ids.push(makeSbUserId(entries[i] ?? NON_EXISTING_USER_ID))
+    ids.push(entries[i] ?? NON_EXISTING_USER_ID)
   }
-  return ids
+  return ids as ShieldBatteryData['userIds']
+}
+
+function makeSbData(overrides: Partial<ShieldBatteryData> = {}): ShieldBatteryData {
+  return {
+    starcraftExeBuild: 1234,
+    shieldbatteryVersion: '9.0.0',
+    teamGameMainPlayers: [255, 255, 255, 255],
+    startingRaces: ['r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r'],
+    gameId: '12345678-9abc-def0-1234-56789abcdef0',
+    userIds: makeUserIds({}),
+    gameLogicVersion: 0,
+    ...overrides,
+  }
 }
 
 function player(
@@ -63,21 +82,17 @@ function player(
 
 describe('app/replay-library/replay-parser/mapReplayHeaderToRecord', () => {
   test('ShieldBattery 1v1 replay maps players to SB user ids', () => {
-    const header = makeHeader({
-      players: [
-        makePlayer({ id: 0, name: 'Alice', race: 'protoss', team: 0 }),
-        makePlayer({ id: 1, name: 'Bob', race: 'zerg', team: 1 }),
-      ],
-    })
-    const sbData: ReplayShieldBatteryData = {
-      formatVersion: 1,
-      starcraftExeBuild: 1234,
-      shieldBatteryVersion: '9.0.0',
+    const header = makeHeader()
+    const players = [
+      makePlayer({ slotId: 0, name: 'Alice', race: 'p', team: 0 }),
+      makePlayer({ slotId: 1, name: 'Bob', race: 'z', team: 1 }),
+    ]
+    const sbData = makeSbData({
       gameId: '12345678-9abc-def0-1234-56789abcdef0',
       userIds: makeUserIds({ 0: 100, 1: 200 }),
-    }
+    })
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, sbData)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, sbData)
 
     expect(record.parseError).toBe(false)
     expect(record.sbGameId).toBe('12345678-9abc-def0-1234-56789abcdef0')
@@ -99,14 +114,13 @@ describe('app/replay-library/replay-parser/mapReplayHeaderToRecord', () => {
   })
 
   test('Battle.net replay (no SB section) has no SB ids', () => {
-    const header = makeHeader({
-      players: [
-        makePlayer({ id: 0, name: 'Carol', race: 'terran', team: 0 }),
-        makePlayer({ id: 1, name: 'Dave', race: 'protoss', team: 1 }),
-      ],
-    })
+    const header = makeHeader()
+    const players = [
+      makePlayer({ slotId: 0, name: 'Carol', race: 't', team: 0 }),
+      makePlayer({ slotId: 1, name: 'Dave', race: 'p', team: 1 }),
+    ]
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, undefined)
 
     expect(record.sbGameId).toBeUndefined()
     expect(record.players.map(p => p.sbUserId)).toEqual([undefined, undefined])
@@ -114,92 +128,98 @@ describe('app/replay-library/replay-parser/mapReplayHeaderToRecord', () => {
   })
 
   test('team game preserves per-player teams', () => {
-    const header = makeHeader({
-      gameType: 15,
-      players: [
-        makePlayer({ id: 0, team: 1 }),
-        makePlayer({ id: 1, team: 1 }),
-        makePlayer({ id: 2, team: 2 }),
-        makePlayer({ id: 3, team: 2 }),
-      ],
-    })
+    const header = makeHeader({ gameType: 'topVsBottom' })
+    const players = [
+      makePlayer({ slotId: 0, team: 1 }),
+      makePlayer({ slotId: 1, team: 1 }),
+      makePlayer({ slotId: 2, team: 2 }),
+      makePlayer({ slotId: 3, team: 2 }),
+    ]
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, undefined)
 
     expect(record.players.map(p => p.team)).toEqual([1, 1, 2, 2])
   })
 
   test('computer players get no SB user id even with an SB section', () => {
-    const header = makeHeader({
-      players: [
-        makePlayer({ id: 0, name: 'Human', team: 0 }),
-        makePlayer({ id: 1, name: 'Computer', team: 1, isComputer: true }),
-      ],
-    })
-    const sbData: ReplayShieldBatteryData = {
-      formatVersion: 1,
-      starcraftExeBuild: 1234,
-      shieldBatteryVersion: '9.0.0',
+    const header = makeHeader()
+    const players = [
+      makePlayer({ slotId: 0, name: 'Human', team: 0 }),
+      makePlayer({ slotId: 1, name: 'Computer', team: 1, playerType: 'computer' }),
+    ]
+    const sbData = makeSbData({
       gameId: '00000000-0000-0000-0000-000000000000',
       // Computer slot is left as NON_EXISTING_USER_ID.
       userIds: makeUserIds({ 0: 100 }),
-    }
+    })
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, sbData)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, sbData)
 
     expect(record.players[0]).toMatchObject({ isComputer: false, sbUserId: makeSbUserId(100) })
     expect(record.players[1]).toMatchObject({ isComputer: true, sbUserId: undefined })
   })
 
+  test('treats a 0 user id as no SB user (old replays used it for empty slots)', () => {
+    const header = makeHeader()
+    const players = [
+      makePlayer({ slotId: 0, name: 'Human', team: 0 }),
+      makePlayer({ slotId: 1, name: 'OldSlot', team: 1 }),
+    ]
+    const sbData = makeSbData({
+      gameId: '00000000-0000-0000-0000-000000000000',
+      userIds: makeUserIds({ 0: 100, 1: 0 }),
+    })
+
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, sbData)
+
+    expect(record.players.map(p => p.sbUserId)).toEqual([makeSbUserId(100), undefined])
+  })
+
   test('strips color codes from the map name', () => {
     const header = makeHeader({ mapName: 'Neo Sylphid' })
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, [], undefined)
 
     expect(record.mapName).toBe('Neo Sylphid')
   })
 
   test('plain 1v1 (single team split into two teams) derives team size and matchup', () => {
-    const header = makeHeader({
-      players: [
-        makePlayer({ id: 0, race: 'protoss', team: 0 }),
-        makePlayer({ id: 1, race: 'zerg', team: 0 }),
-      ],
-    })
+    const header = makeHeader()
+    const players = [
+      makePlayer({ slotId: 0, race: 'p', team: 0 }),
+      makePlayer({ slotId: 1, race: 'z', team: 0 }),
+    ]
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, undefined)
 
     expect(record.teamSize).toBe(1)
     expect(record.matchup).toBe('p-z')
   })
 
   test('2v2 derives team size and matchup', () => {
-    const header = makeHeader({
-      gameType: 15,
-      players: [
-        makePlayer({ id: 0, race: 'protoss', team: 1 }),
-        makePlayer({ id: 1, race: 'terran', team: 1 }),
-        makePlayer({ id: 2, race: 'zerg', team: 2 }),
-        makePlayer({ id: 3, race: 'zerg', team: 2 }),
-      ],
-    })
+    const header = makeHeader({ gameType: 'topVsBottom' })
+    const players = [
+      makePlayer({ slotId: 0, race: 'p', team: 1 }),
+      makePlayer({ slotId: 1, race: 't', team: 1 }),
+      makePlayer({ slotId: 2, race: 'z', team: 2 }),
+      makePlayer({ slotId: 3, race: 'z', team: 2 }),
+    ]
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, undefined)
 
     expect(record.teamSize).toBe(2)
     expect(record.matchup).toBe('pt-zz')
   })
 
   test('undeterminable layout (three players on one team) yields null team size and matchup', () => {
-    const header = makeHeader({
-      players: [
-        makePlayer({ id: 0, race: 'protoss', team: 0 }),
-        makePlayer({ id: 1, race: 'terran', team: 0 }),
-        makePlayer({ id: 2, race: 'zerg', team: 0 }),
-      ],
-    })
+    const header = makeHeader()
+    const players = [
+      makePlayer({ slotId: 0, race: 'p', team: 0 }),
+      makePlayer({ slotId: 1, race: 't', team: 0 }),
+      makePlayer({ slotId: 2, race: 'z', team: 0 }),
+    ]
 
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
+    const record = mapReplayHeaderToRecord(FILE_INFO, header, players, undefined)
 
     expect(record.teamSize).toBeNull()
     expect(record.matchup).toBeNull()
@@ -245,46 +265,5 @@ describe('app/replay-library/replay-parser/getReplayTeamRaces', () => {
       ['p', 't'],
       ['z', 'z'],
     ])
-  })
-})
-
-describe('header string sanitization', () => {
-  test('strips NUL terminators and trailing field garbage from names', () => {
-    // jssuh's forced-encoding path decodes the whole fixed-width field, so a utf8 re-parse can
-    // yield strings like 'name\0<leftover bytes>'
-    const header = makeHeader({
-      mapName: '투혼 1.4\0abc',
-      players: [{ name: 'SgT.FaT\0xy', id: 0, race: 'zerg', team: 1, isComputer: false }],
-    })
-    const record = mapReplayHeaderToRecord(FILE_INFO, header, undefined)
-    expect(record.mapName).toBe('투혼 1.4')
-    expect(record.players[0].name).toBe('SgT.FaT')
-  })
-})
-
-describe('headerNeedsUtf8Redecode', () => {
-  test('remastered replay with mangled non-ASCII strings needs the utf8 pass', () => {
-    // 투혼 1.4 as UTF-8 bytes mis-decoded by jssuh's cp1252 fallback
-    const header = makeHeader({ remastered: true, mapName: 'íˆ¬í˜¼ 1.4' })
-    expect(headerNeedsUtf8Redecode(header)).toBe(true)
-  })
-
-  test('remastered replay with non-ASCII player names needs the utf8 pass', () => {
-    const header = makeHeader({
-      remastered: true,
-      mapName: 'Fighting Spirit',
-      players: [{ name: 'ë°©í˜¸', id: 0, race: 'zerg', team: 1, isComputer: false }],
-    })
-    expect(headerNeedsUtf8Redecode(header)).toBe(true)
-  })
-
-  test('remastered replay with all-ASCII strings does not', () => {
-    const header = makeHeader({ remastered: true, mapName: 'Polypoid', gameName: 'ladder game' })
-    expect(headerNeedsUtf8Redecode(header)).toBe(false)
-  })
-
-  test('1.16 replay never re-decodes (cp949 auto handling is correct for its era)', () => {
-    const header = makeHeader({ remastered: false, mapName: '투혼 1.4' })
-    expect(headerNeedsUtf8Redecode(header)).toBe(false)
   })
 })

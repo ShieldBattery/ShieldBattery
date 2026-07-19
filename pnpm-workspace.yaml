@@ -2,6 +2,9 @@
 shellEmulator: true
 # refuse to install package versions published less than a week ago (supply-chain protection)
 minimumReleaseAge: 10080
+# first-party packages we publish ourselves don't need the quarantine
+minimumReleaseAgeExclude:
+  - '@shieldbattery/broodrep'
 
 overrides:
   '@types/node': 24.2.1

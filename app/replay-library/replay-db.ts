@@ -11,7 +11,7 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import { deriveTeamLayout, IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery } from './replay-queries'
 
-const SCHEMA_VERSION = 4
+const SCHEMA_VERSION = 5
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -192,6 +192,13 @@ export class ReplayDb {
           ALTER TABLE replays ADD COLUMN matchup TEXT;
         `)
         this.backfillTeamLayout()
+      }
+
+      if (version < 5) {
+        // The replay parser changed; every row's file_mtime is cleared so none of them match their
+        // file's actual mtime on disk, forcing the next reconcile to reparse every replay
+        // (including parse_error rows) with the new parser.
+        this.db.exec('UPDATE replays SET file_mtime = NULL')
       }
 
       if (version < SCHEMA_VERSION) {

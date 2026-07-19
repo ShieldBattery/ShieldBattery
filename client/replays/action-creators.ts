@@ -56,7 +56,7 @@ async function setGameConfig(
       slots,
       host: player,
       users: [localUser],
-      seed: header?.seed ?? 0,
+      seed: header?.startTime ?? 0,
     },
   })
 }

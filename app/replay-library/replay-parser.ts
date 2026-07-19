@@ -1,38 +1,18 @@
-import ReplayParser, { ReplayHeader } from 'jssuh'
+import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
+import { init, parseReplay } from '@shieldbattery/broodrep'
 import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { open } from 'node:fs/promises'
-import { pipeline } from 'node:stream/promises'
+import { open, readFile } from 'node:fs/promises'
 import { computeMatchupString } from '../../common/games/matchups'
 import { filterColorCodes } from '../../common/maps'
 import { RaceChar } from '../../common/races'
-import {
-  NON_EXISTING_USER_ID,
-  ReplayShieldBatteryData,
-  replayRaceToChar,
-} from '../../common/replays'
+import { NON_EXISTING_USER_ID, replayGameTypeToNumber } from '../../common/replays'
 import { ReplayLibraryPlayer } from '../../common/replays-library'
-import { parseShieldbatteryReplayData } from '../replays/parse-shieldbattery-replay'
+import { makeSbUserId } from '../../common/users/sb-user-id'
+
+init()
 
 /** Number of bytes from the start of the file hashed for a cheap content identity. */
 const CONTENT_HASH_BYTES = 8 * 1024
-
-/**
- * Maximum time a single replay parse may take before it's treated as a parse error. Guards the
- * backfill against corrupt files whose parse neither resolves nor rejects (which would otherwise
- * stall a backfill worker forever).
- */
-const PARSE_TIMEOUT_MS = 15 * 1000
-
-/**
- * Truncates a header string at its first NUL. jssuh's forced-encoding path (unlike its `auto`
- * path) decodes the entire fixed-width field, including whatever bytes sit past the terminator, so
- * strings from a utf8 re-parse can carry trailing garbage.
- */
-function stripAtNul(value: string): string {
-  const nul = value.indexOf('\0')
-  return nul === -1 ? value : value.slice(0, nul)
-}
 
 /** Identity/metadata for a replay file on disk, independent of its parsed contents. */
 export interface ReplayFileInfo {
@@ -122,34 +102,39 @@ export function deriveTeamLayout(players: ReadonlyArray<ReplayLibraryPlayer>): {
 }
 
 /**
- * Maps a parsed replay header (plus optional ShieldBattery section) into an `IndexedReplay`. Pure:
- * no file access, no side effects.
+ * Maps a parsed replay header (plus its players and optional ShieldBattery section) into an
+ * `IndexedReplay`. Pure: no file access, no side effects.
  */
 export function mapReplayHeaderToRecord(
   fileInfo: ReplayFileInfo,
   header: ReplayHeader,
-  sbData: ReplayShieldBatteryData | undefined,
+  headerPlayers: ReadonlyArray<Player>,
+  sbData: ShieldBatteryData | undefined,
 ): IndexedReplay {
-  const players = header.players.map<ReplayLibraryPlayer>(p => {
-    const sbUserId = sbData?.userIds?.[p.id]
+  const players = headerPlayers.map<ReplayLibraryPlayer>(p => {
+    const sbUserId = sbData?.userIds?.[p.slotId]
+    // Empty/observer slots are recorded as NON_EXISTING_USER_ID in current replays, but old ones
+    // used 0; neither is a real user id.
+    const hasSbUserId =
+      sbUserId !== undefined && sbUserId !== NON_EXISTING_USER_ID && sbUserId !== 0
     return {
-      slot: p.id,
+      slot: p.slotId,
       team: p.team,
-      name: stripAtNul(p.name),
-      race: replayRaceToChar(p.race),
-      isComputer: p.isComputer,
-      sbUserId: sbUserId !== undefined && sbUserId !== NON_EXISTING_USER_ID ? sbUserId : undefined,
+      name: p.name,
+      race: p.race,
+      isComputer: p.playerType === 'computer',
+      sbUserId: hasSbUserId ? makeSbUserId(sbUserId) : undefined,
     }
   })
   const { teamSize, matchup } = deriveTeamLayout(players)
 
   return {
     ...fileInfo,
-    // The replay's random seed is the unix-seconds timestamp of when the game started.
-    gameTime: header.seed * 1000,
-    mapName: filterColorCodes(stripAtNul(header.mapName)),
-    gameType: header.gameType,
-    durationFrames: header.durationFrames,
+    // The replay's start time is the unix-seconds timestamp of when the game started.
+    gameTime: header.startTime * 1000,
+    mapName: filterColorCodes(header.mapName),
+    gameType: replayGameTypeToNumber[header.gameType],
+    durationFrames: header.frames,
     sbGameId: sbData?.gameId,
     parseError: false,
     players,
@@ -189,79 +174,36 @@ export async function computeContentHash(filePath: string): Promise<string> {
   }
 }
 
-interface ParsedReplay {
-  header: ReplayHeader
-  sbData?: ReplayShieldBatteryData
-}
-
 /**
- * Returns true if a parsed header has strings that need re-decoding as UTF-8. jssuh's `auto`
- * encoding only ever tries cp949 → cp1252 (a 1.16-era heuristic), but Remastered replays store
- * strings as UTF-8, so non-ASCII names come out mangled. ASCII-only strings decode identically in
- * all three encodings, so those never need the second pass.
+ * Reads and parses a replay's header, players, and ShieldBattery section. Rejects if the file
+ * can't be parsed. This is the app's single broodrep entry point, shared by the library indexer
+ * and the `replayParseMetadata` IPC handler.
  */
-export function headerNeedsUtf8Redecode(header: ReplayHeader): boolean {
-  if (!header.remastered) {
-    return false
+export async function parseReplayMetadata(filePath: string): Promise<{
+  headerData: ReplayHeader
+  players: Player[]
+  shieldBatteryData?: ShieldBatteryData
+}> {
+  const buffer = await readFile(filePath)
+  try {
+    const replay = parseReplay(buffer)
+    try {
+      return {
+        headerData: replay.header,
+        players: replay.players(),
+        shieldBatteryData: replay.getShieldBatterySection(),
+      }
+    } finally {
+      replay.free()
+    }
+  } catch (err) {
+    // broodrep's WASM bindings throw plain strings for parse errors
+    throw err instanceof Error ? err : new Error(String(err))
   }
-  // eslint-disable-next-line no-control-regex
-  const nonAscii = /[^\x00-\x7f]/
-  return (
-    nonAscii.test(header.mapName) ||
-    nonAscii.test(header.gameName) ||
-    header.players.some(p => nonAscii.test(p.name))
-  )
 }
 
-/**
- * Reads and parses a replay's header + ShieldBattery section, using the same approach as the
- * `replayParseMetadata` IPC handler. Rejects if the header can't be read.
- */
-function readReplayHeader(filePath: string, encoding?: string): Promise<ParsedReplay> {
-  return new Promise((resolve, reject) => {
-    const parser = encoding !== undefined ? new ReplayParser({ encoding }) : new ReplayParser()
-    const readStream = createReadStream(filePath)
-    const timeout = setTimeout(() => {
-      readStream.destroy()
-      reject(new Error(`Timed out parsing replay ${filePath}`))
-    }, PARSE_TIMEOUT_MS)
-
-    let header: ReplayHeader | undefined
-    parser.on('replayHeader', h => {
-      header = h
-    })
-
-    let sbData: ReplayShieldBatteryData | undefined
-    parser.rawScrSection('Sbat', buffer => {
-      try {
-        sbData = parseShieldbatteryReplayData(buffer)
-      } catch {
-        // A missing/corrupt SB section just means we treat this as a non-SB replay.
-      }
-    })
-
-    parser.on('end', () => {
-      clearTimeout(timeout)
-      if (header) {
-        resolve({ header, sbData })
-      } else {
-        reject(new Error(`Replay header was never parsed for ${filePath}`))
-      }
-    })
-
-    pipeline(readStream, parser).catch((err: unknown) => {
-      clearTimeout(timeout)
-      reject(err instanceof Error ? err : new Error(String(err)))
-    })
-    parser.resume()
-  })
-}
-
-/** Parses a replay file into an `IndexedReplay`. Rejects if the header can't be parsed. */
+/** Parses a replay file into an `IndexedReplay`. Rejects if the file can't be parsed. */
 export async function parseReplayFile(fileInfo: ReplayFileInfo): Promise<IndexedReplay> {
-  let parsed = await readReplayHeader(fileInfo.path)
-  if (headerNeedsUtf8Redecode(parsed.header)) {
-    parsed = await readReplayHeader(fileInfo.path, 'utf8')
-  }
-  return mapReplayHeaderToRecord(fileInfo, parsed.header, parsed.sbData)
+  const { headerData, players, shieldBatteryData } = await parseReplayMetadata(fileInfo.path)
+  return mapReplayHeaderToRecord(fileInfo, headerData, players, shieldBatteryData)
 }
