@@ -2,7 +2,7 @@ import { debounce } from 'lodash-es'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   ALL_GAME_FORMATS,
@@ -21,6 +21,7 @@ import {
   SupportedReplayGameType,
 } from '../../common/replays'
 import {
+  ReplayBackfillProgress,
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
@@ -200,6 +201,121 @@ const EmptyStatePath = styled.div`
   color: var(--theme-on-surface-variant);
   word-break: break-all;
 `
+
+const UnavailableIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 40 })`
+  color: var(--theme-error);
+`
+
+const ProgressTrack = styled.div`
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background-color: var(--theme-container-highest);
+`
+
+const ProgressFill = styled.div<{ $scale: number }>`
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background-color: var(--theme-amber);
+  transform: ${props => `scaleX(${props.$scale})`};
+  transform-origin: 0% 50%;
+  transition: transform 120ms linear;
+  will-change: transform;
+`
+
+const indeterminateSlide = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+`
+
+const IndeterminateFill = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  border-radius: 2px;
+  background-color: var(--theme-amber);
+  animation: ${indeterminateSlide} 1.15s ease-in-out infinite;
+  will-change: transform;
+`
+
+const BackfillBar = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 6px;
+`
+
+const BackfillLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+/**
+ * A slim, persistent progress indicator shown above the list while the index backfills: an
+ * indeterminate bar while the folder is being scanned (total unknown), then a determinate bar with a
+ * running count as replays are parsed. It stays put while the list fills in beneath it, rather than
+ * occupying the list area and being swapped out once the first rows arrive.
+ */
+export function BackfillProgressBar({ backfill }: { backfill: ReplayBackfillProgress }) {
+  const { t } = useTranslation()
+
+  if (backfill.phase === 'scanning') {
+    return (
+      <BackfillBar>
+        <BackfillLabel>
+          {t('replays.library.scanningTitle', 'Scanning your replay folder…')}
+        </BackfillLabel>
+        <ProgressTrack>
+          <IndeterminateFill />
+        </ProgressTrack>
+      </BackfillBar>
+    )
+  }
+
+  const { done, total } = backfill
+  const scale = total > 0 ? done / total : 0
+  return (
+    <BackfillBar>
+      <BackfillLabel>
+        {t('replays.library.indexingCountLine', {
+          defaultValue: 'Indexing replays… {{done}}/{{total}}',
+          done,
+          total,
+        })}
+      </BackfillLabel>
+      <ProgressTrack>
+        <ProgressFill $scale={scale} />
+      </ProgressTrack>
+    </BackfillBar>
+  )
+}
+
+/**
+ * Shown when the main-process replay library service isn't answering (its IPC handlers never
+ * registered, e.g. because the SQLite module failed to load), so there's nothing to query.
+ */
+export function ReplayLibraryUnavailable() {
+  const { t } = useTranslation()
+  return (
+    <CenteredState>
+      <UnavailableIcon />
+      <EmptyStateTitle>
+        {t('replays.library.unavailable', 'Replay library unavailable')}
+      </EmptyStateTitle>
+      <div>
+        {t(
+          'replays.library.unavailableBody',
+          "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
+        )}
+      </div>
+    </CenteredState>
+  )
+}
 
 // ---- Row -------------------------------------------------------------------------------------
 
@@ -398,7 +514,11 @@ export function ReplayLibrary() {
   const [total, setTotal] = useState<number>()
   const [isLoadingNext, setIsLoadingNext] = useState(false)
   const [status, setStatus] = useState<ReplayLibraryStatus>()
-  const [backfill, setBackfill] = useState<{ done: number; total: number }>()
+  const [backfill, setBackfill] = useState<ReplayBackfillProgress>()
+  // Set when the status query rejects, which in practice means the main-process replay library
+  // service failed to start (e.g. the SQLite module couldn't load) and none of its IPC handlers are
+  // registered — so every query would hang. We surface that instead of spinning forever.
+  const [unavailable, setUnavailable] = useState(false)
   const [playlists, setPlaylists] = useState<ReadonlyArray<ReplayPlaylist>>([])
   // Bumped on every index change so entry-scoped fetches (e.g. the inspector's playlist
   // membership) know to refresh.
@@ -469,9 +589,14 @@ export function ReplayLibrary() {
         if (result) {
           setStatus(result)
           setBackfill(result.backfill)
+          setUnavailable(false)
         }
       })
-      .catch(swallowNonBuiltins)
+      .catch(() => {
+        // A rejection here means the service isn't answering (see `unavailable`); mark it so the UI
+        // can explain the failure rather than loading indefinitely.
+        setUnavailable(true)
+      })
   })
 
   // Re-queries just the currently-loaded window of entries (offset 0, enough to cover what's
@@ -539,7 +664,7 @@ export function ReplayLibrary() {
       fetchPlaylists()
       setChangeToken(token => token + 1)
     }, 300)
-    const handleProgress = (_event: unknown, progress: { done: number; total: number }) => {
+    const handleProgress = (_event: unknown, progress: ReplayBackfillProgress | undefined) => {
       setBackfill(progress)
     }
     ipcRenderer.on('replayLibraryChanged', handleChanged)
@@ -745,6 +870,8 @@ export function ReplayLibrary() {
 
   let listContent: React.ReactNode = null
   if (entries === undefined) {
+    // The backfill's own progress rides in the bar above the list; here we just need a light loader
+    // until the first page resolves.
     listContent = <LoadingDotsArea />
   } else if (entries.length === 0) {
     if (hasActiveFilters) {
@@ -778,9 +905,9 @@ export function ReplayLibrary() {
           <div>{t('replays.library.playlistEmptyBody', 'Add replays to it from the library.')}</div>
         </CenteredState>
       )
-    } else if (backfill && backfill.total > 0) {
-      // A backfill is still populating the index; don't claim there are no replays while it's
-      // just getting started.
+    } else if (backfill) {
+      // A backfill is still populating the index (progress shows in the bar above); don't claim
+      // there are no replays while it's just getting started.
       listContent = <LoadingDotsArea />
     } else {
       listContent = (
@@ -851,16 +978,12 @@ export function ReplayLibrary() {
   }
 
   let countLine: React.ReactNode = null
-  if (backfill && backfill.total > 0) {
-    countLine = (
-      <CountLine>
-        {t('replays.library.scanning', {
-          defaultValue: 'Scanning replays… {{done}}/{{total}}',
-          done: backfill.done,
-          total: backfill.total,
-        })}
-      </CountLine>
-    )
+  if (backfill && (backfill.phase === 'indexing' || loadedEntries.length === 0)) {
+    // A slim progress bar rides above the list for the whole backfill, staying put while rows fill
+    // in beneath it. The scanning phase (total unknown) is only surfaced while the list is still
+    // empty — an already-populated library re-scans on every startup with no work to do, and a
+    // flashing "Scanning…" there would just be noise.
+    countLine = <BackfillProgressBar backfill={backfill} />
   } else if (entries !== undefined) {
     countLine = (
       <CountLine>
@@ -875,6 +998,18 @@ export function ReplayLibrary() {
               count: viewTotal ?? total ?? loadedEntries.length,
             })}
       </CountLine>
+    )
+  }
+
+  if (unavailable) {
+    // The whole feature depends on the main-process service, so when it's down there's nothing to
+    // filter or browse — replace the page with a plain explanation rather than dead chrome.
+    return (
+      <CenteredContentContainer $targetWidth={1280}>
+        <PageColumn>
+          <ReplayLibraryUnavailable />
+        </PageColumn>
+      </CenteredContentContainer>
     )
   }
 

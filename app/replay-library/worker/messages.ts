@@ -1,4 +1,5 @@
 import {
+  ReplayBackfillProgress,
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
@@ -74,10 +75,14 @@ export type CallResultMessage = {
   id: number
 } & ({ result: unknown } | { error: Error })
 
-/** Mirrors `ReplayWatcher`'s `onProgress`, forwarded to the renderer as `replayLibraryBackfillProgress`. */
+/**
+ * Mirrors `ReplayWatcher`'s `onProgress`, forwarded to the renderer as
+ * `replayLibraryBackfillProgress`. An `undefined` progress means the backfill finished (or had no
+ * work).
+ */
 export interface BackfillProgressMessage {
   type: 'backfillProgress'
-  progress: { done: number; total: number }
+  progress: ReplayBackfillProgress | undefined
 }
 
 /** Mirrors `ReplayWatcher`'s `onChange`, forwarded to the renderer as `replayLibraryChanged`. */

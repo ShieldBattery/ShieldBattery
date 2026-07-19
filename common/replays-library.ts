@@ -92,6 +92,16 @@ export interface ReplayLibraryFilters {
   limit?: number
 }
 
+/**
+ * Progress of the replay index's backfill, in the two phases the UI distinguishes: `scanning` while
+ * the replay folder is being walked and the amount of work isn't known yet, then `indexing` while
+ * the discovered files are parsed (`done`/`total` count files parsed so far). Absent when no
+ * backfill is running.
+ */
+export type ReplayBackfillProgress =
+  | { phase: 'scanning' }
+  | { phase: 'indexing'; done: number; total: number }
+
 /** High-level status of the replay index, for surfacing indexing progress in the UI. */
 export interface ReplayLibraryStatus {
   /** Number of replays currently in the index. */
@@ -99,7 +109,7 @@ export interface ReplayLibraryStatus {
   /** Number of replays currently starred. */
   starredCount: number
   /** Present while an initial/ongoing backfill is running. */
-  backfill?: { done: number; total: number }
+  backfill?: ReplayBackfillProgress
   /** The absolute path of the folder being indexed. */
   watchedFolder: string
 }

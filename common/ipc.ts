@@ -15,6 +15,7 @@ import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { MapExtension } from './maps'
 import {
+  ReplayBackfillProgress,
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
@@ -318,8 +319,12 @@ interface IpcMainSendables {
 
   /** Sent whenever the replay index changes (files added/removed/updated). */
   replayLibraryChanged: () => void
-  /** Sent as the replay index backfills, so the UI can show progress. */
-  replayLibraryBackfillProgress: (progress: { done: number; total: number }) => void
+  /**
+   * Sent as the replay index backfills, so the UI can show progress. `undefined` signals the
+   * backfill has finished (or had no work), letting the UI clear the indicator without a separate
+   * status fetch.
+   */
+  replayLibraryBackfillProgress: (progress: ReplayBackfillProgress | undefined) => void
 
   replaysOpen: (replayPaths: string[]) => void
 
