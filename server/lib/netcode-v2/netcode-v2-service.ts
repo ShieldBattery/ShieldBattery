@@ -180,8 +180,19 @@ interface CoordinatorSessionRequest {
 
 interface CoordinatorRelayEndpoint {
   relay_id: number
-  /** The relay's public address as `ip:port` (IPv6 addresses are bracketed). */
+  /**
+   * The relay's primary/back-compat address as `ip:port` (IPv6 addresses are bracketed) — used
+   * when `relay_addrs` is absent, and otherwise redundant with (part of) `relay_addrs`.
+   */
   relay_addr: string
+  /**
+   * The relay's complete advertised address set, in the relay's own preference order (its
+   * `Vec<SocketAddr>`, serialized as an array of the same `ip:port` strings). Serde's
+   * `skip_serializing_if = "Vec::is_empty"` means an absent or empty value is a single-address
+   * relay reachable only at `relay_addr`; a non-empty value is the COMPLETE address set
+   * *including* the primary, not just extra addresses beyond `relay_addr`.
+   */
+  relay_addrs?: string[]
   /** DER of the TLS leaf certificate the relay serves; clients pin exactly this cert. */
   cert_der: number[]
 }
@@ -249,16 +260,20 @@ interface CoordinatorWarmResponse {
   unknown: string[]
 }
 
+/** One address candidate parsed out of a coordinator relay endpoint's `relay_addr`/`relay_addrs`. */
+interface ParsedRelayAddr {
+  host: string
+  port: number
+  family: 4 | 6
+}
+
 /**
- * Converts a coordinator relay endpoint (a Rust `SocketAddr` display string — `ip:port`, with
- * IPv6 addresses bracketed — plus the relay's cert DER) into the relay endpoint shape clients
- * dial.
+ * Parses a single Rust `SocketAddr` display string (`ip:port`, IPv6 addresses bracketed) into its
+ * host, port, and IP family. Throws a loud `NetcodeV2ServiceError` on anything that doesn't parse
+ * as a valid IP + port — a coordinator handing out a garbage address must surface, not be
+ * silently skipped.
  */
-function relayEndpointToInfo(
-  peer: CoordinatorRelayEndpoint,
-  config: NetcodeV2Config,
-): NetcodeV2RelayInfo {
-  const addr = peer.relay_addr
+function parseCoordinatorRelayAddr(addr: string): ParsedRelayAddr {
   let host: string
   let port: number
   if (addr.startsWith('[')) {
@@ -273,6 +288,53 @@ function relayEndpointToInfo(
   const family = isIP(host)
   if (family === 0 || !Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new NetcodeV2ServiceError(`coordinator returned an unparseable relay address: ${addr}`)
+  }
+  return { host, port, family: family as 4 | 6 }
+}
+
+/**
+ * Converts a coordinator relay endpoint into the relay endpoint shape clients dial. The candidate
+ * address set is `relay_addrs` when the coordinator sent one, else the single back-compat
+ * `relay_addr`. The wire shape carries one `port` for both families, so the most-preferred
+ * candidate (the first in the relay's own order) pins it: the first v4 and first v6 candidate seen
+ * are kept as `address4`/`address6` only when their own port matches that pinned port, and any
+ * further same-family candidate is ignored (preference order keeps the first). A chosen candidate
+ * whose port disagrees with the pinned one is dropped and logged rather than failing the whole
+ * session — a dual-stack relay is expected to listen on a single port across both families, so a
+ * mismatch means a malformed advertise set, and the most-preferred address still works.
+ *
+ * Exported for direct unit testing, alongside `clientSigningKeyFromSeedHex` and
+ * `signCoordinatorRequest`.
+ */
+export function relayEndpointToInfo(
+  peer: CoordinatorRelayEndpoint,
+  config: NetcodeV2Config,
+): NetcodeV2RelayInfo {
+  const rawAddrs =
+    peer.relay_addrs && peer.relay_addrs.length > 0 ? peer.relay_addrs : [peer.relay_addr]
+  const candidates = rawAddrs.map(parseCoordinatorRelayAddr)
+
+  const port = candidates[0].port
+  let address4: string | undefined
+  let address6: string | undefined
+  for (const candidate of candidates) {
+    const chosenFamilyHost = candidate.family === 4 ? address4 : address6
+    if (chosenFamilyHost !== undefined) {
+      continue // Preference order: the first candidate of this family already won.
+    }
+    if (candidate.port !== port) {
+      log.warn(
+        { relayId: peer.relay_id, family: candidate.family, port, candidatePort: candidate.port },
+        'netcode v2 relay advertised a family whose port disagrees with its most-preferred ' +
+          'address; dropping it',
+      )
+      continue
+    }
+    if (candidate.family === 4) {
+      address4 = candidate.host
+    } else {
+      address6 = candidate.host
+    }
   }
 
   // Parsing through X509Certificate validates the cert here, rather than letting a corrupt one
@@ -290,8 +352,8 @@ function relayEndpointToInfo(
 
   return {
     relayId: peer.relay_id,
-    address4: family === 4 ? host : undefined,
-    address6: family === 6 ? host : undefined,
+    address4,
+    address6,
     port,
     serverName: config.relayServerName,
     cert: certDer.toString('base64'),

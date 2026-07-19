@@ -15,6 +15,7 @@
 //! No client-held coordinator credentials, no signing: the SB endpoint's `resultCode` auth is the
 //! whole trust story on the client side.
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -105,6 +106,10 @@ pub(crate) struct ServerRehome {
     url: String,
     user_id: u32,
     result_code: String,
+    /// Whether the home-relay dial connected over IPv6. The driver dials exactly one address per
+    /// re-home, so when a replacement descriptor advertises both families, the pick prefers the
+    /// one this client's connectivity demonstrably reaches (see [`pick_dial_addr`]).
+    home_connected_ipv6: bool,
     http: reqwest::Client,
     /// When the last failure warning was emitted, for rate limiting (see [`WARN_INTERVAL`]).
     last_warn: Mutex<Option<Instant>>,
@@ -172,10 +177,13 @@ impl ServerRehome {
                         return RehomeOutcome::Unavailable;
                     }
                 };
-                // The re-home descriptor names one address (the coordinator's single relay_addr,
-                // converted to one family server-side), so `resolve_relay` yields exactly one entry;
-                // take the first as the dial target.
-                let Some(relay_addr) = target.addrs.into_iter().next() else {
+                // The driver dials exactly one address per re-home, so a dual-family descriptor
+                // needs a pick: prefer the family the home dial actually connected over — the one
+                // this client's connectivity demonstrably reaches — and otherwise take the
+                // descriptor's most-preferred address. A wrong pick surfaces as a failed dial and
+                // a later re-ask, so the pick leans on the one piece of evidence this client has.
+                let Some(relay_addr) = pick_dial_addr(&target.addrs, self.home_connected_ipv6)
+                else {
                     self.warn_rate_limited(&format!(
                         "re-home replacement relay {relay_id} had no dial address"
                     ));
@@ -216,11 +224,26 @@ impl RehomeProvider for ServerRehome {
     }
 }
 
+/// The single dial address handed to the driver for a re-home: the first address of the family the
+/// home dial connected over, or — when the replacement advertises nothing in that family — the
+/// descriptor's most-preferred address. `None` only for an empty candidate list.
+fn pick_dial_addr(addrs: &[SocketAddr], prefer_ipv6: bool) -> Option<SocketAddr> {
+    addrs
+        .iter()
+        .copied()
+        .find(|addr| addr.is_ipv6() == prefer_ipv6)
+        .or_else(|| addrs.first().copied())
+}
+
 /// Builds the re-home provider from the launch context, or `None` when re-home is disabled — no
 /// `resultCode` to authenticate the SB-server request with (a game the server assigned none to).
 /// The driver supplies the dead relay id at call time (it owns the current-relay identity), so this
-/// no longer needs the home relay id.
-pub(crate) fn build_provider(context: &RehomeContext) -> Option<Arc<dyn RehomeProvider>> {
+/// no longer needs the home relay id. `home_connected_ipv6` is whether the home-relay dial
+/// connected over IPv6; a replacement pick prefers that same family.
+pub(crate) fn build_provider(
+    context: &RehomeContext,
+    home_connected_ipv6: bool,
+) -> Option<Arc<dyn RehomeProvider>> {
     let result_code = context.result_code.clone()?;
     let url = format!(
         "{}/api/1/games/{}/netcodeV2Rehome",
@@ -230,6 +253,7 @@ pub(crate) fn build_provider(context: &RehomeContext) -> Option<Arc<dyn RehomePr
         url,
         user_id: context.user_id.0,
         result_code,
+        home_connected_ipv6,
         http: reqwest::Client::new(),
         last_warn: Mutex::new(None),
     }))
@@ -291,6 +315,25 @@ mod tests {
             decision_from_response(response(r#"{"decision":"newTarget"}"#)),
             RehomeDecision::Unavailable
         ));
+    }
+
+    #[test]
+    fn pick_prefers_the_home_dial_family() {
+        let v6: SocketAddr = "[2001:db8::1]:14900".parse().unwrap();
+        let v4: SocketAddr = "203.0.113.7:14900".parse().unwrap();
+        // The candidate list is v6-first either way; the pick follows the connectivity evidence,
+        // not the list order.
+        assert_eq!(pick_dial_addr(&[v6, v4], true), Some(v6));
+        assert_eq!(pick_dial_addr(&[v6, v4], false), Some(v4));
+    }
+
+    #[test]
+    fn pick_falls_back_to_the_most_preferred_address_when_the_family_is_absent() {
+        let v6: SocketAddr = "[2001:db8::1]:14900".parse().unwrap();
+        let v4: SocketAddr = "203.0.113.7:14900".parse().unwrap();
+        assert_eq!(pick_dial_addr(&[v6], false), Some(v6));
+        assert_eq!(pick_dial_addr(&[v4], true), Some(v4));
+        assert_eq!(pick_dial_addr(&[], true), None);
     }
 
     #[test]

@@ -73,9 +73,9 @@ quick_error! {
 pub struct RelayTarget {
     /// Candidate addresses in dial-preference order: IPv6 first (the deployment is IPv6-primary,
     /// D3), then IPv4. Never empty. Which family actually works is a connectivity question only
-    /// answerable at dial time, so the dialer should try these in order and use the first that
-    /// connects — a client with a broken v6 route must still reach the relay over v4 (the v1 path
-    /// races both families the same way).
+    /// answerable at dial time, so the dialer races these with a stagger favoring earlier entries
+    /// and takes the first that connects — a client with a broken v6 route still reaches the relay
+    /// over v4 after only the stagger, not a full dial timeout.
     pub addrs: Vec<SocketAddr>,
     pub server_name: String,
 }
@@ -178,6 +178,58 @@ fn resolve_relay(relay: &NetcodeV2Relay) -> Result<RelayTarget, CredentialError>
         addrs,
         server_name: relay.server_name.clone(),
     })
+}
+
+/// Test-only: a valid PKCS#8 v2 Ed25519 private-key document — the RFC 8032 §7.1
+/// test vector, in the exact byte layout `ring`'s `Ed25519KeyPair::from_pkcs8`
+/// accepts. Shared by the netcode v2 session dial-race tests so they build an
+/// [`Identity`] without restating the template.
+#[cfg(test)]
+pub(crate) fn valid_pkcs8_ed25519_document() -> Vec<u8> {
+    const RFC8032_SEED: [u8; 32] = [
+        0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c,
+        0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae,
+        0x7f, 0x60,
+    ];
+    const RFC8032_PUBLIC: [u8; 32] = [
+        0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64, 0x07,
+        0x3a, 0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68, 0xf7, 0x07,
+        0x51, 0x1a,
+    ];
+    let mut doc = Vec::new();
+    doc.extend_from_slice(&[
+        0x30, 0x53, 0x02, 0x01, 0x01, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04,
+        0x20,
+    ]);
+    doc.extend_from_slice(&RFC8032_SEED);
+    doc.extend_from_slice(&[0xa1, 0x23, 0x03, 0x21, 0x00]);
+    doc.extend_from_slice(&RFC8032_PUBLIC);
+    doc
+}
+
+/// Test-only: a client [`Identity`] whose token decodes and whose signing key is a
+/// valid Ed25519 key. Neither the token's signature nor its embedded public key is
+/// meaningful — the dial-race tests handshake against a relay that verifies
+/// nothing, so only the structural validity `Identity::from_pkcs8` requires
+/// matters. The key deliberately does not match the token's embedded public key.
+#[cfg(test)]
+pub(crate) fn test_identity() -> Identity {
+    use rally_point_client::proto::control::TenantId;
+    use rally_point_client::proto::ids::{SessionId, SlotId};
+    use rally_point_client::proto::token::{
+        ClientPublicKey, ExpiresAt, KeyId, Signature, TokenClaims,
+    };
+
+    let claims = TokenClaims::new(
+        TenantId("tenant".to_owned()),
+        SessionId(1),
+        SlotId(0),
+        ExpiresAt(u64::MAX),
+        ClientPublicKey([0; 32]),
+    );
+    let token = SignedToken::from_parts(KeyId("kid".to_owned()), claims, Signature([0; 64]));
+    Identity::from_pkcs8(token, &valid_pkcs8_ed25519_document())
+        .expect("a decodable token and a valid PKCS#8 key build an Identity")
 }
 
 #[cfg(test)]

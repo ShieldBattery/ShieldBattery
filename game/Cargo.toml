@@ -136,6 +136,16 @@ rev = "80edd77ee2b23cdb79df95caf3728b1068f09480"
 anyhow = "1.0"
 serde_json = "1.0"
 
+[dev-dependencies]
+# Self-signed loopback relay certificate for the netcode v2 dial-race tests.
+# Ring-backed with no default features, matching the version and NASM-free feature
+# set the rally-point2 repo builds its own loopback tests with.
+rcgen = { version = "0.14", default-features = false, features = [
+  "crypto",
+  "ring",
+  "pem",
+] }
+
 # -- Local helper crates --
 [workspace]
 members = ["overlay-ui"]

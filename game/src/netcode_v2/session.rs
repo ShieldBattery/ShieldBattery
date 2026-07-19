@@ -3,7 +3,7 @@
 //! hooks reach the game-thread-owned [`TurnState`].
 //!
 //! [`establish_session`] runs on the DLL's Tokio runtime: it builds the pinned-trust credentials,
-//! dials the home relay (falling back across its address families), spawns the [`LinkDriver`] that
+//! dials the home relay (racing its address families, preferred first), spawns the [`LinkDriver`] that
 //! services the link — re-dialing itself on a link drop, without tearing the turn channels down —
 //! and stores the resulting [`TurnState`] where the three BW hooks (installed in `bw_scr.rs`) can
 //! reach it via [`with_turn_state`]. [`establish_sessionless`] stores a driverless [`TurnState`] the
@@ -14,7 +14,10 @@ use std::ffi::CString;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::time::Duration;
 
+use futures::StreamExt;
+use futures::stream::FuturesUnordered;
 use quick_error::quick_error;
 use rally_point_client::proto::ids::SlotId;
 use rally_point_client::proto::messages::{LeaveDirective, Payload};
@@ -121,15 +124,18 @@ pub async fn establish_session(
     let session_id = identity.token().claims.session.0;
     let endpoint = credentials::bind_endpoint(roots)?;
 
-    // Dial the home relay, trying its candidate addresses in preference order (v6 then v4).
+    // Dial the home relay, racing its candidate addresses (preference order, v6 first, each next
+    // candidate staggered in behind the last).
     let (link, relay_addr) = connect_relay(&endpoint, &home, &identity).await?;
 
     // The SB-server-mediated failover hook: when the home relay's process dies (fresh cert ⇒ pinned
     // trust refuses it), the driver escalates to this to move the whole group to a replacement
     // relay. `None` (no result code to authenticate the server request) keeps the pre-failover
     // same-relay-only behavior. The driver owns the current-relay identity and hands it to the
-    // provider at escalation time, so the provider no longer needs seeding here.
-    let rehome = rehome::build_provider(&rehome_context);
+    // provider at escalation time, so the provider no longer needs seeding here. The winning
+    // address's family seeds the provider's replacement-relay pick: it's the family this client's
+    // connectivity demonstrably reaches.
+    let rehome = rehome::build_provider(&rehome_context, relay_addr.is_ipv6());
 
     let (driver, mut channels) = LinkDriver::new(link);
     // Re-dial from the same endpoint (its UDP socket stays open for the session's life via
@@ -279,30 +285,69 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     }
 }
 
-/// Dials one relay, trying its candidate addresses in preference order (v6 then v4, per
-/// [`RelayTarget`]). Returns the link and the address that connected (so a later reconnect can
-/// redial that same address rather than re-running the whole family fallback) on the first address
-/// that connects; errors only if all of them fail.
+/// How long the preferred candidate's dial runs alone before the next candidate is started
+/// alongside it (and so on down the list). Short enough that a client whose preferred family is
+/// black-holed — a dial that only dies at its own ~10s deadline — reaches a working family after
+/// about this delay; long enough that when the preferred family answers at all, it wins outright
+/// and later candidates rarely even start.
+const DIAL_STAGGER: Duration = Duration::from_millis(250);
+
+/// Dials one relay by racing its candidate addresses ([`RelayTarget::addrs`], preference order):
+/// the first candidate starts immediately, each later one after [`DIAL_STAGGER`] — or as soon as
+/// an earlier candidate fails outright — and the first dial to complete its handshake wins.
+/// Losing dials are dropped, which closes their connections; the relay refuses a second live
+/// connection for a slot it already holds, so a near-simultaneous loser cannot displace the
+/// winner. Every candidate handshakes against the same pinned certificate and server name, so the
+/// race picks which *address* wins, never which identity is trusted.
+///
+/// Returns the link and the address that won (so a later reconnect redials the address that
+/// demonstrably works for this client rather than re-running the race); errors only if every
+/// candidate fails, with the last failure as the cause.
 async fn connect_relay(
     endpoint: &ClientEndpoint,
     relay: &RelayTarget,
     identity: &Identity,
 ) -> Result<(Link, SocketAddr), SessionError> {
-    let mut last_err = None;
-    for &addr in &relay.addrs {
+    let dial = |addr: SocketAddr| async move {
         match endpoint.connect(addr, &relay.server_name, identity).await {
-            Ok(link) => return Ok((link, addr)),
-            Err(e) => {
-                debug!("netcode v2 dial to {addr} failed: {e}");
-                last_err = Some(e);
+            Ok(link) => Ok((link, addr)),
+            Err(e) => Err((addr, e)),
+        }
+    };
+    let mut in_flight = FuturesUnordered::new();
+    // `RelayTarget::addrs` is guaranteed non-empty by `resolve_relay`.
+    in_flight.push(dial(relay.addrs[0]));
+    let mut next_idx = 1;
+    let stagger = tokio::time::sleep(DIAL_STAGGER);
+    tokio::pin!(stagger);
+    // Invariant: `in_flight` is non-empty at the top of every iteration (a failure either starts
+    // the next candidate or, with none left in flight, returns), so the select always has a live
+    // branch.
+    loop {
+        tokio::select! {
+            Some(result) = in_flight.next() => match result {
+                Ok(won) => return Ok(won),
+                Err((addr, e)) => {
+                    debug!("netcode v2 dial to {addr} failed: {e}");
+                    if next_idx < relay.addrs.len() {
+                        // A candidate failing outright is a stronger signal than the stagger
+                        // elapsing: start the next one now and push the stagger out behind it.
+                        in_flight.push(dial(relay.addrs[next_idx]));
+                        next_idx += 1;
+                        stagger.as_mut().reset(tokio::time::Instant::now() + DIAL_STAGGER);
+                    } else if in_flight.is_empty() {
+                        // This failure emptied the race, so it is the race's last word.
+                        return Err(SessionError::Dial(e));
+                    }
+                }
+            },
+            _ = stagger.as_mut(), if next_idx < relay.addrs.len() => {
+                in_flight.push(dial(relay.addrs[next_idx]));
+                next_idx += 1;
+                stagger.as_mut().reset(tokio::time::Instant::now() + DIAL_STAGGER);
             }
         }
     }
-    // `RelayTarget::addrs` is guaranteed non-empty by `resolve_relay`, so a failure always has a
-    // recorded cause.
-    Err(SessionError::Dial(
-        last_err.expect("a relay target always has at least one address"),
-    ))
 }
 
 /// Runs `f` against the current game's [`TurnState`], if one is live.
@@ -432,4 +477,227 @@ pub fn with_lobby_session_seed<R>(f: impl FnOnce(&LobbySessionSeed) -> R) -> Opt
     let guard = LOBBY_SESSION_SEED.lock()?;
     let seed = guard.as_ref()?;
     Some(f(seed))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::{Ipv4Addr, Ipv6Addr, UdpSocket};
+    use std::time::Instant;
+
+    use rally_point_client::proto::handshake;
+    use rally_point_client::proto::token::{CHALLENGE_LEN, SIGNATURE_LEN};
+    use rally_point_client::transport::rustls::RootCertStore;
+    use rally_point_client::transport::rustls::pki_types::{CertificateDer, PrivateKeyDer};
+    use rally_point_client::transport::{quic, quinn};
+
+    use super::*;
+
+    /// Runs one relay-side authorization handshake against the client's
+    /// [`ClientEndpoint::connect`]: accept the client's bidirectional stream, read
+    /// (and discard) the token frame, answer with a dummy challenge, read (and
+    /// discard) the signature and resume-cursor frame, then acknowledge. It
+    /// validates nothing — the race under test decides which *address* wins, not
+    /// which identity is trusted — so the challenge bytes are arbitrary and the
+    /// signature is never checked.
+    ///
+    /// Returns the still-open handshake streams so the caller can keep them (and
+    /// thus the connection) alive.
+    async fn run_relay_handshake(
+        conn: &quinn::Connection,
+    ) -> Result<(quinn::SendStream, quinn::RecvStream), Box<dyn std::error::Error + Send + Sync>>
+    {
+        let (mut send, mut recv) = conn.accept_bi().await?;
+
+        // Token frame: a u16-LE length prefix, then that many token bytes.
+        let mut len_buf = [0u8; handshake::TOKEN_LEN_PREFIX_LEN];
+        recv.read_exact(&mut len_buf).await?;
+        let token_len = handshake::decode_token_len(len_buf)?;
+        let mut token = vec![0u8; token_len];
+        recv.read_exact(&mut token).await?;
+
+        // The relay's connection-binding challenge. The client signs whatever we
+        // send, and we never verify the result, so the bytes here are arbitrary.
+        send.write_all(&[0u8; CHALLENGE_LEN]).await?;
+
+        // The client's 64-byte challenge signature, discarded.
+        let mut signature = [0u8; SIGNATURE_LEN];
+        recv.read_exact(&mut signature).await?;
+
+        // Resume-cursor frame: a u16-LE entry count, then that many fixed-width
+        // `(slot, cursor)` entries. A fresh dial sends a zero count; read it
+        // generally so a non-empty frame would drain correctly too.
+        let mut count_buf = [0u8; handshake::RESUME_CURSOR_COUNT_PREFIX_LEN];
+        recv.read_exact(&mut count_buf).await?;
+        let count = handshake::decode_resume_cursor_count(count_buf)?;
+        for _ in 0..count {
+            let mut entry = [0u8; handshake::RESUME_CURSOR_ENTRY_LEN];
+            recv.read_exact(&mut entry).await?;
+        }
+
+        // Acknowledge the connection as routable — the byte the client waits for.
+        send.write_all(&[handshake::HANDSHAKE_OK]).await?;
+
+        Ok((send, recv))
+    }
+
+    /// Spawns a fake relay: a QUIC server on a loopback IPv4 port that completes the
+    /// authorization handshake for every incoming connection and then holds each
+    /// connection open, so a winning client's [`Link`] stays usable. Returns the
+    /// address to dial, the self-signed leaf certificate to pin, and the endpoint —
+    /// which the caller keeps alive for as long as the relay must answer.
+    async fn spawn_fake_relay() -> (SocketAddr, CertificateDer<'static>, quinn::Endpoint) {
+        let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()]).unwrap();
+        let cert_der = cert.cert.der().clone();
+        let key_der = PrivateKeyDer::try_from(cert.signing_key.serialize_der()).unwrap();
+        let server_config = quic::server_config(vec![cert_der.clone()], key_der).unwrap();
+
+        let bind: SocketAddr = (Ipv4Addr::LOCALHOST, 0).into();
+        let endpoint = quinn::Endpoint::server(server_config, bind).unwrap();
+        let addr = endpoint.local_addr().unwrap();
+
+        let accept_endpoint = endpoint.clone();
+        tokio::spawn(async move {
+            while let Some(incoming) = accept_endpoint.accept().await {
+                tokio::spawn(async move {
+                    let Ok(conn) = incoming.await else {
+                        return;
+                    };
+                    let Ok(_streams) = run_relay_handshake(&conn).await else {
+                        return;
+                    };
+                    // Hold the connection and its handshake streams open for the
+                    // rest of the test; nothing here ever closes them.
+                    std::future::pending::<()>().await;
+                });
+            }
+        });
+
+        (addr, cert_der, endpoint)
+    }
+
+    /// A dual-stack client endpoint (the production bind) trusting exactly `cert`.
+    fn client_endpoint(cert: &CertificateDer<'static>) -> ClientEndpoint {
+        let mut roots = RootCertStore::empty();
+        roots.add(cert.clone()).unwrap();
+        credentials::bind_endpoint(roots).expect("client endpoint binds")
+    }
+
+    /// A relay target for `addrs` whose TLS server name matches the fake relay's
+    /// `localhost` certificate.
+    fn relay_target(addrs: Vec<SocketAddr>) -> RelayTarget {
+        RelayTarget {
+            addrs,
+            server_name: "localhost".to_owned(),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_black_holed_preferred_candidate_loses_to_the_staggered_fallback() {
+        let (relay_addr, cert, _relay_endpoint) = spawn_fake_relay().await;
+        let endpoint = client_endpoint(&cert);
+        let identity = credentials::test_identity();
+
+        // A v6 socket we bind and never read from: packets to it are swallowed, so
+        // a dial to it can neither complete nor error until its own ~10s deadline —
+        // a black-holed route. Held open for the whole test so the port stays bound
+        // (a closed port would bounce the dial with an error and fail it fast).
+        let silent = UdpSocket::bind((Ipv6Addr::LOCALHOST, 0)).unwrap();
+        let silent_addr = silent.local_addr().unwrap();
+
+        // Preference order: the black-holed v6 candidate first, the working v4 relay
+        // second.
+        let relay = relay_target(vec![silent_addr, relay_addr]);
+
+        let start = Instant::now();
+        let (_link, winner) = connect_relay(&endpoint, &relay, &identity)
+            .await
+            .expect("the staggered v4 candidate wins the race");
+        let elapsed = start.elapsed();
+
+        assert_eq!(winner, relay_addr, "the working v4 candidate must win");
+        assert!(
+            elapsed >= DIAL_STAGGER,
+            "the preferred candidate gets its full head start before the fallback \
+             starts, and it can never complete, so the win cannot precede the \
+             stagger (elapsed {elapsed:?})",
+        );
+        assert!(
+            elapsed < Duration::from_secs(5),
+            "the stagger must rescue the dial well before the ~10s dial deadline \
+             (elapsed {elapsed:?})",
+        );
+
+        // The silent socket must outlive the dial so its port stays black-holed.
+        drop(silent);
+    }
+
+    #[tokio::test]
+    async fn an_outright_failure_advances_to_the_next_candidate_at_once() {
+        let (relay_addr, cert, _relay_endpoint) = spawn_fake_relay().await;
+        let endpoint = client_endpoint(&cert);
+        let identity = credentials::test_identity();
+
+        // Port 0 is an invalid remote: `quinn::Endpoint::connect` rejects it inside
+        // `connect` itself, before any wait, so this candidate fails outright rather
+        // than stalling — which advances the race to the next candidate immediately
+        // instead of after the stagger.
+        let dead: SocketAddr = (Ipv4Addr::LOCALHOST, 0).into();
+        let relay = relay_target(vec![dead, relay_addr]);
+
+        let start = Instant::now();
+        let (_link, winner) = connect_relay(&endpoint, &relay, &identity)
+            .await
+            .expect("the second candidate wins after the first fails fast");
+        let elapsed = start.elapsed();
+
+        assert_eq!(winner, relay_addr);
+        // Advancing on an outright failure skips the stagger, so the dial completes
+        // in about a handshake. The bound stays generous against machine noise;
+        // the point is that it does not wait the stagger out.
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "advancing on failure should not wait out the stagger (elapsed {elapsed:?})",
+        );
+    }
+
+    #[tokio::test]
+    async fn every_candidate_failing_returns_a_dial_error() {
+        let endpoint =
+            credentials::bind_endpoint(RootCertStore::empty()).expect("client endpoint binds");
+        let identity = credentials::test_identity();
+
+        // Two invalid remotes (port 0): both are rejected synchronously in
+        // `connect`, so the race exhausts its candidates and reports the last
+        // failure rather than hanging.
+        let dead_a: SocketAddr = (Ipv4Addr::LOCALHOST, 0).into();
+        let dead_b: SocketAddr = (Ipv4Addr::new(127, 0, 0, 2), 0).into();
+        let relay = relay_target(vec![dead_a, dead_b]);
+
+        let start = Instant::now();
+        let result = connect_relay(&endpoint, &relay, &identity).await;
+        let elapsed = start.elapsed();
+
+        assert!(
+            matches!(result, Err(SessionError::Dial(_))),
+            "every candidate failing must yield a Dial error",
+        );
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "synchronous failures should return promptly (elapsed {elapsed:?})",
+        );
+    }
+
+    #[tokio::test]
+    async fn a_single_candidate_connects() {
+        let (relay_addr, cert, _relay_endpoint) = spawn_fake_relay().await;
+        let endpoint = client_endpoint(&cert);
+        let identity = credentials::test_identity();
+
+        let relay = relay_target(vec![relay_addr]);
+
+        let (_link, winner) = connect_relay(&endpoint, &relay, &identity)
+            .await
+            .expect("the sole candidate connects");
+        assert_eq!(winner, relay_addr);
+    }
 }
