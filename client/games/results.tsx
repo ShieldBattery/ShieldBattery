@@ -270,8 +270,11 @@ export function ConnectedGameResultsPage({
     ipcRenderer
       .invoke('replayLibraryFindByGameId', gameId)
       ?.then(replayId => {
-        if (isMounted && replayId !== undefined) {
-          setIsReplaySaved(true)
+        // Set unconditionally: this page isn't keyed by gameId, so the instance (and this state) is
+        // reused across navigations -- without resetting, a previously-saved game would leave the
+        // button stuck on "In library" for a game whose replay isn't saved.
+        if (isMounted) {
+          setIsReplaySaved(replayId !== undefined)
         }
       })
       .catch(err => {

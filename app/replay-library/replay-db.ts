@@ -71,8 +71,10 @@ export class ReplayDb {
 
   private readonly getIdByPathStmt: Statement
   private readonly insertReplayStmt: Statement
+  private readonly updateReplayByIdStmt: Statement
   private readonly insertPlayerStmt: Statement
   private readonly deleteReplayByIdStmt: Statement
+  private readonly deletePlayersByReplayIdStmt: Statement
   private readonly updateReplayFileStmt: Statement
   private readonly setStarredStmt: Statement
   private readonly getStarredCountStmt: Statement
@@ -123,11 +125,23 @@ export class ReplayDb {
         duration_frames, sb_game_id, parse_error, team_size, matchup
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
+    // Deliberately omits `starred_at`: a reparse (see `upsertTxn`) updates a row in place so the
+    // user's star (and, via the stable id, playlist memberships) survive the reparse.
+    this.updateReplayByIdStmt = this.db.prepare(`
+      UPDATE replays SET
+        path = ?, file_mtime = ?, file_size = ?, content_hash = ?, game_time = ?, map_name = ?,
+        game_type = ?, duration_frames = ?, sb_game_id = ?, parse_error = ?, team_size = ?,
+        matchup = ?
+      WHERE id = ?
+    `)
     this.insertPlayerStmt = this.db.prepare(`
       INSERT INTO replay_players (replay_id, slot, team, name, race, is_computer, sb_user_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     this.deleteReplayByIdStmt = this.db.prepare('DELETE FROM replays WHERE id = ?')
+    this.deletePlayersByReplayIdStmt = this.db.prepare(
+      'DELETE FROM replay_players WHERE replay_id = ?',
+    )
     this.updateReplayFileStmt = this.db.prepare(
       'UPDATE replays SET path = ?, file_mtime = ? WHERE id = ?',
     )
@@ -179,26 +193,47 @@ export class ReplayDb {
 
     this.upsertTxn = this.db.transaction((record: IndexedReplay) => {
       const existing = this.getIdByPathStmt.get(record.path) as { id: number } | undefined
+      let id: number
       if (existing) {
-        // Cascade removes players.
-        this.deleteReplayByIdStmt.run(existing.id)
+        // Update the row in place (rather than delete + reinsert) so it keeps its id. That id is
+        // what preserves the user's curation across a reparse: `starred_at` isn't in the update, and
+        // a stable id means `playlist_entries` (FK ON DELETE CASCADE) aren't dropped. A delete +
+        // reinsert would silently wipe both on any reparse -- e.g. a bare mtime touch, or a future
+        // parser bump that clears `file_mtime` to force a full reparse (as the v5 migration did).
+        id = existing.id
+        this.updateReplayByIdStmt.run(
+          record.path,
+          record.fileMtime,
+          record.fileSize,
+          record.contentHash,
+          record.gameTime,
+          record.mapName,
+          record.gameType,
+          record.durationFrames,
+          record.sbGameId ?? null,
+          record.parseError ? 1 : 0,
+          record.teamSize,
+          record.matchup,
+          id,
+        )
+        this.deletePlayersByReplayIdStmt.run(id)
+      } else {
+        const info = this.insertReplayStmt.run(
+          record.path,
+          record.fileMtime,
+          record.fileSize,
+          record.contentHash,
+          record.gameTime,
+          record.mapName,
+          record.gameType,
+          record.durationFrames,
+          record.sbGameId ?? null,
+          record.parseError ? 1 : 0,
+          record.teamSize,
+          record.matchup,
+        )
+        id = Number(info.lastInsertRowid)
       }
-
-      const info = this.insertReplayStmt.run(
-        record.path,
-        record.fileMtime,
-        record.fileSize,
-        record.contentHash,
-        record.gameTime,
-        record.mapName,
-        record.gameType,
-        record.durationFrames,
-        record.sbGameId ?? null,
-        record.parseError ? 1 : 0,
-        record.teamSize,
-        record.matchup,
-      )
-      const id = Number(info.lastInsertRowid)
 
       for (const p of record.players) {
         this.insertPlayerStmt.run(

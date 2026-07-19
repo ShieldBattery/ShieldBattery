@@ -1,8 +1,8 @@
-import path from 'node:path'
-
 /** Strips any path separators from a caller-supplied filename, leaving just the base name. */
 export function sanitizeBaseFilename(filename: string): string {
-  return path.basename(filename)
+  // Handle both POSIX and Windows separators explicitly, rather than `path.basename` (which only
+  // treats `/` as a separator when running under POSIX, so a Windows-style path survives on Linux).
+  return filename.replace(/^.*[/\\]/, '')
 }
 
 /**
