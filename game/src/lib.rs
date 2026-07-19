@@ -61,6 +61,7 @@ mod recurse_checked_mutex;
 mod replay;
 mod snp;
 mod sync;
+mod team_colors;
 mod windows;
 
 const WAIT_DEBUGGER: bool = false;

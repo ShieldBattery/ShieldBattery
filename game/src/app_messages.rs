@@ -9,6 +9,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use crate::bw;
 use crate::bw::players::{AllianceState, AssignedRace, PlayerLoseType, VictoryState};
 use crate::bw::{BwGameType, LobbyOptions};
+use crate::team_colors::{Color, TeamColorConfig, TeamColorUsage, parse_hex_color};
 
 // Structures of messages that are used to communicate with the electron app.
 
@@ -20,6 +21,96 @@ pub struct Settings {
     pub settings_file_path: String,
     /// If set, the bounds of the monitor that the user wants to launch on (in fullscreen modes).
     pub monitor_bounds: Option<(i32, i32, u32, u32)>,
+    /// The user's resolved custom team-color scheme, or `None` from a client that doesn't send it.
+    /// The app maps presets to concrete `#RRGGBB` values before sending, so the DLL only ever sees
+    /// resolved colors.
+    #[serde(default)]
+    pub team_colors: Option<TeamColorsSettings>,
+}
+
+/// Fully-resolved custom team-color scheme, as sent by the app. Colors are `#RRGGBB` strings; the
+/// DLL parses them into the engine's [`TeamColorConfig`] via [`TeamColorsSettings::to_config`].
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamColorsSettings {
+    pub usage: TeamColorUsage,
+    pub shuffle: bool,
+    pub team: TeamSchemeColors,
+    /// Identity color pool for FFA / non-team contexts.
+    pub ffa: Vec<String>,
+    /// Optional fixed local-player color in FFA contexts.
+    pub ffa_self: Option<String>,
+}
+
+/// The team-scheme half of [`TeamColorsSettings`]: the local player's color plus the ally/enemy
+/// pools used when team semantics apply.
+#[derive(Deserialize, Debug, Clone)]
+pub struct TeamSchemeColors {
+    /// The local player's color. `self` is a Rust keyword, so the wire key is remapped.
+    #[serde(rename = "self")]
+    pub self_color: String,
+    pub allies: Vec<String>,
+    pub enemies: Vec<String>,
+}
+
+impl TeamColorsSettings {
+    /// Converts the wire settings into the engine's [`TeamColorConfig`], hex-parsing every pool.
+    /// Individually invalid entries are logged and dropped; if the local color is unparseable or
+    /// any required pool resolves empty, the feature is disabled (`None`) rather than running with
+    /// a degenerate pool.
+    pub fn to_config(&self) -> Option<TeamColorConfig> {
+        let self_color = match parse_hex_color(&self.team.self_color) {
+            Some(c) => c,
+            None => {
+                warn!(
+                    "Custom team colors disabled: invalid self color '{}'",
+                    self.team.self_color
+                );
+                return None;
+            }
+        };
+        let allies = parse_color_pool(&self.team.allies, "team allies");
+        let enemies = parse_color_pool(&self.team.enemies, "team enemies");
+        let ffa = parse_color_pool(&self.ffa, "ffa");
+        let ffa_self = self.ffa_self.as_deref().and_then(|s| {
+            let parsed = parse_hex_color(s);
+            if parsed.is_none() {
+                warn!("Ignoring invalid ffa self color '{s}'");
+            }
+            parsed
+        });
+        if allies.is_empty() || enemies.is_empty() || ffa.is_empty() {
+            warn!(
+                "Custom team colors disabled: a color pool resolved empty \
+                 (allies={}, enemies={}, ffa={})",
+                allies.len(),
+                enemies.len(),
+                ffa.len()
+            );
+            return None;
+        }
+        Some(TeamColorConfig {
+            usage: self.usage,
+            shuffle: self.shuffle,
+            self_color,
+            allies,
+            enemies,
+            ffa,
+            ffa_self,
+        })
+    }
+}
+
+/// Hex-parses a pool of `#RRGGBB` strings, logging and dropping any entry that doesn't parse.
+fn parse_color_pool(hexes: &[String], label: &str) -> Vec<Color> {
+    let mut out = Vec::with_capacity(hexes.len());
+    for hex in hexes {
+        match parse_hex_color(hex) {
+            Some(color) => out.push(color),
+            None => warn!("Dropping invalid {label} color '{hex}'"),
+        }
+    }
+    out
 }
 
 #[atomic_enum]
@@ -604,5 +695,85 @@ mod tests {
         };
         let json = serde_json::to_value(&status).unwrap();
         assert_eq!(json, serde_json::json!({ "transport": "netcodeV2" }));
+    }
+
+    #[test]
+    fn team_colors_settings_deserialize_and_convert() {
+        let settings: TeamColorsSettings = serde_json::from_value(serde_json::json!({
+            "usage": "exceptIn1v1",
+            "shuffle": true,
+            "team": {
+                "self": "#2CB494",
+                "allies": ["#FCFC38"],
+                "enemies": ["#F40404"],
+            },
+            "ffa": ["#F40404", "#0C48CC"],
+            "ffaSelf": "#00E4FC",
+        }))
+        .unwrap();
+        // The wire `self` key maps onto `self_color`.
+        assert_eq!(settings.team.self_color, "#2CB494");
+        assert_eq!(settings.usage, TeamColorUsage::ExceptIn1v1);
+        assert!(settings.shuffle);
+
+        let config = settings.to_config().expect("valid pools resolve");
+        assert_eq!(config.usage, TeamColorUsage::ExceptIn1v1);
+        assert!(config.shuffle);
+        assert_eq!(config.self_color, parse_hex_color("#2CB494").unwrap());
+        assert_eq!(config.allies, vec![parse_hex_color("#FCFC38").unwrap()]);
+        assert_eq!(config.enemies, vec![parse_hex_color("#F40404").unwrap()]);
+        assert_eq!(config.ffa.len(), 2);
+        assert_eq!(config.ffa_self, Some(parse_hex_color("#00E4FC").unwrap()));
+    }
+
+    #[test]
+    fn team_colors_optional_ffa_self_defaults_to_none() {
+        let settings: TeamColorsSettings = serde_json::from_value(serde_json::json!({
+            "usage": "always",
+            "shuffle": false,
+            "team": { "self": "#2CB494", "allies": ["#FCFC38"], "enemies": ["#F40404"] },
+            "ffa": ["#F40404"],
+        }))
+        .unwrap();
+        assert_eq!(settings.to_config().unwrap().ffa_self, None);
+    }
+
+    #[test]
+    fn team_colors_empty_pool_disables_feature() {
+        // All-invalid entries drop to an empty pool, which disables the feature rather than
+        // building a degenerate config.
+        let settings: TeamColorsSettings = serde_json::from_value(serde_json::json!({
+            "usage": "always",
+            "shuffle": false,
+            "team": { "self": "#2CB494", "allies": ["not-a-color"], "enemies": ["#F40404"] },
+            "ffa": ["#F40404"],
+            "ffaSelf": null,
+        }))
+        .unwrap();
+        assert!(settings.to_config().is_none());
+    }
+
+    #[test]
+    fn team_colors_invalid_self_disables_feature() {
+        let settings: TeamColorsSettings = serde_json::from_value(serde_json::json!({
+            "usage": "always",
+            "shuffle": false,
+            "team": { "self": "bad", "allies": ["#FCFC38"], "enemies": ["#F40404"] },
+            "ffa": ["#F40404"],
+        }))
+        .unwrap();
+        assert!(settings.to_config().is_none());
+    }
+
+    #[test]
+    fn settings_without_team_colors_defaults_to_none() {
+        let settings: Settings = serde_json::from_value(serde_json::json!({
+            "local": {},
+            "scr": {},
+            "settingsFilePath": "path",
+            "monitorBounds": null,
+        }))
+        .unwrap();
+        assert!(settings.team_colors.is_none());
     }
 }

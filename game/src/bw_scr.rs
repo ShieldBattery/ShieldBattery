@@ -40,6 +40,7 @@ use crate::bw_scr::scr::SafeBwString;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::netcode_v2;
+use crate::team_colors::{GameStartInfo, TeamColorConfig, TeamColorState};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::sync::DumbSpinLock;
@@ -291,6 +292,13 @@ pub struct BwScr {
     /// Whether the saved minimap settings have already been applied this game (so we only restore
     /// them once, letting in-game toggles afterwards stick).
     minimap_settings_restored: AtomicBool,
+    /// Custom team-color configuration parsed from the launch settings, or `None` when the feature
+    /// isn't configured. Written on the async thread at `set_settings`, read once on the game
+    /// thread at game init.
+    team_color_config: Mutex<Option<TeamColorConfig>>,
+    /// Live team-color state for the current game, or `None` when the feature is inactive (UMS,
+    /// missing analysis, RGB colors off, or no config). Built and used on the game thread.
+    team_color_runtime: Mutex<Option<TeamColorRuntime>>,
     use_legacy_cursor_sizing: AtomicBool,
     use_custom_cursor_size: AtomicBool,
     custom_cursor_size: Mutex<f32>,
@@ -391,6 +399,52 @@ struct NetcodeV2Bw {
     storm_local_player_slot: Value<u8>,
     /// `storm_turn_base`: the base added to a session slot to form the game-level net player id.
     storm_turn_base: Value<u32>,
+}
+
+/// Live custom-team-color state for one game, present only while the feature is active. Everything
+/// here lives on and is touched from the BW main thread.
+struct TeamColorRuntime {
+    /// The assignment engine, advanced as the local player's alliances change.
+    state: TeamColorState,
+    /// BW's original `rgb_colors` captured at game init: the per-slot fallback for any slot the
+    /// engine leaves unassigned, and the full palette restored in the Standard / minimap-only modes.
+    original_rgb_colors: [[f32; 4]; 8],
+    /// The Shift+Tab color mode the user currently sees. The real `minimap_color_mode` global is
+    /// pinned to a fixed value per mode (so BW's own diplomacy recolor never fires), leaving this
+    /// the source of truth for what the user selected.
+    virtual_mode: MinimapColorMode,
+    /// The local player id and the outgoing alliance row currently reflected in the assignment,
+    /// or `None` for an observer/replay (no live tracking). Diffed each frame to detect changes.
+    local_alliance_row: Option<(u8, [bool; 8])>,
+}
+
+/// The value the real `minimap_color_mode` global is pinned to for a given virtual mode. Standard
+/// and Preset both use BW's RGB path (real 0, our colors written / originals restored); minimap-only
+/// uses BW's own diplomacy dots (real 1).
+fn pinned_real_mode(mode: MinimapColorMode) -> u8 {
+    match mode {
+        MinimapColorMode::Standard | MinimapColorMode::Preset => 0,
+        MinimapColorMode::PresetOnMinimapOnly => 1,
+    }
+}
+
+/// The next virtual mode in the Shift+Tab cycle (Standard -> minimap-only -> everywhere -> ...),
+/// matching the order BW's native cycle presents.
+fn next_minimap_mode(mode: MinimapColorMode) -> MinimapColorMode {
+    match mode {
+        MinimapColorMode::Standard => MinimapColorMode::PresetOnMinimapOnly,
+        MinimapColorMode::PresetOnMinimapOnly => MinimapColorMode::Preset,
+        MinimapColorMode::Preset => MinimapColorMode::Standard,
+    }
+}
+
+/// A per-game shuffle seed drawn from local entropy. The shuffle is a purely local aesthetic, so a
+/// wall-clock seed is fine; a replay re-rolling its own shuffle on each viewing is acceptable.
+fn shuffle_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0)
 }
 
 /// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
@@ -1369,6 +1423,8 @@ impl BwScr {
             saved_minimap_color_mode: AtomicU8::new(0),
             saved_minimap_terrain_hidden: AtomicBool::new(false),
             minimap_settings_restored: AtomicBool::new(false),
+            team_color_config: Mutex::new(None),
+            team_color_runtime: Mutex::new(None),
             use_legacy_cursor_sizing: AtomicBool::new(false),
             use_custom_cursor_size: AtomicBool::new(false),
             custom_cursor_size: Mutex::new(0.25),
@@ -1625,6 +1681,7 @@ impl BwScr {
                     }
                     orig();
                     game_thread::after_step_game();
+                    self.update_team_colors_from_alliances();
                 },
                 address,
             );
@@ -2196,6 +2253,12 @@ impl BwScr {
             exe.hook_closure_address(
                 DrawGraphicLayers,
                 move |extra_funcs, extra_func_len, second_draw, orig| {
+                    // Detect a Shift+Tab color-mode cycle before queuing draws, so this frame renders
+                    // with the corrected mode/colors. A no-op unless custom team colors are active.
+                    // Only on the primary pass; the SD/HD-fade second pass sees the same global.
+                    if second_draw == 0 {
+                        self.poll_team_color_mode();
+                    }
                     // It is expected that extra_funcs array has one (just one) function that
                     // draws the UI console. If console is hidden just call orig with 0 extra funcs
                     // and it should make the static parts of console hidden.
@@ -3876,17 +3939,212 @@ impl BwScr {
     /// globals. Runs at most once per game; subsequent in-game toggles are left untouched. Should
     /// be called from the minimap dialog's init event, once the globals are valid. Globals that
     /// weren't located during analysis are skipped.
+    ///
+    /// When custom team colors are active the real color-mode global no longer carries the user's
+    /// mode (it is pinned per virtual mode); the team-color mapping is reapplied here instead so it
+    /// wins over the minimap init's own reset of the global. The terrain toggle is independent and
+    /// is always restored as before.
     pub fn restore_minimap_settings(&self) {
         if self.minimap_settings_restored.swap(true, Ordering::Relaxed) {
             return;
         }
-        if let Some(value) = self.minimap_color_mode.as_ref() {
-            let mode = self.saved_minimap_color_mode.load(Ordering::Acquire);
-            unsafe { value.write(mode) };
-        }
         if let Some(value) = self.minimap_terrain_hidden.as_ref() {
             let hidden = self.saved_minimap_terrain_hidden.load(Ordering::Acquire);
             unsafe { value.write(u8::from(hidden)) };
+        }
+        let guard = self.team_color_runtime.lock();
+        if let Some(runtime) = guard.as_ref() {
+            unsafe { self.apply_team_color_mode(runtime) };
+        } else if let Some(value) = self.minimap_color_mode.as_ref() {
+            let mode = self.saved_minimap_color_mode.load(Ordering::Acquire);
+            unsafe { value.write(mode) };
+        }
+    }
+
+    /// Builds the team-color engine for this game if the feature is active, snapshots BW's original
+    /// player colors, and applies the initial assignment. A no-op — leaving the untouched path in
+    /// place — when the feature isn't configured, the game is UMS, RGB player colors aren't in use,
+    /// or the minimap color-mode global wasn't located. Runs once at game init on the game thread,
+    /// after alliances are finalized.
+    pub fn init_team_colors(&self) {
+        let Some(config) = self.team_color_config.lock().clone() else {
+            return;
+        };
+        // UMS maps set player colors deliberately (CRGB / forces), so the feature stays off there.
+        if game_thread::is_ums() {
+            return;
+        }
+        // The color-mode global is the virtual-mode carrier; without it the mode machinery can't
+        // run, so fall back to the untouched path.
+        if self.minimap_color_mode.is_none() {
+            return;
+        }
+        unsafe {
+            // Melee runs with RGB player colors; a zero here means BW is in a palette-index mode
+            // this feature doesn't drive.
+            if self.use_rgb_colors.resolve() == 0 {
+                return;
+            }
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                warn!("rgb_colors pointer was null at team-color init");
+                return;
+            }
+            let original_rgb_colors = *rgb_ptr;
+            if original_rgb_colors.iter().flatten().all(|v| v.to_bits() == 0) {
+                warn!("rgb_colors snapshot is entirely zero at team-color init; colors may be wrong");
+            }
+
+            // Active players are players[] 0..8 whose in-game type is human (2) or computer (1).
+            let players = self.players();
+            let mut active_players = Vec::with_capacity(8);
+            for i in 0..8u8 {
+                if matches!((*players.add(i as usize)).player_type, 1 | 2) {
+                    active_players.push(i);
+                }
+            }
+            let local_player = if self.is_replay_or_obs() {
+                None
+            } else {
+                // A seated player's id is always a real player slot; anything else would index
+                // out of bounds in the assignment engine, so degrade to the seatless (static)
+                // assignment instead of trusting it.
+                let id = self.local_player_id.resolve();
+                if id < 8 {
+                    Some(id as u8)
+                } else {
+                    warn!("Local player id {id} out of player-slot range at team-color init");
+                    None
+                }
+            };
+            let game = self.game();
+            let mut initial_allies = [[false; 8]; 8];
+            for (a, row) in initial_allies.iter_mut().enumerate() {
+                for (b, cell) in row.iter_mut().enumerate() {
+                    *cell = (*game).alliances[a][b] != 0;
+                }
+            }
+            let info = GameStartInfo {
+                active_players,
+                local_player,
+                initial_allies,
+            };
+            let state = TeamColorState::new(config, &info, shuffle_seed());
+            let virtual_mode =
+                MinimapColorMode::try_from(self.saved_minimap_color_mode.load(Ordering::Acquire))
+                    .unwrap_or_default();
+            let local_alliance_row = local_player.map(|local| (local, initial_allies[local as usize]));
+            let runtime = TeamColorRuntime {
+                state,
+                original_rgb_colors,
+                virtual_mode,
+                local_alliance_row,
+            };
+            let mut guard = self.team_color_runtime.lock();
+            *guard = Some(runtime);
+            if let Some(runtime) = guard.as_ref() {
+                self.apply_team_color_mode(runtime);
+            }
+        }
+    }
+
+    /// The active team-color virtual minimap mode, or `None` when the feature is inactive (the
+    /// caller then reads BW's real global as before). Used at game exit to persist the mode the
+    /// user actually sees rather than the pinned real-global value.
+    pub fn team_color_virtual_mode(&self) -> Option<MinimapColorMode> {
+        self.team_color_runtime
+            .lock()
+            .as_ref()
+            .map(|runtime| runtime.virtual_mode)
+    }
+
+    /// Detects a Shift+Tab color-mode cycle by polling: BW cycles the real global (or forces it to
+    /// 2 for observers) on the keypress, so any value other than the one pinned for the current
+    /// virtual mode means the user cycled. Any unexpected value counts as exactly one forward step,
+    /// after which the mapping is reapplied. Called every rendered frame; a no-op when the feature
+    /// is inactive. Cycling never disturbs the engine's assignment/cursor state.
+    unsafe fn poll_team_color_mode(&self) {
+        unsafe {
+            let mut guard = self.team_color_runtime.lock();
+            let Some(runtime) = guard.as_mut() else {
+                return;
+            };
+            let Some(global) = self.minimap_color_mode.as_ref() else {
+                return;
+            };
+            if global.resolve() != pinned_real_mode(runtime.virtual_mode) {
+                runtime.virtual_mode = next_minimap_mode(runtime.virtual_mode);
+                self.apply_team_color_mode(runtime);
+            }
+        }
+    }
+
+    /// Reacts to a live change of the local player's outgoing alliance row (custom lobbies where
+    /// players ally mid-game). Diffs the row, advances the engine, and rewrites `rgb_colors` when
+    /// the assignment changed and colors are currently shown. Called after each `step_game`; a
+    /// no-op when the feature is inactive or there is no local seat (observer/replay).
+    unsafe fn update_team_colors_from_alliances(&self) {
+        unsafe {
+            let mut guard = self.team_color_runtime.lock();
+            let Some(runtime) = guard.as_mut() else {
+                return;
+            };
+            let Some((local, last_row)) = runtime.local_alliance_row else {
+                return;
+            };
+            let game = self.game();
+            let mut row = [false; 8];
+            for (i, cell) in row.iter_mut().enumerate() {
+                *cell = (*game).alliances[local as usize][i] != 0;
+            }
+            if row == last_row {
+                return;
+            }
+            runtime.local_alliance_row = Some((local, row));
+            let changed = runtime.state.update_local_alliances(&row);
+            if changed && runtime.virtual_mode == MinimapColorMode::Preset {
+                self.write_team_color_rgb(runtime);
+            }
+        }
+    }
+
+    /// Pins the real `minimap_color_mode` global and writes `rgb_colors` to match the runtime's
+    /// current virtual mode: `Preset` shows the computed assignment, the other modes restore BW's
+    /// originals. Keeping the real global pinned per mode keeps BW's own diplomacy recolor from
+    /// stomping our colors.
+    unsafe fn apply_team_color_mode(&self, runtime: &TeamColorRuntime) {
+        unsafe {
+            if let Some(global) = self.minimap_color_mode.as_ref() {
+                global.write(pinned_real_mode(runtime.virtual_mode));
+            }
+            match runtime.virtual_mode {
+                MinimapColorMode::Preset => self.write_team_color_rgb(runtime),
+                MinimapColorMode::Standard | MinimapColorMode::PresetOnMinimapOnly => {
+                    let rgb_ptr = self.rgb_colors.resolve();
+                    if !rgb_ptr.is_null() {
+                        *rgb_ptr = runtime.original_rgb_colors;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Writes the engine's current assignment into `rgb_colors`, a full 8-slot write each time.
+    /// Slots the engine leaves unassigned keep BW's original color from the init snapshot.
+    unsafe fn write_team_color_rgb(&self, runtime: &TeamColorRuntime) {
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                return;
+            }
+            let colors = runtime.state.colors();
+            let mut out = runtime.original_rgb_colors;
+            for (slot, color) in colors.iter().enumerate() {
+                if let Some(color) = color {
+                    out[slot] = *color;
+                }
+            }
+            *rgb_ptr = out;
         }
     }
 
@@ -4123,6 +4381,9 @@ impl bw::Bw for BwScr {
         self.use_custom_cursor_size
             .store(use_custom_cursor_size, Ordering::Release);
         *self.custom_cursor_size.lock() = custom_cursor_size;
+
+        *self.team_color_config.lock() =
+            settings.team_colors.as_ref().and_then(|tc| tc.to_config());
 
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Release);
