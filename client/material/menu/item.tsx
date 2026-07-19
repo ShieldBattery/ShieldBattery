@@ -1,20 +1,22 @@
 import * as React from 'react'
 import { useEffect, useRef } from 'react'
 import styled, { css } from 'styled-components'
-import { singleLine } from '../../styles/typography'
+import { bodySmall, singleLine } from '../../styles/typography'
 import { useButtonState } from '../button'
 import { buttonReset } from '../button-reset'
 import { Ripple } from '../ripple'
 import { ITEM_HEIGHT, ITEM_HEIGHT_DENSE } from './menu'
 import { BaseMenuItemProps, MenuItemSymbol, MenuItemType } from './menu-item-symbol'
 
-const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
+const Item = styled.button<{ $dense?: boolean; $focused?: boolean; $hasSecondaryText?: boolean }>`
   ${buttonReset};
   position: relative;
   width: auto;
-  height: ${props => (props.$dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT)}px;
+  height: ${props =>
+    props.$hasSecondaryText ? 'auto' : `${props.$dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT}px`};
+  min-height: ${props => (props.$dense ? ITEM_HEIGHT_DENSE : ITEM_HEIGHT)}px;
   margin: 0 4px;
-  padding: 0 8px;
+  padding: ${props => (props.$hasSecondaryText ? '6px 8px' : '0 8px')};
 
   display: flex;
   align-items: center;
@@ -45,9 +47,23 @@ const Item = styled.button<{ $dense?: boolean; $focused?: boolean }>`
   }
 `
 
+const ItemTextColumn = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+`
+
 const ItemText = styled.div`
   ${singleLine};
   flex-grow: 1;
+`
+
+const ItemSecondaryText = styled.div`
+  ${bodySmall};
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
 `
 
 const ItemIcon = styled.span`
@@ -71,6 +87,7 @@ export interface MenuItemProps extends BaseMenuItemProps {
 
 export function MenuItem({
   text,
+  secondaryText,
   icon,
   dense,
   focused,
@@ -102,9 +119,13 @@ export function MenuItem({
       data-testid={testName}
       {...buttonProps}
       $dense={dense}
-      $focused={focused && virtualFocus}>
+      $focused={focused && virtualFocus}
+      $hasSecondaryText={!!secondaryText}>
       {icon ? <ItemIcon>{icon}</ItemIcon> : null}
-      <ItemText>{text}</ItemText>
+      <ItemTextColumn>
+        <ItemText>{text}</ItemText>
+        {secondaryText ? <ItemSecondaryText>{secondaryText}</ItemSecondaryText> : null}
+      </ItemTextColumn>
       {trailingContent}
       <Ripple ref={rippleRef} />
     </Item>

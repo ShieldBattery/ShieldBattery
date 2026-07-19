@@ -1,6 +1,7 @@
 import { Link, Route, Switch } from 'wouter'
 import { ButtonsTest } from './buttons-test'
 import { ChipTest } from './chip-test'
+import { ColorPickerTest } from './color-picker-test'
 import { MenuTest } from './menu-test'
 import DevPopover from './popover-test'
 import { RadioTest } from './radio-test'
@@ -21,6 +22,9 @@ function DevMaterialDashboard() {
       </li>
       <li>
         <Link href={`${BASE_URL}/chip`}>Chip component</Link>
+      </li>
+      <li>
+        <Link href={`${BASE_URL}/color-picker`}>Color picker component</Link>
       </li>
       <li>
         <Link href={`${BASE_URL}/menu`}>Menu component</Link>
@@ -58,6 +62,7 @@ export default function DevMaterialRoutes() {
     <Switch>
       <Route path={`${BASE_URL}/button`} component={ButtonsTest} />
       <Route path={`${BASE_URL}/chip`} component={ChipTest} />
+      <Route path={`${BASE_URL}/color-picker`} component={ColorPickerTest} />
       <Route path={`${BASE_URL}/menu`} component={MenuTest} />
       <Route path={`${BASE_URL}/popover`} component={DevPopover} />
       <Route path={`${BASE_URL}/radio`} component={RadioTest} />

@@ -399,6 +399,7 @@
       "create": "Create",
       "decline": "Decline",
       "delete": "Delete",
+      "done": "Done",
       "download": "Download",
       "edit": "Edit",
       "hide": "Hide",
@@ -1353,9 +1354,9 @@
         "apmValue": "APM value",
         "apmValueValidation": "Enter a value between 1 and 999",
         "colorCycling": "Enable color cycling",
-        "colorPreset": {
-          "legacyDiplomacy": "Legacy diplomacy",
-          "title": "Preset"
+        "colorPicker": {
+          "customRgb": "Custom RGB",
+          "intro": "StarCraft's 22 built-in colors, or any RGB below."
         },
         "consoleSkins": {
           "20thAnniversary": "StarCraft 20th Anniversary",
@@ -1368,6 +1369,24 @@
           "warcraft3": "WarCraft 3 Spoils"
         },
         "devOnlySettings": "Dev-only settings",
+        "ffaColorPreset": {
+          "classic": "Classic",
+          "colorblindSafe": "Colorblind-safe",
+          "custom": "Custom",
+          "pastel": "Pastel",
+          "title": "Preset"
+        },
+        "ffaColors": {
+          "clear": "Clear",
+          "pickerTargetPool": "Individual colors · #{{n}}",
+          "pickerTargetSelf": "Your individual color",
+          "poolGroup": "Pool",
+          "poolHint": "Minimum 8 colors, so every player always gets a unique color.",
+          "selfAddLabel": "Fixed color for yourself (optional)",
+          "selfSetHint": "You'll always get this color in games without teams. It's set aside so other players don't take it.",
+          "selfUnsetHint": "You'll get a color from the pool, just like everyone else.",
+          "title": "Individual colors"
+        },
         "gameTimer": "Game timer",
         "ingameSkins": {
           "carbot": "Carbot",
@@ -1375,7 +1394,13 @@
           "preorder": "Preorder",
           "title": "Ingame skin"
         },
+        "interface": {
+          "title": "Interface"
+        },
         "latency": "Show latency",
+        "mapMinimap": {
+          "title": "Map & minimap"
+        },
         "minimapPosition": {
           "bottomLeft": "Bottom-left corner",
           "standard": "Standard",
@@ -1387,27 +1412,73 @@
           "title": "Minimap terrain"
         },
         "showBonusSkins": "Show bonus skins",
-        "skinsInfo": "Skins (must be purchased from Blizzard)",
+        "skins": {
+          "description": "Must be purchased from Blizzard.",
+          "title": "Skins"
+        },
         "startingFog": {
           "legacy": "Legacy",
           "showResources": "Show resources",
           "showTerrainAndResources": "Show terrain and resources",
           "title": "Starting fog of war"
         },
+        "teamColorPreset": {
+          "colorblindSafe": "Colorblind-safe",
+          "coolVsWarm": "Cool vs warm",
+          "custom": "Custom",
+          "legacyDiplomacy": "Legacy diplomacy",
+          "title": "Preset"
+        },
         "teamColors": {
+          "addColor": "Add a color",
+          "alliesOrderedRepeatHint_one": "Colors are used in order, from the left. With more than {{count}} allies, colors repeat.",
+          "alliesOrderedRepeatHint_other": "Colors are used in order, from the left. With more than {{count}} allies, colors repeat.",
+          "alliesShuffledRepeatHint_one": "These colors are used in a random order each game. With more than {{count}} allies, colors repeat.",
+          "alliesShuffledRepeatHint_other": "These colors are used in a random order each game. With more than {{count}} allies, colors repeat.",
+          "copyFromPreset": "Copy from preset",
+          "copyFromPresetCaption": "Overwrites your custom colors",
+          "description": "How player colors appear in your games. Cycle between modes in-game with Shift+Tab.",
+          "editHint": "Click a color to change it, or drag to reorder.",
+          "enemiesOrderedRepeatHint_one": "Colors are used in order, from the left. With more than {{count}} enemies, colors repeat.",
+          "enemiesOrderedRepeatHint_other": "Colors are used in order, from the left. With more than {{count}} enemies, colors repeat.",
+          "enemiesShuffledRepeatHint_one": "These colors are used in a random order each game. With more than {{count}} enemies, colors repeat.",
+          "enemiesShuffledRepeatHint_other": "These colors are used in a random order each game. With more than {{count}} enemies, colors repeat.",
+          "header": "Player colors",
           "label": "Mode",
           "mode": {
             "presetEverywhere": "Use preset everywhere",
+            "presetEverywhereDesc": "Your color scheme on units and the minimap.",
             "presetOnMinimap": "Use preset on minimap",
-            "standard": "Standard"
+            "presetOnMinimapDesc": "Ally and enemy colors on the minimap only.",
+            "standard": "Standard",
+            "standardDesc": "StarCraft's normal colors. The settings below have no effect."
           },
+          "offNote": "Off — individual colors are used in every game.",
+          "pickerTargetAlly": "Team scheme · allies · #{{n}}",
+          "pickerTargetEnemy": "Team scheme · enemies · #{{n}}",
+          "pickerTargetSelf": "Team scheme · your color",
+          "poolOrderedHint": "Colors are used in order, from the left.",
+          "poolShuffledHint": "These colors are used in a random order each game.",
           "preview": {
             "allies": "Allies",
             "enemies": "Enemies",
-            "self": "You",
-            "title": "Preview"
+            "self": "You"
           },
+          "previewHeaderFfa": "Preview — 8 players, no teams",
+          "previewHeaderTeam": "Preview — 4v4",
+          "removeColor": "Remove color",
+          "selectCustomHint": "Select the Custom preset to edit colors.",
+          "shuffle": "Shuffle colors each game",
           "title": "Team colors"
+        },
+        "teamColorUsage": {
+          "always": "In team games and 1v1",
+          "alwaysDesc": "Your 1v1 opponent always gets the first enemy color.",
+          "exceptIn1v1": "Only in team games",
+          "exceptIn1v1Desc": "Two-player games use individual colors instead.",
+          "never": "Never",
+          "neverDesc": "Everyone keeps their own color, even when alliances change.",
+          "title": "Team colors usage"
         },
         "title": "Gameplay",
         "unitPortraits": {

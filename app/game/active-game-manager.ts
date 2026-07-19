@@ -24,6 +24,12 @@ import {
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
 import { GameClientPlayerResult } from '../../common/games/results'
+import { DEFAULT_LOCAL_SETTINGS } from '../../common/settings/default-settings'
+import {
+  cloneCustomTeamColors,
+  resolveFfaColors,
+  resolveTeamColors,
+} from '../../common/settings/team-colors'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
@@ -328,6 +334,16 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       : this.mapStore.getPath(map.hash, map.mapData.format)
 
     const local = await this.localSettings.get()
+    // The stored settings should already have every field populated (via the defaults/migration
+    // in `app/settings.ts`), but fall back to the defaults for anything that's still missing so
+    // the resolvers below always have complete team-color settings to work with.
+    const resolvedLocal = {
+      ...DEFAULT_LOCAL_SETTINGS,
+      ...local,
+      customTeamColors:
+        local.customTeamColors ?? cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
+      customFfaColors: local.customFfaColors ?? [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
+    }
     const desiredMonitorBounds =
       local.monitorId !== undefined
         ? screen.getAllDisplays().find(d => d.id === local.monitorId)?.bounds
@@ -349,6 +365,16 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       scr: await this.scrSettings.get(),
       settingsFilePath: this.scrSettings.gameFilepath,
       monitorBounds,
+      // `local` only stores the active preset *names* plus the custom pools; the DLL has no
+      // preset tables of its own, so the active preset is mapped to concrete colors here and the
+      // DLL only ever receives resolved hex pools.
+      teamColors: {
+        usage: resolvedLocal.teamColorUsage,
+        shuffle: resolvedLocal.shuffleColors,
+        team: resolveTeamColors(resolvedLocal),
+        ffa: resolveFfaColors(resolvedLocal),
+        ffaSelf: resolvedLocal.ffaSelfColor ?? null,
+      },
     })
 
     this.maybeSendGameSetup(game)
