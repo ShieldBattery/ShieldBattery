@@ -3,7 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { Readable } from 'stream'
-import { container, inject, singleton } from 'tsyringe'
+import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ALL_GAME_FORMATS,
@@ -30,9 +30,7 @@ import { NetcodeV2RehomeRequest, NetcodeV2RehomeResponse } from '../../../common
 import {
   GameResultErrorCode,
   isRawStoredGameResults,
-  RawGameResultsReport,
   SubmitGameReplayRequest,
-  SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
@@ -46,7 +44,6 @@ import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
-import { UpsertUserIp } from '../network/user-ips-type'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
@@ -71,12 +68,7 @@ import {
   GamePointsRefundService,
   GamePointsRefundServiceError,
 } from './game-points-refund-service'
-import GameResultService, {
-  GameResultServiceError,
-  isResultsExempt,
-  SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
-  usedNetcodeV2,
-} from './game-result-service'
+import GameResultService, { GameResultServiceError } from './game-result-service'
 import { deriveResultSubmission } from './raw-results'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
@@ -172,10 +164,6 @@ function convertGameResultServiceErrors(err: unknown) {
       throw asHttpError(400, err)
     case GameResultErrorCode.NotLoaded:
       throw asHttpError(409, err)
-    case GameResultErrorCode.RelayReportRequired:
-      throw asHttpError(409, err)
-    case GameResultErrorCode.ResultsNotTracked:
-      throw asHttpError(409, err)
     default:
       assertUnreachable(err.code)
   }
@@ -217,7 +205,6 @@ async function convertServiceErrors(ctx: RouterContext, next: Koa.Next) {
 export class GameApi {
   constructor(
     private gameResultService: GameResultService,
-    @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
     private gameLoader: GameLoader,
     private replayService: ReplayService,
     private gamePointsRefundService: GamePointsRefundService,
@@ -496,65 +483,7 @@ export class GameApi {
     ctx.status = 204
   }
 
-  // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,
-  // the body is intended to be secret per user and authenticate that they are the one who sent it.
-  @httpPost('/:gameId/results2')
-  @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
-  async submitGameResults(ctx: RouterContext): Promise<void> {
-    const {
-      params: { gameId },
-      body,
-    } = validateRequest(ctx, {
-      params: GAME_ID_PARAM,
-      body: SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
-    })
-    const report = body as SubmitGameResultsRequest | RawGameResultsReport
-
-    if (this.gameLoader.isLoading(gameId)) {
-      throw new GameResultServiceError(
-        GameResultErrorCode.NotLoaded,
-        'Game is still loading, try again later',
-      )
-    }
-
-    const gameRecord = await this.gameResultService.retrieveGame(gameId)
-
-    // A game with computer players never tracks results at all, so it rejects with a distinct code
-    // rather than the (misleading, for this case) relay-report requirement below — checked first
-    // since an exempt v2 game should report "not tracked", not "use the relay".
-    if (isResultsExempt(gameRecord.config)) {
-      throw new GameResultServiceError(
-        GameResultErrorCode.ResultsNotTracked,
-        'results are not tracked for games with computer players',
-      )
-    }
-
-    // A netcode-v2 game's result can only reach the server through the relay's signed webhook —
-    // this direct endpoint stays open for pre-cutover clients, but a v2 game must reject it so
-    // there's no untrusted side door around the relay's guarantees.
-    if (usedNetcodeV2(gameRecord.config)) {
-      throw new GameResultServiceError(
-        GameResultErrorCode.RelayReportRequired,
-        'netcode v2 games must report results through the relay',
-      )
-    }
-
-    await this.gameResultService.submitGameResults({
-      gameId,
-      report,
-      logger: ctx.log,
-    })
-
-    // If it was successful, record this user's IP for that account, since the normal middleware
-    // to do so won't have run
-    this.upsertUserIp(report.userId, ctx.ip).catch(err => {
-      logger.error({ err }, 'error upserting user IP')
-    })
-
-    ctx.status = 204
-  }
-
-  // NOTE(tec27): Like the results/replay endpoints this doesn't require being logged in — the game
+  // NOTE(tec27): Like the replay endpoint this doesn't require being logged in — the game
   // client authenticates by presenting the per-(game, user) resultCode the server minted, which is
   // secret to that user. The game client posts here when its home relay looks dead and it needs the
   // session re-homed; the server (not the client) does the tenant-signed coordinator round trip.

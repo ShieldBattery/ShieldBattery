@@ -239,7 +239,7 @@ pub struct RawNetPlayer {
     pub has_quit: bool,
 }
 
-/// Raw end-of-game evidence report sent to the server, over the relay or the HTTP results path.
+/// Raw end-of-game evidence report sent to the server over the relay's reliable control stream.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RawGameResultsReport<'a> {

@@ -52,7 +52,7 @@ describe('games/registration/registerGame', () => {
     )
   })
 
-  test('sets resultsExempt: false on the persisted config for an all-human game', async () => {
+  test('sets resultsExempt: false on the persisted config for a 2-human game', async () => {
     const config = lobbyConfig([
       [{ id: p1, race: 't', isComputer: false }],
       [{ id: p2, race: 'z', isComputer: false }],
@@ -63,6 +63,17 @@ describe('games/registration/registerGame', () => {
     expect(asMockedFunction(createGameRecord)).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ config: expect.objectContaining({ resultsExempt: false }) }),
+    )
+  })
+
+  test('sets resultsExempt: true on the persisted config for a solo (no-AI) game', async () => {
+    const config = lobbyConfig([[{ id: p1, race: 't', isComputer: false }]])
+
+    await registerGame(mapId, config)
+
+    expect(asMockedFunction(createGameRecord)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ config: expect.objectContaining({ resultsExempt: true }) }),
     )
   })
 

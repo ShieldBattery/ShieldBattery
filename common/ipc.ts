@@ -12,7 +12,7 @@ import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
 import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
-import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
+import { GameClientPlayerResult } from './games/results'
 import { MapExtension } from './maps'
 import { ReplayShieldBatteryData } from './replays'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
@@ -243,12 +243,6 @@ interface IpcMainSendables {
     result: Record<string, GameClientPlayerResult>
     time: number
   }) => void
-  /**
-   * Used if sending results from the game fails for some reason. We pass this off to the
-   * renderer process to do because this usually indicates some issue with e.g. the TLS stack of
-   * this system, so using the network stack outside the renderer also tends to fail.
-   */
-  activeGameResendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
   /**
    * Used if uploading a replay from the game fails for some reason. We pass this off to the
    * renderer process to do because this usually indicates some issue with e.g. the TLS stack of

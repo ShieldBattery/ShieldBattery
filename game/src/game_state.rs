@@ -1123,8 +1123,8 @@ async fn send_game_result(
     server_config: &ServerConfig,
     ws_send: &app_socket::SendMessages,
 ) {
-    // Send results to the app.
-    // If the app is closed, ignore the error and try to still send results to server.
+    // Send results to the app for its UI/state surface. If the app is closed the send fails; ignore
+    // it, since the relay report and replay upload below run regardless.
     let results_message = GameResultsMessage {
         time: results.time_ms,
         results: &results.results,
@@ -1140,10 +1140,13 @@ async fn send_game_result(
 
     let result_code = info.result_code.clone().unwrap();
 
-    // A netcode v2 game delivers its result report over the rally-point2 relay's reliable control
-    // stream instead of an HTTP POST. Build the exact same report the server validates and hand it
-    // to the driver; `submit_result_report` reports whether a live v2 session took it. The
-    // `/game/result` app message above and the replay upload below are unaffected either way.
+    // A tracked game's end-of-game report travels over the rally-point2 relay's reliable control
+    // stream: build the report the server validates and hand it to the relay driver.
+    // `submit_result_report` delivers it for a relay-backed session and does nothing for a
+    // sessionless one, so a sessionless solo game submits no result anywhere. That asymmetry is
+    // deliberate: a single-human game has nothing to rank, so the server treats it as
+    // results-exempt. The replay upload below runs for every game type; it has no relay analogue
+    // and always stays on HTTP.
     let report = RawGameResultsReport {
         version: 2,
         user_id: local_user.id,
@@ -1153,92 +1156,23 @@ async fn send_game_result(
         net_players: &results.raw_net_players,
         local_player_lose_type: results.local_player_lose_type,
     };
-    let sent_over_relay = match serde_json::to_vec(&report) {
-        Ok(bytes) => netcode_v2::submit_result_report(bytes),
-        // Serializing this struct cannot realistically fail (it's what the HTTP path serializes
-        // too); if it somehow did, fall back to the HTTP result path rather than lose the result.
-        Err(err) => {
-            error!("Failed to serialize game result report: {err}");
-            false
+    match serde_json::to_vec(&report) {
+        Ok(bytes) => {
+            netcode_v2::submit_result_report(bytes);
         }
-    };
-
-    // The HTTP result POST runs only for a legacy game. A v2 game's result already went over the
-    // relay, and its backup-resend paths are disabled server-side, so there is no POST, no retries,
-    // and no `/game/resultSent` emission. The replay upload still runs for both.
-    let results_future = async {
-        if !sent_over_relay {
-            send_results_to_server(
-                results,
-                info,
-                local_user,
-                &result_code,
-                server_config,
-                ws_send,
-            )
-            .await;
-        }
-    };
+        Err(err) => error!("Failed to serialize game result report: {err}"),
+    }
 
     if let Some(replay_path) = &results.replay_path {
-        let replay_future = send_replay(
+        send_replay(
             replay_path,
             &info.game_id,
             local_user.id,
             &result_code,
             server_config,
             ws_send,
-        );
-        tokio::join!(results_future, replay_future);
-    } else {
-        results_future.await;
-    }
-}
-
-async fn send_results_to_server(
-    results: &GameResults,
-    info: &GameSetupInfo,
-    local_user: &SbUser,
-    result_code: &str,
-    server_config: &ServerConfig,
-    ws_send: &app_socket::SendMessages,
-) {
-    let client = reqwest::Client::new();
-    let result_url = format!(
-        "{}/api/1/games/{}/results2",
-        server_config.server_url, info.game_id
-    );
-
-    let result_body = RawGameResultsReport {
-        version: 2,
-        user_id: local_user.id,
-        result_code,
-        time: results.time_ms,
-        players: &results.raw_players,
-        net_players: &results.raw_net_players,
-        local_player_lose_type: results.local_player_lose_type,
-    };
-
-    let headers = api_request_headers();
-    for _ in 0u8..3 {
-        let result = client
-            .post(&result_url)
-            .timeout(Duration::from_secs(30))
-            .headers(headers.clone())
-            .json(&result_body)
-            .send()
-            .await;
-
-        match result.and_then(|r| r.error_for_status()) {
-            Ok(_) => {
-                debug!("Game results sent successfully");
-                let _ = app_socket::send_message(ws_send, "/game/resultSent", ()).await;
-                break;
-            }
-            Err(err) => {
-                error!("Error sending game results: {err}");
-            }
-        };
+        )
+        .await;
     }
 }
 

@@ -104,9 +104,6 @@ export class GameServer {
           payload.tempReplayPath,
         )
         break
-      case '/game/resultSent':
-        this.activeGameManager.handleGameResultSent(gameId)
-        break
       case '/game/finished':
         this.activeGameManager.handleGameFinished(gameId)
         break

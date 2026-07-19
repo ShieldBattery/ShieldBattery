@@ -414,7 +414,7 @@ export async function recordDesyncNotification(
 /**
  * Classifies and records a result notification from an already-authenticated caller: this is the
  * only way a netcode-v2 game's result reaches the server, so a notification that resolves to a
- * real game+user is submitted through the same service the direct `results2` endpoint uses.
+ * real game+user is submitted through `GameResultService.submitGameResults`.
  *
  * Same forgiving posture as departures/desync — an unresolvable `externalId`/`externalRef`, an
  * undecodable/invalid payload, or a payload whose `userId` doesn't match `externalRef` (a

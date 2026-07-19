@@ -44,12 +44,13 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
   useNetcodeV2?: boolean
   /**
    * Whether this game is exempt from result tracking, because its teams include at least one
-   * computer player. Unlike `useNetcodeV2`, the team composition is known as soon as the config is
-   * built, so this is set once at registration time and never changes.
+   * computer player or because it has fewer than two human players. Unlike `useNetcodeV2`, the
+   * team composition is known as soon as the config is built, so this is set once at registration
+   * time and never changes.
    *
-   * Matchmaking never includes computer players, so this only ever applies to lobby games.
-   * Records created before this field existed won't have it set; readers should treat a missing
-   * value as `false`.
+   * Matchmaking always has at least two human players and never includes computer players, so this
+   * only ever applies to lobby games. Records created before this field existed won't have it set;
+   * readers should treat a missing value as `false`.
    */
   resultsExempt?: boolean
 }

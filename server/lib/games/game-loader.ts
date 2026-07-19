@@ -606,12 +606,11 @@ export class GameLoader {
         )
       }
       const useNetcodeV2 = hasMultipleHumans
-      // Persisted onto the game's config so later readers (e.g. the results endpoint deciding
-      // whether direct HTTP submission is allowed) can see it without re-deriving it — this isn't
-      // known until now, so it can't be part of the config written at registration time. The
-      // write is awaited and fails the load on error: the results endpoint rejects direct
-      // submissions for netcode-v2 games based on this flag, so losing the write would silently
-      // re-open the direct-submission door for this game.
+      // Persisted onto the game's config so later readers (e.g. result reconciliation deciding
+      // whether a game's result can only arrive via the relay, see `usedNetcodeV2`) can see it
+      // without re-deriving it — this isn't known until now, so it can't be part of the config
+      // written at registration time. The write is awaited and fails the load on error, so a lost
+      // write can't silently make a netcode-v2 game look like a legacy one to those readers.
       const [, configError] = (
         await Result.fromAsyncCatching(updateGameConfig(gameId, { ...gameConfig, useNetcodeV2 }))
       ).toTuple()

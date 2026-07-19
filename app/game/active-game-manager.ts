@@ -23,8 +23,8 @@ import {
   statusToString,
 } from '../../common/games/game-status'
 import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
-import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
-import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import { GameClientPlayerResult } from '../../common/games/results'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
@@ -76,10 +76,6 @@ interface ActiveGameInfo {
     time: number
   }
   /**
-   * Whether or not the game result was successfully reported to the server by the game process.
-   */
-  resultSent?: boolean
-  /**
    * The path to the temporary replay file that is pending upload. This is the path used by the
    * game DLL when saving a replay for upload purposes.
    */
@@ -121,7 +117,6 @@ export type ActiveGameManagerEvents = {
   ]
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
-  resendResults: [gameId: string, requestBody: SubmitGameResultsRequest]
   resendReplay: [request: ResendReplayRequest]
 }
 
@@ -658,18 +653,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.emit('gameResult', { gameId, result, time })
   }
 
-  handleGameResultSent(gameId: string) {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
-      return
-    }
-
-    this.activeGame = {
-      ...this.activeGame,
-      resultSent: true,
-    }
-    this.setStatus(GameStatus.ResultSent)
-  }
-
   handleGameFinished(gameId: string) {
     if (!this.activeGame || this.activeGame.id !== gameId) {
       return
@@ -716,22 +699,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     let status = this.activeGame.status?.state ?? GameStatus.Unknown
     if (status < GameStatus.Finished) {
       if (status >= GameStatus.Playing) {
-        if (
-          this.activeGame.config?.setup.resultCode &&
-          !this.activeGame?.result &&
-          !this.activeGame?.resultSent &&
-          !this.activeGame.config.setup.useNetcodeV2
-        ) {
-          // The game didn't send a result, so we will send a blank one
-          const config = this.activeGame.config
-          const submission: SubmitGameResultsRequest = {
-            userId: config.localUser.id,
-            resultCode: config.setup.resultCode!,
-            time: 0,
-            playerResults: [],
-          }
-          this.emit('resendResults', this.activeGame.id, submission)
-        }
         this.setStatus(GameStatus.Unknown)
       } else {
         this.setStatus(
@@ -742,31 +709,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     status = this.activeGame.status?.state ?? GameStatus.Unknown
-    if (
-      status >= GameStatus.Playing &&
-      this.activeGame.config?.setup.resultCode &&
-      !this.activeGame.resultSent &&
-      this.activeGame.result &&
-      // A netcode-v2 game's result travels over the game client's relay link before the leave
-      // intent that ends the session — it either already made it through that path, or the client
-      // has nothing trustworthy left to say. Resending it here would be a duplicate, untrusted
-      // side door around the relay, which is the whole point of this being relay-only: "the game
-      // exited" is exactly what the relay's signed departure record says on its own.
-      !this.activeGame.config.setup.useNetcodeV2
-    ) {
-      const config = this.activeGame.config!
-      const submission: SubmitGameResultsRequest = {
-        userId: config.localUser.id,
-        resultCode: config.setup.resultCode!,
-        time: this.activeGame.result.time,
-        playerResults: Array.from(Object.entries(this.activeGame.result.result), ([id, result]) => [
-          makeSbUserId(Number(id)),
-          result,
-        ]),
-      }
-
-      this.emit('resendResults', this.activeGame.id, submission)
-    }
 
     // Check if we need to retry uploading the replay
     if (

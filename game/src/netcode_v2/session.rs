@@ -385,12 +385,12 @@ pub fn begin_local_only() {
 /// it over the relay's reliable control stream (see [`TurnState::submit_result_report`]). Returns
 /// whether a relay-backed session took the report.
 ///
-/// `true` means the report was handed to a relay driver and the caller must NOT also POST it over
-/// HTTP. `false` means there is no relay driver — a solo game (whose sessionless turn state has no
-/// relay to deliver over), or a replay (no turn state at all), or the re-entrant-lock case (which
-/// can't actually happen here, since this fires from the async result handler well off the turn
-/// hooks, but is warned rather than silently mis-reporting) — so the caller falls back to the HTTP
-/// result path.
+/// `true` means the report was handed to a relay driver. `false` means there is no relay driver —
+/// a solo game (whose sessionless turn state has no relay to deliver over), or a replay (no turn
+/// state at all), or the re-entrant-lock case (which can't actually happen here, since this fires
+/// from the async result handler well off the turn hooks, but is warned rather than silently
+/// mis-reporting). A `false` return means no one reports this game's result; a sessionless
+/// single-human game is results-exempt by design.
 pub fn submit_result_report(report: Vec<u8>) -> bool {
     let Some(mut guard) = SESSION.lock() else {
         warn!("submit_result_report skipped: turn state locked re-entrantly");
@@ -402,8 +402,8 @@ pub fn submit_result_report(report: Vec<u8>) -> bool {
                 session.turn_state.submit_result_report(report);
                 true
             }
-            // A sessionless solo game has no relay to deliver over, so it does not take the report;
-            // the caller POSTs it over HTTP just as a native game would.
+            // A sessionless solo game has no relay to deliver over, so it does not take the report
+            // and no one reports its result.
             SessionLink::Sessionless(_) => false,
         },
         None => false,

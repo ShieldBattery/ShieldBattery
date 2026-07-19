@@ -83,16 +83,6 @@ export enum GameResultErrorCode {
   InvalidClient = 'InvalidClient',
   /** The game has not been marked as loaded yet, so results cannot be submitted. */
   NotLoaded = 'NotLoaded',
-  /**
-   * The game used netcode v2 (rally-point2), so results can only reach the server through the
-   * relay's signed webhook, not this direct submission endpoint.
-   */
-  RelayReportRequired = 'RelayReportRequired',
-  /**
-   * The game contains computer players, so it's exempt from result tracking entirely — there was
-   * never anything for this submission to reconcile against.
-   */
-  ResultsNotTracked = 'ResultsNotTracked',
 }
 
 /** The payload format for submitting game results to the server. */
@@ -163,10 +153,10 @@ export interface RawNetPlayer {
 }
 
 /**
- * The raw end-of-game report a modern game client submits (reaching the server via both the
- * netcode-v2 relay payload and the direct `results2` HTTP endpoint). Unlike the legacy
- * `SubmitGameResultsRequest`, this carries the undigested BW evidence and the server derives the
- * per-player verdicts from it. Legacy reports are distinguished by the absence of `version`.
+ * The raw end-of-game report a modern game client submits, reaching the server via the netcode-v2
+ * relay's signed webhook. Unlike the legacy `SubmitGameResultsRequest`, this carries the undigested
+ * BW evidence and the server derives the per-player verdicts from it. Legacy reports are
+ * distinguished by the absence of `version`.
  */
 export interface RawGameResultsReport {
   /** Marks this as a raw (v2) report; absent on legacy digested reports. */

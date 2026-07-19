@@ -687,13 +687,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     .on('gameStatus', status => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameStatus', status)
     })
-    .on('resendResults', (gameId, requestBody) => {
-      TypedIpcSender.from(mainWindow?.webContents).send(
-        'activeGameResendResults',
-        gameId,
-        requestBody,
-      )
-    })
     .on('gameResult', info => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResult', info)
     })

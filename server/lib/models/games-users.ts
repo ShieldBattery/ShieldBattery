@@ -159,7 +159,7 @@ export async function getUserGameRecord(
 /**
  * Updates a particular user's results for a game, optionally stamping when/where a netcode-v2
  * relay recorded the report arriving (omitted, or explicitly `undefined`/`null`, for a report that
- * didn't come from the relay, e.g. the direct `results2` endpoint).
+ * didn't come from the relay).
  */
 export async function setReportedResults({
   userId,

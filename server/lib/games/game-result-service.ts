@@ -131,8 +131,8 @@ export function usedNetcodeV2(config: GameConfig): boolean {
 
 /**
  * Whether a game's persisted config marks it exempt from result tracking, because its teams
- * include a computer player (see `registerGame`). Records created before this field existed won't
- * have it set, so a missing value falls back to `false`.
+ * include a computer player or it has fewer than two human players (see `registerGame`). Records
+ * created before this field existed won't have it set, so a missing value falls back to `false`.
  */
 export function isResultsExempt(config: GameConfig): boolean {
   return config.resultsExempt ?? false
@@ -198,10 +198,8 @@ const RAW_GAME_RESULTS_REPORT_SCHEMA = Joi.object<RawGameResultsReport>({
 }).required()
 
 /**
- * Validates a game result submission body — used both by the direct `results2` HTTP endpoint and
- * by the netcode-v2 webhook, which decodes a relay-forwarded report and validates it against this
- * same schema before treating it as a submission. Keeping one schema for both entry points means a
- * relay-borne report has to satisfy the exact same shape a directly-POSTed one does.
+ * Validates a game result submission body — used by the netcode-v2 webhook, which decodes a
+ * relay-forwarded report and validates it against this schema before treating it as a submission.
  *
  * A report is version-discriminated: a `version: 2` body is validated as the raw schema; a body with
  * no `version` is validated as the legacy digested schema (so pre-cutover clients keep working).
@@ -589,11 +587,12 @@ export default class GameResultService {
    * inline, so the departure that closes the last open slot already has that slot's result in hand
    * (or definitive proof there never was one) — nothing for this game can still be in flight.
    *
-   * No-ops for a non-netcode-v2 game, a results-exempt game (contains computer players — see
-   * `isResultsExempt`), a game that's already reconciled, a game that isn't found (it may have been
-   * deleted), or one where some human still hasn't reported or departed. Never throws: this only
-   * ever runs as a fire-and-forget hook off webhook ingest, so a failure here must not turn an
-   * already-successful departure/result write into a failed webhook response.
+   * No-ops for a non-netcode-v2 game, a results-exempt game (contains a computer player, or has
+   * fewer than two human players — see `isResultsExempt`), a game that's already reconciled, a game
+   * that isn't found (it may have been deleted), or one where some human still hasn't reported or
+   * departed. Never throws: this only ever runs as a fire-and-forget hook off webhook ingest, so a
+   * failure here must not turn an already-successful departure/result write into a failed webhook
+   * response.
    */
   async maybeScheduleKnownCompleteReconcile(gameId: string): Promise<void> {
     try {
@@ -625,8 +624,9 @@ export default class GameResultService {
 
   /**
    * Force-reconciles a game immediately and publishes the result if reconciliation actually
-   * committed. No-ops for a results-exempt game (contains computer players — see
-   * `isResultsExempt`): those never reconcile, regardless of what triggered this call. Never
+   * committed. No-ops for a results-exempt game (contains a computer player, or has fewer than two
+   * human players — see `isResultsExempt`): those never reconcile, regardless of what triggered
+   * this call. Never
    * throws — every caller is a fire-and-forget hook off webhook ingest (the zero-grace
    * known-complete trigger above, `sessionClosed` ingest, and the sweep's coordinator liveness
    * probe), so a failure here must not turn an already-successful webhook write into a failed
@@ -659,8 +659,8 @@ export default class GameResultService {
    */
   private async maybeReconcileResults(gameRecord: GameRecord, force = false): Promise<boolean> {
     // Defense in depth: every path that could reconcile a results-exempt game (contains computer
-    // players — see `isResultsExempt`) is already gated before it gets here — `results2` rejects
-    // exempt games outright, webhook ingest never submits reports for them, and both
+    // players, or fewer than two human players — see `isResultsExempt`) is already gated before it
+    // gets here — webhook ingest never submits reports for them, and both
     // `maybeScheduleKnownCompleteReconcile` and `forceReconcileGame` no-op for them — but this stays
     // as a last-resort guard so no path can ever reconcile one.
     if (gameRecord.results || isResultsExempt(gameRecord.config)) {
