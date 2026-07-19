@@ -223,14 +223,14 @@ interface IpcInvokeables {
    * Saves a downloaded server replay into the watched replay library folder (verifying its hash
    * first), so the local replay library indexes it. If an identical file is already saved there,
    * it's left in place rather than duplicated. Resolves to the absolute path of the saved (or
-   * pre-existing) file.
+   * pre-existing) file, plus `alreadyExists: true` when it was already present on disk.
    */
   replayLibrarySaveReplay: (
     gameId: string,
     filename: string,
     expectedHash: string,
     data: ArrayBuffer,
-  ) => Promise<string>
+  ) => Promise<{ path: string; alreadyExists: boolean }>
 
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.

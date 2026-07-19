@@ -12,8 +12,8 @@ const SAVE_SUBFOLDER = 'ShieldBattery'
  * hash, then writes them into the watched replay folder (under a `ShieldBattery` subfolder) so the
  * local replay library indexes them on its own -- this doesn't touch the index directly.
  *
- * Returns the absolute path the replay was saved at. If an identical file was already saved there
- * (same content hash), that existing path is returned without rewriting it.
+ * Returns the absolute path the replay was saved at, plus `alreadyExists: true` when an identical
+ * file (same content hash) was already present there and left in place rather than rewritten.
  */
 export async function saveReplayToLibrary(
   watchedFolder: string,
@@ -21,7 +21,7 @@ export async function saveReplayToLibrary(
   filename: string,
   expectedHash: string,
   data: ArrayBuffer,
-): Promise<string> {
+): Promise<{ path: string; alreadyExists: boolean }> {
   const buffer = Buffer.from(data)
   const actualHash = createHash('sha256').update(buffer).digest('hex')
   if (actualHash !== expectedHash) {
@@ -47,10 +47,10 @@ export async function saveReplayToLibrary(
   const savePath = path.join(destDir, name)
   if (alreadyExists) {
     log.verbose(`Replay for game ${gameId} already saved at ${savePath}`)
-    return savePath
+    return { path: savePath, alreadyExists: true }
   }
 
   await writeFile(savePath, buffer)
   log.verbose(`Saved replay for game ${gameId} to ${savePath}`)
-  return savePath
+  return { path: savePath, alreadyExists: false }
 }

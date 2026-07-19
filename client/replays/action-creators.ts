@@ -152,9 +152,12 @@ export function watchReplayFromUrl(
 
 /** Result of `saveReplayToLibrary`, distinguishing a fresh save from a pre-existing one. */
 export interface SaveReplayResult {
-  /** Absolute path of the saved file. Omitted when `alreadySaved` (no download took place). */
+  /**
+   * Absolute path of the saved (or already-on-disk) file. Omitted only when the replay was already
+   * indexed locally, so no download or save was attempted.
+   */
   path?: string
-  /** True if this game's replay was already present in the local library. */
+  /** True if this game's replay was already present in the local library (indexed or on disk). */
   alreadySaved: boolean
 }
 
@@ -184,7 +187,7 @@ export function saveReplayToLibrary(
     }
     const data = await response.arrayBuffer()
 
-    const path = await ipcRenderer.invoke(
+    const saveResult = await ipcRenderer.invoke(
       'replayLibrarySaveReplay',
       replayInfo.gameId,
       replayInfo.filename,
@@ -192,6 +195,8 @@ export function saveReplayToLibrary(
       data,
     )
 
-    return { path, alreadySaved: false }
+    // The file can already exist on disk while its game id isn't indexed yet (the watcher hasn't
+    // caught up, or the index was reset) -- surface that as "already saved" rather than a fresh save.
+    return { path: saveResult?.path, alreadySaved: saveResult?.alreadyExists ?? false }
   })
 }
