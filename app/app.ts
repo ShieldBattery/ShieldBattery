@@ -25,13 +25,15 @@ import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
+import { RegionLatencyManager } from './game-server-regions/region-latency-manager'
+import { GameServerRegionList } from './game-server-regions/region-list'
 import { ActiveGameManager } from './game/active-game-manager'
 import { checkStarcraftPath } from './game/check-starcraft-path'
 import createGameServer, { GameServer } from './game/game-server'
 import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
+import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
-import { RallyPointManager } from './rally-point/rally-point-manager'
 import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
@@ -685,13 +687,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     .on('gameStatus', status => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameStatus', status)
     })
-    .on('resendResults', (gameId, requestBody) => {
-      TypedIpcSender.from(mainWindow?.webContents).send(
-        'activeGameResendResults',
-        gameId,
-        requestBody,
-      )
-    })
     .on('gameResult', info => {
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResult', info)
     })
@@ -703,9 +698,6 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       TypedIpcSender.from(mainWindow?.webContents).send('activeGameResendReplay', request)
     })
 
-  ipcMain.handle('activeGameStartWhenReady', (event, gameId) =>
-    activeGameManager.startWhenReady(gameId),
-  )
   ipcMain.handle('activeGameClearConfig', (event, gameId) =>
     activeGameManager.clearGameConfig(gameId),
   )
@@ -717,16 +709,48 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       return null
     }
   })
-  ipcMain.handle('activeGameSetRoutes', (event, gameId, routes) =>
-    activeGameManager.setGameRoutes(gameId, routes),
+  ipcMain.handle('activeGameGenNetcodeV2SessionKeys', () =>
+    activeGameManager.generateNetcodeV2SessionKeys(),
   )
+  ipcMain.handle('activeGameSetNetcodeV2Setup', (event, gameId, setup) =>
+    activeGameManager.setNetcodeV2Setup(gameId, setup),
+  )
+  if (isDev) {
+    // Dev-only handlers: a release game build doesn't implement the underlying commands anyway,
+    // but there's no reason to expose these outside of development.
+    ipcMain.handle('activeGameDebugQueryState', (event, gameId) =>
+      activeGameManager.debugQueryState(gameId),
+    )
+    ipcMain.handle('activeGameDebugScreenshot', (event, gameId) =>
+      activeGameManager.debugScreenshot(gameId),
+    )
+    ipcMain.handle('activeGameForceUnsyncedLeave', (event, gameId, slot) =>
+      activeGameManager.forceGameLeave(gameId, slot),
+    )
+    ipcMain.handle('activeGameForceDesync', (event, gameId) =>
+      activeGameManager.forceGameDesync(gameId),
+    )
+    ipcMain.handle('activeGameSendChat', (event, gameId, text) =>
+      activeGameManager.sendGameChat(gameId, text),
+    )
+    ipcMain.handle('activeGameRequestDrop', (event, gameId, slot) =>
+      activeGameManager.requestGameDrop(gameId, slot),
+    )
+    ipcMain.handle('activeGameToggleNetStats', (event, gameId) =>
+      activeGameManager.toggleGameNetStats(gameId),
+    )
+    ipcMain.handle('activeGameForceQuit', (event, gameId) =>
+      activeGameManager.forceQuitGame(gameId),
+    )
+  }
   ipcMain.handle('bugReportCollectFiles', async () => {
     const tempDir = await mkdtemp(path.join(tmpdir(), 'sbat-'))
     const logsDir = path.join(getUserDataPath(), 'logs')
     const collectedFiles: Array<{ name: string; filePath: string }> = []
     try {
       const filePath = path.join(tempDir, 'app.log')
-      await copyFile(path.join(logsDir, 'app.0.log'), filePath)
+      // Read this instance's (SB_SESSION-namespaced) log; the uploaded name stays `app.log`.
+      await copyFile(path.join(logsDir, `${appLogBaseName()}.0.log`), filePath)
       collectedFiles.push({ name: 'app.log', filePath })
     } catch (err) {
       logger.warning('Error copying app log: ' + getErrorStack(err))
@@ -734,7 +758,8 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
     try {
       const filePath = path.join(tempDir, 'shieldbattery.log')
-      await copyFile(path.join(logsDir, 'shieldbattery.0.log'), filePath)
+      // The game DLL log is `game[-<session>].0.log`; the uploaded name stays `shieldbattery.log`.
+      await copyFile(path.join(logsDir, `${gameLogBaseName()}.0.log`), filePath)
       collectedFiles.push({ name: 'shieldbattery.log', filePath })
     } catch (err) {
       logger.warning('Error copying game log: ' + getErrorStack(err))
@@ -879,22 +904,21 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
 
-  const rallyPointManager = container.resolve(RallyPointManager)
+  const gameServerRegionList = container.resolve(GameServerRegionList)
 
-  ipcMain.on('rallyPointSetServers', (event, servers) => {
-    rallyPointManager.setServers(servers)
+  ipcMain.on('gameServerRegionsSetList', (event, regions) => {
+    gameServerRegionList.setRegions(regions)
   })
-  ipcMain.on('rallyPointUpsertServer', (event, server) => {
-    rallyPointManager.upsertServer(server)
-  })
-  ipcMain.on('rallyPointDeleteServer', (event, id) => {
-    rallyPointManager.deleteServer(id)
-  })
-  ipcMain.on('rallyPointRefreshPings', () => {
-    rallyPointManager.refreshPings()
-  })
-  rallyPointManager.on('ping', (server, ping) => {
-    TypedIpcSender.from(mainWindow?.webContents).send('rallyPointPingResult', server, ping)
+
+  const regionLatencyManager = container.resolve(RegionLatencyManager)
+  regionLatencyManager.start().catch(() => {})
+
+  ipcMain.handle('gameServerRegionsGetLatencies', () => regionLatencyManager.getLatencies())
+  regionLatencyManager.on('updated', latencies => {
+    TypedIpcSender.from(mainWindow?.webContents).send(
+      'gameServerRegionsLatenciesUpdated',
+      latencies,
+    )
   })
 }
 

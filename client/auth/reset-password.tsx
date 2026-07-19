@@ -103,7 +103,7 @@ export function ResetPassword() {
           <SuccessMessage>
             {t('auth.forgot.reset.successMessage', 'Your password has been reset.')}
           </SuccessMessage>
-          <LinkButton href='/login' data-test='continue-to-login'>
+          <LinkButton href='/login' data-testid='continue-to-login'>
             <FilledButton
               styledAs='div'
               label={t('auth.forgot.reset.continueToLogin', 'Continue to login')}
@@ -113,7 +113,7 @@ export function ResetPassword() {
         </>
       ) : (
         <>
-          <StyledForm noValidate={true} onSubmit={submit} data-test='reset-password-form'>
+          <StyledForm noValidate={true} onSubmit={submit} data-testid='reset-password-form'>
             <Explanation>
               {t(
                 'auth.forgot.reset.explanationText',

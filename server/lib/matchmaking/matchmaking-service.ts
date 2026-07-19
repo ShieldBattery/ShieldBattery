@@ -7,10 +7,10 @@ import { Result } from 'typescript-result'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { isAbortError, raceAbort } from '../../../common/async/abort-signals'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
-import rejectOnTimeout from '../../../common/async/reject-on-timeout'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { subtract, union } from '../../../common/data-structures/sets'
+import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
   GameConfig,
   GameConfigPlayer,
@@ -37,6 +37,7 @@ import { randomInt, randomItem } from '../../../common/random'
 import { MatchFoundMessage, PublishedMatchmakingMessage } from '../../../common/typeshare'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
@@ -67,7 +68,7 @@ import {
   MatchmakingMatchFailPhase,
   MatchmakingRating,
 } from '../matchmaking/models'
-import { RallyPointService } from '../rally-point/rally-point-service'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RedisSubscriber } from '../redis/redis'
 import { Clock } from '../time/clock'
 import { monotonicNow } from '../time/monotonic-now'
@@ -100,6 +101,15 @@ interface PlayerTypeData {
   playerData: MatchmakingPlayerData
 }
 
+/**
+ * A queued player's chosen home region and their measured round-trip time to it. Forwarded to the
+ * Rust matchmaker as a latency input and later read at session create to home the player's slot.
+ */
+interface QueuedPlayerRegion {
+  region: GameServerRegionId
+  rttMs: number
+}
+
 /** Data Node.js needs to remember while a player is in queue, separate from the Rust queue. */
 interface PlayerQueueData {
   userId: SbUserId
@@ -107,6 +117,17 @@ interface PlayerQueueData {
   types: Map<MatchmakingType, PlayerTypeData>
   /** Queue start time (used for metrics), from monotonicNow(). */
   queuedAt: number
+  /**
+   * The player's desired home region and measured rtt, or undefined if they reported no region (or
+   * one no longer in the region list at queue time). Read at session create to place the slot.
+   */
+  region?: QueuedPlayerRegion
+  /**
+   * base64 of the player's per-session netcode v2 public key, submitted when they queued. Read at
+   * match time to build the coordinator session token; survives a requeue (only `queuedAt` is
+   * reset). Kept off the wire-visible `Slot` (like rtt) since no peer needs it.
+   */
+  clientPubkey: string
 }
 
 /**
@@ -284,12 +305,6 @@ interface QueueEntry {
 // messages back and forth from clients
 const ACCEPT_MATCH_LATENCY = 2000
 
-// How long to wait for a queuing client to report its rally-point pings before giving up. The client
-// kicks off measurement when the player hits "find match" and it normally completes in well under a
-// second; this is just a safety net so a client that can't reach *any* rally-point server gets a
-// clear error instead of hanging in the queue forever (see `queueSoloPlayer`).
-const PING_RESULT_TIMEOUT_MS = 10 * 1000
-
 /**
  * Selects a map for the given players and matchmaking type, based on the players' stored
  * matchmaking preferences and the current map pool.
@@ -341,6 +356,13 @@ async function pickMap(
 const PROCESS_TOKEN_POLL_INTERVAL_MS = 5000
 
 /**
+ * How often, while any player is queued, to re-signal the coordinator to keep the queued players'
+ * regions warm so a match forms onto an already-ready relay. Kept under the coordinator's warm hold
+ * so a region stays warm across a long search.
+ */
+const WARM_RENEWAL_INTERVAL_MS = 60_000
+
+/**
  * How many consecutive process-token fetch failures we tolerate before assuming server-rs has
  * restarted. A single failure is usually a transient hiccup and shouldn't eject the whole queue.
  */
@@ -361,6 +383,8 @@ export class MatchmakingService {
 
   private lastKnownProcessToken: string | undefined
   private processTokenWatchdog: ReturnType<typeof setInterval> | undefined
+  /** Runs while any player is queued, re-warming their regions. Self-stops when the queue empties. */
+  private warmRenewalInterval: ReturnType<typeof setInterval> | undefined
   /** Consecutive process-token fetch failures; reset to 0 on any success. */
   private consecutiveTokenFailures = 0
   /**
@@ -442,7 +466,8 @@ export class MatchmakingService {
     private matchmakingBanService: MatchmakingBanService,
     private restrictionService: RestrictionService,
     private redisSubscriber: RedisSubscriber,
-    private rallyPointService: RallyPointService,
+    private gameServerRegionsService: GameServerRegionsService,
+    private netcodeV2Service: NetcodeV2Service,
   ) {
     this.userSocketsManager.on('newUser', userSockets => {
       userSockets.subscribe<MatchmakingEvent>(getMatchmakingUserPath(userSockets.userId), () => {
@@ -469,6 +494,8 @@ export class MatchmakingService {
     clientId: string,
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
+    clientPubkey: string,
+    desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
 
@@ -489,7 +516,14 @@ export class MatchmakingService {
     }
 
     try {
-      await this.queueSoloPlayer(userId, clientId, identifiers, allPreferences)
+      await this.queueSoloPlayer(
+        userId,
+        clientId,
+        identifiers,
+        allPreferences,
+        clientPubkey,
+        desiredRegion,
+      )
     } catch (err) {
       // Clear out the activity registry for this user, since they didn't actually make it into the
       // queue
@@ -508,16 +542,23 @@ export class MatchmakingService {
     clientId: string,
     identifiers: ReadonlyArray<ClientIdentifierString>,
     allPreferences: MatchmakingPreferences[],
+    clientPubkey: string,
+    desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
   ): Promise<void> {
     const clientSockets = this.getClientSocketsOrFail(userId, clientId)
     const season = await this.matchmakingSeasonsService.getCurrentSeason()
 
-    // Latency is now an input to match-finding: the matchmaker estimates a candidate match's latency
-    // from the players' rally-point pings (see `serverPings` below), so we don't enqueue a player
-    // until their client has actually measured those pings. Measuring is quick and the client kicks
-    // it off when the player hits "find match", so this normally resolves right away; run it
-    // alongside the MMR loads rather than serially.
-    const pingResultPromise = this.rallyPointService.waitForPingResult(clientSockets)
+    // Latency is an input to match-finding: the matchmaker estimates a candidate match's latency
+    // from each player's chosen region and measured rtt to it (see `region`/`rttMs` below). The
+    // client reports these when it queues; validate the region against the live region list and drop
+    // it if it's unknown (the list can change between the client fetching it and queueing). An
+    // absent or unknown region is tolerated — the player simply carries no latency signal.
+    const region = await this.resolveQueuedRegion(desiredRegion)
+    if (region) {
+      // Signal the coordinator to keep this region warm so a match forms onto an already-ready
+      // relay; the renewal interval below keeps it warm for the duration of a long search.
+      this.netcodeV2Service.warmRegions([region.region])
+    }
 
     // Load MMR for all queued types in parallel
     const typeDataEntries = await Promise.all(
@@ -535,25 +576,6 @@ export class MatchmakingService {
       }),
     )
 
-    // Don't enter the queue until the client has reported its rally-point pings (see above). Bound
-    // the wait: if the client can't reach any rally-point server its pings never arrive and this
-    // promise would otherwise never resolve, leaving the player registered as an active gameplay
-    // client with no queue entry. Time out into a clear error instead so `find`'s catch unregisters
-    // them and the client surfaces the failure.
-    try {
-      await rejectOnTimeout(
-        pingResultPromise,
-        PING_RESULT_TIMEOUT_MS,
-        'timed out waiting for rally-point pings',
-      )
-    } catch (err) {
-      throw new MatchmakingServiceError(
-        MatchmakingServiceErrorCode.PingMeasurementFailed,
-        "Couldn't measure your connection to the game servers, please try again",
-        { cause: err },
-      )
-    }
-
     // Store the full player data and queue entry for use when the match event arrives from Rust.
     // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
     // `matchFound` event can arrive as soon as the player is in the Rust queue — possibly while we're
@@ -566,6 +588,8 @@ export class MatchmakingService {
         typeDataEntries.map(d => [d.type, { race: d.race, playerData: d.playerData }]),
       ),
       queuedAt: monotonicNow(),
+      region,
+      clientPubkey,
     })
     this.queueEntries.set(userId, {
       types: new Set(typeDataEntries.map(d => d.type)),
@@ -589,12 +613,12 @@ export class MatchmakingService {
             ? d.playerData.mapSelections.slice()
             : null,
       })),
-      // The matchmaker can't reason about latency from a single player in isolation — the latency
-      // of a match depends on which rally-point server gets chosen, which is a function of *all*
-      // the matched players' pings. So we hand it this client's raw per-server pings and let it
-      // reproduce the route selection per candidate match (see `match_latency` in Rust). We waited
-      // for a ping result above, so these are populated.
-      serverPings: this.rallyPointService.getPingsForClient(clientSockets),
+      // The matchmaker estimates a candidate match's latency from each player's chosen region and
+      // measured rtt to it, plus a static region-to-region backbone table (see `match_latency` in
+      // Rust). A player with no region contributes no latency signal (dev loopback / no configured
+      // regions).
+      region: region?.region,
+      rttMs: region?.rttMs,
     })
     if (result.isOk() && this.lastKnownProcessToken === undefined) {
       const tokenResult = await rsGetProcessToken()
@@ -613,6 +637,7 @@ export class MatchmakingService {
     }
 
     this.startProcessTokenWatchdog()
+    this.startWarmRenewal()
     this.subscribeUserToQueueUpdates(
       clientSockets,
       typeDataEntries.map(d => ({ matchmakingType: d.type, race: d.race })),
@@ -788,6 +813,31 @@ export class MatchmakingService {
     if (queueEntry?.partyId === partyId) {
       this.removeClientFromMatchmaking(this.activityRegistry.getClientForUser(userId)!, false)
     }
+  }
+
+  /**
+   * Validates a client-reported desired region against the live region list. Returns the region and
+   * its measured rtt only when both are present and the region still exists; otherwise returns
+   * undefined so the player queues with no latency signal. The region list can change between the
+   * client fetching it and queueing, so an unknown region degrades to no-region rather than
+   * rejecting the queue.
+   */
+  private async resolveQueuedRegion(desiredRegion?: {
+    region?: GameServerRegionId
+    rttMs?: number
+  }): Promise<QueuedPlayerRegion | undefined> {
+    const region = desiredRegion?.region
+    const rttMs = desiredRegion?.rttMs
+    if (region === undefined || rttMs === undefined) {
+      return undefined
+    }
+
+    const regions = await this.gameServerRegionsService.getRegions()
+    if (!regions.some(r => r.id === region)) {
+      return undefined
+    }
+
+    return { region, rttMs }
   }
 
   private async retrieveMmr(
@@ -1119,6 +1169,39 @@ export class MatchmakingService {
       )
     }
 
+    // Carry each player's queued home region through to the game loader, which forwards it to the
+    // coordinator to place their relay. It was validated against the live region list when they
+    // queued; a player with no recorded region is placed region-blind.
+    slots = slots.map(s =>
+      s.userId !== undefined
+        ? s.set('region', this.playerQueueData.get(s.userId)?.region?.region)
+        : s,
+    )
+
+    // Each player's measured round-trip time to that region, carried to the game loader alongside
+    // `region` — but kept off the `Slot` itself (unlike `region`) since `rttMs` is never meant to
+    // reach another player.
+    const rttMsByUserId = new Map<SbUserId, number>()
+    for (const s of slots) {
+      const rttMs =
+        s.userId !== undefined ? this.playerQueueData.get(s.userId)?.region?.rttMs : undefined
+      if (rttMs !== undefined) {
+        rttMsByUserId.set(s.userId!, rttMs)
+      }
+    }
+
+    // Each player's per-session netcode v2 public key, submitted when they queued and carried to the
+    // game loader to build the coordinator session token — kept off the `Slot` (like `rttMs`) since
+    // no peer needs it.
+    const netcodeV2PubkeyByUserId = new Map<SbUserId, string>()
+    for (const s of slots) {
+      const pubkey =
+        s.userId !== undefined ? this.playerQueueData.get(s.userId)?.clientPubkey : undefined
+      if (pubkey !== undefined) {
+        netcodeV2PubkeyByUserId.set(s.userId!, pubkey)
+      }
+    }
+
     const entities = match.teams.flat()
     const chosenMap = mapInfo
 
@@ -1179,6 +1262,7 @@ export class MatchmakingService {
       gameSource: GameSource.Matchmaking,
       gameSourceExtra,
       teams,
+      lockedAlliances: true,
     }
 
     const ratings = match.teams.flatMap(team =>
@@ -1200,6 +1284,8 @@ export class MatchmakingService {
       mapId: chosenMap.id,
       gameConfig,
       ratings,
+      rttMsByUserId,
+      netcodeV2PubkeyByUserId,
     })
 
     if (loadResult.isError()) {
@@ -1365,6 +1451,37 @@ export class MatchmakingService {
     this.matchesFoundMetric.labels(event.mode).inc()
 
     this.runMatch(matchInfo.id).catch(swallowNonBuiltins)
+  }
+
+  private startWarmRenewal(): void {
+    if (this.warmRenewalInterval) return
+    this.warmRenewalInterval = setInterval(() => {
+      this.renewWarmRegions()
+    }, WARM_RENEWAL_INTERVAL_MS)
+  }
+
+  private stopWarmRenewal(): void {
+    if (this.warmRenewalInterval) {
+      clearInterval(this.warmRenewalInterval)
+      this.warmRenewalInterval = undefined
+    }
+  }
+
+  private renewWarmRegions(): void {
+    if (this.playerQueueData.size === 0) {
+      this.stopWarmRenewal()
+      return
+    }
+
+    const regions = new Set<GameServerRegionId>()
+    for (const data of this.playerQueueData.values()) {
+      if (data.region) {
+        regions.add(data.region.region)
+      }
+    }
+    if (regions.size > 0) {
+      this.netcodeV2Service.warmRegions([...regions])
+    }
   }
 
   private startProcessTokenWatchdog(): void {

@@ -34,33 +34,33 @@ test('change password', async ({ context, page }) => {
     email,
   })
 
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
   const beforeCount = (await sentEmailChecker.retrieveSentEmails(email)).length
 
-  await page.click('[data-test=change-password-button]')
+  await page.click('[data-testid=change-password-button]')
 
   await page.fill('input[name="currentPassword"]', 'wrong-password')
   await page.fill('input[name="newPassword"]', 'new-password')
   await page.fill('input[name="confirmNewPassword"]', 'new-password')
 
   await page.click(
-    '[data-test=change-password-dialog] [data-test=dialog-actions] [data-test=save-button]',
+    '[data-testid=change-password-dialog] [data-testid=dialog-actions] [data-testid=save-button]',
   )
 
   // TODO(tec27): Would be nice to make this less dependent on exact content/translation
   await expect(
-    page.locator('[data-test=validation-error]', { hasText: /current password is incorrect/i }),
+    page.locator('[data-testid=validation-error]', { hasText: /current password is incorrect/i }),
   ).toBeVisible()
 
   await page.fill('input[name="currentPassword"]', 'password123')
-  await page.click('[data-test=dialog-actions] [data-test=save-button]')
+  await page.click('[data-testid=dialog-actions] [data-testid=save-button]')
 
-  await expect(page.locator('[data-test=change-password-dialog]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=change-password-dialog]')).toHaveCount(0)
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(beforeCount + 1)
@@ -70,7 +70,7 @@ test('change password', async ({ context, page }) => {
   await clearLocalState({ context, page })
   await loginPage.navigateTo()
   await loginPage.loginWith(username, 'new-password')
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
 })
 
 test('change email', async ({ page }) => {
@@ -92,39 +92,39 @@ test('change email', async ({ page }) => {
   const { code } = emails[0].templateVariables
   expect(code).toBeDefined()
 
-  await page.click('[data-test=settings-button]')
-  await page.click('[data-test=verify-email-button]')
+  await page.click('[data-testid=settings-button]')
+  await page.click('[data-testid=verify-email-button]')
 
   await verificationDialogPage.verifyWithCode(code)
   await expect(verificationDialogPage.dialogLocator()).toHaveCount(0)
 
-  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=verify-email-button]')).toHaveCount(0)
 
   await sentEmailChecker.resetEmailsFor(email)
 
-  await page.click('[data-test=edit-email-button]')
+  await page.click('[data-testid=edit-email-button]')
 
   await page.fill('input[name="currentPassword"]', 'password123')
   await page.fill('input[name="email"]', email)
 
-  await page.click('[data-test=dialog-actions] [data-test=save-button]')
+  await page.click('[data-testid=dialog-actions] [data-testid=save-button]')
 
-  await expect(page.locator('[data-test=change-email-dialog]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=change-email-dialog]')).toHaveCount(0)
   // The email didn't change, so this should still be verified
-  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=verify-email-button]')).toHaveCount(0)
 
-  await page.click('[data-test=edit-email-button]')
+  await page.click('[data-testid=edit-email-button]')
 
   await page.fill('input[name="currentPassword"]', 'password123')
   const newEmail = `${username}+changed@example.org`
   await page.fill('input[name="email"]', newEmail)
 
-  await page.click('[data-test=dialog-actions] [data-test=save-button]')
+  await page.click('[data-testid=dialog-actions] [data-testid=save-button]')
 
-  await expect(page.locator('[data-test=verify-email-button]')).toBeVisible()
+  await expect(page.locator('[data-testid=verify-email-button]')).toBeVisible()
 
-  await page.click('[data-test=reveal-email-link]')
-  await expect(page.locator('[data-test=account-email-text]')).toHaveText(newEmail)
+  await page.click('[data-testid=reveal-email-link]')
+  await expect(page.locator('[data-testid=account-email-text]')).toHaveText(newEmail)
 
   const emailsFirst = await sentEmailChecker.retrieveSentEmails(email)
   const emailsSecond = await sentEmailChecker.retrieveSentEmails(newEmail)
@@ -139,9 +139,9 @@ test('change email', async ({ page }) => {
   const { code: newCode } = emailsSecond[0].templateVariables
   expect(newCode).toBeDefined()
 
-  await page.click('[data-test=verify-email-button]')
+  await page.click('[data-testid=verify-email-button]')
   await verificationDialogPage.verifyWithCode(newCode)
 
   await expect(verificationDialogPage.dialogLocator()).toHaveCount(0)
-  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=verify-email-button]')).toHaveCount(0)
 })

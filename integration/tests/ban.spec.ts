@@ -44,7 +44,7 @@ test('banned user can see message', async ({ page, baseURL }) => {
     password: 'password123',
     email,
   })
-  await page.waitForSelector('[data-test=notifications-button]')
+  await page.waitForSelector('[data-testid=notifications-button]')
 
   if (!userId) {
     throw new Error('Expected to have a userId at this point')
@@ -73,6 +73,6 @@ test('banned user can see message', async ({ page, baseURL }) => {
   await loginPage.fillLoginForm(username, 'password123')
   await loginPage.clickLogInButton()
 
-  const bannedText = await page.locator('[data-test=user-banned-text]').innerText()
+  const bannedText = await page.locator('[data-testid=user-banned-text]').innerText()
   expect(bannedText).toContain(banReason)
 })

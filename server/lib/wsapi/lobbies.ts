@@ -2,9 +2,11 @@ import errors from 'http-errors'
 import { Map, Record, Set } from 'immutable'
 import { NextFunc, NydusClient, NydusServer } from 'nydus'
 import { container } from 'tsyringe'
+import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
+import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import {
@@ -23,11 +25,11 @@ import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
-import { ALL_TURN_RATES, BwTurnRate, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
+import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
@@ -36,6 +38,7 @@ import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
@@ -46,6 +49,7 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import validateBody from '../websockets/validate-body'
+import { LobbyPlayerNetworkStore } from './lobby-player-network-store'
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
@@ -53,8 +57,31 @@ const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
 
-const isValidTurnRate = (num: unknown) =>
-  num === undefined || num === TURN_RATE_DYNAMIC || ALL_TURN_RATES.includes(num as BwTurnRate)
+// The desired region is an opaque id, loosely validated here; the handler checks it against the
+// live region list and drops it if unknown, so a client with no measured regions joins region-less.
+const isValidRegion = (region: unknown) =>
+  region === undefined || (typeof region === 'string' && region.length > 0 && region.length <= 64)
+// `rttMs` is only meaningful alongside a region; the region list check is what actually gates it.
+const isValidRttMs = (rttMs: unknown) =>
+  rttMs === undefined || (typeof rttMs === 'number' && rttMs >= 0)
+// The per-session netcode v2 public key is optional here (a solo-vs-AI lobby never uses netcode v2),
+// but when present it must decode to exactly 32 raw bytes (an Ed25519 public key).
+const isValidNetcodeV2Pubkey = (pubkey: unknown) =>
+  pubkey === undefined ||
+  (typeof pubkey === 'string' && Buffer.from(pubkey, 'base64').length === 32)
+
+/**
+ * Returns `region` only when it appears in `regions`, otherwise undefined. The region list can
+ * change between a client fetching it and joining, so an unknown (or absent) region degrades to
+ * undefined — the occupant's slot is then placed region-blind at session create rather than the
+ * join being rejected.
+ */
+export function knownRegionOrUndefined(
+  region: GameServerRegionId | undefined,
+  regions: ReadonlyDeep<GameServerRegion[]>,
+): GameServerRegionId | undefined {
+  return region !== undefined && regions.some(r => r.id === region) ? region : undefined
+}
 
 class Countdown extends Record({
   timer: undefined as Deferred<void> | undefined,
@@ -86,6 +113,8 @@ export class LobbyApi {
   readonly activityRegistry = container.resolve(GameplayActivityRegistry)
   readonly gameLoader = container.resolve(GameLoader)
   readonly restrictionService = container.resolve(RestrictionService)
+  readonly gameServerRegionsService = container.resolve(GameServerRegionsService)
+  readonly netcodeV2Service = container.resolve(NetcodeV2Service)
 
   lobbies = Map<string, Lobby>()
   lobbyClients = Map<ClientSocketsGroup, string>()
@@ -93,6 +122,7 @@ export class LobbyApi {
   lobbyCountdowns = Map<string, Countdown>()
   loadingLobbies = Map<string, AbortController>()
   subscribedSockets = Map<string, ListSubscription>()
+  readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
 
   constructor(
     readonly nydus: NydusServer,
@@ -157,23 +187,38 @@ export class LobbyApi {
       map: nonEmptyString,
       gameType: isValidGameType,
       gameSubType: isValidGameSubType,
-      turnRate: isValidTurnRate,
       useLegacyLimits: (b: unknown) => b === undefined || b === true || b === false,
+      region: isValidRegion,
+      rttMs: isValidRttMs,
+      clientPubkey: isValidNetcodeV2Pubkey,
     }),
   )
   async create(data: Map<string, any>, next: NextFunc) {
-    const { name, map, gameType, gameSubType, allowObservers, turnRate, useLegacyLimits } =
-      data.get('body') as {
-        name: string
-        map: SbMapId
-        gameType: GameType
-        gameSubType?: number
-        allowObservers?: boolean
-        turnRate?: BwTurnRate
-        useLegacyLimits?: boolean
-      }
+    const {
+      name,
+      map,
+      gameType,
+      gameSubType,
+      allowObservers,
+      useLegacyLimits,
+      region,
+      rttMs,
+      clientPubkey,
+    } = data.get('body') as {
+      name: string
+      map: SbMapId
+      gameType: GameType
+      gameSubType?: number
+      allowObservers?: boolean
+      useLegacyLimits?: boolean
+      region?: GameServerRegionId
+      rttMs?: number
+      clientPubkey?: string
+    }
     const user = this.getUser(data)
     const client = this.getClient(data)
+
+    const hostRegion = await this._resolveRegion(region)
 
     if (!LOBBY_NAME_PATTERN.test(name)) {
       throw new errors.BadRequest('lobby name contains invalid characters')
@@ -213,8 +258,8 @@ export class LobbyApi {
       numSlots,
       hostUserId: client.userId,
       hostRace: undefined,
+      hostRegion,
       allowObservers: allowObservers ?? false,
-      turnRate,
       useLegacyLimits,
     })
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
@@ -223,21 +268,35 @@ export class LobbyApi {
 
     this.lobbies = this.lobbies.set(name, lobby)
     this.lobbyClients = this.lobbyClients.set(client, name)
+    if (rttMs !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(name, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+    }
     this._subscribeClientToLobby(lobby, user, client)
 
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    this._warmLobbyRegions(lobby)
   }
 
   @Api(
     '/join',
     validateBody({
       name: isValidLobbyName,
+      region: isValidRegion,
+      rttMs: isValidRttMs,
+      clientPubkey: isValidNetcodeV2Pubkey,
     }),
   )
   async join(data: Map<string, any>, next: NextFunc) {
-    const { name } = data.get('body') as { name: string }
+    const { name, region, rttMs, clientPubkey } = data.get('body') as {
+      name: string
+      region?: GameServerRegionId
+      rttMs?: number
+      clientPubkey?: string
+    }
     const user = this.getUser(data)
     const client = this.getClient(data)
+
+    const joinRegion = await this._resolveRegion(region)
 
     if (!this.lobbies.has(name)) {
       throw new errors.NotFound('no lobby found with that name')
@@ -271,6 +330,7 @@ export class LobbyApi {
           )
         : Slots.createHuman(client.userId)
     }
+    player = player.set('region', joinRegion)
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
@@ -284,9 +344,45 @@ export class LobbyApi {
 
     this.lobbies = this.lobbies.set(name, updated)
     this.lobbyClients = this.lobbyClients.set(client, name)
+    if (rttMs !== undefined || clientPubkey !== undefined) {
+      this.lobbyPlayerNetwork.set(name, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+    }
 
     this._publishLobbyDiff(lobby, updated)
     this._subscribeClientToLobby(lobby, user, client)
+    this._warmLobbyRegions(updated)
+  }
+
+  /**
+   * Validates a client-reported desired region against the live region list, returning it only if
+   * it still exists (the list can change between the client fetching it and joining). An absent or
+   * unknown region resolves to undefined so the occupant's slot is placed region-blind at session
+   * create — mirroring the matchmaking queue's region gate.
+   */
+  private async _resolveRegion(
+    region: GameServerRegionId | undefined,
+  ): Promise<GameServerRegionId | undefined> {
+    if (region === undefined) {
+      // A client with no measured/configured regions reports none; skip the region-list round trip.
+      return undefined
+    }
+    return knownRegionOrUndefined(region, await this.gameServerRegionsService.getRegions())
+  }
+
+  /**
+   * Signals the coordinator to keep every region occupied by a human slot in this lobby warm, so a
+   * game server is ready by the time the lobby launches. Best-effort and debounced downstream, so
+   * it's safe to call on every occupancy change.
+   */
+  _warmLobbyRegions(lobby: Lobby) {
+    const regions = getHumanSlots(lobby)
+      .map(slot => slot.region)
+      .filter((region): region is GameServerRegionId => region !== undefined)
+      .toSet()
+      .toArray()
+    if (regions.length > 0) {
+      this.netcodeV2Service.warmRegions(regions)
+    }
   }
 
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
@@ -404,6 +500,7 @@ export class LobbyApi {
     const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
+    this._warmLobbyRegions(updated)
   }
 
   @Api(
@@ -444,6 +541,7 @@ export class LobbyApi {
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated)
+    this._warmLobbyRegions(updated)
   }
 
   @Api(
@@ -612,6 +710,7 @@ export class LobbyApi {
       const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)!
       this.lobbies = this.lobbies.set(lobby.name, updated)
       this._publishLobbyDiff(lobby, updated)
+      this._warmLobbyRegions(updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
       const client = this.activityRegistry.getClientForUser(playerToKick.userId!)
       if (!client) {
@@ -671,6 +770,7 @@ export class LobbyApi {
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._warmLobbyRegions(updated)
   }
 
   @Api('/removeObserver')
@@ -698,6 +798,7 @@ export class LobbyApi {
     }
     this.lobbies = this.lobbies.set(lobby.name, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._warmLobbyRegions(updated)
   }
 
   @Api('/leave')
@@ -727,15 +828,18 @@ export class LobbyApi {
       })
       this.lobbies = this.lobbies.delete(lobby.name)
       this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
+      this.lobbyPlayerNetwork.deleteLobby(lobby.name)
       this._publishListChange('delete', lobby.name)
     } else {
       this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+      this.lobbyPlayerNetwork.deleteUser(lobby.name, client.userId)
       this._publishLobbyDiff(
         lobby,
         updatedLobby,
         removalType === REMOVAL_TYPE_KICK ? client.userId : undefined,
         removalType === REMOVAL_TYPE_BAN ? client.userId : undefined,
       )
+      this._warmLobbyRegions(updatedLobby)
     }
     this.lobbyClients = this.lobbyClients.delete(client)
     this.activityRegistry.unregisterClientForUser(client.userId)
@@ -771,6 +875,9 @@ export class LobbyApi {
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
+    // Last chance to warm the lobby's regions before a session is created for it.
+    this._warmLobbyRegions(lobby)
+
     const lobbyName = lobby.name
     const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
@@ -789,9 +896,9 @@ export class LobbyApi {
       gameSource: GameSource.Lobby,
       gameSourceExtra: {
         host: lobby.host.userId,
-        turnRate: lobby.turnRate,
         useLegacyLimits: lobby.useLegacyLimits,
       },
+      lockedAlliances: false,
       // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
       // they were there
       teams: lobby.teams
@@ -815,11 +922,27 @@ export class LobbyApi {
       const abortController = new AbortController()
       this.loadingLobbies = this.loadingLobbies.set(lobbyName, abortController)
 
+      // Split the occupants' collected network info into the two per-user maps the game loader
+      // takes: rtt for the latency estimate, pubkey for each slot's session token.
+      const networkByUser = this.lobbyPlayerNetwork.getAll(lobbyName)
+      const rttMsByUserId = new global.Map<SbUserId, number>()
+      const netcodeV2PubkeyByUserId = new global.Map<SbUserId, string>()
+      for (const [userId, info] of networkByUser) {
+        if (info.rttMs !== undefined) {
+          rttMsByUserId.set(userId, info.rttMs)
+        }
+        if (info.netcodeV2Pubkey !== undefined) {
+          netcodeV2PubkeyByUserId.set(userId, info.netcodeV2Pubkey)
+        }
+      }
+
       const gameLoadResult = await this.gameLoader.loadGame({
         players: getHumanSlots(lobby),
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
+        rttMsByUserId,
+        netcodeV2PubkeyByUserId,
         signal: abortController.signal,
       })
 
@@ -900,6 +1023,7 @@ export class LobbyApi {
     this.lobbies = this.lobbies.delete(lobby.name)
     this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
     this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+    this.lobbyPlayerNetwork.deleteLobby(lobby.name)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)

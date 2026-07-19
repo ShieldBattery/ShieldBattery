@@ -6,7 +6,7 @@ import { stringToStatus } from '../../common/games/game-status'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { apiUrl } from '../../common/urls'
 import { dispatch, Dispatchable } from '../dispatch-registry'
-import { lastGameAtom } from '../games/game-atoms'
+import { gameLoadingStatusAtom, lastGameAtom } from '../games/game-atoms'
 import { jotaiStore } from '../jotai-store'
 import logger from '../logging/logger'
 import { fetchJson } from '../network/fetch'
@@ -30,7 +30,7 @@ export default function ({
   siteSocket: NydusClient
 }) {
   const eventToAction: EventToActionMap = {
-    setGameConfig(_, { setup, gameId }) {
+    setGameConfig(_, { setup }) {
       return (dispatch, getState) => {
         const {
           auth: { self },
@@ -75,13 +75,16 @@ export default function ({
         dispatch(ensureRelationshipsLoaded(buildAndSend))
       }
     },
-    setRoutes(_, { routes, gameId }) {
-      ipcRenderer.invoke('activeGameSetRoutes', gameId, routes)?.catch(swallowNonBuiltins)
+    setNetcodeV2Setup(_, { gameId, setup }) {
+      // The session handoff arriving means provisioning is done, so any provisioning status is stale.
+      jotaiStore.set(gameLoadingStatusAtom, undefined)
+      ipcRenderer.invoke('activeGameSetNetcodeV2Setup', gameId, setup)?.catch(swallowNonBuiltins)
     },
-    startWhenReady(_, { gameId }) {
-      ipcRenderer.invoke('activeGameStartWhenReady', gameId)?.catch(swallowNonBuiltins)
+    setLoadingStatus(_, { gameId, status, regions }) {
+      jotaiStore.set(gameLoadingStatusAtom, { gameId, status, regions })
     },
     cancelLoading(_, { gameId }) {
+      jotaiStore.set(gameLoadingStatusAtom, undefined)
       ipcRenderer.invoke('activeGameClearConfig', gameId)?.catch(swallowNonBuiltins)
     },
   }

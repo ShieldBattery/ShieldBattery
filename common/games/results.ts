@@ -97,6 +97,110 @@ export interface SubmitGameResultsRequest {
   playerResults: [playerId: SbUserId, result: GameClientPlayerResult][]
 }
 
+/**
+ * The alliance relationship a player declares toward another player, using the same raw numeric
+ * values StarCraft reports in its per-player alliance table.
+ */
+export enum GameClientAllianceState {
+  Unallied = 0,
+  Allied = 1,
+  AlliedVictory = 2,
+}
+
+export const ALL_GAME_CLIENT_ALLIANCE_STATES: ReadonlyArray<GameClientAllianceState> = [
+  GameClientAllianceState.Unallied,
+  GameClientAllianceState.Allied,
+  GameClientAllianceState.AlliedVictory,
+]
+
+/**
+ * The kind of loss the local (reporting) player received, if any, describing how their connection
+ * to the game ended. Used by results derivation to decide whether a local disconnect looks like a
+ * targeted drop or a mass disconnect (where the reporter is more likely at fault).
+ */
+export type GameClientLoseType = 'targetedDisconnect' | 'massDisconnect'
+
+export const ALL_GAME_CLIENT_LOSE_TYPES: ReadonlyArray<GameClientLoseType> = [
+  'targetedDisconnect',
+  'massDisconnect',
+]
+
+/**
+ * One player's raw end-of-game evidence, exactly as captured from StarCraft by the reporting game
+ * client. This is the pre-digest form: the server derives the per-player verdicts from these.
+ */
+export interface RawPlayerResult {
+  /** The player's user ID, or `null` for a computer player. */
+  userId: SbUserId | null
+  /** The player's index in StarCraft's `players` array (0-7). */
+  bwPlayerId: number
+  /** The player's storm (networking) id (0-7), or `null` for a computer player. */
+  stormId: number | null
+  race: AssignedRaceChar
+  /** The raw StarCraft victory state (shares numeric values with `GameClientResult`). */
+  victoryState: GameClientResult
+  /** The raw alliance state toward each of the 8 BW player slots (exactly 8 entries). */
+  alliances: GameClientAllianceState[]
+}
+
+/** The final network status of one storm slot, as observed by the reporting client. */
+export interface RawNetPlayer {
+  stormId: number
+  /** Whether this slot was dropped for any reason (checksum mismatch, lag, etc). */
+  wasDropped: boolean
+  /** Whether this slot left the game voluntarily. */
+  hasQuit: boolean
+}
+
+/**
+ * The raw end-of-game report a modern game client submits, reaching the server via the netcode-v2
+ * relay's signed webhook. Unlike the legacy `SubmitGameResultsRequest`, this carries the undigested
+ * BW evidence and the server derives the per-player verdicts from it. Legacy reports are
+ * distinguished by the absence of `version`.
+ */
+export interface RawGameResultsReport {
+  /** Marks this as a raw (v2) report; absent on legacy digested reports. */
+  version: 2
+  /** The ID of the user submitting results. */
+  userId: SbUserId
+  /** The secret code the user was given to submit results with. */
+  resultCode: string
+  /** The elapsed time of the game, in milliseconds. */
+  time: number
+  /** Every non-observer human (with a BW player id) plus every computer player (≤8 rows). */
+  players: RawPlayerResult[]
+  /** The reporting client's view of each storm slot's final network status (≤8 rows). */
+  netPlayers: RawNetPlayer[]
+  /** How the local (reporting) player lost, if applicable. */
+  localPlayerLoseType: GameClientLoseType | null
+}
+
+/** The stored form of a raw report (the wire report minus `userId`/`resultCode`). */
+export interface StoredRawGameResults {
+  version: 2
+  time: number
+  players: RawPlayerResult[]
+  netPlayers: RawNetPlayer[]
+  localPlayerLoseType: GameClientLoseType | null
+}
+
+/** The stored form of a legacy digested report. */
+export interface StoredLegacyGameResults {
+  time: number
+  playerResults: Array<[SbUserId, GameClientPlayerResult]>
+}
+
+/**
+ * What a game user's `reported_results` jsonb can hold: either a legacy digested report or a raw
+ * (v2) report. The two are distinguished by the presence of `version`.
+ */
+export type StoredGameResults = StoredLegacyGameResults | StoredRawGameResults
+
+/** Whether a stored report is the raw (v2) form rather than the legacy digested form. */
+export function isRawStoredGameResults(stored: StoredGameResults): stored is StoredRawGameResults {
+  return 'version' in stored
+}
+
 export interface SubmitGameReplayRequest {
   /** The ID of the user submitting the replay. */
   userId: SbUserId

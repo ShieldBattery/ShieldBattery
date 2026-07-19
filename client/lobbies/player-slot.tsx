@@ -129,7 +129,7 @@ export function PlayerSlot({
   }
 
   return (
-    <Slot>
+    <Slot data-testid='lobby-slot'>
       <SlotLeft>
         <SlotProfile>
           {avatar}

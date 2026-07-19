@@ -240,7 +240,7 @@ export function Dialog({
   ) : null
 
   return (
-    <Container role='dialog' data-test={testName}>
+    <Container role='dialog' data-testid={testName}>
       <Surface
         className={className}
         style={style}
@@ -265,7 +265,7 @@ export function Dialog({
           {bottomNode}
         </Body>
         {buttons && buttons.length ? (
-          <Actions $showDivider={!isAtBottom} data-test='dialog-actions'>
+          <Actions $showDivider={!isAtBottom} data-testid='dialog-actions'>
             {buttons}
           </Actions>
         ) : null}

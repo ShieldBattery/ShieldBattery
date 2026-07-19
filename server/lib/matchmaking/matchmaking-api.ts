@@ -76,7 +76,6 @@ const convertMatchmakingServiceErrors = makeErrorConverterMiddleware(err => {
     case MatchmakingServiceErrorCode.InvalidClient:
     case MatchmakingServiceErrorCode.TooManyPlayers:
     case MatchmakingServiceErrorCode.InvalidDraftPick:
-    case MatchmakingServiceErrorCode.PingMeasurementFailed:
       throw asHttpError(400, err)
     case MatchmakingServiceErrorCode.MatchmakingDisabled:
     case MatchmakingServiceErrorCode.UserBanned:
@@ -139,9 +138,29 @@ export class MatchmakingApi {
           .unique((a, b) => a.matchmakingType === b.matchmakingType)
           .required(),
         identifiers: joiClientIdentifiers(ctx).required(),
+        // The desired region is optional and only loosely validated here (it's an opaque id): the
+        // service checks it against the live region list at queue time and drops it if unknown, so a
+        // client with no measured regions can queue region-less. `rttMs` is only meaningful with a
+        // region and is required alongside one.
+        region: Joi.string().max(64),
+        rttMs: Joi.number().min(0).when('region', {
+          is: Joi.exist(),
+          then: Joi.required(),
+          otherwise: Joi.forbidden(),
+        }),
+        // Required: matchmaking is always multi-human, so every match needs each player's per-session
+        // netcode v2 public key to mint their coordinator-signed session token. Must decode to
+        // exactly 32 raw bytes (an Ed25519 public key).
+        clientPubkey: Joi.string()
+          .base64()
+          .max(64)
+          .custom((value, helpers) =>
+            Buffer.from(value, 'base64').length === 32 ? value : helpers.error('any.invalid'),
+          )
+          .required(),
       }),
     })
-    const { clientId, preferences, identifiers } = body
+    const { clientId, preferences, identifiers, region, rttMs, clientPubkey } = body
 
     await this.userIdManager.upsert(ctx.session!.user.id, identifiers)
 
@@ -204,6 +223,10 @@ export class MatchmakingApi {
       clientId,
       identifiers,
       processedPreferences,
+      // Non-null: `clientPubkey` is `.required()` in the schema above, so validation already rejected
+      // a request without it. It's optional only in the shared `FindMatchRequest` type.
+      clientPubkey!,
+      { region, rttMs },
     )
 
     // Persist the preferences used for this search so they're pre-filled next session and usable for

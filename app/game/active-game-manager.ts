@@ -1,28 +1,49 @@
 import { HKCU, REG_SZ, WindowsRegistry } from '@shieldbattery/windows-registry'
 import { app, screen } from 'electron'
-import { Set } from 'immutable'
 import { EventEmitter } from 'node:events'
 import { promises as fsPromises } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { getErrorStack } from '../../common/errors'
 import {
+  GameDebugScreenshot,
+  GameDebugScreenshotReply,
+  GameDebugState,
+} from '../../common/games/game-debug'
+import {
   GameLaunchConfig,
-  GameRoute,
   isReplayLaunchConfig,
   isReplayMapInfo,
 } from '../../common/games/game-launch-config'
-import { GameStatus, ReportedGameStatus, statusToString } from '../../common/games/game-status'
-import { GameClientPlayerResult, SubmitGameResultsRequest } from '../../common/games/results'
-import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
+import {
+  GameNetworkStatus,
+  GameStatus,
+  ReportedGameStatus,
+  statusToString,
+} from '../../common/games/game-status'
+import { NetcodeV2ServerSetup, NetcodeV2Setup } from '../../common/games/netcode-v2'
+import { GameClientPlayerResult } from '../../common/games/results'
+import { SbUserId } from '../../common/users/sb-user-id'
+import { gameLogBaseName } from '../log-paths'
 import log from '../logger'
 import { LocalSettingsManager, ScrSettingsManager } from '../settings'
 import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
+import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
 
-// Overrides the default rally-point bind port in the game. Not recommended for use outside of
-// specific development testing, as it can cause game processes to conflict with each other.
-const RALLY_POINT_PORT = Number(process.env.SB_RALLY_POINT_PORT ?? 0)
+// How long to wait for a `/game/debug/state` reply before giving up. A release DLL doesn't
+// recognize `debugControl` at all, so a query to one never gets a reply and always times out.
+const DEBUG_QUERY_TIMEOUT_MS = 5000
+// Screenshot capture + PNG encoding is heavier than a state snapshot, so it gets a longer timeout.
+// Same "release DLL never replies" semantics as `DEBUG_QUERY_TIMEOUT_MS` apply.
+const DEBUG_SCREENSHOT_TIMEOUT_MS = 10000
+
+interface PendingDebugReply<T> {
+  resolve: (payload: T) => void
+  reject: (err: Error) => void
+  timer: ReturnType<typeof setTimeout>
+}
 
 interface ActiveGameInfo {
   id: string
@@ -35,11 +56,17 @@ interface ActiveGameInfo {
    */
   promise?: Promise<any>
   config?: GameLaunchConfig
-  routes?: GameRoute[]
   /**
-   * Whether or not this game instance has been told it can start.
+   * The per-session netcode v2 keypair for this game, adopted (as a copy) from the manager's pending
+   * keypair generated at queue/lobby-join time. The private key is held here (never sent to the
+   * server) until it's merged into the game process handoff.
    */
-  startWhenReadySent?: boolean
+  netcodeV2Keys?: NetcodeV2KeyPair
+  /**
+   * The complete netcode v2 handoff for the game process (server setup + local private key). For
+   * games using netcode v2 this must be delivered before `setupGame`.
+   */
+  netcodeV2Setup?: NetcodeV2Setup
   /**
    * The results of the game delivered once our local process has completed.
    */
@@ -49,10 +76,6 @@ interface ActiveGameInfo {
     time: number
   }
   /**
-   * Whether or not the game result was successfully reported to the server by the game process.
-   */
-  resultSent?: boolean
-  /**
    * The path to the temporary replay file that is pending upload. This is the path used by the
    * game DLL when saving a replay for upload purposes.
    */
@@ -61,6 +84,11 @@ interface ActiveGameInfo {
    * Whether or not the replay was successfully uploaded to the server by the game process.
    */
   replayUploaded?: boolean
+  /**
+   * Which turn transport the game ended up using, reported once via `/game/networkStatus` during
+   * game init.
+   */
+  networkStatus?: GameNetworkStatus
 }
 
 function isGameConfig(
@@ -89,14 +117,33 @@ export type ActiveGameManagerEvents = {
   ]
   gameStatus: [statusInfo: ReportedGameStatus]
   replaySaved: [gameId: string, path: string]
-  resendResults: [gameId: string, requestBody: SubmitGameResultsRequest]
   resendReplay: [request: ResendReplayRequest]
 }
 
 @singleton()
 export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
   private activeGame: ActiveGameInfo | null = null
+  /**
+   * The per-session netcode v2 keypair generated when the player last joined a queue/lobby (via
+   * {@link generateNetcodeV2SessionKeys}), awaiting adoption by the next launched game. Each
+   * generate call overwrites it, so only the most recent join's keypair is held.
+   *
+   * When a game launches, this is *copied* onto its `activeGame.netcodeV2Keys` rather than moved: a
+   * matchmaking requeue after a failed launch forms a new game with no new client key request, and
+   * the server reuses the pubkey originally submitted at join, so the private half must remain
+   * available across the whole queue episode.
+   *
+   * An orphaned pending keypair (search canceled, lobby left) is deliberately never cleaned up: the
+   * private half never leaves this process, and it is only ever adopted by the next launched game —
+   * whose server-side pubkey came from the same join that generated it — so it is harmless, and
+   * cancel-path plumbing to clear it would buy nothing.
+   */
+  private pendingNetcodeV2Keys?: NetcodeV2KeyPair
   private serverPort = 0
+  /** FIFO queues of pending `debugQueryState` requests, keyed by game ID. */
+  private pendingDebugQueries = new Map<string, PendingDebugReply<GameDebugState>[]>()
+  /** FIFO queues of pending `debugScreenshot` requests, keyed by game ID. */
+  private pendingDebugScreenshots = new Map<string, PendingDebugReply<GameDebugScreenshotReply>[]>()
 
   constructor(
     private mapStore: MapStore,
@@ -114,6 +161,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         state: statusToString(game.status?.state ?? GameStatus.Unknown),
         extra: game.status?.extra,
         isReplay: game.config ? isReplayLaunchConfig(game.config) : false,
+        networkStatus: game.networkStatus,
       }
     } else {
       return null
@@ -130,6 +178,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       this.emit('gameCommand', gameId, 'quit')
       this.setStatus(GameStatus.Unknown)
       this.activeGame = null
+      this.rejectPendingDebugQueries(gameId, 'Game config cleared')
     } else {
       log.verbose(`Got clearGameConfig for ${gameId}, but it is not the active game`)
     }
@@ -152,20 +201,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       this.activeGame = null
       return null
     }
-    if (current && current.routes && isGameConfig(config)) {
-      const routesIds = Set(current.routes.map(r => r.for))
-      const slotIds = Set(config.setup.slots.map(s => s.id))
-
-      if (!slotIds.isSuperset(routesIds)) {
-        this.setStatus(GameStatus.Error)
-        this.activeGame = null
-
-        log.error(
-          `Slots and routes don't match:\nslots: ${String(slotIds)}\nroutes: ${String(routesIds)}`,
-        )
-        throw new Error("Slots and routes don't match")
-      }
-    }
 
     const gameId = config.setup.gameId
     const activeGamePromise = doLaunch(
@@ -184,8 +219,23 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       },
       err => this.handleGameLaunchError(gameId, err),
     )
+    // A relaunch of the *same* game id carries that game's already-generated keypair and session
+    // handoff forward — reusing them is correct since it's the same session. A *different* game id
+    // must not inherit the old (hung) game's session, so it instead adopts a copy of the pending
+    // session keypair generated when this queue/lobby episode joined. Copying (not moving) keeps the
+    // pending keypair available for a later requeue relaunch, whose server-side pubkey is the same
+    // one that generated it.
+    const carried = current?.id === gameId ? current : undefined
+    const netcodeV2Keys =
+      carried?.netcodeV2Keys ??
+      (this.pendingNetcodeV2Keys ? { ...this.pendingNetcodeV2Keys } : undefined)
     this.activeGame = {
       ...current,
+      netcodeV2Keys,
+      netcodeV2Setup: carried?.netcodeV2Setup,
+      // A fresh launch's transport is unknown until the new game's init reports it; this also
+      // applies when relaunching the same game id, so don't carry it over from `current` either.
+      networkStatus: undefined,
       id: gameId,
       promise: activeGamePromise,
       config,
@@ -196,49 +246,68 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     return gameId
   }
 
-  setGameRoutes(gameId: string, routes: GameRoute[]) {
-    const current = this.activeGame
-    if (current && current.id !== gameId) {
-      return
-    }
-
-    if (current && current.config) {
-      const routesIds = Set(routes.map(r => r.for))
-      const slotIds = Set(current.config.setup.slots.map(s => s.id))
-
-      if (!slotIds.isSuperset(routesIds)) {
-        this.setStatus(GameStatus.Error)
-        this.activeGame = null
-
-        const err = new Error("Slots and routes don't match")
-        this.setStatus(GameStatus.Error, err)
-        return
-      }
-    }
-
-    this.activeGame = {
-      ...current,
-      id: gameId,
-      routes,
-    }
-    this.setStatus(GameStatus.Launching)
-
-    // `setGameRoutes` can be called before `setGameConfig`, in which case the config won't be set
-    // yet; we also don't send the routes, since the game couldn't be connected in that case either.
-    if (current && current.config) {
-      this.emit('gameCommand', gameId, 'routes', routes)
-      this.emit('gameCommand', gameId, 'setupGame', current.config.setup)
-    }
+  /**
+   * Generates a fresh per-session netcode v2 keypair, holds it as the pending keypair for the next
+   * launched game to adopt, and returns the base64 raw public key (submitted to the server at
+   * queue/lobby-join time). The private key never leaves this process except in the game-process
+   * handoff.
+   */
+  generateNetcodeV2SessionKeys(): string {
+    this.pendingNetcodeV2Keys = generateNetcodeV2KeyPair()
+    return this.pendingNetcodeV2Keys.publicKey
   }
 
-  /** Tells a particular game instance that it is okay to begin (starting actual gameplay). */
-  startWhenReady(gameId: string) {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
+  /**
+   * Delivers the server's netcode v2 session handoff. Merged with the locally-held private key,
+   * it's forwarded to the game process ahead of its game setup.
+   */
+  setNetcodeV2Setup(gameId: string, setup: NetcodeV2ServerSetup) {
+    const current = this.activeGame
+    if (!current || current.id !== gameId) {
+      log.verbose(`Got setNetcodeV2Setup for ${gameId}, but it is not the active game`)
+      return
+    }
+    const keys = current.netcodeV2Keys
+    if (!keys) {
+      // The server can only have gotten a token for a pubkey we generated, so this indicates a
+      // server/client flow bug rather than an expected state. Quit the (already-launched) game
+      // process rather than leaving it orphaned on the loading screen.
+      this.emit('gameCommand', gameId, 'quit')
+      this.setStatus(
+        GameStatus.Error,
+        new Error('Received netcode v2 setup before keys were generated'),
+      )
+      this.activeGame = null
       return
     }
 
-    this.emit('gameCommand', gameId, 'startWhenReady')
-    this.activeGame.startWhenReadySent = true
+    current.netcodeV2Setup = { ...setup, clientPrivateKey: keys.privateKey }
+    this.maybeSendGameSetup(current)
+  }
+
+  /**
+   * Sends the game setup command (preceded by everything it depends on) once every input has
+   * arrived: the config always, plus the netcode v2 handoff for games using it. The game process
+   * consumes the netcode v2 setup when its game init starts, so it must be delivered before
+   * `setupGame`.
+   *
+   * May fire before the game process has connected — those sends go nowhere, and
+   * `handleGameConnected` re-runs this once the process is ready. Takes the game explicitly (not
+   * `this.activeGame`) so callers that suspended across an await operate on the game they
+   * captured, not one that replaced it in the meantime.
+   */
+  private maybeSendGameSetup(game: ActiveGameInfo) {
+    if (!game.config) {
+      return
+    }
+    if (game.config.setup.useNetcodeV2 && !game.netcodeV2Setup) {
+      return
+    }
+
+    if (game.netcodeV2Setup) {
+      this.emit('gameCommand', game.id, 'netcodeV2Setup', game.netcodeV2Setup)
+    }
+    this.emit('gameCommand', game.id, 'setupGame', game.config.setup)
   }
 
   /** Notifies the manager that a game instance has connected and is ready for configuration. */
@@ -282,16 +351,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       monitorBounds,
     })
 
-    if (game.routes) {
-      this.emit('gameCommand', id, 'routes', game.routes)
-      this.emit('gameCommand', id, 'setupGame', config.setup)
-    }
-
-    // If the `startWhenReady` command was already sent by this point, it means it was sent while
-    // the game wasn't even connected; we resend it here, otherwise the game wouldn't start at all.
-    if (this.activeGame.startWhenReadySent) {
-      this.emit('gameCommand', this.activeGame.id, 'startWhenReady')
-    }
+    this.maybeSendGameSetup(game)
   }
 
   handleGameLaunchError(id: string, err: Error) {
@@ -316,6 +376,261 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.setStatus(GameStatus.Playing)
   }
 
+  handleNetworkStatus(gameId: string, info: GameNetworkStatus) {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      return
+    }
+    log.verbose(`Game network status: ${JSON.stringify(info)}`)
+    this.activeGame.networkStatus = info
+    this.emit('gameStatus', this.getStatus()!)
+  }
+
+  /**
+   * Queries the active game process's debug state (debug game builds only). Defaults `gameId` to
+   * the current active game, rejecting if there isn't one or it doesn't match. Rejects on a
+   * {@link DEBUG_QUERY_TIMEOUT_MS} timeout since a build that doesn't support the underlying
+   * `debugControl` command never replies.
+   */
+  debugQueryState(gameId?: string): Promise<GameDebugState> {
+    const id = gameId ?? this.activeGame?.id
+    if (!id || !this.activeGame || this.activeGame.id !== id) {
+      return Promise.reject(
+        new Error(
+          gameId ? `No active game matching '${gameId}' to query` : 'No active game to query',
+        ),
+      )
+    }
+
+    const result = this.enqueuePendingDebugReply(
+      this.pendingDebugQueries,
+      id,
+      DEBUG_QUERY_TIMEOUT_MS,
+      `Timed out waiting for debug state from game ${id} (it may not be a debug build)`,
+    )
+    this.emit('gameCommand', id, 'debugControl', { type: 'queryState' })
+    return result
+  }
+
+  /** Resolves the oldest pending `debugQueryState` request for `gameId`, if any. */
+  handleDebugState(gameId: string, payload: GameDebugState) {
+    this.resolvePendingDebugReply(this.pendingDebugQueries, gameId, payload, 'debug state')
+  }
+
+  /**
+   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
+   * builds only). Fire-and-forget: there's no reply, callers verify the effect via
+   * {@link debugQueryState}.
+   */
+  forceGameLeave(gameId: string, slot: number): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got forceGameLeave for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'forceUnsyncedLeave', slot })
+  }
+
+  /**
+   * Tells the active game process to deliberately desync this client's simulation from its peers by
+   * perturbing the local player's minerals (debug game builds only). Fire-and-forget: there's no
+   * reply, the effect is observed in-game / via the netcode behavior it triggers.
+   */
+  forceGameDesync(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got forceGameDesync for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'forceDesync' })
+  }
+
+  /**
+   * Tells the active game process to send an in-game chat message over its netcode v2 session, as
+   * this client (debug game builds only), through the same send path the in-game chat box's own
+   * Enter-key send uses. Fire-and-forget: there's no reply; verify via a peer's rendered chat, or
+   * this client's own via {@link debugQueryState}'s `turnState.chatLog`.
+   */
+  sendGameChat(gameId: string, text: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got sendGameChat for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'sendChat', text })
+  }
+
+  /**
+   * Tells the active game process to submit a manual drop request for a disconnected rally-point2
+   * slot over its netcode v2 session (debug game builds only), the same request the in-game
+   * disconnect overlay's Drop button makes. Fire-and-forget: there's no reply; the relay honors it
+   * only once the slot has been down past its floor, and confirms it solely via the slot's synced
+   * leave. Verify via {@link debugQueryState}'s `turnState.disconnect.rows`.
+   */
+  requestGameDrop(gameId: string, slot: number): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got requestGameDrop for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'requestDrop', slot })
+  }
+
+  /**
+   * Toggles the active game process's in-game network-stats (`/netstat`) overlay (debug game builds
+   * only), the same toggle the `/netstat` chat command makes. Fire-and-forget: there's no reply;
+   * verify via {@link debugQueryState}'s `turnState.netStats` (the `visible` flag, plus the per-slot
+   * stats under `rows`).
+   */
+  toggleGameNetStats(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got toggleGameNetStats for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'debugControl', { type: 'toggleNetStats' })
+  }
+
+  /**
+   * Tells the active game process to quit abruptly (debug game builds only, but the underlying
+   * `quit` command ships in all builds). This is a hard stop: it cancels the game process's async
+   * runtime so the process exits even mid-game (when a graceful `cleanup_and_quit` can't run,
+   * because the game thread is blocked inside the game loop) — so it does NOT run BW's exit cleanup
+   * or save settings. Routes through the app so this manager tears down its own state cleanly,
+   * unlike an external process kill. Fire-and-forget.
+   */
+  forceQuitGame(gameId: string): void {
+    if (!this.activeGame || this.activeGame.id !== gameId) {
+      log.verbose(`Got forceQuitGame for ${gameId}, but it is not the active game`)
+      return
+    }
+
+    this.emit('gameCommand', gameId, 'quit')
+  }
+
+  /**
+   * Captures a screenshot from the active game process (debug game builds only). Defaults
+   * `gameId` to the current active game, rejecting if there isn't one or it doesn't match. Rejects
+   * on a {@link DEBUG_SCREENSHOT_TIMEOUT_MS} timeout since a build that doesn't support the
+   * underlying `debugControl` command never replies, and rejects if the DLL reports a capture
+   * error. On success, decodes the PNG and writes it to a file in the OS temp dir, resolving its
+   * path and dimensions.
+   */
+  async debugScreenshot(gameId?: string): Promise<GameDebugScreenshot> {
+    const id = gameId ?? this.activeGame?.id
+    if (!id || !this.activeGame || this.activeGame.id !== id) {
+      throw new Error(
+        gameId
+          ? `No active game matching '${gameId}' to screenshot`
+          : 'No active game to screenshot',
+      )
+    }
+
+    const replyPromise = this.enqueuePendingDebugReply(
+      this.pendingDebugScreenshots,
+      id,
+      DEBUG_SCREENSHOT_TIMEOUT_MS,
+      `Timed out waiting for debug screenshot from game ${id} (it may not be a debug build)`,
+    )
+    this.emit('gameCommand', id, 'debugControl', { type: 'screenshot' })
+    const reply = await replyPromise
+
+    if (!reply.screenshot) {
+      throw new Error(reply.error ?? 'Game process reported a screenshot capture error')
+    }
+
+    const { width, height, pngBase64 } = reply.screenshot
+    const filePath = path.join(os.tmpdir(), `sb-game-screenshot-${id}-${Date.now()}.png`)
+    await fsPromises.writeFile(filePath, Buffer.from(pngBase64, 'base64'))
+
+    return { path: filePath, width, height }
+  }
+
+  /** Resolves the oldest pending `debugScreenshot` request for `gameId`, if any. */
+  handleDebugScreenshot(gameId: string, payload: GameDebugScreenshotReply) {
+    this.resolvePendingDebugReply(this.pendingDebugScreenshots, gameId, payload, 'debug screenshot')
+  }
+
+  /**
+   * Registers a pending debug reply for `gameId` in `map`, returning a promise that resolves when
+   * a matching reply arrives (via {@link resolvePendingDebugReply}) or rejects after `timeoutMs`
+   * with `timeoutMessage`, or on game teardown (via {@link rejectPendingDebugQueries}).
+   */
+  private enqueuePendingDebugReply<T>(
+    map: Map<string, PendingDebugReply<T>[]>,
+    gameId: string,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      const entry: PendingDebugReply<T> = {
+        resolve,
+        reject,
+        timer: setTimeout(() => {
+          this.removePendingDebugReply(map, gameId, entry)
+          reject(new Error(timeoutMessage))
+        }, timeoutMs),
+      }
+
+      const queue = map.get(gameId) ?? []
+      queue.push(entry)
+      map.set(gameId, queue)
+    })
+  }
+
+  /** Resolves the oldest pending entry for `gameId` in `map`, if any. */
+  private resolvePendingDebugReply<T>(
+    map: Map<string, PendingDebugReply<T>[]>,
+    gameId: string,
+    payload: T,
+    logLabel: string,
+  ) {
+    const queue = map.get(gameId)
+    const entry = queue?.shift()
+    if (!entry) {
+      log.verbose(`Got ${logLabel} for ${gameId} but none was pending`)
+      return
+    }
+    if (queue!.length === 0) {
+      map.delete(gameId)
+    }
+
+    clearTimeout(entry.timer)
+    entry.resolve(payload)
+  }
+
+  private removePendingDebugReply<T>(
+    map: Map<string, PendingDebugReply<T>[]>,
+    gameId: string,
+    entry: PendingDebugReply<T>,
+  ) {
+    const queue = map.get(gameId)
+    if (!queue) {
+      return
+    }
+    const index = queue.indexOf(entry)
+    if (index !== -1) {
+      queue.splice(index, 1)
+    }
+    if (queue.length === 0) {
+      map.delete(gameId)
+    }
+  }
+
+  /** Rejects and clears any pending debug queries or screenshots for `gameId`. */
+  private rejectPendingDebugQueries(gameId: string, reason: string) {
+    for (const map of [this.pendingDebugQueries, this.pendingDebugScreenshots]) {
+      const queue = map.get(gameId)
+      if (!queue) {
+        continue
+      }
+      map.delete(gameId)
+      for (const entry of queue) {
+        clearTimeout(entry.timer)
+        entry.reject(new Error(reason))
+      }
+    }
+  }
+
   handleGameResult(
     gameId: string,
     result: Record<SbUserId, GameClientPlayerResult>,
@@ -336,18 +651,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     this.setStatus(GameStatus.HasResult)
 
     this.emit('gameResult', { gameId, result, time })
-  }
-
-  handleGameResultSent(gameId: string) {
-    if (!this.activeGame || this.activeGame.id !== gameId) {
-      return
-    }
-
-    this.activeGame = {
-      ...this.activeGame,
-      resultSent: true,
-    }
-    this.setStatus(GameStatus.ResultSent)
   }
 
   handleGameFinished(gameId: string) {
@@ -396,21 +699,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     let status = this.activeGame.status?.state ?? GameStatus.Unknown
     if (status < GameStatus.Finished) {
       if (status >= GameStatus.Playing) {
-        if (
-          this.activeGame.config?.setup.resultCode &&
-          !this.activeGame?.result &&
-          !this.activeGame?.resultSent
-        ) {
-          // The game didn't send a result, so we will send a blank one
-          const config = this.activeGame.config
-          const submission: SubmitGameResultsRequest = {
-            userId: config.localUser.id,
-            resultCode: config.setup.resultCode!,
-            time: 0,
-            playerResults: [],
-          }
-          this.emit('resendResults', this.activeGame.id, submission)
-        }
         this.setStatus(GameStatus.Unknown)
       } else {
         this.setStatus(
@@ -421,25 +709,6 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     status = this.activeGame.status?.state ?? GameStatus.Unknown
-    if (
-      status >= GameStatus.Playing &&
-      this.activeGame.config?.setup.resultCode &&
-      !this.activeGame.resultSent &&
-      this.activeGame.result
-    ) {
-      const config = this.activeGame.config!
-      const submission: SubmitGameResultsRequest = {
-        userId: config.localUser.id,
-        resultCode: config.setup.resultCode!,
-        time: this.activeGame.result.time,
-        playerResults: Array.from(Object.entries(this.activeGame.result.result), ([id, result]) => [
-          makeSbUserId(Number(id)),
-          result,
-        ]),
-      }
-
-      this.emit('resendResults', this.activeGame.id, submission)
-    }
 
     // Check if we need to retry uploading the replay
     if (
@@ -458,6 +727,7 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
     }
 
     this.activeGame = null
+    this.rejectPendingDebugQueries(id, 'Game exited')
   }
 
   handleGameExitWaitError(id: string, err: Error) {
@@ -520,12 +790,14 @@ async function doLaunch(
 
   log.debug(`Attempting to launch "${appPath}" with StarCraft path: "${starcraftPath}"`)
 
-  const rallyPointPort = !isNaN(RALLY_POINT_PORT) ? RALLY_POINT_PORT : 0
   const legacyCursorSizingArg = settings.legacyCursorSizing ? '-legacy-cursor-sizing' : ''
+  // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
+  // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
+  const logNameArg = `-log-name=${gameLogBaseName()}`
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
-    `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ${rallyPointPort} ` +
-    `-launch ${legacyCursorSizingArg}`
+    `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
+    `-launch ${legacyCursorSizingArg} ${logNameArg}`
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

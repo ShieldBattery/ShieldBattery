@@ -50,7 +50,7 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([2, 1]), results)
+    const reconciled = reconcileResults(users([2, 1]), results, [users([1]), users([2])])
 
     expect(reconciled.disputed).toBe(false)
     expect(reconciled.time).toBe(33)
@@ -77,7 +77,7 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([2, 1]), results)
+    const reconciled = reconcileResults(users([2, 1]), results, [users([1]), users([2])])
 
     expect(reconciled.disputed).toBe(false)
     expect(reconciled.time).toBe(33)
@@ -107,7 +107,7 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([2, 1]), results)
+    const reconciled = reconcileResults(users([2, 1]), results, [users([1]), users([2])])
 
     expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
@@ -151,7 +151,10 @@ describe('games/results/reconcileResults', () => {
       null,
     ]
 
-    const reconciled = reconcileResults(users([2, 3, 1, 4]), results)
+    const reconciled = reconcileResults(users([2, 3, 1, 4]), results, [
+      users([2, 3]),
+      users([1, 4]),
+    ])
 
     expect(reconciled.disputed).toBe(false)
     expect(reconciled.time).toBe(50)
@@ -189,7 +192,10 @@ describe('games/results/reconcileResults', () => {
       null,
     ]
 
-    const reconciled = reconcileResults(users([2, 1, 3, 4]), results)
+    const reconciled = reconcileResults(users([2, 1, 3, 4]), results, [
+      users([2, 3]),
+      users([1, 4]),
+    ])
 
     expect(reconciled.disputed).toBe(true)
     expect(reconciled.time).toBe(9)
@@ -245,7 +251,10 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([1, 2, 3, 4]), results)
+    const reconciled = reconcileResults(users([1, 2, 3, 4]), results, [
+      users([2, 3]),
+      users([1, 4]),
+    ])
 
     expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
@@ -276,7 +285,7 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([1, 2]), results)
+    const reconciled = reconcileResults(users([1, 2]), results, [users([1]), users([2])])
 
     expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
@@ -331,7 +340,10 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([1, 5, 7, 8]), results)
+    const reconciled = reconcileResults(users([1, 5, 7, 8]), results, [
+      users([1, 8]),
+      users([5, 7]),
+    ])
 
     expect(reconciled.disputed).toBe(false)
     evaluateResults(reconciled.results, {
@@ -378,7 +390,10 @@ describe('games/results/reconcileResults', () => {
       null,
     ]
 
-    const reconciled = reconcileResults(users([3, 2, 4, 1]), results)
+    const reconciled = reconcileResults(users([3, 2, 4, 1]), results, [
+      users([2, 3]),
+      users([1, 4]),
+    ])
 
     expect(reconciled.disputed).toBe(false)
     evaluateResults(reconciled.results, {
@@ -409,7 +424,7 @@ describe('games/results/reconcileResults', () => {
       },
     ]
 
-    const reconciled = reconcileResults(users([1, 2]), results)
+    const reconciled = reconcileResults(users([1, 2]), results, [users([1]), users([2])])
 
     expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
@@ -439,7 +454,10 @@ describe('games/results/reconcileResults', () => {
       null,
     ]
 
-    const reconciled = reconcileResults(users([3, 2, 4, 1]), results)
+    const reconciled = reconcileResults(users([3, 2, 4, 1]), results, [
+      users([2, 3]),
+      users([1, 4]),
+    ])
 
     expect(reconciled.disputed).toBe(true)
     evaluateResults(reconciled.results, {
@@ -447,6 +465,260 @@ describe('games/results/reconcileResults', () => {
       2: { result: 'unknown', race: 'p', apm: 0 },
       3: { result: 'unknown', race: 'p', apm: 0 },
       4: { result: 'unknown', race: 'p', apm: 0 },
+    })
+  })
+
+  test('matchmaking 1v1 where both players report themselves the winner is disputed', () => {
+    // Each player honestly reports self=Victory and opponent=Playing (not Defeat). Without team
+    // validation this reconciles to two clean wins; a 1v1 with a fixed team structure only allows a
+    // single winner, so passing teams must instead mark it disputed with no credit for either player.
+    const results = [
+      {
+        reporter: makeSbUserId(25),
+        time: 40,
+        playerResults: [
+          makePlayerResult(26, GameClientResult.Playing, 'z', 60),
+          makePlayerResult(25, GameClientResult.Victory, 't', 50),
+        ],
+      },
+      {
+        reporter: makeSbUserId(26),
+        time: 42,
+        playerResults: [
+          makePlayerResult(25, GameClientResult.Playing, 't', 55),
+          makePlayerResult(26, GameClientResult.Victory, 'z', 65),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([25, 26]), results, [users([25]), users([26])])
+
+    expect(reconciled.disputed).toBe(true)
+    evaluateResults(reconciled.results, {
+      25: { result: 'unknown', race: 't', apm: 50 },
+      26: { result: 'unknown', race: 'z', apm: 65 },
+    })
+  })
+
+  test('legit 1v1 with one victory and one defeat is not disputed', () => {
+    const results = [
+      {
+        reporter: makeSbUserId(1),
+        time: 40,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 60),
+        ],
+      },
+      {
+        reporter: makeSbUserId(2),
+        time: 42,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 60),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([1, 2]), results, [users([1]), users([2])])
+
+    expect(reconciled.disputed).toBe(false)
+    evaluateResults(reconciled.results, {
+      1: { result: 'win', race: 't', apm: 50 },
+      2: { result: 'loss', race: 'z', apm: 60 },
+    })
+  })
+
+  test('legit 2v2 with both winners on the same team is not disputed', () => {
+    const results = [
+      {
+        reporter: makeSbUserId(1),
+        time: 40,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 60),
+          makePlayerResult(3, GameClientResult.Defeat, 'p', 30),
+          makePlayerResult(4, GameClientResult.Defeat, 'p', 40),
+        ],
+      },
+      {
+        reporter: makeSbUserId(3),
+        time: 42,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 60),
+          makePlayerResult(3, GameClientResult.Defeat, 'p', 30),
+          makePlayerResult(4, GameClientResult.Defeat, 'p', 40),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([1, 2, 3, 4]), results, [
+      users([1, 2]),
+      users([3, 4]),
+    ])
+
+    expect(reconciled.disputed).toBe(false)
+    evaluateResults(reconciled.results, {
+      1: { result: 'win', race: 't', apm: 50 },
+      2: { result: 'win', race: 'z', apm: 60 },
+      3: { result: 'loss', race: 'p', apm: 30 },
+      4: { result: 'loss', race: 'p', apm: 40 },
+    })
+  })
+
+  test('team game with winners spanning two teams is disputed', () => {
+    // Winners end up on both teams (players 1 and 3), which is impossible for a game that allows a
+    // single winning team.
+    const results = [
+      {
+        reporter: makeSbUserId(1),
+        time: 40,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 60),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 30),
+          makePlayerResult(4, GameClientResult.Defeat, 'p', 40),
+        ],
+      },
+      {
+        reporter: makeSbUserId(3),
+        time: 42,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Playing, 't', 55),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 65),
+          makePlayerResult(3, GameClientResult.Victory, 'p', 35),
+          makePlayerResult(4, GameClientResult.Defeat, 'p', 45),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([1, 2, 3, 4]), results, [
+      users([1, 2]),
+      users([3, 4]),
+    ])
+
+    expect(reconciled.disputed).toBe(true)
+    evaluateResults(reconciled.results, {
+      1: { result: 'unknown', race: 't', apm: 50 },
+      2: { result: 'unknown', race: 'z', apm: 60 },
+      3: { result: 'unknown', race: 'p', apm: 35 },
+      4: { result: 'unknown', race: 'p', apm: 40 },
+    })
+  })
+
+  test('game with null teams is not disputed by the structural check even with two winners', () => {
+    // Passing null teams skips the single-winner validation. The caller passes null for any non-
+    // matchmaking game (e.g. a lobby/custom game), where alliances can change mid-game so two
+    // players who started on different teams could legitimately ally and co-win. Such contradictions
+    // are left to other dispute signals rather than this structural check.
+    const results = [
+      {
+        reporter: makeSbUserId(1),
+        time: 40,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 60),
+        ],
+      },
+      {
+        reporter: makeSbUserId(2),
+        time: 42,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 60),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([1, 2]), results, null)
+
+    expect(reconciled.disputed).toBe(false)
+    evaluateResults(reconciled.results, {
+      1: { result: 'win', race: 't', apm: 50 },
+      2: { result: 'win', race: 'z', apm: 60 },
+    })
+  })
+
+  test('FFA where two players report self-victory is disputed', () => {
+    // A free-for-all with no fixed teams: each player is their own team, so only one player may win.
+    const results = [
+      {
+        reporter: makeSbUserId(1),
+        time: 40,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Playing, 'z', 60),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 30),
+        ],
+      },
+      {
+        reporter: makeSbUserId(2),
+        time: 42,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Playing, 't', 55),
+          makePlayerResult(2, GameClientResult.Victory, 'z', 65),
+          makePlayerResult(3, GameClientResult.Playing, 'p', 35),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([1, 2, 3]), results, [
+      users([1]),
+      users([2]),
+      users([3]),
+    ])
+
+    expect(reconciled.disputed).toBe(true)
+    evaluateResults(reconciled.results, {
+      1: { result: 'unknown', race: 't', apm: 50 },
+      2: { result: 'unknown', race: 'z', apm: 65 },
+      3: { result: 'unknown', race: 'p', apm: 30 },
+    })
+  })
+
+  test('FFA with a single clear winner is not disputed', () => {
+    const results = [
+      {
+        reporter: makeSbUserId(1),
+        time: 40,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 60),
+          makePlayerResult(3, GameClientResult.Defeat, 'p', 30),
+        ],
+      },
+      {
+        reporter: makeSbUserId(2),
+        time: 42,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 60),
+          makePlayerResult(3, GameClientResult.Defeat, 'p', 30),
+        ],
+      },
+      {
+        reporter: makeSbUserId(3),
+        time: 41,
+        playerResults: [
+          makePlayerResult(1, GameClientResult.Victory, 't', 50),
+          makePlayerResult(2, GameClientResult.Defeat, 'z', 60),
+          makePlayerResult(3, GameClientResult.Defeat, 'p', 30),
+        ],
+      },
+    ]
+
+    const reconciled = reconcileResults(users([1, 2, 3]), results, [
+      users([1]),
+      users([2]),
+      users([3]),
+    ])
+
+    expect(reconciled.disputed).toBe(false)
+    evaluateResults(reconciled.results, {
+      1: { result: 'win', race: 't', apm: 50 },
+      2: { result: 'loss', race: 'z', apm: 60 },
+      3: { result: 'loss', race: 'p', apm: 30 },
     })
   })
 })

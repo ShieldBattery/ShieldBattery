@@ -29,7 +29,7 @@ async function createSignupCodeThroughUi(
   await loginPage.navigateTo()
   await loginPage.fillLoginForm(ADMIN_USERNAME, ADMIN_PASSWORD)
   await loginPage.clickLogInButton()
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
 
   // Navigate to the Signup Codes admin page
   await page.goto('/admin/signup-codes')
@@ -47,7 +47,7 @@ async function createSignupCodeThroughUi(
   }
 
   // Submit the form
-  await page.click('[data-test=create-signup-code-button]')
+  await page.click('[data-testid=create-signup-code-button]')
 
   // Wait for the code to be created and extract it from the UI
   await page.waitForTimeout(1000) // Give time for the list to refresh

@@ -214,7 +214,7 @@ export function NewsPostPage({ params }: { params: { id: string; '*'?: string } 
         <TitleRow>
           {isDraft ? <DraftLabel>{t('news.draft', 'Draft')}</DraftLabel> : null}
           <TitleAndCopyLink>
-            <Title data-test='news-post-title'>{post.title}</Title>
+            <Title data-testid='news-post-title'>{post.title}</Title>
             <PositionedCopyLinkButton
               tooltipPosition='right'
               startingText={t('news.copyLink', 'Copy link to news post')}

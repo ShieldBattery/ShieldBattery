@@ -53,7 +53,7 @@ export function ChannelBadge({ src, channelName, className, testName }: ChannelB
         className={className}
         alt={`${channelName} badge`}
         draggable={false}
-        data-test={testName}
+        data-testid={testName}
       />
     )
   }
@@ -68,7 +68,7 @@ export function ChannelBadge({ src, channelName, className, testName }: ChannelB
       viewBox='0 0 40 40'
       preserveAspectRatio='xMinYMin meet'
       className={className}
-      data-test={testName}
+      data-testid={testName}
       style={
         {
           '--sb-badge-color': badgeColor,
@@ -115,6 +115,6 @@ export function ConnectedChannelBadge({
       testName={testName}
     />
   ) : (
-    <LoadingBadge className={className} data-test={testName} />
+    <LoadingBadge className={className} data-testid={testName} />
   )
 }

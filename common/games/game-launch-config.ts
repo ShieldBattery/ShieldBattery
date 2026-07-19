@@ -2,7 +2,6 @@ import { SlotType } from '../lobbies/slot'
 import { MapInfoJson } from '../maps'
 import { BwTurnRate, BwUserLatency } from '../network'
 import { RaceChar } from '../races'
-import { ResolvedRallyPointServer } from '../rally-point/index'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { GameType } from './game-type'
@@ -86,6 +85,13 @@ export interface GameSetup {
   useLegacyLimits?: boolean
   seed: number
   /**
+   * Whether this game uses netcode v2 (rally-point2). When set, each client must generate a
+   * per-session keypair and submit its public key to the server during loading; the server
+   * responds with a `setNetcodeV2Setup` event carrying the session token/relays/roster, which
+   * must be delivered to the game process before its game setup.
+   */
+  useNetcodeV2?: boolean
+  /**
    * The code used to submit results for this game to the server. This is secret and unique per
    * player in the game. In certain cases (when observing, or when watching a replay), a result
    * code may not be given, meaning no result is to be reported.
@@ -111,16 +117,4 @@ export interface GameLaunchConfig {
   }
   /** Setup configuration for the game, such as the map, game type, etc. */
   setup: GameSetup
-}
-
-/** A network route configuration for communication between two players in a game. */
-export interface GameRoute {
-  /** The ID of the player who will be connected to over this network route. */
-  for: string
-  /** The rally-point server to connect to for this route. */
-  server: ResolvedRallyPointServer
-  /** The ID of the route, used to identify it to the rally-point server. */
-  routeId: string
-  /** The ID of the local player, used to identify themselves to the rally-point server. */
-  playerId: number
 }

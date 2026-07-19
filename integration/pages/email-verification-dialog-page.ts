@@ -15,16 +15,16 @@ export class EmailVerificationDialogPage {
 
   async closeDialog(): Promise<void> {
     await this.page
-      .locator('[data-test="email-verification-dialog"] [data-test="cancel-button"]')
+      .locator('[data-testid="email-verification-dialog"] [data-testid="cancel-button"]')
       .click()
   }
 
   async verifyWithCode(code: string): Promise<void> {
-    await this.page.fill('[data-test="email-verification-dialog"] input[name="code"]', code)
-    await this.page.click('[data-test="email-verification-dialog"] [data-test="verify-button"]')
+    await this.page.fill('[data-testid="email-verification-dialog"] input[name="code"]', code)
+    await this.page.click('[data-testid="email-verification-dialog"] [data-testid="verify-button"]')
   }
 
   dialogLocator(): Locator {
-    return this.page.locator('[data-test="email-verification-dialog"]')
+    return this.page.locator('[data-testid="email-verification-dialog"]')
   }
 }

@@ -201,6 +201,16 @@ and `broodat.mpq` directly from Blizzard by downloading the final release of
 The necessary directories in .mpq files are `unit/` and `tileset/`. Extract those files to a directory (keeping the directory
 structure), and set `SB_SPRITE_DATA` in the `.env` file to that directory.
 
+## Set up relay servers
+
+ShieldBattery uses a custom relay server system for its netcode:
+[rally-point2](https://github.com/ShieldBattery/rally-point2)
+
+This can be somewhat onerous to set up and run locally (and isn't a fully accurate to "real" network
+conditions). If you've made some contributions in the past and need to work with multiple game
+clients at once, please reach out in our Discord and we can get you set up to use our staging
+environment relays.
+
 ## Run the server
 
 The standard way to run the server is (assuming you are in the project root directory):

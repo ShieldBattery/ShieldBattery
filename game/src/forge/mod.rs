@@ -391,6 +391,14 @@ fn forge_inited() -> bool {
     FORGE_INITED.load(Ordering::Acquire)
 }
 
+/// The game window's HWND for debug tooling, if the window has been created. Readable from any
+/// thread (the handle is only stored, never dereferenced as a pointer here).
+#[cfg(debug_assertions)]
+pub fn debug_window_handle() -> Option<HWND> {
+    let raw = FORGE_WINDOW.load(Ordering::Acquire);
+    if raw == 0 { None } else { Some(raw as HWND) }
+}
+
 impl Forge {
     fn set_window(&mut self, window: Window) {
         assert!(self.window.is_none());

@@ -19,9 +19,19 @@ health checks, and logs.
 | Rust GraphQL server | `cargo run` in `server-rs/` | 5556 | GraphQL API (`/gql`) |
 | Webpack dev server | `pnpm run dev` | 5566 | Electron renderer bundle + hot reload |
 | GraphQL codegen watch | `pnpm run gen-graphql --watch` | — | Regenerates `client/gql/` on schema change (optional) |
+| Tailscale funnel | `node tools/dev-funnel.mjs` | — | **Required when `.env` points at a remote rp2 coordinator** (see below) |
 | Electron app | `pnpm run app` (or see verify-app) | — | The actual desktop client |
 
 Config (ports, DB creds, `DATABASE_URL`) lives in `.env`. `SB_CANONICAL_HOST` is `http://localhost:5555`.
+
+> **Remote coordinator ⇒ run the funnel.** When `SB_RP2_COORDINATOR_URL` in `.env` names a
+> non-loopback coordinator (e.g. the staging one), that coordinator delivers game-event webhooks
+> (relay-reported results, session-closed) to this machine via the tenant's registered funnel
+> hostname. Start `node tools/dev-funnel.mjs` as a background process alongside the servers — it
+> no-ops when the coordinator is loopback, so it's always safe to run. Without it, games played
+> against the remote coordinator produce **no local errors** but their results hang unreconciled
+> or void — a confusing failure that looks like a results bug. Verify it's serving by reading its
+> output (it prints the public `https://….ts.net` hostname when engaged).
 
 ## Start order
 
@@ -90,16 +100,29 @@ tests (see the **verify-app** skill). Details: `tools/seed-dev-users.ts`.
 
 - **Servers**: read the background process output (the IDs returned when you launched them).
 - **Electron app + game**: `%APPDATA%\ShieldBattery-Local\logs\`
-  - `app.0.log` — current Electron app log (rotates to `.1`, `.2`). **Shared across all running app
-    instances** — `SB_SESSION` separates settings and session storage but not this log, so
-    multi-instance runs interleave here.
-  - `shieldbattery.0.log` — current in-game DLL log (rotates `.0`–`.19`; a new launch picks the
-    first free file, so concurrent games land in different files).
+  - `app-<session>.0.log` — current Electron app log for that `SB_SESSION` (rotates to `.1`, `.2`).
+    Each session gets its own log (e.g. `app-session1.0.log`), so multi-instance runs no longer
+    interleave. Prod / no `SB_SESSION` → `app.0.log`.
+  - `game-<session>.0.log` — current in-game DLL log for that session (e.g. `game-session1.0.log`;
+    rotates `.0`–`.19`). Since only that session's game writes it, the newest run is **always
+    `.0.log`** — no guessing which slot. Prod / no `SB_SESSION` → `game.0.log`. The file is reused
+    (line-trimmed, not truncated) across a session's launches, so grep to the last `[SESSION_START]`
+    line to find the current run's boundary (that line also carries the DLL build version).
 
 ## Stopping
 
-Kill the background processes you started (the harness tracks them). Leave Docker (Postgres/Redis)
-running unless you specifically need a clean DB — pruning volumes destroys your dev data.
+**When you finish a task, shut down every process you started** — unless you expect to reuse it in
+the same session (e.g. more verification is coming right up). Don't leave servers, the app, or
+side processes (rp2 coordinator/relay, a game launch, etc.) running for the user to find and clean
+up later. If you replaced one of the user's own long-running processes (e.g. restarted their Node
+server with different env vars), say so when you stop it, since they may want their original back.
+
+Kill the background processes you started (the harness tracks them). Two caveats that bite:
+- **`TaskStop` on a `pnpm run …` task kills the pnpm wrapper but can orphan the child** (the Node
+  server keeps holding its port). Verify the port is actually free afterward
+  (`netstat -ano | grep :5555`) and `taskkill //F //PID <pid>` the orphan if it survived.
+- **Leave Docker (Postgres/Redis) running** unless you specifically need a clean DB — pruning
+  volumes destroys the user's dev data.
 
 ## Gotchas
 

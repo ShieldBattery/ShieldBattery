@@ -99,7 +99,7 @@ export function MenuItem({
     <Item
       ref={buttonRef}
       className={className}
-      data-test={testName}
+      data-testid={testName}
       {...buttonProps}
       $dense={dense}
       $focused={focused && virtualFocus}>

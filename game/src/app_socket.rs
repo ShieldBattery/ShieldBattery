@@ -150,17 +150,78 @@ enum MessageResult {
     Stop,
 }
 
+/// Commands whose payloads carry secrets (e.g. `netcodeV2Setup`'s per-session private key).
+/// For these, neither the raw message text nor serde's own error output (which can embed
+/// mistyped field *values*) may reach a log line or error string. Add any new secret-bearing
+/// command here and redaction applies everywhere in `handle_app_message` automatically.
+const SENSITIVE_COMMANDS: &[&str] = &["netcodeV2Setup"];
+
+const REDACTED: &str = "<payload redacted>";
+
+/// Reduces a serde error to its category and position, dropping the message body. serde errors
+/// embed the unexpected *value* (e.g. `invalid type: string "..."`), which for a sensitive
+/// payload can be the secret itself (a misplaced key string echoed back verbatim).
+fn sanitize_serde_error(e: serde_json::Error) -> serde_json::Error {
+    use serde::de::Error;
+    serde_json::Error::custom(format!(
+        "{:?} error at line {} column {}",
+        e.classify(),
+        e.line(),
+        e.column(),
+    ))
+}
+
+/// Parses one command's payload, redacting both the raw input and serde's error message for
+/// sensitive commands.
+fn parse_payload<T: serde::de::DeserializeOwned>(
+    payload: serde_json::Value,
+    context: &'static str,
+    err_input: &str,
+    sensitive: bool,
+) -> Result<T, HandleMessageError> {
+    Ok(serde_json::from_value(payload)
+        .map_err(|e| {
+            if sensitive {
+                sanitize_serde_error(e)
+            } else {
+                e
+            }
+        })
+        .context((context, err_input))?)
+}
+
 fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError> {
-    let message: Message = serde_json::from_str(&text).context(("Invalid message", &*text))?;
+    // The command isn't known until the envelope parses, so redact the envelope-parse error for
+    // any text that even mentions a sensitive command (over-redacting a message that merely
+    // contains the name is fine; leaking a secret is not).
+    let text_sensitive = SENSITIVE_COMMANDS.iter().any(|&c| text.contains(c));
+    let message: Message = serde_json::from_str(&text)
+        .map_err(|e| {
+            if text_sensitive {
+                sanitize_serde_error(e)
+            } else {
+                e
+            }
+        })
+        .context((
+            "Invalid message",
+            if text_sensitive { REDACTED } else { &*text },
+        ))?;
+    let sensitive = SENSITIVE_COMMANDS.contains(&&*message.command);
+    let err_input: &str = if sensitive { REDACTED } else { &text };
     let payload = message.payload.unwrap_or(serde_json::Value::Null);
-    debug!("Received message: '{}':\n'{}'", message.command, payload);
+    if sensitive {
+        debug!("Received message: '{}' ({REDACTED})", message.command);
+    } else {
+        debug!("Received message: '{}':\n'{}'", message.command, payload);
+    }
     match &*message.command {
         "settings" => {
-            let settings = serde_json::from_value(payload).context(("Invalid settings", &*text))?;
+            let settings = parse_payload(payload, "Invalid settings", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetSettings(settings)))
         }
         "localUser" => {
-            let user = serde_json::from_value(payload).context(("Invalid local user", &*text))?;
+            let user = parse_payload(payload, "Invalid local user", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetLocalUser(user)))
         }
         "blockedUsers" => {
@@ -171,23 +232,34 @@ fn handle_app_message(text: String) -> Result<MessageResult, HandleMessageError>
             )))
         }
         "serverConfig" => {
-            let config =
-                serde_json::from_value(payload).context(("Invalid server config", &*text))?;
+            let config = parse_payload(payload, "Invalid server config", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetServerConfig(
                 config,
             )))
         }
-        "routes" => {
-            let routes = serde_json::from_value(payload).context(("Invalid routes", &*text))?;
-            Ok(MessageResult::Game(GameStateMessage::SetRoutes(routes)))
+        "netcodeV2Setup" => {
+            let setup = parse_payload(payload, "Invalid netcode v2 setup", err_input, sensitive)
+                .map(Box::new)?;
+            Ok(MessageResult::Game(GameStateMessage::SetNetcodeV2Setup(
+                setup,
+            )))
         }
         "setupGame" => {
-            let setup = serde_json::from_value(payload).context(("Invalid game setup", &*text))?;
+            let setup = parse_payload(payload, "Invalid game setup", err_input, sensitive)?;
             Ok(MessageResult::Game(GameStateMessage::SetupGame(setup)))
         }
-        "startWhenReady" => Ok(MessageResult::Game(GameStateMessage::StartWhenReady)),
         "quit" => Ok(MessageResult::Stop),
         "cleanup_and_quit" => Ok(MessageResult::Game(GameStateMessage::CleanupQuit)),
+        #[cfg(debug_assertions)]
+        "debugControl" => {
+            let cmd = parse_payload(
+                payload,
+                "Invalid debug control command",
+                err_input,
+                sensitive,
+            )?;
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(cmd)))
+        }
         _ => Err(HandleMessageError::UnknownCommand(message.command)),
     }
 }
@@ -241,5 +313,107 @@ pub fn send_message<'a, T: serde::Serialize>(
             Some(o) => send.send(o).await.map_err(|_| ()),
             None => Err(()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::debug_control::DebugControlCommand;
+
+    #[test]
+    fn debug_control_ping_dispatches_to_game_state() {
+        let result =
+            handle_app_message(r#"{"command":"debugControl","payload":{"type":"ping"}}"#.into());
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::Ping
+            )))
+        ));
+    }
+
+    #[test]
+    fn debug_control_query_state_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"queryState"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::QueryState
+            )))
+        ));
+    }
+
+    #[test]
+    fn debug_control_force_unsynced_leave_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"forceUnsyncedLeave","slot":2}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::ForceUnsyncedLeave { slot: 2 }
+            )))
+        ));
+    }
+
+    #[test]
+    fn debug_control_force_desync_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"forceDesync"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::ForceDesync
+            )))
+        ));
+    }
+
+    #[test]
+    fn debug_control_screenshot_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"screenshot"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::Screenshot
+            )))
+        ));
+    }
+
+    #[test]
+    fn debug_control_send_chat_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"sendChat","text":"gg"}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::SendChat { text, target }
+            ))) if text == "gg" && target == crate::debug_control::DebugChatTarget::All
+        ));
+    }
+
+    #[test]
+    fn debug_control_request_drop_dispatches_to_game_state() {
+        let result = handle_app_message(
+            r#"{"command":"debugControl","payload":{"type":"requestDrop","slot":1}}"#.into(),
+        );
+        assert!(matches!(
+            result,
+            Ok(MessageResult::Game(GameStateMessage::DebugControl(
+                DebugControlCommand::RequestDrop { slot: 1 }
+            )))
+        ));
+    }
+
+    #[test]
+    fn unknown_command_still_errors() {
+        let result = handle_app_message(r#"{"command":"notARealCommand","payload":null}"#.into());
+        assert!(matches!(result, Err(HandleMessageError::UnknownCommand(_))));
     }
 }

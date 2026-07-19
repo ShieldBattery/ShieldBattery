@@ -15,19 +15,20 @@ import { errorPayloadMiddleware } from './lib/errors/error-payload-middleware'
 import { addMiddleware as fileStoreMiddleware, setStore } from './lib/files'
 import AwsStore from './lib/files/aws'
 import LocalFileStore from './lib/files/local-filesystem'
+import { GameServerRegionsService } from './lib/game-server-regions/game-server-regions-service'
 import logMiddleware from './lib/logging/log-middleware'
 import log from './lib/logging/logger'
 import { updateEmailTemplates } from './lib/mail/update-templates'
 import { prometheusHttpMetrics, prometheusMiddleware } from './lib/monitoring/prometheus-middleware'
 import { redirectToCanonical } from './lib/network/redirect-to-canonical'
 import userIpsMiddleware from './lib/network/user-ips-middleware'
-import { RallyPointService } from './lib/rally-point/rally-point-service'
 import { Redis } from './lib/redis/redis'
 import checkOrigin from './lib/security/check-origin'
 import { cors } from './lib/security/cors'
 import secureHeaders from './lib/security/headers'
 import { StateWithJwt, jwtSessions } from './lib/session/jwt-session-middleware'
 import createRoutes from './routes'
+import { createWebhookRoutes } from './webhook-routes'
 import { WebsocketServer } from './websockets'
 
 if (!process.env.SB_GQL_ORIGIN) {
@@ -38,9 +39,6 @@ if (!process.env.SB_CANONICAL_HOST) {
 }
 if (!process.env.SB_JWT_SECRET) {
   throw new Error('SB_JWT_SECRET must be specified')
-}
-if (!process.env.SB_RALLY_POINT_SECRET) {
-  throw new Error('SB_RALLY_POINT_SECRET must be specified')
 }
 if (!process.env.SB_SERVER_RS_URL) {
   throw new Error('SB_SERVER_RS_URL must be specified')
@@ -147,11 +145,19 @@ process
     unhandledRejections.delete(promise)
   })
 
+const webhookRoutes = createWebhookRoutes()
+
 app
   .use(prometheusMiddleware())
   .use(prometheusHttpMetrics())
   .use(logMiddleware())
   .use(errorPayloadMiddleware())
+  // Webhook routes are mounted here, ahead of CSRF/origin checks, cookie/JWT session handling,
+  // CORS, security headers, and static file serving: their callers are trusted external services
+  // authenticating with their own bearer secrets, not browsers, so that machinery doesn't apply.
+  // See webhook-routes.ts.
+  .use(webhookRoutes.routes())
+  .use(webhookRoutes.allowedMethods())
   .use(
     koaCompress({
       // NOTE(tec27): Brotli is cool and all, but if the asset hasn't been precompressed and saved
@@ -188,16 +194,10 @@ container.register<http.Server>(http.Server, { useValue: mainServer })
 
 const websocketServer = container.resolve(WebsocketServer)
 
-const routeCreatorConfig = {
-  host: process.env.SB_ROUTE_CREATOR_HOST || '::',
-  port: Number(process.env.SB_ROUTE_CREATOR_PORT || 0),
-}
-const rallyPointService = container.resolve(RallyPointService)
-const rallyPointInitPromise = rallyPointService.initialize(
-  routeCreatorConfig.host,
-  routeCreatorConfig.port,
-  process.env.SB_RALLY_POINT_SECRET,
-)
+// Resolved (not initialized) here only so its constructor registers the electron client
+// subscription before any client connects. Fetching the region list itself is demand-driven and
+// deliberately untouched by server startup -- see the class doc comment.
+container.resolve(GameServerRegionsService)
 
 // Wrapping this in IIFE so we can use top-level `await` (until we move to ESM and can use it
 // natively)
@@ -281,8 +281,6 @@ const rallyPointInitPromise = rallyPointService.initialize(
   }
 
   try {
-    await rallyPointInitPromise
-
     const stats: any = await compilePromise
 
     if (stats) {

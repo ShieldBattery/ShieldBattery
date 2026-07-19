@@ -1,0 +1,101 @@
+# The netcode-v2 coordinator box: the rally-point2 coordinator (session placement,
+# relay enrollment ledger, Fargate relay provisioning) and a tailscale node for
+# private admin access.
+#
+# TLS terminates inside the coordinator itself: it obtains and renews its Let's
+# Encrypt certificate in-process (ACME TLS-ALPN-01, answered on the same port —
+# no certbot, no port 80). The coordinator is exposed directly with no reverse
+# proxy: relay enrollment verifies the transport-level peer address against the
+# addresses recorded at task launch, and a proxy in front would replace every
+# peer with itself.
+#
+# IPv6: if this host serves an AAAA record, Docker must NAT v6 natively
+# (Docker >= 27, or `"ip6tables": true` in the daemon config) so v6 peers arrive
+# with their real addresses rather than through the userland proxy.
+
+volumes:
+  coordinator_data: # the relay-identity ledger (SQLite) + the ACME cert cache
+  tailscale_state: # tailnet node identity; losing it churns a new node per recreate
+
+networks:
+  coordinator:
+    # IPv6 on the container network is what lets inbound v6 to the published
+    # port reach the coordinator via same-family DNAT with the REAL peer
+    # address — a v4-only container would push v6 traffic through the userland
+    # proxy, which rewrites every peer to itself (the reverse-proxy problem in
+    # miniature). Docker 27+ auto-allocates a ULA subnet; no address config
+    # needed.
+    enable_ipv6: true
+
+services:
+  coordinator:
+    # CI publishes an image per rally-point2 main commit, tagged with the full
+    # SHA (plus a moving `latest`). RP2_REF carries its own separator so either
+    # pinning style works from .env alone: a tag (`RP2_REF=:<commit sha>`) or,
+    # preferred for production because tags are mutable and digests are not, the
+    # digest the publish run prints (`RP2_REF=@sha256:...`). Upgrade/rollback =
+    # change RP2_REF, `docker-compose pull coordinator`, `docker-compose up -d`.
+    # (coordinator/Dockerfile in the rally-point2 repo still builds the identical
+    # image from source if ever needed.)
+    image: ghcr.io/shieldbattery/rp2-coordinator${RP2_REF:?set RP2_REF in .env}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      # Direct exposure, both families: relays (WSS control connections) and app
+      # servers (signed HTTPS) connect here from the public internet, and the ACME
+      # TLS-ALPN-01 challenge is answered here too.
+      - '443:14910/tcp'
+    networks:
+      - coordinator
+    volumes:
+      - coordinator_data:/data
+      - ./config:/config:ro
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '50m'
+        max-file: '4'
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    restart: unless-stopped
+    hostname: ${TAILSCALE_HOSTNAME:-rp2-coordinator}
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY:-}
+      # Userspace networking: no tun device, no NET_ADMIN, no iptables. Tailnet
+      # traffic reaches services through the serve config below, which proxies
+      # per-connection to compose service names (Docker DNS resolves the current
+      # container each time, so service restarts need no re-plumbing).
+      - TS_USERSPACE=true
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_SERVE_CONFIG=/config/serve.json
+      - TS_EXTRA_ARGS=${TAILSCALE_EXTRA_ARGS:-}
+    networks:
+      - coordinator
+    volumes:
+      - tailscale_state:/var/lib/tailscale
+      - ./tailscale:/config:ro
+
+  node_exporter:
+    # Host metrics (CPU, memory, disk, network) for this box, in the same shape
+    # the monitoring stack already scrapes from every other server type. This
+    # sidecar has no v6/peer-address concerns of its own — unlike the
+    # coordinator service, it never inspects who's connecting — so it just
+    # joins the plain `coordinator` network like any other container; the
+    # tailscale sidecar's userspace proxying (serve.json) reaches it by compose
+    # service name, the same way it reaches the coordinator's metrics port.
+    # Nothing here is published to the host: the tailnet forward is the only
+    # path in.
+    image: prom/node-exporter:latest
+    restart: unless-stopped
+    networks:
+      - coordinator
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'

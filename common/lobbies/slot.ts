@@ -1,5 +1,6 @@
 import { Record } from 'immutable'
 import { nanoid } from 'nanoid'
+import { GameServerRegionId } from '../game-server-regions'
 import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
 
@@ -24,6 +25,13 @@ export class Slot extends Record({
   hasForcedRace: false,
   playerId: 0,
   typeId: 0,
+  /**
+   * The home game-server region this occupant selected when they joined, if any. Set only on slots
+   * a human occupies (`human`/`observer`); used to home their netcode v2 relay at session create.
+   * Absent when the occupant reported no region (e.g. no coordinator-configured regions) or for
+   * non-occupant slot types (open, computer, etc.).
+   */
+  region: undefined as GameServerRegionId | undefined,
 }) {}
 
 export type SlotJson = ReturnType<Slot['toJSON']>

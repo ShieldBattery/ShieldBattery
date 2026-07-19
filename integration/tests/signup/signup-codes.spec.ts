@@ -26,7 +26,7 @@ test.describe('Signup Codes', () => {
       })
 
       // Should successfully land on home page
-      await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+      await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
 
       // Log out and clear state for next signup
       await clearLocalState({ context, page })
@@ -44,7 +44,7 @@ test.describe('Signup Codes', () => {
     })
 
     // Should see the "too many accounts" error
-    await expect(page.locator('[data-test="too-many-accounts"]')).toBeVisible()
+    await expect(page.locator('[data-testid="too-many-accounts"]')).toBeVisible()
   })
 
   test('should allow signup with valid code when over account limit', async ({ page, context }) => {
@@ -65,7 +65,7 @@ test.describe('Signup Codes', () => {
         email,
       })
 
-      await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+      await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
       await clearLocalState({ context, page })
       await goToSignup(page)
     }
@@ -82,7 +82,7 @@ test.describe('Signup Codes', () => {
     })
 
     // Should successfully land on home page
-    await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+    await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
   })
 
   test('should exhaust signup code after max uses', async ({ page, context }) => {
@@ -103,7 +103,7 @@ test.describe('Signup Codes', () => {
         email,
       })
 
-      await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+      await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
       await clearLocalState({ context, page })
       await goToSignup(page)
     }
@@ -119,7 +119,7 @@ test.describe('Signup Codes', () => {
       signupCode,
     })
 
-    await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+    await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
     await clearLocalState({ context, page })
     await goToSignup(page)
 
@@ -134,7 +134,7 @@ test.describe('Signup Codes', () => {
       signupCode,
     })
 
-    await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+    await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
     await clearLocalState({ context, page })
     await goToSignup(page)
 
@@ -150,7 +150,7 @@ test.describe('Signup Codes', () => {
     })
 
     // Should fail because the code is exhausted
-    await expect(page.locator('[data-test="invalid-code-text"]')).toBeVisible()
+    await expect(page.locator('[data-testid="invalid-code-text"]')).toBeVisible()
   })
 
   test('should reject invalid signup code', async ({ page, context }) => {
@@ -168,7 +168,7 @@ test.describe('Signup Codes', () => {
         email,
       })
 
-      await expect(page.locator('[data-test=latest-news-title]')).toBeVisible()
+      await expect(page.locator('[data-testid=latest-news-title]')).toBeVisible()
       await clearLocalState({ context, page })
       await goToSignup(page)
     }
@@ -185,6 +185,6 @@ test.describe('Signup Codes', () => {
       signupCode: 'BBBBB-BBBBB',
     })
 
-    await expect(page.locator('[data-test="invalid-code-text"]')).toBeVisible()
+    await expect(page.locator('[data-testid="invalid-code-text"]')).toBeVisible()
   })
 })

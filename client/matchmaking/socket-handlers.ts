@@ -53,7 +53,6 @@ const eventToAction: EventToActionMap = {
     )
     ipcRenderer.send('userAttentionRequired')
     audioManager.playSound(AvailableSound.MatchFound)
-    ipcRenderer.send('rallyPointRefreshPings')
 
     jotaiStore.set(foundMatchAtom, {
       matchmakingType: event.matchmakingType,

@@ -24,7 +24,7 @@ export async function signupWith(
 
   // If signup code is provided, show the signup code input field
   if (signupCode) {
-    await page.click('[data-test=have-signup-code-link]')
+    await page.click('[data-testid=have-signup-code-link]')
     await page.fill('input[name="signupCode"]', signupCode)
   }
 
@@ -36,5 +36,5 @@ export async function signupWith(
   // NOTE(tec27): This one needs a position because otherwise it falls on a link and opens a
   // dialog
   await page.check('input[name="policyAgreement"]', { position: { x: 4, y: 4 } })
-  await page.click('[data-test=submit-button]')
+  await page.click('[data-testid=submit-button]')
 }

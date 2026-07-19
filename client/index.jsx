@@ -1,6 +1,7 @@
 import { enableArrayMethods, enableMapSet } from 'immer'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { TypedIpcRenderer } from '../common/ipc'
 import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { App } from './app'
 import { audioManager } from './audio/audio-manager'
@@ -122,6 +123,26 @@ const initAudioPromise = audioManager.initialize()
 rootElemPromise
   .then(async elem => {
     const reduxStore = createStore(ReduxDevTools)
+    if (__WEBPACK_ENV.NODE_ENV !== 'production') {
+      // Expose these for dev verification tooling (CDP-driven assertions on app state, and
+      // querying the debug-only state of a running game process); compiled out of production
+      // bundles.
+      window.__sbReduxStore = reduxStore
+      window.__sbDebugGame = {
+        queryGameState: gameId =>
+          new TypedIpcRenderer().invoke('activeGameDebugQueryState', gameId),
+        forceUnsyncedLeave: (gameId, slot) =>
+          new TypedIpcRenderer().invoke('activeGameForceUnsyncedLeave', gameId, slot),
+        forceDesync: gameId => new TypedIpcRenderer().invoke('activeGameForceDesync', gameId),
+        sendChat: (gameId, text) =>
+          new TypedIpcRenderer().invoke('activeGameSendChat', gameId, text),
+        requestDrop: (gameId, slot) =>
+          new TypedIpcRenderer().invoke('activeGameRequestDrop', gameId, slot),
+        toggleNetStats: gameId => new TypedIpcRenderer().invoke('activeGameToggleNetStats', gameId),
+        forceQuit: gameId => new TypedIpcRenderer().invoke('activeGameForceQuit', gameId),
+        screenshot: gameId => new TypedIpcRenderer().invoke('activeGameDebugScreenshot', gameId),
+      }
+    }
     registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()
 

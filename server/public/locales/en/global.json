@@ -493,6 +493,7 @@
       "useMapSettings": "Use map settings"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "Starting a game server in {{regions}}…",
       "title": "Launching game…"
     },
     "mapName": {
@@ -540,10 +541,17 @@
       "detailedResults": "Detailed Individual Results",
       "downloadReplay": "Download replay",
       "hasReport": "Has Report",
-      "latency": "Latency (ms)",
+      "network": {
+        "address": "Address",
+        "at": "At",
+        "event": "Event",
+        "home": "Home",
+        "rehome": "Rehome",
+        "relay": "Relay",
+        "session": "Session: {{session}}",
+        "title": "Network"
+      },
       "player": "Player",
-      "player1": "Player 1",
-      "player2": "Player 2",
       "replay": "Replay",
       "reportedAPM": "APM",
       "reportedAt": "Reported At",
@@ -553,8 +561,6 @@
       "reportedResults": "Individual Reports Summary",
       "reportedTime": "Reported Time",
       "reportTitle": "Report from <1></1>:",
-      "routes": "Network Routes",
-      "server": "Server",
       "title": "Debug Information"
     },
     "errorLoading": "There was a problem loading this game.",
@@ -566,6 +572,7 @@
     "infoDate": "Date",
     "infoDuration": "Duration",
     "infoGameType": "Type",
+    "notFound": "This game could not be found.",
     "statusFinal": "Final",
     "statusLive": "Live",
     "summary": {
@@ -629,6 +636,21 @@
     "reporting": {
       "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair.",
       "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed."
+    }
+  },
+  "gameServerRegions": {
+    "name": {
+      "au": "Australia",
+      "ca-east": "Canada East",
+      "eu-central": "EU Central",
+      "eu-north": "EU North",
+      "hk": "Hong Kong",
+      "kr": "Korea",
+      "mx": "Mexico",
+      "sa-east": "SA East",
+      "sg": "Singapore",
+      "us-east": "US East",
+      "us-west": "US West"
     }
   },
   "home": {
@@ -786,9 +808,6 @@
       "mapRequired": "Select a map to play",
       "selectMap": "Select map",
       "title": "Create lobby",
-      "turnRate": "Turn rate",
-      "turnRateAuto": "Auto",
-      "turnRateDynamic": "DTR (Not recommended)",
       "useLegacyLimits": "Use legacy unit limit"
     },
     "errors": {
@@ -813,9 +832,6 @@
       "gameType": "Game type",
       "leaveLobby": "Leave lobby",
       "startGame": "Start game",
-      "turnRate": "Turn rate",
-      "turnRateAuto": "Auto",
-      "turnRateDynamic": "DTR",
       "unitLimit": "Unit limit",
       "unitLimitExtended": "Extended",
       "unitLimitLegacy": "Legacy"
@@ -1045,7 +1061,6 @@
         "dialogTitle": "Error searching for a match",
         "invalidMaps": "You must select at least one map in the settings for each chosen matchmaking type.",
         "matchmakingDisabled": "Matchmaking is currently disabled",
-        "pingMeasurementFailed": "Couldn't measure your connection to the game servers. Please check your connection and try again.",
         "searchAgainError": "There was a problem searching for a match",
         "somethingWentWrong": "Something went wrong :(",
         "userOffline": "Your connection to the server was interrupted, please reconnect and try again."
@@ -1243,8 +1258,16 @@
       },
       "system": {
         "filesOverline": "Files",
+        "networkOverline": "Network",
         "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
+        "serverRegion": {
+          "autoPlain": "Auto (recommended)",
+          "autoResolved": "Auto — {{region}} ({{rtt}}ms)",
+          "label": "Server region",
+          "locked": "Locked while in a lobby or matchmaking.",
+          "regionWithPing": "{{region}} ({{rtt}}ms)"
+        },
         "startMinimized": "Start minimized",
         "startupOverline": "Startup",
         "title": "System"

@@ -30,9 +30,6 @@ const LoadableMatchmakingSeasons = React.lazy(async () => ({
 const LoadableMatchmakingTimes = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-matchmaking-times')).AdminMatchmakingTimes,
 }))
-const LoadableRallyPoint = React.lazy(async () => ({
-  default: (await import('./rally-point')).AdminRallyPoint,
-}))
 const LoadableRestrictedNames = React.lazy(async () => ({
   default: (await import('./restricted-names')).RestrictedNames,
 }))
@@ -81,12 +78,6 @@ export default function AdminPanel() {
       perms?.manageMatchmakingTimes,
       LoadableMatchmakingTimes,
       'Manage matchmaking times',
-    ],
-    [
-      '/admin/rally-point',
-      perms?.manageRallyPointServers,
-      LoadableRallyPoint,
-      'Manage rally-point servers',
     ],
     [
       '/admin/restricted-names',

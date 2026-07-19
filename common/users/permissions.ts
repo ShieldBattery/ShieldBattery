@@ -14,7 +14,6 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   manageMatchmaking: false,
   manageMatchmakingSeasons: false,
   manageMatchmakingTimes: false,
-  manageRallyPointServers: false,
   massDeleteMaps: false,
   moderateChatChannels: false,
   manageNews: false,

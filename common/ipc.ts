@@ -7,11 +7,13 @@ import type {
 } from 'electron'
 import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
-import { GameLaunchConfig, GameRoute } from './games/game-launch-config'
+import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
+import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
+import { GameLaunchConfig } from './games/game-launch-config'
 import { ReportedGameStatus } from './games/game-status'
-import { GameClientPlayerResult, SubmitGameResultsRequest } from './games/results'
+import { NetcodeV2ServerSetup } from './games/netcode-v2'
+import { GameClientPlayerResult } from './games/results'
 import { MapExtension } from './maps'
-import { ResolvedRallyPointServer } from './rally-point'
 import { ReplayShieldBatteryData } from './replays'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
@@ -74,9 +76,77 @@ interface IpcInvokeables {
    * `gameId`.
    */
   activeGameClearConfig: (gameId: string) => void
-  activeGameStartWhenReady: (gameId: string) => void
+  /**
+   * Queries the active game process's debug state (debug game builds only). Only registered in
+   * development (`isDev`); on a build that doesn't support it the query is never acknowledged, so
+   * this rejects on a timeout rather than hanging forever.
+   */
+  activeGameDebugQueryState: (gameId?: string) => GameDebugState
+  /**
+   * Captures a screenshot from the active game process's debug build (debug game builds only).
+   * Only registered in development (`isDev`); on a build that doesn't support it the request is
+   * never acknowledged, so this rejects on a timeout rather than hanging forever.
+   */
+  activeGameDebugScreenshot: (gameId?: string) => GameDebugScreenshot
+  /**
+   * Tells the active game process to force a synced leave of a rally-point2 slot (debug game
+   * builds only). Only registered in development (`isDev`). Fire-and-forget: there's no reply, so
+   * callers should verify the effect via {@link IpcInvokeables.activeGameDebugQueryState} (the
+   * slot's `required` flag becomes `false`).
+   */
+  activeGameForceUnsyncedLeave: (gameId: string, slot: number) => void
+  /**
+   * Tells the active game process to deliberately desync this client's simulation from its peers by
+   * perturbing the local player's minerals (debug game builds only). Only registered in development
+   * (`isDev`). Fire-and-forget: there's no reply, the effect is observed in-game / via the netcode
+   * behavior it triggers.
+   */
+  activeGameForceDesync: (gameId: string) => void
+  /**
+   * Tells the active game process to send an in-game chat message over its netcode v2 session, as
+   * this client (debug game builds only). Only registered in development (`isDev`). Sends to
+   * everyone (`ChatTarget::All`) — there's currently no way to pick a narrower scope from here.
+   * Fire-and-forget: there's no reply; verify via a peer's rendered chat, or this client's own via
+   * {@link IpcInvokeables.activeGameDebugQueryState}'s `turnState.chatLog`.
+   */
+  activeGameSendChat: (gameId: string, text: string) => void
+  /**
+   * Tells the active game process to submit a manual drop request for a disconnected rally-point2
+   * slot over its netcode v2 session (debug game builds only), the same request the in-game
+   * disconnect overlay's Drop button makes. Only registered in development (`isDev`).
+   * Fire-and-forget: there's no reply, and the relay honors it only once the slot has been down past
+   * its floor. Verify via {@link IpcInvokeables.activeGameDebugQueryState}'s
+   * `turnState.disconnect.rows` (the row's `dropRequested`, then the slot's `required` going `false`
+   * once the synced leave applies).
+   */
+  activeGameRequestDrop: (gameId: string, slot: number) => void
+  /**
+   * Toggles the active game process's in-game network-stats (`/netstat`) overlay (debug game builds
+   * only), the same toggle the `/netstat` chat command makes. Only registered in development
+   * (`isDev`). Fire-and-forget: there's no reply; verify via
+   * {@link IpcInvokeables.activeGameDebugQueryState}'s `turnState.netStats` (the `visible` flag and
+   * the per-slot stats under `rows`).
+   */
+  activeGameToggleNetStats: (gameId: string) => void
+  /**
+   * Tells the active game process to quit abruptly (a hard stop that skips BW cleanup / settings
+   * save; the only teardown that works mid-game). Only registered in development (`isDev`).
+   * Fire-and-forget: there's no reply.
+   */
+  activeGameForceQuit: (gameId: string) => void
+  /**
+   * Generates a per-session Ed25519 keypair for netcode v2 and returns the base64 raw public key
+   * (to be submitted to the server at queue/lobby-join time). The keypair is held as pending in the
+   * main process until the next launched game adopts it; the private key never leaves the main
+   * process except in the game-process handoff at launch.
+   */
+  activeGameGenNetcodeV2SessionKeys: () => string
   activeGameSetConfig: (config: GameLaunchConfig | Record<string, never>) => string | null
-  activeGameSetRoutes: (gameId: string, routes: GameRoute[]) => void
+  /**
+   * Delivers the server's netcode v2 session handoff (token/relays/roster); the main process
+   * merges in the locally-held private key and forwards it to the game process.
+   */
+  activeGameSetNetcodeV2Setup: (gameId: string, setup: NetcodeV2ServerSetup) => void
 
   bugReportCollectFiles: () => Promise<Uint8Array<ArrayBuffer>>
 
@@ -87,6 +157,13 @@ interface IpcInvokeables {
   fsReadFile: (filePath: string) => Promise<ArrayBuffer>
   fsStat: (filePath: string) => Promise<FsStats>
   fsUnlink: (filePath: string) => Promise<void>
+
+  /**
+   * Returns the current region -> latency table. Empty before the region latency manager's first
+   * sweep completes (unless a previous run's measurements were persisted to disk, in which case
+   * those are returned as a stale hint until the first sweep replaces them).
+   */
+  gameServerRegionsGetLatencies: () => GameServerRegionLatencies
 
   logMessage: (level: string, message: string) => void
 
@@ -144,12 +221,9 @@ interface IpcInvokeables {
 interface IpcRendererSendables {
   chatNewMessage: (data: { urgent: boolean }) => void
 
-  networkSiteConnected: () => void
+  gameServerRegionsSetList: (regions: GameServerRegion[]) => void
 
-  rallyPointSetServers: (servers: [id: number, server: ResolvedRallyPointServer][]) => void
-  rallyPointUpsertServer: (server: ResolvedRallyPointServer) => void
-  rallyPointDeleteServer: (id: number) => void
-  rallyPointRefreshPings: () => void
+  networkSiteConnected: () => void
 
   updaterGetState: () => void
   updaterQuitAndInstall: () => void
@@ -170,12 +244,6 @@ interface IpcMainSendables {
     time: number
   }) => void
   /**
-   * Used if sending results from the game fails for some reason. We pass this off to the
-   * renderer process to do because this usually indicates some issue with e.g. the TLS stack of
-   * this system, so using the network stack outside the renderer also tends to fail.
-   */
-  activeGameResendResults: (gameId: string, requestBody: SubmitGameResultsRequest) => void
-  /**
    * Used if uploading a replay from the game fails for some reason. We pass this off to the
    * renderer process to do because this usually indicates some issue with e.g. the TLS stack of
    * this system, so using the network stack outside the renderer also tends to fail.
@@ -188,7 +256,8 @@ interface IpcMainSendables {
   }) => void
   activeGameStatus: (status: ReportedGameStatus) => void
 
-  rallyPointPingResult: (server: ResolvedRallyPointServer, ping: number) => void
+  /** Sent after each region latency sweep completes, with the full region -> latency table. */
+  gameServerRegionsLatenciesUpdated: (latencies: GameServerRegionLatencies) => void
 
   replaysOpen: (replayPaths: string[]) => void
 

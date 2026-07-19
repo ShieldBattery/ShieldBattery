@@ -83,6 +83,15 @@ game\build.bat x86_64          # Debug 64-bit
 ### General
 
 - Preserve `TODO(context)` and `NOTE(context)` comments unless completing the TODO
+- **Comments must stand alone.** Don't write _deictic_ comments — ones whose meaning points at
+  context outside the repo's current state: review findings ("Finding A3"), design docs, handoffs,
+  tickets, chat threads, project phases, or before/after narrative ("previously...", "the new
+  path", "today's behavior"). Those artifacts drift or get deleted, and the next reader wasn't
+  there. The test: would this comment still be true and fully comprehensible after every document,
+  conversation, and branch around the change is gone? If not, rewrite it to state the invariant,
+  hazard, or constraint in the code's own terms. Provenance and review trail belong in commit
+  messages, where such references are welcome. (`TODO(context)`/`NOTE(context)` tags are the one
+  sanctioned forward pointer.)
 - Delete unused code during refactoring
 - The GraphQL schema (`schema.graphql`) is generated from server-rs - don't edit manually
 - Don't edit translation files (`global.json`) manually - run `pnpm run gen-translations`
@@ -250,6 +259,13 @@ Two code paths:
 - **Sync** (BW hooks): `patch_game` entry, executes in StarCraft's code
 
 Build: 32-bit default, 64-bit via `game\build.bat x86_64`
+
+**Always rebuild via `game\build.bat`, never a bare `cargo build`.** The app injects
+`game/dist/shieldbattery.dll` (see `app/game/active-game-manager.ts`), and only `build.bat` copies
+the freshly compiled DLL from `target/` into `dist/`. A bare `cargo build` updates `target/` but
+leaves `dist/` stale, so a launched game silently runs the *old* DLL — a change appears to have no
+effect (or to "fail" in a way that doesn't match the source). If a game-launch test contradicts
+your code, suspect a stale `dist/` DLL first.
 
 Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free)
 

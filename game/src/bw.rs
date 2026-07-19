@@ -69,6 +69,30 @@ pub trait Bw: Sync + Send {
     unsafe fn do_lobby_game_init(&self, seed: u32);
     unsafe fn try_finish_lobby_game_init(&self) -> bool;
 
+    /// Creates a minimal LOCAL Storm session (no network peers) via `storm_create_game`. BW's game
+    /// init dereferences Storm's per-player session object, which only this call allocates, so the
+    /// session must exist for those reads to be valid even though the rp2 transport carries all real
+    /// traffic. `game_name` and `local_player_name` must be non-empty and `slot_count` nonzero (the
+    /// callee validates these). Returns the fresh session's local player id on success (Storm writes
+    /// it to its own global too; the roster slot written afterward overrides it), or the storm error
+    /// code on failure.
+    unsafe fn create_local_storm_session(
+        &self,
+        game_name: &CStr,
+        local_player_name: &CStr,
+        slot_count: u32,
+    ) -> Result<u32, u32>;
+    /// Writes the `lobby_state` global. Used by v2 setup to drive it to 4 (the state native
+    /// `net_cmd_lobby_slot_setup` reaches, which `ready_lobby_for_start` then bumps to 8).
+    unsafe fn set_lobby_state(&self, state: u8);
+    /// Reads the `lobby_state` global.
+    unsafe fn lobby_state(&self) -> u8;
+
+    /// Reads the local player's storm id global (the same one `do_lobby_game_init` and
+    /// `update_nation_and_human_ids` key off). Valid once a Storm session (native or v2) has been
+    /// created for this client.
+    unsafe fn local_storm_id(&self) -> u32;
+
     /// Inits player's info from storm to starcraft.
     /// Called once player has joined and is visible to storm.
     unsafe fn init_network_player_info(&self, storm_player_id: u32);
@@ -111,9 +135,6 @@ pub trait Bw: Sync + Send {
     unsafe fn is_network_ready(&self) -> bool;
     unsafe fn set_user_latency(&self, latency: UserLatency);
 
-    /// Note: Size is unspecified, but will not change between calls.
-    /// (Remastered has 12 storm players)
-    unsafe fn storm_players(&self) -> Vec<StormPlayer>;
     /// Size unspecified.
     unsafe fn storm_player_flags(&self) -> Vec<u32>;
 
@@ -221,6 +242,13 @@ impl BwGameType {
     /// Whether the game type has shared control among one or more users, like Team Melee.
     pub fn is_team_game(&self) -> bool {
         matches!(self.primary, 0xb | 0xc | 0xd)
+    }
+
+    /// Whether the lobby's team layout defines the BW force layout: the shared-control team types
+    /// (Team Melee/FFA/CTF) and Top vs Bottom. Melee/FFA/1v1 are positional (every player its own
+    /// enemy), and UMS forces come from the map instead.
+    pub fn has_team_forces(&self) -> bool {
+        self.is_team_game() || self.primary == 0xf
     }
 }
 
@@ -341,19 +369,6 @@ pub struct SNetPlayerConnection {
     /// 0..0xc instead of 0..8 0x80..0x84 that bw sees storm players as
     pub storm_player_id: u8,
     pub unk_other_player_id: u8,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct StormPlayer {
-    pub state: u8,
-    pub unk1: u8,
-    pub flags: u16,
-    pub unk4: u16,
-    // Always 5, not useful for us
-    pub protocol_version: u16,
-    pub name: [u8; 0x19],
-    pub padding: u8,
 }
 
 #[repr(C)]
@@ -557,7 +572,6 @@ fn struct_sizes() {
         value
     }
 
-    assert_eq!(size_of::<StormPlayer>(), 0x22);
     assert_eq!(size_of::<BwGameData>(), 0x8d);
     assert_eq!(size_of::<GameTemplate>(), 0x20);
     assert_eq!(size_of::<FowSprite>(), size(0x10, 0x20));

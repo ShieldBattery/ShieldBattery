@@ -457,6 +457,48 @@ pub struct StormPlayer {
     pub name: [u8; 0x60],
 }
 
+/// A node of Storm's session-player list (`snet_player_list`), one per session member.
+/// This is an MSVC std::list-style doubly-linked list whose nodes are allocated and owned by
+/// native Storm code; the DLL only ever reads/writes fields in place and never copies a node
+/// (so this must not derive Copy/Clone). Nodes are created zeroed, so a hand-seeded entry only
+/// needs to fill in the fields listed below explicitly.
+///
+/// The unnamed gap holds fields the DLL never touches: on 32-bit, that's a nested per-member
+/// list at +0x1c8, the member's turn sequence at +0x1e0, and a state byte at +0x20c.
+///
+/// 64-bit caveat: only the `slot` offset (0x2be) is RE-verified there, taken from
+/// samase_scarf's `session_player_slot_offset`. The other 64-bit offsets assume prev/next are
+/// the only pointer fields before the flat name/description/net_key/flags region; that
+/// assumption must be verified against a 64-bit binary before any code writes these fields in
+/// a 64-bit build.
+#[repr(C)]
+pub struct StormSessionPlayer {
+    pub prev: *mut StormSessionPlayer,
+    // Low-bit-tagged pointer, or null at the list end.
+    pub next: *mut StormSessionPlayer,
+    // <= 0x7f chars + null
+    pub name: [u8; 0x80],
+    pub description: [u8; 0x80],
+    pub net_key: [u8; 0xc],
+    pub unk114: u32,
+    // Bit 0x4 = present/turn-expected; this is the storm_receive_turns barrier gate, so
+    // seeding a session player must set it.
+    pub flags: u32,
+    // GetTickCount() at creation
+    pub create_time: u32,
+    #[cfg(target_arch = "x86")]
+    pub unk120: [u8; 0xfa],
+    #[cfg(target_arch = "x86_64")]
+    pub unk128: [u8; 0x196],
+    // 0xffff = unassigned; readers compare the low byte.
+    pub slot: u16,
+}
+
+#[cfg(target_arch = "x86")]
+const _: () = assert!(std::mem::size_of::<StormSessionPlayer>() == 0x21c);
+#[cfg(target_arch = "x86_64")]
+const _: () = assert!(std::mem::size_of::<StormSessionPlayer>() == 0x2c0);
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct PrismShaderSet {

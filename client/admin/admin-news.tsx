@@ -611,7 +611,7 @@ function NewsPostRow({
   }
 
   return (
-    <RowRoot data-test='news-post-row'>
+    <RowRoot data-testid='news-post-row'>
       <TitleCell>
         <TitleText>{post.title}</TitleText>
         <SummaryText>{post.summary}</SummaryText>
@@ -1242,7 +1242,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
                   type='file'
                   accept='image/*'
                   onChange={onImageFileSelected}
-                  data-test='news-inline-image-file-input'
+                  data-testid='news-inline-image-file-input'
                 />
                 <IconButton
                   icon={<MaterialIcon icon='add_photo_alternate' />}
@@ -1285,7 +1285,7 @@ function NewsEditor({ post }: { post: EditablePost | undefined }) {
               type='file'
               accept='image/*'
               onChange={onCoverFileSelected}
-              data-test='news-cover-file-input'
+              data-testid='news-cover-file-input'
             />
             <CoverActions>
               <OutlinedButton

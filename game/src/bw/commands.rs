@@ -15,6 +15,25 @@ pub mod id {
     pub const SET_NETWORK_SPEED: u8 = 0x66;
 }
 
+/// Bytes available for text in the classic `[0x5c][sender id][text]` chat command record: the
+/// record is a fixed 0x52 bytes total (a 2-byte header followed by a 0x50-byte text field), and
+/// the text field's last byte is reserved for the trailing NUL the native chat handler expects.
+pub const CHAT_TEXT_CAPACITY: usize = 0x50 - 1;
+
+/// Truncates `text` to at most `max_len` bytes, backing off to the nearest UTF-8 character
+/// boundary at or before `max_len` so a multi-byte character is never split. Returns `text`
+/// unchanged (a borrow, no allocation) when it already fits.
+pub fn truncate_utf8(text: &str, max_len: usize) -> &str {
+    if text.len() <= max_len {
+        return text;
+    }
+    let mut end = max_len;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
 pub fn command_length(data: &[u8], command_lengths: &[u32]) -> Option<usize> {
     match *data.first()? {
         0x6 | 0x7 => {
@@ -76,6 +95,39 @@ impl<'a> Iterator for IterCommands<'a> {
             }
         }
     }
+}
+
+/// Strips the native latency / turn-rate control commands (`0x55` set-latency, `0x5f` set-turn-rate,
+/// `0x66` dynamic-turn-rate) from an assembled turn buffer, preserving every other command
+/// (including the inline `0x37` sync command and the `0x5` keep-alive) in order.
+///
+/// The netcode v2 turn transport owns the latency buffer out-of-band via relay directives, and it pins
+/// `builtin_turn_latency` / turn rate. If these in-stream commands were
+/// allowed through they would ride `process_commands` → `recompute_turn_durations` and rewrite the
+/// pinned globals mid-game (a user clicking the in-game latency knob, or a DTR re-issue), diverging
+/// expectation from the relay-driven reality. Every client strips its own outbound turn identically,
+/// so the command simply never reaches any sim — the knob becomes a no-op rather than a desync.
+///
+/// Returns `Cow::Borrowed` (no allocation) when the buffer contains none of them, which is the
+/// overwhelmingly common per-turn case.
+pub fn strip_control_commands<'a>(input: &'a [u8], command_lengths: &[u32]) -> Cow<'a, [u8]> {
+    let is_control = |cmd: &[u8]| {
+        matches!(
+            cmd.first(),
+            Some(&id::SET_LATENCY | &id::SET_TURN_RATE | &id::SET_NETWORK_SPEED)
+        )
+    };
+    // First pass: bail out with a borrow if there's nothing to strip.
+    if !iter_commands(input, command_lengths).any(is_control) {
+        return Cow::Borrowed(input);
+    }
+    let mut buffer = Vec::with_capacity(input.len());
+    for command in iter_commands(input, command_lengths) {
+        if !is_control(command) {
+            buffer.extend_from_slice(command);
+        }
+    }
+    Cow::Owned(buffer)
 }
 
 /// Removes invalid commands that aren't caught by BW.
@@ -288,6 +340,66 @@ mod test {
         assert_eq!(iter.next().unwrap(), &[0x20, 0xff, 0xff]);
         assert_eq!(iter.next().unwrap(), &[0x32, 0xff]);
         assert!(iter.next().is_none());
+    }
+
+    // The shared LENGTHS fixture marks 0x55/0x5f as variable (`!0`), so these strip tests use a
+    // table with the real fixed lengths for the control commands (0x55/0x5f = 2, 0x66 = 4).
+    fn strip_lengths() -> Vec<u32> {
+        let mut lengths = vec![1u32; 256];
+        lengths[0x20] = 3; // move
+        lengths[0x37] = 2; // sync
+        lengths[id::SET_LATENCY as usize] = 2; // 0x55
+        lengths[id::SET_TURN_RATE as usize] = 2; // 0x5f
+        lengths[id::SET_NETWORK_SPEED as usize] = 4; // 0x66
+        lengths[id::NOP as usize] = 1; // 0x05 keep-alive
+        lengths
+    }
+
+    #[test]
+    fn strip_control_commands_removes_latency_and_turn_rate() {
+        let lengths = strip_lengths();
+        let data = &[
+            0x20, 0xaa, 0xbb, //       move -> kept
+            0x55, 0x02, //             set-latency -> stripped
+            0x37, 0xcc, //             sync -> kept (must survive)
+            0x5f, 0x18, //             set-turn-rate -> stripped
+            0x66, 0x01, 0x02, 0x03, // dynamic-turn-rate -> stripped
+            0x05, //                   keep-alive -> kept
+        ];
+        let expected = &[0x20, 0xaa, 0xbb, 0x37, 0xcc, 0x05];
+        assert_eq!(&*strip_control_commands(data, &lengths), expected);
+    }
+
+    #[test]
+    fn strip_control_commands_borrows_when_nothing_to_strip() {
+        let lengths = strip_lengths();
+        let data = &[0x20, 0xaa, 0xbb, 0x37, 0xcc, 0x05];
+        assert!(matches!(
+            strip_control_commands(data, &lengths),
+            Cow::Borrowed(_)
+        ));
+    }
+
+    #[test]
+    fn truncate_utf8_returns_input_unchanged_when_it_fits() {
+        assert_eq!(truncate_utf8("hello", 10), "hello");
+        assert_eq!(truncate_utf8("hello", 5), "hello");
+        assert_eq!(truncate_utf8("", 0), "");
+    }
+
+    #[test]
+    fn truncate_utf8_cuts_ascii_at_the_exact_byte() {
+        assert_eq!(truncate_utf8("hello world", 5), "hello");
+        assert_eq!(truncate_utf8("hello world", 0), "");
+    }
+
+    #[test]
+    fn truncate_utf8_backs_off_to_a_char_boundary() {
+        // "café" is 5 bytes ('é' is 2 bytes); a cap of 4 would split 'é' mid-character.
+        let text = "café";
+        assert_eq!(text.len(), 5);
+        assert_eq!(truncate_utf8(text, 4), "caf");
+        assert_eq!(truncate_utf8(text, 5), "café");
     }
 
     #[test]

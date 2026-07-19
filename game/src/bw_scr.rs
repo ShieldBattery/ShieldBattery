@@ -32,13 +32,14 @@ use crate::app_messages::{
     AtomicStartingFog, MapInfo, MinimapColorMode, SbUserId, Settings, StartingFog,
 };
 use crate::bw::apm_stats::ApmStats;
-use crate::bw::players::StormPlayerId;
+use crate::bw::players::{BwPlayerId, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
 use crate::bw_scr::scr::SafeBwString;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
+use crate::netcode_v2;
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::sync::DumbSpinLock;
@@ -74,6 +75,7 @@ pub struct BwScr {
     storm_player_flags: Value<*mut u32>,
     lobby_state: Value<u8>,
     is_multiplayer: Value<u8>,
+    in_lobby_or_game: Value<u32>,
     game_state: Value<u8>,
     sprites_inited: Value<u8>,
     is_replay: Value<u32>,
@@ -135,6 +137,10 @@ pub struct BwScr {
     minimap_color_mode: Option<Value<u8>>,
     /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
     minimap_terrain_hidden: Option<Value<u8>>,
+    /// BW's in-game chat send-scope byte (`chat_box_mode`): 0 = box closed, 1 = single-player local,
+    /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
+    /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
+    chat_box_mode: Option<Value<u8>>,
     statres_icons: Value<*mut scr::DdsGrpSet>,
     cmdicons: Value<*mut scr::DdsGrpSet>,
     replay_bfix: Option<Value<*mut scr::ReplayBfix>>,
@@ -143,6 +149,9 @@ pub struct BwScr {
     first_dialog: Option<Value<*mut bw::Dialog>>,
     graphic_layers: Option<Value<*mut bw::GraphicLayer>>,
     snet_local_player_list: Option<Value<*mut bw::StormListHead<bw::SNetPlayerConnection>>>,
+    /// Resolved symbols for the netcode v2 (rally-point2) turn hooks. Required at launch; see
+    /// [`NetcodeV2Bw`].
+    netcode_v2: NetcodeV2Bw,
     free_sprites: LinkedList<scr::Sprite>,
     active_fow_sprites: LinkedList<bw::FowSprite>,
     free_fow_sprites: LinkedList<bw::FowSprite>,
@@ -180,7 +189,27 @@ pub struct BwScr {
     process_lobby_commands: unsafe extern "C" fn(*const u8, usize, u32),
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
+    storm_create_game: unsafe extern "system" fn(
+        *const u8,
+        *const u8,
+        *const u8,
+        u32,
+        u32,
+        u32,
+        *const c_void,
+        u32,
+        u32,
+        u32,
+        *const u8,
+        *const u8,
+        *mut u32,
+        *mut c_void,
+        u32,
+    ) -> u32,
     ttf_malloc: unsafe extern "C" fn(usize) -> *mut u8,
+    // Returns a pointer to the 0x20-byte game template for the given game type/subtype (BW's
+    // registry loaded from data files), or null if unregistered. cdecl(type_low, type_high, subtype).
+    find_game_type_template: unsafe extern "C" fn(u32, u32, u32) -> *const u8,
     send_command: unsafe extern "C" fn(*const u8, usize),
     snet_recv_packets: unsafe extern "C" fn(),
     snet_send_packets: unsafe extern "C" fn(),
@@ -233,6 +262,7 @@ pub struct BwScr {
     lobby_create_callback_offset: usize,
     starcraft_tls_index: SendPtr<*mut u32>,
     print_text_addr: VirtualAddress,
+    net_player_count_addr: VirtualAddress,
 
     // State
     exe_build: u32,
@@ -302,6 +332,110 @@ pub struct BwScr {
     /// at certain points during game init).
     event_processing_lock: DumbSpinLock,
 }
+
+/// Resolved BW symbols the netcode v2 turn hooks need. Resolution is **required** — a missing symbol
+/// fails game launch like any other analyzed symbol. There is no native-networking fallback at the
+/// launch level: the platform is a full cutover to rally-point2 (all clients run the same netcode),
+/// so a build that can't resolve the hooks must not run rather than silently degrade. (The per-hook
+/// `orig` fallthrough still covers the *phases* the turn transport doesn't carry yet — lobby join, and any game
+/// the app didn't hand a rally-point2 session.)
+///
+/// The `net_player_flags` array and the RNG-enable flag are reused from the existing [`BwScr`]
+/// fields (`storm_player_flags` / `enable_rng`), so they are not duplicated here.
+struct NetcodeV2Bw {
+    /// OUT hook target: `send_turn_message(buffer_ptr, len)` — the fully-assembled local turn just
+    /// before it crosses into Storm's broadcast.
+    send_turn_message: VirtualAddress,
+    /// IN hook target: `receive_storm_turns(...)`, replaced wholesale (we never call the original,
+    /// so its obfuscated inner routine that memsets the arrays never runs).
+    receive_storm_turns: VirtualAddress,
+    /// PIPE hook target: `flush_local_turns_to_latency_depth(...)`, replaced wholesale.
+    flush_local_turns: VirtualAddress,
+    /// Called by the PIPE replacement to flush one turn (keep-alive seed + `send_turn_message` +
+    /// sync append). No stack args — it reads its globals directly.
+    flush_outgoing_command_turn: unsafe extern "C" fn(),
+    /// Called by the IN replacement inside the synced-RNG window to drain `pending_leave_reason`.
+    apply_pending_player_leaves: unsafe extern "C" fn(),
+    /// `player_turns[12]`: per-slot pointer to that slot's command bytes for the executable turn.
+    player_turns: Value<*mut *mut u8>,
+    /// `player_turns_size[12]`: per-slot command byte length.
+    player_turns_size: Value<*mut u32>,
+    /// `game_frame_count`: the executable-turn index, used as the consensus coordinate on outbound
+    /// turns and as the "next frame" fed to the turn state on receive.
+    game_frame_count: Value<u32>,
+    /// `pending_leave_reason[12]` base: the synced per-slot leave mailbox (nonzero reason = a pending
+    /// leave `apply_pending_player_leaves` will apply, then clear, in the synced-RNG window).
+    pending_leave_reason: Value<*mut i32>,
+    /// Hook target: `storm_join_game(...)`, the Storm-level network join handshake. The netcode-v2
+    /// native-lobby join replacement replaces it wholesale (building equivalent session state from
+    /// our own inputs) whenever a lobby session seed is staged.
+    storm_join_game: VirtualAddress,
+    /// Looks up the session-player node with the given 12-byte net key, or creates (and zero-inits,
+    /// slot field = 0xffff) a fresh one. cdecl(net_key_ptr).
+    storm_session_player_lookup_or_create:
+        unsafe extern "C" fn(*const u8) -> *mut scr::StormSessionPlayer,
+    /// Returns (creating if needed) the local player's session-player node. cdecl, no args.
+    get_local_storm_session_player: unsafe extern "C" fn() -> *mut scr::StormSessionPlayer,
+    /// Copies a slot name (max 0x7f chars + NUL) into the slot-name registry the lobby slot-setup
+    /// handler's name lookups read. cdecl(slot, name_ptr); return value unused.
+    storm_register_slot_name: unsafe extern "C" fn(u32, *const u8) -> u32,
+    /// Handler for async lobby command class 0x4A, the per-slot force/alliance/vision apply.
+    /// cdecl(record_ptr, guard); record is the 63-byte serialized command body.
+    /// Resolved but not yet called by anything (no caller wired up yet).
+    #[allow(dead_code)]
+    apply_lobby_force_cmd: unsafe extern "C" fn(*const u8, i32) -> i32,
+    /// Drains Storm's deferred inbound packet queue (packets that arrived before the local slot /
+    /// turn-base were known). cdecl, no args; return value unused.
+    snet_drain_deferred_queue: unsafe extern "C" fn() -> u32,
+    /// `storm_local_player_slot`: the local storm session slot global (0xff = not in a session).
+    storm_local_player_slot: Value<u8>,
+    /// `storm_turn_base`: the base added to a session slot to form the game-level net player id.
+    storm_turn_base: Value<u32>,
+}
+
+/// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
+/// should fall through to native Storm.
+enum TurnSendOutcome {
+    /// No live turn state for this turn (lobby phase, or no rally-point2 session) — run native.
+    Native,
+    /// Handed to the turn state's driver.
+    Submitted,
+    /// The turn state is live but the driver channel is closed/full mid-game. Not falling back to Storm
+    /// (peers are on the relay, so a Storm send wouldn't reach them); the dropped local turn makes
+    /// our own IN stall, surfacing the dead session as a lag screen rather than a silent desync.
+    Failed,
+}
+
+/// Outcome of the IN hook consulting the turn state.
+enum TurnReceiveOutcome {
+    /// No live turn state for this step — run native `receive_storm_turns`.
+    Native,
+    /// Every required slot's turn is ready and the arrays are filled — return 1 (dispatch).
+    Ready,
+    /// A required slot is missing — return 0 (stall); nothing was consumed.
+    Stall,
+}
+
+/// The leave reason the `forceUnsyncedLeave` debug command writes into `pending_leave_reason`. BW's
+/// "dropped" reason (`0x40000006` → `strPLAYER_WAS_DROPPED`), so a forced leave reads on this
+/// client exactly as a real drop does — same string, same synced-leave handling.
+#[cfg(debug_assertions)]
+const FORCED_UNSYNCED_LEAVE_REASON: i32 = 0x40000006u32 as i32;
+
+/// The amount the `forceDesync` debug command adds to the local player's minerals. A visible,
+/// obviously-divergent resource change; on its own it only desyncs indirectly (once the extra
+/// minerals alter a spend), so it's paired with the RNG-seed perturbation below for a deterministic
+/// trip of the per-turn sync check.
+#[cfg(debug_assertions)]
+const FORCED_DESYNC_MINERAL_BONUS: u32 = 5000;
+
+/// The value the `forceDesync` debug command XORs into this client's synced RNG seed. The seed is
+/// folded into the per-turn sync checksum every client compares, so diverging it on one client
+/// trips the peers' sync check on the next matching turn — a deterministic, immediate desync
+/// trigger (and, because every subsequent RNG draw diverges, a genuine cascading one) rather than
+/// waiting for a resource change to indirectly affect unit state.
+#[cfg(debug_assertions)]
+const FORCED_DESYNC_RNG_XOR: u32 = 0x5B5B_5B5B;
 
 /// State mutated during renderer draw call
 struct RenderState {
@@ -635,6 +769,117 @@ impl From<&'static str> for BwInitError {
     }
 }
 
+/// Resolves the netcode v2 turn-hook symbols. Every symbol is required — a missing one is a launch
+/// failure naming it, consistent with the rest of `BwScr::new` (no native fallback at launch; full
+/// cutover to rally-point2).
+fn resolve_netcode_v2(
+    analysis: &mut scr_analysis::Analysis<'_>,
+    ctx: scarf::OperandCtx<'static>,
+) -> Result<NetcodeV2Bw, BwInitError> {
+    let send_turn_message = analysis.send_turn_message().ok_or("send_turn_message")?;
+    let receive_storm_turns = analysis
+        .receive_storm_turns()
+        .ok_or("receive_storm_turns")?;
+    let flush_local_turns = analysis
+        .flush_local_turns_to_latency_depth()
+        .ok_or("flush_local_turns_to_latency_depth")?;
+    let flush_outgoing_command_turn = analysis
+        .flush_outgoing_command_turn()
+        .ok_or("flush_outgoing_command_turn")?;
+    let apply_pending_player_leaves = analysis
+        .apply_pending_player_leaves()
+        .ok_or("apply_pending_player_leaves")?;
+    let player_turns = analysis.player_turns().ok_or("player_turns")?;
+    let player_turns_size = analysis.player_turns_size().ok_or("player_turns_size")?;
+    let game_frame_count = analysis.game_frame_count().ok_or("game_frame_count")?;
+    let pending_leave_reason = analysis
+        .pending_leave_reason()
+        .ok_or("pending_leave_reason")?;
+    let storm_join_game = analysis.storm_join_game().ok_or("storm_join_game")?;
+    let storm_session_player_lookup_or_create = analysis
+        .storm_session_player_lookup_or_create()
+        .ok_or("storm_session_player_lookup_or_create")?;
+    let get_local_storm_session_player = analysis
+        .get_local_storm_session_player()
+        .ok_or("get_local_storm_session_player")?;
+    let storm_register_slot_name = analysis
+        .storm_register_slot_name()
+        .ok_or("storm_register_slot_name")?;
+    let apply_lobby_force_cmd = analysis
+        .apply_lobby_force_cmd()
+        .ok_or("apply_lobby_force_cmd")?;
+    let snet_drain_deferred_queue = analysis
+        .snet_drain_deferred_queue()
+        .ok_or("snet_drain_deferred_queue")?;
+    let storm_local_player_slot = analysis
+        .storm_local_player_slot()
+        .ok_or("storm_local_player_slot")?;
+    let storm_turn_base = analysis.storm_turn_base().ok_or("storm_turn_base")?;
+
+    Ok(NetcodeV2Bw {
+        send_turn_message,
+        receive_storm_turns,
+        flush_local_turns,
+        flush_outgoing_command_turn: unsafe { mem::transmute(flush_outgoing_command_turn.0) },
+        apply_pending_player_leaves: unsafe { mem::transmute(apply_pending_player_leaves.0) },
+        player_turns: Value::new(ctx, player_turns),
+        player_turns_size: Value::new(ctx, player_turns_size),
+        game_frame_count: Value::new(ctx, game_frame_count),
+        pending_leave_reason: Value::new(ctx, pending_leave_reason),
+        storm_join_game,
+        storm_session_player_lookup_or_create: unsafe {
+            mem::transmute(storm_session_player_lookup_or_create.0)
+        },
+        get_local_storm_session_player: unsafe { mem::transmute(get_local_storm_session_player.0) },
+        storm_register_slot_name: unsafe { mem::transmute(storm_register_slot_name.0) },
+        apply_lobby_force_cmd: unsafe { mem::transmute(apply_lobby_force_cmd.0) },
+        snet_drain_deferred_queue: unsafe { mem::transmute(snet_drain_deferred_queue.0) },
+        storm_local_player_slot: Value::new(ctx, storm_local_player_slot),
+        storm_turn_base: Value::new(ctx, storm_turn_base),
+    })
+}
+
+/// Writes a Storm session-player node's slot the way native join does: the low byte only. A node is
+/// created with its `u16` slot field set to 0xffff, and native join overwrites just the low byte,
+/// leaving the high byte 0xff; readers compare only the low byte, so writing the full `u16` would
+/// diverge from native and be wrong.
+unsafe fn write_session_player_slot(node: *mut scr::StormSessionPlayer, slot: u8) {
+    unsafe {
+        (&raw mut (*node).slot).cast::<u8>().write(slot);
+    }
+}
+
+/// Copies a player name into a session-player node's `name` buffer, matching Storm's own bound: at
+/// most 0x7f characters plus a NUL terminator (the buffer is 0x80 bytes).
+unsafe fn copy_session_player_name(node: *mut scr::StormSessionPlayer, name: &CStr) {
+    unsafe {
+        let bytes = name.to_bytes();
+        let len = bytes.len().min(0x7f);
+        let dest = (&raw mut (*node).name).cast::<u8>();
+        ptr::copy_nonoverlapping(bytes.as_ptr(), dest, len);
+        dest.add(len).write(0);
+    }
+}
+
+/// The classic chat command's fixed record size: a 2-byte header (`0x5c`, sender game id) followed
+/// by a 0x50-byte NUL-padded text field.
+const CHAT_RECORD_LEN: usize = 0x52;
+
+/// Builds the classic `0x5c` chat command record — `[0x5c][sender_game_id][0x50 NUL-padded
+/// text]` — the fixed layout the native command dispatcher renders on the overlay with
+/// attribution from `sender_game_id` and (for a live, not-yet-recorded command) appends to the
+/// replay. `text` is truncated (on a UTF-8 boundary) to [`commands::CHAT_TEXT_CAPACITY`] bytes if
+/// it doesn't already fit; the remainder of the text field, and its final byte, stay `0` (the
+/// NUL terminator).
+fn build_chat_record(sender_game_id: u8, text: &str) -> [u8; CHAT_RECORD_LEN] {
+    let mut record = [0u8; CHAT_RECORD_LEN];
+    record[0] = commands::id::CHAT;
+    record[1] = sender_game_id;
+    let text = commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY);
+    record[2..2 + text.len()].copy_from_slice(text.as_bytes());
+    record
+}
+
 impl BwScr {
     /// On failure returns a description of address that couldn't be found
     pub fn new() -> Result<BwScr, BwInitError> {
@@ -698,6 +943,7 @@ impl BwScr {
         let step_network = analysis.step_network().ok_or("step_network")?;
         let lobby_state = analysis.lobby_state().ok_or("Lobby state")?;
         let is_multiplayer = analysis.is_multiplayer().ok_or("is_multiplayer")?;
+        let in_lobby_or_game = analysis.in_lobby_or_game().ok_or("in_lobby_or_game")?;
         let select_map_entry = analysis.select_map_entry().ok_or("select_map_entry")?;
         let game_state = analysis.game_state().ok_or("Game state")?;
         let rng_seed = analysis.rng_seed().ok_or("RNG seed")?;
@@ -710,6 +956,7 @@ impl BwScr {
         let init_real_time_lighting = analysis.init_real_time_lighting();
         let sprites_inited = analysis.images_loaded().ok_or("Sprites inited")?;
         let init_game_network = analysis.init_game_network().ok_or("Init game network")?;
+        let storm_create_game = analysis.storm_create_game().ok_or("storm_create_game")?;
         let process_lobby_commands = analysis
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
@@ -746,6 +993,9 @@ impl BwScr {
             .font_cache_render_ascii()
             .ok_or("font_cache_render_ascii")?;
         let ttf_malloc = analysis.ttf_malloc().ok_or("ttf_malloc")?;
+        let find_game_type_template = analysis
+            .find_game_type_template()
+            .ok_or("find_game_type_template")?;
         let ttf_render_sdf = analysis.ttf_render_sdf().ok_or("ttf_render_sdf")?;
         let lobby_create_callback_offset = analysis
             .create_game_dialog_vtbl_on_multiplayer_create()
@@ -872,6 +1122,12 @@ impl BwScr {
         if minimap_terrain_hidden.is_none() {
             warn!("Could not find minimap_terrain_hidden global");
         }
+        // Non-fatal: without it, in-game chat can't read its send-scope and every message goes to
+        // everyone rather than failing game launch.
+        let chat_box_mode = analysis.chat_box_mode();
+        if chat_box_mode.is_none() {
+            warn!("Could not find chat_box_mode global");
+        }
         let statres_icons = analysis.statres_icons().ok_or("statres_icons")?;
         let cmdicons = analysis.cmdicons().ok_or("cmdicons")?;
         let screen_x = analysis.screen_x().ok_or("screen_x")?;
@@ -907,6 +1163,7 @@ impl BwScr {
         let lookup_sound_id = analysis.lookup_sound_id().ok_or("lookup_sound")?;
         let play_sound = analysis.play_sound().ok_or("play_sound")?;
         let print_text_addr = analysis.print_text().ok_or("print_text")?;
+        let net_player_count_addr = analysis.net_player_count().ok_or("net_player_count")?;
 
         let uses_new_join_param_variant = match analysis.join_param_variant_type_offset() {
             Some(0) => false,
@@ -936,6 +1193,10 @@ impl BwScr {
             Vec::new()
         };
 
+        // Required: a resolution failure fails launch (full cutover to rally-point2, no native
+        // fallback at the launch level).
+        let netcode_v2 = resolve_netcode_v2(&mut analysis, ctx)?;
+
         init_bw_dat(&mut analysis)?;
 
         debug!("Found all necessary BW data");
@@ -952,6 +1213,7 @@ impl BwScr {
             storm_player_flags: Value::new(ctx, storm_player_flags),
             lobby_state: Value::new(ctx, lobby_state),
             is_multiplayer: Value::new(ctx, is_multiplayer),
+            in_lobby_or_game: Value::new(ctx, in_lobby_or_game),
             game_state: Value::new(ctx, game_state),
             sprites_inited: Value::new(ctx, sprites_inited),
             is_replay: Value::new(ctx, is_replay),
@@ -995,6 +1257,7 @@ impl BwScr {
             use_rgb_colors: Value::new(ctx, use_rgb_colors),
             minimap_color_mode: minimap_color_mode.map(|op| Value::new(ctx, op)),
             minimap_terrain_hidden: minimap_terrain_hidden.map(|op| Value::new(ctx, op)),
+            chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
             screen_x: Value::new(ctx, screen_x),
@@ -1010,6 +1273,7 @@ impl BwScr {
             first_dialog: first_dialog.map(move |x| Value::new(ctx, x)),
             graphic_layers: graphic_layers.map(move |x| Value::new(ctx, x)),
             snet_local_player_list: snet_local_player_list.map(move |x| Value::new(ctx, x)),
+            netcode_v2,
             free_sprites,
             active_fow_sprites,
             free_fow_sprites,
@@ -1036,6 +1300,7 @@ impl BwScr {
                 init_real_time_lighting.map(|x| mem::transmute(x.0))
             },
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
+            storm_create_game: unsafe { mem::transmute(storm_create_game.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
@@ -1043,6 +1308,7 @@ impl BwScr {
             snet_recv_packets: unsafe { mem::transmute(snet_recv_packets.0) },
             snet_send_packets: unsafe { mem::transmute(snet_send_packets.0) },
             ttf_malloc: unsafe { mem::transmute(ttf_malloc.0) },
+            find_game_type_template: unsafe { mem::transmute(find_game_type_template.0) },
             process_events: unsafe { mem::transmute(process_events.0) },
             process_game_commands: unsafe { mem::transmute(process_game_commands.0) },
             move_screen: unsafe { mem::transmute(move_screen.0) },
@@ -1082,6 +1348,7 @@ impl BwScr {
             spawn_dialog,
             step_game_logic,
             print_text_addr,
+            net_player_count_addr,
             starcraft_tls_index: SendPtr(starcraft_tls_index),
             exe_build,
             sdf_cache,
@@ -1300,6 +1567,13 @@ impl BwScr {
                     // time a packets are received in a frame.
                     //
                     // Still need to check that the SNP is ready BW side.
+                    //
+                    // The native-lobby seam (and the sessionless solo path) still create a real
+                    // Storm session, so the chosen SNP provider initializes and Storm's own lobby
+                    // tick keeps running: this pump drives that tick's flush + receive, and the
+                    // OUT/IN hooks intercept the sends/receives it produces to carry them over the
+                    // rally-point2 relay instead of a real network. All actual transport rides the
+                    // relay; the SNP provider itself only ever moves bytes into the inert stubs.
                     if SNP_INITIALIZED.load(Ordering::Relaxed) {
                         (self.snet_recv_packets)();
                         (self.snet_send_packets)();
@@ -1312,6 +1586,17 @@ impl BwScr {
                 ProcessLobbyCommands,
                 move |data, len, player, orig| {
                     let slice = std::slice::from_raw_parts(data, len);
+                    // Anything other than a bare 1-byte 0x05 keep-alive is rare during lobby, so
+                    // log it: the command byte, sender, and the lobby_state it arrives into (a
+                    // 0x69 slot-setup resets lobby_state to 4, stomping a hand-written 8).
+                    if slice.len() > 1 || slice.first() != Some(&5) {
+                        debug!(
+                            "Lobby command {:02x?} from player {} at lobby_state {}",
+                            &slice[..slice.len().min(16)],
+                            player,
+                            self.lobby_state.resolve(),
+                        );
+                    }
                     if let Some(&byte) = slice.first()
                         && byte == 0x48
                         && player == 0
@@ -1368,6 +1653,69 @@ impl BwScr {
                 address,
             );
 
+            // Netcode v2 turn hooks. Symbol resolution is required, so these always install; each
+            // body falls through to `orig` (BW's original turn handling) when there is no turn state
+            // (a replay), so installing them changes nothing for a replay.
+            {
+                let nc = &self.netcode_v2;
+                let address = nc.send_turn_message.0 as usize - base;
+                exe.hook_closure_address(
+                    SendTurnMessage,
+                    move |buffer, len, orig| match self.netcode_v2_send_turn(buffer, len) {
+                        TurnSendOutcome::Submitted => 1,
+                        TurnSendOutcome::Failed => {
+                            error!("Netcode v2: local turn could not be submitted to the turn transport");
+                            1
+                        }
+                        TurnSendOutcome::Native => orig(buffer, len),
+                    },
+                    address,
+                );
+
+                let address = nc.receive_storm_turns.0 as usize - base;
+                exe.hook_closure_address(
+                    ReceiveStormTurns,
+                    move |a1, a2, a3, a4, a5, orig| match self.netcode_v2_receive_turns() {
+                        TurnReceiveOutcome::Ready => 1,
+                        TurnReceiveOutcome::Stall => 0,
+                        TurnReceiveOutcome::Native => orig(a1, a2, a3, a4, a5),
+                    },
+                    address,
+                );
+
+                let address = nc.flush_local_turns.0 as usize - base;
+                exe.hook_closure_address(
+                    FlushLocalTurns,
+                    move |a1, a2, orig| {
+                        if self.netcode_v2_flush_pipe() {
+                            0
+                        } else {
+                            orig(a1, a2)
+                        }
+                    },
+                    address,
+                );
+
+                // Full replacement for Storm's network join handshake, active only when a lobby
+                // session seed is staged (the native-lobby join seam). With no seed staged — always,
+                // for now — it falls through to the original, so installing it is a no-op for every
+                // existing path.
+                let address = nc.storm_join_game.0 as usize - base;
+                exe.hook_closure_address(
+                    StormJoinGame,
+                    move |a1, a2, a3, out, a5, a6, a7, a8, a9, orig| {
+                        match netcode_v2::with_lobby_session_seed(|seed| {
+                            self.v2_run_join_replacement(seed, out)
+                        }) {
+                            Some(ret) => ret,
+                            None => orig(a1, a2, a3, out, a5, a6, a7, a8, a9),
+                        }
+                    },
+                    address,
+                );
+                debug!("Netcode v2 turn hooks installed");
+            }
+
             let address = self.net_format_turn_rate.0 as usize - base;
             exe.hook_closure_address(
                 NetFormatTurnRate,
@@ -1380,10 +1728,24 @@ impl BwScr {
                         0 => 24, // This only happens with DTR, and is temporary anyway
                         val => val,
                     };
-                    let cur_user_latency = self.net_user_latency.resolve();
-                    let user_delay = 2 /* proto_latency */ + cur_user_latency;
-                    let effective_latency =
-                        ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round();
+                    // Under a live turn state the PIPE hook owns the latency pipeline, so the native
+                    // `2 + user_latency` builtin turns no longer describe the delay: `latency_turns()`
+                    // reports the current pipe depth (floor 1, retunable mid-game by a relay's buffer
+                    // directive). Read it fresh each format call so the display tracks the live depth;
+                    // fall back to native state when there is no turn state (a replay).
+                    let v2_turns = if self.game_started.load(Ordering::Acquire) {
+                        netcode_v2::with_turn_state(|s| s.latency_turns())
+                    } else {
+                        None
+                    };
+                    let effective_latency = match v2_turns {
+                        Some(latency_turns) => ((1000 * latency_turns + 500) / turn_rate) as f32,
+                        None => {
+                            let cur_user_latency = self.net_user_latency.resolve();
+                            let user_delay = 2 /* proto_latency */ + cur_user_latency;
+                            ((1000f32 * user_delay as f32 + 500f32) / turn_rate as f32).round()
+                        }
+                    };
                     let value = format!("Lat: {effective_latency:.0}ms");
                     (*result).text.replace_all(value.as_str());
                     result
@@ -1672,6 +2034,27 @@ impl BwScr {
                 address,
             );
 
+            let address = self.net_player_count_addr.0 as usize - base;
+            exe.hook_closure_address(
+                NetPlayerCount,
+                move |orig| {
+                    if netcode_v2::with_turn_state(|_| ()).is_some() {
+                        // The native count reads the Storm session player list, which for a netcode-v2
+                        // game holds only the local player (no Storm peers) — so BW would classify the
+                        // game as single-player and draw the single-player minimap UI. Report the true
+                        // count of registered net players so the multiplayer UI (diplomacy +
+                        // communication buttons) is created.
+                        let players = self.storm_players.resolve();
+                        (0..bw::MAX_STORM_PLAYERS)
+                            .filter(|&i| (*players.add(i)).state == 1)
+                            .count() as u32
+                    } else {
+                        orig()
+                    }
+                },
+                address,
+            );
+
             if let Some(funcs) = self.status_screen_funcs {
                 let funcs = std::slice::from_raw_parts_mut(funcs.0 as *mut bw::UnitStatusFunc, 228);
                 for func in funcs {
@@ -1891,6 +2274,17 @@ impl BwScr {
                         let apm_guard = self.apm_state.lock();
                         let apm = apm_guard.as_deref();
                         let size = ((*render_target.bw).width, (*render_target.bw).height);
+                        // A snapshot of who has lost connection, for the survivor overlay. `None`
+                        // (a replay, or a re-entrant lock) renders as an all-healthy status.
+                        let disconnect_status =
+                            netcode_v2::with_turn_state(|s| s.disconnect_status())
+                                .unwrap_or_else(netcode_v2::DisconnectStatus::healthy);
+                        // A snapshot of the network-stats overlay, or `None` when it is toggled off
+                        // (or there is no session). Safe to reach the turn state here: the draw path
+                        // holds no turn-state lock across `step`.
+                        let net_stats =
+                            netcode_v2::with_turn_state(|s| s.net_stats_status(Instant::now()))
+                                .flatten();
                         // If we're switching between SD/HD, egui flexboxes will break due
                         // to render target size constantly changing, so we allow the overlay
                         // to request a second pass to provide nicer look.
@@ -1920,6 +2314,8 @@ impl BwScr {
                                 apm,
                                 size,
                                 game_thread::setup_info(),
+                                &disconnect_status,
+                                net_stats.as_ref(),
                             );
                             if cfg!(debug_assertions) {
                                 self.handle_debug_ui_actions(&overlay_out, &mut render_state);
@@ -2106,6 +2502,843 @@ impl BwScr {
                     exe.replace_val(relative, patch);
                 }
             }
+        }
+    }
+
+    /// OUT hook body (`send_turn_message`): in-game, hand the fully-assembled local turn to the turn
+    /// state, having stripped the native latency/turn-rate control commands so they can't rewrite the
+    /// pinned globals mid-game. Before the game starts, the lobby stays on native Storm networking
+    /// unless the turn state's lobby seam is latched on (see [`TurnState::enable_lobby_seam`] — the
+    /// native-lobby setup path, a later slice); when it is, the raw buffer goes to
+    /// [`TurnState::submit_local_lobby_turn`] with no [`commands::strip_control_commands`] — the
+    /// lobby command set is different from the in-game one and must relay byte-identical. Returns
+    /// [`TurnSendOutcome::Native`] whenever there is no live session, or (pre-game) the seam isn't
+    /// enabled.
+    unsafe fn netcode_v2_send_turn(&self, buffer: *const u8, len: usize) -> TurnSendOutcome {
+        unsafe {
+            if !self.game_started.load(Ordering::Acquire) {
+                let commands = std::slice::from_raw_parts(buffer, len);
+                let outcome = netcode_v2::with_turn_state(|s| {
+                    if !s.lobby_seam_enabled() {
+                        return None;
+                    }
+                    Some(s.submit_local_lobby_turn(commands))
+                })
+                .flatten();
+                return match outcome {
+                    None => TurnSendOutcome::Native,
+                    Some(true) => TurnSendOutcome::Submitted,
+                    Some(false) => TurnSendOutcome::Failed,
+                };
+            }
+            let nc = &self.netcode_v2;
+            let frame = nc.game_frame_count.resolve();
+            let commands = std::slice::from_raw_parts(buffer, len);
+            let filtered = commands::strip_control_commands(commands, &self.game_command_lengths);
+            match netcode_v2::with_turn_state(|s| s.submit_local_turn(&filtered, Some(frame))) {
+                None => TurnSendOutcome::Native,
+                Some(true) => TurnSendOutcome::Submitted,
+                Some(false) => TurnSendOutcome::Failed,
+            }
+        }
+    }
+
+    /// IN hook body (full replacement of `receive_storm_turns`): drain the turn state and, when every
+    /// required slot is ready, fill `player_turns[]` / `player_turns_size[]` / `net_player_flags[]`
+    /// and run the synced leave pass. Never calls the original.
+    ///
+    /// Before the game starts, the lobby stays fully native (native join is retained for now) unless
+    /// the turn state's lobby seam is latched on (see [`TurnState::enable_lobby_seam`] — the
+    /// native-lobby setup path, a later slice). When it is, this fills the same arrays from the
+    /// lobby-phase turn assembly instead — [`TurnState::lobby_receive_turns`], the lobby analogue of
+    /// the in-game turn assembly below, paced by the local echo rather than a readiness set. That
+    /// branch is drain→gate→dispatch only: it runs no leave/directive machinery, since there are no
+    /// frames or leaves during lobby in this slice.
+    ///
+    /// With the seam still off, the turn state's pipe is empty at the lobby→game transition — the
+    /// first in-game receive would stall forever (`network_ready = 0` → `step_network` skips the
+    /// PIPE flush → deadlock; native avoids this because the lobby's unconditional flush pre-seeds
+    /// the pipe). [`seed_netcode_v2_pipe`](Self::seed_netcode_v2_pipe) closes that gap by running
+    /// the PIPE fill once at the transition.
+    unsafe fn netcode_v2_receive_turns(&self) -> TurnReceiveOutcome {
+        unsafe {
+            if !self.game_started.load(Ordering::Acquire) {
+                let nc = &self.netcode_v2;
+                // Chat stays live for the driver's whole session, unlike lobby commands, so it can
+                // already be arriving before the game starts. Nothing renders it yet — drain and
+                // discard so the channel never backs up and wedges the driver (mirrors `lobby_in`'s
+                // own discard-drain once the game HAS started; see `drain_chat_inbound`).
+                netcode_v2::with_turn_state(|s| {
+                    s.drain_chat_inbound(false);
+                    // Drain the connectivity stream pre-start too so it can't back up and wedge the
+                    // driver; a pre-start peer frame records nothing (there is no in-game overlay
+                    // yet to show it on), though an own-slot frame still updates the self-link flag
+                    // — harmlessly, since that overlay is gated on the game having started too.
+                    s.pump_connectivity(false, Instant::now());
+                });
+                let ready = netcode_v2::with_turn_state(|s| {
+                    if !s.lobby_seam_enabled() {
+                        return None;
+                    }
+                    if !s.lobby_receive_turns() {
+                        return Some(false);
+                    }
+                    Self::fill_turn_dispatch(
+                        nc.player_turns.resolve(),
+                        nc.player_turns_size.resolve(),
+                        self.storm_player_flags.resolve(),
+                        s.lobby_dispatch_buffers(),
+                    );
+                    Some(true)
+                })
+                .flatten();
+                return match ready {
+                    None => TurnReceiveOutcome::Native,
+                    Some(false) => TurnReceiveOutcome::Stall,
+                    Some(true) => TurnReceiveOutcome::Ready,
+                };
+            }
+            let nc = &self.netcode_v2;
+            let next_frame = nc.game_frame_count.resolve();
+            // Apply coordinated synced leaves due at this frame BEFORE the readiness check below, so a
+            // departing slot is already dropped from `required` when `receive_turns` runs and its
+            // `pending_leave_reason` is written for `run_synced_leave_pass` to drain on the ready
+            // step. A due leave is what unstalls a step gated on the departing peer. The directive is
+            // observed during `receive_turns`' drain; on the step it first arrives the readiness check
+            // still stalls, and the next poll of this (stalled) receive applies it here and proceeds.
+            self.apply_due_leaves(nc, next_frame);
+            // If applying those leaves emptied the remote-human roster in a game that has computer
+            // players, close the networked session: the lone human plays on versus the AI entirely
+            // locally while the relay session ends cleanly behind them. This is the same local-only
+            // latch the victory dialog uses, triggered instead by the roster emptying.
+            //
+            // Once local-only, a later result report (the human eventually wins or loses versus the
+            // AI) is handed to a driver that has already sent its leave intent, so the driver drops
+            // it and no HTTP fallback runs — a report from a session that has closed has nowhere
+            // trustworthy to go, and games with computers do not track results, so dropping it is
+            // correct. Gated on computers-present precisely so a human-only game — where "alone"
+            // means the winner's result is imminent — never closes ahead of that report.
+            if netcode_v2::with_turn_state(|s| s.should_self_close()).unwrap_or(false) {
+                netcode_v2::begin_local_only();
+            }
+            // Debug-only: the `forceUnsyncedLeave` command's local (non-consensus) injection — same effect,
+            // sourced from a queued slot rather than a relay directive. Must also precede the receive.
+            #[cfg(debug_assertions)]
+            self.apply_forced_unsynced_leaves(nc);
+            // Debug-only: the `forceDesync` command's one-shot mineral perturbation on this client.
+            #[cfg(debug_assertions)]
+            self.apply_forced_desync();
+            // Debug-only: the `sendChat` command's queued messages, sent + locally echoed through
+            // the same path a human's own Enter keypress uses.
+            #[cfg(debug_assertions)]
+            self.apply_debug_chat();
+            // In-game chat delivered from peers over the relay, each injected as the classic chat
+            // record after passing its target scope's receive-side filter.
+            self.apply_chat_inbound();
+            // Relay-pushed slot-connectivity changes: a peer's drop/reconnect updates the turn
+            // state's disconnected set, our own updates the self-link flag, for the survivor
+            // overlay to render. Render-side only — no game state, alliances, or turn pipeline are
+            // touched here.
+            netcode_v2::with_turn_state(|s| s.pump_connectivity(true, Instant::now()));
+            let ready = netcode_v2::with_turn_state(|s| {
+                if !s.receive_turns(next_frame) {
+                    return false;
+                }
+                // The bytes are owned by the turn state (refcounted `Bytes`) and stay valid until the
+                // next `receive_turns`, which covers the whole step_network dispatch.
+                Self::fill_turn_dispatch(
+                    nc.player_turns.resolve(),
+                    nc.player_turns_size.resolve(),
+                    self.storm_player_flags.resolve(),
+                    s.dispatch_buffers(),
+                );
+                s.apply_due_directive(next_frame);
+                // Exactly once per executed step (one local turn leaves the pipe), NOT per dispatched
+                // slot — see TurnState::mark_local_turn_executed.
+                s.mark_local_turn_executed();
+                true
+            });
+            match ready {
+                None => TurnReceiveOutcome::Native,
+                Some(false) => TurnReceiveOutcome::Stall,
+                Some(true) => {
+                    // Leave pass runs with the turn-state lock released: the leave handlers can issue
+                    // commands that re-enter the OUT hook, which would re-lock the turn state.
+                    let leaving = self.run_synced_leave_pass(nc);
+                    for storm in leaving {
+                        netcode_v2::with_turn_state(|s| s.mark_slot_left(storm));
+                    }
+                    TurnReceiveOutcome::Ready
+                }
+            }
+        }
+    }
+
+    /// Fills `player_turns[]` / `player_turns_size[]` / `net_player_flags[]` from a set of dispatched
+    /// per-slot buffers. Shared by [`netcode_v2_receive_turns`](Self::netcode_v2_receive_turns)'s
+    /// lobby-phase and in-game branches, which differ only in where `buffers` comes from.
+    ///
+    /// A full replacement doesn't run the native memset, so every slot is cleared first: a stale
+    /// ready bit on a slot we don't fill would make step_network dispatch garbage.
+    unsafe fn fill_turn_dispatch<'a>(
+        player_turns: *mut *mut u8,
+        player_turns_size: *mut u32,
+        flags: *mut u32,
+        buffers: impl Iterator<Item = (StormPlayerId, &'a [u8])>,
+    ) {
+        unsafe {
+            for i in 0..bw::MAX_STORM_PLAYERS {
+                *flags.add(i) = 0;
+                *player_turns_size.add(i) = 0;
+            }
+            for (storm, bytes) in buffers {
+                let i = storm.0 as usize;
+                *player_turns.add(i) = bytes.as_ptr() as *mut u8;
+                *player_turns_size.add(i) = bytes.len() as u32;
+                *flags.add(i) = 0x10000 | 0x20000; // present | turn-ready
+            }
+        }
+    }
+
+    /// PIPE hook body (full replacement of `flush_local_turns_to_latency_depth`): flush enough turns
+    /// to reach the turn state's latency target, driven off its own in-flight counter rather than
+    /// the native `get_outstanding_turn_count` (which goes degenerate-0 once Storm's send/ack
+    /// counters stop advancing, causing an unbounded flush). Returns `false` before the game starts
+    /// or with no live session, so the caller runs the original.
+    unsafe fn netcode_v2_flush_pipe(&self) -> bool {
+        unsafe {
+            if !self.game_started.load(Ordering::Acquire) {
+                return false;
+            }
+            let nc = &self.netcode_v2;
+            // Read the shortfall under the lock, then release before flushing — each flush re-enters
+            // the OUT hook (which re-locks the turn state) and bumps the in-flight counter by one.
+            let to_flush = netcode_v2::with_turn_state(|s| {
+                s.latency_turns().saturating_sub(s.outstanding_turns())
+            });
+            match to_flush {
+                None => false,
+                Some(n) => {
+                    for _ in 0..n {
+                        (nc.flush_outgoing_command_turn)();
+                    }
+                    true
+                }
+            }
+        }
+    }
+
+    /// Seeds the turn state's pipe at the lobby→game transition. The lobby is gated native, so nothing
+    /// has primed the turn state when the game starts: the first in-game receive would stall waiting for
+    /// turns no one has sent, and the PIPE flush that would send them only runs once the network is
+    /// ready — a lockstep deadlock. Native pre-seeds via the lobby's unconditional flush; this is
+    /// the turn transport's equivalent, running the PIPE fill once, unconditionally, from the game thread
+    /// right after `set_game_started`. Every client seeds its own `latency_turns` turns, which
+    /// reach peers via the relay fan-out (and ourselves via the local echo), so everyone's first
+    /// receive finds a full turn queued. No-op when there is no live session (the lobby's native
+    /// flush already primed the native pipe).
+    pub fn seed_netcode_v2_pipe(&self) {
+        unsafe {
+            self.netcode_v2_flush_pipe();
+        }
+    }
+
+    /// Seeds Storm's session-player list with the given non-local session members, standing in for
+    /// the peer-admit that native networking performs when each member's join packet arrives. For
+    /// each member: look up (or create) its list node by net key, write the low byte of its slot,
+    /// set the present/turn-expected flag, and register its slot name.
+    ///
+    /// The local player is never in `members` — its node is set up by the local-identity fixup in
+    /// the join replacement instead. The host uses this to admit its peers after `storm_create_game`;
+    /// the join replacement uses it to admit everyone but the local player.
+    pub unsafe fn v2_seed_storm_session_members(&self, members: &[netcode_v2::StormMemberSeed]) {
+        unsafe {
+            let nc = &self.netcode_v2;
+            for member in members {
+                let node = (nc.storm_session_player_lookup_or_create)(member.net_key.as_ptr());
+                if node.is_null() {
+                    // The lookup allocates on miss and only returns null on allocation failure,
+                    // which shouldn't happen; skip the member rather than dereference null.
+                    error!(
+                        "netcode v2: failed to create Storm session player for slot {}",
+                        member.slot
+                    );
+                    continue;
+                }
+                write_session_player_slot(node, member.slot);
+                // Bit 0x4 = present/turn-expected. Native sets it from a Storm event listener when a
+                // peer is admitted; seeding replaces that admit, so seeding must set it or the
+                // receive-turns barrier would never expect this member's turns.
+                (*node).flags |= 0x4;
+                // Write the node's own name buffer, not just the slot-name registry: native
+                // init_net_player reads a session member's name straight off the node (via
+                // storm_get_player_name_data) and skips a member whose node name is empty, leaving
+                // that player's net_player_info entry unpopulated (state stays 0). Without this a
+                // seeded remote is invisible to the per-player registration that follows.
+                copy_session_player_name(node, &member.name);
+                (nc.storm_register_slot_name)(
+                    member.slot as u32,
+                    member.name.as_ptr() as *const u8,
+                );
+            }
+        }
+    }
+
+    /// Writes one human's `net_player_info` (the "storm players") entry directly: state = in-use plus
+    /// the display name. Native `init_net_player` only fills this from a session member Storm's own
+    /// provider-gated lookup resolves, which succeeds for the local player but not for a
+    /// roster-seeded remote, so a remote's entry would otherwise stay empty — leaving its name blank
+    /// everywhere the table is read (the multiplayer-player count that gates the diplomacy UI, the
+    /// "player was dropped" notice, chat sender names). The `flags`/`unk4`/`protocol_version` values
+    /// match what the native `init_network_player_info(_, 0, 1, 5)` path always wrote; they are only
+    /// snapshotted into a per-player record, never read by gameplay.
+    pub unsafe fn v2_register_net_player(&self, storm_id: u8, name: &str) {
+        unsafe {
+            let players = self.storm_players.resolve();
+            let entry = players.add(storm_id as usize);
+            let mut fabricated = scr::StormPlayer {
+                state: 1,
+                unk1: 0,
+                flags: 0,
+                unk4: 1,
+                protocol_version: 5,
+                name: [0; 0x60],
+            };
+            for (&input, out) in name.as_bytes().iter().zip(fabricated.name.iter_mut()) {
+                *out = input;
+            }
+            *entry = fabricated;
+        }
+    }
+
+    /// Copies BW's game template for `game_type` into `game_data.game_template`. On the host, native
+    /// game creation does this from a registry BW loads from data files; the roster-driven peer join
+    /// builds its session locally and never receives the host's game-info blob, so its template block
+    /// stays zeroed — which BW reads as a Use-Map-Settings game (map triggers run, no alliance UI,
+    /// map-defined victory instead of the real game type's rules). Every client loads the same
+    /// registry at startup, so this local lookup reproduces the host's template exactly. Errors if the
+    /// game type is not registered.
+    pub unsafe fn apply_game_type_template(&self, game_type: bw::BwGameType) -> Result<(), ()> {
+        unsafe {
+            // The lookup keys on the game type split into low/high bytes; our game types all fit in
+            // the low byte, so the high byte is always 0.
+            let template = (self.find_game_type_template)(
+                game_type.primary as u32,
+                0,
+                game_type.subtype as u32,
+            );
+            if template.is_null() {
+                error!(
+                    "No game template registered for type {}/{}",
+                    game_type.primary, game_type.subtype
+                );
+                return Err(());
+            }
+            let dest = self.game_data.resolve();
+            (*dest).game_template = *(template as *const bw::GameTemplate);
+            Ok(())
+        }
+    }
+
+    /// Full replacement for `storm_join_game` used when a lobby session seed is staged: builds this
+    /// client's Storm session state from our own inputs rather than the network join handshake the
+    /// native function performs (two sends and two blocking waits).
+    ///
+    /// The native function's prefix tears down any prior session, and a native peer's session state
+    /// (game-info blob plus globals) is assembled by an inbound-message handler that never runs in
+    /// this seam. `storm_create_game` constructs the equivalent state from our own inputs, after
+    /// which the local identity is corrected to the roster slot and the other members are seeded in
+    /// place of the network admit. Nothing ever compares session blobs across machines, so each
+    /// client building its own from identical server-fed inputs is sound.
+    ///
+    /// Returns 1 (TRUE) on success — the native caller then stores `*out_net_player_id` as the local
+    /// net player id — or 0 (FALSE) on failure, handing control to the caller's join-failure path.
+    unsafe fn v2_run_join_replacement(
+        &self,
+        seed: &netcode_v2::LobbySessionSeed,
+        out_net_player_id: *mut u32,
+    ) -> u32 {
+        unsafe {
+            let nc = &self.netcode_v2;
+            // The native join flow retries: a failure after this replacement already succeeded once
+            // (e.g. the caller's map load) re-invokes it. storm_create_game is the one non-idempotent
+            // step, so skip it when a session is already live. `in_lobby_or_game` is the reliable
+            // test: create_local_storm_session itself sets it to 1 and nothing else on this path
+            // touches it, so it is provably 0 on the first attempt and 1 on every retry after a
+            // successful create. (storm_local_player_slot's 0xff not-in-session sentinel is what
+            // native join's own entry guard checks, but its pre-first-write state is unverified — a
+            // zero-initialized global would read as "in session" and wrongly skip the first create.)
+            // Every step below is overwrite-or-recompute and safe to re-run.
+            let session_already_live = self.in_lobby_or_game.resolve() != 0;
+            if !session_already_live {
+                // 1. Build equivalent session state. A fresh local session with no peers makes the
+                //    local player session slot 0; the fixup below moves it to the roster slot.
+                if let Err(e) = self.create_local_storm_session(
+                    &seed.game_name,
+                    &seed.local_name,
+                    seed.slot_count,
+                ) {
+                    error!("netcode v2: join replacement storm_create_game failed: {e:08x}");
+                    return 0;
+                }
+            }
+            // 2. Local identity fixup: correct the local session slot and node from the 0 that create
+            //    produced to this client's roster slot.
+            nc.storm_local_player_slot.write(seed.local_slot);
+            let local = (nc.get_local_storm_session_player)();
+            if local.is_null() {
+                error!("netcode v2: join replacement could not resolve local session player");
+                return 0;
+            }
+            write_session_player_slot(local, seed.local_slot);
+            // Create already wrote the local name into this node; rewriting it keeps the fixup
+            // self-sufficient and identical for any future caller.
+            copy_session_player_name(local, &seed.local_name);
+            (nc.storm_register_slot_name)(
+                seed.local_slot as u32,
+                seed.local_name.as_ptr() as *const u8,
+            );
+            // 3. Seed the other members. Done after the local fixup so its slot-name registration for
+            //    the local slot re-registers over the local name create left at that index.
+            self.v2_seed_storm_session_members(&seed.members);
+            // 4. The local game-level net player id the native caller stores: session slot plus the
+            //    turn base.
+            // Every roster consumer treats the game-level net player id as identical to the session
+            // slot; that holds because the turn base stays 0 in this flow (its native writers are
+            // the Storm turn-advance and join paths, which never run here). Assert it so a violation
+            // is loud in debug rather than a silent identity mismatch.
+            debug_assert_eq!(
+                nc.storm_turn_base.resolve(),
+                0,
+                "storm_turn_base expected to be 0"
+            );
+            *out_net_player_id = seed.local_slot as u32 + nc.storm_turn_base.resolve();
+            // 5. Native join's success tail drains Storm's deferred inbound queue. Nothing can be
+            //    queued when no Storm networking has run, but calling it keeps the replacement
+            //    faithful to the native tail and covers any provider-queued edge.
+            (nc.snet_drain_deferred_queue)();
+            // 6. TRUE: the caller treats the join as succeeded.
+            1
+        }
+    }
+
+    /// Applies coordinated synced leaves due at `next_frame`, run at the top of the IN hook before
+    /// the readiness check. Drains the turn state's [`LeaveTracker`](netcode_v2) for slots whose
+    /// relay-agreed apply frame has arrived, writes each departing slot's `pending_leave_reason`
+    /// mailbox (drained by [`run_synced_leave_pass`](Self::run_synced_leave_pass) in the synced-RNG
+    /// window on the ready step) and drops it from the readiness set — so a step stalled on the
+    /// departing peer can proceed. No-op with no live session.
+    ///
+    /// This is the **production** leave path: the reason, slot, and apply frame all come from the
+    /// authority relay's directive, so every client applies the identical leave at the identical
+    /// frame and the native drain is deterministic across all of them (including clients that never
+    /// observed the drop locally). It is the consensus-backed twin of the debug-only, per-client
+    /// [`apply_forced_unsynced_leaves`](Self::apply_forced_unsynced_leaves).
+    unsafe fn apply_due_leaves(&self, nc: &NetcodeV2Bw, next_frame: u32) {
+        unsafe {
+            let Some(due) = netcode_v2::with_turn_state(|s| s.take_due_leaves(next_frame)) else {
+                return; // no live session
+            };
+            for (storm, reason) in due {
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) = reason as i32;
+            }
+        }
+    }
+
+    /// Debug-only `forceUnsyncedLeave` application, run at the top of the IN hook. Drains the slots the
+    /// `forceUnsyncedLeave` command queued on the turn state and, for each one that maps to a storm id,
+    /// writes that storm's `pending_leave_reason` mailbox and drops the slot from the readiness set.
+    /// The existing native synced-leave pass ([`run_synced_leave_pass`](Self::run_synced_leave_pass))
+    /// then detects the written reason and applies it in the synced-RNG window on a ready step,
+    /// exactly as it would for a real drop; the `mark_slot_left` here is idempotent with the pass's
+    /// own re-report. An unmapped slot (no storm id yet) can't be leaked into `pending_leave_reason`,
+    /// so it's warned and skipped.
+    ///
+    /// # Determinism
+    ///
+    /// Writing `pending_leave_reason` and running `apply_pending_player_leaves` consumes synced RNG
+    /// on THIS client only. That is faithful to the real per-client leave mechanism, but a one-sided
+    /// injection desyncs a *continuing* multi-player game: peers that didn't apply the same leave on
+    /// the same turn diverge. For a 1v1 opponent-drop test (one remaining client) this is correct as
+    /// is; for 3+ player games the caller must inject the same slot on every remaining client on the
+    /// same turn — which is what the (still-unbuilt) coordinated-leave consensus will do. This is the
+    /// trigger, NOT the consensus; it deliberately does no cross-client coordination.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_forced_unsynced_leaves(&self, nc: &NetcodeV2Bw) {
+        unsafe {
+            let Some(forced) = netcode_v2::with_turn_state(|s| s.take_forced_unsynced_leaves())
+            else {
+                // No live session — nothing to force.
+                return;
+            };
+            for slot in forced {
+                let storm = netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten();
+                let Some(storm) = storm else {
+                    warn!("netcode v2: forceUnsyncedLeave for unmapped slot {slot:?}; skipping");
+                    continue;
+                };
+                *nc.pending_leave_reason.resolve().add(storm.0 as usize) =
+                    FORCED_UNSYNCED_LEAVE_REASON;
+                netcode_v2::with_turn_state(|s| {
+                    s.mark_slot_left(storm);
+                    // Observation-only: tag the slot's net-stats row with how it departed.
+                    s.record_departure(storm, FORCED_UNSYNCED_LEAVE_REASON as u32);
+                });
+            }
+        }
+    }
+
+    /// Debug-only `forceDesync` application, run at the top of the IN hook. When the command has
+    /// armed the turn state's one-shot flag, diverges this client's simulation from its peers:
+    ///
+    /// - XORs [`FORCED_DESYNC_RNG_XOR`] into the synced RNG seed. The seed is folded into the
+    ///   per-turn sync checksum, so this trips the peers' sync check on the next matching turn
+    ///   deterministically (and every subsequent RNG draw diverges, so the desync also cascades
+    ///   through unit behavior). This is the reliable trigger.
+    /// - Adds [`FORCED_DESYNC_MINERAL_BONUS`] to the local player's minerals, a visible in-game
+    ///   confirmation the command landed and a second, resource-level divergence.
+    ///
+    /// No-op with no live session, or before the game struct exists.
+    ///
+    /// # Determinism
+    ///
+    /// The whole point is to break determinism: these writes happen on this client alone, so its
+    /// state and command stream drift from every peer. This is the trigger for observing desync
+    /// behavior through the transport, and it deliberately does no cross-client coordination.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_forced_desync(&self) {
+        unsafe {
+            let armed = netcode_v2::with_turn_state(|s| s.take_forced_desync());
+            if armed != Some(true) {
+                // No live session, or no perturbation pending.
+                return;
+            }
+
+            // The synced RNG seed sits one u32 past the operand analysis resolves (mirrors the read
+            // in `BwScr::rng_seed`).
+            let seed_ptr = self.rng_seed.resolve_as_ptr().add(1);
+            let old_seed = seed_ptr.read_unaligned();
+            let new_seed = old_seed ^ FORCED_DESYNC_RNG_XOR;
+            seed_ptr.write_unaligned(new_seed);
+            warn!("netcode v2: forceDesync perturbed RNG seed {old_seed:#x} -> {new_seed:#x}");
+
+            let game = self.game();
+            if game.is_null() {
+                // The RNG divergence above is enough to trip the sync check; the minerals write is
+                // just a visible extra, so a missing game struct isn't fatal.
+                warn!("netcode v2: forceDesync before game struct exists; skipped minerals write");
+                return;
+            }
+            let game = bw_dat::Game::from_ptr(game);
+            let player = self.local_player_id.resolve();
+            // The game's minerals array has one entry per game player (12 wide); an observer's id
+            // falls outside it and has no resources to perturb anyway.
+            const GAME_PLAYER_COUNT: u32 = 12;
+            if player >= GAME_PLAYER_COUNT {
+                warn!(
+                    "netcode v2: forceDesync with non-player local id {player}; skipped minerals"
+                );
+                return;
+            }
+            let player = player as u8;
+            let current = game.minerals(player);
+            let perturbed = current.saturating_add(FORCED_DESYNC_MINERAL_BONUS);
+            game.set_minerals(player, perturbed);
+            warn!(
+                "netcode v2: forceDesync perturbed local player {player} minerals {current} -> {perturbed}"
+            );
+        }
+    }
+
+    /// Debug-only `sendChat` application, run on the game thread alongside
+    /// [`apply_forced_unsynced_leaves`](Self::apply_forced_unsynced_leaves)/[`apply_forced_desync`](Self::apply_forced_desync).
+    /// Drains the messages the `sendChat` command queued and sends + locally echoes each one
+    /// through [`send_chat_message`](Self::send_chat_message) — the exact path the in-game chat
+    /// box's own send tap uses — so a debug-triggered message is indistinguishable downstream from
+    /// one a human typed.
+    #[cfg(debug_assertions)]
+    unsafe fn apply_debug_chat(&self) {
+        unsafe {
+            let Some(queued) = netcode_v2::with_turn_state(|s| s.take_debug_chat_queue()) else {
+                return; // no live session
+            };
+            for (target, text) in queued {
+                self.send_chat_message(target, &text);
+            }
+        }
+    }
+
+    /// Send path shared by the in-game chat box's send tap (`dialog_hook::chat_box_event_handler`)
+    /// and the `sendChat` debug command: submits `text` to the active netcode v2 session's chat
+    /// channel, scoped by `target`, then injects this client's own local echo — the classic chat
+    /// record for our own storm id — the same way a peer's message is injected. Suppressing the
+    /// native battlenet-gateway chat send (dead under netcode v2 anyway) also suppresses its local
+    /// ClientSdk loopback echo, so this injection is the only thing that renders our own message.
+    ///
+    /// Returns `false` when there is no live netcode v2 session, so the caller falls back to
+    /// native chat handling unchanged. A `true` return means a session took the message — even if
+    /// the relay send itself failed, chat is best-effort (see
+    /// [`TurnState::submit_chat`](netcode_v2::TurnState::submit_chat)), and the only thing that
+    /// matters to the caller is whether native chat should be suppressed.
+    unsafe fn send_chat_message(&self, target: netcode_v2::ChatTarget, text: &str) -> bool {
+        unsafe {
+            let Some(sent) =
+                netcode_v2::with_turn_state(|s| s.submit_chat(target, text.to_string()))
+            else {
+                return false; // no live session
+            };
+            if !sent {
+                debug!("netcode v2: chat_out channel unavailable; message not queued for peers");
+            }
+            let local_storm = StormPlayerId(self.local_storm_id.resolve() as u8);
+            if !self.inject_chat_message(local_storm, text) {
+                debug!("netcode v2: local chat echo dropped; local storm id unresolved");
+            }
+            true
+        }
+    }
+
+    /// Injects one chat message — attributed to `storm_player` — as the classic chat record, so it
+    /// renders on the overlay with correct attribution and lands in the replay. Used for both a
+    /// peer's message arriving over the netcode v2 relay (`apply_chat_inbound`) and this client's
+    /// own local echo (`send_chat_message`, with `storm_player` set to this client's own storm id)
+    /// — one path renders both, so the two can never diverge in formatting or attribution.
+    ///
+    /// Returns `false` (injecting nothing) when `storm_player` can't be resolved to a `players[]`
+    /// slot right now — see [`unique_player_for_storm`](Self::unique_player_for_storm) — e.g. it
+    /// already left.
+    unsafe fn inject_chat_message(&self, storm_player: StormPlayerId, text: &str) -> bool {
+        unsafe {
+            let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
+                return false;
+            };
+            let record = build_chat_record(unique_player, text);
+            // `0`: a live command not yet on the replay's command log, so the native command
+            // processor appends it (`add_to_replay_data`) the same as any other in-game command —
+            // see `process_injected_game_command`'s doc comment for the full reasoning.
+            let injected = self.process_injected_game_command(&record, storm_player, 0);
+            #[cfg(debug_assertions)]
+            if injected {
+                let own = storm_player.0 as u32 == self.local_storm_id.resolve();
+                netcode_v2::with_turn_state(|s| {
+                    s.record_chat(crate::debug_control::DebugChatLogEntry {
+                        sender_game_id: unique_player,
+                        text: commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY)
+                            .to_string(),
+                        own,
+                    })
+                });
+            }
+            injected
+        }
+    }
+
+    /// Whether a received chat message naming `target` should be shown to the local player, given
+    /// its sender's BW storm id. Mirrors the scopes the `MsgFltr` chat-target dialog offers (see
+    /// `dialog_hook::chat_target_scope`): `All` always shows; `Allies` shows only to a player
+    /// currently allied with the sender; `Observers` shows only if the local player is an
+    /// observer; `Players` shows only if the local rp2 slot is a member of its mask — a lone
+    /// recipient's mask has one bit, while a team-shared-control game's sender put every slot on
+    /// both the addressed team and its own team into the mask. Anything else is dropped silently
+    /// by the caller.
+    unsafe fn chat_target_visible(
+        &self,
+        sender_storm: StormPlayerId,
+        target: netcode_v2::ChatTarget,
+    ) -> bool {
+        unsafe {
+            match target {
+                netcode_v2::ChatTarget::All => true,
+                netcode_v2::ChatTarget::Players(mask) => {
+                    netcode_v2::with_turn_state(|s| mask.contains(s.local_slot_id()))
+                        .unwrap_or(false)
+                }
+                netcode_v2::ChatTarget::Observers => {
+                    BwPlayerId(self.local_unique_player_id.resolve() as u8).is_observer()
+                }
+                netcode_v2::ChatTarget::Allies => {
+                    match self.unique_player_for_storm(sender_storm) {
+                        Some(sender_unique) => self.is_allied_with(sender_unique),
+                        // The sender can't be resolved to a live player right now (e.g. already
+                        // left) — nothing to compare alliances against, so don't show it as if it
+                        // were an ally message.
+                        None => false,
+                    }
+                }
+            }
+        }
+    }
+
+    /// Whether the local player is currently allied with `other_unique_player` (a `players[]`
+    /// index). A team game shares one alliance per team, so it's decided by comparing
+    /// `players[].team`; otherwise each player sets alliances individually, tracked in
+    /// `game.alliances[a][b]` — `a`'s live alliance state toward `b`, `0` for an enemy and
+    /// nonzero for an ally (plain or allied-victory). Picks whichever the game actually uses so it
+    /// reflects in-game alliance changes, not just the lobby's starting teams.
+    unsafe fn is_allied_with(&self, other_unique_player: u8) -> bool {
+        unsafe {
+            let local = self.local_unique_player_id.resolve() as u8;
+            // Observers hold no alliances: a local observer (BW id 0x80-0x83) never sees
+            // allies-scoped chat, and an observer sender (players[12..16]) is allied with no one.
+            // This also keeps the indexing below inside players[0..8] and alliances[0..12] — both
+            // observer encodings would run past those bounds.
+            if BwPlayerId(local).is_observer() || BwPlayerId(other_unique_player).is_observer() {
+                return false;
+            }
+            if local == other_unique_player {
+                return true;
+            }
+            if game_thread::is_team_game() {
+                let players = self.players();
+                let local_team = (*players.add(local as usize)).team;
+                let other_team = (*players.add(other_unique_player as usize)).team;
+                local_team == other_team
+            } else {
+                (*self.game()).alliances[local as usize][other_unique_player as usize] != 0
+            }
+        }
+    }
+
+    /// Resolves a BW storm id to its `players[]` index: player slots `0..8` and observer slots
+    /// `12..16` (ids 0x80-0x83). The intervening `8..12` are neutral/special slots that never carry
+    /// a session storm id and are deliberately skipped. This is the mapping used to attribute a
+    /// command — chat or replayed — to its author. Returns `None` if no slot currently holds the
+    /// storm id (e.g. the player already left).
+    unsafe fn unique_player_for_storm(&self, storm_player: StormPlayerId) -> Option<u8> {
+        unsafe {
+            let players = self.players();
+            (0..8)
+                .chain(12..16)
+                .find(|&i| (*players.add(i)).storm_id as u8 == storm_player.0)
+                .map(|s| s as u8)
+        }
+    }
+
+    /// The game player id whose identity a command runs under, given the sender's `players[]` index
+    /// (from [`unique_player_for_storm`](Self::unique_player_for_storm)). In a team game a normal
+    /// player's commands run under that team's main player; an observer has no team (its
+    /// `players[].team` is 0, which would underflow `team_game_main_player`), so it acts under its
+    /// own slot. Outside a team game, and always for an observer, the slot index is the game player.
+    unsafe fn command_game_player(&self, unique_player: u8) -> u8 {
+        unsafe {
+            if game_thread::is_team_game() && !BwPlayerId(unique_player).is_observer() {
+                let players = self.players();
+                // Teams start from 1
+                let team = (*players.add(unique_player as usize)).team;
+                (*self.game()).team_game_main_player[team as usize - 1]
+            } else {
+                unique_player
+            }
+        }
+    }
+
+    /// Feeds `commands` through the native command processor as if it had arrived from
+    /// `storm_player`'s own turn — the mechanism
+    /// [`process_replay_commands`](Self::process_replay_commands) uses to re-feed a saved replay's
+    /// log back through, generalized here to a buffer assembled at runtime instead of one read
+    /// back from a replay file. Resolves `storm_player`'s BW player identity (storm id → unique
+    /// player → that team's game player, for a team game) and stamps `command_user`/
+    /// `unique_command_user` for the one call, restoring the local player's identity immediately
+    /// after so nothing downstream mistakes this client for `storm_player`.
+    ///
+    /// Unlike `process_replay_commands`, this leaves `enable_rng` untouched: that toggle exists for
+    /// re-deriving a saved replay's RNG draws, and every command this helper injects (chat, so far)
+    /// consumes no RNG — there is nothing here for it to gate.
+    ///
+    /// `are_recorded_replay_commands` is the third argument the native processor (and its
+    /// `ProcessGameCommands` hook) takes: `1` means "these commands are already on the replay
+    /// log" — the value `process_replay_commands` passes when re-feeding a saved replay's own
+    /// commands back through, so the native processor's `add_to_replay_data` does not double-write
+    /// them. `0` means a live, not-yet-recorded command, which the processor *does* append to the
+    /// growing replay log. A message produced live during this game wants the latter, so it lands
+    /// in the replay the same way it would have if the native chat gateway still worked.
+    ///
+    /// One side effect worth naming: the `ProcessGameCommands` hook's "didn't see a sync command
+    /// this call" bookkeeping is gated only on `is_replay` (never true here — this only runs
+    /// during a live game), not on this argument, so an injected call — which never carries a
+    /// `0x37` sync command — logs the same "will be dropped" line real turn dispatch logs for an
+    /// actually-desynced peer. That bookkeeping (`dropped_players`, read only by
+    /// `check_player_drops`) is a logging dedup flag, not itself what drops anyone from the game;
+    /// this is a known, accepted side effect of reusing this entry point for out-of-band chat
+    /// rather than adding a new native one.
+    ///
+    /// Returns `false` (injecting nothing) if `storm_player` doesn't currently own a `players[]`
+    /// slot — see [`unique_player_for_storm`](Self::unique_player_for_storm).
+    unsafe fn process_injected_game_command(
+        &self,
+        commands: &[u8],
+        storm_player: StormPlayerId,
+        are_recorded_replay_commands: u32,
+    ) -> bool {
+        unsafe {
+            let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
+                return false;
+            };
+            let game_player = self.command_game_player(unique_player);
+            self.command_user.write(game_player as u32);
+            self.unique_command_user.write(unique_player as u32);
+            (self.process_game_commands)(
+                commands.as_ptr(),
+                commands.len(),
+                are_recorded_replay_commands,
+            );
+            self.command_user.write(self.local_player_id.resolve());
+            self.unique_command_user
+                .write(self.local_unique_player_id.resolve());
+            true
+        }
+    }
+
+    /// In-game chat delivered from peers over the netcode v2 relay: drains what's arrived (see
+    /// [`TurnState::drain_chat_inbound`](netcode_v2::TurnState::drain_chat_inbound)) and injects
+    /// each message that passes the receive-side scope filter
+    /// ([`chat_target_visible`](Self::chat_target_visible)) as the classic chat record. Run once
+    /// per receive on the game thread, alongside the debug forced-leave/desync application.
+    unsafe fn apply_chat_inbound(&self) {
+        unsafe {
+            let Some(messages) = netcode_v2::with_turn_state(|s| s.drain_chat_inbound(true)) else {
+                return; // no live session
+            };
+            for (slot, chat) in messages {
+                let Some(sender_storm) =
+                    netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten()
+                else {
+                    debug!("netcode v2: chat from unmapped slot {slot:?}; dropping");
+                    continue;
+                };
+                let target = netcode_v2::ChatTarget::from_wire(chat.target_kind, chat.target_slot);
+                if !self.chat_target_visible(sender_storm, target) {
+                    continue;
+                }
+                if !self.inject_chat_message(sender_storm, &chat.text) {
+                    debug!(
+                        "netcode v2: chat from slot {slot:?} (storm {sender_storm:?}) could not \
+                         be attributed to a players[] slot; dropping"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Reproduces `receive_storm_turns`' synced player-leave pass for the IN replacement: runs
+    /// `apply_pending_player_leaves` inside the synced-RNG window (leave handling can consume synced
+    /// RNG, so it must run with the same RNG state on every client) and returns the storm slots whose
+    /// pending reason was drained this pass, so the turn state can drop them from its readiness set. Must be
+    /// called with the turn-state lock released — the leave handlers can re-enter the OUT hook.
+    unsafe fn run_synced_leave_pass(&self, nc: &NetcodeV2Bw) -> SmallVec<[StormPlayerId; 4]> {
+        unsafe {
+            let reasons = nc.pending_leave_reason.resolve();
+            let mut leaving = SmallVec::new();
+            for i in 0..bw::MAX_STORM_PLAYERS {
+                if *reasons.add(i) != 0 {
+                    leaving.push(StormPlayerId(i as u8));
+                }
+            }
+            let orig_rng = self.enable_rng.resolve();
+            self.enable_rng.write(1);
+            (nc.apply_pending_player_leaves)();
+            self.enable_rng.write(orig_rng);
+            leaving
         }
     }
 
@@ -2630,6 +3863,15 @@ impl BwScr {
             .map(|value| unsafe { value.resolve() != 0 })
     }
 
+    /// Reads BW's in-game chat send-scope byte (`chat_box_mode`), or `None` if the global wasn't
+    /// located during analysis. Only meaningful while the chat box is open, which is the case at
+    /// chat-send time.
+    pub fn read_chat_box_mode(&self) -> Option<u8> {
+        self.chat_box_mode
+            .as_ref()
+            .map(|value| unsafe { value.resolve() })
+    }
+
     /// Applies the saved minimap color/terrain toggle values (from local settings) to the game's
     /// globals. Runs at most once per game; subsequent in-game toggles are left untouched. Should
     /// be called from the minimap dialog's init event, once the globals are valid. Globals that
@@ -2953,9 +4195,17 @@ impl bw::Bw for BwScr {
             // would call step_io.
             // Hopefully this doesn't have thread safety issues when called from the async thread..
             // Since the main thread isn't running it's normal loop at all, it's probably fine.
-            (self.snet_recv_packets)();
-            (self.snet_send_packets)();
-            (self.step_network)() != 0
+            if SNP_INITIALIZED.load(Ordering::Relaxed) {
+                (self.snet_recv_packets)();
+                (self.snet_send_packets)();
+                (self.step_network)() != 0
+            } else {
+                // The SNP provider initializes once native create/join runs (create_lobby /
+                // create_game_multiplayer), which hasn't necessarily happened yet at every point
+                // this is called — report progress rather than treat a not-yet-initialized SNP as
+                // a stall.
+                true
+            }
         };
 
         self.event_processing_lock.unlock();
@@ -2982,20 +4232,37 @@ impl bw::Bw for BwScr {
 
     unsafe fn do_lobby_game_init(&self, seed: u32) {
         unsafe {
+            let data = bw::LobbyGameInitData {
+                game_init_command: 0x48,
+                random_seed: seed,
+                // TODO(tec27): deal with player bytes if we ever allow save games
+                player_bytes: [8; 8],
+            };
+            let ptr = &data as *const bw::LobbyGameInitData as *const u8;
+            let len = mem::size_of::<bw::LobbyGameInitData>();
+
+            // Only the host (storm id 0) sends the lobby-init `0x48` record; peers receive it. The
+            // seed is server-distributed, so every client hand-set its own lobby_state to 8 and the
+            // record carries the same value everywhere — the host's send reaches peers over the
+            // session's reliable lobby channel (the rp2 lobby seam when active, native Storm
+            // otherwise), where their handle_lobby_init_0x48 accepts it (sender slot 0, lobby_state
+            // 8). The ProcessLobbyCommands hook trips lobby_game_init_command_seen on every client,
+            // so try_finish_lobby_game_init drives lobby_state → 9.
+            //
+            // This is a single send with no retry: once the seam accepts the bytes, the reliable
+            // control stream plus the relay's per-session replay log guarantee delivery, so the only
+            // loss window is a local submit failure with an effectively-dead driver — and a peer
+            // stuck waiting for the record is bounded by the server's game-load timeout, which
+            // cancels the whole load.
             let local_storm_id = self.local_storm_id.resolve();
             if local_storm_id == 0 {
-                let data = bw::LobbyGameInitData {
-                    game_init_command: 0x48,
-                    random_seed: seed,
-                    // TODO(tec27): deal with player bytes if we ever allow save games
-                    player_bytes: [8; 8],
-                };
                 debug!(
-                    "Sending lobby game init data: {:#x} {:#x} {:#x?}",
-                    data.game_init_command, seed, data.player_bytes
+                    "Sending lobby game init data: {:#x} {:#x} {:#x?} (lobby_state {})",
+                    data.game_init_command,
+                    seed,
+                    data.player_bytes,
+                    self.lobby_state.resolve(),
                 );
-                let ptr = &data as *const bw::LobbyGameInitData as *const u8;
-                let len = mem::size_of::<bw::LobbyGameInitData>();
                 (self.send_command)(ptr, len);
             }
         }
@@ -3226,6 +4493,61 @@ impl bw::Bw for BwScr {
         }
     }
 
+    unsafe fn create_local_storm_session(
+        &self,
+        game_name: &CStr,
+        local_player_name: &CStr,
+        slot_count: u32,
+    ) -> Result<u32, u32> {
+        unsafe {
+            // Storm writes the created session's local player id here. A fresh session with no
+            // network peers always yields 0; the caller overwrites the roster slot afterward.
+            let mut out_storm_id: u32 = 0;
+            // Copied synchronously into a Storm global that only feeds game-list broadcasts. It is
+            // never read while a LOCAL session with no peers is running, so zeroed content is safe.
+            let mut scratch = [0u8; 0xa8];
+            self.storm_set_last_error(0);
+            let ok = (self.storm_create_game)(
+                game_name.as_ptr() as *const u8,
+                ptr::null(),
+                ptr::null(),
+                0,
+                0,
+                0,
+                ptr::null(),
+                0,
+                slot_count,
+                0,
+                local_player_name.as_ptr() as *const u8,
+                ptr::null(),
+                &mut out_storm_id,
+                scratch.as_mut_ptr() as *mut c_void,
+                0,
+            );
+            if ok == 0 {
+                let error = self.storm_last_error();
+                error!("storm_create_game failed: {error:08x}");
+                return Err(error);
+            }
+            self.in_lobby_or_game.write(1);
+            Ok(out_storm_id)
+        }
+    }
+
+    unsafe fn set_lobby_state(&self, state: u8) {
+        unsafe {
+            self.lobby_state.write(state);
+        }
+    }
+
+    unsafe fn lobby_state(&self) -> u8 {
+        unsafe { self.lobby_state.resolve() }
+    }
+
+    unsafe fn local_storm_id(&self) -> u32 {
+        unsafe { self.local_storm_id.resolve() }
+    }
+
     unsafe fn game(&self) -> *mut bw::Game {
         unsafe { self.game.resolve() }
     }
@@ -3252,20 +4574,10 @@ impl bw::Bw for BwScr {
 
     unsafe fn process_replay_commands(&self, commands: &[u8], storm_player: StormPlayerId) {
         unsafe {
-            let players = self.players();
-            let game = self.game();
-            let unique_player =
-                match (0..8).position(|i| (*players.add(i)).storm_id as u8 == storm_player.0) {
-                    Some(s) => s as u8,
-                    None => return,
-                };
-            let game_player = if game_thread::is_team_game() {
-                // Teams start from 1
-                let team = (*players.add(unique_player as usize)).team;
-                (*game).team_game_main_player[team as usize - 1]
-            } else {
-                unique_player
+            let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
+                return;
             };
+            let game_player = self.command_game_player(unique_player);
             self.command_user.write(game_player as u32);
             self.unique_command_user.write(unique_player as u32);
             self.enable_rng.write(1);
@@ -3337,29 +4649,6 @@ impl bw::Bw for BwScr {
                 *item = Unit::from_ptr(*selection.add(i));
             }
             out
-        }
-    }
-
-    unsafe fn storm_players(&self) -> Vec<bw::StormPlayer> {
-        unsafe {
-            let ptr = self.storm_players.resolve();
-            let scr_players = std::slice::from_raw_parts(ptr, NET_PLAYER_COUNT);
-            scr_players
-                .iter()
-                .map(|player| bw::StormPlayer {
-                    state: player.state,
-                    unk1: player.unk1,
-                    flags: player.flags,
-                    unk4: player.unk4,
-                    protocol_version: player.protocol_version,
-                    name: {
-                        let mut name = [0; 0x19];
-                        name[..0x18].copy_from_slice(&player.name[..0x18]);
-                        name
-                    },
-                    padding: 0,
-                })
-                .collect()
         }
     }
 
@@ -3986,10 +5275,11 @@ unsafe extern "system" fn snp_initialize(
     module_data: *mut c_void,
 ) -> i32 {
     unsafe {
-        snp::initialize(&*client_info, None);
-        // We'll also have to call the SCR's normal LAN SNP init function, which initializes
-        // a global that SCR will try to access on game joining. Luckily it won't initialize
-        // anything else we don't want.
+        // No ShieldBattery packet transport is set up here — all traffic rides the rally-point2
+        // relay — but SCR's own LAN SNP init still runs: it initializes a global SCR accesses when
+        // joining a game, and it won't initialize anything else we don't want. Storm's own lobby
+        // session tick (the StepIo pump, `maybe_receive_turns`) only runs once this has completed,
+        // so its result is latched into `SNP_INITIALIZED` for those to gate on.
         let scr_init: unsafe extern "system" fn(
             *const bw::ClientInfo,
             *mut c_void,
@@ -4059,15 +5349,27 @@ mod hooks {
         !0 => SpawnDialog(*mut bw::Dialog, usize, usize) -> usize;
         !0 => StepGameLogic(usize) -> usize;
         !0 => StepNetwork() -> usize;
+        // Netcode v2 turn hooks. All cdecl. OUT/IN/PIPE; each falls through to `orig` when there's no
+        // live rally-point2 session (see the hook bodies).
+        !0 => SendTurnMessage(*const u8, usize) -> usize;
+        !0 => ReceiveStormTurns(u32, u32, *mut c_void, *mut c_void, *mut c_void) -> u32;
+        !0 => FlushLocalTurns(usize, usize) -> usize;
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);
+        !0 => NetPlayerCount() -> u32;
     );
 
     system_hooks!(
+        // Storm's network join handshake, stdcall with 9 dword args (retn 0x24 on x86). The netcode
+        // v2 native-lobby join replacement replaces it wholesale when a lobby session seed is staged.
+        // Only arg 4 (`*mut u32`, out: local game-level net player id) is consulted; the rest — name
+        // strings, expected game id/version, host net key, advertise value — are opaque here and are
+        // passed through verbatim to the original on the native (unseeded) path.
+        !0 => StormJoinGame(usize, usize, usize, *mut u32, usize, usize, usize, usize, usize) -> u32;
         !0 => LoadSnpList(*mut scr::SnpLoadFuncs, u32) -> u32;
         !0 => CreateEventW(*mut c_void, u32, u32, *const u16) -> *mut c_void;
         !0 => CloseHandle(*mut c_void) -> u32;

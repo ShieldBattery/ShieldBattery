@@ -19,6 +19,7 @@ import {
   GameSortOption,
 } from './game-filters'
 import { MatchupString } from './matchups'
+import { NetcodeV2RelayEvent } from './netcode-v2'
 import { GameClientPlayerResult, ReconciledPlayerResult } from './results'
 
 export const GET_GAMES_LIMIT = 40
@@ -47,19 +48,7 @@ export interface GameRecord {
 
 export type GameRecordJson = Jsonify<GameRecord>
 
-export interface GameRouteDebugInfo {
-  p1: SbUserId
-  p2: SbUserId
-  /** A rally-point server ID. */
-  server: number
-  /** The rally-point server description/name. */
-  serverDescription?: string
-  /** The estimated latency between the players (1-way) in milliseconds. */
-  latency: number
-}
-
 export interface GameDebugInfo {
-  routes: GameRouteDebugInfo[]
   reportedResults: Array<{
     userId: SbUserId
     reportedAt?: Date
@@ -70,6 +59,12 @@ export interface GameDebugInfo {
   }>
   /** All replays uploaded for this game. */
   replays?: GameReplayDebugInfo[]
+  /** The netcode-v2 (rally-point2) coordinator session and relay-serving history, if any. */
+  netcodeV2: {
+    /** The coordinator session id persisted for this game, or `null` if it never had one. */
+    session: number | null
+    relays: NetcodeV2RelayEvent[]
+  }
 }
 
 export interface GameReplayDebugInfo {
@@ -89,13 +84,13 @@ export type GameDebugInfoJson = Jsonify<GameDebugInfo>
 
 export function toGameDebugInfoJson(debugInfo: GameDebugInfo): GameDebugInfoJson {
   return {
-    routes: debugInfo.routes,
     reportedResults: debugInfo.reportedResults.map(result => ({
       userId: result.userId,
       reportedAt: result.reportedAt ? Number(result.reportedAt) : undefined,
       reportedResults: result.reportedResults,
     })),
     replays: debugInfo.replays,
+    netcodeV2: debugInfo.netcodeV2,
   }
 }
 

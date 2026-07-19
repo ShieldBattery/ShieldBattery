@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import { assertUnreachable } from '../assert-unreachable'
+import { GameServerRegionId } from '../game-server-regions'
 import { Announcer, ConsoleSkin, DisplayMode, IngameSkin } from './blizz-settings'
 
 /**
@@ -145,6 +146,13 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * If `useCustomCursorSize` is on, will be used to scale cursors down from their 4K resolution.
    */
   customCursorSize: number
+
+  /**
+   * The manually-selected game server region id (see `common/game-server-regions.ts`), or
+   * undefined for Auto (the client homes on the lowest-measured-latency region). A value that's no
+   * longer in the server-provided region list is treated the same as undefined.
+   */
+  gameServerRegion?: GameServerRegionId
 
   visualizeNetworkStalls?: boolean
   disableHd?: boolean

@@ -1,36 +1,49 @@
 import { ReadonlyDeep } from 'type-fest'
+import { DepartureKind } from '../../../common/games/netcode-v2'
 import {
   GameClientPlayerResult,
   ReconciledPlayerResult,
   ReconciledResult,
+  StoredGameResults,
+  StoredRawGameResults,
 } from '../../../common/games/results'
 import { AssignedRaceChar, RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
-import { ResultSubmission } from '../games/results'
 
 export interface GameUserReportedResults {
   userId: SbUserId
   reportedAt?: Date
-  reportedResults?: {
-    time: number
-    playerResults: Array<[SbUserId, GameClientPlayerResult]>
-  }
+  reportedResults?: StoredGameResults
 }
 
 export interface ReportedResultsData {
   userId: SbUserId
   gameId: string
   reportedAt: Date
-  reportedResults: {
-    /** The elapsed time of the game, in milliseconds. */
-    time: number
-    /** A tuple of (userId, result info). */
-    playerResults: Array<[SbUserId, GameClientPlayerResult]>
-  }
+  /** The stored report: either a legacy digested report or a raw (v2) report. */
+  reportedResults: StoredGameResults
 }
+
+/**
+ * A user's stored report as returned for reconciliation, discriminated between the legacy digested
+ * form (already a set of per-player verdicts) and the raw (v2) form (undigested BW evidence the
+ * server derives verdicts from). Both carry the `reporter` (the user the row belongs to).
+ */
+export type StoredResultReport =
+  | {
+      kind: 'legacy'
+      reporter: SbUserId
+      time: number
+      playerResults: Array<[SbUserId, GameClientPlayerResult]>
+    }
+  | {
+      kind: 'raw'
+      reporter: SbUserId
+      raw: StoredRawGameResults
+    }
 
 export interface GameUserRecord {
   userId: SbUserId
@@ -44,6 +57,20 @@ export interface GameUserRecord {
   result: ReconciledResult | null
   apm: number | null
   replayFileId: string | null
+  /** How this user's slot departed mid-game (left/dropped), or null if never recorded. */
+  departureKind: DepartureKind | null
+  /** When the mid-game departure was recorded, or null if never recorded. */
+  departureTime: Date | null
+  /**
+   * When the netcode-v2 relay recorded this user's result report arriving, or null if the result
+   * (if any) wasn't relay-reported. Audit/timeline only — drives no reconciliation policy.
+   */
+  relayReportTime: Date | null
+  /**
+   * The relay's local session frame at the moment it recorded the report, or null if unknown or
+   * not relay-reported.
+   */
+  relayReportFrame: number | null
 }
 
 type DbGameUser = Dbify<GameUserRecord>
@@ -119,6 +146,10 @@ export async function getUserGameRecord(
       result: row.result,
       apm: row.apm,
       replayFileId: row.replay_file_id,
+      departureKind: row.departure_kind,
+      departureTime: row.departure_time,
+      relayReportTime: row.relay_report_time,
+      relayReportFrame: row.relay_report_frame,
     }
   } finally {
     done()
@@ -126,14 +157,21 @@ export async function getUserGameRecord(
 }
 
 /**
- * Updates a particular user's results for a game.
+ * Updates a particular user's results for a game, optionally stamping when/where a netcode-v2
+ * relay recorded the report arriving (omitted, or explicitly `undefined`/`null`, for a report that
+ * didn't come from the relay).
  */
 export async function setReportedResults({
   userId,
   gameId,
   reportedResults,
   reportedAt,
-}: ReadonlyDeep<ReportedResultsData>) {
+  relayReportTime,
+  relayReportFrame,
+}: ReadonlyDeep<ReportedResultsData> & {
+  relayReportTime?: Date
+  relayReportFrame?: number | null
+}) {
   const { client, done } = await db()
 
   try {
@@ -141,7 +179,9 @@ export async function setReportedResults({
       UPDATE games_users
       SET
         reported_results = ${reportedResults},
-        reported_at = ${reportedAt}
+        reported_at = ${reportedAt},
+        relay_report_time = ${relayReportTime ?? null},
+        relay_report_frame = ${relayReportFrame ?? null}
       WHERE user_id = ${userId} AND game_id = ${gameId}
     `)
   } finally {
@@ -150,30 +190,82 @@ export async function setReportedResults({
 }
 
 /**
- * Gets the current reported results for all the users in a game.
+ * Gets the current reported results for all the users in a game, as stored (a legacy digested report
+ * or a raw v2 report). Callers derive verdicts from raw reports before reconciling.
  */
 export async function getCurrentReportedResults(
   gameId: string,
-): Promise<Array<ResultSubmission | null>> {
+): Promise<Array<StoredResultReport | null>> {
   const { client, done } = await db()
 
   try {
-    const result = await client.query(sql`
+    const result = await client.query<{
+      user_id: SbUserId
+      reported_results: StoredGameResults | null
+    }>(sql`
       SELECT user_id, reported_results
       FROM games_users
       WHERE game_id = ${gameId}
       ORDER BY reported_at DESC
     `)
 
-    return result.rows.map(row =>
-      row.reported_results
-        ? {
-            reporter: row.user_id,
-            time: row.reported_results.time,
-            playerResults: row.reported_results.playerResults,
-          }
-        : null,
-    )
+    return result.rows.map(row => {
+      const stored = row.reported_results
+      if (!stored) {
+        return null
+      }
+      if ('version' in stored) {
+        return { kind: 'raw', reporter: row.user_id, raw: stored }
+      }
+      return {
+        kind: 'legacy',
+        reporter: row.user_id,
+        time: stored.time,
+        playerResults: stored.playerResults,
+      }
+    })
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the most recent `reported_at` time across all users in a game, or null if no user has
+ * reported yet.
+ */
+export async function getMaxReportedAtForGame(gameId: string): Promise<Date | null> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{ max_reported_at: Date | null }>(sql`
+      SELECT MAX(reported_at) AS max_reported_at
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    return result.rows[0]?.max_reported_at ?? null
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns each user's recorded mid-game departure time for a game (null for users that never had a
+ * departure recorded), keyed by user ID.
+ */
+export async function getDepartureTimesForGame(
+  gameId: string,
+): Promise<Map<SbUserId, Date | null>> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{ user_id: SbUserId; departure_time: Date | null }>(sql`
+      SELECT user_id, departure_time
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    return new Map(result.rows.map(row => [row.user_id, row.departure_time]))
   } finally {
     done()
   }
@@ -197,6 +289,74 @@ export async function setUserReconciledResult(
       apm = ${result.apm}
     WHERE user_id = ${userId} AND game_id = ${gameId}
   `)
+}
+
+/**
+ * Records a mid-game departure (left/dropped) for a user's game record, regardless of whether that
+ * record already holds results — the departure is relay-side evidence of what happened on the
+ * network, recorded unconditionally so it survives adversarial cases like a player pre-submitting
+ * fake results before cutting their own connection. Whether a recorded departure was actually a
+ * benign post-result exit (e.g. lingering on the victory dialog) is derivable later by comparing
+ * `departure_time` against `reported_at`, rather than by refusing to record it here.
+ *
+ * The `WHERE` clause's only remaining job is dedup: a game+user that already has a recorded
+ * departure yields no update, so a duplicate/retried webhook (delivery is at-least-once) is a no-op
+ * and the first departure recorded for a user in a game always wins.
+ *
+ * @returns whether a row was actually updated (false means this was a duplicate).
+ */
+export async function recordUserDeparture({
+  userId,
+  gameId,
+  kind,
+  time,
+}: {
+  userId: SbUserId
+  gameId: string
+  kind: DepartureKind
+  time: Date
+}): Promise<boolean> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query(sql`
+      UPDATE games_users
+      SET
+        departure_kind = ${kind},
+        departure_time = ${time}
+      WHERE user_id = ${userId} AND game_id = ${gameId} AND departure_kind IS NULL
+    `)
+
+    return !!result.rowCount
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Whether every human player in a game has either reported results or had a departure recorded —
+ * the two states a relay-tracked (netcode-v2) human can end up in once their link to the game is
+ * closed, since a departed player can no longer report and a reported one can't report again. A
+ * game with no `games_users` rows at all (e.g. an unknown game id) is never considered accounted
+ * for.
+ */
+export async function areAllHumansAccountedFor(gameId: string): Promise<boolean> {
+  const { client, done } = await db()
+
+  try {
+    const result = await client.query<{ all_accounted: boolean | null; total: string }>(sql`
+      SELECT
+        bool_and(reported_results IS NOT NULL OR departure_kind IS NOT NULL) AS all_accounted,
+        count(*) AS total
+      FROM games_users
+      WHERE game_id = ${gameId}
+    `)
+
+    const row = result.rows[0]
+    return Number(row?.total ?? 0) > 0 && row?.all_accounted === true
+  } finally {
+    done()
+  }
 }
 
 /**
@@ -228,10 +388,7 @@ export async function getGameReportedResults(gameId: string): Promise<GameUserRe
     const result = await client.query<{
       user_id: SbUserId
       reported_at?: Date | null
-      reported_results?: {
-        time: number
-        playerResults: Array<[SbUserId, GameClientPlayerResult]>
-      } | null
+      reported_results?: StoredGameResults | null
     }>(sql`
       SELECT user_id, reported_at, reported_results
       FROM games_users

@@ -1,5 +1,6 @@
 import got, { HTTPError } from 'got'
 import { Result } from 'typescript-result'
+import { GameServerRegionId } from '../../../common/game-server-regions'
 import { SbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { RsMatchmakerErrorCode } from '../../../common/typeshare'
@@ -32,13 +33,15 @@ export interface RsQueueRequest {
    */
   modeRatings: RsModeRating[]
   /**
-   * The player's most recent round-trip pings (ms) to each rally-point server, as
-   * `[serverId, ping]` pairs. The matchmaker estimates a candidate match's latency from these by
-   * reproducing the route selection done at game launch (it picks, per pair, the server minimizing
-   * their combined ping). The service waits for a ping result before queueing, so this is normally
-   * populated; an empty list is tolerated and yields no latency penalty.
+   * The game server region the player wants to home in. Combined with `rttMs` and the matchmaker's
+   * backbone RTT table to estimate a candidate match's latency (one-way estimate =
+   * `rttMs/2 + backbone(regionA, regionB)/2 + otherRttMs/2`). Omitted when the client reported no
+   * region (dev loopback / no coordinator-configured regions); such a player carries no latency
+   * signal and pairs involving them are not penalized.
    */
-  serverPings: Array<[serverId: number, ping: number]>
+  region?: GameServerRegionId
+  /** The player's measured round-trip time (ms) to `region`. Present only alongside `region`. */
+  rttMs?: number
 }
 
 /** Error response body returned by the Rust API on 4xx responses. */

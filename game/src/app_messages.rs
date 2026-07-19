@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
 use crate::bw;
-use crate::bw::players::{AssignedRace, VictoryState};
+use crate::bw::players::{AllianceState, AssignedRace, PlayerLoseType, VictoryState};
 use crate::bw::{BwGameType, LobbyOptions};
 
 // Structures of messages that are used to communicate with the electron app.
@@ -167,11 +167,37 @@ pub struct NetworkStallInfo {
     pub median: u32,
 }
 
+/// Which turn transport a game session runs on, reported to the app via `/game/networkStatus`.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NetworkTransport {
+    /// The rally-point2 QUIC turn transport (netcode v2).
+    NetcodeV2,
+    /// No relay: a local-only game (a solo game versus AI, or a replay).
+    Native,
+}
+
+/// Payload of `/game/networkStatus` (game DLL -> app): sent once during game init when the
+/// transport choice settles, so external tooling can assert on it instead of grepping logs.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkStatus {
+    pub transport: NetworkTransport,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct GameResults {
     pub time_ms: u64,
     pub results: HashMap<SbUserId, GamePlayerResult>,
     pub network_stalls: NetworkStallInfo,
+    /// Raw per-player evidence rows sent to the server, one per non-observer human and per computer.
+    pub raw_players: Vec<RawPlayerResult>,
+    /// Raw network status for all 8 storm ids sent to the server.
+    pub raw_net_players: Vec<RawNetPlayer>,
+    /// The type of loss the local player received (if any).
+    pub local_player_lose_type: Option<PlayerLoseType>,
     /// Path to the temporary replay file saved for upload.
     /// This file should be cleaned up after upload completes.
     pub replay_path: Option<PathBuf>,
@@ -190,13 +216,40 @@ pub struct GameResultsMessage<'a> {
     pub temp_replay_path: Option<&'a str>,
 }
 
+/// A single player's raw end-of-game evidence, as read directly from the game.
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RawPlayerResult {
+    /// SbUserId of the human occupying this slot, or `None` for a computer.
+    pub user_id: Option<SbUserId>,
+    pub bw_player_id: u8,
+    /// Storm id of the human occupying this slot, or `None` for a computer.
+    pub storm_id: Option<u8>,
+    pub race: AssignedRace,
+    pub victory_state: VictoryState,
+    pub alliances: [AllianceState; 8],
+}
+
+/// A single storm player's raw network status at the end of the game.
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RawNetPlayer {
+    pub storm_id: u8,
+    pub was_dropped: bool,
+    pub has_quit: bool,
+}
+
+/// Raw end-of-game evidence report sent to the server over the relay's reliable control stream.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GameResultsReport {
+pub struct RawGameResultsReport<'a> {
+    pub version: u8,
     pub user_id: SbUserId,
-    pub result_code: String,
+    pub result_code: &'a str,
     pub time: u64,
-    pub player_results: Vec<(SbUserId, GamePlayerResult)>,
+    pub players: &'a [RawPlayerResult],
+    pub net_players: &'a [RawNetPlayer],
+    pub local_player_lose_type: Option<PlayerLoseType>,
 }
 
 #[derive(Serialize)]
@@ -358,6 +411,9 @@ pub enum SbSlotType {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlayerInfo {
+    // The lobby player id from the server's slot list. Part of the wire format but not consulted by
+    // the game DLL (it maps players by user id / slot index instead).
+    #[allow(dead_code)]
     pub id: LobbyPlayerId,
     pub race: Option<String>,
     pub user_id: Option<SbUserId>,
@@ -385,6 +441,14 @@ impl PlayerInfo {
         self.player_type == SbSlotType::Observer
     }
 
+    /// Returns true for AI (computer-controlled) players — both regular and UMS computers.
+    pub fn is_computer(&self) -> bool {
+        matches!(
+            self.player_type,
+            SbSlotType::Computer | SbSlotType::UmsComputer
+        )
+    }
+
     pub fn bw_player_type(&self) -> u8 {
         match self.player_type {
             SbSlotType::Human | SbSlotType::Observer => bw::PLAYER_TYPE_HUMAN,
@@ -407,25 +471,138 @@ impl PlayerInfo {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Route {
-    #[serde(rename = "for")]
-    pub for_player: LobbyPlayerId,
-    pub server: RallyPointServer,
-    pub route_id: String,
-    // NOTE(tec27): This is an id specific to rally-point, not the SbUserId or any of the IDs from
-    // BW
-    pub player_id: u32,
+/// A string whose contents must never appear in logs or error output. Wraps a value (e.g. a
+/// base64-encoded private key) so an accidental `{:?}` — via `debug!`, an error `context`, or a
+/// panic message — prints a redaction marker instead of the secret.
+///
+/// This is defense-in-depth for the netcode v2 credential handoff: the client's per-session Ed25519
+/// private key is handed to the DLL at launch and must stay inside trusted local process memory.
+/// `Deserialize` is derived so it drops straight in as a JSON string field.
+///
+/// NOTE(security): this redacts the *log/format* leak vector only. The plaintext still lives in the
+/// `String` until dropped; true zeroization-on-drop is a follow-up (would need the `zeroize` crate).
+#[derive(Clone, Deserialize)]
+#[serde(transparent)]
+pub struct Secret(String);
+
+impl Secret {
+    /// Borrows the secret. Callers must not log or format the returned value.
+    pub fn expose(&self) -> &str {
+        &self.0
+    }
+
+    /// Test-only constructor (the real path is `Deserialize` from the app's JSON).
+    #[cfg(test)]
+    pub fn from_base64_for_test(value: &str) -> Self {
+        Secret(value.to_owned())
+    }
 }
 
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Secret(<redacted>)")
+    }
+}
+
+/// One relay's reachable endpoint plus the TLS material to trust it. Direct dual-stack IPs (D3)
+/// rule out a public CA, so the relay's leaf cert is pinned: the coordinator hands it to the app in
+/// the session descriptor, the app forwards it here, and it seeds the client's trust roots
+/// (architecture.md, "Client → relay trust").
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-pub struct RallyPointServer {
+pub struct NetcodeV2Relay {
+    /// The coordinator's numeric id for this relay. Named in a re-home request when this client
+    /// believes the relay is dead. Defaults to 0 if an older server omits it; 0 never names a live
+    /// relay, so a re-home ask against it harmlessly answers `unavailable`.
+    #[serde(default)]
+    pub relay_id: u64,
     pub address4: Option<String>,
     pub address6: Option<String>,
     pub port: u16,
-    pub description: String,
-    pub id: u32,
+    /// TLS server name checked against the certificate the relay presents.
+    pub server_name: String,
+    /// base64 (standard, padded) of the relay's leaf certificate in DER form, pinned into the
+    /// client's `RootCertStore`.
+    pub cert: String,
+}
+
+/// One entry of the session's slot roster: which ShieldBattery user occupies a rally-point2 slot.
+/// The coordinator's session response is the authoritative source (its `tokens[]` carry one slot
+/// per player); the server resolves each slot back to the user it requested it for and the app
+/// forwards the full pairing here, so the turn state can map every peer's rp2 slot — not just our own —
+/// to the BW network id that player is assigned during join.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetcodeV2RosterEntry {
+    /// The player's rally-point2 slot within the session.
+    pub slot: u8,
+    /// The ShieldBattery user occupying that slot.
+    pub user_id: SbUserId,
+    /// The coordinator-assigned home relay for this slot at session create, surfaced in the
+    /// `/netstat` per-player home column. `None` from an older server that omits it; peers' later
+    /// re-homes are not client-observable, so this stays the create-time assignment.
+    #[serde(default)]
+    pub home_relay_id: Option<u64>,
+    /// The home relay's region label at session create (e.g. `local-a`), or `None` when the setup
+    /// carried none. Rendered beside the relay id in the `/netstat` home column.
+    #[serde(default)]
+    pub home_region: Option<String>,
+}
+
+/// The netcode v2 launch handoff (app → game DLL): everything one client needs to authorize a
+/// single game session against its home relay. The app generates the per-session Ed25519 keypair,
+/// requests a coordinator-signed token embedding the public half, and forwards both here with the
+/// relay endpoints.
+///
+/// The token already carries session / slot / tenant / expiry, so those are not duplicated here;
+/// the DLL decodes the token (`SignedToken::decode`) rather than trusting separately-sent copies.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetcodeV2Setup {
+    /// base64 (standard, padded) of the coordinator-signed `SignedToken` (`SignedToken::encode()`).
+    pub token: String,
+    /// base64 (standard, padded) of the PKCS#8 v2 Ed25519 private key the app generated for this
+    /// session. Redacted from all logging via [`Secret`].
+    pub client_private_key: Secret,
+    /// The home relay this client dials.
+    pub home_relay: NetcodeV2Relay,
+    /// The session's full slot roster (every player, including ourselves). Our own slot still comes
+    /// from the signed token — this list exists to map the *other* players' slots.
+    pub roster: Vec<NetcodeV2RosterEntry>,
+    /// The turn pipe depth to start the session at, seeded from the session's buffer-bounds
+    /// minimum. The relay's decision-maker starts there too and only sends a resize directive once
+    /// its computed depth moves off that starting point, so a client that seeded some other
+    /// default would disagree with the relay until the first such directive arrived.
+    pub initial_buffer_turns: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_status_serializes_camel_case_with_error() {
+        let status = NetworkStatus {
+            transport: NetworkTransport::Native,
+            error: Some("dial timed out".to_owned()),
+        };
+        let json = serde_json::to_value(&status).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "transport": "native",
+                "error": "dial timed out",
+            })
+        );
+    }
+
+    #[test]
+    fn network_status_omits_none_fields() {
+        let status = NetworkStatus {
+            transport: NetworkTransport::NetcodeV2,
+            error: None,
+        };
+        let json = serde_json::to_value(&status).unwrap();
+        assert_eq!(json, serde_json::json!({ "transport": "netcodeV2" }));
+    }
 }

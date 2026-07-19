@@ -1,0 +1,13 @@
+{
+  "TCP": {
+    "14910": {
+      "TCPForward": "coordinator:14910"
+    },
+    "14911": {
+      "TCPForward": "coordinator:14911"
+    },
+    "9100": {
+      "TCPForward": "node_exporter:9100"
+    }
+  }
+}

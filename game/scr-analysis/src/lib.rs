@@ -97,6 +97,69 @@ impl<'e> Analysis<'e> {
         self.0.is_multiplayer()
     }
 
+    pub fn in_lobby_or_game(&mut self) -> Option<Operand<'e>> {
+        self.0.in_lobby_or_game()
+    }
+
+    pub fn storm_create_game(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_create_game()
+    }
+
+    // Storm session internals for the netcode-v2 native-lobby join replacement.
+
+    pub fn storm_join_game(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_join_game()
+    }
+
+    pub fn apply_lobby_force_cmd(&mut self) -> Option<VirtualAddress> {
+        self.0.apply_lobby_force_cmd()
+    }
+
+    pub fn storm_session_player_lookup_or_create(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_session_player_lookup_or_create()
+    }
+
+    pub fn get_local_storm_session_player(&mut self) -> Option<VirtualAddress> {
+        self.0.get_local_storm_session_player()
+    }
+
+    /// Registers a slot -> name mapping used by lobby slot-setup name lookups.
+    pub fn storm_register_slot_name(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_register_slot_name()
+    }
+
+    /// Drains Storm's deferred SNET packet queue; a join replacement must call this.
+    pub fn snet_drain_deferred_queue(&mut self) -> Option<VirtualAddress> {
+        self.0.snet_drain_deferred_queue()
+    }
+
+    pub fn find_storm_session_player(&mut self) -> Option<VirtualAddress> {
+        self.0.find_storm_session_player()
+    }
+
+    /// Single byte global storm session slot; 0xff = not in a session.
+    pub fn storm_local_player_slot(&mut self) -> Option<Operand<'e>> {
+        self.0.storm_local_player_slot()
+    }
+
+    /// The base added to a session slot to form the game-level net player id
+    /// (`local_net_player = slot + storm_turn_base`).
+    pub fn storm_turn_base(&mut self) -> Option<Operand<'e>> {
+        self.0.storm_turn_base()
+    }
+
+    pub fn single_player_start(&mut self) -> Option<VirtualAddress> {
+        self.0.single_player_start()
+    }
+
+    pub fn find_game_type_template(&mut self) -> Option<VirtualAddress> {
+        self.0.find_game_type_template()
+    }
+
+    pub fn net_player_count(&mut self) -> Option<VirtualAddress> {
+        self.0.net_player_count()
+    }
+
     pub fn is_paused(&mut self) -> Option<Operand<'e>> {
         self.0.is_paused()
     }
@@ -483,6 +546,97 @@ impl<'e> Analysis<'e> {
         self.0.net_user_latency()
     }
 
+    // --- Netcode v2 turn/command seam (see scr-netcode-replacement-guide.md §5.1). ---
+    // These expose the turn-send / turn-receive / latency-pipe surface so the rally-point2
+    // QUIC transport can be interposed above Storm. samase_scarf resolves each of these; they
+    // were simply not surfaced through this wrapper before.
+
+    /// OUT hook: `send_turn_message` hands us the fully-assembled local turn (keep-alive + sync
+    /// already baked in) just before it crosses into Storm. See guide §5.1 (OUT).
+    pub fn send_turn_message(&mut self) -> Option<VirtualAddress> {
+        self.0.send_turn_message()
+    }
+
+    /// IN hook (wrapper level): `receive_storm_turns` fills `player_turns[]` / `player_turns_size[]`
+    /// / `net_player_flags[]` and runs the synced player-leave pass. Replacing this wholesale (not
+    /// calling orig) is the receive seam. See guide §5.1 (IN).
+    pub fn receive_storm_turns(&mut self) -> Option<VirtualAddress> {
+        self.0.receive_storm_turns()
+    }
+
+    /// The obfuscated inner routine `receive_storm_turns` calls to do the array fill/readiness work.
+    /// Exposed for plausibility-checking the resolved wrapper; the seam replaces the wrapper, not
+    /// this. See guide §5.1 (IN) / §5.5 (anti-tamper).
+    pub fn storm_receive_turns(&mut self) -> Option<VirtualAddress> {
+        self.0.storm_receive_turns()
+    }
+
+    /// PIPE hook: `get_outstanding_turn_count` returns `sent_seq - executed_seq`. Bypassing Storm
+    /// makes it return a degenerate 0 (unbounded flush), so it must be replaced. See guide §5.1
+    /// (PIPE).
+    pub fn get_outstanding_turn_count(&mut self) -> Option<VirtualAddress> {
+        self.0.get_outstanding_turn_count()
+    }
+
+    /// The native latency pipe loop. Replacing this outright is the preferred PIPE strategy (avoids
+    /// the degenerate-0 trap in `get_outstanding_turn_count`). See guide §5.1 (PIPE) / §5.2.
+    pub fn flush_local_turns_to_latency_depth(&mut self) -> Option<VirtualAddress> {
+        self.0.flush_local_turns_to_latency_depth()
+    }
+
+    /// One turn's flush (keep-alive seed + `send_turn_message` + sync append). Exposed for
+    /// plausibility-checking / self-test. See guide §2.
+    pub fn flush_outgoing_command_turn(&mut self) -> Option<VirtualAddress> {
+        self.0.flush_outgoing_command_turn()
+    }
+
+    /// The synced player-leave pass our `receive_storm_turns` replacement must reproduce inside the
+    /// `set_rng_enable(1)` window. See guide §5.8.
+    pub fn apply_pending_player_leaves(&mut self) -> Option<VirtualAddress> {
+        self.0.apply_pending_player_leaves()
+    }
+
+    /// Base of the per-slot pending-leave mailbox: an `int32[0xc]` indexed by storm player id
+    /// (stride 4 on both 32- and 64-bit). `0` = no pending leave; nonzero = a reason code awaiting
+    /// application (`0x40000006` = dropped, other nonzero = left). [`apply_pending_player_leaves`]
+    /// drains it (running the leave handler and clearing the slot back to `0`) once per applied
+    /// turn inside the synced-RNG window. To drop a peer, write the reason into the slot on a
+    /// server-agreed turn — the write must be identical across clients (it mutates game state in the
+    /// synced-RNG window, so divergence desyncs). This is the constant array-base address, not a
+    /// `Mem32[..]` deref. See guide §5.8.
+    pub fn pending_leave_reason(&mut self) -> Option<Operand<'e>> {
+        self.0.pending_leave_reason()
+    }
+
+    /// Per-slot pointer to each slot's command bytes for the executable turn. We fill this from our
+    /// own buffers in the receive seam. See guide §3.
+    pub fn player_turns(&mut self) -> Option<Operand<'e>> {
+        self.0.player_turns()
+    }
+
+    /// Per-slot command byte length, parallel to [`player_turns`](Self::player_turns).
+    pub fn player_turns_size(&mut self) -> Option<Operand<'e>> {
+        self.0.player_turns_size()
+    }
+
+    /// Whether `net_user_latency` + the sync checksum apply. Read by the native latency pipe. See
+    /// guide §4.
+    pub fn sync_active(&mut self) -> Option<Operand<'e>> {
+        self.0.sync_active()
+    }
+
+    /// Built-in/proto turn latency (the pipe-depth floor, natively 2). We may override it. See
+    /// guide §4 / §5.3.
+    pub fn builtin_turn_latency(&mut self) -> Option<Operand<'e>> {
+        self.0.builtin_turn_latency()
+    }
+
+    /// Global executable-turn index (`step_network` increments once per executed turn; 1 turn =
+    /// 1 frame). Used as the consensus coordinate stamped onto in-game turns. See guide §2 / §5.1.
+    pub fn game_frame_count(&mut self) -> Option<Operand<'e>> {
+        self.0.game_frame_count()
+    }
+
     pub fn net_format_turn_rate(&mut self) -> Option<VirtualAddress> {
         self.0.net_format_turn_rate()
     }
@@ -675,5 +829,12 @@ impl<'e> Analysis<'e> {
 
     pub fn save_replay(&mut self) -> Option<VirtualAddress> {
         self.0.save_replay()
+    }
+
+    /// Single byte global holding the in-game chat send-scope while the chat box is open: 0 = box
+    /// closed, 1 = single-player local, 2 = everyone, 3 = allies, 4 = a specific player,
+    /// 5 = observers.
+    pub fn chat_box_mode(&mut self) -> Option<Operand<'e>> {
+        self.0.chat_box_mode()
     }
 }

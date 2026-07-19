@@ -20,24 +20,26 @@ export class ChatPage extends SocialSidebar {
   constructor(page: Page) {
     super(page)
 
-    this.buttonHeaderActions = page.locator('button[data-test="channel-header-actions-button"]')
+    this.buttonHeaderActions = page.locator('button[data-testid="channel-header-actions-button"]')
 
-    this.buttonChannelSettings = page.locator('button[data-test="channel-settings-button"]')
+    this.buttonChannelSettings = page.locator('button[data-testid="channel-settings-button"]')
     this.buttonChannelSettingsSave = page.locator(
-      'button[data-test="channel-settings-save-button"]',
+      'button[data-testid="channel-settings-save-button"]',
     )
 
-    this.inputChannelBanner = page.locator('input[data-test="channel-settings-banner-input"]')
-    this.inputChannelBadge = page.locator('input[data-test="channel-settings-badge-input"]')
+    this.inputChannelBanner = page.locator('input[data-testid="channel-settings-banner-input"]')
+    this.inputChannelBadge = page.locator('input[data-testid="channel-settings-badge-input"]')
     this.inputChannelDescription = page.locator(
-      'textarea[data-test="channel-settings-description-input"]',
+      'textarea[data-testid="channel-settings-description-input"]',
     )
-    this.inputChannelTopic = page.locator('input[data-test="channel-settings-topic-input"]')
+    this.inputChannelTopic = page.locator('input[data-testid="channel-settings-topic-input"]')
 
-    this.imageChannelBanner = page.locator('img[data-test="channel-settings-banner-image"]')
-    this.imageChannelBadge = page.locator('img[data-test="channel-settings-badge-image"]')
+    this.imageChannelBanner = page.locator('img[data-testid="channel-settings-banner-image"]')
+    this.imageChannelBadge = page.locator('img[data-testid="channel-settings-badge-image"]')
 
-    this.channelSettingsErrorMessage = page.locator('[data-test="channel-settings-error-message"]')
+    this.channelSettingsErrorMessage = page.locator(
+      '[data-testid="channel-settings-error-message"]',
+    )
   }
 
   async openChannelSettings(): Promise<void> {

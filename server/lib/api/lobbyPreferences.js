@@ -2,7 +2,6 @@ import httpErrors from 'http-errors'
 import { isValidLobbyName } from '../../../common/constants'
 import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import { toMapInfoJson } from '../../../common/maps'
-import { ALL_TURN_RATES, TURN_RATE_DYNAMIC } from '../../../common/network'
 import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
 import { getMapInfos } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
@@ -32,8 +31,7 @@ export default function (router) {
 }
 
 async function upsertPreferences(ctx, next) {
-  const { name, gameType, gameSubType, recentMaps, selectedMap, turnRate, useLegacyLimits } =
-    ctx.request.body
+  const { name, gameType, gameSubType, recentMaps, selectedMap, useLegacyLimits } = ctx.request.body
 
   if (name && !isValidLobbyName(name)) {
     throw new httpErrors.BadRequest('invalid lobby name')
@@ -45,8 +43,6 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('recentMaps must be an array')
   } else if (selectedMap && !recentMaps.includes(selectedMap)) {
     throw new httpErrors.BadRequest('invalid selected map')
-  } else if (turnRate && turnRate !== TURN_RATE_DYNAMIC && !ALL_TURN_RATES.includes(turnRate)) {
-    throw new httpErrors.BadRequest('invalid turn rate')
   } else if (useLegacyLimits && typeof useLegacyLimits !== 'boolean') {
     throw new httpErrors.BadRequest('invalid use legacy limits')
   }
@@ -57,7 +53,6 @@ async function upsertPreferences(ctx, next) {
     gameSubType,
     recentMaps: recentMaps.slice(0, 5),
     selectedMap,
-    turnRate,
     useLegacyLimits,
   })
   const recentMapInfos = await getMapInfos(preferences.recentMaps)

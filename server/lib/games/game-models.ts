@@ -1,4 +1,4 @@
-import { GameSource } from '../../../common/games/configuration'
+import { GameConfig, GameSource } from '../../../common/games/configuration'
 import {
   GameDurationFilter,
   GameFormat,
@@ -6,8 +6,9 @@ import {
   getTeamSizeForFormat,
   MatchupFilter,
 } from '../../../common/games/game-filters'
-import { GameRecord, GameRouteDebugInfo } from '../../../common/games/games'
+import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
+import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { ReconciledResults } from '../../../common/games/results'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
@@ -118,19 +119,110 @@ export async function setReconciledResult(
 }
 
 /**
- * Updates the route debug info for the specified game. This should be used when the game is in the
- * process of loading, and all players have had their rally-point routes determined and created.
+ * Persists the rally-point2 coordinator's session id for a netcode-v2 game, called right after the
+ * coordinator's session/create call succeeds. Lets the reconciliation sweep later ask the
+ * coordinator whether the session is still alive instead of blind-forcing after a timeout.
  */
-export async function updateRouteDebugInfo(
-  gameId: string,
-  routeDebugInfo: GameRouteDebugInfo[],
-  withClient?: DbClient,
-): Promise<void> {
-  const { client, done } = await db(withClient)
+export async function setNetcodeV2Session(gameId: string, session: number): Promise<void> {
+  const { client, done } = await db()
   try {
     await client.query(sql`
       UPDATE games
-      SET routes = ${routeDebugInfo}
+      SET netcode_v2_session = ${session}
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns the rally-point2 coordinator session id persisted for a game, or `null` if the game has
+ * none on record (not a netcode-v2 game, or the session id never persisted). Used by the in-game
+ * re-home endpoint to confirm a request names a live netcode-v2 session before asking the
+ * coordinator to move it.
+ */
+export async function getNetcodeV2Session(gameId: string): Promise<number | null> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{ netcode_v2_session: string | null }>(sql`
+      SELECT netcode_v2_session
+      FROM games
+      WHERE id = ${gameId}
+    `)
+    const raw = result.rows[0]?.netcode_v2_session
+    // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
+    return raw === null || raw === undefined ? null : Number(raw)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Appends relay-serving-history events to a game's `netcode_v2_relays` record: the session's serving
+ * relay(s) at create time, or a later rehome that moved it to a replacement. A no-op for an empty
+ * list, so callers can pass through a deduped/filtered set without a special-case guard.
+ */
+export async function addNetcodeV2RelayEvents(
+  gameId: string,
+  events: NetcodeV2RelayEvent[],
+): Promise<void> {
+  if (events.length === 0) {
+    return
+  }
+
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET netcode_v2_relays = COALESCE(netcode_v2_relays, '[]'::jsonb) || ${JSON.stringify(events)}::jsonb
+      WHERE id = ${gameId}
+    `)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a game's persisted netcode-v2 coordinator session id and relay-serving history, for the
+ * admin debug view. `session` is `null` for a game that never persisted a coordinator session id
+ * (not a netcode-v2 game, or the write failed); `relays` is empty when there's no history on record.
+ */
+export async function getNetcodeV2DebugInfo(
+  gameId: string,
+): Promise<{ session: number | null; relays: NetcodeV2RelayEvent[] }> {
+  const { client, done } = await db()
+  try {
+    const result = await client.query<{
+      netcode_v2_session: string | null
+      netcode_v2_relays: NetcodeV2RelayEvent[] | null
+    }>(sql`
+      SELECT netcode_v2_session, netcode_v2_relays
+      FROM games
+      WHERE id = ${gameId}
+    `)
+    const row = result.rows[0]
+    return {
+      // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
+      session: row?.netcode_v2_session != null ? Number(row.netcode_v2_session) : null,
+      relays: row?.netcode_v2_relays ?? [],
+    }
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Overwrites a game's persisted config. Used for values that get decided after the game record is
+ * first created — currently only `useNetcodeV2`, which depends on the netcode v2 feature flag and
+ * the player count at load time, neither of which is known when the game is registered.
+ */
+export async function updateGameConfig(gameId: string, config: GameConfig): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      UPDATE games
+      SET config = ${config}
       WHERE id = ${gameId}
     `)
   } finally {
@@ -156,7 +248,8 @@ export async function countCompletedGames(): Promise<number> {
 /**
  * Retrieves game information for the last `numGames` games of a user. The resulting array may be
  * empty or less than `numGames` in length if the user has not played that many games. This list
- * will also include games that have incomplete results or are disputed.
+ * will also include games that have incomplete results or are disputed, but never a results-exempt
+ * game (contains computer players — see `isResultsExempt`), which is never shown at all.
  */
 export async function getRecentGamesForUser(
   userId: SbUserId,
@@ -170,6 +263,7 @@ export async function getRecentGamesForUser(
       SELECT g.*
       FROM games_users u JOIN games g ON u.game_id = g.id
       WHERE u.user_id = ${userId}
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
       ORDER BY u.start_time DESC
       LIMIT ${numGames}
     `)
@@ -180,7 +274,9 @@ export async function getRecentGamesForUser(
 }
 
 /**
- * Retrieves completed matchmaking games for the platform games list.
+ * Retrieves completed matchmaking games for the platform games list. Never returns a results-exempt
+ * game (contains computer players — see `isResultsExempt`), though matchmaking never has computer
+ * players in the first place.
  */
 export async function getGames(
   params: {
@@ -202,6 +298,9 @@ export async function getGames(
     const whereClauses = [
       sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`,
       sql`g.results IS NOT NULL`,
+      // Matchmaking never has computer players, so this can't currently exclude anything — kept
+      // for consistency/defense in depth with the other games-list surfaces.
+      sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
     let needMapJoin = false
 
@@ -308,7 +407,8 @@ export async function getGames(
 }
 
 /**
- * Retrieves game information for the match history of a user.
+ * Retrieves game information for the match history of a user. Never returns a results-exempt game
+ * (contains computer players — see `isResultsExempt`).
  */
 export async function getGamesForUser(
   params: {
@@ -342,7 +442,10 @@ export async function getGamesForUser(
 
   const { client, done } = await db(withClient)
   try {
-    const whereClauses = [sql`gu.user_id = ${userId}`]
+    const whereClauses = [
+      sql`gu.user_id = ${userId}`,
+      sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
+    ]
     let needMapJoin = false
 
     if (ranked || custom) {
@@ -464,6 +567,12 @@ export async function getGamesForUser(
  * determine games that have completed but didn't get reconciled (usually because at least one
  * player failed to report).
  *
+ * Excludes netcode-v2 games that persisted a coordinator session id — those are covered by the
+ * sweep's coordinator liveness probe instead (`findUnreconciledV2GamesForProbe`), so this is
+ * effectively the legacy/pre-cutover backstop now. Also excludes results-exempt games (contains
+ * computer players — see `isResultsExempt`), which never reconcile; a legacy comp game predating
+ * the exemption flag still flows through here as it always has.
+ *
  * @param reportedBeforeTime Only include game IDs that have a reported result from before this time
  * @param withClient a DB client to use to make the query (optional)
  */
@@ -476,9 +585,12 @@ export async function findUnreconciledGames(
     const result = await client.query<{ id: string }>(sql`
       SELECT DISTINCT gu.game_id as "id"
       FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
       WHERE gu."reported_results" IS NOT NULL
       AND gu."result" IS NULL
-      AND gu.reported_at < ${reportedBeforeTime};
+      AND gu.reported_at < ${reportedBeforeTime}
+      AND g.netcode_v2_session IS NULL
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE;
     `)
     return result.rows.map(row => row.id)
   } finally {
@@ -487,42 +599,102 @@ export async function findUnreconciledGames(
 }
 
 /**
- * Retrieves route debug information for a specific game, with server descriptions.
+ * Returns unreconciled netcode-v2 games that persisted a coordinator session id and started before
+ * `olderThan`, for the periodic sweep's coordinator liveness probe. A v2 game only reaches this
+ * backstop if it missed both push paths (the zero-grace known-complete trigger and `sessionClosed`)
+ * -- ~zero in steady state -- so the sweep asks the coordinator directly whether each session is
+ * still alive instead of blind-forcing on a timeout. Excludes results-exempt games (contains
+ * computer players — see `isResultsExempt`), which never reconcile.
+ *
+ * @param olderThan Only include games that started before this time
+ * @param withClient a DB client to use to make the query (optional)
  */
-export async function getGameRoutes(gameId: string): Promise<GameRouteDebugInfo[]> {
-  const { client, done } = await db()
+export async function findUnreconciledV2GamesForProbe(
+  olderThan: Date,
+  withClient?: DbClient,
+): Promise<Array<{ gameId: string; session: number }>> {
+  const { client, done } = await db(withClient)
   try {
-    const result = await client.query<{ routes: GameRouteDebugInfo[] | null }>(sql`
-      SELECT routes
+    const result = await client.query<{ id: string; netcode_v2_session: string }>(sql`
+      SELECT id, netcode_v2_session
       FROM games
-      WHERE id = ${gameId}
+      WHERE results IS NULL
+      AND netcode_v2_session IS NOT NULL
+      AND start_time < ${olderThan}
+      AND (config->>'resultsExempt')::boolean IS NOT TRUE;
     `)
-
-    if (!result.rowCount || !result.rows[0].routes) {
-      return []
-    }
-
-    const routes = result.rows[0].routes
-
-    // Get server descriptions for all unique server IDs
-    const serverIds = [...new Set(routes.map(r => r.server))]
-    if (serverIds.length === 0) {
-      return routes
-    }
-
-    const serversResult = await client.query<{ id: number; description: string }>(sql`
-      SELECT id, description
-      FROM rally_point_servers
-      WHERE id = ANY(${serverIds})
-    `)
-
-    const serverDescriptions = new Map(serversResult.rows.map(row => [row.id, row.description]))
-
-    // Add server descriptions to routes
-    return routes.map(route => ({
-      ...route,
-      serverDescription: serverDescriptions.get(route.server),
+    return result.rows.map(row => ({
+      gameId: row.id,
+      // netcode_v2_session is a BIGINT, so pg returns it as a string; normalize to a number.
+      session: Number(row.netcode_v2_session),
     }))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a list of game IDs where every player has reported results but the game still has no
+ * reconciled result, and whose most recent report is older than `reportedBeforeTime`. This catches
+ * games that were fully reported but never reconciled (e.g. the server restarted during the desync
+ * verdict grace window), so they can be reconciled without waiting for the 3h force sweep.
+ * Excludes results-exempt games (contains computer players — see `isResultsExempt`), which never
+ * reconcile.
+ *
+ * @param reportedBeforeTime Only include games whose newest report predates this time
+ * @param withClient a DB client to use to make the query (optional)
+ */
+export async function findFullyReportedUnreconciledGames(
+  reportedBeforeTime: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string }>(sql`
+      SELECT gu.game_id AS "id"
+      FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
+      WHERE g.results IS NULL
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
+      GROUP BY gu.game_id
+      HAVING bool_and(gu.reported_results IS NOT NULL)
+        AND MAX(gu.reported_at) < ${reportedBeforeTime};
+    `)
+    return result.rows.map(row => row.id)
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Returns a list of unreconciled netcode-v2 game IDs where every human has either reported results
+ * or had a departure recorded, and the newest such report/departure is older than
+ * `olderThan`. A netcode-v2 game's result inputs are closed the moment every human is in one of
+ * those two states (a departed human can't report, a reported one can't report again), so these
+ * are safe to force-reconcile without waiting for the much longer legacy timeout. Excludes
+ * results-exempt games (contains computer players — see `isResultsExempt`), which never reconcile.
+ *
+ * @param olderThan Only include games whose newest report/departure predates this time
+ * @param withClient a DB client to use to make the query (optional)
+ */
+export async function findKnownCompleteUnreconciledGames(
+  olderThan: Date,
+  withClient?: DbClient,
+): Promise<string[]> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<{ id: string }>(sql`
+      SELECT gu.game_id AS "id"
+      FROM games_users gu
+      JOIN games g ON g.id = gu.game_id
+      WHERE g.results IS NULL
+      AND (g.config->>'useNetcodeV2')::boolean IS TRUE
+      AND (g.config->>'resultsExempt')::boolean IS NOT TRUE
+      GROUP BY gu.game_id
+      HAVING bool_and(gu.reported_results IS NOT NULL OR gu.departure_kind IS NOT NULL)
+        AND MAX(GREATEST(gu.reported_at, gu.departure_time)) < ${olderThan};
+    `)
+    return result.rows.map(row => row.id)
   } finally {
     done()
   }

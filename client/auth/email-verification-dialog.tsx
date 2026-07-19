@@ -175,7 +175,7 @@ export function EmailVerificationDialog({
         </Trans>
       </Instructions>
       {submitError ? (
-        <ErrorText data-test='submit-error'>
+        <ErrorText data-testid='submit-error'>
           {t(
             'auth.emailVerification.submitError',
             'There was a problem verifying your email. Please try again later.',

@@ -76,7 +76,7 @@ export function RecoverUsername() {
     <AuthLayout title={t('auth.forgot.user.title', 'Recover your username')}>
       {error ? <UserErrorDisplay error={error} /> : null}
       {completed ? (
-        <SuccessMessage data-test='recover-username-success'>
+        <SuccessMessage data-testid='recover-username-success'>
           {t(
             'auth.forgot.user.successMessage',
             'You should receive an email shortly with all the usernames associated with that ' +

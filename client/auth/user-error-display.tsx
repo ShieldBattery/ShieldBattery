@@ -38,7 +38,7 @@ function UserError({ error }: { error: FetchError }) {
         ? (error.body as any).reason
         : t('auth.userErrorDisplay.banWithoutReason', 'No reason specified')
       return (
-        <div data-test='user-banned-text'>
+        <div data-testid='user-banned-text'>
           <Trans t={t} i18nKey='auth.userErrorDisplay.accountBanned'>
             This account has been banned.
             <BanReason>
@@ -76,7 +76,7 @@ function UserError({ error }: { error: FetchError }) {
       )
     case UserErrorCode.InvalidCode:
       return (
-        <span data-test='invalid-code-text'>
+        <span data-testid='invalid-code-text'>
           {t(
             'auth.userErrorDisplay.invalidCode',
             'The provided code is invalid. It may have expired.',
@@ -85,7 +85,7 @@ function UserError({ error }: { error: FetchError }) {
       )
     case UserErrorCode.TooManyAccounts:
       return (
-        <span data-test='too-many-accounts'>
+        <span data-testid='too-many-accounts'>
           {t(
             'auth.userErrorDisplay.tooManyAccounts',
             'This machine has reached the limit of created accounts. If you have a signup code, ' +
@@ -127,7 +127,7 @@ export function UserErrorDisplay({ className, error }: UserErrorDisplayProps) {
       : error.message
 
   return (
-    <ErrorsContainer className={className} data-test='errors-container'>
+    <ErrorsContainer className={className} data-testid='errors-container'>
       {isFetchError(error) ? (
         <UserError error={error} />
       ) : (

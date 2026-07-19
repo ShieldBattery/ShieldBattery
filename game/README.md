@@ -21,11 +21,7 @@ following files contain rest of the async side:
   but we do it in `GameState::init_game` as the older C++/JS code worked the same, and during
   game initialization the BW thread is set to run windows message loop via forge.
   It is a bit sketchy and hard to follow anyway.
-- `network_manager.rs` Links the rally-point and BW sides together, and reports results to
-  GameState
-- `rally_point.rs` Implementation of rally-point-player in Rust.
-- `udp.rs` Custom async UDP implementation since the existing ones were bad. Hacky and does not scale,
-  but works fine since we only need a single UDP socket for rally-point.
+- `netcode_v2/` The relay-based networking implementation, superseding the old direct-route netcode.
 
 `async_thread` has another comment describing relations of these parts.
 For details on the libraries/other terms used with this async code, see [documentation for the Tokio
@@ -36,12 +32,9 @@ how the necessary libraries become available.
 A common pattern that the async modules use to handle their mutable state is to have a task
 that takes input messages over a channel and updates the state based on those messages. The public
 API is just a struct that is able to send those messages, usually the messages contain a reply
-channel which receives the result. E.g. in `rally_point.rs`, `struct RallyPoint` is just a structure
-which sends messages (`ExternalMessage`) to the task started in `fn init()` with internal state
-`struct State`. If the task itself needs to run some async code and update state based on that,
-it will need to spawn a child task which sends an state-updating message back to parent once it
-has the necessary result (`Request::{ServerMessage, CleanupJoin, CleanupPing}` in `rally_point`
-are messages which update the state but are only sent from the task itself).
+channel which receives the result. If the task itself needs to run some async code and update
+state based on that, it will need to spawn a child task which sends a state-updating message back
+to the parent once it has the necessary result.
 
 When there's no need to update such long-lived mutable state, the async code can be written
 just as a chain of `and_then` futures (in future they should be convertible easily to `await`s),

@@ -1,18 +1,15 @@
 use std::borrow::Cow;
 use std::mem;
 use std::ptr::NonNull;
-use std::sync::{Arc, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use bw_dat::dialog::{Control, Dialog};
 use bw_dat::{Race, Unit};
 use egui::epaint;
 use egui::load::SizedTexture;
-use egui::style::TextStyle;
 use egui::{
-    Align, Align2, Color32, Event, FontData, FontDefinitions, Id, Key, Label, Layout,
-    PointerButton, Pos2, Rect, Response, Sense, Slider, TextureId, UiBuilder, Vec2, Widget,
-    WidgetText, pos2, vec2,
+    Align, Align2, Color32, Event, Id, Key, Label, Layout, PointerButton, Pos2, Rect, Response,
+    Sense, Slider, TextureId, UiBuilder, Vec2, Widget, WidgetText, pos2, vec2,
 };
 use winapi::shared::windef::{HWND, POINT};
 
@@ -20,15 +17,17 @@ use crate::app_messages::GameSetupInfo;
 use crate::bw;
 use crate::bw::apm_stats::ApmStats;
 use crate::bw_scr::BwCursorType;
-use crate::bw_scr::draw_overlay::fonts::display_family;
-use crate::game_thread::{self, GameThreadMessage};
-use crate::network_manager;
+use crate::netcode_v2::{DisconnectStatus, NetStatsStatus};
 
 use self::production::ProductionState;
 
-mod colors;
-mod fonts;
+// The overlay's fonts, colours, and disconnect presentation live in the host-compilable `overlay-ui`
+// crate; re-exported here so the DLL's other overlays keep referring to them by the same paths.
+pub use overlay_ui::{colors, fonts};
+
+mod disconnect;
 mod loading_screen;
+mod netstat;
 mod production;
 
 pub struct OverlayState {
@@ -58,10 +57,18 @@ pub struct OverlayState {
     player_vision_was_auto_disabled: [bool; 8],
     replay_start_handled: bool,
     draw_layer: u16,
-    network_debug_state: network_manager::DebugState,
-    network_debug_info: NetworkDebugInfo,
     dialog_debug_inspect_children: bool,
     was_loading: bool,
+    /// Whether BW's chat entry box is currently open for text input, refreshed each
+    /// [`step`](Self::step). [`window_proc`](Self::window_proc) reads this to keep chat usable while
+    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) is otherwise swallowing game input.
+    chat_textbox_open: bool,
+    /// Whether the disconnect overlay is in a real connection-problem state (our own link down, or
+    /// at least one relay-confirmed disconnected peer) — as opposed to the brief stall-only tier,
+    /// which must never lock input against a passing jitter blip. Refreshed each
+    /// [`step`](Self::step) from the same [`DisconnectStatus`] the overlay renders; read by
+    /// [`window_proc`](Self::window_proc) to gate game-destined input.
+    disconnect_blocks_input: bool,
 }
 
 struct UiRect {
@@ -87,18 +94,6 @@ struct ReplayPanelState {
     show_statistics: bool,
     show_production: bool,
     show_console: bool,
-}
-
-/// One request from async thread will be active at once, check if it had completed
-/// when rendering a new frame, and if it has then start a new request.
-/// Otherwise re-render with old data.
-///
-/// Maybe this should be at BwScr level so that this module is more contained without
-/// triggering changes and having dependencies on rest of the program?
-struct NetworkDebugInfo {
-    current_request: Option<Arc<OnceLock<network_manager::DebugInfo>>>,
-    previous: Option<Arc<OnceLock<network_manager::DebugInfo>>>,
-    previous_time: Instant,
 }
 
 /// State that will be in StepOutput; mutated through &mut self
@@ -238,59 +233,10 @@ impl OverlayState {
 
         egui_extras::install_image_loaders(&ctx);
 
-        // Add our custom fonts
-        let mut fonts = FontDefinitions::default();
-        fonts.font_data.insert(
-            "inter".to_string(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../files/fonts/Inter-Regular.ttf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "Sofia Sans SemiBold".to_string(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../files/fonts/SofiaSans-SemiBold.ttf"
-            ))),
-        );
-        fonts.font_data.insert(
-            "Do Hyeon".to_string(),
-            Arc::new(FontData::from_static(include_bytes!(
-                "../../files/fonts/DoHyeon-Regular.ttf"
-            ))),
-        );
+        // Fonts and base style come from the overlay-ui crate, so the host preview renders text
+        // identically to the game.
+        overlay_ui::install_fonts_and_style(&ctx);
 
-        fonts
-            .families
-            .entry(egui::FontFamily::Proportional)
-            .or_default()
-            .insert(0, "inter".to_string());
-        let entry = fonts.families.entry(display_family()).or_default();
-        entry.insert(0, "Sofia Sans SemiBold".to_string());
-        // Fallback for Korean characters
-        entry.insert(1, "Do Hyeon".to_string());
-        ctx.set_fonts(fonts);
-
-        let mut style_arc = ctx.style();
-        let style = Arc::make_mut(&mut style_arc);
-        // Make windows transparent
-        style.visuals.window_fill = style.visuals.window_fill.gamma_multiply(0.7);
-        // Don't want select/copy on text labels
-        style.interaction.selectable_labels = false;
-
-        // Increase default font sizes a bit.
-        // 16.0 seems to give a size that roughly matches with the smallest text size BW uses.
-        let text_styles = [
-            (TextStyle::Small, 12.0),
-            (TextStyle::Body, 16.0),
-            (TextStyle::Button, 16.0),
-            (TextStyle::Monospace, 16.0),
-        ];
-        for &(ref text_style, size) in &text_styles {
-            if let Some(font) = style.text_styles.get_mut(text_style) {
-                font.size = size;
-            }
-        }
-        ctx.set_style(style_arc);
         OverlayState {
             ctx,
             start_time: Instant::now(),
@@ -330,10 +276,10 @@ impl OverlayState {
             player_vision_was_auto_disabled: [false; 8],
             replay_start_handled: false,
             draw_layer: get_normal_draw_layer(),
-            network_debug_state: network_manager::DebugState::new(),
-            network_debug_info: NetworkDebugInfo::new(),
             dialog_debug_inspect_children: false,
             was_loading: false,
+            chat_textbox_open: false,
+            disconnect_blocks_input: false,
         }
     }
 
@@ -343,6 +289,8 @@ impl OverlayState {
         apm: Option<&ApmStats>,
         screen_size: (u32, u32),
         setup_info: Option<&GameSetupInfo>,
+        disconnect_status: &DisconnectStatus,
+        net_stats: Option<&NetStatsStatus>,
     ) -> StepOutput {
         // BW seems to use different render target sizes depending on SD/HD/4k
         // sprites; with 1280x960 for SD, 1920x1080 for lowres HD, and
@@ -444,9 +392,18 @@ impl OverlayState {
             .and_then(|chat_dlg| chat_dlg.children().find(|x| x.id() == 7))
             .map(|entry_textbox_ctrl| !entry_textbox_ctrl.is_hidden())
             .unwrap_or(false);
+        self.chat_textbox_open = chat_textbox_open;
+        // Only a real connection problem (our own link down, or a relay-confirmed peer drop) blocks
+        // game input — never the brief stall-only tier, so a passing latency jitter can't lock the
+        // player out of their own game.
+        self.disconnect_blocks_input = disconnect_status.is_blocking();
         self.replay_panels.hotkeys_active =
             bw.game_started && bw.is_replay_or_obs && self.ui_active && !chat_textbox_open;
-        let output = ctx.run(input, |ctx| {
+        // `run_ui` replaced `Context::run` in egui 0.34: it hands the callback a root `Ui` covering
+        // the whole screen (no margin/background) instead of the bare `&Context`. Floating Windows
+        // and Areas still attach to the context (`&ctx`); only the loading screen's `CentralPanel`
+        // needs the root `Ui`, so it alone is threaded `ui`.
+        let output = ctx.run_ui(input, |ui| {
             if bw.game_started {
                 if self.was_loading {
                     self.draw_layer = get_normal_draw_layer();
@@ -456,17 +413,22 @@ impl OverlayState {
                 }
 
                 if bw.is_replay_or_obs {
-                    self.add_replay_ui(bw, apm, ctx);
+                    self.add_replay_ui(bw, apm, &ctx);
                 }
+                // Product UX, drawn in every build: a stall-aware notice naming the players the sim
+                // is waiting on, upgrading to relay-confirmed disconnects with a manual drop.
+                self.add_disconnect_overlay(disconnect_status, setup_info, &ctx);
+                // The `/netstat` diagnostic overlay, drawn only while toggled on (a `Some` snapshot).
+                self.add_netstat_overlay(net_stats, setup_info, &ctx);
                 let debug = cfg!(debug_assertions);
                 if debug {
-                    self.add_debug_ui(bw, ctx);
+                    self.add_debug_ui(bw, &ctx);
                 }
             } else {
                 // Draw the loading UI higher so it hides everything BW may draw (FPS counter, etc.)
                 self.draw_layer = 26;
                 self.was_loading = true;
-                self.add_loading_screen_ui(bw, setup_info, ctx);
+                self.add_loading_screen_ui(bw, setup_info, ui);
             }
         });
         let ui_primitives = self.ctx.tessellate(output.shapes, pixels_per_point);
@@ -548,7 +510,9 @@ impl OverlayState {
 
     fn add_debug_ui(&mut self, bw: &BwVars, ctx: &egui::Context) {
         let res = egui::Window::new("Debug")
-            .default_pos((0.0, 0.0))
+            // Kept clear of the top-left corner, where the game draws its own fps/turn-rate/latency
+            // readout when those displays are enabled.
+            .default_pos((260.0, 0.0))
             .default_open(false)
             .movable(true)
             .show(ctx, |ui| {
@@ -587,13 +551,6 @@ impl OverlayState {
             }
             for (var, text) in [(&mut v.production_max, "Production max")] {
                 ui.add(Slider::new(var, 0u32..=50).text(text));
-            }
-        });
-        ui.collapsing("Network", |ui| {
-            if let Some((values, time)) = self.network_debug_info.get() {
-                values.draw(ui, &mut self.network_debug_state);
-                let msg = format!("Updated {}ms ago", time.as_millis());
-                ui.label(egui::RichText::new(msg).size(18.0));
             }
         });
         ui.collapsing("BW Dialogs", |ui| {
@@ -984,7 +941,11 @@ impl OverlayState {
                     };
                     self.mouse_down[button_idx] = pressed;
                     if !handle {
-                        return None;
+                        return if self.should_block_game_pointer_input() {
+                            Some(0)
+                        } else {
+                            None
+                        };
                     }
                     self.captured_mouse_down[button_idx] = pressed;
                     self.events.push(Event::PointerButton {
@@ -1015,7 +976,11 @@ impl OverlayState {
                         .iter()
                         .any(|x| x.capture_mouse_scroll && x.area.contains(pos));
                     if !handle {
-                        return None;
+                        return if self.should_block_game_pointer_input() {
+                            Some(0)
+                        } else {
+                            None
+                        };
                     }
                     // Scroll amount seems to be fine without any extra scaling
                     let amount = ((wparam >> 16) as i16) as f32;
@@ -1023,6 +988,9 @@ impl OverlayState {
                     self.events.push(Event::MouseWheel {
                         unit: egui::MouseWheelUnit::Point,
                         delta: egui::vec2(0.0, amount),
+                        // egui 0.35 added a scroll phase for trackpads; a mouse wheel has no phase,
+                        // so use the "unknown" value egui documents for that case.
+                        phase: egui::TouchPhase::Move,
                         modifiers,
                     });
                     Some(0)
@@ -1034,7 +1002,7 @@ impl OverlayState {
                     modifiers.alt |= is_syskey;
                     let vkey = wparam as i32;
                     if let Some(key) = vkey_to_egui_key(vkey) {
-                        if !is_syskey && self.ctx.wants_keyboard_input() {
+                        if !is_syskey && self.ctx.egui_wants_keyboard_input() {
                             self.events.push(Event::Key {
                                 key,
                                 // Probably fine to leave None, could also be Some(key) even
@@ -1053,10 +1021,21 @@ impl OverlayState {
                             return Some(0);
                         }
                     }
+                    if self.should_block_game_keyboard_input(vkey) {
+                        return Some(0);
+                    }
                     None
                 }
                 WM_CHAR => {
-                    if !self.ctx.wants_keyboard_input() {
+                    if !self.ctx.egui_wants_keyboard_input() {
+                        // Never swallowed for the disconnect block: SC:R opens and submits the chat
+                        // box from the Enter *character* here (0x0D/0x0A), not from WM_KEYDOWN's
+                        // VK_RETURN — swallowing WM_CHAR while the box is closed would swallow the
+                        // very keypress that opens it, so `chat_textbox_open` could never flip true
+                        // and every following WM_CHAR would stay swallowed forever. A WM_CHAR never
+                        // carries a unit command or hotkey (those are WM_KEYDOWN virtual keys, and
+                        // still blocked by `should_block_game_keyboard_input` below), so passing all
+                        // of them through can't let a blocked player command units.
                         return None;
                     }
                     if wparam >= 0x80 {
@@ -1074,6 +1053,31 @@ impl OverlayState {
                 _ => None,
             }
         }
+    }
+
+    /// Whether a mouse event aimed at the game world (it missed every registered ui rect) should be
+    /// swallowed instead of reaching BW, so the disconnect overlay behaves like a pause: unit
+    /// selection, drag-select, and move/attack commands all ride these same messages. Gated on
+    /// [`disconnect_blocks_input`](Self::disconnect_blocks_input) — the brief stall-only tier never
+    /// blocks, only a relay-acknowledged connection problem (our own link, or a confirmed peer drop).
+    /// Chat needs no mouse carve-out here: opening, typing, and sending are all keyboard-driven.
+    fn should_block_game_pointer_input(&self) -> bool {
+        self.disconnect_blocks_input
+    }
+
+    /// Whether a keyboard event aimed at the game (a hotkey or unit command, since anything egui or
+    /// the replay-hotkey check wanted has already returned above) should be swallowed instead of
+    /// reaching BW. Mirrors [`should_block_game_pointer_input`](Self::should_block_game_pointer_input)'s
+    /// gate, but carves out the chat surface: with the chat textbox open every key passes through
+    /// (backspace, arrow keys, Escape to close — actual typed characters and Enter-to-open/submit
+    /// ride WM_CHAR, which this doesn't gate at all, see the WM_CHAR arm above). The `VK_RETURN`
+    /// carve-out below is harmless but not what opens the chat box (SC:R opens it from the Enter
+    /// *character* on WM_CHAR, not this virtual-key WM_KEYDOWN) — kept so a bare Return keydown
+    /// doesn't get eaten as a stray hotkey while the box is closed.
+    fn should_block_game_keyboard_input(&self, vkey: i32) -> bool {
+        self.disconnect_blocks_input
+            && !self.chat_textbox_open
+            && vkey != winapi::um::winuser::VK_RETURN
     }
 
     fn check_replay_hotkey(&mut self, _modifiers: &egui::Modifiers, key: Key) -> bool {
@@ -1143,42 +1147,6 @@ impl OverlayState {
                 y: (y as f32 - y_offset) / y_div * screen_h,
             }
         }
-    }
-}
-
-impl NetworkDebugInfo {
-    pub fn new() -> NetworkDebugInfo {
-        NetworkDebugInfo {
-            current_request: None,
-            previous: None,
-            previous_time: Instant::now(),
-        }
-    }
-
-    pub fn get(&mut self) -> Option<(&network_manager::DebugInfo, Duration)> {
-        match self.current_request {
-            Some(ref cur) => {
-                if cur.get().is_some() {
-                    self.previous = self.current_request.take();
-                    self.previous_time = Instant::now();
-                    self.start_request();
-                }
-            }
-            None => {
-                self.start_request();
-            }
-        }
-        let result = self.previous.as_ref()?;
-        let result = result.get()?;
-        Some((result, self.previous_time.elapsed()))
-    }
-
-    fn start_request(&mut self) {
-        let arc = Arc::new(OnceLock::new());
-        self.current_request = Some(arc.clone());
-        game_thread::send_game_msg_to_async(GameThreadMessage::DebugInfoRequest(
-            game_thread::DebugInfoRequest::Network(arc),
-        ));
     }
 }
 

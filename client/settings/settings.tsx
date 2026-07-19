@@ -201,7 +201,7 @@ function NavEntry({
 
   const title = getSettingsPageTitle({ page, t })
   return (
-    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0} data-test={testName}>
+    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0} data-testid={testName}>
       {hasError ? (
         <>
           <ErrorIcon />

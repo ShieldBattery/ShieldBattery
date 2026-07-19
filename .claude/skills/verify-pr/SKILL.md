@@ -120,10 +120,13 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
    equal/unrated players match in ~30s; the armed clickers ready both up instantly.
 3. Confirm launch + injection:
    - Two `StarCraft.exe` processes (`tasklist | grep StarCraft`).
-   - `%APPDATA%\ShieldBattery-Local\logs\shieldbattery.0.log` (+`.1`): `All players have joined` →
-     `Readying lobby for start` → **`Forge: Game started`** = really in-game.
-   - App log (`app.0.log`): `Game status updated to 'configuring'` → `'playing'`.
-4. Decisive finish — two paths:
+   - `%APPDATA%\ShieldBattery-Local\logs\game-<session>.0.log` (e.g. `game-session1.0.log`; prod /
+     no `SB_SESSION` → `game.0.log`): grep past the last `[SESSION_START]` for this run, then
+     `All players have joined` → `Readying lobby for start` → **`Forge: Game started`** = really
+     in-game. Each session writes its own `.0.log`, so no more scanning for the right slot.
+   - App log (`app-<session>.0.log`; prod → `app.0.log`): `Game status updated to 'configuring'` →
+     `'playing'`.
+4. Decisive finish — three paths:
    - **Human graceful leave (reliable, needs a person at the keyboard).** Ask the user to leave the
      match *through the in-game menu* (F10 / Menu → Quit/Leave Game → Yes) on the loser's window —
      **not** by closing the window / Alt-F4 / killing the process. A graceful leave ends the game
@@ -131,10 +134,37 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
      decisive result → clean winner-up/loser-down MMR. This is the way to get a real MMR delta in
      this env (validated PR #1286, both 1v1 and 2v2). For **2v2**, the whole losing *team* must
      leave: have the user leave both of one team's windows.
+   - **Debug-tooling drop (unattended, netcode-v2 debug builds).** The debug DLL exposes a
+     game-control surface over CDP — `window.__sbDebugGame.forceUnsyncedLeave(gameId, slot)`
+     injects a **local, non-consensus** drop of `slot` on the calling client only (it deliberately
+     bypasses the synced-leave machinery — that's its testing purpose), so the caller takes the
+     allied-victory path and the game **ends with no human at the keyboard**; `forceQuit(gameId)`
+     then hard-tears-down any window still sitting on a result/victory dialog (see verify-app for
+     the whole surface + details). This needs the **debug DLL** (which this tier already builds —
+     the surface compiles out of release) and a dev app session (`isDev`-gated senders).
+     **Never rely on it for a scored result on a netcode-v2 matchmaking game** — but note its
+     desync behavior is NOT guaranteed either, in either direction: the unsynced injection forks
+     the calling client's simulation, but whether the relay's checksum comparator ever *sees* the
+     divergence depends on a diverged checksum crossing the wire before the caller's link ends.
+     Targeting the caller's **own** slot ends the caller immediately — verified live: the
+     opponent saw an ordinary drop and the game **scored a normal win/loss, no desync, no
+     void**. Under other slot/timing combinations diverged checksums do cross and the desync
+     policy fires (a 1v1 divergence is no-majority by construction → void; a team game discards
+     the diverged minority). **If the test needs a desync, use `forceDesync(gameId)` instead**
+     (see verify-app) — it diverges the sim while both clients keep playing, so the comparator
+     reliably fires within seconds. Further caveats on `forceUnsyncedLeave`: it's a
+     **per-client trigger, not consensus** (a 3+ player game needs the slot injected on *every*
+     remaining client on the same turn), and a one-sided drop makes the two clients report
+     contradictory results, so the game can reconcile **disputed → no MMR delta**, same as the
+     kill path. So this is the tool for driving the **netcode leave/reconnect paths** and
+     getting a game to *end* unattended — not for a guaranteed clean MMR delta (use the human
+     path for that) and not for a guaranteed desync (use `forceDesync`).
    - **`Stop-Process` one `StarCraft.exe` (unattended fallback).** The other is *supposed* to be
      credited the win, but in practice the survivor often hangs on BW's dropped-player dialog with no
      human to dismiss it → both report `unknown` → game reconciles **disputed**, no MMR (see Known
-     issues). Use only when no human is available and you don't need the MMR delta.
+     issues). Prefer `forceQuit` over a raw `Stop-Process` when the app is dev-built (it routes
+     through the app, so `ActiveGameManager` resets its own state cleanly). Use only when no human is
+     available and you don't need the MMR delta.
 
 **Verify outcomes** — UI *and* DB (`docker exec shieldbattery-db-1 psql -U shieldbattery -d shieldbattery`):
 - `games`/`games_users` — a row with results for the match.
@@ -297,7 +327,7 @@ bits in here, and keep this lean:
   "Report submitted." snackbar → row in `game_reports` (reasons stored snake_case: `griefing`,
   `abandoning`...). Re-report same target → "You've already reported this player for this game."
   Admin side: grant via the **Manage game reports** checkbox (`/users/:id/:name/admin`, save via
-  `button[data-test=save-permissions-button]`), **reload the client** to pick up own-permission
+  `button[data-testid=save-permissions-button]`), **reload the client** to pick up own-permission
   changes, then `/admin/game-reports`: list defaults to unresolved-only ("Include resolved"
   checkbox), row click → detail with per-user credibility stat tiles, View game/Download/
   Watch replay (Watch launches SC:R with the replay — real T4-ish signal; kill SC after),
@@ -340,7 +370,7 @@ bits in here, and keep this lean:
     shell-arg `fill` silently drops everything past the first newline. Cover upload:
     `page.setInputFiles('input[type=file]', <jpg>)` → POST `/api/1/news/images` → sharded pair
     under `server/uploaded_files/news-images/` (full + `_0.5x`). Inline image upload:
-    `page.setInputFiles('[data-test=news-inline-image-file-input]', path)` (pass Windows paths via
+    `page.setInputFiles('[data-testid=news-inline-image-file-input]', path)` (pass Windows paths via
     `String.raw` — double-backslash escapes get eaten through bash quoting and the call silently
     no-ops). Save = button matching /save changes/i, disabled while an upload is in flight; success
     shows a "saved" snackbar in `body.innerText`. Every mutation writes one `news_post_edits` row
@@ -386,3 +416,9 @@ path before treating one as real; delete it once resolved.
   So this is only a hazard for fully-unattended runs; when you need the MMR delta, get a human to
   leave gracefully rather than killing the process. (The matcher-side writes — formation,
   `games`/`games_users`, `selected_matchup`, `matchmaking_completions` — happen regardless of finish.)
+  On a **debug DLL build**, `window.__sbDebugGame.forceQuit(gameId)` dismisses/tears down the hung
+  survivor cleaner than a raw `Stop-Process` (routes through the app), and `forceUnsyncedLeave` can
+  end the game unattended — but neither escapes the no-MMR outcome (T4 "Decisive finish"). Whether
+  `forceUnsyncedLeave` also trips the desync policy depends on slot/timing (own-slot = ordinary
+  drop, no desync — verified live; see T4); `forceDesync(gameId)` is the deliberate,
+  reliable desync trigger when a test wants the void path (see verify-app).

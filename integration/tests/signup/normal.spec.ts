@@ -37,8 +37,8 @@ test('sign up and verify email in same session', async ({ page }) => {
 
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
 
-  await page.click('[data-test=settings-button]')
-  await page.click('[data-test=verify-email-button]')
+  await page.click('[data-testid=settings-button]')
+  await page.click('[data-testid=verify-email-button]')
 
   const emails = await sentEmailChecker.retrieveSentEmails(email)
   expect(emails).toHaveLength(1)
@@ -46,7 +46,7 @@ test('sign up and verify email in same session', async ({ page }) => {
   expect(code).toBeDefined()
 
   await verificationDialogPage.verifyWithCode(code)
-  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
+  await expect(page.locator('[data-testid=verify-email-button]')).toHaveCount(0)
 })
 
 test('sign up and verify email on subsequent login', async ({ context, page }) => {
@@ -87,6 +87,6 @@ test('sign up and verify email on subsequent login', async ({ context, page }) =
   await expect(verificationDialogPage.dialogLocator()).toHaveCount(0)
 
   // Check that the verify email button is gone (user is now verified)
-  await page.click('[data-test=settings-button]')
-  await expect(page.locator('[data-test=verify-email-button]')).toHaveCount(0)
+  await page.click('[data-testid=settings-button]')
+  await expect(page.locator('[data-testid=verify-email-button]')).toHaveCount(0)
 })

@@ -499,6 +499,7 @@
       "useMapSettings": "Использовать настройки карты"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "Запуск игрового сервера в {{regions}}…",
       "title": "Запуск игры…"
     },
     "mapName": {
@@ -546,10 +547,17 @@
       "detailedResults": "Подробные результаты по каждому игроку",
       "downloadReplay": "Скачать реплей",
       "hasReport": "Есть отчет",
-      "latency": "Задержка (мс)",
+      "network": {
+        "address": "Адрес",
+        "at": "Время",
+        "event": "Событие",
+        "home": "Назначение",
+        "rehome": "Переназначение",
+        "relay": "Релей",
+        "session": "Сессия: {{session}}",
+        "title": "Сеть"
+      },
       "player": "Игрок",
-      "player1": "Игрок 1",
-      "player2": "Игрок 2",
       "replay": "Реплей",
       "reportedAPM": "APM",
       "reportedAt": "Отправлено",
@@ -559,8 +567,6 @@
       "reportedResults": "Сводка индивидуальных отчетов",
       "reportedTime": "Указанное время",
       "reportTitle": "Отчет от <1></1>:",
-      "routes": "Сетевые маршруты",
-      "server": "Сервер",
       "title": "Отладочная информация"
     },
     "errorLoading": "Не удалось загрузить эту игру.",
@@ -572,6 +578,7 @@
     "infoDate": "Дата",
     "infoDuration": "Продолжительность",
     "infoGameType": "Тип",
+    "notFound": "Не удалось найти эту игру.",
     "statusFinal": "Финал",
     "statusLive": "В реальном времени",
     "summary": {
@@ -635,6 +642,21 @@
     "reporting": {
       "actionedNotification": "К игроку, на которого Вы пожаловались, были приняты меры. Спасибо, что помогаете поддерживать честность сообщества.",
       "pointsRefundedNotification": "Рейтинговые очки, которые Вы потеряли в матче, были возвращены Вам после проверки матча."
+    }
+  },
+  "gameServerRegions": {
+    "name": {
+      "au": "Австралия",
+      "ca-east": "Восток Канады",
+      "eu-central": "Центральная Европа",
+      "eu-north": "Северная Европа",
+      "hk": "Гонконг",
+      "kr": "Корея",
+      "mx": "Мексика",
+      "sa-east": "Восток Южной Америки",
+      "sg": "Сингапур",
+      "us-east": "Восток США",
+      "us-west": "Запад США"
     }
   },
   "home": {
@@ -792,9 +814,6 @@
       "mapRequired": "Выберите карту для игры",
       "selectMap": "Выберите карту",
       "title": "Создать лобби",
-      "turnRate": "Частота передачи",
-      "turnRateAuto": "Авто",
-      "turnRateDynamic": "ДЧП (не рекомендуется)",
       "useLegacyLimits": "Использовать классический лимит юнитов"
     },
     "errors": {
@@ -821,9 +840,6 @@
       "gameType": "Тип игры",
       "leaveLobby": "Выйти из лобби",
       "startGame": "Начать игру",
-      "turnRate": "Частота передачи",
-      "turnRateAuto": "Авто",
-      "turnRateDynamic": "ДЧП",
       "unitLimit": "Лимит единиц",
       "unitLimitExtended": "Расширенный",
       "unitLimitLegacy": "Классический"
@@ -1053,7 +1069,6 @@
         "dialogTitle": "Ошибка при поиске матча",
         "invalidMaps": "Вы должны выбрать хотя бы одну карту в настройках для каждого выбранного типа матчмейкинга.",
         "matchmakingDisabled": "Матчмейкинг сейчас отключён",
-        "pingMeasurementFailed": "Не удалось измерить ваше соединение с игровыми серверами. Проверьте подключение и попробуйте снова.",
         "searchAgainError": "Возникла проблема с поиском матча",
         "somethingWentWrong": "Что-то пошло не так :(",
         "userOffline": "Соединение с сервером прервано. Пожалуйста, переподключитесь и попробуйте снова."
@@ -1255,8 +1270,16 @@
       },
       "system": {
         "filesOverline": "Файлы",
+        "networkOverline": "Сеть",
         "replayQuickOpen": "Запускать повторы, открытые через ShieldBattery, сразу — без предварительного просмотра",
         "runOnStartup": "Запускать ShieldBattery при запуске системы",
+        "serverRegion": {
+          "autoPlain": "Авто (рекомендуется)",
+          "autoResolved": "Авто — {{region}} ({{rtt}} мс)",
+          "label": "Регион сервера",
+          "locked": "Нельзя изменить, находясь в лобби или в матчмейкинге.",
+          "regionWithPing": "{{region}} ({{rtt}} мс)"
+        },
         "startMinimized": "Запускать в свернутом виде",
         "startupOverline": "Запуск",
         "title": "Система"

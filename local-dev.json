@@ -19,5 +19,9 @@
   {
     "command": ["pnpm", "run", "app"],
     "title": "Electron App"
+  },
+  {
+    "command": ["node", "tools/dev-funnel.mjs"],
+    "title": "Webhook Funnel"
   }
 ]

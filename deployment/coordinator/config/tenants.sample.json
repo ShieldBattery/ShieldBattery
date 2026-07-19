@@ -1,0 +1,13 @@
+{
+  "tenants": [
+    {
+      "id": "shieldbattery",
+      "state": "active",
+      "kid": "sb-2026-07",
+      "signing_key_env": "COORDINATOR_TENANT_SB_SIGNING_KEY",
+      "client_pubkeys": ["CHANGEME-64-hex-ed25519-public-key"],
+      "notify_url": "https://shieldbattery.net/webhooks/netcode-v2/game-events",
+      "bounds": { "min": 1, "max": 12 }
+    }
+  ]
+}

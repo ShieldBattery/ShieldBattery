@@ -29,7 +29,6 @@ use crate::bw_scr::BwScr;
 use crate::forge::TRACK_WINDOW_POS;
 use crate::game_thread::lobby_init::LobbyInitCompleter;
 use crate::replay;
-use crate::snp;
 use crate::{bw, forge};
 
 lazy_static! {
@@ -96,7 +95,6 @@ pub enum GameThreadRequestType {
 // Game thread sends something to async tasks
 pub enum GameThreadMessage {
     WindowMove(i32, i32, i32, i32),
-    Snp(snp::SnpMessage),
     /// Storm player id (which stays stable) -> game player id mapping.
     /// Once this message is sent, any game player ids used so far should be
     /// considered invalid and updated to match this mapping.
@@ -111,13 +109,6 @@ pub enum GameThreadMessage {
         color_mode: Option<MinimapColorMode>,
         terrain_hidden: Option<bool>,
     },
-    /// Request async task to write debug info to provided parameter.
-    DebugInfoRequest(DebugInfoRequest),
-}
-
-pub enum DebugInfoRequest {
-    /// (OnceLock is effectively oneshot channel for the result)
-    Network(Arc<OnceLock<crate::network_manager::DebugInfo>>),
 }
 
 /// Sends a message from game thread to the async system.
@@ -218,12 +209,29 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
                 forge::game_started();
                 bw.play_sound("GLUSND_SWISH_OUT");
                 bw.set_game_started();
+                // Now that the turn hooks are live (game started), prime the netcode v2 pipe so the
+                // first in-game receive has turns to dispatch. No-op without a rally-point2 session.
+                bw.seed_netcode_v2_pipe();
                 bw.run_game_loop();
+
+                // Report the game result before announcing the leave. `send_game_results` sets the
+                // result-expected latch synchronously (see its body), and the driver holds any
+                // leave intent until the result frame has been sent — so the result reaches the
+                // relay ahead of the leave announcement.
+                send_game_results();
+
+                // The game loop returning means this client will never produce another turn —
+                // whether it quit via F10 (the quit handshake completes inside the loop, so this
+                // fires within a few turns of the click) or the game ended naturally. Either way
+                // it's the one place that covers both: signal the driver so it can announce a
+                // clean leave to the relay instead of the peers waiting out an idle-timeout
+                // "dropped". A crash or hard kill never reaches this line, which is correct —
+                // those must still go through the relay's link-death detection.
+                crate::netcode_v2::with_turn_state(|s| s.send_leave_intent());
 
                 debug!("Game loop ended");
                 TRACK_WINDOW_POS.store(false, Ordering::Release);
                 save_minimap_settings();
-                send_game_results();
                 forge::hide_window();
             }
             // Saves registry settings etc.
@@ -267,6 +275,14 @@ fn save_minimap_settings() {
 pub fn send_game_results() {
     let bw = get_bw();
     if bw.trigger_game_results_sent() {
+        // Latch the result-expected flag on the live v2 session synchronously, before any leave
+        // intent can be signalled — this runs ahead of both the loop-end intent and the one
+        // `begin_local_only` fires. The driver then holds a pending leave intent until the result
+        // report has been sent, so the result frame precedes the leave intent on the wire. If no
+        // result code is ultimately decided, the async side submits nothing and the driver releases
+        // the held intent at its own safety timeout — bounded and harmless, and in practice a v2
+        // game always has a result code. No-op without a live v2 session.
+        crate::netcode_v2::with_turn_state(|s| s.expect_result_report());
         let results = unsafe { game_results() };
         send_game_msg_to_async(GameThreadMessage::Results(results));
     }
@@ -292,13 +308,7 @@ unsafe fn game_results() -> GameThreadResults {
         let game = bw.game();
         let players = bw.players();
 
-        let mut player_results = HashMap::new();
-        for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
-            if id.is_observer() {
-                // Observers should already be filtered out of the player ID mapping but just to be safe
-                continue;
-            }
-
+        let read_player_result = |id: BwPlayerId| {
             let victory_state = (*game).victory_state[id.0 as usize]
                 .try_into()
                 .unwrap_or_else(|e| {
@@ -323,14 +333,31 @@ unsafe fn game_results() -> GameThreadResults {
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap();
-            player_results.insert(
-                id,
-                PlayerResult {
-                    victory_state,
-                    race,
-                    alliances,
-                },
-            );
+            PlayerResult {
+                victory_state,
+                race,
+                alliances,
+            }
+        };
+
+        let mut player_results = HashMap::new();
+        for id in player_id_mapping().iter().filter_map(|m| m.game_id) {
+            if id.is_observer() {
+                // Observers should already be filtered out of the player ID mapping but just to be safe
+                continue;
+            }
+            player_results.insert(id, read_player_result(id));
+        }
+
+        // Computers have no player ID mapping, so read their rows directly from the player slots.
+        for i in 0..8 {
+            let id = BwPlayerId(i as u8);
+            // In-game participant player types: 1 = computer, 2 = human.
+            if (*players.add(i)).player_type == 1 {
+                player_results
+                    .entry(id)
+                    .or_insert_with(|| read_player_result(id));
+            }
         }
 
         let network_results = (0..8)
@@ -442,6 +469,18 @@ pub unsafe fn after_init_game_data() {
         }
 
         send_game_msg_to_async(GameThreadMessage::PlayersRandomized(mapping));
+
+        // Netcode v2 games never run the native lobby force-settings command that team-force
+        // alliances are derived from, and pre-init writes of its inputs don't survive game init
+        // (init re-derives them from map data), so the derived state itself is written here, after
+        // init has finished.
+        if !is_replay()
+            && (*game_data).game_type().has_team_forces()
+            && crate::netcode_v2::with_turn_state(|_| ()).is_some()
+        {
+            setup_team_alliances(bw);
+        }
+
         // Create fog-of-war sprites for any neutral buildings
         if !is_ums()
             && matches!(
@@ -455,6 +494,41 @@ pub unsafe fn after_init_game_data() {
                 }
             }
         }
+    }
+}
+
+/// Fills the alliance matrix and shared-vision masks for teammates in team-force game types
+/// (Team Melee/FFA, Top vs Bottom): allied-victory both ways plus mutual vision for every
+/// same-team player pair. These are the cells the in-game ally dialog and result scoring read,
+/// with the same encoding the in-game alliance/vision net commands write. Teams come from the
+/// server-ordered slot layout, so every client writes identical values and the write is
+/// sync-safe.
+unsafe fn setup_team_alliances(bw: &BwScr) {
+    unsafe {
+        let game = bw.game();
+        let players = bw.players();
+        for i in 0..8 {
+            let player = *players.add(i);
+            // In-game participant player types: 1 = computer, 2 = human.
+            if !matches!(player.player_type, 1 | 2) || player.team == 0 {
+                continue;
+            }
+            for j in 0..8 {
+                if i == j {
+                    continue;
+                }
+                let other = *players.add(j);
+                if matches!(other.player_type, 1 | 2) && other.team == player.team {
+                    (*game).alliances[i][j] = bw::players::AllianceState::AlliedVictory as u8;
+                    (*game).visions[i] |= 1 << j;
+                }
+            }
+        }
+        debug!(
+            "Set up team alliances: {:?} visions {:?}",
+            &(&(*game).alliances)[..8],
+            &(&(*game).visions)[..8],
+        );
     }
 }
 

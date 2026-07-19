@@ -1,3 +1,4 @@
+import { TypedIpcRenderer } from '../../common/ipc'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
 import {
   LOBBIES_GET_STATE,
@@ -37,31 +38,60 @@ import {
   LOBBY_START_COUNTDOWN,
   LOBBY_START_COUNTDOWN_BEGIN,
 } from '../actions'
+import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
 import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
 
-export const createLobby = ({
-  name,
-  map,
-  gameType,
-  gameSubType,
-  turnRate,
-  useLegacyLimits,
-  allowObservers = true,
-}) =>
-  createSiteSocketAction(LOBBY_CREATE_BEGIN, LOBBY_CREATE, '/lobbies/create', {
-    name,
-    map,
-    gameType,
-    gameSubType,
-    turnRate,
-    useLegacyLimits,
-    allowObservers,
-  })
+const ipcRenderer = new TypedIpcRenderer()
 
-export const joinLobby = name =>
-  createSiteSocketAction(LOBBY_JOIN_BEGIN, LOBBY_JOIN, '/lobbies/join', { name })
+export const createLobby =
+  ({ name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true }) =>
+  dispatch => {
+    // Resolve the host's home region the same way matchmaking does before queueing, so their slot
+    // homes on a nearby relay at session create, and generate this session's netcode v2 keypair in
+    // the app (submitting the public half; the private half stays in the app until the launched game
+    // adopts it). Both fall through as absent if nothing's measured / the app can't be reached (e.g.
+    // outside Electron) or the lookup fails.
+    Promise.all([
+      resolveDesiredRegion().catch(() => undefined),
+      Promise.resolve(ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys')).catch(
+        () => undefined,
+      ),
+    ]).then(([desiredRegion, clientPubkey]) => {
+      dispatch(
+        createSiteSocketAction(LOBBY_CREATE_BEGIN, LOBBY_CREATE, '/lobbies/create', {
+          name,
+          map,
+          gameType,
+          gameSubType,
+          useLegacyLimits,
+          allowObservers,
+          region: desiredRegion?.region,
+          // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire
+          // format only distinguishes "present" from "absent", so a null rtt is sent as absent.
+          rttMs: desiredRegion?.rttMs ?? undefined,
+          clientPubkey,
+        }),
+      )
+    })
+  }
+
+export const joinLobby = name => dispatch => {
+  Promise.all([
+    resolveDesiredRegion().catch(() => undefined),
+    Promise.resolve(ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys')).catch(() => undefined),
+  ]).then(([desiredRegion, clientPubkey]) => {
+    dispatch(
+      createSiteSocketAction(LOBBY_JOIN_BEGIN, LOBBY_JOIN, '/lobbies/join', {
+        name,
+        region: desiredRegion?.region,
+        rttMs: desiredRegion?.rttMs ?? undefined,
+        clientPubkey,
+      }),
+    )
+  })
+}
 
 export const addComputer = slotId =>
   createSiteSocketAction(LOBBY_ADD_COMPUTER_BEGIN, LOBBY_ADD_COMPUTER, '/lobbies/addComputer', {

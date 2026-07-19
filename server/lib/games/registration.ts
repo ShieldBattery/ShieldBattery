@@ -26,6 +26,21 @@ export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, start
     return r
   }, [])
 
+  // Unlike `useNetcodeV2` (only decided once the game loads), a game's team composition is already
+  // known from the config's teams, so this is set here rather than later. This is mutated directly
+  // onto the passed-in config (rather than building a new object to persist) so that the caller's
+  // reference — which the loader later re-persists via `updateGameConfig` once `useNetcodeV2` is
+  // decided — still carries it forward instead of losing it on that overwrite.
+  //
+  // A tracked game is always a multi-human, all-human game: a computer player has no account to
+  // rank, and a lone human player has no opponent's result to compare against, so there's nothing
+  // for either to reconcile. Every multi-human game goes through the netcode-v2 relay (see
+  // `useNetcodeV2` in game-loader.ts), which decides "multi-human" from the load's full player set
+  // (playing humans plus any observers) — a strict superset of `humanPlayers` here — so a game this
+  // exemption marks non-exempt is always also relay-eligible.
+  const hasComputerPlayer = gameConfig.teams.some(team => team.some(p => p.isComputer))
+  gameConfig.resultsExempt = hasComputerPlayer || humanPlayers.length < 2
+
   const resultCodes = new Map(humanPlayers.map(p => [p.id, genResultCode()]))
 
   const teams = getTeamsFromConfig(gameConfig)

@@ -1,16 +1,16 @@
-import { Map as IMap, Set as ISet, List, Record } from 'immutable'
-import { Counter, Histogram, linearBuckets } from 'prom-client'
-import { container, singleton } from 'tsyringe'
+import { Map as IMap, Set as ISet, Record } from 'immutable'
+import { Counter } from 'prom-client'
+import { singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
-import rejectOnTimeout from '../../../common/async/reject-on-timeout'
+import { extendableDeadline } from '../../../common/async/extendable-deadline'
+import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
-import { GameRoute, GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
+import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
-import { GameRouteDebugInfo } from '../../../common/games/games'
-import { Slot } from '../../../common/lobbies/slot'
+import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
-import { BwTurnRate, BwUserLatency, turnRateToMaxLatency } from '../../../common/network'
+import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
@@ -19,38 +19,22 @@ import { CodedError } from '../errors/coded-error'
 import log from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
-import { RallyPointRouteInfo, RallyPointService } from '../rally-point/rally-point-service'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { deleteRecordForGame, updateRouteDebugInfo } from './game-models'
+import { deleteRecordForGame, updateGameConfig } from './game-models'
 import { GameplayActivityRegistry } from './gameplay-activity-registry'
 import { registerGame } from './registration'
 
 const GAME_LOAD_TIMEOUT = 75 * 1000
 
-// NOTE(tec27): It's important that these are sorted low -> high
-const POTENTIAL_TURN_RATES: ReadonlyArray<BwTurnRate> = [12, 14, 16, 20, 24]
 /**
- * Entries of turn rate -> the max latency that is allowed to auto-pick that turn rate. These values
- * are chosen to work initially on low latency, although with significant packet loss may need to be
- * bumped higher. (This is a stop-gap measure, longer-term our netcode should be able to adjust on
- * the fly.)
+ * Extra time added once to a load's deadline when the coordinator reports it's still provisioning a
+ * game server. The base timeout matches the coordinator's provisioning-hold cap, so a load that
+ * waits out a full provision would otherwise trip the timeout before the game itself begins loading.
  */
-const MAX_LATENCIES_LOW: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: number]> =
-  POTENTIAL_TURN_RATES.map(turnRate => [
-    turnRate,
-    turnRateToMaxLatency(turnRate, BwUserLatency.Low),
-  ])
-/**
- * Latencies to check if none of the MAX_LATENCIES_LOW work. At that point we pick a latency based
- * on what would be optimal for the "High" ingame latency setting.
- */
-const MAX_LATENCIES_HIGH: ReadonlyArray<[turnRate: BwTurnRate, maxLatency: number]> =
-  POTENTIAL_TURN_RATES.map(turnRate => [
-    turnRate,
-    turnRateToMaxLatency(turnRate, BwUserLatency.High),
-  ])
+const PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS = 90 * 1000
 
 export enum GameLoadErrorType {
   /** The game load request was canceled before it completed. */
@@ -95,45 +79,6 @@ function generateSeed() {
   return (Date.now() / 1000) | 0
 }
 
-interface RouteResult extends RallyPointRouteInfo {
-  p1Slot: Slot
-  p2Slot: Slot
-}
-
-function createRoutes(players: ISet<Slot>): Promise<RouteResult[]> {
-  // Generate all the pairings of players to figure out the routes we need
-  const matchGen: Array<[Slot, ISet<Slot>]> = []
-  let rest = players
-  while (!rest.isEmpty()) {
-    const first = rest.first<Slot | undefined>(undefined)!
-    rest = rest.rest()
-    if (!rest.isEmpty()) {
-      matchGen.push([first, rest])
-    }
-  }
-  const needRoutes = matchGen.reduce(
-    (result, [p1, players]) => {
-      players.forEach(p2 => result.push([p1, p2]))
-      return result
-    },
-    [] as Array<[Slot, Slot]>,
-  )
-
-  const rallyPointService = container.resolve(RallyPointService)
-  const activityRegistry = container.resolve(GameplayActivityRegistry)
-
-  return Promise.all(
-    needRoutes.map(([p1, p2]) =>
-      rallyPointService
-        .createBestRoute(
-          activityRegistry.getClientForUser(p1.userId!)!,
-          activityRegistry.getClientForUser(p2.userId!)!,
-        )
-        .then(result => ({ ...result, p1Slot: p1, p2Slot: p2 })),
-    ),
-  )
-}
-
 /** Resolved value of a successful `GameLoader.loadGame`. */
 export interface GameLoadResult {
   /** The ID of the game record that was created and successfully loaded. */
@@ -147,6 +92,8 @@ const createLoadingData = Record({
   abortController: null as unknown as AbortController,
   deferred: null as unknown as Deferred<Result<GameLoadResult, GameLoaderError>>,
   signal: null as unknown as AbortSignal,
+  /** Pushes the load's timeout deadline further out. Defaults to a no-op until a deadline is armed. */
+  extendDeadline: ((_ms: number) => {}) as (ms: number) => void,
 })
 
 type LoadingData = ReturnType<typeof createLoadingData>
@@ -155,14 +102,6 @@ const LoadingDatas = {
   isAllFinished(loadingData: LoadingData) {
     return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId!))
   },
-}
-
-export interface GameSetupGameInfo {
-  gameId: string
-  seed: number
-  turnRate?: BwTurnRate | 0
-  userLatency?: BwUserLatency
-  useLegacyLimits?: boolean
 }
 
 /**
@@ -194,6 +133,21 @@ export interface GameLoadRequest {
    * matchmaking games.
    */
   ratings?: Array<[id: SbUserId, rating: number]>
+  /**
+   * Each player's measured round-trip time (ms) to their home region, keyed by user id. Read when
+   * building the netcode v2 session-create roster, alongside the region already carried on each
+   * player's `Slot`. Kept off `Slot` itself (rather than a field there, alongside `region`) because
+   * `Slot` is broadcast wholesale to lobby members and per-player rtt is not for peers' eyes; a
+   * user with no entry is forwarded to the coordinator without a latency sample.
+   */
+  rttMsByUserId?: ReadonlyMap<SbUserId, number>
+  /**
+   * Each player's per-session netcode v2 public key (base64), keyed by user id. Threaded per-slot
+   * into the netcode v2 session-create request. Required for every human slot of a multi-human
+   * (netcode v2) game — a missing entry fails the load fast rather than waiting. Kept off `Slot`
+   * (like `rttMsByUserId`) since no peer needs it.
+   */
+  netcodeV2PubkeyByUserId?: ReadonlyMap<SbUserId, string>
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
 }
@@ -248,6 +202,7 @@ function getGeneralGameSetup({
       turnRate,
       userLatency,
       useLegacyLimits: gameConfig.gameSourceExtra?.useLegacyLimits,
+      disableAllianceChanges: gameConfig.lockedAlliances,
     }
   } else if (gameConfig.gameSource === GameSource.Matchmaking) {
     return {
@@ -260,7 +215,9 @@ function getGeneralGameSetup({
       host: playerInfos[0],
       users,
       ratings,
-      disableAllianceChanges: true,
+      // Matchmaking always locks alliances; fall back to that if a caller ever constructs a
+      // matchmaking config without setting the field explicitly.
+      disableAllianceChanges: gameConfig.lockedAlliances ?? true,
       seed,
       turnRate,
       userLatency,
@@ -292,18 +249,12 @@ export class GameLoader {
     labelNames: ['game_source'],
     help: 'Total number of game load requests that succeeded',
   })
-  private maxEstimatedLatencyMetric = new Histogram({
-    name: 'shieldbattery_game_loader_max_estimated_latency_seconds',
-    labelNames: ['game_source'],
-    help: 'Maximum latency between a pair of peers in a game in seconds',
-    buckets: linearBuckets(0.01, 0.03, 12),
-  })
-  // TODO(tec27): Add a metric for the chosen turn rate
 
   constructor(
     private publisher: TypedPublisher<GameLoaderEvent>,
     private activityRegistry: GameplayActivityRegistry,
     private restrictionService: RestrictionService,
+    private netcodeV2Service: NetcodeV2Service,
   ) {}
 
   /**
@@ -318,6 +269,8 @@ export class GameLoader {
     mapId,
     gameConfig,
     ratings,
+    rttMsByUserId,
+    netcodeV2PubkeyByUserId,
     signal,
   }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
     const gameLoaded = createDeferred<Result<GameLoadResult, GameLoaderError>>()
@@ -327,6 +280,7 @@ export class GameLoader {
     registerGame(mapId, gameConfig).then(
       ({ gameId, resultCodes }) => {
         const abortController = new AbortController()
+        const deadline = extendableDeadline(gameLoaded, GAME_LOAD_TIMEOUT, 'game load timed out')
         this.loadingGames = this.loadingGames.set(
           gameId,
           createLoadingData({
@@ -337,16 +291,24 @@ export class GameLoader {
             signal: signal
               ? AbortSignal.any([signal, abortController.signal])
               : abortController.signal,
+            extendDeadline: deadline.extend,
           }),
         )
 
-        this.doGameLoad({ gameId, mapId, gameConfig, resultCodes, playerInfos, ratings }).onFailure(
-          err => {
-            this.maybeCancelLoadingFromSystem(gameId, err)
-          },
-        )
+        this.doGameLoad({
+          gameId,
+          mapId,
+          gameConfig,
+          resultCodes,
+          playerInfos,
+          ratings,
+          rttMsByUserId,
+          netcodeV2PubkeyByUserId,
+        }).onFailure(err => {
+          this.maybeCancelLoadingFromSystem(gameId, err)
+        })
 
-        rejectOnTimeout(gameLoaded, GAME_LOAD_TIMEOUT).catch(() => {
+        deadline.expired.catch(() => {
           const loadingData = this.loadingGames.get(gameId)
           if (!loadingData) {
             // Something else must have already dealt with it
@@ -518,6 +480,29 @@ export class GameLoader {
     return true
   }
 
+  /**
+   * Runs once per load, the first time the coordinator reports a game server is still being
+   * provisioned: tells every player which regions are coming up and extends the load deadline so
+   * waiting out the provision doesn't trip the base timeout.
+   */
+  private handleGameServerProvisioning(gameId: string, regions: string[]): void {
+    const loadingData = this.loadingGames.get(gameId)
+    if (!loadingData) {
+      return
+    }
+
+    const regionIds = regions.map(makeGameServerRegionId)
+    for (const player of loadingData.players) {
+      this.publisher.publish(gameUserPath(gameId, player.userId!), {
+        type: 'setLoadingStatus',
+        gameId,
+        status: 'provisioningGameServer',
+        regions: regionIds,
+      })
+    }
+    loadingData.extendDeadline(PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS)
+  }
+
   isLoadingOrRecentlyLoaded(gameId: string) {
     return this.loadingGames.has(gameId) || this.recentlyLoadedGames.has(gameId)
   }
@@ -533,6 +518,8 @@ export class GameLoader {
     resultCodes,
     playerInfos,
     ratings,
+    rttMsByUserId,
+    netcodeV2PubkeyByUserId,
   }: {
     gameId: string
     mapId: SbMapId
@@ -540,6 +527,8 @@ export class GameLoader {
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
     ratings?: Array<[id: SbUserId, rating: number]>
+    rttMsByUserId?: ReadonlyMap<SbUserId, number>
+    netcodeV2PubkeyByUserId?: ReadonlyMap<SbUserId, string>
   }): AsyncResult<void, GameLoaderError> {
     return Result.fromAsync(async () => {
       if (!this.loadingGames.has(gameId)) {
@@ -607,92 +596,38 @@ export class GameLoader {
         })
       }
 
-      const rallyPointService = container.resolve(RallyPointService)
-      const activityRegistry = container.resolve(GameplayActivityRegistry)
-
       const hasMultipleHumans = players.size > 1
-      const pingPromise = !hasMultipleHumans
-        ? Result.ok()
-        : Result.all(
-            ...players.map(p =>
-              Result.try(
-                () =>
-                  rallyPointService.waitForPingResult(
-                    activityRegistry.getClientForUser(p.userId!)!,
-                  ),
-                (error: unknown) =>
-                  new BaseGameLoaderError(
-                    GameLoadErrorType.PlayerFailed,
-                    'a player failed to connect to a rally-point server',
-                    { data: { userId: p.userId! }, cause: error },
-                  ),
-              ),
-            ),
-          )
-
-      const pingResult = await pingPromise
-      if (pingResult.isError()) {
-        return Result.error(pingResult.error)
-      }
-      if (signal.aborted) {
+      if (hasMultipleHumans && !this.netcodeV2Service.isEnabled()) {
         return Result.error(
-          new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
+          new BaseGameLoaderError(
+            GameLoadErrorType.Internal,
+            'netcode v2 is not configured on this server; multiplayer games cannot load without it',
+          ),
         )
       }
-
-      const [routes, routesError] = (
-        await (hasMultipleHumans ? Result.fromAsyncCatching(createRoutes(players)) : Result.ok([]))
+      const useNetcodeV2 = hasMultipleHumans
+      // Persisted onto the game's config so later readers (e.g. result reconciliation deciding
+      // whether a game's result can only arrive via the relay, see `usedNetcodeV2`) can see it
+      // without re-deriving it — this isn't known until now, so it can't be part of the config
+      // written at registration time. The write is awaited and fails the load on error, so a lost
+      // write can't silently make a netcode-v2 game look like a legacy one to those readers.
+      const [, configError] = (
+        await Result.fromAsyncCatching(updateGameConfig(gameId, { ...gameConfig, useNetcodeV2 }))
       ).toTuple()
-      if (routesError) {
+      if (configError) {
         return Result.error(
-          new BaseGameLoaderError(GameLoadErrorType.Internal, 'error creating routes', {
-            cause: routesError,
+          new BaseGameLoaderError(GameLoadErrorType.Internal, 'error persisting game config', {
+            cause: configError,
           }),
         )
       }
-      if (signal.aborted) {
-        return Result.error(
-          new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
-        )
-      }
 
-      let chosenTurnRate: BwTurnRate | 0 | undefined
-      let chosenUserLatency: BwUserLatency | undefined
-
-      if (
-        gameConfig.gameSource === GameSource.Matchmaking ||
-        gameConfig.gameSourceExtra?.turnRate === undefined
-      ) {
-        let maxEstimatedLatency = 0
-        for (const route of routes) {
-          if (route.estimatedLatency > maxEstimatedLatency) {
-            maxEstimatedLatency = route.estimatedLatency
-          }
-        }
-
-        this.maxEstimatedLatencyMetric
-          .labels(loadingData.gameSource)
-          .observe(maxEstimatedLatency / 1000)
-
-        let availableTurnRates = MAX_LATENCIES_LOW.filter(
-          ([_, latency]) => latency > maxEstimatedLatency,
-        )
-        if (availableTurnRates.length) {
-          // Of the turn rates that work for this latency, pick the best one
-          chosenTurnRate = availableTurnRates.at(-1)![0]
-          chosenUserLatency = BwUserLatency.Low
-        } else {
-          // Fall back to a latency that will work for High latency
-          availableTurnRates = MAX_LATENCIES_HIGH.filter(
-            ([_, latency]) => latency > maxEstimatedLatency,
-          )
-          // Of the turn rates that work for this latency, pick the best one
-          chosenTurnRate = availableTurnRates.length ? availableTurnRates.at(-1)![0] : 12
-          chosenUserLatency = BwUserLatency.High
-        }
-      } else if (gameConfig.gameSourceExtra?.turnRate) {
-        chosenTurnRate = gameConfig.gameSourceExtra.turnRate
-      }
+      // The relay resizes its latency buffer on the fly to match live network conditions, and DTR
+      // (turn rate 0) can't work at all since the relay seam strips the turn-rate commands it
+      // relies on — so every game always runs the best turn rate and lets the relay (or, for a
+      // solo game, the lack of any peer at all) absorb latency.
+      const chosenTurnRate: BwTurnRate = 24
+      const chosenUserLatency: BwUserLatency = BwUserLatency.Low
 
       const [maps, mapError] = await mapPromise.toTuple()
       if (mapError || !maps.length) {
@@ -741,55 +676,87 @@ export class GameLoader {
           gameId,
           setup: {
             ...generalSetup,
+            useNetcodeV2,
             resultCode: resultCodes.get(userId)!,
             isChatRestricted: restrictionsSet.has(userId),
           },
         })
       }
 
-      // get a list of routes + player IDs per player, broadcast that to each player
-      const routesByPlayer = routes.reduce((result, route) => {
-        const {
-          p1Slot,
-          p2Slot,
-          server,
-          route: { routeId, p1Id, p2Id },
-        } = route
-        return result
-          .update(p1Slot, List(), val =>
-            val.push({ for: p2Slot.id, server, routeId, playerId: p1Id }),
+      if (useNetcodeV2) {
+        // Assign each participant a rally-point2 slot, carrying their per-session pubkey (submitted
+        // at queue/lobby-join time), and request the session from the coordinator. Each player gets
+        // their own token plus the relay endpoints and the full slot roster. The game process
+        // consumes this setup when its game init starts, so it must be published to every player
+        // before they can proceed. A slot missing its pubkey fails the session create fast.
+        //
+        // `players` includes observer slots alongside human slots (see `GameLoadRequest.players`'s
+        // doc comment), and `Slot.type` distinguishes them, so observer-ness is known here — mark
+        // it so the relay's desync comparator can exclude observers from the compared slot set.
+        //
+        // The host must land at rp2 slot 0: with native-lobby netcode v2, the host creates the
+        // game's Storm session, and Storm always assigns its creator slot 0. The game DLL maps
+        // BW Storm ids to rp2 slots by identity, so this roster has to agree the host is slot 0 or
+        // that mapping breaks. Reuse the host already resolved for `generalSetup` (the same user
+        // named in the published `GameSetup.host`) rather than re-deriving it here.
+        const playersArr = [...players]
+        const hostUserId = generalSetup.host.userId
+        const hostPlayer = playersArr.find(p => p.userId === hostUserId)
+        let orderedPlayers: Slot[]
+        if (hostPlayer) {
+          orderedPlayers = [hostPlayer, ...playersArr.filter(p => p !== hostPlayer)]
+        } else {
+          // Shouldn't happen — the host is always a human participant — but don't let it crash the
+          // load, just fall back to the unordered assignment.
+          log.warn(
+            { gameId, hostUserId },
+            'netcode v2: host not found among players, using unordered slot assignment',
           )
-          .update(p2Slot, List(), val =>
-            val.push({ for: p1Slot.id, server, routeId, playerId: p2Id }),
+          orderedPlayers = playersArr
+        }
+        const slots = orderedPlayers.map((p, slot) => ({
+          slot,
+          userId: p.userId!,
+          observer: p.type === SlotType.Observer,
+          // The region the player selected when they queued/joined, if any. Forwarded to the
+          // coordinator to home this slot's relay; a slot with none falls back region-blind.
+          region: p.region,
+          // The player's measured round-trip time to that region, if recorded. Combined with every
+          // other slot's region/rtt to estimate the session's worst pairwise latency.
+          rttMs: rttMsByUserId?.get(p.userId!),
+          // The player's per-session netcode v2 public key, submitted at queue/lobby-join time. The
+          // coordinator embeds it in this slot's session token; a slot missing it fails create fast.
+          pubkey: netcodeV2PubkeyByUserId?.get(p.userId!),
+        }))
+        const [setups, setupsError] = (
+          await Result.fromAsyncCatching(
+            this.netcodeV2Service.createSessionForGame({
+              gameId,
+              slots,
+              signal,
+              onProvisioning: regions => this.handleGameServerProvisioning(gameId, regions),
+            }),
           )
-      }, IMap<Slot, List<GameRoute>>())
+        ).toTuple()
+        if (setupsError) {
+          return Result.error(
+            new BaseGameLoaderError(
+              GameLoadErrorType.Internal,
+              'error creating netcode v2 session',
+              {
+                cause: setupsError,
+              },
+            ),
+          )
+        }
 
-      const debugRouteInfo = routes.map<GameRouteDebugInfo>(route => ({
-        p1: route.p1,
-        p2: route.p2,
-        server: route.server.id,
-        latency: route.estimatedLatency,
-      }))
-      Promise.resolve()
-        .then(() => updateRouteDebugInfo(gameId, debugRouteInfo))
-        .catch(err => {
-          log.error({ err }, 'error updating route debug info')
-        })
-
-      for (const [player, routes] of routesByPlayer.entries()) {
-        this.publisher.publish(gameUserPath(gameId, player.userId!), {
-          type: 'setRoutes',
-          gameId,
-          routes: routes.toArray(),
-        })
-      }
-      if (!hasMultipleHumans) {
-        const human = players.first<Slot | undefined>(undefined)!.userId!
-        this.publisher.publish(gameUserPath(gameId, human), {
-          type: 'setRoutes',
-          gameId,
-          routes: [],
-        })
+        for (const [userId, setup] of setups) {
+          this.publisher.publish(gameUserPath(gameId, userId), {
+            type: 'setNetcodeV2Setup',
+            gameId,
+            setup,
+          })
+        }
       }
 
       if (signal.aborted) {
@@ -797,16 +764,6 @@ export class GameLoader {
           new BaseGameLoaderError(GameLoadErrorType.Canceled, 'game load was canceled'),
         )
       }
-
-      for (const client of activeClients) {
-        this.publisher.publish(gameUserPath(gameId, client.userId), {
-          type: 'startWhenReady',
-          gameId,
-        })
-      }
-
-      // Delay the cleanup until after `startWhenReady` has been sent
-      await Promise.resolve()
 
       return Result.ok()
     })

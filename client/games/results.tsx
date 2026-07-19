@@ -951,6 +951,13 @@ const ReportTitle = styled.div`
   color: var(--theme-on-surface);
 `
 
+const NetworkSessionLine = styled.div`
+  ${bodyMedium};
+  margin-bottom: 8px;
+  color: var(--theme-on-surface);
+  user-select: text;
+`
+
 const DebugTableContainer = styled.div`
   width: 100%;
   margin-bottom: 16px;
@@ -1090,43 +1097,6 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
           </ExpandIconContainer>
         </DebugSectionTitle>
         <DebugCollapsibleContent $open={open} layout transition={transition}>
-          {debugInfo.routes.length > 0 && (
-            <div>
-              <DebugSubsectionTitle>
-                {t('gameDetails.debugInfo.routes', 'Network Routes')}
-              </DebugSubsectionTitle>
-              <DebugTableContainer>
-                <DebugTable>
-                  <thead>
-                    <tr>
-                      <th>{t('gameDetails.debugInfo.player1', 'Player 1')}</th>
-                      <th>{t('gameDetails.debugInfo.player2', 'Player 2')}</th>
-                      <th>{t('gameDetails.debugInfo.server', 'Server')}</th>
-                      <th>{t('gameDetails.debugInfo.latency', 'Latency (ms)')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {debugInfo.routes.map((route, idx) => (
-                      <tr key={idx}>
-                        <td>
-                          <ConnectedUsername userId={route.p1} />
-                        </td>
-                        <td>
-                          <ConnectedUsername userId={route.p2} />
-                        </td>
-                        <td>
-                          {route.serverDescription
-                            ? `${route.serverDescription} (${route.server})`
-                            : route.server}
-                        </td>
-                        <td>{route.latency.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </DebugTable>
-              </DebugTableContainer>
-            </div>
-          )}
           <div>
             <DebugSubsectionTitle>
               {t('gameDetails.debugInfo.reportedResults', 'Individual Reports Summary')}
@@ -1243,6 +1213,56 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                     </DebugTableContainer>
                   </div>
                 ))}
+            </div>
+          )}
+          {debugInfo.netcodeV2.session !== null && (
+            <div>
+              <DebugSubsectionTitle>
+                {t('gameDetails.debugInfo.network.title', 'Network')}
+              </DebugSubsectionTitle>
+              <NetworkSessionLine>
+                {t('gameDetails.debugInfo.network.session', 'Session: {{session}}', {
+                  session: debugInfo.netcodeV2.session,
+                })}
+              </NetworkSessionLine>
+              <DebugTableContainer>
+                <DebugTable>
+                  <thead>
+                    <tr>
+                      <th>{t('gameDetails.debugInfo.network.event', 'Event')}</th>
+                      <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
+                      <th>{t('gameDetails.debugInfo.network.address', 'Address')}</th>
+                      <th>{t('gameDetails.debugInfo.network.at', 'At')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {debugInfo.netcodeV2.relays.map((event, i) => (
+                      <tr key={i}>
+                        {event.kind === 'home' ? (
+                          <>
+                            <td>{t('gameDetails.debugInfo.network.home', 'Home')}</td>
+                            <td>{event.relayId}</td>
+                            <td>{event.relayAddr}</td>
+                          </>
+                        ) : (
+                          <>
+                            <td>{t('gameDetails.debugInfo.network.rehome', 'Rehome')}</td>
+                            <td>
+                              {event.deadRelayId} {'->'} {event.newRelayId}
+                            </td>
+                            <td>{event.newRelayAddr}</td>
+                          </>
+                        )}
+                        <td>
+                          <Tooltip text={longTimestampWithSeconds.format(event.at)} position='top'>
+                            {longTimestamp.format(event.at)}
+                          </Tooltip>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </DebugTable>
+              </DebugTableContainer>
             </div>
           )}
         </DebugCollapsibleContent>

@@ -1,12 +1,11 @@
 import { register } from 'prom-client'
 import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import createDeferred from '../../../common/async/deferred'
+import { GameServerRegionId, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { makeSbMapId, SbMapId } from '../../../common/maps'
 import {
   MatchmakingCompletionType,
   MatchmakingPreferences,
-  MatchmakingServiceErrorCode,
   MatchmakingType,
 } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -76,6 +75,9 @@ const USER_B = makeSbUserId(2)
 const CLIENT_A = 'CLIENT_A'
 const CLIENT_B = 'CLIENT_B'
 const GAME_ID = 'game-1'
+const REGION_US_EAST: GameServerRegionId = makeGameServerRegionId('us-east')
+/** A stand-in per-session public key (base64); the service stores it verbatim without validating. */
+const DEFAULT_PUBKEY = Buffer.alloc(32, 7).toString('base64')
 
 function makePreferences(): MatchmakingPreferences {
   return {
@@ -114,9 +116,11 @@ describe('matchmaking/matchmaking-service', () => {
   let banUser: ReturnType<typeof vi.fn>
   let clientSockets: Map<SbUserId, ClientSocketsGroup>
   let gameLoader: { loadGame: ReturnType<typeof vi.fn> }
-  let rallyPointService: {
-    getPingsForClient: ReturnType<typeof vi.fn>
-    waitForPingResult: ReturnType<typeof vi.fn>
+  let gameServerRegionsService: {
+    getRegions: ReturnType<typeof vi.fn>
+  }
+  let netcodeV2Service: {
+    warmRegions: ReturnType<typeof vi.fn>
   }
   let redisHandler: (event: { type: 'matchFound'; data: MatchFoundMessage }) => void
 
@@ -138,11 +142,16 @@ describe('matchmaking/matchmaking-service', () => {
     )
   }
 
-  async function queuePlayer(userId: SbUserId, clientId: string) {
+  async function queuePlayer(
+    userId: SbUserId,
+    clientId: string,
+    desiredRegion?: { region?: GameServerRegionId; rttMs?: number },
+    clientPubkey: string = DEFAULT_PUBKEY,
+  ) {
     const prefs = makePreferences()
     prefs.matchmakingType = MatchmakingType.Match1v1
     ;(prefs as any).userId = userId
-    await service.find(userId, clientId, [], [prefs])
+    await service.find(userId, clientId, [], [prefs], clientPubkey, desiredRegion)
   }
 
   async function queueMultiPlayer(
@@ -156,7 +165,7 @@ describe('matchmaking/matchmaking-service', () => {
       ;(prefs as any).userId = userId
       return prefs
     })
-    await service.find(userId, clientId, [], allPrefs)
+    await service.find(userId, clientId, [], allPrefs, DEFAULT_PUBKEY)
   }
 
   function completionsFor(userId: SbUserId, completionType: MatchmakingCompletionType) {
@@ -198,11 +207,14 @@ describe('matchmaking/matchmaking-service', () => {
         redisHandler = handler
       }),
     }
-    // Defaults to "no pings reported yet"; individual tests override to exercise latency capture.
-    // `waitForPingResult` resolves immediately by default so queueing isn't gated in most tests.
-    rallyPointService = {
-      getPingsForClient: vi.fn().mockReturnValue([]),
-      waitForPingResult: vi.fn().mockResolvedValue(undefined),
+    // Region list used to validate a queued player's desired region. Defaults to a single known
+    // region so region-forwarding tests can submit a valid region; tests that submit no region never
+    // reach this call.
+    gameServerRegionsService = {
+      getRegions: vi.fn().mockResolvedValue([{ id: REGION_US_EAST }]),
+    }
+    netcodeV2Service = {
+      warmRegions: vi.fn(),
     }
 
     asMockedFunction(getMatchmakingRating).mockImplementation(async (userId: SbUserId) =>
@@ -226,13 +238,45 @@ describe('matchmaking/matchmaking-service', () => {
       matchmakingBanService as any,
       restrictionService as any,
       redisSubscriber as any,
-      rallyPointService as any,
+      gameServerRegionsService as any,
+      netcodeV2Service as any,
     )
   })
 
   afterEach(() => {
     vi.clearAllTimers()
     vi.useRealTimers()
+  })
+
+  test('warms the queued region when a player queues with one', async () => {
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
+
+    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
+  })
+
+  test('does not warm when a player queues without a region', async () => {
+    await queuePlayer(USER_A, CLIENT_A)
+
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
+  })
+
+  test('re-warms queued regions on the renewal interval while players are queued', async () => {
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
+    netcodeV2Service.warmRegions.mockClear()
+
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(netcodeV2Service.warmRegions).toHaveBeenCalledWith([REGION_US_EAST])
+  })
+
+  test('stops re-warming once the queue empties', async () => {
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 20 })
+    await service.cancel(USER_A)
+    netcodeV2Service.warmRegions.mockClear()
+
+    await vi.advanceTimersByTimeAsync(120_000)
+
+    expect(netcodeV2Service.warmRegions).not.toHaveBeenCalled()
   })
 
   test('recovers from an orphaned Rust queue entry by canceling and retrying once', async () => {
@@ -431,6 +475,113 @@ describe('matchmaking/matchmaking-service', () => {
     })
   })
 
+  test('forwards each queued player rtt to the game loader alongside their region', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+    // A queued with a region + rtt; B queues with neither, so B must reach the loader region-blind
+    // and without an rtt entry.
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 24 })
+    await queuePlayer(USER_B, CLIENT_B)
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 12.5,
+        skillVariance: 30000,
+        winProbability: 0.42,
+        teamARating: 1500,
+        teamBRating: 1600,
+        maxLatency: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    const request = gameLoader.loadGame.mock.calls[0][0]
+    const slotForA = request.players.find((p: any) => p.userId === USER_A)
+    const slotForB = request.players.find((p: any) => p.userId === USER_B)
+    expect(slotForA.region).toBe(REGION_US_EAST)
+    expect(slotForB.region).toBeUndefined()
+    expect(request.rttMsByUserId).toEqual(new Map([[USER_A, 24]]))
+    // Both players submitted a pubkey when they queued; each reaches the loader keyed by user id.
+    expect(request.netcodeV2PubkeyByUserId).toEqual(
+      new Map([
+        [USER_A, DEFAULT_PUBKEY],
+        [USER_B, DEFAULT_PUBKEY],
+      ]),
+    )
+  })
+
+  test('preserves a queued player pubkey across a requeue', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+    // A distinct key for A so the final assertion proves A's own key survived, not a coincidence.
+    const pubkeyA = Buffer.alloc(32, 3).toString('base64')
+    await queuePlayer(USER_A, CLIENT_A, undefined, pubkeyA)
+    await queuePlayer(USER_B, CLIENT_B)
+
+    // B cancels before the match is processed, so A is requeued as innocent (its queue data — pubkey
+    // included — is kept, only `queuedAt` is refreshed).
+    await service.cancel(USER_B)
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    expect(rsRequeuePlayer).toHaveBeenCalledWith('ticket-a')
+
+    // A fresh opponent queues and a new match forms; the load must carry A's original pubkey.
+    await queuePlayer(USER_B, CLIENT_B)
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a2' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b2' }],
+        quality: 1,
+        skillVariance: 0,
+        winProbability: 0.5,
+        teamARating: 1500,
+        teamBRating: 1500,
+        maxLatency: 0,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    const request = gameLoader.loadGame.mock.calls[0][0]
+    expect(request.netcodeV2PubkeyByUserId.get(USER_A)).toBe(pubkeyA)
+  })
+
   test('records the match formation telemetry for a match that fails to start', async () => {
     asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
     asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
@@ -583,63 +734,42 @@ describe('matchmaking/matchmaking-service', () => {
     expect(byMode.get(MatchmakingType.Match1v1Fastest)).toBe(1)
   })
 
-  test("forwards the client's rally-point pings to the matchmaker so it can estimate latency", async () => {
-    // Latency is a property of a match, not a player, so the matchmaker can't compute it from one
-    // player alone — we hand it this client's per-server pings and let it derive a candidate match's
-    // latency by reproducing route selection. Verify those pings are read from the rally-point
-    // service for the queuing client and passed straight through.
-    const pings: Array<[number, number]> = [
-      [1, 24],
-      [2, 80],
-    ]
-    rallyPointService.getPingsForClient.mockReturnValue(pings)
+  test("forwards the client's validated region and rtt to the matchmaker", async () => {
+    // The matchmaker estimates a candidate match's latency from each player's chosen region and
+    // measured rtt. A region present in the live region list is passed straight through.
+    await queuePlayer(USER_A, CLIENT_A, { region: REGION_US_EAST, rttMs: 24 })
 
-    await queuePlayer(USER_A, CLIENT_A)
-
-    expect(rallyPointService.getPingsForClient).toHaveBeenCalledWith(clientSockets.get(USER_A))
+    expect(gameServerRegionsService.getRegions).toHaveBeenCalled()
     const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
-    expect(request.serverPings).toEqual(pings)
+    expect(request.region).toBe(REGION_US_EAST)
+    expect(request.rttMs).toBe(24)
   })
 
-  test('waits for the client to measure its pings before queueing', async () => {
-    // Latency is now a match-finding factor, so a player must have measured their rally-point pings
-    // before they're put in the queue. Hold the ping result and verify the player isn't queued in
-    // Rust until it resolves.
-    const pingDeferred = createDeferred<void>()
-    rallyPointService.waitForPingResult.mockReturnValue(pingDeferred)
+  test('drops an unknown region and queues with no latency signal', async () => {
+    // The region list can change between the client fetching it and queueing, so a region the server
+    // no longer knows must degrade to no-region rather than rejecting the queue.
+    const unknownRegion = makeGameServerRegionId('atlantis')
 
-    const queued = queuePlayer(USER_A, CLIENT_A)
-    // Flush the microtask chain up to the (still-pending) ping wait. rsQueuePlayer can't fire while
-    // the ping result is outstanding, so this assertion holds regardless of how far we've flushed.
-    for (let i = 0; i < 20; i++) {
-      await Promise.resolve()
-    }
-    expect(rallyPointService.waitForPingResult).toHaveBeenCalledWith(clientSockets.get(USER_A))
-    expect(rsQueuePlayer).not.toHaveBeenCalled()
+    await expect(
+      queuePlayer(USER_A, CLIENT_A, { region: unknownRegion, rttMs: 24 }),
+    ).resolves.toBeUndefined()
 
-    pingDeferred.resolve()
-    await queued
-    expect(rsQueuePlayer).toHaveBeenCalledTimes(1)
+    const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
+    expect(request.region).toBeUndefined()
+    expect(request.rttMs).toBeUndefined()
+    // The player is validly queued despite the unknown region.
+    await expect(service.cancel(USER_A)).resolves.toBeUndefined()
   })
 
-  test('fails with a clear error if the client never measures its pings', async () => {
-    // If a client can't reach any rally-point server its pings never arrive. The wait must be
-    // bounded so the player isn't left registered as an active gameplay client with no queue entry
-    // and no error — they should get a clear failure and be released from the activity registry.
-    rallyPointService.waitForPingResult.mockReturnValue(createDeferred<void>())
+  test('queues without a region when the client reports none', async () => {
+    // A user with no coordinator-configured regions (dev loopback) reports no region and must still
+    // be able to queue. The region list isn't even consulted in that case.
+    await expect(queuePlayer(USER_A, CLIENT_A)).resolves.toBeUndefined()
 
-    const queued = queuePlayer(USER_A, CLIENT_A).then(
-      () => undefined,
-      err => err,
-    )
-    // Let the pre-timeout work run, then trip the ping-result timeout.
-    await vi.advanceTimersByTimeAsync(11 * 1000)
-
-    const err = await queued
-    expect(err?.code).toBe(MatchmakingServiceErrorCode.PingMeasurementFailed)
-    expect(rsQueuePlayer).not.toHaveBeenCalled()
-    // Released from the registry so the player can retry rather than being stuck "in a game".
-    expect(activityRegistry.getClientForUser(USER_A)).toBeUndefined()
+    expect(gameServerRegionsService.getRegions).not.toHaveBeenCalled()
+    const request = asMockedFunction(rsQueuePlayer).mock.calls[0][0]
+    expect(request.region).toBeUndefined()
+    expect(request.rttMs).toBeUndefined()
   })
 
   test('matching in one mode abandons the others without recording their completions', async () => {

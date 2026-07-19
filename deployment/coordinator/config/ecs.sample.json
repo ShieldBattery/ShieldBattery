@@ -1,0 +1,31 @@
+{
+  "started_by": "rp2-coordinator-prod",
+  "container": "relay",
+  "relay_port": 14900,
+  "regions": {
+    "us-east": {
+      "aws_region": "us-east-1",
+      "cluster": "rp2-relays-prod",
+      "task_definition": "rp2-relay-prod",
+      "subnets": ["subnet-CHANGEME"],
+      "security_groups": ["sg-CHANGEME"],
+      "assign_public_ip": true
+    },
+    "us-west": {
+      "aws_region": "us-west-2",
+      "cluster": "rp2-relays-prod",
+      "task_definition": "rp2-relay-prod",
+      "subnets": ["subnet-CHANGEME"],
+      "security_groups": ["sg-CHANGEME"],
+      "assign_public_ip": true
+    },
+    "eu-central": {
+      "aws_region": "eu-central-1",
+      "cluster": "rp2-relays-prod",
+      "task_definition": "rp2-relay-prod",
+      "subnets": ["subnet-CHANGEME"],
+      "security_groups": ["sg-CHANGEME"],
+      "assign_public_ip": true
+    }
+  }
+}

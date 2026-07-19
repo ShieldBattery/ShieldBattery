@@ -24,6 +24,35 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
   gameType: GameType
   gameSubType: number
   teams: GameConfigPlayer[][]
+  /**
+   * Whether in-game alliance changes are disabled for this game, meaning the teams above remain
+   * authoritative for the whole game (no player can leave or join a team after starting). Result
+   * reconciliation uses this to enforce that only one team can win.
+   *
+   * Records created before this field existed won't have it set; readers should fall back to
+   * `gameSource === GameSource.Matchmaking`, since matchmaking has always locked alliances.
+   */
+  lockedAlliances?: boolean
+  /**
+   * Whether this game used netcode v2 (rally-point2) for its networking. This depends on the
+   * feature being enabled and the game having more than one human participant, neither of which is
+   * known when the game record is first created, so the loader persists it here once decided.
+   *
+   * Records created before this field existed, or whose loader never reached that decision (e.g.
+   * the game failed to load), won't have it set; readers should treat a missing value as `false`.
+   */
+  useNetcodeV2?: boolean
+  /**
+   * Whether this game is exempt from result tracking, because its teams include at least one
+   * computer player or because it has fewer than two human players. Unlike `useNetcodeV2`, the
+   * team composition is known as soon as the config is built, so this is set once at registration
+   * time and never changes.
+   *
+   * Matchmaking always has at least two human players and never includes computer players, so this
+   * only ever applies to lobby games. Records created before this field existed won't have it set;
+   * readers should treat a missing value as `false`.
+   */
+  resultsExempt?: boolean
 }
 
 export type LobbyGameConfig = SetOptional<

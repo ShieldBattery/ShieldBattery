@@ -490,6 +490,7 @@
       "useMapSettings": "使用地图设置"
     },
     "launchingGameDialog": {
+      "provisioningGameServer": "正在 {{regions}} 启动游戏服务器…",
       "title": "正在启动游戏…"
     },
     "mapName": {
@@ -537,10 +538,17 @@
       "detailedResults": "个人详细战绩",
       "downloadReplay": "下载录像",
       "hasReport": "已提交",
-      "latency": "延迟（毫秒）",
+      "network": {
+        "address": "地址",
+        "at": "时间",
+        "event": "事件",
+        "home": "分配",
+        "rehome": "重新分配",
+        "relay": "中继",
+        "session": "会话：{{session}}",
+        "title": "网络"
+      },
       "player": "玩家",
-      "player1": "玩家 1",
-      "player2": "玩家 2",
       "replay": "录像",
       "reportedAPM": "APM",
       "reportedAt": "提交时间",
@@ -550,8 +558,6 @@
       "reportedResults": "个人报告概览",
       "reportedTime": "上报时长",
       "reportTitle": "来自 <1></1> 的报告：",
-      "routes": "网络路线",
-      "server": "服务器",
       "title": "调试信息"
     },
     "errorLoading": "加载该游戏时遇到了问题。",
@@ -563,6 +569,7 @@
     "infoDate": "日期",
     "infoDuration": "时长",
     "infoGameType": "游戏类型",
+    "notFound": "未找到该游戏。",
     "statusFinal": "最终",
     "statusLive": "直播中",
     "summary": {
@@ -626,6 +633,21 @@
     "reporting": {
       "actionedNotification": "我们已对您举报的一名玩家采取了处理措施。感谢您帮助维护公平的社区环境。",
       "pointsRefundedNotification": "经过审核，您在一场对局中失去的排位积分已返还给您。"
+    }
+  },
+  "gameServerRegions": {
+    "name": {
+      "au": "澳大利亚",
+      "ca-east": "加拿大东部",
+      "eu-central": "欧洲中部",
+      "eu-north": "欧洲北部",
+      "hk": "香港",
+      "kr": "韩国",
+      "mx": "墨西哥",
+      "sa-east": "南美东部",
+      "sg": "新加坡",
+      "us-east": "美国东部",
+      "us-west": "美国西部"
     }
   },
   "home": {
@@ -783,9 +805,6 @@
       "mapRequired": "选择要玩的地图",
       "selectMap": "选择地图",
       "title": "创建房间",
-      "turnRate": "转换率",
-      "turnRateAuto": "自动设置",
-      "turnRateDynamic": "动态转换率（不推荐使用）",
       "useLegacyLimits": "使用旧版单位数量限制"
     },
     "errors": {
@@ -809,9 +828,6 @@
       "gameType": "游戏类型",
       "leaveLobby": "离开房间",
       "startGame": "开始游戏",
-      "turnRate": "转换率",
-      "turnRateAuto": "自动设置",
-      "turnRateDynamic": "动态转换率",
       "unitLimit": "单位数量限制",
       "unitLimitExtended": "扩展",
       "unitLimitLegacy": "原版"
@@ -1041,7 +1057,6 @@
         "dialogTitle": "匹配时遇到错误",
         "invalidMaps": "您必须在设置中为每种所选匹配类型至少选择一张地图。",
         "matchmakingDisabled": "目前已禁用匹配功能",
-        "pingMeasurementFailed": "无法测量您与游戏服务器的连接。请检查您的连接后重试。",
         "searchAgainError": "搜索比赛时出现问题",
         "somethingWentWrong": "出错了 :(",
         "userOffline": "与服务器的连接中断，请重新连接后重试。"
@@ -1237,8 +1252,16 @@
       },
       "system": {
         "filesOverline": "文件",
+        "networkOverline": "网络",
         "replayQuickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
         "runOnStartup": "开机时自动启动ShieldBattery",
+        "serverRegion": {
+          "autoPlain": "自动（推荐）",
+          "autoResolved": "自动 — {{region}} ({{rtt}}ms)",
+          "label": "服务器地区",
+          "locked": "在房间或匹配中时无法更改。",
+          "regionWithPing": "{{region}} ({{rtt}}ms)"
+        },
         "startMinimized": "启动时自动最小化",
         "startupOverline": "启动",
         "title": "系统"

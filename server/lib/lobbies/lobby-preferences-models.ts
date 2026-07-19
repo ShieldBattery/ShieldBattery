@@ -11,7 +11,6 @@ export interface LobbyPreferences {
   gameSubType?: number
   recentMaps?: string[]
   selectedMap?: string
-  turnRate?: number
   useLegacyLimits?: boolean
 }
 
@@ -25,7 +24,6 @@ function fromDbLobbyPreferences(prefs: DbLobbyPreferences): LobbyPreferences {
     gameSubType: prefs.game_sub_type !== null ? prefs.game_sub_type : undefined,
     recentMaps: prefs.recent_maps !== null ? prefs.recent_maps : undefined,
     selectedMap: prefs.selected_map !== null ? prefs.selected_map : undefined,
-    turnRate: prefs.turn_rate !== null ? prefs.turn_rate : undefined,
     useLegacyLimits: prefs.use_legacy_limits !== null ? prefs.use_legacy_limits : undefined,
   }
 }
@@ -38,7 +36,6 @@ export async function upsertLobbyPreferences(
     gameSubType,
     recentMaps,
     selectedMap,
-    turnRate,
     useLegacyLimits,
   }: ReadonlyDeep<LobbyPreferences>,
 ): Promise<LobbyPreferences> {
@@ -47,10 +44,9 @@ export async function upsertLobbyPreferences(
   try {
     const result = await client.query<DbLobbyPreferences>(sql`
       INSERT INTO lobby_preferences
-        (user_id, name, game_type, game_sub_type, recent_maps, selected_map, turn_rate,
-          use_legacy_limits)
+        (user_id, name, game_type, game_sub_type, recent_maps, selected_map, use_legacy_limits)
       VALUES (${userId}, ${name}, ${gameType}, ${gameSubType}, ${recentMaps}, ${selectedMap},
-        ${turnRate}, ${useLegacyLimits})
+        ${useLegacyLimits})
       ON CONFLICT (user_id)
       DO UPDATE SET
         name = ${name},
@@ -58,7 +54,6 @@ export async function upsertLobbyPreferences(
         game_sub_type = ${gameSubType},
         recent_maps = ${recentMaps},
         selected_map = ${selectedMap},
-        turn_rate = ${turnRate},
         use_legacy_limits = ${useLegacyLimits}
       WHERE lobby_preferences.user_id = ${userId}
       RETURNING *;

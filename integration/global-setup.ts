@@ -30,27 +30,27 @@ setup('create admin account', async ({ page, request }) => {
   await loginPage.navigateTo()
   await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
   await loginPage.loginWith('admin', 'admin1234')
-  await page.waitForSelector('[data-test=app-bar-user-button]')
+  await page.waitForSelector('[data-testid=app-bar-user-button]')
 
   await page.goto('/users/1/admin/admin')
-  await page.waitForSelector('[data-test=permissions-form]')
+  await page.waitForSelector('[data-testid=permissions-form]')
 
   const checkboxes = page.locator(
-    'form[data-test=permissions-form] input[type=checkbox]:not(:disabled)',
+    'form[data-testid=permissions-form] input[type=checkbox]:not(:disabled)',
   )
   const count = await checkboxes.count()
   for (let i = 0; i < count; i++) {
     await checkboxes.nth(i).check()
   }
 
-  await page.click('[data-test=save-permissions-button]')
+  await page.click('[data-testid=save-permissions-button]')
 
-  await page.waitForSelector('[data-test=punishments-button]')
+  await page.waitForSelector('[data-testid=punishments-button]')
 
   // Set up a restricted name for testing
   await page.goto('/admin/restricted-names')
   await page.fill('input[name="pattern"]', RESTRICTED_TEST_NAME)
   await page.click('input[name="kind"][value="EXACT"]')
-  await page.click('[data-test=add-restricted-name-button]')
-  await page.waitForSelector('[data-test=added-confirmation]')
+  await page.click('[data-testid=add-restricted-name-button]')
+  await page.waitForSelector('[data-testid=added-confirmation]')
 })

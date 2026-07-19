@@ -1,0 +1,33 @@
+[package]
+name = "overlay-ui"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "overlay_ui"
+
+[dependencies]
+# Same egui the injected game DLL renders through, referenced via the workspace dependency so the
+# two can never drift on version/features (they must tessellate identically for the preview to match
+# the game).
+egui = { workspace = true }
+
+# Preview-host-only dependencies. All optional and gated behind the `preview` feature, which only the
+# `overlay-preview` binary requires, so the game DLL — which depends on this crate for its lib alone —
+# never pulls eframe/winit/image into its build graph.
+eframe = { version = "0.35", optional = true }
+image = { version = "0.25", default-features = false, features = [
+  "png",
+], optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+[features]
+# Enables the eframe preview host (the `overlay-preview` bin). Off by default, so the DLL build never
+# sees eframe.
+preview = ["dep:eframe", "dep:image", "dep:serde", "dep:serde_json"]
+
+[[bin]]
+name = "overlay-preview"
+path = "src/bin/overlay_preview.rs"
+required-features = ["preview"]

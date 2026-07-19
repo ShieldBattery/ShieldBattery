@@ -3,7 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import Koa from 'koa'
 import { Readable } from 'stream'
-import { container, inject, singleton } from 'tsyringe'
+import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ALL_GAME_FORMATS,
@@ -12,6 +12,7 @@ import {
   GameSortOption,
 } from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
+import { GameType } from '../../../common/games/game-type'
 import {
   GameDebugInfo,
   GameReplayInfo,
@@ -25,11 +26,11 @@ import {
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
+import { NetcodeV2RehomeRequest, NetcodeV2RehomeResponse } from '../../../common/games/netcode-v2'
 import {
-  ALL_GAME_CLIENT_RESULTS,
   GameResultErrorCode,
+  isRawStoredGameResults,
   SubmitGameReplayRequest,
-  SubmitGameResultsRequest,
 } from '../../../common/games/results'
 import { SbMapId, toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
@@ -42,7 +43,7 @@ import { httpBefore, httpGet, httpPost, httpPut } from '../http/route-decorators
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { getGameReportedResults, getUserGameRecord } from '../models/games-users'
-import { UpsertUserIp } from '../network/user-ips-type'
+import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
@@ -56,13 +57,19 @@ import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
 import { GameLoader } from './game-loader'
-import { countCompletedGames, getGameRoutes, getGames } from './game-models'
+import {
+  countCompletedGames,
+  getGames,
+  getNetcodeV2DebugInfo,
+  getNetcodeV2Session,
+} from './game-models'
 import {
   GamePointsRefundErrorCode,
   GamePointsRefundService,
   GamePointsRefundServiceError,
 } from './game-points-refund-service'
 import GameResultService, { GameResultServiceError } from './game-result-service'
+import { deriveResultSubmission } from './raw-results'
 
 /** Maximum size of a replay file that we allow to be uploaded. */
 const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
@@ -198,10 +205,10 @@ async function convertServiceErrors(ctx: RouterContext, next: Koa.Next) {
 export class GameApi {
   constructor(
     private gameResultService: GameResultService,
-    @inject('upsertUserIp') private upsertUserIp: UpsertUserIp,
     private gameLoader: GameLoader,
     private replayService: ReplayService,
     private gamePointsRefundService: GamePointsRefundService,
+    private netcodeV2Service: NetcodeV2Service,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -347,10 +354,10 @@ export class GameApi {
     let debugInfo: GameDebugInfo | undefined
     if (ctx.session?.permissions?.debug) {
       try {
-        const [routes, reportedResults, allReplays] = await Promise.all([
-          getGameRoutes(gameId),
+        const [reportedResults, allReplays, netcodeV2] = await Promise.all([
           getGameReportedResults(gameId),
           getAllReplaysForGame(gameId),
+          getNetcodeV2DebugInfo(gameId),
         ])
 
         const replayDebugInfo = await Promise.all(
@@ -367,10 +374,25 @@ export class GameApi {
           })),
         )
 
+        // The debug view shows per-player verdicts. A raw (v2) report is undigested, so derive its
+        // verdicts (the same way reconciliation would) before displaying it.
+        const isUms = game.config.gameType === GameType.UseMapSettings
+        const debugReportedResults = reportedResults.map(r => {
+          if (r.reportedResults && isRawStoredGameResults(r.reportedResults)) {
+            const derived = deriveResultSubmission(r.reportedResults, r.userId, { isUms })
+            return {
+              userId: r.userId,
+              reportedAt: r.reportedAt,
+              reportedResults: { time: derived.time, playerResults: derived.playerResults },
+            }
+          }
+          return { userId: r.userId, reportedAt: r.reportedAt, reportedResults: r.reportedResults }
+        })
+
         debugInfo = {
-          routes,
-          reportedResults,
+          reportedResults: debugReportedResults,
           replays: replayDebugInfo.length > 0 ? replayDebugInfo : undefined,
+          netcodeV2,
         }
       } catch (err) {
         // Log error but don't fail the request
@@ -461,37 +483,31 @@ export class GameApi {
     ctx.status = 204
   }
 
-  // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,
-  // the body is intended to be secret per user and authenticate that they are the one who sent it.
-  @httpPost('/:gameId/results2')
+  // NOTE(tec27): Like the replay endpoint this doesn't require being logged in — the game
+  // client authenticates by presenting the per-(game, user) resultCode the server minted, which is
+  // secret to that user. The game client posts here when its home relay looks dead and it needs the
+  // session re-homed; the server (not the client) does the tenant-signed coordinator round trip.
+  @httpPost('/:gameId/netcodeV2Rehome')
   @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
-  async submitGameResults(ctx: RouterContext): Promise<void> {
+  async netcodeV2Rehome(ctx: RouterContext): Promise<NetcodeV2RehomeResponse> {
     const {
       params: { gameId },
-      body: { userId, resultCode, time, playerResults },
+      body: { userId, resultCode, deadRelayId },
     } = validateRequest(ctx, {
       params: GAME_ID_PARAM,
-      body: Joi.object<SubmitGameResultsRequest>({
-        userId: Joi.number().min(0).required(),
+      body: Joi.object<NetcodeV2RehomeRequest>().keys({
+        // `.integer()`: `userId` is an account id and `deadRelayId` is a coordinator u64 relay id
+        // — a fractional value (e.g. `1.5`) is meaningless and would only fail downstream at the
+        // coordinator, so reject it here.
+        userId: Joi.number().integer().min(0).required(),
         resultCode: Joi.string().required(),
-        time: Joi.number().min(0).required(),
-        playerResults: Joi.array()
-          .items(
-            Joi.array().ordered(
-              joiUserId().required(),
-              Joi.object({
-                result: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
-                race: Joi.string().valid('p', 't', 'z').required(),
-                apm: Joi.number().min(0).required(),
-              }).required(),
-            ),
-          )
-          .min(0)
-          .max(8)
-          .required(),
-      }).required(),
+        deadRelayId: Joi.number().integer().min(0).required(),
+      }),
     })
 
+    if (!this.netcodeV2Service.isEnabled()) {
+      throw new httpErrors.NotFound('netcode v2 is not enabled')
+    }
     if (this.gameLoader.isLoading(gameId)) {
       throw new GameResultServiceError(
         GameResultErrorCode.NotLoaded,
@@ -499,22 +515,33 @@ export class GameApi {
       )
     }
 
-    await this.gameResultService.submitGameResults({
-      gameId,
-      userId,
-      resultCode,
-      time,
-      playerResults,
-      logger: ctx.log,
-    })
+    // Same auth as the replay upload: the resultCode must match what's stored for this user/game.
+    const gameUserRecord = await getUserGameRecord(userId, gameId)
+    if (!gameUserRecord || gameUserRecord.resultCode !== resultCode) {
+      throw new GameResultServiceError(GameResultErrorCode.NotFound, 'no matching game found')
+    }
 
-    // If it was successful, record this user's IP for that account, since the normal middleware
-    // to do so won't have run
-    this.upsertUserIp(userId, ctx.ip).catch(err => {
-      logger.error({ err }, 'error upserting user IP')
-    })
+    // Only a user still actively in the game may drive failover. A user who has already submitted a
+    // result, or whose mid-game departure the relay recorded, is done — and letting a done (e.g.
+    // departed) player keep asking to re-home would let them drain the coordinator's per-session
+    // rehome rate-limit bucket and 429 a real survivor's failover. This is the same "human is done"
+    // predicate `areAllHumansAccountedFor` keys on (reported a result, or has a recorded departure).
+    if (gameUserRecord.reportedResults != null || gameUserRecord.departureKind != null) {
+      throw new GameResultServiceError(
+        GameResultErrorCode.AlreadyReported,
+        'game participant has already finished and cannot re-home',
+      )
+    }
 
-    ctx.status = 204
+    // Only a live netcode-v2 game with a coordinator session on record can be re-homed.
+    const session = await getNetcodeV2Session(gameId)
+    if (session === null) {
+      throw new httpErrors.Conflict('game has no active netcode v2 session')
+    }
+
+    // The route framework uses the handler's return value as the response body (see http-api.ts) —
+    // assigning ctx.body here would be overwritten with undefined.
+    return await this.netcodeV2Service.rehomeSession(gameId, session, deadRelayId)
   }
 
   // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,

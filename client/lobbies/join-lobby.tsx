@@ -72,7 +72,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
   const { t } = useTranslation()
 
   return (
-    <ListEntryRoot onClick={() => onClick(lobby)}>
+    <ListEntryRoot onClick={() => onClick(lobby)} data-testid='lobby-list-entry'>
       <Info>
         <TitleLarge>{lobby.name}</TitleLarge>
         <TitleMedium>{lobby.host.name}</TitleMedium>
@@ -155,6 +155,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' size={20} />}
             onClick={healthChecked(onNavigateToCreate)}
+            testName='create-lobby-button'
           />
         ) : undefined}
       </TitleBar>

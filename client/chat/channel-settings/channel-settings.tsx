@@ -203,7 +203,7 @@ function NavEntry({
   }
 
   return (
-    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0} data-test={testName}>
+    <NavEntryRoot $isActive={isActive} {...buttonProps} tabIndex={0} data-testid={testName}>
       <NavEntryText>{getPageLabel(page)}</NavEntryText>
       <Ripple ref={rippleRef} />
     </NavEntryRoot>

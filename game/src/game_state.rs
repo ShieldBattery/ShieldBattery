@@ -16,32 +16,26 @@ use tokio::select;
 use tokio::sync::{mpsc, oneshot};
 
 use crate::app_messages::{
-    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameResultsReport,
-    GameSetupInfo, LobbyPlayerId, MapForce, MapInfo, NetworkStallInfo, PlayerInfo, Route, SbUser,
-    SbUserId, ServerConfig, Settings, SetupProgress, UmsLobbyRace,
+    GAME_STATUS_ERROR, GamePlayerResult, GameResults, GameResultsMessage, GameSetupInfo, GameType,
+    MapForce, MapInfo, NetcodeV2Setup, NetworkStallInfo, NetworkStatus, NetworkTransport,
+    PlayerInfo, RawGameResultsReport, RawNetPlayer, RawPlayerResult, SbUser, SbUserId,
+    ServerConfig, Settings, SetupProgress, UmsLobbyRace,
 };
 use crate::app_socket;
 use crate::bw::players::{AllianceState, BwPlayerId, PlayerLoseType, StormPlayerId, VictoryState};
 use crate::bw::{self, Bw, BwGameType, LobbyOptions, UserLatency, get_bw};
-use crate::bw_scr::BwScr;
 use crate::cancel_token::{CancelToken, Canceler, SharedCanceler};
 use crate::forge;
 use crate::game_thread::{
     self, GameThreadMessage, GameThreadRequest, GameThreadRequestType, GameThreadResults,
 };
-use crate::network_manager::{
-    GameStateToNetworkMessage, NetworkError, NetworkManager, NetworkToGameStateMessage,
-};
-use crate::proto::messages::game_message_payload::Payload;
-use crate::proto::messages::{ClientAckResponseMessage, ClientReadyMessage};
+use crate::netcode_v2;
 use crate::replay;
 
 pub type SendMessages = mpsc::Sender<GameStateMessage>;
 
 pub struct GameState {
     init_state: InitState,
-    network: NetworkManager,
-    network_send: mpsc::Sender<GameStateToNetworkMessage>,
     ws_send: app_socket::SendMessages,
     internal_send: SendMessages,
     init_main_thread: std::sync::mpsc::Sender<()>,
@@ -49,7 +43,10 @@ pub struct GameState {
     #[allow(dead_code)]
     running_game: Option<Canceler>,
     async_stop: SharedCanceler,
-    can_start_game: AwaitableTaskState,
+    /// Netcode v2 credentials + relay endpoints, if the app sent them (`netcodeV2Setup`). Consumed
+    /// by `init_game` to stand up the rally-point2 session (`netcode_v2::establish_session`).
+    /// `None` for a solo game (which runs a sessionless turn state) or a replay.
+    netcode_v2_setup: Option<Box<NetcodeV2Setup>>,
 }
 
 enum AwaitableTaskState<T = ()> {
@@ -70,7 +67,6 @@ struct IncompleteInit {
     blocked_users: Vec<SbUserId>,
     server_config: Option<ServerConfig>,
     settings_set: bool,
-    routes_set: bool,
 }
 
 impl IncompleteInit {
@@ -80,9 +76,6 @@ impl IncompleteInit {
     ) -> Result<InitInProgress, GameInitError> {
         if !self.settings_set {
             return Err(GameInitError::SettingsNotSet);
-        }
-        if !self.routes_set {
-            return Err(GameInitError::RoutesNotSet);
         }
         if self.local_user.is_none() {
             return Err(GameInitError::LocalUserNotSet);
@@ -103,19 +96,25 @@ impl IncompleteInit {
 /// Messages sent from other async tasks to communicate with GameState
 pub enum GameStateMessage {
     SetSettings(Settings),
-    SetRoutes(Vec<Route>),
+    /// Netcode v2 (rally-point2) per-session credentials + relay endpoints from the app.
+    /// Boxed because it is large and rarely sent (once per game) relative to the other variants.
+    SetNetcodeV2Setup(Box<NetcodeV2Setup>),
     SetLocalUser(SbUser),
     SetBlockedUsers(Vec<SbUserId>),
     SetServerConfig(ServerConfig),
     SetupGame(Box<GameSetupInfo>),
-    StartWhenReady,
-    InLobby,
-    PlayersChanged,
+    /// The fully-known joined-player set, built directly from the session roster + slot layout.
+    /// Populates `joined_players` (for results/chat/id-mapping) and completes the
+    /// all-players-joined gate.
+    SetV2JoinedPlayers(Vec<JoinedPlayer>),
     GameSetupDone,
     GameThread(GameThreadMessage),
-    Network(NetworkToGameStateMessage),
     CleanupQuit,
     QuitIfNotStarted,
+    /// Debug/verification control surface command (see `crate::debug_control`); absent from
+    /// release builds.
+    #[cfg(debug_assertions)]
+    DebugControl(crate::debug_control::DebugControlCommand),
 }
 
 quick_error! {
@@ -133,9 +132,6 @@ quick_error! {
         ServerConfigNotSet {
             display("Server config not set")
         }
-        RoutesNotSet {
-            display("Routes not set")
-        }
         Closed {
             display("Game is being closed")
         }
@@ -151,11 +147,8 @@ quick_error! {
         NoShieldbatteryId(name: String) {
             display("Player {} doesn't have shieldbattery user id", name)
         }
-        StormIdChanged(name: String) {
-            display("Unexpected storm id change for player {}", name)
-        }
-        NetworkInit(e: NetworkError) {
-            display("Network initialization error: {}", e)
+        NetcodeV2SessionInit(msg: String) {
+            display("Netcode v2 session could not be established: {}", msg)
         }
         UnknownGameType(ty: crate::app_messages::GameType, sub: Option<u8>) {
             display("Unknown game type '{:?}', {:?}", ty, sub)
@@ -210,38 +203,11 @@ impl GameState {
         }
     }
 
-    fn set_routes(&mut self, routes: Vec<Route>) -> impl Future<Output = ()> + '_ {
-        if let InitState::WaitingForInput(ref mut state) = self.init_state {
-            state.routes_set = true;
-            // TODO log error
-            self.network.set_routes(routes).map(|_| ()).boxed()
-        } else {
-            error!("Received routes after game was started");
-            future::ready(()).boxed()
-        }
-    }
-
     fn send_game_request(
         &mut self,
         request_type: GameThreadRequestType,
     ) -> impl Future<Output = ()> + use<> {
         send_game_request(&self.send_main_thread_requests, request_type)
-    }
-
-    fn wait_can_start_game(&mut self) -> impl Future<Output = ()> + use<> {
-        let recv = match self.can_start_game {
-            AwaitableTaskState::Incomplete(ref mut waiters) => {
-                let (send, recv) = oneshot::channel();
-                waiters.push(send);
-                Some(recv)
-            }
-            AwaitableTaskState::Complete => None,
-        };
-        async move {
-            if let Some(recv) = recv {
-                let _ = recv.await;
-            }
-        }
     }
 
     /// On success, returns once game is ready to be started & shown.
@@ -258,14 +224,10 @@ impl GameState {
         };
 
         let info = Arc::new(info);
-        // The complete initialization logic is split between futures in this function
-        // and self.init_state updating itself in response to network events,
-        // both places poking bw's state as well..
-        // It may probably be better to move everything to InitInProgress and have this
-        // function just initialize it?
-        // For now it's worth noting that until the `init_state.wait_for_players` future
-        // completes, InitInProgress will update bw's player state.
-        let mut init_state = match self.init_state {
+        // The complete initialization logic is split between the future in this function and
+        // InitInProgress, both places poking bw's state as well.. It may probably be better to move
+        // everything to InitInProgress and have this function just initialize it?
+        let init_state = match self.init_state {
             InitState::WaitingForInput(ref mut state) => match state.init_if_ready(&info) {
                 Ok(o) => o,
                 Err(e) => return future::err(e).boxed(),
@@ -275,26 +237,24 @@ impl GameState {
             }
         };
         let local_user = init_state.local_user.clone();
-        let mut players_joined = init_state.wait_for_players().boxed();
-        let all_players_ready = init_state.wait_all_players_ready().boxed();
+        // The server base URL the netcode-v2 re-home provider posts to (same origin as the results
+        // submission). Captured before `init_state` is moved into `Started`.
+        let server_url = init_state.server_config.server_url.clone();
         self.init_state = InitState::Started(init_state);
 
         let send_messages_to_state = self.internal_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
+        let ws_send = self.ws_send.clone();
 
-        let network_send = self.network_send.clone();
-
-        let network = self.network.clone();
-        let allow_start = self.wait_can_start_game().boxed();
+        // Present for a relay game, whose per-session credentials + relay endpoints the app sent as
+        // `netcodeV2Setup`; absent for a solo (single-human) game or a replay. Drives the transport
+        // policy the async block below branches on.
+        let netcode_v2_setup = self.netcode_v2_setup.take();
 
         self.init_main_thread
             .send(())
             .expect("Main thread should be waiting for a wakeup");
         async move {
-            let init_routes_when_ready_future = network.init_routes_when_ready();
-            let network_ready_future = network.wait_network_ready();
-            let net_game_info_set_future = network.set_game_info(info.clone());
-
             let sbat_replay_data = match info.is_replay() {
                 true => Some(read_sbat_replay_data(Path::new(&info.map_path))),
                 false => None,
@@ -327,152 +287,462 @@ impl GameState {
             };
 
             unsafe {
+                // Writes the local player name, brings up the SNP provider (choose_snp) and sets
+                // is_multiplayer. A networked game needs the provider too: Storm's local session
+                // create hard-fails without one, even though the rp2 turn transport carries all real
+                // traffic. A replay plays back through a local Storm session created here (it is
+                // always its own host), with its user latency from the setup info; networked games
+                // create their lobby in their own setup path below and let the turn transport own
+                // latency.
                 get_bw().remaining_game_init(&local_user.name);
-                if is_host {
+                if info.is_replay() {
                     create_lobby(&info)?;
-
                     debug!("Setting initial user latency: {latency:?}");
                     get_bw().set_user_latency(latency);
                 }
             }
 
-
-
-
-            init_routes_when_ready_future
-                .await
-                .map_err(GameInitError::NetworkInit)?;
             start_game_request(&game_request_send, GameThreadRequestType::RunWndProc)
                 .map_err(|()| GameInitError::Closed)?;
-            net_game_info_set_future
-                .await
-                .map_err(GameInitError::NetworkInit)?;
-            network_ready_future
-                .await
-                .map_err(GameInitError::NetworkInit)?;
-            debug!("Network ready");
-            if !is_host {
-                unsafe {
-                    join_lobby(&info, game_type, latency).await?;
-                }
-            }
 
-            game_thread::step_lobby_init();
-
-            let bw = get_bw();
-            let seq = bw.snet_next_turn_sequence_number().wrapping_sub(1);
-            debug!("In lobby, setting up slots, turn seq {seq}");
-            unsafe {
-                let ums_forces = match info.map {
-                    MapInfo::Replay(_) => &[],
-                    MapInfo::Game(ref game_map) => &game_map.map_data.ums_forces[..],
+            // Transport policy:
+            // - `netcodeV2Setup` present → a relay game (host or peer): stand up the QUIC turn
+            //   transport and run the native lobby over the rp2 seam.
+            // - absent, a replay → play back locally from the recorded command stream (no session).
+            // - absent, exactly one human → a solo game: a sessionless, local-only turn state.
+            // - absent, more than one human → a server misconfiguration: fail the load loudly.
+            if let Some(setup) = netcode_v2_setup {
+                // Stand up the rally-point2 turn transport before the native lobby is created. A game
+                // launched for netcode v2 must run on it; if the relay can't be reached the load
+                // fails outright, so the app cancels it and surfaces an error rather than silently
+                // playing on native networking.
+                //
+                // A game with AI players self-closes its relay session when the last remote human
+                // leaves, so the lone human plays on versus the computers locally (see
+                // `TurnState::should_self_close`).
+                let has_computers = info.slots.iter().any(|s| s.is_computer());
+                // Context the re-home provider authenticates its SB-server failover requests with
+                // (the same gameId + userId + resultCode the results submission uses).
+                let rehome_context = netcode_v2::RehomeContext {
+                    server_url: server_url.clone(),
+                    game_id: info.game_id.clone(),
+                    user_id: local_user.id,
+                    result_code: info.result_code.clone(),
                 };
-                setup_slots(&info.slots, &info.users, game_type, ums_forces);
-            }
+                let mut session_start =
+                    netcode_v2::establish_session(&setup, has_computers, rehome_context)
+                        .await
+                        .map_err(|e| GameInitError::NetcodeV2SessionInit(e.to_string()))?;
+                info!("Netcode v2 session established");
+                // Route lobby command traffic through the rp2 turn transport rather than native
+                // Storm networking. This must latch on before any native create/join runs: the
+                // host's lobby machine starts flushing lobby turns the instant its session is
+                // created, and those turns have to ride the seam from the very first flush.
+                netcode_v2::with_turn_state(|s| s.enable_lobby_seam());
+                let _ = app_socket::send_message(
+                    &ws_send,
+                    "/game/networkStatus",
+                    NetworkStatus {
+                        transport: NetworkTransport::NetcodeV2,
+                        error: None,
+                    },
+                )
+                .await;
+                if cfg!(target_arch = "x86_64") {
+                    // The Storm session-player struct's 64-bit field offsets are unverified (see
+                    // StormSessionPlayer in bw_scr/scr.rs) — seeding would write through guessed
+                    // offsets into native heap objects. Refuse the load cleanly until they're
+                    // verified.
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "netcode v2 native-lobby setup is not yet supported on 64-bit builds"
+                            .into(),
+                    ));
+                }
+                // Native-lobby setup over the rp2 seam: the host creates the native lobby and each
+                // peer joins it, but all lobby command traffic rides the turn transport rather than
+                // Storm networking. Storm ids come straight from the rp2 roster (storm id ≡ rp2
+                // slot) instead of being learned from a Storm join, and the joined-player set is
+                // built directly rather than discovered through Storm's flag-poll reconciliation.
+                let bw = get_bw();
+                let MapInfo::Game(ref game_map) = info.map else {
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "netcode v2 game is not a map game".into(),
+                    ));
+                };
 
-            send_messages_to_state
-                .send(GameStateMessage::InLobby)
-                .await
-                .map_err(|_| GameInitError::Closed)?;
+                // The (user → storm id) mapping from the live session roster (storm id ≡ rp2 slot).
+                let storm_id_map: HashMap<SbUserId, u8> =
+                    netcode_v2::with_turn_state(|s| s.roster_storm_ids())
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|(user, storm)| (user, storm.0))
+                        .collect();
+                let Some(&local_storm) = storm_id_map.get(&local_user.id) else {
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "local user has no slot in the session roster".into(),
+                    ));
+                };
 
-            loop {
+                // storm_create_game validates both names as non-empty. Strip any interior NULs so
+                // the CStrings are well-formed, and fall back to a constant game name if empty.
+                let game_name = sanitized_name_cstring(&info.name)
+                    .unwrap_or_else(|| CString::new("game").unwrap());
+                let local_name = sanitized_name_cstring(&local_user.name).ok_or_else(|| {
+                    GameInitError::NetcodeV2SessionInit("local player name is empty".into())
+                })?;
+
+                // The peer's join replacement rebuilds an equivalent Storm session from these inputs;
+                // the total slot count is the number of setup slots (what native create derives from
+                // its GameInput on the host side).
+                let slot_count = info.slots.len() as u32;
+
+                // Every OTHER session member (the local player builds its own identity). Each member's
+                // name comes from the roster user list, NUL-stripped like the local name, and its
+                // Storm net key is derived from its slot + user id. A roster member missing from
+                // the user list, or whose name sanitizes to empty, is a server-data invariant
+                // violation — fail the load loudly rather than silently dropping the member.
+                let members: Vec<netcode_v2::StormMemberSeed> = storm_id_map
+                    .iter()
+                    .filter(|&(&user_id, _)| user_id != local_user.id)
+                    .map(|(&user_id, &slot)| {
+                        let name = info
+                            .users
+                            .iter()
+                            .find(|u| u.id == user_id)
+                            .and_then(|u| sanitized_name_cstring(&u.name))
+                            .ok_or_else(|| {
+                                GameInitError::NetcodeV2SessionInit(format!(
+                                    "roster member {user_id:?} has no usable name in the user list"
+                                ))
+                            })?;
+                        Ok(netcode_v2::StormMemberSeed {
+                            slot,
+                            name,
+                            net_key: netcode_v2::storm_net_key(slot, user_id),
+                        })
+                    })
+                    .collect::<Result<Vec<_>, GameInitError>>()?;
+
+                let ums_forces = &game_map.map_data.ums_forces[..];
+
+                if is_host {
+                    // Storm makes the session creator slot 0 unconditionally, and storm id ≡ rp2
+                    // slot everywhere else, so the server assigns the host rp2 slot 0. If that
+                    // contract ever breaks, every id derived from the roster is wrong — fail the
+                    // load loudly instead of desyncing on the first turn.
+                    if local_storm != 0 {
+                        return Err(GameInitError::NetcodeV2SessionInit(format!(
+                            "host must occupy rp2 slot 0, got slot {local_storm}"
+                        )));
+                    }
+                    unsafe {
+                        // Create the native lobby (its Storm create allocates the session the peers
+                        // are admitted into). No set_user_latency: netcode v2 latency is relay-owned.
+                        create_lobby(&info)?;
+                        // Admit the peers into the just-created session, standing in for the network
+                        // join packets native Storm would have received from each of them.
+                        bw.v2_seed_storm_session_members(&members);
+                    }
+                } else {
+                    // Stage the session seed the storm_join_game hook consumes to build this client's
+                    // Storm session itself (create-then-fixup + member seeding) instead of running the
+                    // native network join handshake.
+                    netcode_v2::set_lobby_session_seed(netcode_v2::LobbySessionSeed {
+                        game_name,
+                        local_name,
+                        slot_count,
+                        local_slot: local_storm,
+                        members,
+                    });
+                    unsafe {
+                        join_lobby(&info, game_type, latency).await?;
+                    }
+                    // Drop the staged seed now that the join consumed it: a stale seed must never
+                    // survive to be picked up by any later storm_join_game call. This only covers
+                    // the success path — `join_lobby`'s error/cancellation paths never reach here,
+                    // but session teardown (`clear_session`) clears the seed too, so those paths
+                    // are still covered.
+                    netcode_v2::clear_lobby_session_seed();
+                }
+
+                game_thread::step_lobby_init();
+
                 unsafe {
-                    let mut someone_left = false;
-                    let mut new_players = false;
-                    let flags_before = bw.storm_player_flags();
-                    game_thread::step_lobby_init();
-                    let flags_after = bw.storm_player_flags();
-                    let flags = flags_before.iter().zip(flags_after.iter());
-                    for (i, (&old, &new)) in flags.enumerate() {
-                        if old == 0 && new != 0 {
-                            bw.init_network_player_info(i as u32);
-                            new_players = true;
+                    // Overlay the real game-type template onto game_data. Native create sets it on the
+                    // host from BW's registry, but the roster-driven peer join never receives the
+                    // host's game-info blob, so its template stays zeroed — which BW runs as Use Map
+                    // Settings (wrong rules → a turn-0 desync against the host's real-rules sim). The
+                    // registry is identical on every client, so this local lookup matches the host.
+                    bw.apply_game_type_template(game_type).map_err(|()| {
+                        GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
+                    })?;
+                    // Fill net_player_info directly for every human and observer. Native
+                    // init_net_player only populates the entry a player Storm's own provider-gated
+                    // name lookup resolves — the local player, but not a roster-seeded remote — so a
+                    // direct write is what gives every participant a populated entry (name + in-use
+                    // state). Observers are net players too — their storm ids are rp2 slots < 12,
+                    // in range of the net-player table — so they register the same way.
+                    for slot in info.slots.iter().filter(|s| s.is_human() || s.is_observer()) {
+                        if let Some(uid) = slot.user_id
+                            && let Some(&storm) = storm_id_map.get(&uid)
+                        {
+                            let name = info
+                                .users
+                                .iter()
+                                .find(|u| u.id == uid)
+                                .map(|u| u.name.as_str())
+                                .unwrap_or("");
+                            bw.v2_register_net_player(storm, name);
                         }
-                        if old != 0 && new == 0 {
-                            someone_left = true;
-                        }
                     }
-                    if someone_left {
-                        // Somebody seemed to have joined but ended up deciding on their end
-                        // that they failed to join. We may be able to recover from
-                        // this by just letting them try joining again.
-                        warn!(
-                            "A player that was joined has left. Before: {flags_before:x?} After: {flags_after:x?}",
-                        );
-                    }
-
-                    if new_players || someone_left {
-                        send_messages_to_state
-                            .send(GameStateMessage::PlayersChanged)
-                            .await
-                            .map_err(|_| GameInitError::Closed)?;
-                    }
+                    // Slot layout with the real storm ids from the roster (SB owns the arrangement,
+                    // the roster owns the ids).
+                    setup_slots(
+                        &info.slots,
+                        &info.users,
+                        game_type,
+                        ums_forces,
+                        Some(&storm_id_map),
+                    );
+                    // Natively lobby_state 4 is reached when the lobby-entry slot-setup record is
+                    // received, which never arrives under this seam; set it directly.
+                    bw.set_lobby_state(4);
+                    // Build the id maps from players[].storm_id and bump lobby_state to 8 (the state
+                    // the 0x48 handler requires).
+                    bw.ready_lobby_for_start();
                 }
-                select! {
-                    _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
-                    res = &mut players_joined => {
-                        res?;
-                        break;
-                    }
-                }
-            }
 
-            debug!("All players have joined");
-            if let Some(sbat_replay_data_promise) = sbat_replay_data {
-                // Assuming that the extra replay data isn't needed in the above lobby
-                // initialization.
-                match sbat_replay_data_promise.await {
-                    Ok(Some(o)) => {
-                        debug!("Loaded shieldbattery replay extension");
-                        game_thread::set_sbat_replay_data(o);
-                    }
-                    Ok(None) => (),
-                    Err(e) => {
-                        // Going to assume that most of the time if we fail to read the
-                        // extra replay data, it won't be fatal, so just log the error
-                        // and continue.
-                        error!("Failed to read shieldbattery replay data: {e}");
-                    }
-                }
-            }
-
-            unsafe {
-                bw.ready_lobby_for_start();
-            }
-
-            if !is_host {
-                debug!("Notifying host that client is ready");
-                network_send
-                    .send(GameStateToNetworkMessage::SendPayload(
-                        info.host.id.clone(),
-                        Some(Payload::ClientReady(ClientReadyMessage::default())),
-                    ))
+                // Populate the joined-player set directly from the roster + slot layout (no Storm
+                // read), so results/chat/id-mapping work and the all_players_joined gate completes.
+                let v2_joined_players = build_v2_joined_players(&info, &storm_id_map);
+                send_messages_to_state
+                    .send(GameStateMessage::SetV2JoinedPlayers(v2_joined_players))
                     .await
                     .map_err(|_| GameInitError::Closed)?;
-                // Note that we don't need to wait for anything further as a non-host, the game's
-                // normal seed event will signal it's time to start (handled in do_lobby_game_init)
 
-                // TODO(tec27): Would be nice if the host would send an
-                // "I'm about to start countdown" message that would trigger joiners' countdowns,
-                // ideally with some synchronization method so they all start at relatively the same
-                // instant
-            } else {
-                // Wait for all the players to be ready to start, and the server to let us go
-                let mut ready_future =
-                    future::try_join(allow_start.map(|_| Ok(())), all_players_ready);
+                // The relay's SessionStart directive gates the game start: the relay fires it once
+                // every expected slot (players + observers) has connected somewhere in the session's
+                // mesh. Await it once here, then local-drive the 0x48 (in do_lobby_game_init on the
+                // game thread). The frame-0 barrier (receive_turns parks until every required slot is
+                // present) remains the true lockstep sync. Keep stepping lobby init so the window
+                // stays responsive while we wait.
+                let mut last_lobby_state = unsafe { bw.lobby_state() };
+                debug!("Waiting for the session-start directive at lobby_state {last_lobby_state}");
                 loop {
                     game_thread::step_lobby_init();
-
+                    let lobby_state = unsafe { bw.lobby_state() };
+                    if lobby_state != last_lobby_state {
+                        debug!(
+                            "lobby_state changed {last_lobby_state} -> {lobby_state} while \
+                            awaiting the session-start directive"
+                        );
+                        last_lobby_state = lobby_state;
+                    }
                     select! {
                         _ = tokio::time::sleep(Duration::from_millis(game_thread::until_next_lobby_init_step())) => continue,
-                        res = &mut ready_future => {
-                            res?;
-                            break
-                        },
+                        received = session_start.recv() => {
+                            match received {
+                                // The authoring relay sized an initial latency-buffer depth for this
+                                // session: stamp it onto the live turn state now, before countdown and
+                                // `seed_netcode_v2_pipe`, so the first pipe fill runs at that depth
+                                // instead of the tenant-minimum seed. Applied only here, in this single
+                                // pre-start receive — the background drain below discards any re-push,
+                                // so a mid-game re-delivery never resizes a running buffer.
+                                Some(Some(turns)) => {
+                                    netcode_v2::with_turn_state(|s| s.set_initial_latency_turns(turns));
+                                    info!(
+                                        "Netcode v2 session-start directive received with initial \
+                                        buffer depth {turns} turns; starting game"
+                                    );
+                                }
+                                // A depth-less directive (an authority relay that predates the field,
+                                // or a resumed re-home re-push mid-flight): keep the depth already
+                                // seeded at session establish.
+                                Some(None) => debug!(
+                                    "Netcode v2 session-start directive received without an initial \
+                                    buffer depth; keeping the seeded depth and starting game"
+                                ),
+                                None => warn!(
+                                    "Netcode v2 session-start channel closed before a directive; starting anyway"
+                                ),
+                            }
+                            break;
+                        }
+                    }
+                }
+                // Delivery is at-least-once: keep the receiver alive and drained for the rest of the
+                // session so a re-pushed directive (authority churn / a late slot's re-register)
+                // stays a no-op instead of wedging or closing the driver on a dropped receiver.
+                tokio::spawn(async move {
+                    while session_start.recv().await.is_some() {
+                        debug!("netcode v2: redundant session-start directive drained (no-op)");
+                    }
+                });
+                debug!(
+                    "Session-start directive handled (netcode v2); local-driving lobby init at lobby_state {}",
+                    unsafe { bw.lobby_state() },
+                );
+            } else if info.is_replay() {
+                // A replay plays back from its recorded command stream, not the turn transport:
+                // there is no session and no peers to join. Its local Storm session was already
+                // created in the prologue; here it lays out slots, loads any ShieldBattery replay
+                // extension, and readies the lobby.
+                game_thread::step_lobby_init();
+                let bw = get_bw();
+
+                // The prologue's create_lobby assigns this client's storm id (almost certainly 0,
+                // since a replay's local session has no one else to share it with) — read it rather
+                // than assume. `players[].storm_id` must carry this real value by the time
+                // `ready_lobby_for_start` runs `update_nation_and_human_ids`, which asserts every
+                // human/observer slot's storm id is a valid (< 16) id; feeding it the placeholder
+                // `setup_slots` plants when given no roster would trip that assert.
+                let local_storm = unsafe { bw.local_storm_id() };
+
+                // Native `create_lobby` flips this client's storm flag on asynchronously; wait a
+                // bounded, short while for it before pulling the local player into net_player_info —
+                // mirrors the flag transition the (now direct-registration) join path used to key on.
+                unsafe {
+                    let mut attempts = 0;
+                    while bw
+                        .storm_player_flags()
+                        .get(local_storm as usize)
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                        && attempts < 20
+                    {
+                        game_thread::step_lobby_init();
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                        attempts += 1;
+                    }
+                    if bw
+                        .storm_player_flags()
+                        .get(local_storm as usize)
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        warn!(
+                            "replay: local storm id {local_storm}'s flag never went nonzero after \
+                             {attempts} attempts; proceeding anyway"
+                        );
+                    }
+                    // Native init_net_player's name lookup only resolves the local player (there is
+                    // no roster-seeded remote to fill in for a replay), so this alone populates the
+                    // net_player_info entry the game needs.
+                    bw.init_network_player_info(local_storm);
+                }
+
+                // The lone participant is this client's own viewer, at its real storm id — used both
+                // to lay out slots with a valid (non-placeholder) storm id and for chat/id-mapping.
+                let storm_id_map: HashMap<SbUserId, u8> =
+                    std::iter::once((local_user.id, local_storm as u8)).collect();
+                unsafe {
+                    setup_slots(&info.slots, &info.users, game_type, &[], Some(&storm_id_map));
+                }
+
+                if let Some(sbat_replay_data_promise) = sbat_replay_data {
+                    match sbat_replay_data_promise.await {
+                        Ok(Some(o)) => {
+                            debug!("Loaded shieldbattery replay extension");
+                            game_thread::set_sbat_replay_data(o);
+                        }
+                        Ok(None) => (),
+                        Err(e) => {
+                            // A failure to read the extra replay data is usually not fatal, so log
+                            // it and continue.
+                            error!("Failed to read shieldbattery replay data: {e}");
+                        }
                     }
                 }
 
-                debug!("All players are ready to start");
+                unsafe {
+                    bw.ready_lobby_for_start();
+                }
+
+                let joined = build_v2_joined_players(&info, &storm_id_map);
+                send_messages_to_state
+                    .send(GameStateMessage::SetV2JoinedPlayers(joined))
+                    .await
+                    .map_err(|_| GameInitError::Closed)?;
+
+                // The replay's local session is fully readied above; there is no session peer to
+                // wait on, so init proceeds directly. Lobby init completes later on the game thread
+                // in the StartGame handler (which synthesizes the 0x48 and steps to completion).
+            } else {
+                // No netcode v2 setup and not a replay: a solo game, the local human versus AI. More
+                // than one human here is a server misconfiguration — multiplayer must run on netcode
+                // v2 — so fail the load loudly rather than trying to play it on native networking.
+                let human_count = info.slots.iter().filter(|s| s.is_human()).count();
+                if human_count != 1 {
+                    return Err(GameInitError::NetcodeV2SessionInit(format!(
+                        "multiplayer game ({human_count} humans) launched without netcode v2 setup"
+                    )));
+                }
+                let MapInfo::Game(ref game_map) = info.map else {
+                    return Err(GameInitError::NetcodeV2SessionInit(
+                        "solo game is not a map game".into(),
+                    ));
+                };
+
+                // Stand up a sessionless turn state: local-only from birth, driving the same turn
+                // seam a relay game uses but with every driver-bound send landing in a void. A game
+                // with AI keeps playing versus the computers after the lone human wins or loses.
+                let has_computers = info.slots.iter().any(|s| s.is_computer());
+                netcode_v2::establish_sessionless(local_user.id, has_computers);
+                netcode_v2::with_turn_state(|s| s.enable_lobby_seam());
+                let _ = app_socket::send_message(
+                    &ws_send,
+                    "/game/networkStatus",
+                    NetworkStatus {
+                        transport: NetworkTransport::Native,
+                        error: None,
+                    },
+                )
+                .await;
+
+                let bw = get_bw();
+                // The lone human occupies rp2 slot 0 (storm id ≡ rp2 slot), the same identity the
+                // sessionless turn state seeds.
+                let storm_id_map: HashMap<SbUserId, u8> =
+                    std::iter::once((local_user.id, 0u8)).collect();
+                let ums_forces = &game_map.map_data.ums_forces[..];
+                unsafe {
+                    // Create the native lobby (its Storm create allocates the local session). No
+                    // remote members to seed, so no StormSessionPlayer writes happen — which is why
+                    // the 64-bit refusal that guards the relay path's seeding does not apply here.
+                    create_lobby(&info)?;
+                    // Overlay the real game-type template so the sim runs the correct rules rather
+                    // than the zeroed template's Use Map Settings default.
+                    bw.apply_game_type_template(game_type).map_err(|()| {
+                        GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
+                    })?;
+                    // Fill net_player_info for the single human directly (native init_net_player only
+                    // populates a provider-resolved name, which this path bypasses).
+                    bw.v2_register_net_player(0, &local_user.name);
+                    setup_slots(
+                        &info.slots,
+                        &info.users,
+                        game_type,
+                        ums_forces,
+                        Some(&storm_id_map),
+                    );
+                    // lobby_state 4 is natively reached on the lobby-entry slot-setup record, which
+                    // never arrives under this seam; set it directly, then build the id maps and bump
+                    // to the state the 0x48 handler requires.
+                    bw.set_lobby_state(4);
+                    bw.ready_lobby_for_start();
+                }
+
+                let joined = build_v2_joined_players(&info, &storm_id_map);
+                send_messages_to_state
+                    .send(GameStateMessage::SetV2JoinedPlayers(joined))
+                    .await
+                    .map_err(|_| GameInitError::Closed)?;
+
+                // The sessionless turn state is local-only from birth with nothing to wait on, so
+                // init proceeds directly. do_countdown below keeps stepping lobby init, and the
+                // StartGame handler on the game thread drives it to completion.
             }
 
             forge::start_process_events_dispatch();
@@ -505,8 +775,6 @@ impl GameState {
 
         let ws_send = self.ws_send.clone();
         let game_request_send = self.send_main_thread_requests.clone();
-        let setup_info = init_state.setup_info.clone();
-        let network_send = self.network_send.clone();
         let results = init_state.wait_for_results();
         async move {
             forge::end_wnd_proc();
@@ -523,40 +791,9 @@ impl GameState {
 
             game_done.await;
 
-            // Make sure (or at least try to) that quit messages get delivered to everyone and don't
-            // get lost, so that quitting players don't trigger a drop screen.
-            let mut deliver_final_network = Vec::new();
-            for (uid, _) in results
-                .results
-                .iter()
-                .filter(|(_, r)| r.result == VictoryState::Playing)
-            {
-                if let Some(slot) = setup_info
-                    .slots
-                    .iter()
-                    .find(|s| uid == &s.user_id.unwrap_or(0.into()))
-                {
-                    debug!("Triggering final network sends for {:?}", slot.user_id);
-                    let (send, recv) = oneshot::channel();
-                    let _ = network_send
-                        .send(GameStateToNetworkMessage::DeliverPayloadsInFlight(
-                            slot.id.clone(),
-                            send,
-                        ))
-                        .await
-                        .map_err(|e| debug!("Send error {e}"));
-
-                    deliver_final_network.push(recv);
-                }
-            }
-
-            if !deliver_final_network.is_empty() {
-                select! {
-                    _ = future::join_all(deliver_final_network) => {},
-                    _ = tokio::time::sleep(Duration::from_millis(5000)) => {},
-                }
-            }
-            debug!("Final network sends completed");
+            // The turn transport announces this client's clean departure to the relay on its own
+            // (`TurnState::send_leave_intent`, driven from the game thread as the game loop returns),
+            // so surviving players get a prompt synced leave rather than a drop-timeout.
 
             app_socket::send_message(&ws_send, "/game/finished", ())
                 .await
@@ -582,21 +819,14 @@ impl GameState {
             SetBlockedUsers(users) => {
                 self.set_blocked_users(users);
             }
-            SetRoutes(routes) => {
-                return self.set_routes(routes).boxed();
+            SetNetcodeV2Setup(setup) => {
+                // SECURITY: `setup` holds the per-session private key; never log its contents.
+                // `NetcodeV2Setup`'s `Debug` redacts the key, but don't `{:?}` it here regardless.
+                debug!("Received netcode v2 setup for the home relay");
+                self.netcode_v2_setup = Some(setup);
             }
             SetServerConfig(config) => {
                 self.set_server_config(config);
-            }
-            StartWhenReady => {
-                match mem::replace(&mut self.can_start_game, AwaitableTaskState::Complete) {
-                    AwaitableTaskState::Complete => (),
-                    AwaitableTaskState::Incomplete(waiting) => {
-                        for sender in waiting {
-                            let _ = sender.send(());
-                        }
-                    }
-                }
             }
             SetupGame(info) => {
                 let ws_send = self.ws_send.clone();
@@ -625,11 +855,11 @@ impl GameState {
                     cancel_token.bind(task).await
                 });
             }
-            InLobby | PlayersChanged => {
+            SetV2JoinedPlayers(players) => {
                 if let InitState::Started(ref mut state) = self.init_state {
-                    state.players_changed();
+                    state.set_v2_joined_players(players);
                 } else {
-                    warn!("Player joined before init was started");
+                    warn!("Received netcode v2 joined players before init was started");
                 }
             }
             GameSetupDone => {
@@ -652,9 +882,6 @@ impl GameState {
             GameThread(msg) => {
                 return self.handle_game_thread_message(msg);
             }
-            Network(msg) => {
-                return self.handle_network_message(msg);
-            }
             CleanupQuit => {
                 let cleanup_request = GameThreadRequestType::ExitCleanup;
                 let async_stop = self.async_stop.clone();
@@ -672,6 +899,95 @@ impl GameState {
                     // Not cleaning up (that is, saving user settings or anything)
                     // since we didn't start in the first place
                     self.async_stop.cancel();
+                }
+            }
+            #[cfg(debug_assertions)]
+            DebugControl(cmd) => {
+                use crate::debug_control::DebugControlCommand;
+                match cmd {
+                    DebugControlCommand::Ping => {
+                        return app_socket::send_message(&self.ws_send, "/game/debug/pong", ())
+                            .map(|_| ())
+                            .boxed();
+                    }
+                    DebugControlCommand::QueryState => {
+                        let turn_state = crate::netcode_v2::with_turn_state(|s| s.debug_snapshot());
+                        let response = crate::debug_control::DebugStateResponse { turn_state };
+                        return app_socket::send_message(
+                            &self.ws_send,
+                            "/game/debug/state",
+                            response,
+                        )
+                        .map(|_| ())
+                        .boxed();
+                    }
+                    DebugControlCommand::ForceUnsyncedLeave { slot } => {
+                        crate::netcode_v2::with_turn_state(|s| {
+                            s.debug_force_unsynced_leave(rally_point_client::proto::ids::SlotId(
+                                slot,
+                            ))
+                        });
+                        // Fire-and-forget: the injection applies on the game thread's next receive;
+                        // verify via queryState. No reply.
+                    }
+                    DebugControlCommand::ForceDesync => {
+                        crate::netcode_v2::with_turn_state(|s| s.debug_force_desync());
+                        // Fire-and-forget: the mineral perturbation applies on the game thread's next
+                        // receive. No reply.
+                    }
+                    DebugControlCommand::SendChat { text, target } => {
+                        use crate::debug_control::DebugChatTarget;
+                        let target = match target {
+                            DebugChatTarget::All => netcode_v2::ChatTarget::All,
+                            DebugChatTarget::Allies => netcode_v2::ChatTarget::Allies,
+                            DebugChatTarget::Observers => netcode_v2::ChatTarget::Observers,
+                            DebugChatTarget::Player { slot } => {
+                                netcode_v2::ChatTarget::Players(netcode_v2::SlotMask::single(
+                                    rally_point_client::proto::ids::SlotId(slot),
+                                ))
+                            }
+                        };
+                        crate::netcode_v2::with_turn_state(|s| s.debug_queue_chat(target, text));
+                        // Fire-and-forget: sent + locally echoed on the game thread's next receive
+                        // (see `bw_scr::apply_debug_chat`), through the same path the in-game chat
+                        // box's own send tap uses. No reply.
+                    }
+                    DebugControlCommand::RequestDrop { slot } => {
+                        crate::netcode_v2::with_turn_state(|s| {
+                            s.request_drop(rally_point_client::proto::ids::SlotId(slot))
+                        });
+                        // Fire-and-forget, the same call the overlay's Drop button makes: the relay
+                        // honors it only past its floor and confirms it solely via the slot's synced
+                        // leave. No reply — verify via queryState.
+                    }
+                    DebugControlCommand::ToggleNetStats => {
+                        crate::netcode_v2::with_turn_state(|s| s.toggle_net_stats());
+                        // Fire-and-forget, the same toggle the `/netstat` chat command makes. No
+                        // reply — verify via queryState's `netStats.visible`.
+                    }
+                    DebugControlCommand::Screenshot => {
+                        let ws_send = self.ws_send.clone();
+                        return async move {
+                            let response = match tokio::task::spawn_blocking(
+                                crate::debug_control::capture_screenshot,
+                            )
+                            .await
+                            {
+                                Ok(response) => response,
+                                Err(e) => crate::debug_control::DebugScreenshotResponse {
+                                    screenshot: None,
+                                    error: Some(format!("screenshot task failed: {e}")),
+                                },
+                            };
+                            let _ = app_socket::send_message(
+                                &ws_send,
+                                "/game/debug/screenshot",
+                                response,
+                            )
+                            .await;
+                        }
+                        .boxed();
+                    }
                 }
             }
         }
@@ -703,9 +1019,6 @@ impl GameState {
                 )
                 .map(|_| ())
                 .boxed();
-            }
-            Snp(snp) => {
-                return self.network.send_snp_message(snp).map(|_| ()).boxed();
             }
             PlayersRandomized(new_mapping) => {
                 if let InitState::Started(ref mut state) = self.init_state {
@@ -780,53 +1093,6 @@ impl GameState {
                     warn!("Notified of network stall before init was started");
                 }
             }
-            DebugInfoRequest(info) => {
-                return match info {
-                    game_thread::DebugInfoRequest::Network(out) => {
-                        self.network.request_debug_info(out).boxed()
-                    }
-                };
-            }
-        }
-        future::ready(()).boxed()
-    }
-
-    fn handle_network_message<'s>(
-        &'s mut self,
-        msg: NetworkToGameStateMessage,
-    ) -> Pin<Box<dyn Future<Output = ()> + Send + 's>> {
-        use crate::network_manager::NetworkToGameStateMessage::*;
-        match msg {
-            ReceivePayload(ref player_id, payload) => match payload {
-                Payload::ClientReady(_) => {
-                    if let InitState::Started(ref mut state) = self.init_state {
-                        if state.unready_players.remove(player_id) {
-                            debug!("{player_id:?} is now ready")
-                        }
-
-                        state.check_unready_players();
-                    } else {
-                        error!("Got ClientReady for {player_id:?} before init had started");
-                    }
-                }
-                Payload::ClientAckRequest(_) => {
-                    // Trigger a response to this packet immediately to deliver any acks.
-                    let network_send = self.network_send.clone();
-                    let player_id = player_id.clone();
-                    tokio::spawn(async move {
-                        let _ = network_send
-                            .send(GameStateToNetworkMessage::SendPayload(
-                                player_id,
-                                Some(Payload::ClientAckResponse(
-                                    ClientAckResponseMessage::default(),
-                                )),
-                            ))
-                            .await
-                            .map_err(|e| error!("Send error {e}"));
-                    });
-                }
-                _ => {}
-            },
         }
         future::ready(()).boxed()
     }
@@ -857,8 +1123,8 @@ async fn send_game_result(
     server_config: &ServerConfig,
     ws_send: &app_socket::SendMessages,
 ) {
-    // Send results to the app.
-    // If the app is closed, ignore the error and try to still send results to server.
+    // Send results to the app for its UI/state surface. If the app is closed the send fails; ignore
+    // it, since the relay report and replay upload below run regardless.
     let results_message = GameResultsMessage {
         time: results.time_ms,
         results: &results.results,
@@ -874,76 +1140,39 @@ async fn send_game_result(
 
     let result_code = info.result_code.clone().unwrap();
 
-    // Run result submission and replay upload in parallel, waiting for both to complete
-    let results_future = send_results_to_server(
-        results,
-        info,
-        local_user,
-        &result_code,
-        server_config,
-        ws_send,
-    );
+    // A tracked game's end-of-game report travels over the rally-point2 relay's reliable control
+    // stream: build the report the server validates and hand it to the relay driver.
+    // `submit_result_report` delivers it for a relay-backed session and does nothing for a
+    // sessionless one, so a sessionless solo game submits no result anywhere. That asymmetry is
+    // deliberate: a single-human game has nothing to rank, so the server treats it as
+    // results-exempt. The replay upload below runs for every game type; it has no relay analogue
+    // and always stays on HTTP.
+    let report = RawGameResultsReport {
+        version: 2,
+        user_id: local_user.id,
+        result_code: &result_code,
+        time: results.time_ms,
+        players: &results.raw_players,
+        net_players: &results.raw_net_players,
+        local_player_lose_type: results.local_player_lose_type,
+    };
+    match serde_json::to_vec(&report) {
+        Ok(bytes) => {
+            netcode_v2::submit_result_report(bytes);
+        }
+        Err(err) => error!("Failed to serialize game result report: {err}"),
+    }
 
     if let Some(replay_path) = &results.replay_path {
-        let replay_future = send_replay(
+        send_replay(
             replay_path,
             &info.game_id,
             local_user.id,
             &result_code,
             server_config,
             ws_send,
-        );
-        tokio::join!(results_future, replay_future);
-    } else {
-        results_future.await;
-    }
-}
-
-async fn send_results_to_server(
-    results: &GameResults,
-    info: &GameSetupInfo,
-    local_user: &SbUser,
-    result_code: &str,
-    server_config: &ServerConfig,
-    ws_send: &app_socket::SendMessages,
-) {
-    let client = reqwest::Client::new();
-    let result_url = format!(
-        "{}/api/1/games/{}/results2",
-        server_config.server_url, info.game_id
-    );
-
-    let result_body = GameResultsReport {
-        user_id: local_user.id,
-        result_code: result_code.to_string(),
-        time: results.time_ms,
-        player_results: results
-            .results
-            .iter()
-            .map(|(&uid, result)| (uid, *result))
-            .collect(),
-    };
-
-    let headers = api_request_headers();
-    for _ in 0u8..3 {
-        let result = client
-            .post(&result_url)
-            .timeout(Duration::from_secs(30))
-            .headers(headers.clone())
-            .json(&result_body)
-            .send()
-            .await;
-
-        match result.and_then(|r| r.error_for_status()) {
-            Ok(_) => {
-                debug!("Game results sent successfully");
-                let _ = app_socket::send_message(ws_send, "/game/resultSent", ()).await;
-                break;
-            }
-            Err(err) => {
-                error!("Error sending game results: {err}");
-            }
-        };
+        )
+        .await;
     }
 }
 
@@ -1027,9 +1256,7 @@ struct InitInProgress {
     server_config: ServerConfig,
 
     all_players_joined: AwaitableTaskState<Result<(), GameInitError>>,
-    all_players_ready: AwaitableTaskState<()>,
     joined_players: Vec<JoinedPlayer>,
-    unready_players: HashSet<LobbyPlayerId>,
     waiting_for_result: Vec<oneshot::Sender<Arc<GameResults>>>,
 
     stall_durations: Vec<Duration>,
@@ -1053,108 +1280,34 @@ impl InitInProgress {
         blocked_users: Vec<SbUserId>,
         server_config: ServerConfig,
     ) -> InitInProgress {
-        let is_host = setup_info
-            .host
-            .user_id
-            .map(|host_id| host_id == local_user.id)
-            .unwrap_or_default();
-        // Only the host tracks client readiness
-        let unready_players = if is_host {
-            setup_info
-                .slots
-                .iter()
-                .filter_map(|slot| {
-                    if !slot.is_human() || slot.user_id.is_some_and(|id| id == local_user.id) {
-                        None
-                    } else {
-                        Some(slot.id.clone())
-                    }
-                })
-                .collect::<HashSet<_>>()
-        } else {
-            HashSet::new()
-        };
-
-        let mut result = InitInProgress {
+        InitInProgress {
             setup_info,
             local_user,
             blocked_users,
             server_config,
 
             all_players_joined: AwaitableTaskState::Incomplete(Vec::new()),
-            all_players_ready: AwaitableTaskState::Incomplete(Vec::new()),
             joined_players: Vec::new(),
-            unready_players,
             waiting_for_result: Vec::new(),
             stall_durations: Vec::new(),
             stall_count: 0,
             stall_max: Duration::from_millis(0),
             stall_min: Duration::MAX,
-        };
-        result.check_unready_players();
-
-        result
+        }
     }
 
-    fn players_changed(&mut self) {
-        let result = match unsafe { self.update_joined_state() } {
-            Ok(true) => Ok(()),
-            Err(e) => Err(e),
-            Ok(false) => return,
-        };
-
+    /// Installs the joined-player set built directly from the session roster + slot layout, and
+    /// completes the all-players-joined gate. Every participant is known up front, so there is no
+    /// Storm-read reconciliation to run and nothing to wait for.
+    fn set_v2_joined_players(&mut self, players: Vec<JoinedPlayer>) {
+        debug!("Netcode v2 joined players: {players:?}");
+        self.joined_players = players;
         match mem::replace(&mut self.all_players_joined, AwaitableTaskState::Complete) {
             AwaitableTaskState::Complete => {}
             AwaitableTaskState::Incomplete(waiting) => {
                 for sender in waiting {
-                    let _ = sender.send(result.clone());
+                    let _ = sender.send(Ok(()));
                 }
-            }
-        }
-    }
-
-    // Waits until players have joined.
-    // self.players_changed gets called whenever game thread sends a join notification,
-    // and once when the init task tells that a player is in lobby.
-    fn wait_for_players(&mut self) -> impl Future<Output = Result<(), GameInitError>> + use<> {
-        let f = match self.all_players_joined {
-            AwaitableTaskState::Incomplete(ref mut waiters) => {
-                let (send, recv) = oneshot::channel();
-                waiters.push(send);
-                Some(recv)
-            }
-            AwaitableTaskState::Complete => None,
-        };
-
-        async move {
-            if let Some(f) = f {
-                f.map_err(|_| GameInitError::Closed).await?
-            } else {
-                Ok(())
-            }
-        }
-    }
-
-    /// Waits until all players have notified the host that they are ready.
-    fn wait_all_players_ready(
-        &mut self,
-    ) -> impl Future<Output = Result<(), GameInitError>> + use<> {
-        let f = match self.all_players_ready {
-            AwaitableTaskState::Incomplete(ref mut waiters) => {
-                let (send, recv) = oneshot::channel();
-                waiters.push(send);
-                Some(recv)
-            }
-            AwaitableTaskState::Complete => None,
-        };
-
-        async move {
-            if let Some(f) = f {
-                f.map_err(|_| GameInitError::Closed)
-                    .and_then(future::ok)
-                    .await
-            } else {
-                Ok(())
             }
         }
     }
@@ -1167,153 +1320,14 @@ impl InitInProgress {
         recv_done.map_err(|_| GameInitError::Closed)
     }
 
-    // Return Ok(true) on done, Ok(false) on keep waiting
-    unsafe fn update_joined_state(&mut self) -> Result<bool, GameInitError> {
-        unsafe {
-            let storm_names = storm_player_names(get_bw());
-            self.update_bw_slots(&storm_names)?;
-            if self.has_all_players() {
-                debug!("All players have joined: {:?}", self.joined_players);
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        }
-    }
-
-    unsafe fn update_bw_slots(
-        &mut self,
-        storm_names: &[Option<String>],
-    ) -> Result<(), GameInitError> {
-        unsafe {
-            let players = get_bw().players();
-            // Remove any players that may have left.
-            // Should be rare but something may end up making joining player not see themselves
-            // join, making them leave a bit later.
-            // This is still going to have issues if the last player to join ends up leaving,
-            // we probably should add some extra step (E.g. sending some network packet)
-            // to make sure the person is totally joined before we add them here at all.
-            self.joined_players.retain(|joined_player| {
-                let retain = storm_names
-                    .iter()
-                    .any(|name| name.as_deref() == Some(&*joined_player.name));
-                if !retain {
-                    warn!("Player {} has left", joined_player.name);
-                    if let Some(bw_slot) = joined_player.player_id {
-                        (*players.add(bw_slot.0 as usize)).storm_id = u32::MAX;
-                    }
-                }
-                retain
-            });
-
-            let name_to_user_id = self
-                .setup_info
-                .users
-                .iter()
-                .map(|u| (&u.name, u.id))
-                .collect::<HashMap<_, _>>();
-
-            for (storm_id, name) in storm_names.iter().enumerate() {
-                let storm_id = StormPlayerId(storm_id as u8);
-                let (name, user_id) = match name {
-                    Some(s) => (&**s, name_to_user_id.get(s).copied()),
-                    None => continue,
-                };
-                let Some(user_id) = user_id else {
-                    warn!("Player {name} has a storm ID but no user id, skipping");
-                    continue;
-                };
-                let joined_pos = self.joined_players.iter().position(|x| x.name == name);
-
-                if let Some(joined_pos) = joined_pos {
-                    if self.joined_players[joined_pos].storm_id != storm_id {
-                        return Err(GameInitError::StormIdChanged(name.to_string()));
-                    }
-                } else if let Some(slot) = self
-                    .setup_info
-                    .slots
-                    .iter()
-                    .find(|x| x.user_id.is_some_and(|id| id == user_id))
-                {
-                    let player_id;
-                    let bw_slot = (0..16).find(|&i| {
-                        let player = players.add(i);
-                        let bw_name = CStr::from_ptr((*player).name.as_ptr() as *const i8);
-                        bw_name.to_str() == Ok(name)
-                    });
-                    if let Some(bw_slot) = bw_slot {
-                        (*players.add(bw_slot)).storm_id = storm_id.0 as u32;
-                        player_id = Some(BwPlayerId(bw_slot as u8));
-                    } else {
-                        return Err(GameInitError::UnexpectedPlayer(name.to_string()));
-                    }
-                    if self.joined_players.iter().any(|x| x.player_id == player_id) {
-                        return Err(GameInitError::UnexpectedPlayer(name.to_string()));
-                    }
-                    // I believe there isn't any reason why a slot associated with
-                    // human wouldn't have shieldbattery user ids, so just fail here
-                    // instead of keeping sb_user_id as Option<u32>.
-                    let sb_user_id = slot
-                        .user_id
-                        .ok_or_else(|| GameInitError::NoShieldbatteryId(name.into()))?;
-                    debug!("Player {} received storm id {}", name, storm_id.0);
-                    self.joined_players.push(JoinedPlayer {
-                        name: name.to_string(),
-                        storm_id,
-                        player_id,
-                        sb_user_id,
-                    });
-                } else {
-                    return Err(GameInitError::UnexpectedPlayer(name.to_string()));
-                }
-            }
-            Ok(())
-        }
-    }
-
-    fn has_all_players(&self) -> bool {
-        let waiting_for = self
-            .setup_info
-            .slots
-            .iter()
-            .filter(|s| s.is_human() || s.is_observer())
-            .filter(|s| {
-                !self
-                    .joined_players
-                    .iter()
-                    .any(|player| s.user_id.is_some_and(|id| id == player.sb_user_id))
-            })
-            .map(|s| s.user_id)
-            .collect::<Vec<_>>();
-        if waiting_for.is_empty() {
-            true
-        } else {
-            debug!("Waiting for players {waiting_for:?}");
-            false
-        }
-    }
-
-    /// Checks if there are still any unready players, updating the task state if not.
-    fn check_unready_players(&mut self) {
-        if self.unready_players.is_empty() {
-            match mem::replace(&mut self.all_players_ready, AwaitableTaskState::Complete) {
-                AwaitableTaskState::Complete => {}
-                AwaitableTaskState::Incomplete(waiting) => {
-                    for sender in waiting {
-                        let _ = sender.send(());
-                    }
-                }
-            }
-        } else {
-            debug!("Still waiting for ready from: {:?}", self.unready_players);
-        }
-    }
-
     fn received_results(&mut self, game_results: GameThreadResults) {
         debug!("Got results from game thread: {game_results:#?}");
 
         let time_ms = game_results.time.as_millis() as u64;
         let replay_path = game_results.replay_path.clone();
+        let raw_players = build_raw_players(&game_results, &self.joined_players);
+        let raw_net_players = build_raw_net_players(&game_results);
+        let local_player_lose_type = game_results.local_player_lose_type;
         let results = determine_game_results(game_results, &self.joined_players, &self.local_user);
 
         self.stall_durations.sort_unstable();
@@ -1336,6 +1350,9 @@ impl InitInProgress {
                 min: stall_min as u32,
                 max: stall_max as u32,
             },
+            raw_players,
+            raw_net_players,
+            local_player_lose_type,
             replay_path,
         });
         for send in self.waiting_for_result.drain(..) {
@@ -1353,6 +1370,129 @@ unsafe fn create_lobby(info: &GameSetupInfo) -> Result<(), GameInitError> {
     }
 }
 
+/// Builds the [`bw::BwGameData`] written to the `game_data` global / replay+save headers, from the
+/// ShieldBattery setup info + map. Shared by the native join path ([`join_lobby`]) and the netcode
+/// v2 direct-registration path (which native `create_game_multiplayer` populated only on a
+/// successful Storm create). Not used in-game beyond `game_type`.
+fn build_bw_game_data(
+    info: &GameSetupInfo,
+    game_type: BwGameType,
+    map_data: &crate::app_messages::MapData,
+    map_name: &str,
+) -> bw::BwGameData {
+    let max_player_count = info.slots.len() as u8;
+    let active_player_count = info
+        .slots
+        .iter()
+        .filter(|x| x.is_human() || x.is_observer())
+        .count() as u8;
+
+    // SAFETY: `BwGameData` is a `#[repr(C)]` POD (integers + byte arrays), so an all-zero bit
+    // pattern is a valid instance; the fields we care about are set explicitly below.
+    let mut game_info = bw::BwGameData {
+        index: 1,
+        map_width: map_data.width,
+        map_height: map_data.height,
+        active_player_count,
+        max_player_count,
+        game_speed: 6, // Fastest
+        game_type: game_type.primary as u16,
+        game_subtype: game_type.subtype as u16,
+        tileset: map_data.tileset,
+        is_replay: 0,
+        ..unsafe { mem::zeroed() }
+    };
+
+    let creator = if let Some(host) = info.users.iter().find(|u| Some(u.id) == info.host.user_id) {
+        host.name.as_str()
+    } else {
+        "fakename"
+    };
+    for (out, val) in game_info
+        .game_creator
+        .iter_mut()
+        .zip(creator.as_bytes().iter())
+    {
+        *out = *val;
+    }
+    for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
+        *out = *val;
+    }
+    for (out, val) in game_info
+        .map_name
+        .iter_mut()
+        .zip(map_name.as_bytes().iter())
+    {
+        *out = *val;
+    }
+    game_info
+}
+
+/// Strips interior NULs and builds a `CString`, or `None` if the result is empty. Storm name
+/// fields reject empty strings and NULs would truncate them.
+fn sanitized_name_cstring(raw: &str) -> Option<CString> {
+    CString::new(raw.replace('\0', ""))
+        .ok()
+        .filter(|s| !s.as_bytes().is_empty())
+}
+
+/// Builds the joined-player set for a netcode v2 game directly from the session roster + slot
+/// layout, without reading Storm's join bookkeeping. The storm id is the user's rp2 roster slot
+/// (storm id ≡ rp2 slot). For a non-UMS human the BW game slot (`player_id`) equals its index in
+/// `slots` — the same `slot_id` `setup_slots` assigns — and is re-derived from the storm id once BW
+/// randomizes slots (`PlayersRandomized`), so the pre-randomization value only needs to be a valid
+/// game slot. A UMS game places players by the map's slot id (`slot.player_id`) instead — the same
+/// id `setup_slots` places them at — and BW does not randomize UMS slots. Observers occupy the
+/// observer game slots `players[12..16]` (ids 0x80-0x83): the nth observer in slot order takes
+/// `players[11 + n]`, matching `setup_slots`, and BW's randomization leaves those slots in place.
+/// A slot whose user has no roster storm id is skipped (a replay's roster names only the local
+/// viewer).
+fn build_v2_joined_players(
+    info: &GameSetupInfo,
+    storm_id_map: &HashMap<SbUserId, u8>,
+) -> Vec<JoinedPlayer> {
+    let is_ums = info.game_type == GameType::Ums;
+    let mut joined = Vec::new();
+    let mut num_observers = 0u8;
+    for (i, slot) in info.slots.iter().enumerate() {
+        let is_observer = slot.is_observer();
+        if !slot.is_human() && !is_observer {
+            continue;
+        }
+        // Observers count in slot order regardless of whether the entry resolves below, so a later
+        // observer still lands on the game slot `setup_slots` gave it.
+        let player_id = if is_observer {
+            num_observers += 1;
+            BwPlayerId(11 + num_observers)
+        } else if is_ums {
+            BwPlayerId(slot.player_id.unwrap_or(0))
+        } else {
+            BwPlayerId(i as u8)
+        };
+        let Some(user_id) = slot.user_id else {
+            continue;
+        };
+        let Some(name) = info
+            .users
+            .iter()
+            .find(|u| u.id == user_id)
+            .map(|u| u.name.clone())
+        else {
+            continue;
+        };
+        let Some(&storm_id) = storm_id_map.get(&user_id) else {
+            continue;
+        };
+        joined.push(JoinedPlayer {
+            name,
+            storm_id: StormPlayerId(storm_id),
+            player_id: Some(player_id),
+            sb_user_id: user_id,
+        });
+    }
+    joined
+}
+
 unsafe fn join_lobby(
     info: &GameSetupInfo,
     game_type: BwGameType,
@@ -1364,56 +1504,11 @@ unsafe fn join_lobby(
         };
         let map_data = &game_map.map_data;
         let map_name = &game_map.name;
-        let max_player_count = info.slots.len() as u8;
-        let active_player_count = info
-            .slots
-            .iter()
-            .filter(|x| x.is_human() || x.is_observer())
-            .count() as u8;
         let is_eud = map_data.is_eud;
 
         // This info isn't used ingame (with exception of game_type?),
         // but it is written in the header of replays/saves.
-        let game_info = {
-            let mut game_info = bw::BwGameData {
-                index: 1,
-                map_width: map_data.width,
-                map_height: map_data.height,
-                active_player_count,
-                max_player_count,
-                game_speed: 6, // Fastest
-                game_type: game_type.primary as u16,
-                game_subtype: game_type.subtype as u16,
-                tileset: map_data.tileset,
-                is_replay: 0,
-                ..mem::zeroed()
-            };
-
-            let creator =
-                if let Some(host) = &info.users.iter().find(|u| Some(u.id) == info.host.user_id) {
-                    &host.name
-                } else {
-                    "fakename"
-                };
-            for (out, val) in game_info
-                .game_creator
-                .iter_mut()
-                .zip(creator.as_bytes().iter())
-            {
-                *out = *val;
-            }
-            for (out, val) in game_info.name.iter_mut().zip(info.name.as_bytes().iter()) {
-                *out = *val;
-            }
-            for (out, val) in game_info
-                .map_name
-                .iter_mut()
-                .zip(map_name.as_bytes().iter())
-            {
-                *out = *val;
-            }
-            game_info
-        };
+        let game_info = build_bw_game_data(info, game_type, map_data, map_name);
         let map_path = match CString::new(info.map_path.as_bytes()) {
             Ok(o) => Arc::new(o),
             Err(_) => return future::err(GameInitError::NullInPath(info.map_path.clone())).boxed(),
@@ -1441,8 +1536,6 @@ unsafe fn join_lobby(
                     bw.init_network_player_info(i as u32);
                 }
             }
-            let player_names = storm_player_names(bw);
-            debug!("Storm player names at join: {player_names:?}");
             Ok(())
         }
         .boxed()
@@ -1483,6 +1576,10 @@ unsafe fn setup_slots(
     users: &[SbUser],
     game_type: BwGameType,
     ums_forces: &[MapForce],
+    // The real storm id per user (storm id ≡ rp2 slot, from the roster), used to lay out slots
+    // directly. `None` for a replay, which has no roster and plants the placeholder `27` (a replay
+    // reads its participants from the recorded stream, not from these slot storm ids).
+    v2_storm_ids: Option<&HashMap<SbUserId, u8>>,
 ) {
     let id_to_name = users
         .iter()
@@ -1548,7 +1645,20 @@ unsafe fn setup_slots(
                     slot_id as u32
                 },
                 storm_id: match slot.is_human() || slot.is_observer() {
-                    true => 27,
+                    // Netcode v2: write the real storm id from the roster (storm id ≡ rp2 slot) so
+                    // `update_nation_and_human_ids` builds the id maps with no Storm-read
+                    // reconciliation. Observer storm ids are rp2 slots as well (< 16, which the
+                    // id-map builder requires); the lookup covers players and observers alike. A
+                    // miss falls through to `u32::MAX`, which that builder asserts against — the
+                    // same loud failure a missing player would get.
+                    true => match v2_storm_ids {
+                        Some(map) => slot
+                            .user_id
+                            .and_then(|uid| map.get(&uid).copied())
+                            .map_or(u32::MAX, |storm| storm as u32),
+                        // Native path: placeholder overwritten by Storm-join reconciliation.
+                        None => 27,
+                    },
                     false => u32::MAX,
                 },
                 race: slot.bw_race(),
@@ -1657,27 +1767,6 @@ fn build_replay_joined_players() -> Vec<JoinedPlayer> {
     joined_players
 }
 
-unsafe fn storm_player_names(bw: &BwScr) -> Vec<Option<String>> {
-    unsafe {
-        let storm_players = bw.storm_players();
-        storm_players
-            .iter()
-            .map(|player| {
-                let name_len = player
-                    .name
-                    .iter()
-                    .position(|&c| c == 0)
-                    .unwrap_or(player.name.len());
-                if name_len != 0 {
-                    Some(String::from_utf8_lossy(&player.name[..name_len]).into())
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-    }
-}
-
 async unsafe fn do_countdown() {
     const COUNTDOWN_BEEP: &str = "GLUSND_CHAT_COUNTDOWN";
 
@@ -1704,8 +1793,14 @@ async unsafe fn do_countdown() {
 
     let mut beeps = 0;
     let mut countdown_interval = tokio::time::interval(Duration::from_secs(1));
+    let mut last_lobby_state = bw.lobby_state();
 
     loop {
+        let lobby_state = bw.lobby_state();
+        if lobby_state != last_lobby_state {
+            debug!("lobby_state changed {last_lobby_state} -> {lobby_state} during countdown");
+            last_lobby_state = lobby_state;
+        }
         select! {
             _ = countdown_interval.tick() => {
                 if beeps == 0 {
@@ -1737,31 +1832,25 @@ pub async fn create_future(
     send_main_thread_requests: std::sync::mpsc::Sender<GameThreadRequest>,
 ) {
     let (internal_send, mut internal_recv) = mpsc::channel(8);
-    let (network_send, network_recv) = mpsc::channel(64);
-    let (from_network_send, mut from_network_recv) = mpsc::channel(64);
     let mut game_state = GameState {
         init_state: InitState::WaitingForInput(IncompleteInit {
             local_user: None,
             blocked_users: Vec::new(),
             server_config: None,
-            routes_set: false,
             settings_set: false,
         }),
-        network: NetworkManager::new(from_network_send, network_recv),
-        network_send,
         ws_send,
         internal_send,
         init_main_thread,
         send_main_thread_requests,
         running_game: None,
         async_stop,
-        can_start_game: AwaitableTaskState::Incomplete(Vec::new()),
+        netcode_v2_setup: None,
     };
     loop {
         let message = select! {
             x = messages.recv() => x,
             x = internal_recv.recv() => x,
-            x = from_network_recv.recv() => x.map(GameStateMessage::Network),
         };
         match message {
             Some(m) => game_state.handle_message(m).await,
@@ -1837,6 +1926,51 @@ async fn read_sbat_replay_data(path: &Path) -> Result<Option<replay::SbatReplayD
         }
     }
     Ok(None)
+}
+
+/// Builds the raw per-player evidence rows for the server report. A player row is a human when its
+/// BW id belongs to a joined player, otherwise it is a computer (no user id / storm id).
+fn build_raw_players(
+    game_thread_results: &GameThreadResults,
+    joined_players: &[JoinedPlayer],
+) -> Vec<RawPlayerResult> {
+    let humans_by_bw = joined_players
+        .iter()
+        .filter_map(|p| p.player_id.map(|bw| (bw, p)))
+        .collect::<HashMap<_, _>>();
+
+    let mut rows = game_thread_results
+        .player_results
+        .iter()
+        .map(|(&bw_id, result)| {
+            let human = humans_by_bw.get(&bw_id);
+            RawPlayerResult {
+                user_id: human.map(|p| p.sb_user_id),
+                bw_player_id: bw_id.0,
+                storm_id: human.map(|p| p.storm_id.0),
+                race: result.race,
+                victory_state: result.victory_state,
+                alliances: result.alliances,
+            }
+        })
+        .collect::<Vec<_>>();
+    rows.sort_by_key(|r| r.bw_player_id);
+    rows
+}
+
+/// Builds the raw network status rows for the server report, one per storm id, sorted by storm id.
+fn build_raw_net_players(game_thread_results: &GameThreadResults) -> Vec<RawNetPlayer> {
+    let mut rows = game_thread_results
+        .network_results
+        .iter()
+        .map(|(&storm_id, status)| RawNetPlayer {
+            storm_id: storm_id.0,
+            was_dropped: status.was_dropped,
+            has_quit: status.has_quit,
+        })
+        .collect::<Vec<_>>();
+    rows.sort_by_key(|r| r.storm_id);
+    rows
 }
 
 fn determine_game_results(
@@ -2141,6 +2275,228 @@ mod tests {
                 .apply()
                 .unwrap();
         });
+    }
+
+    /// A 1v1 melee `GameSetupInfo` fixture (host = user 10 at slot 0, opponent = user 20 at slot 1),
+    /// deserialized from JSON since `PlayerInfo`/`LobbyPlayerId` aren't constructible field-by-field
+    /// outside their module.
+    fn v2_setup_info() -> GameSetupInfo {
+        serde_json::from_value(serde_json::json!({
+            "name": "test game",
+            "map": {
+                "id": "map-id",
+                "hash": "hash",
+                "name": "Fighting Spirit",
+                "description": "",
+                "mapData": {
+                    "height": 128,
+                    "width": 112,
+                    "umsSlots": 2,
+                    "slots": 2,
+                    "tileset": 3,
+                    "umsForces": [],
+                    "isEud": false
+                },
+                "imageVersion": 0
+            },
+            "mapPath": "z:\\maps\\fs.scm",
+            "gameType": "melee",
+            "slots": [
+                { "id": "s0", "type": "human", "typeId": 6, "teamId": 0, "userId": 10, "race": "z", "playerId": 0 },
+                { "id": "s1", "type": "human", "typeId": 6, "teamId": 0, "userId": 20, "race": "p", "playerId": 1 }
+            ],
+            "host": { "id": "s0", "type": "human", "typeId": 6, "teamId": 0, "userId": 10, "race": "z", "playerId": 0 },
+            "users": [
+                { "id": 10, "name": "hostname" },
+                { "id": 20, "name": "oppname" }
+            ],
+            "seed": 305419896,
+            "gameId": "game-id"
+        }))
+        .expect("valid GameSetupInfo fixture")
+    }
+
+    #[test]
+    fn build_bw_game_data_fills_map_and_counts() {
+        let info = v2_setup_info();
+        let MapInfo::Game(ref game_map) = info.map else {
+            panic!("fixture is a map game");
+        };
+        let data = build_bw_game_data(
+            &info,
+            BwGameType::melee(),
+            &game_map.map_data,
+            &game_map.name,
+        );
+        // Packed struct: copy each field to a local before asserting (can't take a reference to a
+        // packed field).
+        assert_eq!({ data.map_width }, 112);
+        assert_eq!({ data.map_height }, 128);
+        assert_eq!({ data.tileset }, 3);
+        assert_eq!({ data.active_player_count }, 2);
+        assert_eq!({ data.max_player_count }, 2);
+        assert_eq!({ data.game_speed }, 6);
+        assert_eq!({ data.game_type }, BwGameType::melee().primary as u16);
+        assert_eq!({ data.game_subtype }, BwGameType::melee().subtype as u16);
+        assert_eq!({ data.is_replay }, 0);
+        assert_eq!({ data.index }, 1);
+        let creator = data.game_creator;
+        assert!(creator.starts_with(b"hostname"));
+        let name = data.name;
+        assert!(name.starts_with(b"test game"));
+        let map_name = data.map_name;
+        assert!(map_name.starts_with(b"Fighting Spirit"));
+    }
+
+    #[test]
+    fn build_v2_joined_players_maps_roster_to_storm_and_game_slots() {
+        let info = v2_setup_info();
+        // storm id ≡ rp2 slot: user 10 → slot 0 (host), user 20 → slot 1.
+        let storm_ids = HashMap::from([(SbUserId(10), 0u8), (SbUserId(20), 1u8)]);
+        let mut joined = build_v2_joined_players(&info, &storm_ids);
+        joined.sort_by_key(|p| p.storm_id.0);
+
+        assert_eq!(joined.len(), 2);
+        assert_eq!(joined[0].name, "hostname");
+        assert_eq!(joined[0].storm_id, StormPlayerId(0));
+        assert_eq!(joined[0].player_id, Some(BwPlayerId(0)));
+        assert_eq!(joined[0].sb_user_id, SbUserId(10));
+        assert_eq!(joined[1].name, "oppname");
+        assert_eq!(joined[1].storm_id, StormPlayerId(1));
+        assert_eq!(joined[1].player_id, Some(BwPlayerId(1)));
+        assert_eq!(joined[1].sb_user_id, SbUserId(20));
+    }
+
+    #[test]
+    fn build_v2_joined_players_places_observers_at_observer_slots() {
+        let info: GameSetupInfo = serde_json::from_value(serde_json::json!({
+            "name": "obs game",
+            "map": {
+                "id": "map-id",
+                "hash": "hash",
+                "name": "Fighting Spirit",
+                "description": "",
+                "mapData": {
+                    "height": 128,
+                    "width": 112,
+                    "umsSlots": 2,
+                    "slots": 2,
+                    "tileset": 3,
+                    "umsForces": [],
+                    "isEud": false
+                },
+                "imageVersion": 0
+            },
+            "mapPath": "z:\\maps\\fs.scm",
+            "gameType": "melee",
+            "slots": [
+                { "id": "s0", "type": "human", "typeId": 6, "teamId": 0, "userId": 10, "race": "z", "playerId": 0 },
+                { "id": "s1", "type": "human", "typeId": 6, "teamId": 0, "userId": 20, "race": "p", "playerId": 1 },
+                { "id": "s2", "type": "observer", "typeId": 6, "teamId": 0, "userId": 30, "race": "r", "playerId": 2 }
+            ],
+            "host": { "id": "s0", "type": "human", "typeId": 6, "teamId": 0, "userId": 10, "race": "z", "playerId": 0 },
+            "users": [
+                { "id": 10, "name": "hostname" },
+                { "id": 20, "name": "oppname" },
+                { "id": 30, "name": "obsname" }
+            ],
+            "seed": 305419896,
+            "gameId": "game-id"
+        }))
+        .expect("valid GameSetupInfo fixture");
+        // storm id ≡ rp2 slot: the observer sits at rp2 slot 8, above the two players.
+        let storm_ids = HashMap::from([
+            (SbUserId(10), 0u8),
+            (SbUserId(20), 1u8),
+            (SbUserId(30), 8u8),
+        ]);
+        let mut joined = build_v2_joined_players(&info, &storm_ids);
+        joined.sort_by_key(|p| p.storm_id.0);
+
+        assert_eq!(joined.len(), 3);
+        assert_eq!(joined[0].player_id, Some(BwPlayerId(0)));
+        assert_eq!(joined[1].player_id, Some(BwPlayerId(1)));
+        // First (and only) observer occupies players[12]; its id reports as an observer.
+        assert_eq!(joined[2].name, "obsname");
+        assert_eq!(joined[2].storm_id, StormPlayerId(8));
+        assert_eq!(joined[2].player_id, Some(BwPlayerId(12)));
+        assert!(joined[2].player_id.unwrap().is_observer());
+    }
+
+    #[test]
+    fn build_v2_joined_players_places_ums_players_by_map_slot_id() {
+        let info: GameSetupInfo = serde_json::from_value(serde_json::json!({
+            "name": "ums game",
+            "map": {
+                "id": "map-id",
+                "hash": "hash",
+                "name": "Some Scenario",
+                "description": "",
+                "mapData": {
+                    "height": 128,
+                    "width": 112,
+                    "umsSlots": 8,
+                    "slots": 8,
+                    "tileset": 3,
+                    "umsForces": [],
+                    "isEud": false
+                },
+                "imageVersion": 0
+            },
+            "mapPath": "z:\\maps\\scenario.scx",
+            "gameType": "ums",
+            "slots": [
+                { "id": "s0", "type": "human", "typeId": 6, "teamId": 1, "userId": 10, "race": "z", "playerId": 0 },
+                { "id": "s1", "type": "human", "typeId": 6, "teamId": 1, "userId": 20, "race": "p", "playerId": 1 },
+                { "id": "s2", "type": "human", "typeId": 6, "teamId": 2, "userId": 30, "race": "t", "playerId": 4 }
+            ],
+            "host": { "id": "s0", "type": "human", "typeId": 6, "teamId": 1, "userId": 10, "race": "z", "playerId": 0 },
+            "users": [
+                { "id": 10, "name": "hostname" },
+                { "id": 20, "name": "oppname" },
+                { "id": 30, "name": "thirdname" }
+            ],
+            "seed": 305419896,
+            "gameId": "game-id"
+        }))
+        .expect("valid GameSetupInfo fixture");
+        let storm_ids = HashMap::from([
+            (SbUserId(10), 0u8),
+            (SbUserId(20), 1u8),
+            (SbUserId(30), 2u8),
+        ]);
+        let mut joined = build_v2_joined_players(&info, &storm_ids);
+        joined.sort_by_key(|p| p.storm_id.0);
+
+        assert_eq!(joined.len(), 3);
+        // UMS placement follows the map's slot id, not the slot-list index: the third human sits
+        // at map slot 4 even though it is slots[2].
+        assert_eq!(joined[0].player_id, Some(BwPlayerId(0)));
+        assert_eq!(joined[1].player_id, Some(BwPlayerId(1)));
+        assert_eq!(joined[2].player_id, Some(BwPlayerId(4)));
+    }
+
+    #[test]
+    fn lobby_game_init_data_has_the_expected_13_byte_layout() {
+        // The exact buffer do_lobby_game_init synthesizes: 0x48, u32 seed (LE), then 8 player bytes
+        // each = 8 (the empty/no-remapping sentinel for a fresh game). This is what the netcode-v2
+        // local-drive injects via process_lobby_commands(ptr, 13, 0).
+        let data = bw::LobbyGameInitData {
+            game_init_command: 0x48,
+            random_seed: 0x1234_5678,
+            player_bytes: [8; 8],
+        };
+        assert_eq!(mem::size_of::<bw::LobbyGameInitData>(), 13);
+        let bytes = unsafe {
+            std::slice::from_raw_parts(
+                &data as *const bw::LobbyGameInitData as *const u8,
+                mem::size_of::<bw::LobbyGameInitData>(),
+            )
+        };
+        assert_eq!(
+            bytes,
+            &[0x48, 0x78, 0x56, 0x34, 0x12, 8, 8, 8, 8, 8, 8, 8, 8]
+        );
     }
 
     fn make_standard_network_results(
@@ -3712,5 +4068,115 @@ mod tests {
                 }
             ),])
         )
+    }
+
+    #[test]
+    fn raw_report_serializes_expected_json() {
+        let players = vec![
+            RawPlayerResult {
+                user_id: Some(10.into()),
+                bw_player_id: 0,
+                storm_id: Some(0),
+                race: AssignedRace::Zerg,
+                victory_state: VictoryState::Victory,
+                alliances: {
+                    let mut a = [AllianceState::Unallied; 8];
+                    a[1] = AllianceState::AlliedVictory;
+                    a
+                },
+            },
+            RawPlayerResult {
+                user_id: None,
+                bw_player_id: 1,
+                storm_id: None,
+                race: AssignedRace::Terran,
+                victory_state: VictoryState::Defeat,
+                alliances: [AllianceState::Unallied; 8],
+            },
+        ];
+        let net_players = vec![RawNetPlayer {
+            storm_id: 0,
+            was_dropped: false,
+            has_quit: true,
+        }];
+        let report = RawGameResultsReport {
+            version: 2,
+            user_id: 10.into(),
+            result_code: "abc",
+            time: 1234,
+            players: &players,
+            net_players: &net_players,
+            local_player_lose_type: Some(PlayerLoseType::TargetedDisconnect),
+        };
+
+        let value = serde_json::to_value(&report).unwrap();
+        assert_eq!(
+            value,
+            serde_json::json!({
+                "version": 2,
+                "userId": 10,
+                "resultCode": "abc",
+                "time": 1234,
+                "players": [
+                    {
+                        "userId": 10,
+                        "bwPlayerId": 0,
+                        "stormId": 0,
+                        "race": "z",
+                        "victoryState": 3,
+                        "alliances": [0, 2, 0, 0, 0, 0, 0, 0],
+                    },
+                    {
+                        "userId": null,
+                        "bwPlayerId": 1,
+                        "stormId": null,
+                        "race": "t",
+                        "victoryState": 2,
+                        "alliances": [0, 0, 0, 0, 0, 0, 0, 0],
+                    },
+                ],
+                "netPlayers": [
+                    { "stormId": 0, "wasDropped": false, "hasQuit": true },
+                ],
+                "localPlayerLoseType": "targetedDisconnect",
+            })
+        );
+    }
+
+    #[test]
+    fn maximal_raw_report_fits_relay_cap() {
+        let players = (0..8u8)
+            .map(|i| RawPlayerResult {
+                user_id: Some(u32::MAX.into()),
+                bw_player_id: i,
+                storm_id: Some(i),
+                race: AssignedRace::Protoss,
+                victory_state: VictoryState::Disconnected,
+                alliances: [AllianceState::AlliedVictory; 8],
+            })
+            .collect::<Vec<_>>();
+        let net_players = (0..8u8)
+            .map(|i| RawNetPlayer {
+                storm_id: i,
+                was_dropped: true,
+                has_quit: true,
+            })
+            .collect::<Vec<_>>();
+        let report = RawGameResultsReport {
+            version: 2,
+            user_id: u32::MAX.into(),
+            result_code: "0123456789abcdef0123456789abcdef",
+            time: u64::MAX,
+            players: &players,
+            net_players: &net_players,
+            local_player_lose_type: Some(PlayerLoseType::MassDisconnect),
+        };
+
+        let bytes = serde_json::to_vec(&report).unwrap();
+        assert!(
+            bytes.len() < 4096,
+            "maximal raw report was {} bytes, expected comfortably under 4096",
+            bytes.len(),
+        );
     }
 }

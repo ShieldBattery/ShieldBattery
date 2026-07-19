@@ -77,7 +77,6 @@ pub struct Game {
     pub dispute_reviewed: bool,
     pub game_length: Option<i32>,
     pub results: Option<Vec<ReconciledPlayerResultEntry>>,
-    pub routes: Option<Vec<GameRoute>>,
 }
 
 #[ComplexObject]
@@ -106,7 +105,6 @@ pub struct DbGame {
     pub dispute_reviewed: bool,
     pub game_length: Option<i32>,
     pub results: Option<sqlx::types::Json<Vec<(SbUserId, ReconciledPlayerResult)>>>,
-    pub routes: Option<Vec<sqlx::types::Json<GameRoute>>>,
 }
 
 impl From<DbGame> for Game {
@@ -125,9 +123,6 @@ impl From<DbGame> for Game {
                     .map(|(id, result)| ReconciledPlayerResultEntry { id, result })
                     .collect()
             }),
-            routes: db_game
-                .routes
-                .map(|r| r.into_iter().map(|route| route.0).collect()),
         }
     }
 }
@@ -384,15 +379,6 @@ pub enum GameConfig {
     Matchmaking(GameConfigData<MatchmakingExtra>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, SimpleObject)]
-#[serde(rename_all = "camelCase")]
-pub struct GameRoute {
-    pub p1: i32,
-    pub p2: i32,
-    pub server: i32,
-    pub latency: f64,
-}
-
 pub struct GamesRepo {
     db: PgPool,
 }
@@ -413,8 +399,7 @@ impl GamesRepo {
                 -- null); coerce any non-array value to NULL so it decodes as `None` rather than
                 -- erroring ("invalid type: map, expected a sequence"). Matches the Node guard in
                 -- game-models.ts.
-                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _",
-                routes as "routes: _"
+                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _"
             FROM games
             WHERE
                 game_length IS NULL
@@ -459,8 +444,7 @@ impl Loader<Uuid> for GamesLoader {
                 -- null); coerce any non-array value to NULL so it decodes as `None` rather than
                 -- erroring ("invalid type: map, expected a sequence"). Matches the Node guard in
                 -- game-models.ts.
-                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _",
-                routes as "routes: _"
+                (CASE WHEN jsonb_typeof(results) = 'array' THEN results END) as "results: _"
             FROM games WHERE id = ANY($1)
             "#,
             keys

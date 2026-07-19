@@ -373,6 +373,19 @@ export default [
     },
   },
   {
+    // Plain-Node ESM scripts (dev tools, deployment helpers, this config): they run under Node
+    // directly, so Node's globals are real there.
+    files: ['**/*.mjs'],
+
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+      ecmaVersion: 2022,
+      sourceType: 'module',
+    },
+  },
+  {
     files: ['client/gql/fragment-masking.ts', 'client/gql/gql.ts'],
 
     linterOptions: {

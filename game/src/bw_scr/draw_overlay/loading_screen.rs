@@ -20,8 +20,12 @@ impl OverlayState {
         &mut self,
         bw: &BwVars,
         setup_info: Option<&GameSetupInfo>,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
     ) {
+        // egui 0.34 made `CentralPanel::show` take a `&mut Ui` (drawn into the pass's root Ui)
+        // rather than a `&Context`. The rest of this fn still wants the context for image loading and
+        // the floating countdown Area, so hold onto a clone.
+        let ctx = ui.ctx().clone();
         if !bw.has_init_bw
             && let Some(info) = setup_info
             && !info.is_replay()
@@ -40,7 +44,7 @@ impl OverlayState {
             // loading screen. Render a black screen to hide the FPS counter during this time.
             egui::CentralPanel::default()
                 .frame(Frame::default().fill(Color32::BLACK))
-                .show(ctx, |_ui| {});
+                .show(ui, |_ui| {});
             return;
         }
 
@@ -62,7 +66,7 @@ impl OverlayState {
         };
         let (start_players, end_players) = get_player_halves(setup_info);
 
-        let map_size = if ctx.screen_rect().size().x < MAP_BREAKPOINT {
+        let map_size = if ctx.content_rect().size().x < MAP_BREAKPOINT {
             SMALL_MAP_IMAGE_SIZE
         } else {
             MAP_IMAGE_SIZE
@@ -74,13 +78,13 @@ impl OverlayState {
                     .fill(colors::BLUE10)
                     .inner_margin(Margin::symmetric(24, 16)),
             )
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 // Do the equivalent of `object-fit: cover` for the background image
-                let screen_size = ctx.screen_rect().size();
+                let screen_size = ctx.content_rect().size();
                 let background_scale =
                     (screen_size.x / BACKGROUND_SIZE.x).max(screen_size.y / BACKGROUND_SIZE.y);
                 let scaled_size = BACKGROUND_SIZE * background_scale;
-                let top_left = ctx.screen_rect().center() - scaled_size * 0.5;
+                let top_left = ctx.content_rect().center() - scaled_size * 0.5;
                 let background_rect = egui::Rect::from_min_size(top_left, scaled_size);
                 egui::Image::new(egui::include_image!("images/loading-screen.webp"))
                     .tint(Color32::from_white_alpha(170))
@@ -193,10 +197,10 @@ impl OverlayState {
         if let Some(countdown_start) = bw.countdown_start {
             let elapsed = 5 - countdown_start.elapsed().as_secs().min(5);
             let area_width = 80.0;
-            let x_center = ctx.screen_rect().center().x - area_width / 2.0;
+            let x_center = ctx.content_rect().center().x - area_width / 2.0;
             egui::Area::new("loading_screen_countdown".into())
                 .fixed_pos(egui::pos2(x_center, 24.0))
-                .show(ctx, |ui| {
+                .show(&ctx, |ui| {
                     ui.set_min_width(area_width);
                     ui.set_min_height(area_width);
                     Frame::default()

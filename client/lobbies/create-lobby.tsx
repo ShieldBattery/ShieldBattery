@@ -7,7 +7,6 @@ import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import { SbMapId } from '../../common/maps'
-import { ALL_TURN_RATES, BwTurnRate } from '../../common/network'
 import { range } from '../../common/range'
 import { useTrackPageView } from '../analytics/analytics'
 import { useForm, useFormCallbacks, Validator } from '../forms/form-hook'
@@ -99,7 +98,6 @@ interface CreateLobbyModel {
   mapSelection: MapSelectionValue
   gameType: GameType
   gameSubType: number
-  turnRate: BwTurnRate | 0 | null
   useLegacyLimits: boolean
 }
 
@@ -144,8 +142,6 @@ function updateRecentMaps(
 ): SbMapId[] {
   return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, numRecentMaps - 1)]
 }
-
-const TURN_RATE_OPTIONS: ReadonlyArray<BwTurnRate> = ALL_TURN_RATES.slice(0).sort((a, b) => b - a)
 
 function CreateLobbyForm({
   disabled,
@@ -272,6 +268,7 @@ function CreateLobbyForm({
         label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
         disabled={disabled}
         floatingLabel={true}
+        testName='lobby-name-input'
         inputProps={{
           autoCapitalize: 'off',
           autoComplete: 'off',
@@ -305,25 +302,6 @@ function CreateLobbyForm({
         <SectionHeader>
           {t('lobbies.createLobby.advancedSettings', 'Advanced settings')}
         </SectionHeader>
-        <Select
-          {...bindCustom('turnRate')}
-          label={t('lobbies.createLobby.turnRate', 'Turn rate')}
-          disabled={disabled}
-          tabIndex={0}>
-          <SelectOption
-            key='auto'
-            value={null}
-            text={t('lobbies.createLobby.turnRateAuto', 'Auto')}
-          />
-          {TURN_RATE_OPTIONS.map(t => (
-            <SelectOption key={t} value={t} text={String(t)} />
-          ))}
-          <SelectOption
-            key='dtr'
-            value={0}
-            text={t('lobbies.createLobby.turnRateDynamic', 'DTR (Not recommended)')}
-          />
-        </Select>
         <CheckBox
           {...bindCheckable('useLegacyLimits')}
           label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
@@ -359,7 +337,6 @@ export function CreateLobby(props: CreateLobbyProps) {
   const prefsName = useAppSelector(s => s.lobbyPreferences.name)
   const gameType = useAppSelector(s => s.lobbyPreferences.gameType)
   const gameSubType = useAppSelector(s => s.lobbyPreferences.gameSubType)
-  const turnRate = useAppSelector(s => s.lobbyPreferences.turnRate)
   const useLegacyLimits = useAppSelector(s => s.lobbyPreferences.useLegacyLimits)
 
   const storeSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
@@ -377,18 +354,9 @@ export function CreateLobby(props: CreateLobbyProps) {
           mapId: storeSelectedMap,
           recentMaps: storeRecentMaps.toArray(),
         },
-        turnRate: turnRate ?? null,
         useLegacyLimits: useLegacyLimits ?? false,
       }) satisfies CreateLobbyModel,
-    [
-      initialName,
-      gameType,
-      gameSubType,
-      storeSelectedMap,
-      storeRecentMaps,
-      turnRate,
-      useLegacyLimits,
-    ],
+    [initialName, gameType, gameSubType, storeSelectedMap, storeRecentMaps, useLegacyLimits],
   )
 
   const formRef = useRef<CreateLobbyFormHandle>(null)
@@ -405,7 +373,6 @@ export function CreateLobby(props: CreateLobbyProps) {
           recentMaps: model.mapSelection.recentMaps,
           gameType: model.gameType,
           gameSubType: model.gameSubType,
-          turnRate: model.turnRate !== null ? model.turnRate : undefined,
           useLegacyLimits: model.useLegacyLimits,
         }),
       )
@@ -484,7 +451,6 @@ export function CreateLobby(props: CreateLobbyProps) {
                   gameType,
                   gameSubType,
                   mapSelection: { mapId, recentMaps },
-                  turnRate,
                   useLegacyLimits,
                 } = model
                 const subType = isTeamType(gameType) ? gameSubType : undefined
@@ -495,7 +461,6 @@ export function CreateLobby(props: CreateLobbyProps) {
                     map: mapId,
                     gameType,
                     gameSubType: subType,
-                    turnRate: turnRate === null ? undefined : turnRate,
                     useLegacyLimits,
                   }),
                 )
@@ -511,7 +476,6 @@ export function CreateLobby(props: CreateLobbyProps) {
                     recentMaps: orderedRecentMaps,
                     gameType: model.gameType,
                     gameSubType: model.gameSubType,
-                    turnRate: model.turnRate !== null ? model.turnRate : undefined,
                     useLegacyLimits: model.useLegacyLimits,
                   }),
                 )
@@ -537,6 +501,7 @@ export function CreateLobby(props: CreateLobbyProps) {
           onClick={() => {
             formRef.current?.submit()
           }}
+          testName='create-lobby-submit'
         />
       </Actions>
     </Container>
