@@ -93,8 +93,10 @@ export async function resolveDesiredRegion(): Promise<DesiredRegion | undefined>
     )
 
   let resolved = await readSelection()
-  const deadline = Date.now() + REGION_RESOLVE_TIMEOUT_MS
-  while (!resolved && Date.now() < deadline) {
+  // Monotonic clock: this bounds an elapsed wait, and the wall clock can step (NTP, manual
+  // changes) while we poll.
+  const deadline = performance.now() + REGION_RESOLVE_TIMEOUT_MS
+  while (!resolved && performance.now() < deadline) {
     await new Promise(resolve => setTimeout(resolve, REGION_POLL_INTERVAL_MS))
     resolved = await readSelection()
   }
