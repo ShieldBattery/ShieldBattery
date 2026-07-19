@@ -24,7 +24,9 @@ export function extendableDeadline(
   msg = 'Operation timed out',
 ): ExtendableDeadline {
   let settled = false
-  let deadlineAt = Date.now() + ms
+  // Monotonic clock: deadlines here bound elapsed time, and re-arming after extend() computes a
+  // remaining duration — a wall-clock step (NTP, manual change) must not stretch or truncate it.
+  let deadlineAt = performance.now() + ms
   let timerId: ReturnType<typeof setTimeout>
   let reject!: (err: Error) => void
   let resolve!: () => void
@@ -41,7 +43,7 @@ export function extendableDeadline(
   }
 
   const arm = () => {
-    timerId = setTimeout(fire, Math.max(0, deadlineAt - Date.now()))
+    timerId = setTimeout(fire, Math.max(0, deadlineAt - performance.now()))
   }
 
   const finish = () => {
