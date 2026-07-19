@@ -669,7 +669,7 @@ impl PreviewApp {
                     last_turn_age_ms: Some(if departure.is_some() {
                         63_000 + i as u64 * 1000
                     } else {
-                        if stalled { 900 } else { 40 } + i as u64 * 5
+                        (if stalled { 900 } else { 40 }) + i as u64 * 5
                     }),
                     ewma_interval_ms: Some(1000 / k.turn_rate.max(1) as u64 + i as u64 * 3),
                     max_gap_ms: if stalled { 1600 } else { 90 },
