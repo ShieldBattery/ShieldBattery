@@ -156,7 +156,10 @@ export function ReplayInspector({
       {entry.parseError ? (
         <>
           <GameSidePanelHeader>
-            {chips}
+            {/*
+              No source badge: an unreadable replay's source is genuinely unknown (we couldn't read
+              the embedded SB section), so the SB/B.NET distinction can't be made here.
+            */}
             <GameSidePanelTitle>{entry.fileName}</GameSidePanelTitle>
           </GameSidePanelHeader>
           <ErrorNote>
