@@ -79,9 +79,18 @@ export class ReplayDb {
     // `nativeBinding` is typed as a string path by @types/better-sqlite3, but the runtime also
     // accepts a pre-loaded addon object (WiseLibs/better-sqlite3#972), which is what we pass.
     this.db = new Database(dbPath, { nativeBinding: betterSqlite3Addon })
-    this.db.pragma('journal_mode = WAL')
-    this.db.pragma('foreign_keys = ON')
-    this.migrate()
+    try {
+      this.db.pragma('journal_mode = WAL')
+      this.db.pragma('foreign_keys = ON')
+      this.migrate()
+    } catch (err) {
+      // If the file can't be opened or migrated (corruption, a schema from an incompatible build,
+      // etc.), close the handle before rethrowing so the caller can delete and rebuild the index —
+      // Windows keeps the file locked while it's open. The index is a pure, rebuildable cache of the
+      // replay folder, so recreating it from scratch loses nothing.
+      this.db.close()
+      throw err
+    }
 
     this.getIdByPathStmt = this.db.prepare('SELECT id FROM replays WHERE path = ?')
     this.insertReplayStmt = this.db.prepare(`

@@ -1,4 +1,6 @@
+import { rmSync } from 'node:fs'
 import { isMainThread, parentPort, workerData } from 'node:worker_threads'
+import { getErrorStack } from '../../../common/errors'
 import { ReplayLibraryStatus } from '../../../common/replays-library'
 import { ReplayDb } from '../replay-db'
 import { ReplayLibraryLogger, ReplayWatcher } from '../replay-watcher'
@@ -25,7 +27,30 @@ const logger: ReplayLibraryLogger = {
   verbose: message => post({ type: 'log', level: 'verbose', message }),
 }
 
-const db = new ReplayDb(dbPath)
+/**
+ * Opens the replay index, rebuilding it from scratch if the existing file can't be opened or
+ * migrated. The index is a pure cache of the on-disk replay folder, so a corrupt/unreadable file
+ * (power loss mid-write, a schema written by an incompatible build, ...) is discarded and
+ * re-created rather than crash-looping the worker forever against the same bad file. A second
+ * failure is a real problem (e.g. the directory isn't writable) and is left to propagate.
+ */
+function openReplayDb(path: string): ReplayDb {
+  try {
+    return new ReplayDb(path)
+  } catch (err) {
+    logger.warning(`Recreating unreadable replay index at ${path}: ${getErrorStack(err)}`)
+    for (const suffix of ['', '-wal', '-shm']) {
+      try {
+        rmSync(path + suffix, { force: true })
+      } catch {
+        // Best-effort; if a file genuinely can't be removed, the retry below surfaces it.
+      }
+    }
+    return new ReplayDb(path)
+  }
+}
+
+const db = openReplayDb(dbPath)
 const watcher = new ReplayWatcher(watchedFolder, db, logger, {
   onProgress: progress => post({ type: 'backfillProgress', progress }),
   onChange: () => post({ type: 'changed' }),
