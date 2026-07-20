@@ -35,6 +35,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   // aliased/mutated through the preset it was seeded from.
   customTeamColors: cloneCustomTeamColors(TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]),
   customFfaColors: [...FFA_COLOR_PRESETS[FfaColorPreset.Classic]],
+  teamSelfColor: undefined,
   ffaSelfColor: undefined,
   legacyCursorSizing: false,
   useCustomCursorSize: false,

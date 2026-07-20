@@ -168,6 +168,15 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   /** The user's custom FFA-color pool (length 8-16), used when `ffaColorPreset` is `Custom`. */
   customFfaColors: string[]
   /**
+   * A fixed self color for team contexts, overriding the active team-color preset's self color
+   * (any preset, not just `Custom`), or undefined to use the preset's self color as normal. With
+   * `shuffleColors` on and this unset, the local player instead draws from the team's full pool
+   * (self + allies) like an ally would. Unlike `ffaSelfColor`, this is never consumed from the
+   * allies pool -- team pools wrap by design, so a color collision with an ally is the user's own
+   * aesthetic choice. '#RRGGBB'.
+   */
+  teamSelfColor?: string
+  /**
    * A fixed self color for FFA contexts, or undefined to draw from the FFA pool like everyone
    * else. If set and present in the active FFA pool, it's consumed (skipped when assigning other
    * players) rather than causing a collision. '#RRGGBB'.

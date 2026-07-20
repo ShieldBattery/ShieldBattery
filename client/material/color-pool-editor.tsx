@@ -1,9 +1,9 @@
 import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { bodySmall } from '../styles/typography'
+import { bodySmall, labelSmall } from '../styles/typography'
 import { ColorPickerSwatch } from './color-picker'
 import { AddSwatchIcon, AddSwatchTile, RemoveSwatchBadge, RemoveSwatchIcon } from './color-swatch'
 import { EditableColorSwatch } from './editable-color-swatch'
@@ -20,6 +20,9 @@ const Row = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  // Reserves room for EntryBadge, which straddles a swatch's bottom edge and would otherwise
+  // overlap the Hint below (absolutely-positioned content doesn't contribute to Row's own height).
+  padding-bottom: 10px;
 `
 
 const SwatchSlot = styled(m.div)<{ $dragging?: boolean }>`
@@ -32,6 +35,41 @@ const Hint = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
   margin-top: 6px;
+`
+
+/**
+ * Full-width, zero-height anchor spanning the swatch's bottom edge, centering `EntryBadge` inside
+ * it via flexbox rather than `left: 50%; transform: translateX(-50%)` -- the latter can round a
+ * variable-width (odd-pixel) label a hair off-true against an even-width swatch, since the
+ * transform's -50% is computed from the badge's own (sub)pixel width. Sits clear of the top-right
+ * corner `RemoveSwatchBadge` uses (the two never actually appear on the same chip in practice --
+ * this badge is only ever wired up for a read-only, non-editable pool -- but the offset keeps them
+ * non-colliding on principle).
+ */
+const EntryBadgeAnchor = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  // Straddles the swatch's bottom edge (half overlapping the chip, half hanging below it) rather
+  // than dangling fully beneath it; Row's bottom padding reserves room for the hanging half.
+  transform: translateY(50%);
+  pointer-events: none;
+`
+
+const EntryBadge = styled.div`
+  ${labelSmall};
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  line-height: 14px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
 `
 
 export interface ColorPoolEditorProps {
@@ -55,6 +93,11 @@ export interface ColorPoolEditorProps {
   removeLabel: string
   /** An optional hint line rendered below the pool row. */
   hint?: string
+  /** The index of the entry to tag with `badgeLabel` (e.g. "YOU"), or `undefined`/out-of-range
+   * for no badge. */
+  badgeIndex?: number
+  /** The badge text shown on the entry at `badgeIndex`. Required if `badgeIndex` is set. */
+  badgeLabel?: string
   onSwatchChange: (index: number, hex: string) => void
   onRemove: (index: number) => void
   onReorder: (fromIndex: number, toIndex: number) => void
@@ -62,8 +105,9 @@ export interface ColorPoolEditorProps {
   className?: string
 }
 
-/** A chip tagged with a stable id (its index when the current drag began), so `layout` animations
- * can track it across live reorders even though `colors` itself has no persistent identity. */
+/** A chip tagged with a stable id that follows its color across reorders (see the `ids` state
+ * below), so `layout` animations can track it live even though `colors` itself (an array of hex
+ * strings) has no persistent identity of its own. */
 interface Chip {
   id: number
   color: string
@@ -94,6 +138,8 @@ export function ColorPoolEditor({
   addLabel,
   removeLabel,
   hint,
+  badgeIndex,
+  badgeLabel,
   onSwatchChange,
   onRemove,
   onReorder,
@@ -101,10 +147,74 @@ export function ColorPoolEditor({
   className,
 }: ColorPoolEditorProps) {
   const [drag, setDrag] = useState<DragState | null>(null)
+  // Suppresses tooltips for a grace window after a drag ends (see `endDrag`), on top of the
+  // `!!drag` suppression already in effect during the drag itself.
+  const [tooltipsSuppressed, setTooltipsSuppressed] = useState(false)
+  const tooltipGraceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // `ids` gives each pool entry an identity that's stable across reorders (`colors` is just a list
+  // of hex strings, which have none of their own -- two allies can even share a color). It's kept
+  // in sync with `colors` by the mutation handlers below, each mirroring onto `ids` whatever
+  // change it asks the parent to make onto `colors`, so a chip's id follows it when it moves
+  // instead of being re-derived from its new position. That's what lets the `layout` animation
+  // slide a moved chip to its new slot instead of the old element unmounting (old key) and a new
+  // one mounting (new key) right at the position it settles into.
+  const [ids, setIds] = useState<number[]>(() => colors.map((_, i) => i))
+
+  // If `colors` changed length through some path other than the handlers below (e.g. a "copy from
+  // preset" overwrite from outside this component), there's no prior per-slot identity to carry
+  // forward, so just mint fresh sequential ids. Adjusting state during render like this is safe
+  // here because it's idempotent -- once `ids`/`colors` agree in length, the condition no longer
+  // holds and this doesn't run again. (`commitAdd` mints its new id the same way, from whatever
+  // `ids` holds at the time, so there's no separate persistent counter to keep in sync with this.)
+  let resolvedIds = ids
+  if (resolvedIds.length !== colors.length) {
+    resolvedIds = colors.map((_, i) => i)
+    setIds(resolvedIds)
+  }
 
   const showRemove = editable && colors.length > minLength
   const showAdd = editable && colors.length < maxLength
-  const chips = drag ? drag.chips : colors.map((color, id) => ({ id, color }))
+  const chips = drag ? drag.chips : colors.map((color, i) => ({ id: resolvedIds[i], color }))
+
+  const clearTooltipGraceTimer = () => {
+    clearTimeout(tooltipGraceTimerRef.current)
+    tooltipGraceTimerRef.current = undefined
+  }
+
+  useEffect(() => clearTooltipGraceTimer, [])
+
+  // Ends the drag and holds tooltips off for a grace window: the pointer is typically still
+  // resting over the chip right where it was dropped, and a `Tooltip`'s hover-open state keeps
+  // counting in the background even while `tooltipDisabled` hides its content, so re-enabling it
+  // in the same instant the drag ends would let it snap open immediately (already past its own
+  // 200ms hover delay) instead of behaving like a fresh hover. `onRowMouseLeave` below clears the
+  // grace window early once the pointer actually leaves the row.
+  const endDrag = () => {
+    setDrag(null)
+    setTooltipsSuppressed(true)
+    clearTooltipGraceTimer()
+    tooltipGraceTimerRef.current = setTimeout(() => setTooltipsSuppressed(false), 300)
+  }
+
+  const onRowMouseLeave = () => {
+    clearTooltipGraceTimer()
+    setTooltipsSuppressed(false)
+  }
+
+  const commitRemove = (index: number) => {
+    setIds(prev => {
+      const next = prev.slice()
+      next.splice(index, 1)
+      return next
+    })
+    onRemove(index)
+  }
+
+  const commitAdd = () => {
+    setIds(prev => [...prev, prev.length > 0 ? Math.max(...prev) + 1 : 0])
+    onAdd()
+  }
 
   const handleDragStart = (index: number, event: DragEvent) => {
     if (!event.dataTransfer) {
@@ -113,32 +223,34 @@ export function ColorPoolEditor({
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setDragImage(TRANSPARENT_DRAG_IMAGE, 0, 0)
     setDrag({
-      chips: colors.map((color, id) => ({ id, color })),
+      chips: colors.map((color, i) => ({ id: resolvedIds[i], color })),
       originalIndex: index,
       currentIndex: index,
     })
-  }
-
-  const handleDragEnd = () => {
-    // If `handleDrop` already committed the reorder, this is a no-op; if the drag ended without a
-    // valid drop, `colors` was never touched, so clearing local state alone reverts the display.
-    setDrag(null)
   }
 
   // `motion.div` reserves the `onDragStart`/`onDragEnd` prop names for its own pointer-based drag
   // gesture (distinct from, and never forwarded to, the native HTML5 drag-and-drop event of the
   // same name) -- so the native listeners for those two are wired up directly via ref instead of
   // JSX props. `onDragOver`/`onDrop` aren't reserved by motion and stay as ordinary JSX handlers.
-  const attachNativeDragListeners = (index: number) => (element: HTMLDivElement | null) => {
+  //
+  // The index a chip started dragging from is read off a `data-index` attribute at the moment the
+  // event fires, rather than captured in a closure when the listener was attached: `data-index` is
+  // a plain JSX prop that React refreshes on every render regardless of whether this ref callback
+  // itself gets re-invoked, so the handler always sees the chip's current position even if a
+  // memoized ref identity means the listener was actually attached several renders ago.
+  const attachNativeDragListeners = (element: HTMLDivElement | null) => {
     if (!element) {
       return undefined
     }
-    const onNativeDragStart = (event: DragEvent) => handleDragStart(index, event)
+    const onNativeDragStart = (event: DragEvent) => {
+      handleDragStart(Number(element.dataset.index), event)
+    }
     element.addEventListener('dragstart', onNativeDragStart)
-    element.addEventListener('dragend', handleDragEnd)
+    element.addEventListener('dragend', endDrag)
     return () => {
       element.removeEventListener('dragstart', onNativeDragStart)
-      element.removeEventListener('dragend', handleDragEnd)
+      element.removeEventListener('dragend', endDrag)
     }
   }
 
@@ -156,18 +268,25 @@ export function ColorPoolEditor({
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault()
     if (drag && drag.currentIndex !== drag.originalIndex) {
+      setIds(prev => {
+        const next = prev.slice()
+        const [moved] = next.splice(drag.originalIndex, 1)
+        next.splice(drag.currentIndex, 0, moved)
+        return next
+      })
       onReorder(drag.originalIndex, drag.currentIndex)
     }
-    setDrag(null)
+    endDrag()
   }
 
   return (
     <div className={className}>
-      <Row>
+      <Row onMouseLeave={onRowMouseLeave}>
         {chips.map((chip, index) => (
           <SwatchSlot
             key={chip.id}
-            ref={attachNativeDragListeners(index)}
+            data-index={index}
+            ref={attachNativeDragListeners}
             layout
             transition={reorderTransition}
             $dragging={drag?.currentIndex === index}
@@ -187,7 +306,7 @@ export function ColorPoolEditor({
               pickerSubtitle={getPickerSubtitle(index)}
               label={colorLabel(chip.color)}
               addLabel={addLabel}
-              tooltipDisabled={!!drag}
+              tooltipDisabled={!!drag || tooltipsSuppressed}
             />
             {showRemove ? (
               <RemoveSwatchBadge
@@ -195,15 +314,20 @@ export function ColorPoolEditor({
                 title={removeLabel}
                 onClick={event => {
                   event.stopPropagation()
-                  onRemove(index)
+                  commitRemove(index)
                 }}>
                 <RemoveSwatchIcon />
               </RemoveSwatchBadge>
             ) : null}
+            {index === badgeIndex ? (
+              <EntryBadgeAnchor>
+                <EntryBadge>{badgeLabel}</EntryBadge>
+              </EntryBadgeAnchor>
+            ) : null}
           </SwatchSlot>
         ))}
         {showAdd ? (
-          <AddSwatchTile type='button' title={addLabel} onClick={onAdd}>
+          <AddSwatchTile type='button' title={addLabel} onClick={commitAdd}>
             <AddSwatchIcon />
           </AddSwatchTile>
         ) : null}

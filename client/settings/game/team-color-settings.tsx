@@ -17,6 +17,7 @@ import {
 } from '../../../common/settings/local-settings'
 import {
   cloneCustomTeamColors,
+  consumeMatchingColor,
   FFA_COLOR_PRESETS,
   getFfaColorPresetAttribution,
   getFfaColorPresetLabel,
@@ -27,6 +28,7 @@ import {
   MIN_FFA_COLORS,
   resolveFfaColors,
   resolveTeamColors,
+  resolveTeamSelfOverride,
   SC_COLORS,
   TEAM_COLOR_PRESETS,
 } from '../../../common/settings/team-colors'
@@ -35,7 +37,12 @@ import { OutlinedButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
-import { ColorPickerSwatch, getColorLabel, nextUnusedColor } from '../../material/color-picker'
+import {
+  ColorPickerQuickSwatches,
+  ColorPickerSwatch,
+  getColorLabel,
+  nextUnusedColor,
+} from '../../material/color-picker'
 import { ColorPoolEditor } from '../../material/color-pool-editor'
 import { EditableColorSwatch } from '../../material/editable-color-swatch'
 import { MenuItem } from '../../material/menu/item'
@@ -75,11 +82,18 @@ const BUILTIN_FFA_PRESETS = ALL_FFA_COLOR_PRESETS.filter(
   (p): p is Exclude<FfaColorPreset, FfaColorPreset.Custom> => p !== FfaColorPreset.Custom,
 )
 
-function buildTeamRows(colors: CustomTeamColors): PreviewRow[] {
+/**
+ * Builds the team preview's rows. `selfOverride` (see {@link resolveTeamSelfOverride}), when set,
+ * replaces the preset's hero self color and consumes its first match from the allies pool (mirrors
+ * the engine) -- this only ever shows the override itself, never modeling the shuffle-on
+ * random-draw behavior a real game would apply when there's no override in effect.
+ */
+function buildTeamRows(colors: CustomTeamColors, selfOverride: string | undefined): PreviewRow[] {
+  const allies = consumeMatchingColor(colors.allies, selfOverride)
   const friendly: PreviewRow[] = [
-    { color: colors.self, name: 'You', isSelf: true },
+    { color: selfOverride ?? colors.self, name: 'You', isSelf: true },
     ...ALLY_NAMES.map((name, i) => ({
-      color: colors.allies[i % colors.allies.length],
+      color: allies[i % allies.length],
       name,
       isSelf: false,
     })),
@@ -181,6 +195,27 @@ function getAlliesRepeatHint(count: number, shuffleColors: boolean, t: TFunction
           'Colors are used in order, from the left. With more than {{count}} allies, colors repeat.',
         count,
       })
+}
+
+/** The hint shown below the team YOU control on a built-in preset (Custom's self chip is always
+ * set, so it never shows this). */
+function getTeamSelfHint(hasOverride: boolean, shuffleColors: boolean, t: TFunction): string {
+  if (hasOverride) {
+    return t(
+      'settings.game.gameplay.teamColors.selfOverrideSetHint',
+      "You'll always be this color in team games.",
+    )
+  }
+  if (shuffleColors) {
+    return t(
+      'settings.game.gameplay.teamColors.selfShuffleHint',
+      "You'll get a random color from your team's pool each game.",
+    )
+  }
+  return t(
+    'settings.game.gameplay.teamColors.selfFirstAllyHint',
+    "You'll get the first ally color.",
+  )
 }
 
 function getEnemiesRepeatHint(count: number, shuffleColors: boolean, t: TFunction): string {
@@ -314,13 +349,13 @@ const CopyMenuCaption = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const FfaSelfRow = styled.div`
+const SelfRow = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
 `
 
-const FfaSelfAddLabel = styled.div`
+const SelfAddLabel = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
 `
@@ -428,6 +463,8 @@ export interface TeamColorSettingsProps {
   onCustomTeamColorsChange: (value: CustomTeamColors) => void
   customFfaColors: string[]
   onCustomFfaColorsChange: (value: string[]) => void
+  teamSelfColor: string | undefined
+  onTeamSelfColorChange: (value: string | undefined) => void
   ffaSelfColor: string | undefined
   onFfaSelfColorChange: (value: string | undefined) => void
 }
@@ -452,6 +489,8 @@ export function TeamColorSettings({
   onCustomTeamColorsChange,
   customFfaColors,
   onCustomFfaColorsChange,
+  teamSelfColor,
+  onTeamSelfColorChange,
   ffaSelfColor,
   onFfaSelfColorChange,
 }: TeamColorSettingsProps) {
@@ -464,12 +503,64 @@ export function TeamColorSettings({
   const isFfaCustom = ffaColorPreset === FfaColorPreset.Custom
   const teamEditable = isTeamCustom && !isModeInert
   const ffaEditable = isFfaCustom && !isModeInert
+  // The self swatch is editable on every preset (the override exists precisely to personalize a
+  // built-in preset), unlike the allies/enemies pools above which stay gated to Custom.
+  const teamSelfEditable = !isModeInert
 
   const activeTeamColors = resolveTeamColors({ teamColorPreset, customTeamColors })
   const activeFfaColors = resolveFfaColors({ ffaColorPreset, customFfaColors })
 
-  const teamRows = buildTeamRows(activeTeamColors)
+  // On Custom, the scheme's own self color always rides as the "override" (it's pinned under
+  // shuffle the same way an explicit one would be, see `resolveTeamSelfOverride`); on a built-in
+  // preset, it's the user's explicit override if they've set one, or `undefined` if not. This is
+  // exactly the value the app resolves onto the wire's `teamSelf`, so the preview and the ally
+  // consume-check below both mirror it precisely.
+  const effectiveTeamSelfOverride = resolveTeamSelfOverride(
+    { teamColorPreset, teamSelfColor },
+    activeTeamColors,
+  )
+  const hasTeamSelfOverride = teamSelfColor !== undefined
+  const teamSelfQuickSwatches: ColorPickerQuickSwatches = {
+    label: t('settings.game.gameplay.teamColors.quickSwatchesLabel', 'From this palette'),
+    swatches: [activeTeamColors.self, ...activeTeamColors.allies].map(hex => ({
+      color: hex,
+      label: getColorLabel(hex),
+    })),
+  }
+  const ffaSelfQuickSwatches: ColorPickerQuickSwatches = {
+    label: t('settings.game.gameplay.ffaColors.quickSwatchesLabel', 'From this palette'),
+    swatches: activeFfaColors.map(hex => ({ color: hex, label: getColorLabel(hex) })),
+  }
+
+  const teamRows = buildTeamRows(activeTeamColors, effectiveTeamSelfOverride)
   const ffaRows = buildFfaRows(activeFfaColors, ffaSelfColor)
+
+  const selfBadgeLabel = t('settings.game.gameplay.teamColors.selfBadge', 'YOU')
+  // On a built-in preset, the Allies row displays the hero color as the head of one combined
+  // friendly pool (hero + allies) rather than a separate, invisible extra -- so the row reads the
+  // same regardless of preset, matching what a real game actually draws from. Custom keeps its own
+  // always-visible self chip and its editable allies pool shown separately, exactly as today.
+  const teamFriendlyPool = [activeTeamColors.self, ...activeTeamColors.allies]
+  // Which friendly-pool entry (if any) is "yours". Deterministic in two cases: an override in
+  // effect (pinned regardless of shuffle -- it's whatever `effectiveTeamSelfOverride` resolves to),
+  // or no override with shuffle off (today's fixed preset-hero behavior, so you're always the pool's
+  // head entry). Not deterministic -- so no badge -- when there's no override and shuffle is on,
+  // since self then draws randomly from the combined pool. Custom shows no badge at all: its own
+  // self chip already makes "yours" obvious, and its allies pool is an editor, not a view (badging a
+  // swatch there would compete with the remove badge).
+  const teamSelfBadgeColor =
+    isTeamCustom || (shuffleColors && effectiveTeamSelfOverride === undefined)
+      ? undefined
+      : (effectiveTeamSelfOverride ?? activeTeamColors.self)
+  const teamSelfBadgeIndex = teamSelfBadgeColor
+    ? teamFriendlyPool.findIndex(c => c.toLowerCase() === teamSelfBadgeColor.toLowerCase())
+    : -1
+  // The FFA pool badges the same way as an in-effect team override: `ffaSelfColor` is deterministic
+  // whenever it's set (it's consumed from the pool, same as the preview above assumes), and there's
+  // nothing to badge when it's unset (an unset self draws by plain slot order, not a fixed position).
+  const ffaSelfBadgeIndex = ffaSelfColor
+    ? activeFfaColors.findIndex(c => c.toLowerCase() === ffaSelfColor.toLowerCase())
+    : -1
 
   // Order only matters left-to-right when shuffle is off; with shuffle on, each game draws the
   // pool in a random permutation, so only the repeat-on-wrap behavior is worth describing.
@@ -519,7 +610,7 @@ export function TeamColorSettings({
     onCustomTeamColorsChange({ ...customTeamColors, enemies: next })
   }
 
-  function handleTeamSelfChange(hex: string | undefined) {
+  function handleCustomSelfChange(hex: string | undefined) {
     if (hex !== undefined) {
       onCustomTeamColorsChange({ ...customTeamColors, self: hex })
     }
@@ -597,6 +688,8 @@ export function TeamColorSettings({
   const addColorLabel = t('settings.game.gameplay.teamColors.addColor', 'Add a color')
   const removeColorLabel = t('settings.game.gameplay.teamColors.removeColor', 'Remove color')
   const youLabel = t('settings.game.gameplay.teamColors.preview.self', 'You')
+
+  const teamSelfHint = getTeamSelfHint(hasTeamSelfOverride, shuffleColors, t)
 
   return (
     <>
@@ -681,26 +774,70 @@ export function TeamColorSettings({
                 </PresetBlock>
                 <div>
                   <GroupLabel>{youLabel}</GroupLabel>
-                  <EditableColorSwatch
-                    value={activeTeamColors.self}
-                    defaultValue={activeTeamColors.self}
-                    onChange={handleTeamSelfChange}
-                    editable={teamEditable}
-                    swatches={SC_SWATCHES}
-                    pickerSubtitle={t(
-                      'settings.game.gameplay.teamColors.pickerTargetSelf',
-                      'Team scheme · your color',
-                    )}
-                    label={getColorLabel(activeTeamColors.self)}
-                    addLabel=''
-                  />
+                  {isTeamCustom ? (
+                    <EditableColorSwatch
+                      value={customTeamColors.self}
+                      defaultValue={customTeamColors.self}
+                      onChange={handleCustomSelfChange}
+                      editable={teamEditable}
+                      swatches={SC_SWATCHES}
+                      quickSwatches={teamSelfQuickSwatches}
+                      pickerSubtitle={t(
+                        'settings.game.gameplay.teamColors.pickerTargetSelf',
+                        'Team scheme · your color',
+                      )}
+                      label={getColorLabel(customTeamColors.self)}
+                      addLabel=''
+                    />
+                  ) : (
+                    <>
+                      <SelfRow>
+                        <EditableColorSwatch
+                          value={teamSelfColor}
+                          defaultValue={activeTeamColors.self}
+                          onChange={onTeamSelfColorChange}
+                          editable={teamSelfEditable}
+                          swatches={SC_SWATCHES}
+                          quickSwatches={teamSelfQuickSwatches}
+                          pickerSubtitle={t(
+                            'settings.game.gameplay.teamColors.pickerTargetSelf',
+                            'Team scheme · your color',
+                          )}
+                          label={teamSelfColor ? getColorLabel(teamSelfColor) : ''}
+                          addLabel={t(
+                            'settings.game.gameplay.teamColors.selfAddLabel',
+                            'Fixed color for yourself (optional)',
+                          )}
+                        />
+                        {hasTeamSelfOverride ? (
+                          <ClearButton
+                            type='button'
+                            disabled={isModeInert}
+                            onClick={() => onTeamSelfColorChange(undefined)}>
+                            <MaterialIcon icon='close' size={15} />
+                            <ClearLabel>
+                              {t('settings.game.gameplay.teamColors.clear', 'Clear')}
+                            </ClearLabel>
+                          </ClearButton>
+                        ) : (
+                          <SelfAddLabel>
+                            {t(
+                              'settings.game.gameplay.teamColors.selfAddLabel',
+                              'Fixed color for yourself (optional)',
+                            )}
+                          </SelfAddLabel>
+                        )}
+                      </SelfRow>
+                      <Hint>{teamSelfHint}</Hint>
+                    </>
+                  )}
                 </div>
                 <div>
                   <GroupLabel>
                     {t('settings.game.gameplay.teamColors.preview.allies', 'Allies')}
                   </GroupLabel>
                   <ColorPoolEditor
-                    colors={activeTeamColors.allies}
+                    colors={isTeamCustom ? activeTeamColors.allies : teamFriendlyPool}
                     editable={teamEditable}
                     minLength={1}
                     maxLength={MAX_TEAM_POOL_COLORS}
@@ -715,6 +852,8 @@ export function TeamColorSettings({
                     addLabel={addColorLabel}
                     removeLabel={removeColorLabel}
                     hint={alliesHint}
+                    badgeIndex={teamSelfBadgeIndex}
+                    badgeLabel={selfBadgeLabel}
                     onSwatchChange={handleAllySwatchChange}
                     onRemove={handleAllyRemove}
                     onReorder={handleAllyReorder}
@@ -796,41 +935,15 @@ export function TeamColorSettings({
                 ) : null}
               </PresetBlock>
               <div>
-                <GroupLabel>{t('settings.game.gameplay.ffaColors.poolGroup', 'Pool')}</GroupLabel>
-                <ColorPoolEditor
-                  colors={activeFfaColors}
-                  editable={ffaEditable}
-                  minLength={MIN_FFA_COLORS}
-                  maxLength={MAX_FFA_COLORS}
-                  swatches={SC_SWATCHES}
-                  colorLabel={getColorLabel}
-                  getPickerSubtitle={index =>
-                    t('settings.game.gameplay.ffaColors.pickerTargetPool', {
-                      defaultValue: 'Individual colors · #{{n}}',
-                      n: index + 1,
-                    })
-                  }
-                  addLabel={addColorLabel}
-                  removeLabel={removeColorLabel}
-                  hint={t(
-                    'settings.game.gameplay.ffaColors.poolHint',
-                    'Minimum 8 colors, so every player always gets a unique color.',
-                  )}
-                  onSwatchChange={handleFfaSwatchChange}
-                  onRemove={handleFfaRemove}
-                  onReorder={handleFfaReorder}
-                  onAdd={handleFfaAdd}
-                />
-              </div>
-              <div>
                 <GroupLabel>{youLabel}</GroupLabel>
-                <FfaSelfRow>
+                <SelfRow>
                   <EditableColorSwatch
                     value={ffaSelfColor}
                     defaultValue={DEFAULT_FFA_SELF_COLOR}
                     onChange={onFfaSelfColorChange}
                     editable={!isModeInert}
                     swatches={SC_SWATCHES}
+                    quickSwatches={ffaSelfQuickSwatches}
                     pickerSubtitle={t(
                       'settings.game.gameplay.ffaColors.pickerTargetSelf',
                       'Your individual color',
@@ -852,14 +965,14 @@ export function TeamColorSettings({
                       </ClearLabel>
                     </ClearButton>
                   ) : (
-                    <FfaSelfAddLabel>
+                    <SelfAddLabel>
                       {t(
                         'settings.game.gameplay.ffaColors.selfAddLabel',
                         'Fixed color for yourself (optional)',
                       )}
-                    </FfaSelfAddLabel>
+                    </SelfAddLabel>
                   )}
-                </FfaSelfRow>
+                </SelfRow>
                 <Hint>
                   {ffaSelfColor
                     ? t(
@@ -871,6 +984,35 @@ export function TeamColorSettings({
                         "You'll get a color from the pool, just like everyone else.",
                       )}
                 </Hint>
+              </div>
+              <div>
+                <GroupLabel>{t('settings.game.gameplay.ffaColors.poolGroup', 'Pool')}</GroupLabel>
+                <ColorPoolEditor
+                  colors={activeFfaColors}
+                  editable={ffaEditable}
+                  minLength={MIN_FFA_COLORS}
+                  maxLength={MAX_FFA_COLORS}
+                  swatches={SC_SWATCHES}
+                  colorLabel={getColorLabel}
+                  getPickerSubtitle={index =>
+                    t('settings.game.gameplay.ffaColors.pickerTargetPool', {
+                      defaultValue: 'Individual colors · #{{n}}',
+                      n: index + 1,
+                    })
+                  }
+                  addLabel={addColorLabel}
+                  removeLabel={removeColorLabel}
+                  hint={t(
+                    'settings.game.gameplay.ffaColors.poolHint',
+                    'Minimum 8 colors, so every player always gets a unique color.',
+                  )}
+                  badgeIndex={ffaSelfBadgeIndex}
+                  badgeLabel={selfBadgeLabel}
+                  onSwatchChange={handleFfaSwatchChange}
+                  onRemove={handleFfaRemove}
+                  onReorder={handleFfaReorder}
+                  onAdd={handleFfaAdd}
+                />
               </div>
             </SchemeColumn>
             <Preview variant='ffa' rows={ffaRows} tileset={tileset} onTilesetChange={setTileset} />

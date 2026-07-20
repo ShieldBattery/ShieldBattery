@@ -36,6 +36,10 @@ pub struct TeamColorsSettings {
     pub usage: TeamColorUsage,
     pub shuffle: bool,
     pub team: TeamSchemeColors,
+    /// Optional fixed local-player color in team contexts, resolved by the app. When set it
+    /// overrides the preset's `team.self` for any preset; absent / `null` leaves the local player on
+    /// the preset self color.
+    pub team_self: Option<String>,
     /// Identity color pool for FFA / non-team contexts.
     pub ffa: Vec<String>,
     /// Optional fixed local-player color in FFA contexts.
@@ -72,6 +76,13 @@ impl TeamColorsSettings {
         let allies = parse_color_pool(&self.team.allies, "team allies");
         let enemies = parse_color_pool(&self.team.enemies, "team enemies");
         let ffa = parse_color_pool(&self.ffa, "ffa");
+        let team_self_override = self.team_self.as_deref().and_then(|s| {
+            let parsed = parse_hex_color(s);
+            if parsed.is_none() {
+                warn!("Ignoring invalid team self color '{s}'");
+            }
+            parsed
+        });
         let ffa_self = self.ffa_self.as_deref().and_then(|s| {
             let parsed = parse_hex_color(s);
             if parsed.is_none() {
@@ -93,6 +104,7 @@ impl TeamColorsSettings {
             usage: self.usage,
             shuffle: self.shuffle,
             self_color,
+            team_self_override,
             allies,
             enemies,
             ffa,
@@ -707,6 +719,7 @@ mod tests {
                 "allies": ["#FCFC38"],
                 "enemies": ["#F40404"],
             },
+            "teamSelf": "#123456",
             "ffa": ["#F40404", "#0C48CC"],
             "ffaSelf": "#00E4FC",
         }))
@@ -720,6 +733,11 @@ mod tests {
         assert_eq!(config.usage, TeamColorUsage::ExceptIn1v1);
         assert!(config.shuffle);
         assert_eq!(config.self_color, parse_hex_color("#2CB494").unwrap());
+        // `teamSelf` resolves to the override; `team.self` still carries the preset self color.
+        assert_eq!(
+            config.team_self_override,
+            Some(parse_hex_color("#123456").unwrap())
+        );
         assert_eq!(config.allies, vec![parse_hex_color("#FCFC38").unwrap()]);
         assert_eq!(config.enemies, vec![parse_hex_color("#F40404").unwrap()]);
         assert_eq!(config.ffa.len(), 2);
@@ -727,7 +745,7 @@ mod tests {
     }
 
     #[test]
-    fn team_colors_optional_ffa_self_defaults_to_none() {
+    fn team_colors_optional_self_colors_default_to_none() {
         let settings: TeamColorsSettings = serde_json::from_value(serde_json::json!({
             "usage": "always",
             "shuffle": false,
@@ -735,7 +753,25 @@ mod tests {
             "ffa": ["#F40404"],
         }))
         .unwrap();
-        assert_eq!(settings.to_config().unwrap().ffa_self, None);
+        // Absent `teamSelf` / `ffaSelf` leave both overrides unset without disabling the feature.
+        let config = settings.to_config().unwrap();
+        assert_eq!(config.team_self_override, None);
+        assert_eq!(config.ffa_self, None);
+    }
+
+    #[test]
+    fn team_colors_invalid_team_self_is_ignored() {
+        let settings: TeamColorsSettings = serde_json::from_value(serde_json::json!({
+            "usage": "always",
+            "shuffle": false,
+            "team": { "self": "#2CB494", "allies": ["#FCFC38"], "enemies": ["#F40404"] },
+            "teamSelf": "not-a-color",
+            "ffa": ["#F40404"],
+        }))
+        .unwrap();
+        // An unparseable team self override is logged and dropped, not fatal: unlike the required
+        // pools, the feature stays enabled with no override.
+        assert_eq!(settings.to_config().unwrap().team_self_override, None);
     }
 
     #[test]

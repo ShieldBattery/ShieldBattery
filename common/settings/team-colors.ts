@@ -242,6 +242,42 @@ export function resolveTeamColors(
 }
 
 /**
+ * Resolves the `teamSelf` override sent to the game (and mirrored by the settings preview): on
+ * the `Custom` preset, always the scheme's own self color -- pinning a deliberately-chosen custom
+ * self the same way an explicit override would, so it isn't drawn into the shuffle-on combined
+ * self+allies pool like an arbitrary built-in preset's hero color would be. On a built-in preset,
+ * the user's explicit override if they've set one, or `undefined` (no override in effect) if not.
+ */
+export function resolveTeamSelfOverride(
+  settings: Pick<LocalSettings, 'teamColorPreset' | 'teamSelfColor'>,
+  resolvedTeamColors: Pick<CustomTeamColors, 'self'>,
+): string | undefined {
+  return settings.teamColorPreset === TeamColorPreset.Custom
+    ? resolvedTeamColors.self
+    : settings.teamSelfColor
+}
+
+/**
+ * Removes the first entry of `pool` matching `color` (case-insensitively), mirroring the engine's
+ * ally-pool consume when a team self override collides with an ally color -- so that ally draws
+ * the next color instead of duplicating the local player. Guarded the same way the engine is:
+ * `color` of `undefined` (no override in effect) is a no-op, and consuming down to an empty pool
+ * is skipped, since a length-1 pool is a valid "everyone matches" scheme, not a degenerate one.
+ */
+export function consumeMatchingColor(pool: readonly string[], color: string | undefined): string[] {
+  if (color === undefined || pool.length <= 1) {
+    return [...pool]
+  }
+  const index = pool.findIndex(c => c.toLowerCase() === color.toLowerCase())
+  if (index === -1) {
+    return [...pool]
+  }
+  const next = pool.slice()
+  next.splice(index, 1)
+  return next
+}
+
+/**
  * Resolves the active FFA-color pool: the selected built-in preset, or `customFfaColors` if the
  * preset is `Custom`. Always returns a fresh copy, safe for the caller to mutate.
  */

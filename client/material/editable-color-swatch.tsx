@@ -1,7 +1,11 @@
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { ColorPickerPopoverContent, ColorPickerSwatch } from './color-picker'
+import {
+  ColorPickerPopoverContent,
+  ColorPickerQuickSwatches,
+  ColorPickerSwatch,
+} from './color-picker'
 import { AddSwatchIcon, AddSwatchTile, SwatchButton } from './color-swatch'
 import { Popover, usePopoverController, useRefAnchorPosition } from './popover'
 import { Tooltip } from './tooltip'
@@ -25,6 +29,8 @@ export interface EditableColorSwatchProps {
   onChange: (hex: string | undefined) => void
   editable: boolean
   swatches: ReadonlyArray<ColorPickerSwatch>
+  /** An optional labeled swatch group rendered above the main grid, e.g. the active palette. */
+  quickSwatches?: ColorPickerQuickSwatches
   pickerSubtitle: string
   /** The color's name, shown in a Tooltip when `value` is set. */
   label: string
@@ -49,6 +55,7 @@ export function EditableColorSwatch({
   onChange,
   editable,
   swatches,
+  quickSwatches,
   pickerSubtitle,
   label,
   addLabel,
@@ -149,6 +156,7 @@ export function EditableColorSwatch({
         originY='top'>
         <ColorPickerPopoverContent
           swatches={swatches}
+          quickSwatches={quickSwatches}
           value={liveValue}
           onChange={scheduleChange}
           subtitle={pickerSubtitle}

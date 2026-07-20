@@ -54,8 +54,14 @@ pub enum TeamColorUsage {
 pub struct TeamColorConfig {
     pub usage: TeamColorUsage,
     pub shuffle: bool,
-    /// The local player's color in team contexts.
+    /// The local player's preset (hero) color in team contexts. `team_self_override`, when set,
+    /// takes precedence over this for the local player (and the observer friendly lead slot).
     pub self_color: Color,
+    /// The local player's fixed color in team contexts, if set. When present it pins the local
+    /// player's color regardless of preset and shuffle, and the allies pool is left untouched (no
+    /// consume): a collision with an ally color is an accepted aesthetic choice. `None` leaves the
+    /// local player on `self_color` (or, with shuffle on, a random pick from the combined team pool).
+    pub team_self_override: Option<Color>,
     /// Colors for players allied to the local player; wraps when there are more allies than colors.
     pub allies: Vec<Color>,
     /// Colors for players not allied to the local player; wraps like `allies`.
@@ -156,9 +162,43 @@ impl TeamColorState {
     /// assignment. Colors for non-active slots are left `None`.
     pub fn new(config: TeamColorConfig, info: &GameStartInfo, shuffle_seed: u64) -> TeamColorState {
         let mut config = config;
+        // Whether this game draws the local player from a team-style friendly pool. Observers always
+        // attempt the two-team friendly/enemy split (an FFA fallback ignores the friendly pool), and
+        // a seated player uses the friendly pool only in a team context; a seated FFA context draws
+        // the local player from the FFA pool instead and never consults `self_color`.
+        let uses_team_pool = match info.local_player {
+            None => true,
+            Some(_) => is_team_context(&config, info),
+        };
+        // Resolve the friendly side before dispatch. A self override pins the local color regardless
+        // of preset and shuffle. With no override, `self_color` and the allies pool come from one
+        // combined shuffle (self is entry 0, the rest is the allies pool) so the local color is a
+        // uniformly random pick from the team's full pool.
+        let override_set = config.team_self_override.is_some();
+        if let Some(override_color) = config.team_self_override {
+            config.self_color = override_color;
+            // An override that matches an allies-pool entry consumes the first such entry so no ally
+            // is forced to duplicate the local player, mirroring the FFA self consume. Only where the
+            // override is actually applied (team/observer), and never when it would empty the pool.
+            if uses_team_pool
+                && config.allies.len() > 1
+                && let Some(pos) = config.allies.iter().position(|c| colors_eq(c, &override_color))
+            {
+                config.allies.remove(pos);
+            }
+        }
         if config.shuffle {
             let mut rng = SplitMix64::new(shuffle_seed);
-            fisher_yates(&mut config.allies, &mut rng);
+            if uses_team_pool && !override_set {
+                let mut friendly = Vec::with_capacity(1 + config.allies.len());
+                friendly.push(config.self_color);
+                friendly.extend_from_slice(&config.allies);
+                fisher_yates(&mut friendly, &mut rng);
+                config.self_color = friendly[0];
+                config.allies = friendly[1..].to_vec();
+            } else {
+                fisher_yates(&mut config.allies, &mut rng);
+            }
             fisher_yates(&mut config.enemies, &mut rng);
             fisher_yates(&mut config.ffa, &mut rng);
         }
@@ -502,6 +542,7 @@ mod tests {
         usage: TeamColorUsage,
         shuffle: bool,
         self_color: u8,
+        team_self_override: Option<u8>,
         allies: &'static [u8],
         enemies: &'static [u8],
         ffa: &'static [u8],
@@ -513,6 +554,7 @@ mod tests {
             usage: args.usage,
             shuffle: args.shuffle,
             self_color: col(args.self_color),
+            team_self_override: args.team_self_override.map(col),
             allies: cols(args.allies),
             enemies: cols(args.enemies),
             ffa: cols(args.ffa),
@@ -574,6 +616,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10, 11, 12, 13],
             enemies: &[20, 21, 22, 23],
             ffa: &[30],
@@ -601,6 +644,7 @@ mod tests {
                 usage,
                 shuffle: false,
                 self_color: 1,
+                team_self_override: None,
                 allies: &[10],
                 enemies: &[20],
                 ffa: &[30, 31],
@@ -631,6 +675,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10],
             enemies: &[20, 21],
             ffa: &[30],
@@ -652,6 +697,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10, 11],
             enemies: &[20, 21],
             ffa: &[30],
@@ -685,6 +731,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10, 11],
             enemies: &[20],
             ffa: &[30],
@@ -712,6 +759,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10, 11],
             enemies: &[20],
             ffa: &[30, 31, 32, 33],
@@ -746,6 +794,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10],
             enemies: &[20],
             ffa: &[30, 31, 32, 33],
@@ -766,6 +815,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10],
             enemies: &[20],
             ffa: &[30, 31, 32, 33],
@@ -786,6 +836,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10, 11],
             enemies: &[20, 21],
             ffa: &[30],
@@ -810,6 +861,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10],
             enemies: &[20],
             ffa: &[30, 31, 32, 33, 34, 35],
@@ -831,6 +883,7 @@ mod tests {
             usage: TeamColorUsage::Always,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10],
             enemies: &[20],
             ffa: &[30, 31, 32, 33],
@@ -850,6 +903,7 @@ mod tests {
             usage: TeamColorUsage::Never,
             shuffle: false,
             self_color: 1,
+            team_self_override: None,
             allies: &[10],
             enemies: &[20],
             ffa: &[30, 31, 32, 33],
@@ -871,6 +925,7 @@ mod tests {
                 usage: TeamColorUsage::Always,
                 shuffle: true,
                 self_color: 1,
+                team_self_override: None,
                 allies: &[10, 11, 12, 13],
                 enemies: &[20, 21, 22, 23],
                 ffa: &[30],
@@ -887,5 +942,194 @@ mod tests {
         let mut enemy_colors: Vec<Color> = (4..8u8).map(|p| at(&a, p)).collect();
         enemy_colors.sort_by_key(|c| c[0].to_bits());
         assert_eq!(enemy_colors, cols(&[20, 21, 22, 23]));
+    }
+
+    #[test]
+    fn override_respected_in_team_context() {
+        let pairs = {
+            let mut p = team_pairs(&[0, 1]);
+            p.extend(team_pairs(&[2, 3]));
+            p
+        };
+        let gi = info(&[0, 1, 2, 3], Some(0), &pairs);
+
+        // The override replaces the preset self color; the allies/enemies pools are unaffected.
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: Some(99),
+            allies: &[10, 11],
+            enemies: &[20, 21],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(99)); // override wins over the preset self color (1)
+        assert_eq!(at(&c, 1), col(10)); // ally draws allies[0]
+        assert_eq!(at(&c, 2), col(20));
+        assert_eq!(at(&c, 3), col(21));
+
+        // An override matching an ally color consumes that entry, so the ally draws the next color
+        // instead of duplicating the local player.
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: Some(10),
+            allies: &[10, 11],
+            enemies: &[20, 21],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(10)); // override
+        assert_eq!(at(&c, 1), col(11)); // 10 consumed from the allies pool; ally draws the remainder
+    }
+
+    #[test]
+    fn override_respected_in_observer_context() {
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: Some(99),
+            allies: &[10, 11],
+            enemies: &[20, 21],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        // Teams {0,2} and {1,3}, no local seat: the friendly team is the one with the lowest slot.
+        let mut pairs = team_pairs(&[0, 2]);
+        pairs.extend(team_pairs(&[1, 3]));
+        let gi = info(&[0, 1, 2, 3], None, &pairs);
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(99)); // override on the friendly lead slot, replacing preset self
+        assert_eq!(at(&c, 2), col(10)); // allies pool untouched (override not drawn from it)
+        assert_eq!(at(&c, 1), col(20));
+        assert_eq!(at(&c, 3), col(21));
+
+        // An override matching an ally color is consumed on the observer path too: the other friendly
+        // member draws the remaining ally color rather than duplicating the friendly lead.
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: Some(10),
+            allies: &[10, 11],
+            enemies: &[20, 21],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(10)); // override on the friendly lead slot
+        assert_eq!(at(&c, 2), col(11)); // 10 consumed; the other friendly member draws the remainder
+    }
+
+    #[test]
+    fn override_consume_removes_first_match_but_keeps_pool_non_empty() {
+        // A single mutually-allied team of four, local seated at slot 0 (allies fill slots 1..=3).
+        let pairs = team_pairs(&[0, 1, 2, 3]);
+        let gi = info(&[0, 1, 2, 3], Some(0), &pairs);
+
+        // The override matches allies[1]; that entry is consumed, so the remaining [10, 12] fill the
+        // ally slots in order and wrap once for the third ally.
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: Some(11),
+            allies: &[10, 11, 12],
+            enemies: &[20],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(11)); // override
+        assert_eq!(at(&c, 1), col(10)); // remaining allies [10, 12] after consuming 11
+        assert_eq!(at(&c, 2), col(12));
+        assert_eq!(at(&c, 3), col(10)); // wraps the 2-entry reduced pool
+
+        // The override matches the only ally color: consuming would empty the pool, so it is skipped
+        // and the lone ally keeps drawing it (a non-empty pool is required).
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: false,
+            self_color: 1,
+            team_self_override: Some(10),
+            allies: &[10],
+            enemies: &[20],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        let c = TeamColorState::new(cfg, &gi, 0).colors();
+        assert_eq!(at(&c, 0), col(10)); // override
+        assert_eq!(at(&c, 1), col(10)); // consume skipped to keep the allies pool non-empty
+    }
+
+    #[test]
+    fn shuffle_no_override_draws_self_from_combined_pool() {
+        let seed = 0x1234_5678_9ABC_DEF0;
+        let make = || {
+            config(ConfigArgs {
+                usage: TeamColorUsage::Always,
+                shuffle: true,
+                self_color: 1,
+                team_self_override: None,
+                allies: &[10, 11, 12],
+                enemies: &[20],
+                ffa: &[30],
+                ffa_self: None,
+            })
+        };
+        // A single mutually-allied team of four, local seated at slot 0.
+        let pairs = team_pairs(&[0, 1, 2, 3]);
+        let gi = info(&[0, 1, 2, 3], Some(0), &pairs);
+
+        let a = TeamColorState::new(make(), &gi, seed).colors();
+        let b = TeamColorState::new(make(), &gi, seed).colors();
+        assert_eq!(a, b); // deterministic per seed
+
+        // Self (slot 0) takes entry 0 of the shuffled combined [self, ...allies] pool; the allies
+        // take the remainder in ascending slot order. The engine shuffles this pool first, so a fresh
+        // RNG at the same seed reproduces the exact assignment.
+        let mut combined = cols(&[1, 10, 11, 12]);
+        let mut rng = SplitMix64::new(seed);
+        fisher_yates(&mut combined, &mut rng);
+        assert_eq!(at(&a, 0), combined[0]);
+        assert_eq!(at(&a, 1), combined[1]);
+        assert_eq!(at(&a, 2), combined[2]);
+        assert_eq!(at(&a, 3), combined[3]);
+    }
+
+    #[test]
+    fn shuffle_with_override_shuffles_allies_only() {
+        let seed = 0x1234_5678_9ABC_DEF0;
+        let cfg = config(ConfigArgs {
+            usage: TeamColorUsage::Always,
+            shuffle: true,
+            self_color: 1,
+            team_self_override: Some(99),
+            allies: &[10, 11, 12],
+            enemies: &[20],
+            ffa: &[30],
+            ffa_self: None,
+        });
+        let pairs = team_pairs(&[0, 1, 2, 3]);
+        let gi = info(&[0, 1, 2, 3], Some(0), &pairs);
+        let c = TeamColorState::new(cfg, &gi, seed).colors();
+
+        // The override pins self regardless of shuffle; only the allies pool is shuffled, and self is
+        // not mixed into it. With an override the allies pool shuffles first, so a fresh RNG at the
+        // same seed reproduces the ally assignment.
+        assert_eq!(at(&c, 0), col(99));
+        let mut allies = cols(&[10, 11, 12]);
+        let mut rng = SplitMix64::new(seed);
+        fisher_yates(&mut allies, &mut rng);
+        assert_eq!(at(&c, 1), allies[0]);
+        assert_eq!(at(&c, 2), allies[1]);
+        assert_eq!(at(&c, 3), allies[2]);
+        // The override never entered the allies pool (no combined shuffle, no consume).
+        assert!(!allies.iter().any(|a| colors_eq(a, &col(99))));
     }
 }

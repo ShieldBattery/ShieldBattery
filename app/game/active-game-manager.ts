@@ -29,6 +29,7 @@ import {
   cloneCustomTeamColors,
   resolveFfaColors,
   resolveTeamColors,
+  resolveTeamSelfOverride,
 } from '../../common/settings/team-colors'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { gameLogBaseName } from '../log-paths'
@@ -357,6 +358,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
         ]
       : undefined
 
+    const resolvedTeamColors = resolveTeamColors(resolvedLocal)
+
     this.emit('gameCommand', id, 'localUser', config.localUser)
     this.emit('gameCommand', id, 'blockedUsers', config.blockedUsers)
     this.emit('gameCommand', id, 'serverConfig', config.serverConfig)
@@ -371,7 +374,8 @@ export class ActiveGameManager extends EventEmitter<ActiveGameManagerEvents> {
       teamColors: {
         usage: resolvedLocal.teamColorUsage,
         shuffle: resolvedLocal.shuffleColors,
-        team: resolveTeamColors(resolvedLocal),
+        team: resolvedTeamColors,
+        teamSelf: resolveTeamSelfOverride(resolvedLocal, resolvedTeamColors) ?? null,
         ffa: resolveFfaColors(resolvedLocal),
         ffaSelf: resolvedLocal.ffaSelfColor ?? null,
       },

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SC_COLORS } from '../../common/settings/team-colors'
-import { bodyMedium, bodySmall } from '../styles/typography'
+import { COOL, SC_COLORS, WARM } from '../../common/settings/team-colors'
+import { bodyMedium, labelSmall } from '../styles/typography'
 import { TextButton } from './button'
 import { buttonReset } from './button-reset'
 import { TextField } from './text-field'
@@ -13,11 +13,22 @@ export interface ColorPickerSwatch {
   label: string
 }
 
+/** A labeled group of swatches shown above the main grid, e.g. the colors already in use by the
+ * active team/FFA palette, so picking "yours" doesn't require copying a hex value by hand. */
+export interface ColorPickerQuickSwatches {
+  label: string
+  swatches: ReadonlyArray<ColorPickerSwatch>
+}
+
 const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/
 
 function normalizeHexInput(raw: string): string {
   return raw.startsWith('#') ? raw : `#${raw}`
 }
+
+/** Every built-in color with a known community/design name: SC:R's 22 built-ins, plus the
+ * COOL/WARM pools backing the CoolVsWarm/WarmVsCool team-color presets. */
+const NAMED_COLORS: ReadonlyArray<{ hex: string; name: string }> = [...SC_COLORS, ...COOL, ...WARM]
 
 /** Returns the first SC:R built-in color not present (case-insensitively) in `usedColors`. */
 export function nextUnusedColor(usedColors: readonly string[]): string {
@@ -26,9 +37,9 @@ export function nextUnusedColor(usedColors: readonly string[]): string {
   return found?.hex ?? SC_COLORS[6].hex
 }
 
-/** Looks up a SC:R built-in color's community name, falling back to the hex value itself. */
+/** Looks up a built-in color's name (see {@link NAMED_COLORS}), falling back to the hex value. */
 export function getColorLabel(hex: string): string {
-  const found = SC_COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())
+  const found = NAMED_COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())
   return found?.name ?? hex.toUpperCase()
 }
 
@@ -95,21 +106,31 @@ const HexTextField = styled(TextField)`
   }
 `
 
+const SwatchGroupLabel = styled.div`
+  ${labelSmall};
+  color: var(--theme-on-surface-variant);
+  margin-bottom: 8px;
+`
+
 export interface ColorPickerContentProps {
   /** The preset swatches shown in the grid (e.g. SC:R's 22 built-in colors). */
   swatches: ReadonlyArray<ColorPickerSwatch>
+  /** An optional labeled swatch group rendered above the main grid, e.g. the active palette. */
+  quickSwatches?: ColorPickerQuickSwatches
   value: string
   onChange: (hex: string) => void
   className?: string
 }
 
 /**
- * The reusable contents of a color picker: a grid of preset swatches plus a free-RGB row (native
- * color input chip + hex text field). Fully controlled and doesn't render a title, container, or
- * confirm/cancel actions, so callers can drop it into a Dialog, Popover, or devonly page.
+ * The reusable contents of a color picker: an optional "quick pick" swatch group, a grid of preset
+ * swatches, and a free-RGB row (native color input chip + hex text field). Fully controlled and
+ * doesn't render a title, container, or confirm/cancel actions, so callers can drop it into a
+ * Dialog, Popover, or devonly page.
  */
 export function ColorPickerContent({
   swatches,
+  quickSwatches,
   value,
   onChange,
   className,
@@ -128,6 +149,26 @@ export function ColorPickerContent({
 
   return (
     <div className={className}>
+      {quickSwatches ? (
+        <>
+          <SwatchGroupLabel>{quickSwatches.label}</SwatchGroupLabel>
+          <Grid>
+            {quickSwatches.swatches.map((swatch, index) => (
+              <Tooltip key={index} text={swatch.label} tabIndex={-1}>
+                <GridSwatch
+                  type='button'
+                  $color={swatch.color}
+                  $active={swatch.color.toLowerCase() === value.toLowerCase()}
+                  onClick={() => onChange(swatch.color)}
+                />
+              </Tooltip>
+            ))}
+          </Grid>
+        </>
+      ) : null}
+      <SwatchGroupLabel>
+        {t('settings.game.gameplay.colorPicker.builtinColorsLabel', "StarCraft's colors")}
+      </SwatchGroupLabel>
       <Grid>
         {swatches.map(swatch => (
           <Tooltip key={swatch.color} text={swatch.label} tabIndex={-1}>
@@ -179,12 +220,6 @@ const PopoverSubtitle = styled.div`
   margin-bottom: 4px;
 `
 
-const PopoverIntro = styled.div`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-  margin-bottom: 14px;
-`
-
 const PopoverActions = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -217,12 +252,6 @@ export function ColorPickerPopoverContent({
   return (
     <PopoverBody>
       <PopoverSubtitle>{subtitle}</PopoverSubtitle>
-      <PopoverIntro>
-        {t(
-          'settings.game.gameplay.colorPicker.intro',
-          "StarCraft's 22 built-in colors, or any RGB below.",
-        )}
-      </PopoverIntro>
       <ColorPickerContent {...contentProps} />
       <PopoverActions>
         <TextButton label={t('common.actions.cancel', 'Cancel')} onClick={onCancel} />
