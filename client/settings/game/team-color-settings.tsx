@@ -833,7 +833,9 @@ export function TeamColorSettings({
                 </div>
                 <div>
                   <GroupLabel>
-                    {t('settings.game.gameplay.teamColors.preview.allies', 'Allies')}
+                    {isLegacyDiplomacy
+                      ? t('settings.game.gameplay.teamColors.preview.allies', 'Allies')
+                      : t('settings.game.gameplay.teamColors.yourTeam', 'Your team')}
                   </GroupLabel>
                   <ColorPoolEditor
                     colors={teamAlliesColors}

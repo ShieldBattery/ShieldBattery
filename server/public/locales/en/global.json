@@ -1512,7 +1512,8 @@
           "selfOverrideSetHint": "You'll always be this color in team games.",
           "selfShuffleHint": "You'll get a random color from your team's pool each game.",
           "shuffle": "Shuffle colors each game",
-          "title": "Team colors"
+          "title": "Team colors",
+          "yourTeam": "Your team"
         },
         "teamColorUsage": {
           "always": "In team games and 1v1",
