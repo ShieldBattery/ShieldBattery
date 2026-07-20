@@ -2,7 +2,6 @@ import { FSWatcher, watch } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { getErrorStack } from '../../common/errors'
-import log from '../logger'
 import { matchRenamedReplays, NewFileIdentity, VanishedReplay } from './rename-matcher'
 import { ExistingReplayInfo, ReplayDb } from './replay-db'
 import {
@@ -39,6 +38,17 @@ export interface ReplayWatcherCallbacks {
 }
 
 /**
+ * The subset of the app logger the watcher needs. Injected rather than importing the app logger
+ * directly because the watcher runs inside a worker thread, where the app logger's electron
+ * main-thread-only APIs (`app.getVersion()`, `app.getPath()`) aren't available.
+ */
+export interface ReplayLibraryLogger {
+  error(message: string): void
+  warning(message: string): void
+  verbose(message: string): void
+}
+
+/**
  * Watches the replay folder and keeps the index reconciled with disk. Reconciliation (used both for
  * the initial backfill and for change events) scans for `.rep` files, parses new/changed ones,
  * re-points moved/renamed files at their new path by content identity instead of re-parsing them,
@@ -54,6 +64,7 @@ export class ReplayWatcher {
   constructor(
     private readonly watchedFolder: string,
     private readonly db: ReplayDb,
+    private readonly logger: ReplayLibraryLogger,
     private readonly callbacks: ReplayWatcherCallbacks,
   ) {}
 
@@ -64,7 +75,7 @@ export class ReplayWatcher {
 
   start(): void {
     this.reconcile().catch(err => {
-      log.error(`Error during initial replay backfill: ${getErrorStack(err)}`)
+      this.logger.error(`Error during initial replay backfill: ${getErrorStack(err)}`)
     })
 
     try {
@@ -72,7 +83,9 @@ export class ReplayWatcher {
     } catch (err) {
       // Folder may not exist yet, or recursive watching may be unavailable; the index just stays as
       // last reconciled.
-      log.warning(`Could not watch replay folder '${this.watchedFolder}': ${getErrorStack(err)}`)
+      this.logger.warning(
+        `Could not watch replay folder '${this.watchedFolder}': ${getErrorStack(err)}`,
+      )
     }
   }
 
@@ -92,7 +105,7 @@ export class ReplayWatcher {
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = undefined
       this.reconcile().catch(err => {
-        log.error(`Error reconciling replay index: ${getErrorStack(err)}`)
+        this.logger.error(`Error reconciling replay index: ${getErrorStack(err)}`)
       })
     }, WATCH_DEBOUNCE_MS)
   }
@@ -110,7 +123,7 @@ export class ReplayWatcher {
       if (this.reconcileQueued) {
         this.reconcileQueued = false
         this.reconcile().catch(err => {
-          log.error(`Error reconciling replay index: ${getErrorStack(err)}`)
+          this.logger.error(`Error reconciling replay index: ${getErrorStack(err)}`)
         })
       }
     }
@@ -196,7 +209,7 @@ export class ReplayWatcher {
       }
       moveCount = moves.length
       if (moveCount > 0) {
-        log.verbose(`Re-pointed ${moveCount} moved/renamed replay(s)`)
+        this.logger.verbose(`Re-pointed ${moveCount} moved/renamed replay(s)`)
       }
     }
 
@@ -256,14 +269,14 @@ export class ReplayWatcher {
       fileInfo = { path: filePath, fileMtime: meta.mtime, fileSize: meta.size, contentHash }
     } catch (err) {
       // File likely vanished between the scan and hashing; a later reconcile will catch up.
-      log.verbose(`Skipping replay '${filePath}': ${getErrorStack(err)}`)
+      this.logger.verbose(`Skipping replay '${filePath}': ${getErrorStack(err)}`)
       return
     }
 
     try {
       this.db.upsertReplay(await parseReplayFile(fileInfo))
     } catch (err) {
-      log.verbose(`Indexing replay '${filePath}' as a parse error: ${getErrorStack(err)}`)
+      this.logger.verbose(`Indexing replay '${filePath}' as a parse error: ${getErrorStack(err)}`)
       this.db.upsertReplay(makeParseErrorRecord(fileInfo))
     }
   }
