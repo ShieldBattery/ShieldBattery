@@ -2492,6 +2492,13 @@ impl BwScr {
                 exe.hook_closure_address(
                     DrawMinimapUnits,
                     move |orig| {
+                        // A Shift+Tab press earlier in this frame has already moved the real
+                        // color-mode global, but the layer-draw poll runs after the minimap is
+                        // drawn — detect the cycle here first so this frame's dots don't render
+                        // one mode behind (a one-frame wrong-palette flash). Must happen before
+                        // the swap guard exists: applying a mode change writes `rgb_colors`, and
+                        // a guard restore after that would clobber it.
+                        self.poll_team_color_mode();
                         let _swap = self.begin_minimap_team_colors();
                         orig();
                     },
