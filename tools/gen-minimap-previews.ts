@@ -1,6 +1,6 @@
 /**
  * Generates the minimap preview images shown in the team-color settings panels
- * (`client/settings/game/team-color-preview.tsx`) -- one PNG per preview tileset, rendered from a
+ * (`client/settings/game/team-color-preview.tsx`) -- one WebP per preview tileset, rendered from a
  * real map file through the same bw-chk + BW sprite data pipeline the map upload system uses
  * (`server/lib/maps/parse-map.js`, `server/lib/maps/map-parse-worker.js`).
  *
@@ -16,10 +16,11 @@
  *                broodat.mpq -- see docs/GETTING_STARTED.md, "Set up map system"). Defaults to
  *                SB_SPRITE_DATA from .env, the same variable the map upload pipeline reads
  *                (server/lib/maps/store.ts).
- * --out          Output directory for the generated PNGs. Defaults to
- *                server/public/images/minimaps -- a static asset directory served by the Node
- *                server and loaded by the client via makePublicAssetUrl, the same pattern used for
- *                e.g. server/public/images/ranks.
+ * --out          Output directory for the generated WebPs. Defaults to app/assets/minimaps -- the
+ *                team-color settings panel only renders in the Electron app (see
+ *                `client/settings/settings.tsx`'s `IS_ELECTRON` gate), so these are shipped as an
+ *                Electron asset and loaded via the `shieldbattery://` protocol rather than as a
+ *                server-hosted public asset.
  *
  * Any of the 7 preview tilesets (common/maps.ts ALL_TILESET_IDS) that ends up without a real
  * render -- no source map found for it, or that map failed to parse/render -- gets a flat
@@ -51,9 +52,13 @@ import { parseAndHashMap } from '../server/lib/maps/parse-map'
 dotenvExpand.expand(dotenv.config({ quiet: true }))
 
 const REPO_ROOT = path.resolve(__dirname, '..')
-const DEFAULT_OUT_DIR = path.join(REPO_ROOT, 'server', 'public', 'images', 'minimaps')
+const DEFAULT_OUT_DIR = path.join(REPO_ROOT, 'app', 'assets', 'minimaps')
 /** Matches the preview panel's fixed CSS width (`Preview` in team-color-settings.tsx). */
 const PREVIEW_WIDTH = 576
+/** Quality/effort settings for the output WebPs, tuned for a small file size at a barely-visible
+ * quality cost -- these are small, blurred-at-a-glance minimap thumbnails, not detail images. */
+const WEBP_QUALITY = 80
+const WEBP_EFFORT = 6
 
 interface ParsedArgs {
   mapsFolder: string
@@ -70,7 +75,7 @@ function printUsageAndExit(message?: string): never {
       '  <maps-folder>  Directory of .scm/.scx maps, one per tileset (tileset is read from each\n' +
       "                 map's CHK data; extra/missing tilesets are fine, see file header)\n" +
       '  --bw-data      BW data dir (unit/ + tileset/); defaults to SB_SPRITE_DATA from .env\n' +
-      '  --out          Output dir; defaults to server/public/images/minimaps',
+      '  --out          Output dir; defaults to app/assets/minimaps',
   )
   process.exit(1)
 }
@@ -109,7 +114,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 type RenderResult =
-  | { tilesetId: TilesetId; png: Buffer; width: number; height: number }
+  | { tilesetId: TilesetId; webp: Buffer; width: number; height: number }
   | { skipReason: string }
 
 async function renderMapPreview(filePath: string, bwDataPath: string): Promise<RenderResult> {
@@ -129,16 +134,16 @@ async function renderMapPreview(filePath: string, bwDataPath: string): Promise<R
     melee: true,
     startLocations: false,
   })
-  const png = await sharp(imageRgb, { raw: { width, height, channels: 3 } })
-    .png()
+  const webp = await sharp(imageRgb, { raw: { width, height, channels: 3 } })
+    .webp({ quality: WEBP_QUALITY, effort: WEBP_EFFORT })
     .toBuffer()
 
-  return { tilesetId, png, width, height }
+  return { tilesetId, webp, width, height }
 }
 
-async function writePlaceholder(outDir: string, tilesetId: TilesetId): Promise<void> {
+async function renderPlaceholder(tilesetId: TilesetId): Promise<Buffer> {
   const size = PREVIEW_WIDTH
-  const png = await sharp({
+  return sharp({
     create: {
       width: size,
       height: size,
@@ -146,9 +151,26 @@ async function writePlaceholder(outDir: string, tilesetId: TilesetId): Promise<v
       background: TILESET_PLACEHOLDER_COLORS[tilesetId],
     },
   })
-    .png()
+    .webp({ quality: WEBP_QUALITY, effort: WEBP_EFFORT })
     .toBuffer()
-  fs.writeFileSync(path.join(outDir, `${tilesetId}.png`), png)
+}
+
+/** Formats a byte count as a human-readable size for the run's before/after size log. */
+function formatBytes(bytes: number): string {
+  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`
+}
+
+/**
+ * Writes `buffer` to `<outDir>/<tilesetId>.webp`, logging its size next to whatever size (if any)
+ * the file being replaced had.
+ */
+function writeImage(outDir: string, tilesetId: TilesetId, buffer: Buffer): string {
+  const outPath = path.join(outDir, `${tilesetId}.webp`)
+  const beforeSize = fs.existsSync(outPath) ? fs.statSync(outPath).size : undefined
+  fs.writeFileSync(outPath, buffer)
+  return beforeSize !== undefined
+    ? `${formatBytes(beforeSize)} -> ${formatBytes(buffer.length)}`
+    : `${formatBytes(buffer.length)}`
 }
 
 function findMapFiles(mapsFolder: string): string[] {
@@ -196,16 +218,16 @@ async function main(): Promise<void> {
           continue
         }
 
-        const { tilesetId, png, width, height } = result
+        const { tilesetId, webp, width, height } = result
         if (rendered.has(tilesetId)) {
           console.warn(
             `- ${name}: another map already provided "${tilesetId}" ` +
               `(${rendered.get(tilesetId)}) -- overwriting with this one`,
           )
         }
-        fs.writeFileSync(path.join(outDir, `${tilesetId}.png`), png)
+        const sizeChange = writeImage(outDir, tilesetId, webp)
         rendered.set(tilesetId, name)
-        console.log(`+ ${tilesetId}.png  <-  ${name}  (${width}x${height})`)
+        console.log(`+ ${tilesetId}.webp  <-  ${name}  (${width}x${height}, ${sizeChange})`)
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         console.error(`! failed to render ${name}: ${message}`)
@@ -220,9 +242,12 @@ async function main(): Promise<void> {
   let placeholderCount = 0
   for (const tilesetId of ALL_TILESET_IDS) {
     if (!rendered.has(tilesetId)) {
-      await writePlaceholder(outDir, tilesetId)
+      const placeholder = await renderPlaceholder(tilesetId)
+      const sizeChange = writeImage(outDir, tilesetId, placeholder)
       placeholderCount++
-      console.log(`~ ${tilesetId}.png  <-  flat placeholder (no map rendered for this tileset)`)
+      console.log(
+        `~ ${tilesetId}.webp  <-  flat placeholder (no map rendered for this tileset) (${sizeChange})`,
+      )
     }
   }
 
