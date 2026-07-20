@@ -138,6 +138,10 @@ pub struct BwScr {
     minimap_color_mode: Option<Value<u8>>,
     /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
     minimap_terrain_hidden: Option<Value<u8>>,
+    /// The three minimap dot-draw functions the minimap-only team-color mode overrides, resolved
+    /// together (all-or-nothing). `Some` = all three were located and hooked, so that mode drives
+    /// the dots from `rgb_colors`; `None` (any missing) keeps it on BW's own diplomacy dots.
+    minimap_draw_hooks: Option<MinimapDrawHooks>,
     /// BW's in-game chat send-scope byte (`chat_box_mode`): 0 = box closed, 1 = single-player local,
     /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
     /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
@@ -418,13 +422,33 @@ struct TeamColorRuntime {
     local_alliance_row: Option<(u8, [bool; 8])>,
 }
 
-/// The value the real `minimap_color_mode` global is pinned to for a given virtual mode. Standard
-/// and Preset both use BW's RGB path (real 0, our colors written / originals restored); minimap-only
-/// uses BW's own diplomacy dots (real 1).
-fn pinned_real_mode(mode: MinimapColorMode) -> u8 {
-    match mode {
-        MinimapColorMode::Standard | MinimapColorMode::Preset => 0,
-        MinimapColorMode::PresetOnMinimapOnly => 1,
+/// The three structurally-identical minimap dot-draw functions the minimap-only team-color mode
+/// overrides, resolved together (all-or-nothing). Hooking all three lets that mode feed the dots a
+/// swapped `rgb_colors` palette for the span of the draw without touching unit colors; a subset
+/// would color some dots from `rgb_colors` and leave others on BW's palette-index path, so the
+/// feature only engages when every site is present.
+struct MinimapDrawHooks {
+    /// Dispatcher: draws the local player's units and lone sprites inline and calls the two
+    /// per-player helpers for everyone else. Takes no argument this feature relies on.
+    draw_minimap_units: VirtualAddress,
+    /// Per-player helper for high/neutral player ids (8..12). `cdecl(player)`.
+    draw_minimap_player_units: VirtualAddress,
+    /// Per-player helper for other non-local main players. `cdecl(player)`.
+    draw_minimap_main_player_units: VirtualAddress,
+}
+
+/// RAII guard for the minimap-only team-color swap. Holds `rgb_colors`'s contents from just before
+/// the swap and restores them on drop, after the bracketed minimap draw has read the assignment.
+/// Created only by [`BwScr::begin_minimap_team_colors`], which validated the pointer in the same
+/// game frame on the same thread.
+struct MinimapColorSwap {
+    rgb_ptr: *mut [[f32; 4]; 8],
+    saved: [[f32; 4]; 8],
+}
+
+impl Drop for MinimapColorSwap {
+    fn drop(&mut self) {
+        unsafe { *self.rgb_ptr = self.saved };
     }
 }
 
@@ -1176,6 +1200,28 @@ impl BwScr {
         if minimap_terrain_hidden.is_none() {
             warn!("Could not find minimap_terrain_hidden global");
         }
+        // Non-fatal, all-or-nothing: the three minimap dot-draw functions are hooked together so the
+        // minimap-only team-color mode can swap the palette for the span of the draw. Without all
+        // three that mode falls back to BW's own diplomacy dots rather than failing game launch.
+        let minimap_draw_hooks = match (
+            analysis.draw_minimap_units(),
+            analysis.draw_minimap_player_units(),
+            analysis.draw_minimap_main_player_units(),
+        ) {
+            (Some(draw_minimap_units), Some(draw_minimap_player_units), Some(draw_minimap_main_player_units)) => {
+                Some(MinimapDrawHooks {
+                    draw_minimap_units,
+                    draw_minimap_player_units,
+                    draw_minimap_main_player_units,
+                })
+            }
+            _ => {
+                warn!(
+                    "Could not find all minimap draw functions; minimap-only team colors will use BW diplomacy dots"
+                );
+                None
+            }
+        };
         // Non-fatal: without it, in-game chat can't read its send-scope and every message goes to
         // everyone rather than failing game launch.
         let chat_box_mode = analysis.chat_box_mode();
@@ -1311,6 +1357,7 @@ impl BwScr {
             use_rgb_colors: Value::new(ctx, use_rgb_colors),
             minimap_color_mode: minimap_color_mode.map(|op| Value::new(ctx, op)),
             minimap_terrain_hidden: minimap_terrain_hidden.map(|op| Value::new(ctx, op)),
+            minimap_draw_hooks,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
@@ -2433,6 +2480,42 @@ impl BwScr {
                 },
                 address,
             );
+            // Minimap-only team colors: while the feature is active in that mode, swap the engine's
+            // assignment into `rgb_colors` for the span of each minimap dot draw and restore the
+            // previous contents afterward, so the dots recolor without touching unit colors. The
+            // dispatcher draws the local player and lone sprites inline and calls the two per-player
+            // helpers for everyone else, so the guards nest (see `begin_minimap_team_colors`). Full
+            // cdecl overrides; each falls through to `orig` untouched in any other mode. Installed
+            // only when all three sites resolved; otherwise that mode stays on BW's diplomacy dots.
+            if let Some(minimap_hooks) = self.minimap_draw_hooks.as_ref() {
+                let address = minimap_hooks.draw_minimap_units.0 as usize - base;
+                exe.hook_closure_address(
+                    DrawMinimapUnits,
+                    move |orig| {
+                        let _swap = self.begin_minimap_team_colors();
+                        orig();
+                    },
+                    address,
+                );
+                let address = minimap_hooks.draw_minimap_player_units.0 as usize - base;
+                exe.hook_closure_address(
+                    DrawMinimapPlayerUnits,
+                    move |player, orig| {
+                        let _swap = self.begin_minimap_team_colors();
+                        orig(player);
+                    },
+                    address,
+                );
+                let address = minimap_hooks.draw_minimap_main_player_units.0 as usize - base;
+                exe.hook_closure_address(
+                    DrawMinimapMainPlayerUnits,
+                    move |player, orig| {
+                        let _swap = self.begin_minimap_team_colors();
+                        orig(player);
+                    },
+                    address,
+                );
+            }
             // Render hook
             let relative = draw.cast_usize() - base;
             exe.hook_closure_address(
@@ -4072,7 +4155,7 @@ impl BwScr {
             let Some(global) = self.minimap_color_mode.as_ref() else {
                 return;
             };
-            if global.resolve() != pinned_real_mode(runtime.virtual_mode) {
+            if global.resolve() != self.pinned_real_mode(runtime.virtual_mode) {
                 runtime.virtual_mode = next_minimap_mode(runtime.virtual_mode);
                 self.apply_team_color_mode(runtime);
             }
@@ -4108,14 +4191,75 @@ impl BwScr {
         }
     }
 
+    /// The value the real `minimap_color_mode` global is pinned to for a given virtual mode.
+    /// Standard and Preset both use BW's RGB path (real 0, our colors written / originals restored).
+    /// Minimap-only pins real 0 when the three draw sites are hooked ([`minimap_draw_hooks`] is
+    /// `Some`) — that keeps the dots on the `rgb_colors` read path the draw hooks feed — and falls
+    /// back to real 1 (BW's own diplomacy dots) when any site is missing.
+    ///
+    /// [`minimap_draw_hooks`]: Self::minimap_draw_hooks
+    fn pinned_real_mode(&self, mode: MinimapColorMode) -> u8 {
+        match mode {
+            MinimapColorMode::Standard | MinimapColorMode::Preset => 0,
+            MinimapColorMode::PresetOnMinimapOnly => {
+                if self.minimap_draw_hooks.is_some() {
+                    0
+                } else {
+                    1
+                }
+            }
+        }
+    }
+
+    /// Installs the minimap-only team-color assignment into `rgb_colors` for the span of one minimap
+    /// dot draw, returning an RAII guard that restores the array's previous contents when dropped.
+    /// Returns `None` (no swap) unless the feature is active in the
+    /// [`PresetOnMinimapOnly`](MinimapColorMode::PresetOnMinimapOnly) virtual mode, so every other
+    /// mode — and the inactive feature — draws from the untouched array.
+    ///
+    /// The three minimap draw functions each bracket their original call with this guard. The
+    /// dispatcher draws the local player and lone sprites inline and calls the two per-player helpers
+    /// for everyone else, so the guards nest: each saves and restores the array's *current* contents,
+    /// so an inner guard hands back exactly the colors its caller installed and only the outermost
+    /// guard restores BW's originals. The swap is confined to the draw — outside it the array holds
+    /// the originals, so unit colors stay untouched and only the minimap dots read the assignment.
+    /// The runtime lock is released before the guard is returned, so the nested draws can re-acquire
+    /// it. No heap allocation: the saved copy lives in the returned guard on the caller's stack.
+    fn begin_minimap_team_colors(&self) -> Option<MinimapColorSwap> {
+        let assignment = {
+            let guard = self.team_color_runtime.lock();
+            let runtime = guard.as_ref()?;
+            if runtime.virtual_mode != MinimapColorMode::PresetOnMinimapOnly {
+                return None;
+            }
+            let mut out = runtime.original_rgb_colors;
+            for (slot, color) in runtime.state.colors().iter().enumerate() {
+                if let Some(color) = color {
+                    out[slot] = *color;
+                }
+            }
+            out
+        };
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                return None;
+            }
+            let saved = *rgb_ptr;
+            *rgb_ptr = assignment;
+            Some(MinimapColorSwap { rgb_ptr, saved })
+        }
+    }
+
     /// Pins the real `minimap_color_mode` global and writes `rgb_colors` to match the runtime's
     /// current virtual mode: `Preset` shows the computed assignment, the other modes restore BW's
     /// originals. Keeping the real global pinned per mode keeps BW's own diplomacy recolor from
-    /// stomping our colors.
+    /// stomping our colors. Minimap-only leaves the originals in `rgb_colors` here (units keep their
+    /// real colors); its assignment is swapped in only for the span of each minimap draw hook.
     unsafe fn apply_team_color_mode(&self, runtime: &TeamColorRuntime) {
         unsafe {
             if let Some(global) = self.minimap_color_mode.as_ref() {
-                global.write(pinned_real_mode(runtime.virtual_mode));
+                global.write(self.pinned_real_mode(runtime.virtual_mode));
             }
             match runtime.virtual_mode {
                 MinimapColorMode::Preset => self.write_team_color_rgb(runtime),
@@ -5618,6 +5762,13 @@ mod hooks {
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
+        // The three minimap dot-draw functions, hooked for the minimap-only team-color mode. All
+        // cdecl (the dispatcher takes no argument we use; both per-player helpers take the player id
+        // as their first stack argument and the caller cleans it up). Full overrides that always
+        // fall through to `orig`.
+        !0 => DrawMinimapUnits();
+        !0 => DrawMinimapPlayerUnits(u32);
+        !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);

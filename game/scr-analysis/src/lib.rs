@@ -7,6 +7,12 @@
 //!
 //! All the code in this crate is pretty much uninteresting boilerplate that declares
 //! whatever the main crate's BwScr::new wants.
+//!
+//! IMPORTANT: this crate intentionally wraps only the subset of samase_scarf's `Analysis`
+//! surface that the main crate actually uses. An analysis "missing" here is often already
+//! implemented in samase_scarf — check the pinned samase_scarf rev's `Analysis` API before
+//! concluding new binary analysis is needed; if it exists there, adding a one-line wrapper
+//! method in this file is the whole job.
 
 pub use samase_scarf::scarf;
 pub use samase_scarf::{DatTablePtr, DatType};
@@ -746,6 +752,26 @@ impl<'e> Analysis<'e> {
     /// The Tab minimap-terrain toggle flag (nonzero = terrain is blanked instead of drawn).
     pub fn minimap_terrain_hidden(&mut self) -> Option<Operand<'e>> {
         self.0.minimap_terrain_hidden()
+    }
+
+    /// Draws all unit/sprite dots on the minimap. In color mode 0 with RGB player colors on, the
+    /// dots read `rgb_colors[player]` directly; this function draws the local player's units (and
+    /// lone sprites) inline and calls [`draw_minimap_player_units`](Self::draw_minimap_player_units)
+    /// / [`draw_minimap_main_player_units`](Self::draw_minimap_main_player_units) for the others.
+    pub fn draw_minimap_units(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_minimap_units()
+    }
+
+    /// Draws one high/neutral player's minimap dots (player ids 8..12). Takes the player id as its
+    /// first argument; called from [`draw_minimap_units`](Self::draw_minimap_units)'s player loop.
+    pub fn draw_minimap_player_units(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_minimap_player_units()
+    }
+
+    /// Draws one main player's minimap dots (player ids 0..8). Takes the player id as its first
+    /// argument; called from [`draw_minimap_units`](Self::draw_minimap_units)'s player loop.
+    pub fn draw_minimap_main_player_units(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_minimap_main_player_units()
     }
 
     pub fn decide_cursor_type(&mut self) -> Option<VirtualAddress> {
