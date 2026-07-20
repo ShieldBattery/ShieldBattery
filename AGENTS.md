@@ -269,6 +269,12 @@ your code, suspect a stale `dist/` DLL first.
 
 Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free)
 
+**`game/scr-analysis` is a thin wrapper, not the analysis itself.** It exists to keep compile
+times fast (samase_scarf's macro-heavy code compiles once, optimized, in its own crate) and only
+wraps the `Analysis` methods the game crate actually uses. Before deciding a binary analysis is
+"missing," check the pinned samase_scarf rev's `Analysis` API — if it's there, the fix is a
+one-line wrapper method in `scr-analysis/src/lib.rs`, not new analysis work.
+
 ## Electron App
 
 - Typed IPC in `common/ipc.ts`: `invoke` (request-response), `send/on` (fire-and-forget)

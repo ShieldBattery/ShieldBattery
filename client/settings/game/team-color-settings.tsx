@@ -136,13 +136,22 @@ function getMinimapColorModeDescription(mode: MinimapColorMode, t: TFunction): s
   }
 }
 
-function getTeamColorUsageDescription(usage: TeamColorUsage, t: TFunction): string {
+function getTeamColorUsageDescription(
+  usage: TeamColorUsage,
+  shuffleColors: boolean,
+  t: TFunction,
+): string {
   switch (usage) {
     case TeamColorUsage.Always:
-      return t(
-        'settings.game.gameplay.teamColorUsage.alwaysDesc',
-        'Your 1v1 opponent always gets the first enemy color.',
-      )
+      return shuffleColors
+        ? t(
+            'settings.game.gameplay.teamColorUsage.alwaysShuffledDesc',
+            'Your 1v1 opponent gets a random color from your enemy pool.',
+          )
+        : t(
+            'settings.game.gameplay.teamColorUsage.alwaysDesc',
+            'Your 1v1 opponent always gets the first enemy color.',
+          )
     case TeamColorUsage.ExceptIn1v1:
       return t(
         'settings.game.gameplay.teamColorUsage.exceptIn1v1Desc',
@@ -613,7 +622,7 @@ export function TeamColorSettings({
                 key={usage}
                 value={usage}
                 text={getTeamColorUsageLabel(usage, t)}
-                secondaryText={getTeamColorUsageDescription(usage, t)}
+                secondaryText={getTeamColorUsageDescription(usage, shuffleColors, t)}
               />
             ))}
           </UsageSelect>

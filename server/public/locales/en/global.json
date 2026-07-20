@@ -1474,6 +1474,7 @@
         "teamColorUsage": {
           "always": "In team games and 1v1",
           "alwaysDesc": "Your 1v1 opponent always gets the first enemy color.",
+          "alwaysShuffledDesc": "Your 1v1 opponent gets a random color from your enemy pool.",
           "exceptIn1v1": "Only in team games",
           "exceptIn1v1Desc": "Two-player games use individual colors instead.",
           "never": "Never",
