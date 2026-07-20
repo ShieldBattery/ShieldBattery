@@ -123,7 +123,12 @@ async function renderMapPreview(filePath: string, bwDataPath: string): Promise<R
 
   const width = PREVIEW_WIDTH
   const height = Math.round((width * map.size[1]) / map.size[0])
-  const imageRgb = await map.image(Chk.fsFileAccess(bwDataPath), width, height, { melee: true })
+  // `startLocations: false` keeps terrain and neutral resources but omits the start-location
+  // markers, which would clash with the mock player dots the preview overlays.
+  const imageRgb = await map.image(Chk.fsFileAccess(bwDataPath), width, height, {
+    melee: true,
+    startLocations: false,
+  })
   const png = await sharp(imageRgb, { raw: { width, height, channels: 3 } })
     .png()
     .toBuffer()
