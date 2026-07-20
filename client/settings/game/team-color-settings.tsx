@@ -125,6 +125,24 @@ function buildFfaRows(pool: readonly string[], ffaSelfColor: string | undefined)
   return FFA_NAMES.map((name, i) => ({ color: assigned[i], name, isSelf: i === 0 }))
 }
 
+/**
+ * Splits a unified `[self, ...allies]` pool array back into a `{ self, allies }` pair -- the
+ * pool's head becomes `self`, its tail becomes `allies`. The inverse of {@link customToPool}. Used
+ * by the Custom preset's "Your team" editor, where self and allies live in one editable pool (so
+ * e.g. removing the head promotes the next entry to `self`, matching a built-in preset's pool
+ * losing its hero color).
+ */
+function poolToCustom(pool: readonly string[]): Pick<CustomTeamColors, 'self' | 'allies'> {
+  const [self, ...allies] = pool
+  return { self, allies }
+}
+
+/** Combines a `{ self, allies }` pair into the unified pool array the Custom preset's "Your team"
+ * editor operates on. The inverse of {@link poolToCustom}. */
+function customToPool(colors: Pick<CustomTeamColors, 'self' | 'allies'>): string[] {
+  return [colors.self, ...colors.allies]
+}
+
 function getMinimapColorModeDescription(mode: MinimapColorMode, t: TFunction): string {
   switch (mode) {
     case MinimapColorMode.Standard:
@@ -178,8 +196,8 @@ function getTeamColorUsageDescription(
   }
 }
 
-/** The hint shown below the team YOU control on a built-in preset (Custom's self chip is always
- * set, so it never shows this). */
+/** The hint shown below the overridable team YOU control -- every preset except LegacyDiplomacy,
+ * which has a fixed self color and no override to hint about. */
 function getTeamSelfHint(hasOverride: boolean, shuffleColors: boolean, t: TFunction): string {
   if (hasOverride) {
     return t(
@@ -513,23 +531,22 @@ export function TeamColorSettings({
   const ffaRows = buildFfaRows(activeFfaColors, ffaSelfColor)
 
   const selfBadgeLabel = t('settings.game.gameplay.teamColors.selfBadge', 'YOU')
-  // On an overridable built-in preset, the Allies row displays the hero color as the head of one
-  // combined friendly pool (hero + allies) rather than a separate, invisible extra -- so the row
-  // reads the same regardless of preset, matching what a real game actually draws from. Custom
-  // keeps its own always-visible self chip and its editable allies pool shown separately, exactly
-  // as today; LegacyDiplomacy keeps its own read-only self chip and shows just its actual allies
-  // pool below, since its self color is fixed rather than drawn from that pool at all.
+  // Every preset except LegacyDiplomacy shows the "Your team" row as one combined friendly pool
+  // (hero/self + allies) rather than the self color as a separate, invisible extra -- so the row
+  // reads the same regardless of preset (including Custom, whose own self color is just this
+  // pool's head, editable like any other entry), matching what a real game actually draws from.
+  // LegacyDiplomacy keeps its own read-only self chip above and shows just its actual allies pool
+  // here instead, since its self color is fixed rather than drawn from that pool at all.
   const teamFriendlyPool = [activeTeamColors.self, ...activeTeamColors.allies]
   // Which friendly-pool entry (if any) is "yours". Deterministic in two cases: an override in
   // effect (pinned regardless of shuffle -- it's whatever `effectiveTeamSelfOverride` resolves to),
-  // or no override with shuffle off (today's fixed preset-hero behavior, so you're always the pool's
-  // head entry). Not deterministic -- so no badge -- when there's no override and shuffle is on,
-  // since self then draws randomly from the combined pool. Custom and LegacyDiplomacy show no badge
-  // at all: Custom's own self chip already makes "yours" obvious and its allies pool is an editor,
-  // not a view (badging a swatch there would compete with the remove badge); Legacy shows its fixed
-  // self color in its own read-only chip above instead of drawing it from the allies pool.
+  // or no override with shuffle off (the fixed pool-head behavior, so you're always the pool's head
+  // entry). Not deterministic -- so no badge -- when there's no override and shuffle is on, since
+  // self then draws randomly from the combined pool. LegacyDiplomacy shows no badge at all: its
+  // fixed self color is already shown in its own read-only chip above instead of being drawn from
+  // the allies pool.
   const teamSelfBadgeColor =
-    isTeamCustom || isLegacyDiplomacy || (shuffleColors && effectiveTeamSelfOverride === undefined)
+    isLegacyDiplomacy || (shuffleColors && effectiveTeamSelfOverride === undefined)
       ? undefined
       : (effectiveTeamSelfOverride ?? activeTeamColors.self)
   const teamSelfBadgeIndex = teamSelfBadgeColor
@@ -577,38 +594,34 @@ export function TeamColorSettings({
     label: getFfaColorPresetLabel(preset, t),
   }))
 
-  function updateAllies(next: string[]) {
-    onCustomTeamColorsChange({ ...customTeamColors, allies: next })
-  }
   function updateEnemies(next: string[]) {
     onCustomTeamColorsChange({ ...customTeamColors, enemies: next })
   }
 
-  function handleCustomSelfChange(hex: string | undefined) {
-    if (hex !== undefined) {
-      onCustomTeamColorsChange({ ...customTeamColors, self: hex })
-    }
-  }
-
-  function handleAllySwatchChange(index: number, hex: string) {
-    const next = customTeamColors.allies.slice()
+  // Custom's "Your team" editor operates on one unified [self, ...allies] pool (see
+  // `customToPool`/`poolToCustom`), so every mutation round-trips through the split: index 0
+  // always maps back onto `self`, so e.g. removing it promotes the next entry to `self` for free.
+  function handleTeamPoolSwatchChange(index: number, hex: string) {
+    const next = customToPool(customTeamColors)
     next[index] = hex
-    updateAllies(next)
+    onCustomTeamColorsChange({ ...customTeamColors, ...poolToCustom(next) })
   }
-  function handleAllyRemove(index: number) {
-    const next = customTeamColors.allies.slice()
+  function handleTeamPoolRemove(index: number) {
+    const next = customToPool(customTeamColors)
     next.splice(index, 1)
-    updateAllies(next)
+    onCustomTeamColorsChange({ ...customTeamColors, ...poolToCustom(next) })
   }
-  function handleAllyReorder(from: number, to: number) {
-    const next = customTeamColors.allies.slice()
+  function handleTeamPoolReorder(from: number, to: number) {
+    const next = customToPool(customTeamColors)
     const [item] = next.splice(from, 1)
     next.splice(to, 0, item)
-    updateAllies(next)
+    onCustomTeamColorsChange({ ...customTeamColors, ...poolToCustom(next) })
   }
-  function handleAllyAdd() {
-    const used = [customTeamColors.self, ...customTeamColors.allies, ...customTeamColors.enemies]
-    updateAllies([...customTeamColors.allies, nextUnusedColor(used)])
+  function handleTeamPoolAdd() {
+    const next = customToPool(customTeamColors)
+    const used = [...next, ...customTeamColors.enemies]
+    next.push(nextUnusedColor(used))
+    onCustomTeamColorsChange({ ...customTeamColors, ...poolToCustom(next) })
   }
 
   function handleEnemySwatchChange(index: number, hex: string) {
@@ -666,24 +679,7 @@ export function TeamColorSettings({
   const teamSelfHint = getTeamSelfHint(hasTeamSelfOverride, shuffleColors, t)
 
   let teamSelfContent: ReactNode
-  if (isTeamCustom) {
-    teamSelfContent = (
-      <EditableColorSwatch
-        value={customTeamColors.self}
-        defaultValue={customTeamColors.self}
-        onChange={handleCustomSelfChange}
-        editable={teamEditable}
-        swatches={scSwatches}
-        quickSwatches={teamSelfQuickSwatches}
-        pickerSubtitle={t(
-          'settings.game.gameplay.teamColors.pickerTargetSelf',
-          'Team scheme · your color',
-        )}
-        label={getColorLabel(customTeamColors.self, t)}
-        addLabel=''
-      />
-    )
-  } else if (isLegacyDiplomacy) {
+  if (isLegacyDiplomacy) {
     // Fixed self color, no override: a read-only chip (no add-tile since `value` is always set, no
     // Clear since there's nothing to clear) rather than the editable-with-override chip below.
     teamSelfContent = (
@@ -702,6 +698,9 @@ export function TeamColorSettings({
       />
     )
   } else {
+    // The same optional override control for every other preset, Custom included: unset, self
+    // draws from the "Your team" pool below like anyone else (its head with shuffle off, or a
+    // random pool entry with shuffle on); set, it's pinned regardless of shuffle.
     teamSelfContent = (
       <>
         <SelfRow>
@@ -743,8 +742,9 @@ export function TeamColorSettings({
       </>
     )
   }
-  const teamAlliesColors =
-    isTeamCustom || isLegacyDiplomacy ? activeTeamColors.allies : teamFriendlyPool
+  // Legacy shows just its actual (fixed, read-only) allies pool; every other preset -- Custom
+  // included -- shows the unified `teamFriendlyPool` (see above), editable only when Custom.
+  const teamPoolColors = isLegacyDiplomacy ? activeTeamColors.allies : teamFriendlyPool
 
   return (
     <>
@@ -838,9 +838,11 @@ export function TeamColorSettings({
                       : t('settings.game.gameplay.teamColors.yourTeam', 'Your team')}
                   </GroupLabel>
                   <ColorPoolEditor
-                    colors={teamAlliesColors}
+                    colors={teamPoolColors}
                     editable={teamEditable}
-                    minLength={1}
+                    // 2, not 1: this pool's head is self (`customTeamColors.allies` documents a
+                    // length of 1-8), so the floor here has to leave at least one actual ally.
+                    minLength={2}
                     maxLength={MAX_TEAM_POOL_COLORS}
                     swatches={scSwatches}
                     colorLabel={hex => getColorLabel(hex, t)}
@@ -855,10 +857,10 @@ export function TeamColorSettings({
                     hint={alliesHint}
                     badgeIndex={teamSelfBadgeIndex}
                     badgeLabel={selfBadgeLabel}
-                    onSwatchChange={handleAllySwatchChange}
-                    onRemove={handleAllyRemove}
-                    onReorder={handleAllyReorder}
-                    onAdd={handleAllyAdd}
+                    onSwatchChange={handleTeamPoolSwatchChange}
+                    onRemove={handleTeamPoolRemove}
+                    onReorder={handleTeamPoolReorder}
+                    onAdd={handleTeamPoolAdd}
                   />
                 </div>
                 <div>

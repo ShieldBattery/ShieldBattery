@@ -278,22 +278,21 @@ export function resolveTeamColors(
 }
 
 /**
- * Resolves the `teamSelf` override sent to the game (and mirrored by the settings preview): on the
- * `Custom` preset, always the scheme's own self color -- pinning a deliberately-chosen custom self
- * the same way an explicit override would, so it isn't drawn into the shuffle-on combined
- * self+allies pool like an arbitrary built-in preset's hero color would be. `LegacyDiplomacy`
- * resolves the same way, for a different reason: its self/allies/enemies mapping is fixed
- * (self teal, allies yellow, enemies red), so a personal override doesn't make sense there -- any
- * stored `teamSelfColor` is ignored while this preset is active (it isn't cleared, and re-applies
- * the moment the user switches to another built-in preset). On any other built-in preset, the
- * user's explicit override if they've set one, or `undefined` (no override in effect) if not.
+ * Resolves the `teamSelf` override sent to the game (and mirrored by the settings preview):
+ * `LegacyDiplomacy`'s self/allies/enemies mapping is fixed (self teal, allies yellow, enemies
+ * red), so a personal override doesn't make sense there -- always the scheme's own self color,
+ * ignoring any stored `teamSelfColor` while this preset is active (it isn't cleared, and
+ * re-applies the moment the user switches to another preset). Every other preset -- including
+ * `Custom` -- resolves the same way as each other: the user's explicit override if they've set
+ * one, or `undefined` (no override in effect, so self draws from the pool like anyone else) if
+ * not. Custom's own self color is just the head of its own pool, exactly like a built-in preset's
+ * hero color -- it doesn't get pinned just for being user-authored.
  */
 export function resolveTeamSelfOverride(
   settings: Pick<LocalSettings, 'teamColorPreset' | 'teamSelfColor'>,
   resolvedTeamColors: Pick<CustomTeamColors, 'self'>,
 ): string | undefined {
-  return settings.teamColorPreset === TeamColorPreset.Custom ||
-    settings.teamColorPreset === TeamColorPreset.LegacyDiplomacy
+  return settings.teamColorPreset === TeamColorPreset.LegacyDiplomacy
     ? resolvedTeamColors.self
     : settings.teamSelfColor
 }
