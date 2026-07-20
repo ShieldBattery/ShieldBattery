@@ -167,14 +167,15 @@ const Minimap = styled.div<{ $background: string }>`
   background-color: ${props => props.$background};
 `
 
-// `object-fit: contain` (not `cover`): a source map that isn't perfectly square should letterbox
-// against the tileset's fallback color rather than crop.
+// `object-fit: cover`: a non-square map fills the square box (cropping its edges) rather than
+// letterboxing against the fallback color -- the preview only needs to convey the tileset's look,
+// not the whole map, and filling the box reads cleaner.
 const MinimapImage = styled.img`
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 `
 
 const Dot = styled.div<{ $color: string; $x: number; $y: number }>`
