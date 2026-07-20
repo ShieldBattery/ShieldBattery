@@ -1370,10 +1370,15 @@
         },
         "devOnlySettings": "Dev-only settings",
         "ffaColorPreset": {
+          "arcade": "Arcade",
+          "attributionPrefix": "Palette: ",
           "classic": "Classic",
           "colorblindSafe": "Colorblind-safe",
           "custom": "Custom",
-          "pastel": "Pastel",
+          "jewel": "Jewel",
+          "neon": "Neon",
+          "pear": "Pear",
+          "resurrect": "Resurrect",
           "title": "Preset"
         },
         "ffaColors": {
@@ -1427,7 +1432,8 @@
           "coolVsWarm": "Cool vs warm",
           "custom": "Custom",
           "legacyDiplomacy": "Legacy diplomacy",
-          "title": "Preset"
+          "title": "Preset",
+          "warmVsCool": "Warm vs cool"
         },
         "teamColors": {
           "addColor": "Add a color",

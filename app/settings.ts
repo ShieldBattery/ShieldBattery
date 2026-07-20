@@ -6,12 +6,17 @@ import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
-import { LocalSettings, ScrSettings, StartingFog } from '../common/settings/local-settings'
+import {
+  FfaColorPreset,
+  LocalSettings,
+  ScrSettings,
+  StartingFog,
+} from '../common/settings/local-settings'
 import { cloneCustomTeamColors } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 16
+const VERSION = 17
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -315,6 +320,14 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       newSettings.customTeamColors = cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors)
       newSettings.customFfaColors = [...DEFAULT_LOCAL_SETTINGS.customFfaColors]
       delete newSettings.ffaSelfColor
+    }
+
+    if (!settings.version || settings.version < 17) {
+      log.verbose('Found settings version 16, migrating to version 17')
+      // The Pastel FFA preset was removed; anyone who had it selected falls back to Classic.
+      if ((settings.ffaColorPreset as string | undefined) === 'pastel') {
+        newSettings.ffaColorPreset = FfaColorPreset.Classic
+      }
     }
 
     newSettings.version = VERSION

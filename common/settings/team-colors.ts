@@ -40,6 +40,33 @@ export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#3C3C3C', name: 'Black' },
 ]
 
+/**
+ * The "cool" 7-color pool backing the CoolVsWarm/WarmVsCool team-color presets (as the enemies
+ * pool, or reversed with its head color as `self`, as the allies pool). Ordered to keep the
+ * highest-priority slots (the ones a small ally/enemy pool actually uses) maximally distinguishable
+ * under normal and color-vision-deficient vision.
+ */
+export const COOL: ReadonlyArray<{ hex: string; name: string }> = [
+  { hex: '#2F7FE3', name: 'Azure' },
+  { hex: '#5AC576', name: 'Emerald' },
+  { hex: '#92C1FD', name: 'Sky' },
+  { hex: '#BE8CE1', name: 'Violet' },
+  { hex: '#B3ECB9', name: 'Mint' },
+  { hex: '#60812B', name: 'Moss' },
+  { hex: '#228A8D', name: 'Deep teal' },
+]
+
+/** The "warm" counterpart to {@link COOL}; see there for details. */
+export const WARM: ReadonlyArray<{ hex: string; name: string }> = [
+  { hex: '#DE3C37', name: 'Scarlet' },
+  { hex: '#EDC23E', name: 'Gold' },
+  { hex: '#D553AC', name: 'Magenta' },
+  { hex: '#F48815', name: 'Orange' },
+  { hex: '#F99FB7', name: 'Rose' },
+  { hex: '#A24B36', name: 'Brick' },
+  { hex: '#FEC2A4', name: 'Peach' },
+]
+
 /** The built-in team-axis color presets (every {@link TeamColorPreset} except `Custom`). */
 export const TEAM_COLOR_PRESETS: ReadonlyDeep<
   Record<Exclude<TeamColorPreset, TeamColorPreset.Custom>, CustomTeamColors>
@@ -52,12 +79,18 @@ export const TEAM_COLOR_PRESETS: ReadonlyDeep<
     enemies: ['#F40404'],
   },
   [TeamColorPreset.CoolVsWarm]: {
-    self: '#0C48CC',
-    allies: ['#2CB494', '#00E4FC', '#4068D4', '#74A47C', '#7290B8', '#088008'],
-    enemies: ['#F40404', '#F88C14', '#F032E6', '#FCFC38', '#FFC4E4', '#703014', '#ECC4B0'],
+    self: COOL[0].hex,
+    allies: COOL.slice(1, 7).map(c => c.hex),
+    enemies: WARM.map(c => c.hex),
+  },
+  [TeamColorPreset.WarmVsCool]: {
+    self: WARM[0].hex,
+    allies: WARM.slice(1, 7).map(c => c.hex),
+    enemies: COOL.map(c => c.hex),
   },
   [TeamColorPreset.ColorblindSafe]: {
-    // Okabe-Ito based.
+    // Okabe-Ito based. Chosen independently of COOL/WARM above, so don't assume its colors are a
+    // subset or derivative of that pool.
     self: '#0072B2',
     allies: ['#56B4E9', '#009E73', '#88CCEE', '#332288', '#44AA99', '#7290B8'],
     enemies: ['#E69F00', '#D55E00', '#F0E442', '#CC79A7', '#882255', '#EE8866', '#FFAABB'],
@@ -78,26 +111,99 @@ export const FFA_COLOR_PRESETS: ReadonlyDeep<
     '#CCE0D0',
     '#FCFC38',
   ],
-  [FfaColorPreset.Pastel]: [
-    '#F6A5A5',
-    '#A8DDE9',
-    '#B8E4B8',
-    '#DDB8F0',
-    '#F9C784',
-    '#C9B29B',
-    '#FDF3A7',
-    '#B5C7F5',
+  [FfaColorPreset.Jewel]: [
+    '#D23855', // Ruby
+    '#396ED6', // Sapphire
+    '#3BB360', // Emerald
+    '#F3B01D', // Amber
+    '#B675DB', // Amethyst
+    '#F28058', // Coral
+    '#BEDC6F', // Peridot
+    '#F4ACC7', // Rose quartz
+  ],
+  [FfaColorPreset.Arcade]: [
+    '#E32762', // Razzmatazz
+    '#46A6EF', // Sky blue
+    '#6CBD2E', // Lime
+    '#FACB39', // Sunglow
+    '#ED68AE', // Hot pink
+    '#615CDC', // Blurple
+    '#FE9C4C', // Tangerine
+    '#84D48A', // Seafoam
+  ],
+  // Resurrect 64 by Kerrie Lake; see FFA_COLOR_PRESET_ATTRIBUTION below.
+  [FfaColorPreset.Resurrect]: [
+    '#D5E04B',
+    '#4D65B4',
+    '#EA4F36',
+    '#EAADED',
+    '#0EAF9B',
+    '#A24B6F',
+    '#F79617',
+    '#A884F3',
+  ],
+  // Pear36 by PineTreePizza; see FFA_COLOR_PRESET_ATTRIBUTION below.
+  [FfaColorPreset.Pear]: [
+    '#FFE478',
+    '#B0305C',
+    '#4DA6FF',
+    '#3CA370',
+    '#FF6B97',
+    '#FFB5B5',
+    '#8FDE5D',
+    '#BA6156',
+  ],
+  [FfaColorPreset.Neon]: [
+    '#E935CF', // Fuchsia
+    '#7ADB00', // Laser lime
+    '#2D70F4', // Electric blue
+    '#FE8C2C', // Neon orange
+    '#F9E03F', // Acid yellow
+    '#7B2BCF', // Hyper purple
+    '#FE5C8E', // Hot pink
+    '#23D891', // Spring green
   ],
   [FfaColorPreset.ColorblindSafe]: [
-    '#0072B2',
-    '#E69F00',
-    '#56B4E9',
-    '#D55E00',
-    '#009E73',
-    '#F0E442',
-    '#CC79A7',
-    '#999999',
+    '#3072C1', // Blue
+    '#EE9733', // Orange
+    '#80BDFB', // Sky
+    '#D64C29', // Vermillion
+    '#3EAF86', // Teal green
+    '#F0D947', // Yellow
+    '#F9AFC5', // Pink
+    '#96943C', // Olive
   ],
+}
+
+/**
+ * Attribution for the FFA-axis presets adapted from a named third-party palette. Presets not
+ * listed here are original to ShieldBattery and need no credit.
+ */
+const FFA_COLOR_PRESET_ATTRIBUTION: ReadonlyDeep<
+  Partial<Record<Exclude<FfaColorPreset, FfaColorPreset.Custom>, { name: string; url: string }>>
+> = {
+  [FfaColorPreset.Arcade]: {
+    name: 'inspired by PICO-8',
+    url: 'https://lospec.com/palette-list/pico-8',
+  },
+  [FfaColorPreset.Resurrect]: {
+    name: 'Resurrect 64 by Kerrie Lake',
+    url: 'https://lospec.com/palette-list/resurrect-64',
+  },
+  [FfaColorPreset.Pear]: {
+    name: 'Pear36 by PineTreePizza',
+    url: 'https://lospec.com/palette-list/pear36',
+  },
+}
+
+/**
+ * Returns the source-palette attribution for a built-in FFA-axis preset, or `undefined` if it's
+ * original to ShieldBattery (or `Custom`).
+ */
+export function getFfaColorPresetAttribution(
+  preset: FfaColorPreset,
+): { name: string; url: string } | undefined {
+  return preset === FfaColorPreset.Custom ? undefined : FFA_COLOR_PRESET_ATTRIBUTION[preset]
 }
 
 /** The FFA pool must contain at least this many colors (worst case: an 8-player FFA with no self). */
@@ -156,6 +262,8 @@ export function getTeamColorPresetLabel(preset: TeamColorPreset, t: TFunction): 
       return t('settings.game.gameplay.teamColorPreset.legacyDiplomacy', 'Legacy diplomacy')
     case TeamColorPreset.CoolVsWarm:
       return t('settings.game.gameplay.teamColorPreset.coolVsWarm', 'Cool vs warm')
+    case TeamColorPreset.WarmVsCool:
+      return t('settings.game.gameplay.teamColorPreset.warmVsCool', 'Warm vs cool')
     case TeamColorPreset.ColorblindSafe:
       return t('settings.game.gameplay.teamColorPreset.colorblindSafe', 'Colorblind-safe')
     case TeamColorPreset.Custom:
@@ -169,8 +277,16 @@ export function getFfaColorPresetLabel(preset: FfaColorPreset, t: TFunction): st
   switch (preset) {
     case FfaColorPreset.Classic:
       return t('settings.game.gameplay.ffaColorPreset.classic', 'Classic')
-    case FfaColorPreset.Pastel:
-      return t('settings.game.gameplay.ffaColorPreset.pastel', 'Pastel')
+    case FfaColorPreset.Jewel:
+      return t('settings.game.gameplay.ffaColorPreset.jewel', 'Jewel')
+    case FfaColorPreset.Arcade:
+      return t('settings.game.gameplay.ffaColorPreset.arcade', 'Arcade')
+    case FfaColorPreset.Resurrect:
+      return t('settings.game.gameplay.ffaColorPreset.resurrect', 'Resurrect')
+    case FfaColorPreset.Pear:
+      return t('settings.game.gameplay.ffaColorPreset.pear', 'Pear')
+    case FfaColorPreset.Neon:
+      return t('settings.game.gameplay.ffaColorPreset.neon', 'Neon')
     case FfaColorPreset.ColorblindSafe:
       return t('settings.game.gameplay.ffaColorPreset.colorblindSafe', 'Colorblind-safe')
     case FfaColorPreset.Custom:

@@ -18,6 +18,7 @@ import {
 import {
   cloneCustomTeamColors,
   FFA_COLOR_PRESETS,
+  getFfaColorPresetAttribution,
   getFfaColorPresetLabel,
   getTeamColorPresetLabel,
   getTeamColorUsageLabel,
@@ -42,6 +43,7 @@ import { MenuList } from '../../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../../material/popover'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
+import { ExternalLink } from '../../navigation/external-link'
 import { bodySmall, labelMedium, labelSmall, titleSmall } from '../../styles/typography'
 import { DEFAULT_TILESET, PreviewRow, TeamColorPreview, TilesetId } from './team-color-preview'
 
@@ -270,6 +272,11 @@ const PresetHint = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const AttributionLine = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
 const GroupLabel = styled.div`
   ${labelSmall};
   color: var(--theme-on-surface-variant);
@@ -494,6 +501,7 @@ export function TeamColorSettings({
   )
   const teamPresetHint = isTeamCustom ? editHint : selectCustomHint
   const ffaPresetHint = isFfaCustom ? editHint : selectCustomHint
+  const ffaAttribution = getFfaColorPresetAttribution(ffaColorPreset)
 
   const teamPresetCopyOptions = BUILTIN_TEAM_PRESETS.map(preset => ({
     value: preset,
@@ -780,6 +788,12 @@ export function TeamColorSettings({
                   ))}
                 </Select>
                 <PresetHint>{ffaPresetHint}</PresetHint>
+                {ffaAttribution ? (
+                  <AttributionLine>
+                    {t('settings.game.gameplay.ffaColorPreset.attributionPrefix', 'Palette: ')}
+                    <ExternalLink href={ffaAttribution.url}>{ffaAttribution.name}</ExternalLink>
+                  </AttributionLine>
+                ) : null}
               </PresetBlock>
               <div>
                 <GroupLabel>{t('settings.game.gameplay.ffaColors.poolGroup', 'Pool')}</GroupLabel>

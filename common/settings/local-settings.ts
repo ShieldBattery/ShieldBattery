@@ -81,6 +81,7 @@ export function getMinimapColorModeLabel(mode: MinimapColorMode, t: TFunction): 
 export enum TeamColorPreset {
   LegacyDiplomacy = 'legacyDiplomacy',
   CoolVsWarm = 'coolVsWarm',
+  WarmVsCool = 'warmVsCool',
   ColorblindSafe = 'colorblindSafe',
   Custom = 'custom',
 }
@@ -94,7 +95,11 @@ export const ALL_TEAM_COLOR_PRESETS: Readonly<TeamColorPreset[]> = Object.values
  */
 export enum FfaColorPreset {
   Classic = 'classic',
-  Pastel = 'pastel',
+  Jewel = 'jewel',
+  Arcade = 'arcade',
+  Resurrect = 'resurrect',
+  Pear = 'pear',
+  Neon = 'neon',
   ColorblindSafe = 'colorblindSafe',
   Custom = 'custom',
 }
