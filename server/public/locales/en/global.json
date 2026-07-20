@@ -1490,7 +1490,7 @@
             "standard": "Standard",
             "standardDesc": "StarCraft's normal colors. The settings below have no effect."
           },
-          "offNote": "Off — individual colors are used in every game.",
+          "offNote": "Off. Individual colors are used in every game.",
           "pickerTargetAlly": "Team scheme · allies · #{{n}}",
           "pickerTargetEnemy": "Team scheme · enemies · #{{n}}",
           "pickerTargetSelf": "Team scheme · your color",

@@ -799,7 +799,7 @@ export function TeamColorSettings({
             <CollapsedNote>
               {t(
                 'settings.game.gameplay.teamColors.offNote',
-                'Off — individual colors are used in every game.',
+                'Off. Individual colors are used in every game.',
               )}
             </CollapsedNote>
           </CollapsedCard>
