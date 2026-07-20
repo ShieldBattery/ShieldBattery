@@ -632,6 +632,8 @@ export function ReplayLibrary() {
         groupCounts={groupCounts}
         groupContent={index => {
           const group = dayGroups[index]
+          // Intentionally no per-day count: the list is paginated, so a count from the loaded rows
+          // would understate the oldest loaded day until it's fully scrolled (see day-header.tsx).
           return (
             <DayHeader
               label={
@@ -639,10 +641,6 @@ export function ReplayLibrary() {
                   ? t('replays.library.unreadableReplays', 'Unreadable replays')
                   : formatDayHeaderLabel(group.dayStartMs, todayStartMs, yesterdayStartMs, t)
               }
-              countLabel={t('replays.library.replayCount', {
-                defaultValue: '{{count}} replays',
-                count: group.entries.length,
-              })}
             />
           )
         }}
