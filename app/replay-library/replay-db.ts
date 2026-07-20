@@ -11,6 +11,15 @@ import { makeSbUserId } from '../../common/users/sb-user-id'
 import { deriveTeamLayout, IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery } from './replay-queries'
 
+// better-sqlite3 locates its native addon through a dynamic `bindings()` require that webpack can't
+// statically analyze, so in the bundled production build the `.node` would be silently dropped from
+// the package (and the DB would fail to open). Requiring it explicitly routes it through
+// `native-addon-loader` — which copies it into `dist/native/` (shipped by prod.yml/staging.yml) —
+// and we hand the resulting addon to better-sqlite3 via `nativeBinding` (it accepts a pre-loaded
+// addon object in place of a path). In dev, Node loads the `.node` directly, so this works there
+// too. `build/Release/` is where the Electron-ABI build lands (this install has no prebuilds dir).
+const betterSqlite3Addon = require('better-sqlite3/build/Release/better_sqlite3.node')
+
 const SCHEMA_VERSION = 5
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
@@ -67,7 +76,9 @@ export class ReplayDb {
   private readonly deleteTxn: (paths: string[]) => void
 
   constructor(dbPath: string) {
-    this.db = new Database(dbPath)
+    // `nativeBinding` is typed as a string path by @types/better-sqlite3, but the runtime also
+    // accepts a pre-loaded addon object (WiseLibs/better-sqlite3#972), which is what we pass.
+    this.db = new Database(dbPath, { nativeBinding: betterSqlite3Addon })
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('foreign_keys = ON')
     this.migrate()
