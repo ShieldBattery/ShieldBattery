@@ -27,7 +27,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   startingFog: StartingFog.ShowTerrainAndResources,
   minimapColorMode: MinimapColorMode.Standard,
   minimapTerrainHidden: false,
-  teamColorPreset: TeamColorPreset.LegacyDiplomacy,
+  teamColorPreset: TeamColorPreset.CoolVsWarm,
   ffaColorPreset: FfaColorPreset.Classic,
   teamColorUsage: TeamColorUsage.Always,
   shuffleColors: false,
