@@ -182,7 +182,10 @@ impl TeamColorState {
             // override is actually applied (team/observer), and never when it would empty the pool.
             if uses_team_pool
                 && config.allies.len() > 1
-                && let Some(pos) = config.allies.iter().position(|c| colors_eq(c, &override_color))
+                && let Some(pos) = config
+                    .allies
+                    .iter()
+                    .position(|c| colors_eq(c, &override_color))
             {
                 config.allies.remove(pos);
             }
@@ -375,9 +378,7 @@ impl TeamColorState {
         let usage_ok = config.usage != TeamColorUsage::Never
             && !(config.usage == TeamColorUsage::ExceptIn1v1 && two_player);
         let mut colors = [None; 8];
-        if usage_ok
-            && let Some([friendly, enemy]) = two_team_partition(info)
-        {
+        if usage_ok && let Some([friendly, enemy]) = two_team_partition(info) {
             let mut friendly_pool = Vec::with_capacity(1 + config.allies.len());
             friendly_pool.push(config.self_color);
             friendly_pool.extend_from_slice(&config.allies);
@@ -495,7 +496,9 @@ fn two_team_partition(info: &GameStartInfo) -> Option<[Vec<u8>; 2]> {
 /// Whether two colors are the exact same RGBA value, compared bit-for-bit (both come from the same
 /// hex-to-float conversion, so equal hex yields equal bits).
 fn colors_eq(a: &Color, b: &Color) -> bool {
-    a.iter().zip(b.iter()).all(|(x, y)| x.to_bits() == y.to_bits())
+    a.iter()
+        .zip(b.iter())
+        .all(|(x, y)| x.to_bits() == y.to_bits())
 }
 
 /// SplitMix64: a tiny, self-contained PRNG for the per-game pool shuffle. Deterministic from its
@@ -711,7 +714,8 @@ mod tests {
         assert_eq!(at(&state.colors(), 3), col(21));
 
         // Un-ally slot 1: it enters the enemies pool at the cursor (wraps to enemies[0]).
-        let changed = state.update_local_alliances(&[false, false, false, false, false, false, false, false]);
+        let changed =
+            state.update_local_alliances(&[false, false, false, false, false, false, false, false]);
         assert!(changed);
         assert_eq!(at(&state.colors(), 1), col(20));
         assert_eq!(at(&state.colors(), 2), col(20)); // unchanged

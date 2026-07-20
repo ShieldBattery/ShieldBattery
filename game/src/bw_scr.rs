@@ -40,10 +40,10 @@ use crate::bw_scr::scr::SafeBwString;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
 use crate::netcode_v2;
-use crate::team_colors::{GameStartInfo, TeamColorConfig, TeamColorState};
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::sync::DumbSpinLock;
+use crate::team_colors::{GameStartInfo, TeamColorConfig, TeamColorState};
 use crate::windows;
 
 pub mod scr;
@@ -1208,13 +1208,15 @@ impl BwScr {
             analysis.draw_minimap_player_units(),
             analysis.draw_minimap_main_player_units(),
         ) {
-            (Some(draw_minimap_units), Some(draw_minimap_player_units), Some(draw_minimap_main_player_units)) => {
-                Some(MinimapDrawHooks {
-                    draw_minimap_units,
-                    draw_minimap_player_units,
-                    draw_minimap_main_player_units,
-                })
-            }
+            (
+                Some(draw_minimap_units),
+                Some(draw_minimap_player_units),
+                Some(draw_minimap_main_player_units),
+            ) => Some(MinimapDrawHooks {
+                draw_minimap_units,
+                draw_minimap_player_units,
+                draw_minimap_main_player_units,
+            }),
             _ => {
                 warn!(
                     "Could not find all minimap draw functions; minimap-only team colors will use BW diplomacy dots"
@@ -4081,8 +4083,14 @@ impl BwScr {
                 return;
             }
             let original_rgb_colors = *rgb_ptr;
-            if original_rgb_colors.iter().flatten().all(|v| v.to_bits() == 0) {
-                warn!("rgb_colors snapshot is entirely zero at team-color init; colors may be wrong");
+            if original_rgb_colors
+                .iter()
+                .flatten()
+                .all(|v| v.to_bits() == 0)
+            {
+                warn!(
+                    "rgb_colors snapshot is entirely zero at team-color init; colors may be wrong"
+                );
             }
 
             // Active players are players[] 0..8 whose in-game type is human (2) or computer (1).
@@ -4123,7 +4131,8 @@ impl BwScr {
             let virtual_mode =
                 MinimapColorMode::try_from(self.saved_minimap_color_mode.load(Ordering::Acquire))
                     .unwrap_or_default();
-            let local_alliance_row = local_player.map(|local| (local, initial_allies[local as usize]));
+            let local_alliance_row =
+                local_player.map(|local| (local, initial_allies[local as usize]));
             let runtime = TeamColorRuntime {
                 state,
                 original_rgb_colors,
