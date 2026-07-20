@@ -260,8 +260,8 @@ export function TeamColorPreview({
   const dotPositions = variant === 'team' ? TEAM_DOT_POSITIONS : FFA_DOT_POSITIONS
   const headerLabel =
     variant === 'team'
-      ? t('settings.game.gameplay.teamColors.previewHeaderTeam', 'Preview — 4v4')
-      : t('settings.game.gameplay.teamColors.previewHeaderFfa', 'Preview — 8 players, no teams')
+      ? t('settings.game.gameplay.teamColors.previewHeaderTeam', 'Preview (4v4)')
+      : t('settings.game.gameplay.teamColors.previewHeaderFfa', 'Preview (no teams)')
 
   return (
     <div className={className}>
