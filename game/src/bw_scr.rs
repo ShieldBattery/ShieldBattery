@@ -413,6 +413,10 @@ struct TeamColorRuntime {
     /// BW's original `rgb_colors` captured at game init: the per-slot fallback for any slot the
     /// engine leaves unassigned, and the full palette restored in the Standard / minimap-only modes.
     original_rgb_colors: [[f32; 4]; 8],
+    /// BW's original `use_rgb_colors` switch captured at game init. Restored verbatim in the
+    /// Standard / minimap-only modes so units reproduce the game's native appearance (palette-index
+    /// or RGB, whichever it ran), and forced on for the spans where custom colors apply.
+    original_use_rgb_colors: u8,
     /// The Shift+Tab color mode the user currently sees. The real `minimap_color_mode` global is
     /// pinned to a fixed value per mode (so BW's own diplomacy recolor never fires), leaving this
     /// the source of truth for what the user selected.
@@ -437,18 +441,25 @@ struct MinimapDrawHooks {
     draw_minimap_main_player_units: VirtualAddress,
 }
 
-/// RAII guard for the minimap-only team-color swap. Holds `rgb_colors`'s contents from just before
-/// the swap and restores them on drop, after the bracketed minimap draw has read the assignment.
-/// Created only by [`BwScr::begin_minimap_team_colors`], which validated the pointer in the same
-/// game frame on the same thread.
+/// RAII guard for the minimap-only team-color swap. Holds `rgb_colors`'s contents and the
+/// `use_rgb_colors` switch from just before the swap and restores both on drop, after the bracketed
+/// minimap draw has read the assignment. Forcing the switch on makes the dot-draw sites read
+/// `rgb_colors` even when the game ran in palette-index mode, without disturbing unit draws (which
+/// happen outside these guards). Created only by [`BwScr::begin_minimap_team_colors`], which
+/// validated the pointer in the same game frame on the same thread.
 struct MinimapColorSwap {
     rgb_ptr: *mut [[f32; 4]; 8],
-    saved: [[f32; 4]; 8],
+    saved_rgb: [[f32; 4]; 8],
+    use_rgb_colors: Value<u8>,
+    saved_use_rgb: u8,
 }
 
 impl Drop for MinimapColorSwap {
     fn drop(&mut self) {
-        unsafe { *self.rgb_ptr = self.saved };
+        unsafe {
+            *self.rgb_ptr = self.saved_rgb;
+            self.use_rgb_colors.write(self.saved_use_rgb);
+        }
     }
 }
 
@@ -4055,9 +4066,13 @@ impl BwScr {
 
     /// Builds the team-color engine for this game if the feature is active, snapshots BW's original
     /// player colors, and applies the initial assignment. A no-op — leaving the untouched path in
-    /// place — when the feature isn't configured, the game is UMS, RGB player colors aren't in use,
-    /// or the minimap color-mode global wasn't located. Runs once at game init on the game thread,
-    /// after alliances are finalized.
+    /// place — when the feature isn't configured, the game is UMS, the minimap color-mode global
+    /// wasn't located, or the `rgb_colors` pointer is null. Runs once at game init on the game
+    /// thread, after alliances are finalized.
+    ///
+    /// The feature drives colors regardless of whether BW ran with `use_rgb_colors` on: the modes
+    /// that show custom colors force the switch on for the spans they apply to, so palette-index
+    /// games (single-player, vs-AI, palette-mode replays) get custom colors too.
     pub fn init_team_colors(&self) {
         let Some(config) = self.team_color_config.lock().clone() else {
             return;
@@ -4072,16 +4087,14 @@ impl BwScr {
             return;
         }
         unsafe {
-            // Melee runs with RGB player colors; a zero here means BW is in a palette-index mode
-            // this feature doesn't drive.
-            if self.use_rgb_colors.resolve() == 0 {
-                return;
-            }
             let rgb_ptr = self.rgb_colors.resolve();
             if rgb_ptr.is_null() {
                 warn!("rgb_colors pointer was null at team-color init");
                 return;
             }
+            // Captured before any mode is applied: the switch as BW ran the game, restored verbatim
+            // by the modes that keep the native appearance.
+            let original_use_rgb_colors = self.use_rgb_colors.resolve();
             let original_rgb_colors = *rgb_ptr;
             if original_rgb_colors
                 .iter()
@@ -4136,6 +4149,7 @@ impl BwScr {
             let runtime = TeamColorRuntime {
                 state,
                 original_rgb_colors,
+                original_use_rgb_colors,
                 virtual_mode,
                 local_alliance_row,
             };
@@ -4235,12 +4249,14 @@ impl BwScr {
     ///
     /// The three minimap draw functions each bracket their original call with this guard. The
     /// dispatcher draws the local player and lone sprites inline and calls the two per-player helpers
-    /// for everyone else, so the guards nest: each saves and restores the array's *current* contents,
-    /// so an inner guard hands back exactly the colors its caller installed and only the outermost
-    /// guard restores BW's originals. The swap is confined to the draw — outside it the array holds
-    /// the originals, so unit colors stay untouched and only the minimap dots read the assignment.
-    /// The runtime lock is released before the guard is returned, so the nested draws can re-acquire
-    /// it. No heap allocation: the saved copy lives in the returned guard on the caller's stack.
+    /// for everyone else, so the guards nest: each saves and restores the *current* `rgb_colors`
+    /// contents and `use_rgb_colors` switch, so an inner guard hands back exactly the state its
+    /// caller installed and only the outermost guard restores BW's originals. Forcing the switch on
+    /// makes the dot-draw sites read `rgb_colors` even when the game ran in palette-index mode. The
+    /// swap is confined to the draw — outside it the array and switch hold their originals, so unit
+    /// colors stay untouched and only the minimap dots read the assignment. The runtime lock is
+    /// released before the guard is returned, so the nested draws can re-acquire it. No heap
+    /// allocation: the saved copy lives in the returned guard on the caller's stack.
     fn begin_minimap_team_colors(&self) -> Option<MinimapColorSwap> {
         let assignment = {
             let guard = self.team_color_runtime.lock();
@@ -4261,25 +4277,39 @@ impl BwScr {
             if rgb_ptr.is_null() {
                 return None;
             }
-            let saved = *rgb_ptr;
+            let saved_rgb = *rgb_ptr;
             *rgb_ptr = assignment;
-            Some(MinimapColorSwap { rgb_ptr, saved })
+            let saved_use_rgb = self.use_rgb_colors.resolve();
+            self.use_rgb_colors.write(1);
+            Some(MinimapColorSwap {
+                rgb_ptr,
+                saved_rgb,
+                use_rgb_colors: self.use_rgb_colors,
+                saved_use_rgb,
+            })
         }
     }
 
-    /// Pins the real `minimap_color_mode` global and writes `rgb_colors` to match the runtime's
-    /// current virtual mode: `Preset` shows the computed assignment, the other modes restore BW's
-    /// originals. Keeping the real global pinned per mode keeps BW's own diplomacy recolor from
-    /// stomping our colors. Minimap-only leaves the originals in `rgb_colors` here (units keep their
-    /// real colors); its assignment is swapped in only for the span of each minimap draw hook.
+    /// Pins the real `minimap_color_mode` global and sets the `use_rgb_colors` switch and
+    /// `rgb_colors` to match the runtime's current virtual mode. `Preset` forces the switch on and
+    /// writes the computed assignment, so units read our colors regardless of how BW ran the game.
+    /// The other modes restore BW's original switch and colors, reproducing the game's native
+    /// appearance. Keeping the real global pinned per mode keeps BW's own diplomacy recolor from
+    /// stomping our colors. Minimap-only leaves the originals in place here (units keep their real
+    /// colors); its assignment, and the forced switch, are swapped in only for the span of each
+    /// minimap draw hook.
     unsafe fn apply_team_color_mode(&self, runtime: &TeamColorRuntime) {
         unsafe {
             if let Some(global) = self.minimap_color_mode.as_ref() {
                 global.write(self.pinned_real_mode(runtime.virtual_mode));
             }
             match runtime.virtual_mode {
-                MinimapColorMode::Preset => self.write_team_color_rgb(runtime),
+                MinimapColorMode::Preset => {
+                    self.use_rgb_colors.write(1);
+                    self.write_team_color_rgb(runtime);
+                }
                 MinimapColorMode::Standard | MinimapColorMode::PresetOnMinimapOnly => {
+                    self.use_rgb_colors.write(runtime.original_use_rgb_colors);
                     let rgb_ptr = self.rgb_colors.resolve();
                     if !rgb_ptr.is_null() {
                         *rgb_ptr = runtime.original_rgb_colors;
