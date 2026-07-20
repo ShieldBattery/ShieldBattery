@@ -2,10 +2,16 @@ import { animate, Transition, useMotionValue } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { bodySmall, labelSmall } from '../styles/typography'
 import { ColorPickerSwatch } from './color-picker'
-import { AddSwatchIcon, AddSwatchTile, RemoveSwatchBadge, RemoveSwatchIcon } from './color-swatch'
+import {
+  AddSwatchIcon,
+  AddSwatchTile,
+  RemoveSwatchBadge,
+  RemoveSwatchIcon,
+  SWATCH_SIZE,
+} from './color-swatch'
 import { EditableColorSwatch } from './editable-color-swatch'
 import { elevationPlus4, elevationZero } from './shadows'
 
@@ -17,6 +23,12 @@ const DRAG_THRESHOLD_PX = 5
 // How much a chip grows while it's being carried, on top of the raised shadow/z-index -- together
 // these are the only feedback that a chip has been picked up (there's no native drag ghost).
 const LIFT_SCALE = 1.08
+
+// How far a carried chip's rect may extend past the pool row's own bounds while dragging.
+// Generous enough that clamping doesn't feel like a hard wall near the row's edges (a bit over
+// half a chip), but tight enough that a hard drag can never push the page's own scroll area out or
+// slide the chip under surrounding app chrome (sidebar/titlebar).
+const DRAG_CLAMP_SLACK_PX = 20
 
 const reorderTransition: Transition = { type: 'spring', duration: 0.3, bounce: 0 }
 const liftTransition: Transition = { type: 'spring', duration: 0.2, bounce: 0.35 }
@@ -31,15 +43,47 @@ const Row = styled.div`
   padding-bottom: 10px;
 `
 
-const SwatchSlot = styled(m.div)<{ $lifted?: boolean }>`
+const SwatchSlot = styled(m.div)<{ $carried?: boolean }>`
   position: relative;
   flex-shrink: 0;
   // Drag gestures are driven entirely by pointer events, not touch scrolling/panning, on this
   // element.
   touch-action: none;
+  // Promotes the carried chip above its (untransformed) sibling chips in Row's shared stacking
+  // order. This has to live here rather than on the inner lift wrapper below: this is the element
+  // that actually gets the drag transform (which is what establishes a stacking context in the
+  // first place), and DOM order among siblings no longer matches visual order during a drag (see
+  // orderFor), so without an explicit z-index a carried chip could paint underneath a neighbor
+  // it's currently on top of, whichever one happens to come later in fixed DOM order.
+  z-index: ${props => (props.$carried ? 1 : 'auto')};
+`
+
+/**
+ * Wraps just the swatch button, sized and rounded to match it exactly (`display: inline-flex`
+ * hugs its single flex child with none of the baseline/line-height gap a plain block wrapping an
+ * inline-level child would pick up below it). All the drag "lift" treatment -- shadow, scale, and
+ * suppressing the focus ring -- lives here rather than on `SwatchSlot`, because `SwatchSlot`'s own
+ * box (which also hosts the absolutely-positioned remove/entry badges) *is* taller than the
+ * visible swatch for exactly that block-wrapping-inline reason; styling drawn on it would extend
+ * past the swatch's own rounded rect, most visibly below it.
+ */
+const SwatchLift = styled(m.div)<{ $lifted?: boolean }>`
+  display: inline-flex;
+  border-radius: 6px;
   transition: box-shadow 150ms ease;
 
   ${props => (props.$lifted ? elevationPlus4 : elevationZero)}
+
+  // Pointer-driven focus shouldn't trip a keyboard-only focus ring in the first place (browsers
+  // gate focus-visible on the interaction type), but this guards against it regardless while a
+  // chip is actively being carried.
+  ${props =>
+    props.$lifted &&
+    css`
+      button:focus-visible {
+        outline: none;
+      }
+    `}
 `
 
 const Hint = styled.div`
@@ -169,6 +213,37 @@ interface DragState {
    * re-center itself under the pointer the moment the drag starts. */
   grabOffsetX: number
   grabOffsetY: number
+  /** The pool row's own viewport bounds, measured once when the drag begins, so the carried chip's
+   * position can be clamped to it (see `clampToRow`) instead of following the pointer arbitrarily
+   * far past the row -- which would otherwise both look wrong (sliding under the sidebar/titlebar)
+   * and extend the page's horizontal scroll area via the chip's own transform. */
+  rowBounds: { left: number; top: number; right: number; bottom: number }
+}
+
+/**
+ * Clamps a carried chip's target center (`x`, `y`) so its rect stays within `rowBounds`, inflated
+ * by `DRAG_CLAMP_SLACK_PX` on every side. The inflation is what keeps the clamp from feeling like a
+ * hard wall right at the row's edges; nearest-slot hit-testing (see `updateDragPosition`) runs
+ * against this same clamped point, and since every slot is inside the row, that still always
+ * resolves to the correct target slot even when the raw pointer is clamped well away from it.
+ */
+function clampToRow(
+  x: number,
+  y: number,
+  rowBounds: { left: number; top: number; right: number; bottom: number },
+): { x: number; y: number } {
+  const halfWidth = SWATCH_SIZE / 2
+  const halfHeight = SWATCH_SIZE / 2
+  const minX = rowBounds.left - DRAG_CLAMP_SLACK_PX + halfWidth
+  const maxX = rowBounds.right + DRAG_CLAMP_SLACK_PX - halfWidth
+  const minY = rowBounds.top - DRAG_CLAMP_SLACK_PX + halfHeight
+  const maxY = rowBounds.bottom + DRAG_CLAMP_SLACK_PX - halfHeight
+  return {
+    // Falls back to the midpoint on an inverted range (a row narrower than the slack allows for),
+    // rather than letting `min`/`max` silently pick whichever bound was applied last.
+    x: minX <= maxX ? Math.min(Math.max(x, minX), maxX) : (minX + maxX) / 2,
+    y: minY <= maxY ? Math.min(Math.max(y, minY), maxY) : (minY + maxY) / 2,
+  }
 }
 
 /**
@@ -274,6 +349,7 @@ export function ColorPoolEditor({
   // state -- everything about an in-progress gesture that isn't a raw element reference lives in
   // `pending`/`drag` above instead.
   const slotElementsRef = useRef(new Map<number, HTMLDivElement>())
+  const rowRef = useRef<HTMLDivElement>(null)
 
   const setSlotElement = (id: number, element: HTMLDivElement | null) => {
     if (element) {
@@ -322,8 +398,8 @@ export function ColorPoolEditor({
     onAdd()
   }
 
-  // Snapshots the slot grid and seeds `grabOffset` so the chip doesn't re-center under the
-  // pointer. Called once, the moment a gesture crosses the drag threshold.
+  // Snapshots the slot grid and row bounds, and seeds `grabOffset` so the chip doesn't re-center
+  // under the pointer. Called once, the moment a gesture crosses the drag threshold.
   const beginDrag = (p: PendingGesture, clientX: number, clientY: number) => {
     const slotCenters = colors.map((_, i) => {
       const rect = slotElementsRef.current.get(resolvedIds[i])?.getBoundingClientRect()
@@ -333,6 +409,10 @@ export function ColorPoolEditor({
     })
     const grabOffsetX = p.startClientX - slotCenters[p.index].x
     const grabOffsetY = p.startClientY - slotCenters[p.index].y
+    const rowRect = rowRef.current?.getBoundingClientRect()
+    const rowBounds = rowRect
+      ? { left: rowRect.left, top: rowRect.top, right: rowRect.right, bottom: rowRect.bottom }
+      : { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity }
 
     setPending(null)
     setDrag({
@@ -345,11 +425,13 @@ export function ColorPoolEditor({
       slotCenters,
       grabOffsetX,
       grabOffsetY,
+      rowBounds,
     })
 
     const target = slotCenters[p.index]
-    dragX.set(clientX - grabOffsetX - target.x)
-    dragY.set(clientY - grabOffsetY - target.y)
+    const clamped = clampToRow(clientX - grabOffsetX, clientY - grabOffsetY, rowBounds)
+    dragX.set(clamped.x - target.x)
+    dragY.set(clamped.y - target.y)
   }
 
   // Re-targets the carried chip to whichever fixed slot (see `DragState.slotCenters`) its grabbed
@@ -360,8 +442,11 @@ export function ColorPoolEditor({
   // compute outside the `setDrag` updater; only the decision to actually update `currentIndex`
   // needs the updater form, to stay correct if a burst of moves batches before a render lands.
   const updateDragPosition = (current: DragState, clientX: number, clientY: number) => {
-    const centerX = clientX - current.grabOffsetX
-    const centerY = clientY - current.grabOffsetY
+    const { x: centerX, y: centerY } = clampToRow(
+      clientX - current.grabOffsetX,
+      clientY - current.grabOffsetY,
+      current.rowBounds,
+    )
 
     let nearestIndex = 0
     let nearestDistSq = Infinity
@@ -539,7 +624,7 @@ export function ColorPoolEditor({
 
   return (
     <div className={className}>
-      <Row onMouseLeave={onRowMouseLeave}>
+      <Row ref={rowRef} onMouseLeave={onRowMouseLeave}>
         {chips.map((chip, index) => {
           const isCarried = drag !== null && drag.chipId === chip.id
           const isLifted = drag !== null && drag.chipId === chip.id && !drag.settling
@@ -549,9 +634,8 @@ export function ColorPoolEditor({
               key={chip.id}
               ref={element => setSlotElement(chip.id, element)}
               layout={!isCarried}
-              transition={{ layout: reorderTransition, scale: liftTransition }}
-              animate={{ scale: isLifted ? LIFT_SCALE : 1 }}
-              $lifted={isLifted}
+              transition={{ layout: reorderTransition }}
+              $carried={isCarried}
               style={isCarried ? { order, x: dragX, y: dragY } : { order }}
               onPointerDown={event => onSlotPointerDown(index, chip.id, event)}
               onPointerMove={onSlotPointerMove}
@@ -560,21 +644,26 @@ export function ColorPoolEditor({
               onLostPointerCapture={cancelActiveGesture}
               onClickCapture={onSlotClickCapture}
               onKeyDown={onSlotKeyDown}>
-              <EditableColorSwatch
-                value={chip.color}
-                defaultValue={chip.color}
-                onChange={hex => {
-                  if (hex !== undefined) {
-                    onSwatchChange(index, hex)
-                  }
-                }}
-                editable={editable}
-                swatches={swatches}
-                pickerSubtitle={getPickerSubtitle(index)}
-                label={colorLabel(chip.color)}
-                addLabel={addLabel}
-                tooltipDisabled={!!drag || tooltipsSuppressed}
-              />
+              <SwatchLift
+                animate={{ scale: isLifted ? LIFT_SCALE : 1 }}
+                transition={{ scale: liftTransition }}
+                $lifted={isLifted}>
+                <EditableColorSwatch
+                  value={chip.color}
+                  defaultValue={chip.color}
+                  onChange={hex => {
+                    if (hex !== undefined) {
+                      onSwatchChange(index, hex)
+                    }
+                  }}
+                  editable={editable}
+                  swatches={swatches}
+                  pickerSubtitle={getPickerSubtitle(index)}
+                  label={colorLabel(chip.color)}
+                  addLabel={addLabel}
+                  tooltipDisabled={!!drag || tooltipsSuppressed}
+                />
+              </SwatchLift>
               {showRemove ? (
                 <RemoveSwatchBadge
                   type='button'

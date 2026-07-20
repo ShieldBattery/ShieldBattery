@@ -1,5 +1,5 @@
 import { TFunction } from 'i18next'
-import { useState } from 'react'
+import { ReactNode, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -472,6 +472,11 @@ export function TeamColorSettings({
   const isModeInert = minimapColorMode === MinimapColorMode.Standard
   const isTeamCollapsed = teamColorUsage === TeamColorUsage.Never
   const isTeamCustom = teamColorPreset === TeamColorPreset.Custom
+  // Legacy's self/allies/enemies mapping is fixed (self teal, allies yellow, enemies red), so
+  // there's no "yours" to personalize: its YOU swatch renders read-only (see `resolveTeamSelfOverride`)
+  // and its Allies row shows just the actual allies pool, not the unified hero+allies view other
+  // built-in presets use for their overridable self.
+  const isLegacyDiplomacy = teamColorPreset === TeamColorPreset.LegacyDiplomacy
   const isFfaCustom = ffaColorPreset === FfaColorPreset.Custom
   const teamEditable = isTeamCustom && !isModeInert
   const ffaEditable = isFfaCustom && !isModeInert
@@ -508,20 +513,23 @@ export function TeamColorSettings({
   const ffaRows = buildFfaRows(activeFfaColors, ffaSelfColor)
 
   const selfBadgeLabel = t('settings.game.gameplay.teamColors.selfBadge', 'YOU')
-  // On a built-in preset, the Allies row displays the hero color as the head of one combined
-  // friendly pool (hero + allies) rather than a separate, invisible extra -- so the row reads the
-  // same regardless of preset, matching what a real game actually draws from. Custom keeps its own
-  // always-visible self chip and its editable allies pool shown separately, exactly as today.
+  // On an overridable built-in preset, the Allies row displays the hero color as the head of one
+  // combined friendly pool (hero + allies) rather than a separate, invisible extra -- so the row
+  // reads the same regardless of preset, matching what a real game actually draws from. Custom
+  // keeps its own always-visible self chip and its editable allies pool shown separately, exactly
+  // as today; LegacyDiplomacy keeps its own read-only self chip and shows just its actual allies
+  // pool below, since its self color is fixed rather than drawn from that pool at all.
   const teamFriendlyPool = [activeTeamColors.self, ...activeTeamColors.allies]
   // Which friendly-pool entry (if any) is "yours". Deterministic in two cases: an override in
   // effect (pinned regardless of shuffle -- it's whatever `effectiveTeamSelfOverride` resolves to),
   // or no override with shuffle off (today's fixed preset-hero behavior, so you're always the pool's
   // head entry). Not deterministic -- so no badge -- when there's no override and shuffle is on,
-  // since self then draws randomly from the combined pool. Custom shows no badge at all: its own
-  // self chip already makes "yours" obvious, and its allies pool is an editor, not a view (badging a
-  // swatch there would compete with the remove badge).
+  // since self then draws randomly from the combined pool. Custom and LegacyDiplomacy show no badge
+  // at all: Custom's own self chip already makes "yours" obvious and its allies pool is an editor,
+  // not a view (badging a swatch there would compete with the remove badge); Legacy shows its fixed
+  // self color in its own read-only chip above instead of drawing it from the allies pool.
   const teamSelfBadgeColor =
-    isTeamCustom || (shuffleColors && effectiveTeamSelfOverride === undefined)
+    isTeamCustom || isLegacyDiplomacy || (shuffleColors && effectiveTeamSelfOverride === undefined)
       ? undefined
       : (effectiveTeamSelfOverride ?? activeTeamColors.self)
   const teamSelfBadgeIndex = teamSelfBadgeColor
@@ -657,6 +665,87 @@ export function TeamColorSettings({
 
   const teamSelfHint = getTeamSelfHint(hasTeamSelfOverride, shuffleColors, t)
 
+  let teamSelfContent: ReactNode
+  if (isTeamCustom) {
+    teamSelfContent = (
+      <EditableColorSwatch
+        value={customTeamColors.self}
+        defaultValue={customTeamColors.self}
+        onChange={handleCustomSelfChange}
+        editable={teamEditable}
+        swatches={scSwatches}
+        quickSwatches={teamSelfQuickSwatches}
+        pickerSubtitle={t(
+          'settings.game.gameplay.teamColors.pickerTargetSelf',
+          'Team scheme · your color',
+        )}
+        label={getColorLabel(customTeamColors.self, t)}
+        addLabel=''
+      />
+    )
+  } else if (isLegacyDiplomacy) {
+    // Fixed self color, no override: a read-only chip (no add-tile since `value` is always set, no
+    // Clear since there's nothing to clear) rather than the editable-with-override chip below.
+    teamSelfContent = (
+      <EditableColorSwatch
+        value={activeTeamColors.self}
+        defaultValue={activeTeamColors.self}
+        onChange={() => {}}
+        editable={false}
+        swatches={scSwatches}
+        pickerSubtitle={t(
+          'settings.game.gameplay.teamColors.pickerTargetSelf',
+          'Team scheme · your color',
+        )}
+        label={getColorLabel(activeTeamColors.self, t)}
+        addLabel=''
+      />
+    )
+  } else {
+    teamSelfContent = (
+      <>
+        <SelfRow>
+          <EditableColorSwatch
+            value={teamSelfColor}
+            defaultValue={activeTeamColors.self}
+            onChange={onTeamSelfColorChange}
+            editable={teamSelfEditable}
+            swatches={scSwatches}
+            quickSwatches={teamSelfQuickSwatches}
+            pickerSubtitle={t(
+              'settings.game.gameplay.teamColors.pickerTargetSelf',
+              'Team scheme · your color',
+            )}
+            label={teamSelfColor ? getColorLabel(teamSelfColor, t) : ''}
+            addLabel={t(
+              'settings.game.gameplay.teamColors.selfAddLabel',
+              'Fixed color for yourself (optional)',
+            )}
+          />
+          {hasTeamSelfOverride ? (
+            <ClearButton
+              type='button'
+              disabled={isModeInert}
+              onClick={() => onTeamSelfColorChange(undefined)}>
+              <MaterialIcon icon='close' size={15} />
+              <ClearLabel>{t('settings.game.gameplay.teamColors.clear', 'Clear')}</ClearLabel>
+            </ClearButton>
+          ) : (
+            <SelfAddLabel>
+              {t(
+                'settings.game.gameplay.teamColors.selfAddLabel',
+                'Fixed color for yourself (optional)',
+              )}
+            </SelfAddLabel>
+          )}
+        </SelfRow>
+        <Hint>{teamSelfHint}</Hint>
+      </>
+    )
+  }
+  const teamAlliesColors =
+    isTeamCustom || isLegacyDiplomacy ? activeTeamColors.allies : teamFriendlyPool
+
   return (
     <>
       <Select
@@ -740,70 +829,14 @@ export function TeamColorSettings({
                 </PresetBlock>
                 <div>
                   <GroupLabel>{youLabel}</GroupLabel>
-                  {isTeamCustom ? (
-                    <EditableColorSwatch
-                      value={customTeamColors.self}
-                      defaultValue={customTeamColors.self}
-                      onChange={handleCustomSelfChange}
-                      editable={teamEditable}
-                      swatches={scSwatches}
-                      quickSwatches={teamSelfQuickSwatches}
-                      pickerSubtitle={t(
-                        'settings.game.gameplay.teamColors.pickerTargetSelf',
-                        'Team scheme · your color',
-                      )}
-                      label={getColorLabel(customTeamColors.self, t)}
-                      addLabel=''
-                    />
-                  ) : (
-                    <>
-                      <SelfRow>
-                        <EditableColorSwatch
-                          value={teamSelfColor}
-                          defaultValue={activeTeamColors.self}
-                          onChange={onTeamSelfColorChange}
-                          editable={teamSelfEditable}
-                          swatches={scSwatches}
-                          quickSwatches={teamSelfQuickSwatches}
-                          pickerSubtitle={t(
-                            'settings.game.gameplay.teamColors.pickerTargetSelf',
-                            'Team scheme · your color',
-                          )}
-                          label={teamSelfColor ? getColorLabel(teamSelfColor, t) : ''}
-                          addLabel={t(
-                            'settings.game.gameplay.teamColors.selfAddLabel',
-                            'Fixed color for yourself (optional)',
-                          )}
-                        />
-                        {hasTeamSelfOverride ? (
-                          <ClearButton
-                            type='button'
-                            disabled={isModeInert}
-                            onClick={() => onTeamSelfColorChange(undefined)}>
-                            <MaterialIcon icon='close' size={15} />
-                            <ClearLabel>
-                              {t('settings.game.gameplay.teamColors.clear', 'Clear')}
-                            </ClearLabel>
-                          </ClearButton>
-                        ) : (
-                          <SelfAddLabel>
-                            {t(
-                              'settings.game.gameplay.teamColors.selfAddLabel',
-                              'Fixed color for yourself (optional)',
-                            )}
-                          </SelfAddLabel>
-                        )}
-                      </SelfRow>
-                      <Hint>{teamSelfHint}</Hint>
-                    </>
-                  )}
+                  {teamSelfContent}
                 </div>
                 <div>
                   <GroupLabel>
                     {t('settings.game.gameplay.teamColors.preview.allies', 'Allies')}
                   </GroupLabel>
                   <ColorPoolEditor
-                    colors={isTeamCustom ? activeTeamColors.allies : teamFriendlyPool}
+                    colors={teamAlliesColors}
                     editable={teamEditable}
                     minLength={1}
                     maxLength={MAX_TEAM_POOL_COLORS}

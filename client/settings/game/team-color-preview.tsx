@@ -36,14 +36,8 @@ const TILESETS: ReadonlyArray<TilesetDef> = [
   { id: 'ice', label: 'Ice', base: '#0c1218', mid: '#22303e', highlight: '#3c5568' },
   { id: 'space', label: 'Space', base: '#05070d', mid: '#141826', highlight: '#232a40' },
   { id: 'twilight', label: 'Twilight', base: '#0d0a14', mid: '#1f1830', highlight: '#33294d' },
+  // Installation is omitted: it only appears in the campaign and rare UMS maps.
   { id: 'ashworld', label: 'Ashworld', base: '#120a08', mid: '#291410', highlight: '#3d1e14' },
-  {
-    id: 'installation',
-    label: 'Installation',
-    base: '#0b0d10',
-    mid: '#20242c',
-    highlight: '#343a46',
-  },
 ]
 
 export const DEFAULT_TILESET: TilesetId = 'jungle'
