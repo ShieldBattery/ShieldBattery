@@ -1,7 +1,8 @@
+import { TFunction } from 'i18next'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { COOL, SC_COLORS, WARM } from '../../common/settings/team-colors'
+import { getNamedColorLabel, SC_COLORS } from '../../common/settings/team-colors'
 import { bodyMedium, labelSmall } from '../styles/typography'
 import { TextButton } from './button'
 import { buttonReset } from './button-reset'
@@ -26,10 +27,6 @@ function normalizeHexInput(raw: string): string {
   return raw.startsWith('#') ? raw : `#${raw}`
 }
 
-/** Every built-in color with a known community/design name: SC:R's 22 built-ins, plus the
- * COOL/WARM pools backing the CoolVsWarm/WarmVsCool team-color presets. */
-const NAMED_COLORS: ReadonlyArray<{ hex: string; name: string }> = [...SC_COLORS, ...COOL, ...WARM]
-
 /** Returns the first SC:R built-in color not present (case-insensitively) in `usedColors`. */
 export function nextUnusedColor(usedColors: readonly string[]): string {
   const used = new Set(usedColors.map(c => c.toLowerCase()))
@@ -37,10 +34,10 @@ export function nextUnusedColor(usedColors: readonly string[]): string {
   return found?.hex ?? SC_COLORS[6].hex
 }
 
-/** Looks up a built-in color's name (see {@link NAMED_COLORS}), falling back to the hex value. */
-export function getColorLabel(hex: string): string {
-  const found = NAMED_COLORS.find(c => c.hex.toLowerCase() === hex.toLowerCase())
-  return found?.name ?? hex.toUpperCase()
+/** Localized label for a built-in color (see {@link getNamedColorLabel}), falling back to the hex
+ * value for a color that isn't one of the known built-ins. */
+export function getColorLabel(hex: string, t: TFunction): string {
+  return getNamedColorLabel(hex, t) ?? hex.toUpperCase()
 }
 
 const Grid = styled.div`

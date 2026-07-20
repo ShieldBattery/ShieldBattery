@@ -13,7 +13,8 @@ import {
  * SC:R's 22 selectable player colors, in the game's own index order (0x00-0x15). Values are exact
  * bytes extracted from the binary (`get_preset_player_color_rgba`), not approximations. Names are
  * the community-standard lobby names (the exe has no localized names for these outside CASC/locale
- * data).
+ * data) and are code-side canonical labels for traceability, not what's shown to users -- displayed
+ * text goes through {@link getNamedColorLabel} so it's localized.
  */
 export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#F40404', name: 'Red' },
@@ -44,7 +45,8 @@ export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
  * The "cool" 7-color pool backing the CoolVsWarm/WarmVsCool team-color presets (as the enemies
  * pool, or reversed with its head color as `self`, as the allies pool). Ordered to keep the
  * highest-priority slots (the ones a small ally/enemy pool actually uses) maximally distinguishable
- * under normal and color-vision-deficient vision.
+ * under normal and color-vision-deficient vision. `name` is a code-side label, not what's shown to
+ * users -- displayed text goes through {@link getNamedColorLabel} so it's localized.
  */
 export const COOL: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#2F7FE3', name: 'Azure' },
@@ -56,7 +58,7 @@ export const COOL: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#228A8D', name: 'Deep teal' },
 ]
 
-/** The "warm" counterpart to {@link COOL}; see there for details. */
+/** The "warm" counterpart to {@link COOL}; see there for details, including on `name`. */
 export const WARM: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#DE3C37', name: 'Scarlet' },
   { hex: '#EDC23E', name: 'Gold' },
@@ -176,34 +178,68 @@ export const FFA_COLOR_PRESETS: ReadonlyDeep<
 }
 
 /**
+ * Source data for a built-in FFA-axis preset's attribution: either a named palette credited to an
+ * author, or one merely inspired by a named palette (no direct author to credit). Kept structured
+ * -- rather than a single pre-formatted phrase -- so the connecting words ("by", "Inspired by") go
+ * through {@link getFfaColorPresetAttribution}'s `t` and localize, while the proper nouns
+ * (`palette`, `author`) stay literal in every language.
+ */
+type PresetAttributionSource =
+  | { palette: string; author: string; url: string }
+  | { palette: string; inspiredBy: true; url: string }
+
+/**
  * Attribution for the FFA-axis presets adapted from a named third-party palette. Presets not
  * listed here are original to ShieldBattery and need no credit.
  */
 const FFA_COLOR_PRESET_ATTRIBUTION: ReadonlyDeep<
-  Partial<Record<Exclude<FfaColorPreset, FfaColorPreset.Custom>, { name: string; url: string }>>
+  Partial<Record<Exclude<FfaColorPreset, FfaColorPreset.Custom>, PresetAttributionSource>>
 > = {
   [FfaColorPreset.Arcade]: {
-    name: 'inspired by PICO-8',
+    palette: 'PICO-8',
+    inspiredBy: true,
     url: 'https://lospec.com/palette-list/pico-8',
   },
   [FfaColorPreset.Resurrect]: {
-    name: 'Resurrect 64 by Kerrie Lake',
+    palette: 'Resurrect 64',
+    author: 'Kerrie Lake',
     url: 'https://lospec.com/palette-list/resurrect-64',
   },
   [FfaColorPreset.Pear]: {
-    name: 'Pear36 by PineTreePizza',
+    palette: 'Pear36',
+    author: 'PineTreePizza',
     url: 'https://lospec.com/palette-list/pear36',
   },
 }
 
 /**
  * Returns the source-palette attribution for a built-in FFA-axis preset, or `undefined` if it's
- * original to ShieldBattery (or `Custom`).
+ * original to ShieldBattery (or `Custom`). `label` is the fully-localized attribution phrase (e.g.
+ * "Resurrect 64 by Kerrie Lake" or "Inspired by PICO-8"); `url` links to the source palette.
  */
 export function getFfaColorPresetAttribution(
   preset: FfaColorPreset,
-): { name: string; url: string } | undefined {
-  return preset === FfaColorPreset.Custom ? undefined : FFA_COLOR_PRESET_ATTRIBUTION[preset]
+  t: TFunction,
+): { label: string; url: string } | undefined {
+  if (preset === FfaColorPreset.Custom) {
+    return undefined
+  }
+  const source = FFA_COLOR_PRESET_ATTRIBUTION[preset]
+  if (!source) {
+    return undefined
+  }
+  const label =
+    'author' in source
+      ? t('settings.game.gameplay.ffaColors.attributionBy', {
+          defaultValue: '{{palette}} by {{author}}',
+          palette: source.palette,
+          author: source.author,
+        })
+      : t('settings.game.gameplay.ffaColors.attributionInspiredBy', {
+          defaultValue: 'Inspired by {{palette}}',
+          palette: source.palette,
+        })
+  return { label, url: source.url }
 }
 
 /** The FFA pool must contain at least this many colors (worst case: an 8-player FFA with no self). */
@@ -290,6 +326,91 @@ export function resolveFfaColors(
       : FFA_COLOR_PRESETS[settings.ffaColorPreset]
 
   return [...colors]
+}
+
+/**
+ * Localized display name for one of the built-in colors in {@link SC_COLORS}, {@link COOL}, or
+ * {@link WARM}, looked up by hex value (case-insensitively). Returns `undefined` for a hex that
+ * isn't one of those built-ins, so callers can fall back to the hex string itself.
+ *
+ * A few names repeat across tables for different hexes (e.g. "Azure" in both `SC_COLORS` and
+ * `COOL`); those share a single translation key below rather than getting distinct ones, since the
+ * displayed English text -- and its translation -- is the same either way.
+ */
+export function getNamedColorLabel(hex: string, t: TFunction): string | undefined {
+  switch (hex.toLowerCase()) {
+    case '#f40404':
+      return t('settings.game.gameplay.colorNames.red', 'Red')
+    case '#0c48cc':
+      return t('settings.game.gameplay.colorNames.blue', 'Blue')
+    case '#2cb494':
+      return t('settings.game.gameplay.colorNames.teal', 'Teal')
+    case '#88409c':
+      return t('settings.game.gameplay.colorNames.purple', 'Purple')
+    case '#f88c14':
+    case '#f48815':
+      return t('settings.game.gameplay.colorNames.orange', 'Orange')
+    case '#703014':
+      return t('settings.game.gameplay.colorNames.brown', 'Brown')
+    case '#cce0d0':
+      return t('settings.game.gameplay.colorNames.white', 'White')
+    case '#fcfc38':
+      return t('settings.game.gameplay.colorNames.yellow', 'Yellow')
+    case '#088008':
+      return t('settings.game.gameplay.colorNames.green', 'Green')
+    case '#fcfc7c':
+      return t('settings.game.gameplay.colorNames.paleYellow', 'Pale Yellow')
+    case '#ecc4b0':
+      return t('settings.game.gameplay.colorNames.tan', 'Tan')
+    case '#4068d4':
+    case '#2f7fe3':
+      return t('settings.game.gameplay.colorNames.azure', 'Azure')
+    case '#74a47c':
+      return t('settings.game.gameplay.colorNames.paleGreen', 'Pale Green')
+    case '#7290b8':
+      return t('settings.game.gameplay.colorNames.blueishGrey', 'Blueish Grey')
+    case '#00e4fc':
+      return t('settings.game.gameplay.colorNames.cyan', 'Cyan')
+    case '#ffc4e4':
+      return t('settings.game.gameplay.colorNames.pink', 'Pink')
+    case '#808000':
+      return t('settings.game.gameplay.colorNames.olive', 'Olive')
+    case '#d2f53c':
+      return t('settings.game.gameplay.colorNames.lime', 'Lime')
+    case '#000080':
+      return t('settings.game.gameplay.colorNames.navy', 'Navy')
+    case '#f032e6':
+    case '#d553ac':
+      return t('settings.game.gameplay.colorNames.magenta', 'Magenta')
+    case '#808080':
+      return t('settings.game.gameplay.colorNames.grey', 'Grey')
+    case '#3c3c3c':
+      return t('settings.game.gameplay.colorNames.black', 'Black')
+    case '#5ac576':
+      return t('settings.game.gameplay.colorNames.emerald', 'Emerald')
+    case '#92c1fd':
+      return t('settings.game.gameplay.colorNames.sky', 'Sky')
+    case '#be8ce1':
+      return t('settings.game.gameplay.colorNames.violet', 'Violet')
+    case '#b3ecb9':
+      return t('settings.game.gameplay.colorNames.mint', 'Mint')
+    case '#60812b':
+      return t('settings.game.gameplay.colorNames.moss', 'Moss')
+    case '#228a8d':
+      return t('settings.game.gameplay.colorNames.deepTeal', 'Deep teal')
+    case '#de3c37':
+      return t('settings.game.gameplay.colorNames.scarlet', 'Scarlet')
+    case '#edc23e':
+      return t('settings.game.gameplay.colorNames.gold', 'Gold')
+    case '#f99fb7':
+      return t('settings.game.gameplay.colorNames.rose', 'Rose')
+    case '#a24b36':
+      return t('settings.game.gameplay.colorNames.brick', 'Brick')
+    case '#fec2a4':
+      return t('settings.game.gameplay.colorNames.peach', 'Peach')
+    default:
+      return undefined
+  }
 }
 
 export function getTeamColorPresetLabel(preset: TeamColorPreset, t: TFunction): string {

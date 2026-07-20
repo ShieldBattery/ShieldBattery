@@ -70,11 +70,6 @@ const FFA_NAMES = [
 
 const DEFAULT_FFA_SELF_COLOR = '#00E4FC'
 
-const SC_SWATCHES: ReadonlyArray<ColorPickerSwatch> = SC_COLORS.map(c => ({
-  color: c.hex,
-  label: c.name,
-}))
-
 const BUILTIN_TEAM_PRESETS = ALL_TEAM_COLOR_PRESETS.filter(
   (p): p is Exclude<TeamColorPreset, TeamColorPreset.Custom> => p !== TeamColorPreset.Custom,
 )
@@ -183,20 +178,6 @@ function getTeamColorUsageDescription(
   }
 }
 
-function getAlliesRepeatHint(count: number, shuffleColors: boolean, t: TFunction): string {
-  return shuffleColors
-    ? t('settings.game.gameplay.teamColors.alliesShuffledRepeatHint', {
-        defaultValue:
-          'These colors are used in a random order each game. With more than {{count}} allies, colors repeat.',
-        count,
-      })
-    : t('settings.game.gameplay.teamColors.alliesOrderedRepeatHint', {
-        defaultValue:
-          'Colors are used in order, from the left. With more than {{count}} allies, colors repeat.',
-        count,
-      })
-}
-
 /** The hint shown below the team YOU control on a built-in preset (Custom's self chip is always
  * set, so it never shows this). */
 function getTeamSelfHint(hasOverride: boolean, shuffleColors: boolean, t: TFunction): string {
@@ -216,20 +197,6 @@ function getTeamSelfHint(hasOverride: boolean, shuffleColors: boolean, t: TFunct
     'settings.game.gameplay.teamColors.selfFirstAllyHint',
     "You'll get the first ally color.",
   )
-}
-
-function getEnemiesRepeatHint(count: number, shuffleColors: boolean, t: TFunction): string {
-  return shuffleColors
-    ? t('settings.game.gameplay.teamColors.enemiesShuffledRepeatHint', {
-        defaultValue:
-          'These colors are used in a random order each game. With more than {{count}} enemies, colors repeat.',
-        count,
-      })
-    : t('settings.game.gameplay.teamColors.enemiesOrderedRepeatHint', {
-        defaultValue:
-          'Colors are used in order, from the left. With more than {{count}} enemies, colors repeat.',
-        count,
-      })
 }
 
 const BehaviorRow = styled.div`
@@ -497,6 +464,11 @@ export function TeamColorSettings({
   const { t } = useTranslation()
   const [tileset, setTileset] = useState<TilesetId>(DEFAULT_TILESET)
 
+  const scSwatches: ReadonlyArray<ColorPickerSwatch> = SC_COLORS.map(c => ({
+    color: c.hex,
+    label: getColorLabel(c.hex, t),
+  }))
+
   const isModeInert = minimapColorMode === MinimapColorMode.Standard
   const isTeamCollapsed = teamColorUsage === TeamColorUsage.Never
   const isTeamCustom = teamColorPreset === TeamColorPreset.Custom
@@ -524,12 +496,12 @@ export function TeamColorSettings({
     label: t('settings.game.gameplay.teamColors.quickSwatchesLabel', 'From this palette'),
     swatches: [activeTeamColors.self, ...activeTeamColors.allies].map(hex => ({
       color: hex,
-      label: getColorLabel(hex),
+      label: getColorLabel(hex, t),
     })),
   }
   const ffaSelfQuickSwatches: ColorPickerQuickSwatches = {
     label: t('settings.game.gameplay.ffaColors.quickSwatchesLabel', 'From this palette'),
-    swatches: activeFfaColors.map(hex => ({ color: hex, label: getColorLabel(hex) })),
+    swatches: activeFfaColors.map(hex => ({ color: hex, label: getColorLabel(hex, t) })),
   }
 
   const teamRows = buildTeamRows(activeTeamColors, effectiveTeamSelfOverride)
@@ -563,8 +535,8 @@ export function TeamColorSettings({
     : -1
 
   // Order only matters left-to-right when shuffle is off; with shuffle on, each game draws the
-  // pool in a random permutation, so only the repeat-on-wrap behavior is worth describing.
-  const poolFullHint = shuffleColors
+  // pool in a random permutation.
+  const poolHint = shuffleColors
     ? t(
         'settings.game.gameplay.teamColors.poolShuffledHint',
         'These colors are used in a random order each game.',
@@ -573,14 +545,8 @@ export function TeamColorSettings({
         'settings.game.gameplay.teamColors.poolOrderedHint',
         'Colors are used in order, from the left.',
       )
-  const alliesHint =
-    activeTeamColors.allies.length < 7
-      ? getAlliesRepeatHint(activeTeamColors.allies.length, shuffleColors, t)
-      : poolFullHint
-  const enemiesHint =
-    activeTeamColors.enemies.length < 7
-      ? getEnemiesRepeatHint(activeTeamColors.enemies.length, shuffleColors, t)
-      : poolFullHint
+  const alliesHint = poolHint
+  const enemiesHint = poolHint
 
   const selectCustomHint = t(
     'settings.game.gameplay.teamColors.selectCustomHint',
@@ -592,7 +558,7 @@ export function TeamColorSettings({
   )
   const teamPresetHint = isTeamCustom ? editHint : selectCustomHint
   const ffaPresetHint = isFfaCustom ? editHint : selectCustomHint
-  const ffaAttribution = getFfaColorPresetAttribution(ffaColorPreset)
+  const ffaAttribution = getFfaColorPresetAttribution(ffaColorPreset, t)
 
   const teamPresetCopyOptions = BUILTIN_TEAM_PRESETS.map(preset => ({
     value: preset,
@@ -780,13 +746,13 @@ export function TeamColorSettings({
                       defaultValue={customTeamColors.self}
                       onChange={handleCustomSelfChange}
                       editable={teamEditable}
-                      swatches={SC_SWATCHES}
+                      swatches={scSwatches}
                       quickSwatches={teamSelfQuickSwatches}
                       pickerSubtitle={t(
                         'settings.game.gameplay.teamColors.pickerTargetSelf',
                         'Team scheme · your color',
                       )}
-                      label={getColorLabel(customTeamColors.self)}
+                      label={getColorLabel(customTeamColors.self, t)}
                       addLabel=''
                     />
                   ) : (
@@ -797,13 +763,13 @@ export function TeamColorSettings({
                           defaultValue={activeTeamColors.self}
                           onChange={onTeamSelfColorChange}
                           editable={teamSelfEditable}
-                          swatches={SC_SWATCHES}
+                          swatches={scSwatches}
                           quickSwatches={teamSelfQuickSwatches}
                           pickerSubtitle={t(
                             'settings.game.gameplay.teamColors.pickerTargetSelf',
                             'Team scheme · your color',
                           )}
-                          label={teamSelfColor ? getColorLabel(teamSelfColor) : ''}
+                          label={teamSelfColor ? getColorLabel(teamSelfColor, t) : ''}
                           addLabel={t(
                             'settings.game.gameplay.teamColors.selfAddLabel',
                             'Fixed color for yourself (optional)',
@@ -841,8 +807,8 @@ export function TeamColorSettings({
                     editable={teamEditable}
                     minLength={1}
                     maxLength={MAX_TEAM_POOL_COLORS}
-                    swatches={SC_SWATCHES}
-                    colorLabel={getColorLabel}
+                    swatches={scSwatches}
+                    colorLabel={hex => getColorLabel(hex, t)}
                     getPickerSubtitle={index =>
                       t('settings.game.gameplay.teamColors.pickerTargetAlly', {
                         defaultValue: 'Team scheme · allies · #{{n}}',
@@ -869,8 +835,8 @@ export function TeamColorSettings({
                     editable={teamEditable}
                     minLength={1}
                     maxLength={MAX_TEAM_POOL_COLORS}
-                    swatches={SC_SWATCHES}
-                    colorLabel={getColorLabel}
+                    swatches={scSwatches}
+                    colorLabel={hex => getColorLabel(hex, t)}
                     getPickerSubtitle={index =>
                       t('settings.game.gameplay.teamColors.pickerTargetEnemy', {
                         defaultValue: 'Team scheme · enemies · #{{n}}',
@@ -930,7 +896,7 @@ export function TeamColorSettings({
                 {ffaAttribution ? (
                   <AttributionLine>
                     {t('settings.game.gameplay.ffaColorPreset.attributionPrefix', 'Palette: ')}
-                    <ExternalLink href={ffaAttribution.url}>{ffaAttribution.name}</ExternalLink>
+                    <ExternalLink href={ffaAttribution.url}>{ffaAttribution.label}</ExternalLink>
                   </AttributionLine>
                 ) : null}
               </PresetBlock>
@@ -942,13 +908,13 @@ export function TeamColorSettings({
                     defaultValue={DEFAULT_FFA_SELF_COLOR}
                     onChange={onFfaSelfColorChange}
                     editable={!isModeInert}
-                    swatches={SC_SWATCHES}
+                    swatches={scSwatches}
                     quickSwatches={ffaSelfQuickSwatches}
                     pickerSubtitle={t(
                       'settings.game.gameplay.ffaColors.pickerTargetSelf',
                       'Your individual color',
                     )}
-                    label={ffaSelfColor ? getColorLabel(ffaSelfColor) : ''}
+                    label={ffaSelfColor ? getColorLabel(ffaSelfColor, t) : ''}
                     addLabel={t(
                       'settings.game.gameplay.ffaColors.selfAddLabel',
                       'Fixed color for yourself (optional)',
@@ -992,8 +958,8 @@ export function TeamColorSettings({
                   editable={ffaEditable}
                   minLength={MIN_FFA_COLORS}
                   maxLength={MAX_FFA_COLORS}
-                  swatches={SC_SWATCHES}
-                  colorLabel={getColorLabel}
+                  swatches={scSwatches}
+                  colorLabel={hex => getColorLabel(hex, t)}
                   getPickerSubtitle={index =>
                     t('settings.game.gameplay.ffaColors.pickerTargetPool', {
                       defaultValue: 'Individual colors · #{{n}}',

@@ -1,4 +1,4 @@
-import { Transition } from 'motion/react'
+import { animate, Transition, useMotionValue } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
@@ -7,14 +7,20 @@ import { bodySmall, labelSmall } from '../styles/typography'
 import { ColorPickerSwatch } from './color-picker'
 import { AddSwatchIcon, AddSwatchTile, RemoveSwatchBadge, RemoveSwatchIcon } from './color-swatch'
 import { EditableColorSwatch } from './editable-color-swatch'
+import { elevationPlus4, elevationZero } from './shadows'
 
-// A fully transparent 1x1 GIF, set as the native drag image so the browser doesn't draw its own
-// drag ghost -- the chip re-animating into its live position is the only drag feedback.
-const TRANSPARENT_DRAG_IMAGE = new Image()
-TRANSPARENT_DRAG_IMAGE.src =
-  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBTAA7'
+// Pointer movement under this distance (in CSS pixels) between pointerdown and pointerup is
+// treated as a click on the chip (opening its color picker); beyond it, the gesture becomes a
+// drag instead.
+const DRAG_THRESHOLD_PX = 5
+
+// How much a chip grows while it's being carried, on top of the raised shadow/z-index -- together
+// these are the only feedback that a chip has been picked up (there's no native drag ghost).
+const LIFT_SCALE = 1.08
 
 const reorderTransition: Transition = { type: 'spring', duration: 0.3, bounce: 0 }
+const liftTransition: Transition = { type: 'spring', duration: 0.2, bounce: 0.35 }
+const settleTransition: Transition = { type: 'spring', duration: 0.3, bounce: 0.2 }
 
 const Row = styled.div`
   display: flex;
@@ -25,10 +31,15 @@ const Row = styled.div`
   padding-bottom: 10px;
 `
 
-const SwatchSlot = styled(m.div)<{ $dragging?: boolean }>`
+const SwatchSlot = styled(m.div)<{ $lifted?: boolean }>`
   position: relative;
   flex-shrink: 0;
-  opacity: ${props => (props.$dragging ? 0.4 : 1)};
+  // Drag gestures are driven entirely by pointer events, not touch scrolling/panning, on this
+  // element.
+  touch-action: none;
+  transition: box-shadow 150ms ease;
+
+  ${props => (props.$lifted ? elevationPlus4 : elevationZero)}
 `
 
 const Hint = styled.div`
@@ -113,13 +124,83 @@ interface Chip {
   color: string
 }
 
+/**
+ * Bookkeeping for a chip that's actually being carried (past the drag threshold), covering both
+ * the live in-progress drag and the brief post-release settle animation. Ordinary component state
+ * -- pointer capture means the events driving it already arrive as plain `onPointerMove`/`onPointerUp`
+ * props on the chip itself, so there's no need to shadow any of this in a ref.
+ *
+ * Reordering during a drag is expressed as a CSS `order` (see `orderFor`) computed from
+ * `originalIndex`/`currentIndex`, rather than by actually splicing the rendered chip list: the
+ * chip DOM nodes (and their React keys) stay in their fixed, original positions for the whole
+ * gesture, only their visual `order` changes. This matters beyond tidiness -- actually reordering
+ * the list would move the carried chip's own DOM node, and per the Pointer Events spec, moving a
+ * captured element out of and back into the tree (which is how React/the browser realizes a
+ * same-parent reorder) implicitly releases its pointer capture mid-drag.
+ */
 interface DragState {
-  /** The pool's colors in their current, uncommitted (live) order. */
-  chips: Chip[]
-  /** Where the dragged chip started; committed to `onReorder` together with `currentIndex`. */
+  /** The stable id (see `Chip`) of the chip currently being carried. */
+  chipId: number
+  /** Where the carried chip started; committed to `onReorder` together with `currentIndex`. */
   originalIndex: number
-  /** Where the dragged chip currently sits within `chips`. */
+  /** The slot the carried chip is currently targeting. */
   currentIndex: number
+  /** True once the pointer has been released and the carried chip is springing into
+   * `currentIndex` rather than actively tracking a pointer -- it no longer shows the raised/lifted
+   * treatment, but still opts out of `layout` (see `slotCenters`) until it lands. */
+  settling: boolean
+  /** The id of the pointer driving this drag, so a stray event from an unrelated pointer (e.g. a
+   * second touch) can be ignored. */
+  pointerId: number
+  /** The element `setPointerCapture` was called on, so it can be explicitly released if the drag
+   * is cancelled while the pointer is still down (e.g. Escape), and so the click the browser still
+   * fires afterwards (capture keeps it targeted there regardless of where the pointer was
+   * released) can be told apart from an unrelated click on some other chip. */
+  capturedElement: Element
+  /** The viewport center of each chip's original slot, measured once when the drag begins. This
+   * grid doesn't change shape while a chip is being carried (nothing else is added, removed, or
+   * resized mid-drag, and the chips themselves never leave their original DOM slots -- see above),
+   * so it can be measured once and reused as a fixed set of drop-target candidates instead of
+   * re-measuring (necessarily animating, and therefore in-transit) sibling rects on every pointer
+   * move. Symmetric nearest-center hit-testing against this fixed grid is what keeps left/right
+   * (and up/down, across a wrapped row) drags feeling identical. */
+  slotCenters: Array<{ x: number; y: number }>
+  /** Where within the carried chip's own slot the pointer grabbed it, so the chip doesn't jump to
+   * re-center itself under the pointer the moment the drag starts. */
+  grabOffsetX: number
+  grabOffsetY: number
+}
+
+/**
+ * The flexbox `order` for the chip originally at `index`, given a drag targeting `currentIndex`
+ * from `originalIndex`. Mirrors removing `originalIndex` and reinserting at `currentIndex` in an
+ * array, but as a permutation of the fixed 0..N-1 slots instead of an actual list splice, so chips
+ * visually shift out of the way of the carried one without any of them changing DOM position.
+ */
+function orderFor(index: number, originalIndex: number, currentIndex: number): number {
+  if (index === originalIndex) {
+    return currentIndex
+  }
+  if (originalIndex < currentIndex && index > originalIndex && index <= currentIndex) {
+    return index - 1
+  }
+  if (originalIndex > currentIndex && index >= currentIndex && index < originalIndex) {
+    return index + 1
+  }
+  return index
+}
+
+/**
+ * Bookkeeping for a chip's pointer gesture between `pointerdown` and whichever comes first: moving
+ * past the drag threshold (which promotes it to a `DragState`) or being released as a plain click.
+ */
+interface PendingGesture {
+  pointerId: number
+  chipId: number
+  index: number
+  startClientX: number
+  startClientY: number
+  capturedElement: Element
 }
 
 /**
@@ -175,7 +256,32 @@ export function ColorPoolEditor({
 
   const showRemove = editable && colors.length > minLength
   const showAdd = editable && colors.length < maxLength
-  const chips = drag ? drag.chips : colors.map((color, i) => ({ id: resolvedIds[i], color }))
+  // Always in the pool's actual (uncommitted) order -- see `DragState`'s doc comment for why a
+  // drag doesn't reorder this.
+  const chips: Chip[] = colors.map((color, i) => ({ id: resolvedIds[i], color }))
+
+  // A pointer that's down on a chip but hasn't moved past the drag threshold yet -- once it does,
+  // this is replaced by `drag` (see `beginDrag`); if it's released first, it was just a click.
+  const [pending, setPending] = useState<PendingGesture | null>(null)
+
+  // The carried chip's live offset from its resting slot, in viewport pixels. Only ever non-zero
+  // for whichever chip currently matches `drag.chipId` (see the `style` prop below) -- there's
+  // only ever one chip being carried at a time, so a single shared pair suffices.
+  const dragX = useMotionValue(0)
+  const dragY = useMotionValue(0)
+
+  // DOM measurement only, per the repo's convention of keeping refs out of ordinary interaction
+  // state -- everything about an in-progress gesture that isn't a raw element reference lives in
+  // `pending`/`drag` above instead.
+  const slotElementsRef = useRef(new Map<number, HTMLDivElement>())
+
+  const setSlotElement = (id: number, element: HTMLDivElement | null) => {
+    if (element) {
+      slotElementsRef.current.set(id, element)
+    } else {
+      slotElementsRef.current.delete(id)
+    }
+  }
 
   const clearTooltipGraceTimer = () => {
     clearTimeout(tooltipGraceTimerRef.current)
@@ -216,118 +322,287 @@ export function ColorPoolEditor({
     onAdd()
   }
 
-  const handleDragStart = (index: number, event: DragEvent) => {
-    if (!event.dataTransfer) {
+  // Snapshots the slot grid and seeds `grabOffset` so the chip doesn't re-center under the
+  // pointer. Called once, the moment a gesture crosses the drag threshold.
+  const beginDrag = (p: PendingGesture, clientX: number, clientY: number) => {
+    const slotCenters = colors.map((_, i) => {
+      const rect = slotElementsRef.current.get(resolvedIds[i])?.getBoundingClientRect()
+      return rect
+        ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+        : { x: p.startClientX, y: p.startClientY }
+    })
+    const grabOffsetX = p.startClientX - slotCenters[p.index].x
+    const grabOffsetY = p.startClientY - slotCenters[p.index].y
+
+    setPending(null)
+    setDrag({
+      chipId: p.chipId,
+      originalIndex: p.index,
+      currentIndex: p.index,
+      settling: false,
+      pointerId: p.pointerId,
+      capturedElement: p.capturedElement,
+      slotCenters,
+      grabOffsetX,
+      grabOffsetY,
+    })
+
+    const target = slotCenters[p.index]
+    dragX.set(clientX - grabOffsetX - target.x)
+    dragY.set(clientY - grabOffsetY - target.y)
+  }
+
+  // Re-targets the carried chip to whichever fixed slot (see `DragState.slotCenters`) its grabbed
+  // point is now nearest to -- symmetric in every direction and correct across a wrapped row,
+  // since it's a plain 2D nearest-center comparison rather than a per-axis boundary check -- and
+  // moves it there via a direct transform, with zero added lag. The nearest-slot lookup only
+  // depends on fixed data measured once in `beginDrag` (never mutated afterwards), so it's fine to
+  // compute outside the `setDrag` updater; only the decision to actually update `currentIndex`
+  // needs the updater form, to stay correct if a burst of moves batches before a render lands.
+  const updateDragPosition = (current: DragState, clientX: number, clientY: number) => {
+    const centerX = clientX - current.grabOffsetX
+    const centerY = clientY - current.grabOffsetY
+
+    let nearestIndex = 0
+    let nearestDistSq = Infinity
+    current.slotCenters.forEach((center, i) => {
+      const dx = centerX - center.x
+      const dy = centerY - center.y
+      const distSq = dx * dx + dy * dy
+      if (distSq < nearestDistSq) {
+        nearestDistSq = distSq
+        nearestIndex = i
+      }
+    })
+
+    setDrag(prev =>
+      prev && prev.currentIndex !== nearestIndex ? { ...prev, currentIndex: nearestIndex } : prev,
+    )
+
+    const target = current.slotCenters[nearestIndex]
+    dragX.set(centerX - target.x)
+    dragY.set(centerY - target.y)
+  }
+
+  // Springs the carried chip the rest of the way into `targetIndex`'s slot and, once it settles,
+  // either commits the reorder (drop) or leaves everything as it was (Escape/cancel). Used for
+  // both, since a cancel is just a "drop" back onto the original slot: reusing one code path keeps
+  // the two visually and behaviorally consistent instead of cancel being a special-cased snap.
+  const settleDragTo = (current: DragState, targetIndex: number, commit: boolean) => {
+    const target = current.slotCenters[targetIndex]
+    // Wherever the chip is currently, visually -- captured before `currentIndex` moves on, since
+    // the transform below is about to be re-expressed relative to `targetIndex`'s slot instead.
+    const currentCenterX = current.slotCenters[current.currentIndex].x + dragX.get()
+    const currentCenterY = current.slotCenters[current.currentIndex].y + dragY.get()
+
+    setDrag({ ...current, currentIndex: targetIndex, settling: true })
+
+    // Re-express the same on-screen position relative to the new target slot, so re-pointing the
+    // transform at it doesn't itself cause a jump -- only the animation below should move the chip
+    // from here.
+    dragX.set(currentCenterX - target.x)
+    dragY.set(currentCenterY - target.y)
+
+    let remaining = 2
+    const onSettled = () => {
+      remaining -= 1
+      if (remaining > 0) {
+        return
+      }
+      if (commit && current.originalIndex !== targetIndex) {
+        setIds(prev => {
+          const next = prev.slice()
+          const [moved] = next.splice(current.originalIndex, 1)
+          next.splice(targetIndex, 0, moved)
+          return next
+        })
+        onReorder(current.originalIndex, targetIndex)
+      }
+      endDrag()
+    }
+    animate(dragX, 0, settleTransition)
+      .then(onSettled)
+      .catch(() => {})
+    animate(dragY, 0, settleTransition)
+      .then(onSettled)
+      .catch(() => {})
+  }
+
+  const onSlotPointerDown = (
+    index: number,
+    chipId: number,
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    // Non-editable pools never drag; a second gesture can't start while one is already pending,
+    // being carried, or settling.
+    if (!editable || pending || drag || event.button !== 0) {
       return
     }
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setDragImage(TRANSPARENT_DRAG_IMAGE, 0, 0)
-    setDrag({
-      chips: colors.map((color, i) => ({ id: resolvedIds[i], color })),
-      originalIndex: index,
-      currentIndex: index,
+    const target = event.target as Element
+    // The remove badge has its own click behavior and must never be treated as a drag handle.
+    if (target.closest('[data-drag-ignore]')) {
+      return
+    }
+
+    // Capturing on `target` (the swatch button under the pointer), rather than the slot wrapper
+    // this handler is attached to, is what lets the button's own `click` keep firing normally for
+    // the below-threshold case -- capturing on an ancestor instead retargets `click` to that
+    // ancestor and it never reaches the button at all.
+    target.setPointerCapture(event.pointerId)
+    setPending({
+      pointerId: event.pointerId,
+      chipId,
+      index,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      capturedElement: target,
     })
   }
 
-  // `motion.div` reserves the `onDragStart`/`onDragEnd` prop names for its own pointer-based drag
-  // gesture (distinct from, and never forwarded to, the native HTML5 drag-and-drop event of the
-  // same name) -- so the native listeners for those two are wired up directly via ref instead of
-  // JSX props. `onDragOver`/`onDrop` aren't reserved by motion and stay as ordinary JSX handlers.
-  //
-  // The index a chip started dragging from is read off a `data-index` attribute at the moment the
-  // event fires, rather than captured in a closure when the listener was attached: `data-index` is
-  // a plain JSX prop that React refreshes on every render regardless of whether this ref callback
-  // itself gets re-invoked, so the handler always sees the chip's current position even if a
-  // memoized ref identity means the listener was actually attached several renders ago.
-  const attachNativeDragListeners = (element: HTMLDivElement | null) => {
-    if (!element) {
-      return undefined
-    }
-    const onNativeDragStart = (event: DragEvent) => {
-      handleDragStart(Number(element.dataset.index), event)
-    }
-    element.addEventListener('dragstart', onNativeDragStart)
-    element.addEventListener('dragend', endDrag)
-    return () => {
-      element.removeEventListener('dragstart', onNativeDragStart)
-      element.removeEventListener('dragend', endDrag)
-    }
-  }
-
-  const handleDragOver = (targetIndex: number, event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    if (!drag || drag.currentIndex === targetIndex) {
+  const onSlotPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pending && event.pointerId === pending.pointerId) {
+      const dx = event.clientX - pending.startClientX
+      const dy = event.clientY - pending.startClientY
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) {
+        return
+      }
+      event.preventDefault()
+      beginDrag(pending, event.clientX, event.clientY)
       return
     }
-    const nextChips = drag.chips.slice()
-    const [moved] = nextChips.splice(drag.currentIndex, 1)
-    nextChips.splice(targetIndex, 0, moved)
-    setDrag({ ...drag, chips: nextChips, currentIndex: targetIndex })
+
+    if (drag && !drag.settling && event.pointerId === drag.pointerId) {
+      event.preventDefault()
+      updateDragPosition(drag, event.clientX, event.clientY)
+    }
   }
 
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    if (drag && drag.currentIndex !== drag.originalIndex) {
-      setIds(prev => {
-        const next = prev.slice()
-        const [moved] = next.splice(drag.originalIndex, 1)
-        next.splice(drag.currentIndex, 0, moved)
-        return next
-      })
-      onReorder(drag.originalIndex, drag.currentIndex)
+  const onSlotPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pending && event.pointerId === pending.pointerId) {
+      // Below the drag threshold -- nothing was ever lifted, so there's nothing to settle or
+      // revert, and the browser's own `click` opens the picker.
+      setPending(null)
+      return
     }
-    endDrag()
+    if (drag && !drag.settling && event.pointerId === drag.pointerId) {
+      settleDragTo(drag, drag.currentIndex, true)
+    }
+  }
+
+  // Shared fallback for every way a gesture can end without a normal pointerup: the pointer's
+  // gesture is cancelled (e.g. a touch gesture gets reinterpreted as a scroll), or capture is
+  // released for a reason that isn't a `pointerup`/`pointercancel` handled above. Both revert to
+  // the pre-drag order without committing.
+  const cancelActiveGesture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (pending && event.pointerId === pending.pointerId) {
+      setPending(null)
+      return
+    }
+    if (drag && !drag.settling && event.pointerId === drag.pointerId) {
+      settleDragTo(drag, drag.originalIndex, false)
+    }
+  }
+
+  // Suppresses the click the browser still fires on the swatch button after a real drag (pointer
+  // capture keeps it targeted there regardless of where the pointer was released), without
+  // affecting an unrelated click on some other chip that happens to land while this one is still
+  // settling.
+  const onSlotClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (drag && event.target === drag.capturedElement) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+  }
+
+  // Escape reverts a drag while the pointer is still down (a settling, already-released drag has
+  // nothing left to revert). Pointer capture doesn't affect keyboard focus, and mousedown focuses
+  // the swatch button by default, so this reaches the carried chip's own slot via ordinary bubbling
+  // rather than needing a window-level listener.
+  const onSlotKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') {
+      return
+    }
+    if (pending) {
+      if (pending.capturedElement.hasPointerCapture(pending.pointerId)) {
+        pending.capturedElement.releasePointerCapture(pending.pointerId)
+      }
+      setPending(null)
+      return
+    }
+    if (drag && !drag.settling) {
+      if (drag.capturedElement.hasPointerCapture(drag.pointerId)) {
+        drag.capturedElement.releasePointerCapture(drag.pointerId)
+      }
+      settleDragTo(drag, drag.originalIndex, false)
+    }
   }
 
   return (
     <div className={className}>
       <Row onMouseLeave={onRowMouseLeave}>
-        {chips.map((chip, index) => (
-          <SwatchSlot
-            key={chip.id}
-            data-index={index}
-            ref={attachNativeDragListeners}
-            layout
-            transition={reorderTransition}
-            $dragging={drag?.currentIndex === index}
-            draggable={editable}
-            onDragOver={event => handleDragOver(index, event)}
-            onDrop={handleDrop}>
-            <EditableColorSwatch
-              value={chip.color}
-              defaultValue={chip.color}
-              onChange={hex => {
-                if (hex !== undefined) {
-                  onSwatchChange(index, hex)
-                }
-              }}
-              editable={editable}
-              swatches={swatches}
-              pickerSubtitle={getPickerSubtitle(index)}
-              label={colorLabel(chip.color)}
-              addLabel={addLabel}
-              tooltipDisabled={!!drag || tooltipsSuppressed}
-            />
-            {showRemove ? (
-              <RemoveSwatchBadge
-                type='button'
-                title={removeLabel}
-                onClick={event => {
-                  event.stopPropagation()
-                  commitRemove(index)
-                }}>
-                <RemoveSwatchIcon />
-              </RemoveSwatchBadge>
-            ) : null}
-            {index === badgeIndex ? (
-              <EntryBadgeAnchor>
-                <EntryBadge>{badgeLabel}</EntryBadge>
-              </EntryBadgeAnchor>
-            ) : null}
-          </SwatchSlot>
-        ))}
+        {chips.map((chip, index) => {
+          const isCarried = drag !== null && drag.chipId === chip.id
+          const isLifted = drag !== null && drag.chipId === chip.id && !drag.settling
+          const order = drag ? orderFor(index, drag.originalIndex, drag.currentIndex) : index
+          return (
+            <SwatchSlot
+              key={chip.id}
+              ref={element => setSlotElement(chip.id, element)}
+              layout={!isCarried}
+              transition={{ layout: reorderTransition, scale: liftTransition }}
+              animate={{ scale: isLifted ? LIFT_SCALE : 1 }}
+              $lifted={isLifted}
+              style={isCarried ? { order, x: dragX, y: dragY } : { order }}
+              onPointerDown={event => onSlotPointerDown(index, chip.id, event)}
+              onPointerMove={onSlotPointerMove}
+              onPointerUp={onSlotPointerUp}
+              onPointerCancel={cancelActiveGesture}
+              onLostPointerCapture={cancelActiveGesture}
+              onClickCapture={onSlotClickCapture}
+              onKeyDown={onSlotKeyDown}>
+              <EditableColorSwatch
+                value={chip.color}
+                defaultValue={chip.color}
+                onChange={hex => {
+                  if (hex !== undefined) {
+                    onSwatchChange(index, hex)
+                  }
+                }}
+                editable={editable}
+                swatches={swatches}
+                pickerSubtitle={getPickerSubtitle(index)}
+                label={colorLabel(chip.color)}
+                addLabel={addLabel}
+                tooltipDisabled={!!drag || tooltipsSuppressed}
+              />
+              {showRemove ? (
+                <RemoveSwatchBadge
+                  type='button'
+                  title={removeLabel}
+                  data-drag-ignore=''
+                  onClick={event => {
+                    event.stopPropagation()
+                    commitRemove(index)
+                  }}>
+                  <RemoveSwatchIcon />
+                </RemoveSwatchBadge>
+              ) : null}
+              {index === badgeIndex ? (
+                <EntryBadgeAnchor>
+                  <EntryBadge>{badgeLabel}</EntryBadge>
+                </EntryBadgeAnchor>
+              ) : null}
+            </SwatchSlot>
+          )
+        })}
         {showAdd ? (
-          <AddSwatchTile type='button' title={addLabel} onClick={commitAdd}>
+          // Ordered past every chip slot (whose `order` values are confined to 0..chips.length-1)
+          // so it stays trailing even while a drag has chips' `order` values shuffled around.
+          <AddSwatchTile
+            type='button'
+            title={addLabel}
+            onClick={commitAdd}
+            style={{ order: chips.length }}>
             <AddSwatchIcon />
           </AddSwatchTile>
         ) : null}

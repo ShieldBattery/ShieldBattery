@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { SC_COLORS } from '../../../common/settings/team-colors'
 import { bodyMedium, titleSmall } from '../../styles/typography'
@@ -6,11 +7,6 @@ import { Card } from '../card'
 import { ColorPickerSwatch, getColorLabel, nextUnusedColor } from '../color-picker'
 import { ColorPoolEditor } from '../color-pool-editor'
 import { EditableColorSwatch } from '../editable-color-swatch'
-
-const SWATCHES: ReadonlyArray<ColorPickerSwatch> = SC_COLORS.map(c => ({
-  color: c.hex,
-  label: c.name,
-}))
 
 const Container = styled.div`
   display: flex;
@@ -42,16 +38,22 @@ const Description = styled.div`
  * and `ColorPoolEditor` (add/remove/drag-reorder) against local mock state.
  */
 export function ColorPickerTest() {
+  const { t } = useTranslation()
   const [singleColor, setSingleColor] = useState('#2CB494')
   const [optionalColor, setOptionalColor] = useState<string | undefined>(undefined)
   const [pool, setPool] = useState<string[]>(['#F40404', '#0C48CC', '#2CB494'])
+
+  const swatches: ReadonlyArray<ColorPickerSwatch> = SC_COLORS.map(c => ({
+    color: c.hex,
+    label: getColorLabel(c.hex, t),
+  }))
 
   return (
     <Container>
       <StyledCard>
         <SectionTitle>Single swatch</SectionTitle>
         <Description>
-          Current value: {singleColor} ({getColorLabel(singleColor)})
+          Current value: {singleColor} ({getColorLabel(singleColor, t)})
         </Description>
         <EditableColorSwatch
           value={singleColor}
@@ -60,9 +62,9 @@ export function ColorPickerTest() {
             if (hex !== undefined) setSingleColor(hex)
           }}
           editable={true}
-          swatches={SWATCHES}
+          swatches={swatches}
           pickerSubtitle='Devonly · single swatch'
-          label={getColorLabel(singleColor)}
+          label={getColorLabel(singleColor, t)}
           addLabel=''
         />
       </StyledCard>
@@ -75,9 +77,9 @@ export function ColorPickerTest() {
           defaultValue='#00E4FC'
           onChange={setOptionalColor}
           editable={true}
-          swatches={SWATCHES}
+          swatches={swatches}
           pickerSubtitle='Devonly · optional swatch'
-          label={optionalColor ? getColorLabel(optionalColor) : ''}
+          label={optionalColor ? getColorLabel(optionalColor, t) : ''}
           addLabel='Add a color'
         />
       </StyledCard>
@@ -90,8 +92,8 @@ export function ColorPickerTest() {
           editable={true}
           minLength={1}
           maxLength={8}
-          swatches={SWATCHES}
-          colorLabel={getColorLabel}
+          swatches={swatches}
+          colorLabel={hex => getColorLabel(hex, t)}
           getPickerSubtitle={index => `Devonly · pool · #${index + 1}`}
           addLabel='Add a color'
           removeLabel='Remove color'
