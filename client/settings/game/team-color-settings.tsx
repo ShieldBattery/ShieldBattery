@@ -505,10 +505,11 @@ export function TeamColorSettings({
   const activeTeamColors = resolveTeamColors({ teamColorPreset, customTeamColors })
   const activeFfaColors = resolveFfaColors({ ffaColorPreset, customFfaColors })
 
-  // On Custom, the scheme's own self color always rides as the "override" (it's pinned under
-  // shuffle the same way an explicit one would be, see `resolveTeamSelfOverride`); on a built-in
-  // preset, it's the user's explicit override if they've set one, or `undefined` if not. This is
-  // exactly the value the app resolves onto the wire's `teamSelf`, so the preview and the ally
+  // The local player's explicit self color, or `undefined` when they haven't set one. Only
+  // Legacy diplomacy pins a self color here (its fixed teal); every other preset -- Custom
+  // included -- leaves this `undefined` unless the user picked an override, so with shuffle on
+  // and no override their self color is drawn from the pool like anyone else. This is exactly
+  // the value the app resolves onto the wire's `teamSelf`, so the preview and the ally
   // consume-check below both mirror it precisely.
   const effectiveTeamSelfOverride = resolveTeamSelfOverride(
     { teamColorPreset, teamSelfColor },

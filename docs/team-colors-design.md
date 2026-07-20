@@ -9,10 +9,12 @@
 > saved in the bndb.
 >
 > **Amendment (2026-07-19, post-implementation):** a `teamSelfColor` override was added — an
-> optional own-color pick that applies to built-in team presets (unset + shuffle on ⇒ self joins
-> the combined friendly-pool shuffle; the Custom preset's own self color always pins). An
-> override matching an allies-pool entry is consumed (first match, skipped if the pool would
-> empty), so the "consume is FFA-only" principle in §2 no longer holds for this one case.
+> optional own-color pick. When unset, self is the pool's head color, and with shuffle on it is
+> drawn from the combined friendly-pool shuffle like anyone else; Custom behaves this way too
+> (its authored self color is just the pool head, not pinned). Legacy diplomacy is the sole
+> preset with a fixed, always-pinned self. When the override is set, it is used verbatim, and a
+> matching allies-pool entry is consumed (first match, skipped if the pool would empty), so the
+> "consume is FFA-only" principle in §2 no longer holds for this one case.
 >
 > **The one-line thesis:** SC:R melee already renders every player from a single RGBA array
 > (`rgb_colors`) that nothing touches after game init — so custom team colors are "compute a
