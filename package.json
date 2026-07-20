@@ -39,6 +39,7 @@
     "email-dev": "email dev --dir email/templates --port 5567",
     "gen-emails": "node -r ./babel-register email/generate.tsx",
     "gen-graphql": "graphql-codegen --config graphql-codegen.ts",
+    "gen-minimap-previews": "node -r ./babel-register tools/gen-minimap-previews.ts",
     "gen-schema": "cd ./server-rs && cargo run --bin gen-schema",
     "gen-translations": "pnpm gen-translations:app && pnpm gen-translations:email",
     "gen-translations:app": "i18next",
