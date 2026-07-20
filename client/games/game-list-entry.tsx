@@ -30,23 +30,63 @@ import {
 import { getGameResultsUrl } from './action-creators'
 import { GamePlayersDisplay } from './game-players-display'
 
-const GameListEntryRoot = styled.div`
+const GameListEntryRoot = styled.div<{
+  $fillPlayers?: boolean
+  $dense?: boolean
+  $hasThumbnail?: boolean
+}>`
   width: 100%;
-  min-height: 80px;
+  /*
+    The floor keeps a single-team (e.g. 1v1) row from collapsing to nothing; taller multi-team rows
+    exceed it and drive their own height, so team matchups still read as taller. The dense floor
+    suits rows without a thumbnail (the replay library), where the default 80px — sized around the
+    64px thumbnail — would leave a 1v1 mostly empty.
+  */
+  min-height: ${props => (props.$dense ? '52px' : '80px')};
   padding-top: 8px;
   padding-bottom: 8px;
   padding-left: 6px;
-  padding-right: 6px;
+  /*
+    A trailing thumbnail (games list) already holds the map name / game type well clear of the right
+    edge. Without one (the replay library) that text would sit almost flush against the edge, so
+    those rows take a bit more trailing room to breathe.
+  */
+  padding-right: ${props => (props.$hasThumbnail ? '6px' : '16px')};
 
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+
+  /*
+    Controls how a row wider than its content distributes the slack. By default every cell shares it
+    evenly (fine for a narrow, capped list). Under the fill-players mode, only the players cell grows
+    so the duration + map stay compact and read as a stats cluster pinned to the right — used by the
+    full-width replay library, where spreading every cell would leave the duration floating in an
+    empty middle.
+  */
+  --_side-cell-grow: ${props => (props.$fillPlayers ? 0 : 1)};
 `
 
 const BaseCell = styled.div`
   height: 100%;
-  flex: 1 1 auto;
+  flex-grow: var(--_side-cell-grow, 1);
+  flex-shrink: 1;
+  flex-basis: auto;
+`
+
+/**
+ * A fixed-width, non-growing column reserved for a single leading action (e.g. a replay's star /
+ * bookmark toggle), kept narrow so it reads as its own column rather than sharing the leading cell.
+ */
+const BookmarkCell = styled.div`
+  flex: 0 0 auto;
+  width: 48px;
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `
 
 const LeadingCell = styled(BaseCell)`
@@ -59,6 +99,8 @@ const LeadingCell = styled(BaseCell)`
 
 const PlayersCell = styled(BaseCell)`
   width: 328px;
+  /* Always grows, so under the fill-players mode it's the cell that absorbs a row's extra width. */
+  flex-grow: 1;
 `
 
 const GameLengthCell = styled(BaseCell)`
@@ -185,8 +227,16 @@ export const WatchReplayOverlay = styled.div`
 `
 
 export interface GameListEntryLayoutProps {
-  /** Content of the leading cell (e.g. the result + date, or a date/time on its own). */
-  leading: React.ReactNode
+  /**
+   * Content of a narrow, dedicated leading action column (e.g. a replay's star / bookmark toggle).
+   * When omitted, the column isn't rendered.
+   */
+  bookmark?: React.ReactNode
+  /**
+   * Content of the leading cell (e.g. the result + date, or a date/time on its own). When omitted,
+   * the cell isn't rendered.
+   */
+  leading?: React.ReactNode
   /** Content of the players cell (a players/teams display). */
   players: React.ReactNode
   /** Preformatted game duration text (e.g. `12:34`, or `—` when unknown). */
@@ -195,31 +245,55 @@ export interface GameListEntryLayoutProps {
   mapName: string
   /** Game type / mode label. */
   gameTypeLabel: string
-  /** Thumbnail cell content (a `ThumbnailContainer` with a thumbnail or placeholder + overlay). */
-  thumbnail: React.ReactNode
+  /**
+   * Thumbnail cell content (a `ThumbnailContainer` with a thumbnail or placeholder + overlay). When
+   * omitted, no thumbnail is rendered and the map name / game type take the full cell.
+   */
+  thumbnail?: React.ReactNode
+  /**
+   * When set, a row wider than its content lets only the players cell grow (keeping duration + map
+   * as a compact right-side cluster) instead of spreading the slack across every cell. Suited to
+   * full-width lists.
+   */
+  fillPlayers?: boolean
+  /**
+   * When set, uses a shorter min-height so short (single-team) rows are compact while taller
+   * multi-team rows still drive their own height. Suited to thumbnail-less rows (e.g. replays).
+   */
+  dense?: boolean
   className?: string
   /** Extra content rendered inside the row root after the cells (e.g. a `Ripple`). */
   children?: React.ReactNode
 }
 
 /**
- * The purely presentational layout for a game/replay list row: the row root plus the four cells
- * (leading, players, duration, map + game type). Carries no data dependencies so it can back both
- * real games (see `GameListEntry`) and local replay files.
+ * The purely presentational layout for a game/replay list row: the row root plus its cells (an
+ * optional bookmark column and leading cell, then players, duration, map + game type, and an
+ * optional thumbnail). Carries no data dependencies so it can back both real games (see
+ * `GameListEntry`) and local replay files.
  */
 export function GameListEntryLayout({
+  bookmark,
   leading,
   players,
   duration,
   mapName,
   gameTypeLabel,
   thumbnail,
+  fillPlayers,
+  dense,
   className,
   children,
 }: GameListEntryLayoutProps) {
   return (
-    <GameListEntryRoot className={className}>
-      <LeadingCell>{leading}</LeadingCell>
+    <GameListEntryRoot
+      className={className}
+      $fillPlayers={fillPlayers}
+      $dense={dense}
+      $hasThumbnail={thumbnail !== undefined}>
+      {bookmark !== undefined ? <BookmarkCell>{bookmark}</BookmarkCell> : null}
+
+      {leading !== undefined ? <LeadingCell>{leading}</LeadingCell> : null}
 
       <PlayersCell>{players}</PlayersCell>
 

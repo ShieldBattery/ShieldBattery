@@ -4,7 +4,8 @@ import { ReplayBackfillProgress } from '../../../common/replays-library'
 import { FilledButton } from '../../material/button'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { titleSmall } from '../../styles/typography'
-import { BackfillProgressBar, ReplayLibraryUnavailable } from '../replay-library'
+import { ReplayLibraryUnavailable } from '../replay-library'
+import { BackfillProgressBar } from '../replay-library-rail'
 
 const Container = styled.div`
   display: flex;

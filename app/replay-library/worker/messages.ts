@@ -34,7 +34,7 @@ export interface ReplayQueryResult {
 export interface ReplayDbCalls {
   query: (filters: ReplayLibraryFilters) => ReplayQueryResult
   status: () => ReplayLibraryStatus
-  setStarred: (replayId: number, starred: boolean) => void
+  setBookmarked: (replayId: number, bookmarked: boolean) => void
   listPlaylists: () => ReplayPlaylist[]
   createPlaylist: (name: string) => number
   renamePlaylist: (playlistId: number, name: string) => void

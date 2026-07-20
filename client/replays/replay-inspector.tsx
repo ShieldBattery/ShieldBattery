@@ -21,7 +21,7 @@ import {
   GameSidePanelTitle,
 } from '../games/game-side-panel'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
-import { NarrowDuration } from '../i18n/date-formats'
+import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import Logo from '../logos/logo-no-bg.svg'
 import { FilledButton, IconButton } from '../material/button'
@@ -81,8 +81,8 @@ const WatchButton = styled(FilledButton)`
   flex-grow: 1;
 `
 
-const StarButton = styled(IconButton)<{ $starred: boolean }>`
-  color: ${props => (props.$starred ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
+const BookmarkButton = styled(IconButton)<{ $bookmarked: boolean }>`
+  color: ${props => (props.$bookmarked ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
 `
 
 const SectionOverline = styled.div`
@@ -113,6 +113,8 @@ export interface ReplayInspectorProps {
   playlists: ReadonlyArray<ReplayPlaylist>
   /** Bumped whenever the replay index changes, so this entry's playlist membership stays fresh. */
   changeToken: number
+  /** When true, hides the game length (a spoiler) from the panel. */
+  spoilerFree: boolean
   /** True when the library is currently scoped to a single playlist. */
   inPlaylistView: boolean
   /** True when the playlist view is showing its manual order, enabling Move up/Move down. */
@@ -121,7 +123,7 @@ export interface ReplayInspectorProps {
   canMoveDown: boolean
   onWatch: (entry: ReplayLibraryEntry) => void
   onReveal: (entry: ReplayLibraryEntry) => void
-  onToggleStar: (entry: ReplayLibraryEntry) => void
+  onToggleBookmark: (entry: ReplayLibraryEntry) => void
   onAddToPlaylist: (playlistId: number, entry: ReplayLibraryEntry) => void
   onRemoveFromPlaylist: () => void
   onMoveUp: () => void
@@ -133,13 +135,14 @@ export function ReplayInspector({
   alignWithFirstRow,
   playlists,
   changeToken,
+  spoilerFree,
   inPlaylistView,
   canReorder,
   canMoveUp,
   canMoveDown,
   onWatch,
   onReveal,
-  onToggleStar,
+  onToggleBookmark,
   onAddToPlaylist,
   onRemoveFromPlaylist,
   onMoveUp,
@@ -237,7 +240,7 @@ export function ReplayInspector({
     </GameSidePanelChipsRow>
   )
 
-  const starred = entry.starredAt !== undefined
+  const bookmarked = entry.bookmarkedAt !== undefined
   const playlistsForEntry =
     entryPlaylists && entryPlaylists.forId === entry.id ? entryPlaylists.list : []
 
@@ -248,11 +251,15 @@ export function ReplayInspector({
         iconStart={<MaterialIcon icon='play_arrow' />}
         onClick={() => onWatch(entry)}
       />
-      <StarButton
-        $starred={starred}
-        icon={<MaterialIcon icon='star' filled={starred} />}
-        title={starred ? t('replays.library.unstar', 'Unstar') : t('replays.library.star', 'Star')}
-        onClick={() => onToggleStar(entry)}
+      <BookmarkButton
+        $bookmarked={bookmarked}
+        icon={<MaterialIcon icon='bookmark' filled={bookmarked} />}
+        title={
+          bookmarked
+            ? t('replays.library.removeBookmark', 'Remove bookmark')
+            : t('replays.library.bookmark', 'Bookmark')
+        }
+        onClick={() => onToggleBookmark(entry)}
       />
       <IconButton
         ref={anchor}
@@ -390,9 +397,13 @@ export function ReplayInspector({
               <GameSidePanelTitle>{filterColorCodes(entry.mapName)}</GameSidePanelTitle>
             ) : null}
             <GameSidePanelSubline>
-              <NarrowDuration to={entry.gameTime} />
-              <span>·</span>
-              <span>{getGameDurationString((entry.durationFrames * 1000) / 24)}</span>
+              <span>{longTimestamp.format(entry.gameTime)}</span>
+              {spoilerFree ? null : (
+                <>
+                  <span>·</span>
+                  <span>{getGameDurationString((entry.durationFrames * 1000) / 24)}</span>
+                </>
+              )}
             </GameSidePanelSubline>
           </GameSidePanelHeader>
           <GameSidePanelSection>

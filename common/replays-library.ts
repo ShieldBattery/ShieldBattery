@@ -49,8 +49,8 @@ export interface ReplayLibraryEntry {
   /** True if the replay could not be parsed; only `path`/`fileName`/`fileSize` are meaningful then. */
   parseError: boolean
   players: ReplayLibraryPlayer[]
-  /** Unix ms when this replay was starred, or `undefined` if it isn't. */
-  starredAt?: number
+  /** Unix ms when this replay was bookmarked, or `undefined` if it isn't. */
+  bookmarkedAt?: number
 }
 
 /** A local playlist grouping replays in manual order, as exposed to the renderer. */
@@ -80,8 +80,8 @@ export interface ReplayLibraryFilters {
   format?: GameFormat
   /** Encoded matchup filter with wildcards; only applied together with `format`. */
   matchup?: EncodedMatchupString
-  /** Only match starred replays. */
-  starred?: boolean
+  /** Only match bookmarked replays. */
+  bookmarked?: boolean
   /** Only match replays in this playlist, ordered by the playlist's manual order unless `sort` is set. */
   playlistId?: number
   /** Result ordering. Defaults to newest-first when omitted. */
@@ -106,8 +106,8 @@ export type ReplayBackfillProgress =
 export interface ReplayLibraryStatus {
   /** Number of replays currently in the index. */
   totalIndexed: number
-  /** Number of replays currently starred. */
-  starredCount: number
+  /** Number of replays currently bookmarked. */
+  bookmarkedCount: number
   /** Present while an initial/ongoing backfill is running. */
   backfill?: ReplayBackfillProgress
   /** The absolute path of the folder being indexed. */

@@ -236,8 +236,8 @@ describe('parseView / encodeView', () => {
     expect(parseView('')).toEqual({ kind: 'all' })
   })
 
-  test('parses "starred" as the starred view', () => {
-    expect(parseView('starred')).toEqual({ kind: 'starred' })
+  test('parses "bookmarked" as the bookmarked view', () => {
+    expect(parseView('bookmarked')).toEqual({ kind: 'bookmarked' })
   })
 
   test('parses "pl-<id>" as a playlist view', () => {
@@ -255,7 +255,7 @@ describe('parseView / encodeView', () => {
 
   test('round-trips through encodeView', () => {
     expect(encodeView({ kind: 'all' })).toBe('')
-    expect(encodeView({ kind: 'starred' })).toBe('starred')
+    expect(encodeView({ kind: 'bookmarked' })).toBe('bookmarked')
     expect(encodeView({ kind: 'playlist', id: 42 })).toBe('pl-42')
     expect(parseView(encodeView({ kind: 'playlist', id: 7 }))).toEqual({
       kind: 'playlist',
@@ -275,6 +275,6 @@ describe('isManualPlaylistOrder', () => {
 
   test('is false for non-playlist views', () => {
     expect(isManualPlaylistOrder({ kind: 'all' }, '')).toBe(false)
-    expect(isManualPlaylistOrder({ kind: 'starred' }, '')).toBe(false)
+    expect(isManualPlaylistOrder({ kind: 'bookmarked' }, '')).toBe(false)
   })
 })

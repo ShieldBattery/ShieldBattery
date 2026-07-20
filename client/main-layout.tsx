@@ -120,6 +120,21 @@ const Root = styled.div<{ $sidebarOpen?: boolean; $sidebarPinned?: boolean }>`
       minmax(auto, 1fr)
       var(--_cur-sidebar-column-size);
   }
+
+  /*
+    Full-bleed opt-out: a descendant page can render a data-content-fullbleed marker (see the
+    CenteredContentContainer full-width mode) to reclaim the left gutter that otherwise mirrors the
+    social sidebar so content stays centered. A page that fills its own width with internal layout
+    (e.g. the replay library's rail + list + inspector) gains nothing from that centering — the
+    gutter is just wasted space — so we zero the left column for it while leaving the sidebar column
+    intact. Higher specificity than the plain-Root media rules above, so it wins at every width the
+    left column would otherwise be non-zero.
+  */
+  &:has([data-content-fullbleed]) {
+    @media (min-width: ${SIDEBAR_WIDTH + 1176}px) {
+      grid-template-columns: 0 minmax(auto, 1fr) var(--_cur-sidebar-column-size);
+    }
+  }
 `
 
 const MenuItemRoot = styled.a<{ $isActive?: boolean }>`

@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
-import { ReplayPlaylist } from '../../common/replays-library'
+import styled, { keyframes } from 'styled-components'
+import { ReplayBackfillProgress, ReplayPlaylist } from '../../common/replays-library'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -20,6 +20,11 @@ const RailRoot = styled.div`
 
   width: 240px;
   flex-shrink: 0;
+  align-self: flex-start;
+  position: sticky;
+  top: 24px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
 `
 
 const RailSection = styled.div`
@@ -233,19 +238,111 @@ function PlaylistRailItem({
   )
 }
 
+const ProgressTrack = styled.div`
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background-color: var(--theme-container-highest);
+`
+
+const ProgressFill = styled.div<{ $scale: number }>`
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background-color: var(--theme-amber);
+  transform: ${props => `scaleX(${props.$scale})`};
+  transform-origin: 0% 50%;
+  transition: transform 120ms linear;
+  will-change: transform;
+`
+
+const indeterminateSlide = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+`
+
+const IndeterminateFill = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  border-radius: 2px;
+  background-color: var(--theme-amber);
+  animation: ${indeterminateSlide} 1.15s ease-in-out infinite;
+  will-change: transform;
+`
+
+const BackfillBar = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 8px;
+`
+
+const BackfillLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+/**
+ * A slim, persistent progress indicator shown in the rail while the index backfills: an
+ * indeterminate bar while the folder is being scanned (total unknown), then a determinate bar with a
+ * running count as replays are parsed. It rides beneath the library counts so the list area stays
+ * clear.
+ */
+export function BackfillProgressBar({ backfill }: { backfill: ReplayBackfillProgress }) {
+  const { t } = useTranslation()
+
+  if (backfill.phase === 'scanning') {
+    return (
+      <BackfillBar>
+        <BackfillLabel>
+          {t('replays.library.scanningTitle', 'Scanning your replay folder…')}
+        </BackfillLabel>
+        <ProgressTrack>
+          <IndeterminateFill />
+        </ProgressTrack>
+      </BackfillBar>
+    )
+  }
+
+  const { done, total } = backfill
+  const scale = total > 0 ? done / total : 0
+  return (
+    <BackfillBar>
+      <BackfillLabel>
+        {t('replays.library.indexingCountLine', {
+          defaultValue: 'Indexing replays… {{done}}/{{total}}',
+          done,
+          total,
+        })}
+      </BackfillLabel>
+      <ProgressTrack>
+        <ProgressFill $scale={scale} />
+      </ProgressTrack>
+    </BackfillBar>
+  )
+}
+
 export interface ReplayLibraryRailProps {
   view: LibraryView
   totalIndexed: number
-  starredCount: number
+  bookmarkedCount: number
+  /** Backfill progress to surface beneath the library counts, or undefined to hide it. */
+  backfill?: ReplayBackfillProgress
   playlists: ReadonlyArray<ReplayPlaylist>
   onSelectView: (view: LibraryView) => void
 }
 
-/** The left library rail: All replays/Starred, and the user's playlists. */
+/** The left library rail: All replays/Bookmarked, and the user's playlists. */
 export function ReplayLibraryRail({
   view,
   totalIndexed,
-  starredCount,
+  bookmarkedCount,
+  backfill,
   playlists,
   onSelectView,
 }: ReplayLibraryRailProps) {
@@ -264,13 +361,15 @@ export function ReplayLibraryRail({
           onClick={() => onSelectView({ kind: 'all' })}
         />
         <RailItem
-          icon='star'
-          label={t('replays.library.rail.starred', 'Starred')}
-          count={starredCount}
-          selected={view.kind === 'starred'}
-          onClick={() => onSelectView({ kind: 'starred' })}
+          icon='bookmark'
+          label={t('replays.library.rail.bookmarked', 'Bookmarked')}
+          count={bookmarkedCount}
+          selected={view.kind === 'bookmarked'}
+          onClick={() => onSelectView({ kind: 'bookmarked' })}
         />
       </RailSection>
+
+      {backfill ? <BackfillProgressBar backfill={backfill} /> : null}
 
       <RailSection>
         <RailSectionTitle>{t('replays.library.rail.playlists', 'Playlists')}</RailSectionTitle>

@@ -473,6 +473,7 @@
         "oldest": "最早优先",
         "shortest": "最短优先"
       },
+      "spoilerFree": "无剧透",
       "vs": "vs"
     },
     "gameSource": {
@@ -1230,10 +1231,12 @@
     "fileDropText": "将录像拖到这里即可使用ShieldBattery观看录像。",
     "library": {
       "addToPlaylist": "添加到播放列表…",
+      "bookmark": "添加书签",
+      "bookmarkedEmpty": "没有已加书签的录像",
+      "bookmarkedEmptyBody": "为录像添加书签，方便在这里找到它们。",
       "clearFilters": "清除筛选",
       "empty": "暂无录像",
       "emptyBody": "您游玩或观看的录像将自动显示在这里。",
-      "filteredCount": "{{shown}}/{{total}} 个录像",
       "indexingCountLine": "正在索引录像……{{done}}/{{total}}",
       "inspector": {
         "empty": "选择一个录像以查看详情",
@@ -1260,25 +1263,22 @@
       "playlistEmptyBody": "从录像库中添加录像。",
       "rail": {
         "allReplays": "全部录像",
+        "bookmarked": "书签",
         "library": "录像库",
         "newPlaylist": "新建播放列表",
         "playlistActions": "播放列表操作",
-        "playlists": "播放列表",
-        "starred": "星标"
+        "playlists": "播放列表"
       },
+      "removeBookmark": "取消书签",
       "removeFromPlaylist": "从播放列表中移除",
       "replayCount_other": "{{count}} 个录像",
       "scanningTitle": "正在扫描录像文件夹……",
       "showInExplorer": "在资源管理器中显示",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
-      "star": "添加星标",
-      "starredEmpty": "暂无星标录像",
-      "starredEmptyBody": "为录像添加星标，方便在这里快速找到。",
       "unavailable": "录像库不可用",
       "unavailableBody": "暂时无法加载您的录像。重启 ShieldBattery 通常可以解决此问题。",
       "unreadableReplays": "无法读取的录像",
-      "unstar": "取消星标",
       "viewGamePage": "查看游戏页面",
       "watchReplay": "观看录像"
     },

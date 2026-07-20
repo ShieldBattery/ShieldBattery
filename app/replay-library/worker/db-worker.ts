@@ -59,7 +59,7 @@ const watcher = new ReplayWatcher(watchedFolder, db, logger, {
 function getStatus(): ReplayLibraryStatus {
   return {
     totalIndexed: db.getTotalIndexed(),
-    starredCount: db.getStarredCount(),
+    bookmarkedCount: db.getBookmarkedCount(),
     backfill: watcher.getBackfillProgress(),
     watchedFolder,
   }
@@ -69,7 +69,7 @@ function getStatus(): ReplayLibraryStatus {
 const calls: ReplayDbCalls = {
   query: filters => db.query(filters),
   status: () => getStatus(),
-  setStarred: (replayId, starred) => db.setStarred(replayId, starred),
+  setBookmarked: (replayId, bookmarked) => db.setBookmarked(replayId, bookmarked),
   listPlaylists: () => db.listPlaylists(),
   createPlaylist: name => db.createPlaylist(name),
   renamePlaylist: (playlistId, name) => db.renamePlaylist(playlistId, name),

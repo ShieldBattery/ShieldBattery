@@ -48,8 +48,8 @@ export class ReplayLibraryService {
     ipcMain.handle('replayLibraryQuery', async (_event, filters) => this.call('query', filters))
     ipcMain.handle('replayLibraryStatus', async () => this.call('status'))
 
-    ipcMain.handle('replayLibrarySetStarred', async (_event, replayId, starred) => {
-      await this.call('setStarred', replayId, starred)
+    ipcMain.handle('replayLibrarySetBookmarked', async (_event, replayId, bookmarked) => {
+      await this.call('setBookmarked', replayId, bookmarked)
       this.notifyChanged()
     })
     ipcMain.handle('replayLibraryListPlaylists', async () => this.call('listPlaylists'))

@@ -479,6 +479,7 @@
         "oldest": "Más antiguas primero",
         "shortest": "Más cortas primero"
       },
+      "spoilerFree": "Sin spoilers",
       "vs": "vs"
     },
     "gameSource": {
@@ -1242,10 +1243,12 @@
     "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
     "library": {
       "addToPlaylist": "Añadir a playlist…",
+      "bookmark": "Añadir marcador",
+      "bookmarkedEmpty": "No hay replays marcados",
+      "bookmarkedEmptyBody": "Marca replays para tenerlos a mano aquí.",
       "clearFilters": "Limpiar filtros",
       "empty": "Aún no hay replays",
       "emptyBody": "Los replays que veas y juegues aparecerán aquí automáticamente.",
-      "filteredCount": "{{shown}} de {{total}} replays",
       "indexingCountLine": "Indexando replays… {{done}}/{{total}}",
       "inspector": {
         "empty": "Selecciona un replay para ver sus detalles",
@@ -1272,12 +1275,13 @@
       "playlistEmptyBody": "Añádele replays desde la biblioteca.",
       "rail": {
         "allReplays": "Todos los replays",
+        "bookmarked": "Marcadores",
         "library": "Biblioteca",
         "newPlaylist": "Nueva playlist",
         "playlistActions": "Acciones de la playlist",
-        "playlists": "Playlists",
-        "starred": "Destacados"
+        "playlists": "Playlists"
       },
+      "removeBookmark": "Quitar marcador",
       "removeFromPlaylist": "Quitar de la playlist",
       "replayCount_one": "{{count}} replay",
       "replayCount_many": "{{count}} replays",
@@ -1286,13 +1290,9 @@
       "showInExplorer": "Mostrar en el Explorador",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
-      "star": "Destacar",
-      "starredEmpty": "No hay replays destacados",
-      "starredEmptyBody": "Destaca replays para tenerlos siempre a mano.",
       "unavailable": "Biblioteca de replays no disponible",
       "unavailableBody": "No se pudieron cargar tus replays en este momento. Reiniciar ShieldBattery suele solucionarlo.",
       "unreadableReplays": "Replays ilegibles",
-      "unstar": "Quitar destacado",
       "viewGamePage": "Ver página de la partida",
       "watchReplay": "Ver replay"
     },

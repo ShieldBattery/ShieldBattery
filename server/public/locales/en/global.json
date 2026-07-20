@@ -476,6 +476,7 @@
         "oldest": "Oldest first",
         "shortest": "Shortest first"
       },
+      "spoilerFree": "Spoiler-free",
       "vs": "vs"
     },
     "gameSource": {
@@ -1236,10 +1237,12 @@
     "fileDropText": "Drop replays here to watch them with ShieldBattery.",
     "library": {
       "addToPlaylist": "Add to playlist…",
+      "bookmark": "Bookmark",
+      "bookmarkedEmpty": "No bookmarked replays",
+      "bookmarkedEmptyBody": "Bookmark replays to keep them handy here.",
       "clearFilters": "Clear filters",
       "empty": "No replays yet",
       "emptyBody": "Replays you watch and play will show up here automatically.",
-      "filteredCount": "{{shown}} of {{total}} replays",
       "indexingCountLine": "Indexing replays… {{done}}/{{total}}",
       "inspector": {
         "empty": "Select a replay to see its details",
@@ -1266,26 +1269,21 @@
       "playlistEmptyBody": "Add replays to it from the library.",
       "rail": {
         "allReplays": "All replays",
+        "bookmarked": "Bookmarked",
         "library": "Library",
         "newPlaylist": "New playlist",
         "playlistActions": "Playlist actions",
-        "playlists": "Playlists",
-        "starred": "Starred"
+        "playlists": "Playlists"
       },
+      "removeBookmark": "Remove bookmark",
       "removeFromPlaylist": "Remove from playlist",
-      "replayCount_one": "{{count}} replay",
-      "replayCount_other": "{{count}} replays",
       "scanningTitle": "Scanning your replay folder…",
       "showInExplorer": "Show in Explorer",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
-      "star": "Star",
-      "starredEmpty": "No starred replays",
-      "starredEmptyBody": "Star replays to keep them handy here.",
       "unavailable": "Replay library unavailable",
       "unavailableBody": "Your replays couldn't be loaded right now. Restarting ShieldBattery usually fixes this.",
       "unreadableReplays": "Unreadable replays",
-      "unstar": "Unstar",
       "viewGamePage": "View game page",
       "watchReplay": "Watch replay"
     },

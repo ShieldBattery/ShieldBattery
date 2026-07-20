@@ -22,7 +22,7 @@ import { buildReplaySqlQuery } from './replay-queries'
 // too. `build/Release/` is where the Electron-ABI build lands (this install has no prebuilds dir).
 const betterSqlite3Addon = require('better-sqlite3/build/Release/better_sqlite3.node')
 
-const SCHEMA_VERSION = 7
+const SCHEMA_VERSION = 8
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -41,7 +41,7 @@ interface DbReplayRow {
   parse_error: number
   team_size: number | null
   matchup: string | null
-  starred_at: number | null
+  bookmarked_at: number | null
 }
 
 interface DbPlayerRow {
@@ -76,8 +76,8 @@ export class ReplayDb {
   private readonly deleteReplayByIdStmt: Statement
   private readonly deletePlayersByReplayIdStmt: Statement
   private readonly updateReplayFileStmt: Statement
-  private readonly setStarredStmt: Statement
-  private readonly getStarredCountStmt: Statement
+  private readonly setBookmarkedStmt: Statement
+  private readonly getBookmarkedCountStmt: Statement
   private readonly findReplayIdByGameIdStmt: Statement
   private readonly listPlaylistsStmt: Statement
   private readonly insertPlaylistStmt: Statement
@@ -125,8 +125,8 @@ export class ReplayDb {
         duration_frames, sb_game_id, parse_error, team_size, matchup
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    // Deliberately omits `starred_at`: a reparse (see `upsertTxn`) updates a row in place so the
-    // user's star (and, via the stable id, playlist memberships) survive the reparse.
+    // Deliberately omits `bookmarked_at`: a reparse (see `upsertTxn`) updates a row in place so the
+    // user's bookmark (and, via the stable id, playlist memberships) survive the reparse.
     this.updateReplayByIdStmt = this.db.prepare(`
       UPDATE replays SET
         path = ?, file_mtime = ?, file_size = ?, content_hash = ?, game_time = ?, map_name = ?,
@@ -145,9 +145,9 @@ export class ReplayDb {
     this.updateReplayFileStmt = this.db.prepare(
       'UPDATE replays SET path = ?, file_mtime = ? WHERE id = ?',
     )
-    this.setStarredStmt = this.db.prepare('UPDATE replays SET starred_at = ? WHERE id = ?')
-    this.getStarredCountStmt = this.db.prepare(
-      'SELECT COUNT(*) AS count FROM replays WHERE starred_at IS NOT NULL',
+    this.setBookmarkedStmt = this.db.prepare('UPDATE replays SET bookmarked_at = ? WHERE id = ?')
+    this.getBookmarkedCountStmt = this.db.prepare(
+      'SELECT COUNT(*) AS count FROM replays WHERE bookmarked_at IS NOT NULL',
     )
     this.findReplayIdByGameIdStmt = this.db.prepare(
       'SELECT id FROM replays WHERE sb_game_id = ? ORDER BY parse_error ASC, id ASC LIMIT 1',
@@ -196,7 +196,7 @@ export class ReplayDb {
       let id: number
       if (existing) {
         // Update the row in place (rather than delete + reinsert) so it keeps its id. That id is
-        // what preserves the user's curation across a reparse: `starred_at` isn't in the update, and
+        // what preserves the user's curation across a reparse: `bookmarked_at` isn't in the update, and
         // a stable id means `playlist_entries` (FK ON DELETE CASCADE) aren't dropped. A delete +
         // reinsert would silently wipe both on any reparse -- e.g. a bare mtime touch, or a future
         // parser bump that clears `file_mtime` to force a full reparse (as the v5 migration did).
@@ -377,7 +377,7 @@ export class ReplayDb {
       }
 
       if (version < 6) {
-        // Starring and local playlists.
+        // Bookmarking and local playlists.
         this.db.exec(`
           ALTER TABLE replays ADD COLUMN starred_at INTEGER;
 
@@ -404,6 +404,11 @@ export class ReplayDb {
         // ShieldBattery section; rows indexed before the parser learned that need the same
         // treatment so consumers never see a bogus user id.
         this.db.exec('UPDATE replay_players SET sb_user_id = NULL WHERE sb_user_id = 0')
+      }
+
+      if (version < 8) {
+        // Rename the starring column to match the bookmark terminology used throughout the UI.
+        this.db.exec('ALTER TABLE replays RENAME COLUMN starred_at TO bookmarked_at')
       }
 
       if (version < SCHEMA_VERSION) {
@@ -497,15 +502,15 @@ export class ReplayDb {
     return row.count
   }
 
-  /** Number of replays currently starred. */
-  getStarredCount(): number {
-    const row = this.getStarredCountStmt.get() as { count: number }
+  /** Number of replays currently bookmarked. */
+  getBookmarkedCount(): number {
+    const row = this.getBookmarkedCountStmt.get() as { count: number }
     return row.count
   }
 
-  /** Stars or unstars a replay. */
-  setStarred(replayId: number, starred: boolean): void {
-    this.setStarredStmt.run(starred ? Date.now() : null, replayId)
+  /** Bookmarks or unbookmarks a replay. */
+  setBookmarked(replayId: number, bookmarked: boolean): void {
+    this.setBookmarkedStmt.run(bookmarked ? Date.now() : null, replayId)
   }
 
   /** The id of the indexed replay produced by a ShieldBattery game, if one has been indexed. */
@@ -637,6 +642,6 @@ function rowToEntry(row: DbReplayRow, playerRows: DbPlayerRow[]): ReplayLibraryE
     sbGameId: row.sb_game_id ?? undefined,
     parseError: row.parse_error !== 0,
     players,
-    starredAt: row.starred_at ?? undefined,
+    bookmarkedAt: row.bookmarked_at ?? undefined,
   }
 }

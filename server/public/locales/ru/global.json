@@ -482,6 +482,7 @@
         "oldest": "Сначала старые",
         "shortest": "Сначала короткие"
       },
+      "spoilerFree": "Без спойлеров",
       "vs": "vs"
     },
     "gameSource": {
@@ -1248,10 +1249,12 @@
     "fileDropText": "Перетаскивайте реплеи сюда, чтобы смотреть их на ShieldBattery.",
     "library": {
       "addToPlaylist": "Добавить в плейлист…",
+      "bookmark": "В закладки",
+      "bookmarkedEmpty": "Нет реплеев в закладках",
+      "bookmarkedEmptyBody": "Добавляйте реплеи в закладки, чтобы они были под рукой.",
       "clearFilters": "Сбросить фильтры",
       "empty": "Реплеев пока нет",
       "emptyBody": "Реплеи сыгранных и просмотренных игр будут появляться здесь автоматически.",
-      "filteredCount": "{{shown}} из {{total}} реплеев",
       "indexingCountLine": "Индексация реплеев… {{done}}/{{total}}",
       "inspector": {
         "empty": "Выберите реплей, чтобы увидеть подробности",
@@ -1278,12 +1281,13 @@
       "playlistEmptyBody": "Добавьте в него реплеи из библиотеки.",
       "rail": {
         "allReplays": "Все реплеи",
+        "bookmarked": "Закладки",
         "library": "Библиотека",
         "newPlaylist": "Новый плейлист",
         "playlistActions": "Действия с плейлистом",
-        "playlists": "Плейлисты",
-        "starred": "Избранное"
+        "playlists": "Плейлисты"
       },
+      "removeBookmark": "Убрать из закладок",
       "removeFromPlaylist": "Убрать из плейлиста",
       "replayCount_one": "{{count}} реплей",
       "replayCount_few": "{{count}} реплея",
@@ -1293,13 +1297,9 @@
       "showInExplorer": "Показать в проводнике",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
-      "star": "В избранное",
-      "starredEmpty": "Нет избранных реплеев",
-      "starredEmptyBody": "Добавляйте реплеи в избранное, чтобы они всегда были под рукой.",
       "unavailable": "Библиотека реплеев недоступна",
       "unavailableBody": "Не удалось загрузить реплеи. Обычно это исправляет перезапуск ShieldBattery.",
       "unreadableReplays": "Нечитаемые реплеи",
-      "unstar": "Убрать из избранного",
       "viewGamePage": "Открыть страницу игры",
       "watchReplay": "Посмотреть реплей"
     },

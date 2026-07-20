@@ -80,7 +80,7 @@ function buildOrderByClause(filters: Pick<ReplayLibraryFilters, 'sort' | 'playli
 
 /**
  * Builds the SQL statements for a replay query, covering every filter (map name, player name, game
- * type, duration bucket, format, matchup, starred, playlist membership) — nothing is filtered in JS
+ * type, duration bucket, format, matchup, bookmarked, playlist membership) — nothing is filtered in JS
  * afterwards. Format/matchup matching reads the `team_size`/`matchup` columns computed once at parse
  * time (see `mapReplayHeaderToRecord`). `sql` is ordered per `filters.sort` (defaulting to
  * newest-first, or the playlist's manual order when `filters.playlistId` is set with no explicit
@@ -91,7 +91,7 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
   const whereClauses: string[] = []
   const params: Array<string | number> = []
   // Tracks whether any value-constraining filter (as opposed to a curation filter like
-  // starred/playlist membership) is active, to decide whether to exclude parse-error rows below.
+  // bookmarked/playlist membership) is active, to decide whether to exclude parse-error rows below.
   let hasValueFilter = false
 
   let joinClause = ''
@@ -168,16 +168,16 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     }
   }
 
-  if (filters.starred) {
-    whereClauses.push('r.starred_at IS NOT NULL')
+  if (filters.bookmarked) {
+    whereClauses.push('r.bookmarked_at IS NOT NULL')
   }
 
   // Parse-error rows store zeroed values (see `makeParseErrorRecord`), so an active filter's match
   // against them would be against garbage rather than a real value. Filters constrain known values,
   // so a parse-error row's unknown values must never satisfy one; excluding them here only when a
   // value filter is active leaves the unfiltered view showing them (pinned last by the ORDER BY
-  // above). Starred/playlist membership is user curation rather than a value match, so it must not
-  // trigger this exclusion — a starred-but-unreadable replay still belongs in the Starred view.
+  // above). Bookmarked/playlist membership is user curation rather than a value match, so it must not
+  // trigger this exclusion — a bookmarked-but-unreadable replay still belongs in the Bookmarked view.
   if (hasValueFilter) {
     whereClauses.push('r.parse_error = 0')
   }

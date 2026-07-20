@@ -177,26 +177,26 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup f
   })
 })
 
-describe('app/replay-library/replay-queries/buildReplaySqlQuery starred filter', () => {
-  test('starred adds a starred_at IS NOT NULL clause', () => {
-    const { sql, params } = buildReplaySqlQuery({ starred: true })
-    expect(sql).toContain('r.starred_at IS NOT NULL')
+describe('app/replay-library/replay-queries/buildReplaySqlQuery bookmarked filter', () => {
+  test('bookmarked adds a bookmarked_at IS NOT NULL clause', () => {
+    const { sql, params } = buildReplaySqlQuery({ bookmarked: true })
+    expect(sql).toContain('r.bookmarked_at IS NOT NULL')
     expect(params).toEqual([])
   })
 
-  test('starred alone does not exclude parse-error rows (curation, not a value filter)', () => {
-    const { sql } = buildReplaySqlQuery({ starred: true })
+  test('bookmarked alone does not exclude parse-error rows (curation, not a value filter)', () => {
+    const { sql } = buildReplaySqlQuery({ bookmarked: true })
     expect(sql).not.toContain('r.parse_error = 0')
   })
 
-  test('starred combined with a value filter still excludes parse-error rows', () => {
-    const { sql } = buildReplaySqlQuery({ starred: true, mapName: 'Fighting Spirit' })
+  test('bookmarked combined with a value filter still excludes parse-error rows', () => {
+    const { sql } = buildReplaySqlQuery({ bookmarked: true, mapName: 'Fighting Spirit' })
     expect(sql).toContain('r.parse_error = 0')
   })
 
   test('false is treated as "don\'t filter"', () => {
-    const { sql } = buildReplaySqlQuery({ starred: false })
-    expect(sql).not.toContain('starred_at')
+    const { sql } = buildReplaySqlQuery({ bookmarked: false })
+    expect(sql).not.toContain('bookmarked_at')
   })
 })
 

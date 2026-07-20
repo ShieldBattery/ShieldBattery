@@ -8,19 +8,33 @@ import styled from 'styled-components'
  *
  * The target width can be changed by setting the `$targetWidth` prop (defaults to `1184px`). Target
  * padding can be changed by settings the $targetHorizontalPadding prop (defaults to `24px`).
+ *
+ * Setting `$fullWidth` drops the target-width cap entirely, so the content spans the full available
+ * width with only `$targetHorizontalPadding` on each edge. This suits pages that fill the space with
+ * their own internal layout (e.g. multi-column pages with fixed side panels) rather than a single
+ * centered column of text, where a max width would just leave dead space at the edges.
+ *
+ * A full-width page usually also wants to render the `data-content-fullbleed` marker (any element
+ * inside `MainLayout`) so the shell gives up the left gutter it otherwise reserves to keep content
+ * centered against the social sidebar — otherwise the page stays capped by that centered column no
+ * matter how wide this container is allowed to be.
  */
 export const CenteredContentContainer = styled(m.div)<{
   $targetWidth?: number
   $targetHorizontalPadding?: number
+  $fullWidth?: boolean
 }>`
   --_target-width: ${props => props.$targetWidth ?? 1184}px;
   --_target-horizontal-padding: ${props => props.$targetHorizontalPadding ?? 24}px;
 
   /** Dumb CSS properties just to avoid needing to write out this calculation multiple times. */
-  --_half-content-width: min(
+  --_half-content-width: ${props =>
+    props.$fullWidth
+      ? 'calc(50% - var(--_target-horizontal-padding))'
+      : `min(
     50% - var(--_target-horizontal-padding),
     var(--_target-width) / 2 + var(--scrollbar-width)
-  );
+  )`};
 
   width: 100%;
   height: 100%;

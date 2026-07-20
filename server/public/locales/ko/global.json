@@ -473,6 +473,7 @@
         "oldest": "오래된순",
         "shortest": "짧은 경기순"
       },
+      "spoilerFree": "스포일러 방지",
       "vs": "vs"
     },
     "gameSource": {
@@ -1230,10 +1231,12 @@
     "fileDropText": "리플레이 파일을 여기에 끌어와 ShieldBattery로 감상하세요.",
     "library": {
       "addToPlaylist": "재생목록에 추가…",
+      "bookmark": "북마크 추가",
+      "bookmarkedEmpty": "북마크한 리플레이가 없습니다",
+      "bookmarkedEmptyBody": "리플레이를 북마크하면 여기에 모아둘 수 있습니다.",
       "clearFilters": "필터 지우기",
       "empty": "아직 리플레이가 없습니다",
       "emptyBody": "시청하거나 플레이한 리플레이가 여기에 자동으로 표시됩니다.",
-      "filteredCount": "리플레이 {{total}}개 중 {{shown}}개",
       "indexingCountLine": "리플레이 인덱싱 중… {{done}}/{{total}}",
       "inspector": {
         "empty": "리플레이를 선택하면 상세 정보가 표시됩니다",
@@ -1260,25 +1263,22 @@
       "playlistEmptyBody": "라이브러리에서 리플레이를 추가하세요.",
       "rail": {
         "allReplays": "모든 리플레이",
+        "bookmarked": "북마크",
         "library": "라이브러리",
         "newPlaylist": "새 재생목록",
         "playlistActions": "재생목록 작업",
-        "playlists": "재생목록",
-        "starred": "별표"
+        "playlists": "재생목록"
       },
+      "removeBookmark": "북마크 해제",
       "removeFromPlaylist": "재생목록에서 제거",
       "replayCount_other": "리플레이 {{count}}개",
       "scanningTitle": "리플레이 폴더 스캔 중…",
       "showInExplorer": "탐색기에서 보기",
       "sourceTagBnet": "B.NET",
       "sourceTagSb": "SB",
-      "star": "별표 표시",
-      "starredEmpty": "별표한 리플레이가 없습니다",
-      "starredEmptyBody": "리플레이에 별표를 표시하면 여기에 모아 볼 수 있습니다.",
       "unavailable": "리플레이 라이브러리를 사용할 수 없습니다",
       "unavailableBody": "지금은 리플레이를 불러올 수 없습니다. ShieldBattery를 다시 시작하면 대부분 해결됩니다.",
       "unreadableReplays": "읽을 수 없는 리플레이",
-      "unstar": "별표 해제",
       "viewGamePage": "게임 페이지 보기",
       "watchReplay": "리플레이 보기"
     },

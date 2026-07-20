@@ -195,8 +195,8 @@ interface IpcInvokeables {
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
-  /** Stars or unstars a replay. */
-  replayLibrarySetStarred: (replayId: number, starred: boolean) => Promise<void>
+  /** Bookmarks or unbookmarks a replay. */
+  replayLibrarySetBookmarked: (replayId: number, bookmarked: boolean) => Promise<void>
   /** Lists the local playlists, ordered per their manual arrangement. */
   replayLibraryListPlaylists: () => Promise<ReplayPlaylist[]>
   /** Creates a new, empty playlist, appended after the existing ones. Returns its new id. */

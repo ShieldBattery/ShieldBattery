@@ -2,7 +2,7 @@ import { debounce } from 'lodash-es'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
-import styled, { keyframes } from 'styled-components'
+import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import {
   ALL_GAME_FORMATS,
@@ -29,39 +29,23 @@ import {
 } from '../../common/replays-library'
 import { DayHeader, formatDayHeaderLabel, getDayBoundaries } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
-import {
-  GameDate,
-  GameListEntryLayout,
-  MapNoImageContainer,
-  ThumbnailContainer,
-  WatchReplayOverlay,
-} from '../games/game-list-entry'
+import { GameListEntryLayout } from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
-import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { ButtonStateStyleProps, IconButton, TextButton, useButtonState } from '../material/button'
 import { Ripple } from '../material/ripple'
-import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { useRefreshToken } from '../network/refresh-token'
 import { LoadingDotsArea } from '../progress/dots'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
-import {
-  bodyLarge,
-  bodyMedium,
-  labelMedium,
-  singleLine,
-  titleLarge,
-  titleSmall,
-} from '../styles/typography'
+import { bodyLarge, bodyMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { startReplay } from './action-creators'
-import { useSbGameMap } from './replay-hooks'
 import { ReplayInspector } from './replay-inspector'
 import {
   encodeView,
@@ -128,8 +112,8 @@ function buildFilters(
   matchup: EncodedMatchupString | undefined,
 ): ReplayLibraryFilters {
   const filters: ReplayLibraryFilters = {}
-  if (view.kind === 'starred') {
-    filters.starred = true
+  if (view.kind === 'bookmarked') {
+    filters.bookmarked = true
   } else if (view.kind === 'playlist') {
     filters.playlistId = view.id
   }
@@ -166,13 +150,6 @@ const ListColumn = styled.div`
   min-width: 0;
 `
 
-const CountLine = styled.div`
-  ${labelMedium};
-  align-self: flex-end;
-  padding: 0 6px;
-  color: var(--theme-on-surface-variant);
-`
-
 // ---- Empty / loading states ------------------------------------------------------------------
 
 const CenteredState = styled.div`
@@ -205,95 +182,6 @@ const EmptyStatePath = styled.div`
 const UnavailableIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 40 })`
   color: var(--theme-error);
 `
-
-const ProgressTrack = styled.div`
-  position: relative;
-  width: 100%;
-  height: 4px;
-  border-radius: 2px;
-  overflow: hidden;
-  background-color: var(--theme-container-highest);
-`
-
-const ProgressFill = styled.div<{ $scale: number }>`
-  position: absolute;
-  inset: 0;
-  border-radius: 2px;
-  background-color: var(--theme-amber);
-  transform: ${props => `scaleX(${props.$scale})`};
-  transform-origin: 0% 50%;
-  transition: transform 120ms linear;
-  will-change: transform;
-`
-
-const indeterminateSlide = keyframes`
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
-`
-
-const IndeterminateFill = styled.div`
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40%;
-  border-radius: 2px;
-  background-color: var(--theme-amber);
-  animation: ${indeterminateSlide} 1.15s ease-in-out infinite;
-  will-change: transform;
-`
-
-const BackfillBar = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 6px;
-`
-
-const BackfillLabel = styled.div`
-  ${labelMedium};
-  color: var(--theme-on-surface-variant);
-  font-variant-numeric: tabular-nums;
-`
-
-/**
- * A slim, persistent progress indicator shown above the list while the index backfills: an
- * indeterminate bar while the folder is being scanned (total unknown), then a determinate bar with a
- * running count as replays are parsed. It stays put while the list fills in beneath it, rather than
- * occupying the list area and being swapped out once the first rows arrive.
- */
-export function BackfillProgressBar({ backfill }: { backfill: ReplayBackfillProgress }) {
-  const { t } = useTranslation()
-
-  if (backfill.phase === 'scanning') {
-    return (
-      <BackfillBar>
-        <BackfillLabel>
-          {t('replays.library.scanningTitle', 'Scanning your replay folder…')}
-        </BackfillLabel>
-        <ProgressTrack>
-          <IndeterminateFill />
-        </ProgressTrack>
-      </BackfillBar>
-    )
-  }
-
-  const { done, total } = backfill
-  const scale = total > 0 ? done / total : 0
-  return (
-    <BackfillBar>
-      <BackfillLabel>
-        {t('replays.library.indexingCountLine', {
-          defaultValue: 'Indexing replays… {{done}}/{{total}}',
-          done,
-          total,
-        })}
-      </BackfillLabel>
-      <ProgressTrack>
-        <ProgressFill $scale={scale} />
-      </ProgressTrack>
-    </BackfillBar>
-  )
-}
 
 /**
  * Shown when the main-process replay library service isn't answering (its IPC handlers never
@@ -338,17 +226,6 @@ const ReplayRowContainer = styled.div<ButtonStateStyleProps & { $selected: boole
   }
 `
 
-const PlaceholderIcon = styled(MaterialIcon)`
-  opacity: 0.5;
-`
-
-const StyledMapThumbnail = styled(ReduxMapThumbnail)`
-  ${elevationPlus1};
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-`
-
 const ParseErrorPlayers = styled.div`
   ${titleSmall};
 
@@ -370,67 +247,64 @@ const RowErrorIcon = styledWithAttrs(MaterialIcon, { icon: 'error', size: 20 })`
   color: var(--theme-error);
 `
 
-const LeadingRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`
+// Sized below the map cell's height so it doesn't set the row's floor: that keeps a single-team
+// (1v1) row compact while multi-player team rows grow taller from their stacked player rows,
+// preserving the visual difference between 1v1 and team matchups.
+const RowBookmarkButton = styled(IconButton)<{ $bookmarked: boolean }>`
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
 
-const RowStarIcon = styledWithAttrs(MaterialIcon, { icon: 'star', size: 16 })`
-  flex-shrink: 0;
-  color: var(--theme-amber);
-`
-
-const StarOverlayButton = styled(IconButton)<{ $starred: boolean }>`
-  color: ${props => (props.$starred ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
+  color: ${props => (props.$bookmarked ? 'var(--theme-amber)' : 'var(--theme-on-surface-variant)')};
 `
 
 interface ReplayListEntryProps {
   entry: ReplayLibraryEntry
   selected: boolean
   computerLabel: string
-  watchTitle: string
-  starTitle: string
-  unstarTitle: string
+  bookmarkTitle: string
+  removeBookmarkTitle: string
+  /** When true, hides the game length (a spoiler) from the row. */
+  spoilerFree: boolean
   onSelect: (id: number) => void
   onWatch: (entry: ReplayLibraryEntry) => void
-  onToggleStar: (entry: ReplayLibraryEntry) => void
+  onToggleBookmark: (entry: ReplayLibraryEntry) => void
 }
 
 function ReplayListEntry({
   entry,
   selected,
   computerLabel,
-  watchTitle,
-  starTitle,
-  unstarTitle,
+  bookmarkTitle,
+  removeBookmarkTitle,
+  spoilerFree,
   onSelect,
   onWatch,
-  onToggleStar,
+  onToggleBookmark,
 }: ReplayListEntryProps) {
   const { t } = useTranslation()
-  const map = useSbGameMap(entry.parseError ? undefined : entry.sbGameId)
   const [buttonProps, rippleRef] = useButtonState({
     onClick: () => onSelect(entry.id),
     onDoubleClick: () => onWatch(entry),
   })
 
-  const starred = entry.starredAt !== undefined
+  const bookmarked = entry.bookmarkedAt !== undefined
 
-  const dateElem = entry.parseError ? (
-    <GameDate>—</GameDate>
+  // Unreadable replays keep the (empty) bookmark column so their cells stay aligned with real rows,
+  // but there's nothing worth coming back to, so they aren't bookmarkable.
+  const bookmark = entry.parseError ? (
+    <></>
   ) : (
-    <Tooltip text={longTimestamp.format(entry.gameTime)} position='right'>
-      <GameDate>{narrowDuration.format(entry.gameTime)}</GameDate>
+    <Tooltip text={bookmarked ? removeBookmarkTitle : bookmarkTitle} position='right'>
+      <RowBookmarkButton
+        $bookmarked={bookmarked}
+        icon={<MaterialIcon icon='bookmark' filled={bookmarked} />}
+        onClick={event => {
+          event.stopPropagation()
+          onToggleBookmark(entry)
+        }}
+      />
     </Tooltip>
-  )
-  const leading = starred ? (
-    <LeadingRow>
-      {dateElem}
-      <RowStarIcon />
-    </LeadingRow>
-  ) : (
-    dateElem
   )
 
   const players = entry.parseError ? (
@@ -444,60 +318,20 @@ function ReplayListEntry({
     />
   )
 
-  const thumbnail = (
-    <ThumbnailContainer>
-      {map ? (
-        <StyledMapThumbnail
-          key={map.hash}
-          mapId={map.id}
-          size={64}
-          forceAspectRatio={1}
-          hasMapPreviewAction={false}
-          hasFavoriteAction={false}
-        />
-      ) : (
-        <MapNoImageContainer>
-          <PlaceholderIcon icon={entry.parseError ? 'error' : 'map'} size={36} />
-        </MapNoImageContainer>
-      )}
-      <WatchReplayOverlay>
-        <Tooltip text={watchTitle} position='top'>
-          <IconButton
-            styledAs='div'
-            icon={<MaterialIcon icon='play_circle' />}
-            onClick={event => {
-              event.stopPropagation()
-              onSelect(entry.id)
-              onWatch(entry)
-            }}
-          />
-        </Tooltip>
-        <Tooltip text={starred ? unstarTitle : starTitle} position='top'>
-          <StarOverlayButton
-            styledAs='div'
-            $starred={starred}
-            icon={<MaterialIcon icon='star' filled={starred} />}
-            onClick={event => {
-              event.stopPropagation()
-              onToggleStar(entry)
-            }}
-          />
-        </Tooltip>
-      </WatchReplayOverlay>
-    </ThumbnailContainer>
-  )
-
   return (
     <ReplayRowContainer {...buttonProps} $selected={selected}>
       <GameListEntryLayout
-        leading={leading}
+        fillPlayers={true}
+        dense={true}
+        bookmark={bookmark}
         players={players}
         duration={
-          entry.parseError ? '—' : getGameDurationString((entry.durationFrames * 1000) / 24)
+          entry.parseError || spoilerFree
+            ? '—'
+            : getGameDurationString((entry.durationFrames * 1000) / 24)
         }
         mapName={entry.parseError ? '—' : filterColorCodes(entry.mapName)}
         gameTypeLabel={entry.parseError ? '' : replayGameTypeToLabel(entry.gameType, t)}
-        thumbnail={thumbnail}
       />
       <Ripple ref={rippleRef} />
     </ReplayRowContainer>
@@ -551,9 +385,11 @@ export function ReplayLibrary() {
   const view = parseView(viewParam)
 
   const computerLabel = t('game.playerName.computer', 'Computer')
-  const watchTitle = t('replays.library.watchReplay', 'Watch replay')
-  const starTitle = t('replays.library.star', 'Star')
-  const unstarTitle = t('replays.library.unstar', 'Unstar')
+  const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
+  const removeBookmarkTitle = t('replays.library.removeBookmark', 'Remove bookmark')
+
+  // Remembered per-user: hides the game length (a spoiler) from the list rows and the inspector.
+  const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('replaySpoilerFree', false)
 
   // The view is navigation rather than a filter: it isn't included here, and clearing filters
   // leaves it alone.
@@ -690,18 +526,22 @@ export function ReplayLibrary() {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
   }
 
-  const toggleStar = (entry: ReplayLibraryEntry) => {
-    const starred = entry.starredAt === undefined
+  const toggleBookmark = (entry: ReplayLibraryEntry) => {
+    const bookmarked = entry.bookmarkedAt === undefined
     // Update optimistically; the resulting index-changed event will confirm (or correct) shortly.
     setEntries(prev =>
       prev?.map(e =>
-        e.id === entry.id ? { ...e, starredAt: starred ? Date.now() : undefined } : e,
+        e.id === entry.id ? { ...e, bookmarkedAt: bookmarked ? Date.now() : undefined } : e,
       ),
     )
     setStatus(prev =>
-      prev ? { ...prev, starredCount: Math.max(0, prev.starredCount + (starred ? 1 : -1)) } : prev,
+      prev
+        ? { ...prev, bookmarkedCount: Math.max(0, prev.bookmarkedCount + (bookmarked ? 1 : -1)) }
+        : prev,
     )
-    ipcRenderer.invoke('replayLibrarySetStarred', entry.id, starred)?.catch(swallowNonBuiltins)
+    ipcRenderer
+      .invoke('replayLibrarySetBookmarked', entry.id, bookmarked)
+      ?.catch(swallowNonBuiltins)
   }
 
   const addToPlaylist = (playlistId: number, entry: ReplayLibraryEntry) => {
@@ -858,12 +698,12 @@ export function ReplayLibrary() {
         entry={entry}
         selected={entry.id === focusedEntry?.id}
         computerLabel={computerLabel}
-        watchTitle={watchTitle}
-        starTitle={starTitle}
-        unstarTitle={unstarTitle}
+        bookmarkTitle={bookmarkTitle}
+        removeBookmarkTitle={removeBookmarkTitle}
+        spoilerFree={spoilerFree}
         onSelect={setFocusedId}
         onWatch={watchEntry}
-        onToggleStar={toggleStar}
+        onToggleBookmark={toggleBookmark}
       />
     )
   }
@@ -885,14 +725,14 @@ export function ReplayLibrary() {
           />
         </CenteredState>
       )
-    } else if (view.kind === 'starred') {
+    } else if (view.kind === 'bookmarked') {
       listContent = (
         <CenteredState>
           <EmptyStateTitle>
-            {t('replays.library.starredEmpty', 'No starred replays')}
+            {t('replays.library.bookmarkedEmpty', 'No bookmarked replays')}
           </EmptyStateTitle>
           <div>
-            {t('replays.library.starredEmptyBody', 'Star replays to keep them handy here.')}
+            {t('replays.library.bookmarkedEmptyBody', 'Bookmark replays to keep them handy here.')}
           </div>
         </CenteredState>
       )
@@ -960,46 +800,17 @@ export function ReplayLibrary() {
     )
   }
 
-  // The unfiltered size of the current view, so "x of y" is measured against what's actually
-  // being browsed rather than the whole index.
-  let viewTotal: number | undefined
-  switch (view.kind) {
-    case 'all':
-      viewTotal = status?.totalIndexed
-      break
-    case 'starred':
-      viewTotal = status?.starredCount
-      break
-    case 'playlist':
-      viewTotal = playlists.find(p => p.id === view.id)?.count
-      break
-    default:
-      viewTotal = view satisfies never
-  }
+  // The backfill progress rides in the rail beneath the library counts. The scanning phase (total
+  // unknown) is only surfaced while the list is still empty — an already-populated library re-scans
+  // on every startup with no work to do, and a flashing "Scanning…" there would just be noise.
+  const railBackfill =
+    backfill && (backfill.phase === 'indexing' || loadedEntries.length === 0) ? backfill : undefined
 
-  let countLine: React.ReactNode = null
-  if (backfill && (backfill.phase === 'indexing' || loadedEntries.length === 0)) {
-    // A slim progress bar rides above the list for the whole backfill, staying put while rows fill
-    // in beneath it. The scanning phase (total unknown) is only surfaced while the list is still
-    // empty — an already-populated library re-scans on every startup with no work to do, and a
-    // flashing "Scanning…" there would just be noise.
-    countLine = <BackfillProgressBar backfill={backfill} />
-  } else if (entries !== undefined) {
-    countLine = (
-      <CountLine>
-        {hasActiveFilters
-          ? t('replays.library.filteredCount', {
-              defaultValue: '{{shown}} of {{total}} replays',
-              shown: total ?? loadedEntries.length,
-              total: viewTotal ?? loadedEntries.length,
-            })
-          : t('replays.library.replayCount', {
-              defaultValue: '{{count}} replays',
-              count: viewTotal ?? total ?? loadedEntries.length,
-            })}
-      </CountLine>
-    )
-  }
+  // A view with no replays has nothing to inspect, so the panel is dropped entirely (letting the
+  // list fill the width) rather than showing an empty "select a replay" placeholder beside the
+  // empty-state message. It's kept while the query is still in flight (`entries === undefined`) so
+  // it doesn't flicker out and back in on filter/view changes, which briefly clear the entries.
+  const showInspector = entries === undefined || loadedEntries.length > 0
 
   if (unavailable) {
     // The whole feature depends on the main-process service, so when it's down there's nothing to
@@ -1014,7 +825,7 @@ export function ReplayLibrary() {
   }
 
   return (
-    <CenteredContentContainer ref={setScrollParent} $targetWidth={1280}>
+    <CenteredContentContainer ref={setScrollParent} $fullWidth={true} data-content-fullbleed=''>
       <PageColumn>
         <GameFilterBar
           showRankedCustom={false}
@@ -1056,15 +867,16 @@ export function ReplayLibrary() {
             setGameTypeParam(v === undefined ? '' : String(v))
             reset()
           }}
+          spoilerFree={spoilerFree}
+          setSpoilerFree={setSpoilerFree}
         />
-
-        {countLine}
 
         <BodyRow>
           <ReplayLibraryRail
             view={view}
             totalIndexed={status?.totalIndexed ?? 0}
-            starredCount={status?.starredCount ?? 0}
+            bookmarkedCount={status?.bookmarkedCount ?? 0}
+            backfill={railBackfill}
             playlists={playlists}
             onSelectView={v => {
               const encoded = encodeView(v)
@@ -1085,25 +897,28 @@ export function ReplayLibrary() {
             </InfiniteScrollList>
           </ListColumn>
 
-          <ReplayInspector
-            entry={focusedEntry}
-            alignWithFirstRow={!useFlatList}
-            playlists={playlists}
-            changeToken={changeToken}
-            inPlaylistView={view.kind === 'playlist'}
-            canReorder={manualOrder}
-            canMoveUp={canMoveUp}
-            canMoveDown={canMoveDown}
-            onWatch={watchEntry}
-            onReveal={revealEntry}
-            onToggleStar={toggleStar}
-            onAddToPlaylist={addToPlaylist}
-            onRemoveFromPlaylist={() => {
-              if (focusedEntry) removeFromCurrentPlaylist(focusedEntry)
-            }}
-            onMoveUp={() => moveFocusedBy(-1)}
-            onMoveDown={() => moveFocusedBy(1)}
-          />
+          {showInspector ? (
+            <ReplayInspector
+              entry={focusedEntry}
+              alignWithFirstRow={!useFlatList}
+              playlists={playlists}
+              changeToken={changeToken}
+              spoilerFree={spoilerFree}
+              inPlaylistView={view.kind === 'playlist'}
+              canReorder={manualOrder}
+              canMoveUp={canMoveUp}
+              canMoveDown={canMoveDown}
+              onWatch={watchEntry}
+              onReveal={revealEntry}
+              onToggleBookmark={toggleBookmark}
+              onAddToPlaylist={addToPlaylist}
+              onRemoveFromPlaylist={() => {
+                if (focusedEntry) removeFromCurrentPlaylist(focusedEntry)
+              }}
+              onMoveUp={() => moveFocusedBy(-1)}
+              onMoveDown={() => moveFocusedBy(1)}
+            />
+          ) : null}
         </BodyRow>
       </PageColumn>
     </CenteredContentContainer>
