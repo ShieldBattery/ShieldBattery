@@ -192,6 +192,10 @@ pub struct BwScr {
     // init_game_network(0) for now. And that's closer to 1161 behaviour.
     init_game_network: unsafe extern "C" fn(u32),
     process_lobby_commands: unsafe extern "C" fn(*const u8, usize, u32),
+    /// BW's native player-color randomizer, or `None` if analysis couldn't locate it (then base
+    /// colors stay as BW left them). Takes no arguments; assigns `rgb_colors` from the per-player
+    /// color state.
+    randomize_player_colors: Option<unsafe extern "C" fn()>,
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
     storm_create_game: unsafe extern "system" fn(
@@ -1049,6 +1053,12 @@ impl BwScr {
         let process_lobby_commands = analysis
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
+        // Non-fatal: without it, base player colors stay as BW left them (deterministic slot order)
+        // rather than failing game launch.
+        let randomize_player_colors = analysis.randomize_player_colors();
+        if randomize_player_colors.is_none() {
+            warn!("Could not find randomize_player_colors; base colors will not randomize");
+        }
         let send_command = analysis.send_command().ok_or("send_command")?;
         let is_replay = analysis.is_replay().ok_or("is_replay")?;
         let local_player_id = analysis.local_player_id().ok_or("Local player id")?;
@@ -1416,6 +1426,8 @@ impl BwScr {
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             storm_create_game: unsafe { mem::transmute(storm_create_game.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
+            randomize_player_colors: randomize_player_colors
+                .map(|f| unsafe { mem::transmute::<usize, unsafe extern "C" fn()>(f.0 as usize) }),
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
@@ -4061,6 +4073,23 @@ impl BwScr {
         } else if let Some(value) = self.minimap_color_mode.as_ref() {
             let mode = self.saved_minimap_color_mode.load(Ordering::Acquire);
             unsafe { value.write(mode) };
+        }
+    }
+
+    /// Runs BW's native player-color randomizer, then switches `use_rgb_colors` on so its colors
+    /// render. Every playing slot defaults to the "random" color sentinel, so this assigns each a
+    /// synced-random color drawn on the shared game seed (all clients agree with no network relay).
+    /// BW's own game-start path skips this randomize call for SB sessions, leaving deterministic
+    /// slot-order colors, so it's invoked here once game init has run and the RNG seed is set. A
+    /// no-op (leaving BW's colors as-is) when the randomizer wasn't located during analysis. Runs
+    /// before the custom team-color engine snapshots the color state, so that engine's non-preset
+    /// modes restore this randomized baseline rather than slot-order colors.
+    pub fn randomize_base_player_colors(&self) {
+        if let Some(randomize) = self.randomize_player_colors {
+            unsafe {
+                randomize();
+                self.use_rgb_colors.write(1);
+            }
         }
     }
 

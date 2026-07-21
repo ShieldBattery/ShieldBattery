@@ -743,6 +743,13 @@ impl<'e> Analysis<'e> {
         self.0.rgb_colors()
     }
 
+    /// Assigns each player a color: fixed palette colors stay, and every player whose chosen-color
+    /// index is the "random" sentinel (0x16) draws a distinct color from the remaining pool via the
+    /// synced RNG, writing it into `rgb_colors`. Takes no arguments; operates on the color globals.
+    pub fn randomize_player_colors(&mut self) -> Option<VirtualAddress> {
+        self.0.randomize_player_colors()
+    }
+
     /// The Shift+Tab minimap player-color cycle value (0 = normal colors, higher values recolor
     /// allies/enemies/self on the minimap and game view).
     pub fn minimap_color_mode(&mut self) -> Option<Operand<'e>> {
