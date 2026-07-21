@@ -21,8 +21,8 @@ import {
 } from './netcode-v2-game-event-service'
 
 const gameEventsThrottle = createThrottle('netcodeV2GameEvents', {
-  rate: 20,
-  burst: 40,
+  rate: 60,
+  burst: 300,
   window: 60000,
 })
 
