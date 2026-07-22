@@ -557,10 +557,13 @@ export function ReplayLibrary() {
       ?.catch(swallowNonBuiltins)
   }
 
-  // Only meaningful in a playlist's manual order, where the loaded index (contiguous from offset
-  // 0) matches the playlist's manual index.
+  // Move up/down sends the loaded index directly as an absolute playlist position, which is only
+  // correct when the loaded list is the complete playlist in manual order (contiguous from offset
+  // 0, ordered purely by position). Value filters break that: they subset the list, so a loaded
+  // index no longer maps to a playlist position.
+  const canReorder = manualOrder && !hasActiveFilters
   const moveFocusedBy = (delta: number) => {
-    if (view.kind !== 'playlist' || !manualOrder || !focusedEntry || focusedIndex < 0) return
+    if (view.kind !== 'playlist' || !canReorder || !focusedEntry || focusedIndex < 0) return
     const toIndex = focusedIndex + delta
     if (toIndex < 0 || toIndex >= (total ?? loadedEntries.length)) return
     ipcRenderer
@@ -568,9 +571,9 @@ export function ReplayLibrary() {
       ?.catch(swallowNonBuiltins)
   }
 
-  const canMoveUp = manualOrder && focusedIndex > 0
+  const canMoveUp = canReorder && focusedIndex > 0
   const canMoveDown =
-    manualOrder && focusedIndex >= 0 && focusedIndex < (total ?? loadedEntries.length) - 1
+    canReorder && focusedIndex >= 0 && focusedIndex < (total ?? loadedEntries.length) - 1
 
   const scrollToIndex = (index: number) => {
     // Only one of these lists is mounted at a time, so the other ref is null.
@@ -905,7 +908,7 @@ export function ReplayLibrary() {
               changeToken={changeToken}
               spoilerFree={spoilerFree}
               inPlaylistView={view.kind === 'playlist'}
-              canReorder={manualOrder}
+              canReorder={canReorder}
               canMoveUp={canMoveUp}
               canMoveDown={canMoveDown}
               onWatch={watchEntry}

@@ -222,7 +222,7 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter'
 
   test("playlistId with no explicit sort orders by the playlist's manual position", () => {
     const { sql } = buildReplaySqlQuery({ playlistId: 7 })
-    expect(sql).toContain('ORDER BY r.parse_error ASC, pe.position ASC, r.id ASC')
+    expect(sql).toContain('ORDER BY pe.position ASC, r.id ASC')
   })
 
   test('an explicit sort overrides the playlist manual order', () => {

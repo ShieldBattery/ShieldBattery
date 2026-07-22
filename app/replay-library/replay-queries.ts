@@ -42,9 +42,10 @@ export function escapeLike(value: string): string {
 
 /**
  * Maps `filters` to the `ORDER BY` clause body used in the replay query. Parse-error rows store
- * zeroed `game_time`/`duration_frames` (see `makeParseErrorRecord`), so every branch leads with
- * `r.parse_error ASC` to pin them after readable replays explicitly, rather than leaving them
- * wherever zero happens to sort.
+ * zeroed `game_time`/`duration_frames` (see `makeParseErrorRecord`), so every sort branch leads
+ * with `r.parse_error ASC` to pin them after readable replays explicitly, rather than leaving
+ * them wherever zero happens to sort. The playlist manual order is the exception: it follows the
+ * user's explicit positions alone.
  *
  * When `filters.playlistId` is set and no explicit `sort` was requested, results follow the
  * playlist's own manual ordering (`pe.position`) instead of the usual sort branches; an explicit
@@ -60,7 +61,10 @@ export function escapeLike(value: string): string {
  */
 function buildOrderByClause(filters: Pick<ReplayLibraryFilters, 'sort' | 'playlistId'>): string {
   if (filters.playlistId !== undefined && filters.sort === undefined) {
-    return 'r.parse_error ASC, pe.position ASC, r.id ASC'
+    // Purely position-ordered, with no parse-error pinning: the user's explicit placement governs
+    // even for unreadable rows, and the client's move up/down maps a loaded list index to an
+    // absolute playlist position, which requires result order to be exactly position order.
+    return 'pe.position ASC, r.id ASC'
   }
 
   const sort = filters.sort ?? GameSortOption.LatestFirst
