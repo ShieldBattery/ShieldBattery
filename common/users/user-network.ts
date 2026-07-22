@@ -90,6 +90,10 @@ export interface GetMatchHistoryQueryParams {
   matchup?: EncodedMatchupString
   sort?: GameSortOption
   offset?: number
+  /** Inclusive lower bound (unix ms) on the game's start time. */
+  startDate?: number
+  /** Inclusive upper bound (unix ms) on the game's start time. */
+  endDate?: number
 }
 
 /**

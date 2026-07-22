@@ -90,6 +90,10 @@ export interface ReplayLibraryFilters {
   offset?: number
   /** Maximum number of entries to return. When omitted, all matches are returned. */
   limit?: number
+  /** Inclusive lower bound (unix ms) on `gameTime`. */
+  gameTimeFrom?: number
+  /** Inclusive upper bound (unix ms) on `gameTime`. */
+  gameTimeTo?: number
 }
 
 /**
@@ -110,6 +114,6 @@ export interface ReplayLibraryStatus {
   bookmarkedCount: number
   /** Present while an initial/ongoing backfill is running. */
   backfill?: ReplayBackfillProgress
-  /** The absolute path of the folder being indexed. */
-  watchedFolder: string
+  /** The absolute paths of the folders being indexed. */
+  watchedFolders: string[]
 }

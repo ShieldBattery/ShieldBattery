@@ -239,7 +239,7 @@ export class GameApi {
   @httpBefore(throttleMiddleware(gamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async getGamesList(ctx: RouterContext): Promise<GetGamesResponse> {
     const {
-      query: { duration, mapName, playerName, format, matchup, sort, offset },
+      query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
     } = validateRequest(ctx, {
       query: Joi.object<GetGamesQueryParams>({
         duration: Joi.string().valid(...Object.values(GameDurationFilter)),
@@ -252,6 +252,8 @@ export class GameApi {
         // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
         // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
         offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
+        startDate: Joi.number().integer().min(0),
+        endDate: Joi.number().integer().min(0),
       }),
     })
 
@@ -266,6 +268,8 @@ export class GameApi {
       format,
       matchup: decodedMatchup,
       sort,
+      startDate,
+      endDate,
     })
 
     const uniqueUsers = new Set<SbUserId>()

@@ -23,8 +23,8 @@ const MAX_CONSECUTIVE_RESTARTS = 5
 export interface ReplayLibraryOptions {
   /** Absolute path to the SQLite index file. */
   dbPath: string
-  /** Absolute path to the replay folder to index (watched recursively). */
-  watchedFolder: string
+  /** Absolute paths of the replay folders to index (each watched recursively). */
+  watchedFolders: ReadonlyArray<string>
   /** Returns the sender for the current renderer window, so change events reach it even after the
    * window is recreated. */
   getSender: () => TypedIpcSender
@@ -42,8 +42,15 @@ export class ReplayLibraryService {
   private nextRequestId = 0
   private consecutiveRestarts = 0
   private readonly pending = new Map<number, Deferred<any>>()
+  /**
+   * The folders currently being indexed. Kept as service state (rather than reading `options` each
+   * time) so a crashed worker respawns with the latest set, not the one it was first created with.
+   */
+  private watchedFolders: ReadonlyArray<string>
 
   constructor(private readonly options: ReplayLibraryOptions) {
+    this.watchedFolders = options.watchedFolders
+
     const ipcMain = new TypedIpcMain()
     ipcMain.handle('replayLibraryQuery', async (_event, filters) => this.call('query', filters))
     ipcMain.handle('replayLibraryStatus', async () => this.call('status'))
@@ -90,10 +97,25 @@ export class ReplayLibraryService {
     ipcMain.handle(
       'replayLibrarySaveReplay',
       async (_event, gameId, filename, expectedHash, data) =>
-        saveReplayToLibrary(this.options.watchedFolder, gameId, filename, expectedHash, data),
+        // Saved replays go into the first configured folder; the watcher then indexes them from
+        // there. The list is always non-empty (it resolves to the default folder when unset).
+        saveReplayToLibrary(this.watchedFolders[0], gameId, filename, expectedHash, data),
     )
 
     this.startWorker()
+  }
+
+  /**
+   * Swaps the folders being indexed: updates the stored set (so a worker respawn uses it) and
+   * forwards it to the running worker's watcher. Also notifies the renderer, since the folder set is
+   * surfaced in the library status and a folder change may not itself produce a reconcile event.
+   */
+  setWatchedFolders(folders: ReadonlyArray<string>): void {
+    this.watchedFolders = folders
+    this.call('setWatchedFolders', [...folders]).catch(err => {
+      log.error(`Error updating replay library folders: ${getErrorStack(err)}`)
+    })
+    this.notifyChanged()
   }
 
   /** Notifies the renderer that the index changed, for mutations outside the watcher's own path. */
@@ -107,7 +129,7 @@ export class ReplayLibraryService {
       // loads the prebuilt bundle directly (see `webpack.config.js`), so `entry` is unused there.
       entry: isDev ? path.join(__dirname, 'worker', 'db-worker.ts') : undefined,
       dbPath: this.options.dbPath,
-      watchedFolder: this.options.watchedFolder,
+      watchedFolders: [...this.watchedFolders],
     }
     const worker = isDev
       ? new Worker(path.join(__dirname, 'worker', 'launch.js'), {

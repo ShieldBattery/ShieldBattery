@@ -16,8 +16,8 @@ export interface ReplayDbWorkerData {
   entry?: string
   /** Absolute path to the SQLite index file. */
   dbPath: string
-  /** Absolute path to the replay folder to index (watched recursively). */
-  watchedFolder: string
+  /** Absolute paths of the replay folders to index (each watched recursively). */
+  watchedFolders: string[]
 }
 
 /** A page of query results, matching `ReplayDb.query`'s return shape. */
@@ -44,6 +44,11 @@ export interface ReplayDbCalls {
   movePlaylistEntry: (playlistId: number, replayId: number, toIndex: number) => void
   getPlaylistsForReplay: (replayId: number) => Array<{ id: number; name: string }>
   findReplayIdByGameId: (gameId: string) => number | undefined
+  /**
+   * Replaces the set of watched folders. This is watcher control rather than a DB read/write, but it
+   * rides the same call channel so it stays ordered with the queries the worker serves.
+   */
+  setWatchedFolders: (folders: string[]) => void
 }
 
 // --- Main thread -> worker ---

@@ -18,6 +18,7 @@ import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
+import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
@@ -32,7 +33,7 @@ import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
-import { setupReplayLibrary } from './replay-library'
+import { ReplayLibraryService, setupReplayLibrary } from './replay-library'
 import { parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
@@ -134,6 +135,10 @@ let mainWindow: BrowserWindow | null
 let systemTray: SystemTray
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let gameServer: GameServer
+let replayLibrary: ReplayLibraryService | undefined
+// The replay folders last handed to the library service, so a settings change is only forwarded
+// when the resolved list actually differs. Seeded when the service is created.
+let lastReplayFolders: string[] | undefined
 // Only one Twitch OAuth flow can run at a time (it binds a fixed loopback port).
 let twitchOauthFlowActive = false
 // Settles the in-flight Twitch OAuth flow early (set while one is running).
@@ -166,6 +171,22 @@ function handleLaunchArgs(args: string[]) {
     TypedIpcSender.from(mainWindow?.webContents).send('replaysOpen', replays)
     mainWindow?.show()
   }
+}
+
+/** The default replay folder, indexed when the user hasn't configured their own. */
+function defaultReplayFolder(): string {
+  return path.join(app.getPath('documents'), 'Starcraft', 'maps', 'replays')
+}
+
+/**
+ * The absolute folders the replay library should index for the given settings: the user's
+ * configured non-empty list (normalized), or the default folder when none are configured.
+ */
+function resolveReplayFolders(settings: Readonly<Partial<LocalSettings>>): string[] {
+  const configured = settings.replayLibraryFolders
+    ?.map(folder => path.normalize(folder))
+    .filter(folder => folder.length > 0)
+  return configured && configured.length > 0 ? configured : [defaultReplayFolder()]
 }
 
 let cachedIds: [number, string][] = []
@@ -509,6 +530,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
       lastRunAppAtSystemStartMinimized = settings.runAppAtSystemStartMinimized
     }
 
+    if (replayLibrary) {
+      const folders = resolveReplayFolders(settings)
+      if (
+        !lastReplayFolders ||
+        folders.length !== lastReplayFolders.length ||
+        folders.some((folder, i) => folder !== lastReplayFolders![i])
+      ) {
+        lastReplayFolders = folders
+        replayLibrary.setWatchedFolders(folders)
+      }
+    }
+
     TypedIpcSender.from(mainWindow?.webContents).send('settingsLocalChanged', settings)
   })
   scrSettings.on('change', settings => {
@@ -672,6 +705,18 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
 
     return { canceled, filePaths }
   })
+
+  ipcMain.handle('settingsBrowseForFolder', async (event, options) => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
+      title: options.title,
+      defaultPath: options.defaultPath,
+      properties: ['openDirectory'],
+    })
+
+    return { canceled, filePaths }
+  })
+
+  ipcMain.handle('settingsGetDefaultReplayFolder', async () => defaultReplayFolder())
 
   ipcMain.handle('settingsGetPrimaryResolution', async event => {
     const primaryDisplay = screen.getPrimaryDisplay()
@@ -1260,9 +1305,11 @@ app.on('ready', () => {
       await createWindow()
 
       try {
-        setupReplayLibrary({
+        const watchedFolders = resolveReplayFolders(await localSettings.get())
+        lastReplayFolders = watchedFolders
+        replayLibrary = setupReplayLibrary({
           dbPath: path.join(app.getPath('userData'), 'replay-library.sqlite'),
-          watchedFolder: path.join(app.getPath('documents'), 'Starcraft', 'maps', 'replays'),
+          watchedFolders,
           getSender: () => TypedIpcSender.from(mainWindow?.webContents),
         })
       } catch (err) {

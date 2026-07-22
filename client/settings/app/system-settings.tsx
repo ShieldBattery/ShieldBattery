@@ -1,5 +1,6 @@
 import { TFunction } from 'i18next'
 import { useAtomValue } from 'jotai'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -7,6 +8,7 @@ import {
   GameServerRegionId,
   GameServerRegionLatencies,
 } from '../../../common/game-server-regions'
+import { TypedIpcRenderer } from '../../../common/ipc'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import {
   gameServerRegionLatenciesAtom,
@@ -14,14 +16,37 @@ import {
 } from '../../game-server-regions/game-server-regions-atoms'
 import { getRegionDisplayName } from '../../game-server-regions/region-names'
 import { pickAutoRegion } from '../../game-server-regions/region-resolution'
+import { MaterialIcon } from '../../icons/material/material-icon'
+import logger from '../../logging/logger'
 import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchmaking-atoms'
+import { IconButton, TextButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
+import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodySmall } from '../../styles/typography'
+import { bodyMedium, bodySmall, singleLine } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
 import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
+
+const ipcRenderer = new TypedIpcRenderer()
+
+/**
+ * Removes duplicate folders case-insensitively (Windows paths compare case-insensitively), keeping
+ * the first occurrence's original casing.
+ */
+function dedupeFolders(folders: ReadonlyArray<string>): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const folder of folders) {
+    const key = folder.toLowerCase()
+    if (!seen.has(key)) {
+      seen.add(key)
+      result.push(folder)
+    }
+  }
+  return result
+}
 
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
@@ -34,6 +59,49 @@ const NetworkOverline = styled(SectionOverline)`
 const RegionLockedText = styled.div`
   ${bodySmall};
   color: var(--theme-on-surface-variant);
+`
+
+const ReplayFoldersBlock = styled.div`
+  margin-top: 16px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
+const ReplayFoldersDescription = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const FolderList = styled.div`
+  display: flex;
+  flex-direction: column;
+`
+
+const FolderRow = styled.div`
+  min-height: 40px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`
+
+const FolderPath = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+
+  flex: 1 1 auto;
+  min-width: 0;
+`
+
+const DefaultHint = styled.span`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const AddFolderButton = styled(TextButton)`
+  align-self: flex-start;
 `
 
 /**
@@ -133,6 +201,61 @@ export function AppSystemSettings() {
     },
   })
 
+  // The replay folders live outside the form model: they persist immediately on add/remove rather
+  // than being bound to a field that saves on change.
+  const configuredFolders = localSettings.replayLibraryFolders ?? []
+  const usingDefault = configuredFolders.length === 0
+  // The renderer can't compute the OS documents directory, so the main process resolves the default
+  // replay folder for display (and as the picker's starting location when nothing is configured).
+  const [defaultFolder, setDefaultFolder] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    let active = true
+    ipcRenderer
+      .invoke('settingsGetDefaultReplayFolder')!
+      .then(folder => {
+        if (active) {
+          setDefaultFolder(folder)
+        }
+      })
+      .catch(err => {
+        logger.error(`Failed to get the default replay folder: ${err?.stack ?? err}`)
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const saveFolders = (folders: ReadonlyArray<string>) => {
+    dispatch(
+      mergeLocalSettings(
+        { replayLibraryFolders: dedupeFolders(folders) },
+        { onSuccess: () => {}, onError: () => {} },
+      ),
+    )
+  }
+
+  const onAddFolderClick = () => {
+    Promise.resolve()
+      .then(async () => {
+        const selection = await ipcRenderer.invoke('settingsBrowseForFolder', {
+          title: t('settings.app.system.addReplayFolderTitle', 'Select a replay folder'),
+          defaultPath: configuredFolders[0] ?? defaultFolder,
+        })!
+        if (selection.canceled || selection.filePaths.length === 0) {
+          return
+        }
+        saveFolders([...configuredFolders, selection.filePaths[0]])
+      })
+      .catch(err => {
+        logger.error(`Failed to browse for a replay folder: ${err?.stack ?? err}`)
+      })
+  }
+
+  const onRemoveFolder = (folder: string) => {
+    // Removing the last explicit folder saves `[]`, which resolves back to the default folder.
+    saveFolders(configuredFolders.filter(f => f !== folder))
+  }
+
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
@@ -146,6 +269,49 @@ export function AppSystemSettings() {
             )}
             inputProps={{ tabIndex: 0 }}
           />
+
+          <ReplayFoldersBlock>
+            <SectionOverline>
+              {t('settings.app.system.replayFoldersTitle', 'Replay folders')}
+            </SectionOverline>
+            <ReplayFoldersDescription>
+              {t(
+                'settings.app.system.replayFoldersDescription',
+                'Folders indexed by your replay library. Removing a folder removes its replays from ' +
+                  'the library, including their bookmarks and playlist entries.',
+              )}
+            </ReplayFoldersDescription>
+
+            <FolderList>
+              {usingDefault ? (
+                <FolderRow>
+                  <FolderPath title={defaultFolder}>{defaultFolder ?? ''}</FolderPath>
+                  <DefaultHint>
+                    {t('settings.app.system.replayFolderDefaultHint', '(default)')}
+                  </DefaultHint>
+                </FolderRow>
+              ) : (
+                configuredFolders.map(folder => (
+                  <FolderRow key={folder}>
+                    <FolderPath title={folder}>{folder}</FolderPath>
+                    <Tooltip text={t('settings.app.system.removeReplayFolder', 'Remove folder')}>
+                      <IconButton
+                        icon={<MaterialIcon icon='delete' />}
+                        ariaLabel={t('settings.app.system.removeReplayFolder', 'Remove folder')}
+                        onClick={() => onRemoveFolder(folder)}
+                      />
+                    </Tooltip>
+                  </FolderRow>
+                ))
+              )}
+            </FolderList>
+
+            <AddFolderButton
+              label={t('settings.app.system.addReplayFolder', 'Add folder')}
+              iconStart={<MaterialIcon icon='add' />}
+              onClick={onAddFolderClick}
+            />
+          </ReplayFoldersBlock>
         </SectionContainer>
         <SectionContainer>
           <SectionOverline>{t('settings.app.system.startupOverline', 'Startup')}</SectionOverline>

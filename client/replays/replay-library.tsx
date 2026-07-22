@@ -1,4 +1,5 @@
 import { debounce } from 'lodash-es'
+import * as React from 'react'
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GroupedVirtuoso, GroupedVirtuosoHandle, Virtuoso, VirtuosoHandle } from 'react-virtuoso'
@@ -27,14 +28,23 @@ import {
   ReplayLibraryStatus,
   ReplayPlaylist,
 } from '../../common/replays-library'
-import { DayHeader, formatDayHeaderLabel, getDayBoundaries } from '../games/day-header'
+import { useContextMenu } from '../dom/use-context-menu'
+import {
+  DayHeader,
+  formatDayHeaderLabel,
+  getDayBoundaries,
+  resolveDateRangeMs,
+} from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
-import { GameListEntryLayout } from '../games/game-list-entry'
+import { GameListEntryLayout, SelectableRowContainer } from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { ButtonStateStyleProps, IconButton, TextButton, useButtonState } from '../material/button'
+import { IconButton, TextButton, useButtonState } from '../material/button'
+import { MenuItem } from '../material/menu/item'
+import { MenuList } from '../material/menu/menu'
+import { Popover, usePopoverController } from '../material/popover'
 import { Ripple } from '../material/ripple'
 import { Tooltip } from '../material/tooltip'
 import { useLocationSearchParam } from '../navigation/router-hooks'
@@ -46,7 +56,7 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { startReplay } from './action-creators'
-import { ReplayInspector } from './replay-inspector'
+import { AddToPlaylistMenuItems, ReplayActionMenuItems, ReplayInspector } from './replay-inspector'
 import {
   encodeView,
   getReplayDisplayTeams,
@@ -96,21 +106,36 @@ function parseModeFilter(value: string): SupportedReplayGameType | 'others' | un
     : undefined
 }
 
-/**
- * Assembles the query filters (everything but paging) from the current view and filter/sort
- * values. `sort` is `undefined` in a playlist's manual order, which the query treats as "use the
- * playlist's arrangement".
- */
-function buildFilters(
-  view: LibraryView,
-  sort: GameSortOption | undefined,
-  mapName: string,
-  playerName: string,
-  gameType: number | 'others' | undefined,
-  duration: GameDurationFilter,
-  format: GameFormat | undefined,
-  matchup: EncodedMatchupString | undefined,
-): ReplayLibraryFilters {
+interface BuildFiltersParams {
+  view: LibraryView
+  /**
+   * `undefined` in a playlist's manual order, which the query treats as "use the playlist's
+   * arrangement".
+   */
+  sort: GameSortOption | undefined
+  mapName: string
+  playerName: string
+  gameType: number | 'others' | undefined
+  duration: GameDurationFilter
+  format: GameFormat | undefined
+  matchup: EncodedMatchupString | undefined
+  startDate: string
+  endDate: string
+}
+
+/** Assembles the query filters (everything but paging) from the current view and filter/sort values. */
+function buildFilters({
+  view,
+  sort,
+  mapName,
+  playerName,
+  gameType,
+  duration,
+  format,
+  matchup,
+  startDate,
+  endDate,
+}: BuildFiltersParams): ReplayLibraryFilters {
   const filters: ReplayLibraryFilters = {}
   if (view.kind === 'bookmarked') {
     filters.bookmarked = true
@@ -126,6 +151,9 @@ function buildFilters(
     filters.format = format
     if (matchup) filters.matchup = matchup
   }
+  const { startMs, endMs } = resolveDateRangeMs(startDate, endDate)
+  if (startMs !== undefined) filters.gameTimeFrom = startMs
+  if (endMs !== undefined) filters.gameTimeTo = endMs
   return filters
 }
 
@@ -207,25 +235,6 @@ export function ReplayLibraryUnavailable() {
 
 // ---- Row -------------------------------------------------------------------------------------
 
-const ReplayRowContainer = styled.div<ButtonStateStyleProps & { $selected: boolean }>`
-  position: relative;
-  width: 100%;
-
-  border-radius: 8px;
-  contain: content;
-  cursor: pointer;
-
-  background-color: ${props =>
-    props.$selected ? 'rgb(from var(--theme-on-surface) r g b / 0.1)' : 'transparent'};
-
-  &:hover {
-    background-color: ${props =>
-      props.$selected
-        ? 'rgb(from var(--theme-on-surface) r g b / 0.12)'
-        : 'rgb(from var(--theme-on-surface) r g b / 0.06)'};
-  }
-`
-
 const ParseErrorPlayers = styled.div`
   ${titleSmall};
 
@@ -269,6 +278,7 @@ interface ReplayListEntryProps {
   onSelect: (id: number) => void
   onWatch: (entry: ReplayLibraryEntry) => void
   onToggleBookmark: (entry: ReplayLibraryEntry) => void
+  onContextMenu: (entry: ReplayLibraryEntry, event: React.MouseEvent) => void
 }
 
 function ReplayListEntry({
@@ -281,6 +291,7 @@ function ReplayListEntry({
   onSelect,
   onWatch,
   onToggleBookmark,
+  onContextMenu,
 }: ReplayListEntryProps) {
   const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({
@@ -319,7 +330,10 @@ function ReplayListEntry({
   )
 
   return (
-    <ReplayRowContainer {...buttonProps} $selected={selected}>
+    <SelectableRowContainer
+      {...buttonProps}
+      $selected={selected}
+      onContextMenu={event => onContextMenu(entry, event)}>
       <GameListEntryLayout
         fillPlayers={true}
         dense={true}
@@ -334,7 +348,7 @@ function ReplayListEntry({
         gameTypeLabel={entry.parseError ? '' : replayGameTypeToLabel(entry.gameType, t)}
       />
       <Ripple ref={rippleRef} />
-    </ReplayRowContainer>
+    </SelectableRowContainer>
   )
 }
 
@@ -364,6 +378,12 @@ export function ReplayLibrary() {
   const groupedRef = useRef<GroupedVirtuosoHandle>(null)
   const flatRef = useRef<VirtuosoHandle>(null)
 
+  // Right-click on a row selects it and opens this menu at the cursor, offering the same actions
+  // as the inspector's overflow menu.
+  const { onContextMenu: openRowContextMenu, contextMenuPopoverProps } = useContextMenu()
+  const [addToPlaylistMenuOpen, openAddToPlaylistMenu, closeAddToPlaylistMenu] =
+    usePopoverController()
+
   // Guards against IPC responses for a query that's since been superseded by a `reset()` (e.g. the
   // user changed filters while a request was in flight).
   const queryEpochRef = useRef(0)
@@ -376,6 +396,8 @@ export function ReplayLibrary() {
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
   const [gameTypeParam, setGameTypeParam] = useLocationSearchParam('gameType')
   const [viewParam, setViewParam] = useLocationSearchParam('view')
+  const [startDate, setStartDateParam] = useLocationSearchParam('startDate')
+  const [endDate, setEndDateParam] = useLocationSearchParam('endDate')
 
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
@@ -399,7 +421,9 @@ export function ReplayLibrary() {
     !!playerName ||
     !!format ||
     !!matchup ||
-    gameType !== undefined
+    gameType !== undefined ||
+    !!startDate ||
+    !!endDate
 
   const isDurationSort =
     sort === GameSortOption.ShortestFirst || sort === GameSortOption.LongestFirst
@@ -451,16 +475,18 @@ export function ReplayLibrary() {
 
     ipcRenderer
       .invoke('replayLibraryQuery', {
-        ...buildFilters(
+        ...buildFilters({
           view,
-          effectiveSort,
+          sort: effectiveSort,
           mapName,
           playerName,
           gameType,
           duration,
           format,
           matchup,
-        ),
+          startDate,
+          endDate,
+        }),
         offset: 0,
         limit,
       })
@@ -524,6 +550,11 @@ export function ReplayLibrary() {
   }
   const revealEntry = (entry: ReplayLibraryEntry) => {
     ipcRenderer.invoke('pathsShowItemInFolder', entry.path)?.catch(swallowNonBuiltins)
+  }
+
+  const handleRowContextMenu = (entry: ReplayLibraryEntry, event: React.MouseEvent) => {
+    setFocusedId(entry.id)
+    openRowContextMenu(event)
   }
 
   const toggleBookmark = (entry: ReplayLibraryEntry) => {
@@ -598,16 +629,18 @@ export function ReplayLibrary() {
 
     ipcRenderer
       .invoke('replayLibraryQuery', {
-        ...buildFilters(
+        ...buildFilters({
           view,
-          effectiveSort,
+          sort: effectiveSort,
           mapName,
           playerName,
           gameType,
           duration,
           format,
           matchup,
-        ),
+          startDate,
+          endDate,
+        }),
         offset: entries?.length ?? 0,
         limit: LOAD_CHUNK_SIZE,
       })
@@ -638,6 +671,8 @@ export function ReplayLibrary() {
     setFormatParam('')
     setMatchupParam('')
     setGameTypeParam('')
+    setStartDateParam('')
+    setEndDateParam('')
     reset()
     // `sort` is a view option (not a filter), so it's intentionally left untouched.
   }
@@ -723,6 +758,7 @@ export function ReplayLibrary() {
         onSelect={setFocusedId}
         onWatch={watchEntry}
         onToggleBookmark={toggleBookmark}
+        onContextMenu={handleRowContextMenu}
       />
     )
   }
@@ -778,7 +814,9 @@ export function ReplayLibrary() {
               'Replays you watch and play will show up here automatically.',
             )}
           </div>
-          {status?.watchedFolder ? <EmptyStatePath>{status.watchedFolder}</EmptyStatePath> : null}
+          {status?.watchedFolders.map(folder => (
+            <EmptyStatePath key={folder}>{folder}</EmptyStatePath>
+          ))}
         </CenteredState>
       )
     }
@@ -888,6 +926,16 @@ export function ReplayLibrary() {
           }}
           spoilerFree={spoilerFree}
           setSpoilerFree={setSpoilerFree}
+          startDate={startDate}
+          setStartDate={v => {
+            setStartDateParam(v)
+            reset()
+          }}
+          endDate={endDate}
+          setEndDate={v => {
+            setEndDateParam(v)
+            reset()
+          }}
         />
 
         <BodyRow>
@@ -922,7 +970,6 @@ export function ReplayLibrary() {
               alignWithFirstRow={!useFlatList}
               playlists={playlists}
               changeToken={changeToken}
-              spoilerFree={spoilerFree}
               inPlaylistView={view.kind === 'playlist'}
               canReorder={canReorder}
               canMoveUp={canMoveUp}
@@ -939,6 +986,61 @@ export function ReplayLibrary() {
             />
           ) : null}
         </BodyRow>
+
+        <Popover {...contextMenuPopoverProps}>
+          {focusedEntry ? (
+            <MenuList dense={true}>
+              <MenuItem
+                icon={<MaterialIcon icon='play_arrow' />}
+                text={t('replays.library.watchReplay', 'Watch replay')}
+                onClick={() => {
+                  contextMenuPopoverProps.onDismiss()
+                  watchEntry(focusedEntry)
+                }}
+              />
+              <MenuItem
+                icon={
+                  <MaterialIcon icon='bookmark' filled={focusedEntry.bookmarkedAt !== undefined} />
+                }
+                text={
+                  focusedEntry.bookmarkedAt !== undefined
+                    ? t('replays.library.removeBookmark', 'Remove bookmark')
+                    : t('replays.library.bookmark', 'Bookmark')
+                }
+                onClick={() => {
+                  contextMenuPopoverProps.onDismiss()
+                  toggleBookmark(focusedEntry)
+                }}
+              />
+              <ReplayActionMenuItems
+                entry={focusedEntry}
+                inPlaylistView={view.kind === 'playlist'}
+                closeMenu={contextMenuPopoverProps.onDismiss}
+                onOpenAddToPlaylist={openAddToPlaylistMenu}
+                onRemoveFromPlaylist={() => removeFromCurrentPlaylist(focusedEntry)}
+                onReveal={revealEntry}
+              />
+            </MenuList>
+          ) : null}
+        </Popover>
+        <Popover
+          open={addToPlaylistMenuOpen}
+          onDismiss={closeAddToPlaylistMenu}
+          anchorX={contextMenuPopoverProps.anchorX}
+          anchorY={contextMenuPopoverProps.anchorY}
+          originX={contextMenuPopoverProps.originX}
+          originY={contextMenuPopoverProps.originY}>
+          {focusedEntry ? (
+            <MenuList dense={true}>
+              <AddToPlaylistMenuItems
+                entry={focusedEntry}
+                playlists={playlists}
+                closeMenu={closeAddToPlaylistMenu}
+                onAddToPlaylist={addToPlaylist}
+              />
+            </MenuList>
+          ) : null}
+        </Popover>
       </PageColumn>
     </CenteredContentContainer>
   )

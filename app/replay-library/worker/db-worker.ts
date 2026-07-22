@@ -15,7 +15,7 @@ if (isMainThread) {
   throw new Error('db-worker should not be run in the main thread')
 }
 
-const { dbPath, watchedFolder } = workerData as ReplayDbWorkerData
+const { dbPath, watchedFolders } = workerData as ReplayDbWorkerData
 
 function post(message: FromWorkerMessage): void {
   parentPort!.postMessage(message)
@@ -51,7 +51,7 @@ function openReplayDb(path: string): ReplayDb {
 }
 
 const db = openReplayDb(dbPath)
-const watcher = new ReplayWatcher(watchedFolder, db, logger, {
+const watcher = new ReplayWatcher(watchedFolders, db, logger, {
   onProgress: progress => post({ type: 'backfillProgress', progress }),
   onChange: () => post({ type: 'changed' }),
 })
@@ -61,7 +61,7 @@ function getStatus(): ReplayLibraryStatus {
     totalIndexed: db.getTotalIndexed(),
     bookmarkedCount: db.getBookmarkedCount(),
     backfill: watcher.getBackfillProgress(),
-    watchedFolder,
+    watchedFolders: watcher.getWatchedFolders(),
   }
 }
 
@@ -80,6 +80,7 @@ const calls: ReplayDbCalls = {
     db.movePlaylistEntry(playlistId, replayId, toIndex),
   getPlaylistsForReplay: replayId => db.getPlaylistsForReplay(replayId),
   findReplayIdByGameId: gameId => db.findReplayIdByGameId(gameId),
+  setWatchedFolders: folders => watcher.setWatchedFolders(folders),
 }
 
 parentPort!.on('message', (message: ToWorkerMessage) => {

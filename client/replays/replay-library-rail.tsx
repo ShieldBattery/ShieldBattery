@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ReplayBackfillProgress, ReplayPlaylist } from '../../common/replays-library'
@@ -8,7 +9,7 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { OriginX, Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyMedium, labelMedium, singleLine } from '../styles/typography'
 import { LibraryView } from './replay-library-helpers'
@@ -151,6 +152,7 @@ function RailItem({
   count,
   selected,
   onClick,
+  onContextMenu,
   actions,
   actionsForceVisible = false,
 }: {
@@ -159,6 +161,7 @@ function RailItem({
   count?: number
   selected: boolean
   onClick: () => void
+  onContextMenu?: (event: React.MouseEvent) => void
   actions?: React.ReactNode
   actionsForceVisible?: boolean
 }) {
@@ -170,6 +173,7 @@ function RailItem({
       role='button'
       tabIndex={0}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       onKeyDown={event => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
@@ -207,6 +211,13 @@ function PlaylistRailItem({
   const dispatch = useAppDispatch()
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+  // Overrides the overflow button's anchor with the cursor position when the menu was opened via
+  // right-click instead; cleared again once the button reopens it.
+  const [cursorAnchor, setCursorAnchor] = useState<{ x: number; y: number }>()
+
+  const menuAnchorX = cursorAnchor ? cursorAnchor.x : (anchorX ?? 0)
+  const menuAnchorY = cursorAnchor ? cursorAnchor.y : (anchorY ?? 0)
+  const menuOriginX: OriginX = cursorAnchor ? 'left' : 'right'
 
   return (
     <>
@@ -216,6 +227,11 @@ function PlaylistRailItem({
         count={playlist.count}
         selected={selected}
         onClick={onSelect}
+        onContextMenu={event => {
+          event.preventDefault()
+          setCursorAnchor({ x: event.pageX, y: event.pageY })
+          openMenu(event)
+        }}
         actionsForceVisible={menuOpen}
         actions={
           <RailItemMenuButton
@@ -224,6 +240,7 @@ function PlaylistRailItem({
             title={t('replays.library.rail.playlistActions', 'Playlist actions')}
             onClick={event => {
               event.stopPropagation()
+              setCursorAnchor(undefined)
               openMenu(event)
             }}
           />
@@ -232,9 +249,9 @@ function PlaylistRailItem({
       <Popover
         open={menuOpen}
         onDismiss={closeMenu}
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}
-        originX='right'
+        anchorX={menuAnchorX}
+        anchorY={menuAnchorY}
+        originX={menuOriginX}
         originY='top'>
         <MenuList dense={true}>
           <MenuItem

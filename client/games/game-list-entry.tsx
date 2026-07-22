@@ -2,23 +2,18 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { getErrorStack } from '../../common/errors'
 import { GameRecordJson, getGameDurationString, getGameTypeLabel } from '../../common/games/games'
 import { getResultLabel, ReconciledResult } from '../../common/games/results'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { openSimpleDialog } from '../dialogs/action-creators'
 import { longTimestamp, narrowDuration } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { IconButton, useButtonState } from '../material/button'
+import { ButtonStateStyleProps, IconButton, useButtonState } from '../material/button'
 import { LinkButton } from '../material/link-button'
 import { Ripple } from '../material/ripple'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { saveReplayToLibrary, watchReplayFromUrl } from '../replays/action-creators'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { useAppSelector } from '../redux-hooks'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
   bodyMedium,
@@ -29,6 +24,7 @@ import {
 } from '../styles/typography'
 import { getGameResultsUrl } from './action-creators'
 import { GamePlayersDisplay } from './game-players-display'
+import { useGameReplayActions } from './use-game-replay-actions'
 
 const GameListEntryRoot = styled.div<{
   $fillPlayers?: boolean
@@ -313,20 +309,64 @@ export function GameListEntryLayout({
   )
 }
 
+/**
+ * A selectable row container matching the replay library's row, for pages that let a game row be
+ * clicked to show its details in a side panel rather than navigating straight to its results page.
+ */
+export const SelectableRowContainer = styled.div<ButtonStateStyleProps & { $selected: boolean }>`
+  position: relative;
+  width: 100%;
+
+  border-radius: 8px;
+  contain: content;
+  cursor: pointer;
+
+  background-color: ${props =>
+    props.$selected ? 'rgb(from var(--theme-on-surface) r g b / 0.1)' : 'transparent'};
+
+  &:hover {
+    background-color: ${props =>
+      props.$selected
+        ? 'rgb(from var(--theme-on-surface) r g b / 0.12)'
+        : 'rgb(from var(--theme-on-surface) r g b / 0.06)'};
+  }
+`
+
 export interface GameListEntryProps {
   game: ReadonlyDeep<GameRecordJson>
   showResult?: boolean
   forUserId?: SbUserId
+  /** Shows the row in its selected state. Only meaningful when `onClick` is provided. */
+  selected?: boolean
+  /**
+   * When provided, the row is rendered as a selectable row (see `SelectableRowContainer`) that
+   * calls this instead of navigating to the game's results page. Use `onDoubleClick` for
+   * navigation in that case.
+   */
+  onClick?: (gameId: string) => void
+  onDoubleClick?: (gameId: string) => void
+  onContextMenu?: (gameId: string, event: React.MouseEvent) => void
+  ref?: React.Ref<HTMLDivElement>
 }
 
-export function GameListEntry({ game, showResult = false, forUserId }: GameListEntryProps) {
+export function GameListEntry({
+  game,
+  showResult = false,
+  forUserId,
+  selected = false,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  ref,
+}: GameListEntryProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
   const map = useAppSelector(s => s.maps.byId.get(game.mapId))
-  const replayInfo = useAppSelector(s => s.games.replayInfoById.get(game.id))
+  const { replayInfo, onWatchReplay, onSaveReplay } = useGameReplayActions(game)
 
-  const [buttonProps, rippleRef] = useButtonState({})
+  const [buttonProps, rippleRef] = useButtonState({
+    onClick: onClick ? () => onClick(game.id) : undefined,
+    onDoubleClick: onDoubleClick ? () => onDoubleClick(game.id) : undefined,
+  })
 
   const { results, startTime } = game
 
@@ -345,60 +385,18 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
   const gameType = getGameTypeLabel(game, t)
   const mapName = map?.name ?? t('game.mapName.unknown', 'Unknown map')
 
-  const onWatchReplay = (e: React.MouseEvent) => {
+  const handleWatchReplay = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // This is needed to prevent the link from being followed
+    // This is needed to prevent the link from being followed / the row from being selected.
     e.preventDefault()
-
-    if (!replayInfo) return
-
-    dispatch(
-      watchReplayFromUrl(replayInfo, game.id, {
-        onSuccess: () => {},
-        onError: err => {
-          logger.error(`Error watching replay: ${getErrorStack(err)}`)
-          dispatch(
-            openSimpleDialog(
-              t('replays.watch.errorTitle', 'Error loading replay'),
-              err?.message ??
-                t(
-                  'replays.watch.errorBody',
-                  'There was a problem downloading or loading the replay. Please try again later.',
-                ),
-            ),
-          )
-        },
-      }),
-    )
+    onWatchReplay()
   }
 
-  const onSaveReplay = (e: React.MouseEvent) => {
+  const handleSaveReplay = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // This is needed to prevent the link from being followed
+    // This is needed to prevent the link from being followed / the row from being selected.
     e.preventDefault()
-
-    if (!replayInfo) return
-
-    dispatch(
-      saveReplayToLibrary(replayInfo, {
-        onSuccess: result => {
-          snackbarController.showSnackbar(
-            result.alreadySaved
-              ? t(
-                  'gameDetails.saveReplayAlreadySaved',
-                  "This game's replay is already in your library",
-                )
-              : t('gameDetails.saveReplaySuccess', 'Replay saved to your library'),
-          )
-        },
-        onError: err => {
-          logger.error(`Error saving replay: ${getErrorStack(err)}`)
-          snackbarController.showSnackbar(
-            t('gameDetails.saveReplayError', 'There was a problem saving the replay'),
-          )
-        },
-      }),
-    )
+    onSaveReplay()
   }
 
   const dateCell = (
@@ -407,61 +405,76 @@ export function GameListEntry({ game, showResult = false, forUserId }: GameListE
     </Tooltip>
   )
 
+  const layoutProps: GameListEntryLayoutProps = {
+    leading:
+      showResult && forUserId ? (
+        <>
+          <GameListEntryResult $result={result}>
+            {getResultLabel(result, t, true)}
+          </GameListEntryResult>
+          {dateCell}
+        </>
+      ) : (
+        dateCell
+      ),
+    players: <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />,
+    duration: game.gameLength ? getGameDurationString(game.gameLength) : '—',
+    mapName,
+    gameTypeLabel: gameType,
+    thumbnail: (
+      <ThumbnailContainer>
+        {map ? (
+          <StyledMapThumbnail
+            key={map.hash}
+            mapId={map.id}
+            size={64}
+            forceAspectRatio={1}
+            hasMapPreviewAction={false}
+            hasFavoriteAction={false}
+          />
+        ) : (
+          <MapNoImageContainer>
+            <MapNoImageIcon />
+          </MapNoImageContainer>
+        )}
+        {IS_ELECTRON && replayInfo && (
+          <WatchReplayOverlay>
+            <Tooltip text={t('gameDetails.buttonWatchReplay', 'Watch replay')} position='top'>
+              <IconButton
+                styledAs='div'
+                icon={<MaterialIcon icon='play_circle' />}
+                onClick={handleWatchReplay}
+              />
+            </Tooltip>
+            <Tooltip text={t('gameDetails.buttonSaveReplay', 'Save replay')} position='top'>
+              <IconButton
+                styledAs='div'
+                icon={<MaterialIcon icon='save' />}
+                onClick={handleSaveReplay}
+              />
+            </Tooltip>
+          </WatchReplayOverlay>
+        )}
+      </ThumbnailContainer>
+    ),
+  }
+
+  if (onClick) {
+    return (
+      <SelectableRowContainer
+        {...buttonProps}
+        $selected={selected}
+        ref={ref}
+        onContextMenu={onContextMenu ? e => onContextMenu(game.id, e) : undefined}>
+        <GameListEntryLayout {...layoutProps} />
+        <Ripple ref={rippleRef} />
+      </SelectableRowContainer>
+    )
+  }
+
   return (
     <LinkButton {...buttonProps} href={getGameResultsUrl(game.id)}>
-      <GameListEntryLayout
-        leading={
-          showResult && forUserId ? (
-            <>
-              <GameListEntryResult $result={result}>
-                {getResultLabel(result, t, true)}
-              </GameListEntryResult>
-              {dateCell}
-            </>
-          ) : (
-            dateCell
-          )
-        }
-        players={<GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />}
-        duration={game.gameLength ? getGameDurationString(game.gameLength) : '—'}
-        mapName={mapName}
-        gameTypeLabel={gameType}
-        thumbnail={
-          <ThumbnailContainer>
-            {map ? (
-              <StyledMapThumbnail
-                key={map.hash}
-                mapId={map.id}
-                size={64}
-                forceAspectRatio={1}
-                hasMapPreviewAction={false}
-                hasFavoriteAction={false}
-              />
-            ) : (
-              <MapNoImageContainer>
-                <MapNoImageIcon />
-              </MapNoImageContainer>
-            )}
-            {IS_ELECTRON && replayInfo && (
-              <WatchReplayOverlay>
-                <Tooltip text={t('gameDetails.buttonWatchReplay', 'Watch replay')} position='top'>
-                  <IconButton
-                    styledAs='div'
-                    icon={<MaterialIcon icon='play_circle' />}
-                    onClick={onWatchReplay}
-                  />
-                </Tooltip>
-                <Tooltip text={t('gameDetails.buttonSaveReplay', 'Save replay')} position='top'>
-                  <IconButton
-                    styledAs='div'
-                    icon={<MaterialIcon icon='save' />}
-                    onClick={onSaveReplay}
-                  />
-                </Tooltip>
-              </WatchReplayOverlay>
-            )}
-          </ThumbnailContainer>
-        }>
+      <GameListEntryLayout {...layoutProps}>
         <Ripple ref={rippleRef} />
       </GameListEntryLayout>
     </LinkButton>

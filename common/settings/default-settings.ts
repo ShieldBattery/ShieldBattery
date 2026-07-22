@@ -41,6 +41,7 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   useCustomCursorSize: false,
   customCursorSize: 0.25,
   gameServerRegion: undefined,
+  replayLibraryFolders: undefined,
 }
 
 export const DEFAULT_SCR_SETTINGS: ReadonlyDeep<Omit<ScrSettings, 'version'>> = {

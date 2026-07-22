@@ -209,6 +209,12 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   visualizeNetworkStalls?: boolean
   disableHd?: boolean
   launch64Bit?: boolean
+
+  /**
+   * Absolute paths of the folders indexed by the replay library. Absent or empty means the default
+   * folder (`Documents/Starcraft/maps/replays`).
+   */
+  replayLibraryFolders?: ReadonlyArray<string>
 }
 
 export interface ScrSettings {

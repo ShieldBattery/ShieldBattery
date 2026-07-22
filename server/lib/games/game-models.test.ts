@@ -148,6 +148,32 @@ describe('games/game-models/getGames', () => {
     const template = query.mock.calls[0][0]
     expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
   })
+
+  test('omits the start_time bounds when startDate/endDate are not given', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('g.start_time >=')
+    expect(template.text).not.toContain('g.start_time <=')
+  })
+
+  test('filters on start_time when startDate/endDate are given', async () => {
+    const query = mockDbClient([])
+    const startDate = Date.parse('2026-07-01T00:00:00.000Z')
+    const endDate = Date.parse('2026-07-21T23:59:59.999Z')
+
+    await getGames({ limit: 10, offset: 0, startDate, endDate })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('g.start_time >=')
+    expect(template.text).toContain('g.start_time <=')
+    expect(template.values).toContainEqual(new Date(startDate))
+    expect(template.values).toContainEqual(new Date(endDate))
+  })
 })
 
 describe('games/game-models/getGamesForUser', () => {
@@ -160,6 +186,34 @@ describe('games/game-models/getGamesForUser', () => {
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
     expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+  })
+
+  test('omits the start_time bounds when startDate/endDate are not given', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(1)
+
+    await getGamesForUser({ userId, limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('g.start_time >=')
+    expect(template.text).not.toContain('g.start_time <=')
+  })
+
+  test('filters on start_time when startDate/endDate are given', async () => {
+    const query = mockDbClient([])
+    const userId = makeSbUserId(1)
+    const startDate = Date.parse('2026-07-01T00:00:00.000Z')
+    const endDate = Date.parse('2026-07-21T23:59:59.999Z')
+
+    await getGamesForUser({ userId, limit: 10, offset: 0, startDate, endDate })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('g.start_time >=')
+    expect(template.text).toContain('g.start_time <=')
+    expect(template.values).toContainEqual(new Date(startDate))
+    expect(template.values).toContainEqual(new Date(endDate))
   })
 })
 
