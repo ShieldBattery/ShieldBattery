@@ -644,6 +644,22 @@ export function ReplayLibrary() {
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
+      // Every key here acts on the replay list, but this page's key listener boundary is shared
+      // with other UI (e.g. the social sidebar's chat input, whose keydowns bubble to the
+      // document). While a text-entry element has focus, the keystroke belongs to it: without
+      // this, pressing Delete while typing in chat would remove the focused replay from a
+      // playlist, and Enter would launch the replay.
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return false
+      }
+
       switch (event.code) {
         case 'ArrowUp':
           moveFocus(-1)
