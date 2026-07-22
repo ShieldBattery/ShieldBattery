@@ -1,6 +1,5 @@
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
-import { SbUserId } from '../../common/users/sb-user-id'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
@@ -119,24 +118,26 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
 }
 
 /**
- * Converts a display layout into `PlayerTeamsDisplay` props. For players whose `sbUserId` resolves
- * to an entry in `resolvedNames`, shows that (current) name instead of the raw in-replay one;
- * falls back to the in-replay name while unresolved or for non-SB replays.
+ * Converts a display layout into `PlayerTeamsDisplay` props. `name` is always the raw in-replay
+ * name (the fallback for players without an SB identity). When `includeUserIds` is true, each
+ * non-computer player with an `sbUserId` also gets a `userId`, letting the display component
+ * render that player as a connected, interactive username instead of the raw name.
  */
 export function playersToDisplayTeams(
   layout: ReplayTeamLayout,
   computerLabel: string,
-  resolvedNames?: ReadonlyMap<SbUserId, string>,
+  includeUserIds = false,
 ): PlayerTeamsDisplayPlayer[][] {
   return layout.teams.map(team =>
     team.map(player => ({
       race: player.race,
       isRandom: false,
-      name: player.isComputer
-        ? computerLabel
-        : ((player.sbUserId !== undefined ? resolvedNames?.get(player.sbUserId) : undefined) ??
-          player.name),
+      name: player.isComputer ? computerLabel : player.name,
       nameColor: 'normal' as const,
+      userId:
+        includeUserIds && !player.isComputer && player.sbUserId !== undefined
+          ? player.sbUserId
+          : undefined,
     })),
   )
 }

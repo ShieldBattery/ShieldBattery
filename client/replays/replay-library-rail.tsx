@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
-import styled, { keyframes } from 'styled-components'
+import styled, { css, keyframes } from 'styled-components'
 import { ReplayBackfillProgress, ReplayPlaylist } from '../../common/replays-library'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -49,7 +49,6 @@ const RailSectionTitle = styled.div`
 // A plain `div` (not `button`) so playlist rows can host a real, non-nested `<button>` for their
 // hover-revealed overflow menu.
 const RailItemRoot = styled.div<{ $selected: boolean }>`
-  position: relative;
   width: 100%;
   height: 34px;
   padding: 0 6px 0 14px;
@@ -71,18 +70,6 @@ const RailItemRoot = styled.div<{ $selected: boolean }>`
         : 'rgb(from var(--theme-on-surface) r g b / 0.06)'};
   }
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 2px;
-
-    border-radius: 1px;
-    background-color: ${props => (props.$selected ? 'var(--theme-primary)' : 'transparent')};
-  }
-
   &:focus-visible {
     outline: 2px solid var(--theme-grey-blue);
     outline-offset: -2px;
@@ -101,15 +88,35 @@ const RailItemLabel = styled.div`
   color: var(--theme-on-surface);
 `
 
-const RailItemCount = styled.div`
+const RailItemCount = styled.div<{ $hasActions: boolean; $hidden: boolean }>`
   ${labelMedium};
-  flex-shrink: 0;
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
+
+  opacity: ${props => (props.$hidden ? 0 : 1)};
+  transition: opacity 0.15s ease;
+
+  ${props =>
+    props.$hasActions
+      ? css`
+          ${RailItemRoot}:hover &,
+          ${RailItemRoot}:focus-visible & {
+            opacity: 0;
+          }
+        `
+      : css``}
 `
 
+// Absolutely positioned over `RailItemEnd` so the action button overlays the count instead of
+// pushing it out of place, keeping the count flush at the same right edge on every row.
 const RailItemActions = styled.div<{ $forceVisible: boolean }>`
-  flex-shrink: 0;
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
   opacity: ${props => (props.$forceVisible ? 1 : 0)};
   transition: opacity 0.15s ease;
 
@@ -122,6 +129,20 @@ const RailItemActions = styled.div<{ $forceVisible: boolean }>`
 const RailItemMenuButton = styled(IconButton)`
   width: 28px;
   min-height: 28px;
+`
+
+// Anchors the count and (if present) the hover-revealed action button to the same right-aligned
+// spot, regardless of whether this row has actions. `min-width` keeps the 28px button from
+// overflowing the row when the count itself is narrow (e.g. a single digit).
+const RailItemEnd = styled.div`
+  position: relative;
+  flex-shrink: 0;
+  min-width: 28px;
+  align-self: stretch;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 `
 
 function RailItem({
@@ -141,6 +162,8 @@ function RailItem({
   actions?: React.ReactNode
   actionsForceVisible?: boolean
 }) {
+  const hasActions = actions !== undefined
+
   return (
     <RailItemRoot
       $selected={selected}
@@ -155,9 +178,17 @@ function RailItem({
       }}>
       <RailItemIcon icon={icon} />
       <RailItemLabel title={label}>{label}</RailItemLabel>
-      {count !== undefined ? <RailItemCount>{count}</RailItemCount> : null}
-      {actions ? (
-        <RailItemActions $forceVisible={actionsForceVisible}>{actions}</RailItemActions>
+      {count !== undefined || hasActions ? (
+        <RailItemEnd>
+          {count !== undefined ? (
+            <RailItemCount $hasActions={hasActions} $hidden={hasActions && actionsForceVisible}>
+              {count}
+            </RailItemCount>
+          ) : null}
+          {actions ? (
+            <RailItemActions $forceVisible={actionsForceVisible}>{actions}</RailItemActions>
+          ) : null}
+        </RailItemEnd>
       ) : null}
     </RailItemRoot>
   )
