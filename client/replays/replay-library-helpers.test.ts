@@ -138,20 +138,29 @@ describe('playersToDisplayTeams', () => {
     expect(teams[0][0].userId).toBeUndefined()
   })
 
-  test('includes the userId alongside the raw name when includeUserIds is true', () => {
+  test('includes the userId alongside the raw name when it is in linkedUserIds', () => {
     const layout = getReplayDisplayTeams([
       makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
     ])
-    const teams = playersToDisplayTeams(layout, computerLabel, true)
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(1)]))
     expect(teams[0][0].name).toBe('raw-name')
     expect(teams[0][0].userId).toBe(makeSbUserId(1))
   })
 
-  test('omits the userId for players without an sbUserId even when includeUserIds is true', () => {
+  test('omits the userId when it is not in linkedUserIds', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(2)]))
+    expect(teams[0][0].name).toBe('raw-name')
+    expect(teams[0][0].userId).toBeUndefined()
+  })
+
+  test('omits the userId for players without an sbUserId even when linkedUserIds is provided', () => {
     const layout = getReplayDisplayTeams([
       makePlayer({ slot: 0, team: 1, race: 't', name: 'bnet-name' }),
     ])
-    const teams = playersToDisplayTeams(layout, computerLabel, true)
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(1)]))
     expect(teams[0][0].name).toBe('bnet-name')
     expect(teams[0][0].userId).toBeUndefined()
   })
@@ -167,7 +176,7 @@ describe('playersToDisplayTeams', () => {
         sbUserId: makeSbUserId(1),
       }),
     ])
-    const teams = playersToDisplayTeams(layout, computerLabel, true)
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(1)]))
     expect(teams[0][0].name).toBe(computerLabel)
     expect(teams[0][0].userId).toBeUndefined()
   })

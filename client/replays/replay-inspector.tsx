@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
@@ -6,6 +6,7 @@ import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
 import { ReplayLibraryEntry, ReplayPlaylist } from '../../common/replays-library'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { getGameResultsUrl } from '../games/action-creators'
@@ -28,8 +29,10 @@ import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { push } from '../navigation/routing'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyMedium, labelMedium } from '../styles/typography'
+import { getBatchUserInfo } from '../users/action-creators'
+import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { useSbGameMap } from './replay-hooks'
 import {
   getReplayDisplayTeams,
@@ -181,6 +184,30 @@ export function ReplayInspector({
     }
   }, [entryId, changeToken])
 
+  const playerUserIds =
+    entry && !entry.parseError
+      ? entry.players.map(p => p.sbUserId).filter((id): id is SbUserId => id !== undefined)
+      : undefined
+  const playerUserEntries = useAppSelector(
+    useUserEntriesSelector(playerUserIds),
+    areUserEntriesEqual,
+  )
+
+  const dispatchPlayerUserInfo = useEffectEvent(() => {
+    if (!entry || entry.parseError) {
+      return
+    }
+    for (const player of entry.players) {
+      if (player.sbUserId !== undefined) {
+        dispatch(getBatchUserInfo(player.sbUserId))
+      }
+    }
+  })
+
+  useEffect(() => {
+    dispatchPlayerUserInfo()
+  }, [entryId])
+
   if (!entry) {
     return (
       <GameSidePanelEmpty alignWithFirstRow={alignWithFirstRow}>
@@ -190,6 +217,11 @@ export function ReplayInspector({
   }
 
   const layout = entry.parseError ? undefined : getReplayDisplayTeams(entry.players)
+  // Only ids the store has resolved render as connected usernames; the rest keep the raw
+  // in-replay name (see `playersToDisplayTeams`).
+  const linkedUserIds = new Set(
+    playerUserEntries.filter(([, name]) => name !== undefined).map(([id]) => id),
+  )
   const teamLabels =
     layout && shouldShowTeamLabels(layout)
       ? layout.teams.map((_, i) =>
@@ -378,7 +410,7 @@ export function ReplayInspector({
           </GameSidePanelHeader>
           <GameSidePanelSection>
             <PlayerTeamsDisplay
-              teams={playersToDisplayTeams(layout!, computerLabel, true)}
+              teams={playersToDisplayTeams(layout!, computerLabel, linkedUserIds)}
               teamLabels={teamLabels}
             />
           </GameSidePanelSection>

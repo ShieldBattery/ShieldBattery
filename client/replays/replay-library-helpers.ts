@@ -1,5 +1,6 @@
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
@@ -119,14 +120,17 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
 
 /**
  * Converts a display layout into `PlayerTeamsDisplay` props. `name` is always the raw in-replay
- * name (the fallback for players without an SB identity). When `includeUserIds` is true, each
- * non-computer player with an `sbUserId` also gets a `userId`, letting the display component
- * render that player as a connected, interactive username instead of the raw name.
+ * name (the fallback for players without an SB identity). Non-computer players whose `sbUserId`
+ * is in `linkedUserIds` also get a `userId`, letting the display component render them as
+ * connected, interactive usernames instead of the raw name. Callers should pass only ids that are
+ * already resolvable from the user store: an `sbUserId` comes from untrusted replay file contents
+ * and can reference an account that doesn't exist, which a connected username would render as a
+ * permanently-loading placeholder.
  */
 export function playersToDisplayTeams(
   layout: ReplayTeamLayout,
   computerLabel: string,
-  includeUserIds = false,
+  linkedUserIds?: ReadonlySet<SbUserId>,
 ): PlayerTeamsDisplayPlayer[][] {
   return layout.teams.map(team =>
     team.map(player => ({
@@ -135,7 +139,7 @@ export function playersToDisplayTeams(
       name: player.isComputer ? computerLabel : player.name,
       nameColor: 'normal' as const,
       userId:
-        includeUserIds && !player.isComputer && player.sbUserId !== undefined
+        !player.isComputer && player.sbUserId !== undefined && linkedUserIds?.has(player.sbUserId)
           ? player.sbUserId
           : undefined,
     })),

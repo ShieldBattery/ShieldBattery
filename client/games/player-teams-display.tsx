@@ -102,7 +102,10 @@ export interface PlayerTeamsDisplayPlayer {
   nameColor?: 'normal' | 'dimmed'
   /**
    * The ShieldBattery user id for this player, if known. When set, the player's name renders as a
-   * connected, interactive username resolved from the store instead of the provided `name`.
+   * connected, interactive username resolved from the store instead of the provided `name`. The
+   * connected name shows a loading placeholder until the store has the user — and forever, if the
+   * id can never be resolved — so callers whose ids come from untrusted sources (e.g. replay
+   * files) should only set this for users known to exist.
    */
   userId?: SbUserId
 }
