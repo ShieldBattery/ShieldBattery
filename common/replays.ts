@@ -1,27 +1,7 @@
+import type { GameType } from '@shieldbattery/broodrep'
 import { TFunction } from 'i18next'
-import { ReplayRace } from 'jssuh'
-import { assertUnreachable } from './assert-unreachable'
-import { RaceChar } from './races'
-import { SbUserId } from './users/sb-user-id'
 
-export function replayRaceToChar(name: ReplayRace): RaceChar {
-  switch (name) {
-    case 'protoss':
-      return 'p'
-    case 'unknown':
-      return 'r'
-    case 'terran':
-      return 't'
-    case 'zerg':
-      return 'z'
-    default:
-      return assertUnreachable(name)
-  }
-}
-
-// TODO(2Pac): Create this enum as a subset from an enum of all possible game types that `jssuh`
-// should expose, so we don't have to use these magic numbers here.
-enum SupportedReplayGameType {
+export enum SupportedReplayGameType {
   Melee = 2,
   FreeForAll = 3,
   OneVsOne = 4,
@@ -35,6 +15,18 @@ enum SupportedReplayGameType {
   TeamCaptureTheFlag = 13,
   TopVsBottom = 15,
 }
+
+/**
+ * The game types offered as standalone options in the replay Mode filter. Anything else is
+ * grouped under the filter's "Others" option.
+ */
+export const FEATURED_REPLAY_GAME_TYPES: ReadonlyArray<SupportedReplayGameType> = [
+  SupportedReplayGameType.Melee,
+  SupportedReplayGameType.FreeForAll,
+  SupportedReplayGameType.OneVsOne,
+  SupportedReplayGameType.UseMapSettings,
+  SupportedReplayGameType.TopVsBottom,
+]
 
 export function replayGameTypeToLabel(gameType: SupportedReplayGameType, t: TFunction): string {
   switch (gameType) {
@@ -67,29 +59,31 @@ export function replayGameTypeToLabel(gameType: SupportedReplayGameType, t: TFun
   }
 }
 
+/**
+ * Maps broodrep's named `GameType` to the numeric game type stored in the replay index, per
+ * broodrep's own `From<u16>` implementation.
+ */
+export const replayGameTypeToNumber: Record<GameType, number> = {
+  none: 0,
+  melee: 2,
+  freeForAll: 3,
+  oneOnOne: 4,
+  captureTheFlag: 5,
+  greed: 6,
+  slaughter: 7,
+  suddenDeath: 8,
+  ladder: 9,
+  useMapSettings: 10,
+  teamMelee: 11,
+  teamFreeForAll: 12,
+  teamCaptureTheFlag: 13,
+  topVsBottom: 15,
+  unknown: 0,
+}
+
 // TODO(2Pac): Share this with the game code somehow?
 /**
  * This is the value that's inserted in the `userIds` array of the ShieldBattery's replay data, for
  * every non-human slot.
  */
 export const NON_EXISTING_USER_ID = 0xffffffff
-
-export interface ReplayShieldBatteryData {
-  /** The version number of the current format of the ShieldBattery replay data section. */
-  formatVersion: number
-  /** The version of the StarCraft's EXE build number on which this replay way played. */
-  starcraftExeBuild: number
-  /** The version of the ShieldBattery application on which this replay was played. */
-  shieldBatteryVersion: string
-  /** The game ID of this replay, allowing us to link this replay to the game info in our system. */
-  gameId: string
-  /**
-   * The list of user IDs that were in this game. In case there were less than 8 players in the
-   * game, all "empty" user IDs will be set to 0xFFFF_FFFF. We keep those IDs in the array, so we
-   * can match the index in this array to an ID in players array we get from the header.
-   *
-   * The order of this array can be used to match the user IDs with players from the replay header,
-   * such that `userIds[player.id]` will give you the player's SB user ID.
-   */
-  userIds: SbUserId[]
-}

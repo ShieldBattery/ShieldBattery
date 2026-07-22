@@ -1,15 +1,11 @@
-import { ReplayHeader, ReplayPlayer } from 'jssuh'
+import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
 import { useEffect, useMemo, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { filterColorCodes } from '../../common/maps'
-import {
-  ReplayShieldBatteryData,
-  replayGameTypeToLabel,
-  replayRaceToChar,
-} from '../../common/replays'
+import { replayGameTypeToLabel, replayGameTypeToNumber } from '../../common/replays'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
@@ -32,7 +28,9 @@ const ipcRenderer = new TypedIpcRenderer()
 
 async function getReplayMetadata(
   filePath: string,
-): Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData } | undefined> {
+): Promise<
+  { headerData: ReplayHeader; players: Player[]; shieldBatteryData?: ShieldBatteryData } | undefined
+> {
   return ipcRenderer.invoke('replayParseMetadata', filePath)
 }
 
@@ -153,8 +151,9 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [replayMetadata, setReplayMetadata] = useState<{
-    headerData?: ReplayHeader
-    shieldBatteryData?: ReplayShieldBatteryData
+    headerData: ReplayHeader
+    players: Player[]
+    shieldBatteryData?: ShieldBatteryData
   }>()
   const gameId = replayMetadata?.shieldBatteryData?.gameId
   const replayUserIds = replayMetadata?.shieldBatteryData?.userIds
@@ -200,7 +199,8 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
 
   const [durationStr, gameTypeLabel, mapName, playerListItems] = useMemo(() => {
     const replayHeader = replayMetadata?.headerData
-    if (!replayHeader) {
+    const players = replayMetadata?.players
+    if (!replayHeader || !players) {
       return [
         '00:00',
         t('game.gameType.unknown', 'Unknown'),
@@ -209,14 +209,14 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
       ]
     }
 
-    const timeMs = (replayHeader.durationFrames * 1000) / 24
+    const timeMs = (replayHeader.frames * 1000) / 24
     const durationStr = getGameDurationString(timeMs)
-    const gameTypeLabel = replayGameTypeToLabel(replayHeader.gameType, t)
+    const gameTypeLabel = replayGameTypeToLabel(replayGameTypeToNumber[replayHeader.gameType], t)
     const mapName = filterColorCodes(mapInfo?.name ?? replayHeader.mapName)
 
-    const teams = replayHeader.players.reduce((acc, p) => {
+    const teams = players.reduce((acc, p) => {
       const team = acc.get(p.team)
-      const sbUser = usersById.get((replayUserIds?.[p.id] ?? -1) as SbUserId)
+      const sbUser = usersById.get((replayUserIds?.[p.slotId] ?? -1) as SbUserId)
       const player = sbUser ? { ...p, name: sbUser.name } : p
       if (team) {
         team.push(player)
@@ -224,16 +224,18 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
         acc.set(player.team, [player])
       }
       return acc
-    }, new Map<number, ReplayPlayer[]>())
+    }, new Map<number, Player[]>())
 
     const playerListItems = Array.from(teams.values(), (team, i) => {
       const elems = team.map((player, j) => (
-        <PlayerContainer key={player.id}>
+        <PlayerContainer key={player.slotId}>
           <RaceRoot>
-            <StyledRaceIcon race={replayRaceToChar(player.race)} />
+            <StyledRaceIcon race={player.race} />
           </RaceRoot>
           <PlayerName>
-            {player.isComputer ? t('game.playerName.computer', 'Computer') : player.name}
+            {player.playerType === 'computer'
+              ? t('game.playerName.computer', 'Computer')
+              : player.name}
           </PlayerName>
         </PlayerContainer>
       ))
@@ -253,7 +255,14 @@ export function ReplayInfoDisplay({ filePath, className }: ReplayInfoDisplayProp
     })
 
     return [durationStr, gameTypeLabel, mapName, playerListItems]
-  }, [mapInfo?.name, replayMetadata?.headerData, replayUserIds, t, usersById])
+  }, [
+    mapInfo?.name,
+    replayMetadata?.headerData,
+    replayMetadata?.players,
+    replayUserIds,
+    t,
+    usersById,
+  ])
 
   let content
   if (parseError) {

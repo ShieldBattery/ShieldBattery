@@ -12,6 +12,7 @@ files:
   - 'assets/**/*'
   - '!dist/index.js'
   - '!dist/preload.js'
+  - '!dist/db-worker.js'
   - '!dist/**/*.appchunk.js'
   - 'dist/**/*.js'
   - 'dist/manifest.json'
@@ -20,6 +21,7 @@ files:
     filter:
       - 'index.js'
       - 'preload.js'
+      - 'db-worker.js'
       - '**/*.appchunk.js'
       - 'native/**/*.node'
 nsis:

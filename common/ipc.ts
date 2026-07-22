@@ -1,3 +1,4 @@
+import type { Player, ReplayHeader, ShieldBatteryData } from '@shieldbattery/broodrep'
 import type {
   Display,
   IpcMainEvent,
@@ -5,7 +6,6 @@ import type {
   IpcRendererEvent,
   WebContents,
 } from 'electron'
-import type { ReplayHeader } from 'jssuh'
 import { Promisable } from 'type-fest'
 import { GameServerRegion, GameServerRegionLatencies } from './game-server-regions'
 import { GameDebugScreenshot, GameDebugState } from './games/game-debug'
@@ -14,7 +14,7 @@ import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { MapExtension } from './maps'
-import { ReplayShieldBatteryData } from './replays'
+import { ReplayLibraryEntry, ReplayLibraryFilters, ReplayLibraryStatus } from './replays-library'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 import { SbUserId } from './users/sb-user-id'
@@ -170,10 +170,25 @@ interface IpcInvokeables {
   mapStoreDownloadMap: (hash: string, format: MapExtension, mapUrl: string) => Promise<boolean>
 
   pathsGetDocumentsPath: () => Promise<string>
+  /** Reveals `path` in the OS file manager (opens its containing folder and selects it). */
+  pathsShowItemInFolder: (path: string) => Promise<void>
 
-  replayParseMetadata: (
-    replayPath: string,
-  ) => Promise<{ headerData?: ReplayHeader; shieldBatteryData?: ReplayShieldBatteryData }>
+  replayParseMetadata: (replayPath: string) => Promise<{
+    headerData: ReplayHeader
+    players: Player[]
+    shieldBatteryData?: ShieldBatteryData
+  }>
+
+  /**
+   * Returns the page of indexed replays matching `filters` selected by `filters.offset`/
+   * `filters.limit`, ordered per `filters.sort` (newest-first by default), plus `total`, the
+   * number of matches across all pages.
+   */
+  replayLibraryQuery: (
+    filters: ReplayLibraryFilters,
+  ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
+  /** Current status of the replay index (total indexed, backfill progress, watched folder). */
+  replayLibraryStatus: () => Promise<ReplayLibraryStatus>
 
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.
@@ -258,6 +273,11 @@ interface IpcMainSendables {
 
   /** Sent after each region latency sweep completes, with the full region -> latency table. */
   gameServerRegionsLatenciesUpdated: (latencies: GameServerRegionLatencies) => void
+
+  /** Sent whenever the replay index changes (files added/removed/updated). */
+  replayLibraryChanged: () => void
+  /** Sent as the replay index backfills, so the UI can show progress. */
+  replayLibraryBackfillProgress: (progress: { done: number; total: number }) => void
 
   replaysOpen: (replayPaths: string[]) => void
 

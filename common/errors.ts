@@ -3,7 +3,7 @@
  * object itself will be converted to a string.
  */
 export function getErrorStack(err: unknown): string | undefined {
-  if (err && 'stack' in (err as any)) {
+  if (typeof err === 'object' && err !== null && 'stack' in err) {
     return (err as any).stack
   }
 

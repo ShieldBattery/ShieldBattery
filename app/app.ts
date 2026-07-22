@@ -6,8 +6,7 @@ import isDev from 'electron-is-dev'
 import localShortcut from 'electron-localshortcut'
 import { autoUpdater } from 'electron-updater'
 import { readFile } from 'fs/promises'
-import ReplayParser, { ReplayHeader } from 'jssuh'
-import fs, { createReadStream } from 'node:fs'
+import { createReadStream } from 'node:fs'
 import fsPromises, { copyFile, mkdtemp } from 'node:fs/promises'
 import http from 'node:http'
 import type { Socket } from 'node:net'
@@ -19,7 +18,6 @@ import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
-import { ReplayShieldBatteryData } from '../common/replays'
 import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import currentSession from './current-session'
@@ -34,7 +32,8 @@ import { MapStore } from './game/map-store'
 import { ReplayStore } from './game/replay-store'
 import { appLogBaseName, gameLogBaseName } from './log-paths'
 import logger from './logger'
-import { parseShieldbatteryReplayData } from './replays/parse-shieldbattery-replay'
+import { setupReplayLibrary } from './replay-library'
+import { parseReplayMetadata } from './replay-library/replay-parser'
 import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
@@ -637,6 +636,10 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     return app.getPath('documents')
   })
 
+  ipcMain.handle('pathsShowItemInFolder', async (event, path) => {
+    shell.showItemInFolder(path)
+  })
+
   ipcMain.handle('securityGetClientIds', async event => {
     await cacheIdsIfNeeded((await localSettings.get()).starcraftPath)
     return cachedIds
@@ -873,33 +876,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   )
 
   ipcMain.handle('replayParseMetadata', async (event, replayPath) => {
-    return new Promise((resolve, reject) => {
-      const parser = new ReplayParser()
-      let headerData: ReplayHeader
-      parser.on('replayHeader', header => {
-        headerData = header
-      })
-
-      let shieldBatteryData: ReplayShieldBatteryData | undefined
-      parser.rawScrSection('Sbat', buffer => {
-        try {
-          shieldBatteryData = parseShieldbatteryReplayData(buffer)
-        } catch (err) {
-          logger.error(
-            `Error parsing the replay's ShieldBattery data section: ${(err as any).stack ?? err}`,
-          )
-        }
-      })
-
-      parser.on('end', () => {
-        resolve({ headerData, shieldBatteryData })
-      })
-
-      const promise = pipeline(fs.createReadStream(replayPath), parser)
-      promise.catch((err: Error) => reject(err))
-
-      parser.resume()
-    })
+    return parseReplayMetadata(replayPath)
   })
 
   ipcMain.handle('shieldbatteryCheckFiles', () => checkShieldBatteryFiles())
@@ -1281,6 +1258,18 @@ app.on('ready', () => {
       setupAnalytics(currentSession())
       gameServer = createGameServer(localSettings)
       await createWindow()
+
+      try {
+        setupReplayLibrary({
+          dbPath: path.join(app.getPath('userData'), 'replay-library.sqlite'),
+          watchedFolder: path.join(app.getPath('documents'), 'Starcraft', 'maps', 'replays'),
+          getSender: () => TypedIpcSender.from(mainWindow?.webContents),
+        })
+      } catch (err) {
+        // A failure to set up the replay index shouldn't take down the whole app.
+        logger.error(`Error setting up the replay library: ${getErrorStack(err)}`)
+      }
+
       systemTray = new SystemTray(mainWindow, () => app.quit())
 
       TypedIpcSender.from(mainWindow?.webContents).send(

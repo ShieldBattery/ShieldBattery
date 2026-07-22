@@ -19,6 +19,7 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
 import { getGames } from './action-creators'
+import { renderGamesWithDayHeaders } from './day-header'
 import { GameFilterBar } from './game-filter-bar'
 import { GameListEntry } from './game-list-entry'
 import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
@@ -222,7 +223,7 @@ export function GameList() {
       </GamesListContainer>
     )
   } else {
-    const gameItems = games.map(game => (
+    const gameItems = renderGamesWithDayHeaders(games, sort, t, game => (
       <GameListEntry key={game.id} game={game} showResult={false} />
     ))
 

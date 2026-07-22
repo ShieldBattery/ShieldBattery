@@ -460,6 +460,9 @@
       "label": "筛选",
       "mapName": "地图名称",
       "matchup": "对阵",
+      "mode": "模式",
+      "modeAny": "所有模式",
+      "modeOthers": "其他",
       "playerName": "玩家名称",
       "ranked": "排位",
       "sort": {
@@ -622,6 +625,10 @@
   "games": {
     "activity": {
       "title": "比赛记录"
+    },
+    "dayHeader": {
+      "today": "今天",
+      "yesterday": "昨天"
     },
     "list": {
       "noMatchingGames": "没有匹配的游戏。",
@@ -1213,6 +1220,25 @@
     },
     "fileDropError": "打开录像文件时出现问题",
     "fileDropText": "将录像拖到这里即可使用ShieldBattery观看录像。",
+    "library": {
+      "clearFilters": "清除筛选",
+      "empty": "暂无录像",
+      "emptyBody": "您游玩或观看的录像将自动显示在这里。",
+      "filteredCount": "{{shown}}/{{total}} 个录像",
+      "inspector": {
+        "empty": "选择一个录像以查看详情",
+        "parseError": "无法读取此录像。"
+      },
+      "moreActions": "更多操作",
+      "noMatches": "没有符合条件的录像",
+      "replayCount_other": "{{count}} 个录像",
+      "scanning": "正在扫描录像……{{done}}/{{total}}",
+      "showInExplorer": "在资源管理器中显示",
+      "sourceTagBnet": "B.NET",
+      "sourceTagSb": "SB",
+      "unreadableReplays": "无法读取的录像",
+      "watchReplay": "观看录像"
+    },
     "loading": {
       "dialogTitle": "正在加载录像……",
       "errorGeneric": "加载录像时遇到问题。",
@@ -1222,10 +1248,7 @@
     "local": {
       "duration": "时长：{{durationStr}}",
       "gameType": "游戏类型：{{gameTypeLabel}}",
-      "loadingError": "加载录像时遇到问题",
-      "rootFolderName": "录像",
-      "title": "本地录像",
-      "watchReplay": "观看录像"
+      "loadingError": "加载录像时遇到问题"
     },
     "replayInfoDialog": {
       "title": "录像信息",

@@ -115,6 +115,10 @@ const mainWebpackOpts = {
   target: 'electron-main',
   entry: {
     index: './app/startup.js',
+    // The replay library's DB/watcher/parser run in a worker thread; this is its (self-contained)
+    // bundle, loaded via `new Worker(...)` from the main bundle. prod.yml/staging.yml place the
+    // output next to index.js so its native better-sqlite3 addon resolves.
+    'db-worker': './app/replay-library/worker/db-worker.ts',
   },
   output: {
     filename: '[name].js',

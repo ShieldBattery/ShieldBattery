@@ -463,6 +463,9 @@
       "label": "Filters",
       "mapName": "Map name",
       "matchup": "Matchup",
+      "mode": "Mode",
+      "modeAny": "Any mode",
+      "modeOthers": "Others",
       "playerName": "Player name",
       "ranked": "Ranked",
       "sort": {
@@ -625,6 +628,10 @@
   "games": {
     "activity": {
       "title": "Games"
+    },
+    "dayHeader": {
+      "today": "Today",
+      "yesterday": "Yesterday"
     },
     "list": {
       "noMatchingGames": "No matching games.",
@@ -1219,6 +1226,26 @@
     },
     "fileDropError": "There was a problem opening the replay file",
     "fileDropText": "Drop replays here to watch them with ShieldBattery.",
+    "library": {
+      "clearFilters": "Clear filters",
+      "empty": "No replays yet",
+      "emptyBody": "Replays you watch and play will show up here automatically.",
+      "filteredCount": "{{shown}} of {{total}} replays",
+      "inspector": {
+        "empty": "Select a replay to see its details",
+        "parseError": "This replay could not be read."
+      },
+      "moreActions": "More actions",
+      "noMatches": "No replays match",
+      "replayCount_one": "{{count}} replay",
+      "replayCount_other": "{{count}} replays",
+      "scanning": "Scanning replays… {{done}}/{{total}}",
+      "showInExplorer": "Show in Explorer",
+      "sourceTagBnet": "B.NET",
+      "sourceTagSb": "SB",
+      "unreadableReplays": "Unreadable replays",
+      "watchReplay": "Watch replay"
+    },
     "loading": {
       "dialogTitle": "Loading replay…",
       "errorGeneric": "Something went wrong while loading the replay.",
@@ -1228,10 +1255,7 @@
     "local": {
       "duration": "Duration: {{durationStr}}",
       "gameType": "Game type: {{gameTypeLabel}}",
-      "loadingError": "There was a problem loading the replay",
-      "rootFolderName": "Replays",
-      "title": "Local Replays",
-      "watchReplay": "Watch replay"
+      "loadingError": "There was a problem loading the replay"
     },
     "replayInfoDialog": {
       "title": "Replay info",

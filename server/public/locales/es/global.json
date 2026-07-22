@@ -466,6 +466,9 @@
       "label": "Filtros",
       "mapName": "Nombre del mapa",
       "matchup": "Enfrentamiento",
+      "mode": "Modo",
+      "modeAny": "Cualquier modo",
+      "modeOthers": "Otros",
       "playerName": "Nombre del jugador",
       "ranked": "Clasificatoria",
       "sort": {
@@ -628,6 +631,10 @@
   "games": {
     "activity": {
       "title": "Partidas"
+    },
+    "dayHeader": {
+      "today": "Hoy",
+      "yesterday": "Ayer"
     },
     "list": {
       "noMatchingGames": "No hay partidas que coincidan.",
@@ -1225,6 +1232,27 @@
     },
     "fileDropError": "Hubo un problema al abrir el replay",
     "fileDropText": "Suelta las replays aquí para verlas con ShieldBattery.",
+    "library": {
+      "clearFilters": "Limpiar filtros",
+      "empty": "Aún no hay replays",
+      "emptyBody": "Los replays que veas y juegues aparecerán aquí automáticamente.",
+      "filteredCount": "{{shown}} de {{total}} replays",
+      "inspector": {
+        "empty": "Selecciona un replay para ver sus detalles",
+        "parseError": "No se pudo leer este replay."
+      },
+      "moreActions": "Más acciones",
+      "noMatches": "Ningún replay coincide",
+      "replayCount_one": "{{count}} replay",
+      "replayCount_many": "{{count}} replays",
+      "replayCount_other": "{{count}} replays",
+      "scanning": "Escaneando replays… {{done}}/{{total}}",
+      "showInExplorer": "Mostrar en el Explorador",
+      "sourceTagBnet": "B.NET",
+      "sourceTagSb": "SB",
+      "unreadableReplays": "Replays ilegibles",
+      "watchReplay": "Ver replay"
+    },
     "loading": {
       "dialogTitle": "Cargando replay…",
       "errorGeneric": "Algo salió mal al cargar el replay.",
@@ -1234,10 +1262,7 @@
     "local": {
       "duration": "Duración: {{durationStr}}",
       "gameType": "Tipo de juego: {{gameTypeLabel}}",
-      "loadingError": "Hubo un problema al cargar el replay",
-      "rootFolderName": "Replays",
-      "title": "Replays locales",
-      "watchReplay": "Ver Replay"
+      "loadingError": "Hubo un problema al cargar el replay"
     },
     "replayInfoDialog": {
       "title": "Información de replay",
