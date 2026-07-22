@@ -195,6 +195,7 @@ export function ConnectedGameResultsPage({
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
+  const cancelSaveRef = useRef(new AbortController())
   const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
   const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
   const [isSavingReplay, setIsSavingReplay] = useState(false)
@@ -286,6 +287,16 @@ export function ConnectedGameResultsPage({
     }
   }, [gameId])
 
+  useEffect(() => {
+    return () => {
+      // This page instance is reused across game navigations, so an in-flight save for the
+      // previous game must be aborted -- otherwise its stale onSuccess would mark the newly
+      // displayed game's replay as saved.
+      cancelSaveRef.current.abort()
+      setIsSavingReplay(false)
+    }
+  }, [gameId])
+
   const headline = useMemo<string>(() => {
     if (game && !game.results) {
       return t('gameDetails.headlineInProgress', 'In progress…')
@@ -355,10 +366,15 @@ export function ConnectedGameResultsPage({
   const onSaveReplay = () => {
     if (!replayInfo || !IS_ELECTRON) return
 
+    cancelSaveRef.current.abort()
+    const abortController = new AbortController()
+    cancelSaveRef.current = abortController
+
     setIsSavingReplay(true)
 
     dispatch(
       saveReplayToLibrary(replayInfo, {
+        signal: abortController.signal,
         onSuccess: result => {
           setIsSavingReplay(false)
           setIsReplaySaved(true)
