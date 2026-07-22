@@ -800,6 +800,18 @@ impl TurnState {
         self.channels.chat_out.try_send(message).is_ok()
     }
 
+    /// OUT path for this client's applied-skin blob: hands the opaque bytes to the driver's skin
+    /// channel for the other session members, sent once after game init has filled the local
+    /// slot of the skin table. The relay stamps authorship and retains the latest blob per slot
+    /// for members whose stream comes up later, so a single post-init send is enough.
+    ///
+    /// Best-effort like chat: returns `false` when the channel to the driver is full or closed,
+    /// which the caller should log and otherwise ignore — a lost blob costs peers a default skin,
+    /// never correctness.
+    pub fn submit_local_skin(&mut self, blob: Vec<u8>) -> bool {
+        self.channels.skin_out.try_send(blob).is_ok()
+    }
+
     /// OUT path for a manual drop request: names a disconnected member's `slot` to the driver, which
     /// writes a `RequestDrop` up the reliable control stream for the relay's session authority to
     /// honor once that slot has been down long enough. Fire-and-forget and best-effort — the only
@@ -857,6 +869,23 @@ impl TurnState {
             chat.text = bw::commands::truncate_utf8(&chat.text, bw::commands::CHAT_TEXT_CAPACITY)
                 .to_string();
             out.push((slot, chat));
+        }
+        out
+    }
+
+    /// Drains every peer skin blob currently available from the driver's `skin_in` channel,
+    /// tagged with the relay-stamped sender slot. Never blocks.
+    ///
+    /// Unlike [`drain_chat_inbound`](Self::drain_chat_inbound) there is no delivery window:
+    /// a blob is one-shot state a peer sends only once (its game-init broadcast, replayed by the
+    /// relay on a re-register), so discarding one — even one that raced in before this client's
+    /// own game start — would lose that peer's skin for the whole game. Blobs sit in the channel
+    /// until the in-game receive step drains them; writing one is idempotent and frame-agnostic,
+    /// and the caller drops any whose sender no longer resolves to a seated player.
+    pub fn drain_skin_inbound(&mut self) -> Vec<(SlotId, Vec<u8>)> {
+        let mut out = Vec::new();
+        while let Ok(entry) = self.channels.skin_in.try_recv() {
+            out.push(entry);
         }
         out
     }
@@ -1797,6 +1826,8 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
@@ -1897,6 +1928,8 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
@@ -1932,6 +1965,8 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
@@ -2682,6 +2717,8 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
@@ -2961,6 +2998,8 @@ mod tests {
             lobby_in: lobby_in_rx,
             chat_out: chat_out_tx,
             chat_in: chat_in_rx,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
@@ -3066,6 +3105,68 @@ mod tests {
         assert_eq!(delivered[0].1.text.len(), bw::commands::CHAT_TEXT_CAPACITY);
     }
 
+    /// The far ends a skin test drives: the driver-side receiver of this client's own submitted
+    /// blobs, and the driver-side sender of peers' inbound blobs.
+    type SkinChannelFarEnds = (mpsc::Receiver<Vec<u8>>, mpsc::Sender<(SlotId, Vec<u8>)>);
+
+    /// Minimal skin-only harness: a `TurnState` with live `skin_out`/`skin_in` channels and their
+    /// far ends returned, mirroring [`turn_state_with_chat`]. Every other channel's far end drops
+    /// on return (harmless — nothing sends or drains them here).
+    fn turn_state_with_skins() -> (TurnState, SkinChannelFarEnds) {
+        let (out_tx, _out_rx) = mpsc::channel(16);
+        let (_in_tx, in_rx) = mpsc::channel(16);
+        let (_leave_tx, leave_rx) = mpsc::channel(16);
+        let (leave_intent_tx, _leave_intent_rx) = mpsc::channel(1);
+        let (result_tx, _result_rx) = mpsc::channel(1);
+        let (skin_out_tx, skin_out_rx) = mpsc::channel(16);
+        let (skin_in_tx, skin_in_rx) = mpsc::channel(16);
+        let channels = TurnChannels {
+            outbound: out_tx,
+            inbound: in_rx,
+            leaves: leave_rx,
+            leave_intent: leave_intent_tx,
+            result: result_tx,
+            result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: mpsc::channel(16).0,
+            lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
+            chat_out: mpsc::channel(16).0,
+            chat_in: mpsc::channel::<(SlotId, ChatOut)>(16).1,
+            skin_out: skin_out_tx,
+            skin_in: skin_in_rx,
+            request_drop: mpsc::channel(1).0,
+            session_start: mpsc::channel(1).1,
+            connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
+        };
+        let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
+        (
+            TurnState::new(channels, LOCAL_SLOT, 2, roster, false),
+            (skin_out_rx, skin_in_tx),
+        )
+    }
+
+    #[test]
+    fn submit_local_skin_hands_the_blob_to_the_driver_verbatim() {
+        let (mut state, (mut skin_out_rx, _skin_in_tx)) = turn_state_with_skins();
+
+        let blob = vec![0xA5; 350];
+        assert!(state.submit_local_skin(blob.clone()));
+        assert_eq!(skin_out_rx.try_recv().unwrap(), blob);
+    }
+
+    #[test]
+    fn drain_skin_inbound_delivers_regardless_of_game_phase_and_empties_the_channel() {
+        let (mut state, (_skin_out_rx, skin_in_tx)) = turn_state_with_skins();
+
+        // A blob is one-shot state, sent exactly once by its peer — unlike chat there is no
+        // started/local-only delivery window that may discard, or a fast peer's game-init
+        // broadcast (racing ahead of this client's own start) would be lost for the whole game.
+        let blob = vec![0x5A; 350];
+        skin_in_tx.try_send((PEER_SLOT, blob.clone())).unwrap();
+        state.begin_local_only();
+        assert_eq!(state.drain_skin_inbound(), vec![(PEER_SLOT, blob)]);
+        assert!(state.drain_skin_inbound().is_empty());
+    }
+
     /// Builds a TurnState wired for the disconnect-overlay tests: the slot→storm identity map is
     /// seeded from the roster (as `establish_session` does), and the senders the driver would use to
     /// push slot-connectivity changes and to which the game submits manual drop requests are
@@ -3089,6 +3190,8 @@ mod tests {
             lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             chat_out: mpsc::channel(16).0,
             chat_in: mpsc::channel::<(SlotId, ChatOut)>(16).1,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
             request_drop: request_drop_tx,
             session_start: mpsc::channel(1).1,
             connectivity: connectivity_rx,

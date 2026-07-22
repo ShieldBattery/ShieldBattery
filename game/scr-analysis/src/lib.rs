@@ -739,6 +739,19 @@ impl<'e> Analysis<'e> {
         self.0.use_rgb_colors()
     }
 
+    /// Base of the per-player applied-skin table unit rendering reads: 16 slots (players 0..12,
+    /// observers 12..16) of [`skins_size`](Self::skins_size) bytes each. `init_game` fills the
+    /// local player's slot from local settings/ownership; writing another slot takes effect on the
+    /// next rendered frame.
+    pub fn player_skins(&mut self) -> Option<Operand<'e>> {
+        self.0.player_skins()
+    }
+
+    /// Per-player stride, in bytes, of the [`player_skins`](Self::player_skins) table.
+    pub fn skins_size(&mut self) -> Option<u32> {
+        self.0.skins_size()
+    }
+
     pub fn rgb_colors(&mut self) -> Option<Operand<'e>> {
         self.0.rgb_colors()
     }
