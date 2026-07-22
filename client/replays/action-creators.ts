@@ -115,7 +115,7 @@ export function showReplayInfo(filePath: string) {
  * Downloads a replay from the server (if not already cached) and starts watching it.
  */
 export function watchReplayFromUrl(
-  replayInfo: GameReplayInfo,
+  replayInfo: Omit<GameReplayInfo, 'filename'>,
   gameId: string,
   spec: RequestHandlingSpec,
 ): ThunkAction {
@@ -147,5 +147,56 @@ export function watchReplayFromUrl(
     if (replayPath) {
       dispatch(startReplay({ path: replayPath, name: `Replay ${gameId}` }))
     }
+  })
+}
+
+/** Result of `saveReplayToLibrary`, distinguishing a fresh save from a pre-existing one. */
+export interface SaveReplayResult {
+  /**
+   * Absolute path of the saved (or already-on-disk) file. Omitted only when the replay was already
+   * indexed locally, so no download or save was attempted.
+   */
+  path?: string
+  /** True if this game's replay was already present in the local library (indexed or on disk). */
+  alreadySaved: boolean
+}
+
+/**
+ * Downloads a replay from the server (if not already indexed locally) and saves it into the
+ * watched replay library folder, so the local replay library picks it up. Unlike
+ * `watchReplayFromUrl`, this writes into the user-visible watched folder rather than the per-id
+ * cache used for playback.
+ */
+export function saveReplayToLibrary(
+  replayInfo: GameReplayInfo,
+  spec: RequestHandlingSpec<SaveReplayResult>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    const existingId = await ipcRenderer.invoke('replayLibraryFindByGameId', replayInfo.gameId)
+    if (existingId !== undefined) {
+      return { alreadySaved: true }
+    }
+
+    const response = await fetchRaw(replayInfo.url, {
+      signal: spec.signal,
+      credentials: 'same-origin',
+      headers: { Accept: '*/*' },
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to download replay: ${response.status} ${response.statusText}`)
+    }
+    const data = await response.arrayBuffer()
+
+    const saveResult = await ipcRenderer.invoke(
+      'replayLibrarySaveReplay',
+      replayInfo.gameId,
+      replayInfo.filename,
+      replayInfo.hash,
+      data,
+    )
+
+    // The file can already exist on disk while its game id isn't indexed yet (the watcher hasn't
+    // caught up, or the index was reset) -- surface that as "already saved" rather than a fresh save.
+    return { path: saveResult?.path, alreadySaved: saveResult?.alreadyExists ?? false }
   })
 }

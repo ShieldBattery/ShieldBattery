@@ -134,6 +134,8 @@ export interface GameReplayInfo {
   url: string
   /** SHA-256 hash of the replay file (hex-encoded), used for cache verification. */
   hash: string
+  /** The replay's generated base filename (from `generateReplayFilename`), without extension. */
+  filename: string
 }
 
 export interface GetGameResponse {

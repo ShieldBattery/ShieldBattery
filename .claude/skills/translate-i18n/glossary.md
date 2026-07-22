@@ -75,6 +75,10 @@ consistent. (Seed — extend over time.)
   keeps "Fastest" English).
 - In-file term renderings to match: matchmaking→Emparejamiento, map pool→Grupo de mapas, queue→cola,
   ladder→escalera, veto→vetar/vetado, ban→banear, kick→expulsar, unrated→Sin clasificar.
+- **Replay library terms:** replay→replay (loanword, in-file), **playlist→playlist** (loanword,
+  feminine: la playlist; Spotify-style), **bookmark/Bookmarked→marcador/Marcadores** (Añadir
+  marcador/Quitar marcador; the replay bookmark — kept distinct from a map's favorite),
+  **library→biblioteca**, game (a played match)→partida, **spoiler-free→Sin spoilers**.
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -89,6 +93,10 @@ consistent. (Seed — extend over time.)
   prefix → **"автор: "** (works for both created and edited history entries).
 - In-file term renderings to match: matchmaking→матчмейкинг, map pool→Пул карт, queue→очередь,
   veto→Вето, ban→забанить, kick→кикнуть, unrated→Без рейтинга.
+- **Replay library terms:** replay→реплей (in-file), **playlist→плейлист**,
+  **bookmark/Bookmarked→закладки** family (В закладки/Убрать из закладок/Закладки; kept distinct
+  from a map's favorite, which stays избранное), **library→библиотека**,
+  **spoiler-free→Без спойлеров**.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -109,6 +117,9 @@ consistent. (Seed — extend over time.)
 - **news → 소식** (matches home's 최신 소식), **publish → 게시** (게시됨/지금 게시/게시 취소),
   **cover image → 대표 이미지** (Korean CMS convention), **draft → 초안**, **schedule(d) →
   예약(됨)**. Required-field validation follows the in-file "…을 입력하세요" style.
+- **Replay library terms:** replay→리플레이 (in-file), **playlist→재생목록** (YouTube convention),
+  **bookmark→북마크** (북마크 추가/북마크 해제; Bookmarked nav→북마크; distinct from maps' 즐겨찾기),
+  **library→라이브러리** (Steam convention), **spoiler-free→스포일러 방지**.
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -123,3 +134,7 @@ consistent. (Seed — extend over time.)
   **scheduled publish → 定时发布** (status chip 已定时, "Scheduled for X" → 将于 X 发布),
   **draft → 草稿**, **cover image → 封面图片**. Use full-width punctuation（），：；and “”quotes;
   required-field validation follows the in-file 请输入… style.
+- **Replay library terms:** replay→录像 (in-file), **playlist→播放列表**, **bookmark→书签**
+  (添加书签/取消书签; Bookmarked nav→书签; distinct from maps' 收藏), **replay library→录像库**
+  (also the "In library" state: 已在录像库), **spoiler-free→无剧透**. Specific played games use
+  游戏 on game pages (matches 复制游戏链接).

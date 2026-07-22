@@ -2,6 +2,7 @@ import { FSWatcher, watch } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { getErrorStack } from '../../common/errors'
+import { ReplayBackfillProgress } from '../../common/replays-library'
 import { matchRenamedReplays, NewFileIdentity, VanishedReplay } from './rename-matcher'
 import { ExistingReplayInfo, ReplayDb } from './replay-db'
 import {
@@ -33,7 +34,8 @@ interface FileMeta {
 }
 
 export interface ReplayWatcherCallbacks {
-  onProgress: (progress: { done: number; total: number }) => void
+  /** Reports backfill progress; `undefined` means the backfill finished (or had no work). */
+  onProgress: (progress: ReplayBackfillProgress | undefined) => void
   onChange: () => void
 }
 
@@ -59,7 +61,13 @@ export class ReplayWatcher {
   private reconciling = false
   private reconcileQueued = false
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
-  private backfillProgress: { done: number; total: number } | undefined
+  private backfillProgress: ReplayBackfillProgress | undefined
+  /**
+   * Whether the initial backfill has begun. The `scanning` phase is only surfaced for it: later,
+   * watch-triggered reconciles re-scan the whole folder too, but their work is small and showing a
+   * full "scanning" state on every added file would just flicker.
+   */
+  private initialScanStarted = false
 
   constructor(
     private readonly watchedFolder: string,
@@ -69,8 +77,14 @@ export class ReplayWatcher {
   ) {}
 
   /** Current backfill progress, or undefined when no reconcile with pending work is running. */
-  getBackfillProgress(): { done: number; total: number } | undefined {
+  getBackfillProgress(): ReplayBackfillProgress | undefined {
     return this.backfillProgress
+  }
+
+  /** Records the current backfill progress and notifies the renderer of the change. */
+  private emitProgress(progress: ReplayBackfillProgress | undefined): void {
+    this.backfillProgress = progress
+    this.callbacks.onProgress(progress)
   }
 
   start(): void {
@@ -130,12 +144,20 @@ export class ReplayWatcher {
   }
 
   private async runReconcile(): Promise<void> {
+    // Surface a "scanning" state only for the very first reconcile, before we know how much work
+    // there is; the folder walk over a large library is slow enough to be worth showing.
+    const isInitial = !this.initialScanStarted
+    this.initialScanStarted = true
+    if (isInitial) {
+      this.emitProgress({ phase: 'scanning' })
+    }
+
     // If the watched folder can't be read at all (e.g. it doesn't exist), leave the index untouched
     // rather than treating every entry as deleted.
     try {
       await readdir(this.watchedFolder)
     } catch {
-      this.backfillProgress = undefined
+      this.emitProgress(undefined)
       return
     }
 
@@ -219,7 +241,7 @@ export class ReplayWatcher {
     }
 
     if (toParse.length === 0) {
-      this.backfillProgress = undefined
+      this.emitProgress(undefined)
       if (toDelete.length > 0 || moveCount > 0) {
         this.callbacks.onChange()
       }
@@ -228,8 +250,7 @@ export class ReplayWatcher {
 
     let done = 0
     const total = toParse.length
-    this.backfillProgress = { done, total }
-    this.callbacks.onProgress({ done, total })
+    this.emitProgress({ phase: 'indexing', done, total })
 
     let nextIndex = 0
     let lastChangeNotify = Date.now()
@@ -240,11 +261,12 @@ export class ReplayWatcher {
         await this.indexFile(filePath, files.get(filePath)!, hashes.get(filePath))
         done++
         if (done % PARSE_YIELD_EVERY === 0 || done === total) {
-          this.backfillProgress = done < total ? { done, total } : undefined
-          this.callbacks.onProgress({ done, total })
-          if (done < total && Date.now() - lastChangeNotify >= CHANGE_NOTIFY_INTERVAL_MS) {
-            lastChangeNotify = Date.now()
-            this.callbacks.onChange()
+          if (done < total) {
+            this.emitProgress({ phase: 'indexing', done, total })
+            if (Date.now() - lastChangeNotify >= CHANGE_NOTIFY_INTERVAL_MS) {
+              lastChangeNotify = Date.now()
+              this.callbacks.onChange()
+            }
           }
           await new Promise<void>(resolve => setImmediate(resolve))
         }
@@ -254,7 +276,7 @@ export class ReplayWatcher {
       Array.from({ length: Math.min(PARSE_CONCURRENCY, toParse.length) }, () => worker()),
     )
 
-    this.backfillProgress = undefined
+    this.emitProgress(undefined)
     this.callbacks.onChange()
   }
 

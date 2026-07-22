@@ -1,6 +1,53 @@
+import { assertUnreachable } from '../../common/assert-unreachable'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { startOfLocalDay } from '../games/day-header'
 import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
+
+/** Which subset of the library the rail is currently pointed at, driven by the `view` URL param. */
+export type LibraryView =
+  | { kind: 'all' }
+  | { kind: 'bookmarked' }
+  | { kind: 'playlist'; id: number }
+
+const PLAYLIST_VIEW_PREFIX = 'pl-'
+
+/** Parses the `view` URL param into a `LibraryView`. Unrecognized/malformed values fall back to `all`. */
+export function parseView(value: string): LibraryView {
+  if (value === 'bookmarked') {
+    return { kind: 'bookmarked' }
+  }
+  if (value.startsWith(PLAYLIST_VIEW_PREFIX)) {
+    const id = Number.parseInt(value.slice(PLAYLIST_VIEW_PREFIX.length), 10)
+    if (Number.isFinite(id)) {
+      return { kind: 'playlist', id }
+    }
+  }
+  return { kind: 'all' }
+}
+
+/** Encodes a `LibraryView` back into the `view` URL param (empty string for the default `all`). */
+export function encodeView(view: LibraryView): string {
+  switch (view.kind) {
+    case 'all':
+      return ''
+    case 'bookmarked':
+      return 'bookmarked'
+    case 'playlist':
+      return `${PLAYLIST_VIEW_PREFIX}${view.id}`
+    default:
+      return assertUnreachable(view)
+  }
+}
+
+/**
+ * True when `view` is a playlist and the user hasn't chosen an explicit sort (`sortParam` is the
+ * raw, possibly-empty `sort` URL param). In that case results come back in the playlist's manual
+ * order, which shouldn't be day-grouped like the date sorts are.
+ */
+export function isManualPlaylistOrder(view: LibraryView, sortParam: string): boolean {
+  return view.kind === 'playlist' && !sortParam
+}
 
 /**
  * The way a replay's players are laid out for display:
@@ -71,9 +118,19 @@ export function shouldShowTeamLabels(layout: ReplayTeamLayout): boolean {
   return layout.kind === 'teams' && layout.teams.some(t => t.length > 1)
 }
 
+/**
+ * Converts a display layout into `PlayerTeamsDisplay` props. `name` is always the raw in-replay
+ * name (the fallback for players without an SB identity). Non-computer players whose `sbUserId`
+ * is in `linkedUserIds` also get a `userId`, letting the display component render them as
+ * connected, interactive usernames instead of the raw name. Callers should pass only ids that are
+ * already resolvable from the user store: an `sbUserId` comes from untrusted replay file contents
+ * and can reference an account that doesn't exist, which a connected username would render as a
+ * permanently-loading placeholder.
+ */
 export function playersToDisplayTeams(
   layout: ReplayTeamLayout,
   computerLabel: string,
+  linkedUserIds?: ReadonlySet<SbUserId>,
 ): PlayerTeamsDisplayPlayer[][] {
   return layout.teams.map(team =>
     team.map(player => ({
@@ -81,6 +138,10 @@ export function playersToDisplayTeams(
       isRandom: false,
       name: player.isComputer ? computerLabel : player.name,
       nameColor: 'normal' as const,
+      userId:
+        !player.isComputer && player.sbUserId !== undefined && linkedUserIds?.has(player.sbUserId)
+          ? player.sbUserId
+          : undefined,
     })),
   )
 }

@@ -1,9 +1,14 @@
 import { describe, expect, test } from 'vitest'
 import { RaceChar } from '../../common/races'
 import { ReplayLibraryEntry, ReplayLibraryPlayer } from '../../common/replays-library'
+import { makeSbUserId } from '../../common/users/sb-user-id'
 import {
+  encodeView,
   getReplayDisplayTeams,
   groupReplaysByDay,
+  isManualPlaylistOrder,
+  parseView,
+  playersToDisplayTeams,
   shouldShowTeamLabels,
 } from './replay-library-helpers'
 
@@ -121,6 +126,62 @@ describe('getReplayDisplayTeams', () => {
   })
 })
 
+describe('playersToDisplayTeams', () => {
+  const computerLabel = 'Computer'
+
+  test('uses the in-replay name and omits userId by default', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel)
+    expect(teams[0][0].name).toBe('raw-name')
+    expect(teams[0][0].userId).toBeUndefined()
+  })
+
+  test('includes the userId alongside the raw name when it is in linkedUserIds', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(1)]))
+    expect(teams[0][0].name).toBe('raw-name')
+    expect(teams[0][0].userId).toBe(makeSbUserId(1))
+  })
+
+  test('omits the userId when it is not in linkedUserIds', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'raw-name', sbUserId: makeSbUserId(1) }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(2)]))
+    expect(teams[0][0].name).toBe('raw-name')
+    expect(teams[0][0].userId).toBeUndefined()
+  })
+
+  test('omits the userId for players without an sbUserId even when linkedUserIds is provided', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({ slot: 0, team: 1, race: 't', name: 'bnet-name' }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(1)]))
+    expect(teams[0][0].name).toBe('bnet-name')
+    expect(teams[0][0].userId).toBeUndefined()
+  })
+
+  test('always shows the computer label and omits userId for computer players', () => {
+    const layout = getReplayDisplayTeams([
+      makePlayer({
+        slot: 0,
+        team: 1,
+        race: 't',
+        name: 'Computer',
+        isComputer: true,
+        sbUserId: makeSbUserId(1),
+      }),
+    ])
+    const teams = playersToDisplayTeams(layout, computerLabel, new Set([makeSbUserId(1)]))
+    expect(teams[0][0].name).toBe(computerLabel)
+    expect(teams[0][0].userId).toBeUndefined()
+  })
+})
+
 describe('groupReplaysByDay', () => {
   test('buckets consecutive entries by local calendar day, newest-first', () => {
     // Use local-time constructors so the expectation matches the machine's timezone.
@@ -168,5 +229,53 @@ describe('groupReplaysByDay', () => {
     expect(groups).toHaveLength(1)
     expect(groups[0].unreadable).toBe(true)
     expect(groups[0].entries.map(e => e.id)).toEqual([2, 1])
+  })
+})
+
+describe('parseView / encodeView', () => {
+  test('parses an empty value as the "all" view', () => {
+    expect(parseView('')).toEqual({ kind: 'all' })
+  })
+
+  test('parses "bookmarked" as the bookmarked view', () => {
+    expect(parseView('bookmarked')).toEqual({ kind: 'bookmarked' })
+  })
+
+  test('parses "pl-<id>" as a playlist view', () => {
+    expect(parseView('pl-42')).toEqual({ kind: 'playlist', id: 42 })
+  })
+
+  test('falls back to "all" for malformed playlist ids', () => {
+    expect(parseView('pl-notanumber')).toEqual({ kind: 'all' })
+    expect(parseView('pl-')).toEqual({ kind: 'all' })
+  })
+
+  test('falls back to "all" for unrecognized values', () => {
+    expect(parseView('something-else')).toEqual({ kind: 'all' })
+  })
+
+  test('round-trips through encodeView', () => {
+    expect(encodeView({ kind: 'all' })).toBe('')
+    expect(encodeView({ kind: 'bookmarked' })).toBe('bookmarked')
+    expect(encodeView({ kind: 'playlist', id: 42 })).toBe('pl-42')
+    expect(parseView(encodeView({ kind: 'playlist', id: 7 }))).toEqual({
+      kind: 'playlist',
+      id: 7,
+    })
+  })
+})
+
+describe('isManualPlaylistOrder', () => {
+  test('is true only for a playlist view with no explicit sort', () => {
+    expect(isManualPlaylistOrder({ kind: 'playlist', id: 1 }, '')).toBe(true)
+  })
+
+  test('is false when a sort is explicitly chosen', () => {
+    expect(isManualPlaylistOrder({ kind: 'playlist', id: 1 }, 'latest')).toBe(false)
+  })
+
+  test('is false for non-playlist views', () => {
+    expect(isManualPlaylistOrder({ kind: 'all' }, '')).toBe(false)
+    expect(isManualPlaylistOrder({ kind: 'bookmarked' }, '')).toBe(false)
   })
 })

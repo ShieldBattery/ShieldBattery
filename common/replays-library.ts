@@ -49,6 +49,16 @@ export interface ReplayLibraryEntry {
   /** True if the replay could not be parsed; only `path`/`fileName`/`fileSize` are meaningful then. */
   parseError: boolean
   players: ReplayLibraryPlayer[]
+  /** Unix ms when this replay was bookmarked, or `undefined` if it isn't. */
+  bookmarkedAt?: number
+}
+
+/** A local playlist grouping replays in manual order, as exposed to the renderer. */
+export interface ReplayPlaylist {
+  id: number
+  name: string
+  /** Number of replays currently in the playlist. */
+  count: number
 }
 
 /**
@@ -70,6 +80,10 @@ export interface ReplayLibraryFilters {
   format?: GameFormat
   /** Encoded matchup filter with wildcards; only applied together with `format`. */
   matchup?: EncodedMatchupString
+  /** Only match bookmarked replays. */
+  bookmarked?: boolean
+  /** Only match replays in this playlist, ordered by the playlist's manual order unless `sort` is set. */
+  playlistId?: number
   /** Result ordering. Defaults to newest-first when omitted. */
   sort?: GameSortOption
   /** Number of matching entries to skip from the start of the results (for pagination). */
@@ -78,12 +92,24 @@ export interface ReplayLibraryFilters {
   limit?: number
 }
 
+/**
+ * Progress of the replay index's backfill, in the two phases the UI distinguishes: `scanning` while
+ * the replay folder is being walked and the amount of work isn't known yet, then `indexing` while
+ * the discovered files are parsed (`done`/`total` count files parsed so far). Absent when no
+ * backfill is running.
+ */
+export type ReplayBackfillProgress =
+  | { phase: 'scanning' }
+  | { phase: 'indexing'; done: number; total: number }
+
 /** High-level status of the replay index, for surfacing indexing progress in the UI. */
 export interface ReplayLibraryStatus {
   /** Number of replays currently in the index. */
   totalIndexed: number
+  /** Number of replays currently bookmarked. */
+  bookmarkedCount: number
   /** Present while an initial/ongoing backfill is running. */
-  backfill?: { done: number; total: number }
+  backfill?: ReplayBackfillProgress
   /** The absolute path of the folder being indexed. */
   watchedFolder: string
 }

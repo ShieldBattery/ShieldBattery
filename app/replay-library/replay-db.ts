@@ -6,8 +6,10 @@ import {
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryPlayer,
+  ReplayPlaylist,
 } from '../../common/replays-library'
 import { makeSbUserId } from '../../common/users/sb-user-id'
+import { reorderPlaylistEntries } from './playlist-order'
 import { deriveTeamLayout, IndexedReplay } from './replay-parser'
 import { buildReplaySqlQuery } from './replay-queries'
 
@@ -20,7 +22,7 @@ import { buildReplaySqlQuery } from './replay-queries'
 // too. `build/Release/` is where the Electron-ABI build lands (this install has no prebuilds dir).
 const betterSqlite3Addon = require('better-sqlite3/build/Release/better_sqlite3.node')
 
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 8
 
 /** Max number of bind parameters per statement; keeps `IN (...)` lists within SQLite limits. */
 const MAX_IN_PARAMS = 900
@@ -39,6 +41,7 @@ interface DbReplayRow {
   parse_error: number
   team_size: number | null
   matchup: string | null
+  bookmarked_at: number | null
 }
 
 interface DbPlayerRow {
@@ -68,12 +71,35 @@ export class ReplayDb {
 
   private readonly getIdByPathStmt: Statement
   private readonly insertReplayStmt: Statement
+  private readonly updateReplayByIdStmt: Statement
   private readonly insertPlayerStmt: Statement
   private readonly deleteReplayByIdStmt: Statement
+  private readonly deletePlayersByReplayIdStmt: Statement
   private readonly updateReplayFileStmt: Statement
+  private readonly setBookmarkedStmt: Statement
+  private readonly getBookmarkedCountStmt: Statement
+  private readonly findReplayIdByGameIdStmt: Statement
+  private readonly listPlaylistsStmt: Statement
+  private readonly insertPlaylistStmt: Statement
+  private readonly getMaxPlaylistPositionStmt: Statement
+  private readonly renamePlaylistStmt: Statement
+  private readonly deletePlaylistStmt: Statement
+  private readonly getMaxEntryPositionStmt: Statement
+  private readonly insertPlaylistEntryStmt: Statement
+  private readonly getPlaylistEntryIdsStmt: Statement
+  private readonly deletePlaylistEntryStmt: Statement
+  private readonly updateEntryPositionStmt: Statement
+  private readonly getPlaylistsForReplayStmt: Statement
 
   private readonly upsertTxn: (record: IndexedReplay) => void
   private readonly deleteTxn: (paths: string[]) => void
+  private readonly addToPlaylistTxn: (playlistId: number, replayIds: number[]) => void
+  private readonly removeFromPlaylistTxn: (playlistId: number, replayIds: number[]) => void
+  private readonly movePlaylistEntryTxn: (
+    playlistId: number,
+    replayId: number,
+    toIndex: number,
+  ) => void
 
   constructor(dbPath: string) {
     // `nativeBinding` is typed as a string path by @types/better-sqlite3, but the runtime also
@@ -99,37 +125,115 @@ export class ReplayDb {
         duration_frames, sb_game_id, parse_error, team_size, matchup
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
+    // Deliberately omits `bookmarked_at`: a reparse (see `upsertTxn`) updates a row in place so the
+    // user's bookmark (and, via the stable id, playlist memberships) survive the reparse.
+    this.updateReplayByIdStmt = this.db.prepare(`
+      UPDATE replays SET
+        path = ?, file_mtime = ?, file_size = ?, content_hash = ?, game_time = ?, map_name = ?,
+        game_type = ?, duration_frames = ?, sb_game_id = ?, parse_error = ?, team_size = ?,
+        matchup = ?
+      WHERE id = ?
+    `)
     this.insertPlayerStmt = this.db.prepare(`
       INSERT INTO replay_players (replay_id, slot, team, name, race, is_computer, sb_user_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
     this.deleteReplayByIdStmt = this.db.prepare('DELETE FROM replays WHERE id = ?')
+    this.deletePlayersByReplayIdStmt = this.db.prepare(
+      'DELETE FROM replay_players WHERE replay_id = ?',
+    )
     this.updateReplayFileStmt = this.db.prepare(
       'UPDATE replays SET path = ?, file_mtime = ? WHERE id = ?',
     )
+    this.setBookmarkedStmt = this.db.prepare('UPDATE replays SET bookmarked_at = ? WHERE id = ?')
+    this.getBookmarkedCountStmt = this.db.prepare(
+      'SELECT COUNT(*) AS count FROM replays WHERE bookmarked_at IS NOT NULL',
+    )
+    this.findReplayIdByGameIdStmt = this.db.prepare(
+      'SELECT id FROM replays WHERE sb_game_id = ? ORDER BY parse_error ASC, id ASC LIMIT 1',
+    )
+
+    this.listPlaylistsStmt = this.db.prepare(`
+      SELECT p.id, p.name, COUNT(pe.replay_id) AS count
+      FROM playlists p
+      LEFT JOIN playlist_entries pe ON pe.playlist_id = p.id
+      GROUP BY p.id
+      ORDER BY p.position
+    `)
+    this.insertPlaylistStmt = this.db.prepare(
+      'INSERT INTO playlists (name, position, created_at) VALUES (?, ?, ?)',
+    )
+    this.getMaxPlaylistPositionStmt = this.db.prepare(
+      'SELECT MAX(position) AS maxPosition FROM playlists',
+    )
+    this.renamePlaylistStmt = this.db.prepare('UPDATE playlists SET name = ? WHERE id = ?')
+    this.deletePlaylistStmt = this.db.prepare('DELETE FROM playlists WHERE id = ?')
+    this.getMaxEntryPositionStmt = this.db.prepare(
+      'SELECT MAX(position) AS maxPosition FROM playlist_entries WHERE playlist_id = ?',
+    )
+    this.insertPlaylistEntryStmt = this.db.prepare(
+      'INSERT INTO playlist_entries (playlist_id, replay_id, position, added_at) VALUES (?, ?, ?, ?)',
+    )
+    this.getPlaylistEntryIdsStmt = this.db.prepare(
+      'SELECT replay_id FROM playlist_entries WHERE playlist_id = ? ORDER BY position',
+    )
+    this.deletePlaylistEntryStmt = this.db.prepare(
+      'DELETE FROM playlist_entries WHERE playlist_id = ? AND replay_id = ?',
+    )
+    this.updateEntryPositionStmt = this.db.prepare(
+      'UPDATE playlist_entries SET position = ? WHERE playlist_id = ? AND replay_id = ?',
+    )
+    this.getPlaylistsForReplayStmt = this.db.prepare(`
+      SELECT p.id, p.name
+      FROM playlists p
+      INNER JOIN playlist_entries pe ON pe.playlist_id = p.id
+      WHERE pe.replay_id = ?
+      ORDER BY p.position
+    `)
 
     this.upsertTxn = this.db.transaction((record: IndexedReplay) => {
       const existing = this.getIdByPathStmt.get(record.path) as { id: number } | undefined
+      let id: number
       if (existing) {
-        // Cascade removes players.
-        this.deleteReplayByIdStmt.run(existing.id)
+        // Update the row in place (rather than delete + reinsert) so it keeps its id. That id is
+        // what preserves the user's curation across a reparse: `bookmarked_at` isn't in the update, and
+        // a stable id means `playlist_entries` (FK ON DELETE CASCADE) aren't dropped. A delete +
+        // reinsert would silently wipe both on any reparse -- e.g. a bare mtime touch, or a future
+        // parser bump that clears `file_mtime` to force a full reparse (as the v5 migration did).
+        id = existing.id
+        this.updateReplayByIdStmt.run(
+          record.path,
+          record.fileMtime,
+          record.fileSize,
+          record.contentHash,
+          record.gameTime,
+          record.mapName,
+          record.gameType,
+          record.durationFrames,
+          record.sbGameId ?? null,
+          record.parseError ? 1 : 0,
+          record.teamSize,
+          record.matchup,
+          id,
+        )
+        this.deletePlayersByReplayIdStmt.run(id)
+      } else {
+        const info = this.insertReplayStmt.run(
+          record.path,
+          record.fileMtime,
+          record.fileSize,
+          record.contentHash,
+          record.gameTime,
+          record.mapName,
+          record.gameType,
+          record.durationFrames,
+          record.sbGameId ?? null,
+          record.parseError ? 1 : 0,
+          record.teamSize,
+          record.matchup,
+        )
+        id = Number(info.lastInsertRowid)
       }
-
-      const info = this.insertReplayStmt.run(
-        record.path,
-        record.fileMtime,
-        record.fileSize,
-        record.contentHash,
-        record.gameTime,
-        record.mapName,
-        record.gameType,
-        record.durationFrames,
-        record.sbGameId ?? null,
-        record.parseError ? 1 : 0,
-        record.teamSize,
-        record.matchup,
-      )
-      const id = Number(info.lastInsertRowid)
 
       for (const p of record.players) {
         this.insertPlayerStmt.run(
@@ -152,6 +256,57 @@ export class ReplayDb {
         }
       }
     })
+
+    this.addToPlaylistTxn = this.db.transaction((playlistId: number, replayIds: number[]) => {
+      const existingIds = new Set(
+        (this.getPlaylistEntryIdsStmt.all(playlistId) as Array<{ replay_id: number }>).map(
+          row => row.replay_id,
+        ),
+      )
+      const newIds = [...new Set(replayIds)].filter(id => !existingIds.has(id))
+      if (newIds.length === 0) {
+        return
+      }
+
+      const maxPositionRow = this.getMaxEntryPositionStmt.get(playlistId) as {
+        maxPosition: number | null
+      }
+      let position = maxPositionRow.maxPosition != null ? maxPositionRow.maxPosition + 1 : 0
+      const now = Date.now()
+      for (const replayId of newIds) {
+        this.insertPlaylistEntryStmt.run(playlistId, replayId, position, now)
+        position++
+      }
+    })
+
+    this.removeFromPlaylistTxn = this.db.transaction((playlistId: number, replayIds: number[]) => {
+      for (const replayId of replayIds) {
+        this.deletePlaylistEntryStmt.run(playlistId, replayId)
+      }
+
+      const remainingIds = (
+        this.getPlaylistEntryIdsStmt.all(playlistId) as Array<{ replay_id: number }>
+      ).map(row => row.replay_id)
+      remainingIds.forEach((replayId, index) => {
+        this.updateEntryPositionStmt.run(index, playlistId, replayId)
+      })
+    })
+
+    this.movePlaylistEntryTxn = this.db.transaction(
+      (playlistId: number, replayId: number, toIndex: number) => {
+        const ids = (
+          this.getPlaylistEntryIdsStmt.all(playlistId) as Array<{ replay_id: number }>
+        ).map(row => row.replay_id)
+        if (!ids.includes(replayId)) {
+          return
+        }
+
+        const reordered = reorderPlaylistEntries(ids, replayId, toIndex)
+        reordered.forEach((id, index) => {
+          this.updateEntryPositionStmt.run(index, playlistId, id)
+        })
+      },
+    )
   }
 
   // Atomic (SQLite DDL is transactional) so a crash mid-migration rolls back to the previous
@@ -219,6 +374,41 @@ export class ReplayDb {
         // file's actual mtime on disk, forcing the next reconcile to reparse every replay
         // (including parse_error rows) with the new parser.
         this.db.exec('UPDATE replays SET file_mtime = NULL')
+      }
+
+      if (version < 6) {
+        // Bookmarking and local playlists.
+        this.db.exec(`
+          ALTER TABLE replays ADD COLUMN starred_at INTEGER;
+
+          CREATE TABLE playlists (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            position INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+          );
+
+          CREATE TABLE playlist_entries (
+            playlist_id INTEGER NOT NULL REFERENCES playlists (id) ON DELETE CASCADE,
+            replay_id INTEGER NOT NULL REFERENCES replays (id) ON DELETE CASCADE,
+            position INTEGER NOT NULL,
+            added_at INTEGER NOT NULL,
+            PRIMARY KEY (playlist_id, replay_id)
+          );
+          CREATE INDEX idx_playlist_entries_playlist ON playlist_entries (playlist_id, position);
+        `)
+      }
+
+      if (version < 7) {
+        // Old replays use 0 (not just NON_EXISTING_USER_ID) for empty/observer slots in the
+        // ShieldBattery section; rows indexed before the parser learned that need the same
+        // treatment so consumers never see a bogus user id.
+        this.db.exec('UPDATE replay_players SET sb_user_id = NULL WHERE sb_user_id = 0')
+      }
+
+      if (version < 8) {
+        // Rename the starring column to match the bookmark terminology used throughout the UI.
+        this.db.exec('ALTER TABLE replays RENAME COLUMN starred_at TO bookmarked_at')
       }
 
       if (version < SCHEMA_VERSION) {
@@ -312,6 +502,65 @@ export class ReplayDb {
     return row.count
   }
 
+  /** Number of replays currently bookmarked. */
+  getBookmarkedCount(): number {
+    const row = this.getBookmarkedCountStmt.get() as { count: number }
+    return row.count
+  }
+
+  /** Bookmarks or unbookmarks a replay. */
+  setBookmarked(replayId: number, bookmarked: boolean): void {
+    this.setBookmarkedStmt.run(bookmarked ? Date.now() : null, replayId)
+  }
+
+  /** The id of the indexed replay produced by a ShieldBattery game, if one has been indexed. */
+  findReplayIdByGameId(gameId: string): number | undefined {
+    const row = this.findReplayIdByGameIdStmt.get(gameId) as { id: number } | undefined
+    return row?.id
+  }
+
+  /** Lists the local playlists, ordered per their manual arrangement. */
+  listPlaylists(): ReplayPlaylist[] {
+    return this.listPlaylistsStmt.all() as ReplayPlaylist[]
+  }
+
+  /** Creates a new, empty playlist, appended after the existing ones. Returns its new id. */
+  createPlaylist(name: string): number {
+    const maxPositionRow = this.getMaxPlaylistPositionStmt.get() as { maxPosition: number | null }
+    const position = maxPositionRow.maxPosition != null ? maxPositionRow.maxPosition + 1 : 0
+    const info = this.insertPlaylistStmt.run(name, position, Date.now())
+    return Number(info.lastInsertRowid)
+  }
+
+  renamePlaylist(id: number, name: string): void {
+    this.renamePlaylistStmt.run(name, id)
+  }
+
+  /** Deletes a playlist; its entries cascade. */
+  deletePlaylist(id: number): void {
+    this.deletePlaylistStmt.run(id)
+  }
+
+  /** Appends replays to a playlist's manual order. Replays already in the playlist are left alone. */
+  addToPlaylist(playlistId: number, replayIds: number[]): void {
+    this.addToPlaylistTxn(playlistId, replayIds)
+  }
+
+  /** Removes replays from a playlist, closing the gap in the remaining manual order. */
+  removeFromPlaylist(playlistId: number, replayIds: number[]): void {
+    this.removeFromPlaylistTxn(playlistId, replayIds)
+  }
+
+  /** Moves a replay to `toIndex` (clamped) within a playlist's manual order. No-op if not present. */
+  movePlaylistEntry(playlistId: number, replayId: number, toIndex: number): void {
+    this.movePlaylistEntryTxn(playlistId, replayId, toIndex)
+  }
+
+  /** Lists the playlists containing a replay, ordered per their manual arrangement. */
+  getPlaylistsForReplay(replayId: number): Array<{ id: number; name: string }> {
+    return this.getPlaylistsForReplayStmt.all(replayId) as Array<{ id: number; name: string }>
+  }
+
   /**
    * Runs a filtered query, returning the page of matching entries selected by `filters.offset`/
    * `filters.limit` (offset defaults to 0, an omitted limit returns everything), ordered per
@@ -393,5 +642,6 @@ function rowToEntry(row: DbReplayRow, playerRows: DbPlayerRow[]): ReplayLibraryE
     sbGameId: row.sb_game_id ?? undefined,
     parseError: row.parse_error !== 0,
     players,
+    bookmarkedAt: row.bookmarked_at ?? undefined,
   }
 }

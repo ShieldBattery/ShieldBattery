@@ -14,7 +14,13 @@ import { ReportedGameStatus } from './games/game-status'
 import { NetcodeV2ServerSetup } from './games/netcode-v2'
 import { GameClientPlayerResult } from './games/results'
 import { MapExtension } from './maps'
-import { ReplayLibraryEntry, ReplayLibraryFilters, ReplayLibraryStatus } from './replays-library'
+import {
+  ReplayBackfillProgress,
+  ReplayLibraryEntry,
+  ReplayLibraryFilters,
+  ReplayLibraryStatus,
+  ReplayPlaylist,
+} from './replays-library'
 import { LocalSettings, ScrSettings } from './settings/local-settings'
 import { ShieldBatteryFileResult } from './shieldbattery-file'
 import { SbUserId } from './users/sb-user-id'
@@ -189,6 +195,43 @@ interface IpcInvokeables {
   ) => Promise<{ entries: ReplayLibraryEntry[]; total: number }>
   /** Current status of the replay index (total indexed, backfill progress, watched folder). */
   replayLibraryStatus: () => Promise<ReplayLibraryStatus>
+  /** Bookmarks or unbookmarks a replay. */
+  replayLibrarySetBookmarked: (replayId: number, bookmarked: boolean) => Promise<void>
+  /** Lists the local playlists, ordered per their manual arrangement. */
+  replayLibraryListPlaylists: () => Promise<ReplayPlaylist[]>
+  /** Creates a new, empty playlist, appended after the existing ones. Returns its new id. */
+  replayLibraryCreatePlaylist: (name: string) => Promise<number>
+  replayLibraryRenamePlaylist: (id: number, name: string) => Promise<void>
+  /** Deletes a playlist and its entries. */
+  replayLibraryDeletePlaylist: (id: number) => Promise<void>
+  /** Appends replays to a playlist (already-present replays are left where they are). */
+  replayLibraryAddToPlaylist: (playlistId: number, replayIds: number[]) => Promise<void>
+  /** Removes replays from a playlist, closing the gap in the remaining manual order. */
+  replayLibraryRemoveFromPlaylist: (playlistId: number, replayIds: number[]) => Promise<void>
+  /** Moves a replay to `toIndex` (clamped) within a playlist's manual order. */
+  replayLibraryMovePlaylistEntry: (
+    playlistId: number,
+    replayId: number,
+    toIndex: number,
+  ) => Promise<void>
+  /** Lists the playlists containing a replay, ordered per their manual arrangement. */
+  replayLibraryGetPlaylistsForReplay: (
+    replayId: number,
+  ) => Promise<Array<{ id: number; name: string }>>
+  /** Finds the indexed replay produced by a ShieldBattery game, if one has been indexed. */
+  replayLibraryFindByGameId: (gameId: string) => Promise<number | undefined>
+  /**
+   * Saves a downloaded server replay into the watched replay library folder (verifying its hash
+   * first), so the local replay library indexes it. If an identical file is already saved there,
+   * it's left in place rather than duplicated. Resolves to the absolute path of the saved (or
+   * pre-existing) file, plus `alreadyExists: true` when it was already present on disk.
+   */
+  replayLibrarySaveReplay: (
+    gameId: string,
+    filename: string,
+    expectedHash: string,
+    data: ArrayBuffer,
+  ) => Promise<{ path: string; alreadyExists: boolean }>
 
   /**
    * Checks if a replay with the given ID exists in the cache with the correct hash.
@@ -276,8 +319,12 @@ interface IpcMainSendables {
 
   /** Sent whenever the replay index changes (files added/removed/updated). */
   replayLibraryChanged: () => void
-  /** Sent as the replay index backfills, so the UI can show progress. */
-  replayLibraryBackfillProgress: (progress: { done: number; total: number }) => void
+  /**
+   * Sent as the replay index backfills, so the UI can show progress. `undefined` signals the
+   * backfill has finished (or had no work), letting the UI clear the indicator without a separate
+   * status fetch.
+   */
+  replayLibraryBackfillProgress: (progress: ReplayBackfillProgress | undefined) => void
 
   replaysOpen: (replayPaths: string[]) => void
 

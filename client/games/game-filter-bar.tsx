@@ -92,6 +92,12 @@ export interface GameFilterBarProps {
   showGameType?: boolean
   gameType?: SupportedReplayGameType | 'others'
   setGameType?: (v: SupportedReplayGameType | 'others' | undefined) => void
+  /**
+   * When `setSpoilerFree` is provided, shows a spoiler-free toggle that hides game length; omit it
+   * on surfaces where game length isn't a spoiler (e.g. the Games page).
+   */
+  spoilerFree?: boolean
+  setSpoilerFree?: (v: boolean) => void
   className?: string
 }
 
@@ -120,6 +126,8 @@ export function GameFilterBar({
   showGameType = false,
   gameType,
   setGameType,
+  spoilerFree = false,
+  setSpoilerFree,
   className,
 }: GameFilterBarProps) {
   const { t } = useTranslation()
@@ -224,6 +232,15 @@ export function GameFilterBar({
       )}
 
       <FlexSpacer />
+
+      {setSpoilerFree && (
+        <FilterChip
+          label={t('game.filters.spoilerFree', 'Spoiler-free')}
+          icon={<MaterialIcon icon='visibility_off' size={18} />}
+          selected={spoilerFree}
+          onClick={() => setSpoilerFree(!spoilerFree)}
+        />
+      )}
 
       <FilterChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
         {SORT_OPTIONS.map(s => (

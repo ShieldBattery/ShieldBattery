@@ -176,3 +176,58 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery format/matchup f
     expect(params).toEqual([])
   })
 })
+
+describe('app/replay-library/replay-queries/buildReplaySqlQuery bookmarked filter', () => {
+  test('bookmarked adds a bookmarked_at IS NOT NULL clause', () => {
+    const { sql, params } = buildReplaySqlQuery({ bookmarked: true })
+    expect(sql).toContain('r.bookmarked_at IS NOT NULL')
+    expect(params).toEqual([])
+  })
+
+  test('bookmarked alone does not exclude parse-error rows (curation, not a value filter)', () => {
+    const { sql } = buildReplaySqlQuery({ bookmarked: true })
+    expect(sql).not.toContain('r.parse_error = 0')
+  })
+
+  test('bookmarked combined with a value filter still excludes parse-error rows', () => {
+    const { sql } = buildReplaySqlQuery({ bookmarked: true, mapName: 'Fighting Spirit' })
+    expect(sql).toContain('r.parse_error = 0')
+  })
+
+  test('false is treated as "don\'t filter"', () => {
+    const { sql } = buildReplaySqlQuery({ bookmarked: false })
+    expect(sql).not.toContain('bookmarked_at')
+  })
+})
+
+describe('app/replay-library/replay-queries/buildReplaySqlQuery playlist filter', () => {
+  test('playlistId adds an INNER JOIN over playlist_entries in both sql and countSql', () => {
+    const { sql, countSql, params } = buildReplaySqlQuery({ playlistId: 7 })
+    const join = 'INNER JOIN playlist_entries pe ON pe.replay_id = r.id AND pe.playlist_id = ?'
+    expect(sql).toContain(join)
+    expect(countSql).toContain(join)
+    expect(params).toEqual([7])
+  })
+
+  test('playlistId alone does not exclude parse-error rows (curation, not a value filter)', () => {
+    const { sql } = buildReplaySqlQuery({ playlistId: 7 })
+    expect(sql).not.toContain('r.parse_error = 0')
+  })
+
+  test('playlistId combined with a value filter still excludes parse-error rows, and the join param leads the value params', () => {
+    const { sql, params } = buildReplaySqlQuery({ playlistId: 7, mapName: 'Fighting Spirit' })
+    expect(sql).toContain('r.parse_error = 0')
+    expect(params).toEqual([7, '%Fighting Spirit%'])
+  })
+
+  test("playlistId with no explicit sort orders by the playlist's manual position", () => {
+    const { sql } = buildReplaySqlQuery({ playlistId: 7 })
+    expect(sql).toContain('ORDER BY pe.position ASC, r.id ASC')
+  })
+
+  test('an explicit sort overrides the playlist manual order', () => {
+    const { sql } = buildReplaySqlQuery({ playlistId: 7, sort: GameSortOption.OldestFirst })
+    expect(sql).toContain('ORDER BY r.parse_error ASC, r.game_time ASC, r.id ASC')
+    expect(sql).not.toContain('pe.position')
+  })
+})

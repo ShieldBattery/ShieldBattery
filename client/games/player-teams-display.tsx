@@ -1,7 +1,9 @@
 import styled from 'styled-components'
 import { RaceChar } from '../../common/races'
+import { SbUserId } from '../../common/users/sb-user-id'
 import { RaceIcon } from '../lobbies/race-icon'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
+import { ConnectedUsername } from '../users/connected-username'
 
 const PlayerTeamsRoot = styled.div`
   display: flex;
@@ -36,6 +38,11 @@ const PlayerRowName = styled.span<{ $dimmed?: boolean }>`
   ${singleLine};
 
   ${props => (props.$dimmed ? 'color: var(--theme-on-surface-variant);' : '')}
+`
+
+const PlayerRowConnectedName = styled(ConnectedUsername)`
+  ${titleSmall};
+  ${singleLine};
 `
 
 const PlayerRaceRoot = styled.div`
@@ -93,13 +100,20 @@ export interface PlayerTeamsDisplayPlayer {
   name: string
   /** The color treatment for the player's name. Defaults to `'normal'`. */
   nameColor?: 'normal' | 'dimmed'
+  /**
+   * The ShieldBattery user id for this player, if known. When set, the player's name renders as a
+   * connected, interactive username resolved from the store instead of the provided `name`. The
+   * connected name shows a loading placeholder until the store has the user — and forever, if the
+   * id can never be resolved — so callers whose ids come from untrusted sources (e.g. replay
+   * files) should only set this for users known to exist.
+   */
+  userId?: SbUserId
 }
 
 /**
- * A purely presentational component that renders a list of teams (each a list of players) as
- * side-by-side columns, showing each player's race and name. Carries no dependency on Redux or
- * any particular data source, so it can be used for both real games (backed by `SbUser`s) and
- * local replay files (backed by raw in-file player names).
+ * Renders a list of teams (each a list of players) as side-by-side columns, showing each player's
+ * race and name. Names render as plain strings by default, or as store-connected, interactive
+ * usernames for entries that carry a `userId`.
  */
 export function PlayerTeamsDisplay({
   teams,
@@ -120,7 +134,11 @@ export function PlayerTeamsDisplay({
           {team.map((player, playerIndex) => (
             <PlayerRowContainer key={`player-${playerIndex}`}>
               <PlayerRace race={player.race} isRandom={player.isRandom} />
-              <PlayerRowName $dimmed={player.nameColor === 'dimmed'}>{player.name}</PlayerRowName>
+              {player.userId !== undefined ? (
+                <PlayerRowConnectedName userId={player.userId} />
+              ) : (
+                <PlayerRowName $dimmed={player.nameColor === 'dimmed'}>{player.name}</PlayerRowName>
+              )}
             </PlayerRowContainer>
           ))}
         </PlayerTeamColumn>

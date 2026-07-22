@@ -24,6 +24,7 @@ import {
   ReconciledResult,
   getResultLabel,
 } from '../../common/games/results'
+import { TypedIpcRenderer } from '../../common/ipc'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -52,7 +53,8 @@ import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { watchReplayFromUrl } from '../replays/action-creators'
+import { saveReplayToLibrary, watchReplayFromUrl } from '../replays/action-creators'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
@@ -164,6 +166,8 @@ const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
   day: '2-digit',
 })
 
+const ipcRenderer = new TypedIpcRenderer()
+
 export interface ConnectedGameResultsPageProps {
   gameId: string
   subPage?: ResultsSubPage
@@ -191,8 +195,12 @@ export function ConnectedGameResultsPage({
   const [loadingError, setLoadingError] = useState<Error>()
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
+  const cancelSaveRef = useRef(new AbortController())
   const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
   const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
+  const [isSavingReplay, setIsSavingReplay] = useState(false)
+  const [isReplaySaved, setIsReplaySaved] = useState(false)
+  const snackbarController = useSnackbarController()
 
   const results = game?.results
 
@@ -253,6 +261,41 @@ export function ConnectedGameResultsPage({
       navigateToGameResults(game.id, false, subPage, replace)
     }
   }, [isPostGame, game, selfUser, subPage])
+
+  useEffect(() => {
+    if (!IS_ELECTRON) {
+      return () => {}
+    }
+
+    let isMounted = true
+    ipcRenderer
+      .invoke('replayLibraryFindByGameId', gameId)
+      ?.then(replayId => {
+        // Set unconditionally: this page isn't keyed by gameId, so the instance (and this state) is
+        // reused across navigations -- without resetting, a previously-saved game would leave the
+        // button stuck on "In library" for a game whose replay isn't saved.
+        if (isMounted) {
+          setIsReplaySaved(replayId !== undefined)
+        }
+      })
+      .catch(err => {
+        logger.error(`Error checking replay library: ${getErrorStack(err)}`)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [gameId])
+
+  useEffect(() => {
+    return () => {
+      // This page instance is reused across game navigations, so an in-flight save for the
+      // previous game must be aborted -- otherwise its stale onSuccess would mark the newly
+      // displayed game's replay as saved.
+      cancelSaveRef.current.abort()
+      setIsSavingReplay(false)
+    }
+  }, [gameId])
 
   const headline = useMemo<string>(() => {
     if (game && !game.results) {
@@ -320,6 +363,41 @@ export function ConnectedGameResultsPage({
     )
   }
 
+  const onSaveReplay = () => {
+    if (!replayInfo || !IS_ELECTRON) return
+
+    cancelSaveRef.current.abort()
+    const abortController = new AbortController()
+    cancelSaveRef.current = abortController
+
+    setIsSavingReplay(true)
+
+    dispatch(
+      saveReplayToLibrary(replayInfo, {
+        signal: abortController.signal,
+        onSuccess: result => {
+          setIsSavingReplay(false)
+          setIsReplaySaved(true)
+          snackbarController.showSnackbar(
+            result.alreadySaved
+              ? t(
+                  'gameDetails.saveReplayAlreadySaved',
+                  "This game's replay is already in your library",
+                )
+              : t('gameDetails.saveReplaySuccess', 'Replay saved to your library'),
+          )
+        },
+        onError: err => {
+          setIsSavingReplay(false)
+          logger.error(`Error saving replay: ${getErrorStack(err)}`)
+          snackbarController.showSnackbar(
+            t('gameDetails.saveReplayError', 'There was a problem saving the replay'),
+          )
+        },
+      }),
+    )
+  }
+
   let content: React.ReactNode
   switch (subPage) {
     case ResultsSubPage.Summary:
@@ -361,6 +439,15 @@ export function ConnectedGameResultsPage({
   }, [game, selfUser])
   // Reporting is limited to finished games you played in, against another human player from it.
   const canReport = !isLive && selfIsParticipant && reportCandidates.length > 0
+
+  let saveReplayLabel: string
+  if (isSavingReplay) {
+    saveReplayLabel = t('gameDetails.buttonSaveReplayLoading', 'Saving…')
+  } else if (isReplaySaved) {
+    saveReplayLabel = t('gameDetails.buttonReplaySaved', 'In library')
+  } else {
+    saveReplayLabel = t('gameDetails.buttonSaveReplay', 'Save replay')
+  }
 
   return (
     <Container layoutScroll>
@@ -411,6 +498,14 @@ export function ConnectedGameResultsPage({
             iconStart={<MaterialIcon icon='play_circle' />}
             disabled={isDownloadingReplay}
             onClick={onWatchReplay}
+          />
+        ) : null}
+        {replayInfo && IS_ELECTRON ? (
+          <OutlinedButton
+            label={saveReplayLabel}
+            iconStart={<MaterialIcon icon={isReplaySaved ? 'check' : 'save'} />}
+            disabled={isSavingReplay || isReplaySaved}
+            onClick={onSaveReplay}
           />
         ) : null}
         {replayInfo ? (
