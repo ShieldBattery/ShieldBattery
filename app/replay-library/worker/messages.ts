@@ -2,6 +2,7 @@ import {
   ReplayLibraryEntry,
   ReplayLibraryFilters,
   ReplayLibraryStatus,
+  ReplayPlaylist,
 } from '../../../common/replays-library'
 
 /**
@@ -24,22 +25,42 @@ export interface ReplayQueryResult {
   total: number
 }
 
+/**
+ * The operations the main thread can invoke on the worker, each mirroring a synchronous method of
+ * the worker-side DB. The worker runs the method and answers with a `CallResultMessage`; adding an
+ * operation here means implementing it in the worker's `calls` table.
+ */
+export interface ReplayDbCalls {
+  query: (filters: ReplayLibraryFilters) => ReplayQueryResult
+  status: () => ReplayLibraryStatus
+  setStarred: (replayId: number, starred: boolean) => void
+  listPlaylists: () => ReplayPlaylist[]
+  createPlaylist: (name: string) => number
+  renamePlaylist: (playlistId: number, name: string) => void
+  deletePlaylist: (playlistId: number) => void
+  addToPlaylist: (playlistId: number, replayIds: number[]) => void
+  removeFromPlaylist: (playlistId: number, replayIds: number[]) => void
+  movePlaylistEntry: (playlistId: number, replayId: number, toIndex: number) => void
+  getPlaylistsForReplay: (replayId: number) => Array<{ id: number; name: string }>
+  findReplayIdByGameId: (gameId: string) => number | undefined
+}
+
 // --- Main thread -> worker ---
 
-export interface QueryRequest {
-  type: 'query'
-  /** Correlates the eventual `queryResult` back to the caller's pending request. */
+/**
+ * A request to run one of `ReplayDbCalls` in the worker. `id` correlates the eventual
+ * `CallResultMessage` back to the caller's pending request. Note that the un-parameterized form
+ * doesn't tie `args` to `method` — build requests through a `<M>`-generic helper to keep them
+ * correlated.
+ */
+export interface CallRequest<M extends keyof ReplayDbCalls = keyof ReplayDbCalls> {
+  type: 'call'
   id: number
-  filters: ReplayLibraryFilters
+  method: M
+  args: Parameters<ReplayDbCalls[M]>
 }
 
-export interface StatusRequest {
-  type: 'status'
-  /** Correlates the eventual `statusResult` back to the caller's pending request. */
-  id: number
-}
-
-export type ToWorkerMessage = QueryRequest | StatusRequest
+export type ToWorkerMessage = CallRequest
 
 // --- Worker -> main thread ---
 
@@ -48,15 +69,10 @@ export interface ReadyMessage {
   type: 'ready'
 }
 
-export type QueryResultMessage = {
-  type: 'queryResult'
+export type CallResultMessage = {
+  type: 'callResult'
   id: number
-} & ({ result: ReplayQueryResult } | { error: Error })
-
-export type StatusResultMessage = {
-  type: 'statusResult'
-  id: number
-} & ({ status: ReplayLibraryStatus } | { error: Error })
+} & ({ result: unknown } | { error: Error })
 
 /** Mirrors `ReplayWatcher`'s `onProgress`, forwarded to the renderer as `replayLibraryBackfillProgress`. */
 export interface BackfillProgressMessage {
@@ -78,8 +94,7 @@ export interface LogMessage {
 
 export type FromWorkerMessage =
   | ReadyMessage
-  | QueryResultMessage
-  | StatusResultMessage
+  | CallResultMessage
   | BackfillProgressMessage
   | ChangedMessage
   | LogMessage

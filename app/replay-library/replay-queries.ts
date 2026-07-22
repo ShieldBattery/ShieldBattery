@@ -41,20 +41,29 @@ export function escapeLike(value: string): string {
 }
 
 /**
- * Maps a {@link GameSortOption} (defaulting to newest-first) to the `ORDER BY` clause body used in
- * the replay query. Parse-error rows store zeroed `game_time`/`duration_frames` (see
- * `makeParseErrorRecord`), so every branch leads with `r.parse_error ASC` to pin them after readable
- * replays explicitly, rather than leaving them wherever zero happens to sort.
+ * Maps `filters` to the `ORDER BY` clause body used in the replay query. Parse-error rows store
+ * zeroed `game_time`/`duration_frames` (see `makeParseErrorRecord`), so every branch leads with
+ * `r.parse_error ASC` to pin them after readable replays explicitly, rather than leaving them
+ * wherever zero happens to sort.
  *
- * Every branch also ends with `r.id ASC` as a final tiebreaker: rows commonly tie on `game_time`
- * (e.g. a same-game autoreplay and manual save share the seed-derived timestamp), and without a
- * deterministic tiebreaker, paginated `LIMIT`/`OFFSET` windows can duplicate or skip rows across
- * chunks when ties are ordered differently between queries. It's `ASC` specifically (not `DESC`)
- * because SQLite indexes implicitly append the rowid in ascending order, so `game_time DESC, id
- * ASC` still lets the `(parse_error, game_time DESC)` index fully serve the default sort without an
- * extra sort step.
+ * When `filters.playlistId` is set and no explicit `sort` was requested, results follow the
+ * playlist's own manual ordering (`pe.position`) instead of the usual sort branches; an explicit
+ * `sort` always overrides that.
+ *
+ * Every sort branch also ends with `r.id ASC` as a final tiebreaker: rows commonly tie on
+ * `game_time` (e.g. a same-game autoreplay and manual save share the seed-derived timestamp), and
+ * without a deterministic tiebreaker, paginated `LIMIT`/`OFFSET` windows can duplicate or skip rows
+ * across chunks when ties are ordered differently between queries. It's `ASC` specifically (not
+ * `DESC`) because SQLite indexes implicitly append the rowid in ascending order, so `game_time
+ * DESC, id ASC` still lets the `(parse_error, game_time DESC)` index fully serve the default sort
+ * without an extra sort step.
  */
-function buildOrderByClause(sort: GameSortOption): string {
+function buildOrderByClause(filters: Pick<ReplayLibraryFilters, 'sort' | 'playlistId'>): string {
+  if (filters.playlistId !== undefined && filters.sort === undefined) {
+    return 'r.parse_error ASC, pe.position ASC, r.id ASC'
+  }
+
+  const sort = filters.sort ?? GameSortOption.LatestFirst
   switch (sort) {
     case GameSortOption.LatestFirst:
       return 'r.parse_error ASC, r.game_time DESC, r.id ASC'
@@ -71,19 +80,30 @@ function buildOrderByClause(sort: GameSortOption): string {
 
 /**
  * Builds the SQL statements for a replay query, covering every filter (map name, player name, game
- * type, duration bucket, format, matchup) — nothing is filtered in JS afterwards. Format/matchup
- * matching reads the `team_size`/`matchup` columns computed once at parse time (see
- * `mapReplayHeaderToRecord`). `sql` is ordered per `filters.sort` (defaulting to newest-first) and
- * has no paging applied; `countSql` reuses the same `WHERE` clause and `params` to total the
- * matches, without an `ORDER BY`.
+ * type, duration bucket, format, matchup, starred, playlist membership) — nothing is filtered in JS
+ * afterwards. Format/matchup matching reads the `team_size`/`matchup` columns computed once at parse
+ * time (see `mapReplayHeaderToRecord`). `sql` is ordered per `filters.sort` (defaulting to
+ * newest-first, or the playlist's manual order when `filters.playlistId` is set with no explicit
+ * `sort`) and has no paging applied; `countSql` reuses the same joins/`WHERE` clause and `params` to
+ * total the matches, without an `ORDER BY`.
  */
 export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQuery {
   const whereClauses: string[] = []
   const params: Array<string | number> = []
+  // Tracks whether any value-constraining filter (as opposed to a curation filter like
+  // starred/playlist membership) is active, to decide whether to exclude parse-error rows below.
+  let hasValueFilter = false
+
+  let joinClause = ''
+  if (filters.playlistId !== undefined) {
+    joinClause = ' INNER JOIN playlist_entries pe ON pe.replay_id = r.id AND pe.playlist_id = ?'
+    params.push(filters.playlistId)
+  }
 
   if (filters.mapName !== undefined) {
     whereClauses.push("r.map_name LIKE ? ESCAPE '\\'")
     params.push(`%${escapeLike(filters.mapName)}%`)
+    hasValueFilter = true
   }
 
   if (filters.playerName !== undefined) {
@@ -91,15 +111,18 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
       "EXISTS (SELECT 1 FROM replay_players p WHERE p.replay_id = r.id AND p.name LIKE ? ESCAPE '\\')",
     )
     params.push(`%${escapeLike(filters.playerName)}%`)
+    hasValueFilter = true
   }
 
   if (filters.gameType === 'others') {
     const placeholders = FEATURED_REPLAY_GAME_TYPES.map(() => '?').join(', ')
     whereClauses.push(`r.game_type NOT IN (${placeholders})`)
     params.push(...FEATURED_REPLAY_GAME_TYPES)
+    hasValueFilter = true
   } else if (filters.gameType !== undefined) {
     whereClauses.push('r.game_type = ?')
     params.push(filters.gameType)
+    hasValueFilter = true
   }
 
   if (filters.duration !== undefined && filters.duration !== GameDurationFilter.All) {
@@ -123,11 +146,13 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
       default:
         filters.duration satisfies never
     }
+    hasValueFilter = true
   }
 
   if (filters.format !== undefined) {
     whereClauses.push('r.team_size = ?')
     params.push(getTeamSizeForFormat(filters.format))
+    hasValueFilter = true
 
     // Matchup is only meaningful alongside a format (it decodes against the format's team size),
     // and a fully-wildcard matchup constrains nothing, so it's a no-op.
@@ -143,18 +168,24 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     }
   }
 
+  if (filters.starred) {
+    whereClauses.push('r.starred_at IS NOT NULL')
+  }
+
   // Parse-error rows store zeroed values (see `makeParseErrorRecord`), so an active filter's match
   // against them would be against garbage rather than a real value. Filters constrain known values,
   // so a parse-error row's unknown values must never satisfy one; excluding them here only when a
-  // filter is active leaves the unfiltered view showing them (pinned last by the ORDER BY above).
-  if (whereClauses.length > 0) {
+  // value filter is active leaves the unfiltered view showing them (pinned last by the ORDER BY
+  // above). Starred/playlist membership is user curation rather than a value match, so it must not
+  // trigger this exclusion — a starred-but-unreadable replay still belongs in the Starred view.
+  if (hasValueFilter) {
     whereClauses.push('r.parse_error = 0')
   }
 
   const where = whereClauses.length > 0 ? ` WHERE ${whereClauses.join(' AND ')}` : ''
-  const orderBy = buildOrderByClause(filters.sort ?? GameSortOption.LatestFirst)
-  const sql = `SELECT r.* FROM replays r${where} ORDER BY ${orderBy}`
-  const countSql = `SELECT COUNT(*) AS count FROM replays r${where}`
+  const orderBy = buildOrderByClause(filters)
+  const sql = `SELECT r.* FROM replays r${joinClause}${where} ORDER BY ${orderBy}`
+  const countSql = `SELECT COUNT(*) AS count FROM replays r${joinClause}${where}`
 
   return { sql, countSql, params }
 }

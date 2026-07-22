@@ -4,7 +4,7 @@ import { getErrorStack } from '../../../common/errors'
 import { ReplayLibraryStatus } from '../../../common/replays-library'
 import { ReplayDb } from '../replay-db'
 import { ReplayLibraryLogger, ReplayWatcher } from '../replay-watcher'
-import { FromWorkerMessage, ReplayDbWorkerData, ToWorkerMessage } from './messages'
+import { FromWorkerMessage, ReplayDbCalls, ReplayDbWorkerData, ToWorkerMessage } from './messages'
 
 // Owns the SQLite index and the folder watcher, off the main thread. All the synchronous
 // better-sqlite3 work (queries plus the per-file writes a backfill does) and the WASM replay
@@ -59,26 +59,37 @@ const watcher = new ReplayWatcher(watchedFolder, db, logger, {
 function getStatus(): ReplayLibraryStatus {
   return {
     totalIndexed: db.getTotalIndexed(),
+    starredCount: db.getStarredCount(),
     backfill: watcher.getBackfillProgress(),
     watchedFolder,
   }
 }
 
+/** Implementations of the operations the main thread can request (see `ReplayDbCalls`). */
+const calls: ReplayDbCalls = {
+  query: filters => db.query(filters),
+  status: () => getStatus(),
+  setStarred: (replayId, starred) => db.setStarred(replayId, starred),
+  listPlaylists: () => db.listPlaylists(),
+  createPlaylist: name => db.createPlaylist(name),
+  renamePlaylist: (playlistId, name) => db.renamePlaylist(playlistId, name),
+  deletePlaylist: playlistId => db.deletePlaylist(playlistId),
+  addToPlaylist: (playlistId, replayIds) => db.addToPlaylist(playlistId, replayIds),
+  removeFromPlaylist: (playlistId, replayIds) => db.removeFromPlaylist(playlistId, replayIds),
+  movePlaylistEntry: (playlistId, replayId, toIndex) =>
+    db.movePlaylistEntry(playlistId, replayId, toIndex),
+  getPlaylistsForReplay: replayId => db.getPlaylistsForReplay(replayId),
+  findReplayIdByGameId: gameId => db.findReplayIdByGameId(gameId),
+}
+
 parentPort!.on('message', (message: ToWorkerMessage) => {
-  if (message.type === 'query') {
-    try {
-      post({ type: 'queryResult', id: message.id, result: db.query(message.filters) })
-    } catch (error) {
-      post({ type: 'queryResult', id: message.id, error: error as Error })
-    }
-  } else if (message.type === 'status') {
-    try {
-      post({ type: 'statusResult', id: message.id, status: getStatus() })
-    } catch (error) {
-      post({ type: 'statusResult', id: message.id, error: error as Error })
-    }
-  } else {
-    message satisfies never
+  try {
+    // `message.method`/`message.args` aren't correlated after transfer (see `CallRequest`), so
+    // the invocation goes through an untyped signature; `calls` itself is fully typed.
+    const method = calls[message.method] as (...args: unknown[]) => unknown
+    post({ type: 'callResult', id: message.id, result: method(...message.args) })
+  } catch (error) {
+    post({ type: 'callResult', id: message.id, error: error as Error })
   }
 })
 

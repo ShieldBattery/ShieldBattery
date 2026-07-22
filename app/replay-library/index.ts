@@ -4,13 +4,12 @@ import { Worker } from 'node:worker_threads'
 import createDeferred, { Deferred } from '../../common/async/deferred'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcMain, TypedIpcSender } from '../../common/ipc'
-import { ReplayLibraryStatus } from '../../common/replays-library'
 import log from '../logger'
 import {
+  CallRequest,
   FromWorkerMessage,
+  ReplayDbCalls,
   ReplayDbWorkerData,
-  ReplayQueryResult,
-  ToWorkerMessage,
 } from './worker/messages'
 
 /**
@@ -45,14 +44,55 @@ export class ReplayLibraryService {
 
   constructor(private readonly options: ReplayLibraryOptions) {
     const ipcMain = new TypedIpcMain()
-    ipcMain.handle('replayLibraryQuery', async (_event, filters) =>
-      this.request<ReplayQueryResult>(id => ({ type: 'query', id, filters })),
+    ipcMain.handle('replayLibraryQuery', async (_event, filters) => this.call('query', filters))
+    ipcMain.handle('replayLibraryStatus', async () => this.call('status'))
+
+    ipcMain.handle('replayLibrarySetStarred', async (_event, replayId, starred) => {
+      await this.call('setStarred', replayId, starred)
+      this.notifyChanged()
+    })
+    ipcMain.handle('replayLibraryListPlaylists', async () => this.call('listPlaylists'))
+    ipcMain.handle('replayLibraryCreatePlaylist', async (_event, name) => {
+      const id = await this.call('createPlaylist', name)
+      this.notifyChanged()
+      return id
+    })
+    ipcMain.handle('replayLibraryRenamePlaylist', async (_event, id, name) => {
+      await this.call('renamePlaylist', id, name)
+      this.notifyChanged()
+    })
+    ipcMain.handle('replayLibraryDeletePlaylist', async (_event, id) => {
+      await this.call('deletePlaylist', id)
+      this.notifyChanged()
+    })
+    ipcMain.handle('replayLibraryAddToPlaylist', async (_event, playlistId, replayIds) => {
+      await this.call('addToPlaylist', playlistId, replayIds)
+      this.notifyChanged()
+    })
+    ipcMain.handle('replayLibraryRemoveFromPlaylist', async (_event, playlistId, replayIds) => {
+      await this.call('removeFromPlaylist', playlistId, replayIds)
+      this.notifyChanged()
+    })
+    ipcMain.handle(
+      'replayLibraryMovePlaylistEntry',
+      async (_event, playlistId, replayId, toIndex) => {
+        await this.call('movePlaylistEntry', playlistId, replayId, toIndex)
+        this.notifyChanged()
+      },
     )
-    ipcMain.handle('replayLibraryStatus', async () =>
-      this.request<ReplayLibraryStatus>(id => ({ type: 'status', id })),
+    ipcMain.handle('replayLibraryGetPlaylistsForReplay', async (_event, replayId) =>
+      this.call('getPlaylistsForReplay', replayId),
+    )
+    ipcMain.handle('replayLibraryFindByGameId', async (_event, gameId) =>
+      this.call('findReplayIdByGameId', gameId),
     )
 
     this.startWorker()
+  }
+
+  /** Notifies the renderer that the index changed, for mutations outside the watcher's own path. */
+  private notifyChanged(): void {
+    this.options.getSender().send('replayLibraryChanged')
   }
 
   private startWorker(): void {
@@ -99,15 +139,20 @@ export class ReplayLibraryService {
     this.worker = worker
   }
 
-  private request<T>(build: (id: number) => ToWorkerMessage): Promise<T> {
+  /** Invokes one of the worker's `ReplayDbCalls` operations as a correlated request/response. */
+  private call<M extends keyof ReplayDbCalls>(
+    method: M,
+    ...args: Parameters<ReplayDbCalls[M]>
+  ): Promise<ReturnType<ReplayDbCalls[M]>> {
     if (!this.worker) {
       return Promise.reject(new Error('replay DB worker is not running'))
     }
 
     const id = this.nextRequestId++
-    const deferred = createDeferred<T>()
+    const deferred = createDeferred<ReturnType<ReplayDbCalls[M]>>()
     this.pending.set(id, deferred)
-    this.worker.postMessage(build(id))
+    const message: CallRequest<M> = { type: 'call', id, method, args }
+    this.worker.postMessage(message)
     return deferred
   }
 
@@ -117,18 +162,17 @@ export class ReplayLibraryService {
         this.consecutiveRestarts = 0
         log.verbose('Replay DB worker ready')
         break
-      case 'queryResult':
-      case 'statusResult': {
+      case 'callResult': {
         const deferred = this.pending.get(message.id)
         if (!deferred) {
-          log.warning(`Received a ${message.type} for unknown replay request ${message.id}`)
+          log.warning(`Received a result for unknown replay request ${message.id}`)
           break
         }
         this.pending.delete(message.id)
         if ('error' in message) {
           deferred.reject(message.error)
         } else {
-          deferred.resolve(message.type === 'queryResult' ? message.result : message.status)
+          deferred.resolve(message.result)
         }
         break
       }
