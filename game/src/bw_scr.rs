@@ -3700,7 +3700,10 @@ impl BwScr {
             let stride = table.stride;
             let dst = table_base.add(local_slot * stride);
             // Never clobber a native fill: the host already holds an authoritative blob here.
-            if std::slice::from_raw_parts(dst, stride).iter().any(|&b| b != 0) {
+            if std::slice::from_raw_parts(dst, stride)
+                .iter()
+                .any(|&b| b != 0)
+            {
                 return;
             }
             let skins_base = skins.resolve();
