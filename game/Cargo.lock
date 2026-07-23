@@ -3924,7 +3924,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "rally-point-client"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=0ac517c56b0663d383e3b8f358dcca7d1e733676#0ac517c56b0663d383e3b8f358dcca7d1e733676"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=e1d147153eddac954f1ffadcde2c12bcd0d49ecf#e1d147153eddac954f1ffadcde2c12bcd0d49ecf"
 dependencies = [
  "rally-point-proto",
  "rally-point-transport",
@@ -3938,7 +3938,7 @@ dependencies = [
 [[package]]
 name = "rally-point-proto"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=0ac517c56b0663d383e3b8f358dcca7d1e733676#0ac517c56b0663d383e3b8f358dcca7d1e733676"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=e1d147153eddac954f1ffadcde2c12bcd0d49ecf#e1d147153eddac954f1ffadcde2c12bcd0d49ecf"
 dependencies = [
  "bytes",
  "prost",
@@ -3951,7 +3951,7 @@ dependencies = [
 [[package]]
 name = "rally-point-transport"
 version = "0.1.0"
-source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=0ac517c56b0663d383e3b8f358dcca7d1e733676#0ac517c56b0663d383e3b8f358dcca7d1e733676"
+source = "git+https://github.com/ShieldBattery/rally-point2.git?rev=e1d147153eddac954f1ffadcde2c12bcd0d49ecf#e1d147153eddac954f1ffadcde2c12bcd0d49ecf"
 dependencies = [
  "prost",
  "quinn",
@@ -4403,7 +4403,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 [[package]]
 name = "samase_scarf"
 version = "0.1.0"
-source = "git+https://github.com/tec27/samase_scarf.git?rev=711a52042229777c0cc238428e51da644c8c1ce3#711a52042229777c0cc238428e51da644c8c1ce3"
+source = "git+https://github.com/tec27/samase_scarf.git?rev=2198ad185b92d6573bb074fa5ef2ab66a3b6eb29#2198ad185b92d6573bb074fa5ef2ab66a3b6eb29"
 dependencies = [
  "array-init",
  "arrayvec",

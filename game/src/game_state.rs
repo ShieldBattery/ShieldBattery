@@ -348,16 +348,6 @@ impl GameState {
                     },
                 )
                 .await;
-                if cfg!(target_arch = "x86_64") {
-                    // The Storm session-player struct's 64-bit field offsets are unverified (see
-                    // StormSessionPlayer in bw_scr/scr.rs) — seeding would write through guessed
-                    // offsets into native heap objects. Refuse the load cleanly until they're
-                    // verified.
-                    return Err(GameInitError::NetcodeV2SessionInit(
-                        "netcode v2 native-lobby setup is not yet supported on 64-bit builds"
-                            .into(),
-                    ));
-                }
                 // Native-lobby setup over the rp2 seam: the host creates the native lobby and each
                 // peer joins it, but all lobby command traffic rides the turn transport rather than
                 // Storm networking. Storm ids come straight from the rp2 roster (storm id ≡ rp2
@@ -708,9 +698,8 @@ impl GameState {
                     std::iter::once((local_user.id, 0u8)).collect();
                 let ums_forces = &game_map.map_data.ums_forces[..];
                 unsafe {
-                    // Create the native lobby (its Storm create allocates the local session). No
-                    // remote members to seed, so no StormSessionPlayer writes happen — which is why
-                    // the 64-bit refusal that guards the relay path's seeding does not apply here.
+                    // Create the native lobby (its Storm create allocates the local session). This
+                    // solo path has no remote members, so no StormSessionPlayer seeding happens here.
                     create_lobby(&info)?;
                     // Overlay the real game-type template so the sim runs the correct rules rather
                     // than the zeroed template's Use Map Settings default.

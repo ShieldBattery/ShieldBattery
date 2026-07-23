@@ -463,14 +463,16 @@ pub struct StormPlayer {
 /// (so this must not derive Copy/Clone). Nodes are created zeroed, so a hand-seeded entry only
 /// needs to fill in the fields listed below explicitly.
 ///
-/// The unnamed gap holds fields the DLL never touches: on 32-bit, that's a nested per-member
-/// list at +0x1c8, the member's turn sequence at +0x1e0, and a state byte at +0x20c.
+/// The unnamed gap holds fields the DLL never touches: on 32-bit, a nested per-member list at
+/// +0x1c8, the member's turn sequence at +0x1e0, and a state byte at +0x20c; on 64-bit, nested
+/// lists and turn/state fields spread across +0x140..+0x2bd.
 ///
-/// 64-bit caveat: only the `slot` offset (0x2be) is RE-verified there, taken from
-/// samase_scarf's `session_player_slot_offset`. The other 64-bit offsets assume prev/next are
-/// the only pointer fields before the flat name/description/net_key/flags region; that
-/// assumption must be verified against a 64-bit binary before any code writes these fields in
-/// a 64-bit build.
+/// Both architectures' field offsets are RE-verified against the 1.23.10 binary: `name`, the
+/// `net_key`/`flags` block, and `slot` are each taken from the instructions that read or write
+/// them (the session-player lookup/create routine, the join-info player builder, and
+/// `storm_receive_turns`' bit-0x4 gate). On 64-bit `name` begins immediately after the two
+/// pointers at +0x10 — no extra field sits between `next` and `name` — and `slot` lands at
+/// +0x2be, matching samase_scarf's `session_player_slot_offset`.
 #[repr(C)]
 pub struct StormSessionPlayer {
     pub prev: *mut StormSessionPlayer,

@@ -260,7 +260,11 @@ pub fn player_id_mapping() -> &'static [PlayerIdMapping] {
 /// loop has ended (while the globals are still valid).
 fn save_minimap_settings() {
     let bw = get_bw();
-    let color_mode = bw.read_minimap_color_mode();
+    // With custom team colors active the real global is pinned per mode, so persist the virtual
+    // mode the user actually sees; otherwise read BW's real global exactly as before.
+    let color_mode = bw
+        .team_color_virtual_mode()
+        .or_else(|| bw.read_minimap_color_mode());
     let terrain_hidden = bw.read_minimap_terrain_hidden();
     if color_mode.is_some() || terrain_hidden.is_some() {
         send_game_msg_to_async(GameThreadMessage::MinimapSettings {
@@ -480,6 +484,22 @@ pub unsafe fn after_init_game_data() {
         {
             setup_team_alliances(bw);
         }
+
+        // Randomize base player colors for melee/non-UMS live games: BW's own game-start path skips
+        // its randomize call for SB sessions, so slots stay deterministic slot-order colors. The
+        // lobby setup already marked every playing slot "random"; run the randomizer now (game init
+        // has set the synced RNG seed) so it fills rgb_colors, and switch use_rgb_colors on so those
+        // colors render. UMS keeps its map-defined colors and replays play back recorded colors, so
+        // both are left untouched. Runs before init_team_colors so the custom-color engine snapshots
+        // this randomized baseline, not slot-order colors.
+        if !is_ums() && !is_replay() {
+            bw.randomize_base_player_colors();
+        }
+
+        // Now that alliances are finalized, build the custom team-color assignment (a no-op unless
+        // the feature is active). Must run before the minimap dialog inits so colors are correct
+        // from the first frame.
+        bw.init_team_colors();
 
         // Create fog-of-war sprites for any neutral buildings
         if !is_ums()

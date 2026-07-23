@@ -92,6 +92,11 @@ impl RunningState {
                 }
             }
 
+            // Exchange peer skins here, before init_game's one-shot digest: broadcast the local
+            // blob (available in this window) and apply peers' arrivals into the raw table so the
+            // digest reads them into the render struct. Applying after init_game is too late.
+            bw.exchange_skins_during_lobby_init();
+
             if bw.try_finish_lobby_game_init() {
                 return true;
             }

@@ -70,6 +70,57 @@ export function tilesetToName(tileset: Tileset, t: TFunction) {
   }
 }
 
+/**
+ * Lowercase, file/URL-safe identifiers for the tilesets that have dedicated preview art (e.g. the
+ * team-color settings' minimap previews, `client/settings/game/team-color-preview.tsx`, and the
+ * generator that renders them, `tools/gen-minimap-previews.ts`). Installation is excluded: it only
+ * appears in the campaign and rare UMS maps, so no preview art is maintained for it.
+ */
+export type TilesetId = 'jungle' | 'badlands' | 'desert' | 'ice' | 'space' | 'twilight' | 'ashworld'
+
+/** Every preview {@link TilesetId}, in the order they should be offered/cycled in the UI. */
+export const ALL_TILESET_IDS: ReadonlyArray<TilesetId> = [
+  'jungle',
+  'badlands',
+  'desert',
+  'ice',
+  'space',
+  'twilight',
+  'ashworld',
+]
+
+/**
+ * Maps the numeric {@link Tileset} enum (matches BW's own in-game tileset ints, see the NOTE on
+ * {@link Tileset}) to its {@link TilesetId}, or `undefined` for tilesets with no preview art
+ * (Installation).
+ */
+export const TILESET_IDS: Readonly<Record<Tileset, TilesetId | undefined>> = {
+  [Tileset.Badlands]: 'badlands',
+  [Tileset.Platform]: 'space',
+  [Tileset.Installation]: undefined,
+  [Tileset.Ashworld]: 'ashworld',
+  [Tileset.Jungle]: 'jungle',
+  [Tileset.Desert]: 'desert',
+  [Tileset.Ice]: 'ice',
+  [Tileset.Twilight]: 'twilight',
+}
+
+/**
+ * Flat fallback colors for each preview tileset, sampled from their terrain. Used before a real
+ * minimap render exists yet, or if one fails to load -- see `TeamColorPreview` and
+ * `tools/gen-minimap-previews.ts`, which both need the exact same values (the preview's CSS
+ * fallback and the script's placeholder PNGs should be indistinguishable from each other).
+ */
+export const TILESET_PLACEHOLDER_COLORS: Readonly<Record<TilesetId, string>> = {
+  jungle: '#081208',
+  badlands: '#1b1310',
+  desert: '#1a1206',
+  ice: '#0c1218',
+  space: '#05070d',
+  twilight: '#0d0a14',
+  ashworld: '#120a08',
+}
+
 export enum MapSortType {
   Name = 0,
   NumberOfPlayers = 1,

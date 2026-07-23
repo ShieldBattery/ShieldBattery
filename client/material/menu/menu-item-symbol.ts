@@ -40,6 +40,11 @@ export function isSelectableMenuItem(child: unknown): child is ReactElement {
 
 export interface BaseMenuItemProps {
   text: string
+  /**
+   * An optional second line of smaller, muted text rendered below `text`. When present, the item
+   * grows to fit both lines instead of using the standard fixed single-line row height.
+   */
+  secondaryText?: string
   className?: string
   focused?: boolean
   dense?: boolean

@@ -11,10 +11,12 @@ import { zIndexSettings } from '../material/zindex'
 import { LoadingDotsArea } from '../progress/dots'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import {
+  bodyLarge,
   headlineMedium,
   labelMedium,
   labelSmall,
   singleLine,
+  titleLarge,
   titleSmall,
 } from '../styles/typography'
 
@@ -34,6 +36,27 @@ export const SectionOverline = styled.div`
 export const SectionContainer = styled.div`
   display: flex;
   flex-direction: column;
+`
+
+/**
+ * A prominent section header, for settings pages organized as titled sections with descriptions.
+ * Adds a small gap before whatever follows; when that's a `SettingsSectionDescription`, the two
+ * sit flush against each other instead (the description provides its own spacing below).
+ */
+export const SettingsSectionHeader = styled.div`
+  ${titleLarge};
+  margin-bottom: 8px;
+`
+
+/** A muted description line following a `SettingsSectionHeader`. */
+export const SettingsSectionDescription = styled.div`
+  ${bodyLarge};
+  margin-bottom: 8px;
+  color: var(--theme-on-surface-variant);
+
+  ${SettingsSectionHeader} + & {
+    margin-top: -8px;
+  }
 `
 
 export const Container = styled(m.div)`

@@ -6,11 +6,17 @@ import { ConditionalKeys } from 'type-fest'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
 import { DEV_INDICATOR } from '../common/flags'
 import { DEFAULT_LOCAL_SETTINGS } from '../common/settings/default-settings'
-import { LocalSettings, ScrSettings, StartingFog } from '../common/settings/local-settings'
+import {
+  FfaColorPreset,
+  LocalSettings,
+  ScrSettings,
+  StartingFog,
+} from '../common/settings/local-settings'
+import { cloneCustomTeamColors } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 15
+const VERSION = 17
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -184,6 +190,8 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
   private async createDefaults(): Promise<LocalSettings> {
     return {
       ...DEFAULT_LOCAL_SETTINGS,
+      customTeamColors: cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors),
+      customFfaColors: [...DEFAULT_LOCAL_SETTINGS.customFfaColors],
       version: VERSION,
       starcraftPath: await findStarcraftPath(),
       winX: -1,
@@ -298,6 +306,28 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       newSettings.winY = -1
       newSettings.winWidth = -1
       newSettings.winHeight = -1
+    }
+
+    if (!settings.version || settings.version < 16) {
+      log.verbose('Found settings version 15, migrating to version 16')
+      // `colorPreset`'s only possible value was `legacyDiplomacy`, which the new defaults below
+      // reproduce, so there's no old value to carry forward.
+      delete (newSettings as any).colorPreset
+      newSettings.teamColorPreset = DEFAULT_LOCAL_SETTINGS.teamColorPreset
+      newSettings.ffaColorPreset = DEFAULT_LOCAL_SETTINGS.ffaColorPreset
+      newSettings.teamColorUsage = DEFAULT_LOCAL_SETTINGS.teamColorUsage
+      newSettings.shuffleColors = DEFAULT_LOCAL_SETTINGS.shuffleColors
+      newSettings.customTeamColors = cloneCustomTeamColors(DEFAULT_LOCAL_SETTINGS.customTeamColors)
+      newSettings.customFfaColors = [...DEFAULT_LOCAL_SETTINGS.customFfaColors]
+      delete newSettings.ffaSelfColor
+    }
+
+    if (!settings.version || settings.version < 17) {
+      log.verbose('Found settings version 16, migrating to version 17')
+      // The Pastel FFA preset was removed; anyone who had it selected falls back to Classic.
+      if ((settings.ffaColorPreset as string | undefined) === 'pastel') {
+        newSettings.ffaColorPreset = FfaColorPreset.Classic
+      }
     }
 
     newSettings.version = VERSION

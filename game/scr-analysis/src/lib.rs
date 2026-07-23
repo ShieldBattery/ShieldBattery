@@ -7,6 +7,12 @@
 //!
 //! All the code in this crate is pretty much uninteresting boilerplate that declares
 //! whatever the main crate's BwScr::new wants.
+//!
+//! IMPORTANT: this crate intentionally wraps only the subset of samase_scarf's `Analysis`
+//! surface that the main crate actually uses. An analysis "missing" here is often already
+//! implemented in samase_scarf — check the pinned samase_scarf rev's `Analysis` API before
+//! concluding new binary analysis is needed; if it exists there, adding a one-line wrapper
+//! method in this file is the whole job.
 
 pub use samase_scarf::scarf;
 pub use samase_scarf::{DatTablePtr, DatType};
@@ -733,8 +739,35 @@ impl<'e> Analysis<'e> {
         self.0.use_rgb_colors()
     }
 
+    /// Base of the per-player applied-skin table unit rendering reads: 16 slots (players 0..12,
+    /// observers 12..16) of [`skins_size`](Self::skins_size) bytes each. `init_game` fills the
+    /// local player's slot from local settings/ownership; writing another slot takes effect on the
+    /// next rendered frame.
+    pub fn player_skins(&mut self) -> Option<Operand<'e>> {
+        self.0.player_skins()
+    }
+
+    /// Per-player stride, in bytes, of the [`player_skins`](Self::player_skins) table.
+    pub fn skins_size(&mut self) -> Option<u32> {
+        self.0.skins_size()
+    }
+
+    /// The local skin source, populated at startup from the account's owned/selected skins. The
+    /// native create path derives the local player's [`player_skins`](Self::player_skins) blob
+    /// from this; its internal layout is not surfaced here (only the base operand).
+    pub fn skins(&mut self) -> Option<Operand<'e>> {
+        self.0.skins()
+    }
+
     pub fn rgb_colors(&mut self) -> Option<Operand<'e>> {
         self.0.rgb_colors()
+    }
+
+    /// Assigns each player a color: fixed palette colors stay, and every player whose chosen-color
+    /// index is the "random" sentinel (0x16) draws a distinct color from the remaining pool via the
+    /// synced RNG, writing it into `rgb_colors`. Takes no arguments; operates on the color globals.
+    pub fn randomize_player_colors(&mut self) -> Option<VirtualAddress> {
+        self.0.randomize_player_colors()
     }
 
     /// The Shift+Tab minimap player-color cycle value (0 = normal colors, higher values recolor
@@ -746,6 +779,26 @@ impl<'e> Analysis<'e> {
     /// The Tab minimap-terrain toggle flag (nonzero = terrain is blanked instead of drawn).
     pub fn minimap_terrain_hidden(&mut self) -> Option<Operand<'e>> {
         self.0.minimap_terrain_hidden()
+    }
+
+    /// Draws all unit/sprite dots on the minimap. In color mode 0 with RGB player colors on, the
+    /// dots read `rgb_colors[player]` directly; this function draws the local player's units (and
+    /// lone sprites) inline and calls [`draw_minimap_player_units`](Self::draw_minimap_player_units)
+    /// / [`draw_minimap_main_player_units`](Self::draw_minimap_main_player_units) for the others.
+    pub fn draw_minimap_units(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_minimap_units()
+    }
+
+    /// Draws one high/neutral player's minimap dots (player ids 8..12). Takes the player id as its
+    /// first argument; called from [`draw_minimap_units`](Self::draw_minimap_units)'s player loop.
+    pub fn draw_minimap_player_units(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_minimap_player_units()
+    }
+
+    /// Draws one main player's minimap dots (player ids 0..8). Takes the player id as its first
+    /// argument; called from [`draw_minimap_units`](Self::draw_minimap_units)'s player loop.
+    pub fn draw_minimap_main_player_units(&mut self) -> Option<VirtualAddress> {
+        self.0.draw_minimap_main_player_units()
     }
 
     pub fn decide_cursor_type(&mut self) -> Option<VirtualAddress> {

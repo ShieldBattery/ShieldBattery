@@ -260,6 +260,15 @@ Two code paths:
 
 Build: 32-bit default, 64-bit via `game\build.bat x86_64`
 
+**Game code must work on both architectures (i686 and x86_64).** Both are shipped/built targets, so
+a change is not done until it builds and behaves on both. Watch for arch-specific assumptions:
+struct field offsets and sizes (pointers are 4 vs 8 bytes — gate them with `#[cfg(target_arch)]`
+and a `size_of` assertion per arch, as `StormSessionPlayer` in `bw_scr/scr.rs` does), any hardcoded
+absolute address or memory-layout offset, and pointer-width casts. Prefer arch-agnostic sources
+(samase_scarf resolves globals/functions/some offsets per-arch) over hardcoding; when an offset must
+be hardcoded, it needs a verified value for *each* arch, not one guessed from the other. Don't add a
+`cfg!(target_arch = "x86_64")` bail-out to dodge the work — verify the 64-bit values instead.
+
 **Always rebuild via `game\build.bat`, never a bare `cargo build`.** The app injects
 `game/dist/shieldbattery.dll` (see `app/game/active-game-manager.ts`), and only `build.bat` copies
 the freshly compiled DLL from `target/` into `dist/`. A bare `cargo build` updates `target/` but
@@ -268,6 +277,12 @@ effect (or to "fail" in a way that doesn't match the source). If a game-launch t
 your code, suspect a stale `dist/` DLL first.
 
 Lint: `cargo clippy --all-targets --workspace -- -D warnings` (code should be warning-free)
+
+**`game/scr-analysis` is a thin wrapper, not the analysis itself.** It exists to keep compile
+times fast (samase_scarf's macro-heavy code compiles once, optimized, in its own crate) and only
+wraps the `Analysis` methods the game crate actually uses. Before deciding a binary analysis is
+"missing," check the pinned samase_scarf rev's `Analysis` API — if it's there, the fix is a
+one-line wrapper method in `scr-analysis/src/lib.rs`, not new analysis work.
 
 ## Electron App
 

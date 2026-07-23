@@ -43,6 +43,7 @@ use crate::netcode_v2;
 use crate::recurse_checked_mutex::Mutex as RecurseCheckedMutex;
 use crate::snp;
 use crate::sync::DumbSpinLock;
+use crate::team_colors::{GameStartInfo, TeamColorConfig, TeamColorState};
 use crate::windows;
 
 pub mod scr;
@@ -133,10 +134,22 @@ pub struct BwScr {
     main_palette: Value<*mut u8>,
     rgb_colors: Value<*mut [[f32; 0x4]; 0x8]>,
     use_rgb_colors: Value<u8>,
+    /// The per-player applied-skin table unit rendering reads, resolved together with its stride
+    /// (all-or-nothing). `None` (either missing) turns the peer-skin relay off rather than failing
+    /// game launch: BW still renders the local player's own skin from the slot `init_game` filled.
+    skin_table: Option<SkinTable>,
+    /// Base of the local skin source (`skins`), populated at startup from owned/selected skins.
+    /// The native create path derives the local player's raw skin blob from this; used to locate
+    /// that blob so a bypassed-join client can populate its own slot. `None` if unlocated.
+    skins: Option<Value<*mut u8>>,
     /// Shift+Tab minimap player-color cycle (0 = normal). Saved/restored across game launches.
     minimap_color_mode: Option<Value<u8>>,
     /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
     minimap_terrain_hidden: Option<Value<u8>>,
+    /// The three minimap dot-draw functions the minimap-only team-color mode overrides, resolved
+    /// together (all-or-nothing). `Some` = all three were located and hooked, so that mode drives
+    /// the dots from `rgb_colors`; `None` (any missing) keeps it on BW's own diplomacy dots.
+    minimap_draw_hooks: Option<MinimapDrawHooks>,
     /// BW's in-game chat send-scope byte (`chat_box_mode`): 0 = box closed, 1 = single-player local,
     /// 2 = everyone, 3 = allies, 4 = a specific player, 5 = observers. Read at chat-send time to
     /// scope the netcode v2 relay message. Non-fatal if unlocated (chat degrades to everyone).
@@ -187,6 +200,10 @@ pub struct BwScr {
     // init_game_network(0) for now. And that's closer to 1161 behaviour.
     init_game_network: unsafe extern "C" fn(u32),
     process_lobby_commands: unsafe extern "C" fn(*const u8, usize, u32),
+    /// BW's native player-color randomizer, or `None` if analysis couldn't locate it (then base
+    /// colors stay as BW left them). Takes no arguments; assigns `rgb_colors` from the per-player
+    /// color state.
+    randomize_player_colors: Option<unsafe extern "C" fn()>,
     choose_snp: unsafe extern "C" fn(u32) -> u32,
     init_storm_networking: unsafe extern "C" fn(),
     storm_create_game: unsafe extern "system" fn(
@@ -291,6 +308,20 @@ pub struct BwScr {
     /// Whether the saved minimap settings have already been applied this game (so we only restore
     /// them once, letting in-game toggles afterwards stick).
     minimap_settings_restored: AtomicBool,
+    /// Receive steps spent so far waiting to broadcast this client's own skin blob, or
+    /// `u32::MAX` once it has been sent (it is sent exactly once per game — see
+    /// [`broadcast_local_skin_once`](Self::broadcast_local_skin_once)).
+    skin_broadcast_attempts: AtomicU32,
+    /// Whether [`SKINS_LOCAL_BLOB_OFFSET`] has been validated against the native fill this game
+    /// (see [`validate_local_skin_offset`](BwScr::validate_local_skin_offset)).
+    skin_offset_validated: AtomicBool,
+    /// Custom team-color configuration parsed from the launch settings, or `None` when the feature
+    /// isn't configured. Written on the async thread at `set_settings`, read once on the game
+    /// thread at game init.
+    team_color_config: Mutex<Option<TeamColorConfig>>,
+    /// Live team-color state for the current game, or `None` when the feature is inactive (UMS,
+    /// missing analysis, RGB colors off, or no config). Built and used on the game thread.
+    team_color_runtime: Mutex<Option<TeamColorRuntime>>,
     use_legacy_cursor_sizing: AtomicBool,
     use_custom_cursor_size: AtomicBool,
     custom_cursor_size: Mutex<f32>,
@@ -391,6 +422,165 @@ struct NetcodeV2Bw {
     storm_local_player_slot: Value<u8>,
     /// `storm_turn_base`: the base added to a session slot to form the game-level net player id.
     storm_turn_base: Value<u32>,
+}
+
+/// Live custom-team-color state for one game, present only while the feature is active. Everything
+/// here lives on and is touched from the BW main thread.
+struct TeamColorRuntime {
+    /// The assignment engine, advanced as the local player's alliances change.
+    state: TeamColorState,
+    /// BW's original `rgb_colors` captured at game init: the per-slot fallback for any slot the
+    /// engine leaves unassigned, and the full palette restored in the Standard / minimap-only modes.
+    original_rgb_colors: [[f32; 4]; 8],
+    /// BW's original `use_rgb_colors` switch captured at game init. Restored verbatim in the
+    /// Standard / minimap-only modes so units reproduce the game's native appearance (palette-index
+    /// or RGB, whichever it ran), and forced on for the spans where custom colors apply.
+    original_use_rgb_colors: u8,
+    /// The Shift+Tab color mode the user currently sees. The real `minimap_color_mode` global is
+    /// pinned to a fixed value per mode (so BW's own diplomacy recolor never fires), leaving this
+    /// the source of truth for what the user selected.
+    virtual_mode: MinimapColorMode,
+    /// The local player id and the outgoing alliance row currently reflected in the assignment,
+    /// or `None` for an observer/replay (no live tracking). Diffed each frame to detect changes.
+    local_alliance_row: Option<(u8, [bool; 8])>,
+}
+
+/// The three structurally-identical minimap dot-draw functions the minimap-only team-color mode
+/// overrides, resolved together (all-or-nothing). Hooking all three lets that mode feed the dots a
+/// swapped `rgb_colors` palette for the span of the draw without touching unit colors; a subset
+/// would color some dots from `rgb_colors` and leave others on BW's palette-index path, so the
+/// feature only engages when every site is present.
+/// Reads up to `len` bytes starting at `addr`, stopping at the end of the mapped, readable region
+/// `addr` falls in — so an unmapped or guard address yields `None` instead of faulting, and a read
+/// that would cross into unmapped memory is truncated. For diagnostic memory inspection only.
+unsafe fn safe_read_bytes(addr: *const u8, len: usize) -> Option<Vec<u8>> {
+    use winapi::um::memoryapi::VirtualQuery;
+    use winapi::um::winnt::{
+        MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_READONLY,
+        PAGE_READWRITE, PAGE_WRITECOPY,
+    };
+    if addr.is_null() {
+        return None;
+    }
+    unsafe {
+        let mut info: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        let ok = VirtualQuery(
+            addr as *const _,
+            &mut info,
+            mem::size_of::<MEMORY_BASIC_INFORMATION>(),
+        );
+        if ok == 0 {
+            return None;
+        }
+        let readable = info.Protect
+            & (PAGE_READONLY
+                | PAGE_READWRITE
+                | PAGE_EXECUTE_READWRITE
+                | PAGE_WRITECOPY
+                | PAGE_EXECUTE_READ)
+            != 0;
+        if !readable {
+            return None;
+        }
+        let region_end = info.BaseAddress as usize + info.RegionSize;
+        let avail = region_end.saturating_sub(addr as usize);
+        let read_len = len.min(avail);
+        if read_len == 0 {
+            return None;
+        }
+        Some(std::slice::from_raw_parts(addr, read_len).to_vec())
+    }
+}
+
+/// The per-player applied-skin table: 16 slots — the 12 storm player slots followed by 4
+/// observer slots — of `stride` bytes each, holding the opaque skin state BW's unit rendering
+/// reads to pick skinned graphics. The table is indexed by the lobby-stable *storm* identity,
+/// not the randomized `players[]` id: natively each slot is filled from that member's lobby
+/// slot-setup command, which SB sessions don't run — so only the local player's slot gets
+/// filled (from local settings/ownership, during game startup), and every remote slot stays
+/// zeroed (rendering default skins) until relayed bytes are written into it. The blob layout is
+/// opaque to us — slots are only ever copied whole, never parsed.
+struct SkinTable {
+    base: Value<*mut u8>,
+    /// Per-slot stride in bytes. Also the exact length of every blob read from or written into
+    /// the table: rendering may read the full slot, so partial writes could mix two players'
+    /// state and are never done.
+    stride: usize,
+}
+
+/// Slot count of [`SkinTable`]: the 12 storm player slots plus the 4-slot observer block.
+const SKIN_TABLE_SLOTS: usize = 16;
+
+/// Byte offset within the `skins` local source at which the local player's own raw skin blob is
+/// stored inline. The native create path copies this region into `player_skins[local]`; a
+/// netcode-v2 bypassed-join client, whose create path is replaced and so never runs that copy,
+/// copies it itself (see [`BwScr::fill_local_skin_from_source`]). Validated each game on any client
+/// whose native fill did run (the host), so a version bump that moves it surfaces as a logged
+/// mismatch rather than a silently wrong blob.
+///
+/// Per-arch because the `skins` struct's layout differs by pointer width, and the value is
+/// architecture-verified, never guessed from the other: an offset off by even a few bytes copies
+/// unrelated memory into the slot, which the digest then parses. `None` disables only the own-blob
+/// fill (the host's native fill and the peer-blob relay are arch-agnostic and still work); the
+/// bypassed-join own-skin relay stays off until the value is known.
+///
+/// Both values are found empirically by matching the source against the native fill at runtime
+/// (the struct is anti-tamper-obfuscated, so static analysis can't recover them); the per-game
+/// validation on the host re-checks them (see [`validate_local_skin_offset`](BwScr::validate_local_skin_offset)).
+#[cfg(target_arch = "x86")]
+const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x14);
+#[cfg(target_arch = "x86_64")]
+const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x28);
+
+struct MinimapDrawHooks {
+    /// Dispatcher: draws the local player's units and lone sprites inline and calls the two
+    /// per-player helpers for everyone else. Takes no argument this feature relies on.
+    draw_minimap_units: VirtualAddress,
+    /// Per-player helper for high/neutral player ids (8..12). `cdecl(player)`.
+    draw_minimap_player_units: VirtualAddress,
+    /// Per-player helper for other non-local main players. `cdecl(player)`.
+    draw_minimap_main_player_units: VirtualAddress,
+}
+
+/// RAII guard for the minimap-only team-color swap. Holds `rgb_colors`'s contents and the
+/// `use_rgb_colors` switch from just before the swap and restores both on drop, after the bracketed
+/// minimap draw has read the assignment. Forcing the switch on makes the dot-draw sites read
+/// `rgb_colors` even when the game ran in palette-index mode, without disturbing unit draws (which
+/// happen outside these guards). Created only by [`BwScr::begin_minimap_team_colors`], which
+/// validated the pointer in the same game frame on the same thread.
+struct MinimapColorSwap {
+    rgb_ptr: *mut [[f32; 4]; 8],
+    saved_rgb: [[f32; 4]; 8],
+    use_rgb_colors: Value<u8>,
+    saved_use_rgb: u8,
+}
+
+impl Drop for MinimapColorSwap {
+    fn drop(&mut self) {
+        unsafe {
+            *self.rgb_ptr = self.saved_rgb;
+            self.use_rgb_colors.write(self.saved_use_rgb);
+        }
+    }
+}
+
+/// The next virtual mode in the Shift+Tab cycle (Standard -> minimap-only -> everywhere -> ...),
+/// matching the order BW's native cycle presents.
+fn next_minimap_mode(mode: MinimapColorMode) -> MinimapColorMode {
+    match mode {
+        MinimapColorMode::Standard => MinimapColorMode::PresetOnMinimapOnly,
+        MinimapColorMode::PresetOnMinimapOnly => MinimapColorMode::Preset,
+        MinimapColorMode::Preset => MinimapColorMode::Standard,
+    }
+}
+
+/// A per-game shuffle seed drawn from local entropy. The shuffle is a purely local aesthetic, so a
+/// wall-clock seed is fine; a replay re-rolling its own shuffle on each viewing is acceptable.
+fn shuffle_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0)
 }
 
 /// Outcome of the OUT hook consulting the turn state, deciding whether the turn went to rally-point2 or
@@ -960,6 +1150,12 @@ impl BwScr {
         let process_lobby_commands = analysis
             .process_lobby_commands()
             .ok_or("Process lobby commands")?;
+        // Non-fatal: without it, base player colors stay as BW left them (deterministic slot order)
+        // rather than failing game launch.
+        let randomize_player_colors = analysis.randomize_player_colors();
+        if randomize_player_colors.is_none() {
+            warn!("Could not find randomize_player_colors; base colors will not randomize");
+        }
         let send_command = analysis.send_command().ok_or("send_command")?;
         let is_replay = analysis.is_replay().ok_or("is_replay")?;
         let local_player_id = analysis.local_player_id().ok_or("Local player id")?;
@@ -1122,6 +1318,44 @@ impl BwScr {
         if minimap_terrain_hidden.is_none() {
             warn!("Could not find minimap_terrain_hidden global");
         }
+        // Non-fatal, all-or-nothing: reading or writing skin blobs needs both the table base and
+        // its stride. Without them peers just see default skins, as they would natively when a
+        // blob never arrives.
+        let skin_table = match (analysis.player_skins(), analysis.skins_size()) {
+            (Some(base), Some(stride)) => Some((base, stride)),
+            _ => {
+                warn!("Could not find player_skins/skins_size; peer skins will not be relayed");
+                None
+            }
+        };
+        let skins = analysis.skins();
+        if skins.is_none() {
+            warn!("Could not find skins local source; own-skin relay may be host-only");
+        }
+        // Non-fatal, all-or-nothing: the three minimap dot-draw functions are hooked together so the
+        // minimap-only team-color mode can swap the palette for the span of the draw. Without all
+        // three that mode falls back to BW's own diplomacy dots rather than failing game launch.
+        let minimap_draw_hooks = match (
+            analysis.draw_minimap_units(),
+            analysis.draw_minimap_player_units(),
+            analysis.draw_minimap_main_player_units(),
+        ) {
+            (
+                Some(draw_minimap_units),
+                Some(draw_minimap_player_units),
+                Some(draw_minimap_main_player_units),
+            ) => Some(MinimapDrawHooks {
+                draw_minimap_units,
+                draw_minimap_player_units,
+                draw_minimap_main_player_units,
+            }),
+            _ => {
+                warn!(
+                    "Could not find all minimap draw functions; minimap-only team colors will use BW diplomacy dots"
+                );
+                None
+            }
+        };
         // Non-fatal: without it, in-game chat can't read its send-scope and every message goes to
         // everyone rather than failing game launch.
         let chat_box_mode = analysis.chat_box_mode();
@@ -1257,6 +1491,12 @@ impl BwScr {
             use_rgb_colors: Value::new(ctx, use_rgb_colors),
             minimap_color_mode: minimap_color_mode.map(|op| Value::new(ctx, op)),
             minimap_terrain_hidden: minimap_terrain_hidden.map(|op| Value::new(ctx, op)),
+            skin_table: skin_table.map(|(base, stride)| SkinTable {
+                base: Value::new(ctx, base),
+                stride: stride as usize,
+            }),
+            skins: skins.map(|op| Value::new(ctx, op)),
+            minimap_draw_hooks,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
             cmdicons: Value::new(ctx, cmdicons),
@@ -1302,6 +1542,8 @@ impl BwScr {
             init_game_network: unsafe { mem::transmute(init_game_network.0) },
             storm_create_game: unsafe { mem::transmute(storm_create_game.0) },
             process_lobby_commands: unsafe { mem::transmute(process_lobby_commands.0) },
+            randomize_player_colors: randomize_player_colors
+                .map(|f| unsafe { mem::transmute::<usize, unsafe extern "C" fn()>(f.0 as usize) }),
             send_command: unsafe { mem::transmute(send_command.0) },
             choose_snp: unsafe { mem::transmute(choose_snp.0) },
             init_storm_networking: unsafe { mem::transmute(init_storm_networking.0) },
@@ -1369,6 +1611,10 @@ impl BwScr {
             saved_minimap_color_mode: AtomicU8::new(0),
             saved_minimap_terrain_hidden: AtomicBool::new(false),
             minimap_settings_restored: AtomicBool::new(false),
+            skin_broadcast_attempts: AtomicU32::new(0),
+            skin_offset_validated: AtomicBool::new(false),
+            team_color_config: Mutex::new(None),
+            team_color_runtime: Mutex::new(None),
             use_legacy_cursor_sizing: AtomicBool::new(false),
             use_custom_cursor_size: AtomicBool::new(false),
             custom_cursor_size: Mutex::new(0.25),
@@ -1625,6 +1871,7 @@ impl BwScr {
                     }
                     orig();
                     game_thread::after_step_game();
+                    self.update_team_colors_from_alliances();
                 },
                 address,
             );
@@ -2196,6 +2443,12 @@ impl BwScr {
             exe.hook_closure_address(
                 DrawGraphicLayers,
                 move |extra_funcs, extra_func_len, second_draw, orig| {
+                    // Detect a Shift+Tab color-mode cycle before queuing draws, so this frame renders
+                    // with the corrected mode/colors. A no-op unless custom team colors are active.
+                    // Only on the primary pass; the SD/HD-fade second pass sees the same global.
+                    if second_draw == 0 {
+                        self.poll_team_color_mode();
+                    }
                     // It is expected that extra_funcs array has one (just one) function that
                     // draws the UI console. If console is hidden just call orig with 0 extra funcs
                     // and it should make the static parts of console hidden.
@@ -2370,6 +2623,49 @@ impl BwScr {
                 },
                 address,
             );
+            // Minimap-only team colors: while the feature is active in that mode, swap the engine's
+            // assignment into `rgb_colors` for the span of each minimap dot draw and restore the
+            // previous contents afterward, so the dots recolor without touching unit colors. The
+            // dispatcher draws the local player and lone sprites inline and calls the two per-player
+            // helpers for everyone else, so the guards nest (see `begin_minimap_team_colors`). Full
+            // cdecl overrides; each falls through to `orig` untouched in any other mode. Installed
+            // only when all three sites resolved; otherwise that mode stays on BW's diplomacy dots.
+            if let Some(minimap_hooks) = self.minimap_draw_hooks.as_ref() {
+                let address = minimap_hooks.draw_minimap_units.0 as usize - base;
+                exe.hook_closure_address(
+                    DrawMinimapUnits,
+                    move |orig| {
+                        // A Shift+Tab press earlier in this frame has already moved the real
+                        // color-mode global, but the layer-draw poll runs after the minimap is
+                        // drawn — detect the cycle here first so this frame's dots don't render
+                        // one mode behind (a one-frame wrong-palette flash). Must happen before
+                        // the swap guard exists: applying a mode change writes `rgb_colors`, and
+                        // a guard restore after that would clobber it.
+                        self.poll_team_color_mode();
+                        let _swap = self.begin_minimap_team_colors();
+                        orig();
+                    },
+                    address,
+                );
+                let address = minimap_hooks.draw_minimap_player_units.0 as usize - base;
+                exe.hook_closure_address(
+                    DrawMinimapPlayerUnits,
+                    move |player, orig| {
+                        let _swap = self.begin_minimap_team_colors();
+                        orig(player);
+                    },
+                    address,
+                );
+                let address = minimap_hooks.draw_minimap_main_player_units.0 as usize - base;
+                exe.hook_closure_address(
+                    DrawMinimapMainPlayerUnits,
+                    move |player, orig| {
+                        let _swap = self.begin_minimap_team_colors();
+                        orig(player);
+                    },
+                    address,
+                );
+            }
             // Render hook
             let relative = draw.cast_usize() - base;
             exe.hook_closure_address(
@@ -2635,6 +2931,11 @@ impl BwScr {
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
+            // Skin relay: our own blob goes out once, as soon as native code has filled its
+            // slot (polled per receive step, bounded wait), and peers' blobs are written into
+            // their senders' current players[] slots as they arrive.
+            self.broadcast_local_skin_once();
+            self.apply_skins_inbound();
             // Relay-pushed slot-connectivity changes: a peer's drop/reconnect updates the turn
             // state's disconnected set, our own updates the self-link flag, for the survivor
             // overlay to render. Render-side only — no game state, alliances, or turn pipeline are
@@ -3320,6 +3621,232 @@ impl BwScr {
         }
     }
 
+    /// Validates [`SKINS_LOCAL_BLOB_OFFSET`] once per game against the authoritative native fill:
+    /// on a client whose `player_skins[local]` slot BW itself populated (the host), the blob at
+    /// `skins + SKINS_LOCAL_BLOB_OFFSET` must equal that slot. A mismatch means the offset is wrong
+    /// for this game version — warned, so it surfaces in the wild without corrupting anything
+    /// (the fill never overwrites a populated slot, so a stale offset can only fail to fill). A
+    /// no-op on a client whose slot is empty (nothing authoritative to check against yet); the
+    /// once-flag is cleared in that case so a later round retries once the fill has run. Every read
+    /// is `VirtualQuery`-bounded, so an unmapped address is skipped, never faulted.
+    fn validate_local_skin_offset(&self) {
+        if self.skin_offset_validated.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        let (Some(offset), Some(table), Some(skins)) = (
+            SKINS_LOCAL_BLOB_OFFSET,
+            self.skin_table.as_ref(),
+            self.skins.as_ref(),
+        ) else {
+            return;
+        };
+        unsafe {
+            let table_base = table.base.resolve();
+            let local_slot = self.local_storm_id.resolve() as usize;
+            if table_base.is_null() || local_slot >= SKIN_TABLE_SLOTS {
+                return;
+            }
+            let stride = table.stride;
+            let Some(native) = safe_read_bytes(table_base.add(local_slot * stride), stride) else {
+                return;
+            };
+            // Only a slot BW itself filled is an authoritative reference. Before that (or on a
+            // bypassed-join client, which never gets a native fill) there is nothing to validate
+            // against — retry on a later round.
+            if !native.iter().any(|&b| b != 0) {
+                self.skin_offset_validated.store(false, Ordering::Relaxed);
+                return;
+            }
+            let skins_base = skins.resolve();
+            if skins_base.is_null() {
+                return;
+            }
+            let source = safe_read_bytes(skins_base.add(offset), stride);
+            if source.as_deref() != Some(native.as_slice()) {
+                warn!(
+                    "netcode v2: skins+{offset:#x} does not match the native local skin blob; the \
+                     offset is likely wrong for this game version"
+                );
+            }
+        }
+    }
+
+    /// Populates the local player's own raw skin slot from the `skins` local source, for a client
+    /// whose native create path didn't (a netcode-v2 bypassed-join client — its join is replaced,
+    /// so the native `skins`→`player_skins[local]` copy never runs, leaving the slot zero and the
+    /// player invisibly-skinned to peers). Copies the inline blob at
+    /// [`SKINS_LOCAL_BLOB_OFFSET`] into the local slot so it is both digested locally and available
+    /// to broadcast. Must run before `init_game`'s one-shot digest.
+    ///
+    /// No-op when the slot already holds data — the host's native fill ran, and its blob is
+    /// authoritative, so this never overwrites a good blob (which also means a wrong offset can
+    /// only ever fail to fill, never corrupt). Also a no-op when [`SKINS_LOCAL_BLOB_OFFSET`] is
+    /// unknown for this architecture, the source/table is unlocated, or the source blob is empty
+    /// (the account owns/selected no skin).
+    fn fill_local_skin_from_source(&self) {
+        let (Some(offset), Some(table), Some(skins)) = (
+            SKINS_LOCAL_BLOB_OFFSET,
+            self.skin_table.as_ref(),
+            self.skins.as_ref(),
+        ) else {
+            return;
+        };
+        unsafe {
+            let table_base = table.base.resolve();
+            let local_slot = self.local_storm_id.resolve() as usize;
+            if table_base.is_null() || local_slot >= SKIN_TABLE_SLOTS {
+                return;
+            }
+            let stride = table.stride;
+            let dst = table_base.add(local_slot * stride);
+            // Never clobber a native fill: the host already holds an authoritative blob here.
+            if std::slice::from_raw_parts(dst, stride)
+                .iter()
+                .any(|&b| b != 0)
+            {
+                return;
+            }
+            let skins_base = skins.resolve();
+            if skins_base.is_null() {
+                return;
+            }
+            let Some(blob) = safe_read_bytes(skins_base.add(offset), stride) else {
+                return;
+            };
+            // A shorter read means the source region is smaller than a slot — never expected, but
+            // a partial copy could mix state, so skip it. An all-zero source means no skin.
+            if blob.len() != stride || !blob.iter().any(|&b| b != 0) {
+                return;
+            }
+            std::ptr::copy_nonoverlapping(blob.as_ptr(), dst, stride);
+            debug!(
+                "netcode v2: filled local skin slot {local_slot} from skins+{offset:#x} \
+                 ({stride} bytes)"
+            );
+        }
+    }
+
+    /// Runs one round of the peer-skin exchange from the pre-`init_game` lobby-init loop: broadcast
+    /// this client's own blob (once its slot is populated) and write any peers' arrived blobs into
+    /// the raw skin table. Called each lobby-init step so received blobs land in the table *before*
+    /// `init_game`'s one-shot digest reads it into the render struct — the only point at which a
+    /// written blob actually renders. The native fill populates the local slot during this same
+    /// window (the host's is already present when the loop starts), so the local broadcast goes out
+    /// early enough for peers to apply it before their own digest. Applying is idempotent, so the
+    /// in-game receive step keeps draining too (covering a reconnect's replayed blobs).
+    pub(crate) fn exchange_skins_during_lobby_init(&self) {
+        self.validate_local_skin_offset();
+        self.fill_local_skin_from_source();
+        self.broadcast_local_skin_once();
+        unsafe { self.apply_skins_inbound() };
+    }
+
+    /// How many exchange rounds [`broadcast_local_skin_once`](Self::broadcast_local_skin_once)
+    /// waits on a still-zeroed local skin slot before sending it as-is. The slot is normally
+    /// populated by the time the first round runs (the host's native fill, or
+    /// [`fill_local_skin_from_source`](Self::fill_local_skin_from_source) on a bypassed-join
+    /// client), but this bounds the wait for the rare case it isn't yet — and a player who owns no
+    /// skin legitimately keeps an all-zero slot forever, so the wait must terminate. An eventual
+    /// zero send costs nothing (peers render default skins, exactly as if nothing were sent).
+    const SKIN_BROADCAST_MAX_WAIT_STEPS: u32 = 240;
+
+    /// Broadcasts this client's own applied-skin blob to peers, exactly once per game. The local
+    /// slot is populated before this runs — by BW's native create-path fill on the host, or by
+    /// [`fill_local_skin_from_source`](Self::fill_local_skin_from_source) on a bypassed-join client
+    /// — so it reads the slot and sends. If the slot is somehow still zero, it retries up to
+    /// [`SKIN_BROADCAST_MAX_WAIT_STEPS`](Self::SKIN_BROADCAST_MAX_WAIT_STEPS) rounds, then sends
+    /// as-is (all zero being the legitimate state for a player with no skin). Sending late costs
+    /// nothing: the relay retains the latest blob per slot and replays it to any member, so arrival
+    /// time only affects when peers' units pop from default to skinned.
+    ///
+    /// UMS keeps map-authored presentation fully native, mirroring the color handling, and a
+    /// replay/session-less game has no turn state, so the submit lands nowhere (`submitted:
+    /// false` in the log is expected there, not a fault).
+    fn broadcast_local_skin_once(&self) {
+        let attempts = self.skin_broadcast_attempts.load(Ordering::Relaxed);
+        if attempts == u32::MAX {
+            return;
+        }
+        if game_thread::is_ums() {
+            self.skin_broadcast_attempts
+                .store(u32::MAX, Ordering::Relaxed);
+            return;
+        }
+        let Some(blob) = self.read_local_skin_blob() else {
+            debug!(
+                "netcode v2: no local skin blob to relay (table unresolved or local id out of \
+                 table range)"
+            );
+            self.skin_broadcast_attempts
+                .store(u32::MAX, Ordering::Relaxed);
+            return;
+        };
+        let has_data = blob.iter().any(|&b| b != 0);
+        if !has_data && attempts < Self::SKIN_BROADCAST_MAX_WAIT_STEPS {
+            self.skin_broadcast_attempts
+                .store(attempts + 1, Ordering::Relaxed);
+            return;
+        }
+        self.skin_broadcast_attempts
+            .store(u32::MAX, Ordering::Relaxed);
+        let len = blob.len();
+        let sent = netcode_v2::with_turn_state(|s| s.submit_local_skin(blob)).unwrap_or(false);
+        // An all-zero send here means the slot never filled within the wait — the expected
+        // outcome for a player with no skins, and harmless either way.
+        debug!(
+            "netcode v2: local skin blob read ({len} bytes, {}) after {attempts} receive steps, \
+             submitted: {sent}",
+            if has_data { "has data" } else { "all zero" },
+        );
+    }
+
+    /// Peer skin blobs delivered over the netcode v2 relay: drains what's arrived (see
+    /// [`TurnState::drain_skin_inbound`](netcode_v2::TurnState::drain_skin_inbound)) and writes
+    /// each into its sender's slot of the applied-skin table. Run once per receive on the game
+    /// thread, alongside the chat application.
+    ///
+    /// The table slot is the sender's *storm* id — the lobby-stable identity the table is
+    /// indexed by (native code fills it from lobby-time slot-setup commands, before `players[]`
+    /// indices randomize) — so the sender's rp2 slot resolves through the storm map only, never
+    /// to a `players[]` id. Applying is safe at any frame: the table is non-synced cosmetic
+    /// state read only by rendering, and whether peers' skins display at all remains the local
+    /// viewer's own skins-enabled/ownership gating inside BW's skin lookup.
+    unsafe fn apply_skins_inbound(&self) {
+        unsafe {
+            let Some(blobs) = netcode_v2::with_turn_state(|s| s.drain_skin_inbound()) else {
+                return; // no live session
+            };
+            for (slot, blob) in blobs {
+                let Some(sender_storm) =
+                    netcode_v2::with_turn_state(|s| s.storm_id_for_slot(slot)).flatten()
+                else {
+                    debug!("netcode v2: skin blob from unmapped slot {slot:?}; dropping");
+                    continue;
+                };
+                if self.write_player_skin_blob(sender_storm.0, &blob) {
+                    // An all-zero blob is normal for a sender with no skins; logged so a peer
+                    // whose skin doesn't render can be told apart from a blob that never arrived.
+                    debug!(
+                        "netcode v2: applied skin blob from slot {slot:?} to storm slot \
+                         {sender_storm:?} ({} bytes, {})",
+                        blob.len(),
+                        if blob.iter().any(|&b| b != 0) {
+                            "has data"
+                        } else {
+                            "all zero"
+                        },
+                    );
+                } else {
+                    debug!(
+                        "netcode v2: skin blob from slot {slot:?} not applied (table missing or \
+                         blob length {} != slot stride)",
+                        blob.len()
+                    );
+                }
+            }
+        }
+    }
+
     /// Reproduces `receive_storm_turns`' synced player-leave pass for the IN replacement: runs
     /// `apply_pending_player_leaves` inside the synced-RNG window (leave handling can consume synced
     /// RNG, so it must run with the same RNG state on every client) and returns the storm slots whose
@@ -3876,17 +4403,365 @@ impl BwScr {
     /// globals. Runs at most once per game; subsequent in-game toggles are left untouched. Should
     /// be called from the minimap dialog's init event, once the globals are valid. Globals that
     /// weren't located during analysis are skipped.
+    ///
+    /// When custom team colors are active the real color-mode global no longer carries the user's
+    /// mode (it is pinned per virtual mode); the team-color mapping is reapplied here instead so it
+    /// wins over the minimap init's own reset of the global. The terrain toggle is independent and
+    /// is always restored as before.
     pub fn restore_minimap_settings(&self) {
         if self.minimap_settings_restored.swap(true, Ordering::Relaxed) {
             return;
         }
-        if let Some(value) = self.minimap_color_mode.as_ref() {
-            let mode = self.saved_minimap_color_mode.load(Ordering::Acquire);
-            unsafe { value.write(mode) };
-        }
         if let Some(value) = self.minimap_terrain_hidden.as_ref() {
             let hidden = self.saved_minimap_terrain_hidden.load(Ordering::Acquire);
             unsafe { value.write(u8::from(hidden)) };
+        }
+        let guard = self.team_color_runtime.lock();
+        if let Some(runtime) = guard.as_ref() {
+            unsafe { self.apply_team_color_mode(runtime) };
+        } else if let Some(value) = self.minimap_color_mode.as_ref() {
+            let mode = self.saved_minimap_color_mode.load(Ordering::Acquire);
+            unsafe { value.write(mode) };
+        }
+    }
+
+    /// Runs BW's native player-color randomizer, then switches `use_rgb_colors` on so its colors
+    /// render. Every playing slot defaults to the "random" color sentinel, so this assigns each a
+    /// synced-random color drawn on the shared game seed (all clients agree with no network relay).
+    /// BW's own game-start path skips this randomize call for SB sessions, leaving deterministic
+    /// slot-order colors, so it's invoked here once game init has run and the RNG seed is set. A
+    /// no-op (leaving BW's colors as-is) when the randomizer wasn't located during analysis. Runs
+    /// before the custom team-color engine snapshots the color state, so that engine's non-preset
+    /// modes restore this randomized baseline rather than slot-order colors.
+    pub fn randomize_base_player_colors(&self) {
+        if let Some(randomize) = self.randomize_player_colors {
+            unsafe {
+                randomize();
+                self.use_rgb_colors.write(1);
+            }
+        }
+    }
+
+    /// Copies the local player's slot out of the applied-skin table, for relaying to peers. The
+    /// slot index is the local *storm* id — the table is indexed by the lobby-stable storm
+    /// identity, not the randomized `players[]` id (native code fills it from lobby-time
+    /// slot-setup state, before game init shuffles `players[]`). The fill lands at some point
+    /// during game startup after the init hook this DLL's post-init setup runs under, so
+    /// init-time calls read a still-zeroed slot; only call this once the game loop has started
+    /// (see [`broadcast_local_skin_once`](Self::broadcast_local_skin_once)). Returns `None` when
+    /// the table wasn't located, or the local storm id isn't a table slot. The bytes are opaque;
+    /// a player with no skins yields a mostly-zero blob, which is still relayed so every slot's
+    /// table entry ends up identical on every client.
+    pub fn read_local_skin_blob(&self) -> Option<Vec<u8>> {
+        let table = self.skin_table.as_ref()?;
+        unsafe {
+            let slot = self.local_storm_id.resolve() as usize;
+            if slot >= SKIN_TABLE_SLOTS {
+                return None;
+            }
+            let base = table.base.resolve();
+            if base.is_null() {
+                return None;
+            }
+            Some(std::slice::from_raw_parts(base.add(slot * table.stride), table.stride).to_vec())
+        }
+    }
+
+    /// Writes one peer's skin blob into `storm_slot`'s entry of the applied-skin table (the
+    /// table is storm-id-indexed — see [`read_local_skin_blob`](Self::read_local_skin_blob)),
+    /// taking effect the next rendered frame. Returns `false` without writing when the table
+    /// wasn't located, the slot index is out of table range, or `blob` isn't exactly one slot
+    /// long — the sender reads whole slots, so any other length is a malformed or cross-version
+    /// frame, and a partial write could leave a slot mixing two states rendering might parse.
+    unsafe fn write_player_skin_blob(&self, storm_slot: u8, blob: &[u8]) -> bool {
+        let Some(table) = self.skin_table.as_ref() else {
+            return false;
+        };
+        let slot = storm_slot as usize;
+        if slot >= SKIN_TABLE_SLOTS || blob.len() != table.stride {
+            return false;
+        }
+        unsafe {
+            let base = table.base.resolve();
+            if base.is_null() {
+                return false;
+            }
+            std::ptr::copy_nonoverlapping(blob.as_ptr(), base.add(slot * table.stride), blob.len());
+        }
+        true
+    }
+
+    /// Builds the team-color engine for this game if the feature is active, snapshots BW's original
+    /// player colors, and applies the initial assignment. A no-op — leaving the untouched path in
+    /// place — when the feature isn't configured, the game is UMS, the minimap color-mode global
+    /// wasn't located, or the `rgb_colors` pointer is null. Runs once at game init on the game
+    /// thread, after alliances are finalized.
+    ///
+    /// The feature drives colors regardless of whether BW ran with `use_rgb_colors` on: the modes
+    /// that show custom colors force the switch on for the spans they apply to, so palette-index
+    /// games (single-player, vs-AI, palette-mode replays) get custom colors too.
+    pub fn init_team_colors(&self) {
+        let Some(config) = self.team_color_config.lock().clone() else {
+            return;
+        };
+        // UMS maps set player colors deliberately (CRGB / forces), so the feature stays off there.
+        if game_thread::is_ums() {
+            return;
+        }
+        // The color-mode global is the virtual-mode carrier; without it the mode machinery can't
+        // run, so fall back to the untouched path.
+        if self.minimap_color_mode.is_none() {
+            return;
+        }
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                warn!("rgb_colors pointer was null at team-color init");
+                return;
+            }
+            // Captured before any mode is applied: the switch as BW ran the game, restored verbatim
+            // by the modes that keep the native appearance.
+            let original_use_rgb_colors = self.use_rgb_colors.resolve();
+            let original_rgb_colors = *rgb_ptr;
+            if original_rgb_colors
+                .iter()
+                .flatten()
+                .all(|v| v.to_bits() == 0)
+            {
+                warn!(
+                    "rgb_colors snapshot is entirely zero at team-color init; colors may be wrong"
+                );
+            }
+
+            // Active players are players[] 0..8 whose in-game type is human (2) or computer (1).
+            let players = self.players();
+            let mut active_players = Vec::with_capacity(8);
+            for i in 0..8u8 {
+                if matches!((*players.add(i as usize)).player_type, 1 | 2) {
+                    active_players.push(i);
+                }
+            }
+            let local_player = if self.is_replay_or_obs() {
+                None
+            } else {
+                // A seated player's id is always a real player slot; anything else would index
+                // out of bounds in the assignment engine, so degrade to the seatless (static)
+                // assignment instead of trusting it.
+                let id = self.local_player_id.resolve();
+                if id < 8 {
+                    Some(id as u8)
+                } else {
+                    warn!("Local player id {id} out of player-slot range at team-color init");
+                    None
+                }
+            };
+            let game = self.game();
+            let mut initial_allies = [[false; 8]; 8];
+            for (a, row) in initial_allies.iter_mut().enumerate() {
+                for (b, cell) in row.iter_mut().enumerate() {
+                    *cell = (*game).alliances[a][b] != 0;
+                }
+            }
+            let info = GameStartInfo {
+                active_players,
+                local_player,
+                initial_allies,
+            };
+            let state = TeamColorState::new(config, &info, shuffle_seed());
+            let virtual_mode =
+                MinimapColorMode::try_from(self.saved_minimap_color_mode.load(Ordering::Acquire))
+                    .unwrap_or_default();
+            let local_alliance_row =
+                local_player.map(|local| (local, initial_allies[local as usize]));
+            let runtime = TeamColorRuntime {
+                state,
+                original_rgb_colors,
+                original_use_rgb_colors,
+                virtual_mode,
+                local_alliance_row,
+            };
+            let mut guard = self.team_color_runtime.lock();
+            *guard = Some(runtime);
+            if let Some(runtime) = guard.as_ref() {
+                self.apply_team_color_mode(runtime);
+            }
+        }
+    }
+
+    /// The active team-color virtual minimap mode, or `None` when the feature is inactive (the
+    /// caller then reads BW's real global as before). Used at game exit to persist the mode the
+    /// user actually sees rather than the pinned real-global value.
+    pub fn team_color_virtual_mode(&self) -> Option<MinimapColorMode> {
+        self.team_color_runtime
+            .lock()
+            .as_ref()
+            .map(|runtime| runtime.virtual_mode)
+    }
+
+    /// Detects a Shift+Tab color-mode cycle by polling: BW cycles the real global (or forces it to
+    /// 2 for observers) on the keypress, so any value other than the one pinned for the current
+    /// virtual mode means the user cycled. Any unexpected value counts as exactly one forward step,
+    /// after which the mapping is reapplied. Called every rendered frame; a no-op when the feature
+    /// is inactive. Cycling never disturbs the engine's assignment/cursor state.
+    unsafe fn poll_team_color_mode(&self) {
+        unsafe {
+            let mut guard = self.team_color_runtime.lock();
+            let Some(runtime) = guard.as_mut() else {
+                return;
+            };
+            let Some(global) = self.minimap_color_mode.as_ref() else {
+                return;
+            };
+            if global.resolve() != self.pinned_real_mode(runtime.virtual_mode) {
+                runtime.virtual_mode = next_minimap_mode(runtime.virtual_mode);
+                self.apply_team_color_mode(runtime);
+            }
+        }
+    }
+
+    /// Reacts to a live change of the local player's outgoing alliance row (custom lobbies where
+    /// players ally mid-game). Diffs the row, advances the engine, and rewrites `rgb_colors` when
+    /// the assignment changed and colors are currently shown. Called after each `step_game`; a
+    /// no-op when the feature is inactive or there is no local seat (observer/replay).
+    unsafe fn update_team_colors_from_alliances(&self) {
+        unsafe {
+            let mut guard = self.team_color_runtime.lock();
+            let Some(runtime) = guard.as_mut() else {
+                return;
+            };
+            let Some((local, last_row)) = runtime.local_alliance_row else {
+                return;
+            };
+            let game = self.game();
+            let mut row = [false; 8];
+            for (i, cell) in row.iter_mut().enumerate() {
+                *cell = (*game).alliances[local as usize][i] != 0;
+            }
+            if row == last_row {
+                return;
+            }
+            runtime.local_alliance_row = Some((local, row));
+            let changed = runtime.state.update_local_alliances(&row);
+            if changed && runtime.virtual_mode == MinimapColorMode::Preset {
+                self.write_team_color_rgb(runtime);
+            }
+        }
+    }
+
+    /// The value the real `minimap_color_mode` global is pinned to for a given virtual mode.
+    /// Standard and Preset both use BW's RGB path (real 0, our colors written / originals restored).
+    /// Minimap-only pins real 0 when the three draw sites are hooked ([`minimap_draw_hooks`] is
+    /// `Some`) — that keeps the dots on the `rgb_colors` read path the draw hooks feed — and falls
+    /// back to real 1 (BW's own diplomacy dots) when any site is missing.
+    ///
+    /// [`minimap_draw_hooks`]: Self::minimap_draw_hooks
+    fn pinned_real_mode(&self, mode: MinimapColorMode) -> u8 {
+        match mode {
+            MinimapColorMode::Standard | MinimapColorMode::Preset => 0,
+            MinimapColorMode::PresetOnMinimapOnly => {
+                if self.minimap_draw_hooks.is_some() {
+                    0
+                } else {
+                    1
+                }
+            }
+        }
+    }
+
+    /// Installs the minimap-only team-color assignment into `rgb_colors` for the span of one minimap
+    /// dot draw, returning an RAII guard that restores the array's previous contents when dropped.
+    /// Returns `None` (no swap) unless the feature is active in the
+    /// [`PresetOnMinimapOnly`](MinimapColorMode::PresetOnMinimapOnly) virtual mode, so every other
+    /// mode — and the inactive feature — draws from the untouched array.
+    ///
+    /// The three minimap draw functions each bracket their original call with this guard. The
+    /// dispatcher draws the local player and lone sprites inline and calls the two per-player helpers
+    /// for everyone else, so the guards nest: each saves and restores the *current* `rgb_colors`
+    /// contents and `use_rgb_colors` switch, so an inner guard hands back exactly the state its
+    /// caller installed and only the outermost guard restores BW's originals. Forcing the switch on
+    /// makes the dot-draw sites read `rgb_colors` even when the game ran in palette-index mode. The
+    /// swap is confined to the draw — outside it the array and switch hold their originals, so unit
+    /// colors stay untouched and only the minimap dots read the assignment. The runtime lock is
+    /// released before the guard is returned, so the nested draws can re-acquire it. No heap
+    /// allocation: the saved copy lives in the returned guard on the caller's stack.
+    fn begin_minimap_team_colors(&self) -> Option<MinimapColorSwap> {
+        let assignment = {
+            let guard = self.team_color_runtime.lock();
+            let runtime = guard.as_ref()?;
+            if runtime.virtual_mode != MinimapColorMode::PresetOnMinimapOnly {
+                return None;
+            }
+            let mut out = runtime.original_rgb_colors;
+            for (slot, color) in runtime.state.colors().iter().enumerate() {
+                if let Some(color) = color {
+                    out[slot] = *color;
+                }
+            }
+            out
+        };
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                return None;
+            }
+            let saved_rgb = *rgb_ptr;
+            *rgb_ptr = assignment;
+            let saved_use_rgb = self.use_rgb_colors.resolve();
+            self.use_rgb_colors.write(1);
+            Some(MinimapColorSwap {
+                rgb_ptr,
+                saved_rgb,
+                use_rgb_colors: self.use_rgb_colors,
+                saved_use_rgb,
+            })
+        }
+    }
+
+    /// Pins the real `minimap_color_mode` global and sets the `use_rgb_colors` switch and
+    /// `rgb_colors` to match the runtime's current virtual mode. `Preset` forces the switch on and
+    /// writes the computed assignment, so units read our colors regardless of how BW ran the game.
+    /// The other modes restore BW's original switch and colors, reproducing the game's native
+    /// appearance. Keeping the real global pinned per mode keeps BW's own diplomacy recolor from
+    /// stomping our colors. Minimap-only leaves the originals in place here (units keep their real
+    /// colors); its assignment, and the forced switch, are swapped in only for the span of each
+    /// minimap draw hook.
+    unsafe fn apply_team_color_mode(&self, runtime: &TeamColorRuntime) {
+        unsafe {
+            if let Some(global) = self.minimap_color_mode.as_ref() {
+                global.write(self.pinned_real_mode(runtime.virtual_mode));
+            }
+            match runtime.virtual_mode {
+                MinimapColorMode::Preset => {
+                    self.use_rgb_colors.write(1);
+                    self.write_team_color_rgb(runtime);
+                }
+                MinimapColorMode::Standard | MinimapColorMode::PresetOnMinimapOnly => {
+                    self.use_rgb_colors.write(runtime.original_use_rgb_colors);
+                    let rgb_ptr = self.rgb_colors.resolve();
+                    if !rgb_ptr.is_null() {
+                        *rgb_ptr = runtime.original_rgb_colors;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Writes the engine's current assignment into `rgb_colors`, a full 8-slot write each time.
+    /// Slots the engine leaves unassigned keep BW's original color from the init snapshot.
+    unsafe fn write_team_color_rgb(&self, runtime: &TeamColorRuntime) {
+        unsafe {
+            let rgb_ptr = self.rgb_colors.resolve();
+            if rgb_ptr.is_null() {
+                return;
+            }
+            let colors = runtime.state.colors();
+            let mut out = runtime.original_rgb_colors;
+            for (slot, color) in colors.iter().enumerate() {
+                if let Some(color) = color {
+                    out[slot] = *color;
+                }
+            }
+            *rgb_ptr = out;
         }
     }
 
@@ -4123,6 +4998,9 @@ impl bw::Bw for BwScr {
         self.use_custom_cursor_size
             .store(use_custom_cursor_size, Ordering::Release);
         *self.custom_cursor_size.lock() = custom_cursor_size;
+
+        *self.team_color_config.lock() =
+            settings.team_colors.as_ref().and_then(|tc| tc.to_config());
 
         self.visualize_network_stalls
             .store(visualize_network_stalls, Ordering::Release);
@@ -5357,6 +6235,13 @@ mod hooks {
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
+        // The three minimap dot-draw functions, hooked for the minimap-only team-color mode. All
+        // cdecl (the dispatcher takes no argument we use; both per-player helpers take the player id
+        // as their first stack argument and the caller cleans it up). Full overrides that always
+        // fall through to `orig`.
+        !0 => DrawMinimapUnits();
+        !0 => DrawMinimapPlayerUnits(u32);
+        !0 => DrawMinimapMainPlayerUnits(u32);
         !0 => DrawGraphicLayers(*mut c_void, usize, u32);
         !0 => DecideCursorType() -> u32;
         !0 => PrintText(*const i8, u32, u32);

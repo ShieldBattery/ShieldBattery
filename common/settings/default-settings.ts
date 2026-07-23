@@ -1,13 +1,16 @@
 import { ReadonlyDeep } from 'type-fest'
 import { Announcer, ConsoleSkin, IngameSkin } from './blizz-settings'
 import {
-  ColorPreset,
+  FfaColorPreset,
   LocalSettings,
   MinimapColorMode,
   ScrSettings,
   ShieldBatteryAppSettings,
   StartingFog,
+  TeamColorPreset,
+  TeamColorUsage,
 } from './local-settings'
+import { cloneCustomTeamColors, FFA_COLOR_PRESETS, TEAM_COLOR_PRESETS } from './team-colors'
 
 export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
@@ -24,7 +27,16 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   startingFog: StartingFog.ShowTerrainAndResources,
   minimapColorMode: MinimapColorMode.Standard,
   minimapTerrainHidden: false,
-  colorPreset: ColorPreset.LegacyDiplomacy,
+  teamColorPreset: TeamColorPreset.CoolVsWarm,
+  ffaColorPreset: FfaColorPreset.Classic,
+  teamColorUsage: TeamColorUsage.Always,
+  shuffleColors: false,
+  // Copied (rather than referencing the preset table directly) so this default can never be
+  // aliased/mutated through the preset it was seeded from.
+  customTeamColors: cloneCustomTeamColors(TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]),
+  customFfaColors: [...FFA_COLOR_PRESETS[FfaColorPreset.Classic]],
+  teamSelfColor: undefined,
+  ffaSelfColor: undefined,
   legacyCursorSizing: false,
   useCustomCursorSize: false,
   customCursorSize: 0.25,

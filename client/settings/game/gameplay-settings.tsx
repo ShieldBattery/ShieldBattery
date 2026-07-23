@@ -10,107 +10,35 @@ import {
   IngameSkin,
 } from '../../../common/settings/blizz-settings'
 import {
-  ALL_COLOR_PRESETS,
-  ALL_MINIMAP_COLOR_MODES,
   ALL_STARTING_FOG,
-  ColorPreset,
-  getColorPresetColors,
-  getColorPresetLabel,
-  getMinimapColorModeLabel,
+  CustomTeamColors,
+  FfaColorPreset,
   getStartingFogLabel,
   MinimapColorMode,
   StartingFog,
+  TeamColorPreset,
+  TeamColorUsage,
 } from '../../../common/settings/local-settings'
+import { cloneCustomTeamColors } from '../../../common/settings/team-colors'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
-import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { labelSmall } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
+import {
+  FormContainer,
+  SectionContainer,
+  SectionOverline,
+  SettingsSectionDescription,
+  SettingsSectionHeader,
+} from '../settings-content'
+import { TeamColorSettings } from './team-color-settings'
 
 const BonusSkinsCheckBox = styled(CheckBox)`
   margin-bottom: 8px;
 `
-
-const TeamColorsOverline = styled(SectionOverline)`
-  margin-bottom: 8px;
-`
-
-const PresetPreviewCard = styled(Card)`
-  margin-top: 12px;
-  align-self: flex-start;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const PresetPreviewLabel = styled.div`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
-`
-
-const PresetPreviewSwatches = styled.div`
-  display: flex;
-  gap: 16px;
-`
-
-const PresetPreviewEntry = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-`
-
-const PresetSwatch = styled.div<{ $color: string }>`
-  width: 40px;
-  height: 40px;
-
-  border-radius: 4px;
-  background-color: ${props => props.$color};
-  border: 2px solid var(--theme-outline);
-`
-
-const PresetSwatchLabel = styled.div`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
-`
-
-function TeamColorPresetPreview({ preset }: { preset: ColorPreset }) {
-  const { t } = useTranslation()
-  const colors = getColorPresetColors(preset)
-  const entries = [
-    { color: colors.self, label: t('settings.game.gameplay.teamColors.preview.self', 'You') },
-    {
-      color: colors.allies,
-      label: t('settings.game.gameplay.teamColors.preview.allies', 'Allies'),
-    },
-    {
-      color: colors.enemies,
-      label: t('settings.game.gameplay.teamColors.preview.enemies', 'Enemies'),
-    },
-  ]
-
-  return (
-    <PresetPreviewCard>
-      <PresetPreviewLabel>
-        {t('settings.game.gameplay.teamColors.preview.title', 'Preview')}
-      </PresetPreviewLabel>
-      <PresetPreviewSwatches>
-        {entries.map(entry => (
-          <PresetPreviewEntry key={entry.label}>
-            <PresetSwatch $color={entry.color} />
-            <PresetSwatchLabel>{entry.label}</PresetSwatchLabel>
-          </PresetPreviewEntry>
-        ))}
-      </PresetPreviewSwatches>
-    </PresetPreviewCard>
-  )
-}
 
 interface GameplaySettingsModel {
   apmAlertOn: boolean
@@ -124,7 +52,14 @@ interface GameplaySettingsModel {
   minimapPosition: boolean
   minimapColorMode: MinimapColorMode
   minimapTerrainHidden: boolean
-  colorPreset: ColorPreset
+  teamColorPreset: TeamColorPreset
+  ffaColorPreset: FfaColorPreset
+  teamColorUsage: TeamColorUsage
+  shuffleColors: boolean
+  customTeamColors: CustomTeamColors
+  customFfaColors: string[]
+  teamSelfColor?: string
+  ffaSelfColor?: string
   showBonusSkins: boolean
   selectedSkin: IngameSkin
   unitPortraits: number
@@ -152,17 +87,25 @@ export function GameplaySettings() {
   const localSettings = useAppSelector(s => s.settings.local)
   const scrSettings = useAppSelector(s => s.settings.scr)
 
-  const { bindCustom, bindCheckable, getInputValue, submit, form } = useForm<GameplaySettingsModel>(
-    {
-      ...scrSettings,
-      visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
-      startingFog: localSettings.startingFog,
-      minimapColorMode: localSettings.minimapColorMode,
-      minimapTerrainHidden: localSettings.minimapTerrainHidden,
-      colorPreset: localSettings.colorPreset,
-    },
-    { apmAlertValue: validateApmValue() },
-  )
+  const { bindCustom, bindCheckable, getInputValue, setInputValue, submit, form } =
+    useForm<GameplaySettingsModel>(
+      {
+        ...scrSettings,
+        visualizeNetworkStalls: localSettings.visualizeNetworkStalls,
+        startingFog: localSettings.startingFog,
+        minimapColorMode: localSettings.minimapColorMode,
+        minimapTerrainHidden: localSettings.minimapTerrainHidden,
+        teamColorPreset: localSettings.teamColorPreset,
+        ffaColorPreset: localSettings.ffaColorPreset,
+        teamColorUsage: localSettings.teamColorUsage,
+        shuffleColors: localSettings.shuffleColors,
+        customTeamColors: cloneCustomTeamColors(localSettings.customTeamColors),
+        customFfaColors: [...localSettings.customFfaColors],
+        teamSelfColor: localSettings.teamSelfColor,
+        ffaSelfColor: localSettings.ffaSelfColor,
+      },
+      { apmAlertValue: validateApmValue() },
+    )
 
   useFormCallbacks(form, {
     onValidatedChange: model => {
@@ -195,7 +138,14 @@ export function GameplaySettings() {
             startingFog: model.startingFog,
             minimapColorMode: model.minimapColorMode,
             minimapTerrainHidden: model.minimapTerrainHidden,
-            colorPreset: model.colorPreset,
+            teamColorPreset: model.teamColorPreset,
+            ffaColorPreset: model.ffaColorPreset,
+            teamColorUsage: model.teamColorUsage,
+            shuffleColors: model.shuffleColors,
+            customTeamColors: cloneCustomTeamColors(model.customTeamColors),
+            customFfaColors: [...model.customFfaColors],
+            teamSelfColor: model.teamSelfColor,
+            ffaSelfColor: model.ffaSelfColor,
           },
           {
             onSuccess: () => {},
@@ -224,6 +174,9 @@ export function GameplaySettings() {
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
         <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.game.gameplay.interface.title', 'Interface')}
+          </SettingsSectionHeader>
           <Select
             {...bindCustom('unitPortraits')}
             label={t('settings.game.gameplay.unitPortraits.title', 'Portraits')}
@@ -241,8 +194,31 @@ export function GameplaySettings() {
               text={t('settings.game.gameplay.unitPortraits.disabled', 'Disabled')}
             />
           </Select>
+          <CheckBox
+            {...bindCheckable('gameTimerOn')}
+            label={t('settings.game.gameplay.gameTimer', 'Game timer')}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('apmDisplayOn')}
+            label={t('settings.game.gameplay.apmDisplay', 'APM display')}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('showTurnRate')}
+            label={t('settings.game.gameplay.latency', 'Show latency')}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('colorCyclingOn')}
+            label={t('settings.game.gameplay.colorCycling', 'Enable color cycling')}
+            inputProps={{ tabIndex: 0 }}
+          />
         </SectionContainer>
         <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.game.gameplay.mapMinimap.title', 'Map & minimap')}
+          </SettingsSectionHeader>
           <Select
             {...bindCustom('minimapPosition')}
             label={t('settings.game.gameplay.minimapPosition.title', 'Minimap position')}
@@ -279,35 +255,43 @@ export function GameplaySettings() {
           </Select>
         </SectionContainer>
         <SectionContainer>
-          <TeamColorsOverline>
-            {t('settings.game.gameplay.teamColors.title', 'Team colors')}
-          </TeamColorsOverline>
-          <Select
-            {...bindCustom('minimapColorMode')}
-            label={t('settings.game.gameplay.teamColors.label', 'Mode')}
-            tabIndex={0}>
-            {ALL_MINIMAP_COLOR_MODES.map(mode => (
-              <SelectOption key={mode} value={mode} text={getMinimapColorModeLabel(mode, t)} />
-            ))}
-          </Select>
-          <Select
-            {...bindCustom('colorPreset')}
-            label={t('settings.game.gameplay.colorPreset.title', 'Preset')}
-            tabIndex={0}
-            allowErrors={false}
-            disabled={getInputValue('minimapColorMode') === MinimapColorMode.Standard}>
-            {ALL_COLOR_PRESETS.map(preset => (
-              <SelectOption key={preset} value={preset} text={getColorPresetLabel(preset, t)} />
-            ))}
-          </Select>
-          {getInputValue('minimapColorMode') !== MinimapColorMode.Standard ? (
-            <TeamColorPresetPreview preset={getInputValue('colorPreset')} />
-          ) : null}
+          <SettingsSectionHeader>
+            {t('settings.game.gameplay.teamColors.header', 'Player colors')}
+          </SettingsSectionHeader>
+          <SettingsSectionDescription>
+            {t(
+              'settings.game.gameplay.teamColors.description',
+              'How player colors appear in your games. Cycle between modes in-game with Shift+Tab.',
+            )}
+          </SettingsSectionDescription>
+          <TeamColorSettings
+            minimapColorMode={getInputValue('minimapColorMode')}
+            onMinimapColorModeChange={value => setInputValue('minimapColorMode', value)}
+            teamColorPreset={getInputValue('teamColorPreset')}
+            onTeamColorPresetChange={value => setInputValue('teamColorPreset', value)}
+            ffaColorPreset={getInputValue('ffaColorPreset')}
+            onFfaColorPresetChange={value => setInputValue('ffaColorPreset', value)}
+            teamColorUsage={getInputValue('teamColorUsage')}
+            onTeamColorUsageChange={value => setInputValue('teamColorUsage', value)}
+            shuffleColors={getInputValue('shuffleColors')}
+            onShuffleColorsChange={value => setInputValue('shuffleColors', value)}
+            customTeamColors={getInputValue('customTeamColors')}
+            onCustomTeamColorsChange={value => setInputValue('customTeamColors', value)}
+            customFfaColors={getInputValue('customFfaColors')}
+            onCustomFfaColorsChange={value => setInputValue('customFfaColors', value)}
+            teamSelfColor={getInputValue('teamSelfColor')}
+            onTeamSelfColorChange={value => setInputValue('teamSelfColor', value)}
+            ffaSelfColor={getInputValue('ffaSelfColor')}
+            onFfaSelfColorChange={value => setInputValue('ffaSelfColor', value)}
+          />
         </SectionContainer>
         <SectionContainer>
-          <SectionOverline>
-            {t('settings.game.gameplay.skinsInfo', 'Skins (must be purchased from Blizzard)')}
-          </SectionOverline>
+          <SettingsSectionHeader>
+            {t('settings.game.gameplay.skins.title', 'Skins')}
+          </SettingsSectionHeader>
+          <SettingsSectionDescription>
+            {t('settings.game.gameplay.skins.description', 'Must be purchased from Blizzard.')}
+          </SettingsSectionDescription>
           <BonusSkinsCheckBox
             {...bindCheckable('showBonusSkins')}
             label={t('settings.game.gameplay.showBonusSkins', 'Show bonus skins')}
@@ -336,31 +320,9 @@ export function GameplaySettings() {
           </Select>
         </SectionContainer>
         <SectionContainer>
-          <CheckBox
-            {...bindCheckable('gameTimerOn')}
-            label={t('settings.game.gameplay.gameTimer', 'Game timer')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('apmDisplayOn')}
-            label={t('settings.game.gameplay.apmDisplay', 'APM display')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('colorCyclingOn')}
-            label={t('settings.game.gameplay.colorCycling', 'Enable color cycling')}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('showTurnRate')}
-            label={t('settings.game.gameplay.latency', 'Show latency')}
-            inputProps={{ tabIndex: 0 }}
-          />
-        </SectionContainer>
-        <SectionContainer>
-          <SectionOverline>
+          <SettingsSectionHeader>
             {t('settings.game.gameplay.apmAlertHeader', 'APM alert')}
-          </SectionOverline>
+          </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('apmAlertOn')}
             label={t('settings.game.gameplay.apmAlert', 'Alert when APM falls below')}

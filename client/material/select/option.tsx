@@ -17,6 +17,8 @@ const StyledMenuItem = styled(MenuItem)<{
 
 export interface SelectOptionProps {
   text: string
+  /** An optional second line of smaller, muted text rendered below `text`. */
+  secondaryText?: string
   value: unknown
   focused?: boolean
   selected?: boolean
@@ -24,7 +26,14 @@ export interface SelectOptionProps {
   onClick?: () => void
 }
 
-export function SelectOption({ text, focused, selected, dense, onClick }: SelectOptionProps) {
+export function SelectOption({
+  text,
+  secondaryText,
+  focused,
+  selected,
+  dense,
+  onClick,
+}: SelectOptionProps) {
   const onOptionClick = useCallback(() => {
     onClick?.()
   }, [onClick])
@@ -32,6 +41,7 @@ export function SelectOption({ text, focused, selected, dense, onClick }: Select
   return (
     <StyledMenuItem
       text={text}
+      secondaryText={secondaryText}
       dense={dense}
       focused={focused}
       $selected={selected}
