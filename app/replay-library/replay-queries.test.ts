@@ -112,6 +112,45 @@ describe('app/replay-library/replay-queries/buildReplaySqlQuery', () => {
     expect(sql).toContain('r.parse_error = 0')
   })
 
+  test('gameTimeFrom becomes a lower bound on game_time', () => {
+    const { sql, params } = buildReplaySqlQuery({ gameTimeFrom: 1000 })
+    expect(sql).toContain('r.game_time >= ?')
+    expect(params).toEqual([1000])
+  })
+
+  test('gameTimeTo becomes an upper bound on game_time', () => {
+    const { sql, params } = buildReplaySqlQuery({ gameTimeTo: 2000 })
+    expect(sql).toContain('r.game_time <= ?')
+    expect(params).toEqual([2000])
+  })
+
+  test('gameTimeFrom and gameTimeTo together bound both ends, params in order', () => {
+    const { sql, params } = buildReplaySqlQuery({ gameTimeFrom: 1000, gameTimeTo: 2000 })
+    expect(sql).toContain('r.game_time >= ?')
+    expect(sql).toContain('r.game_time <= ?')
+    expect(params).toEqual([1000, 2000])
+  })
+
+  test('gameTimeFrom/gameTimeTo exclude parse-error rows (their game_time is zeroed)', () => {
+    const { sql } = buildReplaySqlQuery({ gameTimeFrom: 1000, gameTimeTo: 2000 })
+    expect(sql).toContain('r.parse_error = 0')
+  })
+
+  test('gameTime range combined with another filter still applies both', () => {
+    const { sql, params } = buildReplaySqlQuery({
+      gameTimeFrom: 1000,
+      gameTimeTo: 2000,
+      mapName: 'Fighting Spirit',
+    })
+    expect(sql).toContain('r.game_time >= ?')
+    expect(sql).toContain('r.game_time <= ?')
+    expect(sql).toContain("r.map_name LIKE ? ESCAPE '\\'")
+    expect(sql).toContain('r.parse_error = 0')
+    // Param order follows the clauses' fixed position in the built SQL (mapName before the
+    // gameTime bounds), not the order filter properties were given in.
+    expect(params).toEqual(['%Fighting Spirit%', 1000, 2000])
+  })
+
   test('no sort defaults to newest-first', () => {
     expect(buildReplaySqlQuery({}).sql).toContain(
       'ORDER BY r.parse_error ASC, r.game_time DESC, r.id ASC',

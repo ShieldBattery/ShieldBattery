@@ -45,11 +45,18 @@ export function GamePlayersDisplay({
   game,
   forUserId,
   showTeamLabels = true,
+  interactiveNames = false,
   className,
 }: {
   game: ReadonlyDeep<GameRecordJson>
   forUserId?: SbUserId
   showTeamLabels?: boolean
+  /**
+   * When true, human players' names render as store-connected, interactive usernames (clicking
+   * opens the profile overlay, right-clicking opens the user context menu) instead of plain text.
+   * Computer opponents always render as plain text.
+   */
+  interactiveNames?: boolean
   className?: string
 }) {
   const { t } = useTranslation()
@@ -77,6 +84,7 @@ export function GamePlayersDisplay({
       name: player.isComputer
         ? t('game.playerName.computer', 'Computer')
         : (playersMapping.get(player.id)?.name ?? t('game.playerName.unknown', 'Unknown player')),
+      userId: interactiveNames && !player.isComputer ? player.id : undefined,
     }
   }
 

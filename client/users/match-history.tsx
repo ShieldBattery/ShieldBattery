@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -11,13 +11,20 @@ import {
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { renderGamesWithDayHeaders } from '../games/day-header'
+import { useContextMenu } from '../dom/use-context-menu'
+import { navigateToGameResults } from '../games/action-creators'
+import { renderGamesWithDayHeaders, resolveDateRangeMs } from '../games/day-header'
+import { GameContextMenuContent } from '../games/game-context-menu'
 import { GameFilterBar } from '../games/game-filter-bar'
 import { GameListEntry } from '../games/game-list-entry'
+import { GameRecordSidePanel } from '../games/game-record-side-panel'
+import { GameListSearchPage, useGameListSearch } from '../games/use-game-list-search'
+import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
+import { Popover } from '../material/popover'
 import { useLocationSearchParam } from '../navigation/router-hooks'
-import { useRefreshToken } from '../network/refresh-token'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useUserLocalStorageValue } from '../react/state-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { getMatchHistory } from './action-creators'
 
@@ -42,11 +49,15 @@ const MatchHistoryContainer = styled.div`
   gap: 16px;
 `
 
-const SearchResults = styled.div`
-  width: 100%;
-
+const BodyRow = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  gap: 24px;
+`
+
+const ListColumn = styled.div`
+  flex-grow: 1;
+  min-width: 0;
 `
 
 function parseDuration(value: string): GameDurationFilter {
@@ -79,6 +90,11 @@ function parseMatchup(
   return decodeMatchup(format, encoded) ? encoded : undefined
 }
 
+/** A date-based sort groups games by calendar day; the duration sorts render as a flat list. */
+function isDateSort(sort: GameSortOption): boolean {
+  return sort === GameSortOption.LatestFirst || sort === GameSortOption.OldestFirst
+}
+
 export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -91,6 +107,8 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const [playerName, setPlayerNameParam] = useLocationSearchParam('playerName')
   const [formatParam, setFormatParam] = useLocationSearchParam('format')
   const [matchupParam, setMatchupParam] = useLocationSearchParam('matchup')
+  const [startDateParam, setStartDateParam] = useLocationSearchParam('startDate')
+  const [endDateParam, setEndDateParam] = useLocationSearchParam('endDate')
 
   const ranked = rankedParam === 'true'
   const custom = customParam === 'true'
@@ -99,76 +117,119 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const format = parseFormat(formatParam)
   const matchup = parseMatchup(matchupParam, format)
 
-  const [gameIds, setGameIds] = useState<string[]>()
-  const [hasMoreGames, setHasMoreGames] = useState(true)
-  const [isLoadingMoreGames, setIsLoadingMoreGames] = useState(false)
-  const [searchError, setSearchError] = useState<Error>()
-  const abortControllerRef = useRef<AbortController>(undefined)
-  const [refreshToken, triggerRefresh] = useRefreshToken()
+  const [selectedId, setSelectedId] = useState<string>()
+  const rowElemsRef = useRef(new Map<string, HTMLDivElement>())
 
-  // NOTE(2Pac): We select the (stable) map and derive the list in render rather than mapping inside
-  // the selector, which would return a fresh array on every store update and re-render the whole
-  // list on any Redux action. react-compiler memoizes the derivation below.
-  const gamesById = useAppSelector(s => s.games.byId)
-  const games = gameIds?.map(id => gamesById.get(id)!) ?? []
+  // Remembered per-user, shared with the replay library and games page: hides the game length and
+  // match result (both spoilers) from the list rows.
+  const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
-  const reset = () => {
-    abortControllerRef.current?.abort()
-    setGameIds(undefined)
-    setHasMoreGames(true)
-    setIsLoadingMoreGames(false)
-    setSearchError(undefined)
-    triggerRefresh()
+  const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
+
+  const loadPage = (offset: number, signal: AbortSignal): Promise<GameListSearchPage> => {
+    const { startMs, endMs } = resolveDateRangeMs(startDateParam, endDateParam)
+    return new Promise((resolve, reject) => {
+      dispatch(
+        getMatchHistory(
+          userId,
+          {
+            ranked: ranked || undefined,
+            custom: custom || undefined,
+            duration: duration === GameDurationFilter.All ? undefined : duration,
+            sort: sort === GameSortOption.LatestFirst ? undefined : sort,
+            mapName: mapName || undefined,
+            playerName: playerName || undefined,
+            format,
+            matchup,
+            startDate: startMs,
+            endDate: endMs,
+            offset,
+          },
+          {
+            signal,
+            onSuccess: result => {
+              resolve({ gameIds: result.games.map(g => g.id), hasMoreGames: result.hasMoreGames })
+            },
+            onError: err => reject(err),
+          },
+        ),
+      )
+    })
   }
 
-  const onLoadMoreGames = () => {
-    setIsLoadingMoreGames(true)
+  const { games, hasMoreGames, isLoadingMore, searchError, refreshToken, reset, onLoadMore } =
+    useGameListSearch(loadPage)
 
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
+  const selectedGame = games.find(g => g.id === selectedId) ?? games[0]
+  const selectedIndex = selectedGame ? games.findIndex(g => g.id === selectedGame.id) : -1
+  const sortIsDateBased = isDateSort(sort)
 
-    dispatch(
-      getMatchHistory(
-        userId,
-        {
-          ranked: ranked || undefined,
-          custom: custom || undefined,
-          duration: duration === GameDurationFilter.All ? undefined : duration,
-          sort: sort === GameSortOption.LatestFirst ? undefined : sort,
-          mapName: mapName || undefined,
-          playerName: playerName || undefined,
-          format,
-          matchup,
-          offset: gameIds?.length ?? 0,
-        },
-        {
-          signal: abortControllerRef.current.signal,
-          onSuccess: data => {
-            setIsLoadingMoreGames(false)
-            // A newly-completed game by this user shifts the window between page loads, so a later
-            // page can re-serve rows from an earlier one. Dedupe on concat to avoid duplicate React
-            // keys / repeated rows.
-            setGameIds(prev => {
-              const existingIds = new Set(prev ?? [])
-              return (prev ?? []).concat(
-                data.games.map(g => g.id).filter(id => !existingIds.has(id)),
-              )
-            })
-            setHasMoreGames(data.hasMoreGames)
-            setSearchError(undefined)
-          },
-          onError: err => {
-            setIsLoadingMoreGames(false)
-            setSearchError(err)
-          },
-        },
-      ),
-    )
+  const selectIndex = (index: number) => {
+    if (index < 0 || index >= games.length) return
+    const game = games[index]
+    setSelectedId(game.id)
+    rowElemsRef.current.get(game.id)?.scrollIntoView({ block: 'nearest' })
+  }
+  const moveSelection = (delta: number) => {
+    if (games.length === 0) return
+    const base = selectedIndex < 0 ? 0 : selectedIndex
+    const next = Math.min(Math.max(base + delta, 0), games.length - 1)
+    selectIndex(next)
   }
 
-  useEffect(() => {
-    return () => abortControllerRef.current?.abort()
-  }, [])
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      // Every key here acts on the match history list, but this page's key listener boundary is
+      // shared with other UI (e.g. the social sidebar's chat input, whose keydowns bubble to the
+      // document). While a text-entry element has focus, the keystroke belongs to it instead.
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return false
+      }
+
+      switch (event.code) {
+        case 'ArrowUp':
+          moveSelection(-1)
+          return true
+        case 'ArrowDown':
+          moveSelection(1)
+          return true
+        case 'PageUp':
+          moveSelection(-10)
+          return true
+        case 'PageDown':
+          moveSelection(10)
+          return true
+        case 'Home':
+          selectIndex(0)
+          return true
+        case 'End':
+          selectIndex(games.length - 1)
+          return true
+        case 'Enter':
+        case 'NumpadEnter': {
+          const active = document.activeElement
+          // If the user is on an interactive control (e.g. a focused button), let it handle Enter.
+          if (
+            active instanceof HTMLElement &&
+            (active.tagName === 'BUTTON' || active.tagName === 'A')
+          ) {
+            return false
+          }
+          if (selectedGame) navigateToGameResults(selectedGame.id)
+          return true
+        }
+      }
+
+      return false
+    },
+  })
 
   const filterBar = (
     <GameFilterBar
@@ -215,45 +276,102 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         setMatchupParam(v ?? '')
         reset()
       }}
+      spoilerFree={spoilerFree}
+      setSpoilerFree={setSpoilerFree}
+      startDate={startDateParam}
+      setStartDate={v => {
+        setStartDateParam(v)
+        reset()
+      }}
+      endDate={endDateParam}
+      setEndDate={v => {
+        setEndDateParam(v)
+        reset()
+      }}
     />
   )
 
+  // A page load that's returned at least once with nothing left to fetch is a confirmed empty
+  // result; until then (including the very first, still in-flight page) we render the list shell so
+  // its own loading indicator can show, matching how this page behaved before it was rewired onto
+  // `useGameListSearch`.
+  const confirmedEmpty = !hasMoreGames && games.length === 0
+
+  let listBody: React.ReactNode
   if (searchError) {
-    return (
-      <MatchHistoryContainer>
-        {filterBar}
-        <ErrorText>
-          {t(
-            'user.matchHistory.retrievingError',
-            'There was an error retrieving the match history.',
-          )}
-        </ErrorText>
-      </MatchHistoryContainer>
+    listBody = (
+      <ErrorText>
+        {t('user.matchHistory.retrievingError', 'There was an error retrieving the match history.')}
+      </ErrorText>
     )
-  } else if (gameIds?.length === 0) {
-    return (
-      <MatchHistoryContainer>
-        {filterBar}
-        <NoResults>{t('user.matchHistory.noMatchingGames', 'No matching games.')}</NoResults>
-      </MatchHistoryContainer>
-    )
+  } else if (confirmedEmpty) {
+    listBody = <NoResults>{t('user.matchHistory.noMatchingGames', 'No matching games.')}</NoResults>
   } else {
     const gameItems = renderGamesWithDayHeaders(games, sort, t, game => (
-      <GameListEntry key={game.id} game={game} showResult={true} forUserId={userId} />
+      <GameListEntry
+        key={game.id}
+        game={game}
+        showResult={true}
+        forUserId={userId}
+        spoilerFree={spoilerFree}
+        selected={game.id === selectedGame?.id}
+        onClick={setSelectedId}
+        onDoubleClick={gameId => navigateToGameResults(gameId)}
+        onContextMenu={(gameId, event) => {
+          setSelectedId(gameId)
+          onContextMenu(event)
+        }}
+        ref={el => {
+          if (el) {
+            rowElemsRef.current.set(game.id, el)
+          } else {
+            rowElemsRef.current.delete(game.id)
+          }
+        }}
+      />
     ))
 
-    return (
+    listBody = (
       <InfiniteScrollList
         nextLoadingEnabled={true}
-        isLoadingNext={isLoadingMoreGames}
+        isLoadingNext={isLoadingMore}
         hasNextData={hasMoreGames}
         refreshToken={refreshToken}
-        onLoadNextData={onLoadMoreGames}>
-        <MatchHistoryContainer>
-          {filterBar}
-          <SearchResults>{gameItems}</SearchResults>
-        </MatchHistoryContainer>
+        onLoadNextData={onLoadMore}>
+        {gameItems}
       </InfiniteScrollList>
     )
   }
+
+  // Mirrors the replay library's inspector: dropped entirely once there are confirmed to be no
+  // results, rather than showing an empty "select a game" placeholder beside the empty-state message.
+  const showPanel = !confirmedEmpty && !searchError
+
+  return (
+    <MatchHistoryContainer>
+      {filterBar}
+
+      <BodyRow>
+        <ListColumn>{listBody}</ListColumn>
+
+        {showPanel ? (
+          <GameRecordSidePanel
+            game={selectedGame}
+            forUserId={userId}
+            alignWithFirstRow={sortIsDateBased}
+            onViewResults={gameId => navigateToGameResults(gameId)}
+          />
+        ) : null}
+      </BodyRow>
+
+      {selectedGame ? (
+        <Popover {...contextMenuPopoverProps}>
+          <GameContextMenuContent
+            game={selectedGame}
+            onDismiss={contextMenuPopoverProps.onDismiss}
+          />
+        </Popover>
+      ) : null}
+    </MatchHistoryContainer>
+  )
 }

@@ -257,6 +257,16 @@ interface IpcInvokeables {
   settingsBrowseForStarcraft: (
     defaultPath: string,
   ) => Promise<{ canceled: boolean; filePaths: string[] }>
+  /** Opens a generic folder-picker dialog. */
+  settingsBrowseForFolder: (options: {
+    title?: string
+    defaultPath?: string
+  }) => Promise<{ canceled: boolean; filePaths: string[] }>
+  /**
+   * Returns the default replay folder path (`Documents/Starcraft/maps/replays`), since the
+   * renderer can't compute the OS documents directory itself.
+   */
+  settingsGetDefaultReplayFolder: () => Promise<string>
   settingsGetPrimaryResolution: () => Promise<{ width: number; height: number }>
   settingsGetMonitorInfo: () => Promise<{ primary: Display; monitors: Display[] }>
   settingsOverwriteBlizzardFile: () => void

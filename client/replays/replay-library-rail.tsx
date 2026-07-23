@@ -1,17 +1,30 @@
 import * as React from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ReplayBackfillProgress, ReplayPlaylist } from '../../common/replays-library'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
+import { useBreakpoint } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
 import { DestructiveMenuItem, MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'
-import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { OriginX, Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
+import { Tooltip } from '../material/tooltip'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyMedium, labelMedium, singleLine } from '../styles/typography'
 import { LibraryView } from './replay-library-helpers'
+
+// The width at which the rail collapses to an icon-only strip, keyed to the ancestor
+// `replay-library-body` container's inline-size (set up in replay-library.tsx). This mirrors the
+// container query below via a ResizeObserver on the rail's own rendered width, rather than
+// duplicating the container breakpoint: 72px (collapsed) and 240px (expanded) sit well on either
+// side of the 100px threshold.
+const RAIL_COLLAPSE_BREAKPOINTS: Array<[minWidth: number, collapsed: boolean]> = [
+  [0, true],
+  [100, false],
+]
 
 const RailRoot = styled.div`
   display: flex;
@@ -25,6 +38,11 @@ const RailRoot = styled.div`
   top: 24px;
   max-height: calc(100vh - 96px);
   overflow-y: auto;
+  transition: width 125ms ease-out;
+
+  @container replay-library-body (width < 1100px) {
+    width: 72px;
+  }
 `
 
 const RailSection = styled.div`
@@ -44,6 +62,10 @@ const RailSectionTitle = styled.div`
   align-items: center;
 
   color: var(--theme-on-surface-variant);
+
+  @container replay-library-body (width < 1100px) {
+    display: none;
+  }
 `
 
 // A plain `div` (not `button`) so playlist rows can host a real, non-nested `<button>` for their
@@ -74,6 +96,14 @@ const RailItemRoot = styled.div<{ $selected: boolean }>`
     outline: 2px solid var(--theme-grey-blue);
     outline-offset: -2px;
   }
+
+  @container replay-library-body (width < 1100px) {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    justify-content: center;
+    margin: 0 auto;
+  }
 `
 
 const RailItemIcon = styled(MaterialIcon).attrs({ size: 18 })`
@@ -86,6 +116,10 @@ const RailItemLabel = styled.div`
   ${singleLine};
   flex-grow: 1;
   color: var(--theme-on-surface);
+
+  @container replay-library-body (width < 1100px) {
+    display: none;
+  }
 `
 
 const RailItemCount = styled.div<{ $hasActions: boolean; $hidden: boolean }>`
@@ -143,6 +177,12 @@ const RailItemEnd = styled.div`
   display: flex;
   align-items: center;
   justify-content: flex-end;
+
+  // Hides the count and the playlist row's hover-revealed overflow-menu button together — neither
+  // fits the icon-only strip, and the menu stays reachable via right-click regardless.
+  @container replay-library-body (width < 1100px) {
+    display: none;
+  }
 `
 
 function RailItem({
@@ -151,62 +191,86 @@ function RailItem({
   count,
   selected,
   onClick,
+  onContextMenu,
   actions,
   actionsForceVisible = false,
+  collapsed = false,
 }: {
   icon: string
   label: string
   count?: number
   selected: boolean
   onClick: () => void
+  onContextMenu?: (event: React.MouseEvent) => void
   actions?: React.ReactNode
   actionsForceVisible?: boolean
+  /**
+   * Whether the rail is currently in its icon-only collapsed state. Shows a tooltip with `label`
+   * when true (the label text itself is hidden by the rail's container query at that point); the
+   * tooltip stays disabled in expanded mode since the label is already visible there.
+   */
+  collapsed?: boolean
 }) {
   const hasActions = actions !== undefined
 
   return (
-    <RailItemRoot
-      $selected={selected}
-      role='button'
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onClick()
-        }
-      }}>
-      <RailItemIcon icon={icon} />
-      <RailItemLabel title={label}>{label}</RailItemLabel>
-      {count !== undefined || hasActions ? (
-        <RailItemEnd>
-          {count !== undefined ? (
-            <RailItemCount $hasActions={hasActions} $hidden={hasActions && actionsForceVisible}>
-              {count}
-            </RailItemCount>
-          ) : null}
-          {actions ? (
-            <RailItemActions $forceVisible={actionsForceVisible}>{actions}</RailItemActions>
-          ) : null}
-        </RailItemEnd>
-      ) : null}
-    </RailItemRoot>
+    <Tooltip text={label} position='right' disabled={!collapsed} tabIndex={-1}>
+      <RailItemRoot
+        $selected={selected}
+        role='button'
+        tabIndex={0}
+        /* The label is visually hidden in the collapsed icon-only strip, so the accessible name
+           can't rely on the text content alone. */
+        aria-label={label}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onClick()
+          }
+        }}>
+        <RailItemIcon icon={icon} />
+        <RailItemLabel title={label}>{label}</RailItemLabel>
+        {count !== undefined || hasActions ? (
+          <RailItemEnd>
+            {count !== undefined ? (
+              <RailItemCount $hasActions={hasActions} $hidden={hasActions && actionsForceVisible}>
+                {count}
+              </RailItemCount>
+            ) : null}
+            {actions ? (
+              <RailItemActions $forceVisible={actionsForceVisible}>{actions}</RailItemActions>
+            ) : null}
+          </RailItemEnd>
+        ) : null}
+      </RailItemRoot>
+    </Tooltip>
   )
 }
 
 function PlaylistRailItem({
   playlist,
   selected,
+  collapsed,
   onSelect,
 }: {
   playlist: ReplayPlaylist
   selected: boolean
+  collapsed: boolean
   onSelect: () => void
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'top')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
+  // Overrides the overflow button's anchor with the cursor position when the menu was opened via
+  // right-click instead; cleared again once the button reopens it.
+  const [cursorAnchor, setCursorAnchor] = useState<{ x: number; y: number }>()
+
+  const menuAnchorX = cursorAnchor ? cursorAnchor.x : (anchorX ?? 0)
+  const menuAnchorY = cursorAnchor ? cursorAnchor.y : (anchorY ?? 0)
+  const menuOriginX: OriginX = cursorAnchor ? 'left' : 'right'
 
   return (
     <>
@@ -215,7 +279,13 @@ function PlaylistRailItem({
         label={playlist.name}
         count={playlist.count}
         selected={selected}
+        collapsed={collapsed}
         onClick={onSelect}
+        onContextMenu={event => {
+          event.preventDefault()
+          setCursorAnchor({ x: event.pageX, y: event.pageY })
+          openMenu(event)
+        }}
         actionsForceVisible={menuOpen}
         actions={
           <RailItemMenuButton
@@ -224,6 +294,7 @@ function PlaylistRailItem({
             title={t('replays.library.rail.playlistActions', 'Playlist actions')}
             onClick={event => {
               event.stopPropagation()
+              setCursorAnchor(undefined)
               openMenu(event)
             }}
           />
@@ -232,9 +303,9 @@ function PlaylistRailItem({
       <Popover
         open={menuOpen}
         onDismiss={closeMenu}
-        anchorX={anchorX ?? 0}
-        anchorY={anchorY ?? 0}
-        originX='right'
+        anchorX={menuAnchorX}
+        anchorY={menuAnchorY}
+        originX={menuOriginX}
         originY='top'>
         <MenuList dense={true}>
           <MenuItem
@@ -316,6 +387,10 @@ const BackfillLabel = styled.div`
   ${labelMedium};
   color: var(--theme-on-surface-variant);
   font-variant-numeric: tabular-nums;
+
+  @container replay-library-body (width < 1100px) {
+    display: none;
+  }
 `
 
 /**
@@ -379,9 +454,16 @@ export function ReplayLibraryRail({
 }: ReplayLibraryRailProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  // Observes the rail's own rendered width so JS behavior (tooltips) follows the same collapse
+  // point as the CSS container query on `RailRoot`, without hardcoding the page-body breakpoint
+  // here too.
+  const [railRef, collapsed] = useBreakpoint<HTMLDivElement, boolean>(
+    RAIL_COLLAPSE_BREAKPOINTS,
+    false,
+  )
 
   return (
-    <RailRoot>
+    <RailRoot ref={railRef}>
       <RailSection>
         <RailSectionTitle>{t('replays.library.rail.library', 'Library')}</RailSectionTitle>
         <RailItem
@@ -389,6 +471,7 @@ export function ReplayLibraryRail({
           label={t('replays.library.rail.allReplays', 'All replays')}
           count={totalIndexed}
           selected={view.kind === 'all'}
+          collapsed={collapsed}
           onClick={() => onSelectView({ kind: 'all' })}
         />
         <RailItem
@@ -396,6 +479,7 @@ export function ReplayLibraryRail({
           label={t('replays.library.rail.bookmarked', 'Bookmarked')}
           count={bookmarkedCount}
           selected={view.kind === 'bookmarked'}
+          collapsed={collapsed}
           onClick={() => onSelectView({ kind: 'bookmarked' })}
         />
       </RailSection>
@@ -409,6 +493,7 @@ export function ReplayLibraryRail({
             key={p.id}
             playlist={p}
             selected={view.kind === 'playlist' && view.id === p.id}
+            collapsed={collapsed}
             onSelect={() => onSelectView({ kind: 'playlist', id: p.id })}
           />
         ))}
@@ -416,6 +501,7 @@ export function ReplayLibraryRail({
           icon='add'
           label={t('replays.library.rail.newPlaylist', 'New playlist')}
           selected={false}
+          collapsed={collapsed}
           onClick={() => {
             dispatch(
               openDialog({

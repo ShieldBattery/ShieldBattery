@@ -288,10 +288,23 @@ export async function getGames(
     format?: GameFormat
     matchup?: MatchupFilter
     sort?: GameSortOption
+    startDate?: number
+    endDate?: number
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
-  const { limit, offset, duration, mapName, playerName, format, matchup, sort } = params
+  const {
+    limit,
+    offset,
+    duration,
+    mapName,
+    playerName,
+    format,
+    matchup,
+    sort,
+    startDate,
+    endDate,
+  } = params
 
   const { client, done } = await db(withClient)
   try {
@@ -353,6 +366,14 @@ export async function getGames(
         const matchupStrings = expandMatchupFilter(matchup)
         whereClauses.push(sql`g.assigned_matchup = ANY(${matchupStrings})`)
       }
+    }
+
+    if (startDate !== undefined) {
+      whereClauses.push(sql`g.start_time >= ${new Date(startDate)}`)
+    }
+
+    if (endDate !== undefined) {
+      whereClauses.push(sql`g.start_time <= ${new Date(endDate)}`)
     }
 
     // NOTE(2Pac): All of these include `g.id` as a final tiebreaker so the ordering is fully
@@ -423,6 +444,8 @@ export async function getGamesForUser(
     format?: GameFormat
     matchup?: MatchupFilter
     sort?: GameSortOption
+    startDate?: number
+    endDate?: number
   },
   withClient?: DbClient,
 ): Promise<GameRecord[]> {
@@ -438,6 +461,8 @@ export async function getGamesForUser(
     format,
     matchup,
     sort,
+    startDate,
+    endDate,
   } = params
 
   const { client, done } = await db(withClient)
@@ -509,6 +534,14 @@ export async function getGamesForUser(
         const matchupStrings = expandMatchupFilter(matchup)
         whereClauses.push(sql`g.assigned_matchup = ANY(${matchupStrings})`)
       }
+    }
+
+    if (startDate !== undefined) {
+      whereClauses.push(sql`g.start_time >= ${new Date(startDate)}`)
+    }
+
+    if (endDate !== undefined) {
+      whereClauses.push(sql`g.start_time <= ${new Date(endDate)}`)
     }
 
     // NOTE(2Pac): All of these include `g.id` as a final tiebreaker so the ordering is fully

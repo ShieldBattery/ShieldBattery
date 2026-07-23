@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { Variants } from 'motion/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -19,9 +20,11 @@ import {
   replayGameTypeToLabel,
   SupportedReplayGameType,
 } from '../../common/replays'
+import { monthDay } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { TextButton } from '../material/button'
+import { DateTextField } from '../material/date-text-field'
 import { FilterChip } from '../material/filter-chip'
 import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
@@ -29,6 +32,7 @@ import { TextField } from '../material/text-field'
 import { ContainerLevel, containerStyles } from '../styles/colors'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { labelLarge, labelMedium } from '../styles/typography'
+import { resolveDateRangeMs } from './day-header'
 import { MatchupFilter } from './matchup-filter'
 
 const FilterBarContainer = styled.div`
@@ -69,6 +73,88 @@ const SORT_OPTIONS = [
   GameSortOption.LongestFirst,
 ] as const
 
+/** Formats a `Date` as a local (not UTC) `yyyy-mm-dd` string, suitable for `<input type='date'>`. */
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** A quick-range option offered in the Date filter's popover. */
+enum DatePreset {
+  PastWeek = 'pastWeek',
+  PastMonth = 'pastMonth',
+  Past3Months = 'past3Months',
+  PastYear = 'pastYear',
+}
+
+const DATE_PRESETS: ReadonlyArray<{
+  preset: DatePreset
+  fromDate: (today: Date) => Date
+}> = [
+  {
+    preset: DatePreset.PastWeek,
+    fromDate: today => new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7),
+  },
+  {
+    preset: DatePreset.PastMonth,
+    fromDate: today => new Date(today.getFullYear(), today.getMonth() - 1, today.getDate()),
+  },
+  {
+    preset: DatePreset.Past3Months,
+    fromDate: today => new Date(today.getFullYear(), today.getMonth() - 3, today.getDate()),
+  },
+  {
+    preset: DatePreset.PastYear,
+    fromDate: today => new Date(today.getFullYear() - 1, today.getMonth(), today.getDate()),
+  },
+]
+
+function getDatePresetLabel(preset: DatePreset, t: TFunction): string {
+  switch (preset) {
+    case DatePreset.PastWeek:
+      return t('game.filters.datePastWeek', 'Past week')
+    case DatePreset.PastMonth:
+      return t('game.filters.datePastMonth', 'Past month')
+    case DatePreset.Past3Months:
+      return t('game.filters.datePast3Months', 'Past 3 months')
+    case DatePreset.PastYear:
+      return t('game.filters.datePastYear', 'Past year')
+    default:
+      return preset satisfies never
+  }
+}
+
+/**
+ * Formats the Date filter chip's label: the generic label when unset, or a compact rendering of
+ * the active bound(s) otherwise (an open start or end reads as "From X"/"Until X", a full range as
+ * "X – Y").
+ */
+function getDateFilterChipLabel(startDate: string, endDate: string, t: TFunction): string {
+  const { startMs, endMs } = resolveDateRangeMs(startDate, endDate)
+
+  if (startMs !== undefined && endMs !== undefined) {
+    return t('game.filters.dateRangeBetween', {
+      defaultValue: '{{start}} – {{end}}',
+      start: monthDay.format(startMs),
+      end: monthDay.format(endMs),
+    })
+  } else if (startMs !== undefined) {
+    return t('game.filters.dateRangeFrom', {
+      defaultValue: 'From {{date}}',
+      date: monthDay.format(startMs),
+    })
+  } else if (endMs !== undefined) {
+    return t('game.filters.dateRangeUntil', {
+      defaultValue: 'Until {{date}}',
+      date: monthDay.format(endMs),
+    })
+  }
+
+  return t('game.filters.date', 'Date')
+}
+
 export interface GameFilterBarProps {
   /** When false, hides Ranked and Custom filter chips (e.g. for Games page which only shows matchmaking). */
   showRankedCustom?: boolean
@@ -93,11 +179,19 @@ export interface GameFilterBarProps {
   gameType?: SupportedReplayGameType | 'others'
   setGameType?: (v: SupportedReplayGameType | 'others' | undefined) => void
   /**
-   * When `setSpoilerFree` is provided, shows a spoiler-free toggle that hides game length; omit it
-   * on surfaces where game length isn't a spoiler (e.g. the Games page).
+   * When `setSpoilerFree` is provided, shows a spoiler-free toggle that hides the game length and,
+   * where shown, the match result.
    */
   spoilerFree?: boolean
   setSpoilerFree?: (v: boolean) => void
+  /**
+   * The active date range bounds, as `yyyy-mm-dd` strings (empty = unset). The Date filter chip is
+   * only shown when `setStartDate` is provided.
+   */
+  startDate?: string
+  setStartDate?: (value: string) => void
+  endDate?: string
+  setEndDate?: (value: string) => void
   className?: string
 }
 
@@ -128,18 +222,31 @@ export function GameFilterBar({
   setGameType,
   spoilerFree = false,
   setSpoilerFree,
+  startDate = '',
+  setStartDate,
+  endDate = '',
+  setEndDate,
   className,
 }: GameFilterBarProps) {
   const { t } = useTranslation()
   const [anchorRef, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('left', 'bottom')
   const [opened, openPopover, closePopover] = usePopoverController({ refreshAnchorPos })
+  const [dateAnchorRef, dateAnchorX, dateAnchorY, refreshDateAnchorPos] = useRefAnchorPosition(
+    'left',
+    'bottom',
+  )
+  const [dateOpened, openDatePopover, closeDatePopover] = usePopoverController({
+    refreshAnchorPos: refreshDateAnchorPos,
+  })
 
   const hasAdvancedFilters = !!mapName || !!playerName || !!format || !!matchup
+  const hasDateRange = !!startDate || !!endDate
   const hasActiveFilters =
     (showRankedCustom && (ranked || custom)) ||
     duration !== GameDurationFilter.All ||
     hasAdvancedFilters ||
-    (showGameType && gameType !== undefined)
+    (showGameType && gameType !== undefined) ||
+    hasDateRange
 
   let gameTypeLabel = t('game.filters.mode', 'Mode')
   if (gameType === 'others') {
@@ -206,6 +313,16 @@ export function GameFilterBar({
         ))}
       </FilterChip>
 
+      {setStartDate && (
+        <FilterChip
+          ref={dateAnchorRef}
+          label={getDateFilterChipLabel(startDate, endDate, t)}
+          icon={<MaterialIcon icon='calendar_month' size={18} />}
+          selected={hasDateRange || dateOpened}
+          onClick={e => (dateOpened ? closeDatePopover() : openDatePopover(e))}
+        />
+      )}
+
       <FilterChip
         ref={anchorRef}
         label={t('game.filters.advanced', 'Advanced')}
@@ -227,6 +344,8 @@ export function GameFilterBar({
             setFormat(undefined)
             setMatchup(undefined)
             setGameType?.(undefined)
+            setStartDate?.('')
+            setEndDate?.('')
           }}
         />
       )}
@@ -279,11 +398,36 @@ export function GameFilterBar({
           onClose={closePopover}
         />
       </Popover>
+
+      {setStartDate && (
+        <Popover
+          open={dateOpened}
+          onDismiss={closeDatePopover}
+          anchorX={dateAnchorX ?? 0}
+          anchorY={dateAnchorY ?? 0}
+          originX='left'
+          originY='top'
+          motionVariants={popoverVariants}
+          motionInitial='entering'
+          motionAnimate='visible'
+          motionExit='exiting'>
+          <DateFiltersPanel
+            startDate={startDate}
+            endDate={endDate}
+            onApply={dateValues => {
+              setStartDate(dateValues.startDate)
+              setEndDate?.(dateValues.endDate)
+              closeDatePopover()
+            }}
+          />
+        </Popover>
+      )}
     </FilterBarContainer>
   )
 }
 
-const AdvancedPanelContainer = styled.div`
+/** Shared popover panel shell for the filter bar's draft-state panels (Advanced, Date). */
+const FilterPanelContainer = styled.div`
   ${containerStyles(ContainerLevel.Low)};
 
   display: flex;
@@ -368,7 +512,7 @@ function AdvancedFiltersPanel({
   })
 
   return (
-    <AdvancedPanelContainer>
+    <FilterPanelContainer>
       <PanelContent>
         <PanelSection>
           <SectionLabel>{t('common.actions.search', 'Search')}</SectionLabel>
@@ -448,6 +592,96 @@ function AdvancedFiltersPanel({
           }
         />
       </PanelActions>
-    </AdvancedPanelContainer>
+    </FilterPanelContainer>
+  )
+}
+
+const PresetButtonsContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`
+
+interface DateFiltersPanelProps {
+  startDate: string
+  endDate: string
+  onApply: (values: { startDate: string; endDate: string }) => void
+}
+
+function DateFiltersPanel({ startDate, endDate, onApply }: DateFiltersPanelProps) {
+  const { t } = useTranslation()
+
+  const [draftStartDate, setDraftStartDate] = useState(startDate)
+  const [draftEndDate, setDraftEndDate] = useState(endDate)
+
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (event.code === 'Enter' || event.code === 'NumpadEnter') {
+        onApply({ startDate: draftStartDate, endDate: draftEndDate })
+        return true
+      }
+
+      return false
+    },
+  })
+
+  const today = new Date()
+
+  return (
+    <FilterPanelContainer>
+      <PanelContent>
+        <PanelSection>
+          <SectionLabel>{t('game.filters.datePresets', 'Quick ranges')}</SectionLabel>
+          <PresetButtonsContainer>
+            {DATE_PRESETS.map(({ preset, fromDate }) => {
+              const presetStartDate = toLocalDateString(fromDate(today))
+              const presetEndDate = toLocalDateString(today)
+              return (
+                <FilterChip
+                  key={preset}
+                  label={getDatePresetLabel(preset, t)}
+                  selected={draftStartDate === presetStartDate && draftEndDate === presetEndDate}
+                  onClick={() => {
+                    setDraftStartDate(presetStartDate)
+                    setDraftEndDate(presetEndDate)
+                  }}
+                />
+              )
+            })}
+          </PresetButtonsContainer>
+        </PanelSection>
+
+        <PanelSection>
+          <DateTextField
+            label={t('game.filters.dateFrom', 'From')}
+            value={draftStartDate}
+            onChange={e => setDraftStartDate(e.target.value)}
+            dense={true}
+            allowErrors={false}
+          />
+          <DateTextField
+            label={t('game.filters.dateTo', 'To')}
+            value={draftEndDate}
+            onChange={e => setDraftEndDate(e.target.value)}
+            dense={true}
+            allowErrors={false}
+          />
+        </PanelSection>
+      </PanelContent>
+
+      <PanelActions>
+        <TextButton
+          label={t('common.actions.reset', 'Reset')}
+          onClick={() => {
+            setDraftStartDate('')
+            setDraftEndDate('')
+          }}
+        />
+        <TextButton
+          label={t('common.actions.apply', 'Apply')}
+          onClick={() => onApply({ startDate: draftStartDate, endDate: draftEndDate })}
+        />
+      </PanelActions>
+    </FilterPanelContainer>
   )
 }

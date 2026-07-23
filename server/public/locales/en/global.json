@@ -455,6 +455,17 @@
     "filters": {
       "advanced": "Advanced",
       "custom": "Custom",
+      "date": "Date",
+      "dateFrom": "From",
+      "datePast3Months": "Past 3 months",
+      "datePastMonth": "Past month",
+      "datePastWeek": "Past week",
+      "datePastYear": "Past year",
+      "datePresets": "Quick ranges",
+      "dateRangeBetween": "{{start}} – {{end}}",
+      "dateRangeFrom": "From {{date}}",
+      "dateRangeUntil": "Until {{date}}",
+      "dateTo": "To",
       "duration": {
         "10to20": "10-20min",
         "20to30": "20-30min",
@@ -653,6 +664,10 @@
     "reporting": {
       "actionedNotification": "Action was taken against a player you reported. Thanks for helping keep the community fair.",
       "pointsRefundedNotification": "Ranked points you lost in a game have been refunded to you after the game was reviewed."
+    },
+    "sidePanel": {
+      "empty": "Select a game to see its details",
+      "viewFullResults": "View full results"
     }
   },
   "gameServerRegions": {
@@ -1141,6 +1156,9 @@
     }
   },
   "material": {
+    "dateTextField": {
+      "pickerButtonLabel": "Show picker"
+    },
     "datetimeTextField": {
       "pickerButtonLabel": "Show picker"
     },
@@ -1254,6 +1272,8 @@
       "moveDown": "Move down",
       "moveUp": "Move up",
       "newPlaylistMenu": "New playlist…",
+      "noFolders": "No replay folders",
+      "noFoldersBody": "Add a folder in Settings > App > System to start indexing replays.",
       "noMatches": "No replays match",
       "playlist": {
         "createError": "Error creating playlist: {{errorMessage}}",
@@ -1323,8 +1343,13 @@
         "title": "Sound"
       },
       "system": {
+        "addReplayFolder": "Add folder",
+        "addReplayFolderTitle": "Select a replay folder",
         "filesOverline": "Files",
         "networkOverline": "Network",
+        "removeReplayFolder": "Remove folder",
+        "replayFoldersDescription": "Folders indexed by your replay library. The default StarCraft replay folder is added automatically. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
+        "replayFoldersTitle": "Replay folders",
         "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
         "serverRegion": {

@@ -24,11 +24,7 @@ export function GamesRouteComponent() {
   }
 
   if (!params.routeId) {
-    return (
-      <CenteredContentContainer>
-        <GameList />
-      </CenteredContentContainer>
-    )
+    return <GameList />
   }
 
   // Game route ids are encoded ("pretty") game ids, so an arbitrary/mistyped URL segment may not

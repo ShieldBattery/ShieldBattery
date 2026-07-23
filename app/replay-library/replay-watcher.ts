@@ -11,6 +11,7 @@ import {
   parseReplayFile,
   ReplayFileInfo,
 } from './replay-parser'
+import { isIndexedPathVanished } from './replay-watcher-paths'
 
 /** Debounce window for coalescing filesystem events into a single reconcile. */
 const WATCH_DEBOUNCE_MS = 500
@@ -51,34 +52,42 @@ export interface ReplayLibraryLogger {
 }
 
 /**
- * Watches the replay folder and keeps the index reconciled with disk. Reconciliation (used both for
- * the initial backfill and for change events) scans for `.rep` files, parses new/changed ones,
- * re-points moved/renamed files at their new path by content identity instead of re-parsing them,
- * and prunes entries for files that no longer exist.
+ * Watches the configured replay folders and keeps the index reconciled with disk. Reconciliation
+ * (used both for the initial backfill and for change events) scans each configured root for `.rep`
+ * files, parses new/changed ones, re-points moved/renamed files at their new path by content
+ * identity instead of re-parsing them, and prunes entries for files that no longer exist.
  */
 export class ReplayWatcher {
-  private watcher: FSWatcher | undefined
+  private watchers: FSWatcher[] = []
+  private watchedFolders: ReadonlyArray<string>
   private reconciling = false
   private reconcileQueued = false
   private debounceTimer: ReturnType<typeof setTimeout> | undefined
   private backfillProgress: ReplayBackfillProgress | undefined
   /**
    * Whether the initial backfill has begun. The `scanning` phase is only surfaced for it: later,
-   * watch-triggered reconciles re-scan the whole folder too, but their work is small and showing a
+   * watch-triggered reconciles re-scan every folder too, but their work is small and showing a
    * full "scanning" state on every added file would just flicker.
    */
   private initialScanStarted = false
 
   constructor(
-    private readonly watchedFolder: string,
+    watchedFolders: ReadonlyArray<string>,
     private readonly db: ReplayDb,
     private readonly logger: ReplayLibraryLogger,
     private readonly callbacks: ReplayWatcherCallbacks,
-  ) {}
+  ) {
+    this.watchedFolders = watchedFolders
+  }
 
   /** Current backfill progress, or undefined when no reconcile with pending work is running. */
   getBackfillProgress(): ReplayBackfillProgress | undefined {
     return this.backfillProgress
+  }
+
+  /** The folders currently being watched (a fresh, mutable copy). */
+  getWatchedFolders(): string[] {
+    return [...this.watchedFolders]
   }
 
   /** Records the current backfill progress and notifies the renderer of the change. */
@@ -92,24 +101,37 @@ export class ReplayWatcher {
       this.logger.error(`Error during initial replay backfill: ${getErrorStack(err)}`)
     })
 
-    try {
-      this.watcher = watch(this.watchedFolder, { recursive: true }, () => this.onWatchEvent())
-    } catch (err) {
-      // Folder may not exist yet, or recursive watching may be unavailable; the index just stays as
-      // last reconciled.
-      this.logger.warning(
-        `Could not watch replay folder '${this.watchedFolder}': ${getErrorStack(err)}`,
-      )
+    for (const folder of this.watchedFolders) {
+      try {
+        this.watchers.push(watch(folder, { recursive: true }, () => this.onWatchEvent()))
+      } catch (err) {
+        // Folder may not exist yet, or recursive watching may be unavailable; the index just stays
+        // as last reconciled.
+        this.logger.warning(`Could not watch replay folder '${folder}': ${getErrorStack(err)}`)
+      }
     }
   }
 
   stop(): void {
-    this.watcher?.close()
-    this.watcher = undefined
+    for (const watcher of this.watchers) {
+      watcher.close()
+    }
+    this.watchers = []
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer)
       this.debounceTimer = undefined
     }
+  }
+
+  /**
+   * Swaps the set of watched folders. Restarting kicks off a reconcile, which prunes rows no longer
+   * under any configured root and indexes any newly-added roots (content-hash rename matching
+   * rescues files that physically moved between roots).
+   */
+  setWatchedFolders(folders: ReadonlyArray<string>): void {
+    this.stop()
+    this.watchedFolders = folders
+    this.start()
   }
 
   private onWatchEvent(): void {
@@ -152,21 +174,36 @@ export class ReplayWatcher {
       this.emitProgress({ phase: 'scanning' })
     }
 
-    // If the watched folder can't be read at all (e.g. it doesn't exist), leave the index untouched
-    // rather than treating every entry as deleted.
-    try {
-      await readdir(this.watchedFolder)
-    } catch {
+    const { files, scannedRoots, unreadableDirs } = await this.scanReplayFiles()
+
+    // If folders are configured but not a single one could be read (e.g. every folder is missing or
+    // on an offline drive), leave the whole index untouched rather than treating every entry as
+    // deleted. With zero configured folders this guard must NOT fire: the reconcile has to proceed
+    // so every indexed row (now under no configured root) is pruned.
+    if (this.watchedFolders.length > 0 && scannedRoots.length === 0) {
       this.emitProgress(undefined)
       return
     }
 
-    const files = await this.scanReplayFiles()
     const existing = this.db.getExistingReplays()
 
+    // A directory that's temporarily unreadable (offline/unplugged drive, permission blip,
+    // unavailable network mount) must NOT prune its rows: doing so would cascade away the bookmarks
+    // and playlist memberships of replays that still exist. So a row is only pruned when its root
+    // was removed from settings, or when every directory on the way down to it was readable this
+    // reconcile yet the scan didn't find it. See `isIndexedPathVanished`.
+    const scannedPaths = new Set(files.keys())
     const vanished = new Map<string, ExistingReplayInfo>()
     for (const [existingPath, info] of existing) {
-      if (!files.has(existingPath)) {
+      if (
+        isIndexedPathVanished(
+          existingPath,
+          this.watchedFolders,
+          scannedRoots,
+          scannedPaths,
+          unreadableDirs,
+        )
+      ) {
         vanished.set(existingPath, info)
       }
     }
@@ -303,16 +340,30 @@ export class ReplayWatcher {
     }
   }
 
-  private async scanReplayFiles(): Promise<Map<string, FileMeta>> {
+  /**
+   * Walks every configured root into one union map keyed by absolute path (so overlapping roots
+   * dedupe naturally). Also reports which roots were scannable: a root counts as scanned when its
+   * top-level read succeeds. Every directory whose read failed — a root or a subfolder encountered
+   * mid-walk — is reported in `unreadableDirs`, so already-indexed rows beneath it can be protected
+   * from pruning (its files being absent from the scan proves nothing about their existence).
+   */
+  private async scanReplayFiles(): Promise<{
+    files: Map<string, FileMeta>
+    scannedRoots: string[]
+    unreadableDirs: string[]
+  }> {
     const result = new Map<string, FileMeta>()
+    const scannedRoots: string[] = []
+    const unreadableDirs: string[] = []
 
-    const walk = async (dir: string): Promise<void> => {
+    // Returns whether `dir` itself could be read.
+    const walk = async (dir: string): Promise<boolean> => {
       let entries
       try {
         entries = await readdir(dir, { withFileTypes: true })
       } catch {
-        // A subfolder may be inaccessible or removed mid-scan; skip it.
-        return
+        unreadableDirs.push(dir)
+        return false
       }
 
       for (const entry of entries) {
@@ -328,9 +379,20 @@ export class ReplayWatcher {
           }
         }
       }
+      return true
     }
 
-    await walk(this.watchedFolder)
-    return result
+    for (const root of this.watchedFolders) {
+      if (await walk(root)) {
+        scannedRoots.push(root)
+      }
+    }
+    if (unreadableDirs.length > 0) {
+      this.logger.warning(
+        `Could not read ${unreadableDirs.length} folder(s) during replay scan; ` +
+          `their indexed replays will be kept as-is: ${unreadableDirs.join(', ')}`,
+      )
+    }
+    return { files: result, scannedRoots, unreadableDirs }
   }
 }

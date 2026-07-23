@@ -153,6 +153,18 @@ export function buildReplaySqlQuery(filters: ReplayLibraryFilters): ReplaySqlQue
     hasValueFilter = true
   }
 
+  if (filters.gameTimeFrom !== undefined) {
+    whereClauses.push('r.game_time >= ?')
+    params.push(filters.gameTimeFrom)
+    hasValueFilter = true
+  }
+
+  if (filters.gameTimeTo !== undefined) {
+    whereClauses.push('r.game_time <= ?')
+    params.push(filters.gameTimeTo)
+    hasValueFilter = true
+  }
+
   if (filters.format !== undefined) {
     whereClauses.push('r.team_size = ?')
     params.push(getTeamSizeForFormat(filters.format))

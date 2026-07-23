@@ -7,6 +7,11 @@ import { ConnectedUsername } from '../users/connected-username'
 
 const PlayerTeamsRoot = styled.div`
   display: flex;
+  /*
+    A team column with fewer rows (e.g. a lone player against a duo) centers against its taller
+    neighbor instead of hanging from the first line.
+  */
+  align-items: center;
   gap: 16px;
 `
 
