@@ -14,13 +14,18 @@ const StyledTextField = styled(TextField)`
   }
 `
 
-/** A `TextField` that accepts a local calendar date (using the native picker). */
+/**
+ * A `TextField` that accepts a local calendar date (using the native picker).
+ *
+ * The label always floats: date inputs render placeholder text (e.g. mm/dd/yyyy) even when empty,
+ * so the field always appears filled and a non-floating label would never be visible.
+ */
 export function DateTextField({
   value,
   ref,
   ...rest
 }: Simplify<
-  Except<TextFieldProps, 'value' | 'alwaysHasValue'> & {
+  Except<TextFieldProps, 'value' | 'alwaysHasValue' | 'floatingLabel'> & {
     /**
      * The current value of the field, in local date format (YYYY-MM-DD).
      *
@@ -39,6 +44,7 @@ export function DateTextField({
       ref={multiplexedRef}
       type='date'
       alwaysHasValue={true}
+      floatingLabel={true}
       value={value}
       trailingIcons={[
         <IconButton

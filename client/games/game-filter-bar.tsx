@@ -313,14 +313,6 @@ export function GameFilterBar({
         ))}
       </FilterChip>
 
-      <FilterChip
-        ref={anchorRef}
-        label={t('game.filters.advanced', 'Advanced')}
-        icon={<MaterialIcon icon='instant_mix' size={18} />}
-        selected={!!hasAdvancedFilters || opened}
-        onClick={e => (opened ? closePopover() : openPopover(e))}
-      />
-
       {setStartDate && (
         <FilterChip
           ref={dateAnchorRef}
@@ -330,6 +322,14 @@ export function GameFilterBar({
           onClick={e => (dateOpened ? closeDatePopover() : openDatePopover(e))}
         />
       )}
+
+      <FilterChip
+        ref={anchorRef}
+        label={t('game.filters.advanced', 'Advanced')}
+        icon={<MaterialIcon icon='instant_mix' size={18} />}
+        selected={!!hasAdvancedFilters || opened}
+        onClick={e => (opened ? closePopover() : openPopover(e))}
+      />
 
       {hasActiveFilters && (
         <TextButton
