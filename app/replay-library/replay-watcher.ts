@@ -176,9 +176,11 @@ export class ReplayWatcher {
 
     const { files, scannedRoots } = await this.scanReplayFiles()
 
-    // If not a single configured root could be read (e.g. every folder is missing or on an offline
-    // drive), leave the whole index untouched rather than treating every entry as deleted.
-    if (scannedRoots.length === 0) {
+    // If folders are configured but not a single one could be read (e.g. every folder is missing or
+    // on an offline drive), leave the whole index untouched rather than treating every entry as
+    // deleted. With zero configured folders this guard must NOT fire: the reconcile has to proceed
+    // so every indexed row (now under no configured root) is pruned.
+    if (this.watchedFolders.length > 0 && scannedRoots.length === 0) {
       this.emitProgress(undefined)
       return
     }

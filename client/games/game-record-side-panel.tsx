@@ -108,7 +108,12 @@ function GameRecordSidePanelContent({
       </GameSidePanelHeader>
 
       <GameSidePanelSection>
-        <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={true} />
+        <GamePlayersDisplay
+          game={game}
+          forUserId={forUserId}
+          showTeamLabels={true}
+          interactiveNames={true}
+        />
       </GameSidePanelSection>
 
       <GameSidePanelActions>

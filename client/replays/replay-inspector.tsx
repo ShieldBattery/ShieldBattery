@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import * as React from 'react'
 import { useEffect, useEffectEvent, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -107,12 +108,17 @@ const PlaylistChip = styled.div`
 `
 
 /**
- * The "more actions" menu items shared between the inspector's overflow menu and the library's
- * row context menu: add/remove-from-playlist, an optional reorder pair, view-game-page, and
- * show-in-explorer. Watch/Bookmark aren't included here since each caller surfaces those
+ * Builds the "more actions" menu items shared between the inspector's overflow menu and the
+ * library's row context menu: add/remove-from-playlist, an optional reorder pair, view-game-page,
+ * and show-in-explorer. Watch/Bookmark aren't included here since each caller surfaces those
  * differently (dedicated buttons in the inspector, leading menu items in the context menu).
+ *
+ * Returns a flat array of keyed `MenuItem` elements (rather than a component rendering a
+ * fragment) so that spreading it directly into a `<MenuList>`'s children keeps every item a
+ * direct child: `MenuList` only clones `dense`/focus state onto, and lets arrow-key navigation
+ * reach, its direct `MenuItem` children.
  */
-export function ReplayActionMenuItems({
+export function getReplayActionMenuItems({
   entry,
   inPlaylistView,
   closeMenu,
@@ -120,6 +126,7 @@ export function ReplayActionMenuItems({
   onRemoveFromPlaylist,
   onReveal,
   reorder,
+  t,
 }: {
   entry: ReplayLibraryEntry
   inPlaylistView: boolean
@@ -134,122 +141,142 @@ export function ReplayActionMenuItems({
     onMoveUp: () => void
     onMoveDown: () => void
   }
-}) {
-  const { t } = useTranslation()
+  t: TFunction
+}): React.ReactNode[] {
+  const items: React.ReactNode[] = [
+    <MenuItem
+      key='add-to-playlist'
+      icon={<MaterialIcon icon='playlist_add' />}
+      text={t('replays.library.addToPlaylist', 'Add to playlist…')}
+      onClick={event => {
+        closeMenu()
+        onOpenAddToPlaylist(event)
+      }}
+    />,
+  ]
 
-  return (
-    <>
+  if (inPlaylistView) {
+    items.push(
       <MenuItem
-        icon={<MaterialIcon icon='playlist_add' />}
-        text={t('replays.library.addToPlaylist', 'Add to playlist…')}
-        onClick={event => {
-          closeMenu()
-          onOpenAddToPlaylist(event)
-        }}
-      />
-      {inPlaylistView ? (
-        <MenuItem
-          icon={<MaterialIcon icon='playlist_remove' />}
-          text={t('replays.library.removeFromPlaylist', 'Remove from playlist')}
-          onClick={() => {
-            closeMenu()
-            onRemoveFromPlaylist()
-          }}
-        />
-      ) : null}
-      {reorder ? (
-        <>
-          <MenuItem
-            icon={<MaterialIcon icon='arrow_upward' />}
-            text={t('replays.library.moveUp', 'Move up')}
-            disabled={!reorder.canMoveUp}
-            onClick={() => {
-              closeMenu()
-              reorder.onMoveUp()
-            }}
-          />
-          <MenuItem
-            icon={<MaterialIcon icon='arrow_downward' />}
-            text={t('replays.library.moveDown', 'Move down')}
-            disabled={!reorder.canMoveDown}
-            onClick={() => {
-              closeMenu()
-              reorder.onMoveDown()
-            }}
-          />
-        </>
-      ) : null}
-      {entry.sbGameId && !entry.parseError ? (
-        <MenuItem
-          icon={<MaterialIcon icon='open_in_new' />}
-          text={t('replays.library.viewGamePage', 'View game page')}
-          onClick={() => {
-            closeMenu()
-            push(getGameResultsUrl(entry.sbGameId!))
-          }}
-        />
-      ) : null}
-      <MenuItem
-        icon={<MaterialIcon icon='folder_open' />}
-        text={t('replays.library.showInExplorer', 'Show in Explorer')}
+        key='remove-from-playlist'
+        icon={<MaterialIcon icon='playlist_remove' />}
+        text={t('replays.library.removeFromPlaylist', 'Remove from playlist')}
         onClick={() => {
           closeMenu()
-          onReveal(entry)
+          onRemoveFromPlaylist()
         }}
-      />
-    </>
+      />,
+    )
+  }
+
+  if (reorder) {
+    items.push(
+      <MenuItem
+        key='move-up'
+        icon={<MaterialIcon icon='arrow_upward' />}
+        text={t('replays.library.moveUp', 'Move up')}
+        disabled={!reorder.canMoveUp}
+        onClick={() => {
+          closeMenu()
+          reorder.onMoveUp()
+        }}
+      />,
+      <MenuItem
+        key='move-down'
+        icon={<MaterialIcon icon='arrow_downward' />}
+        text={t('replays.library.moveDown', 'Move down')}
+        disabled={!reorder.canMoveDown}
+        onClick={() => {
+          closeMenu()
+          reorder.onMoveDown()
+        }}
+      />,
+    )
+  }
+
+  if (entry.sbGameId && !entry.parseError) {
+    items.push(
+      <MenuItem
+        key='view-game-page'
+        icon={<MaterialIcon icon='open_in_new' />}
+        text={t('replays.library.viewGamePage', 'View game page')}
+        onClick={() => {
+          closeMenu()
+          push(getGameResultsUrl(entry.sbGameId!))
+        }}
+      />,
+    )
+  }
+
+  items.push(
+    <MenuItem
+      key='show-in-explorer'
+      icon={<MaterialIcon icon='folder_open' />}
+      text={t('replays.library.showInExplorer', 'Show in Explorer')}
+      onClick={() => {
+        closeMenu()
+        onReveal(entry)
+      }}
+    />,
   )
+
+  return items
 }
 
 /**
- * The playlist-picker menu items shared between the inspector's and the library's "Add to
+ * Builds the playlist-picker menu items shared between the inspector's and the library's "Add to
  * playlist" submenu: one item per existing playlist, plus a trailing "New playlist…" item that
  * opens the create-playlist dialog.
+ *
+ * Returns a flat array of keyed `MenuItem` elements (rather than a component rendering a
+ * fragment) so that spreading it directly into a `<MenuList>`'s children keeps every item a
+ * direct child: `MenuList` only clones `dense`/focus state onto, and lets arrow-key navigation
+ * reach, its direct `MenuItem` children.
  */
-export function AddToPlaylistMenuItems({
+export function getAddToPlaylistMenuItems({
   entry,
   playlists,
   closeMenu,
   onAddToPlaylist,
+  t,
+  dispatch,
 }: {
   entry: ReplayLibraryEntry
   playlists: ReadonlyArray<ReplayPlaylist>
   closeMenu: () => void
   onAddToPlaylist: (playlistId: number, entry: ReplayLibraryEntry) => void
-}) {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-
-  return (
-    <>
-      {playlists.map(p => (
-        <MenuItem
-          key={p.id}
-          icon={<MaterialIcon icon='queue_music' />}
-          text={p.name}
-          onClick={() => {
-            closeMenu()
-            onAddToPlaylist(p.id, entry)
-          }}
-        />
-      ))}
+  t: TFunction
+  dispatch: ReturnType<typeof useAppDispatch>
+}): React.ReactNode[] {
+  return [
+    ...playlists.map(p => (
       <MenuItem
-        icon={<MaterialIcon icon='add' />}
-        text={t('replays.library.newPlaylistMenu', 'New playlist…')}
+        key={p.id}
+        icon={<MaterialIcon icon='queue_music' />}
+        text={p.name}
         onClick={() => {
           closeMenu()
-          dispatch(
-            openDialog({
-              type: DialogType.CreatePlaylist,
-              initData: {
-                onCreated: id => onAddToPlaylist(id, entry),
-              },
-            }),
-          )
+          onAddToPlaylist(p.id, entry)
         }}
       />
-    </>
-  )
+    )),
+    <MenuItem
+      key='new-playlist'
+      icon={<MaterialIcon icon='add' />}
+      text={t('replays.library.newPlaylistMenu', 'New playlist…')}
+      onClick={() => {
+        closeMenu()
+        dispatch(
+          openDialog({
+            type: DialogType.CreatePlaylist,
+            initData: {
+              onCreated: id => onAddToPlaylist(id, entry),
+            },
+          }),
+        )
+      }}
+    />,
+  ]
 }
 
 export interface ReplayInspectorProps {
@@ -420,19 +447,19 @@ export function ReplayInspector({
         originX='right'
         originY='top'>
         <MenuList dense={true}>
-          <ReplayActionMenuItems
-            entry={entry}
-            inPlaylistView={inPlaylistView}
-            closeMenu={closeMenu}
-            onOpenAddToPlaylist={openAddMenu}
-            onRemoveFromPlaylist={onRemoveFromPlaylist}
-            onReveal={onReveal}
-            reorder={
+          {getReplayActionMenuItems({
+            entry,
+            inPlaylistView,
+            closeMenu,
+            onOpenAddToPlaylist: openAddMenu,
+            onRemoveFromPlaylist,
+            onReveal,
+            reorder:
               inPlaylistView && canReorder
                 ? { canMoveUp, canMoveDown, onMoveUp, onMoveDown }
-                : undefined
-            }
-          />
+                : undefined,
+            t,
+          })}
         </MenuList>
       </Popover>
       <Popover
@@ -443,12 +470,14 @@ export function ReplayInspector({
         originX='right'
         originY='top'>
         <MenuList dense={true}>
-          <AddToPlaylistMenuItems
-            entry={entry}
-            playlists={playlists}
-            closeMenu={closeAddMenu}
-            onAddToPlaylist={onAddToPlaylist}
-          />
+          {getAddToPlaylistMenuItems({
+            entry,
+            playlists,
+            closeMenu: closeAddMenu,
+            onAddToPlaylist,
+            t,
+            dispatch,
+          })}
         </MenuList>
       </Popover>
     </GameSidePanelActions>

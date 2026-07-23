@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
 import { useQuery } from 'urql'
 import {
   ALL_GAME_FORMATS,
@@ -11,14 +10,10 @@ import {
   GameSortOption,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
-import { GameRecordJson } from '../../common/games/games'
 import { useContextMenu } from '../dom/use-context-menu'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { Divider } from '../material/menu/divider'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { elevationPlus1 } from '../material/shadows'
 import { useLocationSearchParam } from '../navigation/router-hooks'
@@ -28,12 +23,12 @@ import { ContainerLevel, containerStyles } from '../styles/colors'
 import { bodyLarge, singleLine, titleLarge } from '../styles/typography'
 import { getGames, navigateToGameResults } from './action-creators'
 import { renderGamesWithDayHeaders, resolveDateRangeMs } from './day-header'
+import { GameContextMenuContent } from './game-context-menu'
 import { GameFilterBar } from './game-filter-bar'
 import { GameListEntry } from './game-list-entry'
 import { GameRecordSidePanel } from './game-record-side-panel'
 import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
 import { GameListSearchPage, useGameListSearch } from './use-game-list-search'
-import { useGameReplayActions } from './use-game-replay-actions'
 
 function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
@@ -130,54 +125,6 @@ function LiveGamesFeed({ query }: { query?: FragmentType<typeof LiveGames_FeedFr
       </GameEntriesRoot>
     </div>
   ) : null
-}
-
-// ---- Context menu -----------------------------------------------------------------------------
-
-/**
- * Split out from the page so `useGameReplayActions` (which subscribes to this game's replay info)
- * only runs while the menu is actually open, rather than for every row on every render.
- */
-function GameListContextMenuContent({
-  game,
-  onDismiss,
-}: {
-  game: ReadonlyDeep<GameRecordJson>
-  onDismiss: () => void
-}) {
-  const { t } = useTranslation()
-  const { replayInfo, onWatchReplay, onSaveReplay } = useGameReplayActions(game)
-
-  return (
-    <MenuList dense={true}>
-      <MenuItem
-        text={t('games.sidePanel.viewFullResults', 'View full results')}
-        onClick={() => {
-          onDismiss()
-          navigateToGameResults(game.id)
-        }}
-      />
-      {IS_ELECTRON && replayInfo ? (
-        <>
-          <Divider $dense={true} />
-          <MenuItem
-            text={t('gameDetails.buttonWatchReplay', 'Watch replay')}
-            onClick={() => {
-              onDismiss()
-              onWatchReplay()
-            }}
-          />
-          <MenuItem
-            text={t('gameDetails.buttonSaveReplay', 'Save replay')}
-            onClick={() => {
-              onDismiss()
-              onSaveReplay()
-            }}
-          />
-        </>
-      ) : null}
-    </MenuList>
-  )
 }
 
 // ---- Main component --------------------------------------------------------------------------
@@ -436,7 +383,7 @@ export function GameList() {
 
       {selectedGame ? (
         <Popover {...contextMenuPopoverProps}>
-          <GameListContextMenuContent
+          <GameContextMenuContent
             game={selectedGame}
             onDismiss={contextMenuPopoverProps.onDismiss}
           />

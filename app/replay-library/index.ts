@@ -96,10 +96,16 @@ export class ReplayLibraryService {
     )
     ipcMain.handle(
       'replayLibrarySaveReplay',
-      async (_event, gameId, filename, expectedHash, data) =>
+      async (_event, gameId, filename, expectedHash, data) => {
         // Saved replays go into the first configured folder; the watcher then indexes them from
-        // there. The list is always non-empty (it resolves to the default folder when unset).
-        saveReplayToLibrary(this.watchedFolders[0], gameId, filename, expectedHash, data),
+        // there. With no folders configured there's nowhere to save to, so reject clearly rather
+        // than crashing on an undefined path.
+        const destFolder = this.watchedFolders[0]
+        if (destFolder === undefined) {
+          throw new Error('No replay folder is configured')
+        }
+        return saveReplayToLibrary(destFolder, gameId, filename, expectedHash, data)
+      },
     )
 
     this.startWorker()

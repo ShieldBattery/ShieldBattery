@@ -95,11 +95,6 @@ const FolderPath = styled.div`
   min-width: 0;
 `
 
-const DefaultHint = styled.span`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-`
-
 const AddFolderButton = styled(TextButton)`
   align-self: flex-start;
 `
@@ -201,10 +196,6 @@ export function AppSystemSettings() {
     },
   })
 
-  // The replay folders live outside the form model: they persist immediately on add/remove rather
-  // than being bound to a field that saves on change.
-  const configuredFolders = localSettings.replayLibraryFolders ?? []
-  const usingDefault = configuredFolders.length === 0
   // The renderer can't compute the OS documents directory, so the main process resolves the default
   // replay folder for display (and as the picker's starting location when nothing is configured).
   const [defaultFolder, setDefaultFolder] = useState<string | undefined>(undefined)
@@ -224,6 +215,15 @@ export function AppSystemSettings() {
       active = false
     }
   }, [])
+
+  // The replay folders live outside the form model: they persist immediately on add/remove rather
+  // than being bound to a field that saves on change.
+  //
+  // `replayLibraryFolders` is materialized to a real list at first app boot, so it's normally
+  // defined here; the `undefined` fallback covers a renderer running before that migration and
+  // shows the resolved default folder as the sole (removable) entry.
+  const configuredFolders =
+    localSettings.replayLibraryFolders ?? (defaultFolder !== undefined ? [defaultFolder] : [])
 
   const saveFolders = (folders: ReadonlyArray<string>) => {
     dispatch(
@@ -252,7 +252,7 @@ export function AppSystemSettings() {
   }
 
   const onRemoveFolder = (folder: string) => {
-    // Removing the last explicit folder saves `[]`, which resolves back to the default folder.
+    // Removing every folder saves `[]`, a valid state that indexes nothing.
     saveFolders(configuredFolders.filter(f => f !== folder))
   }
 
@@ -277,33 +277,25 @@ export function AppSystemSettings() {
             <ReplayFoldersDescription>
               {t(
                 'settings.app.system.replayFoldersDescription',
-                'Folders indexed by your replay library. Removing a folder removes its replays from ' +
-                  'the library, including their bookmarks and playlist entries.',
+                'Folders indexed by your replay library. The default StarCraft replay folder is ' +
+                  'added automatically. Removing a folder removes its replays from the library, ' +
+                  'including their bookmarks and playlist entries.',
               )}
             </ReplayFoldersDescription>
 
             <FolderList>
-              {usingDefault ? (
-                <FolderRow>
-                  <FolderPath title={defaultFolder}>{defaultFolder ?? ''}</FolderPath>
-                  <DefaultHint>
-                    {t('settings.app.system.replayFolderDefaultHint', '(default)')}
-                  </DefaultHint>
+              {configuredFolders.map(folder => (
+                <FolderRow key={folder}>
+                  <FolderPath title={folder}>{folder}</FolderPath>
+                  <Tooltip text={t('settings.app.system.removeReplayFolder', 'Remove folder')}>
+                    <IconButton
+                      icon={<MaterialIcon icon='delete' />}
+                      ariaLabel={t('settings.app.system.removeReplayFolder', 'Remove folder')}
+                      onClick={() => onRemoveFolder(folder)}
+                    />
+                  </Tooltip>
                 </FolderRow>
-              ) : (
-                configuredFolders.map(folder => (
-                  <FolderRow key={folder}>
-                    <FolderPath title={folder}>{folder}</FolderPath>
-                    <Tooltip text={t('settings.app.system.removeReplayFolder', 'Remove folder')}>
-                      <IconButton
-                        icon={<MaterialIcon icon='delete' />}
-                        ariaLabel={t('settings.app.system.removeReplayFolder', 'Remove folder')}
-                        onClick={() => onRemoveFolder(folder)}
-                      />
-                    </Tooltip>
-                  </FolderRow>
-                ))
-              )}
+              ))}
             </FolderList>
 
             <AddFolderButton

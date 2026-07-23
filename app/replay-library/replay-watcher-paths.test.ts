@@ -53,6 +53,12 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
     expect(vanished).toBe(true)
   })
 
+  test('with no configured roots, every indexed row is pruned', () => {
+    // Removing every folder leaves an empty configured list: a row under no configured root is
+    // pruned regardless of what scanned, so the whole index clears out.
+    expect(isIndexedPathVanished('C:\\replays\\a.rep', [], [], new Set<string>())).toBe(true)
+  })
+
   test('a row under a configured-but-unreadable root is kept (offline drive)', () => {
     // ROOT is configured but not in scannedRoots (its top-level read failed this reconcile).
     const vanished = isIndexedPathVanished('C:\\replays\\a.rep', [ROOT], [], new Set<string>())

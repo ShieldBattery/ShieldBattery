@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { ReadonlyDeep } from 'type-fest'
 import {
   ALL_GAME_FORMATS,
   decodeMatchup,
@@ -11,21 +10,17 @@ import {
   GameSortOption,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
-import { GameRecordJson } from '../../common/games/games'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
 import { navigateToGameResults } from '../games/action-creators'
 import { renderGamesWithDayHeaders, resolveDateRangeMs } from '../games/day-header'
+import { GameContextMenuContent } from '../games/game-context-menu'
 import { GameFilterBar } from '../games/game-filter-bar'
 import { GameListEntry } from '../games/game-list-entry'
 import { GameRecordSidePanel } from '../games/game-record-side-panel'
 import { GameListSearchPage, useGameListSearch } from '../games/use-game-list-search'
-import { useGameReplayActions } from '../games/use-game-replay-actions'
 import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
-import { Divider } from '../material/menu/divider'
-import { MenuItem } from '../material/menu/item'
-import { MenuList } from '../material/menu/menu'
 import { Popover } from '../material/popover'
 import { useLocationSearchParam } from '../navigation/router-hooks'
 import { useAppDispatch } from '../redux-hooks'
@@ -97,52 +92,6 @@ function parseMatchup(
 /** A date-based sort groups games by calendar day; the duration sorts render as a flat list. */
 function isDateSort(sort: GameSortOption): boolean {
   return sort === GameSortOption.LatestFirst || sort === GameSortOption.OldestFirst
-}
-
-/**
- * Split out from the page so `useGameReplayActions` (which subscribes to this game's replay info)
- * only runs while the menu is actually open, rather than for every row on every render.
- */
-function MatchHistoryContextMenuContent({
-  game,
-  onDismiss,
-}: {
-  game: ReadonlyDeep<GameRecordJson>
-  onDismiss: () => void
-}) {
-  const { t } = useTranslation()
-  const { replayInfo, onWatchReplay, onSaveReplay } = useGameReplayActions(game)
-
-  return (
-    <MenuList dense={true}>
-      <MenuItem
-        text={t('games.sidePanel.viewFullResults', 'View full results')}
-        onClick={() => {
-          onDismiss()
-          navigateToGameResults(game.id)
-        }}
-      />
-      {IS_ELECTRON && replayInfo ? (
-        <>
-          <Divider $dense={true} />
-          <MenuItem
-            text={t('gameDetails.buttonWatchReplay', 'Watch replay')}
-            onClick={() => {
-              onDismiss()
-              onWatchReplay()
-            }}
-          />
-          <MenuItem
-            text={t('gameDetails.buttonSaveReplay', 'Save replay')}
-            onClick={() => {
-              onDismiss()
-              onSaveReplay()
-            }}
-          />
-        </>
-      ) : null}
-    </MenuList>
-  )
 }
 
 export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
@@ -409,7 +358,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
       {selectedGame ? (
         <Popover {...contextMenuPopoverProps}>
-          <MatchHistoryContextMenuContent
+          <GameContextMenuContent
             game={selectedGame}
             onDismiss={contextMenuPopoverProps.onDismiss}
           />

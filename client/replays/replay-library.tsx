@@ -56,7 +56,11 @@ import { CenteredContentContainer } from '../styles/centered-container'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodyLarge, bodyMedium, singleLine, titleLarge, titleSmall } from '../styles/typography'
 import { startReplay } from './action-creators'
-import { AddToPlaylistMenuItems, ReplayActionMenuItems, ReplayInspector } from './replay-inspector'
+import {
+  getAddToPlaylistMenuItems,
+  getReplayActionMenuItems,
+  ReplayInspector,
+} from './replay-inspector'
 import {
   encodeView,
   getReplayDisplayTeams,
@@ -168,6 +172,12 @@ const PageColumn = styled.div`
 `
 
 const BodyRow = styled.div`
+  /*
+    Named container so descendants (e.g. the library rail) can adapt to the actual space this row
+    gets — which depends on the window size *and* the social sidebar — rather than the viewport.
+  */
+  container: replay-library-body / inline-size;
+
   display: flex;
   flex-direction: row;
   gap: 24px;
@@ -335,8 +345,6 @@ function ReplayListEntry({
       $selected={selected}
       onContextMenu={event => onContextMenu(entry, event)}>
       <GameListEntryLayout
-        fillPlayers={true}
-        dense={true}
         bookmark={bookmark}
         players={players}
         duration={
@@ -800,6 +808,18 @@ export function ReplayLibrary() {
           <div>{t('replays.library.playlistEmptyBody', 'Add replays to it from the library.')}</div>
         </CenteredState>
       )
+    } else if (status && status.watchedFolders.length === 0) {
+      listContent = (
+        <CenteredState>
+          <EmptyStateTitle>{t('replays.library.noFolders', 'No replay folders')}</EmptyStateTitle>
+          <div>
+            {t(
+              'replays.library.noFoldersBody',
+              'Add a folder in Settings > App > System to start indexing replays.',
+            )}
+          </div>
+        </CenteredState>
+      )
     } else if (backfill) {
       // A backfill is still populating the index (progress shows in the bar above); don't claim
       // there are no replays while it's just getting started.
@@ -1012,14 +1032,15 @@ export function ReplayLibrary() {
                   toggleBookmark(focusedEntry)
                 }}
               />
-              <ReplayActionMenuItems
-                entry={focusedEntry}
-                inPlaylistView={view.kind === 'playlist'}
-                closeMenu={contextMenuPopoverProps.onDismiss}
-                onOpenAddToPlaylist={openAddToPlaylistMenu}
-                onRemoveFromPlaylist={() => removeFromCurrentPlaylist(focusedEntry)}
-                onReveal={revealEntry}
-              />
+              {getReplayActionMenuItems({
+                entry: focusedEntry,
+                inPlaylistView: view.kind === 'playlist',
+                closeMenu: contextMenuPopoverProps.onDismiss,
+                onOpenAddToPlaylist: openAddToPlaylistMenu,
+                onRemoveFromPlaylist: () => removeFromCurrentPlaylist(focusedEntry),
+                onReveal: revealEntry,
+                t,
+              })}
             </MenuList>
           ) : null}
         </Popover>
@@ -1032,12 +1053,14 @@ export function ReplayLibrary() {
           originY={contextMenuPopoverProps.originY}>
           {focusedEntry ? (
             <MenuList dense={true}>
-              <AddToPlaylistMenuItems
-                entry={focusedEntry}
-                playlists={playlists}
-                closeMenu={closeAddToPlaylistMenu}
-                onAddToPlaylist={addToPlaylist}
-              />
+              {getAddToPlaylistMenuItems({
+                entry: focusedEntry,
+                playlists,
+                closeMenu: closeAddToPlaylistMenu,
+                onAddToPlaylist: addToPlaylist,
+                t,
+                dispatch,
+              })}
             </MenuList>
           ) : null}
         </Popover>

@@ -1272,6 +1272,8 @@
       "moveDown": "Move down",
       "moveUp": "Move up",
       "newPlaylistMenu": "New playlist…",
+      "noFolders": "No replay folders",
+      "noFoldersBody": "Add a folder in Settings > App > System to start indexing replays.",
       "noMatches": "No replays match",
       "playlist": {
         "createError": "Error creating playlist: {{errorMessage}}",
@@ -1346,8 +1348,7 @@
         "filesOverline": "Files",
         "networkOverline": "Network",
         "removeReplayFolder": "Remove folder",
-        "replayFolderDefaultHint": "(default)",
-        "replayFoldersDescription": "Folders indexed by your replay library. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
+        "replayFoldersDescription": "Folders indexed by your replay library. The default StarCraft replay folder is added automatically. Removing a folder removes its replays from the library, including their bookmarks and playlist entries.",
         "replayFoldersTitle": "Replay folders",
         "replayQuickOpen": "Launch replays opened with ShieldBattery immediately without previewing",
         "runOnStartup": "Run ShieldBattery on system startup",
