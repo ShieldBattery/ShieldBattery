@@ -49,6 +49,7 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
       [OTHER],
       [OTHER],
       new Set<string>(),
+      [],
     )
     expect(vanished).toBe(true)
   })
@@ -56,17 +57,25 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
   test('with no configured roots, every indexed row is pruned', () => {
     // Removing every folder leaves an empty configured list: a row under no configured root is
     // pruned regardless of what scanned, so the whole index clears out.
-    expect(isIndexedPathVanished('C:\\replays\\a.rep', [], [], new Set<string>())).toBe(true)
+    expect(isIndexedPathVanished('C:\\replays\\a.rep', [], [], new Set<string>(), [])).toBe(true)
   })
 
   test('a row under a configured-but-unreadable root is kept (offline drive)', () => {
     // ROOT is configured but not in scannedRoots (its top-level read failed this reconcile).
-    const vanished = isIndexedPathVanished('C:\\replays\\a.rep', [ROOT], [], new Set<string>())
+    const vanished = isIndexedPathVanished('C:\\replays\\a.rep', [ROOT], [], new Set<string>(), [
+      ROOT,
+    ])
     expect(vanished).toBe(false)
   })
 
   test('a row under a scanned root but missing from the scan is pruned', () => {
-    const vanished = isIndexedPathVanished('C:\\replays\\a.rep', [ROOT], [ROOT], new Set<string>())
+    const vanished = isIndexedPathVanished(
+      'C:\\replays\\a.rep',
+      [ROOT],
+      [ROOT],
+      new Set<string>(),
+      [],
+    )
     expect(vanished).toBe(true)
   })
 
@@ -76,19 +85,58 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
       [ROOT],
       [ROOT],
       new Set(['C:\\replays\\a.rep']),
+      [],
     )
     expect(vanished).toBe(false)
   })
 
-  test('with nested roots, an unreadable outer root keeps rows even when the inner root scanned', () => {
+  test('a row under an unreadable subfolder of a scanned root is kept', () => {
+    // The root's top-level read succeeded but a subfolder's read failed mid-walk (permission blip,
+    // AV lock, offline junction). The file's absence from the scan proves nothing, so it's kept.
+    const vanished = isIndexedPathVanished(
+      'C:\\replays\\locked\\a.rep',
+      [ROOT],
+      [ROOT],
+      new Set<string>(),
+      ['C:\\replays\\locked'],
+    )
+    expect(vanished).toBe(false)
+  })
+
+  test('an unreadable subfolder elsewhere does not stop pruning of a genuinely-missing row', () => {
+    const vanished = isIndexedPathVanished(
+      'C:\\replays\\a.rep',
+      [ROOT],
+      [ROOT],
+      new Set<string>(),
+      ['C:\\replays\\locked'],
+    )
+    expect(vanished).toBe(true)
+  })
+
+  test('with nested roots, an unreadable inner root keeps rows even when the outer root scanned', () => {
     const inner = 'C:\\replays\\pro'
-    // Outer ROOT scanned, inner root did not. A file under the inner root is also under ROOT (which
-    // scanned), so a genuine deletion is still detected.
+    // The inner root is a separately-mountable location (junction/network mount) that was offline
+    // this reconcile, so its own read failed even though the outer ROOT scanned. Rows under it must
+    // be kept: the outer walk couldn't enumerate them either.
     const vanished = isIndexedPathVanished(
       'C:\\replays\\pro\\a.rep',
       [ROOT, inner],
       [ROOT],
       new Set<string>(),
+      [inner],
+    )
+    expect(vanished).toBe(false)
+  })
+
+  test('with nested roots both scanned, a genuinely-missing row is still pruned', () => {
+    const inner = 'C:\\replays\\pro'
+    const vanished = isIndexedPathVanished(
+      'C:\\replays\\pro\\a.rep',
+      [ROOT, inner],
+      [ROOT, inner],
+      new Set<string>(),
+      [],
     )
     expect(vanished).toBe(true)
   })
@@ -101,13 +149,32 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
       [ROOT, inner],
       [],
       new Set<string>(),
+      [ROOT, inner],
     )
     expect(vanished).toBe(false)
   })
 
   test('separator-boundary: a sibling of a configured root is treated as removed', () => {
     // `C:\replays2` is not under `C:\replays`, so a row there is under no configured root.
-    const vanished = isIndexedPathVanished('C:\\replays2\\a.rep', [ROOT], [ROOT], new Set<string>())
+    const vanished = isIndexedPathVanished(
+      'C:\\replays2\\a.rep',
+      [ROOT],
+      [ROOT],
+      new Set<string>(),
+      [],
+    )
+    expect(vanished).toBe(true)
+  })
+
+  test('separator-boundary: an unreadable folder does not protect a sibling sharing its prefix', () => {
+    // `C:\replays\pro2` is not under the unreadable `C:\replays\pro`, so it's still pruned.
+    const vanished = isIndexedPathVanished(
+      'C:\\replays\\pro2\\a.rep',
+      [ROOT],
+      [ROOT],
+      new Set<string>(),
+      ['C:\\replays\\pro'],
+    )
     expect(vanished).toBe(true)
   })
 
@@ -119,6 +186,7 @@ describe('app/replay-library/replay-watcher-paths/isIndexedPathVanished', () => 
       ['c:\\replays'],
       ['c:\\replays'],
       new Set(['C:\\Replays\\a.rep']),
+      [],
     )
     expect(vanished).toBe(false)
   })

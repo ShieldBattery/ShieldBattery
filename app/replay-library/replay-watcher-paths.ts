@@ -33,25 +33,29 @@ export function isPathUnderRoot(filePath: string, root: string): boolean {
  * Decides whether an already-indexed replay path should be pruned from the index during a
  * reconcile.
  *
- * The hazard this guards against: an offline or unplugged drive makes a configured root temporarily
- * unreadable. Pruning that root's rows then would cascade away the user's bookmarks and playlist
- * entries for replays that still physically exist — so rows under a configured-but-unscannable root
- * are always kept.
+ * The hazard this guards against: a transient read failure — an offline or unplugged drive, a
+ * permission blip, an unavailable network mount or junction — makes a directory temporarily
+ * unreadable. Pruning its rows then would cascade away the user's bookmarks and playlist entries
+ * for replays that still physically exist — so rows under any directory that couldn't be read this
+ * reconcile are always kept.
  *
  * A row is treated as vanished (and pruned) only when:
  *  (a) its path is under NO currently-configured root — the root was removed from settings, so the
  *      user deliberately stopped indexing it; or
- *  (b) its path is under a configured root whose top-level scan succeeded, yet the scan didn't find
- *      the file — it was genuinely deleted/moved.
+ *  (b) its path is under a configured root whose scan succeeded — including every directory on the
+ *      way down to the file — yet the scan didn't find the file: it was genuinely deleted/moved.
  *
  * `scannedRoots` must be the subset of `configuredRoots` whose top-level read succeeded this
- * reconcile.
+ * reconcile; `unreadableDirs` must hold every directory (configured root or subfolder discovered
+ * mid-walk) whose read failed, so a failure anywhere below a scanned root still protects the rows
+ * beneath it.
  */
 export function isIndexedPathVanished(
   existingPath: string,
   configuredRoots: ReadonlyArray<string>,
   scannedRoots: ReadonlyArray<string>,
   scannedFiles: ReadonlySet<string>,
+  unreadableDirs: ReadonlyArray<string>,
 ): boolean {
   const underConfigured = configuredRoots.some(root => isPathUnderRoot(existingPath, root))
   if (!underConfigured) {
@@ -59,6 +63,11 @@ export function isIndexedPathVanished(
     return true
   }
   if (scannedFiles.has(existingPath)) {
+    return false
+  }
+  if (unreadableDirs.some(dir => isPathUnderRoot(existingPath, dir))) {
+    // The scan couldn't read some directory containing this row, so its absence from the scan
+    // proves nothing — keep it.
     return false
   }
   // Under a configured root but not seen in the scan: prune only if a root that could contain it

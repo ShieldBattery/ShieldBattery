@@ -174,7 +174,7 @@ export class ReplayWatcher {
       this.emitProgress({ phase: 'scanning' })
     }
 
-    const { files, scannedRoots } = await this.scanReplayFiles()
+    const { files, scannedRoots, unreadableDirs } = await this.scanReplayFiles()
 
     // If folders are configured but not a single one could be read (e.g. every folder is missing or
     // on an offline drive), leave the whole index untouched rather than treating every entry as
@@ -187,14 +187,23 @@ export class ReplayWatcher {
 
     const existing = this.db.getExistingReplays()
 
-    // A configured root that's temporarily unreadable (offline/unplugged drive) must NOT prune its
-    // rows: doing so would cascade away the bookmarks and playlist memberships of replays that still
-    // exist. So a row is only pruned when its root was removed from settings, or when a root that
-    // *did* scan this reconcile no longer contains it. See `isIndexedPathVanished`.
+    // A directory that's temporarily unreadable (offline/unplugged drive, permission blip,
+    // unavailable network mount) must NOT prune its rows: doing so would cascade away the bookmarks
+    // and playlist memberships of replays that still exist. So a row is only pruned when its root
+    // was removed from settings, or when every directory on the way down to it was readable this
+    // reconcile yet the scan didn't find it. See `isIndexedPathVanished`.
     const scannedPaths = new Set(files.keys())
     const vanished = new Map<string, ExistingReplayInfo>()
     for (const [existingPath, info] of existing) {
-      if (isIndexedPathVanished(existingPath, this.watchedFolders, scannedRoots, scannedPaths)) {
+      if (
+        isIndexedPathVanished(
+          existingPath,
+          this.watchedFolders,
+          scannedRoots,
+          scannedPaths,
+          unreadableDirs,
+        )
+      ) {
         vanished.set(existingPath, info)
       }
     }
@@ -334,23 +343,26 @@ export class ReplayWatcher {
   /**
    * Walks every configured root into one union map keyed by absolute path (so overlapping roots
    * dedupe naturally). Also reports which roots were scannable: a root counts as scanned when its
-   * top-level read succeeds. Unreadable subfolders encountered mid-walk are silently skipped and do
-   * not disqualify their root.
+   * top-level read succeeds. Every directory whose read failed — a root or a subfolder encountered
+   * mid-walk — is reported in `unreadableDirs`, so already-indexed rows beneath it can be protected
+   * from pruning (its files being absent from the scan proves nothing about their existence).
    */
   private async scanReplayFiles(): Promise<{
     files: Map<string, FileMeta>
     scannedRoots: string[]
+    unreadableDirs: string[]
   }> {
     const result = new Map<string, FileMeta>()
     const scannedRoots: string[] = []
+    const unreadableDirs: string[] = []
 
-    // Returns whether `dir` itself could be read; callers only use this at the root level, so a
-    // failed read of a nested subfolder just skips that subfolder.
+    // Returns whether `dir` itself could be read.
     const walk = async (dir: string): Promise<boolean> => {
       let entries
       try {
         entries = await readdir(dir, { withFileTypes: true })
       } catch {
+        unreadableDirs.push(dir)
         return false
       }
 
@@ -375,6 +387,12 @@ export class ReplayWatcher {
         scannedRoots.push(root)
       }
     }
-    return { files: result, scannedRoots }
+    if (unreadableDirs.length > 0) {
+      this.logger.warning(
+        `Could not read ${unreadableDirs.length} folder(s) during replay scan; ` +
+          `their indexed replays will be kept as-is: ${unreadableDirs.join(', ')}`,
+      )
+    }
+    return { files: result, scannedRoots, unreadableDirs }
   }
 }
