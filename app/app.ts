@@ -180,11 +180,9 @@ function defaultReplayFolder(): string {
 
 /**
  * The absolute folders the replay library should index for the given settings: the user's
- * configured list, normalized with empty entries dropped. An explicit empty array still resolves
- * to `[]` here ("index nothing"), and `undefined` falls back to the default folder; both are
- * defensive paths, since the boot migration (see the init block) materializes the list to a
- * non-empty array before the library starts. An empty list can only be observed transiently, if
- * the user removes every configured folder mid-session — the next boot restores the default.
+ * configured list, normalized with empty entries dropped. `undefined` (the folders were never
+ * configured) falls back to the default folder; an explicit empty array (the user removed every
+ * configured folder) resolves to `[]`, indexing nothing. Both are ordinary durable states.
  */
 function resolveReplayFolders(settings: Readonly<Partial<LocalSettings>>): string[] {
   const configured = settings.replayLibraryFolders
@@ -1308,20 +1306,6 @@ app.on('ready', () => {
       setupAnalytics(currentSession())
       gameServer = createGameServer(localSettings)
       await createWindow()
-
-      // Materialize the replay folder list once, at boot: after this runs, the list is always
-      // non-empty. A missing or empty list (older builds wrote `[]` for "use the default") is
-      // replaced by the default folder as a regular first entry, so every consumer (settings UI,
-      // watcher, save-replay) can treat all folders uniformly. Users who already configured
-      // folders keep them untouched. Removing every folder in the settings UI mid-session empties
-      // the index only for that run; this migration restores the default folder on the next
-      // launch. `merge` fires the local-settings `change` listener, which is safe here:
-      // `replayLibrary` is still undefined, so its branch is skipped, and the folder set is read
-      // fresh below for the initial setup.
-      const currentReplayFolders = (await localSettings.get()).replayLibraryFolders
-      if (currentReplayFolders === undefined || currentReplayFolders.length === 0) {
-        await localSettings.merge({ replayLibraryFolders: [defaultReplayFolder()] })
-      }
 
       try {
         const watchedFolders = resolveReplayFolders(await localSettings.get())

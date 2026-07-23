@@ -16,7 +16,7 @@ import { cloneCustomTeamColors } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 17
+const VERSION = 18
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -327,6 +327,17 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       // The Pastel FFA preset was removed; anyone who had it selected falls back to Classic.
       if ((settings.ffaColorPreset as string | undefined) === 'pastel') {
         newSettings.ffaColorPreset = FfaColorPreset.Classic
+      }
+    }
+
+    if (!settings.version || settings.version < 18) {
+      log.verbose('Found settings version 17, migrating to version 18')
+      // Builds before this version wrote an empty array to mean "use the default replay folder",
+      // so it must not be read as "index nothing" now that an empty array is a durable user
+      // choice. Dropping the key falls back to the default folder.
+      const { replayLibraryFolders } = newSettings
+      if (Array.isArray(replayLibraryFolders) && replayLibraryFolders.length === 0) {
+        delete newSettings.replayLibraryFolders
       }
     }
 

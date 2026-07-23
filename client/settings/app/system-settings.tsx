@@ -219,9 +219,9 @@ export function AppSystemSettings() {
   // The replay folders live outside the form model: they persist immediately on add/remove rather
   // than being bound to a field that saves on change.
   //
-  // `replayLibraryFolders` is materialized to a real list at first app boot, so it's normally
-  // defined here; the `undefined` fallback covers a renderer running before that migration and
-  // shows the resolved default folder as the sole (removable) entry.
+  // A user who has never configured folders has `replayLibraryFolders === undefined`; the
+  // fallback shows the resolved default folder as the sole, removable entry. Removing it saves
+  // `[]` (nothing indexed); adding a folder appends to whichever list is currently showing.
   const configuredFolders =
     localSettings.replayLibraryFolders ?? (defaultFolder !== undefined ? [defaultFolder] : [])
 
@@ -252,8 +252,8 @@ export function AppSystemSettings() {
   }
 
   const onRemoveFolder = (folder: string) => {
-    // Removing every folder saves `[]`, which empties the index for the current run; the app
-    // restores the default folder the next time it launches.
+    // Removing every folder saves `[]`, which persists: nothing is indexed until the user adds a
+    // folder again.
     saveFolders(configuredFolders.filter(f => f !== folder))
   }
 
