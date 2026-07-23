@@ -524,13 +524,13 @@ const SKIN_TABLE_SLOTS: usize = 16;
 /// fill (the host's native fill and the peer-blob relay are arch-agnostic and still work); the
 /// bypassed-join own-skin relay stays off until the value is known.
 ///
-/// The x86 value is `skins + 0x14`, found empirically by matching the source against the native
-/// fill at runtime (the struct is anti-tamper-obfuscated, so static analysis can't recover it).
-/// TODO(64-bit): derive the x86_64 value the same way once 64-bit lobby setup runs, then set it here.
+/// Both values are found empirically by matching the source against the native fill at runtime
+/// (the struct is anti-tamper-obfuscated, so static analysis can't recover them); the per-game
+/// validation on the host re-checks them (see [`validate_local_skin_offset`](BwScr::validate_local_skin_offset)).
 #[cfg(target_arch = "x86")]
 const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x14);
 #[cfg(target_arch = "x86_64")]
-const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = None;
+const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x28);
 
 struct MinimapDrawHooks {
     /// Dispatcher: draws the local player's units and lone sprites inline and calls the two
