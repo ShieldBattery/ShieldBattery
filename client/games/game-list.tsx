@@ -17,6 +17,7 @@ import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { Popover } from '../material/popover'
 import { elevationPlus1 } from '../material/shadows'
 import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -149,6 +150,10 @@ export function GameList() {
 
   const [selectedId, setSelectedId] = useState<string>()
   const rowElemsRef = useRef(new Map<string, HTMLDivElement>())
+
+  // Remembered per-user, shared with the replay library and match history pages: hides the game
+  // length (a spoiler) from the list rows.
+  const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
@@ -294,6 +299,8 @@ export function GameList() {
         setMatchupParam(v ?? '')
         reset()
       }}
+      spoilerFree={spoilerFree}
+      setSpoilerFree={setSpoilerFree}
       startDate={startDateParam}
       setStartDate={v => {
         setStartDateParam(v)
@@ -328,6 +335,7 @@ export function GameList() {
         key={game.id}
         game={game}
         showResult={false}
+        spoilerFree={spoilerFree}
         selected={game.id === selectedGame?.id}
         onClick={setSelectedId}
         onDoubleClick={gameId => navigateToGameResults(gameId)}

@@ -179,8 +179,8 @@ export interface GameFilterBarProps {
   gameType?: SupportedReplayGameType | 'others'
   setGameType?: (v: SupportedReplayGameType | 'others' | undefined) => void
   /**
-   * When `setSpoilerFree` is provided, shows a spoiler-free toggle that hides game length; omit it
-   * on surfaces where game length isn't a spoiler (e.g. the Games page).
+   * When `setSpoilerFree` is provided, shows a spoiler-free toggle that hides the game length and,
+   * where shown, the match result.
    */
   spoilerFree?: boolean
   setSpoilerFree?: (v: boolean) => void

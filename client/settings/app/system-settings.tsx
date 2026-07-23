@@ -252,7 +252,8 @@ export function AppSystemSettings() {
   }
 
   const onRemoveFolder = (folder: string) => {
-    // Removing every folder saves `[]`, a valid state that indexes nothing.
+    // Removing every folder saves `[]`, which empties the index for the current run; the app
+    // restores the default folder the next time it launches.
     saveFolders(configuredFolders.filter(f => f !== folder))
   }
 

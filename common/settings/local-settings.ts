@@ -211,11 +211,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   launch64Bit?: boolean
 
   /**
-   * Absolute paths of the folders indexed by the replay library. Materialized to a concrete list at
-   * first app boot (the default folder, `Documents/Starcraft/maps/replays`, is added as a regular
-   * first entry), so this is normally defined; an explicit empty array means nothing is indexed. An
-   * absent (`undefined`) value only occurs before that first-boot migration runs and falls back to
-   * the default folder defensively.
+   * Absolute paths of the folders indexed by the replay library. Materialized to a non-empty list
+   * at every app boot: a missing or empty value is replaced with the default folder,
+   * `Documents/Starcraft/maps/replays`, added as a regular first entry. An empty array can exist
+   * only transiently, between the user removing every configured folder in the settings UI and the
+   * app's next launch.
    */
   replayLibraryFolders?: ReadonlyArray<string>
 }

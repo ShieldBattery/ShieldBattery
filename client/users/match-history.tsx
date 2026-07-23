@@ -23,6 +23,7 @@ import { useKeyListener } from '../keyboard/key-listener'
 import InfiniteScrollList from '../lists/infinite-scroll-list'
 import { Popover } from '../material/popover'
 import { useLocationSearchParam } from '../navigation/router-hooks'
+import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { getMatchHistory } from './action-creators'
@@ -118,6 +119,10 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   const [selectedId, setSelectedId] = useState<string>()
   const rowElemsRef = useRef(new Map<string, HTMLDivElement>())
+
+  // Remembered per-user, shared with the replay library and games page: hides the game length and
+  // match result (both spoilers) from the list rows.
+  const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
 
@@ -271,6 +276,8 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         setMatchupParam(v ?? '')
         reset()
       }}
+      spoilerFree={spoilerFree}
+      setSpoilerFree={setSpoilerFree}
       startDate={startDateParam}
       setStartDate={v => {
         setStartDateParam(v)
@@ -306,6 +313,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         game={game}
         showResult={true}
         forUserId={userId}
+        spoilerFree={spoilerFree}
         selected={game.id === selectedGame?.id}
         onClick={setSelectedId}
         onDoubleClick={gameId => navigateToGameResults(gameId)}

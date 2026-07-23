@@ -418,8 +418,9 @@ export function ReplayLibrary() {
   const bookmarkTitle = t('replays.library.bookmark', 'Bookmark')
   const removeBookmarkTitle = t('replays.library.removeBookmark', 'Remove bookmark')
 
-  // Remembered per-user: hides the game length (a spoiler) from the list rows and the inspector.
-  const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('replaySpoilerFree', false)
+  // Remembered per-user, shared with the games and match history pages: hides the game length (a
+  // spoiler) from the list rows and the inspector.
+  const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
   // The view is navigation rather than a filter: it isn't included here, and clearing filters
   // leaves it alone.

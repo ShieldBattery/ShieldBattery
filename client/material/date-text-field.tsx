@@ -1,9 +1,18 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import styled from 'styled-components'
 import { Except, Simplify } from 'type-fest'
 import { useMultiplexRef } from '../react/refs'
 import { IconButton } from './button'
 import { TextField, TextFieldProps } from './text-field'
+
+// The field already renders its own picker button (below), which opens the native picker via
+// `showPicker()`, so the browser's built-in indicator would just be a redundant second icon.
+const StyledTextField = styled(TextField)`
+  & input::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+`
 
 /** A `TextField` that accepts a local calendar date (using the native picker). */
 export function DateTextField({
@@ -25,7 +34,7 @@ export function DateTextField({
   const multiplexedRef = useMultiplexRef(inputRef, ref)
 
   return (
-    <TextField
+    <StyledTextField
       {...rest}
       ref={multiplexedRef}
       type='date'

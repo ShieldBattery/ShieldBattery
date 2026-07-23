@@ -228,6 +228,11 @@ export interface GameListEntryProps {
   game: ReadonlyDeep<GameRecordJson>
   showResult?: boolean
   forUserId?: SbUserId
+  /**
+   * Hides the game length and, when results are shown, the match result — both spoilers for
+   * someone rewatching their games.
+   */
+  spoilerFree?: boolean
   /** Shows the row in its selected state. */
   selected?: boolean
   onClick?: (gameId: string) => void
@@ -240,6 +245,7 @@ export function GameListEntry({
   game,
   showResult = false,
   forUserId,
+  spoilerFree = false,
   selected = false,
   onClick,
   onDoubleClick,
@@ -274,12 +280,12 @@ export function GameListEntry({
   const layoutProps: GameListEntryLayoutProps = {
     leading:
       showResult && forUserId ? (
-        <GameListEntryResult $result={result}>
-          {getResultLabel(result, t, true)}
+        <GameListEntryResult $result={spoilerFree ? 'unknown' : result}>
+          {spoilerFree ? '—' : getResultLabel(result, t, true)}
         </GameListEntryResult>
       ) : undefined,
     players: <GamePlayersDisplay game={game} forUserId={forUserId} showTeamLabels={false} />,
-    duration: game.gameLength ? getGameDurationString(game.gameLength) : '—',
+    duration: spoilerFree || !game.gameLength ? '—' : getGameDurationString(game.gameLength),
     mapName,
     gameTypeLabel: gameType,
   }
