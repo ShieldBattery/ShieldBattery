@@ -512,12 +512,25 @@ struct SkinTable {
 const SKIN_TABLE_SLOTS: usize = 16;
 
 /// Byte offset within the `skins` local source at which the local player's own raw skin blob is
-/// stored inline (SC:R 1.23.10.12409, x86). The native create path copies this region into
-/// `player_skins[local]`; a netcode-v2 bypassed-join client, whose create path is replaced and so
-/// never runs that copy, copies it itself (see [`BwScr::fill_local_skin_from_source`]). Validated
-/// each game on any client whose native fill did run (the host), so a version bump that moves it
-/// surfaces as a logged mismatch rather than a silently wrong blob.
-const SKINS_LOCAL_BLOB_OFFSET: usize = 0x14;
+/// stored inline. The native create path copies this region into `player_skins[local]`; a
+/// netcode-v2 bypassed-join client, whose create path is replaced and so never runs that copy,
+/// copies it itself (see [`BwScr::fill_local_skin_from_source`]). Validated each game on any client
+/// whose native fill did run (the host), so a version bump that moves it surfaces as a logged
+/// mismatch rather than a silently wrong blob.
+///
+/// Per-arch because the `skins` struct's layout differs by pointer width, and the value is
+/// architecture-verified, never guessed from the other: an offset off by even a few bytes copies
+/// unrelated memory into the slot, which the digest then parses. `None` disables only the own-blob
+/// fill (the host's native fill and the peer-blob relay are arch-agnostic and still work); the
+/// bypassed-join own-skin relay stays off until the value is known.
+///
+/// The x86 value is `skins + 0x14`, found empirically by matching the source against the native
+/// fill at runtime (the struct is anti-tamper-obfuscated, so static analysis can't recover it).
+/// TODO(64-bit): derive the x86_64 value the same way once 64-bit lobby setup runs, then set it here.
+#[cfg(target_arch = "x86")]
+const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = Some(0x14);
+#[cfg(target_arch = "x86_64")]
+const SKINS_LOCAL_BLOB_OFFSET: Option<usize> = None;
 
 struct MinimapDrawHooks {
     /// Dispatcher: draws the local player's units and lone sprites inline and calls the two
@@ -3620,7 +3633,11 @@ impl BwScr {
         if self.skin_offset_validated.swap(true, Ordering::Relaxed) {
             return;
         }
-        let (Some(table), Some(skins)) = (self.skin_table.as_ref(), self.skins.as_ref()) else {
+        let (Some(offset), Some(table), Some(skins)) = (
+            SKINS_LOCAL_BLOB_OFFSET,
+            self.skin_table.as_ref(),
+            self.skins.as_ref(),
+        ) else {
             return;
         };
         unsafe {
@@ -3644,11 +3661,11 @@ impl BwScr {
             if skins_base.is_null() {
                 return;
             }
-            let source = safe_read_bytes(skins_base.add(SKINS_LOCAL_BLOB_OFFSET), stride);
+            let source = safe_read_bytes(skins_base.add(offset), stride);
             if source.as_deref() != Some(native.as_slice()) {
                 warn!(
-                    "netcode v2: skins+{SKINS_LOCAL_BLOB_OFFSET:#x} does not match the native local \
-                     skin blob; the offset is likely wrong for this game version"
+                    "netcode v2: skins+{offset:#x} does not match the native local skin blob; the \
+                     offset is likely wrong for this game version"
                 );
             }
         }
@@ -3663,10 +3680,15 @@ impl BwScr {
     ///
     /// No-op when the slot already holds data — the host's native fill ran, and its blob is
     /// authoritative, so this never overwrites a good blob (which also means a wrong offset can
-    /// only ever fail to fill, never corrupt). Also a no-op when the source/table is unlocated or
-    /// the source blob is empty (the account owns/selected no skin).
+    /// only ever fail to fill, never corrupt). Also a no-op when [`SKINS_LOCAL_BLOB_OFFSET`] is
+    /// unknown for this architecture, the source/table is unlocated, or the source blob is empty
+    /// (the account owns/selected no skin).
     fn fill_local_skin_from_source(&self) {
-        let (Some(table), Some(skins)) = (self.skin_table.as_ref(), self.skins.as_ref()) else {
+        let (Some(offset), Some(table), Some(skins)) = (
+            SKINS_LOCAL_BLOB_OFFSET,
+            self.skin_table.as_ref(),
+            self.skins.as_ref(),
+        ) else {
             return;
         };
         unsafe {
@@ -3685,7 +3707,7 @@ impl BwScr {
             if skins_base.is_null() {
                 return;
             }
-            let Some(blob) = safe_read_bytes(skins_base.add(SKINS_LOCAL_BLOB_OFFSET), stride) else {
+            let Some(blob) = safe_read_bytes(skins_base.add(offset), stride) else {
                 return;
             };
             // A shorter read means the source region is smaller than a slot — never expected, but
@@ -3695,7 +3717,7 @@ impl BwScr {
             }
             std::ptr::copy_nonoverlapping(blob.as_ptr(), dst, stride);
             debug!(
-                "netcode v2: filled local skin slot {local_slot} from skins+{SKINS_LOCAL_BLOB_OFFSET:#x} \
+                "netcode v2: filled local skin slot {local_slot} from skins+{offset:#x} \
                  ({stride} bytes)"
             );
         }
