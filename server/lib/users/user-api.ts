@@ -7,6 +7,7 @@ import mime from 'mime'
 import { container } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  MAX_DATE_TIMESTAMP,
   PASSWORD_MINLENGTH,
   USERNAME_MAXLENGTH,
   USERNAME_MINLENGTH,
@@ -715,8 +716,8 @@ export class UserApi {
         // `OFFSET 1.5` and 500s on the bigint cast. The max keeps a hand-crafted request from
         // forcing the DB to produce (and sort) an unbounded number of rows.
         offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
-        startDate: Joi.number().integer().min(0),
-        endDate: Joi.number().integer().min(0),
+        startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+        endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
       }),
     })
 

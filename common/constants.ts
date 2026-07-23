@@ -20,6 +20,13 @@ export const CHANNEL_MAXLENGTH = 64
 
 export const STARCRAFT_DOWNLOAD_URL = 'https://download.battle.net/desktop'
 
+/**
+ * The largest millisecond timestamp representable by a JavaScript `Date` (±8.64e15, per ECMA-262).
+ * Timestamps taken from user input should be capped to this during validation: anything past it
+ * constructs an `Invalid Date`, which throws when serialized (e.g. by the DB driver).
+ */
+export const MAX_DATE_TIMESTAMP = 8640000000000000
+
 export function isValidUsername(username: string): boolean {
   return !!(
     username &&

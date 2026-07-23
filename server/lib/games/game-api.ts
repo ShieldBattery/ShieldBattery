@@ -5,6 +5,7 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
 import {
   ALL_GAME_FORMATS,
   decodeMatchup,
@@ -252,8 +253,8 @@ export class GameApi {
         // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
         // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
         offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
-        startDate: Joi.number().integer().min(0),
-        endDate: Joi.number().integer().min(0),
+        startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+        endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
       }),
     })
 
