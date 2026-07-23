@@ -752,6 +752,13 @@ impl<'e> Analysis<'e> {
         self.0.skins_size()
     }
 
+    /// The local skin source, populated at startup from the account's owned/selected skins. The
+    /// native create path derives the local player's [`player_skins`](Self::player_skins) blob
+    /// from this; its internal layout is not surfaced here (only the base operand).
+    pub fn skins(&mut self) -> Option<Operand<'e>> {
+        self.0.skins()
+    }
+
     pub fn rgb_colors(&mut self) -> Option<Operand<'e>> {
         self.0.rgb_colors()
     }

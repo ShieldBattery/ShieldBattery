@@ -138,6 +138,10 @@ pub struct BwScr {
     /// (all-or-nothing). `None` (either missing) turns the peer-skin relay off rather than failing
     /// game launch: BW still renders the local player's own skin from the slot `init_game` filled.
     skin_table: Option<SkinTable>,
+    /// Base of the local skin source (`skins`), populated at startup from owned/selected skins.
+    /// The native create path derives the local player's raw skin blob from this; used to locate
+    /// that blob so a bypassed-join client can populate its own slot. `None` if unlocated.
+    skins: Option<Value<*mut u8>>,
     /// Shift+Tab minimap player-color cycle (0 = normal). Saved/restored across game launches.
     minimap_color_mode: Option<Value<u8>>,
     /// Tab minimap-terrain toggle (nonzero = terrain hidden). Saved/restored across game launches.
@@ -304,6 +308,13 @@ pub struct BwScr {
     /// Whether the saved minimap settings have already been applied this game (so we only restore
     /// them once, letting in-game toggles afterwards stick).
     minimap_settings_restored: AtomicBool,
+    /// Receive steps spent so far waiting to broadcast this client's own skin blob, or
+    /// `u32::MAX` once it has been sent (it is sent exactly once per game — see
+    /// [`broadcast_local_skin_once`](Self::broadcast_local_skin_once)).
+    skin_broadcast_attempts: AtomicU32,
+    /// Whether [`SKINS_LOCAL_BLOB_OFFSET`] has been validated against the native fill this game
+    /// (see [`validate_local_skin_offset`](BwScr::validate_local_skin_offset)).
+    skin_offset_validated: AtomicBool,
     /// Custom team-color configuration parsed from the launch settings, or `None` when the feature
     /// isn't configured. Written on the async thread at `set_settings`, read once on the game
     /// thread at game init.
@@ -439,11 +450,56 @@ struct TeamColorRuntime {
 /// swapped `rgb_colors` palette for the span of the draw without touching unit colors; a subset
 /// would color some dots from `rgb_colors` and leave others on BW's palette-index path, so the
 /// feature only engages when every site is present.
-/// The per-player applied-skin table: 16 slots (players 0..12, observers 12..16) of `stride`
-/// bytes each, holding the opaque skin state BW's unit rendering reads per frame to pick skinned
-/// graphics. `init_game` fills only the local player's slot (from local settings/ownership);
-/// every other slot starts zeroed and renders default skins until bytes are written into it. The
-/// blob layout is opaque to us — slots are only ever copied whole, never parsed.
+/// Reads up to `len` bytes starting at `addr`, stopping at the end of the mapped, readable region
+/// `addr` falls in — so an unmapped or guard address yields `None` instead of faulting, and a read
+/// that would cross into unmapped memory is truncated. For diagnostic memory inspection only.
+unsafe fn safe_read_bytes(addr: *const u8, len: usize) -> Option<Vec<u8>> {
+    use winapi::um::memoryapi::VirtualQuery;
+    use winapi::um::winnt::{
+        MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_READONLY,
+        PAGE_READWRITE, PAGE_WRITECOPY,
+    };
+    if addr.is_null() {
+        return None;
+    }
+    unsafe {
+        let mut info: MEMORY_BASIC_INFORMATION = mem::zeroed();
+        let ok = VirtualQuery(
+            addr as *const _,
+            &mut info,
+            mem::size_of::<MEMORY_BASIC_INFORMATION>(),
+        );
+        if ok == 0 {
+            return None;
+        }
+        let readable = info.Protect
+            & (PAGE_READONLY
+                | PAGE_READWRITE
+                | PAGE_EXECUTE_READWRITE
+                | PAGE_WRITECOPY
+                | PAGE_EXECUTE_READ)
+            != 0;
+        if !readable {
+            return None;
+        }
+        let region_end = info.BaseAddress as usize + info.RegionSize;
+        let avail = region_end.saturating_sub(addr as usize);
+        let read_len = len.min(avail);
+        if read_len == 0 {
+            return None;
+        }
+        Some(std::slice::from_raw_parts(addr, read_len).to_vec())
+    }
+}
+
+/// The per-player applied-skin table: 16 slots — the 12 storm player slots followed by 4
+/// observer slots — of `stride` bytes each, holding the opaque skin state BW's unit rendering
+/// reads to pick skinned graphics. The table is indexed by the lobby-stable *storm* identity,
+/// not the randomized `players[]` id: natively each slot is filled from that member's lobby
+/// slot-setup command, which SB sessions don't run — so only the local player's slot gets
+/// filled (from local settings/ownership, during game startup), and every remote slot stays
+/// zeroed (rendering default skins) until relayed bytes are written into it. The blob layout is
+/// opaque to us — slots are only ever copied whole, never parsed.
 struct SkinTable {
     base: Value<*mut u8>,
     /// Per-slot stride in bytes. Also the exact length of every blob read from or written into
@@ -452,9 +508,16 @@ struct SkinTable {
     stride: usize,
 }
 
-/// Slot count of [`SkinTable`]: players[] ids 0..12 plus observer ids 12..16, matching the
-/// `players[]` indices `unique_player_for_storm` can return.
+/// Slot count of [`SkinTable`]: the 12 storm player slots plus the 4-slot observer block.
 const SKIN_TABLE_SLOTS: usize = 16;
+
+/// Byte offset within the `skins` local source at which the local player's own raw skin blob is
+/// stored inline (SC:R 1.23.10.12409, x86). The native create path copies this region into
+/// `player_skins[local]`; a netcode-v2 bypassed-join client, whose create path is replaced and so
+/// never runs that copy, copies it itself (see [`BwScr::fill_local_skin_from_source`]). Validated
+/// each game on any client whose native fill did run (the host), so a version bump that moves it
+/// surfaces as a logged mismatch rather than a silently wrong blob.
+const SKINS_LOCAL_BLOB_OFFSET: usize = 0x14;
 
 struct MinimapDrawHooks {
     /// Dispatcher: draws the local player's units and lone sprites inline and calls the two
@@ -1252,6 +1315,10 @@ impl BwScr {
                 None
             }
         };
+        let skins = analysis.skins();
+        if skins.is_none() {
+            warn!("Could not find skins local source; own-skin relay may be host-only");
+        }
         // Non-fatal, all-or-nothing: the three minimap dot-draw functions are hooked together so the
         // minimap-only team-color mode can swap the palette for the span of the draw. Without all
         // three that mode falls back to BW's own diplomacy dots rather than failing game launch.
@@ -1415,6 +1482,7 @@ impl BwScr {
                 base: Value::new(ctx, base),
                 stride: stride as usize,
             }),
+            skins: skins.map(|op| Value::new(ctx, op)),
             minimap_draw_hooks,
             chat_box_mode: chat_box_mode.map(|op| Value::new(ctx, op)),
             statres_icons: Value::new(ctx, statres_icons),
@@ -1530,6 +1598,8 @@ impl BwScr {
             saved_minimap_color_mode: AtomicU8::new(0),
             saved_minimap_terrain_hidden: AtomicBool::new(false),
             minimap_settings_restored: AtomicBool::new(false),
+            skin_broadcast_attempts: AtomicU32::new(0),
+            skin_offset_validated: AtomicBool::new(false),
             team_color_config: Mutex::new(None),
             team_color_runtime: Mutex::new(None),
             use_legacy_cursor_sizing: AtomicBool::new(false),
@@ -2848,8 +2918,10 @@ impl BwScr {
             // In-game chat delivered from peers over the relay, each injected as the classic chat
             // record after passing its target scope's receive-side filter.
             self.apply_chat_inbound();
-            // Peer skin blobs delivered over the relay, each written into its sender's current
-            // players[] slot of the applied-skin table.
+            // Skin relay: our own blob goes out once, as soon as native code has filled its
+            // slot (polled per receive step, bounded wait), and peers' blobs are written into
+            // their senders' current players[] slots as they arrive.
+            self.broadcast_local_skin_once();
             self.apply_skins_inbound();
             // Relay-pushed slot-connectivity changes: a peer's drop/reconnect updates the turn
             // state's disconnected set, our own updates the self-link flag, for the survivor
@@ -3536,17 +3608,184 @@ impl BwScr {
         }
     }
 
+    /// Validates [`SKINS_LOCAL_BLOB_OFFSET`] once per game against the authoritative native fill:
+    /// on a client whose `player_skins[local]` slot BW itself populated (the host), the blob at
+    /// `skins + SKINS_LOCAL_BLOB_OFFSET` must equal that slot. A mismatch means the offset is wrong
+    /// for this game version — warned, so it surfaces in the wild without corrupting anything
+    /// (the fill never overwrites a populated slot, so a stale offset can only fail to fill). A
+    /// no-op on a client whose slot is empty (nothing authoritative to check against yet); the
+    /// once-flag is cleared in that case so a later round retries once the fill has run. Every read
+    /// is `VirtualQuery`-bounded, so an unmapped address is skipped, never faulted.
+    fn validate_local_skin_offset(&self) {
+        if self.skin_offset_validated.swap(true, Ordering::Relaxed) {
+            return;
+        }
+        let (Some(table), Some(skins)) = (self.skin_table.as_ref(), self.skins.as_ref()) else {
+            return;
+        };
+        unsafe {
+            let table_base = table.base.resolve();
+            let local_slot = self.local_storm_id.resolve() as usize;
+            if table_base.is_null() || local_slot >= SKIN_TABLE_SLOTS {
+                return;
+            }
+            let stride = table.stride;
+            let Some(native) = safe_read_bytes(table_base.add(local_slot * stride), stride) else {
+                return;
+            };
+            // Only a slot BW itself filled is an authoritative reference. Before that (or on a
+            // bypassed-join client, which never gets a native fill) there is nothing to validate
+            // against — retry on a later round.
+            if !native.iter().any(|&b| b != 0) {
+                self.skin_offset_validated.store(false, Ordering::Relaxed);
+                return;
+            }
+            let skins_base = skins.resolve();
+            if skins_base.is_null() {
+                return;
+            }
+            let source = safe_read_bytes(skins_base.add(SKINS_LOCAL_BLOB_OFFSET), stride);
+            if source.as_deref() != Some(native.as_slice()) {
+                warn!(
+                    "netcode v2: skins+{SKINS_LOCAL_BLOB_OFFSET:#x} does not match the native local \
+                     skin blob; the offset is likely wrong for this game version"
+                );
+            }
+        }
+    }
+
+    /// Populates the local player's own raw skin slot from the `skins` local source, for a client
+    /// whose native create path didn't (a netcode-v2 bypassed-join client — its join is replaced,
+    /// so the native `skins`→`player_skins[local]` copy never runs, leaving the slot zero and the
+    /// player invisibly-skinned to peers). Copies the inline blob at
+    /// [`SKINS_LOCAL_BLOB_OFFSET`] into the local slot so it is both digested locally and available
+    /// to broadcast. Must run before `init_game`'s one-shot digest.
+    ///
+    /// No-op when the slot already holds data — the host's native fill ran, and its blob is
+    /// authoritative, so this never overwrites a good blob (which also means a wrong offset can
+    /// only ever fail to fill, never corrupt). Also a no-op when the source/table is unlocated or
+    /// the source blob is empty (the account owns/selected no skin).
+    fn fill_local_skin_from_source(&self) {
+        let (Some(table), Some(skins)) = (self.skin_table.as_ref(), self.skins.as_ref()) else {
+            return;
+        };
+        unsafe {
+            let table_base = table.base.resolve();
+            let local_slot = self.local_storm_id.resolve() as usize;
+            if table_base.is_null() || local_slot >= SKIN_TABLE_SLOTS {
+                return;
+            }
+            let stride = table.stride;
+            let dst = table_base.add(local_slot * stride);
+            // Never clobber a native fill: the host already holds an authoritative blob here.
+            if std::slice::from_raw_parts(dst, stride).iter().any(|&b| b != 0) {
+                return;
+            }
+            let skins_base = skins.resolve();
+            if skins_base.is_null() {
+                return;
+            }
+            let Some(blob) = safe_read_bytes(skins_base.add(SKINS_LOCAL_BLOB_OFFSET), stride) else {
+                return;
+            };
+            // A shorter read means the source region is smaller than a slot — never expected, but
+            // a partial copy could mix state, so skip it. An all-zero source means no skin.
+            if blob.len() != stride || !blob.iter().any(|&b| b != 0) {
+                return;
+            }
+            std::ptr::copy_nonoverlapping(blob.as_ptr(), dst, stride);
+            debug!(
+                "netcode v2: filled local skin slot {local_slot} from skins+{SKINS_LOCAL_BLOB_OFFSET:#x} \
+                 ({stride} bytes)"
+            );
+        }
+    }
+
+    /// Runs one round of the peer-skin exchange from the pre-`init_game` lobby-init loop: broadcast
+    /// this client's own blob (once its slot is populated) and write any peers' arrived blobs into
+    /// the raw skin table. Called each lobby-init step so received blobs land in the table *before*
+    /// `init_game`'s one-shot digest reads it into the render struct — the only point at which a
+    /// written blob actually renders. The native fill populates the local slot during this same
+    /// window (the host's is already present when the loop starts), so the local broadcast goes out
+    /// early enough for peers to apply it before their own digest. Applying is idempotent, so the
+    /// in-game receive step keeps draining too (covering a reconnect's replayed blobs).
+    pub(crate) fn exchange_skins_during_lobby_init(&self) {
+        self.validate_local_skin_offset();
+        self.fill_local_skin_from_source();
+        self.broadcast_local_skin_once();
+        unsafe { self.apply_skins_inbound() };
+    }
+
+    /// How many exchange rounds [`broadcast_local_skin_once`](Self::broadcast_local_skin_once)
+    /// waits on a still-zeroed local skin slot before sending it as-is. The slot is normally
+    /// populated by the time the first round runs (the host's native fill, or
+    /// [`fill_local_skin_from_source`](Self::fill_local_skin_from_source) on a bypassed-join
+    /// client), but this bounds the wait for the rare case it isn't yet — and a player who owns no
+    /// skin legitimately keeps an all-zero slot forever, so the wait must terminate. An eventual
+    /// zero send costs nothing (peers render default skins, exactly as if nothing were sent).
+    const SKIN_BROADCAST_MAX_WAIT_STEPS: u32 = 240;
+
+    /// Broadcasts this client's own applied-skin blob to peers, exactly once per game. The local
+    /// slot is populated before this runs — by BW's native create-path fill on the host, or by
+    /// [`fill_local_skin_from_source`](Self::fill_local_skin_from_source) on a bypassed-join client
+    /// — so it reads the slot and sends. If the slot is somehow still zero, it retries up to
+    /// [`SKIN_BROADCAST_MAX_WAIT_STEPS`](Self::SKIN_BROADCAST_MAX_WAIT_STEPS) rounds, then sends
+    /// as-is (all zero being the legitimate state for a player with no skin). Sending late costs
+    /// nothing: the relay retains the latest blob per slot and replays it to any member, so arrival
+    /// time only affects when peers' units pop from default to skinned.
+    ///
+    /// UMS keeps map-authored presentation fully native, mirroring the color handling, and a
+    /// replay/session-less game has no turn state, so the submit lands nowhere (`submitted:
+    /// false` in the log is expected there, not a fault).
+    fn broadcast_local_skin_once(&self) {
+        let attempts = self.skin_broadcast_attempts.load(Ordering::Relaxed);
+        if attempts == u32::MAX {
+            return;
+        }
+        if game_thread::is_ums() {
+            self.skin_broadcast_attempts
+                .store(u32::MAX, Ordering::Relaxed);
+            return;
+        }
+        let Some(blob) = self.read_local_skin_blob() else {
+            debug!(
+                "netcode v2: no local skin blob to relay (table unresolved or local id out of \
+                 table range)"
+            );
+            self.skin_broadcast_attempts
+                .store(u32::MAX, Ordering::Relaxed);
+            return;
+        };
+        let has_data = blob.iter().any(|&b| b != 0);
+        if !has_data && attempts < Self::SKIN_BROADCAST_MAX_WAIT_STEPS {
+            self.skin_broadcast_attempts
+                .store(attempts + 1, Ordering::Relaxed);
+            return;
+        }
+        self.skin_broadcast_attempts
+            .store(u32::MAX, Ordering::Relaxed);
+        let len = blob.len();
+        let sent = netcode_v2::with_turn_state(|s| s.submit_local_skin(blob)).unwrap_or(false);
+        // An all-zero send here means the slot never filled within the wait — the expected
+        // outcome for a player with no skins, and harmless either way.
+        debug!(
+            "netcode v2: local skin blob read ({len} bytes, {}) after {attempts} receive steps, \
+             submitted: {sent}",
+            if has_data { "has data" } else { "all zero" },
+        );
+    }
+
     /// Peer skin blobs delivered over the netcode v2 relay: drains what's arrived (see
     /// [`TurnState::drain_skin_inbound`](netcode_v2::TurnState::drain_skin_inbound)) and writes
     /// each into its sender's slot of the applied-skin table. Run once per receive on the game
     /// thread, alongside the chat application.
     ///
-    /// The sender's rp2 slot is resolved through its storm id to a `players[]` slot *at apply
-    /// time* — `players[]` indices are assigned at game init, not in lobby order, so any
-    /// lobby-time index would attribute the blob to the wrong player. Applying is safe at any
-    /// frame: the table is non-synced cosmetic state read only by rendering, and whether peers'
-    /// skins display at all remains the local viewer's own skins-enabled/ownership gating inside
-    /// BW's skin lookup.
+    /// The table slot is the sender's *storm* id — the lobby-stable identity the table is
+    /// indexed by (native code fills it from lobby-time slot-setup commands, before `players[]`
+    /// indices randomize) — so the sender's rp2 slot resolves through the storm map only, never
+    /// to a `players[]` id. Applying is safe at any frame: the table is non-synced cosmetic
+    /// state read only by rendering, and whether peers' skins display at all remains the local
+    /// viewer's own skins-enabled/ownership gating inside BW's skin lookup.
     unsafe fn apply_skins_inbound(&self) {
         unsafe {
             let Some(blobs) = netcode_v2::with_turn_state(|s| s.drain_skin_inbound()) else {
@@ -3559,14 +3798,20 @@ impl BwScr {
                     debug!("netcode v2: skin blob from unmapped slot {slot:?}; dropping");
                     continue;
                 };
-                let Some(unique_player) = self.unique_player_for_storm(sender_storm) else {
+                if self.write_player_skin_blob(sender_storm.0, &blob) {
+                    // An all-zero blob is normal for a sender with no skins; logged so a peer
+                    // whose skin doesn't render can be told apart from a blob that never arrived.
                     debug!(
-                        "netcode v2: skin blob from slot {slot:?} (storm {sender_storm:?}) could \
-                         not be attributed to a players[] slot; dropping"
+                        "netcode v2: applied skin blob from slot {slot:?} to storm slot \
+                         {sender_storm:?} ({} bytes, {})",
+                        blob.len(),
+                        if blob.iter().any(|&b| b != 0) {
+                            "has data"
+                        } else {
+                            "all zero"
+                        },
                     );
-                    continue;
-                };
-                if !self.write_player_skin_blob(unique_player, &blob) {
+                } else {
                     debug!(
                         "netcode v2: skin blob from slot {slot:?} not applied (table missing or \
                          blob length {} != slot stride)",
@@ -4173,16 +4418,19 @@ impl BwScr {
     }
 
     /// Copies the local player's slot out of the applied-skin table, for relaying to peers. The
-    /// slot index is `local_unique_player_id` — the `players[]` id the local player's units render
-    /// under, and the one `init_game` filled from local settings/ownership — so this must only be
-    /// called after game init has run. Returns `None` when the table wasn't located, or the local
-    /// id isn't a table slot (never expected for a seated player or observer). The bytes are
-    /// opaque; a player with no skins yields a mostly-zero blob, which is still relayed so every
-    /// slot's table entry ends up identical on every client.
+    /// slot index is the local *storm* id — the table is indexed by the lobby-stable storm
+    /// identity, not the randomized `players[]` id (native code fills it from lobby-time
+    /// slot-setup state, before game init shuffles `players[]`). The fill lands at some point
+    /// during game startup after the init hook this DLL's post-init setup runs under, so
+    /// init-time calls read a still-zeroed slot; only call this once the game loop has started
+    /// (see [`broadcast_local_skin_once`](Self::broadcast_local_skin_once)). Returns `None` when
+    /// the table wasn't located, or the local storm id isn't a table slot. The bytes are opaque;
+    /// a player with no skins yields a mostly-zero blob, which is still relayed so every slot's
+    /// table entry ends up identical on every client.
     pub fn read_local_skin_blob(&self) -> Option<Vec<u8>> {
         let table = self.skin_table.as_ref()?;
         unsafe {
-            let slot = self.local_unique_player_id.resolve() as usize;
+            let slot = self.local_storm_id.resolve() as usize;
             if slot >= SKIN_TABLE_SLOTS {
                 return None;
             }
@@ -4194,16 +4442,17 @@ impl BwScr {
         }
     }
 
-    /// Writes one peer's skin blob into `unique_player`'s slot of the applied-skin table, taking
-    /// effect the next rendered frame. Returns `false` without writing when the table wasn't
-    /// located, the slot index is out of table range, or `blob` isn't exactly one slot long —
-    /// the sender reads whole slots, so any other length is a malformed or cross-version frame,
-    /// and a partial write could leave a slot mixing two states rendering might parse.
-    unsafe fn write_player_skin_blob(&self, unique_player: u8, blob: &[u8]) -> bool {
+    /// Writes one peer's skin blob into `storm_slot`'s entry of the applied-skin table (the
+    /// table is storm-id-indexed — see [`read_local_skin_blob`](Self::read_local_skin_blob)),
+    /// taking effect the next rendered frame. Returns `false` without writing when the table
+    /// wasn't located, the slot index is out of table range, or `blob` isn't exactly one slot
+    /// long — the sender reads whole slots, so any other length is a malformed or cross-version
+    /// frame, and a partial write could leave a slot mixing two states rendering might parse.
+    unsafe fn write_player_skin_blob(&self, storm_slot: u8, blob: &[u8]) -> bool {
         let Some(table) = self.skin_table.as_ref() else {
             return false;
         };
-        let slot = unique_player as usize;
+        let slot = storm_slot as usize;
         if slot >= SKIN_TABLE_SLOTS || blob.len() != table.stride {
             return false;
         }

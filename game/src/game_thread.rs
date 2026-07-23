@@ -496,27 +496,6 @@ pub unsafe fn after_init_game_data() {
             bw.randomize_base_player_colors();
         }
 
-        // Broadcast this client's applied-skin blob to peers. Game init fills only the local
-        // player's slot of the skin table (skin ownership is verified locally), and SB sessions
-        // never run the native lobby command that would carry the blob to other clients — so each
-        // client relays its own slot's bytes and applies peers' blobs as they arrive (see
-        // `bw_scr::apply_skins_inbound`). A single post-init send suffices: the relay retains the
-        // latest blob per slot for members whose stream comes up later. UMS is gated off like the
-        // color randomization above — map-authored presentation stays fully native there — and a
-        // replay plays back solo (no session, no one to relay to).
-        if !is_ums()
-            && !is_replay()
-            && let Some(blob) = bw.read_local_skin_blob()
-        {
-            let sent =
-                crate::netcode_v2::with_turn_state(|s| s.submit_local_skin(blob)).unwrap_or(false);
-            if !sent {
-                debug!(
-                    "netcode v2: local skin blob was not submitted (no session or channel down)"
-                );
-            }
-        }
-
         // Now that alliances are finalized, build the custom team-color assignment (a no-op unless
         // the feature is active). Must run before the minimap dialog inits so colors are correct
         // from the first frame.
