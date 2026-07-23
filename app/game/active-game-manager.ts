@@ -39,6 +39,11 @@ import { checkStarcraftPath } from './check-starcraft-path'
 import { MapStore } from './map-store'
 import { generateNetcodeV2KeyPair, NetcodeV2KeyPair } from './netcode-v2-keys'
 
+// Fixed local UDP port for the game's netcode endpoint (normally ephemeral). A dev aid: pinning a
+// known per-client port lets traffic-shaping tools that filter by port (e.g. clumsy) target a
+// single client when several run on one machine. Unset/invalid values leave the port ephemeral.
+const RALLY_POINT_PORT = Number(process.env.SB_RALLY_POINT_PORT ?? 0)
+
 // How long to wait for a `/game/debug/state` reply before giving up. A release DLL doesn't
 // recognize `debugControl` at all, so a query to one never gets a reply and always times out.
 const DEBUG_QUERY_TIMEOUT_MS = 5000
@@ -824,10 +829,17 @@ async function doLaunch(
   // The DLL writes its log to `<name>.<slot>.log`; tell it the SB_SESSION-namespaced base so
   // concurrent dev instances don't share a log file. Prod (no SB_SESSION) → plain `game`.
   const logNameArg = `-log-name=${gameLogBaseName()}`
+  const rallyPointPortArg =
+    Number.isInteger(RALLY_POINT_PORT) && RALLY_POINT_PORT > 0 && RALLY_POINT_PORT <= 0xffff
+      ? `-rally-point-port=${RALLY_POINT_PORT}`
+      : ''
+  if (rallyPointPortArg) {
+    log.debug(`Pinning the game's netcode UDP port to ${RALLY_POINT_PORT} (SB_RALLY_POINT_PORT)`)
+  }
   // NOTE(tec27): SC:R uses -launch as an argument to skip bnet launcher.
   const args =
     `"${appPath}" ${gameId} ${serverPort} "${userDataPath}" ` +
-    `-launch ${legacyCursorSizingArg} ${logNameArg}`
+    `-launch ${legacyCursorSizingArg} ${logNameArg} ${rallyPointPortArg}`
 
   // NOTE(tec27): We dynamically import this so that it doesn't crash the process on startup if
   // an antivirus decides to delete the native module

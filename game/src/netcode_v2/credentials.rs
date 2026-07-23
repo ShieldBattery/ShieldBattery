@@ -119,7 +119,28 @@ impl SessionCredentials {
 
 /// Builds a dialable QUIC client endpoint trusting `roots`. Must be called from within the Tokio
 /// runtime that will drive it (the game DLL's async thread).
+///
+/// Normally the endpoint binds an ephemeral local port. When the launcher pinned one
+/// ([`crate::rally_point_port_override`], a dev aid so port-filtering tools like clumsy can
+/// target a single client's traffic), that port is tried first; if it can't be bound — another
+/// client holds it, or a re-home builds its replacement endpoint while the pinned home endpoint
+/// is still alive — this falls back to an ephemeral bind (with a log line explaining the pinned
+/// port isn't in effect), so the knob can never keep a game from connecting.
 pub fn bind_endpoint(roots: RootCertStore) -> Result<ClientEndpoint, CredentialError> {
+    if let Some(port) = crate::rally_point_port_override() {
+        match ClientEndpoint::bind_on_port(roots.clone(), port) {
+            Ok(endpoint) => {
+                debug!("netcode v2 endpoint bound to pinned local UDP port {port}");
+                return Ok(endpoint);
+            }
+            Err(e) => {
+                warn!(
+                    "netcode v2 endpoint couldn't bind pinned local UDP port {port} ({e}); \
+                     falling back to an ephemeral port"
+                );
+            }
+        }
+    }
     ClientEndpoint::bind(roots).map_err(CredentialError::Endpoint)
 }
 

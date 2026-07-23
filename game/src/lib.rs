@@ -524,6 +524,10 @@ struct Args {
     /// `SB_SESSION`-namespaced value so concurrent dev instances don't share a log; defaults to
     /// `game` when the launcher doesn't specify one.
     log_name: String,
+    /// Fixed local UDP port for the netcode v2 endpoint, when the launcher passes one. A dev aid:
+    /// with several clients on one machine, a known per-client port lets traffic-shaping tools
+    /// that filter by port (e.g. clumsy) target a single client. `None` binds ephemerally.
+    rally_point_port: Option<u16>,
 }
 
 static ARGS: OnceLock<Args> = OnceLock::new();
@@ -546,6 +550,7 @@ fn try_parse_args() -> Option<Args> {
     let user_data_path = args.next()?.into();
     let mut use_legacy_cursor_sizing = false;
     let mut log_name = "game".to_owned();
+    let mut rally_point_port = None;
 
     for arg in args {
         let arg = arg.into_string().ok()?;
@@ -559,6 +564,11 @@ fn try_parse_args() -> Option<Args> {
             if !name.is_empty() {
                 log_name = name.to_owned();
             }
+        } else if let Some(value) = arg.strip_prefix("-rally-point-port=") {
+            // The launcher validates the value before passing it; anything unparseable (or 0,
+            // which would just be an ephemeral bind anyway) is ignored rather than failing the
+            // whole parse — logging isn't up yet, and a dev knob must not block a launch.
+            rally_point_port = value.parse::<u16>().ok().filter(|&port| port != 0);
         }
     }
 
@@ -568,5 +578,14 @@ fn try_parse_args() -> Option<Args> {
         user_data_path,
         use_legacy_cursor_sizing,
         log_name,
+        rally_point_port,
     })
+}
+
+/// The fixed local UDP port for the netcode v2 endpoint, if the launcher passed one (a dev aid
+/// for targeting one client's traffic with port-filtering tools like clumsy). Reads the launch
+/// args without initializing them, so callers that also run outside the injected game (unit
+/// tests) see `None` instead of a panicked arg parse.
+pub fn rally_point_port_override() -> Option<u16> {
+    ARGS.get().and_then(|args| args.rally_point_port)
 }
