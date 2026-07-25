@@ -79,7 +79,7 @@ export interface NetcodeV2Setup extends NetcodeV2ServerSetup {
 }
 
 /**
- * Request body the game process POSTs to `/api/1/games/:gameId/netcodeV2Rehome` when its home relay
+ * Request body the game process POSTs to `/api/1/games/:gameId/netcode-rehome` when its home relay
  * looks dead and it needs the server to re-home the session. Authenticated exactly like the results
  * and replay submissions: the caller proves it owns the slot by presenting the per-(game, user)
  * `resultCode` the server minted, so no separate credential is needed.

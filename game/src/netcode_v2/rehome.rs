@@ -4,7 +4,7 @@
 //! fail-closed pinned-cert trust refuses it forever — so a same-relay retry can never succeed. The
 //! `rally-point-client` driver escalates that case to this provider, which asks the **ShieldBattery
 //! server** (not the coordinator directly) to re-home the session: `POST
-//! /api/1/games/:gameId/netcodeV2Rehome`. The server is the only party that talks to the
+//! /api/1/games/:gameId/netcode-rehome`. The server is the only party that talks to the
 //! coordinator (tenant-signed, exactly as at session create); it verifies the request the same way
 //! the results/replay endpoints do — the caller proves it's the slot's owner by presenting the
 //! `resultCode` the server minted for this (game, user). The server does the coordinator round trip
@@ -52,7 +52,7 @@ pub struct RehomeContext {
     pub result_code: Option<String>,
 }
 
-/// The `POST /api/1/games/:gameId/netcodeV2Rehome` request body (JSON, camelCase). Mirrors the
+/// The `POST /api/1/games/:gameId/netcode-rehome` request body (JSON, camelCase). Mirrors the
 /// results/replay endpoints' `userId` + `resultCode` auth pair, plus the relay this client believes
 /// dead.
 #[derive(Serialize)]
@@ -63,7 +63,7 @@ struct RehomeRequest<'a> {
     dead_relay_id: u64,
 }
 
-/// The `POST /api/1/games/:gameId/netcodeV2Rehome` response body (JSON, camelCase). The server
+/// The `POST /api/1/games/:gameId/netcode-rehome` response body (JSON, camelCase). The server
 /// hands back the replacement relay as the very same [`NetcodeV2Relay`] descriptor shape the launch
 /// handoff carried for the home relay (`relayId`/`address4`/`address6`/`port`/`serverName`/`cert`),
 /// so a move reuses the home-relay credential path verbatim.
@@ -102,7 +102,7 @@ fn decision_from_response(resp: RehomeResponse) -> RehomeDecision {
 
 /// The SB-server-mediated [`RehomeProvider`] the driver calls when its home relay looks dead.
 pub(crate) struct ServerRehome {
-    /// `{server_url}/api/1/games/{game_id}/netcodeV2Rehome`, built once.
+    /// `{server_url}/api/1/games/{game_id}/netcode-rehome`, built once.
     url: String,
     user_id: u32,
     result_code: String,
@@ -246,7 +246,7 @@ pub(crate) fn build_provider(
 ) -> Option<Arc<dyn RehomeProvider>> {
     let result_code = context.result_code.clone()?;
     let url = format!(
-        "{}/api/1/games/{}/netcodeV2Rehome",
+        "{}/api/1/games/{}/netcode-rehome",
         context.server_url, context.game_id
     );
     Some(Arc::new(ServerRehome {

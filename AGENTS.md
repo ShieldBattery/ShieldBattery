@@ -211,6 +211,8 @@ export class ChatApi {
 
 **Common Middleware:** `ensureLoggedIn`, `checkAllPermissions()`, `throttleMiddleware()`, `handleMultipartFiles()`, `convertXxxErrors`
 
+**Path style:** URL path segments are dash-case, never camelCase — `@httpApi('/matchmaking-preferences')`, `@httpPost('/:gameId/netcode-rehome')`. This applies to WebSocket subscription paths too (`/matchmaking-preferences/:userId/:matchmakingType`). Path *params* (`:gameId`) and JSON body fields stay camelCase.
+
 ### WebSocket API
 
 ```typescript

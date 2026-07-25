@@ -166,7 +166,7 @@ export function updateChannelUserPreferences(
   spec: RequestHandlingSpec<void>,
 ) {
   return abortableThunk(spec, async () => {
-    return await fetchJson(apiUrl`chat/${channelId}/userPreferences`, {
+    return await fetchJson(apiUrl`chat/${channelId}/user-preferences`, {
       method: 'POST',
       body: encodeBodyAsParams<UpdateChannelUserPreferencesRequest>(preferences),
       signal: spec.signal,

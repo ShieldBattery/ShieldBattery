@@ -493,7 +493,7 @@ export class GameApi {
   // client authenticates by presenting the per-(game, user) resultCode the server minted, which is
   // secret to that user. The game client posts here when its home relay looks dead and it needs the
   // session re-homed; the server (not the client) does the tenant-signed coordinator round trip.
-  @httpPost('/:gameId/netcodeV2Rehome')
+  @httpPost('/:gameId/netcode-rehome')
   @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
   async netcodeV2Rehome(ctx: RouterContext): Promise<NetcodeV2RehomeResponse> {
     const {

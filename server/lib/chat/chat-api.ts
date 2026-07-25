@@ -314,7 +314,7 @@ export class ChatApi {
     return await this.chatService.getChannelUsers({ channelId, userId: ctx.session!.user.id })
   }
 
-  @httpPost('/:channelId/userPreferences')
+  @httpPost('/:channelId/user-preferences')
   @httpBefore(throttleMiddleware(userPreferencesThrottle, ctx => String(ctx.session!.user.id)))
   async updateChannelUserPreferences(ctx: RouterContext): Promise<void> {
     const {

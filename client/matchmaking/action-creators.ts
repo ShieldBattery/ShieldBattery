@@ -201,7 +201,7 @@ export function updateMatchmakingPreferences<M extends MatchmakingType>(
 ): ThunkAction {
   return (dispatch, getState) => {
     const promise = fetchJson<GetPreferencesResponse>(
-      apiUrl`matchmakingPreferences/${matchmakingType}`,
+      apiUrl`matchmaking-preferences/${matchmakingType}`,
       {
         method: 'POST',
         body: JSON.stringify(prefs),

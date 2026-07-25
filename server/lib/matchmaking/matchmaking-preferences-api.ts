@@ -17,7 +17,7 @@ import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import MatchmakingPreferencesService from './matchmaking-preferences-service'
 import { matchmakingPreferencesValidator } from './matchmaking-validators'
 
-@httpApi('/matchmakingPreferences')
+@httpApi('/matchmaking-preferences')
 @httpBeforeAll(ensureLoggedIn)
 export class MatchmakingPreferencesApi {
   constructor(private matchmakingPreferencesService: MatchmakingPreferencesService) {}

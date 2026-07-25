@@ -385,7 +385,7 @@ export class NetcodeV2Service {
 
   /**
    * Coalesces concurrent re-home asks for the same `(session, deadRelayId)`. Every game client
-   * independently POSTs `netcodeV2Rehome` when its shared home relay dies, so a single relay death
+   * independently POSTs `netcode-rehome` when its shared home relay dies, so a single relay death
    * fans in as N near-simultaneous asks for one session. Without coalescing they become N coordinator
    * round trips against a per-`(tenant, session)` rate-limit bucket, so a large game's tail survivors
    * get 429'd and dropped despite a healthy replacement. The first ask per key runs the coordinator
@@ -722,7 +722,7 @@ export class NetcodeV2Service {
    * at session create, so the game client receives the standard pinned-cert descriptor shape.
    *
    * This is a tenant-signed control-plane call (like `/session/create`); the game client never
-   * talks to the coordinator itself — it reaches this via the SB `netcodeV2Rehome` HTTP endpoint.
+   * talks to the coordinator itself — it reaches this via the SB `netcode-rehome` HTTP endpoint.
    *
    * @param gameId the game the session belongs to, for recording a `newTarget` decision in the
    *   game's relay-serving history. Passed by the caller (which already resolved it to look up the

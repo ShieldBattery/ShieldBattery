@@ -27,7 +27,7 @@ export function getMatchmakingPreferencesPath(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
 ): string {
-  return `/matchmakingPreferences/${userId}/${matchmakingType}`
+  return `/matchmaking-preferences/${userId}/${matchmakingType}`
 }
 
 /**

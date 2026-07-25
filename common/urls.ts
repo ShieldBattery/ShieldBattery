@@ -5,7 +5,7 @@
  *
  * Example:
  * ```ts
- * apiUrl`matchmakingPreferences/${matchmakingType}`
+ * apiUrl`matchmaking-preferences/${matchmakingType}`
  * ```
  */
 export function apiUrl(strings: TemplateStringsArray, ...values: unknown[]) {
