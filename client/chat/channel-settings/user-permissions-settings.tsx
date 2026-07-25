@@ -118,8 +118,8 @@ const StyledAvatar = styled(ConnectedAvatar)`
 
 const AvatarStaffBadge = styled(StaffBadge)`
   position: absolute;
+  top: -4px;
   right: -6px;
-  bottom: -4px;
 `
 
 const UserInfoContainer = styled.div`

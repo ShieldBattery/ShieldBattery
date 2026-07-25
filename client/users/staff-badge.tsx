@@ -19,25 +19,24 @@ const BadgeDisc = styled.div`
   /*
     The logo's shield body inherits currentColor (the global svg fill), so it must be set
     explicitly here: a light shield + the mark's own amber bolt on a saturated navy disc, like a
-    miniature app icon. The ring separates the disc from whatever the avatar shows behind it; its
-    color matches the low-container surface the avatar cards sit on — override it when placing the
-    badge on a different surface.
+    miniature app icon. The bright ring frames the coin against both the avatar behind it and the
+    surface the avatar sits on.
   */
   color: var(--color-blue99);
   background-color: var(--color-blue40);
-  border: 2px solid var(--theme-container-low);
+  border: 2px solid var(--color-amber60);
   border-radius: 50%;
 `
 
 const BadgeLogo = styled(Logo)`
-  width: 72%;
-  height: 72%;
+  width: 90%;
+  height: 90%;
 `
 
 /**
  * A small marker rendered over the corner of a user's avatar to show that the account speaks for
- * ShieldBattery. Position it (usually absolutely, overlapping the avatar's bottom-right corner)
- * via `className`.
+ * ShieldBattery. Position it (usually absolutely, overlapping the avatar's top-right corner —
+ * bottom-right is reserved for presence status) via `className`.
  */
 export function StaffBadge({ className }: { className?: string }) {
   const { t } = useTranslation()
