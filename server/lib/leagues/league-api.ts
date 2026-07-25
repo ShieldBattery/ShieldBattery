@@ -3,13 +3,24 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
+import {
+  ALL_GAME_FORMATS,
+  GameDurationFilter,
+  GameSortOption,
+  decodeMatchup,
+} from '../../../common/games/game-filters'
+import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
   AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
+  GET_LEAGUE_GAMES_LIMIT,
   GetLeagueByIdResponse,
+  GetLeagueGamesQueryParams,
+  GetLeagueGamesResponse,
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
@@ -25,6 +36,7 @@ import {
   toClientLeagueUserJson,
   toLeagueJson,
 } from '../../../common/leagues/leagues'
+import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
@@ -36,12 +48,17 @@ import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
+import { getGameListSideData } from '../games/game-list-data'
+import { getGamesForLeague } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import NotificationService from '../notifications/notification-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
+import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
@@ -96,10 +113,82 @@ function leagueIdFromUrl(ctx: RouterContext): LeagueId {
   }
 }
 
+const leagueGamesListThrottle = createThrottle('leaguegames', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
 @httpApi('/leagues/')
 @httpBeforeAll(convertLeagueApiErrors)
 export class LeagueApi {
-  constructor(private redis: Redis) {}
+  constructor(
+    private redis: Redis,
+    private replayService: ReplayService,
+  ) {}
+
+  @httpGet('/:leagueId/games')
+  @httpBefore(
+    throttleMiddleware(leagueGamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
+  )
+  async getLeagueGames(ctx: RouterContext): Promise<GetLeagueGamesResponse> {
+    const leagueId = leagueIdFromUrl(ctx)
+    const {
+      query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
+    } = validateRequest(ctx, {
+      query: Joi.object<GetLeagueGamesQueryParams>({
+        duration: Joi.string().valid(...Object.values(GameDurationFilter)),
+        mapName: Joi.string().max(100),
+        playerName: Joi.string().max(100),
+        format: Joi.string().valid(...ALL_GAME_FORMATS),
+        matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
+        sort: Joi.string().valid(...Object.values(GameSortOption)),
+        // This is a public endpoint, so we cap the offset to avoid forcing the DB to produce (and
+        // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
+        // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
+        offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
+        startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+        endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+      }),
+    })
+
+    const now = new Date()
+    const league = await getLeague(leagueId, now)
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
+
+    const games = await getGamesForLeague({
+      leagueId,
+      limit: GET_LEAGUE_GAMES_LIMIT,
+      offset: offset ?? 0,
+      duration,
+      mapName,
+      playerName,
+      format,
+      matchup: decodedMatchup,
+      sort,
+      startDate,
+      endDate,
+    })
+
+    const { users, maps, replays } = await getGameListSideData({
+      games,
+      currentUserId: ctx.session?.user?.id,
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
+
+    return {
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      hasMoreGames: games.length >= GET_LEAGUE_GAMES_LIMIT,
+      replays,
+    }
+  }
 
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<GetLeaguesListResponse> {

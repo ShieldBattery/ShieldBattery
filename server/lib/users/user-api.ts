@@ -87,6 +87,7 @@ import isDev from '../env/is-dev'
 import { deleteFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
+import { getGameListSideData } from '../games/game-list-data'
 import { getGamesForUser, getRecentGamesForUser } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
@@ -106,7 +107,6 @@ import { isElectronClient } from '../network/electron-clients'
 import { serverRsUrl } from '../network/server-rs-requests'
 import { checkAllPermissions, checkAnyPermission } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
-import { getReplayInfosForGames } from '../replays/replay-info'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { getJwt } from '../session/jwt-session-middleware'
@@ -745,30 +745,10 @@ export class UserApi {
       startDate,
       endDate,
     })
-    const uniqueUsers = new Set<SbUserId>()
-    const uniqueMaps = new Set<SbMapId>()
-    for (const g of games) {
-      uniqueMaps.add(g.mapId)
 
-      for (const team of g.config.teams) {
-        for (const player of team) {
-          if (!player.isComputer) {
-            uniqueUsers.add(player.id)
-          }
-        }
-      }
-    }
-    const [users, maps] = await Promise.all([
-      findUsersById(Array.from(uniqueUsers.values())),
-      getMapInfos(Array.from(uniqueMaps.values())),
-    ])
-
-    const currentUserId = ctx.session?.user?.id
-    const mapNameById = new Map(maps.map(m => [m.id, m.name]))
-    const replays = await getReplayInfosForGames({
+    const { users, maps, replays } = await getGameListSideData({
       games,
-      currentUserId,
-      mapNameById,
+      currentUserId: ctx.session?.user?.id,
       replayService: this.replayService,
       logger: ctx.log,
     })

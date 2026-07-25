@@ -10,6 +10,7 @@ import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { ReconciledResults } from '../../../common/games/results'
+import { LeagueId } from '../../../common/leagues/leagues'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -572,6 +573,166 @@ export async function getGamesForUser(
       SELECT g.*
       FROM games_users gu
       INNER JOIN games g ON gu.game_id = g.id
+    `
+
+    if (needMapJoin) {
+      query = query.append(sql`
+        INNER JOIN uploaded_maps m ON g.map_id = m.id
+      `)
+    }
+
+    query = query.append(sql`
+      WHERE ${sqlConcat(' AND ', whereClauses)}
+      ORDER BY ${orderBy}
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `)
+
+    const result = await client.query<DbGameRecord>(query)
+
+    return result.rows.map(row => convertFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Retrieves completed matchmaking games played in a particular league, for that league's Games
+ * tab. A game is considered part of a league if it produced a `league_user_changes` row for it
+ * (that is, at least one of its players was an active league member when the game reconciled).
+ */
+export async function getGamesForLeague(
+  params: {
+    leagueId: LeagueId
+    limit: number
+    offset: number
+    duration?: GameDurationFilter
+    mapName?: string
+    playerName?: string
+    format?: GameFormat
+    matchup?: MatchupFilter
+    sort?: GameSortOption
+    startDate?: number
+    endDate?: number
+  },
+  withClient?: DbClient,
+): Promise<GameRecord[]> {
+  const {
+    leagueId,
+    limit,
+    offset,
+    duration,
+    mapName,
+    playerName,
+    format,
+    matchup,
+    sort,
+    startDate,
+    endDate,
+  } = params
+
+  const { client, done } = await db(withClient)
+  try {
+    const whereClauses = [
+      sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`,
+      sql`g.results IS NOT NULL`,
+      // Matchmaking never has computer players, so this can't currently exclude anything — kept
+      // for consistency/defense in depth with the other games-list surfaces.
+      sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
+      sql`EXISTS (
+        SELECT 1 FROM league_user_changes luc
+        WHERE luc.league_id = ${leagueId} AND luc.game_id = g.id
+      )`,
+    ]
+    let needMapJoin = false
+
+    if (duration && duration !== GameDurationFilter.All) {
+      switch (duration) {
+        case GameDurationFilter.Under10:
+          whereClauses.push(sql`g.game_length < 600000`)
+          break
+        case GameDurationFilter.From10To20:
+          whereClauses.push(sql`g.game_length >= 600000 AND g.game_length < 1200000`)
+          break
+        case GameDurationFilter.From20To30:
+          whereClauses.push(sql`g.game_length >= 1200000 AND g.game_length < 1800000`)
+          break
+        case GameDurationFilter.Over30:
+          whereClauses.push(sql`g.game_length >= 1800000`)
+          break
+        default:
+          duration satisfies never
+      }
+    }
+
+    if (mapName) {
+      needMapJoin = true
+      whereClauses.push(sql`m.name ILIKE ${'%' + escapeSearchString(mapName) + '%'}`)
+    }
+
+    if (playerName) {
+      whereClauses.push(sql`
+        EXISTS (
+          SELECT 1 FROM games_users gu2
+          INNER JOIN users u ON gu2.user_id = u.id
+          WHERE gu2.game_id = g.id
+          AND u.name ILIKE ${'%' + escapeSearchString(playerName) + '%'}
+        )
+      `)
+    }
+
+    if (format) {
+      const teamSize = getTeamSizeForFormat(format)
+      whereClauses.push(sql`
+        g.selected_matchup ~ ${`^[prtz]{${teamSize}}-[prtz]{${teamSize}}$`}
+      `)
+    }
+
+    if (format && matchup) {
+      const hasNonUndefinedRace = [...matchup.team1, ...matchup.team2].some(r => r !== undefined)
+
+      if (hasNonUndefinedRace) {
+        const matchupStrings = expandMatchupFilter(matchup)
+        whereClauses.push(sql`g.assigned_matchup = ANY(${matchupStrings})`)
+      }
+    }
+
+    if (startDate !== undefined) {
+      whereClauses.push(sql`g.start_time >= ${new Date(startDate)}`)
+    }
+
+    if (endDate !== undefined) {
+      whereClauses.push(sql`g.start_time <= ${new Date(endDate)}`)
+    }
+
+    // NOTE(2Pac): All of these include `g.id` as a final tiebreaker so the ordering is fully
+    // deterministic. Without it, rows that tie on the leading column (e.g. games that share a
+    // start_time) can be duplicated or skipped across paginated requests. This is especially
+    // relevant here since this list is a moving window (games complete continuously), so pages are
+    // loaded at different points in time.
+    let orderBy = sqlRaw('g.start_time DESC, g.id DESC')
+    if (sort) {
+      switch (sort) {
+        case GameSortOption.LatestFirst:
+          orderBy = sqlRaw('g.start_time DESC, g.id DESC')
+          break
+        case GameSortOption.OldestFirst:
+          orderBy = sqlRaw('g.start_time ASC, g.id ASC')
+          break
+        case GameSortOption.ShortestFirst:
+          orderBy = sqlRaw('g.game_length ASC NULLS LAST, g.start_time DESC, g.id DESC')
+          break
+        case GameSortOption.LongestFirst:
+          orderBy = sqlRaw('g.game_length DESC NULLS LAST, g.start_time DESC, g.id DESC')
+          break
+        default:
+          sort satisfies never
+      }
+    }
+
+    let query = sql`
+      SELECT g.*
+      FROM games g
     `
 
     if (needMapJoin) {

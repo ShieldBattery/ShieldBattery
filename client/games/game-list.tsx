@@ -2,14 +2,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import {
-  ALL_GAME_FORMATS,
-  EncodedMatchupString,
-  GameDurationFilter,
-  GameFormat,
-  GameSortOption,
-  makeEncodedMatchupString,
-} from '../../common/games/game-filters'
+import { GameDurationFilter, GameSortOption } from '../../common/games/game-filters'
 import { useContextMenu } from '../dom/use-context-menu'
 import { FragmentType, graphql, useFragment } from '../gql'
 import { useKeyListener } from '../keyboard/key-listener'
@@ -26,35 +19,11 @@ import { getGames, navigateToGameResults } from './action-creators'
 import { renderGamesWithDayHeaders, resolveDateRangeMs } from './day-header'
 import { GameContextMenuContent } from './game-context-menu'
 import { GameFilterBar } from './game-filter-bar'
+import { isDateSort, parseDuration, parseFormat, parseMatchup, parseSort } from './game-filter-url'
 import { GameListEntry } from './game-list-entry'
 import { GameRecordSidePanel } from './game-record-side-panel'
 import { LiveGameEntry, LiveGames_FeedFragment } from './live-game-entry'
 import { GameListSearchPage, useGameListSearch } from './use-game-list-search'
-
-function parseDuration(value: string): GameDurationFilter {
-  return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
-    ? (value as GameDurationFilter)
-    : GameDurationFilter.All
-}
-
-function parseSort(value: string): GameSortOption {
-  return Object.values(GameSortOption).includes(value as GameSortOption)
-    ? (value as GameSortOption)
-    : GameSortOption.LatestFirst
-}
-
-function parseFormat(value: string): GameFormat | undefined {
-  return ALL_GAME_FORMATS.includes(value as GameFormat) ? (value as GameFormat) : undefined
-}
-
-function parseMatchup(value: string): EncodedMatchupString | undefined {
-  return value ? makeEncodedMatchupString(value) : undefined
-}
-
-/** A date-based sort groups games by calendar day; the duration sorts render as a flat list. */
-function isDateSort(sort: GameSortOption): boolean {
-  return sort === GameSortOption.LatestFirst || sort === GameSortOption.OldestFirst
-}
 
 // ---- Layout ----------------------------------------------------------------------------------
 
@@ -146,7 +115,7 @@ export function GameList() {
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
-  const matchup = parseMatchup(matchupParam)
+  const matchup = parseMatchup(matchupParam, format)
 
   const [selectedId, setSelectedId] = useState<string>()
   const rowElemsRef = useRef(new Map<string, HTMLDivElement>())

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { GameDurationFilter, GameSortOption } from '../../common/games/game-filters'
-import { SbUserId } from '../../common/users/sb-user-id'
+import { LeagueId } from '../../common/leagues/leagues'
 import { useContextMenu } from '../dom/use-context-menu'
 import { navigateToGameResults } from '../games/action-creators'
 import { renderGamesWithDayHeaders, resolveDateRangeMs } from '../games/day-header'
@@ -25,7 +25,7 @@ import { useLocationSearchParam } from '../navigation/router-hooks'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
-import { getMatchHistory } from './action-creators'
+import { getLeagueGames } from './action-creators'
 
 const NoResults = styled.div`
   ${bodyLarge};
@@ -39,7 +39,7 @@ const ErrorText = styled.div`
   color: var(--theme-error);
 `
 
-const MatchHistoryContainer = styled.div`
+const LeagueGamesContainer = styled.div`
   width: 100%;
   padding: 0 24px;
 
@@ -59,12 +59,15 @@ const ListColumn = styled.div`
   min-width: 0;
 `
 
-export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
+/**
+ * The "Games" tab of a league's details page: a paginated, filterable list of games played in
+ * that league, backed by the shared games-list UI (the same one the games page and match history
+ * use).
+ */
+export function LeagueGames({ leagueId }: { leagueId: LeagueId }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
-  const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
-  const [customParam, setCustomParam] = useLocationSearchParam('custom')
   const [durationParam, setDurationParam] = useLocationSearchParam('duration')
   const [sortParam, setSortParam] = useLocationSearchParam('sort')
   const [mapName, setMapNameParam] = useLocationSearchParam('mapName')
@@ -74,8 +77,6 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const [startDateParam, setStartDateParam] = useLocationSearchParam('startDate')
   const [endDateParam, setEndDateParam] = useLocationSearchParam('endDate')
 
-  const ranked = rankedParam === 'true'
-  const custom = customParam === 'true'
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
@@ -84,8 +85,8 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const [selectedId, setSelectedId] = useState<string>()
   const rowElemsRef = useRef(new Map<string, HTMLDivElement>())
 
-  // Remembered per-user, shared with the replay library and games page: hides the game length and
-  // match result (both spoilers) from the list rows.
+  // Remembered per-user, shared with the replay library, games page, and match history: hides the
+  // game length and match result (both spoilers) from the list rows.
   const [spoilerFree, setSpoilerFree] = useUserLocalStorageValue('gamesSpoilerFree', false)
 
   const { onContextMenu, contextMenuPopoverProps } = useContextMenu()
@@ -94,11 +95,9 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
     const { startMs, endMs } = resolveDateRangeMs(startDateParam, endDateParam)
     return new Promise((resolve, reject) => {
       dispatch(
-        getMatchHistory(
-          userId,
+        getLeagueGames(
+          leagueId,
           {
-            ranked: ranked || undefined,
-            custom: custom || undefined,
             duration: duration === GameDurationFilter.All ? undefined : duration,
             sort: sort === GameSortOption.LatestFirst ? undefined : sort,
             mapName: mapName || undefined,
@@ -143,7 +142,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   useKeyListener({
     onKeyDown: (event: KeyboardEvent) => {
-      // Every key here acts on the match history list, but this page's key listener boundary is
+      // Every key here acts on the league's games list, but this page's key listener boundary is
       // shared with other UI (e.g. the social sidebar's chat input, whose keydowns bubble to the
       // document). While a text-entry element has focus, the keystroke belongs to it instead.
       const target = event.target
@@ -197,16 +196,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   const filterBar = (
     <GameFilterBar
-      ranked={ranked}
-      setRanked={v => {
-        setRankedParam(v ? 'true' : '')
-        reset()
-      }}
-      custom={custom}
-      setCustom={v => {
-        setCustomParam(v ? 'true' : '')
-        reset()
-      }}
+      showRankedCustom={false}
       duration={duration}
       setDuration={v => {
         setDurationParam(v === GameDurationFilter.All ? '' : v)
@@ -257,26 +247,26 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
 
   // A page load that's returned at least once with nothing left to fetch is a confirmed empty
   // result; until then (including the very first, still in-flight page) we render the list shell so
-  // its own loading indicator can show, matching how this page behaved before it was rewired onto
-  // `useGameListSearch`.
+  // its own loading indicator can show, matching how the games page and match history behave.
   const confirmedEmpty = !hasMoreGames && games.length === 0
 
   let listBody: React.ReactNode
   if (searchError) {
     listBody = (
       <ErrorText>
-        {t('user.matchHistory.retrievingError', 'There was an error retrieving the match history.')}
+        {t('leagues.leagueGames.retrievingError', 'There was an error retrieving the games.')}
       </ErrorText>
     )
   } else if (confirmedEmpty) {
-    listBody = <NoResults>{t('user.matchHistory.noMatchingGames', 'No matching games.')}</NoResults>
+    listBody = (
+      <NoResults>{t('leagues.leagueGames.noMatchingGames', 'No matching games.')}</NoResults>
+    )
   } else {
     const gameItems = renderGamesWithDayHeaders(games, sort, t, game => (
       <GameListEntry
         key={game.id}
         game={game}
-        showResult={true}
-        forUserId={userId}
+        showResult={false}
         spoilerFree={spoilerFree}
         selected={game.id === selectedGame?.id}
         onClick={setSelectedId}
@@ -312,7 +302,7 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   const showPanel = !confirmedEmpty && !searchError
 
   return (
-    <MatchHistoryContainer>
+    <LeagueGamesContainer>
       {filterBar}
 
       <BodyRow>
@@ -321,7 +311,6 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
         {showPanel ? (
           <GameRecordSidePanel
             game={selectedGame}
-            forUserId={userId}
             alignWithFirstRow={sortIsDateBased}
             onViewResults={gameId => navigateToGameResults(gameId)}
           />
@@ -336,6 +325,6 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
           />
         </Popover>
       ) : null}
-    </MatchHistoryContainer>
+    </LeagueGamesContainer>
   )
 }

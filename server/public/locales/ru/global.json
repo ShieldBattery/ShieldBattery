@@ -814,6 +814,7 @@
       "banUser": "Забанить {{name}}",
       "copyLink": "Скопировать ссылку на лигу",
       "dateText": "{{startDate}} - {{endDate}}",
+      "games": "Игры",
       "goBack": "Вернуться к списку",
       "info": "Информация",
       "joined": "Присоединился",
@@ -839,6 +840,10 @@
       "userBannedSuccess": "Пользователь забанен",
       "userUnbannedError": "Ошибка при разбане пользователя",
       "userUnbannedSuccess": "Пользователь разбанен"
+    },
+    "leagueGames": {
+      "noMatchingGames": "Нет подходящих игр.",
+      "retrievingError": "Произошла ошибка при получении игр."
     },
     "list": {
       "acceptingSignups": "Открыта регистрация",

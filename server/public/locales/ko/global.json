@@ -805,6 +805,7 @@
       "banUser": "{{name}} 차단",
       "copyLink": "리그 링크 복사",
       "dateText": "{{startDate}}에서 {{endDate}}로",
+      "games": "경기 기록",
       "goBack": "목록으로 돌아가",
       "info": "정보",
       "joined": "참가 중",
@@ -830,6 +831,10 @@
       "userBannedSuccess": "사용자를 차단했습니다",
       "userUnbannedError": "사용자 차단 해제 중 오류가 발생했습니다",
       "userUnbannedSuccess": "사용자 차단을 해제했습니다"
+    },
+    "leagueGames": {
+      "noMatchingGames": "일치하는 게임이 없습니다.",
+      "retrievingError": "게임을 불러오는 중 오류가 발생했습니다."
     },
     "list": {
       "acceptingSignups": "참가 신청 접수 중",

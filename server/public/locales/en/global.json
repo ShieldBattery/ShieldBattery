@@ -828,6 +828,7 @@
       "banUser": "Ban {{name}}",
       "copyLink": "Copy link to league",
       "dateText": "{{startDate}} to {{endDate}}",
+      "games": "Games",
       "goBack": "Go back to list",
       "info": "Info",
       "joined": "Joined",
@@ -853,6 +854,10 @@
       "userBannedSuccess": "User banned",
       "userUnbannedError": "Error unbanning user",
       "userUnbannedSuccess": "User unbanned"
+    },
+    "leagueGames": {
+      "noMatchingGames": "No matching games.",
+      "retrievingError": "There was an error retrieving the games."
     },
     "list": {
       "acceptingSignups": "Accepting signups",

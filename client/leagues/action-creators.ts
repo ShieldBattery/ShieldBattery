@@ -6,6 +6,8 @@ import {
   AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
   GetLeagueByIdResponse,
+  GetLeagueGamesQueryParams,
+  GetLeagueGamesResponse,
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
@@ -107,6 +109,35 @@ export function getLeagueLeaderboard(
 
     dispatch({
       type: '@leagues/getLeaderboard',
+      payload: result,
+    })
+
+    return result
+  })
+}
+
+export function getLeagueGames(
+  id: LeagueId,
+  params: GetLeagueGamesQueryParams,
+  spec: RequestHandlingSpec<GetLeagueGamesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') {
+        queryParams.set(key, String(value))
+      }
+    }
+
+    const result = await fetchJson<GetLeagueGamesResponse>(
+      apiUrl`leagues/${id}/games?${queryParams}`,
+      {
+        signal: spec.signal,
+      },
+    )
+
+    dispatch({
+      type: '@leagues/getLeagueGames',
       payload: result,
     })
 

@@ -192,6 +192,18 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@leagues/getLeagueGames'](state, action) {
+    const {
+      payload: { maps },
+      system: { monotonicTime },
+    } = action
+
+    for (const map of maps) {
+      state.byId.set(map.id, map)
+      state.lastRetrieved.set(map.id, monotonicTime)
+    }
+  },
+
   [LOBBY_PREFERENCES_GET as any](state: MapsState, action: any) {
     if (action.error) {
       return
