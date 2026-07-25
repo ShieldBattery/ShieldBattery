@@ -4,6 +4,7 @@ import Joi from 'joi'
 import Koa, { ExtendableContext, Next } from 'koa'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
+  CHANNEL_BANS_LIMIT,
   CHANNEL_USER_PERMISSIONS_LIMIT,
   ChannelPermissions,
   ChatServiceErrorCode,
@@ -16,6 +17,7 @@ import {
   GetChatUserProfileResponse,
   InitialChannelData,
   JoinChannelResponse,
+  ListChannelBansResponse,
   ListUserChannelEntriesResponse,
   ModerateChannelUserServerRequest,
   SEARCH_CHANNELS_LIMIT,
@@ -129,6 +131,15 @@ const userPreferencesThrottle = createThrottle('chatuserpreferences', {
   window: 60000,
 })
 
+// Listing channel bans is driven by a debounced search box, so it needs a higher limit than the
+// moderation actions themselves to avoid active searching throttle-blocking unbans (similar to
+// `userChannelEntriesThrottle`).
+const channelBansThrottle = createThrottle('chatchannelbans', {
+  rate: 40,
+  burst: 120,
+  window: 60000,
+})
+
 const joiSerialId = () => Joi.number().min(1)
 const channelNameSchema = () => Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN)
 
@@ -181,6 +192,12 @@ const userChannelEntriesQuerySchema = () =>
     offset: Joi.number().min(0),
   })
 
+const channelBansQuerySchema = () =>
+  Joi.object<{ q?: string; offset: number }>({
+    q: Joi.string().allow(''),
+    offset: Joi.number().min(0),
+  })
+
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
     throw err
@@ -189,6 +206,7 @@ function convertChatServiceError(err: unknown) {
   switch (err.code) {
     case ChatServiceErrorCode.ChannelNotFound:
     case ChatServiceErrorCode.NotInChannel:
+    case ChatServiceErrorCode.TargetNotBanned:
     case ChatServiceErrorCode.TargetNotInChannel:
     case ChatServiceErrorCode.UserOffline:
     case ChatServiceErrorCode.UserNotFound:
@@ -467,6 +485,46 @@ export class ChatApi {
       offset,
       searchStr: searchQuery,
     })
+  }
+
+  @httpGet('/:channelId/bans')
+  @httpBefore(throttleMiddleware(channelBansThrottle, ctx => String(ctx.session!.user.id)))
+  async listChannelBans(ctx: RouterContext): Promise<ListChannelBansResponse> {
+    const {
+      params: { channelId },
+      query: { q: searchQuery, offset },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      query: channelBansQuerySchema(),
+    })
+
+    return await this.chatService.listChannelBans({
+      channelId,
+      userId: ctx.session!.user.id,
+      isServerModerator: isServerModerator(ctx),
+      limit: CHANNEL_BANS_LIMIT,
+      offset,
+      searchStr: searchQuery,
+    })
+  }
+
+  @httpDelete('/:channelId/bans/:targetId')
+  @httpBefore(throttleMiddleware(kickBanThrottle, ctx => String(ctx.session!.user.id)))
+  async unbanUser(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, targetId },
+    } = validateRequest(ctx, {
+      params: channelUserParamsSchema(),
+    })
+
+    await this.chatService.unbanUser({
+      channelId,
+      userId: ctx.session!.user.id,
+      targetId,
+      isServerModerator: isServerModerator(ctx),
+    })
+
+    ctx.status = 204
   }
 
   @httpPost('/:channelId/users/:targetId/permissions')

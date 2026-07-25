@@ -18,6 +18,7 @@ export enum DialogType {
   ChannelKickUserConfirmation = 'channelKickUserConfirmation',
   ChannelLeaveConfirmation = 'channelLeaveConfirmation',
   ChannelTransferOwnership = 'channelTransferOwnership',
+  ChannelUnbanUser = 'channelUnbanUser',
   ChannelUserPermissions = 'channelUserPermissions',
   CreatePlaylist = 'createPlaylist',
   DeletePlaylist = 'deletePlaylist',
@@ -117,6 +118,17 @@ type ChannelTransferOwnershipDialogPayload = BaseDialogPayload<
     channelName?: string
     /** Called once the ownership has been transferred successfully. */
     onSuccess?: () => void
+  }
+>
+type ChannelUnbanUserDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelUnbanUser,
+  {
+    channelId: SbChannelId
+    userId: SbUserId
+    /** The name of the channel, used to make it clear which channel the user is being unbanned from. */
+    channelName: string
+    /** Called once the user has been unbanned successfully. */
+    onSuccess: () => void
   }
 >
 type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
@@ -258,6 +270,7 @@ export type DialogPayload =
   | ChannelKickUserConfirmationDialogPayload
   | ChannelLeaveConfirmationDialogPayload
   | ChannelTransferOwnershipDialogPayload
+  | ChannelUnbanUserDialogPayload
   | CreatePlaylistDialogPayload
   | DeletePlaylistDialogPayload
   | DownloadDialogPayload

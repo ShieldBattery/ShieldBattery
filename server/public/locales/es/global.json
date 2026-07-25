@@ -275,6 +275,15 @@
       "deletedChannel": "canal-borrado"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "Automático",
+        "bannedDate": "Baneado el {{date}}",
+        "loadError": "No se pudieron cargar los usuarios baneados.",
+        "noBans": "Nadie está baneado de este canal",
+        "noSearchResults": "Ningún usuario baneado coincide con tu búsqueda",
+        "title": "Usuarios baneados",
+        "unban": "Desbanear"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de la insignia es {{fileSize}}.",
         "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo del banner es {{fileSize}}.",
@@ -310,6 +319,7 @@
         "transferOwnership": "Transferir la propiedad"
       },
       "tabs": {
+        "bannedUsers": "Usuarios baneados",
         "general": "General",
         "permissions": "Permisos"
       },
@@ -382,6 +392,13 @@
       "dialogTitle": "¿Transferir la propiedad?",
       "errorMessage": "Algo salió mal al transferir la propiedad a {{user}}",
       "successMessage": "{{user}} ahora es el dueño del canal"
+    },
+    "unbanUser": {
+      "action": "Desbanear",
+      "body": "¿Desbanear a {{user}} de #{{channelName}}? Podrá volver a entrar al canal.",
+      "errorMessage": "Algo salió mal al desbanear a {{user}}",
+      "successMessage": "{{user}} fue desbaneado",
+      "title": "¿Desbanear usuario?"
     },
     "userList": {
       "active": "Activo",

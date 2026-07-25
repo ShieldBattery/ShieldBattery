@@ -273,6 +273,15 @@
       "deletedChannel": "被删除的频道"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "自动封禁",
+        "bannedDate": "封禁于 {{date}}",
+        "loadError": "加载被封禁用户失败。",
+        "noBans": "此频道中没有被封禁的用户",
+        "noSearchResults": "没有符合搜索条件的被封禁用户",
+        "title": "封禁名单",
+        "unban": "解封"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "徽章文件的最大大小为 {{fileSize}}。",
         "bannerMaxFileSizeErrorMessage": "横幅文件的最大大小为 {{fileSize}}。",
@@ -308,6 +317,7 @@
         "transferOwnership": "转让所有权"
       },
       "tabs": {
+        "bannedUsers": "封禁名单",
         "general": "常规",
         "permissions": "权限"
       },
@@ -380,6 +390,13 @@
       "dialogTitle": "转让所有权？",
       "errorMessage": "将所有权转让给 {{user}} 时出现问题",
       "successMessage": "{{user}} 现在是频道所有者"
+    },
+    "unbanUser": {
+      "action": "解封",
+      "body": "确定要在 #{{channelName}} 中解封 {{user}} 吗？解封后对方可以重新加入频道。",
+      "errorMessage": "解封 {{user}} 时出现问题",
+      "successMessage": "{{user}} 已被解封",
+      "title": "解封用户？"
     },
     "userList": {
       "active": "活跃用户",

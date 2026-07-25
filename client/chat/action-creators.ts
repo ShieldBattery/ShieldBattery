@@ -11,6 +11,7 @@ import {
   GetChatUserProfileResponse,
   InitialChannelData,
   JoinChannelResponse,
+  ListChannelBansResponse,
   ListUserChannelEntriesResponse,
   ModerateChannelUserServerRequest,
   SbChannelId,
@@ -542,6 +543,52 @@ export function updateChannelUserPermissions(
     await fetchJson<void>(apiUrl`chat/${channelId}/users/${targetId}/permissions`, {
       method: 'POST',
       body: JSON.stringify({ permissions } satisfies UpdateChannelUserPermissionsRequest),
+      signal: spec.signal,
+    })
+  })
+}
+
+/**
+ * Lists the active bans in a chat channel.
+ */
+export function listChannelBans(
+  channelId: SbChannelId,
+  searchQuery: string,
+  offset: number,
+  spec: RequestHandlingSpec<ListChannelBansResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = new URLSearchParams()
+    if (searchQuery) {
+      queryParams.set('q', searchQuery)
+    }
+    queryParams.set('offset', offset.toString())
+
+    const result = await fetchJson<ListChannelBansResponse>(
+      apiUrl`chat/${channelId}/bans?${queryParams}`,
+      { signal: spec.signal },
+    )
+
+    dispatch({
+      type: '@users/loadUsers',
+      payload: result.users,
+    })
+
+    return result
+  })
+}
+
+/**
+ * Lifts an active ban on a user in a chat channel.
+ */
+export function unbanUser(
+  channelId: SbChannelId,
+  targetId: SbUserId,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/bans/${targetId}`, {
+      method: 'DELETE',
       signal: spec.signal,
     })
   })

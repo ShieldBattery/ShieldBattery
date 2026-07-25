@@ -25,6 +25,7 @@ import {
   InitialChannelData,
   JoinChannelResponse,
   JoinedChannelInfo,
+  ListChannelBansResponse,
   ListUserChannelEntriesResponse,
   SbChannelId,
   SearchChannelsResponse,
@@ -32,6 +33,7 @@ import {
   ServerChatMessageType,
   UserChannelEntry,
   makeSbChannelId,
+  toChannelBanEntryJson,
   toChatUserProfileJson,
   toUserChannelEntryJson,
 } from '../../../common/chat'
@@ -68,6 +70,7 @@ import {
   createChannel,
   deleteChannelMessage,
   findChannelByName,
+  getChannelBans,
   getChannelInfo,
   getChannelInfos,
   getChannelsForUser,
@@ -77,12 +80,14 @@ import {
   getUserChannelEntryForUser,
   getUsersForChannel,
   isUserBannedFromChannel,
+  removeBannedIdentifiersFromChannel,
   removeUserFromChannel,
   searchChannels,
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
   transferChannelOwnership,
+  unbanUserFromChannel,
   updateChannel,
   updateUserPermissions,
   updateUserPreferences,
@@ -1181,6 +1186,122 @@ export default class ChatService {
       hasMoreUsers: userChannelEntries.length >= limit,
       users,
     }
+  }
+
+  async listChannelBans({
+    channelId,
+    userId,
+    isServerModerator,
+    limit,
+    offset,
+    searchStr,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    isServerModerator: boolean
+    limit: number
+    offset: number
+    searchStr?: string
+  }): Promise<ListChannelBansResponse> {
+    const [channelInfo, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
+    // Server moderators wield the channel owner's authority in every channel, which includes not
+    // needing to be a member of it.
+    if (!isServerModerator && !userChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        'Must be in channel to view channel bans',
+      )
+    }
+
+    // Unlike `listUserChannelEntries`, holders of the `ban` permission (not just
+    // `editPermissions`) can also view the ban list, since they're the ones who manage bans.
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (
+      !isServerModerator &&
+      !isUserChannelOwner &&
+      !userChannelEntry?.channelPermissions.ban &&
+      !userChannelEntry?.channelPermissions.editPermissions
+    ) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "You don't have enough permissions to view channel bans",
+      )
+    }
+
+    const bans = await getChannelBans({ channelId, limit, offset, searchStr })
+
+    const bannedByIds = bans.map(b => b.bannedBy).filter((id): id is SbUserId => id !== undefined)
+    const userIds = Array.from(new global.Set([...bans.map(b => b.userId), ...bannedByIds]))
+    const users = await findUsersById(userIds)
+
+    return {
+      channelId,
+      bans: bans.map(b => toChannelBanEntryJson(b)),
+      hasMoreBans: bans.length >= limit,
+      users,
+    }
+  }
+
+  async unbanUser({
+    channelId,
+    userId,
+    targetId,
+    isServerModerator,
+  }: {
+    channelId: SbChannelId
+    userId: SbUserId
+    targetId: SbUserId
+    isServerModerator: boolean
+  }): Promise<void> {
+    const [channelInfo, userChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(userId, channelId),
+    ])
+
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+
+    // Server moderators wield the channel owner's authority in every channel, which includes not
+    // needing to be a member of it.
+    if (!isServerModerator && !userChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotInChannel,
+        'Must be in channel to unban users',
+      )
+    }
+
+    // Banned users hold no channel permissions and aren't members, so there's no target hierarchy
+    // to check here (unlike `moderateUser`/`updateUserPermissions`).
+    const isUserChannelOwner = channelInfo.ownerId === userId
+    if (
+      !isServerModerator &&
+      !isUserChannelOwner &&
+      !userChannelEntry?.channelPermissions.ban &&
+      !userChannelEntry?.channelPermissions.editPermissions
+    ) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        "You don't have enough permissions to unban users",
+      )
+    }
+
+    await transact(async client => {
+      const wasBanned = await unbanUserFromChannel({ channelId, targetId }, client)
+      if (!wasBanned) {
+        throw new ChatServiceError(ChatServiceErrorCode.TargetNotBanned, 'User is not banned')
+      }
+
+      await removeBannedIdentifiersFromChannel({ channelId, targetId }, client)
+    })
   }
 
   async updateUserPreferences(

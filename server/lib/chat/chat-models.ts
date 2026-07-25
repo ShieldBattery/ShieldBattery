@@ -2,6 +2,7 @@ import { MergeExclusive } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   BasicChannelInfo,
+  ChannelBanEntry,
   ChannelPermissions,
   ChannelPreferences,
   DetailedChannelInfo,
@@ -792,6 +793,130 @@ export async function isUserBannedFromChannel(
       WHERE user_id = ${userId} AND channel_id = ${channelId};
     `)
     return !!result.rows.length
+  } finally {
+    done()
+  }
+}
+
+type DbChannelBanEntry = Dbify<ChannelBanEntry>
+
+function convertChannelBanEntryFromDb(props: DbChannelBanEntry): ChannelBanEntry {
+  return {
+    userId: props.user_id,
+    channelId: props.channel_id,
+    banTime: props.ban_time,
+    bannedBy: props.banned_by ?? undefined,
+    reason: props.reason ?? undefined,
+    automated: props.automated,
+  }
+}
+
+/**
+ * Gets a list of active bans for a particular channel, optionally filtered by a search string
+ * matched against the banned user's name. The list is ordered by ban time, most recent first, with
+ * user ID as a stable tiebreaker so paginated results don't shift.
+ */
+export async function getChannelBans(
+  {
+    channelId,
+    searchStr,
+    limit,
+    offset,
+  }: {
+    channelId: SbChannelId
+    searchStr?: string
+    limit: number
+    offset: number
+  },
+  withClient?: DbClient,
+): Promise<ChannelBanEntry[]> {
+  const { client, done } = await db(withClient)
+  try {
+    let query = sql`
+      SELECT cb.*
+      FROM channel_bans cb
+      INNER JOIN users u ON cb.user_id = u.id
+      WHERE cb.channel_id = ${channelId}
+    `
+
+    if (searchStr) {
+      query = query.append(sql` AND u.name ILIKE ${`%${escapeSearchString(searchStr)}%`}`)
+    }
+
+    query = query.append(sql`
+      ORDER BY cb.ban_time DESC, cb.user_id ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `)
+
+    const result = await client.query<DbChannelBanEntry>(query)
+
+    return result.rows.map(row => convertChannelBanEntryFromDb(row))
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Removes an active ban for a user in a particular channel, if one exists. Returns whether a ban
+ * was actually removed.
+ */
+export async function unbanUserFromChannel(
+  {
+    channelId,
+    targetId,
+  }: {
+    channelId: SbChannelId
+    targetId: SbUserId
+  },
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      DELETE FROM channel_bans
+      WHERE channel_id = ${channelId} AND user_id = ${targetId};
+    `)
+    return !!result.rowCount
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Removes any identifier bans recorded in a channel that match the target user's current
+ * identifiers, either because the user themselves was the one originally banned by identifier, or
+ * because one of their current identifiers matches a hash that was banned for someone else.
+ *
+ * Ban evasion detection re-bans a joining user whenever their current identifiers match ones
+ * previously banned in the channel (see `banUserFromChannelIfNeeded`/
+ * `countBannedIdentifiersForChannel`). Without clearing the matching identifier bans here, an
+ * unbanned user would be immediately re-banned by that check the next time they try to join.
+ */
+export async function removeBannedIdentifiersFromChannel(
+  {
+    channelId,
+    targetId,
+  }: {
+    channelId: SbChannelId
+    targetId: SbUserId
+  },
+  withClient?: DbClient,
+): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      DELETE FROM channel_identifier_bans
+      WHERE channel_id = ${channelId}
+      AND (
+        first_user_id = ${targetId}
+        OR (identifier_type, identifier_hash) IN (
+          SELECT identifier_type, identifier_hash
+          FROM user_identifiers
+          WHERE user_id = ${targetId}
+        )
+      );
+    `)
   } finally {
     done()
   }

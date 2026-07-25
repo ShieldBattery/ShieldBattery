@@ -274,6 +274,15 @@
       "deletedChannel": "deleted-channel"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "Automated",
+        "bannedDate": "Banned {{date}}",
+        "loadError": "Failed to load banned users.",
+        "noBans": "No one is banned from this channel",
+        "noSearchResults": "No banned users match your search",
+        "title": "Banned users",
+        "unban": "Unban"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "The maximum badge file size is {{fileSize}}.",
         "bannerMaxFileSizeErrorMessage": "The maximum banner file size is {{fileSize}}.",
@@ -309,6 +318,7 @@
         "transferOwnership": "Transfer ownership"
       },
       "tabs": {
+        "bannedUsers": "Banned users",
         "general": "General",
         "permissions": "Permissions"
       },
@@ -381,6 +391,13 @@
       "dialogTitle": "Transfer ownership?",
       "errorMessage": "Something went wrong while transferring the ownership to {{user}}",
       "successMessage": "{{user}} is now the channel owner"
+    },
+    "unbanUser": {
+      "action": "Unban",
+      "body": "Are you sure you want to unban {{user}} from #{{channelName}}? They will be able to join the channel again.",
+      "errorMessage": "Something went wrong while unbanning {{user}}",
+      "successMessage": "{{user}} was unbanned",
+      "title": "Unban user?"
     },
     "userList": {
       "active": "Active",

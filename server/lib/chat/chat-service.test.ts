@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import createDeferred from '../../../common/async/deferred'
 import {
   BasicChannelInfo,
+  ChannelBanEntry,
   ChannelModerationAction,
   ChannelPermissions,
   ChannelPreferences,
@@ -12,6 +13,7 @@ import {
   makeSbChannelId,
   SbChannelId,
   ServerChatMessageType,
+  toChannelBanEntryJson,
   toUserChannelEntryJson,
   UserChannelEntry,
 } from '../../../common/chat'
@@ -44,6 +46,7 @@ import {
   findChannelByName,
   findChannelsByName,
   FullChannelInfo,
+  getChannelBans,
   getChannelInfo,
   getChannelInfos,
   getChannelsForUser,
@@ -54,11 +57,13 @@ import {
   getUsersForChannel,
   isUserBannedFromChannel,
   JoinChannelData,
+  removeBannedIdentifiersFromChannel,
   removeUserFromChannel,
   searchChannels,
   TextMessageData,
   toBasicChannelInfo,
   transferChannelOwnership,
+  unbanUserFromChannel,
   updateChannel,
   updateUserPermissions,
   updateUserPreferences,
@@ -137,6 +142,9 @@ vi.mock('./chat-models', async () => {
     banUserFromChannel: vi.fn(),
     banAllIdentifiersFromChannel: vi.fn(),
     isUserBannedFromChannel: vi.fn(),
+    getChannelBans: vi.fn().mockResolvedValue([]),
+    unbanUserFromChannel: vi.fn(),
+    removeBannedIdentifiersFromChannel: vi.fn(),
     getChannelInfo: vi.fn(),
     getChannelInfos: vi.fn().mockResolvedValue([]),
     findChannelByName: vi.fn(),
@@ -2592,6 +2600,385 @@ describe('chat/chat-service', () => {
         offset: 0,
         searchStr: 'USER_NAME',
       })
+    })
+  })
+
+  describe('listChannelBans', () => {
+    const getChannelBansMock = asMockedFunction(getChannelBans)
+
+    const user2TestChannelBanEntry: ChannelBanEntry = {
+      userId: user2.id,
+      channelId: testChannel.id,
+      banTime: new Date('2023-03-15T00:00:00.000Z'),
+      bannedBy: user1.id,
+      reason: 'BAN_REASON',
+      automated: false,
+    }
+
+    beforeEach(() => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+    })
+
+    test("should throw if channel doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(
+        chatService.listChannelBans({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isServerModerator: REGULAR_USER,
+          limit: 40,
+          offset: 0,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
+    })
+
+    test('should throw if not in channel', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
+      await expect(
+        chatService.listChannelBans({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isServerModerator: REGULAR_USER,
+          limit: 40,
+          offset: 0,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Must be in channel to view channel bans]`,
+      )
+    })
+
+    test('should throw if not enough permissions', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+
+      await expect(
+        chatService.listChannelBans({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isServerModerator: REGULAR_USER,
+          limit: 40,
+          offset: 0,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to view channel bans]`,
+      )
+    })
+
+    test('should throw if only holding the kick permission', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, kick: true },
+      })
+
+      await expect(
+        chatService.listChannelBans({
+          channelId: testChannel.id,
+          userId: user1.id,
+          isServerModerator: REGULAR_USER,
+          limit: 40,
+          offset: 0,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to view channel bans]`,
+      )
+    })
+
+    test('works when channel owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+      getChannelBansMock.mockResolvedValue([user2TestChannelBanEntry])
+
+      const result = await chatService.listChannelBans({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        limit: 40,
+        offset: 0,
+      })
+
+      expect(result).toEqual({
+        channelId: testChannel.id,
+        bans: [toChannelBanEntryJson(user2TestChannelBanEntry)],
+        hasMoreBans: false,
+        users: [user2, user1],
+      })
+    })
+
+    test('works when holding the ban permission', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, ban: true },
+      })
+      getChannelBansMock.mockResolvedValue([user2TestChannelBanEntry])
+
+      const result = await chatService.listChannelBans({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        limit: 40,
+        offset: 0,
+      })
+
+      expect(getChannelBansMock).toHaveBeenCalledWith({
+        channelId: testChannel.id,
+        limit: 40,
+        offset: 0,
+        searchStr: undefined,
+      })
+      expect(result).toEqual({
+        channelId: testChannel.id,
+        bans: [toChannelBanEntryJson(user2TestChannelBanEntry)],
+        hasMoreBans: false,
+        users: [user2, user1],
+      })
+    })
+
+    test('works when holding the editPermissions permission', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, editPermissions: true },
+      })
+      getChannelBansMock.mockResolvedValue([])
+
+      const result = await chatService.listChannelBans({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        limit: 40,
+        offset: 0,
+      })
+
+      expect(result).toEqual({
+        channelId: testChannel.id,
+        bans: [],
+        hasMoreBans: false,
+        users: [],
+      })
+    })
+
+    test('works when a server moderator who is not in the channel', async () => {
+      // The caller (user1) is not in the channel.
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+      getChannelBansMock.mockResolvedValue([user2TestChannelBanEntry])
+
+      const result = await chatService.listChannelBans({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: SERVER_MODERATOR,
+        limit: 40,
+        offset: 0,
+      })
+
+      expect(result).toEqual({
+        channelId: testChannel.id,
+        bans: [toChannelBanEntryJson(user2TestChannelBanEntry)],
+        hasMoreBans: false,
+        users: [user2, user1],
+      })
+    })
+
+    test('returns hasMoreBans true when results equal limit', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+      getChannelBansMock.mockResolvedValue([user2TestChannelBanEntry])
+
+      const result = await chatService.listChannelBans({
+        channelId: testChannel.id,
+        userId: user1.id,
+        isServerModerator: REGULAR_USER,
+        limit: 1,
+        offset: 0,
+      })
+
+      expect(result.hasMoreBans).toBe(true)
+    })
+  })
+
+  describe('unbanUser', () => {
+    const unbanUserFromChannelMock = asMockedFunction(unbanUserFromChannel)
+    const removeBannedIdentifiersFromChannelMock = asMockedFunction(
+      removeBannedIdentifiersFromChannel,
+    )
+
+    beforeEach(() => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+      unbanUserFromChannelMock.mockResolvedValue(true)
+    })
+
+    test("should throw if channel doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(
+        chatService.unbanUser({
+          channelId: testChannel.id,
+          userId: user1.id,
+          targetId: user2.id,
+          isServerModerator: REGULAR_USER,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
+    })
+
+    test('should throw if not in channel', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
+      await expect(
+        chatService.unbanUser({
+          channelId: testChannel.id,
+          userId: user1.id,
+          targetId: user2.id,
+          isServerModerator: REGULAR_USER,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to unban users]`)
+    })
+
+    test('should throw if not enough permissions', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+
+      await expect(
+        chatService.unbanUser({
+          channelId: testChannel.id,
+          userId: user1.id,
+          targetId: user2.id,
+          isServerModerator: REGULAR_USER,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to unban users]`,
+      )
+    })
+
+    test('should throw if only holding the kick permission', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, kick: true },
+      })
+
+      await expect(
+        chatService.unbanUser({
+          channelId: testChannel.id,
+          userId: user1.id,
+          targetId: user2.id,
+          isServerModerator: REGULAR_USER,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to unban users]`,
+      )
+    })
+
+    test('should throw TargetNotBanned if the target was not banned', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, ban: true },
+      })
+      unbanUserFromChannelMock.mockResolvedValue(false)
+
+      await expect(
+        chatService.unbanUser({
+          channelId: testChannel.id,
+          userId: user1.id,
+          targetId: user2.id,
+          isServerModerator: REGULAR_USER,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is not banned]`)
+
+      expect(removeBannedIdentifiersFromChannelMock).not.toHaveBeenCalled()
+    })
+
+    test('works when channel owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: user1.id,
+      })
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(user1TestChannelEntry)
+
+      await chatService.unbanUser({
+        channelId: testChannel.id,
+        userId: user1.id,
+        targetId: user2.id,
+        isServerModerator: REGULAR_USER,
+      })
+
+      expect(unbanUserFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+      expect(removeBannedIdentifiersFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+    })
+
+    test('works when holding the ban permission', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, ban: true },
+      })
+
+      await chatService.unbanUser({
+        channelId: testChannel.id,
+        userId: user1.id,
+        targetId: user2.id,
+        isServerModerator: REGULAR_USER,
+      })
+
+      expect(unbanUserFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+      expect(removeBannedIdentifiersFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+    })
+
+    test('works when holding the editPermissions permission', async () => {
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue({
+        ...user1TestChannelEntry,
+        channelPermissions: { ...channelPermissions, editPermissions: true },
+      })
+
+      await chatService.unbanUser({
+        channelId: testChannel.id,
+        userId: user1.id,
+        targetId: user2.id,
+        isServerModerator: REGULAR_USER,
+      })
+
+      expect(unbanUserFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+      expect(removeBannedIdentifiersFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+    })
+
+    test('works when a server moderator who is not in the channel', async () => {
+      // The caller (user1) is not in the channel.
+      asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
+
+      await chatService.unbanUser({
+        channelId: testChannel.id,
+        userId: user1.id,
+        targetId: user2.id,
+        isServerModerator: SERVER_MODERATOR,
+      })
+
+      expect(unbanUserFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
+      expect(removeBannedIdentifiersFromChannelMock).toHaveBeenCalledWith(
+        { channelId: testChannel.id, targetId: user2.id },
+        dbClient,
+      )
     })
   })
 

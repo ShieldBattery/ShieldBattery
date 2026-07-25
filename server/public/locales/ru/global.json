@@ -276,6 +276,15 @@
       "deletedChannel": "удалённый-канал"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "Автоматический",
+        "bannedDate": "Забанен {{date}}",
+        "loadError": "Не удалось загрузить забаненных пользователей.",
+        "noBans": "В этом канале никто не забанен",
+        "noSearchResults": "Нет забаненных пользователей, соответствующих вашему запросу",
+        "title": "Забаненные пользователи",
+        "unban": "Разбанить"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "Максимальный размер файла значка — {{fileSize}}.",
         "bannerMaxFileSizeErrorMessage": "Максимальный размер файла баннера — {{fileSize}}.",
@@ -311,6 +320,7 @@
         "transferOwnership": "Передать владение"
       },
       "tabs": {
+        "bannedUsers": "Забаненные",
         "general": "Общие",
         "permissions": "Права"
       },
@@ -383,6 +393,13 @@
       "dialogTitle": "Передать владение?",
       "errorMessage": "Что-то пошло не так при передаче владения пользователю {{user}}",
       "successMessage": "{{user}} теперь владелец канала"
+    },
+    "unbanUser": {
+      "action": "Разбанить",
+      "body": "Разбанить {{user}} в канале #{{channelName}}? Пользователь снова сможет зайти в канал.",
+      "errorMessage": "Что-то пошло не так при разбане {{user}}",
+      "successMessage": "{{user}} был разбанен",
+      "title": "Разбанить пользователя?"
     },
     "userList": {
       "active": "Активен",

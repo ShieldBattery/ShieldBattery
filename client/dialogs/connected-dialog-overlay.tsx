@@ -13,6 +13,7 @@ import { ChannelKickUserConfirmation } from '../chat/channel-kick-user-dialog'
 import { ChannelLeaveConfirmation } from '../chat/channel-leave-dialog'
 import { ChannelUserPermissionsDialog } from '../chat/channel-settings/user-permissions-settings'
 import { ChannelTransferOwnershipDialog } from '../chat/channel-transfer-ownership-dialog'
+import { ChannelUnbanUserConfirmation } from '../chat/channel-unban-user-dialog'
 import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
@@ -104,6 +105,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ChannelLeaveConfirmation }
     case DialogType.ChannelTransferOwnership:
       return { component: ChannelTransferOwnershipDialog }
+    case DialogType.ChannelUnbanUser:
+      return { component: ChannelUnbanUserConfirmation }
     case DialogType.ChannelUserPermissions:
       return { component: ChannelUserPermissionsDialog }
     case DialogType.CreatePlaylist:
