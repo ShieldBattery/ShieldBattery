@@ -36,6 +36,7 @@ use crate::bw::players::{BwPlayerId, StormPlayerId};
 use crate::bw::unit::{Unit, UnitIterator};
 use crate::bw::{self, Bw, FowSpriteIterator, LobbyOptions, SnpFunctions};
 use crate::bw::{UserLatency, commands};
+use crate::bw_scr::draw_inject::warn_once;
 use crate::bw_scr::scr::SafeBwString;
 use crate::game_state::JoinedPlayer;
 use crate::game_thread::{self, send_game_msg_to_async};
@@ -5590,7 +5591,10 @@ impl bw::Bw for BwScr {
             let mut render_state = match self.render_state.lock() {
                 Some(s) => s,
                 None => {
-                    warn!(
+                    // If the lock is held for a long time (e.g. the crash dialog is pumping
+                    // messages after a crash during overlay rendering), this path repeats for
+                    // every message, so warning more than once would just flood the log.
+                    warn_once!(
                         "Recursive window proc call?, not passing message {msg:x} to overlay state"
                     );
                     return None;

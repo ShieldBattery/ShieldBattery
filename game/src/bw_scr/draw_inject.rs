@@ -19,6 +19,7 @@ macro_rules! warn_once {
         ONCE.call_once(|| warn!($($tokens)*));
     }}
 }
+pub(crate) use warn_once;
 
 /// State persisted across draws
 pub struct RenderState {
