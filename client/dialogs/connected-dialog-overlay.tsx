@@ -1,7 +1,7 @@
 import { Immutable } from 'immer'
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import { LaunchingGameDialog } from '../active-game/launching-game-dialog'
@@ -9,6 +9,7 @@ import { EmailVerificationDialog } from '../auth/email-verification-dialog'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
 import { ChannelUserPermissionsDialog } from '../chat/channel-settings/user-permissions-settings'
+import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
 import DownloadDialog from '../download/download-dialog'
@@ -172,8 +173,47 @@ function DialogOverlayContent({
   dialogHistory: Immutable<DialogState[]>
   onCancel: (id: string, event?: React.MouseEvent) => void
 }) {
+  // Dialogs removed from history stay mounted until their exit animation completes, but animation
+  // frames stop entirely while the document is hidden (window minimized/fully occluded). If the
+  // document becomes hidden while an exit is in flight, that animation would never finish and the
+  // dialog (and its scrim) would stay on screen indefinitely. Track in-flight exits and, when the
+  // document goes hidden with any outstanding, remount the AnimatePresence so exiting dialogs are
+  // dropped immediately. (Still-open dialogs remount too, which is acceptable at the moment the
+  // window stops being visible.)
+  const exitingCountRef = useRef(0)
+  const prevHistoryRef = useRef(dialogHistory)
+  const [presenceEpoch, setPresenceEpoch] = useState(0)
+
+  useEffect(() => {
+    const prevHistory = prevHistoryRef.current
+    prevHistoryRef.current = dialogHistory
+
+    const currentIds = new Set(dialogHistory.map(d => d.id))
+    for (const d of prevHistory) {
+      if (!currentIds.has(d.id)) {
+        exitingCountRef.current += 1
+      }
+    }
+  }, [dialogHistory])
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && exitingCountRef.current > 0) {
+        exitingCountRef.current = 0
+        setPresenceEpoch(epoch => epoch + 1)
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
   return (
-    <AnimatePresence>
+    <AnimatePresence
+      key={presenceEpoch}
+      onExitComplete={() => {
+        exitingCountRef.current = 0
+      }}>
       {dialogHistory.map((dialogState, index) => (
         <DialogDisplay
           key={dialogState.id}
@@ -209,17 +249,24 @@ function DialogDisplay({
   const { component: DialogComponent, modal } = getDialog(dialogType)
 
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
+  const isDocVisible = useIsDocumentVisible()
 
   return (
     <>
+      {/*
+        While the document is hidden, animation frames never fire, so enter/exit animations can't
+        progress — an exiting scrim would block unmounting forever. Render without them while
+        hidden so mounts/unmounts complete immediately. (The dialog surface in material/dialog.tsx
+        does the same.)
+      */}
       <AnimatePresence propagate={true}>
         {isTopDialog && (
           <Scrim
             key='scrim'
             variants={scrimVariants}
-            initial='initial'
+            initial={isDocVisible ? 'initial' : false}
             animate='animate'
-            exit='exit'
+            exit={isDocVisible ? 'exit' : undefined}
             transition={scrimTransition}
             onClick={modal ? noop : event => onCancel(id, event)}
           />

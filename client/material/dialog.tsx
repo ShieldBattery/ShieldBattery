@@ -5,6 +5,7 @@ import * as React from 'react'
 import { useCallback, useContext } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
+import { useIsDocumentVisible } from '../dom/document-visibility'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ContainerLevel, containerStyles } from '../styles/colors'
@@ -215,6 +216,7 @@ export function Dialog({
 }: DialogProps) {
   const { t } = useTranslation()
   const dialogContext = useContext(DialogContext)
+  const isDocVisible = useIsDocumentVisible()
 
   useKeyListener({
     onKeyDown: useCallback(
@@ -241,13 +243,19 @@ export function Dialog({
 
   return (
     <Container role='dialog' data-testid={testName}>
+      {/*
+        While the document is hidden (window minimized/fully occluded), animation frames never
+        fire, so an enter/exit animation would never progress: an entering dialog would stay
+        invisible, and an exiting one would block AnimatePresence from ever unmounting it. Render
+        without those animations while hidden so mounts/unmounts complete immediately.
+      */}
       <Surface
         className={className}
         style={style}
         variants={dialogVariants}
-        initial='initial'
+        initial={isDocVisible ? 'initial' : false}
         animate='animate'
-        exit='exit'
+        exit={isDocVisible ? 'exit' : undefined}
         transition={dialogTransition}
         $isTopDialog={dialogContext.isTopDialog}>
         <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
