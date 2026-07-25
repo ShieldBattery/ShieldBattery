@@ -183,7 +183,7 @@ function StaffBadgeEditor({ userId }: { userId: SbUserId }) {
   return (
     <StaffBadgeContent>
       <SectionDescription>
-        Marks this account as speaking for ShieldBattery — shown as a badge next to their name.
+        Marks this account as speaking for ShieldBattery — shown as a badge on their avatar.
         Independent of the permissions above.
       </SectionDescription>
       <CheckBox

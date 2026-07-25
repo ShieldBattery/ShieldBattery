@@ -106,10 +106,20 @@ const TransferOwnershipButton = styled(IconButton)`
   min-height: 36px;
 `
 
+const AvatarContainer = styled.div`
+  position: relative;
+  flex-shrink: 0;
+`
+
 const StyledAvatar = styled(ConnectedAvatar)`
   width: 40px;
   height: 40px;
-  flex-shrink: 0;
+`
+
+const AvatarStaffBadge = styled(StaffBadge)`
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
 `
 
 const UserInfoContainer = styled.div`
@@ -129,10 +139,6 @@ const UsernameRow = styled.div`
 const StyledUsername = styled(ConnectedUsername)`
   ${titleSmall};
   ${singleLine};
-`
-
-const StyledStaffBadge = styled(StaffBadge)`
-  flex-shrink: 0;
 `
 
 const JoinDateText = styled.div`
@@ -390,12 +396,14 @@ function UserChannelEntryRow({
   return (
     <UserCardRow>
       <UserCardButton {...buttonProps}>
-        <StyledAvatar userId={user.userId} />
+        <AvatarContainer>
+          <StyledAvatar userId={user.userId} />
+          {hasStaffBadge ? <AvatarStaffBadge /> : null}
+        </AvatarContainer>
 
         <UserInfoContainer>
           <UsernameRow>
             <StyledUsername userId={user.userId} interactive={false} />
-            {hasStaffBadge ? <StyledStaffBadge /> : null}
           </UsernameRow>
           <JoinDateText>
             {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {

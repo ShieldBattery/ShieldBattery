@@ -25,7 +25,7 @@ export interface SbUser {
   avatarUrl?: string
   /**
    * Whether this account is marked as speaking for ShieldBattery, which clients render as a badge
-   * next to their name. This marker is granted by hand and is orthogonal to permissions: an account
+   * on their avatar. This marker is granted by hand and is orthogonal to permissions: an account
    * can hold moderation permissions without the badge, or the badge without any permissions.
    * Absent (rather than `false`) for the common case of accounts without it.
    */
