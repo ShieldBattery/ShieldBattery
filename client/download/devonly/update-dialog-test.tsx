@@ -5,17 +5,22 @@ import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { TextField } from '../../material/text-field'
 import { BodyLarge } from '../../styles/typography'
-import { UpdateDialog } from '../update-overlay'
+import { UpdateDialog, UpdateOverlayErrorBoundary } from '../update-overlay'
 import { UpdateProgress } from '../updater-state'
 
 const SettingsCard = styled(Card)`
   max-width: 400px;
 `
 
+function ThrowsOnRender(): React.ReactNode {
+  throw new Error('Intentional error to test UpdateOverlayErrorBoundary')
+}
+
 export function UpdateDialogTest() {
   const [hasUpdate, setHasUpdate] = useState(true)
   const [hasDownloadError, setHasDownloadError] = useState(false)
   const [readyToInstall, setReadyToInstall] = useState(false)
+  const [throwError, setThrowError] = useState(false)
 
   const [progressKnown, setProgressKnown] = useState(false)
   const [totalBytes, setTotalBytes] = useState(String(1_727_829_134))
@@ -53,6 +58,11 @@ export function UpdateDialogTest() {
           checked={readyToInstall}
           onChange={() => setReadyToInstall(!readyToInstall)}
         />
+        <CheckBox
+          label='Throw error (tests error boundary)'
+          checked={throwError}
+          onChange={() => setThrowError(!throwError)}
+        />
 
         <CheckBox
           label='Progress known'
@@ -82,12 +92,19 @@ export function UpdateDialogTest() {
         />
       </SettingsCard>
 
-      <UpdateDialog
-        hasUpdate={hasUpdate}
-        hasDownloadError={hasDownloadError}
-        readyToInstall={readyToInstall}
-        progress={progress}
-      />
+      {/*
+        The boundary's error state is permanent once tripped, so remount it when the throw toggle
+        changes to let the test reset back to the normal dialog.
+      */}
+      <UpdateOverlayErrorBoundary key={String(throwError)}>
+        {throwError ? <ThrowsOnRender /> : undefined}
+        <UpdateDialog
+          hasUpdate={hasUpdate}
+          hasDownloadError={hasDownloadError}
+          readyToInstall={readyToInstall}
+          progress={progress}
+        />
+      </UpdateOverlayErrorBoundary>
     </div>
   )
 }

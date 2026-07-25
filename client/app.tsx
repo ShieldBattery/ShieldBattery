@@ -13,7 +13,7 @@ import { useSelfUser } from './auth/auth-utils'
 import { RestrictionClearer } from './auth/restriction-clearer'
 import { ConnectedDialogOverlay } from './dialogs/connected-dialog-overlay'
 import './dom/window-focus'
-import { UpdateOverlay } from './download/update-overlay'
+import { UpdateOverlay, UpdateOverlayErrorBoundary } from './download/update-overlay'
 import { FileDropZoneProvider } from './file-browser/file-drop-zone'
 import { GameplayActivityWidget } from './gameplay-activity/gameplay-activity-widget'
 import { jotaiStore } from './jotai-store'
@@ -184,7 +184,9 @@ function InnerApp() {
                     </FileDropZoneProvider>
                   </NavigationTrapProvider>
                 </RootErrorBoundary>
-                <UpdateOverlay />
+                <UpdateOverlayErrorBoundary>
+                  <UpdateOverlay />
+                </UpdateOverlayErrorBoundary>
               </MotionConfig>
             </LazyMotion>
           </KeyListenerBoundary>

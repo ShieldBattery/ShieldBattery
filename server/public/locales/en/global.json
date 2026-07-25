@@ -372,6 +372,10 @@
     "watchReplays": "Watch replays"
   },
   "clientUpdate": {
+    "errorBoundary": {
+      "contents": "Something went wrong while updating. Please visit <2>our website</2> to download the latest version.",
+      "title": "Error while updating"
+    },
     "overlay": {
       "errorBody": "There was an error downloading the update. Please restart and try again, or visit <2>our website</2> to download the latest version.",
       "errorTitle": "Error downloading update",

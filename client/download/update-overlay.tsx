@@ -1,18 +1,20 @@
 import { AnimatePresence, Transition, Variants } from 'motion/react'
 import * as m from 'motion/react-m'
 import prettyBytes from 'pretty-bytes'
+import * as React from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { FocusTrap } from '../dom/focus-trap'
+import logger from '../logging/logger'
 import { FilledButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { Portal } from '../material/portal'
 import { zIndexDialogScrim } from '../material/zindex'
 import { makeServerUrl } from '../network/server-url'
 import { LoadingDotsArea } from '../progress/dots'
-import { BodyLarge, BodyMedium } from '../styles/typography'
+import { BodyLarge, BodyMedium, TitleLarge } from '../styles/typography'
 import {
   UpdateProgress,
   UpdateStateChangeHandler,
@@ -21,6 +23,113 @@ import {
 } from './updater-state'
 
 const ipcRenderer = new TypedIpcRenderer()
+
+const ErrorFallbackCard = styled.div`
+  position: fixed;
+  top: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 480px;
+  padding: 24px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  background: var(--theme-container-high);
+  border-radius: 8px;
+  /* Matches the update dialog itself, which needs to display over everything else in the app */
+  z-index: 99999;
+
+  a,
+  a:visited {
+    color: var(--theme-amber);
+  }
+`
+
+interface UpdateErrorFallbackState {
+  translationError?: Error
+}
+
+/**
+ * Renders the update-failure fallback, trying translated contents first and falling back to
+ * static English if the translation machinery itself throws (this is a last-resort surface, so it
+ * must not assume any other part of the app works).
+ */
+class UpdateErrorFallback extends React.Component<object, UpdateErrorFallbackState> {
+  override state: UpdateErrorFallbackState = {}
+
+  static getDerivedStateFromError(error: Error) {
+    return { translationError: error }
+  }
+
+  override render() {
+    return this.state.translationError ? (
+      <ErrorFallbackCard>
+        <TitleLarge>Error while updating</TitleLarge>
+        <BodyLarge>
+          Something went wrong while updating. Please visit{' '}
+          <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
+            our website
+          </a>{' '}
+          to download the latest version.
+        </BodyLarge>
+      </ErrorFallbackCard>
+    ) : (
+      <TranslatedUpdateErrorFallback />
+    )
+  }
+}
+
+function TranslatedUpdateErrorFallback() {
+  const { t } = useTranslation()
+
+  return (
+    <ErrorFallbackCard>
+      <TitleLarge>{t('clientUpdate.errorBoundary.title', 'Error while updating')}</TitleLarge>
+      <BodyLarge>
+        <Trans t={t} i18nKey='clientUpdate.errorBoundary.contents'>
+          Something went wrong while updating. Please visit{' '}
+          <a href={makeServerUrl('/')} target='_blank' rel='noopener noreferrer'>
+            our website
+          </a>{' '}
+          to download the latest version.
+        </Trans>
+      </BodyLarge>
+    </ErrorFallbackCard>
+  )
+}
+
+interface UpdateOverlayErrorBoundaryState {
+  error?: Error
+}
+
+/**
+ * Error boundary around the auto-update UI. The update overlay renders outside the app's root
+ * error boundary (it must display over everything, even a crashed app), so without this a crash
+ * inside it would take down the whole tree with only a "report it to us" message — while the one
+ * thing a user with a broken updater actually needs is a link to download the latest version
+ * manually.
+ */
+export class UpdateOverlayErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  UpdateOverlayErrorBoundaryState
+> {
+  override state: UpdateOverlayErrorBoundaryState = {}
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    logger.error(`Error in update overlay: ${String(error.stack ?? error)}`)
+    logger.error(`React stack:\n${errorInfo.componentStack}`)
+  }
+
+  override render() {
+    return this.state.error ? <UpdateErrorFallback /> : this.props.children
+  }
+}
 
 const Scrim = styled(m.div)`
   position: fixed;
