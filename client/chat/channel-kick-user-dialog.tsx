@@ -10,20 +10,17 @@ import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
-import { moderateUser, moderateUserAsAdmin } from './action-creators'
+import { moderateUser } from './action-creators'
 
 export interface ChannelKickUserConfirmationProps extends CommonDialogProps {
   channelId: SbChannelId
   userId: SbUserId
-  /** Whether to kick the user through the membership-free admin endpoint instead of the regular one. */
-  isAdmin?: boolean
 }
 
 export function ChannelKickUserConfirmation({
   onCancel,
   channelId,
   userId,
-  isAdmin,
 }: ChannelKickUserConfirmationProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -35,31 +32,26 @@ export function ChannelKickUserConfirmation({
     setIsKicking(true)
 
     dispatch(
-      (isAdmin ? moderateUserAsAdmin : moderateUser)(
-        channelId,
-        userId,
-        ChannelModerationAction.Kick,
-        {
-          onSuccess: () => {
-            snackbarController.showSnackbar(
-              t('chat.kickUser.successMessage', {
-                defaultValue: '{{user}} was kicked',
-                user: user.name,
-              }),
-            )
-            dispatch(closeDialog(DialogType.ChannelKickUserConfirmation))
-          },
-          onError: () => {
-            setIsKicking(false)
-            snackbarController.showSnackbar(
-              t('chat.kickUser.errorMessage', {
-                defaultValue: 'Something went wrong while kicking {{user}}',
-                user: user.name,
-              }),
-            )
-          },
+      moderateUser(channelId, userId, ChannelModerationAction.Kick, {
+        onSuccess: () => {
+          snackbarController.showSnackbar(
+            t('chat.kickUser.successMessage', {
+              defaultValue: '{{user}} was kicked',
+              user: user.name,
+            }),
+          )
+          dispatch(closeDialog(DialogType.ChannelKickUserConfirmation))
         },
-      ),
+        onError: () => {
+          setIsKicking(false)
+          snackbarController.showSnackbar(
+            t('chat.kickUser.errorMessage', {
+              defaultValue: 'Something went wrong while kicking {{user}}',
+              user: user.name,
+            }),
+          )
+        },
+      }),
     )
   }
 

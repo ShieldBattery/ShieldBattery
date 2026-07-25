@@ -338,169 +338,6 @@ export function deleteMessageAsAdmin(
   })
 }
 
-/**
- * Moderates a user (kicks or bans them) in a chat channel through the membership-free admin
- * endpoint, for staff that aren't necessarily a member of the channel.
- */
-export function moderateUserAsAdmin(
-  channelId: SbChannelId,
-  userId: SbUserId,
-  moderationAction: ChannelModerationAction,
-  spec: RequestHandlingSpec<void>,
-  moderationReason?: string,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
-    return fetchJson<void>(apiUrl`admin/chat/${channelId}/users/${userId}/remove`, {
-      method: 'POST',
-      body: encodeBodyAsParams<ModerateChannelUserServerRequest>({
-        moderationAction,
-        moderationReason,
-      }),
-      signal: spec.signal,
-    })
-  })
-}
-
-/**
- * Hands the ownership of a chat channel over to one of its members through the membership-free
- * admin endpoint, for staff that aren't necessarily a member of the channel.
- */
-export function transferChannelOwnershipAsAdmin(
-  channelId: SbChannelId,
-  targetId: SbUserId,
-  spec: RequestHandlingSpec<void>,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
-    await fetchJson<void>(apiUrl`admin/chat/${channelId}/owner`, {
-      method: 'POST',
-      body: encodeBodyAsParams<TransferChannelOwnershipRequest>({ targetId }),
-      signal: spec.signal,
-    })
-  })
-}
-
-/**
- * Fetches a user's permissions in a chat channel through the membership-free admin endpoint, for
- * staff that aren't necessarily a member of the channel.
- */
-export function getChannelUserPermissionsAsAdmin(
-  channelId: SbChannelId,
-  targetId: SbUserId,
-  spec: RequestHandlingSpec<GetChannelUserPermissionsResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
-    return await fetchJson<GetChannelUserPermissionsResponse>(
-      apiUrl`admin/chat/${channelId}/users/${targetId}/permissions`,
-      { signal: spec.signal },
-    )
-  })
-}
-
-/**
- * Updates a user's permissions in a chat channel through the membership-free admin endpoint, for
- * staff that aren't necessarily a member of the channel.
- */
-export function updateChannelUserPermissionsAsAdmin(
-  channelId: SbChannelId,
-  targetId: SbUserId,
-  permissions: ChannelPermissions,
-  spec: RequestHandlingSpec<void>,
-): ThunkAction {
-  return abortableThunk(spec, async () => {
-    await fetchJson<void>(apiUrl`admin/chat/${channelId}/users/${targetId}/permissions`, {
-      method: 'POST',
-      body: JSON.stringify({ permissions } satisfies UpdateChannelUserPermissionsRequest),
-      signal: spec.signal,
-    })
-  })
-}
-
-/**
- * Lists the user channel entries for a chat channel through the membership-free admin endpoint,
- * for staff that aren't necessarily a member of the channel.
- */
-export function listUserChannelEntriesAsAdmin(
-  channelId: SbChannelId,
-  searchQuery: string,
-  offset: number,
-  spec: RequestHandlingSpec<ListUserChannelEntriesResponse>,
-): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    const queryParams = new URLSearchParams()
-    if (searchQuery) {
-      queryParams.set('q', searchQuery)
-    }
-    queryParams.set('offset', offset.toString())
-
-    const result = await fetchJson<ListUserChannelEntriesResponse>(
-      apiUrl`admin/chat/${channelId}/user-channel-entries?${queryParams}`,
-      { signal: spec.signal },
-    )
-
-    dispatch({
-      type: '@users/loadUsers',
-      payload: result.users,
-    })
-
-    return result
-  })
-}
-
-/**
- * Updates a chat channel's info (topic, description, banner, badge, etc.) through the
- * membership-free admin endpoint, for staff that aren't necessarily a member of the channel.
- */
-export function updateChannelAsAdmin({
-  channelId,
-  channelChanges,
-  channelBanner,
-  channelBadge,
-  spec,
-}: {
-  channelId: SbChannelId
-  channelChanges: EditChannelRequest
-  channelBanner?: File
-  channelBadge?: File
-  spec: RequestHandlingSpec<void>
-}): ThunkAction {
-  return abortableThunk(spec, async dispatch => {
-    if (
-      Object.values(channelChanges).filter(c => c !== undefined).length === 0 &&
-      !channelBanner &&
-      !channelBadge
-    ) {
-      return
-    }
-
-    const formData = new FormData()
-    formData.append(
-      'channelChanges',
-      JSON.stringify(channelChanges, (_, value) => (value === '' ? null : value)),
-    )
-
-    if (channelBanner) {
-      formData.append('banner', channelBanner)
-    }
-    if (channelBadge) {
-      formData.append('badge', channelBadge)
-    }
-
-    const result = await fetchJson<EditChannelResponse>(apiUrl`admin/chat/${channelId}`, {
-      method: 'PATCH',
-      signal: spec.signal,
-      body: formData,
-    })
-
-    dispatch({
-      type: '@chat/getChannelInfo',
-      payload: result,
-      meta: {
-        channelId,
-      },
-    })
-  })
-}
-
 export function getMessageHistory(channelId: SbChannelId, limit: number): ThunkAction {
   return (dispatch, getStore) => {
     const {
@@ -678,6 +515,19 @@ export function listUserChannelEntries(
     })
 
     return result
+  })
+}
+
+export function getChannelUserPermissions(
+  channelId: SbChannelId,
+  targetId: SbUserId,
+  spec: RequestHandlingSpec<GetChannelUserPermissionsResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    return await fetchJson<GetChannelUserPermissionsResponse>(
+      apiUrl`chat/${channelId}/users/${targetId}/permissions`,
+      { signal: spec.signal },
+    )
   })
 }
 

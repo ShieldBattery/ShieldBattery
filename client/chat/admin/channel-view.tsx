@@ -40,7 +40,7 @@ import {
   UserMenuProps,
 } from '../../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
-import { getChannelUserPermissionsAsAdmin } from '../action-creators'
+import { getChannelUserPermissions } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
 import { UserList } from '../channel-user-list'
@@ -53,7 +53,7 @@ function getChannelInfo(
   spec: RequestHandlingSpec<GetChannelInfoResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    return await fetchJson(apiUrl`admin/chat/${channelId}`, { signal: spec.signal })
+    return await fetchJson(apiUrl`chat/${channelId}`, { signal: spec.signal })
   })
 }
 
@@ -192,7 +192,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
           dispatch(
             openDialog({
               type: DialogType.ChannelKickUserConfirmation,
-              initData: { channelId, userId: user.id, isAdmin: true },
+              initData: { channelId, userId: user.id },
             }),
           )
           onMenuClose()
@@ -209,7 +209,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
           dispatch(
             openDialog({
               type: DialogType.ChannelBanUser,
-              initData: { channelId, userId: user.id, isAdmin: true },
+              initData: { channelId, userId: user.id },
             }),
           )
           onMenuClose()
@@ -229,7 +229,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
             dispatch(
               openDialog({
                 type: DialogType.ChannelTransferOwnership,
-                initData: { channelId, userId: user.id, isAdmin: true },
+                initData: { channelId, userId: user.id },
               }),
             )
             onMenuClose()
@@ -245,7 +245,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
         text='Edit permissions'
         onClick={() => {
           dispatch(
-            getChannelUserPermissionsAsAdmin(channelId, user.id, {
+            getChannelUserPermissions(channelId, user.id, {
               onSuccess: result => {
                 dispatch(
                   openDialog({
@@ -254,7 +254,6 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
                       channelId,
                       userId: user.id,
                       permissions: result.permissions,
-                      isAdmin: true,
                       onSuccess: () => {},
                     },
                   }),

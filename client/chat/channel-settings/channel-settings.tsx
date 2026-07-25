@@ -111,17 +111,14 @@ function ChannelSettingsFromStore({
 
   const isOwner = joinedChannelInfo && selfUser && joinedChannelInfo.ownerId === selfUser.id
   const hasEditPermissions = channelPermissions && !!channelPermissions.editPermissions
-  // Official channels have no owner, so server moderators hold the owner's authority in them.
-  const hasOfficialChannelAuthority = isServerModerator && !!basicChannelInfo?.official
 
   return (
     <ChannelSettings
       basicChannelInfo={basicChannelInfo}
       detailedChannelInfo={detailedChannelInfo}
       joinedChannelInfo={joinedChannelInfo}
-      canAccessGeneralPage={!!(isOwner || hasOfficialChannelAuthority)}
-      canAccessPermissionsPage={!!(isOwner || hasEditPermissions || hasOfficialChannelAuthority)}
-      isAdmin={false}
+      canAccessGeneralPage={!!(isOwner || isServerModerator)}
+      canAccessPermissionsPage={!!(isOwner || hasEditPermissions || isServerModerator)}
       onCloseSettings={onCloseSettings}
     />
   )
@@ -138,7 +135,6 @@ export function ChannelSettings({
   joinedChannelInfo,
   canAccessGeneralPage,
   canAccessPermissionsPage,
-  isAdmin,
   onCloseSettings,
 }: {
   basicChannelInfo?: BasicChannelInfo
@@ -146,8 +142,6 @@ export function ChannelSettings({
   joinedChannelInfo?: JoinedChannelInfo
   canAccessGeneralPage: boolean
   canAccessPermissionsPage: boolean
-  /** Whether to make changes through the membership-free admin endpoints, as moderating staff. */
-  isAdmin: boolean
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
@@ -220,7 +214,6 @@ export function ChannelSettings({
             basicChannelInfo={basicChannelInfo}
             detailedChannelInfo={detailedChannelInfo}
             joinedChannelInfo={joinedChannelInfo}
-            isAdmin={isAdmin}
             onCloseSettings={onCloseSettings}
           />
         ) : (
@@ -269,14 +262,12 @@ function ChannelSettingsPageDisplay({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
-  isAdmin,
   onCloseSettings,
 }: {
   page: ChannelSettingsPage
   basicChannelInfo: BasicChannelInfo
   detailedChannelInfo: DetailedChannelInfo
   joinedChannelInfo: JoinedChannelInfo
-  isAdmin: boolean
   onCloseSettings: () => void
 }) {
   switch (page) {
@@ -286,7 +277,6 @@ function ChannelSettingsPageDisplay({
           basicChannelInfo={basicChannelInfo}
           detailedChannelInfo={detailedChannelInfo}
           joinedChannelInfo={joinedChannelInfo}
-          isAdmin={isAdmin}
           onCloseSettings={onCloseSettings}
         />
       )
@@ -296,7 +286,6 @@ function ChannelSettingsPageDisplay({
           basicChannelInfo={basicChannelInfo}
           detailedChannelInfo={detailedChannelInfo}
           joinedChannelInfo={joinedChannelInfo}
-          isAdmin={isAdmin}
           onCloseSettings={onCloseSettings}
         />
       )

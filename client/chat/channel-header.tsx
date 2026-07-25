@@ -138,8 +138,6 @@ export function ChannelHeader({
   const channelPermissions = useAppSelector(s =>
     s.chat.idToSelfPermissions.get(basicChannelInfo.id),
   )
-  // Official channels have no owner, so server moderators hold the owner's authority in them.
-  const hasOfficialChannelAuthority = isServerModerator && basicChannelInfo.official
 
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [overflowMenuOpen, openOverflowMenu, closeOverflowMenu] = usePopoverController({
@@ -229,9 +227,9 @@ export function ChannelHeader({
   // but need to update the channel settings UI first to only allow them to change the topic (will
   // probably need a new set of APIs as well).
   if (
+    isServerModerator ||
     user?.id === joinedChannelInfo.ownerId ||
-    channelPermissions?.editPermissions ||
-    hasOfficialChannelAuthority
+    channelPermissions?.editPermissions
   ) {
     actions.push(
       <MenuItem

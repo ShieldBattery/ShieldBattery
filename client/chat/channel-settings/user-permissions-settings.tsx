@@ -36,12 +36,7 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
-import {
-  listUserChannelEntries,
-  listUserChannelEntriesAsAdmin,
-  updateChannelUserPermissions,
-  updateChannelUserPermissionsAsAdmin,
-} from '../action-creators'
+import { listUserChannelEntries, updateChannelUserPermissions } from '../action-creators'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -168,14 +163,11 @@ export function UserPermissionsSettings({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
-  isAdmin,
   onCloseSettings,
 }: {
   basicChannelInfo: BasicChannelInfo
   detailedChannelInfo: DetailedChannelInfo
   joinedChannelInfo: JoinedChannelInfo
-  /** Whether to read and write the channel's users through the membership-free admin endpoints. */
-  isAdmin: boolean
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
@@ -184,17 +176,15 @@ export function UserPermissionsSettings({
   const selfUser = useSelfUser()
   const isServerModerator = useHasAnyPermission('moderateChatChannels')
   const isChannelOwner = selfUser?.id === joinedChannelInfo.ownerId
-  // Official channels have no owner, so server moderators hold the owner's authority in them.
-  const hasOfficialChannelAuthority = isServerModerator && basicChannelInfo.official
   // Only the channel owner's authority allows editing another moderator's permissions. A delegated
   // moderator (granted `editPermissions` but not ownership) could otherwise use that same access to
   // rewrite a fellow moderator's permissions, laundering around the protections the server places on
   // moderation actions elsewhere (e.g. owners/moderators being unkickable/unbannable by other
-  // moderators). Staff acting through the admin endpoints wield that authority in every channel.
-  const canEditModerators = isChannelOwner || hasOfficialChannelAuthority || isAdmin
-  // Handing the ownership over takes the owner's authority, which staff hold through the admin
-  // endpoints. Official channels have no ownership to hand over.
-  const canTransferOwnership = (isChannelOwner || isAdmin) && !basicChannelInfo.official
+  // moderators). Server moderators hold the owner's authority in every channel.
+  const canEditModerators = isChannelOwner || isServerModerator
+  // Handing the ownership over takes the owner's authority, which server moderators hold in every
+  // channel. Official channels have no ownership to hand over.
+  const canTransferOwnership = (isChannelOwner || isServerModerator) && !basicChannelInfo.official
 
   const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
   const [hasMoreUsers, setHasMoreUsers] = useState(true)
@@ -234,33 +224,28 @@ export function UserPermissionsSettings({
     abortControllerRef.current = new AbortController()
 
     dispatch(
-      (isAdmin ? listUserChannelEntriesAsAdmin : listUserChannelEntries)(
-        basicChannelInfo.id,
-        searchQuery,
-        channelUsers?.length ?? 0,
-        {
-          signal: abortControllerRef.current.signal,
-          onSuccess: data => {
-            setIsLoadingMoreUsers(false)
-            setChannelUsers(prev => {
-              const existing = prev ?? []
-              // Dedupe against what we already have: the ordering depends on permission counts, so
-              // an entry edited between page loads can shift across a page boundary and reappear in
-              // a later page.
-              const seenUserIds = new Set(existing.map(u => u.userId))
-              const newEntries = data.userChannelEntries
-                .map(fromUserChannelEntryJson)
-                .filter(entry => !seenUserIds.has(entry.userId))
-              return existing.concat(newEntries)
-            })
-            setHasMoreUsers(data.hasMoreUsers)
-          },
-          onError: err => {
-            setIsLoadingMoreUsers(false)
-            setSearchError(err)
-          },
+      listUserChannelEntries(basicChannelInfo.id, searchQuery, channelUsers?.length ?? 0, {
+        signal: abortControllerRef.current.signal,
+        onSuccess: data => {
+          setIsLoadingMoreUsers(false)
+          setChannelUsers(prev => {
+            const existing = prev ?? []
+            // Dedupe against what we already have: the ordering depends on permission counts, so
+            // an entry edited between page loads can shift across a page boundary and reappear in
+            // a later page.
+            const seenUserIds = new Set(existing.map(u => u.userId))
+            const newEntries = data.userChannelEntries
+              .map(fromUserChannelEntryJson)
+              .filter(entry => !seenUserIds.has(entry.userId))
+            return existing.concat(newEntries)
+          })
+          setHasMoreUsers(data.hasMoreUsers)
         },
-      ),
+        onError: err => {
+          setIsLoadingMoreUsers(false)
+          setSearchError(err)
+        },
+      }),
     )
   }
 
@@ -317,7 +302,6 @@ export function UserPermissionsSettings({
                   channelId: basicChannelInfo.id,
                   channelName: basicChannelInfo.name,
                   userId: user.userId,
-                  isAdmin,
                   // Which user this screen marks as the owner comes from the channel info it was
                   // given, so it can't reflect the new owner on its own. Closing it keeps that from
                   // contradicting the reordered list, and an ex-owner holds no channel permissions
@@ -335,7 +319,6 @@ export function UserPermissionsSettings({
                   channelId: user.channelId,
                   userId: user.userId,
                   permissions: user.channelPermissions,
-                  isAdmin,
                   onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => {
                     setChannelUsers(prev =>
                       prev?.map(u =>
@@ -501,14 +484,12 @@ export function ChannelUserPermissionsDialog({
   channelId,
   userId,
   permissions,
-  isAdmin,
   onCancel,
   onSuccess,
 }: {
   channelId: SbChannelId
   userId: SbUserId
   permissions: ChannelPermissions
-  isAdmin?: boolean
   onCancel: () => void
   onSuccess: (userId: SbUserId, permissions: ChannelPermissions) => void
 }) {
@@ -527,24 +508,19 @@ export function ChannelUserPermissionsDialog({
       setIsSaving(true)
 
       dispatch(
-        (isAdmin ? updateChannelUserPermissionsAsAdmin : updateChannelUserPermissions)(
-          channelId,
-          userId,
-          model,
-          {
-            onSuccess: () => {
-              setIsSaving(false)
-              onCancel()
-              onSuccess(userId, model)
-            },
-            onError: err => {
-              setIsSaving(false)
-              snackbarController.showSnackbar(
-                t('chat.channelSettings.permissions.saveError', 'Failed to save permissions'),
-              )
-            },
+        updateChannelUserPermissions(channelId, userId, model, {
+          onSuccess: () => {
+            setIsSaving(false)
+            onCancel()
+            onSuccess(userId, model)
           },
-        ),
+          onError: err => {
+            setIsSaving(false)
+            snackbarController.showSnackbar(
+              t('chat.channelSettings.permissions.saveError', 'Failed to save permissions'),
+            )
+          },
+        }),
       )
     },
   })

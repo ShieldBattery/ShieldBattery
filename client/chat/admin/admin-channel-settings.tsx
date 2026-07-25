@@ -3,8 +3,7 @@ import { ChannelSettings, ChannelSettingsOverlay } from '../channel-settings/cha
 
 /**
  * The channel settings screen as opened from a channel's admin view, for staff moderating channels
- * they aren't a member of. Every settings page is available here and every change is made through
- * the membership-free admin endpoints.
+ * they aren't a member of. Every settings page is available here.
  */
 export function AdminChannelSettings({
   isOpen,
@@ -27,7 +26,6 @@ export function AdminChannelSettings({
         joinedChannelInfo={joinedChannelInfo}
         canAccessGeneralPage={true}
         canAccessPermissionsPage={true}
-        isAdmin={true}
         onCloseSettings={onCloseSettings}
       />
     </ChannelSettingsOverlay>

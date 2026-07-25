@@ -40,7 +40,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleMiddlewareFunc } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
-import ChatService, { ChannelAuthority, ChatServiceError } from './chat-service'
+import ChatService, { ChatServiceError } from './chat-service'
 
 const getJoinedChannelsThrottle = createThrottle('chatgetjoinedchannels', {
   rate: 10,
@@ -244,18 +244,12 @@ function getValidatedChannelImageFiles(ctx: RouterContext) {
   return { bannerFile, badgeFile }
 }
 
-/** Authority facts for a request made through the regular, membership-based chat API. */
-function chatApiAuthority(ctx: RouterContext): ChannelAuthority {
-  return {
-    isServerModerator: !!ctx.session?.permissions.moderateChatChannels,
-    viaAdminApi: false,
-  }
-}
-
-/** Every `AdminChatApi` route requires the `moderateChatChannels` permission. */
-const ADMIN_CHAT_API_AUTHORITY: ChannelAuthority = {
-  isServerModerator: true,
-  viaAdminApi: true,
+/**
+ * Returns whether the requesting user holds the server-wide `moderateChatChannels` permission,
+ * which gives them the channel owner's authority in every channel.
+ */
+function isServerModerator(ctx: RouterContext): boolean {
+  return !!ctx.session?.permissions.moderateChatChannels
 }
 
 async function throttleEditChannel(ctx: ExtendableContext, next: Next) {
@@ -304,7 +298,7 @@ export class ChatApi {
     return await this.chatService.editChannel({
       channelId,
       userId: ctx.session!.user.id,
-      authority: chatApiAuthority(ctx),
+      isServerModerator: isServerModerator(ctx),
       updates: channelChanges,
       bannerFile,
       badgeFile,
@@ -430,7 +424,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       moderationAction,
-      chatApiAuthority(ctx),
+      isServerModerator(ctx),
       moderationReason,
     )
 
@@ -450,7 +444,7 @@ export class ChatApi {
       channelId,
       ctx.session!.user.id,
       targetId,
-      chatApiAuthority(ctx),
+      isServerModerator(ctx),
     )
   }
 
@@ -468,7 +462,7 @@ export class ChatApi {
     return await this.chatService.listUserChannelEntries({
       channelId,
       userId: ctx.session!.user.id,
-      authority: chatApiAuthority(ctx),
+      isServerModerator: isServerModerator(ctx),
       limit: CHANNEL_USER_PERMISSIONS_LIMIT,
       offset,
       searchStr: searchQuery,
@@ -491,7 +485,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       permissions,
-      chatApiAuthority(ctx),
+      isServerModerator(ctx),
     )
 
     ctx.status = 204
@@ -511,7 +505,7 @@ export class ChatApi {
       channelId,
       ctx.session!.user.id,
       targetId,
-      chatApiAuthority(ctx),
+      isServerModerator(ctx),
     )
 
     ctx.status = 204
@@ -543,7 +537,7 @@ export class ChatApi {
     return await this.chatService.getChannelInfo(
       channelId,
       ctx.session!.user.id,
-      chatApiAuthority(ctx),
+      isServerModerator(ctx),
     )
   }
 
@@ -627,135 +621,5 @@ export class AdminChatApi {
     })
 
     ctx.status = 204
-  }
-
-  @httpPost('/:channelId/users/:targetId/remove')
-  async moderateChannelUser(ctx: RouterContext): Promise<void> {
-    const {
-      params: { channelId, targetId },
-      body: { moderationAction, moderationReason },
-    } = validateRequest(ctx, {
-      params: channelUserParamsSchema(),
-      body: moderateChannelUserBodySchema(),
-    })
-
-    await this.chatService.moderateUser(
-      channelId,
-      ctx.session!.user.id,
-      targetId,
-      moderationAction,
-      ADMIN_CHAT_API_AUTHORITY,
-      moderationReason,
-    )
-
-    ctx.status = 204
-  }
-
-  @httpGet('/:channelId/users/:targetId/permissions')
-  async getChannelUserPermissions(ctx: RouterContext): Promise<GetChannelUserPermissionsResponse> {
-    const {
-      params: { channelId, targetId },
-    } = validateRequest(ctx, {
-      params: channelUserParamsSchema(),
-    })
-
-    return await this.chatService.getUserPermissions(
-      channelId,
-      ctx.session!.user.id,
-      targetId,
-      ADMIN_CHAT_API_AUTHORITY,
-    )
-  }
-
-  @httpPost('/:channelId/users/:targetId/permissions')
-  async updateChannelUserPermissions(ctx: RouterContext): Promise<void> {
-    const {
-      params: { channelId, targetId },
-      body: { permissions },
-    } = validateRequest(ctx, {
-      params: channelUserParamsSchema(),
-      body: channelUserPermissionsBodySchema(),
-    })
-
-    await this.chatService.updateUserPermissions(
-      channelId,
-      ctx.session!.user.id,
-      targetId,
-      permissions,
-      ADMIN_CHAT_API_AUTHORITY,
-    )
-
-    ctx.status = 204
-  }
-
-  @httpPost('/:channelId/owner')
-  async transferChannelOwnership(ctx: RouterContext): Promise<void> {
-    const channelId = getValidatedChannelId(ctx)
-    const {
-      body: { targetId },
-    } = validateRequest(ctx, {
-      body: transferChannelOwnershipBodySchema(),
-    })
-
-    await this.chatService.transferOwnership(
-      channelId,
-      ctx.session!.user.id,
-      targetId,
-      ADMIN_CHAT_API_AUTHORITY,
-    )
-
-    ctx.status = 204
-  }
-
-  @httpGet('/:channelId/user-channel-entries')
-  async listUserChannelEntries(ctx: RouterContext): Promise<ListUserChannelEntriesResponse> {
-    const {
-      params: { channelId },
-      query: { q: searchQuery, offset },
-    } = validateRequest(ctx, {
-      params: channelIdParamsSchema(),
-      query: userChannelEntriesQuerySchema(),
-    })
-
-    return await this.chatService.listUserChannelEntries({
-      channelId,
-      userId: ctx.session!.user.id,
-      authority: ADMIN_CHAT_API_AUTHORITY,
-      limit: CHANNEL_USER_PERMISSIONS_LIMIT,
-      offset,
-      searchStr: searchQuery,
-    })
-  }
-
-  @httpGet('/:channelId')
-  async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
-    const channelId = getValidatedChannelId(ctx)
-
-    return await this.chatService.getChannelInfo(
-      channelId,
-      ctx.session!.user.id,
-      ADMIN_CHAT_API_AUTHORITY,
-    )
-  }
-
-  @httpPatch('/:channelId')
-  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES))
-  async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
-    const channelId = getValidatedChannelId(ctx)
-    const {
-      body: { channelChanges },
-    } = validateRequest(ctx, {
-      body: editChannelBodySchema(),
-    })
-    const { bannerFile, badgeFile } = getValidatedChannelImageFiles(ctx)
-
-    return await this.chatService.editChannel({
-      channelId,
-      userId: ctx.session!.user.id,
-      authority: ADMIN_CHAT_API_AUTHORITY,
-      updates: channelChanges,
-      bannerFile,
-      badgeFile,
-    })
   }
 }

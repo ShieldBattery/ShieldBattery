@@ -23,7 +23,7 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch } from '../../redux-hooks'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge } from '../../styles/typography'
-import { updateChannel, updateChannelAsAdmin } from '../action-creators'
+import { updateChannel } from '../action-creators'
 import { ChannelBadge } from '../channel-badge'
 import { ChannelBanner, ChannelBannerPlaceholderImage } from '../channel-banner'
 import {
@@ -109,14 +109,11 @@ export function GeneralSettings({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
-  isAdmin,
   onCloseSettings,
 }: {
   basicChannelInfo: BasicChannelInfo
   detailedChannelInfo: DetailedChannelInfo
   joinedChannelInfo: JoinedChannelInfo
-  /** Whether to save the changes through the membership-free admin endpoint. */
-  isAdmin: boolean
   onCloseSettings: () => void
 }) {
   const [formKey, resetForm] = useRefreshToken()
@@ -127,7 +124,6 @@ export function GeneralSettings({
       basicChannelInfo={basicChannelInfo}
       detailedChannelInfo={detailedChannelInfo}
       joinedChannelInfo={joinedChannelInfo}
-      isAdmin={isAdmin}
       onCloseSettings={onCloseSettings}
       onReset={resetForm}
     />
@@ -147,14 +143,12 @@ function GeneralSettingsForm({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
-  isAdmin,
   onCloseSettings,
   onReset,
 }: {
   basicChannelInfo: BasicChannelInfo
   detailedChannelInfo: DetailedChannelInfo
   joinedChannelInfo: JoinedChannelInfo
-  isAdmin: boolean
   onCloseSettings: () => void
   onReset: () => void
 }) {
@@ -204,7 +198,7 @@ function GeneralSettingsForm({
       setError(undefined)
 
       dispatch(
-        (isAdmin ? updateChannelAsAdmin : updateChannel)({
+        updateChannel({
           channelId: basicChannelInfo.id,
           channelChanges: patch,
           channelBanner: model.banner,

@@ -83,8 +83,6 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
-    /** Whether to ban the user through the membership-free admin endpoint instead of the regular one. */
-    isAdmin?: boolean
   }
 >
 type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
@@ -92,8 +90,6 @@ type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
-    /** Whether to kick the user through the membership-free admin endpoint instead of the regular one. */
-    isAdmin?: boolean
   }
 >
 type ChannelLeaveConfirmationDialogPayload = BaseDialogPayload<
@@ -108,15 +104,11 @@ type ChannelTransferOwnershipDialogPayload = BaseDialogPayload<
     channelId: SbChannelId
     userId: SbUserId
     /**
-     * The name of the channel, used to make it clear which channel is being handed over. Not
-     * available for staff acting on channels they aren't a member of.
+     * The name of the channel, used to make it clear which channel is being handed over when the
+     * viewer is the owner losing it. Viewers that aren't the owner (and callers that don't know
+     * the name) get a generic prompt instead.
      */
     channelName?: string
-    /**
-     * Whether to transfer the ownership through the membership-free admin endpoint instead of the
-     * regular one.
-     */
-    isAdmin?: boolean
     /** Called once the ownership has been transferred successfully. */
     onSuccess?: () => void
   }
@@ -127,11 +119,6 @@ type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
     channelId: SbChannelId
     userId: SbUserId
     permissions: ChannelPermissions
-    /**
-     * Whether to save the edited permissions through the membership-free admin endpoint instead of
-     * the regular one.
-     */
-    isAdmin?: boolean
     onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => void
   }
 >
