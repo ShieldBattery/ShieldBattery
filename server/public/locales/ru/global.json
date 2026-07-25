@@ -270,9 +270,7 @@
     },
     "channelMenu": {
       "banAction": "Забанить {{user}}",
-      "kickAction": "Кик {{user}}",
-      "kickingError": "Ошибка при кике {{user.name}}",
-      "userKicked": "{{user}} был кикнут"
+      "kickAction": "Кик {{user}}"
     },
     "channelName": {
       "deletedChannel": "удалённый-канал"
@@ -367,8 +365,7 @@
       "selfJoinChannel": "Ты присоединился <2><0></0></2>"
     },
     "messageMenu": {
-      "deleteError": "Ошибка при удалении сообщения",
-      "messageDeleted": "Сообщение удалено"
+      "deleteMessage": "Удалить сообщение"
     },
     "navEntry": {
       "leaveChannel": "Покинуть канал"
@@ -1316,10 +1313,6 @@
       },
       "removeBookmark": "Убрать из закладок",
       "removeFromPlaylist": "Убрать из плейлиста",
-      "replayCount_one": "{{count}} реплей",
-      "replayCount_few": "{{count}} реплея",
-      "replayCount_many": "{{count}} реплеев",
-      "replayCount_other": "{{count}} реплея",
       "scanningTitle": "Сканирование папки с реплеями…",
       "showInExplorer": "Показать в проводнике",
       "sourceTagBnet": "B.NET",
@@ -1396,10 +1389,6 @@
         "apmValue": "Значение APM",
         "apmValueValidation": "Введите значение от 1 до 999",
         "colorCycling": "Включить циклическое изменение цвета",
-        "colorPreset": {
-          "legacyDiplomacy": "Классическая дипломатия",
-          "title": "Пресет"
-        },
         "consoleSkins": {
           "20thAnniversary": "20-летие StarCraft",
           "blizzcon2017": "BlizzCon 2017",
@@ -1430,7 +1419,6 @@
           "title": "Рельеф миникарты"
         },
         "showBonusSkins": "Показать бонусные скины",
-        "skinsInfo": "Скины (должны быть куплены у Blizzard)",
         "startingFog": {
           "legacy": "Классический",
           "showResources": "Показать ресурсы",
@@ -1447,8 +1435,7 @@
           "preview": {
             "allies": "Союзники",
             "enemies": "Враги",
-            "self": "Вы",
-            "title": "Предпросмотр"
+            "self": "Вы"
           },
           "title": "Цвета команд"
         },
@@ -1854,6 +1841,9 @@
         "spam": "Спам",
         "toxicity": "Токсичность"
       }
+    },
+    "staffBadge": {
+      "tooltip": "Команда ShieldBattery"
     },
     "titles": {
       "novice": "Новичок"

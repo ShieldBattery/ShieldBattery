@@ -269,9 +269,7 @@
     },
     "channelMenu": {
       "banAction": "Banear {{user}}",
-      "kickAction": "Expulsar {{user}}",
-      "kickingError": "Error al expulsar {{user.name}}",
-      "userKicked": "{{user}} fue expulsado"
+      "kickAction": "Expulsar {{user}}"
     },
     "channelName": {
       "deletedChannel": "canal-borrado"
@@ -366,8 +364,7 @@
       "selfJoinChannel": "Te uniste <2><0></0></2>"
     },
     "messageMenu": {
-      "deleteError": "Error al eliminar el mensaje",
-      "messageDeleted": "Mensaje eliminado"
+      "deleteMessage": "Eliminar mensaje"
     },
     "navEntry": {
       "leaveChannel": "Salir del canal"
@@ -1310,9 +1307,6 @@
       },
       "removeBookmark": "Quitar marcador",
       "removeFromPlaylist": "Quitar de la playlist",
-      "replayCount_one": "{{count}} replay",
-      "replayCount_many": "{{count}} replays",
-      "replayCount_other": "{{count}} replays",
       "scanningTitle": "Escaneando tu carpeta de replays…",
       "showInExplorer": "Mostrar en el Explorador",
       "sourceTagBnet": "B.NET",
@@ -1389,10 +1383,6 @@
         "apmValue": "Valor APM",
         "apmValueValidation": "Introduzca un valor entre 1 y 999",
         "colorCycling": "Habilitar ciclo de color",
-        "colorPreset": {
-          "legacyDiplomacy": "Diplomacia clásica",
-          "title": "Preajuste"
-        },
         "consoleSkins": {
           "20thAnniversary": "20.º aniversario de StarCraft",
           "blizzcon2017": "BlizzCon 2017",
@@ -1423,7 +1413,6 @@
           "title": "Terreno del minimapa"
         },
         "showBonusSkins": "Mostrar máscaras de bonificación",
-        "skinsInfo": "Máscaras (deben comprarse en Blizzard)",
         "startingFog": {
           "legacy": "Legado",
           "showResources": "Mostrar recursos",
@@ -1440,8 +1429,7 @@
           "preview": {
             "allies": "Aliados",
             "enemies": "Enemigos",
-            "self": "Tú",
-            "title": "Vista previa"
+            "self": "Tú"
           },
           "title": "Colores de equipo"
         },
@@ -1844,6 +1832,9 @@
         "spam": "Spam",
         "toxicity": "Toxicidad"
       }
+    },
+    "staffBadge": {
+      "tooltip": "Equipo de ShieldBattery"
     },
     "titles": {
       "novice": "Principiante"

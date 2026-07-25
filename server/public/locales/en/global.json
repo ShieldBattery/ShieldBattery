@@ -362,6 +362,9 @@
       "newChannelOwner": "<0><0></0></0> is the new owner of the channel",
       "selfJoinChannel": "You joined <2><0></0></2>"
     },
+    "messageMenu": {
+      "deleteMessage": "Delete message"
+    },
     "navEntry": {
       "leaveChannel": "Leave channel"
     },
@@ -1971,6 +1974,9 @@
         "spam": "Spam",
         "toxicity": "Toxicity"
       }
+    },
+    "staffBadge": {
+      "tooltip": "ShieldBattery staff"
     },
     "titles": {
       "novice": "Novice"

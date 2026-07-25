@@ -267,9 +267,7 @@
     },
     "channelMenu": {
       "banAction": "차단 {{user}}",
-      "kickAction": "강퇴 {{user}}",
-      "kickingError": "강퇴 오류 {{user.name}}",
-      "userKicked": "{{user}}가 강퇴되었습니다"
+      "kickAction": "강퇴 {{user}}"
     },
     "channelName": {
       "deletedChannel": "삭제된 채널"
@@ -364,8 +362,7 @@
       "selfJoinChannel": "<2><0></0></2>에 참여했습니다"
     },
     "messageMenu": {
-      "deleteError": "메시지 삭제 오류",
-      "messageDeleted": "메시지 삭제됨"
+      "deleteMessage": "메시지 삭제"
     },
     "navEntry": {
       "leaveChannel": "채널 나가세요"
@@ -1298,7 +1295,6 @@
       },
       "removeBookmark": "북마크 해제",
       "removeFromPlaylist": "재생목록에서 제거",
-      "replayCount_other": "리플레이 {{count}}개",
       "scanningTitle": "리플레이 폴더 스캔 중…",
       "showInExplorer": "탐색기에서 보기",
       "sourceTagBnet": "B.NET",
@@ -1375,10 +1371,6 @@
         "apmValue": "APM 값",
         "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
         "colorCycling": "색상 순환 사용",
-        "colorPreset": {
-          "legacyDiplomacy": "레거시 외교",
-          "title": "프리셋"
-        },
         "consoleSkins": {
           "20thAnniversary": "스타크래프트 20주년",
           "blizzcon2017": "블리즈컨 2017",
@@ -1409,7 +1401,6 @@
           "title": "미니맵 지형"
         },
         "showBonusSkins": "보너스 스킨 표시",
-        "skinsInfo": "스킨 (블리자드에서 구매 필요)",
         "startingFog": {
           "legacy": "오리지널",
           "showResources": "자원 표시",
@@ -1426,8 +1417,7 @@
           "preview": {
             "allies": "아군",
             "enemies": "적군",
-            "self": "나",
-            "title": "미리 보기"
+            "self": "나"
           },
           "title": "팀 색상"
         },
@@ -1824,6 +1814,9 @@
         "spam": "스팸",
         "toxicity": "악성 행동"
       }
+    },
+    "staffBadge": {
+      "tooltip": "ShieldBattery 운영진"
     },
     "titles": {
       "novice": "초보자"

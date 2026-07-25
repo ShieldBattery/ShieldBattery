@@ -267,9 +267,7 @@
     },
     "channelMenu": {
       "banAction": "封禁 {{user}}",
-      "kickAction": "踢出 {{user}}",
-      "kickingError": "踢出 {{user.name}} 时遇到错误",
-      "userKicked": "{{user}} 已被踢出"
+      "kickAction": "踢出 {{user}}"
     },
     "channelName": {
       "deletedChannel": "被删除的频道"
@@ -364,8 +362,7 @@
       "selfJoinChannel": "您加入了 <2><0></0></2>"
     },
     "messageMenu": {
-      "deleteError": "删除消息时遇到错误",
-      "messageDeleted": "消息已删除"
+      "deleteMessage": "删除消息"
     },
     "navEntry": {
       "leaveChannel": "离开频道"
@@ -1298,7 +1295,6 @@
       },
       "removeBookmark": "取消书签",
       "removeFromPlaylist": "从播放列表中移除",
-      "replayCount_other": "{{count}} 个录像",
       "scanningTitle": "正在扫描录像文件夹……",
       "showInExplorer": "在资源管理器中显示",
       "sourceTagBnet": "B.NET",
@@ -1375,10 +1371,6 @@
         "apmValue": "APM值",
         "apmValueValidation": "输入一个1到999之间的数值",
         "colorCycling": "启用颜色循环",
-        "colorPreset": {
-          "legacyDiplomacy": "传统外交",
-          "title": "预设"
-        },
         "consoleSkins": {
           "20thAnniversary": "星际争霸20周年",
           "blizzcon2017": "2017暴雪嘉年华",
@@ -1409,7 +1401,6 @@
           "title": "小地图地形"
         },
         "showBonusSkins": "显示奖励皮肤",
-        "skinsInfo": "皮肤（必须从暴雪官方渠道购买）",
         "startingFog": {
           "legacy": "原版",
           "showResources": "显示资源",
@@ -1426,8 +1417,7 @@
           "preview": {
             "allies": "盟友",
             "enemies": "敌人",
-            "self": "自己",
-            "title": "预览"
+            "self": "自己"
           },
           "title": "队伍颜色"
         },
@@ -1824,6 +1814,9 @@
         "spam": "垃圾信息",
         "toxicity": "有害言行"
       }
+    },
+    "staffBadge": {
+      "tooltip": "ShieldBattery 工作人员"
     },
     "titles": {
       "novice": "新手"
