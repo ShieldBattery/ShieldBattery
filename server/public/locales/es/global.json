@@ -340,6 +340,23 @@
       "genericError": "Ocurrió un error al unirte a #{{channelName}}",
       "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro."
     },
+    "kickUser": {
+      "body": "{{user}} será expulsado del canal y perderá sus permisos en él. Podrá volver a entrar cuando quiera.",
+      "confirmAction": "Expulsar a {{user}}",
+      "dialogTitle": "¿Expulsar a {{user}}?",
+      "errorMessage": "Algo salió mal al expulsar a {{user}}",
+      "successMessage": "{{user}} fue expulsado"
+    },
+    "leaveChannel": {
+      "confirmAction": "Salir del canal",
+      "deleteChannelBody": "Eres el último miembro de #{{channelName}}. Si sales ahora, el canal y todo su historial de mensajes se eliminarán permanentemente, y esto no se puede deshacer.",
+      "deleteChannelConfirmAction": "Eliminar el canal",
+      "deleteChannelTitle": "¿Eliminar #{{channelName}}?",
+      "dialogTitle": "¿Salir de #{{channelName}}?",
+      "errorMessage": "Algo salió mal al salir de #{{channelName}}",
+      "loseOwnershipBody": "Si sales de #{{channelName}}, la propiedad pasará a otro miembro y no podrás recuperarla por tu cuenta. También perderás tus permisos en el canal.",
+      "losePermissionsBody": "Si sales de #{{channelName}}, perderás tus permisos en el canal, y volver a entrar no los restaurará."
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> ha sido baneado del canal",
       "joinChannel": "<0><0></0></0> se ha unido al canal",

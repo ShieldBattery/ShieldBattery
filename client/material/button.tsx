@@ -607,6 +607,10 @@ export function TextButton({
   )
 }
 
+export const DestructiveTextButton = styled(TextButton)`
+  color: var(--theme-negative);
+`
+
 const IconButtonRoot = styled.button`
   ${buttonReset};
 

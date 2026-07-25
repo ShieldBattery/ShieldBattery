@@ -1,21 +1,18 @@
 import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChannelModerationAction } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { DestructiveMenuItem } from '../material/menu/item'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
-import { getChatUserProfile, moderateUser } from './action-creators'
+import { getChatUserProfile } from './action-creators'
 import { ChannelContext } from './channel-context'
 
 export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const { channelId } = useContext(ChannelContext)
@@ -83,21 +80,9 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
               }
 
               dispatch(
-                moderateUser(channelId, user.id, ChannelModerationAction.Kick, {
-                  onSuccess: () =>
-                    snackbarController.showSnackbar(
-                      t('chat.channelMenu.userKicked', {
-                        defaultValue: '{{user}} was kicked',
-                        user: user.name,
-                      }),
-                    ),
-                  onError: () =>
-                    snackbarController.showSnackbar(
-                      t('chat.channelMenu.kickingError', {
-                        defaultValue: 'Error kicking {{user.name}}',
-                        user: user.name,
-                      }),
-                    ),
+                openDialog({
+                  type: DialogType.ChannelKickUserConfirmation,
+                  initData: { channelId, userId: user.id },
                 }),
               )
               onMenuClose()

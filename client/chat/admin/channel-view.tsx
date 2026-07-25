@@ -1,7 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
-  ChannelModerationAction,
   ChatMessage,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
@@ -40,11 +39,7 @@ import {
   UserMenuProps,
 } from '../../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
-import {
-  deleteMessageAsAdmin,
-  getChannelUserPermissionsAsAdmin,
-  moderateUserAsAdmin,
-} from '../action-creators'
+import { getChannelUserPermissionsAsAdmin } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
 import { UserList } from '../channel-user-list'
@@ -182,9 +177,9 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
         text={`Kick ${user.name}`}
         onClick={() => {
           dispatch(
-            moderateUserAsAdmin(channelId, user.id, ChannelModerationAction.Kick, {
-              onSuccess: () => snackbarController.showSnackbar(`${user.name} was kicked`),
-              onError: () => snackbarController.showSnackbar(`Error kicking ${user.name}`),
+            openDialog({
+              type: DialogType.ChannelKickUserConfirmation,
+              initData: { channelId, userId: user.id, isAdmin: true },
             }),
           )
           onMenuClose()
@@ -269,7 +264,6 @@ function AdminChannelMessageMenu({
   MenuComponent,
 }: MessageMenuProps) {
   const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
   const { channelId } = useContext(ChannelContext)
 
   const menuItems = new Map(items)
@@ -281,13 +275,9 @@ function AdminChannelMessageMenu({
       text='Delete message'
       onClick={() => {
         dispatch(
-          deleteMessageAsAdmin(channelId, messageId, {
-            onSuccess: () => {
-              snackbarController.showSnackbar('Message deleted')
-            },
-            onError: () => {
-              snackbarController.showSnackbar('Error deleting message')
-            },
+          openDialog({
+            type: DialogType.AdminDeleteChatMessage,
+            initData: { channelId, messageId },
           }),
         )
         onMenuClose()

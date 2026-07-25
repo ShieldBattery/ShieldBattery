@@ -338,6 +338,23 @@
       "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다",
       "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다."
     },
+    "kickUser": {
+      "body": "{{user}}을(를) 채널에서 내보내고 채널 권한을 회수합니다. 언제든 다시 입장할 수 있습니다.",
+      "confirmAction": "{{user}} 강퇴",
+      "dialogTitle": "{{user}}을(를) 강퇴하시겠습니까?",
+      "errorMessage": "{{user}}을(를) 강퇴하는 중 문제가 발생했습니다",
+      "successMessage": "{{user}} 강퇴됨"
+    },
+    "leaveChannel": {
+      "confirmAction": "채널 나가기",
+      "deleteChannelBody": "#{{channelName}}의 마지막 멤버입니다. 지금 나가면 채널과 모든 메시지 기록이 영구적으로 삭제되며, 되돌릴 수 없습니다.",
+      "deleteChannelConfirmAction": "채널 삭제",
+      "deleteChannelTitle": "#{{channelName}} 채널을 삭제하시겠습니까?",
+      "dialogTitle": "#{{channelName}} 채널에서 나가시겠습니까?",
+      "errorMessage": "#{{channelName}}에서 나가는 중 문제가 발생했습니다",
+      "loseOwnershipBody": "#{{channelName}}에서 나가면 소유권이 다른 멤버에게 넘어가며, 직접 되돌릴 수 없습니다. 채널 권한도 함께 잃습니다.",
+      "losePermissionsBody": "#{{channelName}}에서 나가면 채널 권한을 잃고, 다시 입장해도 복구되지 않습니다."
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> 채널에서 차단되었습니다",
       "joinChannel": "<0><0></0></0>님이 채널에 참여했습니다",

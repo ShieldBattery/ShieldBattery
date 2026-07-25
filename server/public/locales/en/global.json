@@ -268,9 +268,7 @@
     },
     "channelMenu": {
       "banAction": "Ban {{user}}",
-      "kickAction": "Kick {{user}}",
-      "kickingError": "Error kicking {{user.name}}",
-      "userKicked": "{{user}} was kicked"
+      "kickAction": "Kick {{user}}"
     },
     "channelName": {
       "deletedChannel": "deleted-channel"
@@ -338,6 +336,23 @@
       "bannedError": "You are banned from #{{channelName}}",
       "genericError": "An error occurred while joining #{{channelName}}",
       "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another."
+    },
+    "kickUser": {
+      "body": "{{user}} will be removed from the channel and lose their channel permissions. They can rejoin at any time.",
+      "confirmAction": "Kick {{user}}",
+      "dialogTitle": "Kick {{user}}?",
+      "errorMessage": "Something went wrong while kicking {{user}}",
+      "successMessage": "{{user}} was kicked"
+    },
+    "leaveChannel": {
+      "confirmAction": "Leave channel",
+      "deleteChannelBody": "You're the last member of #{{channelName}}. Leaving now will permanently delete the channel and its entire message history — this can't be undone.",
+      "deleteChannelConfirmAction": "Delete channel",
+      "deleteChannelTitle": "Delete #{{channelName}}?",
+      "dialogTitle": "Leave #{{channelName}}?",
+      "errorMessage": "Something went wrong while leaving #{{channelName}}",
+      "loseOwnershipBody": "Leaving #{{channelName}} will pass ownership to another member, and you won't be able to take it back yourself. You'll also lose your channel permissions.",
+      "losePermissionsBody": "Leaving #{{channelName}} will remove your channel permissions, and rejoining won't restore them."
     },
     "messageLayout": {
       "banUser": "<0><0></0></0> has been banned from the channel",

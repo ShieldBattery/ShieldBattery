@@ -8,12 +8,15 @@ import { SbUserId } from '../../common/users/sb-user-id'
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
+  AdminDeleteChatMessage = 'adminDeleteChatMessage',
   BugReport = 'bugReport',
   ChangeDisplayName = 'changeDisplayName',
   ChangeEmail = 'changeEmail',
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
+  ChannelKickUserConfirmation = 'channelKickUserConfirmation',
+  ChannelLeaveConfirmation = 'channelLeaveConfirmation',
   ChannelTransferOwnership = 'channelTransferOwnership',
   ChannelUserPermissions = 'channelUserPermissions',
   CreatePlaylist = 'createPlaylist',
@@ -49,6 +52,13 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
+type AdminDeleteChatMessageDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminDeleteChatMessage,
+  {
+    channelId: SbChannelId
+    messageId: string
+  }
+>
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
 type ChangeDisplayNameDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeDisplayName,
@@ -75,6 +85,21 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
     userId: SbUserId
     /** Whether to ban the user through the membership-free admin endpoint instead of the regular one. */
     isAdmin?: boolean
+  }
+>
+type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelKickUserConfirmation,
+  {
+    channelId: SbChannelId
+    userId: SbUserId
+    /** Whether to kick the user through the membership-free admin endpoint instead of the regular one. */
+    isAdmin?: boolean
+  }
+>
+type ChannelLeaveConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelLeaveConfirmation,
+  {
+    channelId: SbChannelId
   }
 >
 type ChannelTransferOwnershipDialogPayload = BaseDialogPayload<
@@ -229,6 +254,7 @@ type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
+  | AdminDeleteChatMessageDialogPayload
   | BugReportDialogPayload
   | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload
@@ -236,6 +262,8 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
+  | ChannelKickUserConfirmationDialogPayload
+  | ChannelLeaveConfirmationDialogPayload
   | ChannelTransferOwnershipDialogPayload
   | CreatePlaylistDialogPayload
   | DeletePlaylistDialogPayload

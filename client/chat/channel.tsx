@@ -25,7 +25,7 @@ import {
   deactivateChannel,
   getChannelInfo,
   getMessageHistory,
-  leaveChannel,
+  leaveChannelWithConfirmation,
   retrieveUserList,
   sendMessage,
 } from './action-creators'
@@ -239,7 +239,7 @@ export function ConnectedChatChannel({
   )
 
   const onLeaveChannel = useStableCallback((channelId: SbChannelId) => {
-    dispatch(leaveChannel(channelId))
+    dispatch(leaveChannelWithConfirmation(channelId))
   })
 
   return (

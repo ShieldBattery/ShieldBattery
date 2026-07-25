@@ -338,6 +338,23 @@
       "genericError": "加入 #{{channelName}} 时遇到错误",
       "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。"
     },
+    "kickUser": {
+      "body": "{{user}} 将被移出频道并失去频道权限，之后可以随时重新加入。",
+      "confirmAction": "踢出 {{user}}",
+      "dialogTitle": "踢出 {{user}}？",
+      "errorMessage": "踢出 {{user}} 时出现问题",
+      "successMessage": "{{user}} 已被踢出"
+    },
+    "leaveChannel": {
+      "confirmAction": "离开频道",
+      "deleteChannelBody": "您是 #{{channelName}} 的最后一名成员。现在离开将永久删除该频道及其全部消息记录，此操作无法撤销。",
+      "deleteChannelConfirmAction": "删除频道",
+      "deleteChannelTitle": "删除 #{{channelName}}？",
+      "dialogTitle": "离开 #{{channelName}}？",
+      "errorMessage": "离开 #{{channelName}} 时出现问题",
+      "loseOwnershipBody": "离开 #{{channelName}} 会将所有权转移给其他成员，您无法自行收回。您在该频道的权限也会一并失去。",
+      "losePermissionsBody": "离开 #{{channelName}} 会失去您在该频道的权限，重新加入也不会恢复。"
+    },
     "messageLayout": {
       "banUser": "<0><0></0></0> 已被频道封禁",
       "joinChannel": "<0><0></0></0> 已加入频道",

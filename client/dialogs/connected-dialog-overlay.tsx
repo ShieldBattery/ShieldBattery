@@ -7,7 +7,10 @@ import styled from 'styled-components'
 import { LaunchingGameDialog } from '../active-game/launching-game-dialog'
 import { EmailVerificationDialog } from '../auth/email-verification-dialog'
 import { BugReportDialog } from '../bugs/bug-report-dialog'
+import { AdminDeleteChatMessageDialog } from '../chat/admin/delete-message-dialog'
 import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
+import { ChannelKickUserConfirmation } from '../chat/channel-kick-user-dialog'
+import { ChannelLeaveConfirmation } from '../chat/channel-leave-dialog'
 import { ChannelUserPermissionsDialog } from '../chat/channel-settings/user-permissions-settings'
 import { ChannelTransferOwnershipDialog } from '../chat/channel-transfer-ownership-dialog'
 import { useIsDocumentVisible } from '../dom/document-visibility'
@@ -81,6 +84,8 @@ function getDialog(dialogType: DialogType): {
       return { component: AcceptMatchDialog, modal: true }
     case DialogType.AcceptableUse:
       return { component: AcceptableUseDialog }
+    case DialogType.AdminDeleteChatMessage:
+      return { component: AdminDeleteChatMessageDialog }
     case DialogType.BugReport:
       return { component: BugReportDialog }
     case DialogType.ChangeDisplayName:
@@ -93,6 +98,10 @@ function getDialog(dialogType: DialogType): {
       return { component: ChangePasswordDialog }
     case DialogType.ChannelBanUser:
       return { component: ChannelBanUserDialog }
+    case DialogType.ChannelKickUserConfirmation:
+      return { component: ChannelKickUserConfirmation }
+    case DialogType.ChannelLeaveConfirmation:
+      return { component: ChannelLeaveConfirmation }
     case DialogType.ChannelTransferOwnership:
       return { component: ChannelTransferOwnershipDialog }
     case DialogType.ChannelUserPermissions:

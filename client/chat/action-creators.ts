@@ -24,6 +24,8 @@ import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { ThunkAction } from '../dispatch-registry'
 import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
@@ -33,6 +35,7 @@ import { MicrotaskBatchRequester } from '../network/batch-requests'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { RequestCoalescer } from '../network/request-coalescer'
+import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { ActivateChannel, DeactivateChannel } from './actions'
@@ -176,18 +179,93 @@ export function updateChannelUserPreferences(
   })
 }
 
-export function leaveChannel(channelId: SbChannelId): ThunkAction {
+export function leaveChannel(
+  channelId: SbChannelId,
+  spec?: RequestHandlingSpec<void>,
+): ThunkAction {
   return dispatch => {
     const params = { channelId }
     dispatch({
       type: '@chat/leaveChannelBegin',
       payload: params,
     })
+
+    spec?.onStart?.()
+
+    const result = fetchJson<void>(apiUrl`chat/${channelId}`, { method: 'DELETE' })
+
     dispatch({
       type: '@chat/leaveChannel',
-      payload: fetchJson<void>(apiUrl`chat/${channelId}`, { method: 'DELETE' }),
+      payload: result,
       meta: params,
     })
+
+    if (spec) {
+      result.then(spec.onSuccess, spec.onError)
+    }
+  }
+}
+
+/**
+ * The consequence a channel member would suffer by leaving, ordered from least to most severe.
+ * `None` means they have nothing to lose by leaving right now.
+ */
+export enum ChannelLeaveSeverity {
+  None = 'none',
+  LosePermissions = 'losePermissions',
+  LoseOwnership = 'loseOwnership',
+  DeleteChannel = 'deleteChannel',
+}
+
+/**
+ * Determines what a given user stands to lose by leaving a channel: their channel permissions,
+ * their ownership (which passes to someone else and can't be reclaimed), or the channel itself
+ * (permanently, along with its message history) if they're its last member. Official channels are
+ * never deleted when empty, so they never produce `DeleteChannel`.
+ */
+export function getChannelLeaveSeverity(
+  state: RootState,
+  channelId: SbChannelId,
+  selfId: SbUserId,
+): ChannelLeaveSeverity {
+  const isOfficial = state.chat.idToBasicInfo.get(channelId)?.official ?? false
+  const isLastMember = (state.chat.idToDetailedInfo.get(channelId)?.userCount ?? 0) <= 1
+  const isOwner = state.chat.idToJoinedInfo.get(channelId)?.ownerId === selfId
+  const selfPermissions = state.chat.idToSelfPermissions.get(channelId)
+  const hasPermissions = selfPermissions ? Object.values(selfPermissions).some(Boolean) : false
+
+  if (isLastMember && !isOfficial) {
+    return ChannelLeaveSeverity.DeleteChannel
+  }
+  if (isOwner) {
+    return ChannelLeaveSeverity.LoseOwnership
+  }
+  if (hasPermissions) {
+    return ChannelLeaveSeverity.LosePermissions
+  }
+
+  return ChannelLeaveSeverity.None
+}
+
+/**
+ * Leaves a channel, first prompting the user for confirmation if doing so would cost them
+ * anything. Channel-hopping with nothing at stake stays a single click.
+ */
+export function leaveChannelWithConfirmation(channelId: SbChannelId): ThunkAction {
+  return (dispatch, getState) => {
+    const state = getState()
+    const severity = getChannelLeaveSeverity(state, channelId, state.auth.self!.user.id)
+
+    if (severity === ChannelLeaveSeverity.None) {
+      dispatch(leaveChannel(channelId))
+    } else {
+      dispatch(
+        openDialog({
+          type: DialogType.ChannelLeaveConfirmation,
+          initData: { channelId },
+        }),
+      )
+    }
   }
 }
 
