@@ -14,6 +14,7 @@ export enum DialogType {
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
+  ChannelTransferOwnership = 'channelTransferOwnership',
   ChannelUserPermissions = 'channelUserPermissions',
   CreatePlaylist = 'createPlaylist',
   DeletePlaylist = 'deletePlaylist',
@@ -74,6 +75,25 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
     userId: SbUserId
     /** Whether to ban the user through the membership-free admin endpoint instead of the regular one. */
     isAdmin?: boolean
+  }
+>
+type ChannelTransferOwnershipDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelTransferOwnership,
+  {
+    channelId: SbChannelId
+    userId: SbUserId
+    /**
+     * The name of the channel, used to make it clear which channel is being handed over. Not
+     * available for staff acting on channels they aren't a member of.
+     */
+    channelName?: string
+    /**
+     * Whether to transfer the ownership through the membership-free admin endpoint instead of the
+     * regular one.
+     */
+    isAdmin?: boolean
+    /** Called once the ownership has been transferred successfully. */
+    onSuccess?: () => void
   }
 >
 type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
@@ -216,6 +236,7 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
+  | ChannelTransferOwnershipDialogPayload
   | CreatePlaylistDialogPayload
   | DeletePlaylistDialogPayload
   | DownloadDialogPayload

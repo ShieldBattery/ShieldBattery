@@ -22,6 +22,7 @@ import {
   SbChannelId,
   SearchChannelsResponse,
   SendChatMessageServerRequest,
+  TransferChannelOwnershipRequest,
   UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../../common/chat'
@@ -95,6 +96,12 @@ const kickBanThrottle = createThrottle('chatkickban', {
   window: 60000,
 })
 
+const transferOwnershipThrottle = createThrottle('chattransferownership', {
+  rate: 5,
+  burst: 10,
+  window: 60000,
+})
+
 const getUserProfileThrottle = createThrottle('chatgetuserprofile', {
   rate: 40,
   burst: 80,
@@ -150,6 +157,11 @@ const moderateChannelUserBodySchema = () =>
   Joi.object<ModerateChannelUserServerRequest>({
     moderationAction: Joi.string().valid('kick', 'ban').required(),
     moderationReason: Joi.string().allow(''),
+  })
+
+const transferChannelOwnershipBodySchema = () =>
+  Joi.object<TransferChannelOwnershipRequest>({
+    targetId: joiSerialId().required(),
   })
 
 const channelUserPermissionsBodySchema = () =>
@@ -471,6 +483,21 @@ export class ChatApi {
     ctx.status = 204
   }
 
+  @httpPost('/:channelId/owner')
+  @httpBefore(throttleMiddleware(transferOwnershipThrottle, ctx => String(ctx.session!.user.id)))
+  async transferChannelOwnership(ctx: RouterContext): Promise<void> {
+    const channelId = getValidatedChannelId(ctx)
+    const {
+      body: { targetId },
+    } = validateRequest(ctx, {
+      body: transferChannelOwnershipBodySchema(),
+    })
+
+    await this.chatService.transferOwnership(channelId, ctx.session!.user.id, targetId, false)
+
+    ctx.status = 204
+  }
+
   @httpGet('/batch-info')
   @httpBefore(throttleMiddleware(channelRetrievalThrottle, ctx => String(ctx.session!.user.id)))
   async getBatchedChannelInfos(ctx: RouterContext): Promise<GetBatchedChannelInfosResponse> {
@@ -634,6 +661,20 @@ export class AdminChatApi {
       permissions,
       true,
     )
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/owner')
+  async transferChannelOwnership(ctx: RouterContext): Promise<void> {
+    const channelId = getValidatedChannelId(ctx)
+    const {
+      body: { targetId },
+    } = validateRequest(ctx, {
+      body: transferChannelOwnershipBodySchema(),
+    })
+
+    await this.chatService.transferOwnership(channelId, ctx.session!.user.id, targetId, true)
 
     ctx.status = 204
   }

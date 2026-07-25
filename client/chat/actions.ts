@@ -7,6 +7,7 @@ import {
   ChatLeaveEvent,
   ChatMessageDeletedEvent,
   ChatMessageEvent,
+  ChatOwnerChangedEvent,
   ChatPermissionsChangedEvent,
   ChatPreferencesChangedEvent,
   ChatUserActiveEvent,
@@ -57,6 +58,7 @@ export type ChatActions =
   | UpdateKickSelf
   | UpdateBan
   | UpdateBanSelf
+  | UpdateChannelOwner
   | UpdateMessage
   | UpdateMessageDeleted
   | UpdateUserActive
@@ -331,6 +333,15 @@ export interface UpdateBan {
  */
 export interface UpdateBanSelf {
   type: '@chat/updateBanSelf'
+  meta: { channelId: SbChannelId }
+}
+
+/**
+ * A channel we're in has a new owner.
+ */
+export interface UpdateChannelOwner {
+  type: '@chat/ownerChanged'
+  payload: ChatOwnerChangedEvent
   meta: { channelId: SbChannelId }
 }
 

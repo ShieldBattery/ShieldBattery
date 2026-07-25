@@ -18,13 +18,15 @@ import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { SubmitOnEnter } from '../../forms/submit-on-enter'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
-import { TextButton, useButtonState } from '../../material/button'
+import { IconButton, TextButton, useButtonState } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { Dialog } from '../../material/dialog'
 import { Ripple } from '../../material/ripple'
 import { elevationPlus1 } from '../../material/shadows'
+import { Tooltip } from '../../material/tooltip'
 import { useRefreshToken } from '../../network/refresh-token'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { SearchInput } from '../../search/search-input'
@@ -38,6 +40,7 @@ import {
   updateChannelUserPermissions,
   updateChannelUserPermissionsAsAdmin,
 } from '../action-creators'
+import { closeChannelSettings } from './channel-settings-action-creators'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -69,8 +72,7 @@ const StyledSearchInput = styled(SearchInput)`
   width: 256px;
 `
 
-const UserCardButton = styled.button`
-  ${buttonReset};
+const UserCardRow = styled.div`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
 
@@ -78,10 +80,33 @@ const UserCardButton = styled.button`
   width: 100%;
   display: flex;
   align-items: center;
+  border-radius: 4px;
+  overflow: hidden;
+`
+
+const UserCardButton = styled.button`
+  ${buttonReset};
+
+  position: relative;
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 16px;
   padding: 12px 16px;
-  border-radius: 4px;
   text-align: left;
+`
+
+const RowActions = styled.div`
+  flex-shrink: 0;
+  padding-right: 8px;
+  display: flex;
+  align-items: center;
+`
+
+const TransferOwnershipButton = styled(IconButton)`
+  width: 36px;
+  min-height: 36px;
 `
 
 const StyledAvatar = styled(ConnectedAvatar)`
@@ -151,11 +176,12 @@ export function UserPermissionsSettings({
   const dispatch = useAppDispatch()
 
   const selfUser = useSelfUser()
+  const isChannelOwner = selfUser?.id === joinedChannelInfo.ownerId
   // Only the channel owner may edit another moderator's permissions. A delegated moderator (granted
   // `editPermissions` but not ownership) could otherwise use that same access to rewrite a fellow
   // moderator's permissions, laundering around the protections the server places on moderation
   // actions elsewhere (e.g. owners/moderators being unkickable/unbannable by other moderators).
-  const canEditModerators = selfUser?.id === joinedChannelInfo.ownerId
+  const canEditModerators = isChannelOwner
 
   const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
   const [hasMoreUsers, setHasMoreUsers] = useState(true)
@@ -166,18 +192,20 @@ export function UserPermissionsSettings({
   const abortControllerRef = useRef<AbortController>(undefined)
 
   const [refreshToken, triggerRefresh] = useRefreshToken()
+  // Clears the loaded entries and lets the infinite scroll list initiate a fresh network request.
+  const resetUserList = () => {
+    // TODO(2Pac): Make the infinite scroll lost in charge of the loading state, so we don't have
+    // to do this here, which is pretty unintuitive.
+    setIsLoadingMoreUsers(false)
+    setSearchError(undefined)
+    setChannelUsers(undefined)
+    setHasMoreUsers(true)
+    triggerRefresh()
+  }
   const debouncedSearchRef = useRef(
     debounce((query: string) => {
-      // Just need to clear the search results here and let the infinite scroll list initiate the
-      // network request.
       setSearchQuery(query)
-      // TODO(2Pac): Make the infinite scroll lost in charge of the loading state, so we don't have
-      // to do this here, which is pretty unintuitive.
-      setIsLoadingMoreUsers(false)
-      setSearchError(undefined)
-      setChannelUsers(undefined)
-      setHasMoreUsers(true)
-      triggerRefresh()
+      resetUserList()
     }, 100),
   )
 
@@ -262,6 +290,23 @@ export function UserPermissionsSettings({
           user={user}
           isOwner={isOwner}
           canEdit={canEdit}
+          canTransferOwnership={isChannelOwner && !isOwner}
+          onTransferOwnershipClick={() =>
+            dispatch(
+              openDialog({
+                type: DialogType.ChannelTransferOwnership,
+                initData: {
+                  channelId: basicChannelInfo.id,
+                  channelName: basicChannelInfo.name,
+                  userId: user.userId,
+                  // Transferring ownership revokes the viewer's access to this settings screen (an
+                  // ex-owner holds no channel permissions), so close it instead of refetching a
+                  // list the server would now reject.
+                  onSuccess: () => dispatch(closeChannelSettings()),
+                },
+              }),
+            )
+          }
           onEditClick={() =>
             dispatch(
               openDialog({
@@ -310,12 +355,16 @@ function UserChannelEntryRow({
   user,
   isOwner,
   canEdit,
+  canTransferOwnership,
   onEditClick,
+  onTransferOwnershipClick,
 }: {
   user: UserChannelEntry
   isOwner: boolean
   canEdit: boolean
+  canTransferOwnership: boolean
   onEditClick: () => void
+  onTransferOwnershipClick: () => void
 }) {
   const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({
@@ -323,24 +372,43 @@ function UserChannelEntryRow({
     onClick: onEditClick,
   })
 
+  const transferOwnershipLabel = t(
+    'chat.channelSettings.permissions.transferOwnership',
+    'Transfer ownership',
+  )
+
   return (
-    <UserCardButton {...buttonProps}>
-      <StyledAvatar userId={user.userId} />
+    <UserCardRow>
+      <UserCardButton {...buttonProps}>
+        <StyledAvatar userId={user.userId} />
 
-      <UserInfoContainer>
-        <UsernameRow>
-          <StyledUsername userId={user.userId} interactive={false} />
-        </UsernameRow>
-        <JoinDateText>
-          {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
-            date: joinDateFormat.format(user.joinDate),
-          })}
-        </JoinDateText>
-        <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
-      </UserInfoContainer>
+        <UserInfoContainer>
+          <UsernameRow>
+            <StyledUsername userId={user.userId} interactive={false} />
+          </UsernameRow>
+          <JoinDateText>
+            {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
+              date: joinDateFormat.format(user.joinDate),
+            })}
+          </JoinDateText>
+          <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
+        </UserInfoContainer>
 
-      {canEdit && <Ripple ref={rippleRef} />}
-    </UserCardButton>
+        {canEdit && <Ripple ref={rippleRef} />}
+      </UserCardButton>
+
+      {canTransferOwnership ? (
+        <RowActions>
+          <Tooltip text={transferOwnershipLabel} position='left'>
+            <TransferOwnershipButton
+              icon={<MaterialIcon icon='swap_horiz' size={20} />}
+              ariaLabel={transferOwnershipLabel}
+              onClick={onTransferOwnershipClick}
+            />
+          </Tooltip>
+        </RowActions>
+      ) : null}
+    </UserCardRow>
   )
 }
 

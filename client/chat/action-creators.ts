@@ -16,6 +16,7 @@ import {
   SbChannelId,
   SearchChannelsResponse,
   SendChatMessageServerRequest,
+  TransferChannelOwnershipRequest,
   UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../common/chat'
@@ -209,6 +210,24 @@ export function moderateUser(
   })
 }
 
+/**
+ * Hands the ownership of a chat channel over to another one of its members. Only the channel's
+ * current owner can do this.
+ */
+export function transferChannelOwnership(
+  channelId: SbChannelId,
+  targetId: SbUserId,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`chat/${channelId}/owner`, {
+      method: 'POST',
+      body: encodeBodyAsParams<TransferChannelOwnershipRequest>({ targetId }),
+      signal: spec.signal,
+    })
+  })
+}
+
 export function sendMessage(channelId: SbChannelId, message: string): ThunkAction {
   return dispatch => {
     const params = { channelId, message }
@@ -259,6 +278,24 @@ export function moderateUserAsAdmin(
         moderationAction,
         moderationReason,
       }),
+      signal: spec.signal,
+    })
+  })
+}
+
+/**
+ * Hands the ownership of a chat channel over to one of its members through the membership-free
+ * admin endpoint, for staff that aren't necessarily a member of the channel.
+ */
+export function transferChannelOwnershipAsAdmin(
+  channelId: SbChannelId,
+  targetId: SbUserId,
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
+  return abortableThunk(spec, async () => {
+    await fetchJson<void>(apiUrl`admin/chat/${channelId}/owner`, {
+      method: 'POST',
+      body: encodeBodyAsParams<TransferChannelOwnershipRequest>({ targetId }),
       signal: spec.signal,
     })
   })

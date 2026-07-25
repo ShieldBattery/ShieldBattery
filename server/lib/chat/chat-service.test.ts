@@ -1412,6 +1412,112 @@ describe('chat/chat-service', () => {
     })
   })
 
+  describe('transferOwnership', () => {
+    const updateChannelMock = asMockedFunction(updateChannel)
+
+    beforeEach(async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
+    })
+
+    test("should throw if channel doesn't exist", async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
+
+      await expect(
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
+    })
+
+    test('should throw if channel is official', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+
+      await expect(
+        chatService.transferOwnership(shieldBatteryChannel.id, user1.id, user2.id, false),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Official channels can't have an owner]`)
+    })
+
+    test('should throw if target user not in channel', async () => {
+      mockTestChannelEntries([user1.id, user1TestChannelEntry])
+
+      await expect(
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: User must be in channel to transfer the ownership to them]`,
+      )
+    })
+
+    test('should throw if target user is already the owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user2.id })
+      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+
+      await expect(
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is already the channel owner]`)
+    })
+
+    test('should throw if not the channel owner', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: makeSbUserId(3),
+      })
+      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+
+      await expect(
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Only the channel owner can transfer the ownership]`,
+      )
+    })
+
+    test('works when channel owner', async () => {
+      await joinUserToChannel(
+        user1,
+        testChannel,
+        user1TestChannelEntry,
+        joinUser1TestChannelMessage,
+      )
+      await joinUserToChannel(
+        user2,
+        testChannel,
+        user2TestChannelEntry,
+        joinUser2TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
+      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+
+      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, false)
+
+      expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { ownerId: user2.id })
+      expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'ownerChanged',
+        newOwnerId: user2.id,
+      })
+    })
+
+    test('works when isAdmin bypasses the ownership and membership checks', async () => {
+      await joinUserToChannel(
+        user2,
+        testChannel,
+        user2TestChannelEntry,
+        joinUser2TestChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue({
+        ...testChannel,
+        ownerId: makeSbUserId(3),
+      })
+      mockTestChannelEntries([user2.id, user2TestChannelEntry])
+
+      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, true)
+
+      expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { ownerId: user2.id })
+      expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
+        action: 'ownerChanged',
+        newOwnerId: user2.id,
+      })
+    })
+  })
+
   describe('sendChatMessage', () => {
     test('should throw if not in channel', async () => {
       await expect(

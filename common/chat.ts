@@ -270,6 +270,12 @@ export interface ChatBanEvent {
   newOwnerId?: SbUserId
 }
 
+export interface ChatOwnerChangedEvent {
+  action: 'ownerChanged'
+  /** The ID of a user that is the new owner of the chat channel. */
+  newOwnerId: SbUserId
+}
+
 export interface ChatMessageEvent {
   action: 'message2'
   /** A text message that was sent in a chat channel. */
@@ -327,6 +333,7 @@ export type ChatEvent =
   | ChatLeaveEvent
   | ChatKickEvent
   | ChatBanEvent
+  | ChatOwnerChangedEvent
   | ChatMessageEvent
   | ChatMessageDeletedEvent
   | ChatInitActiveUsersEvent
@@ -430,6 +437,15 @@ export interface ModerateChannelUserServerRequest {
    * e.g. banning.
    */
   moderationReason?: string
+}
+
+/**
+ * The body data of the API route for transferring the ownership of a chat channel to one of its
+ * other members.
+ */
+export interface TransferChannelOwnershipRequest {
+  /** The ID of the user that should become the channel's new owner. */
+  targetId: SbUserId
 }
 
 /**

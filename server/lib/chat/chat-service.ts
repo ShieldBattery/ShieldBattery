@@ -669,6 +669,57 @@ export default class ChatService {
     }
   }
 
+  /**
+   * Hands the ownership of a channel over to one of its other members. Ownership can also change on
+   * its own when the current owner leaves or is removed from the channel.
+   */
+  async transferOwnership(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    targetId: SbUserId,
+    isAdmin: boolean,
+  ): Promise<void> {
+    const [channelInfo, targetChannelEntry] = await Promise.all([
+      getChannelInfo(channelId),
+      getUserChannelEntryForUser(targetId, channelId),
+    ])
+
+    if (!channelInfo) {
+      throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
+    }
+    if (channelInfo.official) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotChangeChannelOwner,
+        "Official channels can't have an owner",
+      )
+    }
+    if (!targetChannelEntry) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.TargetNotInChannel,
+        'User must be in channel to transfer the ownership to them',
+      )
+    }
+    if (channelInfo.ownerId === targetId) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.CannotChangeChannelOwner,
+        'User is already the channel owner',
+      )
+    }
+    if (!isAdmin && channelInfo.ownerId !== userId) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        'Only the channel owner can transfer the ownership',
+      )
+    }
+
+    await updateChannel(channelId, { ownerId: targetId })
+
+    this.publisher.publish(getChannelPath(channelId), {
+      action: 'ownerChanged',
+      newOwnerId: targetId,
+    })
+  }
+
   async sendChatMessage(channelId: SbChannelId, userId: SbUserId, message: string): Promise<void> {
     const userSockets = this.getUserSockets(userId)
     if (

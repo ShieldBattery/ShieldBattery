@@ -212,6 +212,23 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
       menuItems,
       UserMenuItemCategory.General,
       <MenuItem
+        key='transfer-ownership'
+        text='Transfer ownership'
+        onClick={() => {
+          dispatch(
+            openDialog({
+              type: DialogType.ChannelTransferOwnership,
+              initData: { channelId, userId: user.id, isAdmin: true },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
+    appendToMultimap(
+      menuItems,
+      UserMenuItemCategory.General,
+      <MenuItem
         key='edit-permissions'
         text='Edit permissions'
         onClick={() => {

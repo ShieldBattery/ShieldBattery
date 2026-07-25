@@ -307,7 +307,8 @@
         "owner": "Owner",
         "saveError": "Failed to save permissions",
         "togglePrivate": "Can toggle private status",
-        "togglePrivateShort": "Toggle private"
+        "togglePrivateShort": "Toggle private",
+        "transferOwnership": "Transfer ownership"
       },
       "tabs": {
         "general": "General",
@@ -348,6 +349,14 @@
     },
     "navEntry": {
       "leaveChannel": "Leave channel"
+    },
+    "transferOwnership": {
+      "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
+      "body": "",
+      "confirmAction": "Transfer ownership",
+      "dialogTitle": "Transfer ownership?",
+      "errorMessage": "Something went wrong while transferring the ownership to {{user}}",
+      "successMessage": "{{user}} is now the channel owner"
     },
     "userList": {
       "active": "Active",
