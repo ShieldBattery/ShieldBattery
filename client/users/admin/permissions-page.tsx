@@ -1,7 +1,9 @@
+import * as React from 'react'
 import { useState } from 'react'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { SbUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { graphql } from '../../gql'
@@ -10,7 +12,16 @@ import { logger } from '../../logging/logger'
 import { TextButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { LoadingDotsArea } from '../../progress/dots'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { TitleLarge, bodyLarge } from '../../styles/typography'
+import { adminSetStaffBadge } from '../action-creators'
+
+const Root = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`
 
 const AdminSection = styled.div`
   block-size: min-content;
@@ -18,6 +29,19 @@ const AdminSection = styled.div`
 
   border: 1px solid var(--theme-outline-variant);
   border-radius: 4px;
+`
+
+const StaffBadgeContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 0;
+`
+
+const SectionDescription = styled.div`
+  ${bodyLarge};
+  max-width: 600px;
+  color: var(--theme-on-surface-variant);
 `
 
 const LoadingError = styled.div`
@@ -114,14 +138,62 @@ export function AdminPermissionsPage({ user }: AdminPermissionsPageProps) {
   }
 
   return (
-    <AdminSection>
-      <TitleLarge>Permissions</TitleLarge>
-      <PermissionsEditor
-        userId={userData.id}
-        permissions={userData.permissions}
-        isSelf={selfUser.id === user.id}
+    <Root>
+      <AdminSection>
+        <TitleLarge>Permissions</TitleLarge>
+        <PermissionsEditor
+          userId={userData.id}
+          permissions={userData.permissions}
+          isSelf={selfUser.id === user.id}
+        />
+      </AdminSection>
+
+      <AdminSection>
+        <TitleLarge>Staff badge</TitleLarge>
+        <StaffBadgeEditor userId={user.id} />
+      </AdminSection>
+    </Root>
+  )
+}
+
+function StaffBadgeEditor({ userId }: { userId: SbUserId }) {
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const staffBadge = useAppSelector(s => !!s.users.byId.get(userId)?.staffBadge)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = event.target.checked
+    setIsSaving(true)
+
+    dispatch(
+      adminSetStaffBadge(userId, newValue, {
+        onSuccess: () => {
+          setIsSaving(false)
+          snackbarController.showSnackbar(newValue ? 'Staff badge granted' : 'Staff badge removed')
+        },
+        onError: () => {
+          setIsSaving(false)
+          snackbarController.showSnackbar('There was a problem saving the staff badge')
+        },
+      }),
+    )
+  }
+
+  return (
+    <StaffBadgeContent>
+      <SectionDescription>
+        Marks this account as speaking for ShieldBattery — shown as a badge next to their name.
+        Independent of the permissions above.
+      </SectionDescription>
+      <CheckBox
+        checked={staffBadge}
+        onChange={onChange}
+        label='Show staff badge'
+        inputProps={{ tabIndex: 0 }}
+        disabled={isSaving}
       />
-    </AdminSection>
+    </StaffBadgeContent>
   )
 }
 

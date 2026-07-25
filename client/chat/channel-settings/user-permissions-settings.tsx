@@ -36,6 +36,7 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
+import { StaffBadge } from '../../users/staff-badge'
 import { listUserChannelEntries, updateChannelUserPermissions } from '../action-creators'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -128,6 +129,10 @@ const UsernameRow = styled.div`
 const StyledUsername = styled(ConnectedUsername)`
   ${titleSmall};
   ${singleLine};
+`
+
+const StyledStaffBadge = styled(StaffBadge)`
+  flex-shrink: 0;
 `
 
 const JoinDateText = styled.div`
@@ -371,6 +376,7 @@ function UserChannelEntryRow({
   onTransferOwnershipClick: () => void
 }) {
   const { t } = useTranslation()
+  const hasStaffBadge = useAppSelector(s => s.users.byId.get(user.userId)?.staffBadge)
   const [buttonProps, rippleRef] = useButtonState({
     disabled: !canEdit,
     onClick: onEditClick,
@@ -389,6 +395,7 @@ function UserChannelEntryRow({
         <UserInfoContainer>
           <UsernameRow>
             <StyledUsername userId={user.userId} interactive={false} />
+            {hasStaffBadge ? <StyledStaffBadge /> : null}
           </UsernameRow>
           <JoinDateText>
             {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {

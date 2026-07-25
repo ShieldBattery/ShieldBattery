@@ -23,6 +23,13 @@ export interface SbUser {
    * not the underlying storage path.
    */
   avatarUrl?: string
+  /**
+   * Whether this account is marked as speaking for ShieldBattery, which clients render as a badge
+   * next to their name. This marker is granted by hand and is orthogonal to permissions: an account
+   * can hold moderation permissions without the badge, or the badge without any permissions.
+   * Absent (rather than `false`) for the common case of accounts without it.
+   */
+  staffBadge?: boolean
 }
 
 /** Information about the current user. */
@@ -62,6 +69,7 @@ export function toSelfUserJson(user: SelfUser): SelfUserJson {
     name: user.name,
     created: user.created,
     avatarUrl: user.avatarUrl,
+    staffBadge: user.staffBadge,
     loginName: user.loginName,
     email: user.email,
     emailVerified: user.emailVerified,
@@ -81,6 +89,7 @@ export function fromSelfUserJson(userJson: SelfUserJson): SelfUser {
     name: userJson.name,
     created: userJson.created,
     avatarUrl: userJson.avatarUrl,
+    staffBadge: userJson.staffBadge,
     loginName: userJson.loginName,
     email: userJson.email,
     emailVerified: userJson.emailVerified,

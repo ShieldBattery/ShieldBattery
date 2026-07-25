@@ -265,6 +265,19 @@ export interface AdminRemoveUserAvatarResponse {
   user: SbUser
 }
 
+export interface AdminSetStaffBadgeRequest {
+  staffBadge: boolean
+}
+
+/**
+ * The response returned when an admin changes another user's staff badge. Deliberately returns a
+ * `SbUser` (not a `SelfUser`/`SelfUserJson`) since the target user is not the requester and
+ * `SelfUser` includes private fields such as their email.
+ */
+export interface AdminSetStaffBadgeResponse {
+  user: SbUser
+}
+
 export interface EmailChangedEvent {
   action: 'emailChanged'
   userId: SbUserId

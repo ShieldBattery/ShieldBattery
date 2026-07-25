@@ -1,7 +1,7 @@
 import Koa, { AppSession } from 'koa'
 import { delay, inject, singleton } from 'tsyringe'
 import { SbPermissions } from '../../../common/users/permissions'
-import { fromSelfUserJson, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
+import { fromSelfUserJson, SbUser, SelfUser, toSelfUserJson } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { AuthEvent } from '../../../common/users/user-network'
 import { deleteFile, writeFile } from '../files'
@@ -10,7 +10,13 @@ import { getPermissions } from '../models/permissions'
 import { Redis, RedisSubscriber } from '../redis/redis'
 import { TypedPublisher } from '../websockets/typed-publisher'
 import { consumeEmailVerificationCode } from './email-verification-models'
-import { findSelfById, setUserAvatarPath, updateUser, UserUpdatables } from './user-model'
+import {
+  findSelfById,
+  setUserAvatarPath,
+  setUserStaffBadge,
+  updateUser,
+  UserUpdatables,
+} from './user-model'
 
 /**
  * How long to cache user info in redis.
@@ -160,6 +166,32 @@ export class UserService {
     }
 
     return { userInfo: selfInfo, previousPath }
+  }
+
+  /**
+   * Sets whether a user's account is marked as speaking for ShieldBattery, returning the updated
+   * user or `undefined` if they couldn't be found. Works for any user ID, not just the current user
+   * (this is only ever changed by an admin acting on someone else's account). Refreshes the cached
+   * user data and, if `ctx` is provided and its session belongs to the affected user, the current
+   * session.
+   */
+  async updateUserStaffBadge(
+    id: SbUserId,
+    staffBadge: boolean,
+    ctx?: Koa.Context,
+  ): Promise<SbUser | undefined> {
+    const user = await setUserStaffBadge(id, staffBadge)
+    if (!user) {
+      return undefined
+    }
+
+    const selfInfo = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
+
+    if (ctx && ctx.session?.user.id === id) {
+      ;(ctx.session as any as AppSession) = selfInfo
+    }
+
+    return user
   }
 
   /**

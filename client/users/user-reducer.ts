@@ -37,12 +37,16 @@ function updateUsers(state: UserState, users: SbUser[]) {
       if (userState.avatarUrl !== user.avatarUrl) {
         userState.avatarUrl = user.avatarUrl
       }
+      if (userState.staffBadge !== user.staffBadge) {
+        userState.staffBadge = user.staffBadge
+      }
     } else {
       state.byId.set(user.id, {
         id: user.id,
         name: user.name,
         created: user.created,
         avatarUrl: user.avatarUrl,
+        staffBadge: user.staffBadge,
       })
     }
   }
@@ -59,6 +63,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       name: user.name,
       created: user.created,
       avatarUrl: user.avatarUrl,
+      staffBadge: user.staffBadge,
     })
   },
 

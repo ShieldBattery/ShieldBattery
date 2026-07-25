@@ -33,6 +33,8 @@ interface UserInternal {
   signupIpAddress?: string
   /** File-store path (not URL) of the user's uploaded avatar, if any. */
   avatarPath?: string
+  /** Whether this account is marked as speaking for ShieldBattery. */
+  staffBadge: boolean
   emailVerified: boolean
   acceptedUsePolicyVersion: number
   acceptedTermsVersion: number
@@ -65,6 +67,7 @@ function convertUserFromDb(dbUser: DbUser): UserInternal {
     created: dbUser.created,
     signupIpAddress: dbUser.signup_ip_address ?? undefined,
     avatarPath: dbUser.avatar_path ?? undefined,
+    staffBadge: dbUser.staff_badge,
     emailVerified: dbUser.email_verified,
     acceptedPrivacyVersion: dbUser.accepted_privacy_version,
     acceptedTermsVersion: dbUser.accepted_terms_version,
@@ -93,6 +96,7 @@ function convertToExternalSelf(userInternal: UserInternal): SelfUser {
     name: userInternal.name,
     created: Number(userInternal.created),
     avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
+    staffBadge: userInternal.staffBadge ? true : undefined,
     loginName: userInternal.loginName,
     email: userInternal.email,
     emailVerified: userInternal.emailVerified,
@@ -116,6 +120,8 @@ function convertToExternal(userInternal: UserInternal): SbUser {
     name: userInternal.name,
     created: Number(userInternal.created),
     avatarUrl: userInternal.avatarPath ? getUrl(userInternal.avatarPath) : undefined,
+    // Left off the wire entirely for the common case of accounts without the badge.
+    staffBadge: userInternal.staffBadge ? true : undefined,
   }
 }
 
@@ -209,6 +215,9 @@ export type UserUpdatables = Omit<
   // Avatars are managed through `setUserAvatarPath` (which also reports the previous path so the
   // old file can be cleaned up), not the generic update path.
   | 'avatarPath'
+  // The staff badge is managed through `setUserStaffBadge`, which works for any user (the generic
+  // update path is only for the currently active one).
+  | 'staffBadge'
 >
 
 /**
@@ -313,6 +322,30 @@ export async function setUserAvatarPath(
       RETURNING old.avatar_path AS previous_path;
     `)
     return { previousPath: result.rows[0]?.previous_path ?? undefined }
+  } finally {
+    done()
+  }
+}
+
+/**
+ * Sets whether a user's account is marked as speaking for ShieldBattery, returning the updated user
+ * or `undefined` if they couldn't be found. Works for any user ID, not just the current one.
+ */
+export async function setUserStaffBadge(
+  userId: SbUserId,
+  staffBadge: boolean,
+  withClient?: DbClient,
+): Promise<SbUser | undefined> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbUser>(sql`
+      UPDATE users
+      SET staff_badge = ${staffBadge}
+      WHERE id = ${userId}
+      RETURNING *;
+    `)
+
+    return result.rows.length > 0 ? convertToExternal(convertUserFromDb(result.rows[0])) : undefined
   } finally {
     done()
   }

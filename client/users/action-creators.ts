@@ -12,6 +12,8 @@ import {
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
   AdminRemoveUserAvatarResponse,
+  AdminSetStaffBadgeRequest,
+  AdminSetStaffBadgeResponse,
   AdminUpdatePermissionsRequest,
   GetBatchUserInfoResponse,
   GetMatchHistoryQueryParams,
@@ -228,6 +230,26 @@ export function adminRemoveUserAvatar(
       },
     )
     dispatch({ type: '@users/avatarCleared', payload: { userId } })
+
+    return res
+  })
+}
+
+export function adminSetStaffBadge(
+  userId: SbUserId,
+  staffBadge: boolean,
+  spec: RequestHandlingSpec<AdminSetStaffBadgeResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const res = await fetchJson<AdminSetStaffBadgeResponse>(
+      apiUrl`admin/users/${userId}/staff-badge`,
+      {
+        method: 'POST',
+        body: encodeBodyAsParams<AdminSetStaffBadgeRequest>({ staffBadge }),
+        signal: spec.signal,
+      },
+    )
+    dispatch({ type: '@users/loadUsers', payload: [res.user] })
 
     return res
   })
