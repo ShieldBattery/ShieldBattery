@@ -13,14 +13,16 @@ import {
 import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
+  GET_LEAGUE_GAMES_LIMIT,
+  GetLeagueGamesQueryParams,
+  GetLeagueGamesResponse,
+} from '../../../common/leagues/league-games'
+import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
   AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
-  GET_LEAGUE_GAMES_LIMIT,
   GetLeagueByIdResponse,
-  GetLeagueGamesQueryParams,
-  GetLeagueGamesResponse,
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,

@@ -1,13 +1,15 @@
 import slug from 'slug'
 import { ReadonlyDeep, Simplify } from 'type-fest'
 import {
+  GetLeagueGamesQueryParams,
+  GetLeagueGamesResponse,
+} from '../../common/leagues/league-games'
+import {
   AdminAddLeagueRequest,
   AdminEditLeagueRequest,
   AdminGetLeagueResponse,
   AdminGetLeaguesResponse,
   GetLeagueByIdResponse,
-  GetLeagueGamesQueryParams,
-  GetLeagueGamesResponse,
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,

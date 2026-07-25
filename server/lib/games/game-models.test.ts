@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
+import { LeagueId } from '../../../common/leagues/leagues'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
@@ -10,6 +11,7 @@ import {
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   getGames,
+  getGamesForLeague,
   getGamesForUser,
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
@@ -207,6 +209,52 @@ describe('games/game-models/getGamesForUser', () => {
     const endDate = Date.parse('2026-07-21T23:59:59.999Z')
 
     await getGamesForUser({ userId, limit: 10, offset: 0, startDate, endDate })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain('g.start_time >=')
+    expect(template.text).toContain('g.start_time <=')
+    expect(template.values).toContainEqual(new Date(startDate))
+    expect(template.values).toContainEqual(new Date(endDate))
+  })
+})
+
+describe('games/game-models/getGamesForLeague', () => {
+  test('filters to completed matchmaking games in the given league', async () => {
+    const query = mockDbClient([])
+    const leagueId = 'league-1' as LeagueId
+
+    await getGamesForLeague({ leagueId, limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain("g.config->>'gameSource' =")
+    expect(template.text).toContain('g.results IS NOT NULL')
+    expect(template.text).toContain("(g.config->>'resultsExempt')::boolean IS NOT TRUE")
+    expect(template.text).toContain('FROM league_user_changes luc')
+    expect(template.text).toContain('luc.game_id = g.id')
+    expect(template.values).toContain(leagueId)
+  })
+
+  test('omits the start_time bounds when startDate/endDate are not given', async () => {
+    const query = mockDbClient([])
+    const leagueId = 'league-1' as LeagueId
+
+    await getGamesForLeague({ leagueId, limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('g.start_time >=')
+    expect(template.text).not.toContain('g.start_time <=')
+  })
+
+  test('filters on start_time when startDate/endDate are given', async () => {
+    const query = mockDbClient([])
+    const leagueId = 'league-1' as LeagueId
+    const startDate = Date.parse('2026-07-01T00:00:00.000Z')
+    const endDate = Date.parse('2026-07-21T23:59:59.999Z')
+
+    await getGamesForLeague({ leagueId, limit: 10, offset: 0, startDate, endDate })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]

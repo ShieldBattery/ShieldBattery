@@ -1,15 +1,5 @@
 import { Tagged } from 'type-fest'
-import {
-  EncodedMatchupString,
-  GameDurationFilter,
-  GameFormat,
-  GameSortOption,
-} from '../games/game-filters'
-// NOTE: `import type` avoids a runtime module cycle -- `common/games/games.ts` imports
-// `ClientLeagueUserChangeJson`/`LeagueJson` from this file for `MatchmakingResultsEvent`.
-import type { GameRecordJson, GameReplayInfo } from '../games/games'
 import { Jsonify } from '../json'
-import { MapInfoJson } from '../maps'
 import { MatchmakingResult, MatchmakingType } from '../matchmaking'
 import { RaceStats } from '../races'
 import { SbUser } from '../users/sb-user'
@@ -201,28 +191,4 @@ export interface GetLeagueLeaderboardResponse {
   leaderboard: SbUserId[]
   leagueUsers: ClientLeagueUserJson[]
   users: SbUser[]
-}
-
-export const GET_LEAGUE_GAMES_LIMIT = 40
-
-export interface GetLeagueGamesQueryParams {
-  duration?: GameDurationFilter
-  mapName?: string
-  playerName?: string
-  format?: GameFormat
-  matchup?: EncodedMatchupString
-  sort?: GameSortOption
-  offset?: number
-  /** Inclusive lower bound (unix ms) on the game's start time. */
-  startDate?: number
-  /** Inclusive upper bound (unix ms) on the game's start time. */
-  endDate?: number
-}
-
-export interface GetLeagueGamesResponse {
-  games: GameRecordJson[]
-  maps: MapInfoJson[]
-  users: SbUser[]
-  hasMoreGames: boolean
-  replays: GameReplayInfo[]
 }

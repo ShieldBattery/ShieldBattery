@@ -1,6 +1,6 @@
+import { GetLeagueGamesResponse } from '../../common/leagues/league-games'
 import {
   GetLeagueByIdResponse,
-  GetLeagueGamesResponse,
   GetLeagueLeaderboardResponse,
   GetLeaguesListResponse,
   JoinLeagueResponse,
