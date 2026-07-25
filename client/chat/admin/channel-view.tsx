@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
   ChatMessage,
@@ -11,6 +11,7 @@ import {
 import { appendToMultimap } from '../../../common/data-structures/maps'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { ThunkAction } from '../../dispatch-registry'
@@ -160,12 +161,24 @@ const StyledUserList = styled(UserList)`
   margin-bottom: 8px;
 `
 
+/**
+ * Channel details the admin menus need beyond `ChannelContext`'s ID, sourced from the admin view's
+ * locally-fetched channel info rather than the store.
+ */
+const AdminChannelInfoContext = createContext<{
+  /** The current owner of the channel, if it has one (official channels don't). */
+  ownerId?: SbUserId
+  /** Whether this is an official channel. Official channels can't have an owner. */
+  official: boolean
+}>({ official: false })
+
 function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const { channelId } = useContext(ChannelContext)
+  const { ownerId, official } = useContext(AdminChannelInfoContext)
 
   const menuItems = new Map(items)
   if (user && user.id !== selfUserId) {
@@ -203,23 +216,27 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
         }}
       />,
     )
-    appendToMultimap(
-      menuItems,
-      UserMenuItemCategory.General,
-      <MenuItem
-        key='transfer-ownership'
-        text='Transfer ownership'
-        onClick={() => {
-          dispatch(
-            openDialog({
-              type: DialogType.ChannelTransferOwnership,
-              initData: { channelId, userId: user.id, isAdmin: true },
-            }),
-          )
-          onMenuClose()
-        }}
-      />,
-    )
+    // Official channels can't have an owner, and transferring ownership to the current owner is
+    // meaningless — the server rejects both, so don't offer them.
+    if (!official && user.id !== ownerId) {
+      appendToMultimap(
+        menuItems,
+        UserMenuItemCategory.General,
+        <MenuItem
+          key='transfer-ownership'
+          text='Transfer ownership'
+          onClick={() => {
+            dispatch(
+              openDialog({
+                type: DialogType.ChannelTransferOwnership,
+                initData: { channelId, userId: user.id, isAdmin: true },
+              }),
+            )
+            onMenuClose()
+          }}
+        />,
+      )
+    }
     appendToMultimap(
       menuItems,
       UserMenuItemCategory.General,
@@ -462,23 +479,26 @@ export function AdminChannelView({
           />
 
           <ChannelContext.Provider value={{ channelId: channelInfo.id }}>
-            <ChatContext.Provider
-              value={{
-                UserMenu: AdminChannelUserMenu,
-                MessageMenu: AdminChannelMessageMenu,
-              }}>
-              <ChannelContainer>
-                <StyledMessageList
-                  messages={channelMessages}
-                  onLoadMoreMessages={onLoadMoreMessages}
-                  loading={isLoadingMoreChannelMessages}
-                  hasMoreHistory={hasMoreChannelMessages}
-                  refreshToken={channelInfo.id}
-                  MessageComponent={ChannelMessage}
-                />
-                <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
-              </ChannelContainer>
-            </ChatContext.Provider>
+            <AdminChannelInfoContext.Provider
+              value={{ ownerId: joinedChannelInfo?.ownerId, official: channelInfo.official }}>
+              <ChatContext.Provider
+                value={{
+                  UserMenu: AdminChannelUserMenu,
+                  MessageMenu: AdminChannelMessageMenu,
+                }}>
+                <ChannelContainer>
+                  <StyledMessageList
+                    messages={channelMessages}
+                    onLoadMoreMessages={onLoadMoreMessages}
+                    loading={isLoadingMoreChannelMessages}
+                    hasMoreHistory={hasMoreChannelMessages}
+                    refreshToken={channelInfo.id}
+                    MessageComponent={ChannelMessage}
+                  />
+                  <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
+                </ChannelContainer>
+              </ChatContext.Provider>
+            </AdminChannelInfoContext.Provider>
           </ChannelContext.Provider>
         </>
       ) : (
