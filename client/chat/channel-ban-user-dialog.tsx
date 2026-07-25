@@ -14,7 +14,7 @@ import { FetchError, isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { bodyLarge } from '../styles/typography'
-import { moderateUser } from './action-creators'
+import { moderateUser, moderateUserAsAdmin } from './action-creators'
 
 const ErrorsContainer = styled.div`
   margin-bottom: 16px;
@@ -102,9 +102,16 @@ interface BanUserModel {
 export interface ChannelBanUserDialogProps extends CommonDialogProps {
   channelId: SbChannelId
   userId: SbUserId
+  /** Whether to ban the user through the membership-free admin endpoint instead of the regular one. */
+  isAdmin?: boolean
 }
 
-export function ChannelBanUserDialog({ onCancel, channelId, userId }: ChannelBanUserDialogProps) {
+export function ChannelBanUserDialog({
+  onCancel,
+  channelId,
+  userId,
+  isAdmin,
+}: ChannelBanUserDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
@@ -125,7 +132,7 @@ export function ChannelBanUserDialog({ onCancel, channelId, userId }: ChannelBan
   useFormCallbacks(form, {
     onSubmit: model => {
       dispatch(
-        moderateUser(
+        (isAdmin ? moderateUserAsAdmin : moderateUser)(
           channelId,
           user.id,
           ChannelModerationAction.Ban,

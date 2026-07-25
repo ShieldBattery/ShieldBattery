@@ -1,4 +1,4 @@
-import { ChannelPermissions, SbChannelId, UserChannelEntry } from '../../common/chat'
+import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
 import { SbMapId } from '../../common/maps'
@@ -72,12 +72,21 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+    /** Whether to ban the user through the membership-free admin endpoint instead of the regular one. */
+    isAdmin?: boolean
   }
 >
 type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
   typeof DialogType.ChannelUserPermissions,
   {
-    userChannelEntry: UserChannelEntry
+    channelId: SbChannelId
+    userId: SbUserId
+    permissions: ChannelPermissions
+    /**
+     * Whether to save the edited permissions through the membership-free admin endpoint instead of
+     * the regular one.
+     */
+    isAdmin?: boolean
     onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => void
   }
 >

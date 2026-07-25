@@ -12,7 +12,9 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { matchLinks } from '../../common/text/links'
-import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
+import { urlPath } from '../../common/urls'
+import { useHasAnyPermission } from '../admin/admin-permissions'
+import { useSelfUser } from '../auth/auth-utils'
 import { useOverflowingElement } from '../dom/overflowing-element'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { IconButton } from '../material/button'
@@ -23,6 +25,7 @@ import { MenuList } from '../material/menu/menu'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { Tooltip, TooltipContent } from '../material/tooltip'
 import { ExternalLink } from '../navigation/external-link'
+import { push } from '../navigation/routing'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -131,7 +134,7 @@ export function ChannelHeader({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const user = useSelfUser()
-  const selfPermissions = useSelfPermissions()
+  const isAdmin = useHasAnyPermission('moderateChatChannels')
   const channelPermissions = useAppSelector(s =>
     s.chat.idToSelfPermissions.get(basicChannelInfo.id),
   )
@@ -214,16 +217,16 @@ export function ChannelHeader({
   const onLeaveChannelClick = useStableCallback(() => {
     onLeaveChannel(basicChannelInfo.id)
   })
+  const onOpenAdminViewClick = useStableCallback(() => {
+    closeOverflowMenu()
+    push(urlPath`/chat/admin/${basicChannelInfo.id}/${basicChannelInfo.name}/view`)
+  })
 
   const actions: React.ReactNode[] = []
   // TODO(2Pac): Users with `changeTopic` permission should also be able to access channel settings,
   // but need to update the channel settings UI first to only allow them to change the topic (will
   // probably need a new set of APIs as well).
-  if (
-    selfPermissions?.moderateChatChannels ||
-    user?.id === joinedChannelInfo.ownerId ||
-    channelPermissions?.editPermissions
-  ) {
+  if (user?.id === joinedChannelInfo.ownerId || channelPermissions?.editPermissions) {
     actions.push(
       <MenuItem
         key='channel-settings'
@@ -245,6 +248,15 @@ export function ChannelHeader({
   }
   if (actions.length > 0) {
     actions.push(<Divider key='divider' />)
+  }
+  if (isAdmin) {
+    actions.push(
+      <MenuItem
+        key='open-admin-view'
+        text={t('chat.channelHeader.actionItems.openAdminView', 'Open admin view')}
+        onClick={onOpenAdminViewClick}
+      />,
+    )
   }
   actions.push(
     <DestructiveMenuItem

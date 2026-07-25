@@ -125,6 +125,50 @@ const userPreferencesThrottle = createThrottle('chatuserpreferences', {
 const joiSerialId = () => Joi.number().min(1)
 const channelNameSchema = () => Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN)
 
+const channelIdParamsSchema = () =>
+  Joi.object<{ channelId: SbChannelId }>({
+    channelId: joiSerialId().required(),
+  })
+
+const channelUserParamsSchema = () =>
+  Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
+    channelId: joiSerialId().required(),
+    targetId: joiSerialId().required(),
+  })
+
+const editChannelBodySchema = () =>
+  Joi.object<{ channelChanges: EditChannelRequest }>({
+    channelChanges: json.object({
+      description: Joi.string().allow(null),
+      topic: Joi.string().allow(null),
+      deleteBanner: Joi.boolean(),
+      deleteBadge: Joi.boolean(),
+    }),
+  })
+
+const moderateChannelUserBodySchema = () =>
+  Joi.object<ModerateChannelUserServerRequest>({
+    moderationAction: Joi.string().valid('kick', 'ban').required(),
+    moderationReason: Joi.string().allow(''),
+  })
+
+const channelUserPermissionsBodySchema = () =>
+  Joi.object<UpdateChannelUserPermissionsRequest>({
+    permissions: Joi.object<ChannelPermissions>({
+      kick: Joi.boolean().required(),
+      ban: Joi.boolean().required(),
+      changeTopic: Joi.boolean().required(),
+      togglePrivate: Joi.boolean().required(),
+      editPermissions: Joi.boolean().required(),
+    }).required(),
+  })
+
+const userChannelEntriesQuerySchema = () =>
+  Joi.object<{ q?: string; offset: number }>({
+    q: Joi.string().allow(''),
+    offset: Joi.number().min(0),
+  })
+
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
     throw err
@@ -168,12 +212,24 @@ function getValidatedChannelId(ctx: RouterContext) {
   const {
     params: { channelId },
   } = validateRequest(ctx, {
-    params: Joi.object<{ channelId: SbChannelId }>({
-      channelId: joiSerialId().required(),
-    }),
+    params: channelIdParamsSchema(),
   })
 
   return channelId
+}
+
+/**
+ * Retrieves the banner/badge files from a multipart channel edit request, ensuring at most one of
+ * each was uploaded.
+ */
+function getValidatedChannelImageFiles(ctx: RouterContext) {
+  const bannerFile = ctx.request.files?.banner
+  const badgeFile = ctx.request.files?.badge
+  if ((bannerFile && Array.isArray(bannerFile)) || (badgeFile && Array.isArray(badgeFile))) {
+    throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
+  }
+
+  return { bannerFile, badgeFile }
 }
 
 async function throttleEditChannel(ctx: ExtendableContext, next: Next) {
@@ -215,26 +271,14 @@ export class ChatApi {
     const {
       body: { channelChanges },
     } = validateRequest(ctx, {
-      body: Joi.object<{ channelChanges: EditChannelRequest }>({
-        channelChanges: json.object({
-          description: Joi.string().allow(null),
-          topic: Joi.string().allow(null),
-          deleteBanner: Joi.boolean(),
-          deleteBadge: Joi.boolean(),
-        }),
-      }),
+      body: editChannelBodySchema(),
     })
-
-    const bannerFile = ctx.request.files?.banner
-    const badgeFile = ctx.request.files?.badge
-    if ((bannerFile && Array.isArray(bannerFile)) || (badgeFile && Array.isArray(badgeFile))) {
-      throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
-    }
+    const { bannerFile, badgeFile } = getValidatedChannelImageFiles(ctx)
 
     return await this.chatService.editChannel({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: !!ctx.session?.permissions.moderateChatChannels,
+      isAdmin: false,
       updates: channelChanges,
       bannerFile,
       badgeFile,
@@ -321,9 +365,7 @@ export class ChatApi {
       params: { channelId },
       body,
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId }>({
-        channelId: joiSerialId().required(),
-      }),
+      params: channelIdParamsSchema(),
       body: Joi.object<UpdateChannelUserPreferencesRequest>({
         hideBanner: Joi.boolean(),
       }),
@@ -340,10 +382,7 @@ export class ChatApi {
     const {
       params: { channelId, targetId },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
+      params: channelUserParamsSchema(),
     })
 
     return await this.chatService.getChatUserProfile(channelId, ctx.session!.user.id, targetId)
@@ -356,14 +395,8 @@ export class ChatApi {
       params: { channelId, targetId },
       body: { moderationAction, moderationReason },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
-      body: Joi.object<ModerateChannelUserServerRequest>({
-        moderationAction: Joi.string().valid('kick', 'ban').required(),
-        moderationReason: Joi.string().allow(''),
-      }),
+      params: channelUserParamsSchema(),
+      body: moderateChannelUserBodySchema(),
     })
 
     await this.chatService.moderateUser(
@@ -371,6 +404,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       moderationAction,
+      false,
       moderationReason,
     )
 
@@ -383,17 +417,14 @@ export class ChatApi {
     const {
       params: { channelId, targetId },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
+      params: channelUserParamsSchema(),
     })
 
     return await this.chatService.getUserPermissions(
       channelId,
       ctx.session!.user.id,
       targetId,
-      !!ctx.session?.permissions.moderateChatChannels,
+      false,
     )
   }
 
@@ -404,19 +435,14 @@ export class ChatApi {
       params: { channelId },
       query: { q: searchQuery, offset },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId }>({
-        channelId: joiSerialId().required(),
-      }),
-      query: Joi.object<{ q?: string; offset: number }>({
-        q: Joi.string().allow(''),
-        offset: Joi.number().min(0),
-      }),
+      params: channelIdParamsSchema(),
+      query: userChannelEntriesQuerySchema(),
     })
 
     return await this.chatService.listUserChannelEntries({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: !!ctx.session?.permissions.moderateChatChannels,
+      isAdmin: false,
       limit: CHANNEL_USER_PERMISSIONS_LIMIT,
       offset,
       searchStr: searchQuery,
@@ -430,19 +456,8 @@ export class ChatApi {
       params: { channelId, targetId },
       body: { permissions },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
-      body: Joi.object<UpdateChannelUserPermissionsRequest>({
-        permissions: Joi.object<ChannelPermissions>({
-          kick: Joi.boolean().required(),
-          ban: Joi.boolean().required(),
-          changeTopic: Joi.boolean().required(),
-          togglePrivate: Joi.boolean().required(),
-          editPermissions: Joi.boolean().required(),
-        }).required(),
-      }),
+      params: channelUserParamsSchema(),
+      body: channelUserPermissionsBodySchema(),
     })
 
     await this.chatService.updateUserPermissions(
@@ -450,7 +465,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       permissions,
-      !!ctx.session?.permissions.moderateChatChannels,
+      false,
     )
 
     ctx.status = 204
@@ -562,5 +577,105 @@ export class AdminChatApi {
     })
 
     ctx.status = 204
+  }
+
+  @httpPost('/:channelId/users/:targetId/remove')
+  async moderateChannelUser(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, targetId },
+      body: { moderationAction, moderationReason },
+    } = validateRequest(ctx, {
+      params: channelUserParamsSchema(),
+      body: moderateChannelUserBodySchema(),
+    })
+
+    await this.chatService.moderateUser(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      moderationAction,
+      true,
+      moderationReason,
+    )
+
+    ctx.status = 204
+  }
+
+  @httpGet('/:channelId/users/:targetId/permissions')
+  async getChannelUserPermissions(ctx: RouterContext): Promise<GetChannelUserPermissionsResponse> {
+    const {
+      params: { channelId, targetId },
+    } = validateRequest(ctx, {
+      params: channelUserParamsSchema(),
+    })
+
+    return await this.chatService.getUserPermissions(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      true,
+    )
+  }
+
+  @httpPost('/:channelId/users/:targetId/permissions')
+  async updateChannelUserPermissions(ctx: RouterContext): Promise<void> {
+    const {
+      params: { channelId, targetId },
+      body: { permissions },
+    } = validateRequest(ctx, {
+      params: channelUserParamsSchema(),
+      body: channelUserPermissionsBodySchema(),
+    })
+
+    await this.chatService.updateUserPermissions(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      permissions,
+      true,
+    )
+
+    ctx.status = 204
+  }
+
+  @httpGet('/:channelId/user-channel-entries')
+  async listUserChannelEntries(ctx: RouterContext): Promise<ListUserChannelEntriesResponse> {
+    const {
+      params: { channelId },
+      query: { q: searchQuery, offset },
+    } = validateRequest(ctx, {
+      params: channelIdParamsSchema(),
+      query: userChannelEntriesQuerySchema(),
+    })
+
+    return await this.chatService.listUserChannelEntries({
+      channelId,
+      userId: ctx.session!.user.id,
+      isAdmin: true,
+      limit: CHANNEL_USER_PERMISSIONS_LIMIT,
+      offset,
+      searchStr: searchQuery,
+    })
+  }
+
+  @httpPatch('/:channelId')
+  @httpBefore(handleMultipartFiles(MAX_IMAGE_SIZE_BYTES))
+  async editChannel(ctx: RouterContext): Promise<EditChannelResponse> {
+    const channelId = getValidatedChannelId(ctx)
+    const {
+      body: { channelChanges },
+    } = validateRequest(ctx, {
+      body: editChannelBodySchema(),
+    })
+    const { bannerFile, badgeFile } = getValidatedChannelImageFiles(ctx)
+
+    return await this.chatService.editChannel({
+      channelId,
+      userId: ctx.session!.user.id,
+      isAdmin: true,
+      updates: channelChanges,
+      bannerFile,
+      badgeFile,
+    })
   }
 }

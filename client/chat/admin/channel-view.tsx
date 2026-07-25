@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
   BasicChannelInfo,
+  ChannelModerationAction,
   ChatMessage,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
@@ -9,11 +10,19 @@ import {
   SbChannelId,
   makeSbChannelId,
 } from '../../../common/chat'
+import { appendToMultimap } from '../../../common/data-structures/maps'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { ThunkAction } from '../../dispatch-registry'
 import { FilledButton } from '../../material/button'
+import { DestructiveMenuItem, MenuItem } from '../../material/menu/item'
 import { ChatContext } from '../../messaging/chat-context'
+import {
+  MenuItemCategory as MessageMenuItemCategory,
+  MessageMenuProps,
+} from '../../messaging/message-context-menu'
 import { MessageList } from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
@@ -25,12 +34,20 @@ import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
-import { bodyLarge, titleLarge } from '../../styles/typography'
+import { bodyLarge, labelMedium, titleLarge } from '../../styles/typography'
+import {
+  MenuItemCategory as UserMenuItemCategory,
+  UserMenuProps,
+} from '../../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
-import { updateChannel } from '../action-creators'
+import {
+  deleteMessageAsAdmin,
+  getChannelUserPermissionsAsAdmin,
+  moderateUserAsAdmin,
+  updateChannelAsAdmin,
+} from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
-import { ChannelMessageMenu } from '../channel-menu-items'
 import { UserList } from '../channel-user-list'
 
 const CHANNEL_MESSAGES_LIMIT = 50
@@ -105,8 +122,22 @@ const ChannelHeaderContainer = styled.div`
   border-radius: 8px;
 `
 
+const ChannelHeadlineRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
 const ChannelHeadline = styled.div`
   ${titleLarge};
+`
+
+const AdminViewBadge = styled.div`
+  ${labelMedium};
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
 `
 
 const ChannelContainer = styled.div`
@@ -133,6 +164,122 @@ const ErrorText = styled.div`
 const StyledUserList = styled(UserList)`
   margin-bottom: 8px;
 `
+
+function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const selfUserId = useAppSelector(s => s.auth.self!.user.id)
+  const user = useAppSelector(s => s.users.byId.get(userId))
+  const { channelId } = useContext(ChannelContext)
+
+  const menuItems = new Map(items)
+  if (user && user.id !== selfUserId) {
+    appendToMultimap(
+      menuItems,
+      UserMenuItemCategory.Destructive,
+      <DestructiveMenuItem
+        key='kick'
+        text={`Kick ${user.name}`}
+        onClick={() => {
+          dispatch(
+            moderateUserAsAdmin(channelId, user.id, ChannelModerationAction.Kick, {
+              onSuccess: () => snackbarController.showSnackbar(`${user.name} was kicked`),
+              onError: () => snackbarController.showSnackbar(`Error kicking ${user.name}`),
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
+    appendToMultimap(
+      menuItems,
+      UserMenuItemCategory.Destructive,
+      <DestructiveMenuItem
+        key='ban'
+        text={`Ban ${user.name}`}
+        onClick={() => {
+          dispatch(
+            openDialog({
+              type: DialogType.ChannelBanUser,
+              initData: { channelId, userId: user.id, isAdmin: true },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
+    appendToMultimap(
+      menuItems,
+      UserMenuItemCategory.General,
+      <MenuItem
+        key='edit-permissions'
+        text='Edit permissions'
+        onClick={() => {
+          dispatch(
+            getChannelUserPermissionsAsAdmin(channelId, user.id, {
+              onSuccess: result => {
+                dispatch(
+                  openDialog({
+                    type: DialogType.ChannelUserPermissions,
+                    initData: {
+                      channelId,
+                      userId: user.id,
+                      permissions: result.permissions,
+                      isAdmin: true,
+                      onSuccess: () => {},
+                    },
+                  }),
+                )
+              },
+              onError: () => {
+                snackbarController.showSnackbar(`Error fetching permissions for ${user.name}`)
+              },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
+  }
+
+  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
+}
+
+function AdminChannelMessageMenu({
+  messageId,
+  items,
+  onMenuClose,
+  MenuComponent,
+}: MessageMenuProps) {
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const { channelId } = useContext(ChannelContext)
+
+  const menuItems = new Map(items)
+  appendToMultimap(
+    menuItems,
+    MessageMenuItemCategory.Destructive,
+    <DestructiveMenuItem
+      key='delete-message'
+      text='Delete message'
+      onClick={() => {
+        dispatch(
+          deleteMessageAsAdmin(channelId, messageId, {
+            onSuccess: () => {
+              snackbarController.showSnackbar('Message deleted')
+            },
+            onError: () => {
+              snackbarController.showSnackbar('Error deleting message')
+            },
+          }),
+        )
+        onMenuClose()
+      }}
+    />,
+  )
+
+  return <MenuComponent items={menuItems} messageId={messageId} onMenuClose={onMenuClose} />
+}
 
 export function AdminChannelView({
   channelId,
@@ -248,7 +395,7 @@ export function AdminChannelView({
     setIsRemovingBanner(true)
 
     dispatch(
-      updateChannel({
+      updateChannelAsAdmin({
         channelId: channelInfo!.id,
         channelChanges: {
           deleteBanner: true,
@@ -271,7 +418,7 @@ export function AdminChannelView({
     setIsRemovingBadge(true)
 
     dispatch(
-      updateChannel({
+      updateChannelAsAdmin({
         channelId: channelInfo!.id,
         channelChanges: {
           deleteBadge: true,
@@ -322,7 +469,10 @@ export function AdminChannelView({
       {channelInfo ? (
         <>
           <ChannelHeaderContainer>
-            <ChannelHeadline>#{channelInfo.name}</ChannelHeadline>
+            <ChannelHeadlineRow>
+              <ChannelHeadline>#{channelInfo.name}</ChannelHeadline>
+              <AdminViewBadge>Admin view</AdminViewBadge>
+            </ChannelHeadlineRow>
 
             <FlexSpacer />
 
@@ -341,7 +491,8 @@ export function AdminChannelView({
           <ChannelContext.Provider value={{ channelId: channelInfo.id }}>
             <ChatContext.Provider
               value={{
-                MessageMenu: ChannelMessageMenu,
+                UserMenu: AdminChannelUserMenu,
+                MessageMenu: AdminChannelMessageMenu,
               }}>
               <ChannelContainer>
                 <StyledMessageList

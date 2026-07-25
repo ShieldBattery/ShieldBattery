@@ -50,7 +50,6 @@ import { ImageService } from '../images/image-service'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
-import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { findConnectedUsers } from '../users/user-identifiers'
@@ -578,11 +577,11 @@ export default class ChatService {
     userId: SbUserId,
     targetId: SbUserId,
     moderationAction: ChannelModerationAction,
+    isAdmin: boolean,
     moderationReason?: string,
   ): Promise<void> {
-    const [channelInfo, userPermissions, userChannelEntry, targetChannelEntry] = await Promise.all([
+    const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
-      getPermissions(userId),
       getUserChannelEntryForUser(userId, channelId),
       getUserChannelEntryForUser(targetId, channelId),
     ])
@@ -590,7 +589,9 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    if (!userChannelEntry) {
+    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
+    // used by `getChannelUsers`/`getChannelHistory`.
+    if (!isAdmin && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         'Must be in channel to moderate users',
@@ -609,33 +610,30 @@ export default class ChatService {
       )
     }
 
-    const isUserServerModerator =
-      userPermissions?.editPermissions || userPermissions?.moderateChatChannels
-
     const isUserChannelOwner = channelInfo.ownerId === userId
     const isTargetChannelOwner = channelInfo.ownerId === targetId
 
     const isUserChannelModerator =
-      userChannelEntry.channelPermissions.editPermissions ||
-      userChannelEntry.channelPermissions[moderationAction]
+      userChannelEntry?.channelPermissions.editPermissions ||
+      userChannelEntry?.channelPermissions[moderationAction]
     const isTargetChannelModerator =
       targetChannelEntry.channelPermissions.editPermissions ||
       targetChannelEntry.channelPermissions.ban ||
       targetChannelEntry.channelPermissions.kick
 
-    if (isTargetChannelOwner && !isUserServerModerator) {
+    if (isTargetChannelOwner && !isAdmin) {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateChannelOwner,
         'Only server moderators can moderate channel owners',
       )
     }
-    if (isTargetChannelModerator && !isUserServerModerator && !isUserChannelOwner) {
+    if (isTargetChannelModerator && !isAdmin && !isUserChannelOwner) {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateChannelModerator,
         'Only server moderators and channel owners can moderate channel moderators',
       )
     }
-    if (!isUserServerModerator && !isUserChannelOwner && !isUserChannelModerator) {
+    if (!isAdmin && !isUserChannelOwner && !isUserChannelModerator) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         'Not enough permissions to moderate the user',

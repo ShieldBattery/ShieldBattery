@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "Channel settings",
         "hideBanner": "Hide banner",
-        "leaveChannel": "Leave channel"
+        "leaveChannel": "Leave channel",
+        "openAdminView": "Open admin view"
       },
       "errors": {
         "toggleBannerVisibility": "Something went wrong toggling the banner visibility"
@@ -344,10 +345,6 @@
       "leaveChannel": "<0><0></0></0> has left the channel",
       "newChannelOwner": "<0><0></0></0> is the new owner of the channel",
       "selfJoinChannel": "You joined <2><0></0></2>"
-    },
-    "messageMenu": {
-      "deleteError": "Error deleting message",
-      "messageDeleted": "Message deleted"
     },
     "navEntry": {
       "leaveChannel": "Leave channel"

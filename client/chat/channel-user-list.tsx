@@ -1,11 +1,12 @@
 import * as React from 'react'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useContext, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
+import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
@@ -14,7 +15,6 @@ import { useLiveUserIds } from '../twitch/live-state'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
-import { ChannelUserMenu } from './channel-menu-items'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -145,6 +145,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
+  const { UserMenu } = useContext(ChatContext)
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
     useUserOverlays({
@@ -155,7 +156,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
       profileOriginY: 'top',
       profileOffsetX: -4,
       filterClick,
-      UserMenu: ChannelUserMenu,
+      UserMenu,
     })
 
   return (

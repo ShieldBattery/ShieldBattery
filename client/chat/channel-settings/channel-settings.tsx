@@ -11,7 +11,7 @@ import {
   JoinedChannelInfo,
   SbChannelId,
 } from '../../../common/chat'
-import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
+import { useSelfUser } from '../../auth/auth-utils'
 import { FocusTrap } from '../../dom/focus-trap'
 import { useExternalElement } from '../../dom/use-external-element-ref'
 import { KeyListenerBoundary, useKeyListener } from '../../keyboard/key-listener'
@@ -86,18 +86,16 @@ function ChannelSettings({
 }) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
-  const selfPermissions = useSelfPermissions()
   const channelPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
 
   const isOwner = joinedChannelInfo && selfUser && joinedChannelInfo.ownerId === selfUser.id
-  const isServerAdmin = selfPermissions && !!selfPermissions.moderateChatChannels
   const hasEditPermissions = channelPermissions && !!channelPermissions.editPermissions
 
-  const canAccessGeneralPage = isOwner || isServerAdmin
-  const canAccessPermissionsPage = isOwner || isServerAdmin || hasEditPermissions
+  const canAccessGeneralPage = isOwner
+  const canAccessPermissionsPage = isOwner || hasEditPermissions
 
   const defaultPage = canAccessGeneralPage
     ? GeneralChannelSettingsPage.General

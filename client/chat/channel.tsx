@@ -32,7 +32,7 @@ import {
 import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
 import { ConnectedChannelInfoCard } from './channel-info-card'
-import { ChannelMessageMenu, ChannelUserMenu } from './channel-menu-items'
+import { ChannelUserMenu } from './channel-menu-items'
 import { ConnectedChannelSettings } from './channel-settings/channel-settings'
 import { UserList } from './channel-user-list'
 import {
@@ -288,7 +288,6 @@ export function ConnectedChatChannel({
               />
             }
             UserMenu={ChannelUserMenu}
-            MessageMenu={ChannelMessageMenu}
           />
         ) : (
           <ChannelInfoPage channelId={channelId} channelName={channelNameFromRoute} />

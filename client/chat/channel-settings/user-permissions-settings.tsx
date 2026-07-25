@@ -8,10 +8,11 @@ import {
   DetailedChannelInfo,
   fromUserChannelEntryJson,
   JoinedChannelInfo,
+  SbChannelId,
   UserChannelEntry,
 } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
+import { useSelfUser } from '../../auth/auth-utils'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
@@ -32,7 +33,11 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
-import { listUserChannelEntries, updateChannelUserPermissions } from '../action-creators'
+import {
+  listUserChannelEntries,
+  updateChannelUserPermissions,
+  updateChannelUserPermissionsAsAdmin,
+} from '../action-creators'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
@@ -146,12 +151,11 @@ export function UserPermissionsSettings({
   const dispatch = useAppDispatch()
 
   const selfUser = useSelfUser()
-  const selfPermissions = useSelfPermissions()
-  // Mirror the server's authorization in `updateUserPermissions`: only the channel owner or a server
-  // admin may edit a moderator's permissions. A delegated moderator (someone with `editPermissions`
-  // who isn't the owner/admin) can't, so disabling those rows avoids a guaranteed save failure.
-  const canEditModerators =
-    selfUser?.id === joinedChannelInfo.ownerId || !!selfPermissions?.moderateChatChannels
+  // Only the channel owner may edit another moderator's permissions. A delegated moderator (granted
+  // `editPermissions` but not ownership) could otherwise use that same access to rewrite a fellow
+  // moderator's permissions, laundering around the protections the server places on moderation
+  // actions elsewhere (e.g. owners/moderators being unkickable/unbannable by other moderators).
+  const canEditModerators = selfUser?.id === joinedChannelInfo.ownerId
 
   const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
   const [hasMoreUsers, setHasMoreUsers] = useState(true)
@@ -263,7 +267,9 @@ export function UserPermissionsSettings({
               openDialog({
                 type: DialogType.ChannelUserPermissions,
                 initData: {
-                  userChannelEntry: user,
+                  channelId: user.channelId,
+                  userId: user.userId,
+                  permissions: user.channelPermissions,
                   onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => {
                     setChannelUsers(prev =>
                       prev?.map(u =>
@@ -403,11 +409,17 @@ function PermissionBadges({
 }
 
 export function ChannelUserPermissionsDialog({
-  userChannelEntry,
+  channelId,
+  userId,
+  permissions,
+  isAdmin,
   onCancel,
   onSuccess,
 }: {
-  userChannelEntry: UserChannelEntry
+  channelId: SbChannelId
+  userId: SbUserId
+  permissions: ChannelPermissions
+  isAdmin?: boolean
   onCancel: () => void
   onSuccess: (userId: SbUserId, permissions: ChannelPermissions) => void
 }) {
@@ -415,12 +427,9 @@ export function ChannelUserPermissionsDialog({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()
-  const userInfo = useAppSelector(s => s.users.byId.get(userChannelEntry.userId))
+  const userInfo = useAppSelector(s => s.users.byId.get(userId))
 
-  const { submit, bindCheckable, form } = useForm<ChannelPermissions>(
-    userChannelEntry.channelPermissions,
-    {},
-  )
+  const { submit, bindCheckable, form } = useForm<ChannelPermissions>(permissions, {})
 
   const [isSaving, setIsSaving] = useState(false)
 
@@ -429,19 +438,24 @@ export function ChannelUserPermissionsDialog({
       setIsSaving(true)
 
       dispatch(
-        updateChannelUserPermissions(userChannelEntry.channelId, userChannelEntry.userId, model, {
-          onSuccess: () => {
-            setIsSaving(false)
-            onCancel()
-            onSuccess(userChannelEntry.userId, model)
+        (isAdmin ? updateChannelUserPermissionsAsAdmin : updateChannelUserPermissions)(
+          channelId,
+          userId,
+          model,
+          {
+            onSuccess: () => {
+              setIsSaving(false)
+              onCancel()
+              onSuccess(userId, model)
+            },
+            onError: err => {
+              setIsSaving(false)
+              snackbarController.showSnackbar(
+                t('chat.channelSettings.permissions.saveError', 'Failed to save permissions'),
+              )
+            },
           },
-          onError: err => {
-            setIsSaving(false)
-            snackbarController.showSnackbar(
-              t('chat.channelSettings.permissions.saveError', 'Failed to save permissions'),
-            )
-          },
-        }),
+        ),
       )
     },
   })
@@ -473,7 +487,7 @@ export function ChannelUserPermissionsDialog({
         <CheckBox
           {...bindCheckable('editPermissions')}
           label={t('chat.channelSettings.permissions.editPermissions', 'Can edit permissions')}
-          disabled={selfUser?.id === userChannelEntry.userId || isSaving}
+          disabled={selfUser?.id === userId || isSaving}
         />
         <CheckBox
           {...bindCheckable('togglePrivate')}
