@@ -2,6 +2,7 @@ import { useContext, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChannelModerationAction } from '../../common/chat'
 import { appendToMultimap } from '../../common/data-structures/maps'
+import { useHasAnyPermission } from '../admin/admin-permissions'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { DestructiveMenuItem } from '../material/menu/item'
@@ -18,9 +19,13 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const { channelId } = useContext(ChannelContext)
+  const isServerModerator = useHasAnyPermission('moderateChatChannels')
+  const isOfficialChannel = useAppSelector(s => s.chat.idToBasicInfo.get(channelId)?.official)
   const joinedChannelInfo = useAppSelector(s => s.chat.idToJoinedInfo.get(channelId))
   const channelUserProfiles = useAppSelector(s => s.chat.idToUserProfiles.get(channelId))
   const channelSelfPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
+  // Official channels have no owner, so server moderators hold the owner's authority in them.
+  const hasOfficialChannelAuthority = isServerModerator && !!isOfficialChannel
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -51,9 +56,9 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
 
       let kickDisabled = false
       let banDisabled = false
-      // Channel owners always have these actions enabled and don't even have to wait for the
-      // user's profile to be fully fetched to check their permissions.
-      if (!isSelfChannelOwner && isSelfChannelModerator) {
+      // Users with the channel owner's authority always have these actions enabled and don't even
+      // have to wait for the user's profile to be fully fetched to check their permissions.
+      if (!isSelfChannelOwner && !hasOfficialChannelAuthority && isSelfChannelModerator) {
         const canKick = channelSelfPermissions.editPermissions || channelSelfPermissions.kick
         kickDisabled = !canKick || !channelUserProfile || channelUserProfile.isModerator
 
@@ -61,7 +66,7 @@ export function ChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: U
         banDisabled = !canBan || !channelUserProfile || channelUserProfile.isModerator
       }
 
-      if (isSelfChannelOwner || isSelfChannelModerator) {
+      if (isSelfChannelOwner || hasOfficialChannelAuthority || isSelfChannelModerator) {
         appendToMultimap(
           menuItems,
           MenuItemCategory.Destructive,

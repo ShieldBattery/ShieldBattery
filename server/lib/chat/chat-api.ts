@@ -40,7 +40,7 @@ import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware, { throttleMiddlewareFunc } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
-import ChatService, { ChatServiceError } from './chat-service'
+import ChatService, { ChannelAuthority, ChatServiceError } from './chat-service'
 
 const getJoinedChannelsThrottle = createThrottle('chatgetjoinedchannels', {
   rate: 10,
@@ -244,6 +244,20 @@ function getValidatedChannelImageFiles(ctx: RouterContext) {
   return { bannerFile, badgeFile }
 }
 
+/** Authority facts for a request made through the regular, membership-based chat API. */
+function chatApiAuthority(ctx: RouterContext): ChannelAuthority {
+  return {
+    isServerModerator: !!ctx.session?.permissions.moderateChatChannels,
+    viaAdminApi: false,
+  }
+}
+
+/** Every `AdminChatApi` route requires the `moderateChatChannels` permission. */
+const ADMIN_CHAT_API_AUTHORITY: ChannelAuthority = {
+  isServerModerator: true,
+  viaAdminApi: true,
+}
+
 async function throttleEditChannel(ctx: ExtendableContext, next: Next) {
   const throttle =
     ctx.request.files?.banner || ctx.request.files?.badge ? editImageThrottle : editThrottle
@@ -290,7 +304,7 @@ export class ChatApi {
     return await this.chatService.editChannel({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: false,
+      authority: chatApiAuthority(ctx),
       updates: channelChanges,
       bannerFile,
       badgeFile,
@@ -416,7 +430,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       moderationAction,
-      false,
+      chatApiAuthority(ctx),
       moderationReason,
     )
 
@@ -436,7 +450,7 @@ export class ChatApi {
       channelId,
       ctx.session!.user.id,
       targetId,
-      false,
+      chatApiAuthority(ctx),
     )
   }
 
@@ -454,7 +468,7 @@ export class ChatApi {
     return await this.chatService.listUserChannelEntries({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: false,
+      authority: chatApiAuthority(ctx),
       limit: CHANNEL_USER_PERMISSIONS_LIMIT,
       offset,
       searchStr: searchQuery,
@@ -477,7 +491,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       permissions,
-      false,
+      chatApiAuthority(ctx),
     )
 
     ctx.status = 204
@@ -493,7 +507,12 @@ export class ChatApi {
       body: transferChannelOwnershipBodySchema(),
     })
 
-    await this.chatService.transferOwnership(channelId, ctx.session!.user.id, targetId, false)
+    await this.chatService.transferOwnership(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      chatApiAuthority(ctx),
+    )
 
     ctx.status = 204
   }
@@ -621,7 +640,7 @@ export class AdminChatApi {
       ctx.session!.user.id,
       targetId,
       moderationAction,
-      true,
+      ADMIN_CHAT_API_AUTHORITY,
       moderationReason,
     )
 
@@ -640,7 +659,7 @@ export class AdminChatApi {
       channelId,
       ctx.session!.user.id,
       targetId,
-      true,
+      ADMIN_CHAT_API_AUTHORITY,
     )
   }
 
@@ -659,7 +678,7 @@ export class AdminChatApi {
       ctx.session!.user.id,
       targetId,
       permissions,
-      true,
+      ADMIN_CHAT_API_AUTHORITY,
     )
 
     ctx.status = 204
@@ -674,7 +693,12 @@ export class AdminChatApi {
       body: transferChannelOwnershipBodySchema(),
     })
 
-    await this.chatService.transferOwnership(channelId, ctx.session!.user.id, targetId, true)
+    await this.chatService.transferOwnership(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      ADMIN_CHAT_API_AUTHORITY,
+    )
 
     ctx.status = 204
   }
@@ -692,7 +716,7 @@ export class AdminChatApi {
     return await this.chatService.listUserChannelEntries({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: true,
+      authority: ADMIN_CHAT_API_AUTHORITY,
       limit: CHANNEL_USER_PERMISSIONS_LIMIT,
       offset,
       searchStr: searchQuery,
@@ -713,7 +737,7 @@ export class AdminChatApi {
     return await this.chatService.editChannel({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: true,
+      authority: ADMIN_CHAT_API_AUTHORITY,
       updates: channelChanges,
       bannerFile,
       badgeFile,

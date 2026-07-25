@@ -120,6 +120,33 @@ export function getChannelUserPath(channelId: SbChannelId, userId: SbUserId): st
  */
 const MAX_JOIN_ATTEMPTS = 3
 
+/**
+ * Facts about who is making a request and which API surface they're making it through, used to
+ * determine what authority they have in a particular channel.
+ */
+export interface ChannelAuthority {
+  /** Whether the user holds the server-wide `moderateChatChannels` permission. */
+  isServerModerator: boolean
+  /** Whether the request came in through the moderation-only admin API. */
+  viaAdminApi: boolean
+}
+
+/**
+ * Returns whether the user acts with the authority of the channel's owner, which also means they
+ * don't need to be a member of the channel.
+ *
+ * Authority in a channel comes from that channel's own hierarchy. Official channels are
+ * platform-owned: they have no owner, and channel permissions can't be granted in them, so server
+ * moderators are the top of their hierarchy. In every other channel, a server moderator only wields
+ * owner authority through the admin API.
+ */
+function hasChannelOwnerAuthority(
+  channelInfo: FullChannelInfo,
+  { isServerModerator, viaAdminApi }: ChannelAuthority,
+): boolean {
+  return isServerModerator && (viaAdminApi || channelInfo.official)
+}
+
 @singleton()
 export default class ChatService {
   private state = new ChatState()
@@ -435,14 +462,14 @@ export default class ChatService {
   async editChannel({
     channelId,
     userId,
-    isAdmin,
+    authority,
     updates,
     bannerFile,
     badgeFile,
   }: {
     channelId: SbChannelId
     userId: SbUserId
-    isAdmin: boolean
+    authority: ChannelAuthority
     updates: EditChannelRequest
     bannerFile?: formidable.File
     badgeFile?: formidable.File
@@ -452,8 +479,9 @@ export default class ChatService {
     if (!originalChannel) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
+    const hasOwnerAuthority = hasChannelOwnerAuthority(originalChannel, authority)
 
-    if (!isAdmin && originalChannel.ownerId !== userId) {
+    if (!hasOwnerAuthority && originalChannel.ownerId !== userId) {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotEditChannel,
         'Only channel owner and admins can edit the channel',
@@ -577,7 +605,7 @@ export default class ChatService {
     userId: SbUserId,
     targetId: SbUserId,
     moderationAction: ChannelModerationAction,
-    isAdmin: boolean,
+    authority: ChannelAuthority,
     moderationReason?: string,
   ): Promise<void> {
     const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
@@ -589,9 +617,11 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
-    // used by `getChannelUsers`/`getChannelHistory`.
-    if (!isAdmin && !userChannelEntry) {
+    const hasOwnerAuthority = hasChannelOwnerAuthority(channelInfo, authority)
+
+    // Owner authority doesn't require channel membership, matching the pattern used by
+    // `getChannelUsers`/`getChannelHistory`.
+    if (!hasOwnerAuthority && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         'Must be in channel to moderate users',
@@ -621,19 +651,19 @@ export default class ChatService {
       targetChannelEntry.channelPermissions.ban ||
       targetChannelEntry.channelPermissions.kick
 
-    if (isTargetChannelOwner && !isAdmin) {
+    if (isTargetChannelOwner && !hasOwnerAuthority) {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateChannelOwner,
         'Only server moderators can moderate channel owners',
       )
     }
-    if (isTargetChannelModerator && !isAdmin && !isUserChannelOwner) {
+    if (isTargetChannelModerator && !hasOwnerAuthority && !isUserChannelOwner) {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotModerateChannelModerator,
         'Only server moderators and channel owners can moderate channel moderators',
       )
     }
-    if (!isAdmin && !isUserChannelOwner && !isUserChannelModerator) {
+    if (!hasOwnerAuthority && !isUserChannelOwner && !isUserChannelModerator) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         'Not enough permissions to moderate the user',
@@ -677,7 +707,7 @@ export default class ChatService {
     channelId: SbChannelId,
     userId: SbUserId,
     targetId: SbUserId,
-    isAdmin: boolean,
+    authority: ChannelAuthority,
   ): Promise<void> {
     const [channelInfo, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
@@ -693,6 +723,8 @@ export default class ChatService {
         "Official channels can't have an owner",
       )
     }
+    const hasOwnerAuthority = hasChannelOwnerAuthority(channelInfo, authority)
+
     if (!targetChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.TargetNotInChannel,
@@ -705,7 +737,7 @@ export default class ChatService {
         'User is already the channel owner',
       )
     }
-    if (!isAdmin && channelInfo.ownerId !== userId) {
+    if (!hasOwnerAuthority && channelInfo.ownerId !== userId) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         'Only the channel owner can transfer the ownership',
@@ -1047,7 +1079,7 @@ export default class ChatService {
     channelId: SbChannelId,
     userId: SbUserId,
     targetId: SbUserId,
-    isAdmin: boolean,
+    authority: ChannelAuthority,
   ) {
     const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
@@ -1058,9 +1090,11 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
-    // used by `getChannelUsers`/`getChannelHistory`.
-    if (!isAdmin && !userChannelEntry) {
+    const hasOwnerAuthority = hasChannelOwnerAuthority(channelInfo, authority)
+
+    // Owner authority doesn't require channel membership, matching the pattern used by
+    // `getChannelUsers`/`getChannelHistory`.
+    if (!hasOwnerAuthority && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         "Must be in channel to get user's permissions",
@@ -1074,7 +1108,11 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
+    if (
+      !hasOwnerAuthority &&
+      !isUserChannelOwner &&
+      !userChannelEntry?.channelPermissions.editPermissions
+    ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to get other user's permissions",
@@ -1091,14 +1129,14 @@ export default class ChatService {
   async listUserChannelEntries({
     channelId,
     userId,
-    isAdmin,
+    authority,
     limit,
     offset,
     searchStr,
   }: {
     channelId: SbChannelId
     userId: SbUserId
-    isAdmin: boolean
+    authority: ChannelAuthority
     limit: number
     offset: number
     searchStr?: string
@@ -1111,9 +1149,11 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
-    // used by `getChannelUsers`/`getChannelHistory`.
-    if (!isAdmin && !userChannelEntry) {
+    const hasOwnerAuthority = hasChannelOwnerAuthority(channelInfo, authority)
+
+    // Owner authority doesn't require channel membership, matching the pattern used by
+    // `getChannelUsers`/`getChannelHistory`.
+    if (!hasOwnerAuthority && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         'Must be in channel to view user channel entries',
@@ -1121,7 +1161,11 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
+    if (
+      !hasOwnerAuthority &&
+      !isUserChannelOwner &&
+      !userChannelEntry?.channelPermissions.editPermissions
+    ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to view user channel entries",
@@ -1177,7 +1221,7 @@ export default class ChatService {
     userId: SbUserId,
     targetId: SbUserId,
     permissions: ChannelPermissions,
-    isAdmin: boolean,
+    authority: ChannelAuthority,
   ) {
     const [channelInfo, userChannelEntry, targetChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
@@ -1188,9 +1232,11 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
-    // Server admins are allowed to do this even if they're not in the channel, matching the pattern
-    // used by `getChannelUsers`/`getChannelHistory`.
-    if (!isAdmin && !userChannelEntry) {
+    const hasOwnerAuthority = hasChannelOwnerAuthority(channelInfo, authority)
+
+    // Owner authority doesn't require channel membership, matching the pattern used by
+    // `getChannelUsers`/`getChannelHistory`.
+    if (!hasOwnerAuthority && !userChannelEntry) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotInChannel,
         "Must be in channel to update user's permissions",
@@ -1204,7 +1250,11 @@ export default class ChatService {
     }
 
     const isUserChannelOwner = channelInfo.ownerId === userId
-    if (!isAdmin && !isUserChannelOwner && !userChannelEntry?.channelPermissions.editPermissions) {
+    if (
+      !hasOwnerAuthority &&
+      !isUserChannelOwner &&
+      !userChannelEntry?.channelPermissions.editPermissions
+    ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to update other user's permissions",
@@ -1212,10 +1262,9 @@ export default class ChatService {
     }
 
     // Restrict which users can be targeted, mirroring the hierarchy enforced by `moderateUser`.
-    // Without this, a delegated moderator (someone with `editPermissions` who isn't the owner or a
-    // server admin) could zero out a fellow moderator's permissions and then kick/ban them,
-    // laundering around the restrictions in `moderateUser`. Editing your own permissions is still
-    // allowed.
+    // Without this, a delegated moderator (someone with `editPermissions` who doesn't hold owner
+    // authority) could zero out a fellow moderator's permissions and then kick/ban them, laundering
+    // around the restrictions in `moderateUser`. Editing your own permissions is still allowed.
     const isTargetChannelOwner = channelInfo.ownerId === targetId
     const isTargetChannelModerator =
       targetChannelEntry.channelPermissions.editPermissions ||
@@ -1231,7 +1280,12 @@ export default class ChatService {
         "Can't update the channel owner's permissions",
       )
     }
-    if (targetId !== userId && isTargetChannelModerator && !isAdmin && !isUserChannelOwner) {
+    if (
+      targetId !== userId &&
+      isTargetChannelModerator &&
+      !hasOwnerAuthority &&
+      !isUserChannelOwner
+    ) {
       throw new ChatServiceError(
         ChatServiceErrorCode.NotEnoughPermissions,
         "You don't have enough permissions to update another moderator's permissions",

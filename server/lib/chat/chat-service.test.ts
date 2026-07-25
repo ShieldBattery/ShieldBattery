@@ -16,12 +16,10 @@ import {
   UserChannelEntry,
 } from '../../../common/chat'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import { ImageService } from '../images/image-service'
-import { getPermissions } from '../models/permissions'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
@@ -63,7 +61,17 @@ import {
   updateUserPermissions,
   updateUserPreferences,
 } from './chat-models'
-import ChatService, { getChannelPath, getChannelUserPath } from './chat-service'
+import ChatService, { ChannelAuthority, getChannelPath, getChannelUserPath } from './chat-service'
+
+/** A user without any server-wide permissions, acting through the regular chat API. */
+const regularUserAuthority: ChannelAuthority = { isServerModerator: false, viaAdminApi: false }
+/** A server moderator acting through the admin API. */
+const adminApiAuthority: ChannelAuthority = { isServerModerator: true, viaAdminApi: true }
+/** A server moderator acting through the regular chat API. */
+const serverModeratorAuthority: ChannelAuthority = {
+  isServerModerator: true,
+  viaAdminApi: false,
+}
 
 vi.mock('../../../common/flags', () => ({
   __esModule: true,
@@ -219,7 +227,6 @@ describe('chat/chat-service', () => {
     ...testJoinedInfo,
   }
 
-  const userPermissions = { ...DEFAULT_PERMISSIONS }
   const channelPreferences: ChannelPreferences = {
     hideBanner: false,
   }
@@ -341,13 +348,16 @@ describe('chat/chat-service', () => {
 
   /**
    * Mocks `getUserChannelEntryForUser` to return the given entry for each specified user within
-   * `testChannel`, and `null` for any other user or channel.
+   * `channel`, and `null` for any other user or channel.
    */
-  function mockTestChannelEntries(...entries: Array<[SbUserId, UserChannelEntry]>) {
+  function mockChannelEntries(
+    channel: FullChannelInfo,
+    ...entries: Array<[SbUserId, UserChannelEntry]>
+  ) {
     const entriesByUser = new Map(entries)
     asMockedFunction(getUserChannelEntryForUser).mockImplementation(
       async (userId: SbUserId, channelId: SbChannelId) =>
-        channelId === testChannel.id ? (entriesByUser.get(userId) ?? null) : null,
+        channelId === channel.id ? (entriesByUser.get(userId) ?? null) : null,
     )
   }
 
@@ -806,7 +816,7 @@ describe('chat/chat-service', () => {
         chatService.editChannel({
           channelId: testChannel.id,
           userId: user1.id,
-          isAdmin: false,
+          authority: regularUserAuthority,
           updates: {},
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
@@ -819,7 +829,7 @@ describe('chat/chat-service', () => {
         chatService.editChannel({
           channelId: testChannel.id,
           userId: user1.id,
-          isAdmin: false,
+          authority: regularUserAuthority,
           updates: {},
         }),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
@@ -841,7 +851,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.editChannel({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: true,
+        authority: adminApiAuthority,
         updates,
       })
 
@@ -852,6 +862,49 @@ describe('chat/chat-service', () => {
           description: updates.description,
         },
         joinedChannelInfo: testJoinedInfo,
+      })
+    })
+
+    test('should throw if a server moderator edits a user-owned channel through the regular API', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
+
+      await expect(
+        chatService.editChannel({
+          channelId: testChannel.id,
+          userId: user1.id,
+          authority: serverModeratorAuthority,
+          updates: {},
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Only channel owner and admins can edit the channel]`,
+      )
+    })
+
+    test('works when a server moderator edits an official channel through the regular API', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+
+      const updates = {
+        description: 'NEW_DESCRIPTION',
+      }
+      asMockedFunction(updateChannel).mockResolvedValue({
+        ...shieldBatteryChannel,
+        ...updates,
+      })
+
+      const result = await chatService.editChannel({
+        channelId: shieldBatteryChannel.id,
+        userId: user1.id,
+        authority: serverModeratorAuthority,
+        updates,
+      })
+
+      expect(result).toEqual({
+        channelInfo: shieldBatteryBasicInfo,
+        detailedChannelInfo: {
+          ...shieldBatteryDetailedInfo,
+          description: updates.description,
+        },
+        joinedChannelInfo: shieldBatteryJoinedInfo,
       })
     })
 
@@ -879,7 +932,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.editChannel({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: false,
+        authority: regularUserAuthority,
         updates,
       })
 
@@ -923,7 +976,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.editChannel({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: false,
+        authority: regularUserAuthority,
         updates,
       })
 
@@ -1029,7 +1082,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           ChannelModerationAction.Kick,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
@@ -1043,13 +1096,13 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           ChannelModerationAction.Kick,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Must be in channel to moderate users]`)
     })
 
     test('should throw if target user not in channel', async () => {
-      mockTestChannelEntries([user1.id, user1TestChannelEntry])
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
 
       await expect(
         chatService.moderateUser(
@@ -1057,7 +1110,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           ChannelModerationAction.Kick,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: User must be in channel to moderate them]`,
@@ -1073,7 +1126,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user1.id,
           ChannelModerationAction.Kick,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't moderate yourself]`)
     })
@@ -1115,7 +1168,11 @@ describe('chat/chat-service', () => {
           topic: 'CHANNEL_TOPIC',
           ownerId: user2.id,
         })
-        mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+        mockChannelEntries(
+          testChannel,
+          [user1.id, user1TestChannelEntry],
+          [user2.id, user2TestChannelEntry],
+        )
 
         await expect(
           chatService.moderateUser(
@@ -1123,7 +1180,7 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            regularUserAuthority,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `[Error: Only server moderators can moderate channel owners]`,
@@ -1131,7 +1188,8 @@ describe('chat/chat-service', () => {
       })
 
       test('should throw if not enough permissions to moderate channel moderators', async () => {
-        mockTestChannelEntries(
+        mockChannelEntries(
+          testChannel,
           [user1.id, user1TestChannelEntry],
           [
             user2.id,
@@ -1148,7 +1206,7 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            regularUserAuthority,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `[Error: Only server moderators and channel owners can moderate channel moderators]`,
@@ -1156,7 +1214,11 @@ describe('chat/chat-service', () => {
       })
 
       test('should throw if not enough permissions to moderate the user', async () => {
-        mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+        mockChannelEntries(
+          testChannel,
+          [user1.id, user1TestChannelEntry],
+          [user2.id, user2TestChannelEntry],
+        )
 
         await expect(
           chatService.moderateUser(
@@ -1164,20 +1226,19 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            regularUserAuthority,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `[Error: Not enough permissions to moderate the user]`,
         )
       })
 
-      test('should throw if user only has server-level permissions', async () => {
-        asMockedFunction(getPermissions).mockResolvedValue({
-          ...userPermissions,
-          editPermissions: true,
-          moderateChatChannels: true,
-        })
-        mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      test('should throw if a server moderator acts through the regular API', async () => {
+        mockChannelEntries(
+          testChannel,
+          [user1.id, user1TestChannelEntry],
+          [user2.id, user2TestChannelEntry],
+        )
 
         await expect(
           chatService.moderateUser(
@@ -1185,7 +1246,7 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            serverModeratorAuthority,
           ),
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `[Error: Not enough permissions to moderate the user]`,
@@ -1199,7 +1260,8 @@ describe('chat/chat-service', () => {
             topic: 'CHANNEL_TOPIC',
             ownerId: user2.id,
           })
-          mockTestChannelEntries(
+          mockChannelEntries(
+            testChannel,
             [user1.id, user1TestChannelEntry],
             [user2.id, user2TestChannelEntry],
           )
@@ -1209,14 +1271,15 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            true,
+            adminApiAuthority,
           )
 
           await expectItWorks()
         })
 
         test('works when target is channel moderator', async () => {
-          mockTestChannelEntries(
+          mockChannelEntries(
+            testChannel,
             [user1.id, user1TestChannelEntry],
             [
               user2.id,
@@ -1232,14 +1295,15 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            true,
+            adminApiAuthority,
           )
 
           await expectItWorks()
         })
 
         test('works when target is regular user', async () => {
-          mockTestChannelEntries(
+          mockChannelEntries(
+            testChannel,
             [user1.id, user1TestChannelEntry],
             [user2.id, user2TestChannelEntry],
           )
@@ -1249,28 +1313,28 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            true,
+            adminApiAuthority,
           )
 
           await expectItWorks()
         })
 
         test('works when not in channel', async () => {
-          mockTestChannelEntries([user2.id, user2TestChannelEntry])
+          mockChannelEntries(testChannel, [user2.id, user2TestChannelEntry])
 
           await chatService.moderateUser(
             testChannel.id,
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            true,
+            adminApiAuthority,
           )
 
           await expectItWorks()
         })
 
         test('should throw if target user not in channel', async () => {
-          mockTestChannelEntries([user1.id, user1TestChannelEntry])
+          mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
 
           await expect(
             chatService.moderateUser(
@@ -1278,7 +1342,7 @@ describe('chat/chat-service', () => {
               user1.id,
               user2.id,
               ChannelModerationAction.Kick,
-              true,
+              adminApiAuthority,
             ),
           ).rejects.toThrowErrorMatchingInlineSnapshot(
             `[Error: User must be in channel to moderate them]`,
@@ -1286,7 +1350,7 @@ describe('chat/chat-service', () => {
         })
 
         test('should throw if moderating yourself', async () => {
-          mockTestChannelEntries([user1.id, user1TestChannelEntry])
+          mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
 
           await expect(
             chatService.moderateUser(
@@ -1294,7 +1358,7 @@ describe('chat/chat-service', () => {
               user1.id,
               user1.id,
               ChannelModerationAction.Kick,
-              true,
+              adminApiAuthority,
             ),
           ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Can't moderate yourself]`)
         })
@@ -1310,7 +1374,8 @@ describe('chat/chat-service', () => {
         })
 
         test('works when target is channel moderator', async () => {
-          mockTestChannelEntries(
+          mockChannelEntries(
+            testChannel,
             [user1.id, user1TestChannelEntry],
             [
               user2.id,
@@ -1326,14 +1391,15 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            regularUserAuthority,
           )
 
           await expectItWorks()
         })
 
         test('works when target is regular user', async () => {
-          mockTestChannelEntries(
+          mockChannelEntries(
+            testChannel,
             [user1.id, user1TestChannelEntry],
             [user2.id, user2TestChannelEntry],
           )
@@ -1343,7 +1409,7 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            regularUserAuthority,
           )
 
           await expectItWorks()
@@ -1352,7 +1418,8 @@ describe('chat/chat-service', () => {
 
       describe('when user is channel moderator', () => {
         beforeEach(() => {
-          mockTestChannelEntries(
+          mockChannelEntries(
+            testChannel,
             [
               user1.id,
               {
@@ -1370,7 +1437,7 @@ describe('chat/chat-service', () => {
             user1.id,
             user2.id,
             ChannelModerationAction.Kick,
-            false,
+            regularUserAuthority,
           )
 
           await expectItWorks()
@@ -1381,14 +1448,18 @@ describe('chat/chat-service', () => {
         const banUserFromChannelMock = asMockedFunction(banUserFromChannel)
         const banAllIdentifiersFromChannelMock = asMockedFunction(banAllIdentifiersFromChannel)
 
-        mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+        mockChannelEntries(
+          testChannel,
+          [user1.id, user1TestChannelEntry],
+          [user2.id, user2TestChannelEntry],
+        )
 
         await chatService.moderateUser(
           testChannel.id,
           user1.id,
           user2.id,
           ChannelModerationAction.Ban,
-          true,
+          adminApiAuthority,
           'MODERATION_REASON',
         )
 
@@ -1410,6 +1481,97 @@ describe('chat/chat-service', () => {
         )
       })
     })
+
+    describe('when a server moderator in an official channel', () => {
+      beforeEach(async () => {
+        await joinUserToChannel(
+          user1,
+          shieldBatteryChannel,
+          user1ShieldBatteryChannelEntry,
+          joinUser1ShieldBatteryChannelMessage,
+        )
+        await joinUserToChannel(
+          user2,
+          shieldBatteryChannel,
+          user2ShieldBatteryChannelEntry,
+          joinUser2ShieldBatteryChannelMessage,
+        )
+
+        asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+        mockChannelEntries(
+          shieldBatteryChannel,
+          [user1.id, user1ShieldBatteryChannelEntry],
+          [user2.id, user2ShieldBatteryChannelEntry],
+        )
+      })
+
+      test('works when kicking through the regular API', async () => {
+        await chatService.moderateUser(
+          shieldBatteryChannel.id,
+          user1.id,
+          user2.id,
+          ChannelModerationAction.Kick,
+          serverModeratorAuthority,
+        )
+
+        expect(removeUserFromChannelMock).toHaveBeenCalledWith(user2.id, shieldBatteryChannel.id)
+        expect(client1.publish).toHaveBeenCalledWith(getChannelPath(shieldBatteryChannel.id), {
+          action: ChannelModerationAction.Kick,
+          targetId: user2.id,
+          channelName: shieldBatteryChannel.name,
+          newOwnerId: undefined,
+        })
+        expect(client2.unsubscribe).toHaveBeenCalledWith(
+          getChannelUserPath(shieldBatteryChannel.id, user2.id),
+        )
+      })
+
+      test('works when banning through the regular API', async () => {
+        const banUserFromChannelMock = asMockedFunction(banUserFromChannel)
+        const banAllIdentifiersFromChannelMock = asMockedFunction(banAllIdentifiersFromChannel)
+
+        await chatService.moderateUser(
+          shieldBatteryChannel.id,
+          user1.id,
+          user2.id,
+          ChannelModerationAction.Ban,
+          serverModeratorAuthority,
+          'MODERATION_REASON',
+        )
+
+        expect(banUserFromChannelMock).toHaveBeenCalledWith(
+          {
+            channelId: shieldBatteryChannel.id,
+            moderatorId: user1.id,
+            targetId: user2.id,
+            reason: 'MODERATION_REASON',
+          },
+          dbClient,
+        )
+        expect(banAllIdentifiersFromChannelMock).toHaveBeenCalledWith(
+          {
+            channelId: shieldBatteryChannel.id,
+            targetId: user2.id,
+          },
+          dbClient,
+        )
+        expect(removeUserFromChannelMock).toHaveBeenCalledWith(user2.id, shieldBatteryChannel.id)
+      })
+
+      test('works when not in the channel', async () => {
+        mockChannelEntries(shieldBatteryChannel, [user2.id, user2ShieldBatteryChannelEntry])
+
+        await chatService.moderateUser(
+          shieldBatteryChannel.id,
+          user1.id,
+          user2.id,
+          ChannelModerationAction.Kick,
+          serverModeratorAuthority,
+        )
+
+        expect(removeUserFromChannelMock).toHaveBeenCalledWith(user2.id, shieldBatteryChannel.id)
+      })
+    })
   })
 
   describe('transferOwnership', () => {
@@ -1423,7 +1585,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
       await expect(
-        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
@@ -1431,15 +1593,44 @@ describe('chat/chat-service', () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
 
       await expect(
-        chatService.transferOwnership(shieldBatteryChannel.id, user1.id, user2.id, false),
+        chatService.transferOwnership(
+          shieldBatteryChannel.id,
+          user1.id,
+          user2.id,
+          regularUserAuthority,
+        ),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Official channels can't have an owner]`)
+    })
+
+    test('should throw if channel is official even for a server moderator', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+      // The target is a member, so the rejection can only come from the channel being official.
+      mockChannelEntries(shieldBatteryChannel, [user2.id, user2ShieldBatteryChannelEntry])
+
+      await expect(
+        chatService.transferOwnership(
+          shieldBatteryChannel.id,
+          user1.id,
+          user2.id,
+          adminApiAuthority,
+        ),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Official channels can't have an owner]`)
+
+      await expect(
+        chatService.transferOwnership(
+          shieldBatteryChannel.id,
+          user1.id,
+          user2.id,
+          serverModeratorAuthority,
+        ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Official channels can't have an owner]`)
     })
 
     test('should throw if target user not in channel', async () => {
-      mockTestChannelEntries([user1.id, user1TestChannelEntry])
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
 
       await expect(
-        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: User must be in channel to transfer the ownership to them]`,
       )
@@ -1447,10 +1638,14 @@ describe('chat/chat-service', () => {
 
     test('should throw if target user is already the owner', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user2.id })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       await expect(
-        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is already the channel owner]`)
     })
 
@@ -1459,10 +1654,14 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: makeSbUserId(3),
       })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       await expect(
-        chatService.transferOwnership(testChannel.id, user1.id, user2.id, false),
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: Only the channel owner can transfer the ownership]`,
       )
@@ -1483,9 +1682,13 @@ describe('chat/chat-service', () => {
       )
 
       asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
-      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, false)
+      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, regularUserAuthority)
 
       expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { ownerId: user2.id })
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
@@ -1494,7 +1697,7 @@ describe('chat/chat-service', () => {
       })
     })
 
-    test('works when isAdmin bypasses the ownership and membership checks', async () => {
+    test('works when acting through the admin API, bypassing the ownership and membership checks', async () => {
       await joinUserToChannel(
         user2,
         testChannel,
@@ -1506,9 +1709,9 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: makeSbUserId(3),
       })
-      mockTestChannelEntries([user2.id, user2TestChannelEntry])
+      mockChannelEntries(testChannel, [user2.id, user2TestChannelEntry])
 
-      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, true)
+      await chatService.transferOwnership(testChannel.id, user1.id, user2.id, adminApiAuthority)
 
       expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { ownerId: user2.id })
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
@@ -2222,7 +2425,7 @@ describe('chat/chat-service', () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
@@ -2230,27 +2433,31 @@ describe('chat/chat-service', () => {
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: Must be in channel to get user's permissions]`,
       )
     })
 
     test('should throw if target user not in channel', async () => {
-      mockTestChannelEntries([user1.id, user1TestChannelEntry])
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: User must be in channel to get their permissions]`,
       )
     })
 
     test('should throw if not enough permissions', async () => {
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       await expect(
-        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false),
+        chatService.getUserPermissions(testChannel.id, user1.id, user2.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: You don't have enough permissions to get other user's permissions]`,
       )
@@ -2262,9 +2469,18 @@ describe('chat/chat-service', () => {
         topic: 'CHANNEL_TOPIC',
         ownerId: user1.id,
       })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
-      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false)
+      const result = await chatService.getUserPermissions(
+        testChannel.id,
+        user1.id,
+        user2.id,
+        regularUserAuthority,
+      )
 
       expect(result).toEqual({
         userId: user2TestChannelEntry.userId,
@@ -2275,7 +2491,8 @@ describe('chat/chat-service', () => {
 
     test('works when can edit channel permissions', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
-      mockTestChannelEntries(
+      mockChannelEntries(
+        testChannel,
         [
           user1.id,
           {
@@ -2286,7 +2503,12 @@ describe('chat/chat-service', () => {
         [user2.id, user2TestChannelEntry],
       )
 
-      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, false)
+      const result = await chatService.getUserPermissions(
+        testChannel.id,
+        user1.id,
+        user2.id,
+        regularUserAuthority,
+      )
 
       expect(result).toEqual({
         userId: user2TestChannelEntry.userId,
@@ -2297,9 +2519,18 @@ describe('chat/chat-service', () => {
 
     test('works when server admin', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
-      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, true)
+      const result = await chatService.getUserPermissions(
+        testChannel.id,
+        user1.id,
+        user2.id,
+        adminApiAuthority,
+      )
 
       expect(result).toEqual({
         userId: user2TestChannelEntry.userId,
@@ -2308,12 +2539,17 @@ describe('chat/chat-service', () => {
       })
     })
 
-    test('works when isAdmin bypasses membership check', async () => {
+    test('works when the admin API bypasses the membership check', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
       // The caller (user1) is not in the channel.
-      mockTestChannelEntries([user2.id, user2TestChannelEntry])
+      mockChannelEntries(testChannel, [user2.id, user2TestChannelEntry])
 
-      const result = await chatService.getUserPermissions(testChannel.id, user1.id, user2.id, true)
+      const result = await chatService.getUserPermissions(
+        testChannel.id,
+        user1.id,
+        user2.id,
+        adminApiAuthority,
+      )
 
       expect(result).toEqual({
         userId: user2TestChannelEntry.userId,
@@ -2337,7 +2573,7 @@ describe('chat/chat-service', () => {
         chatService.listUserChannelEntries({
           channelId: testChannel.id,
           userId: user1.id,
-          isAdmin: false,
+          authority: regularUserAuthority,
           limit: 40,
           offset: 0,
         }),
@@ -2351,7 +2587,7 @@ describe('chat/chat-service', () => {
         chatService.listUserChannelEntries({
           channelId: testChannel.id,
           userId: user1.id,
-          isAdmin: false,
+          authority: regularUserAuthority,
           limit: 40,
           offset: 0,
         }),
@@ -2367,7 +2603,7 @@ describe('chat/chat-service', () => {
         chatService.listUserChannelEntries({
           channelId: testChannel.id,
           userId: user1.id,
-          isAdmin: false,
+          authority: regularUserAuthority,
           limit: 40,
           offset: 0,
         }),
@@ -2386,7 +2622,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.listUserChannelEntries({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: true,
+        authority: adminApiAuthority,
         limit: 40,
         offset: 0,
       })
@@ -2408,7 +2644,7 @@ describe('chat/chat-service', () => {
       })
     })
 
-    test('works when isAdmin bypasses membership check', async () => {
+    test('works when the admin API bypasses the membership check', async () => {
       // The caller (user1) is not in the channel.
       asMockedFunction(getUserChannelEntryForUser).mockResolvedValue(null)
       getUserChannelEntriesForChannelMock.mockResolvedValue([
@@ -2419,7 +2655,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.listUserChannelEntries({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: true,
+        authority: adminApiAuthority,
         limit: 40,
         offset: 0,
       })
@@ -2449,7 +2685,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.listUserChannelEntries({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: false,
+        authority: regularUserAuthority,
         limit: 40,
         offset: 0,
       })
@@ -2478,7 +2714,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.listUserChannelEntries({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: false,
+        authority: regularUserAuthority,
         limit: 40,
         offset: 0,
       })
@@ -2488,6 +2724,49 @@ describe('chat/chat-service', () => {
         userChannelEntries: [
           toUserChannelEntryJson(user1TestChannelEntry),
           toUserChannelEntryJson(user2TestChannelEntry),
+        ],
+        hasMoreUsers: false,
+        users: [user1, user2],
+      })
+    })
+
+    test('should throw if a server moderator uses the regular API on a user-owned channel', async () => {
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
+
+      await expect(
+        chatService.listUserChannelEntries({
+          channelId: testChannel.id,
+          userId: user1.id,
+          authority: serverModeratorAuthority,
+          limit: 40,
+          offset: 0,
+        }),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to view user channel entries]`,
+      )
+    })
+
+    test('works when a server moderator uses the regular API on an official channel', async () => {
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+      mockChannelEntries(shieldBatteryChannel, [user1.id, user1ShieldBatteryChannelEntry])
+      getUserChannelEntriesForChannelMock.mockResolvedValue([
+        user1ShieldBatteryChannelEntry,
+        user2ShieldBatteryChannelEntry,
+      ])
+
+      const result = await chatService.listUserChannelEntries({
+        channelId: shieldBatteryChannel.id,
+        userId: user1.id,
+        authority: serverModeratorAuthority,
+        limit: 40,
+        offset: 0,
+      })
+
+      expect(result).toEqual({
+        channelId: shieldBatteryChannel.id,
+        userChannelEntries: [
+          toUserChannelEntryJson(user1ShieldBatteryChannelEntry),
+          toUserChannelEntryJson(user2ShieldBatteryChannelEntry),
         ],
         hasMoreUsers: false,
         users: [user1, user2],
@@ -2504,7 +2783,7 @@ describe('chat/chat-service', () => {
       const result = await chatService.listUserChannelEntries({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: true,
+        authority: adminApiAuthority,
         limit: 2,
         offset: 0,
       })
@@ -2519,7 +2798,7 @@ describe('chat/chat-service', () => {
       await chatService.listUserChannelEntries({
         channelId: testChannel.id,
         userId: user1.id,
-        isAdmin: true,
+        authority: adminApiAuthority,
         limit: 40,
         offset: 0,
         searchStr: 'USER_NAME',
@@ -2601,7 +2880,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           channelPermissions,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
@@ -2615,7 +2894,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           channelPermissions,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: Must be in channel to update user's permissions]`,
@@ -2623,7 +2902,7 @@ describe('chat/chat-service', () => {
     })
 
     test('should throw if target user not in channel', async () => {
-      mockTestChannelEntries([user1.id, user1TestChannelEntry])
+      mockChannelEntries(testChannel, [user1.id, user1TestChannelEntry])
 
       await expect(
         chatService.updateUserPermissions(
@@ -2631,7 +2910,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           channelPermissions,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: User must be in channel to update their permissions]`,
@@ -2639,7 +2918,11 @@ describe('chat/chat-service', () => {
     })
 
     test('should throw if not enough permissions', async () => {
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       await expect(
         chatService.updateUserPermissions(
@@ -2647,7 +2930,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           channelPermissions,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: You don't have enough permissions to update other user's permissions]`,
@@ -2667,14 +2950,18 @@ describe('chat/chat-service', () => {
         topic: 'CHANNEL_TOPIC',
         ownerId: user1.id,
       })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       await chatService.updateUserPermissions(
         testChannel.id,
         user1.id,
         user2.id,
         channelPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(updateUserPermissionsMock).toHaveBeenCalledWith(
@@ -2697,7 +2984,8 @@ describe('chat/chat-service', () => {
       )
 
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
-      mockTestChannelEntries(
+      mockChannelEntries(
+        testChannel,
         [
           user1.id,
           {
@@ -2713,7 +3001,7 @@ describe('chat/chat-service', () => {
         user1.id,
         user2.id,
         channelPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(updateUserPermissionsMock).toHaveBeenCalledWith(
@@ -2727,7 +3015,7 @@ describe('chat/chat-service', () => {
       })
     })
 
-    test('works when isAdmin bypasses permission check', async () => {
+    test('works when the admin API bypasses the permission check', async () => {
       await joinUserToChannel(
         user2,
         testChannel,
@@ -2736,14 +3024,18 @@ describe('chat/chat-service', () => {
       )
 
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       await chatService.updateUserPermissions(
         testChannel.id,
         user1.id,
         user2.id,
         channelPermissions,
-        true,
+        adminApiAuthority,
       )
 
       expect(updateUserPermissionsMock).toHaveBeenCalledWith(
@@ -2755,6 +3047,59 @@ describe('chat/chat-service', () => {
         action: 'permissionsChanged',
         selfPermissions: channelPermissions,
       })
+    })
+
+    test('should throw if a server moderator uses the regular API on a user-owned channel', async () => {
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
+
+      await expect(
+        chatService.updateUserPermissions(
+          testChannel.id,
+          user1.id,
+          user2.id,
+          channelPermissions,
+          serverModeratorAuthority,
+        ),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: You don't have enough permissions to update other user's permissions]`,
+      )
+    })
+
+    test('works when a server moderator uses the regular API on an official channel', async () => {
+      await joinUserToChannel(
+        user2,
+        shieldBatteryChannel,
+        user2ShieldBatteryChannelEntry,
+        joinUser2ShieldBatteryChannelMessage,
+      )
+
+      asMockedFunction(getChannelInfo).mockResolvedValue(shieldBatteryChannel)
+      // The caller (user1) is not in the channel.
+      mockChannelEntries(shieldBatteryChannel, [user2.id, user2ShieldBatteryChannelEntry])
+
+      await chatService.updateUserPermissions(
+        shieldBatteryChannel.id,
+        user1.id,
+        user2.id,
+        { ...channelPermissions, kick: true },
+        serverModeratorAuthority,
+      )
+
+      expect(updateUserPermissionsMock).toHaveBeenCalledWith(shieldBatteryChannel.id, user2.id, {
+        ...channelPermissions,
+        kick: true,
+      })
+      expect(client2.publish).toHaveBeenCalledWith(
+        getChannelUserPath(shieldBatteryChannel.id, user2.id),
+        {
+          action: 'permissionsChanged',
+          selfPermissions: { ...channelPermissions, kick: true },
+        },
+      )
     })
 
     test('publishes userProfileChanged when promoting user to moderator', async () => {
@@ -2769,7 +3114,11 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: user1.id,
       })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       const newPermissions = { ...channelPermissions, kick: true }
 
@@ -2778,7 +3127,7 @@ describe('chat/chat-service', () => {
         user1.id,
         user2.id,
         newPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
@@ -2800,7 +3149,8 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: user1.id,
       })
-      mockTestChannelEntries(
+      mockChannelEntries(
+        testChannel,
         [user1.id, user1TestChannelEntry],
         [
           user2.id,
@@ -2813,7 +3163,7 @@ describe('chat/chat-service', () => {
         user1.id,
         user2.id,
         channelPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
@@ -2835,7 +3185,11 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: user1.id,
       })
-      mockTestChannelEntries([user1.id, user1TestChannelEntry], [user2.id, user2TestChannelEntry])
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
 
       const newPermissions = { ...channelPermissions, changeTopic: true }
 
@@ -2844,7 +3198,7 @@ describe('chat/chat-service', () => {
         user1.id,
         user2.id,
         newPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(client2.publish).not.toHaveBeenCalledWith(
@@ -2867,7 +3221,8 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: user1.id,
       })
-      mockTestChannelEntries(
+      mockChannelEntries(
+        testChannel,
         [user1.id, user1TestChannelEntry],
         [
           user2.id,
@@ -2882,7 +3237,7 @@ describe('chat/chat-service', () => {
         user1.id,
         user2.id,
         newPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(client2.publish).not.toHaveBeenCalledWith(
@@ -2898,7 +3253,8 @@ describe('chat/chat-service', () => {
         ...testChannel,
         ownerId: user2.id,
       })
-      mockTestChannelEntries(
+      mockChannelEntries(
+        testChannel,
         [
           user1.id,
           {
@@ -2915,7 +3271,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           { ...channelPermissions, kick: true },
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: Can't update the channel owner's permissions]`,
@@ -2923,7 +3279,8 @@ describe('chat/chat-service', () => {
     })
 
     test('should throw when a delegated moderator targets another moderator', async () => {
-      mockTestChannelEntries(
+      mockChannelEntries(
+        testChannel,
         [
           user1.id,
           {
@@ -2943,7 +3300,7 @@ describe('chat/chat-service', () => {
           user1.id,
           user2.id,
           channelPermissions,
-          false,
+          regularUserAuthority,
         ),
       ).rejects.toThrowErrorMatchingInlineSnapshot(
         `[Error: You don't have enough permissions to update another moderator's permissions]`,
@@ -2955,7 +3312,7 @@ describe('chat/chat-service', () => {
         ...user1TestChannelEntry,
         channelPermissions: { ...channelPermissions, editPermissions: true },
       }
-      mockTestChannelEntries([user1.id, user1ModeratorEntry])
+      mockChannelEntries(testChannel, [user1.id, user1ModeratorEntry])
 
       const newPermissions = { ...channelPermissions, editPermissions: true, kick: true }
 
@@ -2964,7 +3321,7 @@ describe('chat/chat-service', () => {
         user1.id,
         user1.id,
         newPermissions,
-        false,
+        regularUserAuthority,
       )
 
       expect(updateUserPermissionsMock).toHaveBeenCalledWith(
@@ -2974,16 +3331,16 @@ describe('chat/chat-service', () => {
       )
     })
 
-    test('works when isAdmin bypasses membership check', async () => {
+    test('works when the admin API bypasses the membership check', async () => {
       // The caller (user1) is not in the channel.
-      mockTestChannelEntries([user2.id, user2TestChannelEntry])
+      mockChannelEntries(testChannel, [user2.id, user2TestChannelEntry])
 
       await chatService.updateUserPermissions(
         testChannel.id,
         user1.id,
         user2.id,
         channelPermissions,
-        true,
+        adminApiAuthority,
       )
 
       expect(updateUserPermissionsMock).toHaveBeenCalledWith(

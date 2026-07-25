@@ -12,6 +12,7 @@ import {
   UserChannelEntry,
 } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { useHasAnyPermission } from '../../admin/admin-permissions'
 import { useSelfUser } from '../../auth/auth-utils'
 import { ConnectedAvatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
@@ -176,12 +177,16 @@ export function UserPermissionsSettings({
   const dispatch = useAppDispatch()
 
   const selfUser = useSelfUser()
+  const isServerModerator = useHasAnyPermission('moderateChatChannels')
   const isChannelOwner = selfUser?.id === joinedChannelInfo.ownerId
-  // Only the channel owner may edit another moderator's permissions. A delegated moderator (granted
-  // `editPermissions` but not ownership) could otherwise use that same access to rewrite a fellow
-  // moderator's permissions, laundering around the protections the server places on moderation
-  // actions elsewhere (e.g. owners/moderators being unkickable/unbannable by other moderators).
-  const canEditModerators = isChannelOwner
+  // Official channels have no owner, so server moderators hold the owner's authority in them.
+  const hasOfficialChannelAuthority = isServerModerator && basicChannelInfo.official
+  // Only the channel owner's authority allows editing another moderator's permissions. A delegated
+  // moderator (granted `editPermissions` but not ownership) could otherwise use that same access to
+  // rewrite a fellow moderator's permissions, laundering around the protections the server places on
+  // moderation actions elsewhere (e.g. owners/moderators being unkickable/unbannable by other
+  // moderators).
+  const canEditModerators = isChannelOwner || hasOfficialChannelAuthority
 
   const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
   const [hasMoreUsers, setHasMoreUsers] = useState(true)

@@ -11,6 +11,7 @@ import {
   JoinedChannelInfo,
   SbChannelId,
 } from '../../../common/chat'
+import { useHasAnyPermission } from '../../admin/admin-permissions'
 import { useSelfUser } from '../../auth/auth-utils'
 import { FocusTrap } from '../../dom/focus-trap'
 import { useExternalElement } from '../../dom/use-external-element-ref'
@@ -86,6 +87,7 @@ function ChannelSettings({
 }) {
   const { t } = useTranslation()
   const selfUser = useSelfUser()
+  const isServerModerator = useHasAnyPermission('moderateChatChannels')
   const channelPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
   const basicChannelInfo = useAppSelector(s => s.chat.idToBasicInfo.get(channelId))
   const detailedChannelInfo = useAppSelector(s => s.chat.idToDetailedInfo.get(channelId))
@@ -93,9 +95,11 @@ function ChannelSettings({
 
   const isOwner = joinedChannelInfo && selfUser && joinedChannelInfo.ownerId === selfUser.id
   const hasEditPermissions = channelPermissions && !!channelPermissions.editPermissions
+  // Official channels have no owner, so server moderators hold the owner's authority in them.
+  const hasOfficialChannelAuthority = isServerModerator && !!basicChannelInfo?.official
 
-  const canAccessGeneralPage = isOwner
-  const canAccessPermissionsPage = isOwner || hasEditPermissions
+  const canAccessGeneralPage = isOwner || hasOfficialChannelAuthority
+  const canAccessPermissionsPage = isOwner || hasEditPermissions || hasOfficialChannelAuthority
 
   const defaultPage = canAccessGeneralPage
     ? GeneralChannelSettingsPage.General
