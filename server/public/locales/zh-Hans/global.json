@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "频道设置",
         "hideBanner": "隐藏横幅",
-        "leaveChannel": "离开频道"
+        "leaveChannel": "离开频道",
+        "openAdminView": "打开管理者界面"
       },
       "errors": {
         "toggleBannerVisibility": "切换横幅可见性时出错了"
@@ -305,7 +306,8 @@
         "owner": "所有者",
         "saveError": "保存权限失败",
         "togglePrivate": "可切换私密状态",
-        "togglePrivateShort": "切换私密"
+        "togglePrivateShort": "切换私密",
+        "transferOwnership": "转让所有权"
       },
       "tabs": {
         "general": "常规",
@@ -350,6 +352,14 @@
     },
     "navEntry": {
       "leaveChannel": "离开频道"
+    },
+    "transferOwnership": {
+      "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
+      "body": "将 #{{channelName}} 的所有权转让给 {{user}}？您将不再是频道所有者。",
+      "confirmAction": "转让所有权",
+      "dialogTitle": "转让所有权？",
+      "errorMessage": "将所有权转让给 {{user}} 时出现问题",
+      "successMessage": "{{user}} 现在是频道所有者"
     },
     "userList": {
       "active": "活跃用户",

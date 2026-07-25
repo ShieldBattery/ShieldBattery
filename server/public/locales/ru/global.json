@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "Настройки канала",
         "hideBanner": "Скрыть баннер",
-        "leaveChannel": "Покинь канал"
+        "leaveChannel": "Покинь канал",
+        "openAdminView": "Открыть вид администратора"
       },
       "errors": {
         "toggleBannerVisibility": "Что-то пошло не так с переключением видимости баннера"
@@ -308,7 +309,8 @@
         "owner": "Владелец",
         "saveError": "Не удалось сохранить права",
         "togglePrivate": "Может переключать приватный статус",
-        "togglePrivateShort": "Переключить приватность"
+        "togglePrivateShort": "Переключить приватность",
+        "transferOwnership": "Передать владение"
       },
       "tabs": {
         "general": "Общие",
@@ -353,6 +355,14 @@
     },
     "navEntry": {
       "leaveChannel": "Покинуть канал"
+    },
+    "transferOwnership": {
+      "adminBody": "Сделать {{user}} владельцем этого канала? Текущий владелец лишится прав владельца.",
+      "body": "Передать владение каналом #{{channelName}} пользователю {{user}}? Вы больше не будете владельцем.",
+      "confirmAction": "Передать владение",
+      "dialogTitle": "Передать владение?",
+      "errorMessage": "Что-то пошло не так при передаче владения пользователю {{user}}",
+      "successMessage": "{{user}} теперь владелец канала"
     },
     "userList": {
       "active": "Активен",

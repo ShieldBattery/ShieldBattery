@@ -352,7 +352,7 @@
     },
     "transferOwnership": {
       "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
-      "body": "",
+      "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",
       "confirmAction": "Transfer ownership",
       "dialogTitle": "Transfer ownership?",
       "errorMessage": "Something went wrong while transferring the ownership to {{user}}",

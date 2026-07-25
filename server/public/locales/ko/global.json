@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "채널 설정",
         "hideBanner": "배너 숨기기",
-        "leaveChannel": "채널 나가세요"
+        "leaveChannel": "채널 나가세요",
+        "openAdminView": "관리자 보기 열기"
       },
       "errors": {
         "toggleBannerVisibility": "배너 가시성 전환 중 뭔가 잘못됐어"
@@ -305,7 +306,8 @@
         "owner": "소유자",
         "saveError": "권한을 저장하지 못했습니다",
         "togglePrivate": "비공개 상태 전환 가능",
-        "togglePrivateShort": "비공개 전환"
+        "togglePrivateShort": "비공개 전환",
+        "transferOwnership": "소유권 이전"
       },
       "tabs": {
         "general": "일반",
@@ -350,6 +352,14 @@
     },
     "navEntry": {
       "leaveChannel": "채널 나가세요"
+    },
+    "transferOwnership": {
+      "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",
+      "body": "#{{channelName}} 채널의 소유권을 {{user}}에게 이전하시겠습니까? 이전하면 더 이상 채널 소유자가 아닙니다.",
+      "confirmAction": "소유권 이전",
+      "dialogTitle": "소유권을 이전할까요?",
+      "errorMessage": "{{user}}에게 소유권을 이전하는 중 문제가 발생했습니다",
+      "successMessage": "이제 {{user}}이(가) 채널 소유자입니다"
     },
     "userList": {
       "active": "실행",

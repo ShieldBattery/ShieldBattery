@@ -103,8 +103,7 @@ export function ChannelTransferOwnershipDialog({
             })
           : t('chat.transferOwnership.body', {
               defaultValue:
-                'Transfer ownership of #{{channelName}} to {{user}}? ' +
-                'You will no longer be the owner.',
+                'Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.',
               channelName,
               user: userName,
             })}

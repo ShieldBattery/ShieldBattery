@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "Configuración del canal",
         "hideBanner": "Ocultar banner",
-        "leaveChannel": "Salir del canal"
+        "leaveChannel": "Salir del canal",
+        "openAdminView": "Abrir vista de administrador"
       },
       "errors": {
         "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
@@ -307,7 +308,8 @@
         "owner": "Propietario",
         "saveError": "No se pudieron guardar los permisos",
         "togglePrivate": "Puede cambiar el estado privado",
-        "togglePrivateShort": "Cambiar privado"
+        "togglePrivateShort": "Cambiar privado",
+        "transferOwnership": "Transferir la propiedad"
       },
       "tabs": {
         "general": "General",
@@ -352,6 +354,14 @@
     },
     "navEntry": {
       "leaveChannel": "Salir del canal"
+    },
+    "transferOwnership": {
+      "adminBody": "¿Hacer a {{user}} el dueño de este canal? El dueño actual dejará de serlo.",
+      "body": "¿Transferir la propiedad de #{{channelName}} a {{user}}? Dejarás de ser el dueño del canal.",
+      "confirmAction": "Transferir la propiedad",
+      "dialogTitle": "¿Transferir la propiedad?",
+      "errorMessage": "Algo salió mal al transferir la propiedad a {{user}}",
+      "successMessage": "{{user}} ahora es el dueño del canal"
     },
     "userList": {
       "active": "Activo",
