@@ -1876,14 +1876,18 @@ describe('chat/chat-service', () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(undefined)
 
       await expect(
-        chatService.getChannelInfo(testChannel.id, user1.id),
+        chatService.getChannelInfo(testChannel.id, user1.id, regularUserAuthority),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Channel not found]`)
     })
 
     test('returns channel info when found', async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue(testChannel)
 
-      const result = await chatService.getChannelInfo(testChannel.id, user1.id)
+      const result = await chatService.getChannelInfo(
+        testChannel.id,
+        user1.id,
+        regularUserAuthority,
+      )
 
       expect(result).toEqual({
         channelInfo: testBasicInfo,
@@ -1896,7 +1900,30 @@ describe('chat/chat-service', () => {
       test("doesn't return detailed channel info", async () => {
         asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
 
-        const result = await chatService.getChannelInfo(testChannel.id, user1.id)
+        const result = await chatService.getChannelInfo(
+          testChannel.id,
+          user1.id,
+          regularUserAuthority,
+        )
+
+        expect(result).toEqual({
+          channelInfo: {
+            ...testBasicInfo,
+            private: true,
+          },
+          detailedChannelInfo: undefined,
+          joinedChannelInfo: undefined,
+        })
+      })
+
+      test("doesn't return detailed channel info to a server moderator using the regular API", async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
+
+        const result = await chatService.getChannelInfo(
+          testChannel.id,
+          user1.id,
+          serverModeratorAuthority,
+        )
 
         expect(result).toEqual({
           channelInfo: {
@@ -1918,7 +1945,26 @@ describe('chat/chat-service', () => {
 
         asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
 
-        const result = await chatService.getChannelInfo(testChannel.id, user1.id)
+        const result = await chatService.getChannelInfo(
+          testChannel.id,
+          user1.id,
+          regularUserAuthority,
+        )
+
+        expect(result).toEqual({
+          channelInfo: {
+            ...testBasicInfo,
+            private: true,
+          },
+          detailedChannelInfo: testDetailedInfo,
+          joinedChannelInfo: testJoinedInfo,
+        })
+      })
+
+      test('returns detailed channel info to a non-member using the admin API', async () => {
+        asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, private: true })
+
+        const result = await chatService.getChannelInfo(testChannel.id, user1.id, adminApiAuthority)
 
         expect(result).toEqual({
           channelInfo: {

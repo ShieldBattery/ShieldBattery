@@ -540,7 +540,11 @@ export class ChatApi {
   async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
     const channelId = getValidatedChannelId(ctx)
 
-    return await this.chatService.getChannelInfo(channelId, ctx.session!.user.id)
+    return await this.chatService.getChannelInfo(
+      channelId,
+      ctx.session!.user.id,
+      chatApiAuthority(ctx),
+    )
   }
 
   @httpGet('/')
@@ -721,6 +725,17 @@ export class AdminChatApi {
       offset,
       searchStr: searchQuery,
     })
+  }
+
+  @httpGet('/:channelId')
+  async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
+    const channelId = getValidatedChannelId(ctx)
+
+    return await this.chatService.getChannelInfo(
+      channelId,
+      ctx.session!.user.id,
+      ADMIN_CHAT_API_AUTHORITY,
+    )
   }
 
   @httpPatch('/:channelId')

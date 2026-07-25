@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import { AnimatePresence } from 'motion/react'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -45,10 +45,17 @@ import { UserPermissionsSettings } from './user-permissions-settings'
 
 const ESCAPE = 'Escape'
 
-export function ConnectedChannelSettings({ channelId }: { channelId: SbChannelId }) {
-  const dispatch = useAppDispatch()
-  const isOpen = useHistoryState() === CHANNEL_SETTINGS_OPEN_STATE
-
+/**
+ * Renders channel settings in a portal outside of the React root, animating them in and out as
+ * `isOpen` changes and holding focus inside them while they're open.
+ */
+export function ChannelSettingsOverlay({
+  isOpen,
+  children,
+}: {
+  isOpen: boolean
+  children: React.ReactNode
+}) {
   const [focusableElem, setFocusableElem] = useState<HTMLSpanElement | null>(null)
   const portalElem = useExternalElement()
 
@@ -58,12 +65,7 @@ export function ConnectedChannelSettings({ channelId }: { channelId: SbChannelId
         <KeyListenerBoundary>
           <FocusTrap focusableElem={focusableElem}>
             <span ref={setFocusableElem} tabIndex={-1}>
-              <ChannelSettings
-                channelId={channelId}
-                onCloseSettings={() => {
-                  dispatch(closeChannelSettings())
-                }}
-              />
+              {children}
             </span>
           </FocusTrap>
         </KeyListenerBoundary>
@@ -73,19 +75,33 @@ export function ConnectedChannelSettings({ channelId }: { channelId: SbChannelId
   )
 }
 
-const StyledSettingsContent = styled(SettingsContent)`
-  max-width: 840px;
-  min-width: 0;
-`
+export function ConnectedChannelSettings({ channelId }: { channelId: SbChannelId }) {
+  const dispatch = useAppDispatch()
+  const isOpen = useHistoryState() === CHANNEL_SETTINGS_OPEN_STATE
 
-function ChannelSettings({
+  return (
+    <ChannelSettingsOverlay isOpen={isOpen}>
+      <ChannelSettingsFromStore
+        channelId={channelId}
+        onCloseSettings={() => {
+          dispatch(closeChannelSettings())
+        }}
+      />
+    </ChannelSettingsOverlay>
+  )
+}
+
+/**
+ * Channel settings for a channel the viewer has open in chat, fed by the channel data in the store
+ * and acting with whatever authority the viewer holds in that channel.
+ */
+function ChannelSettingsFromStore({
   channelId,
   onCloseSettings,
 }: {
   channelId: SbChannelId
   onCloseSettings: () => void
 }) {
-  const { t } = useTranslation()
   const selfUser = useSelfUser()
   const isServerModerator = useHasAnyPermission('moderateChatChannels')
   const channelPermissions = useAppSelector(s => s.chat.idToSelfPermissions.get(channelId))
@@ -98,8 +114,43 @@ function ChannelSettings({
   // Official channels have no owner, so server moderators hold the owner's authority in them.
   const hasOfficialChannelAuthority = isServerModerator && !!basicChannelInfo?.official
 
-  const canAccessGeneralPage = isOwner || hasOfficialChannelAuthority
-  const canAccessPermissionsPage = isOwner || hasEditPermissions || hasOfficialChannelAuthority
+  return (
+    <ChannelSettings
+      basicChannelInfo={basicChannelInfo}
+      detailedChannelInfo={detailedChannelInfo}
+      joinedChannelInfo={joinedChannelInfo}
+      canAccessGeneralPage={!!(isOwner || hasOfficialChannelAuthority)}
+      canAccessPermissionsPage={!!(isOwner || hasEditPermissions || hasOfficialChannelAuthority)}
+      isAdmin={false}
+      onCloseSettings={onCloseSettings}
+    />
+  )
+}
+
+const StyledSettingsContent = styled(SettingsContent)`
+  max-width: 840px;
+  min-width: 0;
+`
+
+export function ChannelSettings({
+  basicChannelInfo,
+  detailedChannelInfo,
+  joinedChannelInfo,
+  canAccessGeneralPage,
+  canAccessPermissionsPage,
+  isAdmin,
+  onCloseSettings,
+}: {
+  basicChannelInfo?: BasicChannelInfo
+  detailedChannelInfo?: DetailedChannelInfo
+  joinedChannelInfo?: JoinedChannelInfo
+  canAccessGeneralPage: boolean
+  canAccessPermissionsPage: boolean
+  /** Whether to make changes through the membership-free admin endpoints, as moderating staff. */
+  isAdmin: boolean
+  onCloseSettings: () => void
+}) {
+  const { t } = useTranslation()
 
   const defaultPage = canAccessGeneralPage
     ? GeneralChannelSettingsPage.General
@@ -169,6 +220,7 @@ function ChannelSettings({
             basicChannelInfo={basicChannelInfo}
             detailedChannelInfo={detailedChannelInfo}
             joinedChannelInfo={joinedChannelInfo}
+            isAdmin={isAdmin}
             onCloseSettings={onCloseSettings}
           />
         ) : (
@@ -217,12 +269,14 @@ function ChannelSettingsPageDisplay({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
+  isAdmin,
   onCloseSettings,
 }: {
   page: ChannelSettingsPage
   basicChannelInfo: BasicChannelInfo
   detailedChannelInfo: DetailedChannelInfo
   joinedChannelInfo: JoinedChannelInfo
+  isAdmin: boolean
   onCloseSettings: () => void
 }) {
   switch (page) {
@@ -232,6 +286,7 @@ function ChannelSettingsPageDisplay({
           basicChannelInfo={basicChannelInfo}
           detailedChannelInfo={detailedChannelInfo}
           joinedChannelInfo={joinedChannelInfo}
+          isAdmin={isAdmin}
           onCloseSettings={onCloseSettings}
         />
       )
@@ -241,6 +296,8 @@ function ChannelSettingsPageDisplay({
           basicChannelInfo={basicChannelInfo}
           detailedChannelInfo={detailedChannelInfo}
           joinedChannelInfo={joinedChannelInfo}
+          isAdmin={isAdmin}
+          onCloseSettings={onCloseSettings}
         />
       )
     default:
@@ -259,7 +316,7 @@ function getChannelSettingsPageTitle({
 }) {
   switch (page) {
     case GeneralChannelSettingsPage.General:
-      return `#${channelName}`
+      return channelName
     case UsersChannelSettingsPage.Permissions:
       return t('chat.channelSettings.users.title', 'Users')
     default:

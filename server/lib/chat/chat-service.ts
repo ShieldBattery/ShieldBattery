@@ -830,7 +830,11 @@ export default class ChatService {
     })
   }
 
-  async getChannelInfo(channelId: SbChannelId, userId: SbUserId): Promise<GetChannelInfoResponse> {
+  async getChannelInfo(
+    channelId: SbChannelId,
+    userId: SbUserId,
+    authority: ChannelAuthority,
+  ): Promise<GetChannelInfoResponse> {
     const [channelInfo, userChannelEntry] = await Promise.all([
       getChannelInfo(channelId),
       getUserChannelEntryForUser(userId, channelId),
@@ -840,13 +844,16 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
+    const hasOwnerAuthority = hasChannelOwnerAuthority(channelInfo, authority)
+
+    // A private channel's details are only for its members, plus whoever holds the owner's
+    // authority in it (they moderate the channel without joining it).
+    const canSeePrivateDetails = !channelInfo.private || isUserInChannel || hasOwnerAuthority
 
     return {
       channelInfo: toBasicChannelInfo(channelInfo),
-      detailedChannelInfo:
-        !channelInfo.private || isUserInChannel ? toDetailedChannelInfo(channelInfo) : undefined,
-      joinedChannelInfo:
-        !channelInfo.private || isUserInChannel ? toJoinedChannelInfo(channelInfo) : undefined,
+      detailedChannelInfo: canSeePrivateDetails ? toDetailedChannelInfo(channelInfo) : undefined,
+      joinedChannelInfo: canSeePrivateDetails ? toJoinedChannelInfo(channelInfo) : undefined,
     }
   }
 

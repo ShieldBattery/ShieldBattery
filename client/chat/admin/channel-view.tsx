@@ -1,7 +1,6 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
-  BasicChannelInfo,
   ChannelModerationAction,
   ChatMessage,
   ChatServiceErrorCode,
@@ -28,6 +27,7 @@ import { replace } from '../../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
 import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
+import { useRefreshToken } from '../../network/refresh-token'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
@@ -44,11 +44,11 @@ import {
   deleteMessageAsAdmin,
   getChannelUserPermissionsAsAdmin,
   moderateUserAsAdmin,
-  updateChannelAsAdmin,
 } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
 import { UserList } from '../channel-user-list'
+import { AdminChannelSettings } from './admin-channel-settings'
 
 const CHANNEL_MESSAGES_LIMIT = 50
 
@@ -57,7 +57,7 @@ function getChannelInfo(
   spec: RequestHandlingSpec<GetChannelInfoResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
-    return await fetchJson(apiUrl`chat/${channelId}`, { signal: spec.signal })
+    return await fetchJson(apiUrl`admin/chat/${channelId}`, { signal: spec.signal })
   })
 }
 
@@ -306,15 +306,19 @@ export function AdminChannelView({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
-  const [channelInfo, setChannelInfo] = useState<BasicChannelInfo>()
+  const [channelInfoResponse, setChannelInfoResponse] = useState<GetChannelInfoResponse>()
+  const [channelInfoRefreshToken, refreshChannelInfo] = useRefreshToken()
   const [error, setError] = useState<Error>()
+
+  const channelInfo = channelInfoResponse?.channelInfo
+  const detailedChannelInfo = channelInfoResponse?.detailedChannelInfo
+  const joinedChannelInfo = channelInfoResponse?.joinedChannelInfo
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
   const [isLoadingMoreChannelMessages, setIsLoadingMoreChannelMessages] = useState(false)
-  const [isRemovingBanner, setIsRemovingBanner] = useState(false)
-  const [isRemovingBadge, setIsRemovingBadge] = useState(false)
 
   const [channelUsers, setChannelUsers] = useState<SbUser[]>([])
 
@@ -345,7 +349,7 @@ export function AdminChannelView({
       getChannelInfo(makeSbChannelId(channelId), {
         signal: abortController.signal,
         onSuccess: result => {
-          setChannelInfo(result.channelInfo)
+          setChannelInfoResponse(result)
           setError(undefined)
         },
         onError: err => {
@@ -355,7 +359,7 @@ export function AdminChannelView({
     )
 
     return () => abortController.abort()
-  }, [channelId, dispatch])
+  }, [channelId, channelInfoRefreshToken, dispatch])
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -408,52 +412,6 @@ export function AdminChannelView({
     )
   })
 
-  const onRemoveBannerClick = useStableCallback(() => {
-    setIsRemovingBanner(true)
-
-    dispatch(
-      updateChannelAsAdmin({
-        channelId: channelInfo!.id,
-        channelChanges: {
-          deleteBanner: true,
-        },
-        spec: {
-          onSuccess: () => {
-            setIsRemovingBanner(false)
-            snackbarController.showSnackbar('Banner successfully removed.')
-          },
-          onError: err => {
-            setIsRemovingBanner(false)
-            snackbarController.showSnackbar('Something went wrong while removing the banner.')
-          },
-        },
-      }),
-    )
-  })
-
-  const onRemoveBadgeClick = useStableCallback(() => {
-    setIsRemovingBadge(true)
-
-    dispatch(
-      updateChannelAsAdmin({
-        channelId: channelInfo!.id,
-        channelChanges: {
-          deleteBadge: true,
-        },
-        spec: {
-          onSuccess: () => {
-            setIsRemovingBadge(false)
-            snackbarController.showSnackbar('Badge successfully removed.')
-          },
-          onError: err => {
-            setIsRemovingBadge(false)
-            snackbarController.showSnackbar('Something went wrong while removing the badge.')
-          },
-        },
-      }),
-    )
-  })
-
   if (error) {
     let errorText
     if (isFetchError(error)) {
@@ -494,16 +452,24 @@ export function AdminChannelView({
             <FlexSpacer />
 
             <FilledButton
-              label='Remove banner'
-              disabled={isRemovingBanner}
-              onClick={onRemoveBannerClick}
-            />
-            <FilledButton
-              label='Remove badge'
-              disabled={isRemovingBadge}
-              onClick={onRemoveBadgeClick}
+              label='Channel settings'
+              disabled={!detailedChannelInfo || !joinedChannelInfo}
+              onClick={() => setIsSettingsOpen(true)}
             />
           </ChannelHeaderContainer>
+
+          <AdminChannelSettings
+            isOpen={isSettingsOpen}
+            basicChannelInfo={channelInfo}
+            detailedChannelInfo={detailedChannelInfo}
+            joinedChannelInfo={joinedChannelInfo}
+            onCloseSettings={() => {
+              setIsSettingsOpen(false)
+              // The settings screen saves directly to the server, so pull the channel's info back
+              // in to keep this view (and the next visit to the settings) in step with it.
+              refreshChannelInfo()
+            }}
+          />
 
           <ChannelContext.Provider value={{ channelId: channelInfo.id }}>
             <ChatContext.Provider
