@@ -17,12 +17,14 @@ const BadgeDisc = styled.div`
   justify-content: center;
 
   /*
-    The logo's own colors (dark indigo + amber) need a light background to read at this size, and
-    the ring separates the disc from whatever the avatar shows behind it. The ring color matches
-    the low-container surface the avatar cards sit on; override it when placing the badge on a
-    different surface.
+    The logo's shield body inherits currentColor (the global svg fill), so it must be set
+    explicitly here: a light shield + the mark's own amber bolt on a saturated navy disc, like a
+    miniature app icon. The ring separates the disc from whatever the avatar shows behind it; its
+    color matches the low-container surface the avatar cards sit on — override it when placing the
+    badge on a different surface.
   */
-  background-color: var(--color-amber99);
+  color: var(--color-blue99);
+  background-color: var(--color-blue40);
   border: 2px solid var(--theme-container-low);
   border-radius: 50%;
 `
