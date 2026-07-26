@@ -19,7 +19,6 @@ panic = "abort"
 lto = true
 
 [dependencies]
-arrayvec = "0.7"
 atomic_enum = "0.3"
 # Decodes the base64-wrapped rally-point2 credentials (token / client key / relay cert) handed
 # over at launch. Already in the tree transitively; pinned here as a direct dep.

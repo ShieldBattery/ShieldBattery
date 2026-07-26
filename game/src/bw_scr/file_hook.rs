@@ -3,12 +3,31 @@ use std::mem;
 use std::ptr::null_mut;
 use std::sync::atomic::Ordering;
 
-use arrayvec::ArrayVec;
 use lazy_static::lazy_static;
 use libc::c_void;
+use smallvec::SmallVec;
 
 use super::thiscall::Thiscall;
 use super::{BwScr, scr};
+
+/// Length limit for the paths [`real_path`] normalizes.
+///
+/// `real_path` runs for every file SCR opens (~2000 during startup), so its buffer is sized to
+/// stay inline rather than allocate. A path that doesn't fit isn't normalized at all; the caller
+/// then leaves it for BW to open unmodified, skipping our patching for it.
+const MAX_NORMALIZED_PATH_LEN: usize = 256;
+
+type PathBuffer = SmallVec<[u8; MAX_NORMALIZED_PATH_LEN]>;
+
+/// Appends to `buffer` if it fits without exceeding [`MAX_NORMALIZED_PATH_LEN`], returning whether
+/// it did. Keeps the buffer from spilling to the heap.
+fn try_append(buffer: &mut PathBuffer, slice: &[u8]) -> bool {
+    if buffer.len() + slice.len() > MAX_NORMALIZED_PATH_LEN {
+        return false;
+    }
+    buffer.extend_from_slice(slice);
+    true
+}
 
 pub fn open_file_hook(
     bw: &'static BwScr,
@@ -22,7 +41,7 @@ pub fn open_file_hook(
     ) -> *mut scr::FileHandle,
 ) -> *mut scr::FileHandle {
     unsafe {
-        let mut buffer = ArrayVec::new();
+        let mut buffer = PathBuffer::new();
         let real = real_path(path, params, &mut buffer);
         if let Some(path) = real {
             let is_sd = (*params).file_type == 1;
@@ -141,7 +160,7 @@ fn check_dummied_out_hd(path: &[u8]) -> Option<&'static [u8]> {
 unsafe fn real_path(
     path: *const u8,
     params: *const scr::OpenParams,
-    buffer: &mut ArrayVec<u8, 256>,
+    buffer: &mut PathBuffer,
 ) -> Option<&[u8]> {
     unsafe {
         // Doing this 256-byte array lookup to normalize instead of a simpler match may be
@@ -184,14 +203,11 @@ unsafe fn real_path(
             },
             false => c_path,
         };
-        if buffer
-            .try_extend_from_slice(c_path_for_switched_extension)
-            .is_err()
-        {
+        if !try_append(buffer, c_path_for_switched_extension) {
             return None;
         }
         if let Some(ext) = alt_extension
-            && buffer.try_extend_from_slice(ext.to_bytes()).is_err()
+            && !try_append(buffer, ext.to_bytes())
         {
             return None;
         }
@@ -447,5 +463,39 @@ impl FileState {
         (out[..read_len]).copy_from_slice(&buffer[..read_len]);
         self.pos += read_len as u32;
         read_len as u32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn try_append_fills_exactly_to_the_limit() {
+        let mut buffer = PathBuffer::new();
+        assert!(try_append(&mut buffer, &[b'a'; MAX_NORMALIZED_PATH_LEN]));
+        assert_eq!(buffer.len(), MAX_NORMALIZED_PATH_LEN);
+        assert!(!buffer.spilled());
+    }
+
+    #[test]
+    fn try_append_rejects_instead_of_spilling() {
+        let mut buffer = PathBuffer::new();
+        assert!(!try_append(
+            &mut buffer,
+            &[b'a'; MAX_NORMALIZED_PATH_LEN + 1]
+        ));
+        assert!(buffer.is_empty());
+        assert!(!buffer.spilled());
+    }
+
+    #[test]
+    fn try_append_rejects_when_the_second_append_would_overflow() {
+        let mut buffer = PathBuffer::new();
+        assert!(try_append(&mut buffer, &[b'a'; MAX_NORMALIZED_PATH_LEN - 4]));
+        assert!(try_append(&mut buffer, b".dds"));
+        assert!(!try_append(&mut buffer, b"x"));
+        assert_eq!(buffer.len(), MAX_NORMALIZED_PATH_LEN);
+        assert!(!buffer.spilled());
     }
 }

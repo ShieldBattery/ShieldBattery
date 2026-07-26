@@ -4609,7 +4609,6 @@ name = "shieldbattery"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "arrayvec",
  "atomic_enum",
  "base64",
  "bw_dat",
