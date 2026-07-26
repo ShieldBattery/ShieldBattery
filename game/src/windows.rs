@@ -1,3 +1,4 @@
+pub mod registry;
 pub mod version;
 
 use std::ffi::{OsStr, OsString};

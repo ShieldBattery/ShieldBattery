@@ -56,6 +56,8 @@ mod debug_control;
 mod forge;
 mod game_state;
 mod game_thread;
+mod http;
+mod http_proxy;
 mod netcode_v2;
 mod recurse_checked_mutex;
 mod replay;

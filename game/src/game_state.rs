@@ -7,10 +7,10 @@ use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use bytes::Bytes;
 use futures::prelude::*;
 use hashbrown::{HashMap, HashSet};
 use quick_error::quick_error;
-use reqwest::header::{HeaderMap, ORIGIN};
 use smallvec::SmallVec;
 use tokio::select;
 use tokio::sync::{mpsc, oneshot};
@@ -1098,13 +1098,6 @@ async fn expect_quit(async_stop: &SharedCanceler) {
     async_stop.cancel();
 }
 
-/// Returns the common headers needed for API server requests.
-fn api_request_headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert(ORIGIN, "shieldbattery://game".parse().unwrap());
-    headers
-}
-
 async fn send_game_result(
     results: &GameResults,
     info: &GameSetupInfo,
@@ -1174,8 +1167,6 @@ async fn send_replay(
     server_config: &ServerConfig,
     ws_send: &app_socket::SendMessages,
 ) {
-    let client = reqwest::Client::new();
-    let headers = api_request_headers();
     let replay_url = format!(
         "{}/api/1/games/{}/replay",
         server_config.server_url, game_id
@@ -1201,25 +1192,24 @@ async fn send_replay(
         .to_string();
 
     for attempt in 0u8..3 {
-        let file_part = reqwest::multipart::Part::bytes(replay_data.clone())
-            .file_name(file_name.clone())
-            .mime_str("application/octet-stream")
-            .unwrap();
+        let parts = vec![
+            crate::http::Part::Text {
+                name: "userId",
+                value: user_id.0.to_string(),
+            },
+            crate::http::Part::Text {
+                name: "resultCode",
+                value: result_code.to_string(),
+            },
+            crate::http::Part::File {
+                name: "replay",
+                file_name: file_name.clone(),
+                content_type: "application/octet-stream",
+                data: Bytes::from(replay_data.clone()),
+            },
+        ];
 
-        let form = reqwest::multipart::Form::new()
-            .text("userId", user_id.0.to_string())
-            .text("resultCode", result_code.to_string())
-            .part("replay", file_part);
-
-        let result = client
-            .post(&replay_url)
-            .timeout(Duration::from_secs(90))
-            .headers(headers.clone())
-            .multipart(form)
-            .send()
-            .await;
-
-        match result.and_then(|r| r.error_for_status()) {
+        match crate::http::post_multipart(&replay_url, parts, Duration::from_secs(90)).await {
             Ok(_) => {
                 debug!("Replay uploaded successfully");
                 // Clean up the temporary replay file

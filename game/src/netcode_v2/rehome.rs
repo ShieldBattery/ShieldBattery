@@ -21,15 +21,10 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use rally_point_client::{RehomeFuture, RehomeOutcome, RehomeProvider};
-use reqwest::header::ORIGIN;
 use serde::{Deserialize, Serialize};
 
 use super::credentials;
 use crate::app_messages::{NetcodeV2Relay, SbUserId};
-
-/// The `ORIGIN` header the game process stamps on its server API calls (matches
-/// `api_request_headers` in `game_state.rs`); the SB API distinguishes game-client requests by it.
-const GAME_ORIGIN: &str = "shieldbattery://game";
 
 /// The SB-server round-trip timeout. Must cover the server's own coordinator round trip (the SB
 /// service gives the coordinator 10s), so the DLL doesn't bail — and let the driver re-escalate a
@@ -110,7 +105,6 @@ pub(crate) struct ServerRehome {
     /// re-home, so when a replacement descriptor advertises both families, the pick prefers the
     /// one this client's connectivity demonstrably reaches (see [`pick_dial_addr`]).
     home_connected_ipv6: bool,
-    http: reqwest::Client,
     /// When the last failure warning was emitted, for rate limiting (see [`WARN_INTERVAL`]).
     last_warn: Mutex<Option<Instant>>,
 }
@@ -128,32 +122,14 @@ impl ServerRehome {
             result_code: &self.result_code,
             dead_relay_id,
         };
-        let response = match self
-            .http
-            .post(&self.url)
-            .header(ORIGIN, GAME_ORIGIN)
-            .json(&request)
-            .timeout(REQUEST_TIMEOUT)
-            .send()
-            .await
-        {
-            Ok(response) => response,
-            Err(err) => {
-                self.warn_rate_limited(&format!("re-home request failed: {err}"));
-                return RehomeOutcome::Unavailable;
-            }
-        };
-        if !response.status().is_success() {
-            self.warn_rate_limited(&format!("re-home returned HTTP {}", response.status()));
-            return RehomeOutcome::Unavailable;
-        }
-        let body: RehomeResponse = match response.json().await {
-            Ok(body) => body,
-            Err(err) => {
-                self.warn_rate_limited(&format!("re-home response was malformed: {err}"));
-                return RehomeOutcome::Unavailable;
-            }
-        };
+        let body: RehomeResponse =
+            match crate::http::post_json(&self.url, &request, REQUEST_TIMEOUT).await {
+                Ok(body) => body,
+                Err(err) => {
+                    self.warn_rate_limited(&format!("re-home request failed: {err}"));
+                    return RehomeOutcome::Unavailable;
+                }
+            };
 
         match decision_from_response(body) {
             RehomeDecision::Stay => {
@@ -254,7 +230,6 @@ pub(crate) fn build_provider(
         user_id: context.user_id.0,
         result_code,
         home_connected_ipv6,
-        http: reqwest::Client::new(),
         last_warn: Mutex::new(None),
     }))
 }
