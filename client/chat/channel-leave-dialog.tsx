@@ -4,7 +4,7 @@ import { SbChannelId } from '../../common/chat'
 import { closeDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
-import { DestructiveTextButton, TextButton } from '../material/button'
+import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
@@ -78,9 +78,6 @@ export function ChannelLeaveConfirmation({ onCancel, channelId }: ChannelLeaveCo
     })
   }
 
-  const ConfirmButton =
-    severity === ChannelLeaveSeverity.DeleteChannel ? DestructiveTextButton : TextButton
-
   const buttons = [
     <TextButton
       label={t('common.actions.cancel', 'Cancel')}
@@ -88,12 +85,7 @@ export function ChannelLeaveConfirmation({ onCancel, channelId }: ChannelLeaveCo
       onClick={onCancel}
       disabled={isLeaving}
     />,
-    <ConfirmButton
-      label={confirmLabel}
-      key='confirm'
-      onClick={onConfirmClick}
-      disabled={isLeaving}
-    />,
+    <TextButton label={confirmLabel} key='confirm' onClick={onConfirmClick} disabled={isLeaving} />,
   ]
 
   return (
