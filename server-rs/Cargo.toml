@@ -120,4 +120,10 @@ mockito = "1.7"
 [profile.dev.package."*"]
 opt-level = 3
 
+# Thin LTO gains a few percent on CPU-heavy paths (see benches/matchmaker.rs) for a modest
+# link-time cost. codegen-units = 1 adds little on top of it while making the final (uncached,
+# serial) crate build several times slower, so it's intentionally not set here.
+[profile.release]
+lto = "thin"
+
 [workspace]
