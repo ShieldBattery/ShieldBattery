@@ -2,8 +2,6 @@ import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
-import { gameServerRegionsAtom } from '../game-server-regions/game-server-regions-atoms'
-import { getRegionDisplayName } from '../game-server-regions/region-names'
 import { gameLoadingStatusAtom } from '../games/game-atoms'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
@@ -23,19 +21,12 @@ const StatusText = styled.div`
 export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
   const loadingStatus = useAtomValue(gameLoadingStatusAtom)
-  const regions = useAtomValue(gameServerRegionsAtom)
 
   let statusLine: string | undefined
   if (loadingStatus?.status === 'provisioningGameServer') {
-    const regionNames = loadingStatus.regions.map(id => {
-      const region = regions.find(r => r.id === id)
-      return region ? getRegionDisplayName(region, t) : (id as string)
-    })
-    statusLine = t(
-      'game.launchingGameDialog.provisioningGameServer',
-      'Starting a game server in {{regions}}…',
-      { regions: regionNames.join(', ') },
-    )
+    // Deliberately doesn't say *where* the server is starting — server locations hint at where the
+    // other players are, and revealing that pre-game invites prejudging or dodging the match.
+    statusLine = t('game.launchingGameDialog.startingGameServer', 'Starting a game server…')
   }
 
   return (

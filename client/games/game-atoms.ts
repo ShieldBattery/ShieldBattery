@@ -1,5 +1,4 @@
 import { atom } from 'jotai'
-import { GameServerRegionId } from '../../common/game-server-regions'
 import { GameLoadingStatus } from '../../common/games/game-loader-network'
 
 export interface LastGameState {
@@ -23,7 +22,6 @@ export const lastGameAtom = atom<LastGameState | undefined>(undefined)
 export interface GameLoadingStatusState {
   gameId: string
   status: GameLoadingStatus
-  regions: GameServerRegionId[]
 }
 
 /**

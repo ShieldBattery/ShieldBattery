@@ -80,8 +80,8 @@ export default function ({
       jotaiStore.set(gameLoadingStatusAtom, undefined)
       ipcRenderer.invoke('activeGameSetNetcodeV2Setup', gameId, setup)?.catch(swallowNonBuiltins)
     },
-    setLoadingStatus(_, { gameId, status, regions }) {
-      jotaiStore.set(gameLoadingStatusAtom, { gameId, status, regions })
+    setLoadingStatus(_, { gameId, status }) {
+      jotaiStore.set(gameLoadingStatusAtom, { gameId, status })
     },
     cancelLoading(_, { gameId }) {
       jotaiStore.set(gameLoadingStatusAtom, undefined)

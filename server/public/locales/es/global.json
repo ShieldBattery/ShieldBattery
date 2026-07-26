@@ -532,7 +532,7 @@
       "useMapSettings": "Usar configuración del mapa"
     },
     "launchingGameDialog": {
-      "provisioningGameServer": "Iniciando un servidor de juego en {{regions}}…",
+      "startingGameServer": "Iniciando un servidor de juego…",
       "title": "Iniciando el juego…"
     },
     "mapName": {

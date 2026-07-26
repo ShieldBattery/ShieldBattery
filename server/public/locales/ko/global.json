@@ -526,7 +526,7 @@
       "useMapSettings": "유즈맵 설정"
     },
     "launchingGameDialog": {
-      "provisioningGameServer": "{{regions}}에서 게임 서버를 시작하는 중…",
+      "startingGameServer": "게임 서버를 시작하는 중…",
       "title": "게임 실행 중…"
     },
     "mapName": {

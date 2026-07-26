@@ -526,7 +526,7 @@
       "useMapSettings": "使用地图设置"
     },
     "launchingGameDialog": {
-      "provisioningGameServer": "正在 {{regions}} 启动游戏服务器…",
+      "startingGameServer": "正在启动游戏服务器…",
       "title": "正在启动游戏…"
     },
     "mapName": {

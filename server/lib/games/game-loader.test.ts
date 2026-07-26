@@ -486,7 +486,6 @@ describe('games/game-loader/GameLoader', () => {
           type: 'setLoadingStatus',
           gameId: 'game-prov',
           status: 'provisioningGameServer',
-          regions: ['us-east', 'eu-west'],
         }),
       )
     })

@@ -535,7 +535,7 @@
       "useMapSettings": "Использовать настройки карты"
     },
     "launchingGameDialog": {
-      "provisioningGameServer": "Запуск игрового сервера в {{regions}}…",
+      "startingGameServer": "Запуск игрового сервера…",
       "title": "Запуск игры…"
     },
     "mapName": {

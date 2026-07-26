@@ -4,7 +4,6 @@ import { singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { extendableDeadline } from '../../../common/async/extendable-deadline'
-import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
@@ -482,8 +481,10 @@ export class GameLoader {
 
   /**
    * Runs once per load, the first time the coordinator reports a game server is still being
-   * provisioned: tells every player which regions are coming up and extends the load deadline so
-   * waiting out the provision doesn't trip the base timeout.
+   * provisioned: tells every player a game server is coming up and extends the load deadline so
+   * waiting out the provision doesn't trip the base timeout. The regions being provisioned are
+   * logged but never sent to players — server locations hint at where the other players are, and
+   * exposing that pre-game invites prejudging or dodging the match.
    */
   private handleGameServerProvisioning(gameId: string, regions: string[]): void {
     const loadingData = this.loadingGames.get(gameId)
@@ -491,13 +492,12 @@ export class GameLoader {
       return
     }
 
-    const regionIds = regions.map(makeGameServerRegionId)
+    log.info(`game server still provisioning for ${gameId} in: ${regions.join(', ')}`)
     for (const player of loadingData.players) {
       this.publisher.publish(gameUserPath(gameId, player.userId!), {
         type: 'setLoadingStatus',
         gameId,
         status: 'provisioningGameServer',
-        regions: regionIds,
       })
     }
     loadingData.extendDeadline(PROVISIONING_LOAD_TIMEOUT_EXTENSION_MS)

@@ -1,4 +1,3 @@
-import { GameServerRegionId } from '../game-server-regions'
 import { GameSetup } from './game-launch-config'
 import { NetcodeV2ServerSetup } from './netcode-v2'
 
@@ -18,13 +17,14 @@ export type GameLoadingStatus = 'provisioningGameServer'
 
 /**
  * Reports an intermediate loading state to a player so the loading UI can explain a longer wait.
- * `regions` names the game server regions the status is about (e.g. those still being provisioned).
+ * Deliberately carries no detail about *which* game servers are involved: server locations hint at
+ * where the other players are, and revealing that before a game starts invites players to prejudge
+ * the match (or dodge it), so pre-game messaging stays generic.
  */
 export interface SetLoadingStatusEvent {
   type: 'setLoadingStatus'
   gameId: string
   status: GameLoadingStatus
-  regions: GameServerRegionId[]
 }
 
 export interface SetGameConfigEvent {
