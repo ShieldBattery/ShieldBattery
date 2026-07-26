@@ -91,6 +91,7 @@ struct ParkedChannels {
     _request_drop: mpsc::Receiver<SlotId>,
     _session_start: mpsc::Sender<Option<u32>>,
     _connectivity: mpsc::Sender<(SlotId, bool)>,
+    _region_labels: mpsc::Sender<Vec<(u64, String)>>,
 }
 
 /// The current game's session, reached from the BW/sync thread via [`with_turn_state`] and created on the
@@ -249,6 +250,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
     let (request_drop_tx, request_drop_rx) = mpsc::channel(1);
     let (session_start_tx, session_start_rx) = mpsc::channel(16);
     let (connectivity_tx, connectivity_rx) = mpsc::channel(16);
+    let (region_labels_tx, region_labels_rx) = mpsc::channel(4);
 
     let channels = TurnChannels {
         outbound: outbound_tx,
@@ -266,6 +268,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         request_drop: request_drop_tx,
         session_start: session_start_rx,
         connectivity: connectivity_rx,
+        region_labels: region_labels_rx,
     };
     let parked = ParkedChannels {
         _outbound: outbound_rx,
@@ -282,6 +285,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         _request_drop: request_drop_rx,
         _session_start: session_start_tx,
         _connectivity: connectivity_tx,
+        _region_labels: region_labels_tx,
     };
 
     let turn_state = TurnState::new_sessionless(channels, local_user_id, has_computers);

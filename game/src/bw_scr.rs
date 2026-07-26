@@ -2872,6 +2872,9 @@ impl BwScr {
                     // yet to show it on), though an own-slot frame still updates the self-link flag
                     // — harmlessly, since that overlay is gated on the game having started too.
                     s.pump_connectivity(false, Instant::now());
+                    // Same back-pressure discipline for region-label frames (the relay doesn't send
+                    // them pre-start, but a drained channel can never wedge anything).
+                    s.pump_region_labels();
                 });
                 let ready = netcode_v2::with_turn_state(|s| {
                     if !s.lobby_seam_enabled() {
@@ -2940,8 +2943,12 @@ impl BwScr {
             // Relay-pushed slot-connectivity changes: a peer's drop/reconnect updates the turn
             // state's disconnected set, our own updates the self-link flag, for the survivor
             // overlay to render. Render-side only — no game state, alliances, or turn pipeline are
-            // touched here.
-            netcode_v2::with_turn_state(|s| s.pump_connectivity(true, Instant::now()));
+            // touched here. Region-label frames ride the same per-step pump cadence and are
+            // likewise render-side only (the `/netstat` home column and header).
+            netcode_v2::with_turn_state(|s| {
+                s.pump_connectivity(true, Instant::now());
+                s.pump_region_labels();
+            });
             let ready = netcode_v2::with_turn_state(|s| {
                 if !s.receive_turns(next_frame) {
                     return false;

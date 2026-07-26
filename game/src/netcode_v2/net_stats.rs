@@ -223,7 +223,9 @@ pub struct NetStats {
     /// This client's current home relay id. Seeded at session establish and advanced by
     /// [`record_rehome`](Self::record_rehome) on each move — so it is live truth, not launch state.
     relay_id: u64,
-    /// The current relay's region label, or `None` when the setup carried none.
+    /// The current relay's region label: the launch handoff's create-time label until the relay
+    /// releases the session's authoritative map mid-game ([`set_region`](Self::set_region)), or
+    /// `None` when neither has named one.
     region: Option<String>,
     /// When this instrumentation was created (session establish). The fallback origin for event
     /// timestamps before [`game_start`](Self::game_start) is latched.
@@ -287,6 +289,13 @@ impl NetStats {
     pub fn set_identity(&mut self, session_id: u64, relay_id: u64, region: Option<String>) {
         self.session_id = session_id;
         self.relay_id = relay_id;
+        self.region = region;
+    }
+
+    /// Replaces the current relay's region label with what the relay-released label map names for
+    /// it (`None` when the map doesn't list the current relay — an untagged or not-yet-labeling
+    /// relay shows no region rather than a stale one).
+    pub fn set_region(&mut self, region: Option<String>) {
         self.region = region;
     }
 
@@ -532,7 +541,10 @@ pub struct NetStatRow {
     pub user_id: SbUserId,
     /// The slot's home relay id at session create, or `None` when the setup carried none.
     pub home_relay_id: Option<u64>,
-    /// The slot's home relay region at session create, or `None` when the setup carried none.
+    /// The slot's home relay region, or `None` when nothing has named one. Peers' regions are
+    /// withheld from the launch handoff (they place players geographically, and it arrives before
+    /// the game starts), so this stays `None` until the relay releases the session's label map
+    /// mid-game.
     pub home_region: Option<String>,
     pub stats: SlotStatView,
 }

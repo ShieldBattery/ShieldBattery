@@ -80,7 +80,9 @@ pub struct NetStatRowView {
     /// This slot's home relay at session create, pre-formatted as `r<id>` or `r<id> <region>`, or
     /// `None` when the setup carried none (rendered as an em dash). Peers' later re-homes are not
     /// observable client-side, so this is always the create-time home — only the header's own relay
-    /// tracks re-homes live.
+    /// tracks re-homes live. The region part fills in mid-game: peers' regions are withheld until
+    /// the relay releases the session's label map (they place players geographically, and the
+    /// pre-game handoff must not carry them).
     pub home: Option<String>,
     /// Milliseconds since this slot's most recent turn arrived, or `None` if none has yet.
     pub last_turn_age_ms: Option<u64>,
@@ -120,7 +122,9 @@ pub struct NetStatsView {
     /// This client's current home relay id, live truth: it advances when the session re-homes off a
     /// dead relay.
     pub relay_id: u64,
-    /// The current relay's region label (e.g. `local-b`), or `None` when the setup carried none.
+    /// The current relay's region label (e.g. `local-b`), or `None` when nothing has named one —
+    /// the launch handoff's create-time label until the relay releases the session's authoritative
+    /// map mid-game.
     pub region: Option<String>,
     /// The latency buffer depth (in turns) currently in force.
     pub buffer_turns: u32,

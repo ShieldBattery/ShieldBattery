@@ -43,7 +43,7 @@
 
 mod credentials;
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
@@ -450,7 +450,18 @@ pub struct TurnState {
     /// from the launch handoff ([`set_slot_homes`](Self::set_slot_homes)); empty for a sessionless
     /// game or an older server that carried no home data. Peers' later re-homes are app-server-
     /// mediated per client group and not observable here, so this stays the create-time assignment.
+    /// Region labels start out only on the local slot (the handoff withholds peers' regions — they
+    /// place players geographically, and it arrives before the game starts) and fill in for every
+    /// slot once the relay releases the session's label map mid-game
+    /// ([`pump_region_labels`](Self::pump_region_labels)).
     slot_homes: Vec<SlotHome>,
+    /// The relay → region labels the home relay released for this session, empty until the first
+    /// [`RegionLabels`](rally_point_client::proto::messages::RegionLabels) frame arrives (the relay
+    /// withholds them until real gameplay has elapsed, and an older relay never sends them). Each
+    /// arriving frame carries the complete map and replaces this wholesale. Kept so a re-home can
+    /// relabel the `/netstat` header from data already in hand (see
+    /// [`record_rehome`](Self::record_rehome)). Render-facing only.
+    relay_regions: HashMap<u64, String>,
     /// Local origin slot (which slot our own outbound turns belong to). The relay rebinds the wire
     /// `slot` from the token regardless; this is for our own bookkeeping/echo.
     local_slot: SlotId,
@@ -592,6 +603,7 @@ impl TurnState {
             slot_to_storm: [None; bw::MAX_STORM_PLAYERS],
             roster,
             slot_homes: Vec::new(),
+            relay_regions: HashMap::new(),
             local_slot,
             turns_in_flight: 0,
             inbound_queues: std::array::from_fn(|_| VecDeque::new()),
@@ -722,9 +734,42 @@ impl TurnState {
 
     /// Adopts a new current relay id after the session re-homes off a dead relay, so the `/netstat`
     /// header's relay id is live truth and the move lands in the event ticker. Driven from the async
-    /// re-home provider once it commits to a replacement relay.
+    /// re-home provider once it commits to a replacement relay. The header's region label is
+    /// re-derived from the labels in hand — the label shown so far described the *old* relay, so a
+    /// replacement absent from them shows no region until it releases its own map (a fresh relay
+    /// withholds labels for its own gameplay-elapsed delay).
     pub fn record_rehome(&mut self, new_relay_id: u64, now: Instant) {
         self.net_stats.record_rehome(new_relay_id, now);
+        self.net_stats
+            .set_region(self.relay_regions.get(&new_relay_id).cloned());
+    }
+
+    /// Game-thread pump for the relay's region-label frames (see
+    /// [`TurnChannels::region_labels`](rally_point_client::TurnChannels)): drains every pending map
+    /// and applies the newest. The relay releases labels only once real gameplay has elapsed (so a
+    /// modified client can't surface opponents' regions while abandoning the match is still cheap),
+    /// then re-sends on reconnect or when a re-home changes the map — each frame is the complete
+    /// map, so applying only the newest is lossless. Relay-delivered labels replace the roster's
+    /// create-time regions wholesale: they name where each relay actually runs (create-time entries
+    /// are the *requested* region, which a fallback placement can falsify), and a relay absent from
+    /// the map is untagged, so its slots show no region rather than a stale guess.
+    pub fn pump_region_labels(&mut self) {
+        let mut newest = None;
+        while let Ok(labels) = self.channels.region_labels.try_recv() {
+            newest = Some(labels);
+        }
+        let Some(labels) = newest else {
+            return;
+        };
+
+        self.relay_regions = labels.into_iter().collect();
+        for home in &mut self.slot_homes {
+            home.region = home
+                .relay_id
+                .and_then(|id| self.relay_regions.get(&id).cloned());
+        }
+        let own = self.relay_regions.get(&self.net_stats.relay_id()).cloned();
+        self.net_stats.set_region(own);
     }
 
     /// OUT hook body: hand a fully-assembled local turn to the driver. `commands` is the native
@@ -1831,6 +1876,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            region_labels: mpsc::channel(1).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -1933,6 +1979,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            region_labels: mpsc::channel(1).1,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -1970,6 +2017,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            region_labels: mpsc::channel(1).1,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
         // birth, so there is no relay session to close.
@@ -2722,6 +2770,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            region_labels: mpsc::channel(1).1,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -3003,6 +3052,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: session_start_rx,
             connectivity: connectivity_rx,
+            region_labels: mpsc::channel(1).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -3136,6 +3186,7 @@ mod tests {
             request_drop: mpsc::channel(1).0,
             session_start: mpsc::channel(1).1,
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
+            region_labels: mpsc::channel(1).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -3167,6 +3218,118 @@ mod tests {
         assert!(state.drain_skin_inbound().is_empty());
     }
 
+    /// Builds a TurnState wired for the region-label tests, seeded the way `establish_session`
+    /// leaves it: identity map populated, the header naming home relay 1 with its create-time
+    /// label, and slot homes carrying a region only for the local slot (the launch handoff
+    /// withholds peers' regions). Returns the sender the driver would push relay-released label
+    /// maps on.
+    fn turn_state_with_region_labels() -> (TurnState, mpsc::Sender<Vec<(u64, String)>>) {
+        let (region_labels_tx, region_labels_rx) = mpsc::channel(4);
+        let channels = TurnChannels {
+            outbound: mpsc::channel(16).0,
+            inbound: mpsc::channel::<Payload>(16).1,
+            leaves: mpsc::channel::<LeaveDirective>(16).1,
+            leave_intent: mpsc::channel(1).0,
+            result: mpsc::channel(1).0,
+            result_expected: Arc::new(AtomicBool::new(false)),
+            lobby_out: mpsc::channel(16).0,
+            lobby_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
+            chat_out: mpsc::channel(16).0,
+            chat_in: mpsc::channel::<(SlotId, ChatOut)>(16).1,
+            skin_out: mpsc::channel(16).0,
+            skin_in: mpsc::channel::<(SlotId, Vec<u8>)>(16).1,
+            request_drop: mpsc::channel(1).0,
+            session_start: mpsc::channel(1).1,
+            connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
+            region_labels: region_labels_rx,
+        };
+        let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
+        let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
+        state.populate_identity_slots();
+        state.set_net_stats_identity(77, 1, Some("us-east".to_owned()));
+        state.set_slot_homes(vec![
+            (LOCAL_SLOT, Some(1), Some("us-east".to_owned())),
+            (PEER_SLOT, Some(2), None),
+        ]);
+        // The snapshot these tests read is gated on the overlay being toggled on.
+        assert!(state.toggle_net_stats());
+        (state, region_labels_tx)
+    }
+
+    fn peer_row_region(state: &TurnState) -> Option<String> {
+        let status = state.net_stats_status(Instant::now()).unwrap();
+        let row = status.rows.iter().find(|r| r.slot == PEER_SLOT).unwrap();
+        row.home_region.clone()
+    }
+
+    #[test]
+    fn pump_region_labels_applies_the_newest_map_to_every_home_and_the_header() {
+        let (mut state, labels_tx) = turn_state_with_region_labels();
+
+        // The handoff left the peer's home unlabeled — only the relay's released map names it.
+        assert_eq!(peer_row_region(&state), None);
+
+        // Two maps queued before a pump: only the newest matters, since each frame carries the
+        // complete map (a re-send after a reconnect, or a re-home's correction).
+        labels_tx
+            .try_send(vec![(1, "stale".to_owned()), (2, "stale".to_owned())])
+            .unwrap();
+        labels_tx
+            .try_send(vec![
+                (1, "us-east".to_owned()),
+                (2, "eu-central".to_owned()),
+            ])
+            .unwrap();
+        state.pump_region_labels();
+
+        assert_eq!(peer_row_region(&state), Some("eu-central".to_owned()));
+        let status = state.net_stats_status(Instant::now()).unwrap();
+        assert_eq!(status.region.as_deref(), Some("us-east"));
+
+        // An empty channel is a no-op — the applied map stays.
+        state.pump_region_labels();
+        assert_eq!(peer_row_region(&state), Some("eu-central".to_owned()));
+    }
+
+    #[test]
+    fn pump_region_labels_replaces_wholesale_so_an_unlisted_relay_loses_its_label() {
+        let (mut state, labels_tx) = turn_state_with_region_labels();
+
+        // The map omits relay 1 (this client's own home): it is untagged, so the header's
+        // create-time label gives way to no label rather than an unverified guess.
+        labels_tx
+            .try_send(vec![(2, "eu-central".to_owned())])
+            .unwrap();
+        state.pump_region_labels();
+
+        let status = state.net_stats_status(Instant::now()).unwrap();
+        assert_eq!(status.region, None);
+        assert_eq!(peer_row_region(&state), Some("eu-central".to_owned()));
+    }
+
+    #[test]
+    fn a_rehome_relabels_the_header_from_the_labels_in_hand() {
+        let (mut state, labels_tx) = turn_state_with_region_labels();
+        labels_tx
+            .try_send(vec![
+                (1, "us-east".to_owned()),
+                (2, "eu-central".to_owned()),
+            ])
+            .unwrap();
+        state.pump_region_labels();
+
+        // Re-homing onto a relay the map names relabels the header immediately.
+        state.record_rehome(2, Instant::now());
+        let status = state.net_stats_status(Instant::now()).unwrap();
+        assert_eq!(status.relay_id, 2);
+        assert_eq!(status.region.as_deref(), Some("eu-central"));
+
+        // Re-homing onto one it does not clears the label until that relay releases its own map.
+        state.record_rehome(9, Instant::now());
+        let status = state.net_stats_status(Instant::now()).unwrap();
+        assert_eq!(status.region, None);
+    }
+
     /// Builds a TurnState wired for the disconnect-overlay tests: the slot→storm identity map is
     /// seeded from the roster (as `establish_session` does), and the senders the driver would use to
     /// push slot-connectivity changes and to which the game submits manual drop requests are
@@ -3195,6 +3358,7 @@ mod tests {
             request_drop: request_drop_tx,
             session_start: mpsc::channel(1).1,
             connectivity: connectivity_rx,
+            region_labels: mpsc::channel(1).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
