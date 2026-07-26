@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { SbChannelId } from '../../../common/chat'
 import { closeDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
 import { DialogType } from '../../dialogs/dialog-type'
-import { DestructiveTextButton, TextButton } from '../../material/button'
+import { TextButton } from '../../material/button'
 import { Dialog } from '../../material/dialog'
 import { useAppDispatch } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
@@ -20,6 +21,7 @@ export function AdminDeleteChatMessageDialog({
   channelId,
   messageId,
 }: AdminDeleteChatMessageDialogProps) {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const [isDeleting, setIsDeleting] = useState(false)
@@ -30,21 +32,28 @@ export function AdminDeleteChatMessageDialog({
     dispatch(
       deleteMessageAsAdmin(channelId, messageId, {
         onSuccess: () => {
-          snackbarController.showSnackbar('Message deleted')
+          snackbarController.showSnackbar(t('chat.deleteMessage.successMessage', 'Message deleted'))
           dispatch(closeDialog(DialogType.AdminDeleteChatMessage))
         },
         onError: () => {
           setIsDeleting(false)
-          snackbarController.showSnackbar('Error deleting message')
+          snackbarController.showSnackbar(
+            t('chat.deleteMessage.errorMessage', 'Error deleting message'),
+          )
         },
       }),
     )
   }
 
   const buttons = [
-    <TextButton label='Cancel' key='cancel' onClick={onCancel} disabled={isDeleting} />,
-    <DestructiveTextButton
-      label='Delete'
+    <TextButton
+      label={t('common.actions.cancel', 'Cancel')}
+      key='cancel'
+      onClick={onCancel}
+      disabled={isDeleting}
+    />,
+    <TextButton
+      label={t('common.actions.delete', 'Delete')}
       key='delete'
       onClick={onConfirmClick}
       disabled={isDeleting}
@@ -52,8 +61,16 @@ export function AdminDeleteChatMessageDialog({
   ]
 
   return (
-    <Dialog title='Delete message?' buttons={buttons} onCancel={onCancel}>
-      <BodyLarge>This will permanently delete the message. This can't be undone.</BodyLarge>
+    <Dialog
+      title={t('chat.deleteMessage.dialogTitle', 'Delete message?')}
+      buttons={buttons}
+      onCancel={onCancel}>
+      <BodyLarge>
+        {t(
+          'chat.deleteMessage.dialogBody',
+          "This will permanently delete the message. This can't be undone.",
+        )}
+      </BodyLarge>
     </Dialog>
   )
 }

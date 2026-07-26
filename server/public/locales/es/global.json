@@ -329,6 +329,12 @@
       "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
       "title": "Crea canal"
     },
+    "deleteMessage": {
+      "dialogBody": "El mensaje se eliminará permanentemente, y esto no se puede deshacer.",
+      "dialogTitle": "¿Eliminar mensaje?",
+      "errorMessage": "Algo salió mal al eliminar el mensaje",
+      "successMessage": "Mensaje eliminado"
+    },
     "events": {
       "ban": "Has sido baneado de {{channelName}}.",
       "kick": "Has sido expulsado de {{channelName}}."

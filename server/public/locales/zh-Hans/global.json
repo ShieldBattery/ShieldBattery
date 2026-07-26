@@ -327,6 +327,12 @@
       "maximumOwnedError": "您已达到创建频道的限制。您必须先离开您创建的一个频道，然后才能创建新的频道。",
       "title": "创建频道"
     },
+    "deleteMessage": {
+      "dialogBody": "该消息将被永久删除，此操作无法撤销。",
+      "dialogTitle": "删除消息？",
+      "errorMessage": "删除消息时出现问题",
+      "successMessage": "消息已删除"
+    },
     "events": {
       "ban": "您已被 {{channelName}} 封禁。",
       "kick": "您已被踢出 {{channelName}}。"

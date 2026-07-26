@@ -327,6 +327,12 @@
       "maximumOwnedError": "채널을 생성하는데 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
       "title": "채널 생성"
     },
+    "deleteMessage": {
+      "dialogBody": "메시지가 영구적으로 삭제되며, 되돌릴 수 없습니다.",
+      "dialogTitle": "메시지를 삭제하시겠습니까?",
+      "errorMessage": "메시지를 삭제하는 중 문제가 발생했습니다",
+      "successMessage": "메시지 삭제됨"
+    },
     "events": {
       "ban": "귀하는 {{channelName}}에서 차단되었습니다.",
       "kick": "당신은 {{channelName}}에서 강퇴되었습니다."

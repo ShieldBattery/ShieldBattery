@@ -328,6 +328,12 @@
       "maximumOwnedError": "You have reached the limit of created channels. You must leave one channel you created before you can create another.",
       "title": "Create channel"
     },
+    "deleteMessage": {
+      "dialogBody": "This will permanently delete the message. This can't be undone.",
+      "dialogTitle": "Delete message?",
+      "errorMessage": "Error deleting message",
+      "successMessage": "Message deleted"
+    },
     "events": {
       "ban": "You have been banned from {{channelName}}.",
       "kick": "You have been kicked from {{channelName}}."
