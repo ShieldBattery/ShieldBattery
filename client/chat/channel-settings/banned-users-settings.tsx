@@ -223,7 +223,10 @@ export function BannedUsersSettings({
         </ErrorText>
       </SearchResults>
     )
-  } else if (bannedUsers?.length === 0) {
+  } else if (bannedUsers?.length === 0 && !hasMoreBans) {
+    // Entries get removed from the loaded list locally as they're unbanned, so an emptied page
+    // must keep the scroll list (and its load-more trigger) mounted while the server still has
+    // more bans to show.
     searchContent = (
       <SearchResults>
         <NoResults>
