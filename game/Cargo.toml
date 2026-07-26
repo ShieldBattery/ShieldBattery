@@ -89,6 +89,7 @@ features = [
   "errhandlingapi",
   "fileapi",
   "handleapi",
+  "heapapi",
   "knownfolders",
   "libloaderapi",
   "memoryapi",
@@ -113,12 +114,12 @@ features = [
 # Function hooking
 [dependencies.whack]
 git = "https://github.com/neivv/whack.git"
-rev = "2d1adbae09d75bdaa2af65b0af12760740cd3d2b"
+rev = "ccd4e691331875879cce539feecaacd47f1785d6"
 
 # Struct declarations & convenience functions for ingame BW data
 [dependencies.bw_dat]
 git = "https://github.com/neivv/aise.git"
-rev = "257f4dc1dbff1719f80c96db81fe026e1144b680"
+rev = "977f44aea5607e3544cb656c1e6e3bb4f04c4a1b"
 features = ["scr-only"]
 
 # Netcode v2 client transport (QUIC via rally-point2). Pinned to a SHA per the Phase-0 cross-repo
@@ -129,7 +130,7 @@ features = ["scr-only"]
 # (version skew is rejected at the TLS handshake by design).
 [dependencies.rally-point-client]
 git = "https://github.com/ShieldBattery/rally-point2.git"
-rev = "2305e0f8a47e8c055a18c47891b5889515652d9f"
+rev = "dcf2134d5adbd5bc2e1b42260d9adb5dc9f90bda"
 
 [build-dependencies]
 anyhow = "1.0"
