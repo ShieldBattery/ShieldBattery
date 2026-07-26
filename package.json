@@ -82,7 +82,6 @@
     "babel-plugin-const-enum": "^1.2.0",
     "babel-plugin-transform-typescript-metadata": "^0.4.0",
     "bcrypt": "^6.0.0",
-    "bl": "^6.1.6",
     "bw-chk": "^1.4.1",
     "core-js": "^3.49.0",
     "dotenv": "^17.4.2",

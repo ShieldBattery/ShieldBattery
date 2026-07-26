@@ -1,6 +1,6 @@
-import BufferList from 'bl'
 import childProcess from 'child_process'
 import fs from 'fs'
+import { buffer } from 'node:stream/consumers'
 import { Duplex, Readable, Writable } from 'stream'
 import Queue from '../../../common/async/promise-queue'
 import { isTestRun } from '../../../common/is-test-run'
@@ -50,33 +50,32 @@ export async function storeMap(
   uploadedBy: SbUserId,
   visibility: MapVisibility,
 ) {
-  const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
-    await parseMap(path, extension)
+  const { mapData, image256, image512, image1024, image2048 } = await parseMap(path, extension)
   const { hash } = mapData
 
   const map = await addMap(
     { mapData, extension, uploadedBy, visibility, parserVersion: MAP_PARSER_VERSION },
     async () => {
-      const image256Promise = image256Stream
-        ? writeFile(imagePath(hash, 256), image256Stream, {
+      const image256Promise = image256
+        ? writeFile(imagePath(hash, 256), image256, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
         : Promise.resolve()
-      const image512Promise = image512Stream
-        ? writeFile(imagePath(hash, 512), image512Stream, {
+      const image512Promise = image512
+        ? writeFile(imagePath(hash, 512), image512, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
         : Promise.resolve()
-      const image1024Promise = image1024Stream
-        ? writeFile(imagePath(hash, 1024), image1024Stream, {
+      const image1024Promise = image1024
+        ? writeFile(imagePath(hash, 1024), image1024, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
         : Promise.resolve()
-      const image2048Promise = image2048Stream
-        ? writeFile(imagePath(hash, 2048), image2048Stream, {
+      const image2048Promise = image2048
+        ? writeFile(imagePath(hash, 2048), image2048, {
             acl: 'public-read',
             type: 'image/jpeg',
           })
@@ -97,30 +96,31 @@ export async function storeMap(
 }
 
 export async function storeRegeneratedImages(path: string, extension: MapExtension) {
-  const { mapData, image256Stream, image512Stream, image1024Stream, image2048Stream } =
-    await mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  const { mapData, image256, image512, image1024, image2048 } = await mapQueue.addToQueue(() =>
+    mapParseWorker(path, extension),
+  )
   const { hash } = mapData
 
-  const image256Promise = image256Stream
-    ? writeFile(imagePath(hash, 256), image256Stream, {
+  const image256Promise = image256
+    ? writeFile(imagePath(hash, 256), image256, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
     : Promise.resolve()
-  const image512Promise = image512Stream
-    ? writeFile(imagePath(hash, 512), image512Stream, {
+  const image512Promise = image512
+    ? writeFile(imagePath(hash, 512), image512, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
     : Promise.resolve()
-  const image1024Promise = image1024Stream
-    ? writeFile(imagePath(hash, 1024), image1024Stream, {
+  const image1024Promise = image1024
+    ? writeFile(imagePath(hash, 1024), image1024, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
     : Promise.resolve()
-  const image2048Promise = image2048Stream
-    ? writeFile(imagePath(hash, 2048), image2048Stream, {
+  const image2048Promise = image2048
+    ? writeFile(imagePath(hash, 2048), image2048, {
         acl: 'public-read',
         type: 'image/jpeg',
       })
@@ -131,10 +131,10 @@ export async function storeRegeneratedImages(path: string, extension: MapExtensi
 
 export interface MapParseResult {
   mapData: MapParseData
-  image256Stream?: BufferList
-  image512Stream?: BufferList
-  image1024Stream?: BufferList
-  image2048Stream?: BufferList
+  image256?: Buffer
+  image512?: Buffer
+  image1024?: Buffer
+  image2048?: Buffer
 }
 
 async function mapParseWorker(
@@ -142,12 +142,10 @@ async function mapParseWorker(
   extension: MapExtension,
   generateImages = true,
 ): Promise<MapParseResult> {
-  const { messages, image256Stream, image512Stream, image1024Stream, image2048Stream } =
-    await runChildProcess(require.resolve('./map-parse-worker'), [
-      path,
-      extension,
-      generateImages ? BW_DATA_PATH : '',
-    ])
+  const { messages, image256, image512, image1024, image2048 } = await runChildProcess(
+    require.resolve('./map-parse-worker'),
+    [path, extension, generateImages ? BW_DATA_PATH : ''],
+  )
 
   if (messages.length !== 1) {
     throw new Error(
@@ -161,19 +159,19 @@ async function mapParseWorker(
 
   return {
     mapData: messages[0],
-    image256Stream: BW_DATA_PATH ? image256Stream : undefined,
-    image512Stream: BW_DATA_PATH ? image512Stream : undefined,
-    image1024Stream: BW_DATA_PATH ? image1024Stream : undefined,
-    image2048Stream: BW_DATA_PATH ? image2048Stream : undefined,
+    image256: BW_DATA_PATH ? image256 : undefined,
+    image512: BW_DATA_PATH ? image512 : undefined,
+    image1024: BW_DATA_PATH ? image1024 : undefined,
+    image2048: BW_DATA_PATH ? image2048 : undefined,
   }
 }
 
 interface ChildProcessResult {
   messages: Array<MapParseData | { error: string }>
-  image256Stream: BufferList
-  image512Stream: BufferList
-  image1024Stream: BufferList
-  image2048Stream: BufferList
+  image256: Buffer
+  image512: Buffer
+  image1024: Buffer
+  image2048: Buffer
 }
 
 function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<ChildProcessResult> {
@@ -221,16 +219,26 @@ function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<Ch
       error = true
     })
 
-    // If the child process writes image data to the pipe before we are able to handle it, it
-    // will get lost. Buffering the data with a PassThrough prevents that, without requiring
-    // the pipe consumer to send any synchronization messages themselves.
-    const image256Stream = typedStdio[3]!.pipe(new BufferList())
-    const image512Stream = typedStdio[4]!.pipe(new BufferList())
-    const image1024Stream = typedStdio[5]!.pipe(new BufferList())
-    const image2048Stream = typedStdio[6]!.pipe(new BufferList())
-    child.on('exit', () =>
-      resolve({ messages, image256Stream, image512Stream, image1024Stream, image2048Stream }),
-    )
+    // Start consuming the image pipes immediately: if the child writes image data before a
+    // consumer is attached, that data would be lost. Collecting each pipe into a Buffer from the
+    // start avoids that without requiring any synchronization messages between the processes.
+    const imagesPromise = Promise.all([
+      buffer(typedStdio[3]!),
+      buffer(typedStdio[4]!),
+      buffer(typedStdio[5]!),
+      buffer(typedStdio[6]!),
+    ])
+    // Pipe errors get surfaced (or superseded by an earlier failure) through the exit handler
+    // below; this just keeps a rejection while the child is still running from going unhandled
+    imagesPromise.catch(() => {})
+
+    child.on('exit', () => {
+      imagesPromise
+        .then(([image256, image512, image1024, image2048]) => {
+          resolve({ messages, image256, image512, image1024, image2048 })
+        })
+        .catch(reject)
+    })
     child.on('message', message => {
       if (inited) {
         resetTimeout()

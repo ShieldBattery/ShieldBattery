@@ -73,9 +73,6 @@ importers:
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
-      bl:
-        specifier: ^6.1.6
-        version: 6.1.6
       bw-chk:
         specifier: ^1.4.1
         version: 1.4.1

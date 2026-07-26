@@ -1,5 +1,4 @@
 import { ZipArchive } from 'archiver'
-import { BufferListStream } from 'bl'
 import crypto from 'crypto'
 import { app, BrowserWindow, dialog, Menu, protocol, screen, Session, shell } from 'electron'
 import isDev from 'electron-is-dev'
@@ -12,7 +11,7 @@ import http from 'node:http'
 import type { Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { pipeline } from 'stream/promises'
+import { buffer } from 'node:stream/consumers'
 import { container } from 'tsyringe'
 import { URL } from 'url'
 import swallowNonBuiltins from '../common/async/swallow-non-builtins'
@@ -846,18 +845,7 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
     }
 
     const zip = new ZipArchive()
-    const result = new Promise<Uint8Array<ArrayBuffer>>((resolve, reject) => {
-      pipeline(
-        zip,
-        new BufferListStream((err, data) => {
-          if (err) {
-            reject(err)
-          } else {
-            resolve(new Uint8Array(data!))
-          }
-        }),
-      ).catch((err: Error) => reject(err))
-    })
+    const result = buffer(zip).then(data => new Uint8Array(data))
 
     for (const { name, filePath } of collectedFiles) {
       zip.append(createReadStream(filePath), { name })

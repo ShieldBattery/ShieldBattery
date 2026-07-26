@@ -1,4 +1,3 @@
-import BufferList from 'bl'
 import Koa from 'koa'
 import { Readable } from 'stream'
 import { FileStore, GetSignedUrlOptions } from './store'
@@ -9,8 +8,8 @@ export function setStore(obj: FileStore) {
   store = obj
 }
 
-export function writeFile(filename: string, data: Buffer | BufferList | Readable, options?: any) {
-  const stream = Buffer.isBuffer(data) || BufferList.isBufferList(data) ? Readable.from(data) : data
+export function writeFile(filename: string, data: Buffer | Readable, options?: any) {
+  const stream = Buffer.isBuffer(data) ? Readable.from(data) : data
 
   return store!.write(filename, stream, options)
 }
