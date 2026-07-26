@@ -359,8 +359,13 @@ export default class ChatService {
 
               userChannelEntry = await addUserToChannel(userId, channel.id, client)
               if (!userChannelEntry) {
-                exitCode = JoinChannelExitCode.MaximumJoinedChannels
-                return
+                // Thrown (rather than handled through an exit code, which commits) so the
+                // transaction rolls the creation back: committing here would leave a zero-member
+                // channel owned by a user who was never in it, squatting the name.
+                throw new ChatServiceError(
+                  ChatServiceErrorCode.MaximumJoinedChannels,
+                  'Maximum joined channels reached',
+                )
               }
 
               message = await addMessageToChannel(
@@ -674,6 +679,10 @@ export default class ChatService {
   /**
    * Hands the ownership of a channel over to one of its other members. Ownership can also change on
    * its own when the current owner leaves or is removed from the channel.
+   *
+   * `MAXIMUM_OWNED_CHANNELS` caps only channel creation: like automatic succession, a transfer can
+   * push the new owner past it. Owners are always members, so the number of channels anyone can own
+   * stays bounded by `MAXIMUM_JOINED_CHANNELS`.
    */
   async transferOwnership(
     channelId: SbChannelId,

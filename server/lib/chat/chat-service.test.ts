@@ -19,6 +19,7 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
+import transact from '../db/transaction'
 import { ImageService } from '../images/image-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
@@ -656,6 +657,22 @@ describe('chat/chat-service', () => {
       await expect(
         chatService.joinChannel(shieldBatteryChannel.name, user1.id),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum owned channels reached]`)
+    })
+
+    test("should roll back a created channel if the creator can't join anymore channels", async () => {
+      asMockedFunction(findChannelByName).mockResolvedValue(undefined)
+      createChannelMock.mockResolvedValue(testChannel)
+      addUserToChannelMock.mockResolvedValue(undefined)
+
+      await expect(
+        chatService.joinChannel(testChannel.name, user1.id),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Maximum joined channels reached]`)
+
+      // The error must reject the transaction itself (which rolls back the channel creation) —
+      // resolving it and throwing afterwards would commit a zero-member channel owned by a user
+      // who never joined it.
+      const transactionResult = asMockedFunction(transact).mock.results.at(-1)!.value
+      await expect(transactionResult).rejects.toThrow('Maximum joined channels reached')
     })
 
     test('should throw if user is banned', async () => {
