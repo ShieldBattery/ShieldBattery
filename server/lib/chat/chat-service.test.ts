@@ -1421,9 +1421,13 @@ describe('chat/chat-service', () => {
       // The target is a member, so the rejection can only come from the channel being official.
       mockChannelEntries(shieldBatteryChannel, [user2.id, user2ShieldBatteryChannelEntry])
 
+      // A regular user is turned away by the authority check, which runs before the official one
+      // (official channels have no owner to match).
       await expect(
         chatService.transferOwnership(shieldBatteryChannel.id, user1.id, user2.id, REGULAR_USER),
-      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: Official channels can't have an owner]`)
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: Only the channel owner can transfer the ownership]`,
+      )
 
       await expect(
         chatService.transferOwnership(
@@ -1453,8 +1457,15 @@ describe('chat/chat-service', () => {
         [user2.id, user2TestChannelEntry],
       )
 
+      // Both callers that hold the authority to get this far: a server moderator, and the owner
+      // transferring to themselves.
+
       await expect(
-        chatService.transferOwnership(testChannel.id, user1.id, user2.id, REGULAR_USER),
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, SERVER_MODERATOR),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is already the channel owner]`)
+
+      await expect(
+        chatService.transferOwnership(testChannel.id, user2.id, user2.id, REGULAR_USER),
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is already the channel owner]`)
     })
 

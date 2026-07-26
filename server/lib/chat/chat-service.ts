@@ -688,6 +688,15 @@ export default class ChatService {
     if (!channelInfo) {
       throw new ChatServiceError(ChatServiceErrorCode.ChannelNotFound, 'Channel not found')
     }
+    // The caller's authority must be checked before anything about the target, so that callers
+    // without it can't use the distinct error codes below as an oracle for a channel's membership
+    // or ownership.
+    if (!isServerModerator && channelInfo.ownerId !== userId) {
+      throw new ChatServiceError(
+        ChatServiceErrorCode.NotEnoughPermissions,
+        'Only the channel owner can transfer the ownership',
+      )
+    }
     if (channelInfo.official) {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotChangeChannelOwner,
@@ -705,12 +714,6 @@ export default class ChatService {
       throw new ChatServiceError(
         ChatServiceErrorCode.CannotChangeChannelOwner,
         'User is already the channel owner',
-      )
-    }
-    if (!isServerModerator && channelInfo.ownerId !== userId) {
-      throw new ChatServiceError(
-        ChatServiceErrorCode.NotEnoughPermissions,
-        'Only the channel owner can transfer the ownership',
       )
     }
 
