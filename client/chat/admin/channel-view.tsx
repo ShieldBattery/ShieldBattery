@@ -170,7 +170,14 @@ const AdminChannelInfoContext = createContext<{
   ownerId?: SbUserId
   /** Whether this is an official channel. Official channels can't have an owner. */
   official: boolean
-}>({ official: false })
+  /**
+   * Refetches the channel's info and user list. The admin view's data comes from HTTP requests
+   * rather than a socket subscription, so it doesn't update on its own when a menu action
+   * mutates the channel (e.g. kicking/banning a user or transferring ownership) — callers must
+   * request a refetch explicitly.
+   */
+  refreshChannelInfo: () => void
+}>({ official: false, refreshChannelInfo: () => {} })
 
 function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const dispatch = useAppDispatch()
@@ -178,7 +185,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
   const { channelId } = useContext(ChannelContext)
-  const { ownerId, official } = useContext(AdminChannelInfoContext)
+  const { ownerId, official, refreshChannelInfo } = useContext(AdminChannelInfoContext)
 
   const menuItems = new Map(items)
   if (user && user.id !== selfUserId) {
@@ -192,7 +199,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
           dispatch(
             openDialog({
               type: DialogType.ChannelKickUserConfirmation,
-              initData: { channelId, userId: user.id },
+              initData: { channelId, userId: user.id, onSuccess: refreshChannelInfo },
             }),
           )
           onMenuClose()
@@ -209,7 +216,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
           dispatch(
             openDialog({
               type: DialogType.ChannelBanUser,
-              initData: { channelId, userId: user.id },
+              initData: { channelId, userId: user.id, onSuccess: refreshChannelInfo },
             }),
           )
           onMenuClose()
@@ -229,7 +236,7 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
             dispatch(
               openDialog({
                 type: DialogType.ChannelTransferOwnership,
-                initData: { channelId, userId: user.id },
+                initData: { channelId, userId: user.id, onSuccess: refreshChannelInfo },
               }),
             )
             onMenuClose()
@@ -479,7 +486,11 @@ export function AdminChannelView({
 
           <ChannelContext.Provider value={{ channelId: channelInfo.id }}>
             <AdminChannelInfoContext.Provider
-              value={{ ownerId: joinedChannelInfo?.ownerId, official: channelInfo.official }}>
+              value={{
+                ownerId: joinedChannelInfo?.ownerId,
+                official: channelInfo.official,
+                refreshChannelInfo,
+              }}>
               <ChatContext.Provider
                 value={{
                   UserMenu: AdminChannelUserMenu,

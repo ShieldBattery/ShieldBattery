@@ -83,6 +83,8 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+    /** Called once the user has been banned successfully. */
+    onSuccess?: () => void
   }
 >
 type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
@@ -90,6 +92,8 @@ type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+    /** Called once the user has been kicked successfully. */
+    onSuccess?: () => void
   }
 >
 type ChannelLeaveConfirmationDialogPayload = BaseDialogPayload<

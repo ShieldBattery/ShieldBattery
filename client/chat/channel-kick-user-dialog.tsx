@@ -15,12 +15,15 @@ import { moderateUser } from './action-creators'
 export interface ChannelKickUserConfirmationProps extends CommonDialogProps {
   channelId: SbChannelId
   userId: SbUserId
+  /** Called once the user has been kicked successfully. */
+  onSuccess?: () => void
 }
 
 export function ChannelKickUserConfirmation({
   onCancel,
   channelId,
   userId,
+  onSuccess,
 }: ChannelKickUserConfirmationProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -41,6 +44,7 @@ export function ChannelKickUserConfirmation({
             }),
           )
           dispatch(closeDialog(DialogType.ChannelKickUserConfirmation))
+          onSuccess?.()
         },
         onError: () => {
           setIsKicking(false)
