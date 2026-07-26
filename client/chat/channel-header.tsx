@@ -250,9 +250,6 @@ export function ChannelHeader({
       />,
     )
   }
-  if (actions.length > 0) {
-    actions.push(<Divider key='divider' />)
-  }
   if (isServerModerator) {
     actions.push(
       <MenuItem
@@ -261,6 +258,10 @@ export function ChannelHeader({
         onClick={onOpenAdminViewClick}
       />,
     )
+  }
+  // The divider sets the destructive leave action apart from the management items above it.
+  if (actions.length > 0) {
+    actions.push(<Divider key='divider' />)
   }
   actions.push(
     <DestructiveMenuItem
