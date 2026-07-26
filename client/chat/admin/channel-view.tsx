@@ -329,9 +329,17 @@ export function AdminChannelView({
   channelName: string
 }) {
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const [channelInfoResponse, setChannelInfoResponse] = useState<GetChannelInfoResponse>()
   const [channelInfoRefreshToken, refreshChannelInfo] = useRefreshToken()
   const [error, setError] = useState<Error>()
+  // Distinguishes a failed initial load (nothing to show, so show the error page) from a failed
+  // refetch after a moderation action (the loaded view is still usable — keep it and just notify).
+  const hasLoadedChannelInfoRef = useRef(false)
+
+  useEffect(() => {
+    hasLoadedChannelInfoRef.current = false
+  }, [channelId])
 
   const channelInfo = channelInfoResponse?.channelInfo
   const detailedChannelInfo = channelInfoResponse?.detailedChannelInfo
@@ -372,17 +380,22 @@ export function AdminChannelView({
       getChannelInfo(makeSbChannelId(channelId), {
         signal: abortController.signal,
         onSuccess: result => {
+          hasLoadedChannelInfoRef.current = true
           setChannelInfoResponse(result)
           setError(undefined)
         },
         onError: err => {
-          setError(err)
+          if (hasLoadedChannelInfoRef.current) {
+            snackbarController.showSnackbar('Error refreshing channel info')
+          } else {
+            setError(err)
+          }
         },
       }),
     )
 
     return () => abortController.abort()
-  }, [channelId, channelInfoRefreshToken, dispatch])
+  }, [channelId, channelInfoRefreshToken, dispatch, snackbarController])
 
   useEffect(() => {
     const abortController = new AbortController()
