@@ -836,13 +836,14 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
     ])
   })
 
-  test('roster entries carry the session home relay and requested region, omitting region when absent', async () => {
+  test('roster entries carry a region only on the receiving player’s own slot', async () => {
     configureNetcodeV2()
-    mockSessionResponse(sessionResponse([0, 1]))
+    mockSessionResponse(sessionResponse([0, 1, 2]))
     const service = makeService()
 
     const u1 = makeSbUserId(1)
     const u2 = makeSbUserId(2)
+    const u3 = makeSbUserId(3)
 
     const result = await service.createSessionForGame({
       gameId: 'game-1',
@@ -854,18 +855,32 @@ describe('netcode-v2/NetcodeV2Service#createSessionForGame', () => {
           region: makeGameServerRegionId('us-east'),
           pubkey: PUBKEY,
         },
-        { slot: 1, userId: u2, observer: true, pubkey: PUBKEY },
+        {
+          slot: 1,
+          userId: u2,
+          observer: false,
+          region: makeGameServerRegionId('kr'),
+          pubkey: PUBKEY,
+        },
+        { slot: 2, userId: u3, observer: true, pubkey: PUBKEY },
       ],
       signal: new AbortController().signal,
     })
 
-    // The roster is shared by every player's setup, so any player's copy proves the shape.
-    const roster = result.get(u1)!.roster
-    expect(roster).toEqual([
+    // Each player's roster names other players' regions never, and their own when requested:
+    // regions place players geographically, and the handoff arrives before the game starts.
+    expect(result.get(u1)!.roster).toEqual([
       { slot: 0, userId: u1, homeRelayId: 1, homeRegion: 'us-east' },
       { slot: 1, userId: u2, homeRelayId: 1 },
+      { slot: 2, userId: u3, homeRelayId: 1 },
     ])
-    expect(roster[1]).not.toHaveProperty('homeRegion')
+    expect(result.get(u2)!.roster).toEqual([
+      { slot: 0, userId: u1, homeRelayId: 1 },
+      { slot: 1, userId: u2, homeRelayId: 1, homeRegion: 'kr' },
+      { slot: 2, userId: u3, homeRelayId: 1 },
+    ])
+    // A player whose slot requested no region gets none anywhere.
+    expect(result.get(u3)!.roster.every(entry => !('homeRegion' in entry))).toBe(true)
   })
 
   test('roster entries use their slot_homes override relay for homeRelayId', async () => {

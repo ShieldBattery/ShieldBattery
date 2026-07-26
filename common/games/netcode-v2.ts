@@ -38,9 +38,12 @@ export interface NetcodeV2RosterEntry {
    */
   homeRelayId: number
   /**
-   * The game-server region this slot requested at session create, if any. The coordinator doesn't
-   * echo back which region a slot actually ended up served from, so a slot whose requested region
-   * had no live relay still reports that requested region here even though `homeRelayId` points
+   * The game-server region this slot requested at session create, if any. Present only on the
+   * receiving player's own entry: a region names where a player physically is, and the handoff
+   * reaches clients before the game starts, so other players' entries deliberately omit it (their
+   * relays are identified only by the opaque `homeRelayId`). The coordinator doesn't echo back
+   * which region a slot actually ended up served from, so a slot whose requested region had no
+   * live relay still reports that requested region here even though `homeRelayId` points
    * elsewhere.
    */
   homeRegion?: GameServerRegionId

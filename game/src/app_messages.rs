@@ -647,7 +647,9 @@ pub struct NetcodeV2RosterEntry {
     #[serde(default)]
     pub home_relay_id: Option<u64>,
     /// The home relay's region label at session create (e.g. `local-a`), or `None` when the setup
-    /// carried none. Rendered beside the relay id in the `/netstat` home column.
+    /// carried none. Rendered beside the relay id in the `/netstat` home column. The server sends
+    /// this only for the local player's own slot — a region places a player geographically and the
+    /// handoff arrives before the game starts, so peers' entries carry only the opaque relay id.
     #[serde(default)]
     pub home_region: Option<String>,
 }

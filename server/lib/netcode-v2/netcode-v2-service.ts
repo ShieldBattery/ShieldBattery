@@ -615,16 +615,19 @@ export class NetcodeV2Service {
 
     const userBySlot = new Map(slots.map(({ slot, userId }) => [slot, userId]))
 
-    // The full slot roster, shared by every player's setup: who occupies each slot, plus the
-    // create-time home relay/region the `/netstat` overlay shows per player. `region` here is
-    // what the slot requested, not necessarily where it ended up homed — the coordinator doesn't
-    // echo per-slot serving regions back.
-    const roster: NetcodeV2RosterEntry[] = slots.map(({ slot, userId, region }) => ({
-      slot,
-      userId,
-      homeRelayId: (slotHomeBySlot.get(slot) ?? homeRelay).relayId,
-      ...(region !== undefined ? { homeRegion: region } : {}),
-    }))
+    // The slot roster, personalized per recipient: who occupies each slot, plus the create-time
+    // home relay the `/netstat` overlay shows per player. `homeRegion` is included only on the
+    // recipient's own entry — a region names where a player physically is, and the handoff reaches
+    // clients before the game starts, so other players' entries carry only the opaque relay id.
+    // (`region` here is what the slot requested, not necessarily where it ended up homed — the
+    // coordinator doesn't echo per-slot serving regions back.)
+    const rosterFor = (ownSlot: number): NetcodeV2RosterEntry[] =>
+      slots.map(({ slot, userId, region }) => ({
+        slot,
+        userId,
+        homeRelayId: (slotHomeBySlot.get(slot) ?? homeRelay).relayId,
+        ...(slot === ownSlot && region !== undefined ? { homeRegion: region } : {}),
+      }))
 
     const result = new Map<SbUserId, NetcodeV2ServerSetup>()
     for (const { slot, token } of session.tokens) {
@@ -636,7 +639,7 @@ export class NetcodeV2Service {
       result.set(userId, {
         token: Buffer.from(token).toString('base64'),
         homeRelay: slotHomeBySlot.get(slot) ?? homeRelay,
-        roster,
+        roster: rosterFor(slot),
         // Floored defensively: a misconfigured or unexpected coordinator bound of 0 would leave
         // the pipe with no latency at all to absorb the network round-trip.
         initialBufferTurns: Math.max(1, session.bounds.min),
