@@ -82,6 +82,7 @@ import {
   toBasicChannelInfo,
   toDetailedChannelInfo,
   toJoinedChannelInfo,
+  transferChannelOwnership,
   updateChannel,
   updateUserPermissions,
   updateUserPreferences,
@@ -717,7 +718,14 @@ export default class ChatService {
       )
     }
 
-    await updateChannel(channelId, { ownerId: targetId })
+    const transferred = await transferChannelOwnership(channelId, targetId)
+    if (!transferred) {
+      // The target left (or was removed from) the channel after the membership check above.
+      throw new ChatServiceError(
+        ChatServiceErrorCode.TargetNotInChannel,
+        'User must be in channel to transfer the ownership to them',
+      )
+    }
 
     this.publisher.publish(getChannelPath(channelId), {
       action: 'ownerChanged',

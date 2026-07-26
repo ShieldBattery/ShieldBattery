@@ -57,6 +57,7 @@ import {
   searchChannels,
   TextMessageData,
   toBasicChannelInfo,
+  transferChannelOwnership,
   updateChannel,
   updateUserPermissions,
   updateUserPreferences,
@@ -123,6 +124,7 @@ vi.mock('./chat-models', async () => {
     getUserChannelEntriesForChannel: vi.fn().mockResolvedValue([]),
     createChannel: vi.fn(),
     updateChannel: vi.fn(),
+    transferChannelOwnership: vi.fn(),
     addUserToChannel: vi.fn(),
     addMessageToChannel: vi.fn(),
     getMessagesForChannel: vi.fn().mockResolvedValue([]),
@@ -1402,10 +1404,11 @@ describe('chat/chat-service', () => {
   })
 
   describe('transferOwnership', () => {
-    const updateChannelMock = asMockedFunction(updateChannel)
+    const transferChannelOwnershipMock = asMockedFunction(transferChannelOwnership)
 
     beforeEach(async () => {
       asMockedFunction(getChannelInfo).mockResolvedValue({ ...testChannel, ownerId: user1.id })
+      transferChannelOwnershipMock.mockResolvedValue(true)
     })
 
     test("should throw if channel doesn't exist", async () => {
@@ -1510,7 +1513,7 @@ describe('chat/chat-service', () => {
 
       await chatService.transferOwnership(testChannel.id, user1.id, user2.id, REGULAR_USER)
 
-      expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { ownerId: user2.id })
+      expect(transferChannelOwnershipMock).toHaveBeenCalledWith(testChannel.id, user2.id)
       expect(client1.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'ownerChanged',
         newOwnerId: user2.id,
@@ -1533,11 +1536,30 @@ describe('chat/chat-service', () => {
 
       await chatService.transferOwnership(testChannel.id, user1.id, user2.id, SERVER_MODERATOR)
 
-      expect(updateChannelMock).toHaveBeenCalledWith(testChannel.id, { ownerId: user2.id })
+      expect(transferChannelOwnershipMock).toHaveBeenCalledWith(testChannel.id, user2.id)
       expect(client2.publish).toHaveBeenCalledWith(getChannelPath(testChannel.id), {
         action: 'ownerChanged',
         newOwnerId: user2.id,
       })
+    })
+
+    test('should throw if the target leaves the channel while the transfer is in flight', async () => {
+      mockChannelEntries(
+        testChannel,
+        [user1.id, user1TestChannelEntry],
+        [user2.id, user2TestChannelEntry],
+      )
+      transferChannelOwnershipMock.mockResolvedValue(false)
+
+      await expect(
+        chatService.transferOwnership(testChannel.id, user1.id, user2.id, REGULAR_USER),
+      ).rejects.toThrowErrorMatchingInlineSnapshot(
+        `[Error: User must be in channel to transfer the ownership to them]`,
+      )
+      expect(client1.publish).not.toHaveBeenCalledWith(
+        getChannelPath(testChannel.id),
+        expect.objectContaining({ action: 'ownerChanged' }),
+      )
     })
   })
 
