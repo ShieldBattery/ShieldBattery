@@ -3,6 +3,7 @@ import i18next from 'i18next'
 import FsBackend, { FsBackendOptions } from 'i18next-fs-backend'
 import Joi from 'joi'
 import { Next } from 'koa'
+import path from 'path'
 import { JsonObject } from 'type-fest'
 import {
   ALL_TRANSLATION_LANGUAGES,
@@ -54,12 +55,22 @@ function orderedStringify(obj: Record<string, string>) {
   return JSON.stringify(obj, Array.from(allKeys).sort(defaultSort), 2) + '\n'
 }
 
+const LOCALES_PATH = path.resolve(
+  __dirname,
+  '..',
+  '..',
+  'public',
+  'locales',
+  '{{lng}}',
+  '{{ns}}.json',
+)
+
 i18next
   .use(FsBackend)
   .init<FsBackendOptions>({
     backend: {
-      loadPath: './server/public/locales/{{lng}}/{{ns}}.json',
-      addPath: './server/public/locales/{{lng}}/{{ns}}.json',
+      loadPath: LOCALES_PATH,
+      addPath: LOCALES_PATH,
       stringify: orderedStringify,
     },
 
