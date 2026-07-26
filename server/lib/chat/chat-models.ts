@@ -892,6 +892,12 @@ export async function unbanUserFromChannel(
  * previously banned in the channel (see `banUserFromChannelIfNeeded`/
  * `countBannedIdentifiersForChannel`). Without clearing the matching identifier bans here, an
  * unbanned user would be immediately re-banned by that check the next time they try to join.
+ *
+ * Deleting a hash shared with a different banned user (e.g. accounts behind the same IP) means
+ * that user's future alts match fewer banned identifiers, but that's the accepted tradeoff: any
+ * hash the unbanned user currently carries has to be cleared for the unban to take effect at all,
+ * and two users sharing enough identifiers to matter are effectively the same machine, which is
+ * exactly what the moderator chose to let back in.
  */
 export async function removeBannedIdentifiersFromChannel(
   {
