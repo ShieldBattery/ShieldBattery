@@ -156,14 +156,13 @@ const StyledAvatar = styled(ConnectedAvatar)`
 
 const ProfileStaffBadge = styled(StaffBadge)`
   position: absolute;
-  /* Same proportional sizing/offsets as StaffBadgedAvatar's corner badge, so the coin looks
-     identical here to everywhere else it overlaps an avatar. */
-  width: 55%;
-  height: 55%;
-  max-width: 22px;
-  max-height: 22px;
-  top: -10%;
-  right: -14%;
+  /* Anchored on the avatar circle's top-right edge, matching how StaffBadgedAvatar's corner badge
+     overlaps its avatar. Fixed pixels rather than the composite's percentages: at this container
+     size the badge's size cap binds, so percentage offsets would push the coin off the circle. */
+  width: 22px;
+  height: 22px;
+  top: -2px;
+  right: -2px;
 `
 
 const UsernameAndTitle = styled.div`
