@@ -278,6 +278,7 @@
       "bannedUsers": {
         "automatedBadge": "Automático",
         "bannedDate": "Baneado el {{date}}",
+        "bannedDateBy": "Baneado el {{date}} por {{name}}",
         "loadError": "No se pudieron cargar los usuarios baneados.",
         "noBans": "Nadie está baneado de este canal",
         "noSearchResults": "Ningún usuario baneado coincide con tu búsqueda",

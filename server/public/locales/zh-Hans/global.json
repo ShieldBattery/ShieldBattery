@@ -276,6 +276,7 @@
       "bannedUsers": {
         "automatedBadge": "自动封禁",
         "bannedDate": "封禁于 {{date}}",
+        "bannedDateBy": "由 {{name}} 封禁于 {{date}}",
         "loadError": "加载被封禁用户失败。",
         "noBans": "此频道中没有被封禁的用户",
         "noSearchResults": "没有符合搜索条件的被封禁用户",

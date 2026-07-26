@@ -277,6 +277,7 @@
       "bannedUsers": {
         "automatedBadge": "Automated",
         "bannedDate": "Banned {{date}}",
+        "bannedDateBy": "Banned {{date}} by {{name}}",
         "loadError": "Failed to load banned users.",
         "noBans": "No one is banned from this channel",
         "noSearchResults": "No banned users match your search",

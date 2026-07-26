@@ -15,7 +15,7 @@ import { DialogType } from '../../dialogs/dialog-type'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
 import { TextButton } from '../../material/button'
 import { Tooltip } from '../../material/tooltip'
-import { useAppDispatch } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { ErrorText } from '../../settings/settings-content'
 import { labelMedium } from '../../styles/typography'
 import { listChannelBans } from '../action-creators'
@@ -172,6 +172,11 @@ function BannedUserRow({
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  // The ban list response includes the banning moderators in its user data, so this resolves for
+  // any manually placed ban; automated bans have no moderator to show.
+  const bannedByName = useAppSelector(s =>
+    ban.bannedBy !== undefined ? s.users.byId.get(ban.bannedBy)?.name : undefined,
+  )
 
   return (
     <UserListCardRow>
@@ -181,9 +186,14 @@ function BannedUserRow({
         <UserListCardInfo>
           <UserListCardUsername userId={ban.userId} interactive={false} />
           <UserListCardSubtitle>
-            {t('chat.channelSettings.bannedUsers.bannedDate', 'Banned {{date}}', {
-              date: userListDateFormat.format(ban.banTime),
-            })}
+            {bannedByName
+              ? t('chat.channelSettings.bannedUsers.bannedDateBy', 'Banned {{date}} by {{name}}', {
+                  date: userListDateFormat.format(ban.banTime),
+                  name: bannedByName,
+                })
+              : t('chat.channelSettings.bannedUsers.bannedDate', 'Banned {{date}}', {
+                  date: userListDateFormat.format(ban.banTime),
+                })}
           </UserListCardSubtitle>
           {ban.reason ? (
             <Tooltip text={ban.reason} position='bottom'>

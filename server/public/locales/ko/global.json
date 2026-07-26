@@ -276,6 +276,7 @@
       "bannedUsers": {
         "automatedBadge": "자동 차단",
         "bannedDate": "{{date}} 차단",
+        "bannedDateBy": "{{date}} {{name}}님이 차단",
         "loadError": "차단된 사용자를 불러오지 못했습니다.",
         "noBans": "이 채널에서 차단된 사용자가 없습니다",
         "noSearchResults": "검색과 일치하는 차단된 사용자가 없습니다",
