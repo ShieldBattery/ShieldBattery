@@ -14,7 +14,6 @@ import {
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useHasAnyPermission } from '../../admin/admin-permissions'
 import { useSelfUser } from '../../auth/auth-utils'
-import { ConnectedAvatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
@@ -36,7 +35,7 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
-import { StaffBadge } from '../../users/staff-badge'
+import { StaffBadgedAvatar } from '../../users/staff-badge'
 import { listUserChannelEntries, updateChannelUserPermissions } from '../action-creators'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -106,20 +105,9 @@ const TransferOwnershipButton = styled(IconButton)`
   min-height: 36px;
 `
 
-const AvatarContainer = styled.div`
-  position: relative;
-  flex-shrink: 0;
-`
-
-const StyledAvatar = styled(ConnectedAvatar)`
+const StyledAvatar = styled(StaffBadgedAvatar)`
   width: 40px;
   height: 40px;
-`
-
-const AvatarStaffBadge = styled(StaffBadge)`
-  position: absolute;
-  top: -4px;
-  right: -6px;
 `
 
 const UserInfoContainer = styled.div`
@@ -382,7 +370,6 @@ function UserChannelEntryRow({
   onTransferOwnershipClick: () => void
 }) {
   const { t } = useTranslation()
-  const hasStaffBadge = useAppSelector(s => s.users.byId.get(user.userId)?.staffBadge)
   const [buttonProps, rippleRef] = useButtonState({
     disabled: !canEdit,
     onClick: onEditClick,
@@ -396,10 +383,7 @@ function UserChannelEntryRow({
   return (
     <UserCardRow>
       <UserCardButton {...buttonProps}>
-        <AvatarContainer>
-          <StyledAvatar userId={user.userId} />
-          {hasStaffBadge ? <AvatarStaffBadge /> : null}
-        </AvatarContainer>
+        <StyledAvatar userId={user.userId} />
 
         <UserInfoContainer>
           <UsernameRow>
