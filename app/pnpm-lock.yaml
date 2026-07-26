@@ -12,24 +12,6 @@ importers:
 
   .:
     dependencies:
-      '@babel/core':
-        specifier: ^7.29.7
-        version: 7.29.7
-      '@babel/plugin-proposal-decorators':
-        specifier: ^7.29.7
-        version: 7.29.7(@babel/core@7.29.7)
-      '@babel/plugin-transform-class-properties':
-        specifier: ^7.29.7
-        version: 7.29.7(@babel/core@7.29.7)
-      '@babel/plugin-transform-private-methods':
-        specifier: ^7.29.7
-        version: 7.29.7(@babel/core@7.29.7)
-      '@babel/preset-env':
-        specifier: ^7.29.7
-        version: 7.29.7(@babel/core@7.29.7)
-      '@babel/register':
-        specifier: ^7.29.7
-        version: 7.29.7(@babel/core@7.29.7)
       '@bufbuild/protobuf':
         specifier: ^2.12.1
         version: 2.12.1
@@ -69,6 +51,25 @@ importers:
       sanitize-filename:
         specifier: ^1.6.4
         version: 1.6.4
+    devDependencies:
+      '@babel/core':
+        specifier: ^7.29.7
+        version: 7.29.7
+      '@babel/plugin-proposal-decorators':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.7)
+      '@babel/plugin-transform-class-properties':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.7)
+      '@babel/plugin-transform-private-methods':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.7)
+      '@babel/preset-env':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.7)
+      '@babel/register':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.7)
 
 packages:
 
