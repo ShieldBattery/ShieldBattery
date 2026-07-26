@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import Logo from '../logos/logo-no-bg.svg'
+import { elevationPlus2 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 
 const BadgeRoot = styled(Tooltip)`
@@ -10,6 +11,8 @@ const BadgeRoot = styled(Tooltip)`
 `
 
 const BadgeDisc = styled.div`
+  ${elevationPlus2};
+
   width: 100%;
   height: 100%;
   display: flex;
@@ -24,7 +27,7 @@ const BadgeDisc = styled.div`
   */
   color: var(--color-blue99);
   background-color: var(--color-blue40);
-  border: 2px solid var(--color-amber60);
+  border: 2px solid var(--color-blue90);
   border-radius: 50%;
 `
 
