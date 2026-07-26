@@ -228,7 +228,9 @@ export function getChannelLeaveSeverity(
   selfId: SbUserId,
 ): ChannelLeaveSeverity {
   const isOfficial = state.chat.idToBasicInfo.get(channelId)?.official ?? false
-  const isLastMember = (state.chat.idToDetailedInfo.get(channelId)?.userCount ?? 0) <= 1
+  // When the member count hasn't loaded, assume the channel is NOT about to be deleted — warning
+  // about permanent deletion is the one outcome that must not be claimed on missing data.
+  const isLastMember = (state.chat.idToDetailedInfo.get(channelId)?.userCount ?? Infinity) <= 1
   const isOwner = state.chat.idToJoinedInfo.get(channelId)?.ownerId === selfId
   const selfPermissions = state.chat.idToSelfPermissions.get(channelId)
   const hasPermissions = selfPermissions ? Object.values(selfPermissions).some(Boolean) : false
