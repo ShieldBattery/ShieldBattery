@@ -38,6 +38,7 @@ import {
 import { LiveWatchRow } from '../twitch/live-indicators'
 import { navigateToUserProfile, viewUserProfile } from './action-creators'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
+import { StaffBadge } from './staff-badge'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
   month: 'long',
@@ -153,6 +154,18 @@ const StyledAvatar = styled(ConnectedAvatar)`
   left: calc(50% - 18px);
 `
 
+const ProfileStaffBadge = styled(StaffBadge)`
+  position: absolute;
+  /* Same proportional sizing/offsets as StaffBadgedAvatar's corner badge, so the coin looks
+     identical here to everywhere else it overlaps an avatar. */
+  width: 55%;
+  height: 55%;
+  max-width: 22px;
+  max-height: 22px;
+  top: -10%;
+  right: -14%;
+`
+
 const UsernameAndTitle = styled.div`
   flex-grow: 1;
   flex-shrink: 1;
@@ -263,6 +276,7 @@ export function UserProfileOverlayContents({
           <AvatarCircle $isLive={!!liveStream}>
             <StyledAvatar userId={userId} showLiveIndicator={false} />
           </AvatarCircle>
+          {user?.staffBadge ? <ProfileStaffBadge /> : null}
           <ViewProfileHover>
             {t('users.profileOverlay.viewProfile', 'View profile')}
           </ViewProfileHover>
