@@ -13,6 +13,7 @@ import { bodyLarge, BodyLarge, bodyMedium, titleMedium } from '../styles/typogra
 import { sendVerificationEmail, verifyEmail } from './action-creators'
 import { randomCodeValidator } from './auth-form-validators'
 import { useSelfUser } from './auth-utils'
+import { RevealEmailLink, useRevealableEmail } from './email-masking'
 
 const StyledDialog = styled(Dialog)`
   max-width: 540px;
@@ -151,7 +152,7 @@ export function EmailVerificationDialog({
     />,
   ]
 
-  const email = selfUser?.email
+  const { emailText, revealed, toggleRevealed } = useRevealableEmail(selfUser?.email)
 
   return (
     <StyledDialog
@@ -171,8 +172,9 @@ export function EmailVerificationDialog({
       <Instructions>
         <Trans i18nKey='auth.emailVerification.instructions'>
           Enter the verification code sent to{' '}
-          <EmailText>{{ email } as TransInterpolation}</EmailText>.
-        </Trans>
+          <EmailText>{{ email: emailText } as TransInterpolation}</EmailText>.
+        </Trans>{' '}
+        <RevealEmailLink revealed={revealed} onClick={toggleRevealed} />
       </Instructions>
       {submitError ? (
         <ErrorText data-testid='submit-error'>

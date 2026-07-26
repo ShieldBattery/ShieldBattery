@@ -19,6 +19,7 @@ import {
   usernameValidator,
 } from '../../auth/auth-form-validators'
 import { useSelfUser } from '../../auth/auth-utils'
+import { RevealEmailLink, useRevealableEmail } from '../../auth/email-masking'
 import { Avatar } from '../../avatars/avatar'
 import { openDialog } from '../../dialogs/action-creators'
 import { CommonDialogProps } from '../../dialogs/common-dialog-props'
@@ -176,7 +177,7 @@ export function AccountSettings() {
     query: AccountSettingsQuery,
   })
   const currentUser = useFragment(CurrentUserFragment, data?.currentUser)
-  const [emailRevealed, setEmailRevealed] = useState(false)
+  const { emailText, revealed, toggleRevealed } = useRevealableEmail(currentUser?.email)
   const selfUser = useSelfUser()
   const reduxEmailVerified = selfUser?.emailVerified
 
@@ -284,13 +285,6 @@ export function AccountSettings() {
         {t('settings.user.account.error', 'There was a problem retrieving your user information.')}
       </div>
     )
-  }
-
-  let emailText = currentUser.email
-  if (!emailRevealed) {
-    const lastAt = emailText.lastIndexOf('@')
-    const numStars = Math.min(Math.max(6, lastAt), 10)
-    emailText = '*'.repeat(numStars) + emailText.slice(lastAt)
   }
 
   return (
@@ -416,17 +410,7 @@ export function AccountSettings() {
                 <EmailItem>
                   <BodyLarge data-testid='account-email-text'>{emailText}</BodyLarge>
                   <BodyMedium>
-                    <a
-                      href='#'
-                      data-testid='reveal-email-link'
-                      onClick={e => {
-                        setEmailRevealed(r => !r)
-                        e.preventDefault()
-                      }}>
-                      {emailRevealed
-                        ? t('common.actions.hide', 'Hide')
-                        : t('common.actions.reveal', 'Reveal')}
-                    </a>
+                    <RevealEmailLink revealed={revealed} onClick={toggleRevealed} />
                   </BodyMedium>
                 </EmailItem>
               </EmailItemAndIcon>
