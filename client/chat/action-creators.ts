@@ -181,18 +181,19 @@ export function updateChannelUserPreferences(
 
 export function leaveChannel(
   channelId: SbChannelId,
-  spec?: RequestHandlingSpec<void>,
+  spec: RequestHandlingSpec<void> = { onSuccess: () => {}, onError: () => {} },
 ): ThunkAction {
-  return dispatch => {
+  return abortableThunk(spec, async dispatch => {
     const params = { channelId }
     dispatch({
       type: '@chat/leaveChannelBegin',
       payload: params,
     })
 
-    spec?.onStart?.()
-
-    const result = fetchJson<void>(apiUrl`chat/${channelId}`, { method: 'DELETE' })
+    const result = fetchJson<void>(apiUrl`chat/${channelId}`, {
+      method: 'DELETE',
+      signal: spec.signal,
+    })
 
     dispatch({
       type: '@chat/leaveChannel',
@@ -200,10 +201,8 @@ export function leaveChannel(
       meta: params,
     })
 
-    if (spec) {
-      result.then(spec.onSuccess, spec.onError)
-    }
-  }
+    return await result
+  })
 }
 
 /**
@@ -290,7 +289,7 @@ export function moderateUser(
 
 /**
  * Hands the ownership of a chat channel over to another one of its members. Only the channel's
- * current owner can do this.
+ * current owner or a server moderator can do this.
  */
 export function transferChannelOwnership(
   channelId: SbChannelId,
