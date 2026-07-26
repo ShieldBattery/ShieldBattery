@@ -249,37 +249,41 @@ function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: Use
         />,
       )
     }
-    appendToMultimap(
-      menuItems,
-      UserMenuItemCategory.General,
-      <MenuItem
-        key='edit-permissions'
-        text='Edit permissions'
-        onClick={() => {
-          dispatch(
-            getChannelUserPermissions(channelId, user.id, {
-              onSuccess: result => {
-                dispatch(
-                  openDialog({
-                    type: DialogType.ChannelUserPermissions,
-                    initData: {
-                      channelId,
-                      userId: user.id,
-                      permissions: result.permissions,
-                      onSuccess: () => {},
-                    },
-                  }),
-                )
-              },
-              onError: () => {
-                snackbarController.showSnackbar(`Error fetching permissions for ${user.name}`)
-              },
-            }),
-          )
-          onMenuClose()
-        }}
-      />,
-    )
+    // The owner's authority comes from being the owner rather than from permission flags, so the
+    // server rejects editing their row outright.
+    if (user.id !== ownerId) {
+      appendToMultimap(
+        menuItems,
+        UserMenuItemCategory.General,
+        <MenuItem
+          key='edit-permissions'
+          text='Edit permissions'
+          onClick={() => {
+            dispatch(
+              getChannelUserPermissions(channelId, user.id, {
+                onSuccess: result => {
+                  dispatch(
+                    openDialog({
+                      type: DialogType.ChannelUserPermissions,
+                      initData: {
+                        channelId,
+                        userId: user.id,
+                        permissions: result.permissions,
+                        onSuccess: () => {},
+                      },
+                    }),
+                  )
+                },
+                onError: () => {
+                  snackbarController.showSnackbar(`Error fetching permissions for ${user.name}`)
+                },
+              }),
+            )
+            onMenuClose()
+          }}
+        />,
+      )
+    }
   }
 
   return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
