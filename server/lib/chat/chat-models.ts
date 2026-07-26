@@ -320,6 +320,41 @@ export async function updateChannel(
 }
 
 /**
+ * Makes a user the owner of a channel, but only if they're currently a member of it. The
+ * membership row stays locked while the ownership is written, so a concurrent leave/kick/ban can't
+ * remove the new owner in between the check and the write. That matters because a channel owned by
+ * a non-member is a stuck state: automatic ownership succession only runs when the current owner
+ * leaves the channel, so it would never repair it.
+ *
+ * Returns `true` if the ownership was transferred, or `false` if the user is not a member of the
+ * channel (in which case the ownership is left unchanged).
+ */
+export async function transferChannelOwnership(
+  channelId: SbChannelId,
+  targetId: SbUserId,
+  withClient?: DbClient,
+): Promise<boolean> {
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query(sql`
+      WITH target_member AS (
+        SELECT user_id
+        FROM channel_users
+        WHERE channel_id = ${channelId} AND user_id = ${targetId}
+        FOR UPDATE
+      )
+      UPDATE channels
+      SET owner_id = target_member.user_id
+      FROM target_member
+      WHERE id = ${channelId};
+    `)
+    return (result.rowCount ?? 0) > 0
+  } finally {
+    done()
+  }
+}
+
+/**
  * Attempts to add a user to a channel. Returns user channel entry if it was successfully added, or
  * `undefined` if the user reached the limit of joined channels.
  */

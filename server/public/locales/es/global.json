@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "Configuración del canal",
         "hideBanner": "Ocultar banner",
-        "leaveChannel": "Salir del canal"
+        "leaveChannel": "Salir del canal",
+        "openAdminView": "Abrir vista de administrador"
       },
       "errors": {
         "toggleBannerVisibility": "Algo salió mal al cambiar la visibilidad del banner"
@@ -268,9 +269,7 @@
     },
     "channelMenu": {
       "banAction": "Banear {{user}}",
-      "kickAction": "Expulsar {{user}}",
-      "kickingError": "Error al expulsar {{user.name}}",
-      "userKicked": "{{user}} fue expulsado"
+      "kickAction": "Expulsar {{user}}"
     },
     "channelName": {
       "deletedChannel": "canal-borrado"
@@ -307,7 +306,8 @@
         "owner": "Propietario",
         "saveError": "No se pudieron guardar los permisos",
         "togglePrivate": "Puede cambiar el estado privado",
-        "togglePrivateShort": "Cambiar privado"
+        "togglePrivateShort": "Cambiar privado",
+        "transferOwnership": "Transferir la propiedad"
       },
       "tabs": {
         "general": "General",
@@ -329,6 +329,12 @@
       "maximumOwnedError": "Has alcanzado el límite de canales creados. Debes dejar un canal que creaste antes de poder crear otro.",
       "title": "Crea canal"
     },
+    "deleteMessage": {
+      "dialogBody": "El mensaje se eliminará permanentemente, y esto no se puede deshacer.",
+      "dialogTitle": "¿Eliminar mensaje?",
+      "errorMessage": "Algo salió mal al eliminar el mensaje",
+      "successMessage": "Mensaje eliminado"
+    },
     "events": {
       "ban": "Has sido baneado de {{channelName}}.",
       "kick": "Has sido expulsado de {{channelName}}."
@@ -337,6 +343,23 @@
       "bannedError": "Estás baneado de #{{channelName}}",
       "genericError": "Ocurrió un error al unirte a #{{channelName}}",
       "maximumChannelsError": "Has alcanzado el límite de canales unidos. Debes salir de uno antes de unirte a otro."
+    },
+    "kickUser": {
+      "body": "{{user}} será expulsado del canal y perderá sus permisos en él. Podrá volver a entrar cuando quiera.",
+      "confirmAction": "Expulsar a {{user}}",
+      "dialogTitle": "¿Expulsar a {{user}}?",
+      "errorMessage": "Algo salió mal al expulsar a {{user}}",
+      "successMessage": "{{user}} fue expulsado"
+    },
+    "leaveChannel": {
+      "confirmAction": "Salir del canal",
+      "deleteChannelBody": "Eres el último miembro de #{{channelName}}. Si sales ahora, el canal y todo su historial de mensajes se eliminarán permanentemente, y esto no se puede deshacer.",
+      "deleteChannelConfirmAction": "Eliminar el canal",
+      "deleteChannelTitle": "¿Eliminar #{{channelName}}?",
+      "dialogTitle": "¿Salir de #{{channelName}}?",
+      "errorMessage": "Algo salió mal al salir de #{{channelName}}",
+      "loseOwnershipBody": "Si sales de #{{channelName}}, la propiedad pasará a otro miembro y no podrás recuperarla por tu cuenta. También perderás tus permisos en el canal.",
+      "losePermissionsBody": "Si sales de #{{channelName}}, perderás tus permisos en el canal, y volver a entrar no los restaurará."
     },
     "messageLayout": {
       "banUser": "<0><0></0></0> ha sido baneado del canal",
@@ -347,11 +370,18 @@
       "selfJoinChannel": "Te uniste <2><0></0></2>"
     },
     "messageMenu": {
-      "deleteError": "Error al eliminar el mensaje",
-      "messageDeleted": "Mensaje eliminado"
+      "deleteMessage": "Eliminar mensaje"
     },
     "navEntry": {
       "leaveChannel": "Salir del canal"
+    },
+    "transferOwnership": {
+      "adminBody": "¿Hacer a {{user}} el dueño de este canal? El dueño actual dejará de serlo.",
+      "body": "¿Transferir la propiedad de #{{channelName}} a {{user}}? Dejarás de ser el dueño del canal.",
+      "confirmAction": "Transferir la propiedad",
+      "dialogTitle": "¿Transferir la propiedad?",
+      "errorMessage": "Algo salió mal al transferir la propiedad a {{user}}",
+      "successMessage": "{{user}} ahora es el dueño del canal"
     },
     "userList": {
       "active": "Activo",
@@ -1283,9 +1313,6 @@
       },
       "removeBookmark": "Quitar marcador",
       "removeFromPlaylist": "Quitar de la playlist",
-      "replayCount_one": "{{count}} replay",
-      "replayCount_many": "{{count}} replays",
-      "replayCount_other": "{{count}} replays",
       "scanningTitle": "Escaneando tu carpeta de replays…",
       "showInExplorer": "Mostrar en el Explorador",
       "sourceTagBnet": "B.NET",
@@ -1362,10 +1389,6 @@
         "apmValue": "Valor APM",
         "apmValueValidation": "Introduzca un valor entre 1 y 999",
         "colorCycling": "Habilitar ciclo de color",
-        "colorPreset": {
-          "legacyDiplomacy": "Diplomacia clásica",
-          "title": "Preajuste"
-        },
         "consoleSkins": {
           "20thAnniversary": "20.º aniversario de StarCraft",
           "blizzcon2017": "BlizzCon 2017",
@@ -1396,7 +1419,6 @@
           "title": "Terreno del minimapa"
         },
         "showBonusSkins": "Mostrar máscaras de bonificación",
-        "skinsInfo": "Máscaras (deben comprarse en Blizzard)",
         "startingFog": {
           "legacy": "Legado",
           "showResources": "Mostrar recursos",
@@ -1413,8 +1435,7 @@
           "preview": {
             "allies": "Aliados",
             "enemies": "Enemigos",
-            "self": "Tú",
-            "title": "Vista previa"
+            "self": "Tú"
           },
           "title": "Colores de equipo"
         },
@@ -1817,6 +1838,9 @@
         "spam": "Spam",
         "toxicity": "Toxicidad"
       }
+    },
+    "staffBadge": {
+      "tooltip": "Equipo de ShieldBattery"
     },
     "titles": {
       "novice": "Principiante"

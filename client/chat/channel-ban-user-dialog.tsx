@@ -102,9 +102,16 @@ interface BanUserModel {
 export interface ChannelBanUserDialogProps extends CommonDialogProps {
   channelId: SbChannelId
   userId: SbUserId
+  /** Called once the user has been banned successfully. */
+  onSuccess?: () => void
 }
 
-export function ChannelBanUserDialog({ onCancel, channelId, userId }: ChannelBanUserDialogProps) {
+export function ChannelBanUserDialog({
+  onCancel,
+  channelId,
+  userId,
+  onSuccess,
+}: ChannelBanUserDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
@@ -138,6 +145,7 @@ export function ChannelBanUserDialog({ onCancel, channelId, userId }: ChannelBan
                 }),
               )
               dispatch(closeDialog(DialogType.ChannelBanUser))
+              onSuccess?.()
             },
             onError: err => setBanUserError(err),
           },

@@ -1233,7 +1233,7 @@ impl CurrentUserRepo {
                         login_name::TEXT as "login_name!", email, email_verified,
                         accepted_privacy_version, accepted_terms_version,
                         accepted_use_policy_version, locale, last_login_name_change,
-                        last_name_change, name_change_tokens, avatar_path
+                        last_name_change, name_change_tokens, avatar_path, staff_badge
                     FROM users
                     WHERE id = $1
                 "#,
@@ -1279,6 +1279,7 @@ impl CurrentUserRepo {
                 last_name_change: row.last_name_change,
                 name_change_tokens: row.name_change_tokens,
                 avatar_url,
+                staff_badge: row.staff_badge.then_some(true),
             },
             permissions: permissions.wrap_err("failed to load permissions")?,
         };
@@ -1323,6 +1324,9 @@ struct SelfUser {
     /// Populated from `avatar_path` (converted to a URL) when loading from the DB; matches the
     /// `avatarUrl` field the node server writes to the shared cache.
     pub avatar_url: Option<String>,
+    /// Matches the `staffBadge` field the node server writes to the shared cache: `Some(true)`
+    /// for accounts with the badge, and omitted (`None`) otherwise, rather than `Some(false)`.
+    pub staff_badge: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1375,7 +1379,8 @@ mod tests {
             "locale": "en-US",
             "lastLoginNameChange": 1755642889407,
             "lastNameChange": 1755642889407,
-            "nameChangeTokens": 0
+            "nameChangeTokens": 0,
+            "staffBadge": true
         }
         "#;
 
@@ -1407,6 +1412,7 @@ mod tests {
             )
         );
         assert_eq!(user.name_change_tokens, 0);
+        assert_eq!(user.staff_badge, Some(true));
     }
 
     #[test]
@@ -1442,6 +1448,7 @@ mod tests {
         assert!(user.last_login_name_change.is_none());
         assert!(user.last_name_change.is_none());
         assert_eq!(user.name_change_tokens, 0);
+        assert!(user.staff_badge.is_none());
     }
 
     #[test]
@@ -1475,6 +1482,7 @@ mod tests {
         assert!(user.last_login_name_change.is_none());
         assert!(user.last_name_change.is_none());
         assert_eq!(user.name_change_tokens, 0);
+        assert!(user.staff_badge.is_none());
     }
 
     #[test]
@@ -1493,6 +1501,7 @@ mod tests {
             last_name_change: None,
             name_change_tokens: 0,
             avatar_url: None,
+            staff_badge: None,
         };
 
         let json = serde_json::to_string(&user).unwrap();
@@ -1501,5 +1510,6 @@ mod tests {
         assert!(parsed.get("locale").is_none());
         assert!(parsed.get("lastLoginNameChange").is_none());
         assert!(parsed.get("lastNameChange").is_none());
+        assert!(parsed.get("staffBadge").is_none());
     }
 }

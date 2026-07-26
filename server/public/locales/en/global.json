@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "Channel settings",
         "hideBanner": "Hide banner",
-        "leaveChannel": "Leave channel"
+        "leaveChannel": "Leave channel",
+        "openAdminView": "Open admin view"
       },
       "errors": {
         "toggleBannerVisibility": "Something went wrong toggling the banner visibility"
@@ -267,9 +268,7 @@
     },
     "channelMenu": {
       "banAction": "Ban {{user}}",
-      "kickAction": "Kick {{user}}",
-      "kickingError": "Error kicking {{user.name}}",
-      "userKicked": "{{user}} was kicked"
+      "kickAction": "Kick {{user}}"
     },
     "channelName": {
       "deletedChannel": "deleted-channel"
@@ -306,7 +305,8 @@
         "owner": "Owner",
         "saveError": "Failed to save permissions",
         "togglePrivate": "Can toggle private status",
-        "togglePrivateShort": "Toggle private"
+        "togglePrivateShort": "Toggle private",
+        "transferOwnership": "Transfer ownership"
       },
       "tabs": {
         "general": "General",
@@ -328,6 +328,12 @@
       "maximumOwnedError": "You have reached the limit of created channels. You must leave one channel you created before you can create another.",
       "title": "Create channel"
     },
+    "deleteMessage": {
+      "dialogBody": "This will permanently delete the message. This can't be undone.",
+      "dialogTitle": "Delete message?",
+      "errorMessage": "Error deleting message",
+      "successMessage": "Message deleted"
+    },
     "events": {
       "ban": "You have been banned from {{channelName}}.",
       "kick": "You have been kicked from {{channelName}}."
@@ -336,6 +342,23 @@
       "bannedError": "You are banned from #{{channelName}}",
       "genericError": "An error occurred while joining #{{channelName}}",
       "maximumChannelsError": "You have reached the limit of joined channels. You must leave one before you can join another."
+    },
+    "kickUser": {
+      "body": "{{user}} will be removed from the channel and lose their channel permissions. They can rejoin at any time.",
+      "confirmAction": "Kick {{user}}",
+      "dialogTitle": "Kick {{user}}?",
+      "errorMessage": "Something went wrong while kicking {{user}}",
+      "successMessage": "{{user}} was kicked"
+    },
+    "leaveChannel": {
+      "confirmAction": "Leave channel",
+      "deleteChannelBody": "You're the last member of #{{channelName}}. Leaving now will permanently delete the channel and its entire message history — this can't be undone.",
+      "deleteChannelConfirmAction": "Delete channel",
+      "deleteChannelTitle": "Delete #{{channelName}}?",
+      "dialogTitle": "Leave #{{channelName}}?",
+      "errorMessage": "Something went wrong while leaving #{{channelName}}",
+      "loseOwnershipBody": "Leaving #{{channelName}} will pass ownership to another member, and you won't be able to take it back yourself. You'll also lose your channel permissions.",
+      "losePermissionsBody": "Leaving #{{channelName}} will remove your channel permissions, and rejoining won't restore them."
     },
     "messageLayout": {
       "banUser": "<0><0></0></0> has been banned from the channel",
@@ -346,11 +369,18 @@
       "selfJoinChannel": "You joined <2><0></0></2>"
     },
     "messageMenu": {
-      "deleteError": "Error deleting message",
-      "messageDeleted": "Message deleted"
+      "deleteMessage": "Delete message"
     },
     "navEntry": {
       "leaveChannel": "Leave channel"
+    },
+    "transferOwnership": {
+      "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
+      "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",
+      "confirmAction": "Transfer ownership",
+      "dialogTitle": "Transfer ownership?",
+      "errorMessage": "Something went wrong while transferring the ownership to {{user}}",
+      "successMessage": "{{user}} is now the channel owner"
     },
     "userList": {
       "active": "Active",
@@ -1950,6 +1980,9 @@
         "spam": "Spam",
         "toxicity": "Toxicity"
       }
+    },
+    "staffBadge": {
+      "tooltip": "ShieldBattery staff"
     },
     "titles": {
       "novice": "Novice"

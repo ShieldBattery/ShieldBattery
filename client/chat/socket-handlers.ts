@@ -105,6 +105,14 @@ const eventToChatAction: EventToChatActionMap = {
     }
   },
 
+  ownerChanged(channelId, event) {
+    return {
+      type: '@chat/ownerChanged',
+      payload: event,
+      meta: { channelId },
+    }
+  },
+
   message2(channelId, event) {
     return (dispatch, getState) => {
       const {

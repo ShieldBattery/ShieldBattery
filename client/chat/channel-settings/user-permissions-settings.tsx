@@ -8,22 +8,25 @@ import {
   DetailedChannelInfo,
   fromUserChannelEntryJson,
   JoinedChannelInfo,
+  SbChannelId,
   UserChannelEntry,
 } from '../../../common/chat'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { useSelfPermissions, useSelfUser } from '../../auth/auth-utils'
-import { ConnectedAvatar } from '../../avatars/avatar'
+import { useHasAnyPermission } from '../../admin/admin-permissions'
+import { useSelfUser } from '../../auth/auth-utils'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { SubmitOnEnter } from '../../forms/submit-on-enter'
+import { MaterialIcon } from '../../icons/material/material-icon'
 import InfiniteScrollList from '../../lists/infinite-scroll-list'
-import { TextButton, useButtonState } from '../../material/button'
+import { IconButton, TextButton, useButtonState } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { Dialog } from '../../material/dialog'
 import { Ripple } from '../../material/ripple'
 import { elevationPlus1 } from '../../material/shadows'
+import { Tooltip } from '../../material/tooltip'
 import { useRefreshToken } from '../../network/refresh-token'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { SearchInput } from '../../search/search-input'
@@ -32,6 +35,7 @@ import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, labelMedium, singleLine, titleSmall } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
+import { StaffBadgedAvatar } from '../../users/staff-badge'
 import { listUserChannelEntries, updateChannelUserPermissions } from '../action-creators'
 
 const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
@@ -64,8 +68,7 @@ const StyledSearchInput = styled(SearchInput)`
   width: 256px;
 `
 
-const UserCardButton = styled.button`
-  ${buttonReset};
+const UserCardRow = styled.div`
   ${elevationPlus1};
   ${containerStyles(ContainerLevel.Low)};
 
@@ -73,16 +76,38 @@ const UserCardButton = styled.button`
   width: 100%;
   display: flex;
   align-items: center;
+  border-radius: 4px;
+  overflow: hidden;
+`
+
+const UserCardButton = styled.button`
+  ${buttonReset};
+
+  position: relative;
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: 16px;
   padding: 12px 16px;
-  border-radius: 4px;
   text-align: left;
 `
 
-const StyledAvatar = styled(ConnectedAvatar)`
+const RowActions = styled.div`
+  flex-shrink: 0;
+  padding-right: 8px;
+  display: flex;
+  align-items: center;
+`
+
+const TransferOwnershipButton = styled(IconButton)`
+  width: 36px;
+  min-height: 36px;
+`
+
+const StyledAvatar = styled(StaffBadgedAvatar)`
   width: 40px;
   height: 40px;
-  flex-shrink: 0;
 `
 
 const UserInfoContainer = styled.div`
@@ -137,21 +162,28 @@ export function UserPermissionsSettings({
   basicChannelInfo,
   detailedChannelInfo,
   joinedChannelInfo,
+  onCloseSettings,
 }: {
   basicChannelInfo: BasicChannelInfo
   detailedChannelInfo: DetailedChannelInfo
   joinedChannelInfo: JoinedChannelInfo
+  onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
   const selfUser = useSelfUser()
-  const selfPermissions = useSelfPermissions()
-  // Mirror the server's authorization in `updateUserPermissions`: only the channel owner or a server
-  // admin may edit a moderator's permissions. A delegated moderator (someone with `editPermissions`
-  // who isn't the owner/admin) can't, so disabling those rows avoids a guaranteed save failure.
-  const canEditModerators =
-    selfUser?.id === joinedChannelInfo.ownerId || !!selfPermissions?.moderateChatChannels
+  const isServerModerator = useHasAnyPermission('moderateChatChannels')
+  const isChannelOwner = selfUser?.id === joinedChannelInfo.ownerId
+  // Only the channel owner's authority allows editing another moderator's permissions. A delegated
+  // moderator (granted `editPermissions` but not ownership) could otherwise use that same access to
+  // rewrite a fellow moderator's permissions, laundering around the protections the server places on
+  // moderation actions elsewhere (e.g. owners/moderators being unkickable/unbannable by other
+  // moderators). Server moderators hold the owner's authority in every channel.
+  const canEditModerators = isChannelOwner || isServerModerator
+  // Handing the ownership over takes the owner's authority, which server moderators hold in every
+  // channel. Official channels have no ownership to hand over.
+  const canTransferOwnership = (isChannelOwner || isServerModerator) && !basicChannelInfo.official
 
   const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
   const [hasMoreUsers, setHasMoreUsers] = useState(true)
@@ -162,18 +194,20 @@ export function UserPermissionsSettings({
   const abortControllerRef = useRef<AbortController>(undefined)
 
   const [refreshToken, triggerRefresh] = useRefreshToken()
+  // Clears the loaded entries and lets the infinite scroll list initiate a fresh network request.
+  const resetUserList = () => {
+    // TODO(2Pac): Make the infinite scroll lost in charge of the loading state, so we don't have
+    // to do this here, which is pretty unintuitive.
+    setIsLoadingMoreUsers(false)
+    setSearchError(undefined)
+    setChannelUsers(undefined)
+    setHasMoreUsers(true)
+    triggerRefresh()
+  }
   const debouncedSearchRef = useRef(
     debounce((query: string) => {
-      // Just need to clear the search results here and let the infinite scroll list initiate the
-      // network request.
       setSearchQuery(query)
-      // TODO(2Pac): Make the infinite scroll lost in charge of the loading state, so we don't have
-      // to do this here, which is pretty unintuitive.
-      setIsLoadingMoreUsers(false)
-      setSearchError(undefined)
-      setChannelUsers(undefined)
-      setHasMoreUsers(true)
-      triggerRefresh()
+      resetUserList()
     }, 100),
   )
 
@@ -195,9 +229,9 @@ export function UserPermissionsSettings({
           setIsLoadingMoreUsers(false)
           setChannelUsers(prev => {
             const existing = prev ?? []
-            // Dedupe against what we already have: the ordering depends on permission counts, so an
-            // entry edited between page loads can shift across a page boundary and reappear in a
-            // later page.
+            // Dedupe against what we already have: the ordering depends on permission counts, so
+            // an entry edited between page loads can shift across a page boundary and reappear in
+            // a later page.
             const seenUserIds = new Set(existing.map(u => u.userId))
             const newEntries = data.userChannelEntries
               .map(fromUserChannelEntryJson)
@@ -258,12 +292,32 @@ export function UserPermissionsSettings({
           user={user}
           isOwner={isOwner}
           canEdit={canEdit}
+          canTransferOwnership={canTransferOwnership && !isOwner}
+          onTransferOwnershipClick={() =>
+            dispatch(
+              openDialog({
+                type: DialogType.ChannelTransferOwnership,
+                initData: {
+                  channelId: basicChannelInfo.id,
+                  channelName: basicChannelInfo.name,
+                  userId: user.userId,
+                  // Which user this screen marks as the owner comes from the channel info it was
+                  // given, so it can't reflect the new owner on its own. Closing it keeps that from
+                  // contradicting the reordered list, and an ex-owner holds no channel permissions
+                  // to come back to anyway.
+                  onSuccess: onCloseSettings,
+                },
+              }),
+            )
+          }
           onEditClick={() =>
             dispatch(
               openDialog({
                 type: DialogType.ChannelUserPermissions,
                 initData: {
-                  userChannelEntry: user,
+                  channelId: user.channelId,
+                  userId: user.userId,
+                  permissions: user.channelPermissions,
                   onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => {
                     setChannelUsers(prev =>
                       prev?.map(u =>
@@ -304,12 +358,16 @@ function UserChannelEntryRow({
   user,
   isOwner,
   canEdit,
+  canTransferOwnership,
   onEditClick,
+  onTransferOwnershipClick,
 }: {
   user: UserChannelEntry
   isOwner: boolean
   canEdit: boolean
+  canTransferOwnership: boolean
   onEditClick: () => void
+  onTransferOwnershipClick: () => void
 }) {
   const { t } = useTranslation()
   const [buttonProps, rippleRef] = useButtonState({
@@ -317,24 +375,43 @@ function UserChannelEntryRow({
     onClick: onEditClick,
   })
 
+  const transferOwnershipLabel = t(
+    'chat.channelSettings.permissions.transferOwnership',
+    'Transfer ownership',
+  )
+
   return (
-    <UserCardButton {...buttonProps}>
-      <StyledAvatar userId={user.userId} />
+    <UserCardRow>
+      <UserCardButton {...buttonProps}>
+        <StyledAvatar userId={user.userId} />
 
-      <UserInfoContainer>
-        <UsernameRow>
-          <StyledUsername userId={user.userId} interactive={false} />
-        </UsernameRow>
-        <JoinDateText>
-          {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
-            date: joinDateFormat.format(user.joinDate),
-          })}
-        </JoinDateText>
-        <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
-      </UserInfoContainer>
+        <UserInfoContainer>
+          <UsernameRow>
+            <StyledUsername userId={user.userId} interactive={false} />
+          </UsernameRow>
+          <JoinDateText>
+            {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
+              date: joinDateFormat.format(user.joinDate),
+            })}
+          </JoinDateText>
+          <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
+        </UserInfoContainer>
 
-      {canEdit && <Ripple ref={rippleRef} />}
-    </UserCardButton>
+        {canEdit && <Ripple ref={rippleRef} />}
+      </UserCardButton>
+
+      {canTransferOwnership ? (
+        <RowActions>
+          <Tooltip text={transferOwnershipLabel} position='left'>
+            <TransferOwnershipButton
+              icon={<MaterialIcon icon='swap_horiz' size={20} />}
+              ariaLabel={transferOwnershipLabel}
+              onClick={onTransferOwnershipClick}
+            />
+          </Tooltip>
+        </RowActions>
+      ) : null}
+    </UserCardRow>
   )
 }
 
@@ -403,11 +480,15 @@ function PermissionBadges({
 }
 
 export function ChannelUserPermissionsDialog({
-  userChannelEntry,
+  channelId,
+  userId,
+  permissions,
   onCancel,
   onSuccess,
 }: {
-  userChannelEntry: UserChannelEntry
+  channelId: SbChannelId
+  userId: SbUserId
+  permissions: ChannelPermissions
   onCancel: () => void
   onSuccess: (userId: SbUserId, permissions: ChannelPermissions) => void
 }) {
@@ -415,12 +496,9 @@ export function ChannelUserPermissionsDialog({
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const selfUser = useSelfUser()
-  const userInfo = useAppSelector(s => s.users.byId.get(userChannelEntry.userId))
+  const userInfo = useAppSelector(s => s.users.byId.get(userId))
 
-  const { submit, bindCheckable, form } = useForm<ChannelPermissions>(
-    userChannelEntry.channelPermissions,
-    {},
-  )
+  const { submit, bindCheckable, form } = useForm<ChannelPermissions>(permissions, {})
 
   const [isSaving, setIsSaving] = useState(false)
 
@@ -429,11 +507,11 @@ export function ChannelUserPermissionsDialog({
       setIsSaving(true)
 
       dispatch(
-        updateChannelUserPermissions(userChannelEntry.channelId, userChannelEntry.userId, model, {
+        updateChannelUserPermissions(channelId, userId, model, {
           onSuccess: () => {
             setIsSaving(false)
             onCancel()
-            onSuccess(userChannelEntry.userId, model)
+            onSuccess(userId, model)
           },
           onError: err => {
             setIsSaving(false)
@@ -473,7 +551,7 @@ export function ChannelUserPermissionsDialog({
         <CheckBox
           {...bindCheckable('editPermissions')}
           label={t('chat.channelSettings.permissions.editPermissions', 'Can edit permissions')}
-          disabled={selfUser?.id === userChannelEntry.userId || isSaving}
+          disabled={selfUser?.id === userId || isSaving}
         />
         <CheckBox
           {...bindCheckable('togglePrivate')}

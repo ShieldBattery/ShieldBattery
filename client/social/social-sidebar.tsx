@@ -12,7 +12,11 @@ import { urlPath } from '../../common/urls'
 import { FriendActivityStatus } from '../../common/users/relationships'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
-import { getBatchChannelInfo, getJoinedChannels, leaveChannel } from '../chat/action-creators'
+import {
+  getBatchChannelInfo,
+  getJoinedChannels,
+  leaveChannelWithConfirmation,
+} from '../chat/action-creators'
 import { ConnectedChannelBadge } from '../chat/channel-badge'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -455,7 +459,7 @@ function ChatContent({
         key={c}
         channelId={c}
         onLeave={(channelId: SbChannelId) => {
-          dispatch(leaveChannel(channelId))
+          dispatch(leaveChannelWithConfirmation(channelId))
         }}
       />
     ))

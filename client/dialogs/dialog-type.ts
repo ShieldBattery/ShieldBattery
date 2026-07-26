@@ -1,4 +1,4 @@
-import { ChannelPermissions, SbChannelId, UserChannelEntry } from '../../common/chat'
+import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
 import { SbMapId } from '../../common/maps'
@@ -8,12 +8,16 @@ import { SbUserId } from '../../common/users/sb-user-id'
 export enum DialogType {
   AcceptableUse = 'acceptableUse',
   AcceptMatch = 'acceptMatch',
+  AdminDeleteChatMessage = 'adminDeleteChatMessage',
   BugReport = 'bugReport',
   ChangeDisplayName = 'changeDisplayName',
   ChangeEmail = 'changeEmail',
   ChangeLoginName = 'changeLoginName',
   ChangePassword = 'changePassword',
   ChannelBanUser = 'channelBanUser',
+  ChannelKickUserConfirmation = 'channelKickUserConfirmation',
+  ChannelLeaveConfirmation = 'channelLeaveConfirmation',
+  ChannelTransferOwnership = 'channelTransferOwnership',
   ChannelUserPermissions = 'channelUserPermissions',
   CreatePlaylist = 'createPlaylist',
   DeletePlaylist = 'deletePlaylist',
@@ -48,6 +52,15 @@ type BaseDialogPayload<D, DataType = undefined> = DataType extends undefined
 
 type AcceptableUseDialogPayload = BaseDialogPayload<typeof DialogType.AcceptableUse>
 type AcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.AcceptMatch>
+type AdminDeleteChatMessageDialogPayload = BaseDialogPayload<
+  typeof DialogType.AdminDeleteChatMessage,
+  {
+    channelId: SbChannelId
+    messageId: string
+    /** Called once the message has been deleted successfully. */
+    onSuccess?: () => void
+  }
+>
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
 type ChangeDisplayNameDialogPayload = BaseDialogPayload<
   typeof DialogType.ChangeDisplayName,
@@ -72,12 +85,46 @@ type ChannelBanUserDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     userId: SbUserId
+    /** Called once the user has been banned successfully. */
+    onSuccess?: () => void
+  }
+>
+type ChannelKickUserConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelKickUserConfirmation,
+  {
+    channelId: SbChannelId
+    userId: SbUserId
+    /** Called once the user has been kicked successfully. */
+    onSuccess?: () => void
+  }
+>
+type ChannelLeaveConfirmationDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelLeaveConfirmation,
+  {
+    channelId: SbChannelId
+  }
+>
+type ChannelTransferOwnershipDialogPayload = BaseDialogPayload<
+  typeof DialogType.ChannelTransferOwnership,
+  {
+    channelId: SbChannelId
+    userId: SbUserId
+    /**
+     * The name of the channel, used to make it clear which channel is being handed over when the
+     * viewer is the owner losing it. Viewers that aren't the owner (and callers that don't know
+     * the name) get a generic prompt instead.
+     */
+    channelName?: string
+    /** Called once the ownership has been transferred successfully. */
+    onSuccess?: () => void
   }
 >
 type ChannelUserPermissionsDialogPayload = BaseDialogPayload<
   typeof DialogType.ChannelUserPermissions,
   {
-    userChannelEntry: UserChannelEntry
+    channelId: SbChannelId
+    userId: SbUserId
+    permissions: ChannelPermissions
     onSuccess: (userId: SbUserId, newPermissions: ChannelPermissions) => void
   }
 >
@@ -200,6 +247,7 @@ type WhispersDialogPayload = BaseDialogPayload<typeof DialogType.Whispers>
 export type DialogPayload =
   | AcceptableUseDialogPayload
   | AcceptMatchDialogPayload
+  | AdminDeleteChatMessageDialogPayload
   | BugReportDialogPayload
   | ChannelUserPermissionsDialogPayload
   | ChangeDisplayNameDialogPayload
@@ -207,6 +255,9 @@ export type DialogPayload =
   | ChangeLoginNameDialogPayload
   | ChangePasswordDialogPayload
   | ChannelBanUserDialogPayload
+  | ChannelKickUserConfirmationDialogPayload
+  | ChannelLeaveConfirmationDialogPayload
+  | ChannelTransferOwnershipDialogPayload
   | CreatePlaylistDialogPayload
   | DeletePlaylistDialogPayload
   | DownloadDialogPayload

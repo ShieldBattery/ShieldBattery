@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import {
-  BasicChannelInfo,
   ChatMessage,
   ChatServiceErrorCode,
   GetChannelHistoryServerResponse,
@@ -9,29 +8,43 @@ import {
   SbChannelId,
   makeSbChannelId,
 } from '../../../common/chat'
+import { appendToMultimap } from '../../../common/data-structures/maps'
 import { apiUrl, urlPath } from '../../../common/urls'
 import { SbUser } from '../../../common/users/sb-user'
+import { SbUserId } from '../../../common/users/sb-user-id'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { ThunkAction } from '../../dispatch-registry'
 import { FilledButton } from '../../material/button'
+import { DestructiveMenuItem, MenuItem } from '../../material/menu/item'
 import { ChatContext } from '../../messaging/chat-context'
+import {
+  MenuItemCategory as MessageMenuItemCategory,
+  MessageMenuProps,
+} from '../../messaging/message-context-menu'
 import { MessageList } from '../../messaging/message-list'
 import { replace } from '../../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../../network/abortable-thunk'
 import { fetchJson } from '../../network/fetch'
 import { isFetchError } from '../../network/fetch-errors'
+import { useRefreshToken } from '../../network/refresh-token'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
 import { CenteredContentContainer } from '../../styles/centered-container'
 import { FlexSpacer } from '../../styles/flex-spacer'
-import { bodyLarge, titleLarge } from '../../styles/typography'
+import { bodyLarge, labelMedium, titleLarge } from '../../styles/typography'
+import {
+  MenuItemCategory as UserMenuItemCategory,
+  UserMenuProps,
+} from '../../users/user-context-menu'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../../users/user-entries'
-import { updateChannel } from '../action-creators'
+import { getChannelUserPermissions } from '../action-creators'
 import { ChannelMessage } from '../channel'
 import { ChannelContext } from '../channel-context'
-import { ChannelMessageMenu } from '../channel-menu-items'
 import { UserList } from '../channel-user-list'
+import { AdminChannelSettings } from './admin-channel-settings'
 
 const CHANNEL_MESSAGES_LIMIT = 50
 
@@ -105,8 +118,22 @@ const ChannelHeaderContainer = styled.div`
   border-radius: 8px;
 `
 
+const ChannelHeadlineRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`
+
 const ChannelHeadline = styled.div`
   ${titleLarge};
+`
+
+const AdminViewBadge = styled.div`
+  ${labelMedium};
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: var(--theme-amber);
+  color: var(--theme-on-amber);
 `
 
 const ChannelContainer = styled.div`
@@ -134,6 +161,166 @@ const StyledUserList = styled(UserList)`
   margin-bottom: 8px;
 `
 
+/**
+ * Channel details the admin menus need beyond `ChannelContext`'s ID, sourced from the admin view's
+ * locally-fetched channel info rather than the store.
+ */
+const AdminChannelInfoContext = createContext<{
+  /** The current owner of the channel, if it has one (official channels don't). */
+  ownerId?: SbUserId
+  /** Whether this is an official channel. Official channels can't have an owner. */
+  official: boolean
+  /**
+   * Refetches the channel's info and user list. The admin view's data comes from HTTP requests
+   * rather than a socket subscription, so it doesn't update on its own when a menu action
+   * mutates the channel (e.g. kicking/banning a user or transferring ownership) — callers must
+   * request a refetch explicitly.
+   */
+  refreshChannelInfo: () => void
+  /**
+   * Removes a message from the locally-fetched message list — the admin view isn't
+   * socket-subscribed, so a successful delete must prune it by hand.
+   */
+  onMessageDeleted: (messageId: string) => void
+}>({ official: false, refreshChannelInfo: () => {}, onMessageDeleted: () => {} })
+
+function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
+  const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
+  const selfUserId = useAppSelector(s => s.auth.self!.user.id)
+  const user = useAppSelector(s => s.users.byId.get(userId))
+  const { channelId } = useContext(ChannelContext)
+  const { ownerId, official, refreshChannelInfo } = useContext(AdminChannelInfoContext)
+
+  const menuItems = new Map(items)
+  if (user && user.id !== selfUserId) {
+    appendToMultimap(
+      menuItems,
+      UserMenuItemCategory.Destructive,
+      <DestructiveMenuItem
+        key='kick'
+        text={`Kick ${user.name}`}
+        onClick={() => {
+          dispatch(
+            openDialog({
+              type: DialogType.ChannelKickUserConfirmation,
+              initData: { channelId, userId: user.id, onSuccess: refreshChannelInfo },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
+    appendToMultimap(
+      menuItems,
+      UserMenuItemCategory.Destructive,
+      <DestructiveMenuItem
+        key='ban'
+        text={`Ban ${user.name}`}
+        onClick={() => {
+          dispatch(
+            openDialog({
+              type: DialogType.ChannelBanUser,
+              initData: { channelId, userId: user.id, onSuccess: refreshChannelInfo },
+            }),
+          )
+          onMenuClose()
+        }}
+      />,
+    )
+    // Official channels can't have an owner, and transferring ownership to the current owner is
+    // meaningless — the server rejects both, so don't offer them.
+    if (!official && user.id !== ownerId) {
+      appendToMultimap(
+        menuItems,
+        UserMenuItemCategory.General,
+        <MenuItem
+          key='transfer-ownership'
+          text='Transfer ownership'
+          onClick={() => {
+            dispatch(
+              openDialog({
+                type: DialogType.ChannelTransferOwnership,
+                initData: { channelId, userId: user.id, onSuccess: refreshChannelInfo },
+              }),
+            )
+            onMenuClose()
+          }}
+        />,
+      )
+    }
+    // The owner's authority comes from being the owner rather than from permission flags, so the
+    // server rejects editing their row outright.
+    if (user.id !== ownerId) {
+      appendToMultimap(
+        menuItems,
+        UserMenuItemCategory.General,
+        <MenuItem
+          key='edit-permissions'
+          text='Edit permissions'
+          onClick={() => {
+            dispatch(
+              getChannelUserPermissions(channelId, user.id, {
+                onSuccess: result => {
+                  dispatch(
+                    openDialog({
+                      type: DialogType.ChannelUserPermissions,
+                      initData: {
+                        channelId,
+                        userId: user.id,
+                        permissions: result.permissions,
+                        onSuccess: () => {},
+                      },
+                    }),
+                  )
+                },
+                onError: () => {
+                  snackbarController.showSnackbar(`Error fetching permissions for ${user.name}`)
+                },
+              }),
+            )
+            onMenuClose()
+          }}
+        />,
+      )
+    }
+  }
+
+  return <MenuComponent items={menuItems} userId={userId} onMenuClose={onMenuClose} />
+}
+
+function AdminChannelMessageMenu({
+  messageId,
+  items,
+  onMenuClose,
+  MenuComponent,
+}: MessageMenuProps) {
+  const dispatch = useAppDispatch()
+  const { channelId } = useContext(ChannelContext)
+  const { onMessageDeleted } = useContext(AdminChannelInfoContext)
+
+  const menuItems = new Map(items)
+  appendToMultimap(
+    menuItems,
+    MessageMenuItemCategory.Destructive,
+    <DestructiveMenuItem
+      key='delete-message'
+      text='Delete message'
+      onClick={() => {
+        dispatch(
+          openDialog({
+            type: DialogType.AdminDeleteChatMessage,
+            initData: { channelId, messageId, onSuccess: () => onMessageDeleted(messageId) },
+          }),
+        )
+        onMenuClose()
+      }}
+    />,
+  )
+
+  return <MenuComponent items={menuItems} messageId={messageId} onMenuClose={onMenuClose} />
+}
+
 export function AdminChannelView({
   channelId,
   channelName: channelNameFromRoute,
@@ -143,14 +330,26 @@ export function AdminChannelView({
 }) {
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const [channelInfo, setChannelInfo] = useState<BasicChannelInfo>()
+  const [channelInfoResponse, setChannelInfoResponse] = useState<GetChannelInfoResponse>()
+  const [channelInfoRefreshToken, refreshChannelInfo] = useRefreshToken()
   const [error, setError] = useState<Error>()
+  // Distinguishes a failed initial load (nothing to show, so show the error page) from a failed
+  // refetch after a moderation action (the loaded view is still usable — keep it and just notify).
+  const hasLoadedChannelInfoRef = useRef(false)
+
+  useEffect(() => {
+    hasLoadedChannelInfoRef.current = false
+  }, [channelId])
+
+  const channelInfo = channelInfoResponse?.channelInfo
+  const detailedChannelInfo = channelInfoResponse?.detailedChannelInfo
+  const joinedChannelInfo = channelInfoResponse?.joinedChannelInfo
+
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const [channelMessages, setChannelMessages] = useState<ChatMessage[]>([])
   const [hasMoreChannelMessages, setHasMoreChannelMessages] = useState(true)
   const [isLoadingMoreChannelMessages, setIsLoadingMoreChannelMessages] = useState(false)
-  const [isRemovingBanner, setIsRemovingBanner] = useState(false)
-  const [isRemovingBadge, setIsRemovingBadge] = useState(false)
 
   const [channelUsers, setChannelUsers] = useState<SbUser[]>([])
 
@@ -181,17 +380,22 @@ export function AdminChannelView({
       getChannelInfo(makeSbChannelId(channelId), {
         signal: abortController.signal,
         onSuccess: result => {
-          setChannelInfo(result.channelInfo)
+          hasLoadedChannelInfoRef.current = true
+          setChannelInfoResponse(result)
           setError(undefined)
         },
         onError: err => {
-          setError(err)
+          if (hasLoadedChannelInfoRef.current) {
+            snackbarController.showSnackbar('Error refreshing channel info')
+          } else {
+            setError(err)
+          }
         },
       }),
     )
 
     return () => abortController.abort()
-  }, [channelId, dispatch])
+  }, [channelId, channelInfoRefreshToken, dispatch, snackbarController])
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -244,52 +448,6 @@ export function AdminChannelView({
     )
   })
 
-  const onRemoveBannerClick = useStableCallback(() => {
-    setIsRemovingBanner(true)
-
-    dispatch(
-      updateChannel({
-        channelId: channelInfo!.id,
-        channelChanges: {
-          deleteBanner: true,
-        },
-        spec: {
-          onSuccess: () => {
-            setIsRemovingBanner(false)
-            snackbarController.showSnackbar('Banner successfully removed.')
-          },
-          onError: err => {
-            setIsRemovingBanner(false)
-            snackbarController.showSnackbar('Something went wrong while removing the banner.')
-          },
-        },
-      }),
-    )
-  })
-
-  const onRemoveBadgeClick = useStableCallback(() => {
-    setIsRemovingBadge(true)
-
-    dispatch(
-      updateChannel({
-        channelId: channelInfo!.id,
-        channelChanges: {
-          deleteBadge: true,
-        },
-        spec: {
-          onSuccess: () => {
-            setIsRemovingBadge(false)
-            snackbarController.showSnackbar('Badge successfully removed.')
-          },
-          onError: err => {
-            setIsRemovingBadge(false)
-            snackbarController.showSnackbar('Something went wrong while removing the badge.')
-          },
-        },
-      }),
-    )
-  })
-
   if (error) {
     let errorText
     if (isFetchError(error)) {
@@ -322,39 +480,60 @@ export function AdminChannelView({
       {channelInfo ? (
         <>
           <ChannelHeaderContainer>
-            <ChannelHeadline>#{channelInfo.name}</ChannelHeadline>
+            <ChannelHeadlineRow>
+              <ChannelHeadline>#{channelInfo.name}</ChannelHeadline>
+              <AdminViewBadge>Admin view</AdminViewBadge>
+            </ChannelHeadlineRow>
 
             <FlexSpacer />
 
             <FilledButton
-              label='Remove banner'
-              disabled={isRemovingBanner}
-              onClick={onRemoveBannerClick}
-            />
-            <FilledButton
-              label='Remove badge'
-              disabled={isRemovingBadge}
-              onClick={onRemoveBadgeClick}
+              label='Channel settings'
+              disabled={!detailedChannelInfo || !joinedChannelInfo}
+              onClick={() => setIsSettingsOpen(true)}
             />
           </ChannelHeaderContainer>
 
+          <AdminChannelSettings
+            isOpen={isSettingsOpen}
+            basicChannelInfo={channelInfo}
+            detailedChannelInfo={detailedChannelInfo}
+            joinedChannelInfo={joinedChannelInfo}
+            onCloseSettings={() => {
+              setIsSettingsOpen(false)
+              // The settings screen saves directly to the server, so pull the channel's info back
+              // in to keep this view (and the next visit to the settings) in step with it.
+              refreshChannelInfo()
+            }}
+          />
+
           <ChannelContext.Provider value={{ channelId: channelInfo.id }}>
-            <ChatContext.Provider
+            <AdminChannelInfoContext.Provider
               value={{
-                MessageMenu: ChannelMessageMenu,
+                ownerId: joinedChannelInfo?.ownerId,
+                official: channelInfo.official,
+                refreshChannelInfo,
+                onMessageDeleted: messageId =>
+                  setChannelMessages(msgs => msgs.filter(m => m.id !== messageId)),
               }}>
-              <ChannelContainer>
-                <StyledMessageList
-                  messages={channelMessages}
-                  onLoadMoreMessages={onLoadMoreMessages}
-                  loading={isLoadingMoreChannelMessages}
-                  hasMoreHistory={hasMoreChannelMessages}
-                  refreshToken={channelInfo.id}
-                  MessageComponent={ChannelMessage}
-                />
-                <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
-              </ChannelContainer>
-            </ChatContext.Provider>
+              <ChatContext.Provider
+                value={{
+                  UserMenu: AdminChannelUserMenu,
+                  MessageMenu: AdminChannelMessageMenu,
+                }}>
+                <ChannelContainer>
+                  <StyledMessageList
+                    messages={channelMessages}
+                    onLoadMoreMessages={onLoadMoreMessages}
+                    loading={isLoadingMoreChannelMessages}
+                    hasMoreHistory={hasMoreChannelMessages}
+                    refreshToken={channelInfo.id}
+                    MessageComponent={ChannelMessage}
+                  />
+                  <StyledUserList active={sortedActiveUserIds} idle={[]} offline={[]} />
+                </ChannelContainer>
+              </ChatContext.Provider>
+            </AdminChannelInfoContext.Provider>
           </ChannelContext.Provider>
         </>
       ) : (

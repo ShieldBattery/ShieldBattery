@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "频道设置",
         "hideBanner": "隐藏横幅",
-        "leaveChannel": "离开频道"
+        "leaveChannel": "离开频道",
+        "openAdminView": "打开管理者界面"
       },
       "errors": {
         "toggleBannerVisibility": "切换横幅可见性时出错了"
@@ -266,9 +267,7 @@
     },
     "channelMenu": {
       "banAction": "封禁 {{user}}",
-      "kickAction": "踢出 {{user}}",
-      "kickingError": "踢出 {{user.name}} 时遇到错误",
-      "userKicked": "{{user}} 已被踢出"
+      "kickAction": "踢出 {{user}}"
     },
     "channelName": {
       "deletedChannel": "被删除的频道"
@@ -305,7 +304,8 @@
         "owner": "所有者",
         "saveError": "保存权限失败",
         "togglePrivate": "可切换私密状态",
-        "togglePrivateShort": "切换私密"
+        "togglePrivateShort": "切换私密",
+        "transferOwnership": "转让所有权"
       },
       "tabs": {
         "general": "常规",
@@ -327,6 +327,12 @@
       "maximumOwnedError": "您已达到创建频道的限制。您必须先离开您创建的一个频道，然后才能创建新的频道。",
       "title": "创建频道"
     },
+    "deleteMessage": {
+      "dialogBody": "该消息将被永久删除，此操作无法撤销。",
+      "dialogTitle": "删除消息？",
+      "errorMessage": "删除消息时出现问题",
+      "successMessage": "消息已删除"
+    },
     "events": {
       "ban": "您已被 {{channelName}} 封禁。",
       "kick": "您已被踢出 {{channelName}}。"
@@ -335,6 +341,23 @@
       "bannedError": "您被 #{{channelName}} 封禁",
       "genericError": "加入 #{{channelName}} 时遇到错误",
       "maximumChannelsError": "您已达到加入频道的限制。您必须先离开一个频道，然后才能加入其他频道。"
+    },
+    "kickUser": {
+      "body": "{{user}} 将被移出频道并失去频道权限，之后可以随时重新加入。",
+      "confirmAction": "踢出 {{user}}",
+      "dialogTitle": "踢出 {{user}}？",
+      "errorMessage": "踢出 {{user}} 时出现问题",
+      "successMessage": "{{user}} 已被踢出"
+    },
+    "leaveChannel": {
+      "confirmAction": "离开频道",
+      "deleteChannelBody": "您是 #{{channelName}} 的最后一名成员。现在离开将永久删除该频道及其全部消息记录，此操作无法撤销。",
+      "deleteChannelConfirmAction": "删除频道",
+      "deleteChannelTitle": "删除 #{{channelName}}？",
+      "dialogTitle": "离开 #{{channelName}}？",
+      "errorMessage": "离开 #{{channelName}} 时出现问题",
+      "loseOwnershipBody": "离开 #{{channelName}} 会将所有权转移给其他成员，您无法自行收回。您在该频道的权限也会一并失去。",
+      "losePermissionsBody": "离开 #{{channelName}} 会失去您在该频道的权限，重新加入也不会恢复。"
     },
     "messageLayout": {
       "banUser": "<0><0></0></0> 已被频道封禁",
@@ -345,11 +368,18 @@
       "selfJoinChannel": "您加入了 <2><0></0></2>"
     },
     "messageMenu": {
-      "deleteError": "删除消息时遇到错误",
-      "messageDeleted": "消息已删除"
+      "deleteMessage": "删除消息"
     },
     "navEntry": {
       "leaveChannel": "离开频道"
+    },
+    "transferOwnership": {
+      "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
+      "body": "将 #{{channelName}} 的所有权转让给 {{user}}？您将不再是频道所有者。",
+      "confirmAction": "转让所有权",
+      "dialogTitle": "转让所有权？",
+      "errorMessage": "将所有权转让给 {{user}} 时出现问题",
+      "successMessage": "{{user}} 现在是频道所有者"
     },
     "userList": {
       "active": "活跃用户",
@@ -1271,7 +1301,6 @@
       },
       "removeBookmark": "取消书签",
       "removeFromPlaylist": "从播放列表中移除",
-      "replayCount_other": "{{count}} 个录像",
       "scanningTitle": "正在扫描录像文件夹……",
       "showInExplorer": "在资源管理器中显示",
       "sourceTagBnet": "B.NET",
@@ -1348,10 +1377,6 @@
         "apmValue": "APM值",
         "apmValueValidation": "输入一个1到999之间的数值",
         "colorCycling": "启用颜色循环",
-        "colorPreset": {
-          "legacyDiplomacy": "传统外交",
-          "title": "预设"
-        },
         "consoleSkins": {
           "20thAnniversary": "星际争霸20周年",
           "blizzcon2017": "2017暴雪嘉年华",
@@ -1382,7 +1407,6 @@
           "title": "小地图地形"
         },
         "showBonusSkins": "显示奖励皮肤",
-        "skinsInfo": "皮肤（必须从暴雪官方渠道购买）",
         "startingFog": {
           "legacy": "原版",
           "showResources": "显示资源",
@@ -1399,8 +1423,7 @@
           "preview": {
             "allies": "盟友",
             "enemies": "敌人",
-            "self": "自己",
-            "title": "预览"
+            "self": "自己"
           },
           "title": "队伍颜色"
         },
@@ -1797,6 +1820,9 @@
         "spam": "垃圾信息",
         "toxicity": "有害言行"
       }
+    },
+    "staffBadge": {
+      "tooltip": "ShieldBattery 工作人员"
     },
     "titles": {
       "novice": "新手"

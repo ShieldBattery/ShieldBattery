@@ -237,7 +237,8 @@
       "actionItems": {
         "channelSettings": "채널 설정",
         "hideBanner": "배너 숨기기",
-        "leaveChannel": "채널 나가세요"
+        "leaveChannel": "채널 나가세요",
+        "openAdminView": "관리자 보기 열기"
       },
       "errors": {
         "toggleBannerVisibility": "배너 가시성 전환 중 뭔가 잘못됐어"
@@ -266,9 +267,7 @@
     },
     "channelMenu": {
       "banAction": "차단 {{user}}",
-      "kickAction": "강퇴 {{user}}",
-      "kickingError": "강퇴 오류 {{user.name}}",
-      "userKicked": "{{user}}가 강퇴되었습니다"
+      "kickAction": "강퇴 {{user}}"
     },
     "channelName": {
       "deletedChannel": "삭제된 채널"
@@ -305,7 +304,8 @@
         "owner": "소유자",
         "saveError": "권한을 저장하지 못했습니다",
         "togglePrivate": "비공개 상태 전환 가능",
-        "togglePrivateShort": "비공개 전환"
+        "togglePrivateShort": "비공개 전환",
+        "transferOwnership": "소유권 이전"
       },
       "tabs": {
         "general": "일반",
@@ -327,6 +327,12 @@
       "maximumOwnedError": "채널을 생성하는데 한도에 도달했습니다. 다른 채널을 만들려면 먼저 만든 채널을 떠나야 합니다.",
       "title": "채널 생성"
     },
+    "deleteMessage": {
+      "dialogBody": "메시지가 영구적으로 삭제되며, 되돌릴 수 없습니다.",
+      "dialogTitle": "메시지를 삭제하시겠습니까?",
+      "errorMessage": "메시지를 삭제하는 중 문제가 발생했습니다",
+      "successMessage": "메시지 삭제됨"
+    },
     "events": {
       "ban": "귀하는 {{channelName}}에서 차단되었습니다.",
       "kick": "당신은 {{channelName}}에서 강퇴되었습니다."
@@ -335,6 +341,23 @@
       "bannedError": "#{{channelName}}에서 차단되었습니다",
       "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다",
       "maximumChannelsError": "참여한 채널의 한도에 도달했습니다. 다른 채널에 참여하기 전에 먼저 떠나야 합니다."
+    },
+    "kickUser": {
+      "body": "{{user}}을(를) 채널에서 내보내고 채널 권한을 회수합니다. 언제든 다시 입장할 수 있습니다.",
+      "confirmAction": "{{user}} 강퇴",
+      "dialogTitle": "{{user}}을(를) 강퇴하시겠습니까?",
+      "errorMessage": "{{user}}을(를) 강퇴하는 중 문제가 발생했습니다",
+      "successMessage": "{{user}} 강퇴됨"
+    },
+    "leaveChannel": {
+      "confirmAction": "채널 나가기",
+      "deleteChannelBody": "#{{channelName}}의 마지막 멤버입니다. 지금 나가면 채널과 모든 메시지 기록이 영구적으로 삭제되며, 되돌릴 수 없습니다.",
+      "deleteChannelConfirmAction": "채널 삭제",
+      "deleteChannelTitle": "#{{channelName}} 채널을 삭제하시겠습니까?",
+      "dialogTitle": "#{{channelName}} 채널에서 나가시겠습니까?",
+      "errorMessage": "#{{channelName}}에서 나가는 중 문제가 발생했습니다",
+      "loseOwnershipBody": "#{{channelName}}에서 나가면 소유권이 다른 멤버에게 넘어가며, 직접 되돌릴 수 없습니다. 채널 권한도 함께 잃습니다.",
+      "losePermissionsBody": "#{{channelName}}에서 나가면 채널 권한을 잃고, 다시 입장해도 복구되지 않습니다."
     },
     "messageLayout": {
       "banUser": "<0><0></0></0> 채널에서 차단되었습니다",
@@ -345,11 +368,18 @@
       "selfJoinChannel": "<2><0></0></2>에 참여했습니다"
     },
     "messageMenu": {
-      "deleteError": "메시지 삭제 오류",
-      "messageDeleted": "메시지 삭제됨"
+      "deleteMessage": "메시지 삭제"
     },
     "navEntry": {
       "leaveChannel": "채널 나가세요"
+    },
+    "transferOwnership": {
+      "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",
+      "body": "#{{channelName}} 채널의 소유권을 {{user}}에게 이전하시겠습니까? 이전하면 더 이상 채널 소유자가 아닙니다.",
+      "confirmAction": "소유권 이전",
+      "dialogTitle": "소유권을 이전할까요?",
+      "errorMessage": "{{user}}에게 소유권을 이전하는 중 문제가 발생했습니다",
+      "successMessage": "이제 {{user}}이(가) 채널 소유자입니다"
     },
     "userList": {
       "active": "실행",
@@ -1271,7 +1301,6 @@
       },
       "removeBookmark": "북마크 해제",
       "removeFromPlaylist": "재생목록에서 제거",
-      "replayCount_other": "리플레이 {{count}}개",
       "scanningTitle": "리플레이 폴더 스캔 중…",
       "showInExplorer": "탐색기에서 보기",
       "sourceTagBnet": "B.NET",
@@ -1348,10 +1377,6 @@
         "apmValue": "APM 값",
         "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
         "colorCycling": "색상 순환 사용",
-        "colorPreset": {
-          "legacyDiplomacy": "레거시 외교",
-          "title": "프리셋"
-        },
         "consoleSkins": {
           "20thAnniversary": "스타크래프트 20주년",
           "blizzcon2017": "블리즈컨 2017",
@@ -1382,7 +1407,6 @@
           "title": "미니맵 지형"
         },
         "showBonusSkins": "보너스 스킨 표시",
-        "skinsInfo": "스킨 (블리자드에서 구매 필요)",
         "startingFog": {
           "legacy": "오리지널",
           "showResources": "자원 표시",
@@ -1399,8 +1423,7 @@
           "preview": {
             "allies": "아군",
             "enemies": "적군",
-            "self": "나",
-            "title": "미리 보기"
+            "self": "나"
           },
           "title": "팀 색상"
         },
@@ -1797,6 +1820,9 @@
         "spam": "스팸",
         "toxicity": "악성 행동"
       }
+    },
+    "staffBadge": {
+      "tooltip": "ShieldBattery 운영진"
     },
     "titles": {
       "novice": "초보자"

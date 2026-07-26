@@ -58,6 +58,8 @@ import {
   AdminGetRestrictionsResponse,
   AdminGetUserIpsResponse,
   AdminRemoveUserAvatarResponse,
+  AdminSetStaffBadgeRequest,
+  AdminSetStaffBadgeResponse,
   AuthEvent,
   ChangeLanguageRequest,
   ChangeLanguagesResponse,
@@ -1510,8 +1512,29 @@ export class AdminUserApi {
         name: userInfo.user.name,
         created: userInfo.user.created,
         avatarUrl: userInfo.user.avatarUrl,
+        staffBadge: userInfo.user.staffBadge,
       },
     }
+  }
+
+  @httpPost('/:id/staff-badge')
+  @httpBefore(checkAllPermissions('editPermissions'))
+  async setStaffBadge(ctx: RouterContext): Promise<AdminSetStaffBadgeResponse> {
+    const { params, body } = validateRequest(ctx, {
+      params: Joi.object<{ id: SbUserId }>({
+        id: joiUserId().required(),
+      }).required(),
+      body: Joi.object<AdminSetStaffBadgeRequest>({
+        staffBadge: Joi.boolean().required(),
+      }).required(),
+    })
+
+    const user = await this.userService.updateUserStaffBadge(params.id, body.staffBadge, ctx)
+    if (!user) {
+      throw new UserApiError(UserErrorCode.NotFound, 'user not found')
+    }
+
+    return { user }
   }
 
   @httpGet('/:searchTerm')

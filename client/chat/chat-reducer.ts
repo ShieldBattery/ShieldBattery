@@ -120,18 +120,27 @@ function removeUserFromChannel(
   )
 
   if (newOwnerId) {
-    joinedChannelInfo.ownerId = newOwnerId
-
-    updateMessages(state, channelId, true, m =>
-      m.concat({
-        id: nanoid(),
-        type: ClientChatMessageType.NewChannelOwner,
-        channelId,
-        time: Date.now(),
-        newOwnerId,
-      }),
-    )
+    setChannelOwner(state, channelId, newOwnerId)
   }
+}
+
+function setChannelOwner(state: ChatState, channelId: SbChannelId, newOwnerId: SbUserId) {
+  const joinedChannelInfo = state.idToJoinedInfo.get(channelId)
+  if (!joinedChannelInfo) {
+    return
+  }
+
+  joinedChannelInfo.ownerId = newOwnerId
+
+  updateMessages(state, channelId, true, m =>
+    m.concat({
+      id: nanoid(),
+      type: ClientChatMessageType.NewChannelOwner,
+      channelId,
+      time: Date.now(),
+      newOwnerId,
+    }),
+  )
 }
 
 function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
@@ -325,6 +334,13 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { channelId } = action.meta
 
     removeSelfFromChannel(state, channelId)
+  },
+
+  ['@chat/ownerChanged'](state, action) {
+    const { newOwnerId } = action.payload
+    const { channelId } = action.meta
+
+    setChannelOwner(state, channelId, newOwnerId)
   },
 
   ['@chat/updateMessage'](state, action) {

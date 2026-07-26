@@ -1,20 +1,20 @@
 import * as React from 'react'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useContext, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Virtuoso } from 'react-virtuoso'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { ConnectedAvatar } from '../avatars/avatar'
 import { eatVirtuosoContext } from '../lists/eat-virtuoso-context'
+import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { useAppSelector } from '../redux-hooks'
 import { labelMedium, singleLine, titleSmall } from '../styles/typography'
 import { LiveLabel } from '../twitch/live-indicators'
 import { useLiveUserIds } from '../twitch/live-state'
+import { StaffBadgedAvatar } from '../users/staff-badge'
 import { ConnectedUserContextMenu } from '../users/user-context-menu'
 import { useUserOverlays } from '../users/user-overlays'
 import { ConnectedUserProfileOverlay } from '../users/user-profile-overlay'
-import { ChannelUserMenu } from './channel-menu-items'
 
 const UserListContainer = styled.div`
   width: 256px;
@@ -57,18 +57,11 @@ const UserListOverline = styled.div<{ $firstOverline: boolean }>`
   line-height: 36px;
 `
 
-const AvatarContainer = styled.div`
-  position: relative;
+const StyledAvatar = styled(StaffBadgedAvatar)`
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
-  flex-shrink: 0;
   margin: 2px 16px 2px 0;
-`
-
-const StyledAvatar = styled(ConnectedAvatar)`
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
 `
 
 const EntryLiveLabel = styled(LiveLabel)`
@@ -145,6 +138,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
   const { t } = useTranslation()
   const user = useAppSelector(s => s.users.byId.get(props.userId))
   const filterClick = useMentionFilterClick()
+  const { UserMenu } = useContext(ChatContext)
 
   const { profileOverlayProps, contextMenuProps, onClick, onContextMenu, isOverlayOpen } =
     useUserOverlays({
@@ -155,7 +149,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
       profileOriginY: 'top',
       profileOffsetX: -4,
       filterClick,
-      UserMenu: ChannelUserMenu,
+      UserMenu,
     })
 
   return (
@@ -169,9 +163,7 @@ const ConnectedUserListEntry = React.memo<UserListEntryProps>(props => {
         $isOverlayOpen={isOverlayOpen}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <AvatarContainer>
-          <StyledAvatar userId={props.userId} />
-        </AvatarContainer>
+        <StyledAvatar userId={props.userId} />
         {user ? (
           <UserListName>{user.name}</UserListName>
         ) : (

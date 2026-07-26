@@ -22,6 +22,7 @@ import {
   SbChannelId,
   SearchChannelsResponse,
   SendChatMessageServerRequest,
+  TransferChannelOwnershipRequest,
   UpdateChannelUserPermissionsRequest,
   UpdateChannelUserPreferencesRequest,
 } from '../../../common/chat'
@@ -95,6 +96,12 @@ const kickBanThrottle = createThrottle('chatkickban', {
   window: 60000,
 })
 
+const transferOwnershipThrottle = createThrottle('chattransferownership', {
+  rate: 5,
+  burst: 10,
+  window: 60000,
+})
+
 const getUserProfileThrottle = createThrottle('chatgetuserprofile', {
   rate: 40,
   burst: 80,
@@ -124,6 +131,55 @@ const userPreferencesThrottle = createThrottle('chatuserpreferences', {
 
 const joiSerialId = () => Joi.number().min(1)
 const channelNameSchema = () => Joi.string().max(CHANNEL_MAXLENGTH).pattern(CHANNEL_PATTERN)
+
+const channelIdParamsSchema = () =>
+  Joi.object<{ channelId: SbChannelId }>({
+    channelId: joiSerialId().required(),
+  })
+
+const channelUserParamsSchema = () =>
+  Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
+    channelId: joiSerialId().required(),
+    targetId: joiSerialId().required(),
+  })
+
+const editChannelBodySchema = () =>
+  Joi.object<{ channelChanges: EditChannelRequest }>({
+    channelChanges: json.object({
+      description: Joi.string().allow(null),
+      topic: Joi.string().allow(null),
+      deleteBanner: Joi.boolean(),
+      deleteBadge: Joi.boolean(),
+    }),
+  })
+
+const moderateChannelUserBodySchema = () =>
+  Joi.object<ModerateChannelUserServerRequest>({
+    moderationAction: Joi.string().valid('kick', 'ban').required(),
+    moderationReason: Joi.string().allow(''),
+  })
+
+const transferChannelOwnershipBodySchema = () =>
+  Joi.object<TransferChannelOwnershipRequest>({
+    targetId: joiSerialId().required(),
+  })
+
+const channelUserPermissionsBodySchema = () =>
+  Joi.object<UpdateChannelUserPermissionsRequest>({
+    permissions: Joi.object<ChannelPermissions>({
+      kick: Joi.boolean().required(),
+      ban: Joi.boolean().required(),
+      changeTopic: Joi.boolean().required(),
+      togglePrivate: Joi.boolean().required(),
+      editPermissions: Joi.boolean().required(),
+    }).required(),
+  })
+
+const userChannelEntriesQuerySchema = () =>
+  Joi.object<{ q?: string; offset: number }>({
+    q: Joi.string().allow(''),
+    offset: Joi.number().min(0),
+  })
 
 function convertChatServiceError(err: unknown) {
   if (!(err instanceof ChatServiceError)) {
@@ -168,12 +224,32 @@ function getValidatedChannelId(ctx: RouterContext) {
   const {
     params: { channelId },
   } = validateRequest(ctx, {
-    params: Joi.object<{ channelId: SbChannelId }>({
-      channelId: joiSerialId().required(),
-    }),
+    params: channelIdParamsSchema(),
   })
 
   return channelId
+}
+
+/**
+ * Retrieves the banner/badge files from a multipart channel edit request, ensuring at most one of
+ * each was uploaded.
+ */
+function getValidatedChannelImageFiles(ctx: RouterContext) {
+  const bannerFile = ctx.request.files?.banner
+  const badgeFile = ctx.request.files?.badge
+  if ((bannerFile && Array.isArray(bannerFile)) || (badgeFile && Array.isArray(badgeFile))) {
+    throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
+  }
+
+  return { bannerFile, badgeFile }
+}
+
+/**
+ * Returns whether the requesting user holds the server-wide `moderateChatChannels` permission,
+ * which gives them the channel owner's authority in every channel.
+ */
+function isServerModerator(ctx: RouterContext): boolean {
+  return !!ctx.session?.permissions.moderateChatChannels
 }
 
 async function throttleEditChannel(ctx: ExtendableContext, next: Next) {
@@ -215,26 +291,14 @@ export class ChatApi {
     const {
       body: { channelChanges },
     } = validateRequest(ctx, {
-      body: Joi.object<{ channelChanges: EditChannelRequest }>({
-        channelChanges: json.object({
-          description: Joi.string().allow(null),
-          topic: Joi.string().allow(null),
-          deleteBanner: Joi.boolean(),
-          deleteBadge: Joi.boolean(),
-        }),
-      }),
+      body: editChannelBodySchema(),
     })
-
-    const bannerFile = ctx.request.files?.banner
-    const badgeFile = ctx.request.files?.badge
-    if ((bannerFile && Array.isArray(bannerFile)) || (badgeFile && Array.isArray(badgeFile))) {
-      throw new httpErrors.BadRequest('only one banner/badge file can be uploaded')
-    }
+    const { bannerFile, badgeFile } = getValidatedChannelImageFiles(ctx)
 
     return await this.chatService.editChannel({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: !!ctx.session?.permissions.moderateChatChannels,
+      isServerModerator: isServerModerator(ctx),
       updates: channelChanges,
       bannerFile,
       badgeFile,
@@ -321,9 +385,7 @@ export class ChatApi {
       params: { channelId },
       body,
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId }>({
-        channelId: joiSerialId().required(),
-      }),
+      params: channelIdParamsSchema(),
       body: Joi.object<UpdateChannelUserPreferencesRequest>({
         hideBanner: Joi.boolean(),
       }),
@@ -340,10 +402,7 @@ export class ChatApi {
     const {
       params: { channelId, targetId },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
+      params: channelUserParamsSchema(),
     })
 
     return await this.chatService.getChatUserProfile(channelId, ctx.session!.user.id, targetId)
@@ -356,14 +415,8 @@ export class ChatApi {
       params: { channelId, targetId },
       body: { moderationAction, moderationReason },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
-      body: Joi.object<ModerateChannelUserServerRequest>({
-        moderationAction: Joi.string().valid('kick', 'ban').required(),
-        moderationReason: Joi.string().allow(''),
-      }),
+      params: channelUserParamsSchema(),
+      body: moderateChannelUserBodySchema(),
     })
 
     await this.chatService.moderateUser(
@@ -371,6 +424,7 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       moderationAction,
+      isServerModerator(ctx),
       moderationReason,
     )
 
@@ -383,17 +437,14 @@ export class ChatApi {
     const {
       params: { channelId, targetId },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
+      params: channelUserParamsSchema(),
     })
 
     return await this.chatService.getUserPermissions(
       channelId,
       ctx.session!.user.id,
       targetId,
-      !!ctx.session?.permissions.moderateChatChannels,
+      isServerModerator(ctx),
     )
   }
 
@@ -404,19 +455,14 @@ export class ChatApi {
       params: { channelId },
       query: { q: searchQuery, offset },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId }>({
-        channelId: joiSerialId().required(),
-      }),
-      query: Joi.object<{ q?: string; offset: number }>({
-        q: Joi.string().allow(''),
-        offset: Joi.number().min(0),
-      }),
+      params: channelIdParamsSchema(),
+      query: userChannelEntriesQuerySchema(),
     })
 
     return await this.chatService.listUserChannelEntries({
       channelId,
       userId: ctx.session!.user.id,
-      isAdmin: !!ctx.session?.permissions.moderateChatChannels,
+      isServerModerator: isServerModerator(ctx),
       limit: CHANNEL_USER_PERMISSIONS_LIMIT,
       offset,
       searchStr: searchQuery,
@@ -430,19 +476,8 @@ export class ChatApi {
       params: { channelId, targetId },
       body: { permissions },
     } = validateRequest(ctx, {
-      params: Joi.object<{ channelId: SbChannelId; targetId: SbUserId }>({
-        channelId: joiSerialId().required(),
-        targetId: joiSerialId().required(),
-      }),
-      body: Joi.object<UpdateChannelUserPermissionsRequest>({
-        permissions: Joi.object<ChannelPermissions>({
-          kick: Joi.boolean().required(),
-          ban: Joi.boolean().required(),
-          changeTopic: Joi.boolean().required(),
-          togglePrivate: Joi.boolean().required(),
-          editPermissions: Joi.boolean().required(),
-        }).required(),
-      }),
+      params: channelUserParamsSchema(),
+      body: channelUserPermissionsBodySchema(),
     })
 
     await this.chatService.updateUserPermissions(
@@ -450,7 +485,27 @@ export class ChatApi {
       ctx.session!.user.id,
       targetId,
       permissions,
-      !!ctx.session?.permissions.moderateChatChannels,
+      isServerModerator(ctx),
+    )
+
+    ctx.status = 204
+  }
+
+  @httpPost('/:channelId/owner')
+  @httpBefore(throttleMiddleware(transferOwnershipThrottle, ctx => String(ctx.session!.user.id)))
+  async transferChannelOwnership(ctx: RouterContext): Promise<void> {
+    const channelId = getValidatedChannelId(ctx)
+    const {
+      body: { targetId },
+    } = validateRequest(ctx, {
+      body: transferChannelOwnershipBodySchema(),
+    })
+
+    await this.chatService.transferOwnership(
+      channelId,
+      ctx.session!.user.id,
+      targetId,
+      isServerModerator(ctx),
     )
 
     ctx.status = 204
@@ -479,7 +534,11 @@ export class ChatApi {
   async getChannelInfo(ctx: RouterContext): Promise<GetChannelInfoResponse> {
     const channelId = getValidatedChannelId(ctx)
 
-    return await this.chatService.getChannelInfo(channelId, ctx.session!.user.id)
+    return await this.chatService.getChannelInfo(
+      channelId,
+      ctx.session!.user.id,
+      isServerModerator(ctx),
+    )
   }
 
   @httpGet('/')
