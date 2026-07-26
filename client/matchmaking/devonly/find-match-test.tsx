@@ -206,12 +206,7 @@ const MOCK_MODES: MockModeData[] = [
 // ─── Scenario state ───────────────────────────────────────────────────────────
 
 type Scenario =
-  | 'idle'
-  | 'in-lobby'
-  | 'some-disabled'
-  | 'searching'
-  | 'multi-searching'
-  | 'match-found'
+  'idle' | 'in-lobby' | 'some-disabled' | 'searching' | 'multi-searching' | 'match-found'
 
 interface MockAvailability {
   nextStartDate?: Date

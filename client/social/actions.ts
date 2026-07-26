@@ -6,10 +6,7 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 
 export type SocialActions =
-  | GetRelationships
-  | UpsertUserRelationship
-  | DeleteUserRelationship
-  | UpdateFriendActivityStatus
+  GetRelationships | UpsertUserRelationship | DeleteUserRelationship | UpdateFriendActivityStatus
 
 export interface GetRelationships {
   type: '@users/getRelationships'

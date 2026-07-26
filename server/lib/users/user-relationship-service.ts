@@ -170,7 +170,10 @@ export class UserRelationshipService {
             })
           } else if (fromRelationship.kind === UserRelationshipKind.Friend) {
             this.publishUpsert(fromId, fromRelationship)
-            this.publishUpsert(toId, relationships.find(r => r.fromId === toId)!)
+            this.publishUpsert(
+              toId,
+              relationships.find(r => r.fromId === toId)!,
+            )
 
             this.subscribeToFriendActivityStatusUpdates(
               this.userSocketsManager.getById(fromId),
@@ -251,7 +254,10 @@ export class UserRelationshipService {
         try {
           if (acceptingRelationship.kind === UserRelationshipKind.Friend) {
             this.publishUpsert(acceptingId, acceptingRelationship)
-            this.publishUpsert(requestingId, relationships.find(r => r.fromId === requestingId)!)
+            this.publishUpsert(
+              requestingId,
+              relationships.find(r => r.fromId === requestingId)!,
+            )
 
             this.subscribeToFriendActivityStatusUpdates(
               this.userSocketsManager.getById(acceptingId),

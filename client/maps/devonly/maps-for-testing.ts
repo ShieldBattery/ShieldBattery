@@ -28,15 +28,12 @@ export const FightingSpirit: MapInfoJson = {
       {
         name: 'Players',
         teamId: 0,
-        players: Array.from(
-          range(0, 4),
-          (i: number): MapForcePlayer => ({
-            id: i,
-            race: 'any',
-            typeId: 5,
-            computer: false,
-          }),
-        ),
+        players: Array.from(range(0, 4), (i: number): MapForcePlayer => ({
+          id: i,
+          race: 'any',
+          typeId: 5,
+          computer: false,
+        })),
       },
     ],
     width: 128,

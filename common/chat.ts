@@ -349,9 +349,7 @@ export interface ChatPermissionsChangedEvent {
 
 /** Events that are sent to a particular user in a particular chat channel. */
 export type ChatUserEvent =
-  | ChatInitEvent
-  | ChatPreferencesChangedEvent
-  | ChatPermissionsChangedEvent
+  ChatInitEvent | ChatPreferencesChangedEvent | ChatPermissionsChangedEvent
 
 /**
  * The response returned when joining a specific chat channel.

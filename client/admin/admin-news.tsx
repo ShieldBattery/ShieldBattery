@@ -147,14 +147,10 @@ export const PUBLISH_MODE_DRAFT = 'draft'
 export const PUBLISH_MODE_NOW = 'now'
 export const PUBLISH_MODE_SCHEDULE = 'schedule'
 type PublishMode =
-  | typeof PUBLISH_MODE_DRAFT
-  | typeof PUBLISH_MODE_NOW
-  | typeof PUBLISH_MODE_SCHEDULE
+  typeof PUBLISH_MODE_DRAFT | typeof PUBLISH_MODE_NOW | typeof PUBLISH_MODE_SCHEDULE
 
 type PostStatus =
-  | { kind: 'draft' }
-  | { kind: 'scheduled'; date: Date }
-  | { kind: 'published'; date: Date }
+  { kind: 'draft' } | { kind: 'scheduled'; date: Date } | { kind: 'published'; date: Date }
 
 /** Classifies a post's publish state given the current time (`now`, in millis). */
 export function getPostStatus(publishedAt: string | null | undefined, now: number): PostStatus {

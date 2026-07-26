@@ -3,10 +3,7 @@ import { GameSetup } from './game-launch-config'
 import { NetcodeV2ServerSetup } from './netcode-v2'
 
 export type GameLoaderEvent =
-  | CancelLoading
-  | SetGameConfigEvent
-  | SetNetcodeV2SetupEvent
-  | SetLoadingStatusEvent
+  CancelLoading | SetGameConfigEvent | SetNetcodeV2SetupEvent | SetLoadingStatusEvent
 
 export interface CancelLoading {
   type: 'cancelLoading'

@@ -755,8 +755,7 @@ export type MatchmakingMatchFormation = {
    */
   maxLatency: number
 } & (
-  | { gameId: string; failPhase?: never }
-  | { gameId?: never; failPhase: MatchmakingMatchFailPhase }
+  { gameId: string; failPhase?: never } | { gameId?: never; failPhase: MatchmakingMatchFailPhase }
 )
 
 /**

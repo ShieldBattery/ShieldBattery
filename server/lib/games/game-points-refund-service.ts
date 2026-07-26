@@ -140,23 +140,19 @@ export class GamePointsRefundService {
     // Audit every restoration — matchmaking and league — so a league-only refund still leaves a
     // trace (and doesn't lock the game with an empty audit row).
     const details: GamePointsRefundDetail[] = [
-      ...mmRefunds.map(
-        (c): GamePointsRefundDetail => ({
-          kind: 'matchmaking',
-          userId: c.userId,
-          matchmakingType: c.matchmakingType,
-          pointsRefunded: -c.pointsChange,
-          bonusRefunded: c.bonusUsedChange,
-        }),
-      ),
-      ...leagueRefunds.map(
-        (c): GamePointsRefundDetail => ({
-          kind: 'league',
-          userId: c.userId,
-          leagueId: c.leagueId,
-          pointsRefunded: -c.pointsChange,
-        }),
-      ),
+      ...mmRefunds.map((c): GamePointsRefundDetail => ({
+        kind: 'matchmaking',
+        userId: c.userId,
+        matchmakingType: c.matchmakingType,
+        pointsRefunded: -c.pointsChange,
+        bonusRefunded: c.bonusUsedChange,
+      })),
+      ...leagueRefunds.map((c): GamePointsRefundDetail => ({
+        kind: 'league',
+        userId: c.userId,
+        leagueId: c.leagueId,
+        pointsRefunded: -c.pointsChange,
+      })),
     ]
 
     // Everyone who got any points back (matchmaking and/or league) — for the notifications and the

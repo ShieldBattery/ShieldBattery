@@ -103,8 +103,7 @@ export interface ReplayLibraryFilters {
  * backfill is running.
  */
 export type ReplayBackfillProgress =
-  | { phase: 'scanning' }
-  | { phase: 'indexing'; done: number; total: number }
+  { phase: 'scanning' } | { phase: 'indexing'; done: number; total: number }
 
 /** High-level status of the replay index, for surfacing indexing progress in the UI. */
 export interface ReplayLibraryStatus {

@@ -103,8 +103,4 @@ export interface LogMessage {
 }
 
 export type FromWorkerMessage =
-  | ReadyMessage
-  | CallResultMessage
-  | BackfillProgressMessage
-  | ChangedMessage
-  | LogMessage
+  ReadyMessage | CallResultMessage | BackfillProgressMessage | ChangedMessage | LogMessage

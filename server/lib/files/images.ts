@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import sharp, { FitEnum, FormatEnum } from 'sharp'
+import sharp, { FitEnum, FormatEnum, Sharp } from 'sharp'
 
 /**
  * Creates an image path that is used to save this image to our server/CDN given the root folder and
@@ -19,7 +19,7 @@ interface ResizeImageConfigType {
 }
 
 const RESIZE_IMAGE_DEFAULT_CONFIG: ResizeImageConfigType = {
-  allowedTypes: ['jpg', 'jpeg', 'png'],
+  allowedTypes: ['jpeg', 'png'],
   fallbackType: 'png',
   objectFit: sharp.fit.cover,
 }
@@ -35,7 +35,7 @@ export async function resizeImage(
   width: number,
   height: number,
   config?: Partial<ResizeImageConfigType>,
-): Promise<[image: sharp.Sharp, imageExtension: string]> {
+): Promise<[image: Sharp, imageExtension: string]> {
   const mergedConfig = { ...RESIZE_IMAGE_DEFAULT_CONFIG, ...config }
 
   const image = sharp(filePath)

@@ -48,17 +48,9 @@ export default defineConfig({
       },
       // Client (Browser/happy-dom)
       {
-        plugins: [
-          react({
-            babel: {
-              presets: ['@babel/preset-typescript'],
-              plugins: [
-                ['@babel/plugin-proposal-decorators', { legacy: true }],
-                ['babel-plugin-const-enum'],
-              ],
-            },
-          }),
-        ],
+        // No custom transforms needed beyond the standard React/TS handling: client/ and common/
+        // contain no legacy decorators or const enums.
+        plugins: [react()],
         test: {
           name: 'client',
           environment: 'happy-dom',

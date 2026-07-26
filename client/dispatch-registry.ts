@@ -6,9 +6,7 @@ export type ThunkAction<T extends ReduxAction = ReduxAction> = (
   getState: () => RootState,
 ) => void
 export type Dispatchable<T extends ReduxAction = ReduxAction> =
-  | T
-  | ThunkAction<T>
-  | PromisifiedAction<T>
+  T | ThunkAction<T> | PromisifiedAction<T>
 export type DispatchFunction<T extends ReduxAction> = (action: Dispatchable<T>) => void
 
 let dispatcherFunc: DispatchFunction<ReduxAction> | null = null

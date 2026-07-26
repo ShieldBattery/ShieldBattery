@@ -6,9 +6,7 @@ import { PlayerTeamsDisplayPlayer } from '../games/player-teams-display'
 
 /** Which subset of the library the rail is currently pointed at, driven by the `view` URL param. */
 export type LibraryView =
-  | { kind: 'all' }
-  | { kind: 'bookmarked' }
-  | { kind: 'playlist'; id: number }
+  { kind: 'all' } | { kind: 'bookmarked' } | { kind: 'playlist'; id: number }
 
 const PLAYLIST_VIEW_PREFIX = 'pl-'
 

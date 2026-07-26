@@ -477,7 +477,7 @@ export default class ChatService {
 
     const [banner, bannerExtension] = bannerFile
       ? await resizeImage(bannerFile.filepath, CHANNEL_BANNER_WIDTH, CHANNEL_BANNER_HEIGHT, {
-          fallbackType: 'jpg',
+          fallbackType: 'jpeg',
         })
       : [undefined, undefined]
     const [badge, badgeExtension] = badgeFile

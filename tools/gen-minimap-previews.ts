@@ -114,8 +114,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 type RenderResult =
-  | { tilesetId: TilesetId; webp: Buffer; width: number; height: number }
-  | { skipReason: string }
+  { tilesetId: TilesetId; webp: Buffer; width: number; height: number } | { skipReason: string }
 
 async function renderMapPreview(filePath: string, bwDataPath: string): Promise<RenderResult> {
   const ext = path.extname(filePath).slice(1).toLowerCase() as MapExtension
