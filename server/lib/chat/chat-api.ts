@@ -116,8 +116,8 @@ const userPermissionsThrottle = createThrottle('chatuserpermissions', {
   window: 60000,
 })
 
-// Listing user channel entries is driven by a debounced search box, so it needs a higher limit than
-// the permission read/write endpoints to avoid active searching throttle-blocking saves (similar to
+// Listing user channel entries is driven by a debounced search box, so it issues far more requests
+// than the permission read/write endpoints do and needs a correspondingly higher limit (similar to
 // the channel search throttle).
 const userChannelEntriesThrottle = createThrottle('chatuserchannelentries', {
   rate: 40,
@@ -131,8 +131,8 @@ const userPreferencesThrottle = createThrottle('chatuserpreferences', {
   window: 60000,
 })
 
-// Listing channel bans is driven by a debounced search box, so it needs a higher limit than the
-// moderation actions themselves to avoid active searching throttle-blocking unbans (similar to
+// Listing channel bans is driven by a debounced search box, so it issues far more requests than
+// the moderation endpoints do and needs a correspondingly higher limit (similar to
 // `userChannelEntriesThrottle`).
 const channelBansThrottle = createThrottle('chatchannelbans', {
   rate: 40,
@@ -186,13 +186,7 @@ const channelUserPermissionsBodySchema = () =>
     }).required(),
   })
 
-const userChannelEntriesQuerySchema = () =>
-  Joi.object<{ q?: string; offset: number }>({
-    q: Joi.string().allow(''),
-    offset: Joi.number().min(0),
-  })
-
-const channelBansQuerySchema = () =>
+const searchListQuerySchema = () =>
   Joi.object<{ q?: string; offset: number }>({
     q: Joi.string().allow(''),
     offset: Joi.number().min(0),
@@ -474,7 +468,7 @@ export class ChatApi {
       query: { q: searchQuery, offset },
     } = validateRequest(ctx, {
       params: channelIdParamsSchema(),
-      query: userChannelEntriesQuerySchema(),
+      query: searchListQuerySchema(),
     })
 
     return await this.chatService.listUserChannelEntries({
@@ -495,7 +489,7 @@ export class ChatApi {
       query: { q: searchQuery, offset },
     } = validateRequest(ctx, {
       params: channelIdParamsSchema(),
-      query: channelBansQuerySchema(),
+      query: searchListQuerySchema(),
     })
 
     return await this.chatService.listChannelBans({
