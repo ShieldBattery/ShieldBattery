@@ -14,12 +14,15 @@ import { deleteMessageAsAdmin } from '../action-creators'
 export interface AdminDeleteChatMessageDialogProps extends CommonDialogProps {
   channelId: SbChannelId
   messageId: string
+  /** Called once the message has been deleted successfully. */
+  onSuccess?: () => void
 }
 
 export function AdminDeleteChatMessageDialog({
   onCancel,
   channelId,
   messageId,
+  onSuccess,
 }: AdminDeleteChatMessageDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
@@ -34,6 +37,7 @@ export function AdminDeleteChatMessageDialog({
         onSuccess: () => {
           snackbarController.showSnackbar(t('chat.deleteMessage.successMessage', 'Message deleted'))
           dispatch(closeDialog(DialogType.AdminDeleteChatMessage))
+          onSuccess?.()
         },
         onError: () => {
           setIsDeleting(false)

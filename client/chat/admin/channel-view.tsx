@@ -177,7 +177,12 @@ const AdminChannelInfoContext = createContext<{
    * request a refetch explicitly.
    */
   refreshChannelInfo: () => void
-}>({ official: false, refreshChannelInfo: () => {} })
+  /**
+   * Removes a message from the locally-fetched message list — the admin view isn't
+   * socket-subscribed, so a successful delete must prune it by hand.
+   */
+  onMessageDeleted: (messageId: string) => void
+}>({ official: false, refreshChannelInfo: () => {}, onMessageDeleted: () => {} })
 
 function AdminChannelUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const dispatch = useAppDispatch()
@@ -288,6 +293,7 @@ function AdminChannelMessageMenu({
 }: MessageMenuProps) {
   const dispatch = useAppDispatch()
   const { channelId } = useContext(ChannelContext)
+  const { onMessageDeleted } = useContext(AdminChannelInfoContext)
 
   const menuItems = new Map(items)
   appendToMultimap(
@@ -300,7 +306,7 @@ function AdminChannelMessageMenu({
         dispatch(
           openDialog({
             type: DialogType.AdminDeleteChatMessage,
-            initData: { channelId, messageId },
+            initData: { channelId, messageId, onSuccess: () => onMessageDeleted(messageId) },
           }),
         )
         onMenuClose()
@@ -490,6 +496,8 @@ export function AdminChannelView({
                 ownerId: joinedChannelInfo?.ownerId,
                 official: channelInfo.official,
                 refreshChannelInfo,
+                onMessageDeleted: messageId =>
+                  setChannelMessages(msgs => msgs.filter(m => m.id !== messageId)),
               }}>
               <ChatContext.Provider
                 value={{

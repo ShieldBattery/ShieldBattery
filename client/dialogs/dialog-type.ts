@@ -57,6 +57,8 @@ type AdminDeleteChatMessageDialogPayload = BaseDialogPayload<
   {
     channelId: SbChannelId
     messageId: string
+    /** Called once the message has been deleted successfully. */
+    onSuccess?: () => void
   }
 >
 type BugReportDialogPayload = BaseDialogPayload<typeof DialogType.BugReport>
