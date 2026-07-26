@@ -492,7 +492,10 @@ mod tests {
     #[test]
     fn try_append_rejects_when_the_second_append_would_overflow() {
         let mut buffer = PathBuffer::new();
-        assert!(try_append(&mut buffer, &[b'a'; MAX_NORMALIZED_PATH_LEN - 4]));
+        assert!(try_append(
+            &mut buffer,
+            &[b'a'; MAX_NORMALIZED_PATH_LEN - 4]
+        ));
         assert!(try_append(&mut buffer, b".dds"));
         assert!(!try_append(&mut buffer, b"x"));
         assert_eq!(buffer.len(), MAX_NORMALIZED_PATH_LEN);
