@@ -13,7 +13,6 @@
     "experimentalDecorators": true,
     "jsx": "react-jsx",
     "noEmit": true,
-    "preserveConstEnums": true,
     "skipLibCheck": true
   },
 

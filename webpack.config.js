@@ -63,7 +63,6 @@ const webBabelOpts = {
     ],
     ['babel-plugin-styled-components'],
     ['@babel/plugin-proposal-decorators', { legacy: true }],
-    ['babel-plugin-const-enum'],
   ].concat(process.env.NODE_ENV !== 'production' ? [['react-refresh/babel']] : []),
 }
 
@@ -162,7 +161,6 @@ const mainBabelOpts = {
   plugins: [
     'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
-    ['babel-plugin-const-enum'],
   ],
 }
 

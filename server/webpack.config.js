@@ -67,7 +67,6 @@ const babelOpts = {
     ],
     ['babel-plugin-styled-components'],
     ['@babel/plugin-proposal-decorators', { legacy: true }],
-    ['babel-plugin-const-enum'],
   ].concat(isProd ? [] : [['react-refresh/babel', { skipEnvCheck: true }]]),
 }
 

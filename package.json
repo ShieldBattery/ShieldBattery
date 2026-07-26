@@ -79,7 +79,6 @@
     "@koa/router": "^15.7.0",
     "@ladjs/koa-views": "^9.0.0",
     "@shieldbattery/broodrep": "^0.4.1",
-    "babel-plugin-const-enum": "^1.2.0",
     "babel-plugin-transform-typescript-metadata": "^0.4.0",
     "bcrypt": "^6.0.0",
     "bw-chk": "^1.4.1",

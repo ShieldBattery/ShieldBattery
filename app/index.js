@@ -15,7 +15,6 @@ require('@babel/register')({
     'babel-plugin-transform-typescript-metadata',
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-transform-private-methods', { loose: true }],
-    ['babel-plugin-const-enum'],
   ],
 
   extensions: ['.es6', '.es', '.jsx', '.js', '.mjs', '.ts', '.tsx'],
