@@ -344,10 +344,6 @@
       "errorMessage": "메시지를 삭제하는 중 문제가 발생했습니다",
       "successMessage": "메시지 삭제됨"
     },
-    "events": {
-      "ban": "귀하는 {{channelName}}에서 차단되었습니다.",
-      "kick": "당신은 {{channelName}}에서 강퇴되었습니다."
-    },
     "joinChannel": {
       "bannedError": "#{{channelName}}에서 차단되었습니다",
       "genericError": "#{{channelName}}에 참여하는 동안 오류가 발생했습니다",
@@ -383,6 +379,11 @@
     },
     "navEntry": {
       "leaveChannel": "채널 나가세요"
+    },
+    "notifications": {
+      "ban": "<1>#{{channelName}}</1>에서 차단되었습니다.",
+      "kick": "<1>#{{channelName}}</1>에서 강퇴되었습니다.",
+      "unban": "<1>#{{channelName}}</1> 차단이 해제되었습니다."
     },
     "transferOwnership": {
       "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",

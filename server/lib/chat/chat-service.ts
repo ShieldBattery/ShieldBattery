@@ -38,6 +38,7 @@ import {
   toUserChannelEntryJson,
 } from '../../../common/chat'
 import { subtract } from '../../../common/data-structures/sets'
+import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { SbUser } from '../../../common/users/sb-user'
@@ -52,6 +53,7 @@ import { ImageService } from '../images/image-service'
 import logger from '../logging/logger'
 import filterChatMessage from '../messaging/filter-chat-message'
 import { processMessageContents } from '../messaging/process-chat-message'
+import NotificationService from '../notifications/notification-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { findConnectedUsers } from '../users/user-identifiers'
@@ -135,6 +137,7 @@ export default class ChatService {
     private userSocketsManager: UserSocketsManager,
     private imageService: ImageService,
     private restrictionService: RestrictionService,
+    private notificationService: NotificationService,
   ) {
     userSocketsManager
       .on('newUser', userSockets => {
@@ -679,6 +682,15 @@ export default class ChatService {
     if (targetSockets) {
       this.unsubscribeUserFromChannel(targetSockets, channelId)
     }
+
+    const notificationType =
+      moderationAction === ChannelModerationAction.Ban
+        ? NotificationType.ChannelBan
+        : NotificationType.ChannelKick
+    await this.notificationService.addNotification({
+      userId: targetId,
+      data: { type: notificationType, channelId, channelName: channelInfo.name },
+    })
   }
 
   /**
@@ -1301,6 +1313,15 @@ export default class ChatService {
       }
 
       await removeBannedIdentifiersFromChannel({ channelId, targetId }, client)
+    })
+
+    await this.notificationService.addNotification({
+      userId: targetId,
+      data: {
+        type: NotificationType.ChannelUnban,
+        channelId,
+        channelName: channelInfo.name,
+      },
     })
   }
 

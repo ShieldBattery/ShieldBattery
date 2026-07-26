@@ -347,10 +347,6 @@
       "errorMessage": "Что-то пошло не так при удалении сообщения",
       "successMessage": "Сообщение удалено"
     },
-    "events": {
-      "ban": "Вам заблокировали доступ к {{channelName}}.",
-      "kick": "Вы были исключены из {{channelName}}."
-    },
     "joinChannel": {
       "bannedError": "Вам запрещен доступ к #{{channelName}}",
       "genericError": "Произошла ошибка при присоединении к #{{channelName}}",
@@ -386,6 +382,11 @@
     },
     "navEntry": {
       "leaveChannel": "Покинуть канал"
+    },
+    "notifications": {
+      "ban": "Вы забанены в канале <1>#{{channelName}}</1>.",
+      "kick": "Вас кикнули из канала <1>#{{channelName}}</1>.",
+      "unban": "Ваш бан в канале <1>#{{channelName}}</1> снят."
     },
     "transferOwnership": {
       "adminBody": "Сделать {{user}} владельцем этого канала? Текущий владелец лишится прав владельца.",

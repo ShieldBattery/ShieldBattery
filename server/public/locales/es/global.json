@@ -346,10 +346,6 @@
       "errorMessage": "Algo salió mal al eliminar el mensaje",
       "successMessage": "Mensaje eliminado"
     },
-    "events": {
-      "ban": "Has sido baneado de {{channelName}}.",
-      "kick": "Has sido expulsado de {{channelName}}."
-    },
     "joinChannel": {
       "bannedError": "Estás baneado de #{{channelName}}",
       "genericError": "Ocurrió un error al unirte a #{{channelName}}",
@@ -385,6 +381,11 @@
     },
     "navEntry": {
       "leaveChannel": "Salir del canal"
+    },
+    "notifications": {
+      "ban": "Has sido baneado de <1>#{{channelName}}</1>.",
+      "kick": "Has sido expulsado de <1>#{{channelName}}</1>.",
+      "unban": "Se ha levantado tu baneo de <1>#{{channelName}}</1>."
     },
     "transferOwnership": {
       "adminBody": "¿Hacer a {{user}} el dueño de este canal? El dueño actual dejará de serlo.",

@@ -17,12 +17,15 @@ import {
   toUserChannelEntryJson,
   UserChannelEntry,
 } from '../../../common/chat'
+import { NotificationType } from '../../../common/notifications'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { DbClient } from '../db'
 import transact from '../db/transaction'
 import { ImageService } from '../images/image-service'
+import NotificationService from '../notifications/notification-service'
+import { createFakeNotificationService } from '../notifications/testing/notification-service'
 import { MIN_IDENTIFIER_MATCHES } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { RequestSessionLookup } from '../websockets/session-lookup'
@@ -189,6 +192,7 @@ describe('chat/chat-service', () => {
   let nydus: NydusServer
   let chatService: ChatService
   let connector: NydusConnector
+  let notificationService: NotificationService
 
   const shieldBatteryBasicInfo: BasicChannelInfo = {
     id: makeSbChannelId(1),
@@ -433,12 +437,14 @@ describe('chat/chat-service', () => {
     const userSocketsManager = new UserSocketsManager(nydus, sessionLookup, async () => {})
     const publisher = new TypedPublisher(nydus)
     const imageService = new ImageService()
+    notificationService = createFakeNotificationService()
 
     chatService = new ChatService(
       publisher,
       userSocketsManager,
       imageService,
       mockRestrictionService,
+      notificationService,
     )
     connector = new NydusConnector(nydus, sessionLookup)
 
@@ -1124,6 +1130,15 @@ describe('chat/chat-service', () => {
         expect(client2.unsubscribe).toHaveBeenCalledWith(
           getChannelUserPath(testChannel.id, user2.id),
         )
+
+        expect(notificationService.addNotification).toHaveBeenCalledWith({
+          userId: user2.id,
+          data: {
+            type: NotificationType.ChannelKick,
+            channelId: testChannel.id,
+            channelName: testChannel.name,
+          },
+        })
       }
 
       beforeEach(async () => {
@@ -1210,6 +1225,8 @@ describe('chat/chat-service', () => {
         ).rejects.toThrowErrorMatchingInlineSnapshot(
           `[Error: Not enough permissions to moderate the user]`,
         )
+
+        expect(notificationService.addNotification).not.toHaveBeenCalled()
       })
 
       describe('when a server moderator', () => {
@@ -1424,6 +1441,14 @@ describe('chat/chat-service', () => {
           },
           dbClient,
         )
+        expect(notificationService.addNotification).toHaveBeenCalledWith({
+          userId: user2.id,
+          data: {
+            type: NotificationType.ChannelBan,
+            channelId: testChannel.id,
+            channelName: testChannel.name,
+          },
+        })
       })
     })
   })
@@ -2888,6 +2913,7 @@ describe('chat/chat-service', () => {
       ).rejects.toThrowErrorMatchingInlineSnapshot(`[Error: User is not banned]`)
 
       expect(removeBannedIdentifiersFromChannelMock).not.toHaveBeenCalled()
+      expect(notificationService.addNotification).not.toHaveBeenCalled()
     })
 
     test('works when channel owner', async () => {
@@ -2912,6 +2938,14 @@ describe('chat/chat-service', () => {
         { channelId: testChannel.id, targetId: user2.id },
         dbClient,
       )
+      expect(notificationService.addNotification).toHaveBeenCalledWith({
+        userId: user2.id,
+        data: {
+          type: NotificationType.ChannelUnban,
+          channelId: testChannel.id,
+          channelName: testChannel.name,
+        },
+      })
     })
 
     test('works when holding the ban permission', async () => {

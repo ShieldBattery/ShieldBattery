@@ -344,10 +344,6 @@
       "errorMessage": "删除消息时出现问题",
       "successMessage": "消息已删除"
     },
-    "events": {
-      "ban": "您已被 {{channelName}} 封禁。",
-      "kick": "您已被踢出 {{channelName}}。"
-    },
     "joinChannel": {
       "bannedError": "您被 #{{channelName}} 封禁",
       "genericError": "加入 #{{channelName}} 时遇到错误",
@@ -383,6 +379,11 @@
     },
     "navEntry": {
       "leaveChannel": "离开频道"
+    },
+    "notifications": {
+      "ban": "您已被 <1>#{{channelName}}</1> 封禁。",
+      "kick": "您已被踢出 <1>#{{channelName}}</1>。",
+      "unban": "您在 <1>#{{channelName}}</1> 的封禁已解除。"
     },
     "transferOwnership": {
       "adminBody": "将 {{user}} 设为该频道的所有者？当前所有者将失去所有权。",
