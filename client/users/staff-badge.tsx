@@ -51,7 +51,8 @@ export function StaffBadge({ className }: { className?: string }) {
     <BadgeRoot
       className={className}
       text={t('users.staffBadge.tooltip', 'ShieldBattery staff')}
-      position='top'>
+      position='top'
+      tabIndex={-1}>
       <BadgeDisc>
         <BadgeLogo />
       </BadgeDisc>
