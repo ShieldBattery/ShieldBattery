@@ -14,5 +14,5 @@
 -- every reconciled matchmaking game played by a league member, and a regular CREATE INDEX would
 -- hold a lock that blocks reconciliation writes to the table for the entire build.
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS league_user_changes_league_id_game_id_idx
+CREATE INDEX CONCURRENTLY league_user_changes_league_id_game_id_idx
 ON league_user_changes (league_id, game_id);

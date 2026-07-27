@@ -173,8 +173,14 @@ export class LeagueApi {
       format,
       matchup: decodedMatchup,
       sort,
-      startDate,
-      endDate,
+      // A game only produces a league_user_changes row when it started inside the league's window
+      // (reconciliation keys that off `start_at <= startTime < end_at`), so intersecting the date
+      // filter with [startAt, endAt) can never drop a league game. It does, however, let the
+      // descending start_time index skip every game outside the league's lifetime instead of
+      // scanning back from the newest completed matchmaking game — which is the difference between
+      // a fast page and a full index walk for a league that ended long ago.
+      startDate: Math.max(startDate ?? 0, Number(league.startAt)),
+      endDate: Math.min(endDate ?? Number.MAX_SAFE_INTEGER, Number(league.endAt)),
     })
 
     const { users, maps, replays } = await getGameListSideData({
