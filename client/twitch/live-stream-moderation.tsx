@@ -48,7 +48,7 @@ export const ModerationContainer = styled.div`
  * pills, so the placement depends on the entry variant: `top-right` uses the compact row's free
  * corner, while `below-top-pills` drops the control clear of the hero card's live/viewer pills.
  */
-export type LiveStreamModerationPlacement = 'top-right' | 'below-top-pills'
+type LiveStreamModerationPlacement = 'top-right' | 'below-top-pills'
 
 // A dark, circular backdrop so the control stays legible over any thumbnail. Hidden until the entry
 // is hovered (or the control is focused for keyboard users), so it doesn't clutter the feed.
