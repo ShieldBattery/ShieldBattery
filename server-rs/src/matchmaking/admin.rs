@@ -15,8 +15,8 @@ use tokio::sync::Mutex;
 use crate::graphql::errors::graphql_error;
 use crate::matchmaking::MatchmakingType;
 use crate::matchmaking::config::{
-    MatchmakerConfig, ModeConfig, ModeConfigOverrides, StoredConfig, load_stored_config,
-    parse_mode_key,
+    MAX_PLAYERS_EXAMINED, MIN_PLAYERS_EXAMINED, MatchmakerConfig, ModeConfig, ModeConfigOverrides,
+    StoredConfig, load_stored_config, parse_mode_key,
 };
 use crate::users::CurrentUser;
 use crate::users::permissions::RequiredPermission;
@@ -95,7 +95,10 @@ struct MatchmakerConfigInput {
     per_mode: Vec<MatchmakerPerModeOverrideInput>,
 }
 
-fn view_from_stored(stored: StoredConfig) -> MatchmakerConfigView {
+fn view_from_stored(mut stored: StoredConfig) -> MatchmakerConfigView {
+    stored.max_players_examined = stored
+        .max_players_examined
+        .map(|value| value.clamp(MIN_PLAYERS_EXAMINED, MAX_PLAYERS_EXAMINED));
     let per_mode = stored
         .per_mode
         .into_iter()
@@ -126,7 +129,9 @@ fn stored_from_input(input: MatchmakerConfigInput) -> StoredConfig {
         .collect();
     StoredConfig {
         search_interval_seconds: input.search_interval_seconds,
-        max_players_examined: input.max_players_examined,
+        max_players_examined: input
+            .max_players_examined
+            .map(|value| value.clamp(MIN_PLAYERS_EXAMINED, MAX_PLAYERS_EXAMINED)),
         global: input.global,
         per_mode,
     }
@@ -225,7 +230,7 @@ mod tests {
     fn input_serializes_to_the_persisted_shape_and_round_trips() {
         let input = MatchmakerConfigInput {
             search_interval_seconds: Some(8.0),
-            max_players_examined: Some(32),
+            max_players_examined: Some(24),
             global: ModeConfigOverrides {
                 min_quality: Some(-50.0),
                 ..Default::default()
@@ -245,7 +250,7 @@ mod tests {
         // The written JSON must use camelCase keys and key per-mode overrides by the mode's serde
         // name — exactly the shape `load_stored_config` reads back.
         assert_eq!(json["searchIntervalSeconds"], 8.0);
-        assert_eq!(json["maxPlayersExamined"], 32);
+        assert_eq!(json["maxPlayersExamined"], 24);
         assert_eq!(json["global"]["minQuality"], -50.0);
         assert_eq!(json["perMode"]["3v3bgh"]["adaptiveDecayPerMissing"], 25.0);
 
@@ -253,7 +258,7 @@ mod tests {
         let reparsed: StoredConfig = serde_json::from_value(json).unwrap();
         let view = view_from_stored(reparsed);
         assert_eq!(view.global.min_quality, Some(-50.0));
-        assert_eq!(view.max_players_examined, Some(32));
+        assert_eq!(view.max_players_examined, Some(24));
         assert_eq!(view.per_mode.len(), 1);
         assert_eq!(
             view.per_mode[0].matchmaking_type,
@@ -263,6 +268,20 @@ mod tests {
             view.per_mode[0].config.adaptive_decay_per_missing,
             Some(25.0)
         );
+    }
+
+    #[test]
+    fn unsafe_max_players_examined_is_clamped_before_persisting() {
+        let input = MatchmakerConfigInput {
+            search_interval_seconds: None,
+            max_players_examined: Some(i32::MAX),
+            global: ModeConfigOverrides::default(),
+            per_mode: Vec::new(),
+        };
+
+        let stored = stored_from_input(input);
+
+        assert_eq!(stored.max_players_examined, Some(MAX_PLAYERS_EXAMINED));
     }
 
     #[test]

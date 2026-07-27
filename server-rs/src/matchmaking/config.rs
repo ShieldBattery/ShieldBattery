@@ -21,6 +21,10 @@ use sqlx::types::Json;
 
 use crate::matchmaking::MatchmakingType;
 
+pub const MIN_PLAYERS_EXAMINED: i32 = 6;
+pub const MAX_PLAYERS_EXAMINED: i32 = 24;
+const DEFAULT_MAX_PLAYERS_EXAMINED: usize = 20;
+
 /// Per-mode tuning knobs. Defaults mirror the constants the matchmaker shipped with (see
 /// `matchmaker.rs`). Overridable globally and, sparsely, per mode.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -76,7 +80,7 @@ impl Default for MatchmakerConfig {
     fn default() -> Self {
         Self {
             search_interval: Duration::from_secs(6),
-            max_players_examined: 16,
+            max_players_examined: DEFAULT_MAX_PLAYERS_EXAMINED,
             global: ModeConfig::default(),
             per_mode: HashMap::new(),
         }
@@ -124,10 +128,20 @@ impl MatchmakerConfig {
         Self {
             search_interval: clamp_duration(stored.search_interval_seconds, 1, 60)
                 .unwrap_or(Duration::from_secs(6)),
-            max_players_examined: stored
-                .max_players_examined
-                .map(|v| v.clamp(2, 200) as usize)
-                .unwrap_or(16),
+            max_players_examined: stored.max_players_examined.map_or(
+                DEFAULT_MAX_PLAYERS_EXAMINED,
+                |value| {
+                    let clamped = value.clamp(MIN_PLAYERS_EXAMINED, MAX_PLAYERS_EXAMINED);
+                    if clamped != value {
+                        tracing::warn!(
+                            value,
+                            clamped,
+                            "clamped unsafe matchmaking maxPlayersExamined value"
+                        );
+                    }
+                    clamped as usize
+                },
+            ),
             global,
             per_mode,
         }
@@ -266,6 +280,7 @@ mod tests {
     fn empty_config_is_defaults() {
         let cfg = parse("{}");
         let defaults = MatchmakerConfig::default();
+        assert_eq!(defaults.max_players_examined, 20);
         assert_eq!(cfg.max_players_examined, defaults.max_players_examined);
         assert_eq!(cfg.search_interval, defaults.search_interval);
         assert_eq!(
@@ -335,11 +350,17 @@ mod tests {
             }"#,
         );
         assert_eq!(cfg.search_interval, Duration::from_secs(60));
-        assert_eq!(cfg.max_players_examined, 200);
+        assert_eq!(cfg.max_players_examined, MAX_PLAYERS_EXAMINED as usize);
         let m = cfg.for_mode(MatchmakingType::Match1v1);
         assert_eq!(m.weight_win_prob, 0.0); // clamped up from -10
         assert_eq!(m.uncertainty_k, 3.0); // clamped down from 999
         assert_eq!(m.min_quality, -600.0); // clamped up from -100000
+    }
+
+    #[test]
+    fn max_players_examined_can_fill_every_match_size() {
+        let cfg = parse(r#"{"maxPlayersExamined": 2}"#);
+        assert_eq!(cfg.max_players_examined, MIN_PLAYERS_EXAMINED as usize);
     }
 
     #[test]

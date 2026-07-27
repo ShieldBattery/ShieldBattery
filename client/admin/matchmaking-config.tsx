@@ -85,6 +85,8 @@ interface KnobField {
   hint: string
   /** GraphQL Int field — must be sent as an integer. */
   int?: boolean
+  min?: number
+  max?: number
 }
 
 const MODE_KNOBS: KnobField[] = [
@@ -132,8 +134,10 @@ const OPERATIONAL_KNOBS: KnobField[] = [
   {
     key: 'maxPlayersExamined',
     label: 'Max players examined',
-    hint: 'Queue entries examined per mode per tick (2…200)',
+    hint: 'Queue entries examined per mode per tick (6…24)',
     int: true,
+    min: 6,
+    max: 24,
   },
 ]
 
@@ -282,6 +286,8 @@ function KnobInput({
       inputProps={{
         tabIndex: 0,
         step: field.int ? 1 : 'any',
+        min: field.min,
+        max: field.max,
         'aria-label': field.label,
         title: field.hint,
       }}
