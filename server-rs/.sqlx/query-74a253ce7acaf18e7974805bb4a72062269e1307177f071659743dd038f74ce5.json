@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO twitch_feed_blocks (user_id, blocked_by)\n            VALUES ($1, $2)\n            ON CONFLICT (user_id) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "74a253ce7acaf18e7974805bb4a72062269e1307177f071659743dd038f74ce5"
+}

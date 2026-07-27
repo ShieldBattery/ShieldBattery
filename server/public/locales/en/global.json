@@ -474,6 +474,7 @@
       "submit": "Submit",
       "test": "Test",
       "unblock": "Unblock",
+      "undo": "Undo",
       "view": "View",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
@@ -1879,6 +1880,12 @@
       "title": "Live streams",
       "viewers_one": "{{count}} watching",
       "viewers_other": "{{count}} watching"
+    },
+    "moderation": {
+      "blocked": "Removed {{name}} from the live streams feed",
+      "blockError": "Couldn't remove {{name}} from the live streams feed",
+      "removeTooltip": "Remove from live streams",
+      "unblockError": "Couldn't restore {{name}} to the live streams feed"
     }
   },
   "user": {

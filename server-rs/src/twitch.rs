@@ -47,6 +47,7 @@ use crate::graphql::errors::graphql_error;
 use crate::graphql::schema_builder::SchemaBuilderModule;
 use crate::redis::RedisPool;
 use crate::state::AppState;
+use crate::users::permissions::RequiredPermission;
 use crate::users::{CurrentUser, SbUser, SbUserId, UsersLoader};
 
 const TWITCH_OAUTH_AUTHORIZE_URL: &str = "https://id.twitch.tv/oauth2/authorize";
@@ -718,6 +719,43 @@ impl LiveStream {
     }
 }
 
+/// A streamer an admin has blocked from the live-streams feed (shown on the home page and the
+/// dedicated live streams page), for the admin blocked-streams list. The block hides them from the
+/// `liveStreams` feed only; the `twitch_login`/`twitch_display_name` come from their
+/// currently-linked channel (via a LEFT JOIN) and are absent if they've since unlinked.
+#[derive(SimpleObject)]
+#[graphql(complex)]
+pub struct BlockedStream {
+    #[graphql(skip)]
+    pub user_id: SbUserId,
+    #[graphql(skip)]
+    pub blocked_by_id: Option<SbUserId>,
+    /// The Twitch login of the blocked user's currently-linked channel, if they still have one.
+    pub twitch_login: Option<String>,
+    /// The Twitch display name of the blocked user's currently-linked channel, if any.
+    pub twitch_display_name: Option<String>,
+    /// When the block was created.
+    pub created_at: DateTime<Utc>,
+}
+
+#[ComplexObject]
+impl BlockedStream {
+    /// The blocked ShieldBattery user.
+    async fn user(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
+        ctx.data::<DataLoader<UsersLoader>>()?
+            .load_one(self.user_id)
+            .await
+    }
+
+    /// The admin who created the block, if their account still exists.
+    async fn blocked_by(&self, ctx: &Context<'_>) -> async_graphql::Result<Option<SbUser>> {
+        match self.blocked_by_id {
+            Some(id) => ctx.data::<DataLoader<UsersLoader>>()?.load_one(id).await,
+            None => Ok(None),
+        }
+    }
+}
+
 struct ParsedLiveStreamEntries {
     streams: Vec<(SbUserId, LiveStreamSummary)>,
     malformed: Vec<(SbUserId, String)>,
@@ -1103,6 +1141,87 @@ async fn delete_connection(pool: &PgPool, user_id: SbUserId) -> eyre::Result<Opt
     Ok(row.map(|r| r.eventsub_subscription_ids))
 }
 
+/// The set of users an admin has blocked from the live-streams feed. Read on each `live_streams`
+/// poll so a block takes effect on the very next feed refresh; the table holds one row per blocked
+/// user, so this stays small and the read is negligible next to the Redis scan on the same path.
+async fn load_feed_blocked_user_ids(pool: &PgPool) -> eyre::Result<HashSet<SbUserId>> {
+    let rows = sqlx::query!(r#"SELECT user_id as "user_id: SbUserId" FROM twitch_feed_blocks"#,)
+        .fetch_all(pool)
+        .await
+        .wrap_err("Failed to load Twitch feed blocks")?;
+    Ok(rows.into_iter().map(|r| r.user_id).collect())
+}
+
+/// Builds the ordered `liveStreams` feed from the raw Redis entries: keep only StarCraft streams that
+/// aren't feed-blocked, then sort by viewer count (highest first).
+fn feed_streams(
+    entries: Vec<(SbUserId, LiveStreamSummary)>,
+    blocked: &HashSet<SbUserId>,
+) -> Vec<LiveStream> {
+    let mut streams: Vec<LiveStream> = entries
+        .into_iter()
+        .filter(|(user_id, summary)| summary.is_starcraft() && !blocked.contains(user_id))
+        .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
+        .collect();
+    streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
+    streams
+}
+
+/// Records a feed block for `user_id`, remembering which admin created it. Idempotent: re-blocking an
+/// already-blocked user keeps the original block (and its original `blocked_by`/`created_at`).
+async fn insert_feed_block(
+    pool: &PgPool,
+    user_id: SbUserId,
+    blocked_by: SbUserId,
+) -> eyre::Result<()> {
+    sqlx::query!(
+        r#"
+            INSERT INTO twitch_feed_blocks (user_id, blocked_by)
+            VALUES ($1, $2)
+            ON CONFLICT (user_id) DO NOTHING
+        "#,
+        user_id as _,
+        blocked_by as _,
+    )
+    .execute(pool)
+    .await
+    .wrap_err("Failed to insert Twitch feed block")?;
+    Ok(())
+}
+
+/// Removes a feed block, returning whether one existed.
+async fn delete_feed_block(pool: &PgPool, user_id: SbUserId) -> eyre::Result<bool> {
+    let result = sqlx::query!(
+        r#"DELETE FROM twitch_feed_blocks WHERE user_id = $1"#,
+        user_id as _,
+    )
+    .execute(pool)
+    .await
+    .wrap_err("Failed to delete Twitch feed block")?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Loads the blocked-streams list for the admin UI, newest first, joining in each user's current
+/// Twitch channel identity when they still have one linked.
+async fn load_feed_blocks(pool: &PgPool) -> eyre::Result<Vec<BlockedStream>> {
+    sqlx::query_as!(
+        BlockedStream,
+        r#"
+            SELECT b.user_id as "user_id: SbUserId",
+                b.blocked_by as "blocked_by_id: SbUserId",
+                c.twitch_login as "twitch_login?",
+                c.twitch_display_name as "twitch_display_name?",
+                b.created_at
+            FROM twitch_feed_blocks b
+            LEFT JOIN twitch_connections c ON c.user_id = b.user_id
+            ORDER BY b.created_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .wrap_err("Failed to load Twitch feed blocks")
+}
+
 async fn set_stream_live(
     redis: &RedisPool,
     user_id: SbUserId,
@@ -1212,16 +1331,22 @@ impl TwitchQuery {
     }
 
     /// ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
-    /// first).
+    /// first). Users an admin has blocked from the feed are omitted (the block hides them here only;
+    /// their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
     async fn live_streams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<LiveStream>> {
-        let mut streams: Vec<LiveStream> = load_live_streams(ctx.data::<RedisPool>()?)
-            .await?
-            .into_iter()
-            .filter(|(_, summary)| summary.is_starcraft())
-            .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
-            .collect();
-        streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
-        Ok(streams)
+        let entries = load_live_streams(ctx.data::<RedisPool>()?).await?;
+        let blocked = load_feed_blocked_user_ids(ctx.data::<PgPool>()?).await?;
+        Ok(feed_streams(entries, &blocked))
+    }
+
+    /// Streamers an admin has blocked from the live-streams feed, newest first. For the admin
+    /// blocked-streams management UI.
+    #[graphql(guard = RequiredPermission::ManageLiveStreams)]
+    async fn blocked_streams(
+        &self,
+        ctx: &Context<'_>,
+    ) -> async_graphql::Result<Vec<BlockedStream>> {
+        Ok(load_feed_blocks(ctx.data::<PgPool>()?).await?)
     }
 
     /// The ids of every ShieldBattery user who is currently live-streaming (any category). This lets
@@ -1424,6 +1549,32 @@ impl TwitchMutation {
         }
 
         Ok(true)
+    }
+
+    /// Blocks a user's stream from appearing in the live-streams feed (shown on the home page and
+    /// the dedicated live streams page). Idempotent (a repeat block keeps the original). The block
+    /// hides them from the feed only, not from the profile stream card / avatar "live" ring / friend
+    /// notifications. Requires the `manageLiveStreams` permission.
+    #[graphql(guard = RequiredPermission::ManageLiveStreams)]
+    async fn block_stream(
+        &self,
+        ctx: &Context<'_>,
+        user_id: SbUserId,
+    ) -> async_graphql::Result<bool> {
+        let admin = require_current_user(ctx)?;
+        insert_feed_block(ctx.data::<PgPool>()?, user_id, admin.id).await?;
+        Ok(true)
+    }
+
+    /// Removes a user's feed block, letting their stream appear in the feed again. Returns whether a
+    /// block was removed. Requires the `manageLiveStreams` permission.
+    #[graphql(guard = RequiredPermission::ManageLiveStreams)]
+    async fn unblock_stream(
+        &self,
+        ctx: &Context<'_>,
+        user_id: SbUserId,
+    ) -> async_graphql::Result<bool> {
+        Ok(delete_feed_block(ctx.data::<PgPool>()?, user_id).await?)
     }
 }
 
@@ -2062,6 +2213,35 @@ mod tests {
         assert_eq!(parsed.streams[0].0, SbUserId(7));
         assert_eq!(parsed.streams[0].1.title, "Ladder");
         assert_eq!(parsed.malformed, vec![(SbUserId(9), malformed_json)]);
+    }
+
+    #[test]
+    fn feed_streams_drops_blocked_and_non_starcraft_then_sorts_by_viewers() {
+        let mut low = live_stream_summary();
+        low.viewer_count = 10;
+        let mut high = live_stream_summary();
+        high.viewer_count = 500;
+        let mut blocked_stream = live_stream_summary();
+        blocked_stream.viewer_count = 999;
+        let mut non_starcraft = live_stream_summary();
+        non_starcraft.game_id = "509658".to_owned(); // "Just Chatting", not a StarCraft category
+
+        let entries = vec![
+            (SbUserId(1), low),
+            (SbUserId(2), high),
+            (SbUserId(3), blocked_stream),
+            (SbUserId(4), non_starcraft),
+        ];
+        let blocked = HashSet::from([SbUserId(3)]);
+
+        let streams = feed_streams(entries, &blocked);
+
+        // The blocked user (3) and the non-StarCraft stream (4) are gone; the rest are ordered by
+        // viewer count, highest first.
+        let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
+        assert_eq!(ids, vec![SbUserId(2), SbUserId(1)]);
+        assert_eq!(streams[0].viewer_count, 500);
+        assert_eq!(streams[1].viewer_count, 10);
     }
 
     #[test]

@@ -135,6 +135,7 @@ export type SbPermissionsInput = {
   manageBugReports: boolean
   manageGameReports: boolean
   manageLeagues: boolean
+  manageLiveStreams: boolean
   manageMapPools: boolean
   manageMaps: boolean
   manageMatchmaking: boolean
@@ -240,6 +241,24 @@ export type NewsDeletePostMutationVariables = Exact<{
 }>
 
 export type NewsDeletePostMutation = { newsDeletePost: boolean }
+
+export type AdminBlockedStreamsQueryVariables = Exact<{ [key: string]: never }>
+
+export type AdminBlockedStreamsQuery = {
+  blockedStreams: Array<{
+    createdAt: string
+    twitchLogin: string | null
+    twitchDisplayName: string | null
+    user: { id: Types.SbUserId; name: string } | null
+    blockedBy: { id: Types.SbUserId; name: string } | null
+  }>
+}
+
+export type AdminUnblockStreamMutationVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type AdminUnblockStreamMutation = { unblockStream: boolean }
 
 export type AdminMatchmakingConfigQueryVariables = Exact<{ [key: string]: never }>
 
@@ -832,6 +851,18 @@ export type LiveStreams_FeedEntryFragmentFragment = {
   user: { id: Types.SbUserId; name: string } | null
 } & { ' $fragmentName'?: 'LiveStreams_FeedEntryFragmentFragment' }
 
+export type BlockStreamMutationVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type BlockStreamMutation = { blockStream: boolean }
+
+export type UnblockStreamMutationVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type UnblockStreamMutation = { unblockStream: boolean }
+
 export type LiveStreamsPageQueryVariables = Exact<{ [key: string]: never }>
 
 export type LiveStreamsPageQuery = {
@@ -896,6 +927,7 @@ export type AdminUserProfileQuery = {
           manageGameReports: boolean
           manageRestrictedNames: boolean
           manageSignupCodes: boolean
+          manageLiveStreams: boolean
         }
       })
     | null
@@ -921,6 +953,7 @@ export type AdminUserProfile_PermissionsFragment = {
     manageGameReports: boolean
     manageRestrictedNames: boolean
     manageSignupCodes: boolean
+    manageLiveStreams: boolean
   }
 } & { ' $fragmentName'?: 'AdminUserProfile_PermissionsFragment' }
 
@@ -1825,6 +1858,7 @@ export const AdminUserProfile_PermissionsFragmentDoc = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageGameReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLiveStreams' } },
               ],
             },
           },
@@ -2198,6 +2232,91 @@ export const NewsDeletePostDocument = {
     },
   ],
 } as unknown as DocumentNode<NewsDeletePostMutation, NewsDeletePostMutationVariables>
+export const AdminBlockedStreamsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'AdminBlockedStreams' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'blockedStreams' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'createdAt' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchLogin' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'twitchDisplayName' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'user' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'blockedBy' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminBlockedStreamsQuery, AdminBlockedStreamsQueryVariables>
+export const AdminUnblockStreamDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'AdminUnblockStream' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'unblockStream' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<AdminUnblockStreamMutation, AdminUnblockStreamMutationVariables>
 export const AdminMatchmakingConfigDocument = {
   kind: 'Document',
   definitions: [
@@ -4621,6 +4740,78 @@ export const LiveUserIdsDocument = {
     },
   ],
 } as unknown as DocumentNode<LiveUserIdsQuery, LiveUserIdsQueryVariables>
+export const BlockStreamDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'BlockStream' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'blockStream' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<BlockStreamMutation, BlockStreamMutationVariables>
+export const UnblockStreamDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'mutation',
+      name: { kind: 'Name', value: 'UnblockStream' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'unblockStream' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UnblockStreamMutation, UnblockStreamMutationVariables>
 export const LiveStreamsPageDocument = {
   kind: 'Document',
   definitions: [
@@ -4908,6 +5099,7 @@ export const AdminUserProfileDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageGameReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLiveStreams' } },
               ],
             },
           },
@@ -5003,6 +5195,7 @@ export const AdminUpdateUserPermissionsDocument = {
                 { kind: 'Field', name: { kind: 'Name', value: 'manageGameReports' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageRestrictedNames' } },
                 { kind: 'Field', name: { kind: 'Name', value: 'manageSignupCodes' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'manageLiveStreams' } },
               ],
             },
           },

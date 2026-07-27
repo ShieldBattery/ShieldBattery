@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id as \"user_id: SbUserId\" FROM twitch_feed_blocks",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id: SbUserId",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "twitch_feed_blocks",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1f7130e0ee2d9c924dfc57a654acd80af031e99305a5cfd67e580b84419da206"
+}

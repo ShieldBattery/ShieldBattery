@@ -77,6 +77,7 @@ export interface SbPermissions {
   manageGameReports: boolean
   manageRestrictedNames: boolean
   manageSignupCodes: boolean
+  manageLiveStreams: boolean
 }
 
 export interface UrgentMessage {

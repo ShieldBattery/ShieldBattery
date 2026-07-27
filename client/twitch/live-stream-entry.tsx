@@ -10,6 +10,7 @@ import {
   useStreamUptime,
   ViewerCountPill,
 } from './live-indicators'
+import { LiveStreamModeration, ModerationContainer } from './live-stream-moderation'
 
 /**
  * Shared fragment for the home-page "live streams" feed. Defined here (rather than duplicated in
@@ -113,7 +114,8 @@ const FeaturedThumb = styled.div`
   overflow: hidden;
 
   ${FeaturedRoot}:hover &,
-  ${FeaturedRoot}:focus-visible & {
+  ${FeaturedRoot}:focus-visible &,
+  ${ModerationContainer}:hover & {
     outline: 2px solid var(--theme-live);
     outline-offset: 2px;
   }
@@ -181,7 +183,7 @@ export function FeaturedLiveStreamEntry({
   const stream = useLiveStream(query)
   const { sbName, handle } = getIdentity(stream)
 
-  return (
+  const entry = (
     <FeaturedRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
       <FeaturedThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' loading='lazy' />
@@ -210,6 +212,14 @@ export function FeaturedLiveStreamEntry({
       </FeaturedMeta>
     </FeaturedRoot>
   )
+
+  return stream.user ? (
+    <LiveStreamModeration userId={stream.user.id} name={sbName} placement='below-top-pills'>
+      {entry}
+    </LiveStreamModeration>
+  ) : (
+    entry
+  )
 }
 
 // --- Compact row entry -----------------------------------------------------------------------
@@ -230,7 +240,8 @@ const RowRoot = styled.a`
   }
 
   &:hover,
-  &:focus-visible {
+  &:focus-visible,
+  ${ModerationContainer}:hover & {
     background-color: var(--theme-container-high);
     text-decoration: none;
     outline: none;
@@ -289,7 +300,7 @@ export function LiveStreamEntry({
   const { sbName, handle } = getIdentity(stream)
   const uptime = useStreamUptime(stream.startedAt)
 
-  return (
+  const entry = (
     <RowRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
       <RowThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' width={108} height={61} loading='lazy' />
@@ -307,5 +318,13 @@ export function LiveStreamEntry({
         <RowMeta>{uptime}</RowMeta>
       </RowInfo>
     </RowRoot>
+  )
+
+  return stream.user ? (
+    <LiveStreamModeration userId={stream.user.id} name={sbName}>
+      {entry}
+    </LiveStreamModeration>
+  ) : (
+    entry
   )
 }

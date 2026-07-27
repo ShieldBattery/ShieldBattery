@@ -52,6 +52,17 @@ const cacheUpdates: UpdatesConfig = {
         })
       }
     },
+    // Blocking/unblocking a stream changes both the live-streams feed and the admin blocked-streams
+    // list, which are otherwise served cache-first for up to the request-policy TTL and would go
+    // stale. Invalidating here refreshes every surface uniformly (home feed, `/live`, admin page).
+    blockStream: (_result, _args, cache) => {
+      cache.invalidate('Query', 'liveStreams')
+      cache.invalidate('Query', 'blockedStreams')
+    },
+    unblockStream: (_result, _args, cache) => {
+      cache.invalidate('Query', 'liveStreams')
+      cache.invalidate('Query', 'blockedStreams')
+    },
   },
 }
 
