@@ -471,6 +471,7 @@
       "submit": "Отправить",
       "test": "Тест",
       "unblock": "Разблокировать",
+      "undo": "Отменить",
       "view": "Просмотр",
       "zoomIn": "Приблизить",
       "zoomOut": "Отдалить"
@@ -1746,6 +1747,11 @@
       "viewers_few": "{{count}} зрителя",
       "viewers_many": "{{count}} зрителей",
       "viewers_other": "{{count}} зрителя"
+    },
+    "moderation": {
+      "blocked": "{{name}} больше не показывается в трансляциях",
+      "blockError": "Не удалось убрать {{name}} из трансляций",
+      "removeTooltip": "Убрать из трансляций"
     }
   },
   "user": {

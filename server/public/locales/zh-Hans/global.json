@@ -468,6 +468,7 @@
       "submit": "提交",
       "test": "测试",
       "unblock": "解除屏蔽",
+      "undo": "撤销",
       "view": "查看",
       "zoomIn": "放大",
       "zoomOut": "缩小"
@@ -1719,6 +1720,11 @@
       "seeAll": "查看所有直播",
       "title": "直播",
       "viewers_other": "{{count}} 人观看"
+    },
+    "moderation": {
+      "blocked": "已将 {{name}} 从直播中移除",
+      "blockError": "无法将 {{name}} 从直播中移除",
+      "removeTooltip": "从直播中移除"
     }
   },
   "user": {

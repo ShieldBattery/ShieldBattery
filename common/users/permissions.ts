@@ -21,4 +21,5 @@ export const DEFAULT_PERMISSIONS: Readonly<SbPermissions> = {
   manageGameReports: false,
   manageRestrictedNames: false,
   manageSignupCodes: false,
+  manageLiveStreams: false,
 }

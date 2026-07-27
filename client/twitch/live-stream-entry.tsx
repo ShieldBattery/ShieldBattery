@@ -10,6 +10,7 @@ import {
   useStreamUptime,
   ViewerCountPill,
 } from './live-indicators'
+import { LiveStreamModeration } from './live-stream-moderation'
 
 /**
  * Shared fragment for the home-page "live streams" feed. Defined here (rather than duplicated in
@@ -175,13 +176,15 @@ const FeaturedTitle = styled.div`
 
 export function FeaturedLiveStreamEntry({
   query,
+  onModerated,
 }: {
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
+  onModerated?: () => void
 }) {
   const stream = useLiveStream(query)
   const { sbName, handle } = getIdentity(stream)
 
-  return (
+  const entry = (
     <FeaturedRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
       <FeaturedThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' loading='lazy' />
@@ -209,6 +212,14 @@ export function FeaturedLiveStreamEntry({
         </MetaText>
       </FeaturedMeta>
     </FeaturedRoot>
+  )
+
+  return stream.user ? (
+    <LiveStreamModeration userId={stream.user.id} name={sbName} onModerated={onModerated}>
+      {entry}
+    </LiveStreamModeration>
+  ) : (
+    entry
   )
 }
 
@@ -282,14 +293,16 @@ const RowMeta = styled.div`
 
 export function LiveStreamEntry({
   query,
+  onModerated,
 }: {
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
+  onModerated?: () => void
 }) {
   const stream = useLiveStream(query)
   const { sbName, handle } = getIdentity(stream)
   const uptime = useStreamUptime(stream.startedAt)
 
-  return (
+  const entry = (
     <RowRoot href={streamUrl(stream.twitchLogin)} target='_blank' rel='noopener'>
       <RowThumb>
         <Thumbnail src={stream.thumbnailUrl} alt='' width={108} height={61} loading='lazy' />
@@ -307,5 +320,13 @@ export function LiveStreamEntry({
         <RowMeta>{uptime}</RowMeta>
       </RowInfo>
     </RowRoot>
+  )
+
+  return stream.user ? (
+    <LiveStreamModeration userId={stream.user.id} name={sbName} onModerated={onModerated}>
+      {entry}
+    </LiveStreamModeration>
+  ) : (
+    entry
   )
 }

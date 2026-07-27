@@ -821,7 +821,8 @@ impl UsersMutation {
                     manage_bug_reports = $14,
                     manage_game_reports = $15,
                     manage_restricted_names = $16,
-                    manage_signup_codes = $17
+                    manage_signup_codes = $17,
+                    manage_live_streams = $18
                 WHERE user_id = $1
             "#,
             user_id as _,
@@ -841,6 +842,7 @@ impl UsersMutation {
             permissions.manage_game_reports,
             permissions.manage_restricted_names,
             permissions.manage_signup_codes,
+            permissions.manage_live_streams,
         )
         .execute(ctx.data::<PgPool>()?)
         .await?;
@@ -1252,7 +1254,7 @@ impl CurrentUserRepo {
                         manage_matchmaking_seasons, manage_matchmaking_times,
                         mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
-                        manage_restricted_names, manage_signup_codes
+                        manage_restricted_names, manage_signup_codes, manage_live_streams
                     FROM permissions
                     WHERE user_id = $1
                 "#,

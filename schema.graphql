@@ -3,6 +3,35 @@ Any of the possible race choices after random has been resolved.
 """
 scalar AssignedRace
 
+"""
+A streamer an admin has blocked from the home-page live-streams feed, for the admin
+blocked-streams list. The block hides them from the `liveStreams` feed only; the `twitch_login`/
+`twitch_display_name` come from their currently-linked channel (via a LEFT JOIN) and are absent
+if they've since unlinked.
+"""
+type BlockedStream {
+	"""
+	The Twitch login of the blocked user's currently-linked channel, if they still have one.
+	"""
+	twitchLogin: String
+	"""
+	The Twitch display name of the blocked user's currently-linked channel, if any.
+	"""
+	twitchDisplayName: String
+	"""
+	When the block was created.
+	"""
+	createdAt: DateTime!
+	"""
+	The blocked ShieldBattery user.
+	"""
+	user: SbUser
+	"""
+	The admin who created the block, if their account still exists.
+	"""
+	blockedBy: SbUser
+}
+
 input CreateSignupCodeInput {
 	expiresAt: DateTime!
 	maxUses: Int
@@ -551,6 +580,18 @@ type Mutation {
 	Removes the current user's Twitch connection. Returns whether a connection was removed.
 	"""
 	twitchUnlink: Boolean!
+	"""
+	Blocks a user's stream from appearing in the home-page live-streams feed. Idempotent (a
+	repeat block keeps the original). The block hides them from the feed only, not from the
+	profile stream card / avatar "live" ring / friend notifications. Requires the
+	`manageLiveStreams` permission.
+	"""
+	blockStream(userId: SbUserId!): Boolean!
+	"""
+	Removes a user's feed block, letting their stream appear in the feed again. Returns whether a
+	block was removed. Requires the `manageLiveStreams` permission.
+	"""
+	unblockStream(userId: SbUserId!): Boolean!
 	userUpdateCurrent(currentPassword: String!, changes: UpdateCurrentUserChanges!): CurrentUser!
 	userUpdatePermissions(userId: SbUserId!, permissions: SbPermissionsInput!): SbUser!
 	userAddRestrictedName(pattern: String!, kind: RestrictedNameKind!, reason: RestrictedNameReason!): NameRestriction!
@@ -709,9 +750,15 @@ type Query {
 	myTwitchConnection: TwitchConnection
 	"""
 	ShieldBattery users currently live-streaming StarCraft, ordered by viewer count (highest
-	first).
+	first). Users an admin has blocked from the feed are omitted (the block hides them here only;
+	their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
 	"""
 	liveStreams: [LiveStream!]!
+	"""
+	Streamers an admin has blocked from the home-page live-streams feed, newest first. For the
+	admin blocked-streams management UI.
+	"""
+	blockedStreams: [BlockedStream!]!
 	"""
 	The ids of every ShieldBattery user who is currently live-streaming (any category). This lets
 	the client badge "live" state across user lists (friends, chat, etc.) from a single lookup,
@@ -799,6 +846,7 @@ type SbPermissions {
 	manageGameReports: Boolean!
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
+	manageLiveStreams: Boolean!
 }
 
 input SbPermissionsInput {
@@ -823,6 +871,7 @@ input SbPermissionsInput {
 	manageGameReports: Boolean!
 	manageRestrictedNames: Boolean!
 	manageSignupCodes: Boolean!
+	manageLiveStreams: Boolean!
 }
 
 type SbUser {

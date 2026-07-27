@@ -37,6 +37,7 @@ pub struct SbPermissions {
     pub manage_game_reports: bool,
     pub manage_restricted_names: bool,
     pub manage_signup_codes: bool,
+    pub manage_live_streams: bool,
 }
 
 // TODO(tec27): Generate this with a macro or something?
@@ -58,6 +59,7 @@ pub enum RequiredPermission {
     ManageGameReports,
     ManageRestrictedNames,
     ManageSignupCodes,
+    ManageLiveStreams,
 }
 
 impl RequiredPermission {
@@ -79,6 +81,7 @@ impl RequiredPermission {
             Self::ManageGameReports => permissions.manage_game_reports,
             Self::ManageRestrictedNames => permissions.manage_restricted_names,
             Self::ManageSignupCodes => permissions.manage_signup_codes,
+            Self::ManageLiveStreams => permissions.manage_live_streams,
         }
     }
 }
@@ -117,7 +120,7 @@ impl Loader<SbUserId> for PermissionsLoader {
                         manage_matchmaking_seasons, manage_matchmaking_times,
                         mass_delete_maps, moderate_chat_channels,
                         manage_news, manage_bug_reports, manage_game_reports,
-                        manage_restricted_names, manage_signup_codes
+                        manage_restricted_names, manage_signup_codes, manage_live_streams
                     FROM permissions
                     WHERE user_id = ANY($1)
             "#,
@@ -145,6 +148,7 @@ impl Loader<SbUserId> for PermissionsLoader {
                     manage_game_reports: r.manage_game_reports,
                     manage_restricted_names: r.manage_restricted_names,
                     manage_signup_codes: r.manage_signup_codes,
+                    manage_live_streams: r.manage_live_streams,
                 },
             )
         })

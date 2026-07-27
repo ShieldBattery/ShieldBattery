@@ -57,7 +57,11 @@ export function LiveStreamsPage() {
         {sorted.length > 0 ? (
           <Grid>
             {sorted.map(stream => (
-              <FeaturedLiveStreamEntry key={stream.twitchLogin} query={stream} />
+              <FeaturedLiveStreamEntry
+                key={stream.twitchLogin}
+                query={stream}
+                onModerated={() => reexecuteQuery({ requestPolicy: 'network-only' })}
+              />
             ))}
           </Grid>
         ) : (

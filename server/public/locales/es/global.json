@@ -470,6 +470,7 @@
       "submit": "Enviar",
       "test": "Probar",
       "unblock": "Desbloquear",
+      "undo": "Deshacer",
       "view": "Ver",
       "zoomIn": "Acercar",
       "zoomOut": "Alejar"
@@ -1737,6 +1738,11 @@
       "viewers_one": "{{count}} espectador",
       "viewers_many": "{{count}} espectadores",
       "viewers_other": "{{count}} espectadores"
+    },
+    "moderation": {
+      "blocked": "Se quitó a {{name}} de las transmisiones en vivo",
+      "blockError": "No se pudo quitar a {{name}} de las transmisiones en vivo",
+      "removeTooltip": "Quitar de las transmisiones en vivo"
     }
   },
   "user": {

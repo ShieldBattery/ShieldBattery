@@ -468,6 +468,7 @@
       "submit": "제출해",
       "test": "테스트",
       "unblock": "언블록",
+      "undo": "실행 취소",
       "view": "보기",
       "zoomIn": "확대",
       "zoomOut": "축소"
@@ -1719,6 +1720,11 @@
       "seeAll": "라이브 방송 모두 보기",
       "title": "라이브 방송",
       "viewers_other": "시청자 {{count}}명"
+    },
+    "moderation": {
+      "blocked": "{{name}}님을 라이브 방송에서 제거했습니다",
+      "blockError": "{{name}}님을 라이브 방송에서 제거하지 못했습니다",
+      "removeTooltip": "라이브 방송에서 제거"
     }
   },
   "user": {

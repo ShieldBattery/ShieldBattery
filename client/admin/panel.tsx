@@ -21,6 +21,9 @@ const LoadableMapManager = IS_ELECTRON
 const LoadableMapPools = React.lazy(async () => ({
   default: (await import('../matchmaking/admin-map-pools')).AdminMatchmakingMapPools,
 }))
+const LoadableLiveStreams = React.lazy(async () => ({
+  default: (await import('./live-streams')).AdminLiveStreams,
+}))
 const LoadableMatchmakingConfig = React.lazy(async () => ({
   default: (await import('./matchmaking-config')).AdminMatchmakingConfig,
 }))
@@ -53,6 +56,7 @@ export default function AdminPanel() {
   > = [
     ['/admin/bug-reports', perms?.manageBugReports, LoadableBugReports, 'Manage bug reports'],
     ['/admin/game-reports', perms?.manageGameReports, LoadableGameReports, 'Manage game reports'],
+    ['/admin/live-streams', perms?.manageLiveStreams, LoadableLiveStreams, 'Manage live streams'],
     [
       '/admin/map-manager',
       perms?.manageMaps || perms?.massDeleteMaps,
