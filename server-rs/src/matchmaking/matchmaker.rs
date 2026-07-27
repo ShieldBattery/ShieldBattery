@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -27,7 +27,7 @@ Where:
 
 `max_latency` is the estimated one-way latency (in milliseconds) of the candidate match's worst
 pairwise link, derived from each player's chosen region and their measured round-trip time to it
-(see [`match_latency`]). Latency only changes the play experience in discrete jumps — the game holds
+(see [`prepared_match_latency`]). Latency only changes the play experience in discrete jumps — the game holds
 a fixed turn rate / input buffer until latency crosses a threshold, so anything under ~100ms one-way
 plays identically. The quality formula therefore penalizes `latency_value(max_latency)` (a count of
 turn-rate steps) rather than raw milliseconds (see [`latency_value`]).
@@ -87,7 +87,7 @@ pub struct Player {
     /// and are unconstrained.
     pub map_selections: HashMap<MatchmakingType, Vec<MapId>>,
     /// The game server region this player asked to home in, if any. Combined with `rtt_ms` and the
-    /// backbone table to estimate a candidate match's latency (see [`match_latency`]). A player with
+    /// backbone table to estimate a candidate match's latency (see [`prepared_match_latency`]). A player with
     /// no region (dev loopback, or no coordinator-configured regions) contributes no latency
     /// information and matches involving them are not penalized.
     pub region: Option<String>,
@@ -102,34 +102,6 @@ pub struct Player {
 fn effective_rating(player: &Player, mode: MatchmakingType, uncertainty_k: f32) -> f32 {
     let mode_rating = player.ratings.get(&mode).copied().unwrap_or_default();
     mode_rating.rating - uncertainty_k * mode_rating.uncertainty.unwrap_or(0.0)
-}
-
-/// Estimates the one-way latency (ms) of a candidate match as its worst pairwise link. Each pair's
-/// one-way estimate is `rtt_a/2 + backbone(region_a, region_b)/2 + rtt_b/2`, where `rtt` is a
-/// player's measured round-trip time to their chosen region and `backbone` is the static
-/// region-to-region round-trip time (0 within a region, a conservative default for an unconfigured
-/// pair — see [`BackboneRttTable`]). A lockstep game is bottlenecked by its slowest link, so the
-/// match's latency is the maximum across all pairs.
-///
-/// A player missing either a region or a measured rtt carries no latency signal, so any pair
-/// involving them is skipped and contributes nothing — matching the region-blind fallback for
-/// players with no coordinator-configured regions. With no contributing pairs the estimate is 0.
-fn match_latency(entries: &[&QueueEntry], backbone: &BackboneRttTable) -> f32 {
-    let mut worst = 0.0f32;
-    for (i, a) in entries.iter().enumerate() {
-        for b in &entries[i + 1..] {
-            if let (Some(region_a), Some(rtt_a), Some(region_b), Some(rtt_b)) = (
-                a.player.region.as_deref(),
-                a.player.rtt_ms,
-                b.player.region.as_deref(),
-                b.player.rtt_ms,
-            ) {
-                let one_way = rtt_a / 2.0 + backbone.rtt(region_a, region_b) / 2.0 + rtt_b / 2.0;
-                worst = worst.max(one_way);
-            }
-        }
-    }
-    worst
 }
 
 /// Converts an estimated one-way latency (ms) into the number of turn-rate "steps" it costs — the
@@ -161,8 +133,9 @@ pub struct Matchmaker<T: QueueSelector> {
     /// fresh on each search tick and replaceable via [`Matchmaker::set_backbone`], so a refreshed
     /// coordinator-served table (or an operator override change) takes effect without a restart, like
     /// `config`.
-    backbone: BackboneRttTable,
+    backbone: Arc<BackboneRttTable>,
     queue: Vec<QueueEntry>,
+    queued_player_ids: HashSet<usize>,
     queue_sizes: HashMap<MatchmakingType, usize>,
     /// Smoothed (EWMA) estimate of how many players have recently been queued for each mode, used to
     /// relax the quality threshold in low population. Updated once per [`POPULATION_WINDOW`] by
@@ -196,18 +169,362 @@ pub struct Match {
     /// telemetry so the weights can later be calibrated against real game outcomes.
     pub skill_variance: f32,
     /// Win probability of team A vs team B from the matchmaker's logistic, computed over effective
-    /// (uncertainty-discounted) ratings — see [`get_team_rating`]/[`effective_rating`]. Uncertainty
+    /// (uncertainty-discounted) ratings — see
+    /// [`team_rating_for_indices`]/[`effective_rating`]. Uncertainty
     /// is folded in via the effective rating rather than a separate σ-weight, so this differs from
     /// the Glicko-2 rating update's σ-weighted expected score (the comparison this telemetry
     /// enables). 0.5 means a perfectly balanced match.
     pub win_probability: f32,
-    /// Effective team ratings (see [`get_team_rating`]) used to compute `win_probability`.
+    /// Effective team ratings (see [`team_rating_for_indices`]) used to compute `win_probability`.
     pub team_a_rating: f32,
     pub team_b_rating: f32,
-    /// Estimated one-way latency (ms) of the match's worst pairwise link (see [`match_latency`]).
+    /// Estimated one-way latency (ms) of the match's worst pairwise link (see
+    /// [`prepared_match_latency`]).
     /// Recorded in raw milliseconds for calibration; the quality score itself penalizes
     /// `latency_value(max_latency)` weighted by `WEIGHT_LATENCY`, not these raw ms.
     pub max_latency: f32,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModeQueueState {
+    pub mode: MatchmakingType,
+    pub queue_size: usize,
+    pub population_estimate: Option<f32>,
+    pub effective_min_quality: f32,
+}
+
+#[derive(Debug)]
+pub struct TickResult {
+    /// Queue and adaptive-threshold state after population roll-forward and before matched players
+    /// are removed.
+    pub queue_before_matching: Vec<ModeQueueState>,
+    /// Mutually disjoint matches whose players have already been removed from the queue.
+    pub matches: Vec<Match>,
+    pub search_stats: Vec<ModeSearchStats>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModeSearchStats {
+    pub mode: MatchmakingType,
+    pub players_examined: usize,
+    pub rosters_evaluated: u64,
+    pub map_rejections: u64,
+    pub upper_bound_rejections: u64,
+    pub team_partitions_evaluated: u64,
+    pub quality_rejections: u64,
+    pub qualifying_candidates: u64,
+    pub conflict_rejections: u64,
+    pub matches_formed: u64,
+}
+
+impl ModeSearchStats {
+    fn new(mode: MatchmakingType) -> Self {
+        Self {
+            mode,
+            players_examined: 0,
+            rosters_evaluated: 0,
+            map_rejections: 0,
+            upper_bound_rejections: 0,
+            team_partitions_evaluated: 0,
+            quality_rejections: 0,
+            qualifying_candidates: 0,
+            conflict_rejections: 0,
+            matches_formed: 0,
+        }
+    }
+}
+
+struct PreparedPlayer<'a> {
+    selected_index: usize,
+    entry: &'a QueueEntry,
+    effective_rating: f32,
+    map_selection_bits: Option<Vec<u64>>,
+}
+
+struct PairLatencies {
+    player_count: usize,
+    values: Vec<f32>,
+}
+
+impl PairLatencies {
+    fn new(entries: &[&QueueEntry], backbone: &BackboneRttTable) -> Self {
+        let player_count = entries.len();
+        let mut values = vec![0.0; player_count * player_count];
+        for (i, a) in entries.iter().enumerate() {
+            for (j, b) in entries.iter().enumerate().skip(i + 1) {
+                let latency = pair_latency(a, b, backbone);
+                values[i * player_count + j] = latency;
+                values[j * player_count + i] = latency;
+            }
+        }
+        Self {
+            player_count,
+            values,
+        }
+    }
+
+    fn get(&self, a: usize, b: usize) -> f32 {
+        self.values[a * self.player_count + b]
+    }
+}
+
+fn pair_latency(a: &QueueEntry, b: &QueueEntry, backbone: &BackboneRttTable) -> f32 {
+    if let (Some(region_a), Some(rtt_a), Some(region_b), Some(rtt_b)) = (
+        a.player.region.as_deref(),
+        a.player.rtt_ms,
+        b.player.region.as_deref(),
+        b.player.rtt_ms,
+    ) {
+        rtt_a / 2.0 + backbone.rtt(region_a, region_b) / 2.0 + rtt_b / 2.0
+    } else {
+        0.0
+    }
+}
+
+fn prepared_match_latency(entries: &[&PreparedPlayer<'_>], latencies: &PairLatencies) -> f32 {
+    entries
+        .iter()
+        .enumerate()
+        .flat_map(|(i, a)| {
+            entries[i + 1..]
+                .iter()
+                .map(move |b| latencies.get(a.selected_index, b.selected_index))
+        })
+        .fold(0.0, f32::max)
+}
+
+fn prepared_selections_share_a_map(entries: &[&PreparedPlayer<'_>]) -> bool {
+    if entries
+        .iter()
+        .any(|entry| entry.map_selection_bits.is_none())
+    {
+        return true;
+    }
+
+    let first = entries[0].map_selection_bits.as_ref().unwrap();
+    (0..first.len()).any(|word| {
+        entries
+            .iter()
+            .map(|entry| entry.map_selection_bits.as_ref().unwrap()[word])
+            .fold(u64::MAX, |intersection, selections| {
+                intersection & selections
+            })
+            != 0
+    })
+}
+
+fn prepare_map_selection_bits(
+    entries: &[&QueueEntry],
+    mode: MatchmakingType,
+) -> Vec<Option<Vec<u64>>> {
+    let mut map_indices = HashMap::new();
+    for selections in entries
+        .iter()
+        .filter_map(|entry| entry.player.map_selections.get(&mode))
+    {
+        for map in selections {
+            let next_index = map_indices.len();
+            map_indices.entry(map.as_str()).or_insert(next_index);
+        }
+    }
+    let word_count = map_indices.len().div_ceil(u64::BITS as usize);
+
+    entries
+        .iter()
+        .map(|entry| {
+            entry.player.map_selections.get(&mode).map(|selections| {
+                let mut bits = vec![0; word_count];
+                for map in selections {
+                    let index = map_indices[map.as_str()];
+                    bits[index / u64::BITS as usize] |= 1 << (index % u64::BITS as usize);
+                }
+                bits
+            })
+        })
+        .collect()
+}
+
+const MAX_TEAM_SIZE: usize = 3;
+
+#[derive(Debug, Clone, Copy)]
+struct TeamIds {
+    ids: [usize; MAX_TEAM_SIZE],
+    len: usize,
+}
+
+impl TeamIds {
+    fn from_indices(entries: &[&PreparedPlayer<'_>], indices: &[usize]) -> Self {
+        debug_assert!(indices.len() <= MAX_TEAM_SIZE);
+        let mut ids = [0; MAX_TEAM_SIZE];
+        for (target, &index) in ids.iter_mut().zip(indices) {
+            *target = entries[index].entry.player.id;
+        }
+        Self {
+            ids,
+            len: indices.len(),
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = usize> + '_ {
+        self.ids[..self.len].iter().copied()
+    }
+
+    fn clone_entries(&self, entries: &HashMap<usize, &QueueEntry>) -> Vec<QueueEntry> {
+        self.iter()
+            .map(|id| (*entries.get(&id).expect("candidate player must be queued")).clone())
+            .collect()
+    }
+
+    fn take_entries(&self, entries: &mut HashMap<usize, QueueEntry>) -> Vec<QueueEntry> {
+        self.iter()
+            .map(|id| {
+                entries
+                    .remove(&id)
+                    .expect("claimed candidate player must have been drained")
+            })
+            .collect()
+    }
+}
+
+fn team_rating_for_indices(entries: &[&PreparedPlayer<'_>], indices: &[usize]) -> f32 {
+    if indices.len() == 1 {
+        entries[indices[0]].effective_rating
+    } else {
+        let sum = indices
+            .iter()
+            .map(|&index| {
+                let rating = entries[index].effective_rating;
+                rating * rating
+            })
+            .sum::<f32>();
+        // TODO(tec27): Determine what the proper exponent is for this from win/loss data
+        (sum / indices.len() as f32).sqrt()
+    }
+}
+
+fn best_team_partition(entries: &[&PreparedPlayer<'_>]) -> (TeamIds, TeamIds, f32, f32) {
+    let team_size = entries.len() / 2;
+    if team_size == 1 {
+        return (
+            TeamIds::from_indices(entries, &[0]),
+            TeamIds::from_indices(entries, &[1]),
+            entries[0].effective_rating,
+            entries[1].effective_rating,
+        );
+    }
+
+    let mut best = None;
+    let mut consider = |team_a_indices: &[usize]| {
+        let mut team_b_indices = [0; MAX_TEAM_SIZE];
+        let mut team_b_len = 0;
+        for index in 0..entries.len() {
+            if !team_a_indices.contains(&index) {
+                team_b_indices[team_b_len] = index;
+                team_b_len += 1;
+            }
+        }
+        let team_b_indices = &team_b_indices[..team_b_len];
+        let rating_a = team_rating_for_indices(entries, team_a_indices);
+        let rating_b = team_rating_for_indices(entries, team_b_indices);
+        let difference = (rating_a - rating_b).abs();
+        let should_replace = best
+            .as_ref()
+            .map(
+                |(best_difference, ..): &(f32, TeamIds, TeamIds, f32, f32)| {
+                    difference.total_cmp(best_difference).is_lt()
+                },
+            )
+            .unwrap_or(true);
+        if should_replace {
+            best = Some((
+                difference,
+                TeamIds::from_indices(entries, team_a_indices),
+                TeamIds::from_indices(entries, team_b_indices),
+                rating_a,
+                rating_b,
+            ));
+        }
+    };
+
+    match team_size {
+        2 => {
+            for second in 1..entries.len() {
+                consider(&[0, second]);
+            }
+        }
+        3 => {
+            for second in 1..entries.len() {
+                for third in second + 1..entries.len() {
+                    consider(&[0, second, third]);
+                }
+            }
+        }
+        _ => unreachable!("supported matchmaking modes have team sizes from one to three"),
+    }
+
+    best.map(|(_, team_a, team_b, rating_a, rating_b)| (team_a, team_b, rating_a, rating_b))
+        .unwrap()
+}
+
+fn unique_team_partition_count(team_size: usize) -> u64 {
+    match team_size {
+        1 => 1,
+        2 => 3,
+        3 => 10,
+        _ => unreachable!("supported matchmaking modes have team sizes from one to three"),
+    }
+}
+
+#[derive(Debug)]
+struct MatchCandidate {
+    mode: MatchmakingType,
+    team_a: TeamIds,
+    team_b: TeamIds,
+    quality: f32,
+    skill_variance: f32,
+    win_probability: f32,
+    team_a_rating: f32,
+    team_b_rating: f32,
+    max_latency: f32,
+}
+
+struct CandidateSearchResult {
+    candidates: Vec<MatchCandidate>,
+    stats: Vec<ModeSearchStats>,
+}
+
+impl MatchCandidate {
+    fn player_ids(&self) -> impl Iterator<Item = usize> + '_ {
+        self.team_a.iter().chain(self.team_b.iter())
+    }
+
+    fn clone_match(&self, entries: &HashMap<usize, &QueueEntry>) -> Match {
+        Match {
+            mode: self.mode,
+            team_a: self.team_a.clone_entries(entries),
+            team_b: self.team_b.clone_entries(entries),
+            quality: self.quality,
+            skill_variance: self.skill_variance,
+            win_probability: self.win_probability,
+            team_a_rating: self.team_a_rating,
+            team_b_rating: self.team_b_rating,
+            max_latency: self.max_latency,
+        }
+    }
+
+    fn into_match(self, entries: &mut HashMap<usize, QueueEntry>) -> Match {
+        Match {
+            mode: self.mode,
+            team_a: self.team_a.take_entries(entries),
+            team_b: self.team_b.take_entries(entries),
+            quality: self.quality,
+            skill_variance: self.skill_variance,
+            win_probability: self.win_probability,
+            team_a_rating: self.team_a_rating,
+            team_b_rating: self.team_b_rating,
+            max_latency: self.max_latency,
+        }
+    }
 }
 
 pub trait QueueSelector {
@@ -221,6 +538,7 @@ pub trait QueueSelector {
 
 /// Selects players uniformly at random from the queue using reservoir sampling, so every queued
 /// player has an equal chance of being examined regardless of their position in the queue.
+#[derive(Debug, Clone, Copy)]
 pub struct RandomQueueSelector;
 
 impl QueueSelector for RandomQueueSelector {
@@ -256,28 +574,8 @@ impl Matchmaker<RandomQueueSelector> {
         backbone: BackboneRttTable,
     ) -> Matchmaker<RandomQueueSelector> {
         let mut matchmaker = Matchmaker::with_queue_selector(config, RandomQueueSelector);
-        matchmaker.backbone = backbone;
+        matchmaker.backbone = Arc::new(backbone);
         matchmaker
-    }
-}
-
-/// Calculates an effective rating for a team, as if they were a single player. This attempts to
-/// weight things such that more skilled players influence the resulting rating more than less
-/// skilled ones. Note that this differs from how we determine this in rating change calculations,
-/// because this method would be inflationary there.
-fn get_team_rating(team: &[&QueueEntry], mode: MatchmakingType, uncertainty_k: f32) -> f32 {
-    if team.len() == 1 {
-        effective_rating(&team[0].player, mode, uncertainty_k)
-    } else {
-        let sum: f32 = team
-            .iter()
-            .map(|q| {
-                let r = effective_rating(&q.player, mode, uncertainty_k);
-                r * r
-            })
-            .sum();
-        // TODO(tec27): Determine what the proper exponent is for this from win/loss data
-        (sum / team.len() as f32).sqrt()
     }
 }
 
@@ -288,27 +586,15 @@ fn get_win_probability(rating_a: f32, rating_b: f32) -> f32 {
     1.0 / (1.0 + 10.0f32.powf((rating_b - rating_a) / 400.0))
 }
 
-/// Returns whether every player's positive map selections share at least one common map. Used to
-/// avoid forming matches for positive-selection ("pick") modes where no single map satisfies
-/// everyone — such a match could not have its map chosen and would fail when it tried to start. An
-/// empty input (no players carry selections) is treated as having overlap, i.e. no constraint.
-fn selections_share_a_map(selections: &[&Vec<MapId>]) -> bool {
-    match selections.split_first() {
-        Some((first, rest)) => first
-            .iter()
-            .any(|map| rest.iter().all(|other| other.contains(map))),
-        None => true,
-    }
-}
-
 impl<T: QueueSelector> Matchmaker<T> {
     fn with_queue_selector(config: Arc<MatchmakerConfig>, queue_selector: T) -> Matchmaker<T> {
         let start = Instant::now();
         Self {
             start,
             config,
-            backbone: BackboneRttTable::default(),
+            backbone: Arc::new(BackboneRttTable::default()),
             queue: Vec::new(),
+            queued_player_ids: HashSet::new(),
             queue_sizes: HashMap::new(),
             population_estimate: HashMap::new(),
             population_peak: HashMap::new(),
@@ -327,7 +613,7 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// served pairs). Takes effect on the next search tick; the queue and population history are
     /// untouched.
     pub fn set_backbone(&mut self, backbone: BackboneRttTable) {
-        self.backbone = backbone;
+        self.backbone = Arc::new(backbone);
     }
 
     /// Returns the instant at which this matchmaker was created. Queue times in serialized tickets
@@ -376,7 +662,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         if modes.is_empty() {
             return Err(MatchmakerError::NoModesSelected);
         }
-        if self.queue.iter().any(|x| x.player.id == player.id) {
+        if self.queued_player_ids.contains(&player.id) {
             return Err(MatchmakerError::AlreadyInQueue(player.id));
         }
 
@@ -385,6 +671,7 @@ impl<T: QueueSelector> Matchmaker<T> {
             player,
             modes,
         };
+        self.queued_player_ids.insert(entry.player.id);
 
         for mode in entry.modes.iter() {
             let size = {
@@ -406,6 +693,7 @@ impl<T: QueueSelector> Matchmaker<T> {
         let index = self.queue.iter().position(|x| x.player.id == id);
         if let Some(index) = index {
             let entry = self.queue.remove(index);
+            self.queued_player_ids.remove(&entry.player.id);
             for mode in entry.modes.iter() {
                 self.queue_sizes.entry(mode).and_modify(|n| *n -= 1);
             }
@@ -492,6 +780,93 @@ impl<T: QueueSelector> Matchmaker<T> {
         }
     }
 
+    /// Runs one complete matchmaking state transition. Population sampling, proposal ordering,
+    /// cross-mode conflict resolution, and queue removal all happen before this method returns, so
+    /// callers cannot accidentally observe or mutate the queue between planning and claiming.
+    pub fn run_tick(
+        &mut self,
+        now: Instant,
+        config: Arc<MatchmakerConfig>,
+        backbone: Arc<BackboneRttTable>,
+    ) -> TickResult {
+        let mut modes = MatchmakingType::iter().collect::<Vec<_>>();
+        modes.shuffle(&mut rand::rng());
+        self.run_tick_for_modes(&modes, now, config, backbone)
+    }
+
+    fn run_tick_for_modes(
+        &mut self,
+        modes: &[MatchmakingType],
+        now: Instant,
+        config: Arc<MatchmakerConfig>,
+        backbone: Arc<BackboneRttTable>,
+    ) -> TickResult {
+        self.config = config;
+        self.backbone = backbone;
+        self.update_population_estimates(now);
+
+        let queue_before_matching = MatchmakingType::iter()
+            .map(|mode| ModeQueueState {
+                mode,
+                queue_size: self.queue_size(mode),
+                population_estimate: self.population_estimate(mode),
+                effective_min_quality: self.effective_min_quality(mode),
+            })
+            .collect();
+
+        let CandidateSearchResult {
+            candidates: proposed,
+            mut stats,
+        } = self.find_match_candidates_for_modes(modes, now);
+        let stats_by_mode = stats
+            .iter()
+            .enumerate()
+            .map(|(index, stats)| (stats.mode, index))
+            .collect::<HashMap<_, _>>();
+        let mut claimed = HashSet::new();
+        let selected = proposed
+            .into_iter()
+            .filter_map(|candidate| {
+                let mode_stats = &mut stats[stats_by_mode[&candidate.mode]];
+                if candidate.player_ids().any(|id| claimed.contains(&id)) {
+                    mode_stats.conflict_rejections += 1;
+                    return None;
+                }
+                claimed.extend(candidate.player_ids());
+                mode_stats.matches_formed += 1;
+                Some(candidate)
+            })
+            .collect::<Vec<_>>();
+
+        let queue_sizes = &mut self.queue_sizes;
+        let mut matched_entries = HashMap::with_capacity(claimed.len());
+        let mut remaining = Vec::with_capacity(self.queue.len() - claimed.len());
+        for entry in self.queue.drain(..) {
+            if claimed.contains(&entry.player.id) {
+                self.queued_player_ids.remove(&entry.player.id);
+                for mode in entry.modes {
+                    queue_sizes.entry(mode).and_modify(|size| *size -= 1);
+                }
+                matched_entries.insert(entry.player.id, entry);
+            } else {
+                remaining.push(entry);
+            }
+        }
+        self.queue = remaining;
+
+        let matches = selected
+            .into_iter()
+            .map(|candidate| candidate.into_match(&mut matched_entries))
+            .collect();
+        debug_assert!(matched_entries.is_empty());
+
+        TickResult {
+            queue_before_matching,
+            matches,
+            search_stats: stats,
+        }
+    }
+
     /// Finds matches for all modes, returning a Vec the proposed matches. Matches will be returned
     /// ordered by [MatchmakingType] and then the value of that match (so "better" matches will
     /// appear first). Only matches reaching each mode's adaptive minimum quality are returned.
@@ -506,13 +881,31 @@ impl<T: QueueSelector> Matchmaker<T> {
     /// value of that match (so "better" matches will appear first). Only matches reaching each mode's
     /// adaptive minimum quality (see [`Self::effective_min_quality`]) are returned.
     pub fn find_matches_for_modes(&self, modes: &[MatchmakingType], now: Instant) -> Vec<Match> {
+        let queued_entries = self
+            .queue
+            .iter()
+            .map(|entry| (entry.player.id, entry))
+            .collect::<HashMap<_, _>>();
+        self.find_match_candidates_for_modes(modes, now)
+            .candidates
+            .iter()
+            .map(|candidate| candidate.clone_match(&queued_entries))
+            .collect()
+    }
+
+    fn find_match_candidates_for_modes(
+        &self,
+        modes: &[MatchmakingType],
+        now: Instant,
+    ) -> CandidateSearchResult {
         let mut matches = Vec::new();
+        let mut stats = Vec::with_capacity(modes.len());
 
         for mode in modes {
-            if let Some(&size) = self.queue_sizes.get(mode)
-                && size < mode.total_players()
-            {
+            let mut mode_stats = ModeSearchStats::new(*mode);
+            if self.queue_size(*mode) < mode.total_players() {
                 // Avoid iterating the whole queue if this mode couldn't generate a valid match
+                stats.push(mode_stats);
                 continue;
             }
 
@@ -523,100 +916,106 @@ impl<T: QueueSelector> Matchmaker<T> {
             let mode_queue = self.queue.iter().filter(|e| e.modes.contains(*mode));
             // Select a small number of possible players to look at to limit the total possible
             // matches we need to examine
-            let selected = self
+            let selected_entries = self
                 .queue_selector
                 .select(mode_queue, self.config.max_players_examined);
+            mode_stats.players_examined = selected_entries.len();
+            let pair_latencies = PairLatencies::new(&selected_entries, &self.backbone);
+            let map_selection_bits = prepare_map_selection_bits(&selected_entries, *mode);
+            let selected = selected_entries
+                .iter()
+                .zip(map_selection_bits)
+                .enumerate()
+                .map(
+                    |(selected_index, (entry, map_selection_bits))| PreparedPlayer {
+                        selected_index,
+                        entry,
+                        effective_rating: effective_rating(
+                            &entry.player,
+                            *mode,
+                            mode_cfg.uncertainty_k,
+                        ),
+                        map_selection_bits,
+                    },
+                )
+                .collect::<Vec<_>>();
 
             let mode_matches = selected
                 .iter()
-                .copied()
                 // Get all the potential combinations of these players (we will decide teams later)
                 .combinations(mode.total_players())
                 // Calculate match quality
                 .filter_map(|queue_entries| {
+                    mode_stats.rosters_evaluated += 1;
                     // For positive-selection ("pick") modes, every player carries their map
                     // selections; reject any combination whose players share no map, since the
                     // match map couldn't be chosen and the match would fail. Veto/fixed modes store
                     // no selections, so this check is a no-op for them.
-                    let mode_selections: Vec<&Vec<MapId>> = queue_entries
-                        .iter()
-                        .filter_map(|q| q.player.map_selections.get(mode))
-                        .collect();
-                    if mode_selections.len() == queue_entries.len()
-                        && !selections_share_a_map(&mode_selections)
-                    {
+                    if !prepared_selections_share_a_map(&queue_entries) {
+                        mode_stats.map_rejections += 1;
                         return None;
                     }
 
                     // Estimated one-way latency of this candidate's worst pairwise link, from each
-                    // player's region and measured rtt (see [`match_latency`]). Computed here so the
-                    // value can be reused for the quality score below.
-                    let max_latency = match_latency(&queue_entries, &self.backbone);
+                    // player's region and measured rtt. Computed here so the value can be reused for
+                    // the quality score below.
+                    let max_latency = prepared_match_latency(&queue_entries, &pair_latencies);
 
-                    let mut oldest_queue_time = queue_entries[0].queue_time;
+                    let mut oldest_queue_time = queue_entries[0].entry.queue_time;
                     let mut count = 0;
                     let mut mean = 0.0;
                     let mut m2 = 0.0;
 
                     for q in &queue_entries {
-                        if q.queue_time < oldest_queue_time {
-                            oldest_queue_time = q.queue_time;
+                        if q.entry.queue_time < oldest_queue_time {
+                            oldest_queue_time = q.entry.queue_time;
                         }
                         // Calculate variance with Welford's algorithm over effective ratings
                         count += 1;
-                        let r = effective_rating(&q.player, *mode, mode_cfg.uncertainty_k);
+                        let r = q.effective_rating;
                         let delta = r - mean;
                         mean += delta / count as f32;
                         m2 += delta * (r - mean);
                     }
                     let variance = m2 / (count as f32 - 1.0);
                     let wait_time = now - oldest_queue_time;
+                    let wait_seconds = wait_time.as_secs_f32();
+                    let variance_penalty = mode_cfg.weight_rating_variance * variance;
+                    let latency_penalty = mode_cfg.weight_latency * latency_value(max_latency);
 
-                    // Find teams that minimize the difference in effective rating (if necessary)
-                    let (team_a, team_b) = if mode.team_size() == 1 {
-                        // For 1v1 modes we obviously don't need teams, just split in order
-                        (vec![queue_entries[0]], vec![queue_entries[1]])
-                    } else {
-                        queue_entries
-                            .iter()
-                            .copied()
-                            .combinations(mode.team_size())
-                            .map(|team_a| {
-                                let team_b = queue_entries
-                                    .iter()
-                                    .filter(|q| !team_a.iter().any(|a| a.player.id == q.player.id))
-                                    .copied()
-                                    .collect::<Vec<_>>();
+                    // Win-probability imbalance is always nonnegative. If the candidate already
+                    // misses the threshold before that penalty, no team partition can make it
+                    // eligible.
+                    if mode_cfg.weight_win_prob >= 0.0
+                        && wait_seconds - (variance_penalty + latency_penalty) < effective_min
+                    {
+                        mode_stats.upper_bound_rejections += 1;
+                        return None;
+                    }
 
-                                let rating_a =
-                                    get_team_rating(&team_a, *mode, mode_cfg.uncertainty_k);
-                                let rating_b =
-                                    get_team_rating(&team_b, *mode, mode_cfg.uncertainty_k);
-
-                                ((rating_a - rating_b).abs(), team_a, team_b)
-                            })
-                            .min_by(|a, b| a.0.total_cmp(&b.0))
-                            .map(|(_, a, b)| (a, b))
-                            .unwrap()
-                    };
+                    // A partition and its A/B complement have identical balance. The partition
+                    // search fixes the first player on team A, preserving the exhaustive
+                    // first-minimum orientation while evaluating each split once.
+                    mode_stats.team_partitions_evaluated +=
+                        unique_team_partition_count(mode.team_size());
+                    let (team_a, team_b, rating_a, rating_b) = best_team_partition(&queue_entries);
 
                     // Calculate the win probability for team_a vs team_b
-                    let rating_a = get_team_rating(&team_a, *mode, mode_cfg.uncertainty_k);
-                    let rating_b = get_team_rating(&team_b, *mode, mode_cfg.uncertainty_k);
                     let win_prob = get_win_probability(rating_a, rating_b);
                     let win_prob_diff = (0.5 - win_prob).abs();
 
-                    let quality = wait_time.as_secs_f32()
-                        - (mode_cfg.weight_rating_variance * variance
+                    let quality = wait_seconds
+                        - (variance_penalty
                             + mode_cfg.weight_win_prob * win_prob_diff
-                            + mode_cfg.weight_latency * latency_value(max_latency));
+                            + latency_penalty);
 
                     // Filter any matches that are too low quality
                     if quality >= effective_min {
-                        Some(Match {
+                        mode_stats.qualifying_candidates += 1;
+                        Some(MatchCandidate {
                             mode: *mode,
-                            team_a: team_a.into_iter().cloned().collect(),
-                            team_b: team_b.into_iter().cloned().collect(),
+                            team_a,
+                            team_b,
                             quality,
                             skill_variance: variance,
                             win_probability: win_prob,
@@ -625,6 +1024,7 @@ impl<T: QueueSelector> Matchmaker<T> {
                             max_latency,
                         })
                     } else {
+                        mode_stats.quality_rejections += 1;
                         None
                     }
                 })
@@ -632,9 +1032,13 @@ impl<T: QueueSelector> Matchmaker<T> {
                 .sorted_by(|a, b| b.quality.total_cmp(&a.quality));
 
             matches.extend(mode_matches);
+            stats.push(mode_stats);
         }
 
-        matches
+        CandidateSearchResult {
+            candidates: matches,
+            stats,
+        }
     }
 }
 
@@ -722,6 +1126,114 @@ mod tests {
         }
     }
 
+    fn reference_team_rating(
+        team: &[&QueueEntry],
+        mode: MatchmakingType,
+        uncertainty_k: f32,
+    ) -> f32 {
+        let sum = team
+            .iter()
+            .map(|entry| {
+                let rating = effective_rating(&entry.player, mode, uncertainty_k);
+                rating * rating
+            })
+            .sum::<f32>();
+        (sum / team.len() as f32).sqrt()
+    }
+
+    fn reference_best_team_ids(
+        entries: &[QueueEntry],
+        mode: MatchmakingType,
+        uncertainty_k: f32,
+    ) -> (Vec<usize>, Vec<usize>) {
+        entries
+            .iter()
+            .combinations(mode.team_size())
+            .map(|team_a| {
+                let team_b = entries
+                    .iter()
+                    .filter(|entry| {
+                        !team_a
+                            .iter()
+                            .any(|selected| selected.player.id == entry.player.id)
+                    })
+                    .collect::<Vec<_>>();
+                let difference = (reference_team_rating(&team_a, mode, uncertainty_k)
+                    - reference_team_rating(&team_b, mode, uncertainty_k))
+                .abs();
+                (difference, team_a, team_b)
+            })
+            .min_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, team_a, team_b)| {
+                (
+                    team_a.iter().map(|entry| entry.player.id).collect(),
+                    team_b.iter().map(|entry| entry.player.id).collect(),
+                )
+            })
+            .unwrap()
+    }
+
+    fn reference_selections_share_a_map(entries: &[&QueueEntry], mode: MatchmakingType) -> bool {
+        let selections = entries
+            .iter()
+            .filter_map(|entry| entry.player.map_selections.get(&mode))
+            .collect::<Vec<_>>();
+        if selections.len() != entries.len() {
+            return true;
+        }
+
+        let Some((first, rest)) = selections.split_first() else {
+            return true;
+        };
+        first
+            .iter()
+            .any(|map| rest.iter().all(|other| other.contains(map)))
+    }
+
+    fn reference_match_latency(entries: &[&QueueEntry], backbone: &BackboneRttTable) -> f32 {
+        let mut worst = 0.0_f32;
+        for (i, a) in entries.iter().enumerate() {
+            for b in &entries[i + 1..] {
+                if let (Some(region_a), Some(rtt_a), Some(region_b), Some(rtt_b)) = (
+                    a.player.region.as_deref(),
+                    a.player.rtt_ms,
+                    b.player.region.as_deref(),
+                    b.player.rtt_ms,
+                ) {
+                    worst = worst
+                        .max(rtt_a / 2.0 + backbone.rtt(region_a, region_b) / 2.0 + rtt_b / 2.0);
+                }
+            }
+        }
+        worst
+    }
+
+    fn match_snapshot(
+        matchmaking_match: &Match,
+    ) -> (MatchmakingType, Vec<usize>, Vec<usize>, [u32; 6]) {
+        (
+            matchmaking_match.mode,
+            matchmaking_match
+                .team_a
+                .iter()
+                .map(|entry| entry.player.id)
+                .collect(),
+            matchmaking_match
+                .team_b
+                .iter()
+                .map(|entry| entry.player.id)
+                .collect(),
+            [
+                matchmaking_match.quality.to_bits(),
+                matchmaking_match.skill_variance.to_bits(),
+                matchmaking_match.win_probability.to_bits(),
+                matchmaking_match.team_a_rating.to_bits(),
+                matchmaking_match.team_b_rating.to_bits(),
+                matchmaking_match.max_latency.to_bits(),
+            ],
+        )
+    }
+
     #[test]
     fn not_enough_players() {
         let mut matchmaker =
@@ -771,6 +1283,156 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![1]
         );
+    }
+
+    #[test]
+    fn unique_team_partitions_match_exhaustive_first_minimum() {
+        let cases: &[(MatchmakingType, &[f32])] = &[
+            (MatchmakingType::Match2v2, &[1000.0, 1000.0, 1000.0, 1000.0]),
+            (MatchmakingType::Match2v2, &[500.0, 1000.0, 1500.0, 2000.0]),
+            (MatchmakingType::Match2v2, &[1000.0, 1100.0, 1200.0, 3000.0]),
+            (
+                MatchmakingType::Match3v3Bgh,
+                &[1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0],
+            ),
+            (
+                MatchmakingType::Match3v3Bgh,
+                &[500.0, 800.0, 1100.0, 1400.0, 1700.0, 2000.0],
+            ),
+            (
+                MatchmakingType::Match3v3Bgh,
+                &[700.0, 1000.0, 1200.0, 1300.0, 1500.0, 2600.0],
+            ),
+        ];
+
+        for &(mode, ratings) in cases {
+            let mut matchmaker =
+                Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
+            for (id, rating) in ratings.iter().copied().enumerate() {
+                matchmaker
+                    .insert_player(make_player(id, rating, mode))
+                    .unwrap();
+            }
+            let expected = reference_best_team_ids(&matchmaker.queue, mode, 1.0);
+
+            let matches = matchmaker.find_matches_for_modes(&[mode], Instant::now());
+            let actual = (
+                matches[0]
+                    .team_a
+                    .iter()
+                    .map(|entry| entry.player.id)
+                    .collect::<Vec<_>>(),
+                matches[0]
+                    .team_b
+                    .iter()
+                    .map(|entry| entry.player.id)
+                    .collect::<Vec<_>>(),
+            );
+
+            assert_eq!(actual, expected, "team orientation changed for {mode:?}");
+        }
+    }
+
+    #[test]
+    fn prepared_map_and_latency_data_match_direct_roster_calculation() {
+        let mode = MatchmakingType::Match3v3Fastest;
+        let now = Instant::now();
+        let region_data = [
+            (Some("us-east"), Some(20.0)),
+            (Some("eu-west"), Some(40.0)),
+            (Some("ap-south"), Some(60.0)),
+            (Some("us-east"), Some(80.0)),
+            (Some("eu-west"), Some(100.0)),
+            (Some("ap-south"), Some(120.0)),
+            (Some("unconfigured"), Some(140.0)),
+            (None, None),
+        ];
+        let entries = region_data
+            .into_iter()
+            .enumerate()
+            .map(|(id, (region, rtt_ms))| {
+                let map_selections = if id == 7 {
+                    HashMap::new()
+                } else {
+                    let mut maps = (0..10)
+                        .map(|map| format!("unique-{id}-{map}"))
+                        .collect::<Vec<_>>();
+                    if id < 6 {
+                        maps.push("shared-first-six".to_string());
+                    }
+                    HashMap::from([(mode, maps)])
+                };
+                QueueEntry {
+                    queue_time: now,
+                    player: Player {
+                        id,
+                        ratings: HashMap::from([(
+                            mode,
+                            PlayerModeRating {
+                                rating: 1000.0 + id as f32 * 75.0,
+                                uncertainty: None,
+                            },
+                        )]),
+                        map_selections,
+                        region: region.map(str::to_string),
+                        rtt_ms,
+                    },
+                    modes: mode.into(),
+                }
+            })
+            .collect::<Vec<_>>();
+        let selected_entries = entries.iter().collect::<Vec<_>>();
+        let backbone = BackboneRttTable::new([
+            ("eu-west|us-east".to_string(), 90.0),
+            ("ap-south|us-east".to_string(), 160.0),
+            ("ap-south|eu-west".to_string(), 110.0),
+        ]);
+        let pair_latencies = PairLatencies::new(&selected_entries, &backbone);
+        let map_selection_bits = prepare_map_selection_bits(&selected_entries, mode);
+        let prepared = selected_entries
+            .iter()
+            .zip(map_selection_bits)
+            .enumerate()
+            .map(
+                |(selected_index, (entry, map_selection_bits))| PreparedPlayer {
+                    selected_index,
+                    entry,
+                    effective_rating: effective_rating(&entry.player, mode, 1.0),
+                    map_selection_bits,
+                },
+            )
+            .collect::<Vec<_>>();
+
+        assert!(
+            prepared
+                .iter()
+                .filter_map(|entry| entry.map_selection_bits.as_ref())
+                .any(|bits| bits.len() > 1),
+            "the fixture must span multiple bitset words"
+        );
+
+        let mut shared_map_rosters = 0;
+        let mut disjoint_map_rosters = 0;
+        for roster in prepared.iter().combinations(mode.total_players()) {
+            let direct_entries = roster.iter().map(|entry| entry.entry).collect::<Vec<_>>();
+            let prepared_share_map = prepared_selections_share_a_map(&roster);
+            assert_eq!(
+                prepared_share_map,
+                reference_selections_share_a_map(&direct_entries, mode)
+            );
+            assert_eq!(
+                prepared_match_latency(&roster, &pair_latencies),
+                reference_match_latency(&direct_entries, &backbone)
+            );
+
+            if prepared_share_map {
+                shared_map_rosters += 1;
+            } else {
+                disjoint_map_rosters += 1;
+            }
+        }
+        assert!(shared_map_rosters > 0);
+        assert!(disjoint_map_rosters > 0);
     }
 
     #[test]
@@ -833,6 +1495,122 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![1]
         );
+    }
+
+    #[test]
+    fn tick_claims_matches_and_removes_players_atomically() {
+        let config = permissive_config();
+        let mut matchmaker = Matchmaker::with_queue_selector(config.clone(), TestQueueSelector);
+        let modes = MatchmakingType::Match1v1Fastest | MatchmakingType::Match1v1;
+        for id in 0..3 {
+            matchmaker
+                .insert_player(make_multi_player(id, 1000.0, modes))
+                .unwrap();
+        }
+
+        let result = matchmaker.run_tick_for_modes(
+            &[MatchmakingType::Match1v1Fastest, MatchmakingType::Match1v1],
+            Instant::now(),
+            config,
+            Arc::new(BackboneRttTable::default()),
+        );
+
+        assert_eq!(result.matches.len(), 1);
+        assert_eq!(result.matches[0].mode, MatchmakingType::Match1v1Fastest);
+        let matched_ids = result.matches[0]
+            .team_a
+            .iter()
+            .chain(result.matches[0].team_b.iter())
+            .map(|entry| entry.player.id)
+            .collect::<Vec<_>>();
+        assert_eq!(matched_ids, vec![0, 1]);
+        assert_eq!(
+            result
+                .queue_before_matching
+                .iter()
+                .find(|state| state.mode == MatchmakingType::Match1v1)
+                .unwrap()
+                .queue_size,
+            3
+        );
+        let fastest_stats = &result.search_stats[0];
+        assert_eq!(fastest_stats.mode, MatchmakingType::Match1v1Fastest);
+        assert_eq!(fastest_stats.rosters_evaluated, 3);
+        assert_eq!(fastest_stats.team_partitions_evaluated, 3);
+        assert_eq!(fastest_stats.qualifying_candidates, 3);
+        assert_eq!(fastest_stats.conflict_rejections, 2);
+        assert_eq!(fastest_stats.matches_formed, 1);
+        assert_eq!(
+            matchmaker
+                .queue
+                .iter()
+                .map(|entry| entry.player.id)
+                .collect::<Vec<_>>(),
+            vec![2]
+        );
+        assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1), 1);
+        assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1Fastest), 1);
+    }
+
+    #[test]
+    fn tick_claiming_matches_reference_greedy_deduplication() {
+        let config = permissive_config();
+        let mut matchmaker = Matchmaker::with_queue_selector(config.clone(), TestQueueSelector);
+        let queued_modes = MatchmakingType::Match1v1Fastest | MatchmakingType::Match1v1;
+        for (id, rating) in [1000.0, 1010.0, 1500.0, 1510.0].into_iter().enumerate() {
+            matchmaker
+                .insert_player(make_multi_player(id, rating, queued_modes))
+                .unwrap();
+        }
+
+        let modes = [MatchmakingType::Match1v1Fastest, MatchmakingType::Match1v1];
+        let now = Instant::now();
+        let proposals = matchmaker.find_matches_for_modes(&modes, now);
+        let mut reference_claimed = HashSet::new();
+        let expected = proposals
+            .iter()
+            .filter_map(|matchmaking_match| {
+                let player_ids = matchmaking_match
+                    .team_a
+                    .iter()
+                    .chain(&matchmaking_match.team_b)
+                    .map(|entry| entry.player.id)
+                    .collect::<Vec<_>>();
+                if player_ids.iter().any(|id| reference_claimed.contains(id)) {
+                    None
+                } else {
+                    reference_claimed.extend(player_ids);
+                    Some(match_snapshot(matchmaking_match))
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let result = matchmaker.run_tick_for_modes(
+            &modes,
+            now,
+            config,
+            Arc::new(BackboneRttTable::default()),
+        );
+        let actual = result
+            .matches
+            .iter()
+            .map(match_snapshot)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            expected
+                .iter()
+                .map(|(mode, team_a, team_b, _)| (*mode, team_a.clone(), team_b.clone()))
+                .collect::<Vec<_>>(),
+            vec![
+                (MatchmakingType::Match1v1Fastest, vec![0], vec![1]),
+                (MatchmakingType::Match1v1Fastest, vec![2], vec![3]),
+            ]
+        );
+        assert_eq!(actual, expected);
+        assert!(matchmaker.queue.is_empty());
+        assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1), 0);
+        assert_eq!(matchmaker.queue_size(MatchmakingType::Match1v1Fastest), 0);
     }
 
     #[test]
@@ -1044,7 +1822,10 @@ mod tests {
     fn latency_cross_region_uses_backbone_table_entry() {
         let mut matchmaker =
             Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        matchmaker.backbone = BackboneRttTable::new([("us-east|eu-west".to_string(), 90.0)]);
+        matchmaker.set_backbone(BackboneRttTable::new([(
+            "us-east|eu-west".to_string(),
+            90.0,
+        )]));
         // Cross-region estimate: rtt_a/2 + backbone/2 + rtt_b/2 = 10 + 45 + 20 = 75ms.
         matchmaker
             .insert_player(make_player_with_region(
@@ -1122,7 +1903,10 @@ mod tests {
     fn latency_one_regionless_player_skips_the_pair() {
         let mut matchmaker =
             Matchmaker::with_queue_selector(permissive_config(), TestQueueSelector);
-        matchmaker.backbone = BackboneRttTable::new([("us-east|eu-west".to_string(), 90.0)]);
+        matchmaker.set_backbone(BackboneRttTable::new([(
+            "us-east|eu-west".to_string(),
+            90.0,
+        )]));
         // Player 0 has a region and rtt, player 1 has neither. The pair has no shared latency signal,
         // so it's skipped and contributes nothing (estimate 0), rather than assuming a distance.
         matchmaker
@@ -1147,7 +1931,10 @@ mod tests {
     fn find_matches_with_latency_penalty() {
         let mut matchmaker =
             Matchmaker::with_queue_selector(config_with_min_quality(-85.0), TestQueueSelector);
-        matchmaker.backbone = BackboneRttTable::new([("eu-west|us-east".to_string(), 200.0)]);
+        matchmaker.set_backbone(BackboneRttTable::new([(
+            "eu-west|us-east".to_string(),
+            200.0,
+        )]));
         // Cross-region pair: rtt_a/2 + backbone/2 + rtt_b/2 = 50 + 100 + 50 = 200ms one-way.
         matchmaker
             .insert_player(make_player_with_region(

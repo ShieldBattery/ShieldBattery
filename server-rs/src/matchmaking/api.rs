@@ -1,7 +1,7 @@
 use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt, parse_served_backbone_rtts};
 use crate::matchmaking::config::MatchmakerConfig;
 use crate::matchmaking::matchmaker::{
-    Match, Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
+    Matchmaker, Player, PlayerModeRating, QueueEntry, RandomQueueSelector,
 };
 use crate::matchmaking::{
     MatchFoundMessage, MatchedPlayer, MatchmakingType, PublishedMatchmakingMessage,
@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tokio::time::MissedTickBehavior;
 use uuid::Uuid;
 
 use super::matchmaker::MatchmakerError;
@@ -147,9 +148,12 @@ struct MatchmakingApiState {
 fn lock_matchmaker(
     matchmaker: &SharedMatchmaker,
 ) -> std::sync::MutexGuard<'_, Matchmaker<RandomQueueSelector>> {
-    matchmaker
+    let wait_start = Instant::now();
+    let guard = matchmaker
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    metrics::record_lock_wait_duration(wait_start.elapsed());
+    guard
 }
 
 /// Builds a [`Player`] from the per-mode DTOs received over the wire (or restored from a ticket),
@@ -209,33 +213,6 @@ fn build_ticket(entry: &QueueEntry, process_token: &Uuid, matchmaker_start: Inst
     BASE64_STANDARD.encode(&json)
 }
 
-/// Filters a list of matches so no player appears in more than one match: the first match a player
-/// appears in (in iteration order) wins, and any later match containing them is dropped.
-///
-/// Note that [`Matchmaker::find_matches`] sorts by quality only *within* each mode and then
-/// concatenates the modes (in shuffled order), so the input is not globally highest-quality-first.
-/// For a player queued in several modes this means "best match within the first mode they appear
-/// in", not their globally-best match; the per-call mode shuffle keeps that fair across calls.
-fn deduplicate_matches(matches: Vec<Match>) -> Vec<Match> {
-    let mut claimed = std::collections::HashSet::new();
-    matches
-        .into_iter()
-        .filter(|m| {
-            let ids: Vec<usize> = m
-                .team_a
-                .iter()
-                .chain(m.team_b.iter())
-                .map(|e| e.player.id)
-                .collect();
-            if ids.iter().any(|id| claimed.contains(id)) {
-                return false;
-            }
-            claimed.extend(ids);
-            true
-        })
-        .collect()
-}
-
 /// Supervises [search_loop], restarting it if it ever panics. The search loop is the only thing
 /// that forms matches, so if it died silently the `/matchmaker/token` endpoint would keep answering
 /// and Node.js would never notice that matches had stopped forming.
@@ -270,6 +247,7 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
     // timer is rebuilt below whenever an admin changes `search_interval`.
     let mut search_interval = state.config.load().search_interval;
     let mut interval = tokio::time::interval(search_interval);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
     // The first tick fires immediately; skip it so the first real search happens after one interval.
     interval.tick().await;
 
@@ -284,34 +262,21 @@ async fn search_loop(state: MatchmakingApiState, redis_pool: RedisPool) {
         if config.search_interval != search_interval {
             search_interval = config.search_interval;
             interval = tokio::time::interval(search_interval);
+            interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
             // Drop the immediate first tick so the new cadence applies from the next iteration.
             interval.tick().await;
         }
 
-        // Find matches and immediately remove matched players while still holding the lock,
-        // eliminating the window where a cancel+requeue could slip in between the two operations
-        // and have the fresh queue entry incorrectly removed.
-        let selected = {
+        // Proposal ordering, conflict resolution, and removal are one state transition, so a
+        // cancel/requeue cannot interleave with claiming.
+        let backbone = state.backbone.load_full();
+        let result = {
             let mut matchmaker = lock_matchmaker(&state.matchmaker);
-            // Push the latest config and backbone table into the matchmaker so an admin edit or a
-            // coordinator refresh takes effect this tick.
-            matchmaker.set_config(config);
-            matchmaker.set_backbone(state.backbone.load().as_ref().clone());
-            // Roll the population estimate forward before searching so the adaptive quality threshold
-            // reflects recent population rather than the post-drain residual queue size.
-            matchmaker.update_population_estimates(tick_start);
-            // Sample the per-mode gauges here — after the population roll-forward, before the drain
-            // below — so they reflect everyone waiting this tick rather than the unmatched residual.
-            metrics::sample_queue_state(&matchmaker);
-            let matches = matchmaker.find_matches(tick_start);
-            let selected = deduplicate_matches(matches);
-            for m in &selected {
-                for entry in m.team_a.iter().chain(m.team_b.iter()) {
-                    matchmaker.remove_player(entry.player.id);
-                }
-            }
-            selected
+            matchmaker.run_tick(tick_start, config, backbone)
         };
+        metrics::sample_queue_state(&result.queue_before_matching);
+        metrics::record_search_stats(&result.search_stats);
+        let selected = result.matches;
 
         metrics::record_search_tick_duration(tick_start.elapsed());
 
@@ -403,6 +368,7 @@ async fn run_backbone_fetch_loop(
     let regions_url = format!("{}/regions", coordinator_url.trim_end_matches('/'));
     // The first tick of a fresh interval fires immediately, giving the startup fetch for free.
     let mut interval = tokio::time::interval(BACKBONE_FETCH_INTERVAL);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut was_failing = false;
     loop {
         interval.tick().await;
@@ -626,14 +592,10 @@ async fn cancel(
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_backbone_fetch_result, deduplicate_matches, fetch_served_backbone_rtts};
-    use crate::matchmaking::MatchmakingType;
+    use super::{apply_backbone_fetch_result, fetch_served_backbone_rtts};
     use crate::matchmaking::backbone::{BackboneRttTable, ServedPairRtt};
-    use crate::matchmaking::matchmaker::{Match, Player, PlayerModeRating, QueueEntry};
     use arc_swap::ArcSwap;
     use color_eyre::eyre::eyre;
-    use std::collections::HashMap;
-    use std::time::Instant;
 
     fn served(a: &str, b: &str, rtt_ms: f32) -> ServedPairRtt {
         ServedPairRtt {
@@ -641,95 +603,6 @@ mod tests {
             b: b.to_string(),
             rtt_ms,
         }
-    }
-
-    #[test]
-    fn deduplication_keeps_first_match_per_player() {
-        let now = Instant::now();
-
-        let player0 = QueueEntry {
-            queue_time: now,
-            player: Player {
-                id: 0,
-                ratings: HashMap::from([(
-                    MatchmakingType::Match1v1,
-                    PlayerModeRating {
-                        rating: 1000.0,
-                        uncertainty: None,
-                    },
-                )]),
-                map_selections: HashMap::new(),
-                region: None,
-                rtt_ms: None,
-            },
-            modes: MatchmakingType::Match1v1.into(),
-        };
-        let player1 = QueueEntry {
-            queue_time: now,
-            player: Player {
-                id: 1,
-                ratings: HashMap::from([(
-                    MatchmakingType::Match1v1,
-                    PlayerModeRating {
-                        rating: 1000.0,
-                        uncertainty: None,
-                    },
-                )]),
-                map_selections: HashMap::new(),
-                region: None,
-                rtt_ms: None,
-            },
-            modes: MatchmakingType::Match1v1.into(),
-        };
-        let player2 = QueueEntry {
-            queue_time: now,
-            player: Player {
-                id: 2,
-                ratings: HashMap::from([(
-                    MatchmakingType::Match1v1,
-                    PlayerModeRating {
-                        rating: 1000.0,
-                        uncertainty: None,
-                    },
-                )]),
-                map_selections: HashMap::new(),
-                region: None,
-                rtt_ms: None,
-            },
-            modes: MatchmakingType::Match1v1.into(),
-        };
-
-        // Two matches share player 0. The first (higher quality) should be kept,
-        // the second discarded, and player 2 is also discarded (can't form a match alone).
-        let matches = vec![
-            Match {
-                mode: MatchmakingType::Match1v1,
-                team_a: vec![player0.clone()],
-                team_b: vec![player1],
-                quality: 10.0,
-                skill_variance: 0.0,
-                win_probability: 0.5,
-                team_a_rating: 1000.0,
-                team_b_rating: 1000.0,
-                max_latency: 0.0,
-            },
-            Match {
-                mode: MatchmakingType::Match1v1,
-                team_a: vec![player0],
-                team_b: vec![player2],
-                quality: 5.0,
-                skill_variance: 0.0,
-                win_probability: 0.5,
-                team_a_rating: 1000.0,
-                team_b_rating: 1000.0,
-                max_latency: 0.0,
-            },
-        ];
-
-        let result = deduplicate_matches(matches);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].team_a[0].player.id, 0);
-        assert_eq!(result[0].team_b[0].player.id, 1);
     }
 
     #[test]

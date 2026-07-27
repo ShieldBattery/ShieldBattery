@@ -25,50 +25,60 @@ const DEFAULT_BACKBONE_RTT_MS: f32 = 150.0;
 
 /// A static table of region-to-region backbone round-trip times (ms).
 ///
-/// Keys are canonicalized as the two region ids sorted lexicographically and joined with a single
-/// `'|'`, so lookups are independent of the order the two ids are passed (`rtt("a", "b")` ==
-/// `rtt("b", "a")`). Region ids therefore must not themselves contain `'|'`. A pair paired with
-/// itself is always 0; a pair absent from the table falls back to [`DEFAULT_BACKBONE_RTT_MS`].
+/// Keys are canonicalized as the two region ids sorted lexicographically, so lookups are independent
+/// of the order the two ids are passed (`rtt("a", "b")` == `rtt("b", "a")`). The external config
+/// format joins the ids with a single `'|'`, so region ids must not themselves contain `'|'`. A pair
+/// paired with itself is always 0; a pair absent from the table falls back to
+/// [`DEFAULT_BACKBONE_RTT_MS`].
 #[derive(Debug, Clone, Default)]
 pub struct BackboneRttTable {
-    rtts: HashMap<String, f32>,
+    // A nested map lets both lookups borrow the caller's `&str`s. A flat `"a|b"` key would require
+    // allocating a joined String for every lookup on the matchmaker's candidate-scoring hot path.
+    rtts: HashMap<String, HashMap<String, f32>>,
 }
 
-/// Canonicalizes an ordered id pair into the table's key form: the two ids sorted and joined by
-/// `'|'`.
-fn pair_key(a: &str, b: &str) -> String {
-    if a <= b {
-        format!("{a}|{b}")
+/// Returns the two ids in canonical lexicographic order.
+fn canonical_pair<'a>(a: &'a str, b: &'a str) -> (&'a str, &'a str) {
+    if a <= b { (a, b) } else { (b, a) }
+}
+
+/// Parses a raw config key (`"id_a|id_b"`) into a canonical pair, or `None` if it isn't exactly two
+/// `'|'`-separated ids. The returned ids borrow the config key so constructing the table only
+/// allocates the strings it stores.
+fn canonicalize_config_key(raw: &str) -> Option<(&str, &str)> {
+    let (a, b) = raw.split_once('|')?;
+    if b.contains('|') {
+        None
     } else {
-        format!("{b}|{a}")
-    }
-}
-
-/// Parses a raw config key (`"id_a|id_b"`) into a canonical key, or `None` if it isn't exactly two
-/// `'|'`-separated ids.
-fn canonicalize_config_key(raw: &str) -> Option<String> {
-    let parts: Vec<&str> = raw.split('|').collect();
-    match parts.as_slice() {
-        [a, b] => Some(pair_key(a, b)),
-        _ => None,
+        Some(canonical_pair(a, b))
     }
 }
 
 impl BackboneRttTable {
+    fn insert(&mut self, a: &str, b: &str, rtt: f32) {
+        let (a, b) = canonical_pair(a, b);
+        if let Some(row) = self.rtts.get_mut(a) {
+            row.insert(b.to_owned(), rtt);
+        } else {
+            self.rtts
+                .insert(a.to_owned(), HashMap::from([(b.to_owned(), rtt)]));
+        }
+    }
+
     /// Builds a table from raw `"id_a|id_b" -> rtt_ms` config entries, canonicalizing each key so
     /// lookups are order-independent. Malformed keys (not exactly two `'|'`-separated ids) are
     /// dropped with a warning; when two entries canonicalize to the same pair, the last wins.
     pub fn new(entries: impl IntoIterator<Item = (String, f32)>) -> Self {
-        let mut rtts = HashMap::new();
+        let mut table = Self::default();
         for (key, rtt) in entries {
             match canonicalize_config_key(&key) {
-                Some(canonical) => {
-                    rtts.insert(canonical, rtt);
+                Some((a, b)) => {
+                    table.insert(a, b, rtt);
                 }
                 None => tracing::warn!("ignoring malformed backbone RTT key {key:?}"),
             }
         }
-        Self { rtts }
+        table
     }
 
     /// Parses the table from the JSON object form used by `SB_REGION_BACKBONE_RTT_JSON`, e.g.
@@ -105,15 +115,17 @@ impl BackboneRttTable {
     /// With `served` empty this yields exactly the override layer, which is the table's state when no
     /// coordinator is configured (dev loopback).
     pub fn compose(served: &[ServedPairRtt], override_table: &BackboneRttTable) -> Self {
-        let mut rtts: HashMap<String, f32> = served
-            .iter()
-            .map(|pair| (pair_key(&pair.a, &pair.b), pair.rtt_ms))
-            .collect();
-        // Operator overrides win per pair, so they are applied on top of the served base.
-        for (key, &rtt) in &override_table.rtts {
-            rtts.insert(key.clone(), rtt);
+        let mut table = Self::default();
+        for pair in served {
+            table.insert(&pair.a, &pair.b, pair.rtt_ms);
         }
-        Self { rtts }
+        // Operator overrides win per pair, so they are applied on top of the served base.
+        for (a, row) in &override_table.rtts {
+            for (b, &rtt) in row {
+                table.insert(a, b, rtt);
+            }
+        }
+        table
     }
 
     /// The backbone round-trip time (ms) between two regions: 0 for the same region, the configured
@@ -122,8 +134,10 @@ impl BackboneRttTable {
         if a == b {
             return 0.0;
         }
+        let (a, b) = canonical_pair(a, b);
         self.rtts
-            .get(&pair_key(a, b))
+            .get(a)
+            .and_then(|row| row.get(b))
             .copied()
             .unwrap_or(DEFAULT_BACKBONE_RTT_MS)
     }
@@ -196,6 +210,28 @@ mod tests {
         let table = BackboneRttTable::new([("eu-west|us-east".to_string(), 90.0)]);
         assert_eq!(table.rtt("us-east", "eu-west"), 90.0);
         assert_eq!(table.rtt("eu-west", "us-east"), 90.0);
+    }
+
+    #[test]
+    fn pairs_with_the_same_canonical_first_region_remain_distinct() {
+        let table = BackboneRttTable::new([
+            ("ap-south|eu-west".to_string(), 110.0),
+            ("ap-south|us-east".to_string(), 200.0),
+        ]);
+        assert_eq!(table.rtt("ap-south", "eu-west"), 110.0);
+        assert_eq!(table.rtt("eu-west", "ap-south"), 110.0);
+        assert_eq!(table.rtt("ap-south", "us-east"), 200.0);
+        assert_eq!(table.rtt("us-east", "ap-south"), 200.0);
+    }
+
+    #[test]
+    fn duplicate_canonical_pair_uses_last_value() {
+        let table = BackboneRttTable::new([
+            ("us-east|eu-west".to_string(), 90.0),
+            ("eu-west|us-east".to_string(), 55.0),
+        ]);
+        assert_eq!(table.rtt("us-east", "eu-west"), 55.0);
+        assert_eq!(table.rtt("eu-west", "us-east"), 55.0);
     }
 
     #[test]

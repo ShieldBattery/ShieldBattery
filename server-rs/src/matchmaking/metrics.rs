@@ -7,15 +7,20 @@
 
 use std::time::{Duration, Instant};
 
-use strum::IntoEnumIterator;
-
 use crate::matchmaking::MatchmakingType;
-use crate::matchmaking::matchmaker::{Match, Matchmaker, QueueSelector};
+use crate::matchmaking::matchmaker::{Match, ModeQueueState, ModeSearchStats};
 
 const QUEUE_SIZE: &str = "matchmaker_queue_size";
 const POPULATION_ESTIMATE: &str = "matchmaker_population_estimate";
 const EFFECTIVE_MIN_QUALITY: &str = "matchmaker_effective_min_quality";
 const SEARCH_TICK_DURATION: &str = "matchmaker_search_tick_duration_seconds";
+const LOCK_WAIT_DURATION: &str = "matchmaker_lock_wait_duration_seconds";
+const PLAYERS_EXAMINED: &str = "matchmaker_players_examined";
+const ROSTERS_EVALUATED: &str = "matchmaker_rosters_evaluated_total";
+const TEAM_PARTITIONS_EVALUATED: &str = "matchmaker_team_partitions_evaluated_total";
+const CANDIDATE_REJECTIONS: &str = "matchmaker_candidate_rejections_total";
+const QUALIFYING_CANDIDATES: &str = "matchmaker_qualifying_candidates_total";
+const CONFLICT_REJECTIONS: &str = "matchmaker_conflict_rejections_total";
 const MATCH_QUALITY: &str = "matchmaker_match_quality";
 const MATCH_SKILL_VARIANCE: &str = "matchmaker_match_skill_variance";
 const MATCH_WINPROB_IMBALANCE: &str = "matchmaker_match_winprob_imbalance";
@@ -50,6 +55,41 @@ pub fn describe_metrics() {
         SEARCH_TICK_DURATION,
         Unit::Seconds,
         "Wall-clock duration of one matchmaker search tick"
+    );
+    ::metrics::describe_histogram!(
+        LOCK_WAIT_DURATION,
+        Unit::Seconds,
+        "Time spent waiting to acquire the matchmaker state lock"
+    );
+    ::metrics::describe_histogram!(
+        PLAYERS_EXAMINED,
+        Unit::Count,
+        "Players selected for examination in one search tick, per mode"
+    );
+    ::metrics::describe_counter!(
+        ROSTERS_EVALUATED,
+        Unit::Count,
+        "Candidate player rosters evaluated, per mode"
+    );
+    ::metrics::describe_counter!(
+        TEAM_PARTITIONS_EVALUATED,
+        Unit::Count,
+        "Unique team partitions evaluated, per mode"
+    );
+    ::metrics::describe_counter!(
+        CANDIDATE_REJECTIONS,
+        Unit::Count,
+        "Candidate rosters rejected, per mode and reason"
+    );
+    ::metrics::describe_counter!(
+        QUALIFYING_CANDIDATES,
+        Unit::Count,
+        "Candidate rosters reaching the quality threshold, per mode"
+    );
+    ::metrics::describe_counter!(
+        CONFLICT_REJECTIONS,
+        Unit::Count,
+        "Qualifying candidates rejected because a player was already claimed, per mode"
     );
     ::metrics::describe_histogram!(
         MATCH_QUALITY,
@@ -94,25 +134,57 @@ pub fn describe_metrics() {
     );
 }
 
-/// Samples the per-mode queue gauges. Call once per search tick while holding the matchmaker lock,
-/// after the population estimate has been rolled forward and *before* the queue is drained, so the
-/// gauges reflect everyone waiting this tick rather than the post-drain residual.
-pub fn sample_queue_state<T: QueueSelector>(matchmaker: &Matchmaker<T>) {
-    for mode in MatchmakingType::iter() {
-        let label = mode.as_str();
-        ::metrics::gauge!(QUEUE_SIZE, "mode" => label).set(matchmaker.queue_size(mode) as f64);
+/// Samples the per-mode queue gauges captured after population roll-forward and before the queue is
+/// drained.
+pub fn sample_queue_state(queue_state: &[ModeQueueState]) {
+    for state in queue_state {
+        let label = state.mode.as_str();
+        ::metrics::gauge!(QUEUE_SIZE, "mode" => label).set(state.queue_size as f64);
         // Absent until the first sampling window folds; leave the series unset rather than reporting
         // a misleading 0 for a mode whose population just hasn't been seeded yet.
-        if let Some(estimate) = matchmaker.population_estimate(mode) {
+        if let Some(estimate) = state.population_estimate {
             ::metrics::gauge!(POPULATION_ESTIMATE, "mode" => label).set(estimate as f64);
         }
         ::metrics::gauge!(EFFECTIVE_MIN_QUALITY, "mode" => label)
-            .set(matchmaker.effective_min_quality(mode) as f64);
+            .set(state.effective_min_quality as f64);
     }
 }
 
 pub fn record_search_tick_duration(duration: Duration) {
     ::metrics::histogram!(SEARCH_TICK_DURATION).record(duration.as_secs_f64());
+}
+
+pub fn record_lock_wait_duration(duration: Duration) {
+    ::metrics::histogram!(LOCK_WAIT_DURATION).record(duration.as_secs_f64());
+}
+
+pub fn record_search_stats(stats: &[ModeSearchStats]) {
+    for mode_stats in stats {
+        let mode = mode_stats.mode.as_str();
+        ::metrics::histogram!(PLAYERS_EXAMINED, "mode" => mode)
+            .record(mode_stats.players_examined as f64);
+        ::metrics::counter!(ROSTERS_EVALUATED, "mode" => mode)
+            .increment(mode_stats.rosters_evaluated);
+        ::metrics::counter!(TEAM_PARTITIONS_EVALUATED, "mode" => mode)
+            .increment(mode_stats.team_partitions_evaluated);
+        ::metrics::counter!(QUALIFYING_CANDIDATES, "mode" => mode)
+            .increment(mode_stats.qualifying_candidates);
+        ::metrics::counter!(CONFLICT_REJECTIONS, "mode" => mode)
+            .increment(mode_stats.conflict_rejections);
+
+        for (reason, count) in [
+            ("map", mode_stats.map_rejections),
+            ("upper_bound", mode_stats.upper_bound_rejections),
+            ("quality", mode_stats.quality_rejections),
+        ] {
+            ::metrics::counter!(
+                CANDIDATE_REJECTIONS,
+                "mode" => mode,
+                "reason" => reason
+            )
+            .increment(count);
+        }
+    }
 }
 
 /// Records the distribution + counter metrics for a single formed match. `now` is the tick's
