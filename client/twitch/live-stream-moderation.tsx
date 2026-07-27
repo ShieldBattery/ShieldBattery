@@ -39,9 +39,20 @@ const Container = styled.div`
 
 // A dark, circular backdrop so the control stays legible over any thumbnail. Hidden until the entry
 // is hovered (or the control is focused for keyboard users), so it doesn't clutter the feed.
-const OverlayRoot = styled.div`
+/**
+ * Where the moderation control sits over an entry. The feed's thumbnails pack every corner with
+ * pills, so the placement depends on the entry variant: `top-right` uses the compact row's free
+ * corner, while `below-top-pills` drops the control clear of the hero card's live/viewer pills.
+ */
+export type LiveStreamModerationPlacement = 'top-right' | 'below-top-pills'
+
+const OverlayRoot = styled.div<{ $placement: LiveStreamModerationPlacement }>`
   position: absolute;
-  top: 6px;
+  /*
+    The hero card's top corners hold the live badge and viewer-count pill (bottom edge ~38px down),
+    so 'below-top-pills' clears them; the compact row's top-right corner is free.
+  */
+  top: ${props => (props.$placement === 'below-top-pills' ? '44px' : '6px')};
   right: 6px;
   z-index: 1;
   display: flex;
@@ -85,12 +96,15 @@ export function LiveStreamModeration({
   userId,
   name,
   onModerated,
+  placement = 'top-right',
   children,
 }: {
   userId: SbUserId
   name: string
   /** Called after a successful block/unblock so the feed can refetch and reflect the change. */
   onModerated?: () => void
+  /** Where the control sits over the entry; defaults to the compact row's free top-right corner. */
+  placement?: LiveStreamModerationPlacement
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -152,7 +166,7 @@ export function LiveStreamModeration({
   return (
     <Container>
       {children}
-      <OverlayRoot data-live-stream-moderation={true}>
+      <OverlayRoot data-live-stream-moderation={true} $placement={placement}>
         <OverlayButton
           icon={<MaterialIcon icon='visibility_off' size={18} />}
           title={removeLabel}

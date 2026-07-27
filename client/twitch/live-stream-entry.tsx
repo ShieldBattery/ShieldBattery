@@ -215,7 +215,11 @@ export function FeaturedLiveStreamEntry({
   )
 
   return stream.user ? (
-    <LiveStreamModeration userId={stream.user.id} name={sbName} onModerated={onModerated}>
+    <LiveStreamModeration
+      userId={stream.user.id}
+      name={sbName}
+      onModerated={onModerated}
+      placement='below-top-pills'>
       {entry}
     </LiveStreamModeration>
   ) : (

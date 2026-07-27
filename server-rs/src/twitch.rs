@@ -723,7 +723,7 @@ impl LiveStream {
 /// dedicated live streams page), for the admin blocked-streams list. The block hides them from the
 /// `liveStreams` feed only; the `twitch_login`/`twitch_display_name` come from their
 /// currently-linked channel (via a LEFT JOIN) and are absent if they've since unlinked.
-#[derive(SimpleObject, sqlx::FromRow)]
+#[derive(SimpleObject)]
 #[graphql(complex)]
 pub struct BlockedStream {
     #[graphql(skip)]
@@ -1319,11 +1319,23 @@ impl TwitchQuery {
     /// first). Users an admin has blocked from the feed are omitted (the block hides them here only;
     /// their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
     async fn live_streams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<LiveStream>> {
-        let blocked = load_feed_blocked_user_ids(ctx.data::<PgPool>()?).await?;
-        let mut streams: Vec<LiveStream> = load_live_streams(ctx.data::<RedisPool>()?)
+        // Redis holds every live broadcaster; the feed blocks are a separate, rarely-changing
+        // Postgres table. This resolver is polled frequently (every home/`live` client, on an
+        // interval), so only pay for the block read once there's actually a StarCraft stream it
+        // could hide.
+        let live: Vec<_> = load_live_streams(ctx.data::<RedisPool>()?)
             .await?
             .into_iter()
-            .filter(|(user_id, summary)| summary.is_starcraft() && !blocked.contains(user_id))
+            .filter(|(_, summary)| summary.is_starcraft())
+            .collect();
+        if live.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let blocked = load_feed_blocked_user_ids(ctx.data::<PgPool>()?).await?;
+        let mut streams: Vec<LiveStream> = live
+            .into_iter()
+            .filter(|(user_id, _)| !blocked.contains(user_id))
             .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
             .collect();
         streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
