@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_graphql::dataloader::DataLoader;
@@ -95,7 +96,7 @@ impl NameRestriction {
 }
 
 pub struct RestrictionsCache {
-    exact: Vec<NameRestriction>,
+    exact: HashMap<String, NameRestriction>,
     regex: Vec<(NameRestriction, Regex)>,
 }
 
@@ -117,13 +118,14 @@ impl NameChecker {
         let restrictions = self.get_restrictions_cache().await?;
         let name = name.to_lowercase();
 
-        spawn_rayon(move || {
-            for restriction in &restrictions.exact {
-                if restriction.pattern == name {
-                    return Ok(Some(restriction.clone()));
-                }
-            }
+        if let Some(restriction) = restrictions.exact.get(&name) {
+            return Ok(Some(restriction.clone()));
+        }
+        if restrictions.regex.is_empty() {
+            return Ok(None);
+        }
 
+        spawn_rayon(move || {
             for (restriction, re) in &restrictions.regex {
                 if re.is_match(&name) {
                     return Ok(Some(restriction.clone()));
@@ -175,7 +177,9 @@ impl NameChecker {
 
             match restriction.kind {
                 RestrictedNameKind::Exact => {
-                    restrictions_cache.exact.push(restriction.clone());
+                    restrictions_cache
+                        .exact
+                        .insert(restriction.pattern.clone(), restriction.clone());
                 }
                 RestrictedNameKind::Regex => {
                     match create_case_insensitive_regex(&restriction.pattern) {
@@ -221,7 +225,7 @@ impl NameChecker {
 
             restrictions_cache
                 .exact
-                .retain(|restriction| restriction.id != id);
+                .retain(|_, restriction| restriction.id != id);
             restrictions_cache
                 .regex
                 .retain(|(restriction, _)| restriction.id != id);
@@ -282,13 +286,13 @@ impl NameChecker {
         .wrap_err("failed to load name restrictions")?;
 
         let restrictions_cache = spawn_rayon(|| {
-            let mut exact = Vec::new();
+            let mut exact = HashMap::new();
             let mut regex = Vec::new();
             for mut restriction in restrictions.into_iter() {
                 match restriction.kind {
                     RestrictedNameKind::Exact => {
                         restriction.pattern = restriction.pattern.to_lowercase();
-                        exact.push(restriction)
+                        exact.insert(restriction.pattern.clone(), restriction);
                     }
                     RestrictedNameKind::Regex => {
                         match create_case_insensitive_regex(&restriction.pattern) {
@@ -320,4 +324,37 @@ impl NameChecker {
 pub fn create_case_insensitive_regex(pattern: &str) -> Result<Regex, regex::Error> {
     let pattern = format!("(?i){pattern}");
     Regex::new(&pattern)
+}
+
+#[cfg(test)]
+mod tests {
+    use sqlx::postgres::PgPoolOptions;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn exact_restrictions_use_case_insensitive_cache_lookup() {
+        let restriction = NameRestriction {
+            id: 7,
+            pattern: "reserved".to_owned(),
+            kind: RestrictedNameKind::Exact,
+            reason: RestrictedNameReason::Reserved,
+            created_at: Utc::now(),
+            created_by: SbUserId::from(1),
+        };
+        let checker = NameChecker {
+            db_pool: PgPoolOptions::new()
+                .connect_lazy("postgres://unused:unused@localhost/unused")
+                .unwrap(),
+            restrictions: Arc::new(RwLock::new(Some(Arc::new(RestrictionsCache {
+                exact: HashMap::from([(restriction.pattern.clone(), restriction)]),
+                regex: Vec::new(),
+            })))),
+        };
+
+        let matched = checker.check_name("ReSeRvEd").await.unwrap().unwrap();
+
+        assert_eq!(matched.id, 7);
+        assert_eq!(matched.reason, RestrictedNameReason::Reserved);
+    }
 }

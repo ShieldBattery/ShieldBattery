@@ -142,21 +142,30 @@ const HomeQuery = graphql(/* GraphQL */ `
       ...UrgentMessage_HomeDisplayFragment
     }
 
-    ...LiveGames_FeedFragment
-    ...LiveStreams_FeedFragment
     ...Leagues_HomeFeedFragment
     ...News_HomeFeedFragment
   }
 `)
 
+const HomeLiveQuery = graphql(/* GraphQL */ `
+  query HomePageLiveContent {
+    ...LiveGames_FeedFragment
+    ...LiveStreams_FeedFragment
+  }
+`)
+
 export function Home() {
   const { t } = useTranslation()
-  const [{ data, error }, reexecuteQuery] = useQuery({
+  const [{ data: homeData, error: homeError }] = useQuery({
     query: HomeQuery,
     context: { ttl: 10 * 1000 },
   })
+  const [{ data: liveData }, reexecuteLiveQuery] = useQuery({
+    query: HomeLiveQuery,
+    context: { ttl: 10 * 1000 },
+  })
   // Keeps the live sections (live games and streams) fresh while Home stays mounted.
-  useQueryPolling(reexecuteQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
+  useQueryPolling(reexecuteLiveQuery, LIVE_STREAMS_POLL_INTERVAL_MS)
 
   const hasSplash = !IS_ELECTRON
 
@@ -167,8 +176,8 @@ export function Home() {
           {hasSplash ? <SplashContent /> : null}
           <GridLayout>
             <LeftSection>
-              <UrgentMessageView urgentMessage={data?.urgentMessage ?? undefined} />
-              <NewsFeed query={data} hasError={!!error} />
+              <UrgentMessageView urgentMessage={homeData?.urgentMessage ?? undefined} />
+              <NewsFeed query={homeData} hasError={!!homeError} />
             </LeftSection>
             <RightSection>
               <SupportSection>
@@ -194,9 +203,9 @@ export function Home() {
                   </Tooltip>
                 </SupportIcons>
               </SupportSection>
-              <LiveGamesFeed query={data} />
-              <LiveStreamsFeed query={data} />
-              <LeagueHomeFeed query={data} />
+              <LiveGamesFeed query={liveData} />
+              <LiveStreamsFeed query={liveData} />
+              <LeagueHomeFeed query={homeData} />
             </RightSection>
             <BottomLinksArea>
               <BottomLinks />

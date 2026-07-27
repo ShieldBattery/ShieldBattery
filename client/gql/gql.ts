@@ -39,7 +39,8 @@ type Documents = {
   '\n  fragment LiveGames_FeedEntryPlayersFragment on GamePlayer {\n    user {\n      id\n      name\n    }\n    race\n  }\n': typeof types.LiveGames_FeedEntryPlayersFragmentFragmentDoc
   '\n  fragment LiveGames_FeedEntryMapAndTypeFragment on Game {\n    id\n    map {\n      id\n      name\n      mapFile {\n        id\n        image256Url\n        image512Url\n        image1024Url\n        image2048Url\n        width\n        height\n      }\n    }\n    config {\n      __typename\n\n      ... on GameConfigDataMatchmaking {\n        gameSourceExtra {\n          matchmakingType\n        }\n      }\n    }\n  }\n': typeof types.LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc
   '\n  mutation ReportGame($input: ReportGameInput!) {\n    reportGame(input: $input) {\n      id\n    }\n  }\n': typeof types.ReportGameDocument
-  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
+  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n': typeof types.HomePageContentDocument
+  '\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n': typeof types.HomePageLiveContentDocument
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n': typeof types.UrgentMessage_HomeDisplayFragmentFragmentDoc
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n': typeof types.Leagues_LeagueBadgeFragmentFragmentDoc
   '\n  fragment Leagues_HomeFeedFragment on Query {\n    activeLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n\n    futureLeagues {\n      id\n      ...Leagues_HomeFeedEntryFragment\n    }\n  }\n': typeof types.Leagues_HomeFeedFragmentFragmentDoc
@@ -119,8 +120,10 @@ const documents: Documents = {
     types.LiveGames_FeedEntryMapAndTypeFragmentFragmentDoc,
   '\n  mutation ReportGame($input: ReportGameInput!) {\n    reportGame(input: $input) {\n      id\n    }\n  }\n':
     types.ReportGameDocument,
-  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n':
+  '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n':
     types.HomePageContentDocument,
+  '\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n':
+    types.HomePageLiveContentDocument,
   '\n  fragment UrgentMessage_HomeDisplayFragment on UrgentMessage {\n    id\n    title\n    message\n  }\n':
     types.UrgentMessage_HomeDisplayFragmentFragmentDoc,
   '\n  fragment Leagues_LeagueBadgeFragment on League {\n    name\n    badgeUrl\n  }\n':
@@ -344,8 +347,14 @@ export function graphql(
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(
-  source: '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n',
-): (typeof documents)['\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n']
+  source: '\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n',
+): (typeof documents)['\n  query HomePageContent {\n    urgentMessage {\n      ...UrgentMessage_HomeDisplayFragment\n    }\n\n    ...Leagues_HomeFeedFragment\n    ...News_HomeFeedFragment\n  }\n']
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(
+  source: '\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n',
+): (typeof documents)['\n  query HomePageLiveContent {\n    ...LiveGames_FeedFragment\n    ...LiveStreams_FeedFragment\n  }\n']
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

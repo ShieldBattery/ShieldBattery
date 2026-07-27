@@ -722,6 +722,11 @@ impl UsersMutation {
             return Ok(user.clone());
         }
 
+        let update_password_query = match update_password_query {
+            Some(query) => Some(query.await?),
+            None => None,
+        };
+
         let mut tx = ctx
             .data::<PgPool>()?
             .begin()
@@ -730,7 +735,6 @@ impl UsersMutation {
 
         if let Some(query) = update_password_query {
             query
-                .await?
                 .execute(&mut *tx)
                 .await
                 .wrap_err("Failed to update password")?;

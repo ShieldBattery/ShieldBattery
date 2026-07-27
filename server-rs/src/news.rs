@@ -56,6 +56,7 @@ impl NewsQuery {
         }
 
         let repo = ctx.data::<NewsPostRepo>()?;
+        let include_content = news_posts_content_is_selected(ctx);
 
         query(
             after,
@@ -77,6 +78,7 @@ impl NewsQuery {
                     before,
                     first,
                     last,
+                    include_content,
                 )
                 .await
                 .map(|(has_prev_page, has_next_page, posts)| {
@@ -122,6 +124,16 @@ impl NewsQuery {
             Ok(None)
         }
     }
+}
+
+fn news_posts_content_is_selected(ctx: &Context<'_>) -> bool {
+    let lookahead = ctx.look_ahead();
+    lookahead
+        .field("edges")
+        .field("node")
+        .field("content")
+        .exists()
+        || lookahead.field("nodes").field("content").exists()
 }
 
 #[derive(Default)]
@@ -432,6 +444,7 @@ impl NewsPostRepo {
         before: Option<Uuid>,
         first: Option<usize>,
         last: Option<usize>,
+        include_content: bool,
     ) -> eyre::Result<(bool, bool, Vec<NewsPost>)> {
         let after_cursor = match after {
             Some(id) => self.resolve_cursor(id).await?,
@@ -445,8 +458,19 @@ impl NewsPostRepo {
         let mut query = QueryBuilder::new(
             r#"
                 WITH posts AS (
-                    SELECT id, author_id, cover_image_path, title, summary, content, published_at,
-                        updated_at
+                    SELECT id, author_id, cover_image_path, title, summary,
+            "#,
+        );
+        if include_content {
+            query.push(" content");
+        } else {
+            // NewsPost.content is non-null in GraphQL, so keep the row shape identical while
+            // avoiding transfer of the potentially large stored value when it cannot be resolved.
+            query.push(" ''::text AS content");
+        }
+        query.push(
+            r#",
+                        published_at, updated_at
                     FROM news_posts
             "#,
         );
@@ -737,6 +761,112 @@ pub enum PublishedNewsMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_graphql::{EmptyMutation, EmptySubscription, Schema};
+
+    #[derive(SimpleObject)]
+    struct LookaheadPost {
+        title: String,
+        content: String,
+    }
+
+    #[derive(SimpleObject)]
+    struct LookaheadEdge {
+        node: LookaheadPost,
+    }
+
+    #[derive(SimpleObject)]
+    struct LookaheadConnection {
+        edges: Vec<LookaheadEdge>,
+        nodes: Vec<LookaheadPost>,
+    }
+
+    struct LookaheadQuery;
+
+    #[Object]
+    impl LookaheadQuery {
+        async fn news_posts(&self, ctx: &Context<'_>, expect_content: bool) -> LookaheadConnection {
+            assert_eq!(news_posts_content_is_selected(ctx), expect_content);
+
+            LookaheadConnection {
+                edges: vec![LookaheadEdge {
+                    node: LookaheadPost {
+                        title: "title".into(),
+                        content: "content".into(),
+                    },
+                }],
+                nodes: vec![LookaheadPost {
+                    title: "title".into(),
+                    content: "content".into(),
+                }],
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn news_content_lookahead_handles_connection_shapes_fragments_and_aliases() {
+        let schema = Schema::new(LookaheadQuery, EmptyMutation, EmptySubscription);
+        let queries = [
+            r#"
+                {
+                    newsPosts(expectContent: false) {
+                        edges { node { title } }
+                        nodes { title }
+                    }
+                }
+            "#,
+            r#"
+                {
+                    newsPosts(expectContent: true) {
+                        edges { node { content } }
+                    }
+                }
+            "#,
+            r#"
+                {
+                    newsPosts(expectContent: true) {
+                        nodes { content }
+                    }
+                }
+            "#,
+            r#"
+                query {
+                    feed: newsPosts(expectContent: true) {
+                        ...ConnectionFields
+                    }
+                }
+
+                fragment ConnectionFields on LookaheadConnection {
+                    aliasedEdges: edges {
+                        aliasedNode: node {
+                            ...PostFields
+                        }
+                    }
+                }
+
+                fragment PostFields on LookaheadPost {
+                    aliasedContent: content
+                }
+            "#,
+            r#"
+                {
+                    newsPosts(expectContent: true) {
+                        ... on LookaheadConnection {
+                            aliasedNodes: nodes {
+                                ... on LookaheadPost {
+                                    aliasedContent: content
+                                }
+                            }
+                        }
+                    }
+                }
+            "#,
+        ];
+
+        for query in queries {
+            let response = schema.execute(query).await;
+            assert!(response.is_ok(), "{:?}", response.errors);
+        }
+    }
 
     #[test]
     fn small_variant_paths() {

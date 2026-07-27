@@ -127,6 +127,7 @@ pub struct MailgunClient {
     settings: Option<MailgunSettings>,
     canonical_host: String,
     template_version: String,
+    http: reqwest::Client,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -153,6 +154,7 @@ impl MailgunClient {
             settings,
             canonical_host,
             template_version,
+            http: reqwest::Client::new(),
         }
     }
 
@@ -182,7 +184,7 @@ impl MailgunClient {
         }
 
         let params = SendParams {
-            from: &settings.from.to_string(),
+            from: &settings.from,
             to: &message.to,
             template: message.template.template_name(),
             subject: message.template.subject(),
@@ -197,8 +199,8 @@ impl MailgunClient {
             .join(format!("/v3/{domain}/messages").as_str())
             .wrap_err("Failed to construct Mailgun API URL")?;
 
-        let client = reqwest::Client::new();
-        let res = client
+        let res = self
+            .http
             .post(url)
             .form(&params)
             .basic_auth("api", Some(settings.api_key.expose_secret()))
@@ -225,8 +227,7 @@ impl MailgunClient {
             .wrap_err("Failed to serialize template data structure")?;
         // All templates have access to a HOST variable so we add that here
         let template_data = match template_data {
-            serde_json::Value::Object(o) => {
-                let mut o = o.clone();
+            serde_json::Value::Object(mut o) => {
                 o.insert(
                     "HOST".into(),
                     serde_json::Value::String(self.canonical_host.clone()),

@@ -612,10 +612,17 @@ export type HomePageContentQuery = {
   } | null
 } & {
   ' $fragmentRefs'?: {
-    LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment
-    LiveStreams_FeedFragmentFragment: LiveStreams_FeedFragmentFragment
     Leagues_HomeFeedFragmentFragment: Leagues_HomeFeedFragmentFragment
     News_HomeFeedFragmentFragment: News_HomeFeedFragmentFragment
+  }
+}
+
+export type HomePageLiveContentQueryVariables = Exact<{ [key: string]: never }>
+
+export type HomePageLiveContentQuery = {
+  ' $fragmentRefs'?: {
+    LiveGames_FeedFragmentFragment: LiveGames_FeedFragmentFragment
+    LiveStreams_FeedFragmentFragment: LiveStreams_FeedFragmentFragment
   }
 }
 
@@ -3485,10 +3492,154 @@ export const HomePageContentDocument = {
               ],
             },
           },
-          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
-          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveStreams_FeedFragment' } },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' } },
           { kind: 'FragmentSpread', name: { kind: 'Name', value: 'News_HomeFeedFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessage' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+          { kind: 'Field', name: { kind: 'Name', value: 'message' } },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'activeLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'futureLeagues' },
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                {
+                  kind: 'FragmentSpread',
+                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    {
+      kind: 'FragmentDefinition',
+      name: { kind: 'Name', value: 'News_HomeFeedFragment' },
+      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'newsPosts' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'first' },
+                value: { kind: 'IntValue', value: '10' },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'edges' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'node' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<HomePageContentQuery, HomePageContentQueryVariables>
+export const HomePageLiveContentDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'HomePageLiveContent' },
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveGames_FeedFragment' } },
+          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'LiveStreams_FeedFragment' } },
         ],
       },
     },
@@ -3711,47 +3862,6 @@ export const HomePageContentDocument = {
     },
     {
       kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'badgeUrl' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'League' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'name' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'startAt' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'endAt' } },
-          { kind: 'FragmentSpread', name: { kind: 'Name', value: 'Leagues_LeagueBadgeFragment' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'UrgentMessage_HomeDisplayFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'UrgentMessage' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'title' } },
-          { kind: 'Field', name: { kind: 'Name', value: 'message' } },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
       name: { kind: 'Name', value: 'LiveGames_FeedFragment' },
       typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
       selectionSet: {
@@ -3799,96 +3909,8 @@ export const HomePageContentDocument = {
         ],
       },
     },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'Leagues_HomeFeedFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'activeLeagues' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                {
-                  kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
-                },
-              ],
-            },
-          },
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'futureLeagues' },
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                {
-                  kind: 'FragmentSpread',
-                  name: { kind: 'Name', value: 'Leagues_HomeFeedEntryFragment' },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
-    {
-      kind: 'FragmentDefinition',
-      name: { kind: 'Name', value: 'News_HomeFeedFragment' },
-      typeCondition: { kind: 'NamedType', name: { kind: 'Name', value: 'Query' } },
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'newsPosts' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'first' },
-                value: { kind: 'IntValue', value: '10' },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                {
-                  kind: 'Field',
-                  name: { kind: 'Name', value: 'edges' },
-                  selectionSet: {
-                    kind: 'SelectionSet',
-                    selections: [
-                      {
-                        kind: 'Field',
-                        name: { kind: 'Name', value: 'node' },
-                        selectionSet: {
-                          kind: 'SelectionSet',
-                          selections: [
-                            { kind: 'Field', name: { kind: 'Name', value: 'id' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'title' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'summary' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'publishedAt' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageUrl' } },
-                            { kind: 'Field', name: { kind: 'Name', value: 'coverImageSmallUrl' } },
-                          ],
-                        },
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
-    },
   ],
-} as unknown as DocumentNode<HomePageContentQuery, HomePageContentQueryVariables>
+} as unknown as DocumentNode<HomePageLiveContentQuery, HomePageLiveContentQueryVariables>
 export const NewsArchiveDocument = {
   kind: 'Document',
   definitions: [

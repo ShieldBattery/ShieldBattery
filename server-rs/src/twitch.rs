@@ -29,7 +29,9 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use color_eyre::eyre::{self, Context as _, eyre};
-use deadpool_redis::redis::{AsyncCommands, ExistenceCheck, SetExpiry, SetOptions};
+use deadpool_redis::redis::{
+    AsyncCommands, Cmd, ExistenceCheck, RedisResult, SetExpiry, SetOptions, aio::ConnectionLike,
+};
 use hmac::{Hmac, KeyInit, Mac};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
@@ -81,6 +83,18 @@ const STREAM_THUMBNAIL_HEIGHT: u32 = 180;
 const LINK_STATE_TTL_SECONDS: u64 = 600;
 /// Redis hash of `sbUserId -> LiveStreamSummary` for every currently-live linked streamer.
 const LIVE_STREAMS_KEY: &str = "twitch:live";
+/// Atomically removes malformed hash values only if they have not changed since they were read. A
+/// concurrent refresh may replace a malformed value with a valid summary between the read and this
+/// cleanup, in which case the replacement must be retained.
+const REMOVE_MALFORMED_LIVE_STREAMS_SCRIPT: &str = r#"
+local removed = 0
+for i = 1, #ARGV, 2 do
+  if redis.call('HGET', KEYS[1], ARGV[i]) == ARGV[i + 1] then
+    removed = removed + redis.call('HDEL', KEYS[1], ARGV[i])
+  end
+end
+return removed
+"#;
 /// How long we remember a processed EventSub message id to drop Twitch's redeliveries.
 const WEBHOOK_DEDUPE_TTL_SECONDS: u64 = 600;
 /// Reject EventSub messages whose timestamp is further than this from now (replay protection).
@@ -704,6 +718,80 @@ impl LiveStream {
     }
 }
 
+struct ParsedLiveStreamEntries {
+    streams: Vec<(SbUserId, LiveStreamSummary)>,
+    malformed: Vec<(SbUserId, String)>,
+}
+
+fn parse_live_stream_entries(
+    entries: impl IntoIterator<Item = (SbUserId, Option<String>)>,
+) -> ParsedLiveStreamEntries {
+    let entries = entries.into_iter();
+    let (lower_bound, _) = entries.size_hint();
+    let mut streams = Vec::with_capacity(lower_bound);
+    let mut malformed = Vec::new();
+
+    for (user_id, json) in entries {
+        let Some(json) = json else {
+            continue;
+        };
+        match serde_json::from_str::<LiveStreamSummary>(&json) {
+            Ok(summary) => streams.push((user_id, summary)),
+            Err(e) => {
+                warn!("Failed to parse live stream for user {}: {e:?}", user_id.0);
+                malformed.push((user_id, json));
+            }
+        }
+    }
+
+    ParsedLiveStreamEntries { streams, malformed }
+}
+
+fn remove_malformed_live_streams_command(entries: &[(SbUserId, String)]) -> Cmd {
+    let mut cmd = deadpool_redis::redis::cmd("EVAL");
+    cmd.arg(REMOVE_MALFORMED_LIVE_STREAMS_SCRIPT)
+        .arg(1)
+        .arg(LIVE_STREAMS_KEY);
+    for (user_id, json) in entries {
+        cmd.arg(i32::from(*user_id)).arg(json);
+    }
+    cmd
+}
+
+async fn remove_malformed_live_streams(
+    conn: &mut impl ConnectionLike,
+    entries: &[(SbUserId, String)],
+) {
+    if entries.is_empty() {
+        return;
+    }
+
+    let result: RedisResult<usize> = remove_malformed_live_streams_command(entries)
+        .query_async(conn)
+        .await;
+    if let Err(e) = result {
+        // Malformed entries have always been omitted from results. Cleanup is only a safeguard for
+        // the field-only live-user-id query, so a cleanup failure must not turn a successful read
+        // into a GraphQL error.
+        warn!("Failed to remove malformed live streams from Redis: {e:?}");
+    }
+}
+
+async fn load_live_stream_user_ids_from_connection(
+    redis: &mut impl AsyncCommands,
+) -> RedisResult<Vec<SbUserId>> {
+    let user_ids: Vec<i32> = redis.hkeys(LIVE_STREAMS_KEY).await?;
+    Ok(user_ids.into_iter().map(SbUserId).collect())
+}
+
+async fn load_live_stream_values_from_connection(
+    redis: &mut impl AsyncCommands,
+    user_ids: &[SbUserId],
+) -> RedisResult<Vec<Option<String>>> {
+    let fields: Vec<i32> = user_ids.iter().copied().map(i32::from).collect();
+    redis.hmget(LIVE_STREAMS_KEY, fields).await
+}
+
 /// Loads every currently-live streamer from Redis (unfiltered).
 async fn load_live_streams(redis: &RedisPool) -> eyre::Result<Vec<(SbUserId, LiveStreamSummary)>> {
     let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
@@ -711,15 +799,42 @@ async fn load_live_streams(redis: &RedisPool) -> eyre::Result<Vec<(SbUserId, Liv
         .hgetall(LIVE_STREAMS_KEY)
         .await
         .wrap_err("Failed to load live streams")?;
+    let parsed = parse_live_stream_entries(
+        entries
+            .into_iter()
+            .map(|(user_id, json)| (SbUserId(user_id), Some(json))),
+    );
+    remove_malformed_live_streams(&mut conn, &parsed.malformed).await;
+    Ok(parsed.streams)
+}
 
-    let mut streams = Vec::with_capacity(entries.len());
-    for (user_id, json) in entries {
-        match serde_json::from_str::<LiveStreamSummary>(&json) {
-            Ok(summary) => streams.push((SbUserId(user_id), summary)),
-            Err(e) => warn!("Failed to parse live stream for user {user_id}: {e:?}"),
-        }
+/// Loads only the live-stream summaries for `user_ids`, preserving the input/result alignment long
+/// enough to associate each Redis value with its user before invalid or missing values are omitted.
+async fn load_live_streams_for_users(
+    redis: &RedisPool,
+    user_ids: &[SbUserId],
+) -> eyre::Result<Vec<(SbUserId, LiveStreamSummary)>> {
+    if user_ids.is_empty() {
+        return Ok(Vec::new());
     }
-    Ok(streams)
+
+    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
+    let values = load_live_stream_values_from_connection(&mut conn, user_ids)
+        .await
+        .wrap_err("Failed to load live streams")?;
+    let parsed = parse_live_stream_entries(user_ids.iter().copied().zip(values));
+    remove_malformed_live_streams(&mut conn, &parsed.malformed).await;
+    Ok(parsed.streams)
+}
+
+/// Loads the field-only live-user index. The typed writer serializes a complete summary before HSET,
+/// so normal entries are valid; full/detail reads atomically remove any malformed legacy or corrupt
+/// values they encounter.
+async fn load_live_stream_user_ids(redis: &RedisPool) -> eyre::Result<Vec<SbUserId>> {
+    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
+    load_live_stream_user_ids_from_connection(&mut conn)
+        .await
+        .wrap_err("Failed to load live streams")
 }
 
 /// A public view of a user's linked Twitch channel, shown on their profile.
@@ -788,16 +903,12 @@ impl Loader<SbUserId> for LiveStreamLoader {
     type Error = async_graphql::Error;
 
     async fn load(&self, keys: &[SbUserId]) -> Result<HashMap<SbUserId, Self::Value>, Self::Error> {
-        // The live set (currently-live streamers only) is small, so one HGETALL + filter is cheaper
-        // and simpler than an HMGET, and reuses the same parsing.
-        let requested: HashSet<SbUserId> = keys.iter().copied().collect();
-        let live = load_live_streams(&self.redis)
+        let live = load_live_streams_for_users(&self.redis, keys)
             .await
             .map_err(|e| graphql_error("INTERNAL_SERVER_ERROR", e.to_string()))?;
 
         Ok(live
             .into_iter()
-            .filter(|(user_id, _)| requested.contains(user_id))
             .map(|(user_id, summary)| (user_id, LiveStream::from_summary(user_id, summary)))
             .collect())
     }
@@ -881,6 +992,24 @@ async fn load_all_connections(pool: &PgPool) -> eyre::Result<Vec<TwitchConnectio
     .fetch_all(pool)
     .await
     .wrap_err("Failed to load Twitch connections")
+}
+
+/// Loads only the connection identity needed by the periodic live-state refresh.
+async fn load_live_refresh_connections(pool: &PgPool) -> eyre::Result<HashMap<SbUserId, String>> {
+    let rows = sqlx::query!(
+        r#"
+            SELECT user_id as "user_id: SbUserId", twitch_user_id
+            FROM twitch_connections
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .wrap_err("Failed to load Twitch connections")?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.user_id, row.twitch_user_id))
+        .collect())
 }
 
 /// Inserts or replaces the identity of a user's Twitch connection. The tracked subscription ids are
@@ -995,6 +1124,51 @@ async fn set_stream_offline(redis: &RedisPool, user_id: SbUserId) -> eyre::Resul
     Ok(())
 }
 
+fn live_stream_updates_pipeline(
+    live: &[(SbUserId, LiveStreamSummary)],
+    offline: &[SbUserId],
+) -> eyre::Result<deadpool_redis::redis::Pipeline> {
+    let mut pipeline = deadpool_redis::redis::pipe();
+
+    if !live.is_empty() {
+        pipeline.cmd("HSET").arg(LIVE_STREAMS_KEY);
+        for (user_id, summary) in live {
+            let json =
+                serde_json::to_string(summary).wrap_err("Failed to serialize live stream")?;
+            pipeline.arg(i32::from(*user_id)).arg(json);
+        }
+        pipeline.ignore();
+    }
+
+    if !offline.is_empty() {
+        pipeline.cmd("HDEL").arg(LIVE_STREAMS_KEY);
+        for user_id in offline {
+            pipeline.arg(i32::from(*user_id));
+        }
+        pipeline.ignore();
+    }
+
+    Ok(pipeline)
+}
+
+/// Applies one refresh phase with at most one HSET and one HDEL in a single Redis round trip.
+async fn apply_live_stream_updates(
+    redis: &RedisPool,
+    live: &[(SbUserId, LiveStreamSummary)],
+    offline: &[SbUserId],
+) -> eyre::Result<()> {
+    let pipeline = live_stream_updates_pipeline(live, offline)?;
+    if pipeline.is_empty() {
+        return Ok(());
+    }
+
+    let mut conn = redis.get().await.wrap_err("Could not connect to Redis")?;
+    pipeline
+        .exec_async(&mut conn)
+        .await
+        .wrap_err("Failed to update live streams")
+}
+
 // ---------------------------------------------------------------------------------------------
 // GraphQL
 // ---------------------------------------------------------------------------------------------
@@ -1058,11 +1232,7 @@ impl TwitchQuery {
         &self,
         ctx: &Context<'_>,
     ) -> async_graphql::Result<Vec<SbUserId>> {
-        Ok(load_live_streams(ctx.data::<RedisPool>()?)
-            .await?
-            .into_iter()
-            .map(|(user_id, _)| user_id)
-            .collect())
+        Ok(load_live_stream_user_ids(ctx.data::<RedisPool>()?).await?)
     }
 }
 
@@ -1456,11 +1626,7 @@ async fn refresh_all_live_streams(
     redis: &RedisPool,
 ) -> eyre::Result<()> {
     // user_id -> currently linked Twitch user id, for everyone with a connection right now.
-    let connections: HashMap<SbUserId, String> = load_all_connections(db)
-        .await?
-        .into_iter()
-        .map(|conn| (conn.user_id, conn.twitch_user_id))
-        .collect();
+    let connections = load_live_refresh_connections(db).await?;
 
     let live = load_live_streams(redis).await?;
 
@@ -1471,13 +1637,16 @@ async fn refresh_all_live_streams(
     // else we remember as already tracked, so we only issue an offline write below for entries that
     // actually need clearing.
     let mut tracked_live: HashSet<SbUserId> = HashSet::new();
+    let mut orphaned = Vec::new();
     for (user_id, summary) in live {
         if connections.get(&user_id) == Some(&summary.twitch_user_id) {
             tracked_live.insert(user_id);
         } else {
-            set_stream_offline(redis, user_id).await?;
+            orphaned.push(user_id);
         }
     }
+    apply_live_stream_updates(redis, &[], &orphaned).await?;
+
     if connections.is_empty() {
         return Ok(());
     }
@@ -1487,31 +1656,29 @@ async fn refresh_all_live_streams(
     // acked, or a persistent failure that outlasted the retry loop) instead of leaving it invisible
     // until the broadcaster's next transition.
     let broadcaster_ids: Vec<String> = connections.values().cloned().collect();
-    let live_now: HashMap<String, StreamInfo> = client
+    let mut live_now: HashMap<String, StreamInfo> = client
         .get_streams(&broadcaster_ids)
         .await?
         .into_iter()
         .map(|stream| (stream.user_id.clone(), stream))
         .collect();
 
+    let mut live_updates = Vec::with_capacity(live_now.len());
+    let mut offline_updates = Vec::new();
     for (user_id, twitch_user_id) in &connections {
-        match live_now.get(twitch_user_id) {
+        match live_now.remove(twitch_user_id) {
             Some(stream) => {
-                set_stream_live(
-                    redis,
-                    *user_id,
-                    &LiveStreamSummary::from_stream(stream.clone()),
-                )
-                .await?;
+                live_updates.push((*user_id, LiveStreamSummary::from_stream(stream)));
             }
             // Only clear entries we're actually tracking so we don't issue an HDEL per offline
             // connection every pass.
             None if tracked_live.contains(user_id) => {
-                set_stream_offline(redis, *user_id).await?;
+                offline_updates.push(*user_id);
             }
             None => {}
         }
     }
+    apply_live_stream_updates(redis, &live_updates, &offline_updates).await?;
 
     Ok(())
 }
@@ -1786,6 +1953,173 @@ async fn refresh_connection_identities(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use deadpool_redis::redis::{RedisFuture, Value};
+
+    struct FakeRedis {
+        response: Option<Value>,
+        commands: Vec<Vec<u8>>,
+    }
+
+    impl FakeRedis {
+        fn returning(response: Value) -> Self {
+            Self {
+                response: Some(response),
+                commands: Vec::new(),
+            }
+        }
+    }
+
+    impl ConnectionLike for FakeRedis {
+        fn req_packed_command<'a>(&'a mut self, cmd: &'a Cmd) -> RedisFuture<'a, Value> {
+            self.commands.push(cmd.get_packed_command());
+            let response = self.response.take().expect("missing fake Redis response");
+            Box::pin(async move { Ok(response) })
+        }
+
+        fn req_packed_commands<'a>(
+            &'a mut self,
+            _cmd: &'a deadpool_redis::redis::Pipeline,
+            _offset: usize,
+            _count: usize,
+        ) -> RedisFuture<'a, Vec<Value>> {
+            panic!("live-stream reads should issue one command, not a pipeline")
+        }
+
+        fn get_db(&self) -> i64 {
+            0
+        }
+    }
+
+    fn live_stream_summary() -> LiveStreamSummary {
+        LiveStreamSummary {
+            twitch_user_id: "123".to_owned(),
+            twitch_login: "streamer".to_owned(),
+            twitch_display_name: "Streamer".to_owned(),
+            title: "Ladder".to_owned(),
+            game_id: STARCRAFT_CATEGORY_IDS[0].to_owned(),
+            game_name: "StarCraft".to_owned(),
+            viewer_count: 42,
+            started_at: DateTime::parse_from_rfc3339("2026-07-26T12:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            thumbnail_url: "https://example.com/{width}x{height}.jpg".to_owned(),
+        }
+    }
+
+    #[tokio::test]
+    async fn live_stream_user_ids_uses_hkeys() {
+        let mut redis = FakeRedis::returning(Value::Array(vec![
+            Value::BulkString(b"7".to_vec()),
+            Value::BulkString(b"9".to_vec()),
+        ]));
+
+        let ids = load_live_stream_user_ids_from_connection(&mut redis)
+            .await
+            .unwrap();
+
+        assert_eq!(ids, vec![SbUserId(7), SbUserId(9)]);
+        assert_eq!(redis.commands.len(), 1);
+        let mut expected = deadpool_redis::redis::cmd("HKEYS");
+        expected.arg(LIVE_STREAMS_KEY);
+        assert_eq!(redis.commands[0], expected.get_packed_command());
+    }
+
+    #[tokio::test]
+    async fn requested_live_stream_values_use_one_aligned_hmget() {
+        let valid_json = serde_json::to_string(&live_stream_summary()).unwrap();
+        let mut redis = FakeRedis::returning(Value::Array(vec![
+            Value::BulkString(valid_json.as_bytes().to_vec()),
+            Value::Nil,
+            Value::BulkString(b"{malformed".to_vec()),
+        ]));
+        let user_ids = [SbUserId(7), SbUserId(8), SbUserId(9)];
+
+        let values = load_live_stream_values_from_connection(&mut redis, &user_ids)
+            .await
+            .unwrap();
+
+        assert_eq!(values[0].as_deref(), Some(valid_json.as_str()));
+        assert_eq!(values[1], None);
+        assert_eq!(values[2].as_deref(), Some("{malformed"));
+        assert_eq!(redis.commands.len(), 1);
+        let mut expected = deadpool_redis::redis::cmd("HMGET");
+        expected.arg(LIVE_STREAMS_KEY).arg(7).arg(8).arg(9);
+        assert_eq!(redis.commands[0], expected.get_packed_command());
+    }
+
+    #[test]
+    fn live_stream_parsing_omits_missing_and_malformed_values() {
+        let valid_json = serde_json::to_string(&live_stream_summary()).unwrap();
+        let malformed_json = "{malformed".to_owned();
+
+        let parsed = parse_live_stream_entries([
+            (SbUserId(7), Some(valid_json)),
+            (SbUserId(8), None),
+            (SbUserId(9), Some(malformed_json.clone())),
+        ]);
+
+        assert_eq!(parsed.streams.len(), 1);
+        assert_eq!(parsed.streams[0].0, SbUserId(7));
+        assert_eq!(parsed.streams[0].1.title, "Ladder");
+        assert_eq!(parsed.malformed, vec![(SbUserId(9), malformed_json)]);
+    }
+
+    #[test]
+    fn malformed_cleanup_compares_the_value_before_deleting() {
+        let entries = vec![
+            (SbUserId(7), "{bad-one".to_owned()),
+            (SbUserId(9), "{bad-two".to_owned()),
+        ];
+
+        let actual = remove_malformed_live_streams_command(&entries);
+        let mut expected = deadpool_redis::redis::cmd("EVAL");
+        expected
+            .arg(REMOVE_MALFORMED_LIVE_STREAMS_SCRIPT)
+            .arg(1)
+            .arg(LIVE_STREAMS_KEY)
+            .arg(7)
+            .arg("{bad-one")
+            .arg(9)
+            .arg("{bad-two");
+
+        assert_eq!(actual.get_packed_command(), expected.get_packed_command());
+    }
+
+    #[test]
+    fn live_stream_refresh_updates_are_batched_by_operation() {
+        let first = live_stream_summary();
+        let mut second = live_stream_summary();
+        second.twitch_user_id = "456".to_owned();
+        second.twitch_login = "other-streamer".to_owned();
+        let live = vec![(SbUserId(7), first), (SbUserId(8), second)];
+        let offline = vec![SbUserId(9), SbUserId(10)];
+
+        let actual = live_stream_updates_pipeline(&live, &offline).unwrap();
+
+        assert_eq!(actual.len(), 2);
+        let mut expected = deadpool_redis::redis::pipe();
+        expected
+            .cmd("HSET")
+            .arg(LIVE_STREAMS_KEY)
+            .arg(7)
+            .arg(serde_json::to_string(&live[0].1).unwrap())
+            .arg(8)
+            .arg(serde_json::to_string(&live[1].1).unwrap())
+            .ignore()
+            .cmd("HDEL")
+            .arg(LIVE_STREAMS_KEY)
+            .arg(9)
+            .arg(10)
+            .ignore();
+
+        assert_eq!(actual.get_packed_pipeline(), expected.get_packed_pipeline());
+    }
+
+    #[test]
+    fn empty_live_stream_refresh_does_not_issue_redis_commands() {
+        let pipeline = live_stream_updates_pipeline(&[], &[]).unwrap();
+        assert!(pipeline.is_empty());
+    }
 
     #[test]
     fn verify_signature_accepts_a_valid_signature() {
