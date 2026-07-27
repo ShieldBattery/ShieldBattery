@@ -1,5 +1,6 @@
 import slug from 'slug'
 import { ReadonlyDeep, Simplify } from 'type-fest'
+import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import {
   AdminAddLeagueRequest,
   AdminEditLeagueRequest,
@@ -15,6 +16,7 @@ import {
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
+import { buildGameListSearchParams } from '../games/game-filter-url'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
@@ -107,6 +109,27 @@ export function getLeagueLeaderboard(
 
     dispatch({
       type: '@leagues/getLeaderboard',
+      payload: result,
+    })
+
+    return result
+  })
+}
+
+export function getLeagueGames(
+  id: LeagueId,
+  params: GetGamesQueryParams,
+  spec: RequestHandlingSpec<GetGamesResponse>,
+): ThunkAction {
+  return abortableThunk(spec, async dispatch => {
+    const queryParams = buildGameListSearchParams(params)
+
+    const result = await fetchJson<GetGamesResponse>(apiUrl`leagues/${id}/games?${queryParams}`, {
+      signal: spec.signal,
+    })
+
+    dispatch({
+      type: '@leagues/getLeagueGames',
       payload: result,
     })
 

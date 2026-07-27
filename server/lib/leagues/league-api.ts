@@ -3,6 +3,8 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
+import { decodeMatchup } from '../../../common/games/game-filters'
+import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
@@ -25,6 +27,7 @@ import {
   toClientLeagueUserJson,
   toLeagueJson,
 } from '../../../common/leagues/leagues'
+import { toMapInfoJson } from '../../../common/maps'
 import { ALL_MATCHMAKING_TYPES } from '../../../common/matchmaking'
 import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
@@ -36,12 +39,17 @@ import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
+import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from '../games/game-list-data'
+import { getGames } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import NotificationService from '../notifications/notification-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { Redis } from '../redis/redis'
+import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
+import createThrottle from '../throttle/create-throttle'
+import throttleMiddleware from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
@@ -96,10 +104,75 @@ function leagueIdFromUrl(ctx: RouterContext): LeagueId {
   }
 }
 
+const leagueGamesListThrottle = createThrottle('leaguegames', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
 @httpApi('/leagues/')
 @httpBeforeAll(convertLeagueApiErrors)
 export class LeagueApi {
-  constructor(private redis: Redis) {}
+  constructor(
+    private redis: Redis,
+    private replayService: ReplayService,
+  ) {}
+
+  @httpGet('/:leagueId/games')
+  @httpBefore(
+    throttleMiddleware(leagueGamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
+  )
+  async getLeagueGames(ctx: RouterContext): Promise<GetGamesResponse> {
+    const leagueId = leagueIdFromUrl(ctx)
+    const {
+      query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
+    } = validateRequest(ctx, {
+      query: GET_GAMES_QUERY_SCHEMA,
+    })
+
+    const now = new Date()
+    const league = await getLeague(leagueId, now)
+    if (!league) {
+      throw new LeagueApiError(LeagueErrorCode.NotFound, 'league not found')
+    }
+
+    const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
+
+    const games = await getGames({
+      leagueId,
+      limit: GET_GAMES_LIMIT,
+      offset: offset ?? 0,
+      duration,
+      mapName,
+      playerName,
+      format,
+      matchup: decodedMatchup,
+      sort,
+      // A game only produces a league_user_changes row when it started inside the league's window
+      // (reconciliation keys that off `start_at <= startTime < end_at`), so intersecting the date
+      // filter with [startAt, endAt) can never drop a league game. It does, however, let the
+      // descending start_time index skip every game outside the league's lifetime instead of
+      // scanning back from the newest completed matchmaking game — which is the difference between
+      // a fast page and a full index walk for a league that ended long ago.
+      startDate: Math.max(startDate ?? 0, Number(league.startAt)),
+      endDate: Math.min(endDate ?? Number.MAX_SAFE_INTEGER, Number(league.endAt)),
+    })
+
+    const { users, maps, replays } = await getGameListSideData({
+      games,
+      currentUserId: ctx.session?.user?.id,
+      replayService: this.replayService,
+      logger: ctx.log,
+    })
+
+    return {
+      games: games.map(g => toGameRecordJson(g)),
+      maps: maps.map(m => toMapInfoJson(m)),
+      users,
+      hasMoreGames: games.length >= GET_GAMES_LIMIT,
+      replays,
+    }
+  }
 
   @httpGet('/')
   async getLeagues(ctx: RouterContext): Promise<GetLeaguesListResponse> {

@@ -5,13 +5,7 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
-import {
-  ALL_GAME_FORMATS,
-  decodeMatchup,
-  GameDurationFilter,
-  GameSortOption,
-} from '../../../common/games/game-filters'
+import { decodeMatchup } from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
 import { GameType } from '../../../common/games/game-type'
 import {
@@ -19,9 +13,7 @@ import {
   GameReplayInfo,
   GET_GAMES_LIMIT,
   GetGameResponse,
-  GetGamesQueryParams,
   GetGamesResponse,
-  MAX_GAMES_OFFSET,
   NullifyGamePointsRequest,
   NullifyGamePointsResponse,
   toGameDebugInfoJson,
@@ -33,9 +25,8 @@ import {
   isRawStoredGameResults,
   SubmitGameReplayRequest,
 } from '../../../common/games/results'
-import { SbMapId, toMapInfoJson } from '../../../common/maps'
+import { toMapInfoJson } from '../../../common/maps'
 import { toPublicMatchmakingRatingChangeJson } from '../../../common/matchmaking'
-import { SbUserId } from '../../../common/users/sb-user-id'
 import { parseReplay } from '../../workers/replays/replays'
 import { asHttpError } from '../errors/error-with-payload'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
@@ -48,15 +39,15 @@ import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import { canUserAccessReplay } from '../replays/replay-access'
 import { generateReplayFilename } from '../replays/replay-filenames'
-import { getReplayInfosForGames } from '../replays/replay-info'
 import { getAllReplaysForGame, getBestReplayForGame } from '../replays/replay-models'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUsersById, findUsersByIdAsMap } from '../users/user-model'
+import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
+import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from './game-list-data'
 import { GameLoader } from './game-loader'
 import {
   countCompletedGames,
@@ -242,20 +233,7 @@ export class GameApi {
     const {
       query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
     } = validateRequest(ctx, {
-      query: Joi.object<GetGamesQueryParams>({
-        duration: Joi.string().valid(...Object.values(GameDurationFilter)),
-        mapName: Joi.string().max(100),
-        playerName: Joi.string().max(100),
-        format: Joi.string().valid(...ALL_GAME_FORMATS),
-        matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
-        sort: Joi.string().valid(...Object.values(GameSortOption)),
-        // This is a public endpoint, so we cap the offset to avoid forcing the DB to produce (and
-        // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
-        // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
-        offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
-        startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-        endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-      }),
+      query: GET_GAMES_QUERY_SCHEMA,
     })
 
     const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
@@ -273,31 +251,9 @@ export class GameApi {
       endDate,
     })
 
-    const uniqueUsers = new Set<SbUserId>()
-    const uniqueMaps = new Set<SbMapId>()
-    for (const g of games) {
-      uniqueMaps.add(g.mapId)
-
-      for (const team of g.config.teams) {
-        for (const player of team) {
-          if (!player.isComputer) {
-            uniqueUsers.add(player.id)
-          }
-        }
-      }
-    }
-
-    const [users, maps] = await Promise.all([
-      findUsersById(Array.from(uniqueUsers.values())),
-      getMapInfos(Array.from(uniqueMaps.values())),
-    ])
-
-    const currentUserId = ctx.session?.user?.id
-    const mapNameById = new Map(maps.map(m => [m.id, m.name]))
-    const replays = await getReplayInfosForGames({
+    const { users, maps, replays } = await getGameListSideData({
       games,
-      currentUserId,
-      mapNameById,
+      currentUserId: ctx.session?.user?.id,
       replayService: this.replayService,
       logger: ctx.log,
     })

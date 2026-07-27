@@ -63,6 +63,7 @@ import {
 } from './action-creators'
 import { ALL_DETAILS_SUB_PAGES, DetailsSubPage } from './details-sub-page'
 import { LeagueBadge } from './league-badge'
+import { LeagueGames } from './league-games'
 import { LeagueImage, LeaguePlaceholderImage } from './league-image'
 import { fromRouteLeagueId, makeRouteLeagueId } from './route-league-id'
 
@@ -112,15 +113,37 @@ export function LeagueDetailsPage() {
 
 const DetailsRoot = styled.div`
   width: 100%;
-  max-width: 752px;
   height: 100%;
   min-height: min-content;
   margin-top: 24px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+`
+
+/**
+ * Caps the header/tabs and the Info/Leaderboard tabs' content to a comfortable reading width.
+ */
+const NarrowContent = styled.div`
+  width: 100%;
+  max-width: 752px;
   padding: 0 24px;
 
   display: flex;
   flex-direction: column;
   gap: 16px;
+`
+
+/**
+ * Lets the Games tab's content span as wide as the rest of the app's list pages (matches
+ * `CenteredContentContainer`'s default target width). `LeagueGames` supplies its own horizontal
+ * padding, so this wrapper doesn't add any.
+ */
+const WideContent = styled.div`
+  width: 100%;
+  max-width: 1184px;
 `
 
 const InfoRoot = styled.div`
@@ -342,34 +365,49 @@ export function LeagueDetails({ id, subPage, container }: LeagueDetailsProps) {
     case DetailsSubPage.Leaderboard:
       content = <Leaderboard league={league} container={container} />
       break
+    case DetailsSubPage.Games:
+      content = <LeagueGames leagueId={id} />
+      break
     default:
       assertUnreachable(activeTab)
   }
+  const isGamesTab = activeTab === DetailsSubPage.Games
 
   return (
     <DetailsRoot>
-      <LeagueDetailsHeader league={league} />
-      <TabsAndJoin>
-        <Tabs activeTab={activeTab} onChange={onTabChange}>
-          <TabItem value={DetailsSubPage.Info} text={t('leagues.leagueDetails.info', 'Info')} />
-          {isRunningOrEnded ? (
-            <TabItem
-              value={DetailsSubPage.Leaderboard}
-              text={t('leagues.leagueDetails.leaderboard', 'Leaderboard')}
+      <NarrowContent>
+        <LeagueDetailsHeader league={league} />
+        <TabsAndJoin>
+          <Tabs activeTab={activeTab} onChange={onTabChange}>
+            <TabItem value={DetailsSubPage.Info} text={t('leagues.leagueDetails.info', 'Info')} />
+            {isRunningOrEnded ? (
+              <TabItem
+                value={DetailsSubPage.Leaderboard}
+                text={t('leagues.leagueDetails.leaderboard', 'Leaderboard')}
+              />
+            ) : (
+              <></>
+            )}
+            {isRunningOrEnded ? (
+              <TabItem
+                value={DetailsSubPage.Games}
+                text={t('leagues.leagueDetails.games', 'Games')}
+              />
+            ) : (
+              <></>
+            )}
+          </Tabs>
+          {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
+            <FilledButton
+              label={joinButtonLabel}
+              disabled={!!selfLeagueUser || isJoining}
+              onClick={onJoinClick}
             />
-          ) : (
-            <></>
-          )}
-        </Tabs>
-        {(isJoinable || selfLeagueUser) && (!isFetching || selfLeagueUser) ? (
-          <FilledButton
-            label={joinButtonLabel}
-            disabled={!!selfLeagueUser || isJoining}
-            onClick={onJoinClick}
-          />
-        ) : undefined}
-      </TabsAndJoin>
-      {content}
+          ) : undefined}
+        </TabsAndJoin>
+        {!isGamesTab ? content : null}
+      </NarrowContent>
+      {isGamesTab ? <WideContent>{content}</WideContent> : null}
     </DetailsRoot>
   )
 }

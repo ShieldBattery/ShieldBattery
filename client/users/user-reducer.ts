@@ -183,6 +183,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, users)
   },
 
+  ['@leagues/getLeagueGames'](state, { payload: { users } }) {
+    updateUsers(state, users)
+  },
+
   ['@users/loadUsers'](state, action) {
     updateUsers(state, action.payload)
   },

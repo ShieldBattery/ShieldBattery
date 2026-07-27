@@ -10,6 +10,7 @@ import { GameRecord } from '../../../common/games/games'
 import { expandMatchupFilter, MatchupString } from '../../../common/games/matchups'
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { ReconciledResults } from '../../../common/games/results'
+import { LeagueId } from '../../../common/leagues/leagues'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
@@ -277,11 +278,15 @@ export async function getRecentGamesForUser(
  * Retrieves completed matchmaking games for the platform games list. Never returns a results-exempt
  * game (contains computer players — see `isResultsExempt`), though matchmaking never has computer
  * players in the first place.
+ *
+ * If `leagueId` is given, the list is restricted to games played in that league (that is, games
+ * that produced a `league_user_changes` row), which is what backs a league's Games tab.
  */
 export async function getGames(
   params: {
     limit: number
     offset: number
+    leagueId?: LeagueId
     duration?: GameDurationFilter
     mapName?: string
     playerName?: string
@@ -296,6 +301,7 @@ export async function getGames(
   const {
     limit,
     offset,
+    leagueId,
     duration,
     mapName,
     playerName,
@@ -316,6 +322,15 @@ export async function getGames(
       sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
     let needMapJoin = false
+
+    if (leagueId) {
+      // A game counts as part of a league if it produced a `league_user_changes` row for it (that
+      // is, at least one of its players was an active league member when the game reconciled).
+      whereClauses.push(sql`EXISTS (
+        SELECT 1 FROM league_user_changes luc
+        WHERE luc.league_id = ${leagueId} AND luc.game_id = g.id
+      )`)
+    }
 
     if (duration && duration !== GameDurationFilter.All) {
       switch (duration) {

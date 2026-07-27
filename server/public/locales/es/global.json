@@ -811,6 +811,7 @@
       "banUser": "Banear a {{name}}",
       "copyLink": "Copiar enlace a la liga",
       "dateText": "{{startDate}} a {{endDate}}",
+      "games": "Partidas",
       "goBack": "Volver a la lista",
       "info": "Información",
       "joined": "Unido",
@@ -836,6 +837,10 @@
       "userBannedSuccess": "Usuario baneado",
       "userUnbannedError": "Error al desbanear al usuario",
       "userUnbannedSuccess": "Usuario desbaneado"
+    },
+    "leagueGames": {
+      "noMatchingGames": "No hay partidas que coincidan.",
+      "retrievingError": "Hubo un error al obtener las partidas."
     },
     "list": {
       "acceptingSignups": "Aceptar registros",

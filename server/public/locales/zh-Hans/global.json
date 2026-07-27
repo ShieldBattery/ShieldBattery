@@ -805,6 +805,7 @@
       "banUser": "封禁 {{name}}",
       "copyLink": "复制联赛链接",
       "dateText": "{{startDate}} 至 {{endDate}}",
+      "games": "比赛",
       "goBack": "返回列表",
       "info": "信息",
       "joined": "已加入",
@@ -830,6 +831,10 @@
       "userBannedSuccess": "已封禁用户",
       "userUnbannedError": "解封用户时出错",
       "userUnbannedSuccess": "已解封用户"
+    },
+    "leagueGames": {
+      "noMatchingGames": "没有符合条件的对局。",
+      "retrievingError": "获取游戏时出错。"
     },
     "list": {
       "acceptingSignups": "接受报名",

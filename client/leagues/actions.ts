@@ -1,3 +1,4 @@
+import { GetGamesResponse } from '../../common/games/games'
 import {
   GetLeagueByIdResponse,
   GetLeagueLeaderboardResponse,
@@ -5,7 +6,8 @@ import {
   JoinLeagueResponse,
 } from '../../common/leagues/leagues'
 
-export type LeaguesActions = GetLeaguesList | GetLeague | JoinLeague | GetLeagueLeaderboard
+export type LeaguesActions =
+  GetLeaguesList | GetLeague | JoinLeague | GetLeagueLeaderboard | GetLeagueGames
 
 export interface GetLeaguesList {
   type: '@leagues/getList'
@@ -28,5 +30,11 @@ export interface JoinLeague {
 export interface GetLeagueLeaderboard {
   type: '@leagues/getLeaderboard'
   payload: GetLeagueLeaderboardResponse
+  error?: false
+}
+
+export interface GetLeagueGames {
+  type: '@leagues/getLeagueGames'
+  payload: GetGamesResponse
   error?: false
 }

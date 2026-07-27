@@ -1,12 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { SbUserId } from '../../common/users/sb-user-id'
+import { LeagueId } from '../../common/leagues/leagues'
 import { GameListFilters, GameListView } from '../games/game-list-view'
 import { GameListSearchPage } from '../games/use-game-list-search'
 import { useAppDispatch } from '../redux-hooks'
-import { getMatchHistory } from './action-creators'
+import { getLeagueGames } from './action-creators'
 
-const MatchHistoryContainer = styled.div`
+const LeagueGamesContainer = styled.div`
   width: 100%;
   padding: 0 24px;
 
@@ -15,7 +15,12 @@ const MatchHistoryContainer = styled.div`
   gap: 16px;
 `
 
-export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
+/**
+ * The "Games" tab of a league's details page: a paginated, filterable list of games played in
+ * that league, backed by the shared games-list UI (the same one the games page and match history
+ * use).
+ */
+export function LeagueGames({ leagueId }: { leagueId: LeagueId }) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
@@ -26,8 +31,8 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   ): Promise<GameListSearchPage> => {
     return new Promise((resolve, reject) => {
       dispatch(
-        getMatchHistory(
-          userId,
+        getLeagueGames(
+          leagueId,
           { ...filters, offset },
           {
             signal,
@@ -42,18 +47,15 @@ export function ConnectedMatchHistory({ userId }: { userId: SbUserId }) {
   }
 
   return (
-    <MatchHistoryContainer>
+    <LeagueGamesContainer>
       <GameListView
         loadPage={loadPage}
-        showRankedCustom={true}
-        showResult={true}
-        forUserId={userId}
-        noResultsText={t('user.matchHistory.noMatchingGames', 'No matching games.')}
+        noResultsText={t('leagues.leagueGames.noMatchingGames', 'No matching games.')}
         errorText={t(
-          'user.matchHistory.retrievingError',
-          'There was an error retrieving the match history.',
+          'leagues.leagueGames.retrievingError',
+          'There was an error retrieving the games.',
         )}
       />
-    </MatchHistoryContainer>
+    </LeagueGamesContainer>
   )
 }

@@ -22,6 +22,7 @@ import {
   GetUserRankingHistoryResponse,
 } from '../../common/users/user-network'
 import { ThunkAction } from '../dispatch-registry'
+import { buildGameListSearchParams } from '../games/game-filter-url'
 import logger from '../logging/logger'
 import { push, replace } from '../navigation/routing'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
@@ -118,12 +119,7 @@ export function getMatchHistory(
   spec: RequestHandlingSpec<GetMatchHistoryResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const queryParams = new URLSearchParams()
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== '') {
-        queryParams.set(key, String(value))
-      }
-    }
+    const queryParams = buildGameListSearchParams(params)
 
     const result = await fetchJson<GetMatchHistoryResponse>(
       apiUrl`users/${userId}/match-history?${queryParams}`,

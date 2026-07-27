@@ -1,6 +1,7 @@
 export enum DetailsSubPage {
   Info = 'info',
   Leaderboard = 'leaderboard',
+  Games = 'games',
 }
 
 export const ALL_DETAILS_SUB_PAGES = Object.values(DetailsSubPage)

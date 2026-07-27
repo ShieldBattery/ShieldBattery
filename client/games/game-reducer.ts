@@ -45,6 +45,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
+  ['@leagues/getLeagueGames'](state, { payload: { games, replays } }) {
+    for (const game of games) {
+      state.byId.set(game.id, game)
+    }
+    for (const replay of replays) {
+      state.replayInfoById.set(replay.gameId, replay)
+    }
+  },
+
   ['@games/getGameRecord'](state, { payload: { game, mmrChanges, replay, debugInfo } }) {
     state.byId.set(game.id, game)
     state.mmrChangesById.set(game.id, new Map(mmrChanges.map(m => [m.userId, m])))
