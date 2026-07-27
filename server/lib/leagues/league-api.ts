@@ -10,13 +10,14 @@ import {
   GameSortOption,
   decodeMatchup,
 } from '../../../common/games/game-filters'
-import { MAX_GAMES_OFFSET, toGameRecordJson } from '../../../common/games/games'
-import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
-  GET_LEAGUE_GAMES_LIMIT,
-  GetLeagueGamesQueryParams,
-  GetLeagueGamesResponse,
-} from '../../../common/leagues/league-games'
+  GET_GAMES_LIMIT,
+  GetGamesQueryParams,
+  GetGamesResponse,
+  MAX_GAMES_OFFSET,
+  toGameRecordJson,
+} from '../../../common/games/games'
+import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
   AdminEditLeagueResponse,
@@ -51,7 +52,7 @@ import { writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { getGameListSideData } from '../games/game-list-data'
-import { getGamesForLeague } from '../games/game-models'
+import { getGames } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
 import NotificationService from '../notifications/notification-service'
@@ -133,12 +134,12 @@ export class LeagueApi {
   @httpBefore(
     throttleMiddleware(leagueGamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
   )
-  async getLeagueGames(ctx: RouterContext): Promise<GetLeagueGamesResponse> {
+  async getLeagueGames(ctx: RouterContext): Promise<GetGamesResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const {
       query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
     } = validateRequest(ctx, {
-      query: Joi.object<GetLeagueGamesQueryParams>({
+      query: Joi.object<GetGamesQueryParams>({
         duration: Joi.string().valid(...Object.values(GameDurationFilter)),
         mapName: Joi.string().max(100),
         playerName: Joi.string().max(100),
@@ -162,9 +163,9 @@ export class LeagueApi {
 
     const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined
 
-    const games = await getGamesForLeague({
+    const games = await getGames({
       leagueId,
-      limit: GET_LEAGUE_GAMES_LIMIT,
+      limit: GET_GAMES_LIMIT,
       offset: offset ?? 0,
       duration,
       mapName,
@@ -187,7 +188,7 @@ export class LeagueApi {
       games: games.map(g => toGameRecordJson(g)),
       maps: maps.map(m => toMapInfoJson(m)),
       users,
-      hasMoreGames: games.length >= GET_LEAGUE_GAMES_LIMIT,
+      hasMoreGames: games.length >= GET_GAMES_LIMIT,
       replays,
     }
   }

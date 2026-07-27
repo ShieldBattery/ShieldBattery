@@ -11,7 +11,6 @@ import {
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   getGames,
-  getGamesForLeague,
   getGamesForUser,
   getNetcodeV2DebugInfo,
   getRecentGamesForUser,
@@ -219,12 +218,12 @@ describe('games/game-models/getGamesForUser', () => {
   })
 })
 
-describe('games/game-models/getGamesForLeague', () => {
-  test('filters to completed matchmaking games in the given league', async () => {
+describe('games/game-models/getGames with leagueId', () => {
+  test('restricts to completed matchmaking games in the given league', async () => {
     const query = mockDbClient([])
     const leagueId = 'league-1' as LeagueId
 
-    await getGamesForLeague({ leagueId, limit: 10, offset: 0 })
+    await getGames({ leagueId, limit: 10, offset: 0 })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -236,11 +235,21 @@ describe('games/game-models/getGamesForLeague', () => {
     expect(template.values).toContain(leagueId)
   })
 
+  test('omits the league semijoin when no leagueId is given', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain('FROM league_user_changes luc')
+  })
+
   test('omits the start_time bounds when startDate/endDate are not given', async () => {
     const query = mockDbClient([])
     const leagueId = 'league-1' as LeagueId
 
-    await getGamesForLeague({ leagueId, limit: 10, offset: 0 })
+    await getGames({ leagueId, limit: 10, offset: 0 })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]
@@ -254,7 +263,7 @@ describe('games/game-models/getGamesForLeague', () => {
     const startDate = Date.parse('2026-07-01T00:00:00.000Z')
     const endDate = Date.parse('2026-07-21T23:59:59.999Z')
 
-    await getGamesForLeague({ leagueId, limit: 10, offset: 0, startDate, endDate })
+    await getGames({ leagueId, limit: 10, offset: 0, startDate, endDate })
 
     expect(query).toHaveBeenCalledTimes(1)
     const template = query.mock.calls[0][0]

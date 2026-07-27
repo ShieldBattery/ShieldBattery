@@ -1,9 +1,6 @@
 import slug from 'slug'
 import { ReadonlyDeep, Simplify } from 'type-fest'
-import {
-  GetLeagueGamesQueryParams,
-  GetLeagueGamesResponse,
-} from '../../common/leagues/league-games'
+import { GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
 import {
   AdminAddLeagueRequest,
   AdminEditLeagueRequest,
@@ -120,8 +117,8 @@ export function getLeagueLeaderboard(
 
 export function getLeagueGames(
   id: LeagueId,
-  params: GetLeagueGamesQueryParams,
-  spec: RequestHandlingSpec<GetLeagueGamesResponse>,
+  params: GetGamesQueryParams,
+  spec: RequestHandlingSpec<GetGamesResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
     const queryParams = new URLSearchParams()
@@ -131,12 +128,9 @@ export function getLeagueGames(
       }
     }
 
-    const result = await fetchJson<GetLeagueGamesResponse>(
-      apiUrl`leagues/${id}/games?${queryParams}`,
-      {
-        signal: spec.signal,
-      },
-    )
+    const result = await fetchJson<GetGamesResponse>(apiUrl`leagues/${id}/games?${queryParams}`, {
+      signal: spec.signal,
+    })
 
     dispatch({
       type: '@leagues/getLeagueGames',
