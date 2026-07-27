@@ -1152,6 +1152,21 @@ async fn load_feed_blocked_user_ids(pool: &PgPool) -> eyre::Result<HashSet<SbUse
     Ok(rows.into_iter().map(|r| r.user_id).collect())
 }
 
+/// Builds the ordered `liveStreams` feed from the raw Redis entries: keep only StarCraft streams that
+/// aren't feed-blocked, then sort by viewer count (highest first).
+fn feed_streams(
+    entries: Vec<(SbUserId, LiveStreamSummary)>,
+    blocked: &HashSet<SbUserId>,
+) -> Vec<LiveStream> {
+    let mut streams: Vec<LiveStream> = entries
+        .into_iter()
+        .filter(|(user_id, summary)| summary.is_starcraft() && !blocked.contains(user_id))
+        .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
+        .collect();
+    streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
+    streams
+}
+
 /// Records a feed block for `user_id`, remembering which admin created it. Idempotent: re-blocking an
 /// already-blocked user keeps the original block (and its original `blocked_by`/`created_at`).
 async fn insert_feed_block(
@@ -1319,27 +1334,17 @@ impl TwitchQuery {
     /// first). Users an admin has blocked from the feed are omitted (the block hides them here only;
     /// their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
     async fn live_streams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<LiveStream>> {
+        let entries = load_live_streams(ctx.data::<RedisPool>()?).await?;
         // Redis holds every live broadcaster; the feed blocks are a separate, rarely-changing
         // Postgres table. This resolver is polled frequently (every home/`live` client, on an
         // interval), so only pay for the block read once there's actually a StarCraft stream it
         // could hide.
-        let live: Vec<_> = load_live_streams(ctx.data::<RedisPool>()?)
-            .await?
-            .into_iter()
-            .filter(|(_, summary)| summary.is_starcraft())
-            .collect();
-        if live.is_empty() {
+        if !entries.iter().any(|(_, summary)| summary.is_starcraft()) {
             return Ok(Vec::new());
         }
 
         let blocked = load_feed_blocked_user_ids(ctx.data::<PgPool>()?).await?;
-        let mut streams: Vec<LiveStream> = live
-            .into_iter()
-            .filter(|(user_id, _)| !blocked.contains(user_id))
-            .map(|(user_id, summary)| LiveStream::from_summary(user_id, summary))
-            .collect();
-        streams.sort_by_key(|s| std::cmp::Reverse(s.viewer_count));
-        Ok(streams)
+        Ok(feed_streams(entries, &blocked))
     }
 
     /// Streamers an admin has blocked from the live-streams feed, newest first. For the admin
@@ -2216,6 +2221,35 @@ mod tests {
         assert_eq!(parsed.streams[0].0, SbUserId(7));
         assert_eq!(parsed.streams[0].1.title, "Ladder");
         assert_eq!(parsed.malformed, vec![(SbUserId(9), malformed_json)]);
+    }
+
+    #[test]
+    fn feed_streams_drops_blocked_and_non_starcraft_then_sorts_by_viewers() {
+        let mut low = live_stream_summary();
+        low.viewer_count = 10;
+        let mut high = live_stream_summary();
+        high.viewer_count = 500;
+        let mut blocked_stream = live_stream_summary();
+        blocked_stream.viewer_count = 999;
+        let mut non_starcraft = live_stream_summary();
+        non_starcraft.game_id = "509658".to_owned(); // "Just Chatting", not a StarCraft category
+
+        let entries = vec![
+            (SbUserId(1), low),
+            (SbUserId(2), high),
+            (SbUserId(3), blocked_stream),
+            (SbUserId(4), non_starcraft),
+        ];
+        let blocked = HashSet::from([SbUserId(3)]);
+
+        let streams = feed_streams(entries, &blocked);
+
+        // The blocked user (3) and the non-StarCraft stream (4) are gone; the rest are ordered by
+        // viewer count, highest first.
+        let ids: Vec<_> = streams.iter().map(|s| s.user_id).collect();
+        assert_eq!(ids, vec![SbUserId(2), SbUserId(1)]);
+        assert_eq!(streams[0].viewer_count, 500);
+        assert_eq!(streams[1].viewer_count, 10);
     }
 
     #[test]

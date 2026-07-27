@@ -24,7 +24,7 @@ const UnblockStreamMutation = graphql(/* GraphQL */ `
 `)
 
 /** Whether the current user can moderate the live-streams feed (home page and the /live page). */
-export function useCanModerateLiveStreams() {
+function useCanModerateLiveStreams() {
   return useHasAnyPermission('manageLiveStreams')
 }
 
