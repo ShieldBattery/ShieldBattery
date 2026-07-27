@@ -103,14 +103,11 @@ const OverlayButton = styled(IconButton)`
 export function LiveStreamModeration({
   userId,
   name,
-  onModerated,
   placement = 'top-right',
   children,
 }: {
   userId: SbUserId
   name: string
-  /** Called after a successful block/unblock so the feed can refetch and reflect the change. */
-  onModerated?: () => void
   /** Where the control sits over the entry; defaults to the compact row's free top-right corner. */
   placement?: LiveStreamModerationPlacement
   children: React.ReactNode
@@ -137,8 +134,6 @@ export function LiveStreamModeration({
           )
           return
         }
-
-        onModerated?.()
       })
       .catch(err => logger.error(`Error undoing stream block: ${err.stack ?? err}`))
   }
@@ -156,7 +151,6 @@ export function LiveStreamModeration({
           return
         }
 
-        onModerated?.()
         snackbarController.showSnackbar(
           t('twitch.moderation.blocked', {
             defaultValue: 'Removed {{name}} from the live streams feed',

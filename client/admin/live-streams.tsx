@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import styled from 'styled-components'
 import { useMutation, useQuery } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -102,7 +102,10 @@ export function AdminLiveStreams() {
   const selfPermissions = useSelfPermissions()
   const snackbarController = useSnackbarController()
   const [{ data, error }, reexecuteQuery] = useQuery({ query: BlockedStreamsQuery })
-  const [{ fetching: unblocking }, unblockStream] = useMutation(AdminUnblockStreamMutation)
+  const [, unblockStream] = useMutation(AdminUnblockStreamMutation)
+  // Tracked per-user (not a shared `fetching` flag) so an in-flight unblock only disables its own
+  // row's button, not every row's.
+  const [unblockingId, setUnblockingId] = useState<SbUserId>()
 
   if (!selfPermissions?.manageLiveStreams) {
     return <LoadingError>Access denied.</LoadingError>
@@ -111,6 +114,7 @@ export function AdminLiveStreams() {
   const blocked = data?.blockedStreams
 
   const onUnblock = (userId: SbUserId, name: string) => {
+    setUnblockingId(userId)
     unblockStream({ userId })
       .then(result => {
         if (result.error) {
@@ -121,6 +125,7 @@ export function AdminLiveStreams() {
         reexecuteQuery({ requestPolicy: 'network-only' })
       })
       .catch(err => logger.error(`Error unblocking stream: ${err.stack ?? err}`))
+      .finally(() => setUnblockingId(undefined))
   }
 
   let content: ReactNode
@@ -151,7 +156,7 @@ export function AdminLiveStreams() {
               <TextButton
                 label='Unblock'
                 onClick={() => entry.user && onUnblock(entry.user.id, name)}
-                disabled={unblocking || !entry.user}
+                disabled={unblockingId === entry.user?.id || !entry.user}
               />
             </BlockRow>
           )

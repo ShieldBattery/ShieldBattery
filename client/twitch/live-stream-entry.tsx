@@ -177,10 +177,8 @@ const FeaturedTitle = styled.div`
 
 export function FeaturedLiveStreamEntry({
   query,
-  onModerated,
 }: {
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
-  onModerated?: () => void
 }) {
   const stream = useLiveStream(query)
   const { sbName, handle } = getIdentity(stream)
@@ -216,11 +214,7 @@ export function FeaturedLiveStreamEntry({
   )
 
   return stream.user ? (
-    <LiveStreamModeration
-      userId={stream.user.id}
-      name={sbName}
-      onModerated={onModerated}
-      placement='below-top-pills'>
+    <LiveStreamModeration userId={stream.user.id} name={sbName} placement='below-top-pills'>
       {entry}
     </LiveStreamModeration>
   ) : (
@@ -299,10 +293,8 @@ const RowMeta = styled.div`
 
 export function LiveStreamEntry({
   query,
-  onModerated,
 }: {
   query: FragmentType<typeof LiveStreams_FeedEntryFragment>
-  onModerated?: () => void
 }) {
   const stream = useLiveStream(query)
   const { sbName, handle } = getIdentity(stream)
@@ -329,7 +321,7 @@ export function LiveStreamEntry({
   )
 
   return stream.user ? (
-    <LiveStreamModeration userId={stream.user.id} name={sbName} onModerated={onModerated}>
+    <LiveStreamModeration userId={stream.user.id} name={sbName}>
       {entry}
     </LiveStreamModeration>
   ) : (

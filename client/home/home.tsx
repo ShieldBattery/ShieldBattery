@@ -204,10 +204,7 @@ export function Home() {
                 </SupportIcons>
               </SupportSection>
               <LiveGamesFeed query={liveData} />
-              <LiveStreamsFeed
-                query={liveData}
-                onModerated={() => reexecuteLiveQuery({ requestPolicy: 'network-only' })}
-              />
+              <LiveStreamsFeed query={liveData} />
               <LeagueHomeFeed query={homeData} />
             </RightSection>
             <BottomLinksArea>
@@ -339,10 +336,8 @@ const SeeAllLink = styled(Link)`
 
 export function LiveStreamsFeed({
   query,
-  onModerated,
 }: {
   query?: FragmentType<typeof LiveStreams_FeedFragment>
-  onModerated?: () => void
 }) {
   const { t } = useTranslation()
   const { liveStreams } = useFragment(LiveStreams_FeedFragment, query) ?? { liveStreams: [] }
@@ -359,13 +354,9 @@ export function LiveStreamsFeed({
     <HomeSection>
       <HomeSectionTitle>{t('twitch.liveStreams.title', 'Live streams')}</HomeSectionTitle>
       <LiveStreamsRoot>
-        <FeaturedLiveStreamEntry
-          key={featured.twitchLogin}
-          query={featured}
-          onModerated={onModerated}
-        />
+        <FeaturedLiveStreamEntry key={featured.twitchLogin} query={featured} />
         {rest.slice(0, 4).map(stream => (
-          <LiveStreamEntry key={stream.twitchLogin} query={stream} onModerated={onModerated} />
+          <LiveStreamEntry key={stream.twitchLogin} query={stream} />
         ))}
         <SeeAllLink href='/live'>
           {t('twitch.liveStreams.seeAll', 'See all live streams')}
