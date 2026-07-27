@@ -1,5 +1,4 @@
-import { debounce } from 'lodash-es'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import {
@@ -25,60 +24,26 @@ import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { Dialog } from '../../material/dialog'
 import { Ripple } from '../../material/ripple'
-import { elevationPlus1 } from '../../material/shadows'
 import { Tooltip } from '../../material/tooltip'
-import { useRefreshToken } from '../../network/refresh-token'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { SearchInput } from '../../search/search-input'
 import { ErrorText } from '../../settings/settings-content'
 import { useSnackbarController } from '../../snackbars/snackbar-overlay'
-import { ContainerLevel, containerStyles } from '../../styles/colors'
-import { bodyLarge, labelMedium, singleLine, titleSmall } from '../../styles/typography'
-import { ConnectedUsername } from '../../users/connected-username'
+import { labelMedium } from '../../styles/typography'
 import { StaffBadgedAvatar } from '../../users/staff-badge'
 import { listUserChannelEntries, updateChannelUserPermissions } from '../action-creators'
-
-const joinDateFormat = new Intl.DateTimeFormat(navigator.language, {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-})
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-`
-
-const SearchResults = styled.div`
-  width: 100%;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const NoResults = styled.div`
-  ${bodyLarge};
-
-  color: var(--theme-on-surface-variant);
-`
-
-const StyledSearchInput = styled(SearchInput)`
-  width: 256px;
-`
-
-const UserCardRow = styled.div`
-  ${elevationPlus1};
-  ${containerStyles(ContainerLevel.Low)};
-
-  position: relative;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  border-radius: 4px;
-  overflow: hidden;
-`
+import {
+  UserListCardActions,
+  UserListCardInfo,
+  UserListCardRow,
+  UserListCardSubtitle,
+  UserListCardUsername,
+  userListDateFormat,
+  UserListNoResults,
+  UserListRoot,
+  UserListSearchInput,
+  UserListSearchResults,
+  useSearchableUserList,
+} from './user-list'
 
 const UserCardButton = styled.button`
   ${buttonReset};
@@ -93,13 +58,6 @@ const UserCardButton = styled.button`
   text-align: left;
 `
 
-const RowActions = styled.div`
-  flex-shrink: 0;
-  padding-right: 8px;
-  display: flex;
-  align-items: center;
-`
-
 const TransferOwnershipButton = styled(IconButton)`
   width: 36px;
   min-height: 36px;
@@ -110,29 +68,10 @@ const StyledAvatar = styled(StaffBadgedAvatar)`
   height: 40px;
 `
 
-const UserInfoContainer = styled.div`
-  flex-grow: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-`
-
 const UsernameRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-`
-
-const StyledUsername = styled(ConnectedUsername)`
-  ${titleSmall};
-  ${singleLine};
-`
-
-const JoinDateText = styled.div`
-  ${labelMedium};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
 `
 
 const BadgesRow = styled.div`
@@ -185,95 +124,52 @@ export function UserPermissionsSettings({
   // channel. Official channels have no ownership to hand over.
   const canTransferOwnership = (isChannelOwner || isServerModerator) && !basicChannelInfo.official
 
-  const [channelUsers, setChannelUsers] = useState<UserChannelEntry[]>()
-  const [hasMoreUsers, setHasMoreUsers] = useState(true)
-
-  const [isLoadingMoreUsers, setIsLoadingMoreUsers] = useState(false)
-  const [searchError, setSearchError] = useState<Error>()
-  const [searchQuery, setSearchQuery] = useState('')
-  const abortControllerRef = useRef<AbortController>(undefined)
-
-  const [refreshToken, triggerRefresh] = useRefreshToken()
-  // Clears the loaded entries and lets the infinite scroll list initiate a fresh network request.
-  const resetUserList = () => {
-    // TODO(2Pac): Make the infinite scroll lost in charge of the loading state, so we don't have
-    // to do this here, which is pretty unintuitive.
-    setIsLoadingMoreUsers(false)
-    setSearchError(undefined)
-    setChannelUsers(undefined)
-    setHasMoreUsers(true)
-    triggerRefresh()
-  }
-  const debouncedSearchRef = useRef(
-    debounce((query: string) => {
-      setSearchQuery(query)
-      resetUserList()
-    }, 100),
-  )
-
-  const onSearchChange = (query: string) => {
-    debouncedSearchRef.current(query)
-  }
-
-  const onLoadMoreUsers = () => {
-    setIsLoadingMoreUsers(true)
-    setSearchError(undefined)
-
-    abortControllerRef.current?.abort()
-    abortControllerRef.current = new AbortController()
-
-    dispatch(
-      listUserChannelEntries(basicChannelInfo.id, searchQuery, channelUsers?.length ?? 0, {
-        signal: abortControllerRef.current.signal,
-        onSuccess: data => {
-          setIsLoadingMoreUsers(false)
-          setChannelUsers(prev => {
-            const existing = prev ?? []
-            // Dedupe against what we already have: the ordering depends on permission counts, so
-            // an entry edited between page loads can shift across a page boundary and reappear in
-            // a later page.
-            const seenUserIds = new Set(existing.map(u => u.userId))
-            const newEntries = data.userChannelEntries
-              .map(fromUserChannelEntryJson)
-              .filter(entry => !seenUserIds.has(entry.userId))
-            return existing.concat(newEntries)
-          })
-          setHasMoreUsers(data.hasMoreUsers)
-        },
-        onError: err => {
-          setIsLoadingMoreUsers(false)
-          setSearchError(err)
-        },
-      }),
-    )
-  }
-
-  useEffect(() => {
-    const debouncedSearch = debouncedSearchRef.current
-    return () => {
-      abortControllerRef.current?.abort()
-      debouncedSearch.cancel()
-    }
-  }, [])
+  const {
+    entries: channelUsers,
+    setEntries: setChannelUsers,
+    hasMore: hasMoreUsers,
+    isLoadingMore: isLoadingMoreUsers,
+    searchError,
+    searchQuery,
+    refreshToken,
+    onSearchChange,
+    onLoadMore: onLoadMoreUsers,
+  } = useSearchableUserList<UserChannelEntry>({
+    loadPage: ({ searchQuery: query, offset, signal, onSuccess, onError }) => {
+      dispatch(
+        listUserChannelEntries(basicChannelInfo.id, query, offset, {
+          signal,
+          onSuccess: data => {
+            onSuccess({
+              entries: data.userChannelEntries.map(fromUserChannelEntryJson),
+              hasMore: data.hasMoreUsers,
+            })
+          },
+          onError,
+        }),
+      )
+    },
+    getEntryKey: user => user.userId,
+  })
 
   let searchContent
   if (searchError) {
     searchContent = (
-      <SearchResults>
+      <UserListSearchResults>
         <ErrorText>
           {t('chat.channelSettings.permissions.loadError', 'Failed to load users.')}
         </ErrorText>
-      </SearchResults>
+      </UserListSearchResults>
     )
   } else if (channelUsers?.length === 0) {
     searchContent = (
-      <SearchResults>
-        <NoResults>
+      <UserListSearchResults>
+        <UserListNoResults>
           {searchQuery
             ? t('chat.channelSettings.permissions.noSearchResults', 'No users match your search')
             : t('chat.channelSettings.permissions.noUsers', 'This channel has no other members')}
-        </NoResults>
-      </SearchResults>
+        </UserListNoResults>
+      </UserListSearchResults>
     )
   } else {
     const userItems = (channelUsers ?? []).map(user => {
@@ -340,17 +236,17 @@ export function UserPermissionsSettings({
         hasNextData={hasMoreUsers}
         refreshToken={refreshToken}
         onLoadNextData={onLoadMoreUsers}>
-        <SearchResults>{userItems}</SearchResults>
+        <UserListSearchResults>{userItems}</UserListSearchResults>
       </InfiniteScrollList>
     )
   }
 
   return (
-    <Container>
-      <StyledSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
+    <UserListRoot>
+      <UserListSearchInput searchQuery={searchQuery} onSearchChange={onSearchChange} />
 
       {searchContent}
-    </Container>
+    </UserListRoot>
   )
 }
 
@@ -381,27 +277,27 @@ function UserChannelEntryRow({
   )
 
   return (
-    <UserCardRow>
+    <UserListCardRow>
       <UserCardButton {...buttonProps}>
         <StyledAvatar userId={user.userId} />
 
-        <UserInfoContainer>
+        <UserListCardInfo>
           <UsernameRow>
-            <StyledUsername userId={user.userId} interactive={false} />
+            <UserListCardUsername userId={user.userId} interactive={false} />
           </UsernameRow>
-          <JoinDateText>
+          <UserListCardSubtitle>
             {t('chat.channelSettings.permissions.joinedDate', 'Joined {{date}}', {
-              date: joinDateFormat.format(user.joinDate),
+              date: userListDateFormat.format(user.joinDate),
             })}
-          </JoinDateText>
+          </UserListCardSubtitle>
           <PermissionBadges permissions={user.channelPermissions} isOwner={isOwner} />
-        </UserInfoContainer>
+        </UserListCardInfo>
 
         {canEdit && <Ripple ref={rippleRef} />}
       </UserCardButton>
 
       {canTransferOwnership ? (
-        <RowActions>
+        <UserListCardActions>
           <Tooltip text={transferOwnershipLabel} position='left'>
             <TransferOwnershipButton
               icon={<MaterialIcon icon='swap_horiz' size={20} />}
@@ -409,9 +305,9 @@ function UserChannelEntryRow({
               onClick={onTransferOwnershipClick}
             />
           </Tooltip>
-        </RowActions>
+        </UserListCardActions>
       ) : null}
-    </UserCardRow>
+    </UserListCardRow>
   )
 }
 

@@ -274,6 +274,16 @@
       "deletedChannel": "deleted-channel"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "Automated",
+        "bannedDate": "Banned {{date}}",
+        "bannedDateBy": "Banned {{date}} by {{name}}",
+        "loadError": "Failed to load banned users.",
+        "noBans": "No one is banned from this channel",
+        "noSearchResults": "No banned users match your search",
+        "title": "Banned users",
+        "unban": "Unban"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "The maximum badge file size is {{fileSize}}.",
         "bannerMaxFileSizeErrorMessage": "The maximum banner file size is {{fileSize}}.",
@@ -309,6 +319,7 @@
         "transferOwnership": "Transfer ownership"
       },
       "tabs": {
+        "bannedUsers": "Banned users",
         "general": "General",
         "permissions": "Permissions"
       },
@@ -333,10 +344,6 @@
       "dialogTitle": "Delete message?",
       "errorMessage": "Error deleting message",
       "successMessage": "Message deleted"
-    },
-    "events": {
-      "ban": "You have been banned from {{channelName}}.",
-      "kick": "You have been kicked from {{channelName}}."
     },
     "joinChannel": {
       "bannedError": "You are banned from #{{channelName}}",
@@ -374,6 +381,11 @@
     "navEntry": {
       "leaveChannel": "Leave channel"
     },
+    "notifications": {
+      "ban": "You have been banned from <1>#{{channelName}}</1>.",
+      "kick": "You have been kicked from <1>#{{channelName}}</1>.",
+      "unban": "Your ban from <1>#{{channelName}}</1> has been lifted."
+    },
     "transferOwnership": {
       "adminBody": "Make {{user}} the owner of this channel? The current owner will lose ownership.",
       "body": "Transfer ownership of #{{channelName}} to {{user}}? You will no longer be the owner.",
@@ -381,6 +393,13 @@
       "dialogTitle": "Transfer ownership?",
       "errorMessage": "Something went wrong while transferring the ownership to {{user}}",
       "successMessage": "{{user}} is now the channel owner"
+    },
+    "unbanUser": {
+      "action": "Unban",
+      "body": "Are you sure you want to unban {{user}} from #{{channelName}}? They will be able to join the channel again.",
+      "errorMessage": "Something went wrong while unbanning {{user}}",
+      "successMessage": "{{user}} was unbanned",
+      "title": "Unban user?"
     },
     "userList": {
       "active": "Active",

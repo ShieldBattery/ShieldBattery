@@ -229,7 +229,8 @@ export function ChannelHeader({
   if (
     isServerModerator ||
     user?.id === joinedChannelInfo.ownerId ||
-    channelPermissions?.editPermissions
+    channelPermissions?.editPermissions ||
+    channelPermissions?.ban
   ) {
     actions.push(
       <MenuItem

@@ -14,6 +14,7 @@ export const MAXIMUM_OWNED_CHANNELS = 20
 
 export const SEARCH_CHANNELS_LIMIT = 40
 export const CHANNEL_USER_PERMISSIONS_LIMIT = 40
+export const CHANNEL_BANS_LIMIT = 40
 
 export type SbChannelId = Tagged<number, 'SbChannelId'>
 
@@ -39,6 +40,7 @@ export enum ChatServiceErrorCode {
   NoInitialChannelData = 'NoChannelData',
   NotEnoughPermissions = 'NotEnoughPermissions',
   NotInChannel = 'NotInChannel',
+  TargetNotBanned = 'TargetNotBanned',
   TargetNotInChannel = 'TargetNotInChannel',
   UserBanned = 'UserBanned',
   UserChatRestricted = 'UserChatRestricted',
@@ -568,6 +570,68 @@ export interface ListUserChannelEntriesResponse {
   /** A flag indicating whether more users are available. */
   hasMoreUsers: boolean
   /** A list of user infos for the channel. */
+  users: SbUser[]
+}
+
+/**
+ * An active ban of a user in a particular chat channel.
+ *
+ * This is moderation information, so it should only be returned to the channel's owner and
+ * moderators (users with the `editPermissions` or `ban` permission), and server admins.
+ */
+export interface ChannelBanEntry {
+  userId: SbUserId
+  channelId: SbChannelId
+  banTime: Date
+  /**
+   * The user that placed the ban. Not set for automated bans (e.g. ban evasion detection) or if
+   * it wasn't recorded.
+   */
+  bannedBy?: SbUserId
+  /** Optional reason the ban was placed, as entered by the moderator that placed it. */
+  reason?: string
+  /** Whether the ban was placed automatically (e.g. by ban evasion detection). */
+  automated: boolean
+}
+
+export type ChannelBanEntryJson = Jsonify<ChannelBanEntry>
+
+export function toChannelBanEntryJson(channelBanEntry: ChannelBanEntry): ChannelBanEntryJson {
+  return {
+    userId: channelBanEntry.userId,
+    channelId: channelBanEntry.channelId,
+    banTime: Number(channelBanEntry.banTime),
+    bannedBy: channelBanEntry.bannedBy,
+    reason: channelBanEntry.reason,
+    automated: channelBanEntry.automated,
+  }
+}
+
+export function fromChannelBanEntryJson(channelBanEntryJson: ChannelBanEntryJson): ChannelBanEntry {
+  return {
+    userId: channelBanEntryJson.userId,
+    channelId: channelBanEntryJson.channelId,
+    banTime: new Date(channelBanEntryJson.banTime),
+    bannedBy: channelBanEntryJson.bannedBy,
+    reason: channelBanEntryJson.reason,
+    automated: channelBanEntryJson.automated,
+  }
+}
+
+/**
+ * The response returned when listing the active bans in a particular channel.
+ *
+ * This is moderation information, so it should only be returned to the channel's owner and
+ * moderators (users with the `editPermissions` or `ban` permission), and server admins.
+ */
+export interface ListChannelBansResponse {
+  /** The ID of the channel for which the bans are being returned. */
+  channelId: SbChannelId
+  /** A list of active bans in the channel, most recent first. */
+  bans: ChannelBanEntryJson[]
+  /** A flag indicating whether more bans are available. */
+  hasMoreBans: boolean
+  /** User infos for the banned users and the moderators that banned them. */
   users: SbUser[]
 }
 

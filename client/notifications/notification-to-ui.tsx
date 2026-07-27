@@ -1,6 +1,11 @@
 import React from 'react'
 import { NotificationType, SbNotification } from '../../common/notifications'
 import { UserRestrictedNotificationUi } from '../auth/user-restricted-notification-ui'
+import {
+  ChannelBanNotificationUi,
+  ChannelKickNotificationUi,
+  ChannelUnbanNotificationUi,
+} from '../chat/channel-moderation-notification-ui'
 import { GamePointsRefundedNotificationUi } from '../games/game-points-refunded-notification-ui'
 import { GameReportActionedNotificationUi } from '../games/game-report-actioned-notification-ui'
 import {
@@ -28,6 +33,9 @@ export function notificationHasUi(notification: SbNotification) {
     case NotificationType.UserRestricted:
     case NotificationType.LeagueBan:
     case NotificationType.LeagueUnban:
+    case NotificationType.ChannelKick:
+    case NotificationType.ChannelBan:
+    case NotificationType.ChannelUnban:
     case NotificationType.GameReportActioned:
     case NotificationType.GamePointsRefunded:
     case NotificationType.StreamLive:
@@ -106,6 +114,33 @@ export function NotificationUi({ notification, showDivider, ref }: NotificationU
     case NotificationType.LeagueUnban:
       return (
         <LeagueUnbanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.ChannelKick:
+      return (
+        <ChannelKickNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.ChannelBan:
+      return (
+        <ChannelBanNotificationUi
+          ref={ref}
+          showDivider={showDivider}
+          read={notification.read}
+          notification={notification}
+        />
+      )
+    case NotificationType.ChannelUnban:
+      return (
+        <ChannelUnbanNotificationUi
           ref={ref}
           showDivider={showDivider}
           read={notification.read}

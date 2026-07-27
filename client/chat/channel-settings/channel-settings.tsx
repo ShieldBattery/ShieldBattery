@@ -31,6 +31,7 @@ import {
   transition,
   variants,
 } from '../../settings/settings-content'
+import { BannedUsersSettings } from './banned-users-settings'
 import {
   CHANNEL_SETTINGS_OPEN_STATE,
   closeChannelSettings,
@@ -111,6 +112,11 @@ function ChannelSettingsFromStore({
 
   const isOwner = joinedChannelInfo && selfUser && joinedChannelInfo.ownerId === selfUser.id
   const hasEditPermissions = channelPermissions && !!channelPermissions.editPermissions
+  const canAccessBannedUsersPage = !!(
+    isOwner ||
+    (channelPermissions && (channelPermissions.ban || channelPermissions.editPermissions)) ||
+    isServerModerator
+  )
 
   return (
     <ChannelSettings
@@ -119,6 +125,7 @@ function ChannelSettingsFromStore({
       joinedChannelInfo={joinedChannelInfo}
       canAccessGeneralPage={!!(isOwner || isServerModerator)}
       canAccessPermissionsPage={!!(isOwner || hasEditPermissions || isServerModerator)}
+      canAccessBannedUsersPage={canAccessBannedUsersPage}
       onCloseSettings={onCloseSettings}
     />
   )
@@ -135,6 +142,7 @@ export function ChannelSettings({
   joinedChannelInfo,
   canAccessGeneralPage,
   canAccessPermissionsPage,
+  canAccessBannedUsersPage,
   onCloseSettings,
 }: {
   basicChannelInfo?: BasicChannelInfo
@@ -142,13 +150,19 @@ export function ChannelSettings({
   joinedChannelInfo?: JoinedChannelInfo
   canAccessGeneralPage: boolean
   canAccessPermissionsPage: boolean
+  canAccessBannedUsersPage: boolean
   onCloseSettings: () => void
 }) {
   const { t } = useTranslation()
 
-  const defaultPage = canAccessGeneralPage
-    ? GeneralChannelSettingsPage.General
-    : UsersChannelSettingsPage.Permissions
+  let defaultPage: ChannelSettingsPage
+  if (canAccessGeneralPage) {
+    defaultPage = GeneralChannelSettingsPage.General
+  } else if (canAccessPermissionsPage) {
+    defaultPage = UsersChannelSettingsPage.Permissions
+  } else {
+    defaultPage = UsersChannelSettingsPage.BannedUsers
+  }
 
   const [activePage, setActivePage] = useState<ChannelSettingsPage>(defaultPage)
 
@@ -187,16 +201,26 @@ export function ChannelSettings({
             />
           </>
         )}
-        {canAccessPermissionsPage && (
+        {(canAccessPermissionsPage || canAccessBannedUsersPage) && (
           <>
             {canAccessGeneralPage && <NavSectionSeparator />}
             <NavSectionTitle>{t('chat.channelSettings.users.title', 'Users')}</NavSectionTitle>
-            <NavEntry
-              page={UsersChannelSettingsPage.Permissions}
-              isActive={activePage === UsersChannelSettingsPage.Permissions}
-              onChangePage={setActivePage}
-              testName='permissions-nav-entry'
-            />
+            {canAccessPermissionsPage && (
+              <NavEntry
+                page={UsersChannelSettingsPage.Permissions}
+                isActive={activePage === UsersChannelSettingsPage.Permissions}
+                onChangePage={setActivePage}
+                testName='permissions-nav-entry'
+              />
+            )}
+            {canAccessBannedUsersPage && (
+              <NavEntry
+                page={UsersChannelSettingsPage.BannedUsers}
+                isActive={activePage === UsersChannelSettingsPage.BannedUsers}
+                onChangePage={setActivePage}
+                testName='banned-users-nav-entry'
+              />
+            )}
           </>
         )}
       </NavContainer>
@@ -244,6 +268,8 @@ function NavEntry({
         return t('chat.channelSettings.tabs.general', 'General')
       case UsersChannelSettingsPage.Permissions:
         return t('chat.channelSettings.tabs.permissions', 'Permissions')
+      case UsersChannelSettingsPage.BannedUsers:
+        return t('chat.channelSettings.tabs.bannedUsers', 'Banned users')
       default:
         return page satisfies never
     }
@@ -289,6 +315,15 @@ function ChannelSettingsPageDisplay({
           onCloseSettings={onCloseSettings}
         />
       )
+    case UsersChannelSettingsPage.BannedUsers:
+      return (
+        <BannedUsersSettings
+          basicChannelInfo={basicChannelInfo}
+          detailedChannelInfo={detailedChannelInfo}
+          joinedChannelInfo={joinedChannelInfo}
+          onCloseSettings={onCloseSettings}
+        />
+      )
     default:
       return page satisfies never
   }
@@ -308,6 +343,8 @@ function getChannelSettingsPageTitle({
       return channelName
     case UsersChannelSettingsPage.Permissions:
       return t('chat.channelSettings.users.title', 'Users')
+    case UsersChannelSettingsPage.BannedUsers:
+      return t('chat.channelSettings.bannedUsers.title', 'Banned users')
     default:
       return page satisfies never
   }

@@ -1,4 +1,5 @@
 import { SetRequired } from 'type-fest'
+import { SbChannelId } from '../../../common/chat'
 import { NotificationType } from '../../../common/notifications'
 import { RestrictionKind, RestrictionReason } from '../../../common/users/restrictions'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -22,6 +23,9 @@ export type NotificationData =
   | UserRestrictedNotificationData
   | LeagueBanNotificationData
   | LeagueUnbanNotificationData
+  | ChannelKickNotificationData
+  | ChannelBanNotificationData
+  | ChannelUnbanNotificationData
   | GameReportActionedNotificationData
   | GamePointsRefundedNotificationData
 
@@ -70,6 +74,30 @@ export interface LeagueUnbanNotificationData extends BaseNotificationData {
 
 type LeagueUnbanSearchNotificationData = MakeSearchable<LeagueUnbanNotificationData>
 
+export interface ChannelKickNotificationData extends BaseNotificationData {
+  type: NotificationType.ChannelKick
+  channelId: SbChannelId
+  channelName: string
+}
+
+type ChannelKickSearchNotificationData = MakeSearchable<ChannelKickNotificationData>
+
+export interface ChannelBanNotificationData extends BaseNotificationData {
+  type: NotificationType.ChannelBan
+  channelId: SbChannelId
+  channelName: string
+}
+
+type ChannelBanSearchNotificationData = MakeSearchable<ChannelBanNotificationData>
+
+export interface ChannelUnbanNotificationData extends BaseNotificationData {
+  type: NotificationType.ChannelUnban
+  channelId: SbChannelId
+  channelName: string
+}
+
+type ChannelUnbanSearchNotificationData = MakeSearchable<ChannelUnbanNotificationData>
+
 export interface GameReportActionedNotificationData extends BaseNotificationData {
   type: NotificationType.GameReportActioned
 }
@@ -92,6 +120,9 @@ export type SearchNotificationData =
   | UserRestrictedSearchNotificationData
   | LeagueBanSearchNotificationData
   | LeagueUnbanSearchNotificationData
+  | ChannelKickSearchNotificationData
+  | ChannelBanSearchNotificationData
+  | ChannelUnbanSearchNotificationData
   | GameReportActionedSearchNotificationData
   | GamePointsRefundedSearchNotificationData
   | Record<string, never>

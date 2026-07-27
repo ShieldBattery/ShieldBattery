@@ -26,6 +26,7 @@ export function AdminChannelSettings({
         joinedChannelInfo={joinedChannelInfo}
         canAccessGeneralPage={true}
         canAccessPermissionsPage={true}
+        canAccessBannedUsersPage={true}
         onCloseSettings={onCloseSettings}
       />
     </ChannelSettingsOverlay>

@@ -273,6 +273,16 @@
       "deletedChannel": "삭제된 채널"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "자동 차단",
+        "bannedDate": "{{date}} 차단",
+        "bannedDateBy": "{{date}} {{name}}님이 차단",
+        "loadError": "차단된 사용자를 불러오지 못했습니다.",
+        "noBans": "이 채널에서 차단된 사용자가 없습니다",
+        "noSearchResults": "검색과 일치하는 차단된 사용자가 없습니다",
+        "title": "차단된 사용자",
+        "unban": "차단 해제"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "배지 파일의 최대 크기는 {{fileSize}}입니다.",
         "bannerMaxFileSizeErrorMessage": "배너 파일의 최대 크기는 {{fileSize}}입니다.",
@@ -308,6 +318,7 @@
         "transferOwnership": "소유권 이전"
       },
       "tabs": {
+        "bannedUsers": "차단된 사용자",
         "general": "일반",
         "permissions": "권한"
       },
@@ -332,10 +343,6 @@
       "dialogTitle": "메시지를 삭제하시겠습니까?",
       "errorMessage": "메시지를 삭제하는 중 문제가 발생했습니다",
       "successMessage": "메시지 삭제됨"
-    },
-    "events": {
-      "ban": "귀하는 {{channelName}}에서 차단되었습니다.",
-      "kick": "당신은 {{channelName}}에서 강퇴되었습니다."
     },
     "joinChannel": {
       "bannedError": "#{{channelName}}에서 차단되었습니다",
@@ -373,6 +380,11 @@
     "navEntry": {
       "leaveChannel": "채널 나가세요"
     },
+    "notifications": {
+      "ban": "<1>#{{channelName}}</1>에서 차단되었습니다.",
+      "kick": "<1>#{{channelName}}</1>에서 강퇴되었습니다.",
+      "unban": "<1>#{{channelName}}</1> 차단이 해제되었습니다."
+    },
     "transferOwnership": {
       "adminBody": "{{user}}을(를) 이 채널의 소유자로 지정하시겠습니까? 현재 소유자는 소유권을 잃습니다.",
       "body": "#{{channelName}} 채널의 소유권을 {{user}}에게 이전하시겠습니까? 이전하면 더 이상 채널 소유자가 아닙니다.",
@@ -380,6 +392,13 @@
       "dialogTitle": "소유권을 이전할까요?",
       "errorMessage": "{{user}}에게 소유권을 이전하는 중 문제가 발생했습니다",
       "successMessage": "이제 {{user}}이(가) 채널 소유자입니다"
+    },
+    "unbanUser": {
+      "action": "차단 해제",
+      "body": "#{{channelName}} 채널에서 {{user}}의 차단을 해제하시겠습니까? 해제하면 다시 채널에 입장할 수 있습니다.",
+      "errorMessage": "{{user}}의 차단을 해제하는 중 문제가 발생했습니다",
+      "successMessage": "{{user}} 차단 해제됨",
+      "title": "차단을 해제할까요?"
     },
     "userList": {
       "active": "실행",

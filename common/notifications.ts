@@ -1,3 +1,4 @@
+import { SbChannelId } from './chat'
 import { SbPolicyType } from './policies/policy-type'
 import { RestrictionKind, RestrictionReason } from './users/restrictions'
 import { SbUserId } from './users/sb-user-id'
@@ -21,6 +22,12 @@ export enum NotificationType {
   LeagueBan = 'leagueBan',
   /** A user has been unbanned from a league. */
   LeagueUnban = 'leagueUnban',
+  /** A user has been kicked from a chat channel. */
+  ChannelKick = 'channelKick',
+  /** A user has been banned from a chat channel. */
+  ChannelBan = 'channelBan',
+  /** A user has been unbanned from a chat channel. */
+  ChannelUnban = 'channelUnban',
   /** Action was taken against a player this user reported. */
   GameReportActioned = 'gameReportActioned',
   /** Ranked points this user lost in a game were refunded after the game was nullified. */
@@ -37,6 +44,9 @@ export type SbNotification =
   | UserRestrictedNotification
   | LeagueBanNotification
   | LeagueUnbanNotification
+  | ChannelKickNotification
+  | ChannelBanNotification
+  | ChannelUnbanNotification
   | GameReportActionedNotification
   | GamePointsRefundedNotification
   | StreamLiveNotification
@@ -96,6 +106,24 @@ export interface LeagueBanNotification extends BaseNotification {
 export interface LeagueUnbanNotification extends BaseNotification {
   type: NotificationType.LeagueUnban
   leagueName: string
+}
+
+export interface ChannelKickNotification extends BaseNotification {
+  type: NotificationType.ChannelKick
+  channelId: SbChannelId
+  channelName: string
+}
+
+export interface ChannelBanNotification extends BaseNotification {
+  type: NotificationType.ChannelBan
+  channelId: SbChannelId
+  channelName: string
+}
+
+export interface ChannelUnbanNotification extends BaseNotification {
+  type: NotificationType.ChannelUnban
+  channelId: SbChannelId
+  channelName: string
 }
 
 /**

@@ -275,6 +275,16 @@
       "deletedChannel": "canal-borrado"
     },
     "channelSettings": {
+      "bannedUsers": {
+        "automatedBadge": "Automático",
+        "bannedDate": "Baneado el {{date}}",
+        "bannedDateBy": "Baneado el {{date}} por {{name}}",
+        "loadError": "No se pudieron cargar los usuarios baneados.",
+        "noBans": "Nadie está baneado de este canal",
+        "noSearchResults": "Ningún usuario baneado coincide con tu búsqueda",
+        "title": "Usuarios baneados",
+        "unban": "Desbanear"
+      },
       "general": {
         "badgeMaxFileSizeErrorMessage": "El tamaño máximo del archivo de la insignia es {{fileSize}}.",
         "bannerMaxFileSizeErrorMessage": "El tamaño máximo del archivo del banner es {{fileSize}}.",
@@ -310,6 +320,7 @@
         "transferOwnership": "Transferir la propiedad"
       },
       "tabs": {
+        "bannedUsers": "Usuarios baneados",
         "general": "General",
         "permissions": "Permisos"
       },
@@ -334,10 +345,6 @@
       "dialogTitle": "¿Eliminar mensaje?",
       "errorMessage": "Algo salió mal al eliminar el mensaje",
       "successMessage": "Mensaje eliminado"
-    },
-    "events": {
-      "ban": "Has sido baneado de {{channelName}}.",
-      "kick": "Has sido expulsado de {{channelName}}."
     },
     "joinChannel": {
       "bannedError": "Estás baneado de #{{channelName}}",
@@ -375,6 +382,11 @@
     "navEntry": {
       "leaveChannel": "Salir del canal"
     },
+    "notifications": {
+      "ban": "Has sido baneado de <1>#{{channelName}}</1>.",
+      "kick": "Has sido expulsado de <1>#{{channelName}}</1>.",
+      "unban": "Se ha levantado tu baneo de <1>#{{channelName}}</1>."
+    },
     "transferOwnership": {
       "adminBody": "¿Hacer a {{user}} el dueño de este canal? El dueño actual dejará de serlo.",
       "body": "¿Transferir la propiedad de #{{channelName}} a {{user}}? Dejarás de ser el dueño del canal.",
@@ -382,6 +394,13 @@
       "dialogTitle": "¿Transferir la propiedad?",
       "errorMessage": "Algo salió mal al transferir la propiedad a {{user}}",
       "successMessage": "{{user}} ahora es el dueño del canal"
+    },
+    "unbanUser": {
+      "action": "Desbanear",
+      "body": "¿Desbanear a {{user}} de #{{channelName}}? Podrá volver a entrar al canal.",
+      "errorMessage": "Algo salió mal al desbanear a {{user}}",
+      "successMessage": "{{user}} fue desbaneado",
+      "title": "¿Desbanear usuario?"
     },
     "userList": {
       "active": "Activo",
