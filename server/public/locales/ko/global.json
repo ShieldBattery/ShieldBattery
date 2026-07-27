@@ -1724,7 +1724,8 @@
     "moderation": {
       "blocked": "{{name}}님을 라이브 방송에서 제거했습니다",
       "blockError": "{{name}}님을 라이브 방송에서 제거하지 못했습니다",
-      "removeTooltip": "라이브 방송에서 제거"
+      "removeTooltip": "라이브 방송에서 제거",
+      "unblockError": "{{name}}님을 라이브 방송에 다시 표시하지 못했습니다"
     }
   },
   "user": {

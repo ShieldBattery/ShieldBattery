@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions } from '../auth/auth-utils'
 import { graphql } from '../gql'
+import { longTimestamp } from '../i18n/date-formats'
 import { logger } from '../logging/logger'
 import { TextButton } from '../material/button'
 import { LoadingDotsArea } from '../progress/dots'
@@ -100,7 +101,7 @@ const Meta = styled.div`
 export function AdminLiveStreams() {
   const selfPermissions = useSelfPermissions()
   const snackbarController = useSnackbarController()
-  const [{ data }, reexecuteQuery] = useQuery({ query: BlockedStreamsQuery })
+  const [{ data, error }, reexecuteQuery] = useQuery({ query: BlockedStreamsQuery })
   const [{ fetching: unblocking }, unblockStream] = useMutation(AdminUnblockStreamMutation)
 
   if (!selfPermissions?.manageLiveStreams) {
@@ -123,7 +124,11 @@ export function AdminLiveStreams() {
   }
 
   let content: ReactNode
-  if (blocked === undefined) {
+  if (error) {
+    content = (
+      <LoadingError>There was a problem loading blocked streamers: {error.message}</LoadingError>
+    )
+  } else if (blocked === undefined) {
     content = <LoadingDotsArea />
   } else if (blocked.length === 0) {
     content = <EmptyText>No streamers are blocked from the live streams feed.</EmptyText>
@@ -139,7 +144,7 @@ export function AdminLiveStreams() {
                 <Name>{name}</Name>
                 {entry.twitchLogin ? <Handle>twitch.tv/{entry.twitchLogin}</Handle> : null}
                 <Meta>
-                  Blocked {new Date(entry.createdAt).toLocaleString()}
+                  Blocked {longTimestamp.format(new Date(entry.createdAt))}
                   {entry.blockedBy ? ` by ${entry.blockedBy.name}` : ''}
                 </Meta>
               </BlockInfo>
@@ -159,9 +164,10 @@ export function AdminLiveStreams() {
     <Root>
       <TitleLarge>Live stream feed blocks</TitleLarge>
       <SectionDescription>
-        Streamers listed here are hidden from the home-page live streams feed. Their live status is
-        still shown everywhere else (their profile, the "live" avatar ring, friend notifications).
-        Unblock a streamer to let them appear in the feed again.
+        Streamers listed here are hidden from the live streams feed (both on the home page and the
+        dedicated live streams page). Their live status is still shown everywhere else (their
+        profile, the "live" avatar ring, friend notifications). Unblock a streamer to let them
+        appear in the feed again.
       </SectionDescription>
 
       {content}

@@ -1742,7 +1742,8 @@
     "moderation": {
       "blocked": "Se quitó a {{name}} de las transmisiones en vivo",
       "blockError": "No se pudo quitar a {{name}} de las transmisiones en vivo",
-      "removeTooltip": "Quitar de las transmisiones en vivo"
+      "removeTooltip": "Quitar de las transmisiones en vivo",
+      "unblockError": "No se pudo volver a mostrar a {{name}} en las transmisiones en vivo"
     }
   },
   "user": {

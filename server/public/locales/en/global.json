@@ -1884,7 +1884,8 @@
     "moderation": {
       "blocked": "Removed {{name}} from the live streams feed",
       "blockError": "Couldn't remove {{name}} from the live streams feed",
-      "removeTooltip": "Remove from live streams"
+      "removeTooltip": "Remove from live streams",
+      "unblockError": "Couldn't restore {{name}} to the live streams feed"
     }
   },
   "user": {

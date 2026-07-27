@@ -23,7 +23,7 @@ const UnblockStreamMutation = graphql(/* GraphQL */ `
   }
 `)
 
-/** Whether the current user can moderate the home-page live-streams feed. */
+/** Whether the current user can moderate the live-streams feed (home page and the /live page). */
 export function useCanModerateLiveStreams() {
   return useHasAnyPermission('manageLiveStreams')
 }
@@ -33,6 +33,7 @@ const Container = styled.div`
 
   &:hover [data-live-stream-moderation] {
     opacity: 1;
+    pointer-events: auto;
   }
 `
 
@@ -49,10 +50,16 @@ const OverlayRoot = styled.div`
   background-color: rgb(0 0 0 / 72%);
 
   opacity: 0;
+  /*
+    Hidden until revealed, so a blind tap on the invisible control can't block a streamer (or swallow
+    the entry's link) on touch input; re-enabled together with each reveal below.
+  */
+  pointer-events: none;
   transition: opacity 75ms linear;
 
   &:focus-within {
     opacity: 1;
+    pointer-events: auto;
   }
 `
 
@@ -99,9 +106,17 @@ export function LiveStreamModeration({
   const onUndo = () => {
     unblockStream({ userId })
       .then(result => {
-        if (!result.error) {
-          onModerated?.()
+        if (result.error) {
+          snackbarController.showSnackbar(
+            t('twitch.moderation.unblockError', {
+              defaultValue: "Couldn't restore {{name}} to the live streams feed",
+              name,
+            }),
+          )
+          return
         }
+
+        onModerated?.()
       })
       .catch(err => logger.error(`Error undoing stream block: ${err.stack ?? err}`))
   }

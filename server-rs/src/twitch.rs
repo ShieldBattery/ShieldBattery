@@ -719,10 +719,10 @@ impl LiveStream {
     }
 }
 
-/// A streamer an admin has blocked from the home-page live-streams feed, for the admin
-/// blocked-streams list. The block hides them from the `liveStreams` feed only; the `twitch_login`/
-/// `twitch_display_name` come from their currently-linked channel (via a LEFT JOIN) and are absent
-/// if they've since unlinked.
+/// A streamer an admin has blocked from the live-streams feed (shown on the home page and the
+/// dedicated live streams page), for the admin blocked-streams list. The block hides them from the
+/// `liveStreams` feed only; the `twitch_login`/`twitch_display_name` come from their
+/// currently-linked channel (via a LEFT JOIN) and are absent if they've since unlinked.
 #[derive(SimpleObject, sqlx::FromRow)]
 #[graphql(complex)]
 pub struct BlockedStream {
@@ -1141,9 +1141,9 @@ async fn delete_connection(pool: &PgPool, user_id: SbUserId) -> eyre::Result<Opt
     Ok(row.map(|r| r.eventsub_subscription_ids))
 }
 
-/// The set of users an admin has blocked from the home-page live-streams feed. Loaded per
-/// `live_streams` read so a block takes effect on the next feed refresh; the table holds one row per
-/// blocked user, so this stays small.
+/// The set of users an admin has blocked from the live-streams feed. Loaded per `live_streams` read
+/// so a block takes effect on the next feed refresh; the table holds one row per blocked user, so
+/// this stays small.
 async fn load_feed_blocked_user_ids(pool: &PgPool) -> eyre::Result<HashSet<SbUserId>> {
     let rows = sqlx::query!(r#"SELECT user_id as "user_id: SbUserId" FROM twitch_feed_blocks"#,)
         .fetch_all(pool)
@@ -1330,8 +1330,8 @@ impl TwitchQuery {
         Ok(streams)
     }
 
-    /// Streamers an admin has blocked from the home-page live-streams feed, newest first. For the
-    /// admin blocked-streams management UI.
+    /// Streamers an admin has blocked from the live-streams feed, newest first. For the admin
+    /// blocked-streams management UI.
     #[graphql(guard = RequiredPermission::ManageLiveStreams)]
     async fn blocked_streams(
         &self,
@@ -1542,10 +1542,10 @@ impl TwitchMutation {
         Ok(true)
     }
 
-    /// Blocks a user's stream from appearing in the home-page live-streams feed. Idempotent (a
-    /// repeat block keeps the original). The block hides them from the feed only, not from the
-    /// profile stream card / avatar "live" ring / friend notifications. Requires the
-    /// `manageLiveStreams` permission.
+    /// Blocks a user's stream from appearing in the live-streams feed (shown on the home page and
+    /// the dedicated live streams page). Idempotent (a repeat block keeps the original). The block
+    /// hides them from the feed only, not from the profile stream card / avatar "live" ring / friend
+    /// notifications. Requires the `manageLiveStreams` permission.
     #[graphql(guard = RequiredPermission::ManageLiveStreams)]
     async fn block_stream(
         &self,

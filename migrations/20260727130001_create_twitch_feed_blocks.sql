@@ -1,8 +1,8 @@
--- Streamers an admin has forcefully removed from the home-page live-streams feed (see the twitch
--- GraphQL module in server-rs). A block hides the user from the `liveStreams` feed only; their live
--- state elsewhere (profile stream card, "live" avatar ring, friend "now live" notification) is
--- unaffected, so the block is applied as a read-time filter rather than by clearing their Redis live
--- entry.
+-- Streamers an admin has forcefully removed from the live-streams feed (shown on the home page and
+-- the dedicated live streams page; see the twitch GraphQL module in server-rs). A block hides the
+-- user from the `liveStreams` feed only; their live state elsewhere (profile stream card, "live"
+-- avatar ring, friend "now live" notification) is unaffected, so the block is applied as a read-time
+-- filter rather than by clearing their Redis live entry.
 --
 -- Keyed on the ShieldBattery user id (not the Twitch channel), so the block targets the person: it
 -- persists across future streams and can't be evaded by relinking a different Twitch account.
