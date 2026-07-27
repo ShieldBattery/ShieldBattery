@@ -10,7 +10,7 @@ import {
   useStreamUptime,
   ViewerCountPill,
 } from './live-indicators'
-import { LiveStreamModeration } from './live-stream-moderation'
+import { LiveStreamModeration, ModerationContainer } from './live-stream-moderation'
 
 /**
  * Shared fragment for the home-page "live streams" feed. Defined here (rather than duplicated in
@@ -114,7 +114,8 @@ const FeaturedThumb = styled.div`
   overflow: hidden;
 
   ${FeaturedRoot}:hover &,
-  ${FeaturedRoot}:focus-visible & {
+  ${FeaturedRoot}:focus-visible &,
+  ${ModerationContainer}:hover & {
     outline: 2px solid var(--theme-live);
     outline-offset: 2px;
   }
@@ -245,7 +246,8 @@ const RowRoot = styled.a`
   }
 
   &:hover,
-  &:focus-visible {
+  &:focus-visible,
+  ${ModerationContainer}:hover & {
     background-color: var(--theme-container-high);
     text-decoration: none;
     outline: none;

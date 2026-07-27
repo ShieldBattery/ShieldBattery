@@ -28,7 +28,13 @@ function useCanModerateLiveStreams() {
   return useHasAnyPermission('manageLiveStreams')
 }
 
-const Container = styled.div`
+/**
+ * Wraps a feed entry so the control can overlay it. Exported so each entry variant can keep its own
+ * `:hover` styling while the pointer is over the control: the control is a sibling of the entry link
+ * (nesting a button inside the link isn't allowed), so hovering it would otherwise drop the entry's
+ * own `:hover`. Entries key their hover styles off `${ModerationContainer}:hover` to avoid that.
+ */
+export const ModerationContainer = styled.div`
   position: relative;
 
   &:hover [data-live-stream-moderation] {
@@ -37,8 +43,6 @@ const Container = styled.div`
   }
 `
 
-// A dark, circular backdrop so the control stays legible over any thumbnail. Hidden until the entry
-// is hovered (or the control is focused for keyboard users), so it doesn't clutter the feed.
 /**
  * Where the moderation control sits over an entry. The feed's thumbnails pack every corner with
  * pills, so the placement depends on the entry variant: `top-right` uses the compact row's free
@@ -46,6 +50,8 @@ const Container = styled.div`
  */
 export type LiveStreamModerationPlacement = 'top-right' | 'below-top-pills'
 
+// A dark, circular backdrop so the control stays legible over any thumbnail. Hidden until the entry
+// is hovered (or the control is focused for keyboard users), so it doesn't clutter the feed.
 const OverlayRoot = styled.div<{ $placement: LiveStreamModerationPlacement }>`
   position: absolute;
   /*
@@ -164,7 +170,7 @@ export function LiveStreamModeration({
   const removeLabel = t('twitch.moderation.removeTooltip', 'Remove from live streams')
 
   return (
-    <Container>
+    <ModerationContainer>
       {children}
       <OverlayRoot data-live-stream-moderation={true} $placement={placement}>
         <OverlayButton
@@ -176,6 +182,6 @@ export function LiveStreamModeration({
           testName='remove-live-stream'
         />
       </OverlayRoot>
-    </Container>
+    </ModerationContainer>
   )
 }
