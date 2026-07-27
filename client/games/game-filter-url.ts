@@ -49,3 +49,18 @@ export function parseMatchup(
 export function isDateSort(sort: GameSortOption): boolean {
   return sort === GameSortOption.LatestFirst || sort === GameSortOption.OldestFirst
 }
+
+/**
+ * Encodes a games-list filter object as `URLSearchParams`, dropping any `undefined` or empty-string
+ * value so cleared filters aren't sent. Shared by the request thunks for the games list, match
+ * history, and a league's games so they all serialize their query params the same way.
+ */
+export function buildGameListSearchParams(params: object): URLSearchParams {
+  const searchParams = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      searchParams.set(key, String(value))
+    }
+  }
+  return searchParams
+}

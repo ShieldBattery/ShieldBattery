@@ -15,6 +15,7 @@ import { fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
+import { buildGameListSearchParams } from './game-filter-url'
 import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
 
@@ -61,12 +62,7 @@ export function getGames(
   spec: RequestHandlingSpec<GetGamesResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const queryParams = new URLSearchParams()
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== '') {
-        queryParams.set(key, String(value))
-      }
-    }
+    const queryParams = buildGameListSearchParams(params)
 
     const result = await fetchJson<GetGamesResponse>(apiUrl`games/list?${queryParams}`, {
       signal: spec.signal,

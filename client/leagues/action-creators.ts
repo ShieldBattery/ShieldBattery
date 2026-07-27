@@ -16,6 +16,7 @@ import {
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { ThunkAction } from '../dispatch-registry'
+import { buildGameListSearchParams } from '../games/game-filter-url'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { fetchJson } from '../network/fetch'
@@ -121,12 +122,7 @@ export function getLeagueGames(
   spec: RequestHandlingSpec<GetGamesResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async dispatch => {
-    const queryParams = new URLSearchParams()
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined && value !== '') {
-        queryParams.set(key, String(value))
-      }
-    }
+    const queryParams = buildGameListSearchParams(params)
 
     const result = await fetchJson<GetGamesResponse>(apiUrl`leagues/${id}/games?${queryParams}`, {
       signal: spec.signal,
