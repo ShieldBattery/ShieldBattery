@@ -1,14 +1,66 @@
 import Koa from 'koa'
 import promClient from 'prom-client'
+import { getDbPoolStats } from '../db'
 
 function getMicroseconds() {
   const now = process.hrtime()
   return now[0] * 1000000 + now[1] / 1000
 }
 
+function registerDatabasePoolMetrics() {
+  promClient.register.registerMetric(
+    new promClient.Gauge({
+      name: 'database_pool_connections',
+      labelNames: ['state'],
+      help: 'Open PostgreSQL connections, by state',
+      registers: [],
+      collect() {
+        this.reset()
+        const stats = getDbPoolStats()
+        if (!stats) {
+          return
+        }
+
+        this.labels('total').set(stats.totalConnections)
+        this.labels('idle').set(stats.idleConnections)
+        this.labels('in_use').set(stats.inUseConnections)
+      },
+    }),
+  )
+
+  promClient.register.registerMetric(
+    new promClient.Gauge({
+      name: 'database_pool_max_connections',
+      help: "Maximum PostgreSQL connections allowed in this process's pool",
+      registers: [],
+      collect() {
+        const stats = getDbPoolStats()
+        if (stats) {
+          this.set(stats.maxConnections)
+        }
+      },
+    }),
+  )
+
+  promClient.register.registerMetric(
+    new promClient.Gauge({
+      name: 'database_pool_waiting_requests',
+      help: 'Requests waiting to acquire a PostgreSQL connection',
+      registers: [],
+      collect() {
+        const stats = getDbPoolStats()
+        if (stats) {
+          this.set(stats.waitingRequests)
+        }
+      },
+    }),
+  )
+}
+
 /** A middleware that responds to /metrics requests with prometheus metrics. */
 export function prometheusMiddleware() {
   promClient.collectDefaultMetrics()
+  registerDatabasePoolMetrics()
 
   return async function promMiddleware(ctx: Koa.ExtendableContext, next: Koa.Next) {
     ctx.prometheus = promClient

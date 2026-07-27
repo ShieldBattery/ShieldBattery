@@ -31,6 +31,32 @@ if (!isTestRun()) {
   pool = new pg.Pool({ connectionString })
 }
 
+export interface DbPoolStats {
+  totalConnections: number
+  idleConnections: number
+  inUseConnections: number
+  waitingRequests: number
+  maxConnections: number
+}
+
+/**
+ * Returns a point-in-time snapshot of the shared node-postgres pool. The pool is absent in unit
+ * tests, where database access is mocked.
+ */
+export function getDbPoolStats(): DbPoolStats | undefined {
+  if (!pool) {
+    return undefined
+  }
+
+  return {
+    totalConnections: pool.totalCount,
+    idleConnections: pool.idleCount,
+    inUseConnections: pool.totalCount - pool.idleCount,
+    waitingRequests: pool.waitingCount,
+    maxConnections: pool.options.max,
+  }
+}
+
 export type DbDone = (err?: Error | boolean) => void
 
 export interface ClientResult {

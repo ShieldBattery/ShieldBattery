@@ -1,14 +1,13 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Utc};
-use color_eyre::eyre;
-use color_eyre::eyre::WrapErr;
+use chrono::Utc;
+use rand::RngExt;
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::{Map, Value, json};
-use tokio::sync::RwLock;
-use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
+use tokio::sync::mpsc::{Sender, channel, error::TrySendError};
+use tokio::sync::{Mutex, Notify};
 use tracing::{Event, Subscriber};
 use tracing_bunyan_formatter::JsonStorage;
 use tracing_subscriber::Layer;
@@ -19,17 +18,26 @@ const SOURCE: &str = "sb-telemetry-datadog";
 const TAGS: &str = "version:0.1.0";
 const MAX_BATCH_SIZE: usize = 1000;
 const MAX_BATCH_DURATION: Duration = Duration::from_secs(5);
+const LOG_CHANNEL_CAPACITY: usize = MAX_BATCH_SIZE * 2;
+const MAX_QUEUED_LOGS: usize = MAX_BATCH_SIZE * 10;
 const MAX_RETRIES: u8 = 3;
+const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+const HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+const INITIAL_RETRY_DELAY: Duration = Duration::from_millis(100);
+
+const QUEUE_SIZE_METRIC: &str = "datadog_log_queue_size";
+const DROPPED_LOGS_METRIC: &str = "datadog_logs_dropped_total";
+const BATCH_SIZE_METRIC: &str = "datadog_log_batch_size";
+const SEND_DURATION_METRIC: &str = "datadog_log_send_duration_seconds";
+const SEND_FAILURES_METRIC: &str = "datadog_log_send_failures_total";
 
 /// How long [flush_datadog_logs] waits for the ingestor thread to drain the log channel into its
 /// queue before forcing a send. Logging is asynchronous (`on_event` -> channel -> thread -> queue),
 /// so a brief pause ensures a log emitted immediately before the flush is actually in the queue.
 const FLUSH_DRAIN_GRACE: Duration = Duration::from_millis(250);
 
-/// Hard upper bound on how long [flush_datadog_logs] will spend trying to send. The ingestor's HTTP
-/// client has no request timeout, so without this an unreachable Datadog (likely in the same
-/// outage that triggered the flush) could block for OS-level TCP timeouts and delay the very
-/// process exit the caller is racing to reach.
+/// Hard upper bound on how long [flush_datadog_logs] will spend trying to send. This is shorter than
+/// the ingestor's normal HTTP timeout because fatal shutdown is best-effort and time-sensitive.
 const FLUSH_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// A clone of the running ingestor, stashed so a fatal shutdown path can force a synchronous flush
@@ -127,12 +135,55 @@ type Log = Map<String, Value>;
 #[derive(Debug)]
 struct LogEvent {
     log: Log,
-    received_at: DateTime<Utc>,
+    received_at: Instant,
+}
+
+#[derive(Debug, Default)]
+struct LogQueue {
+    events: VecDeque<LogEvent>,
+}
+
+impl LogQueue {
+    fn push(&mut self, event: LogEvent) -> bool {
+        let dropped = if self.events.len() >= MAX_QUEUED_LOGS {
+            self.events.pop_front();
+            true
+        } else {
+            false
+        };
+        self.events.push_back(event);
+        dropped
+    }
+
+    fn should_send(&self, now: Instant, flush: bool) -> bool {
+        let Some(first) = self.events.front() else {
+            return false;
+        };
+
+        flush
+            || self.events.len() >= MAX_BATCH_SIZE
+            || now.saturating_duration_since(first.received_at) >= MAX_BATCH_DURATION
+    }
+
+    fn next_send_deadline(&self) -> Option<Instant> {
+        self.events
+            .front()
+            .map(|event| event.received_at + MAX_BATCH_DURATION)
+    }
+
+    fn take_batch(&mut self) -> Vec<Log> {
+        let len = usize::min(self.events.len(), MAX_BATCH_SIZE);
+        self.events.drain(..len).map(|e| e.log).collect()
+    }
+
+    fn len(&self) -> usize {
+        self.events.len()
+    }
 }
 
 #[derive(Debug)]
 pub struct DatadogLogLayer {
-    tx: Option<UnboundedSender<Log>>,
+    tx: Option<Sender<Log>>,
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
@@ -143,7 +194,7 @@ impl DatadogLogLayer {
         // Ignore the error if it's already set — only one layer is ever created per process.
         let _ = INGESTOR.set(ingestor.clone());
 
-        let (tx, mut rx) = unbounded_channel();
+        let (tx, mut rx) = channel(LOG_CHANNEL_CAPACITY);
         let handle = std::thread::Builder::new()
             .name("datadog-log-layer".to_string())
             .spawn(move || {
@@ -248,9 +299,18 @@ where
 {
     fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
         if let Some(tx) = &self.tx {
-            let log = Self::create_log(event, &ctx);
-            if let Err(e) = tx.send(log) {
-                eprintln!("DatadogLogLayer failed to send log to ingestor: {e:?}");
+            match tx.try_reserve() {
+                Ok(permit) => permit.send(Self::create_log(event, &ctx)),
+                Err(TrySendError::Full(_)) => {
+                    ::metrics::counter!(
+                        DROPPED_LOGS_METRIC,
+                        "reason" => "ingest_channel_full"
+                    )
+                    .increment(1);
+                }
+                Err(TrySendError::Closed(_)) => {
+                    eprintln!("DatadogLogLayer failed to send log: ingestor channel closed");
+                }
             }
         }
     }
@@ -261,7 +321,9 @@ struct DatadogIngestor {
     url: String,
     api_key: SecretString,
     client: reqwest::Client,
-    queue: Arc<RwLock<VecDeque<LogEvent>>>,
+    queue: Arc<Mutex<LogQueue>>,
+    send_lock: Arc<Mutex<()>>,
+    wake_sender: Arc<Notify>,
 
     service_name: Value,
     source: Value,
@@ -275,9 +337,9 @@ enum SendLogsError {
     #[error("Logs payload too large")]
     PayloadTooLarge,
     #[error("Maximum send retries exceeded")]
-    RetriesExceeeded,
-    #[error(transparent)]
-    Unexpected(#[from] eyre::Error),
+    RetriesExceeded,
+    #[error("Datadog rejected the logs with status {0}")]
+    Rejected(u16),
 }
 
 impl DatadogIngestor {
@@ -296,12 +358,19 @@ impl DatadogIngestor {
         let tags = options
             .tags
             .map_or_else(|| TAGS.into(), |t| format!("{t}, {TAGS}"));
+        let client = reqwest::Client::builder()
+            .connect_timeout(HTTP_CONNECT_TIMEOUT)
+            .timeout(HTTP_REQUEST_TIMEOUT)
+            .build()
+            .expect("Datadog HTTP client configuration should be valid");
 
         Self {
             url,
             api_key: options.api_key,
-            client: reqwest::Client::new(),
-            queue: Arc::new(RwLock::new(VecDeque::new())),
+            client,
+            queue: Arc::new(Mutex::new(LogQueue::default())),
+            send_lock: Arc::new(Mutex::new(())),
+            wake_sender: Arc::new(Notify::new()),
 
             service_name: json!(options.service_name),
             source: json!(SOURCE),
@@ -314,9 +383,16 @@ impl DatadogIngestor {
     pub fn start(&self) {
         let this = self.clone();
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(MAX_BATCH_DURATION);
             loop {
-                interval.tick().await;
+                let deadline = this.queue.lock().await.next_send_deadline();
+                if let Some(deadline) = deadline {
+                    tokio::select! {
+                        _ = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)) => {}
+                        () = this.wake_sender.notified() => {}
+                    }
+                } else {
+                    this.wake_sender.notified().await;
+                }
                 this.try_send(false).await;
             }
         });
@@ -331,9 +407,21 @@ impl DatadogIngestor {
 
         let log_event = LogEvent {
             log,
-            received_at: Utc::now(),
+            received_at: Instant::now(),
         };
-        self.queue.write().await.push_back(log_event);
+        let mut queue = self.queue.lock().await;
+        let was_empty = queue.len() == 0;
+        let dropped = queue.push(log_event);
+        let queue_len = queue.len();
+        drop(queue);
+
+        ::metrics::gauge!(QUEUE_SIZE_METRIC).set(queue_len as f64);
+        if dropped {
+            ::metrics::counter!(DROPPED_LOGS_METRIC, "reason" => "queue_full").increment(1);
+        }
+        if was_empty || queue_len >= MAX_BATCH_SIZE {
+            self.wake_sender.notify_one();
+        }
     }
 
     pub async fn flush(&self) {
@@ -341,30 +429,24 @@ impl DatadogIngestor {
     }
 
     async fn try_send(&self, flush: bool) {
+        let _send_guard = self.send_lock.lock().await;
         loop {
-            let queue = self.queue.read().await;
-            if queue.is_empty() {
-                return;
-            }
-            if !flush {
-                let last = queue.back().unwrap();
-                if (Utc::now() - last.received_at)
-                    .to_std()
-                    .unwrap_or(Duration::from_millis(0))
-                    < MAX_BATCH_DURATION
-                {
+            let logs = {
+                let mut queue = self.queue.lock().await;
+                if !queue.should_send(Instant::now(), flush) {
                     return;
                 }
-            }
-            drop(queue);
-
-            let logs = {
-                let mut queue = self.queue.write().await;
-                let len = usize::min(queue.len(), MAX_BATCH_SIZE);
-                queue.drain(..len).map(|e| e.log).collect::<Vec<_>>()
+                let logs = queue.take_batch();
+                ::metrics::gauge!(QUEUE_SIZE_METRIC).set(queue.len() as f64);
+                logs
             };
+            ::metrics::histogram!(BATCH_SIZE_METRIC).record(logs.len() as f64);
 
-            match self.send_logs(&logs).await {
+            let send_start = Instant::now();
+            let result = self.send_logs(&logs).await;
+            ::metrics::histogram!(SEND_DURATION_METRIC).record(send_start.elapsed().as_secs_f64());
+
+            match result {
                 Err(SendLogsError::PayloadTooLarge) => {
                     // Split the payload in half and try again
                     let half = logs.len() / 2;
@@ -374,17 +456,38 @@ impl DatadogIngestor {
                     // haven't implemented it for now (I think that would be a pretty rare case
                     // anyway given the size of things we log)
                     if let Err(e) = self.send_logs(first).await {
+                        ::metrics::counter!(SEND_FAILURES_METRIC, "reason" => "split_send")
+                            .increment(1);
+                        ::metrics::counter!(
+                            DROPPED_LOGS_METRIC,
+                            "reason" => "split_send_failed"
+                        )
+                        .increment(first.len() as u64);
                         eprintln!("DatadogIngestor failed to send split logs: {e:?}");
                     }
                     if let Err(e) = self.send_logs(second).await {
+                        ::metrics::counter!(SEND_FAILURES_METRIC, "reason" => "split_send")
+                            .increment(1);
+                        ::metrics::counter!(
+                            DROPPED_LOGS_METRIC,
+                            "reason" => "split_send_failed"
+                        )
+                        .increment(second.len() as u64);
                         eprintln!("DatadogIngestor failed to send split logs: {e:?}");
                     }
                 }
-                Err(SendLogsError::RetriesExceeeded) => {
+                Err(SendLogsError::RetriesExceeded) => {
+                    ::metrics::counter!(SEND_FAILURES_METRIC, "reason" => "retries_exceeded")
+                        .increment(1);
+                    ::metrics::counter!(DROPPED_LOGS_METRIC, "reason" => "send_failed")
+                        .increment(logs.len() as u64);
                     eprintln!("DatadogIngestor failed to send logs after max retries");
                 }
-                Err(SendLogsError::Unexpected(e)) => {
-                    eprintln!("DatadogIngestor had an unexpected error while sending logs: {e:?}");
+                Err(SendLogsError::Rejected(status)) => {
+                    ::metrics::counter!(SEND_FAILURES_METRIC, "reason" => "rejected").increment(1);
+                    ::metrics::counter!(DROPPED_LOGS_METRIC, "reason" => "rejected")
+                        .increment(logs.len() as u64);
+                    eprintln!("DatadogIngestor failed to send logs: Datadog returned {status}");
                 }
                 Ok(_) => {}
             }
@@ -392,16 +495,27 @@ impl DatadogIngestor {
     }
 
     async fn send_logs(&self, logs: &[Log]) -> Result<(), SendLogsError> {
-        for _ in 0..MAX_RETRIES {
-            let res = self
+        for attempt in 0..MAX_RETRIES {
+            let result = self
                 .client
                 .post(&self.url)
                 .header("User-Agent", "sb-telemetry-datadog/0.1.0")
                 .header("DD-API-KEY", self.api_key.expose_secret())
                 .json(&logs)
                 .send()
-                .await
-                .wrap_err("Failed to send logs")?;
+                .await;
+            let res = match result {
+                Ok(res) => res,
+                Err(e) => {
+                    eprintln!(
+                        "DatadogIngestor failed to send logs ({e}), request will be retried unless at max retries"
+                    );
+                    if attempt + 1 < MAX_RETRIES {
+                        tokio::time::sleep(retry_delay(attempt)).await;
+                    }
+                    continue;
+                }
+            };
             match res.status().as_u16() {
                 202 => {
                     // Log was accepted
@@ -411,12 +525,15 @@ impl DatadogIngestor {
                     eprintln!(
                         "DatadogIngestor got Bad Request (probably an issue with payload formatting)"
                     );
+                    return Err(SendLogsError::Rejected(400));
                 }
                 401 => {
                     eprintln!("DatadogIngestor got Unauthorized (probably a missing API key)");
+                    return Err(SendLogsError::Rejected(401));
                 }
                 403 => {
                     eprintln!("DatadogIngestor got Forbidden (probably an invalid API key)");
+                    return Err(SendLogsError::Rejected(403));
                 }
                 408 => {
                     eprintln!(
@@ -450,8 +567,104 @@ impl DatadogIngestor {
                     );
                 }
             }
+            if attempt + 1 < MAX_RETRIES {
+                tokio::time::sleep(retry_delay(attempt)).await;
+            }
         }
 
-        Err(SendLogsError::RetriesExceeeded)
+        Err(SendLogsError::RetriesExceeded)
+    }
+}
+
+fn retry_delay(attempt: u8) -> Duration {
+    let base = INITIAL_RETRY_DELAY.saturating_mul(1_u32 << attempt);
+    let jitter = rand::rng().random_range(0..=base.as_millis() as u64);
+    base + Duration::from_millis(jitter)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn event(received_at: Instant) -> LogEvent {
+        LogEvent {
+            log: Map::new(),
+            received_at,
+        }
+    }
+
+    #[test]
+    fn continuous_traffic_does_not_postpone_aged_batch() {
+        let start = Instant::now();
+        let mut queue = LogQueue::default();
+        for offset in 0..=MAX_BATCH_DURATION.as_secs() {
+            queue.push(event(start + Duration::from_secs(offset)));
+        }
+
+        assert!(queue.should_send(start + MAX_BATCH_DURATION, false));
+    }
+
+    #[test]
+    fn send_deadline_is_based_on_oldest_event() {
+        let start = Instant::now();
+        let mut queue = LogQueue::default();
+        queue.push(event(start));
+        queue.push(event(start + Duration::from_secs(3)));
+
+        assert_eq!(queue.next_send_deadline(), Some(start + MAX_BATCH_DURATION));
+    }
+
+    #[test]
+    fn full_batch_is_ready_before_max_duration() {
+        let now = Instant::now();
+        let mut queue = LogQueue::default();
+        for _ in 0..MAX_BATCH_SIZE {
+            queue.push(event(now));
+        }
+
+        assert!(queue.should_send(now, false));
+    }
+
+    #[test]
+    fn queue_is_bounded_and_keeps_most_recent_logs() {
+        let start = Instant::now();
+        let mut queue = LogQueue::default();
+        let overflow = 5;
+        let mut dropped = 0;
+        for offset in 0..MAX_QUEUED_LOGS + overflow {
+            dropped += usize::from(queue.push(event(start + Duration::from_millis(offset as u64))));
+        }
+
+        assert_eq!(dropped, overflow);
+        assert_eq!(queue.len(), MAX_QUEUED_LOGS);
+        assert_eq!(
+            queue.events.front().unwrap().received_at,
+            start + Duration::from_millis(overflow as u64)
+        );
+    }
+
+    #[test]
+    fn take_batch_preserves_queue_order() {
+        let start = Instant::now();
+        let mut queue = LogQueue::default();
+        for offset in 0..MAX_BATCH_SIZE + 1 {
+            let mut log = Map::new();
+            log.insert("offset".to_string(), json!(offset));
+            queue.push(LogEvent {
+                log,
+                received_at: start,
+            });
+        }
+
+        let batch = queue.take_batch();
+
+        assert_eq!(batch.len(), MAX_BATCH_SIZE);
+        assert_eq!(batch.first().unwrap()["offset"], json!(0));
+        assert_eq!(batch.last().unwrap()["offset"], json!(MAX_BATCH_SIZE - 1));
+        assert_eq!(queue.len(), 1);
+        assert_eq!(
+            queue.events.front().unwrap().log["offset"],
+            json!(MAX_BATCH_SIZE)
+        );
     }
 }

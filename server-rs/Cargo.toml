@@ -102,7 +102,9 @@ features = [
 version = "0.7"
 features = [
   "add-extension",
-  "compression-full",
+  "compression-deflate",
+  "compression-gzip",
+  "compression-zstd",
   "cors",
   "normalize-path",
   "request-id",
