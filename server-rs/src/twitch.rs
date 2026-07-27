@@ -119,6 +119,10 @@ const LIVE_REFRESH_INTERVAL: Duration = Duration::from_secs(120);
 const STREAM_ONLINE_LOOKUP_ATTEMPTS: u32 = 4;
 /// Delay between the Get Streams polls counted by `STREAM_ONLINE_LOOKUP_ATTEMPTS`.
 const STREAM_ONLINE_LOOKUP_RETRY_DELAY: Duration = Duration::from_secs(2);
+/// How long the `live_streams` feed-block set is cached in-process (see `FeedBlockCache`). The block
+/// table changes rarely, so this keeps the frequently-polled feed query off Postgres while still
+/// applying a new block within a short window.
+const FEED_BLOCK_CACHE_TTL: Duration = Duration::from_secs(30);
 
 type HmacSha256 = Hmac<Sha256>;
 
@@ -977,6 +981,7 @@ impl SchemaBuilderModule for TwitchModule {
                 LiveStreamLoader::new(self.redis_pool.clone()),
                 tokio::spawn,
             ))
+            .data(FeedBlockCache::default())
     }
 }
 
@@ -1141,15 +1146,60 @@ async fn delete_connection(pool: &PgPool, user_id: SbUserId) -> eyre::Result<Opt
     Ok(row.map(|r| r.eventsub_subscription_ids))
 }
 
-/// The set of users an admin has blocked from the live-streams feed. Loaded per `live_streams` read
-/// so a block takes effect on the next feed refresh; the table holds one row per blocked user, so
-/// this stays small.
+/// The set of users an admin has blocked from the live-streams feed. The table holds one row per
+/// blocked user, so this stays small. Callers on the hot `live_streams` path go through
+/// `FeedBlockCache` rather than reading this on every poll.
 async fn load_feed_blocked_user_ids(pool: &PgPool) -> eyre::Result<HashSet<SbUserId>> {
     let rows = sqlx::query!(r#"SELECT user_id as "user_id: SbUserId" FROM twitch_feed_blocks"#,)
         .fetch_all(pool)
         .await
         .wrap_err("Failed to load Twitch feed blocks")?;
     Ok(rows.into_iter().map(|r| r.user_id).collect())
+}
+
+struct CachedFeedBlocks {
+    blocked: Arc<HashSet<SbUserId>>,
+    expires_at: Instant,
+}
+
+/// A short-lived, in-process cache of the feed-block set. `live_streams` is polled by every
+/// home/`live` client on an interval, but the block table changes rarely, so serving the set from
+/// this cache keeps that hot query off Postgres. A newly added or removed block takes effect once
+/// the entry expires (within `FEED_BLOCK_CACHE_TTL`), which is well inside the latency feed
+/// moderation needs. Shared for the schema's lifetime via `TwitchModule`.
+#[derive(Default)]
+struct FeedBlockCache {
+    inner: RwLock<Option<CachedFeedBlocks>>,
+}
+
+impl FeedBlockCache {
+    /// Returns the current feed-block set, refreshing from `pool` when the cached copy is missing or
+    /// expired. Mirrors `TwitchClient::app_token`'s read-then-double-checked-write locking.
+    async fn get(&self, pool: &PgPool) -> eyre::Result<Arc<HashSet<SbUserId>>> {
+        {
+            let guard = self.inner.read().await;
+            if let Some(cached) = guard.as_ref()
+                && cached.expires_at > Instant::now()
+            {
+                return Ok(cached.blocked.clone());
+            }
+        }
+
+        let mut guard = self.inner.write().await;
+        // Re-check in case another task refreshed while we waited for the write lock.
+        if let Some(cached) = guard.as_ref()
+            && cached.expires_at > Instant::now()
+        {
+            return Ok(cached.blocked.clone());
+        }
+
+        let blocked = Arc::new(load_feed_blocked_user_ids(pool).await?);
+        *guard = Some(CachedFeedBlocks {
+            blocked: blocked.clone(),
+            expires_at: Instant::now() + FEED_BLOCK_CACHE_TTL,
+        });
+        Ok(blocked)
+    }
 }
 
 /// Builds the ordered `liveStreams` feed from the raw Redis entries: keep only StarCraft streams that
@@ -1335,15 +1385,13 @@ impl TwitchQuery {
     /// their live state elsewhere -- profile, avatar ring, friend notifications -- is unaffected).
     async fn live_streams(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<LiveStream>> {
         let entries = load_live_streams(ctx.data::<RedisPool>()?).await?;
-        // Redis holds every live broadcaster; the feed blocks are a separate, rarely-changing
-        // Postgres table. This resolver is polled frequently (every home/`live` client, on an
-        // interval), so only pay for the block read once there's actually a StarCraft stream it
-        // could hide.
-        if !entries.iter().any(|(_, summary)| summary.is_starcraft()) {
-            return Ok(Vec::new());
-        }
-
-        let blocked = load_feed_blocked_user_ids(ctx.data::<PgPool>()?).await?;
+        // This resolver is polled frequently (every home/`live` client, on an interval); the block
+        // set is served from a short-TTL cache so those polls don't each hit Postgres for a table
+        // that changes rarely.
+        let blocked = ctx
+            .data::<FeedBlockCache>()?
+            .get(ctx.data::<PgPool>()?)
+            .await?;
         Ok(feed_streams(entries, &blocked))
     }
 
