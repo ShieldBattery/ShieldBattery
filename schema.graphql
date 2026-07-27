@@ -4,10 +4,10 @@ Any of the possible race choices after random has been resolved.
 scalar AssignedRace
 
 """
-A streamer an admin has blocked from the home-page live-streams feed, for the admin
-blocked-streams list. The block hides them from the `liveStreams` feed only; the `twitch_login`/
-`twitch_display_name` come from their currently-linked channel (via a LEFT JOIN) and are absent
-if they've since unlinked.
+A streamer an admin has blocked from the live-streams feed (shown on the home page and the
+dedicated live streams page), for the admin blocked-streams list. The block hides them from the
+`liveStreams` feed only; the `twitch_login`/`twitch_display_name` come from their
+currently-linked channel (via a LEFT JOIN) and are absent if they've since unlinked.
 """
 type BlockedStream {
 	"""
@@ -581,10 +581,10 @@ type Mutation {
 	"""
 	twitchUnlink: Boolean!
 	"""
-	Blocks a user's stream from appearing in the home-page live-streams feed. Idempotent (a
-	repeat block keeps the original). The block hides them from the feed only, not from the
-	profile stream card / avatar "live" ring / friend notifications. Requires the
-	`manageLiveStreams` permission.
+	Blocks a user's stream from appearing in the live-streams feed (shown on the home page and
+	the dedicated live streams page). Idempotent (a repeat block keeps the original). The block
+	hides them from the feed only, not from the profile stream card / avatar "live" ring / friend
+	notifications. Requires the `manageLiveStreams` permission.
 	"""
 	blockStream(userId: SbUserId!): Boolean!
 	"""
@@ -755,8 +755,8 @@ type Query {
 	"""
 	liveStreams: [LiveStream!]!
 	"""
-	Streamers an admin has blocked from the home-page live-streams feed, newest first. For the
-	admin blocked-streams management UI.
+	Streamers an admin has blocked from the live-streams feed, newest first. For the admin
+	blocked-streams management UI.
 	"""
 	blockedStreams: [BlockedStream!]!
 	"""
