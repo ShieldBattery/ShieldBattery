@@ -1,5 +1,17 @@
+import Joi from 'joi'
 import { Logger } from 'pino'
-import { GameRecord, GameReplayInfo } from '../../../common/games/games'
+import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
+import {
+  ALL_GAME_FORMATS,
+  GameDurationFilter,
+  GameSortOption,
+} from '../../../common/games/game-filters'
+import {
+  GameRecord,
+  GameReplayInfo,
+  GetGamesQueryParams,
+  MAX_GAMES_OFFSET,
+} from '../../../common/games/games'
 import { MapInfo } from '../../../common/maps'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
@@ -7,6 +19,26 @@ import { getMapInfos } from '../maps/map-models'
 import { getReplayInfosForGames } from '../replays/replay-info'
 import { ReplayService } from '../replays/replay-service'
 import { findUsersById } from '../users/user-model'
+
+/**
+ * Joi validation schema for the query params shared by the public paginated games-list endpoints
+ * (the global games list and a league's games). Extracted so their validation — the offset cap and
+ * the `.integer()` requirement in particular — can't drift apart.
+ */
+export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams>({
+  duration: Joi.string().valid(...Object.values(GameDurationFilter)),
+  mapName: Joi.string().max(100),
+  playerName: Joi.string().max(100),
+  format: Joi.string().valid(...ALL_GAME_FORMATS),
+  matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
+  sort: Joi.string().valid(...Object.values(GameSortOption)),
+  // These are public endpoints, so we cap the offset to avoid forcing the DB to produce (and sort)
+  // an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts e.g. `1.5`,
+  // which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
+  offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
+  startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+  endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
+})
 
 /**
  * Collects the side data (players, maps, replay download info) needed to turn a list of

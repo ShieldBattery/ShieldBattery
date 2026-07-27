@@ -5,13 +5,7 @@ import Koa from 'koa'
 import { Readable } from 'stream'
 import { container, singleton } from 'tsyringe'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
-import {
-  ALL_GAME_FORMATS,
-  decodeMatchup,
-  GameDurationFilter,
-  GameSortOption,
-} from '../../../common/games/game-filters'
+import { decodeMatchup } from '../../../common/games/game-filters'
 import { GameStatus } from '../../../common/games/game-status'
 import { GameType } from '../../../common/games/game-type'
 import {
@@ -19,9 +13,7 @@ import {
   GameReplayInfo,
   GET_GAMES_LIMIT,
   GetGameResponse,
-  GetGamesQueryParams,
   GetGamesResponse,
-  MAX_GAMES_OFFSET,
   NullifyGamePointsRequest,
   NullifyGamePointsResponse,
   toGameDebugInfoJson,
@@ -55,7 +47,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
-import { getGameListSideData } from './game-list-data'
+import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from './game-list-data'
 import { GameLoader } from './game-loader'
 import {
   countCompletedGames,
@@ -241,20 +233,7 @@ export class GameApi {
     const {
       query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
     } = validateRequest(ctx, {
-      query: Joi.object<GetGamesQueryParams>({
-        duration: Joi.string().valid(...Object.values(GameDurationFilter)),
-        mapName: Joi.string().max(100),
-        playerName: Joi.string().max(100),
-        format: Joi.string().valid(...ALL_GAME_FORMATS),
-        matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
-        sort: Joi.string().valid(...Object.values(GameSortOption)),
-        // This is a public endpoint, so we cap the offset to avoid forcing the DB to produce (and
-        // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
-        // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
-        offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
-        startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-        endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-      }),
+      query: GET_GAMES_QUERY_SCHEMA,
     })
 
     const decodedMatchup = matchup && format ? decodeMatchup(format, matchup) : undefined

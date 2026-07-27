@@ -3,20 +3,8 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import mime from 'mime'
 import { assertUnreachable } from '../../../common/assert-unreachable'
-import { MAX_DATE_TIMESTAMP } from '../../../common/constants'
-import {
-  ALL_GAME_FORMATS,
-  GameDurationFilter,
-  GameSortOption,
-  decodeMatchup,
-} from '../../../common/games/game-filters'
-import {
-  GET_GAMES_LIMIT,
-  GetGamesQueryParams,
-  GetGamesResponse,
-  MAX_GAMES_OFFSET,
-  toGameRecordJson,
-} from '../../../common/games/games'
+import { decodeMatchup } from '../../../common/games/game-filters'
+import { GET_GAMES_LIMIT, GetGamesResponse, toGameRecordJson } from '../../../common/games/games'
 import { MAX_IMAGE_SIZE_BYTES } from '../../../common/images'
 import {
   AdminAddLeagueResponse,
@@ -51,7 +39,7 @@ import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
-import { getGameListSideData } from '../games/game-list-data'
+import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from '../games/game-list-data'
 import { getGames } from '../games/game-models'
 import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPatch, httpPost } from '../http/route-decorators'
@@ -139,20 +127,7 @@ export class LeagueApi {
     const {
       query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
     } = validateRequest(ctx, {
-      query: Joi.object<GetGamesQueryParams>({
-        duration: Joi.string().valid(...Object.values(GameDurationFilter)),
-        mapName: Joi.string().max(100),
-        playerName: Joi.string().max(100),
-        format: Joi.string().valid(...ALL_GAME_FORMATS),
-        matchup: Joi.string().pattern(/^[ptz_]{1,4}-[ptz_]{1,4}$/),
-        sort: Joi.string().valid(...Object.values(GameSortOption)),
-        // This is a public endpoint, so we cap the offset to avoid forcing the DB to produce (and
-        // sort) an unbounded number of rows. `.integer()` is needed because Joi otherwise accepts
-        // e.g. `1.5`, which produces an invalid `OFFSET 1.5` and 500s on the bigint cast.
-        offset: Joi.number().integer().min(0).max(MAX_GAMES_OFFSET),
-        startDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-        endDate: Joi.number().integer().min(0).max(MAX_DATE_TIMESTAMP),
-      }),
+      query: GET_GAMES_QUERY_SCHEMA,
     })
 
     const now = new Date()
