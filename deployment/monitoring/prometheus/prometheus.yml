@@ -10,22 +10,48 @@ scrape_configs:
   - job_name: 'node'
     static_configs:
       # The *-rp2-coordinator hostnames: see the rp2_coordinator job below.
-      - targets:
-          [
-            'localhost:9100',
-            'sb-staging:9100',
-            'sb-prod:9100',
-            'staging-rp2-coordinator:9100',
-            'rp2-coordinator:9100',
-          ]
+      - targets: ['localhost:9100']
+        labels:
+          environment: monitoring
+          host: monitoring
+      - targets: ['sb-staging:9100']
+        labels:
+          environment: staging
+          host: sb-staging
+      - targets: ['sb-prod:9100']
+        labels:
+          environment: production
+          host: sb-prod
+      - targets: ['staging-rp2-coordinator:9100']
+        labels:
+          environment: staging
+          host: staging-rp2-coordinator
+      - targets: ['rp2-coordinator:9100']
+        labels:
+          environment: production
+          host: rp2-coordinator
 
   - job_name: 'app_server'
     static_configs:
-      - targets: ['sb-staging:80', 'sb-prod:80']
+      - targets: ['sb-staging:80']
+        labels:
+          environment: staging
+          host: sb-staging
+      - targets: ['sb-prod:80']
+        labels:
+          environment: production
+          host: sb-prod
 
   - job_name: 'server_rs'
     static_configs:
-      - targets: ['sb-staging:8001', 'sb-prod:8001']
+      - targets: ['sb-staging:8001']
+        labels:
+          environment: staging
+          host: sb-staging
+      - targets: ['sb-prod:8001']
+        labels:
+          environment: production
+          host: sb-prod
 
   # The coordinator boxes' tailnet hostnames (each box's TAILSCALE_HOSTNAME):
   # staging-rp2-coordinator is the staging box; rp2-coordinator is the
@@ -33,4 +59,11 @@ scrape_configs:
   # until that box exists.
   - job_name: 'rp2_coordinator'
     static_configs:
-      - targets: ['staging-rp2-coordinator:14911', 'rp2-coordinator:14911']
+      - targets: ['staging-rp2-coordinator:14911']
+        labels:
+          environment: staging
+          host: staging-rp2-coordinator
+      - targets: ['rp2-coordinator:14911']
+        labels:
+          environment: production
+          host: rp2-coordinator

@@ -34,7 +34,11 @@ The chain:
 3. Each dashboard JSON references the datasource by `uid: prometheus` and queries metric names exposed
    by the scrape targets (e.g. `matchmaker_*` from server-rs `/metrics`, scraped via the `server_rs`
    job in `prometheus/prometheus.yml`).
-4. `grafana/dashboards/rally-point.json` is provisioned the same way, reading `rp2_*` series scraped
+4. `grafana/dashboards/server-health.json` combines availability, HTTP, PostgreSQL-pool, runtime,
+   host-resource, and background-pipeline metrics from the TypeScript `app_server`, Rust `server_rs`,
+   and `node` scrape jobs. Those targets have stable `environment` and `host` labels so the dashboard
+   can switch cleanly between staging and production.
+5. `grafana/dashboards/rally-point.json` is provisioned the same way, reading `rp2_*` series scraped
    via the `rp2_coordinator` job — see `../coordinator/README.md`'s Metrics section for what the
    coordinator's `/metrics` exposes.
 
