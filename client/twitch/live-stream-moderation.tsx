@@ -55,11 +55,13 @@ export type LiveStreamModerationPlacement = 'top-right' | 'below-top-pills'
 const OverlayRoot = styled.div<{ $placement: LiveStreamModerationPlacement }>`
   position: absolute;
   /*
-    The hero card's top corners hold the live badge and viewer-count pill (bottom edge ~38px down),
-    so 'below-top-pills' clears them; the compact row's top-right corner is free.
+    Offsets are measured from the entry wrapper. The hero card pads its thumbnail, so
+    'below-top-pills' insets to sit inside that padding: it drops below the hero's live/viewer pills
+    and lines its right edge up with them, staying clear of the thumbnail's hover outline. The
+    compact row has no such padding or outline, so its control tucks into the free top-right corner.
   */
   top: ${props => (props.$placement === 'below-top-pills' ? '44px' : '6px')};
-  right: 6px;
+  right: ${props => (props.$placement === 'below-top-pills' ? '18px' : '6px')};
   z-index: 1;
   display: flex;
 
