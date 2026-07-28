@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import createStore from '../create-store'
 import type { RequestHandlingSpec } from '../network/abortable-thunk'
 import { FetchError } from '../network/fetch-errors'
-import { useSbGameMap } from './replay-hooks'
+import { resetSbGameMapStateForTests, useSbGameMap } from './replay-hooks'
 
 // Mock out the real game fetch so tests drive its outcome by hand. The mock records each spec so a
 // test can resolve/reject the "request" whenever it likes, and returns a harmless thunk.
@@ -27,6 +27,8 @@ vi.mock('../games/action-creators', () => ({
 // Kept in sync with replay-hooks.ts (not exported from there).
 const DEBOUNCE_MS = 150
 const RETRY_MS = 2000
+const RETRY_MAX_MS = 30000
+const MAX_ATTEMPTS = 6
 
 let store: ReturnType<typeof createStore>
 
@@ -65,11 +67,20 @@ function failLatest(gameId: string, status: number) {
   })
 }
 
+function succeedLatest(gameId: string) {
+  act(() => {
+    latestSpec(gameId).onSuccess(undefined)
+  })
+}
+
 describe('client/replays/replay-hooks/useSbGameMap', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     specsByGame.clear()
     viewGameMock.mockClear()
+    // The hook's fetch bookkeeping is module-level and deliberately outlives a mount, so reset it
+    // between cases — otherwise markers/backoff/listeners leak from one test into the next.
+    resetSbGameMapStateForTests()
     store = createStore()
   })
 
@@ -170,6 +181,47 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     // ...but the next attempt lands by the held ~4s backoff.
     advance(RETRY_MS)
     expect(specCountFor('storm-game')).toBe(3)
+  })
+
+  test('clears all backoff on a successful fetch so a backed-off game refetches promptly', () => {
+    const { rerender } = renderMap('backed-off')
+    advance(DEBOUNCE_MS)
+    expect(specCountFor('backed-off')).toBe(1)
+
+    // Two failures grow this game's backoff to ~4s.
+    failLatest('backed-off', 429)
+    advance(RETRY_MS)
+    expect(specCountFor('backed-off')).toBe(2)
+    failLatest('backed-off', 429)
+
+    // A different game's fetch then succeeds — the limiter clearly isn't blocking anymore.
+    rerender({ gameId: 'ok-game' })
+    advance(DEBOUNCE_MS)
+    succeedLatest('ok-game')
+
+    // Returning to the backed-off game now fetches on the debounce, not the stale ~4s backoff.
+    rerender({ gameId: 'backed-off' })
+    advance(DEBOUNCE_MS)
+    expect(specCountFor('backed-off')).toBe(3)
+  })
+
+  test('gives up and settles to unavailable after exhausting transient retries', () => {
+    const { result } = renderMap('doomed')
+    // The wait before each attempt: debounce, then the doubling backoff, capped.
+    const delays = [DEBOUNCE_MS, RETRY_MS, RETRY_MS * 2, RETRY_MS * 4, RETRY_MS * 8, RETRY_MAX_MS]
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      advance(delays[attempt - 1])
+      expect(specCountFor('doomed')).toBe(attempt)
+      expect(result.current.status).toBe('loading')
+      failLatest('doomed', 429)
+    }
+
+    // The final failure exhausts the cap: the hero stops shimmering and falls back to unavailable...
+    expect(result.current.status).toBe('unavailable')
+    // ...and there are no further retries, however long the panel stays open.
+    advance(RETRY_MAX_MS * 2)
+    expect(specCountFor('doomed')).toBe(MAX_ATTEMPTS)
   })
 
   test('recovers when re-attaching to an in-flight fetch that then fails transiently', () => {

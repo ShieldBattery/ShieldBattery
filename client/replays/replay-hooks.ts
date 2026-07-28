@@ -19,7 +19,7 @@ export interface SbGameMapResult {
 
 /** How long a selection must hold still before we fetch its game — see the debounce note below. */
 const MAP_FETCH_DEBOUNCE_MS = 150
-/** Initial backoff before retrying a game fetch that failed transiently (rate-limited / 5xx / network). */
+/** Base backoff before the first retry of a game fetch that failed transiently (rate-limited / 5xx / network). */
 const MAP_FETCH_RETRY_MS = 2000
 /**
  * Ceiling for the retry backoff. Each transient failure doubles the delay up to this cap, so a
@@ -27,6 +27,14 @@ const MAP_FETCH_RETRY_MS = 2000
  * the panel stays open, while still self-healing once the rate limit clears.
  */
 const MAP_FETCH_RETRY_MAX_MS = 30000
+/**
+ * How many times a single game fetch may fail transiently before we give up and settle to
+ * `unavailable`. Without a cap a *persistently* failing fetch — a long outage, or a non-`FetchError`
+ * thrown while dispatching (which has no status and so is treated as transient) — would shimmer the
+ * hero and poll forever with no terminal fallback. With the backoff above, six attempts span roughly
+ * a minute before giving up.
+ */
+const MAP_FETCH_MAX_ATTEMPTS = 6
 
 /**
  * Outcome of each game fetch, tracked across the mount/unmount churn of navigating between replays:
@@ -46,13 +54,17 @@ const MAP_FETCH_RETRY_MAX_MS = 30000
 const gameFetchStatus = new Map<string, 'pending' | 'settled'>()
 
 /**
- * Current retry backoff (ms) for each game that has failed transiently and not yet settled. Kept at
- * module scope, keyed by game id, so the backoff *holds* across the hook remounting: arrowing off a
- * rate-limited replay and back doesn't reset it to the initial 2s, so a sustained 429 keeps backing
- * off toward the cap instead of restarting the poll from scratch on every visit. Cleared once the
- * fetch settles (success or terminal failure).
+ * Number of times each not-yet-settled game fetch has failed transiently. Kept at module scope,
+ * keyed by game id, so it *holds* across the hook remounting: arrowing off a rate-limited replay and
+ * back derives the same backoff instead of resetting to the initial 2s, so a sustained 429 keeps
+ * backing off toward the cap rather than restarting the poll on every visit. Also drives the
+ * attempt cap above.
+ *
+ * Cleared for a game once its fetch settles terminally; cleared *entirely* on any successful fetch —
+ * a success proves the limiter/network isn't blocking, so every game's stale backoff is void and a
+ * game we back off from won't stall on a long-expired 30s delay when revisited.
  */
-const gameFetchBackoff = new Map<string, number>()
+const gameFetchRetries = new Map<string, number>()
 
 /** Hooks subscribed to a given game id's fetch outcome, notified whenever it changes. */
 const gameFetchListeners = new Map<string, Set<() => void>>()
@@ -107,10 +119,14 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
     // A fresh selection is debounced so holding the arrow key through the list doesn't fire a request
     // per intermediate selection — each is a different game, so request coalescing can't help (it
     // only dedupes concurrent requests for the *same* game), and the burst trips the server's rate
-    // limiter. A game that failed transiently instead waits its persisted backoff, so a returning or
-    // re-attaching selection retries no faster than the backoff, rather than resetting to the
-    // debounce.
-    const delay = gameFetchBackoff.get(gameId) ?? MAP_FETCH_DEBOUNCE_MS
+    // limiter. A game that has already failed transiently instead waits an exponential backoff
+    // derived from its (persisted) failure count, so a returning or re-attaching selection retries no
+    // faster than the backoff, rather than resetting to the debounce.
+    const retries = gameFetchRetries.get(gameId) ?? 0
+    const delay =
+      retries === 0
+        ? MAP_FETCH_DEBOUNCE_MS
+        : Math.min(MAP_FETCH_RETRY_MS * 2 ** (retries - 1), MAP_FETCH_RETRY_MAX_MS)
     const timer = setTimeout(() => {
       if (canceled || gameFetchStatus.has(gameId)) return
       gameFetchStatus.set(gameId, 'pending')
@@ -121,30 +137,33 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
         viewGame(gameId, {
           onSuccess: () => {
             gameFetchStatus.set(gameId, 'settled')
-            gameFetchBackoff.delete(gameId)
+            // A success proves the limiter/network isn't blocking, so drop every game's accrued
+            // backoff — not just this one's — so a game we backed off from doesn't stall on a stale
+            // 30s delay when revisited.
+            gameFetchRetries.clear()
             notifyGameFetchListeners(gameId)
           },
           onError: err => {
             const status = isFetchError(err) ? err.status : undefined
-            if (status !== undefined && status >= 400 && status < 500 && status !== 429) {
-              // Terminal: the game genuinely has no viewable record, so settle and show the
-              // placeholder rather than retrying forever.
+            const terminal4xx =
+              status !== undefined && status >= 400 && status < 500 && status !== 429
+            const attempts = (gameFetchRetries.get(gameId) ?? 0) + 1
+            if (terminal4xx || attempts >= MAP_FETCH_MAX_ATTEMPTS) {
+              // Give up: either the game genuinely has no viewable record (a 4xx other than 429), or
+              // we've exhausted our transient retries (a sustained outage / rate-limit / persistently
+              // throwing fetch). Settle so we show the placeholder rather than shimmering — and
+              // polling — forever.
               gameFetchStatus.set(gameId, 'settled')
-              gameFetchBackoff.delete(gameId)
+              gameFetchRetries.delete(gameId)
             } else {
-              // Transient (429 rate-limiting, 5xx, network blip): drop the marker so the fetch can be
-              // retried, and grow the backoff toward the cap. Notifying re-renders whichever hook is
-              // *currently* mounted for this game; that hook's effect re-runs and owns the retry — so
-              // a request started by a selection the user has since navigated away from still recovers
-              // on a returning mount, instead of stranding it on the loading skeleton.
+              // Transient (429 rate-limiting, 5xx, network blip, non-`FetchError` throw): drop the
+              // marker so the fetch can be retried, and bump the failure count (which grows the
+              // backoff toward the cap). Notifying re-renders whichever hook is *currently* mounted
+              // for this game; that hook's effect re-runs and owns the retry — so a request started by
+              // a selection the user has since navigated away from still recovers on a returning
+              // mount, instead of stranding it on the loading skeleton.
               gameFetchStatus.delete(gameId)
-              const prev = gameFetchBackoff.get(gameId)
-              gameFetchBackoff.set(
-                gameId,
-                prev === undefined
-                  ? MAP_FETCH_RETRY_MS
-                  : Math.min(prev * 2, MAP_FETCH_RETRY_MAX_MS),
-              )
+              gameFetchRetries.set(gameId, attempts)
             }
             notifyGameFetchListeners(gameId)
           },
@@ -170,4 +189,15 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   }
 
   return { map, status }
+}
+
+/**
+ * Clears the module-level fetch bookkeeping. Exported for tests only, so each case starts from a
+ * clean slate instead of leaking `pending`/`settled` markers, backoff counts, and listeners into the
+ * next one (the state deliberately outlives any single hook mount, so it isn't reset otherwise).
+ */
+export function resetSbGameMapStateForTests() {
+  gameFetchStatus.clear()
+  gameFetchRetries.clear()
+  gameFetchListeners.clear()
 }
