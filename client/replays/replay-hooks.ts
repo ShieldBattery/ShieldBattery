@@ -19,8 +19,14 @@ export interface SbGameMapResult {
 
 /** How long a selection must hold still before we fetch its game — see the debounce note below. */
 const MAP_FETCH_DEBOUNCE_MS = 150
-/** Backoff before retrying a game fetch that failed transiently (rate-limited / 5xx / network). */
+/** Initial backoff before retrying a game fetch that failed transiently (rate-limited / 5xx / network). */
 const MAP_FETCH_RETRY_MS = 2000
+/**
+ * Ceiling for the retry backoff. Each transient failure doubles the delay up to this cap, so a
+ * sustained 429 settles into an occasional poll rather than a fixed 0.5 req/s hammer for as long as
+ * the panel stays open, while still self-healing once the rate limit clears.
+ */
+const MAP_FETCH_RETRY_MAX_MS = 30000
 
 /**
  * Outcome of each game fetch, tracked across the mount/unmount churn of navigating between replays:
@@ -46,6 +52,7 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
 
     let canceled = false
     let retryTimer: ReturnType<typeof setTimeout> | undefined
+    let retryDelay = MAP_FETCH_RETRY_MS
 
     const attempt = () => {
       if (canceled || gameFetchStatus.has(gameId)) return
@@ -64,12 +71,17 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
               // placeholder rather than retrying forever.
               gameFetchStatus.set(gameId, 'settled')
               forceUpdate()
-            } else if (!canceled) {
-              // Transient (429 rate-limiting, 5xx, network blip): drop the marker and retry after a
-              // backoff so a rate-limited selection resolves on its own instead of sticking on the
-              // skeleton.
+            } else {
+              // Transient (429 rate-limiting, 5xx, network blip): drop the marker unconditionally so
+              // a later mount can retry (a failure that lands after we've moved on must not leave the
+              // entry stuck at 'pending', which would strand a returning selection on the skeleton),
+              // and only schedule our own retry if we're still the active selection. Back off
+              // exponentially so a sustained rate-limit resolves on its own without hammering.
               gameFetchStatus.delete(gameId)
-              retryTimer = setTimeout(attempt, MAP_FETCH_RETRY_MS)
+              if (!canceled) {
+                retryTimer = setTimeout(attempt, retryDelay)
+                retryDelay = Math.min(retryDelay * 2, MAP_FETCH_RETRY_MAX_MS)
+              }
             }
           },
         }),
