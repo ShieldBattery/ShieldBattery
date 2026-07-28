@@ -17,60 +17,39 @@ export interface SbGameMapResult {
   status: SbGameMapStatus
 }
 
-/** How long a selection must hold still before we fetch its game — see the debounce note below. */
+/** How long a selection must hold still before we fetch its game (see the debounce in the effect). */
 const MAP_FETCH_DEBOUNCE_MS = 150
-/** Base backoff before the first retry of a game fetch that failed transiently (rate-limited / 5xx / network). */
+/** Base backoff before the first retry of a transiently-failed fetch (rate-limited / 5xx / network). */
 const MAP_FETCH_RETRY_MS = 2000
-/**
- * Ceiling for the retry backoff. Each transient failure doubles the delay up to this cap, so a
- * sustained 429 settles into an occasional poll rather than a fixed 0.5 req/s hammer for as long as
- * the panel stays open, while still self-healing once the rate limit clears.
- */
+/** Backoff ceiling: a sustained failure polls at most this often while the panel stays open. */
 const MAP_FETCH_RETRY_MAX_MS = 30000
 /**
- * How many times a single game fetch may fail transiently before we stop retrying and show the
- * placeholder. Without a cap a *persistently* failing fetch — a long outage, or a non-`FetchError`
- * thrown while dispatching (which has no status and so is treated as transient) — would shimmer the
- * hero and poll forever with no terminal fallback. With the backoff above, six attempts span roughly
- * a minute before giving up. Giving up is *recoverable*, not permanent — see `gaveUp` below.
+ * Transient failures a fetch may take before it gives up (see `gaveUp`) rather than shimmering and
+ * polling forever. With the backoff above, ~a minute.
  */
 const MAP_FETCH_MAX_ATTEMPTS = 6
 
 /**
- * Outcome of each game fetch, tracked across the mount/unmount churn of navigating between replays.
- * This lets the hook tell "still loading" apart from "no map to show" even for a game the Redux store
- * doesn't have — a distinction the store alone can't make, since a game that's genuinely missing on
- * the server is also simply absent from it.
+ * Fetch outcome per game id, tracked at module scope so it survives the hook unmounting/remounting as
+ * the user arrows between replays. Lets the hook distinguish "still loading" from "no map" even for a
+ * game absent from the Redux store (a genuinely missing game is also simply absent from it).
  *
  * - `pending`: a request is in flight.
- * - `settled`: terminally resolved — the game loaded, or it 4xx'd (other than 429), so there's
- *   genuinely no viewable record. Revisiting won't refetch.
- * - `gaveUp`: exhausted its transient retries (`MAP_FETCH_MAX_ATTEMPTS`). Shown as unavailable and no
- *   longer polled, but — unlike `settled` — *not* permanent: a transient outage shouldn't strand the
- *   preview for the rest of the session. Any later successful fetch (proof the limiter/network
- *   recovered) clears every `gaveUp` marker so those games refetch when next shown.
+ * - `settled`: terminally resolved — loaded, or a 4xx (other than 429) with no viewable record.
+ *   Permanent; revisiting won't refetch.
+ * - `gaveUp`: exhausted its transient retries. Shown as unavailable and no longer polled, but — unlike
+ *   `settled` — recoverable: any later successful fetch clears every `gaveUp`, so a transient outage
+ *   doesn't strand the preview for the rest of the session.
  *
  * A transient failure short of the cap deletes the entry instead, so the fetch is retried.
- *
- * This is an external store rather than Redux/component state so the outcome survives a hook
- * unmounting and remounting (arrowing off a replay and back), and it's read through
- * `useSyncExternalStore` below — not a `forceUpdate` reading this map during render — so the React
- * Compiler can't memoize the derived `status` on its reactive inputs and skip a status-only change.
  */
 const gameFetchStatus = new Map<string, 'pending' | 'settled' | 'gaveUp'>()
 
 /**
- * Number of times each not-yet-resolved game fetch has failed transiently. Kept at module scope,
- * keyed by game id, so it *holds* across the hook remounting: arrowing off a rate-limited replay and
- * back derives the same backoff instead of resetting to the initial 2s, so a sustained 429 keeps
- * backing off toward the cap rather than restarting the poll on every visit. Also drives the attempt
- * cap above.
- *
- * Cleared *entirely* on any successful fetch — a success proves the limiter/network isn't blocking,
- * so every game's accrued backoff is void (a game we backed off from won't stall on a long-expired
- * 30s delay when revisited). That a concurrent success also resets a still-failing game's count is
- * intended: the cap is a safety net for a *sustained* no-success outage, not a limiter on a burst
- * that's already clearing.
+ * Transient-failure count per not-yet-resolved game, driving both the backoff delay and the attempt
+ * cap. At module scope so the backoff holds across remounts (arrowing away and back doesn't reset it
+ * to 2s). Cleared entirely on any success — proof the limiter/network recovered — which voids stale
+ * backoffs and keeps the cap a safety net for a sustained outage, not a limiter on a clearing burst.
  */
 const gameFetchRetries = new Map<string, number>()
 
@@ -109,30 +88,25 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   const dispatch = useAppDispatch()
   const game = useAppSelector(s => (gameId ? s.games.byId.get(gameId) : undefined))
   const map = useAppSelector(s => (game?.mapId ? s.maps.byId.get(game.mapId) : undefined))
-  // The fetch outcome lives in the module-level store above rather than Redux, so it's read here as
-  // an external store. This (not a forceUpdate) is what keeps `status` correct under the React
-  // Compiler: `fetchStatus` is a tracked reactive input, so the compiler can't memoize the `status`
-  // derivation on `[map, gameId, game]` and skip recomputing it when only the fetch outcome changed.
+  // Read the module-level outcome as an external store. useSyncExternalStore (a tracked reactive
+  // input) rather than a forceUpdate keeps `status` correct under the React Compiler, which could
+  // otherwise memoize the derivation on `[map, gameId, game]` and skip a status-only change.
   const fetchStatus = useSyncExternalStore(
     onChange => subscribeToGameFetch(gameId, onChange),
     () => getGameFetchStatus(gameId),
   )
 
   useEffect(() => {
-    // Nothing to fetch: no selection, or the game (and thus its map) is already in the store. Also
-    // bail on any tracked outcome — a request in flight (`pending`), a terminal one (`settled`), or a
-    // gave-up one (`gaveUp`): the subscription above delivers a `pending` request's result and
-    // re-renders us, and the resolved/gave-up states shouldn't refetch. Re-running on a transient
-    // failure (which deletes the marker) is what schedules the retry.
+    // Nothing to schedule: no selection, the game is already in the store, or the fetch has a tracked
+    // outcome (a `pending` request delivers its result via the subscription; `settled`/`gaveUp` don't
+    // refetch). A transient failure deletes the marker, and re-running here is what retries.
     if (!gameId || game || gameFetchStatus.has(gameId)) return () => {}
 
     let canceled = false
-    // A fresh selection is debounced so holding the arrow key through the list doesn't fire a request
-    // per intermediate selection — each is a different game, so request coalescing can't help (it
-    // only dedupes concurrent requests for the *same* game), and the burst trips the server's rate
-    // limiter. A game that has already failed transiently instead waits an exponential backoff
-    // derived from its (persisted) failure count, so a returning or re-attaching selection retries no
-    // faster than the backoff, rather than resetting to the debounce.
+    // Debounce a fresh selection so holding the arrow key doesn't fire a request per intermediate
+    // replay (each is a different game, so request coalescing can't help). A game that's already
+    // failed waits its backoff instead, so a returning/re-attaching selection retries no faster than
+    // the backoff.
     const retries = gameFetchRetries.get(gameId) ?? 0
     const delay =
       retries === 0
@@ -148,10 +122,8 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
         viewGame(gameId, {
           onSuccess: () => {
             gameFetchStatus.set(gameId, 'settled')
-            // A success proves the limiter/network recovered, so let every game that gave up try
-            // again (dropping its marker means the next time it's shown it refetches) and void every
-            // game's accrued backoff — otherwise a game we backed off from would stall on a stale 30s
-            // delay, or a gave-up game would stay "unavailable" for the rest of the session.
+            // Recovery: a success proves the limiter/network is back, so reopen every gave-up game
+            // (deleting its marker → refetches when next shown) and void all accrued backoff.
             for (const id of [...gameFetchStatus.keys()]) {
               if (gameFetchStatus.get(id) === 'gaveUp') {
                 gameFetchStatus.delete(id)
@@ -167,23 +139,18 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
               status !== undefined && status >= 400 && status < 500 && status !== 429
             const attempts = (gameFetchRetries.get(gameId) ?? 0) + 1
             if (terminal4xx) {
-              // Terminal: the game genuinely has no viewable record, so settle permanently and show
-              // the placeholder rather than retrying.
+              // No viewable record — settle permanently.
               gameFetchStatus.set(gameId, 'settled')
               gameFetchRetries.delete(gameId)
             } else if (attempts >= MAP_FETCH_MAX_ATTEMPTS) {
-              // Exhausted our transient retries (a sustained outage / rate-limit / persistently
-              // throwing fetch): stop shimmering — and polling — and show the placeholder. Recoverable
-              // rather than permanent (see `gaveUp`): a later successful fetch reopens it.
+              // Retries exhausted — give up (recoverable): stop shimmering and polling.
               gameFetchStatus.set(gameId, 'gaveUp')
               gameFetchRetries.delete(gameId)
             } else {
-              // Transient (429 rate-limiting, 5xx, network blip, non-`FetchError` throw): drop the
-              // marker so the fetch can be retried, and bump the failure count (which grows the
-              // backoff toward the cap). Notifying re-renders whichever hook is *currently* mounted
-              // for this game; that hook's effect re-runs and owns the retry — so a request started by
-              // a selection the user has since navigated away from still recovers on a returning
-              // mount, instead of stranding it on the loading skeleton.
+              // Transient (429 / 5xx / network / non-`FetchError` throw): drop the marker and bump the
+              // count. Notifying lets whichever hook is *currently* mounted own the retry, so a fetch
+              // started by a since-abandoned selection still recovers on a returning mount rather than
+              // stranding it on the skeleton.
               gameFetchStatus.delete(gameId)
               gameFetchRetries.set(gameId, attempts)
             }
@@ -203,9 +170,8 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   if (map) {
     status = 'loaded'
   } else if (gameId && !game && (fetchStatus === undefined || fetchStatus === 'pending')) {
-    // The game (and its map) is still on the way — debouncing, in flight, or awaiting a retry.
-    // Assume a map is coming rather than flashing the "no map" placeholder. Once the fetch resolves
-    // (`settled`) or gives up (`gaveUp`), fall through to the placeholder.
+    // Still on the way (debouncing / in flight / awaiting retry): assume a map is coming rather than
+    // flashing the placeholder. `settled`/`gaveUp` fall through to unavailable.
     status = 'loading'
   } else {
     status = 'unavailable'
@@ -215,9 +181,8 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
 }
 
 /**
- * Clears the module-level fetch bookkeeping. Exported for tests only, so each case starts from a
- * clean slate instead of leaking `pending`/`settled` markers, backoff counts, and listeners into the
- * next one (the state deliberately outlives any single hook mount, so it isn't reset otherwise).
+ * Clears the module-level fetch bookkeeping. Exported for tests only — the state deliberately outlives
+ * a hook mount, so it must be reset between cases to stop markers/counts/listeners leaking.
  */
 export function resetSbGameMapStateForTests() {
   gameFetchStatus.clear()
