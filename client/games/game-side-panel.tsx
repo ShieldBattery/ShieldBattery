@@ -80,6 +80,10 @@ const GameSidePanelMapSkeleton = styled.div`
       transparent
     );
     animation: ${mapSkeletonShimmer} 1.5s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
   }
 `
 

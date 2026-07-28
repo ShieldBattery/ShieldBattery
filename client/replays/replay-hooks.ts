@@ -35,34 +35,62 @@ const MAP_FETCH_RETRY_MAX_MS = 30000
  * show" even for a game the Redux store doesn't have — a distinction the store alone can't make,
  * since a game that's genuinely missing on the server is also simply absent from it.
  *
- * Transient failures (429 rate-limiting, 5xx, network blips) drop their entry so a retry can run.
+ * A transient failure (429 rate-limiting, 5xx, network blip) deletes the entry so the fetch can be
+ * retried; a terminal outcome writes `settled` so revisiting the replay won't refetch it.
  */
 const gameFetchStatus = new Map<string, 'pending' | 'settled'>()
+
+/**
+ * Hooks currently mounted for a given game id. When a fetch changes `gameFetchStatus` above it
+ * notifies these, so every mounted hook re-renders (recomputing `status`) and — on a transient
+ * failure — whichever hook is still mounted owns the retry.
+ *
+ * This is what lets a selection that *re-attaches* to an already in-flight fetch recover. Arrowing
+ * off a replay and back before its request resolves leaves the marker `pending`, so the returning
+ * mount parks here instead of starting its own request; if that request then fails transiently, the
+ * notification — not the original requester's by-then-canceled closure — is what re-renders it and
+ * schedules the retry. Without this the panel would stay stuck on the loading skeleton for the rest
+ * of the session, precisely in the fast-scroll / 429 scenario the debounce exists to handle.
+ */
+const gameFetchListeners = new Map<string, Set<() => void>>()
+
+function notifyGameFetchListeners(gameId: string) {
+  const listeners = gameFetchListeners.get(gameId)
+  if (!listeners) return
+  // Copy first: a listener may (un)subscribe as a side effect of the re-render it triggers.
+  for (const listener of [...listeners]) {
+    listener()
+  }
+}
 
 export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   const dispatch = useAppDispatch()
   const game = useAppSelector(s => (gameId ? s.games.byId.get(gameId) : undefined))
   const map = useAppSelector(s => (game?.mapId ? s.maps.byId.get(game.mapId) : undefined))
-  // A terminal fetch failure only updates the module-level bookkeeping above (the store is left
-  // untouched), so it wouldn't trigger a render on its own; this forces one so `status` recomputes.
+  // Fetch outcomes update the module-level bookkeeping above rather than the store, so they wouldn't
+  // trigger a render on their own; this forces one so `status` recomputes.
   const forceUpdate = useReducer(x => x + 1, 0)[1]
 
   useEffect(() => {
-    if (!gameId || game || gameFetchStatus.has(gameId)) return () => {}
+    if (!gameId || game) return () => {}
 
     let canceled = false
-    let retryTimer: ReturnType<typeof setTimeout> | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
     let retryDelay = MAP_FETCH_RETRY_MS
 
     const attempt = () => {
+      // A fetch for this game is already in flight or settled (started by our own earlier attempt,
+      // an earlier selection of the same replay, or another mount): don't duplicate it — the
+      // listener below delivers its outcome.
       if (canceled || gameFetchStatus.has(gameId)) return
       gameFetchStatus.set(gameId, 'pending')
       // Deliberately no abort on unmount/reselection: the response is tiny and caching it in the
-      // store is the point. `canceled` just stops us scheduling further retries once we've moved on.
+      // store is the point.
       dispatch(
         viewGame(gameId, {
           onSuccess: () => {
             gameFetchStatus.set(gameId, 'settled')
+            notifyGameFetchListeners(gameId)
           },
           onError: err => {
             const status = isFetchError(err) ? err.status : undefined
@@ -70,34 +98,53 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
               // Terminal: the game genuinely has no viewable record, so settle and show the
               // placeholder rather than retrying forever.
               gameFetchStatus.set(gameId, 'settled')
-              forceUpdate()
             } else {
-              // Transient (429 rate-limiting, 5xx, network blip): drop the marker unconditionally so
-              // a later mount can retry (a failure that lands after we've moved on must not leave the
-              // entry stuck at 'pending', which would strand a returning selection on the skeleton),
-              // and only schedule our own retry if we're still the active selection. Back off
-              // exponentially so a sustained rate-limit resolves on its own without hammering.
+              // Transient (429 rate-limiting, 5xx, network blip): drop the marker so the fetch can be
+              // retried. We don't schedule the retry here — the notification lets whichever hook is
+              // *currently* mounted own it, which matters when this request was started by a
+              // selection the user has since navigated away from (this closure is canceled and would
+              // schedule nothing, stranding a returning mount on the skeleton).
               gameFetchStatus.delete(gameId)
-              if (!canceled) {
-                retryTimer = setTimeout(attempt, retryDelay)
-                retryDelay = Math.min(retryDelay * 2, MAP_FETCH_RETRY_MAX_MS)
-              }
             }
+            notifyGameFetchListeners(gameId)
           },
         }),
       )
     }
 
+    const onFetchStatusChange = () => {
+      if (canceled) return
+      forceUpdate()
+      // A transient failure cleared the marker and we still need the map: own the retry, backing off
+      // exponentially so a sustained rate-limit settles into an occasional poll rather than a fixed
+      // 0.5 req/s hammer for as long as the panel stays open.
+      if (!gameFetchStatus.has(gameId)) {
+        if (timer) clearTimeout(timer)
+        timer = setTimeout(attempt, retryDelay)
+        retryDelay = Math.min(retryDelay * 2, MAP_FETCH_RETRY_MAX_MS)
+      }
+    }
+
+    const listeners = gameFetchListeners.get(gameId) ?? new Set<() => void>()
+    gameFetchListeners.set(gameId, listeners)
+    listeners.add(onFetchStatusChange)
+
     // Debounce the first attempt so holding the arrow key through the list doesn't fire a request
     // per intermediate selection — each is a different game, so request coalescing can't help (it
     // only dedupes concurrent requests for the *same* game), and the burst trips the server's rate
-    // limiter. Cached games skip this entirely: they return above with the map already resolved.
-    const debounceTimer = setTimeout(attempt, MAP_FETCH_DEBOUNCE_MS)
+    // limiter. Skipped when a fetch is already in flight/settled for this game (a cached game returns
+    // above with the map resolved; a re-attaching selection waits for the listener's outcome).
+    if (!gameFetchStatus.has(gameId)) {
+      timer = setTimeout(attempt, MAP_FETCH_DEBOUNCE_MS)
+    }
 
     return () => {
       canceled = true
-      clearTimeout(debounceTimer)
-      if (retryTimer) clearTimeout(retryTimer)
+      if (timer) clearTimeout(timer)
+      listeners.delete(onFetchStatusChange)
+      if (listeners.size === 0) {
+        gameFetchListeners.delete(gameId)
+      }
     }
   }, [gameId, game, dispatch, forceUpdate])
 
