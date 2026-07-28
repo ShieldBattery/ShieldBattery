@@ -28,41 +28,49 @@ const MAP_FETCH_RETRY_MS = 2000
  */
 const MAP_FETCH_RETRY_MAX_MS = 30000
 /**
- * How many times a single game fetch may fail transiently before we give up and settle to
- * `unavailable`. Without a cap a *persistently* failing fetch — a long outage, or a non-`FetchError`
+ * How many times a single game fetch may fail transiently before we stop retrying and show the
+ * placeholder. Without a cap a *persistently* failing fetch — a long outage, or a non-`FetchError`
  * thrown while dispatching (which has no status and so is treated as transient) — would shimmer the
  * hero and poll forever with no terminal fallback. With the backoff above, six attempts span roughly
- * a minute before giving up.
+ * a minute before giving up. Giving up is *recoverable*, not permanent — see `gaveUp` below.
  */
 const MAP_FETCH_MAX_ATTEMPTS = 6
 
 /**
- * Outcome of each game fetch, tracked across the mount/unmount churn of navigating between replays:
- * `pending` while a request is in flight, `settled` once it has succeeded or terminally failed (a
- * 4xx other than 429 we won't retry). This lets the hook tell "still loading" apart from "no map to
- * show" even for a game the Redux store doesn't have — a distinction the store alone can't make,
- * since a game that's genuinely missing on the server is also simply absent from it.
+ * Outcome of each game fetch, tracked across the mount/unmount churn of navigating between replays.
+ * This lets the hook tell "still loading" apart from "no map to show" even for a game the Redux store
+ * doesn't have — a distinction the store alone can't make, since a game that's genuinely missing on
+ * the server is also simply absent from it.
  *
- * A transient failure (429 rate-limiting, 5xx, network blip) deletes the entry so the fetch can be
- * retried; a terminal outcome writes `settled` so revisiting the replay won't refetch it.
+ * - `pending`: a request is in flight.
+ * - `settled`: terminally resolved — the game loaded, or it 4xx'd (other than 429), so there's
+ *   genuinely no viewable record. Revisiting won't refetch.
+ * - `gaveUp`: exhausted its transient retries (`MAP_FETCH_MAX_ATTEMPTS`). Shown as unavailable and no
+ *   longer polled, but — unlike `settled` — *not* permanent: a transient outage shouldn't strand the
+ *   preview for the rest of the session. Any later successful fetch (proof the limiter/network
+ *   recovered) clears every `gaveUp` marker so those games refetch when next shown.
+ *
+ * A transient failure short of the cap deletes the entry instead, so the fetch is retried.
  *
  * This is an external store rather than Redux/component state so the outcome survives a hook
  * unmounting and remounting (arrowing off a replay and back), and it's read through
  * `useSyncExternalStore` below — not a `forceUpdate` reading this map during render — so the React
  * Compiler can't memoize the derived `status` on its reactive inputs and skip a status-only change.
  */
-const gameFetchStatus = new Map<string, 'pending' | 'settled'>()
+const gameFetchStatus = new Map<string, 'pending' | 'settled' | 'gaveUp'>()
 
 /**
- * Number of times each not-yet-settled game fetch has failed transiently. Kept at module scope,
+ * Number of times each not-yet-resolved game fetch has failed transiently. Kept at module scope,
  * keyed by game id, so it *holds* across the hook remounting: arrowing off a rate-limited replay and
  * back derives the same backoff instead of resetting to the initial 2s, so a sustained 429 keeps
- * backing off toward the cap rather than restarting the poll on every visit. Also drives the
- * attempt cap above.
+ * backing off toward the cap rather than restarting the poll on every visit. Also drives the attempt
+ * cap above.
  *
- * Cleared for a game once its fetch settles terminally; cleared *entirely* on any successful fetch —
- * a success proves the limiter/network isn't blocking, so every game's stale backoff is void and a
- * game we back off from won't stall on a long-expired 30s delay when revisited.
+ * Cleared *entirely* on any successful fetch — a success proves the limiter/network isn't blocking,
+ * so every game's accrued backoff is void (a game we backed off from won't stall on a long-expired
+ * 30s delay when revisited). That a concurrent success also resets a still-failing game's count is
+ * intended: the cap is a safety net for a *sustained* no-success outage, not a limiter on a burst
+ * that's already clearing.
  */
 const gameFetchRetries = new Map<string, number>()
 
@@ -82,7 +90,9 @@ function subscribeToGameFetch(gameId: string | undefined, onChange: () => void):
   }
 }
 
-function getGameFetchStatus(gameId: string | undefined): 'pending' | 'settled' | undefined {
+function getGameFetchStatus(
+  gameId: string | undefined,
+): 'pending' | 'settled' | 'gaveUp' | undefined {
   return gameId ? gameFetchStatus.get(gameId) : undefined
 }
 
@@ -110,9 +120,10 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
 
   useEffect(() => {
     // Nothing to fetch: no selection, or the game (and thus its map) is already in the store. Also
-    // bail while a request is in flight or has settled — the subscription above delivers its outcome
-    // and re-renders us, so scheduling here too would just duplicate the request. Re-running on a
-    // transient failure (which deletes the marker) is what schedules the retry.
+    // bail on any tracked outcome — a request in flight (`pending`), a terminal one (`settled`), or a
+    // gave-up one (`gaveUp`): the subscription above delivers a `pending` request's result and
+    // re-renders us, and the resolved/gave-up states shouldn't refetch. Re-running on a transient
+    // failure (which deletes the marker) is what schedules the retry.
     if (!gameId || game || gameFetchStatus.has(gameId)) return () => {}
 
     let canceled = false
@@ -137,9 +148,16 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
         viewGame(gameId, {
           onSuccess: () => {
             gameFetchStatus.set(gameId, 'settled')
-            // A success proves the limiter/network isn't blocking, so drop every game's accrued
-            // backoff — not just this one's — so a game we backed off from doesn't stall on a stale
-            // 30s delay when revisited.
+            // A success proves the limiter/network recovered, so let every game that gave up try
+            // again (dropping its marker means the next time it's shown it refetches) and void every
+            // game's accrued backoff — otherwise a game we backed off from would stall on a stale 30s
+            // delay, or a gave-up game would stay "unavailable" for the rest of the session.
+            for (const id of [...gameFetchStatus.keys()]) {
+              if (gameFetchStatus.get(id) === 'gaveUp') {
+                gameFetchStatus.delete(id)
+                notifyGameFetchListeners(id)
+              }
+            }
             gameFetchRetries.clear()
             notifyGameFetchListeners(gameId)
           },
@@ -148,12 +166,16 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
             const terminal4xx =
               status !== undefined && status >= 400 && status < 500 && status !== 429
             const attempts = (gameFetchRetries.get(gameId) ?? 0) + 1
-            if (terminal4xx || attempts >= MAP_FETCH_MAX_ATTEMPTS) {
-              // Give up: either the game genuinely has no viewable record (a 4xx other than 429), or
-              // we've exhausted our transient retries (a sustained outage / rate-limit / persistently
-              // throwing fetch). Settle so we show the placeholder rather than shimmering — and
-              // polling — forever.
+            if (terminal4xx) {
+              // Terminal: the game genuinely has no viewable record, so settle permanently and show
+              // the placeholder rather than retrying.
               gameFetchStatus.set(gameId, 'settled')
+              gameFetchRetries.delete(gameId)
+            } else if (attempts >= MAP_FETCH_MAX_ATTEMPTS) {
+              // Exhausted our transient retries (a sustained outage / rate-limit / persistently
+              // throwing fetch): stop shimmering — and polling — and show the placeholder. Recoverable
+              // rather than permanent (see `gaveUp`): a later successful fetch reopens it.
+              gameFetchStatus.set(gameId, 'gaveUp')
               gameFetchRetries.delete(gameId)
             } else {
               // Transient (429 rate-limiting, 5xx, network blip, non-`FetchError` throw): drop the
@@ -180,9 +202,10 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   let status: SbGameMapStatus
   if (map) {
     status = 'loaded'
-  } else if (gameId && !game && fetchStatus !== 'settled') {
+  } else if (gameId && !game && (fetchStatus === undefined || fetchStatus === 'pending')) {
     // The game (and its map) is still on the way — debouncing, in flight, or awaiting a retry.
-    // Assume a map is coming rather than flashing the "no map" placeholder.
+    // Assume a map is coming rather than flashing the "no map" placeholder. Once the fetch resolves
+    // (`settled`) or gives up (`gaveUp`), fall through to the placeholder.
     status = 'loading'
   } else {
     status = 'unavailable'

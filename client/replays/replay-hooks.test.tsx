@@ -205,23 +205,52 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     expect(specCountFor('backed-off')).toBe(3)
   })
 
-  test('gives up and settles to unavailable after exhausting transient retries', () => {
-    const { result } = renderMap('doomed')
-    // The wait before each attempt: debounce, then the doubling backoff, capped.
-    const delays = [DEBOUNCE_MS, RETRY_MS, RETRY_MS * 2, RETRY_MS * 4, RETRY_MS * 8, RETRY_MAX_MS]
+  // The wait before each successive attempt on a game that keeps failing: debounce, then the
+  // doubling backoff, capped.
+  const ATTEMPT_DELAYS = [
+    DEBOUNCE_MS,
+    RETRY_MS,
+    RETRY_MS * 2,
+    RETRY_MS * 4,
+    RETRY_MS * 8,
+    RETRY_MAX_MS,
+  ]
 
+  function exhaustRetries(gameId: string, result: { current: { status: string } }) {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      advance(delays[attempt - 1])
-      expect(specCountFor('doomed')).toBe(attempt)
+      advance(ATTEMPT_DELAYS[attempt - 1])
+      expect(specCountFor(gameId)).toBe(attempt)
       expect(result.current.status).toBe('loading')
-      failLatest('doomed', 429)
+      failLatest(gameId, 429)
     }
+  }
+
+  test('gives up to unavailable after exhausting transient retries, and stops polling', () => {
+    const { result } = renderMap('doomed')
+    exhaustRetries('doomed', result)
 
     // The final failure exhausts the cap: the hero stops shimmering and falls back to unavailable...
     expect(result.current.status).toBe('unavailable')
     // ...and there are no further retries, however long the panel stays open.
     advance(RETRY_MAX_MS * 2)
     expect(specCountFor('doomed')).toBe(MAX_ATTEMPTS)
+  })
+
+  test('reopens a gave-up game after a later successful fetch, rather than stranding it', () => {
+    const gaveUp = renderMap('gave-up')
+    exhaustRetries('gave-up', gaveUp.result)
+    expect(gaveUp.result.current.status).toBe('unavailable')
+
+    // A later fetch on another game succeeds — proof the limiter/network recovered.
+    gaveUp.rerender({ gameId: 'healthy' })
+    advance(DEBOUNCE_MS)
+    succeedLatest('healthy')
+
+    // Returning to the gave-up game now refetches instead of staying stuck on the placeholder.
+    gaveUp.rerender({ gameId: 'gave-up' })
+    expect(gaveUp.result.current.status).toBe('loading')
+    advance(DEBOUNCE_MS)
+    expect(specCountFor('gave-up')).toBe(MAX_ATTEMPTS + 1)
   })
 
   test('recovers when re-attaching to an in-flight fetch that then fails transiently', () => {
