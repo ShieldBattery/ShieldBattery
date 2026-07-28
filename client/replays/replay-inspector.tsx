@@ -324,7 +324,7 @@ export function ReplayInspector({
   const [anchor, anchorX, anchorY, refreshAnchorPos] = useRefAnchorPosition('right', 'bottom')
   const [menuOpen, openMenu, closeMenu] = usePopoverController({ refreshAnchorPos })
   const [addMenuOpen, openAddMenu, closeAddMenu] = usePopoverController({ refreshAnchorPos })
-  const map = useSbGameMap(entry?.sbGameId)
+  const { map, status: mapStatus } = useSbGameMap(entry?.sbGameId)
 
   const entryId = entry?.id
   // Tagged with the entry id it was fetched for, so a stale response (or a fetch that hasn't
@@ -484,7 +484,10 @@ export function ReplayInspector({
   )
 
   return (
-    <GameSidePanel map={map} alignWithFirstRow={alignWithFirstRow}>
+    <GameSidePanel
+      map={map}
+      isMapLoading={mapStatus === 'loading'}
+      alignWithFirstRow={alignWithFirstRow}>
       {entry.parseError ? (
         <>
           <GameSidePanelHeader>
@@ -502,7 +505,13 @@ export function ReplayInspector({
         <>
           <GameSidePanelHeader>
             {chips}
-            {!map ? (
+            {/*
+              The map thumbnail renders its own name label, so a title here would duplicate it once
+              loaded. Show the name as text only when there's genuinely no thumbnail coming (no
+              linked map) — not while it's still loading, which would otherwise shift the header's
+              height when the title is dropped on load.
+            */}
+            {mapStatus === 'unavailable' ? (
               <GameSidePanelTitle>{filterColorCodes(entry.mapName)}</GameSidePanelTitle>
             ) : null}
             <GameSidePanelSubline>{longTimestamp.format(entry.gameTime)}</GameSidePanelSubline>
