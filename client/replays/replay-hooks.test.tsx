@@ -6,6 +6,7 @@ import type { GameRecordJson } from '../../common/games/games'
 import type { MapInfoJson } from '../../common/maps'
 import createStore from '../create-store'
 import type { RequestHandlingSpec } from '../network/abortable-thunk'
+import { FetchError } from '../network/fetch-errors'
 import {
   MAP_FETCH_COALESCE_MS as COALESCE_MS,
   resetSbGameMapStateForTests,
@@ -60,10 +61,15 @@ function advance(ms: number) {
   })
 }
 
-function failLatest(gameId: string) {
+function failLatest(gameId: string, err: Error = new Error('fetch failed')) {
   act(() => {
-    latestSpec(gameId).onError(new Error('fetch failed'))
+    latestSpec(gameId).onError(err)
   })
+}
+
+/** Builds the error `fetchJson` throws for a non-ok response with the given status. */
+function fetchError(status: number): FetchError {
+  return new FetchError(new Response('', { status, statusText: `status ${status}` }), '')
 }
 
 // Seeds the store as a `@games/getGameRecord` fetch would, so the game and its map are already
@@ -188,5 +194,49 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     // When the shared in-flight request finally resolves, the re-attached mount reflects it.
     failLatest('shared')
     expect(result.current.status).toBe('unavailable')
+  })
+
+  test('never refetches a game the server says has no viewable record', () => {
+    const { result, rerender } = renderMap('gone')
+    expect(specCountFor('gone')).toBe(1)
+
+    failLatest('gone', fetchError(404))
+    expect(result.current.status).toBe('unavailable')
+
+    // Navigating away and back doesn't refetch — a 4xx verdict won't change within the session.
+    rerender({ gameId: 'other' })
+    advance(COALESCE_MS)
+    rerender({ gameId: 'gone' })
+    advance(COALESCE_MS)
+    expect(specCountFor('gone')).toBe(1)
+    expect(result.current.status).toBe('unavailable')
+  })
+
+  test('treats a 429 as transient: returning to the replay refetches', () => {
+    const { rerender } = renderMap('limited')
+    expect(specCountFor('limited')).toBe(1)
+    failLatest('limited', fetchError(429))
+
+    rerender({ gameId: 'other' })
+    advance(COALESCE_MS)
+    rerender({ gameId: 'limited' })
+    advance(COALESCE_MS)
+    expect(specCountFor('limited')).toBe(2)
+  })
+
+  test('refetches on return when a fetch fails after the user has already moved on', () => {
+    const { result, rerender } = renderMap('slow')
+    expect(specCountFor('slow')).toBe(1)
+
+    // Move on while the request is in flight, then let it fail with nobody watching.
+    rerender({ gameId: 'other' })
+    advance(COALESCE_MS)
+    failLatest('slow')
+
+    // Returning shows the loading skeleton (not a stale placeholder) and refetches.
+    rerender({ gameId: 'slow' })
+    expect(result.current.status).toBe('loading')
+    advance(COALESCE_MS)
+    expect(specCountFor('slow')).toBe(2)
   })
 })

@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
 import { viewGame } from '../games/action-creators'
+import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 
 export type SbGameMapStatus = 'loading' | 'loaded' | 'unavailable'
@@ -28,16 +29,18 @@ export const MAP_FETCH_COALESCE_MS = 150
  * Per-game fetch outcome, tracked at module scope so it survives the hook re-rendering as the user
  * arrows between replays. Lets the hook tell "still loading" apart from "no map to show" even for a
  * game absent from the Redux store (a genuinely missing game is also simply absent from it):
- * `pending` while a request is in flight, `settled` once it has resolved — loaded, no map, or a
- * failed fetch (all of which show the placeholder rather than shimmering).
+ * `pending` while a request is in flight, `settled` once it has resolved (loaded, no map, or a
+ * transient failure — all of which show the placeholder rather than shimmering), `terminal` when
+ * the server answered with a 4xx: no viewable record exists, so the game is never refetched within
+ * the session.
  *
- * A `settled` marker is dropped when the user navigates away (see the cleanup effect below), so
- * returning to a replay whose fetch failed transiently refetches rather than showing the placeholder
- * for the rest of the session. Read through `useSyncExternalStore` (not a `forceUpdate` reading this
- * map during render) so the React Compiler can't memoize the derived `status` on its reactive inputs
- * and skip a status-only change.
+ * A `settled` marker is dropped when the user navigates away (see the cleanup effect below) or when
+ * the fetch resolves after they already have, so returning to a replay whose fetch failed
+ * transiently refetches rather than showing the placeholder for the rest of the session. Read
+ * through `useSyncExternalStore` (not a `forceUpdate` reading this map during render) so the React
+ * Compiler can't memoize the derived `status` on its reactive inputs and skip a status-only change.
  */
-const gameFetchStatus = new Map<string, 'pending' | 'settled'>()
+const gameFetchStatus = new Map<string, 'pending' | 'settled' | 'terminal'>()
 
 /**
  * `Date.now()` when the last fetch was kicked off, across all games — used to tell a deliberate
@@ -62,7 +65,9 @@ function subscribeToGameFetch(gameId: string | undefined, onChange: () => void):
   }
 }
 
-function getGameFetchStatus(gameId: string | undefined): 'pending' | 'settled' | undefined {
+function getGameFetchStatus(
+  gameId: string | undefined,
+): 'pending' | 'settled' | 'terminal' | undefined {
   return gameId ? gameFetchStatus.get(gameId) : undefined
 }
 
@@ -94,6 +99,18 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
     if (!gameId || game || gameFetchStatus.has(gameId)) return () => {}
 
     let canceled = false
+    const settle = (outcome: 'settled' | 'terminal') => {
+      if (outcome === 'settled' && !gameFetchListeners.has(gameId)) {
+        // The result arrived after the user moved on (the cleanup effect below already ran while
+        // the fetch was pending, so nothing else will evict this marker). Leave none: a success is
+        // cached in the store regardless, and a failure should refetch when the replay is next
+        // shown rather than showing a stale placeholder.
+        gameFetchStatus.delete(gameId)
+      } else {
+        gameFetchStatus.set(gameId, outcome)
+        notifyGameFetchListeners(gameId)
+      }
+    }
     const attempt = () => {
       if (canceled || gameFetchStatus.has(gameId)) return
       lastFetchStartedAt = Date.now()
@@ -103,16 +120,17 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
       // store is the point.
       dispatch(
         viewGame(gameId, {
-          onSuccess: () => {
-            gameFetchStatus.set(gameId, 'settled')
-            notifyGameFetchListeners(gameId)
-          },
-          onError: () => {
-            // Any failure (no viewable record, a 429, a 5xx, a network blip) settles to the
-            // placeholder — like every other panel, a failed fetch just shows the empty state. No
-            // retry; the cleanup effect lets a later reselect try again.
-            gameFetchStatus.set(gameId, 'settled')
-            notifyGameFetchListeners(gameId)
+          onSuccess: () => settle('settled'),
+          onError: err => {
+            // A 4xx (other than 429) is the server's verdict that there's no viewable record here,
+            // which won't change within the session — never refetch it. Anything else (429
+            // rate-limiting, a 5xx, a network blip) settles to the placeholder like every other
+            // panel, but only for as long as this replay stays selected: a reselect retries.
+            settle(
+              isFetchError(err) && err.status >= 400 && err.status < 500 && err.status !== 429
+                ? 'terminal'
+                : 'settled',
+            )
           },
         }),
       )
@@ -139,8 +157,9 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   useEffect(() => {
     return () => {
       // On leaving this replay, drop a settled marker so returning refetches — a transient failure
-      // shouldn't strand the preview for the session (a success is cached in the store regardless). A
-      // still-pending fetch is left in place so a quick return re-attaches to it.
+      // shouldn't strand the preview for the session (a success is cached in the store regardless).
+      // A still-pending fetch is left in place so a quick return re-attaches to it, and a terminal
+      // outcome is kept so a game with no viewable record isn't refetched on every reselect.
       if (gameId !== undefined && gameFetchStatus.get(gameId) === 'settled') {
         gameFetchStatus.delete(gameId)
       }
@@ -150,9 +169,10 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   let status: SbGameMapStatus
   if (map) {
     status = 'loaded'
-  } else if (gameId && !game && fetchStatus !== 'settled') {
+  } else if (gameId && !game && (fetchStatus === undefined || fetchStatus === 'pending')) {
     // Still on the way (coalescing / in flight): assume a map is coming rather than flashing the
-    // placeholder. A settled outcome (loaded, no map, or a failed fetch) falls through to unavailable.
+    // placeholder. A resolved outcome (loaded, no map, or a failed fetch) falls through to
+    // unavailable.
     status = 'loading'
   } else {
     status = 'unavailable'
