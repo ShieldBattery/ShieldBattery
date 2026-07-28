@@ -136,11 +136,40 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     first.unmount()
     failLatest('left-game', 429)
 
-    // Coming back mounts fresh and fetches again rather than sticking on the skeleton forever.
+    // Coming back mounts fresh and fetches again rather than sticking on the skeleton forever. The
+    // transient failure while away left a live backoff for this game, so the return waits it out
+    // rather than resetting to the initial debounce.
     const second = renderMap('left-game')
     expect(second.result.current.status).toBe('loading')
     advance(DEBOUNCE_MS)
+    expect(specCountFor('left-game')).toBe(1)
+    advance(RETRY_MS)
     expect(specCountFor('left-game')).toBe(2)
+  })
+
+  test('holds the retry backoff across arrowing off the replay and back', () => {
+    const { rerender } = renderMap('storm-game')
+    advance(DEBOUNCE_MS)
+    expect(specCountFor('storm-game')).toBe(1)
+
+    // Two transient failures grow the backoff to ~4s (2s doubled).
+    failLatest('storm-game', 429)
+    advance(RETRY_MS)
+    expect(specCountFor('storm-game')).toBe(2)
+    failLatest('storm-game', 429)
+
+    // Arrow away and back while backed off. The backoff is per-game module state, so it must persist
+    // rather than resetting to the initial 2s.
+    rerender({ gameId: 'elsewhere' })
+    advance(DEBOUNCE_MS)
+    rerender({ gameId: 'storm-game' })
+
+    // Still backed off: nothing refires at 2s...
+    advance(RETRY_MS)
+    expect(specCountFor('storm-game')).toBe(2)
+    // ...but the next attempt lands by the held ~4s backoff.
+    advance(RETRY_MS)
+    expect(specCountFor('storm-game')).toBe(3)
   })
 
   test('recovers when re-attaching to an in-flight fetch that then fails transiently', () => {
