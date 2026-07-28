@@ -152,6 +152,28 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     expect(specCountFor('land')).toBe(1)
   })
 
+  test('a sustained scroll fires nothing for skipped rows, however long it lasts', () => {
+    const { rerender } = renderMap('start')
+    expect(specCountFor('start')).toBe(1)
+
+    // Hold the arrow for many times the coalesce window: every change lands within the window of
+    // the previous one, so the whole run keeps deferring — no periodic leading-edge fetches leak
+    // out mid-scroll.
+    const step = Math.floor(COALESCE_MS / 3)
+    for (let i = 0; i < 20; i++) {
+      rerender({ gameId: `skipped-${i}` })
+      advance(step)
+    }
+    rerender({ gameId: 'landed' })
+    advance(COALESCE_MS)
+
+    for (let i = 0; i < 20; i++) {
+      expect(specCountFor(`skipped-${i}`)).toBe(0)
+    }
+    expect(specCountFor('landed')).toBe(1)
+    expect(viewGameMock).toHaveBeenCalledTimes(2)
+  })
+
   test('shows unavailable on a fetch error and does not retry', () => {
     const { result } = renderMap('broken')
     expect(specCountFor('broken')).toBe(1)

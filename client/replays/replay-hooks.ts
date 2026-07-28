@@ -18,10 +18,11 @@ export interface SbGameMapResult {
 }
 
 /**
- * Coalescing window for rapid selection changes. A deliberate selection fetches immediately (leading
- * edge — no artificial delay on the normal click-through-the-list case); only while selections keep
- * changing faster than this (a fast scroll / held arrow) does the fetch wait for the list to settle,
- * so an intermediate replay you blow past doesn't fire its own request.
+ * Coalescing window for rapid selection changes, measured between selection *changes*. A deliberate
+ * selection fetches immediately (leading edge — no artificial delay on the normal
+ * click-through-the-list case); only while selections keep changing faster than this (a fast
+ * scroll / held arrow) does the fetch wait for the list to settle, so a scroll fires no requests
+ * for the replays it blows past, however long it goes on.
  */
 export const MAP_FETCH_COALESCE_MS = 150
 
@@ -43,11 +44,14 @@ export const MAP_FETCH_COALESCE_MS = 150
 const gameFetchStatus = new Map<string, 'pending' | 'settled' | 'terminal'>()
 
 /**
- * `Date.now()` when the last fetch was kicked off, across all games — used to tell a deliberate
- * selection (fetch immediately) from one made mid-scroll, still within `MAP_FETCH_COALESCE_MS` of the
- * previous fetch (debounce it so a fast scroll only fetches the row it lands on).
+ * The last selection seen and when it changed, across all mounts — used to tell a deliberate
+ * selection (made a while after the previous one; fetch immediately) from one made mid-scroll,
+ * within `MAP_FETCH_COALESCE_MS` of the previous *change*. Keyed on change rather than on the last
+ * fetch so a sustained scroll keeps deferring for as long as it goes on, instead of leaking a
+ * leading-edge fetch every time a window elapses mid-scroll.
  */
-let lastFetchStartedAt = 0
+let lastSelectedGameId: string | undefined
+let lastSelectionChangedAt = 0
 
 /** Hooks subscribed to a given game id's fetch outcome, notified whenever it changes. */
 const gameFetchListeners = new Map<string, Set<() => void>>()
@@ -93,6 +97,16 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   )
 
   useEffect(() => {
+    // Tracked before the early returns so rows needing no fetch still count as selection changes,
+    // and only on a genuine change so a re-run for the same selection (a store or fetch-status
+    // update) can't reset — or re-enter — the coalescing window.
+    const sinceSelectionChange =
+      gameId === lastSelectedGameId ? Infinity : Date.now() - lastSelectionChangedAt
+    if (gameId !== lastSelectedGameId) {
+      lastSelectedGameId = gameId
+      lastSelectionChangedAt = Date.now()
+    }
+
     // Nothing to schedule: no selection, the game is already in the store, or a fetch is in flight /
     // has settled (the subscription above delivers a pending fetch's result; a settled one shouldn't
     // refetch while it's shown — the cleanup effect reopens it on the way out).
@@ -113,7 +127,6 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
     }
     const attempt = () => {
       if (canceled || gameFetchStatus.has(gameId)) return
-      lastFetchStartedAt = Date.now()
       gameFetchStatus.set(gameId, 'pending')
       notifyGameFetchListeners(gameId)
       // Deliberately no abort on unmount/reselection: the response is tiny and caching it in the
@@ -136,9 +149,9 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
       )
     }
 
-    if (Date.now() - lastFetchStartedAt >= MAP_FETCH_COALESCE_MS) {
-      // Leading edge: nothing's been fetched within the coalesce window, so this is a deliberate
-      // selection — fetch at once, no artificial delay.
+    if (sinceSelectionChange >= MAP_FETCH_COALESCE_MS) {
+      // Leading edge: the selection hasn't changed within the coalesce window, so this is a
+      // deliberate one — fetch at once, no artificial delay.
       attempt()
       return () => {
         canceled = true
@@ -188,5 +201,6 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
 export function resetSbGameMapStateForTests() {
   gameFetchStatus.clear()
   gameFetchListeners.clear()
-  lastFetchStartedAt = 0
+  lastSelectedGameId = undefined
+  lastSelectionChangedAt = 0
 }
