@@ -2,10 +2,19 @@ import { act, renderHook } from '@testing-library/react'
 import { ReactNode } from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import type { GameRecordJson } from '../../common/games/games'
+import type { MapInfoJson } from '../../common/maps'
 import createStore from '../create-store'
 import type { RequestHandlingSpec } from '../network/abortable-thunk'
 import { FetchError } from '../network/fetch-errors'
-import { resetSbGameMapStateForTests, useSbGameMap } from './replay-hooks'
+import {
+  MAP_FETCH_DEBOUNCE_MS as DEBOUNCE_MS,
+  MAP_FETCH_MAX_ATTEMPTS as MAX_ATTEMPTS,
+  MAP_FETCH_RETRY_MAX_MS as RETRY_MAX_MS,
+  MAP_FETCH_RETRY_MS as RETRY_MS,
+  resetSbGameMapStateForTests,
+  useSbGameMap,
+} from './replay-hooks'
 
 // Mock out the real game fetch so tests drive its outcome by hand. The mock records each spec so a
 // test can resolve/reject the "request" whenever it likes, and returns a harmless thunk.
@@ -23,12 +32,6 @@ const { viewGameMock, specsByGame } = vi.hoisted(() => {
 vi.mock('../games/action-creators', () => ({
   viewGame: viewGameMock,
 }))
-
-// Kept in sync with replay-hooks.ts (not exported from there).
-const DEBOUNCE_MS = 150
-const RETRY_MS = 2000
-const RETRY_MAX_MS = 30000
-const MAX_ATTEMPTS = 6
 
 let store: ReturnType<typeof createStore>
 
@@ -73,6 +76,22 @@ function succeedLatest(gameId: string) {
   })
 }
 
+// Seeds the store as a `@games/getGameRecord` fetch would, so the game and its map are already
+// present (the cached, no-fetch-needed path). Only the fields the hook reads are set.
+function seedGameWithMap(gameId: string, mapId: string) {
+  act(() => {
+    store.dispatch({
+      type: '@games/getGameRecord',
+      payload: {
+        game: { id: gameId, mapId } as GameRecordJson,
+        map: { id: mapId } as MapInfoJson,
+        users: [],
+        mmrChanges: [],
+      },
+    })
+  })
+}
+
 describe('client/replays/replay-hooks/useSbGameMap', () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -86,6 +105,26 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  test('is unavailable and fetches nothing for a replay with no linked game', () => {
+    const { result } = renderMap(undefined)
+    expect(result.current.status).toBe('unavailable')
+    expect(result.current.map).toBeUndefined()
+
+    advance(DEBOUNCE_MS * 2)
+    expect(viewGameMock).not.toHaveBeenCalled()
+  })
+
+  test('reports loaded from the store without fetching when the game is already cached', () => {
+    seedGameWithMap('cached-game', 'cached-map')
+
+    const { result } = renderMap('cached-game')
+    expect(result.current.status).toBe('loaded')
+    expect(result.current.map?.id).toBe('cached-map')
+
+    advance(DEBOUNCE_MS * 2)
+    expect(specCountFor('cached-game')).toBe(0)
   })
 
   test('debounces so intermediate selections do not each fire a request', () => {
@@ -205,16 +244,12 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     expect(specCountFor('backed-off')).toBe(3)
   })
 
-  // The wait before each successive attempt on a game that keeps failing: debounce, then the
-  // doubling backoff, capped.
-  const ATTEMPT_DELAYS = [
-    DEBOUNCE_MS,
-    RETRY_MS,
-    RETRY_MS * 2,
-    RETRY_MS * 4,
-    RETRY_MS * 8,
-    RETRY_MAX_MS,
-  ]
+  // The wait before each successive attempt on a game that keeps failing — debounce, then the
+  // doubling backoff, capped — derived from the same constants (and formula) the hook uses so it
+  // can't drift out of sync with them.
+  const ATTEMPT_DELAYS = Array.from({ length: MAX_ATTEMPTS }, (_, i) =>
+    i === 0 ? DEBOUNCE_MS : Math.min(RETRY_MS * 2 ** (i - 1), RETRY_MAX_MS),
+  )
 
   function exhaustRetries(gameId: string, result: { current: { status: string } }) {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

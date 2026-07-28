@@ -17,17 +17,20 @@ export interface SbGameMapResult {
   status: SbGameMapStatus
 }
 
+// Exported for the hook's tests, which assert the debounce/backoff/give-up timings and would
+// silently drift if they hardcoded their own copies.
+
 /** How long a selection must hold still before we fetch its game (see the debounce in the effect). */
-const MAP_FETCH_DEBOUNCE_MS = 150
+export const MAP_FETCH_DEBOUNCE_MS = 150
 /** Base backoff before the first retry of a transiently-failed fetch (rate-limited / 5xx / network). */
-const MAP_FETCH_RETRY_MS = 2000
+export const MAP_FETCH_RETRY_MS = 2000
 /** Backoff ceiling: a sustained failure polls at most this often while the panel stays open. */
-const MAP_FETCH_RETRY_MAX_MS = 30000
+export const MAP_FETCH_RETRY_MAX_MS = 30000
 /**
  * Transient failures a fetch may take before it gives up (see `gaveUp`) rather than shimmering and
  * polling forever. With the backoff above, ~a minute.
  */
-const MAP_FETCH_MAX_ATTEMPTS = 6
+export const MAP_FETCH_MAX_ATTEMPTS = 6
 
 /**
  * Fetch outcome per game id, tracked at module scope so it survives the hook unmounting/remounting as

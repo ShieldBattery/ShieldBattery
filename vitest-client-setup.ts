@@ -1,9 +1,15 @@
 // Run before any client/ vitest tests, use to set up the environment with any necessary globals
 import { cleanup } from '@testing-library/react'
+import { enableArrayMethods, enableMapSet } from 'immer'
 import { afterEach, vi } from 'vitest'
 
 // This is just to stop prettier from stripping all the comments for some reason?
 {
+  // The app enables these Immer plugins at startup (see client/index.jsx); reducers store Maps/Sets,
+  // so any test that dispatches through a real reducer needs them enabled too.
+  enableMapSet()
+  enableArrayMethods()
+
   // Generally this is what we want, as it maximizes the amount of code that can be run/tested. If you
   // want a particular test to run as if in a browser, you can set this differently in the test
   // probably
