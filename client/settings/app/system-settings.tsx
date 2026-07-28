@@ -19,15 +19,20 @@ import { pickAutoRegion } from '../../game-server-regions/region-resolution'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import logger from '../../logging/logger'
 import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchmaking-atoms'
-import { IconButton, TextButton } from '../../material/button'
+import { IconButton, OutlinedButton } from '../../material/button'
 import { CheckBox } from '../../material/check-box'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { bodyMedium, bodySmall, singleLine } from '../../styles/typography'
+import { bodySmall, singleLine, titleSmall } from '../../styles/typography'
 import { mergeLocalSettings } from '../action-creators'
-import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
+import {
+  FormContainer,
+  SectionContainer,
+  SettingsSectionDescription,
+  SettingsSectionHeader,
+} from '../settings-content'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -48,12 +53,19 @@ function dedupeFolders(folders: ReadonlyArray<string>): string[] {
   return result
 }
 
+/**
+ * The final path segment (folder name) of an absolute path, used as the row's prominent label with
+ * the full path shown beneath it. Handles both `\` (Windows) and `/` separators and any trailing
+ * separator; falls back to the whole (trimmed) path for something without a separator (e.g. a drive
+ * root).
+ */
+function folderDisplayName(folder: string): string {
+  const trimmed = folder.replace(/[/\\]+$/, '')
+  return trimmed.replace(/^.*[/\\]/, '') || trimmed
+}
+
 const IndentedCheckBox = styled(CheckBox)`
   margin-left: 28px;
-`
-
-const NetworkOverline = styled(SectionOverline)`
-  margin-bottom: 8px;
 `
 
 const RegionLockedText = styled.div`
@@ -61,42 +73,64 @@ const RegionLockedText = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const ReplayFoldersBlock = styled.div`
-  margin-top: 16px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-`
-
-const ReplayFoldersDescription = styled.div`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-`
-
 const FolderList = styled.div`
   display: flex;
   flex-direction: column;
+  gap: 4px;
 `
 
 const FolderRow = styled.div`
-  min-height: 40px;
+  min-height: 56px;
+  padding: 8px 8px 8px 12px;
 
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+
+  border-radius: 8px;
+
+  &:hover {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+  }
+`
+
+const FolderIconTile = styled.div`
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 8px;
+  background-color: var(--theme-container-high);
+  color: var(--theme-on-surface-variant);
+`
+
+const FolderText = styled.div`
+  flex: 1 1 auto;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+`
+
+const FolderName = styled.div`
+  ${titleSmall};
+  ${singleLine};
 `
 
 const FolderPath = styled.div`
-  ${bodyMedium};
+  ${bodySmall};
   ${singleLine};
 
-  flex: 1 1 auto;
-  min-width: 0;
+  color: var(--theme-on-surface-variant);
 `
 
-const AddFolderButton = styled(TextButton)`
+const AddFolderButton = styled(OutlinedButton)`
   align-self: flex-start;
+  margin-top: 12px;
 `
 
 /**
@@ -257,11 +291,15 @@ export function AppSystemSettings() {
     saveFolders(configuredFolders.filter(f => f !== folder))
   }
 
+  const removeFolderLabel = t('settings.app.system.removeReplayFolder', 'Remove folder')
+
   return (
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
         <SectionContainer>
-          <SectionOverline>{t('settings.app.system.filesOverline', 'Files')}</SectionOverline>
+          <SettingsSectionHeader>
+            {t('settings.app.system.filesOverline', 'Files')}
+          </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('quickOpenReplays')}
             label={t(
@@ -270,44 +308,52 @@ export function AppSystemSettings() {
             )}
             inputProps={{ tabIndex: 0 }}
           />
+        </SectionContainer>
 
-          <ReplayFoldersBlock>
-            <SectionOverline>
-              {t('settings.app.system.replayFoldersTitle', 'Replay folders')}
-            </SectionOverline>
-            <ReplayFoldersDescription>
-              {t(
-                'settings.app.system.replayFoldersDescription',
-                'Folders indexed by your replay library. The default StarCraft replay folder is ' +
-                  'added automatically. Removing a folder removes its replays from the library, ' +
-                  'including their bookmarks and playlist entries.',
-              )}
-            </ReplayFoldersDescription>
+        <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.app.system.replayFoldersTitle', 'Replay folders')}
+          </SettingsSectionHeader>
+          <SettingsSectionDescription>
+            {t(
+              'settings.app.system.replayFoldersDescription',
+              'Folders indexed by your replay library. The default StarCraft replay folder is ' +
+                'added automatically. Removing a folder removes its replays from the library, ' +
+                'including their bookmarks and playlist entries.',
+            )}
+          </SettingsSectionDescription>
 
-            <FolderList>
-              {configuredFolders.map(folder => (
-                <FolderRow key={folder}>
+          <FolderList>
+            {configuredFolders.map(folder => (
+              <FolderRow key={folder}>
+                <FolderIconTile>
+                  <MaterialIcon icon='folder' />
+                </FolderIconTile>
+                <FolderText>
+                  <FolderName title={folder}>{folderDisplayName(folder)}</FolderName>
                   <FolderPath title={folder}>{folder}</FolderPath>
-                  <Tooltip text={t('settings.app.system.removeReplayFolder', 'Remove folder')}>
-                    <IconButton
-                      icon={<MaterialIcon icon='delete' />}
-                      ariaLabel={t('settings.app.system.removeReplayFolder', 'Remove folder')}
-                      onClick={() => onRemoveFolder(folder)}
-                    />
-                  </Tooltip>
-                </FolderRow>
-              ))}
-            </FolderList>
+                </FolderText>
+                <Tooltip text={removeFolderLabel}>
+                  <IconButton
+                    icon={<MaterialIcon icon='delete' />}
+                    ariaLabel={removeFolderLabel}
+                    onClick={() => onRemoveFolder(folder)}
+                  />
+                </Tooltip>
+              </FolderRow>
+            ))}
+          </FolderList>
 
-            <AddFolderButton
-              label={t('settings.app.system.addReplayFolder', 'Add folder')}
-              iconStart={<MaterialIcon icon='add' />}
-              onClick={onAddFolderClick}
-            />
-          </ReplayFoldersBlock>
+          <AddFolderButton
+            label={t('settings.app.system.addReplayFolder', 'Add folder')}
+            iconStart={<MaterialIcon icon='add' />}
+            onClick={onAddFolderClick}
+          />
         </SectionContainer>
         <SectionContainer>
-          <SectionOverline>{t('settings.app.system.startupOverline', 'Startup')}</SectionOverline>
+          <SettingsSectionHeader>
+            {t('settings.app.system.startupOverline', 'Startup')}
+          </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('runAppAtSystemStart')}
             label={t('settings.app.system.runOnStartup', 'Run ShieldBattery on system startup')}
@@ -322,7 +368,9 @@ export function AppSystemSettings() {
         </SectionContainer>
         {regions.length > 0 ? (
           <SectionContainer>
-            <NetworkOverline>{t('settings.app.system.networkOverline', 'Network')}</NetworkOverline>
+            <SettingsSectionHeader>
+              {t('settings.app.system.networkOverline', 'Network')}
+            </SettingsSectionHeader>
             <Select
               {...bindCustom('gameServerRegion')}
               label={t('settings.app.system.serverRegion.label', 'Server region')}

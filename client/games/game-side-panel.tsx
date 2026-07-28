@@ -1,7 +1,7 @@
 // Generic sticky detail panel used by game/replay list pages (e.g. the replay library, and
 // future side panels on the games and match-history pages) to show the currently selected entry.
 import * as React from 'react'
-import styled from 'styled-components'
+import styled, { keyframes } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { MapInfoJson } from '../../common/maps'
 import { MapNoImage } from '../maps/map-image'
@@ -49,6 +49,42 @@ const GameSidePanelMapPlaceholder = styled.div`
 
   border-radius: 8px;
   contain: content;
+`
+
+const mapSkeletonShimmer = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+`
+
+// A quiet placeholder for the hero image while the selected entry's map is still being fetched.
+// Shown instead of the "no map" tile so rapidly moving through the list (e.g. holding the down
+// arrow) doesn't flash "map preview not available" before each image resolves.
+const GameSidePanelMapSkeleton = styled.div`
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+
+  border-radius: 8px;
+  background-color: var(--theme-container);
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(from var(--theme-skeleton) r g b / 0.24),
+      transparent
+    );
+    animation: ${mapSkeletonShimmer} 1.5s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
 `
 
 const GameSidePanelEmptyText = styled.div`
@@ -105,6 +141,11 @@ export const GameSidePanelActions = styled.div`
 export interface GameSidePanelProps {
   /** Map shown as the panel's hero image; a placeholder tile is shown when undefined. */
   map?: ReadonlyDeep<MapInfoJson>
+  /**
+   * When true and no `map` is resolved yet, shows a loading skeleton instead of the "no preview"
+   * placeholder — avoids flashing "not available" while the map is still being fetched.
+   */
+  isMapLoading?: boolean
   /** True when the adjacent list is day-grouped, so the panel's top aligns with the first row. */
   alignWithFirstRow?: boolean
   className?: string
@@ -113,24 +154,34 @@ export interface GameSidePanelProps {
 
 export function GameSidePanel({
   map,
+  isMapLoading = false,
   alignWithFirstRow = false,
   className,
   children,
 }: GameSidePanelProps) {
+  let hero: React.ReactNode
+  if (map) {
+    hero = (
+      <GameSidePanelMapThumbnail
+        key={map.hash}
+        mapId={map.id}
+        forceAspectRatio={1}
+        showInfoLayer={true}
+      />
+    )
+  } else if (isMapLoading) {
+    hero = <GameSidePanelMapSkeleton />
+  } else {
+    hero = (
+      <GameSidePanelMapPlaceholder>
+        <MapNoImage />
+      </GameSidePanelMapPlaceholder>
+    )
+  }
+
   return (
     <GameSidePanelRoot $alignWithFirstRow={alignWithFirstRow} className={className}>
-      {map ? (
-        <GameSidePanelMapThumbnail
-          key={map.hash}
-          mapId={map.id}
-          forceAspectRatio={1}
-          showInfoLayer={true}
-        />
-      ) : (
-        <GameSidePanelMapPlaceholder>
-          <MapNoImage />
-        </GameSidePanelMapPlaceholder>
-      )}
+      {hero}
 
       {children}
     </GameSidePanelRoot>
