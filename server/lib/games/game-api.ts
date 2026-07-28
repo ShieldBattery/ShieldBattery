@@ -67,6 +67,16 @@ import { deriveResultSubmission } from './raw-results'
 const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
 
 const throttle = createThrottle('games', {
+  rate: 20,
+  burst: 40,
+  window: 60000,
+})
+
+// A looser limit just for the read-only single-game fetch (the map preview + game view), which a
+// user legitimately hits far more often than the lifecycle writes above — selecting distinct
+// replays while browsing the library is a read per selection. Kept separate from `throttle` so
+// loosening the read path doesn't also loosen the subscribe/unsubscribe/status writes.
+const gameInfoThrottle = createThrottle('gameInfo', {
   rate: 40,
   burst: 80,
   window: 60000,
@@ -268,7 +278,7 @@ export class GameApi {
   }
 
   @httpGet('/:gameId')
-  @httpBefore(throttleMiddleware(throttle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  @httpBefore(throttleMiddleware(gameInfoThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async getGame(ctx: RouterContext): Promise<GetGameResponse> {
     const {
       params: { gameId },
