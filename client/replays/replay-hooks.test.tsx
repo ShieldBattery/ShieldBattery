@@ -8,7 +8,7 @@ import createStore from '../create-store'
 import type { RequestHandlingSpec } from '../network/abortable-thunk'
 import { FetchError } from '../network/fetch-errors'
 import {
-  MAP_FETCH_DEBOUNCE_MS as DEBOUNCE_MS,
+  MAP_FETCH_COALESCE_MS as COALESCE_MS,
   MAP_FETCH_MAX_ATTEMPTS as MAX_ATTEMPTS,
   MAP_FETCH_RETRY_MAX_MS as RETRY_MAX_MS,
   MAP_FETCH_RETRY_MS as RETRY_MS,
@@ -112,7 +112,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     expect(result.current.status).toBe('unavailable')
     expect(result.current.map).toBeUndefined()
 
-    advance(DEBOUNCE_MS * 2)
+    advance(COALESCE_MS * 2)
     expect(viewGameMock).not.toHaveBeenCalled()
   })
 
@@ -123,17 +123,33 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     expect(result.current.status).toBe('loaded')
     expect(result.current.map?.id).toBe('cached-map')
 
-    advance(DEBOUNCE_MS * 2)
+    advance(COALESCE_MS * 2)
     expect(specCountFor('cached-game')).toBe(0)
   })
 
-  test('debounces so intermediate selections do not each fire a request', () => {
-    const { rerender } = renderMap('skip-1')
-    advance(DEBOUNCE_MS - 50)
+  test('fetches a settled selection immediately, with no artificial loading delay', () => {
+    const { result } = renderMap('picked')
+
+    // Leading edge: nothing was fetched recently, so a deliberate selection loads at once — no timer
+    // advance needed.
+    expect(specCountFor('picked')).toBe(1)
+    expect(result.current.status).toBe('loading')
+  })
+
+  test('coalesces a fast scroll to the replay landed on, without fetching intermediates', () => {
+    // A first deliberate selection fetches immediately (leading edge)...
+    const { rerender } = renderMap('warm')
+    expect(specCountFor('warm')).toBe(1)
+
+    // ...then a scroll whose selections change faster than the coalesce window fetches only the row
+    // it settles on, not each intermediate one.
+    const step = Math.floor(COALESCE_MS / 3)
+    rerender({ gameId: 'skip-1' })
+    advance(step)
     rerender({ gameId: 'skip-2' })
-    advance(DEBOUNCE_MS - 50)
+    advance(step)
     rerender({ gameId: 'land' })
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
 
     expect(specCountFor('skip-1')).toBe(0)
     expect(specCountFor('skip-2')).toBe(0)
@@ -144,7 +160,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     const { result } = renderMap('terminal-game')
     expect(result.current.status).toBe('loading')
 
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('terminal-game')).toBe(1)
 
     failLatest('terminal-game', 404)
@@ -157,7 +173,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
   test('retries a transient failure with exponential backoff', () => {
     const { result } = renderMap('flaky-game')
 
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('flaky-game')).toBe(1)
 
     failLatest('flaky-game', 429)
@@ -178,7 +194,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
 
   test('refetches when returning to a replay whose fetch failed after moving on', () => {
     const first = renderMap('left-game')
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('left-game')).toBe(1)
 
     // Navigate away entirely before the request resolves, then let it fail transiently with nobody
@@ -191,7 +207,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     // rather than resetting to the initial debounce.
     const second = renderMap('left-game')
     expect(second.result.current.status).toBe('loading')
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('left-game')).toBe(1)
     advance(RETRY_MS)
     expect(specCountFor('left-game')).toBe(2)
@@ -199,7 +215,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
 
   test('holds the retry backoff across arrowing off the replay and back', () => {
     const { rerender } = renderMap('storm-game')
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('storm-game')).toBe(1)
 
     // Two transient failures grow the backoff to ~4s (2s doubled).
@@ -211,7 +227,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     // Arrow away and back while backed off. The backoff is per-game module state, so it must persist
     // rather than resetting to the initial 2s.
     rerender({ gameId: 'elsewhere' })
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     rerender({ gameId: 'storm-game' })
 
     // Still backed off: nothing refires at 2s...
@@ -224,7 +240,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
 
   test('clears all backoff on a successful fetch so a backed-off game refetches promptly', () => {
     const { rerender } = renderMap('backed-off')
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('backed-off')).toBe(1)
 
     // Two failures grow this game's backoff to ~4s.
@@ -235,12 +251,12 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
 
     // A different game's fetch then succeeds — the limiter clearly isn't blocking anymore.
     rerender({ gameId: 'ok-game' })
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     succeedLatest('ok-game')
 
     // Returning to the backed-off game now fetches on the debounce, not the stale ~4s backoff.
     rerender({ gameId: 'backed-off' })
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('backed-off')).toBe(3)
   })
 
@@ -248,7 +264,7 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
   // doubling backoff, capped — derived from the same constants (and formula) the hook uses so it
   // can't drift out of sync with them.
   const ATTEMPT_DELAYS = Array.from({ length: MAX_ATTEMPTS }, (_, i) =>
-    i === 0 ? DEBOUNCE_MS : Math.min(RETRY_MS * 2 ** (i - 1), RETRY_MAX_MS),
+    i === 0 ? COALESCE_MS : Math.min(RETRY_MS * 2 ** (i - 1), RETRY_MAX_MS),
   )
 
   function exhaustRetries(gameId: string, result: { current: { status: string } }) {
@@ -278,13 +294,13 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
 
     // A later fetch on another game succeeds — proof the limiter/network recovered.
     gaveUp.rerender({ gameId: 'healthy' })
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     succeedLatest('healthy')
 
     // Returning to the gave-up game now refetches instead of staying stuck on the placeholder.
     gaveUp.rerender({ gameId: 'gave-up' })
     expect(gaveUp.result.current.status).toBe('loading')
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('gave-up')).toBe(MAX_ATTEMPTS + 1)
   })
 
@@ -292,12 +308,12 @@ describe('client/replays/replay-hooks/useSbGameMap', () => {
     const { result, rerender } = renderMap('reattach-game')
 
     // Kick off the fetch for the first selection and leave it in flight.
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     expect(specCountFor('reattach-game')).toBe(1)
 
     // Arrow to another replay and back while the first request is still outstanding.
     rerender({ gameId: 'other-game' })
-    advance(DEBOUNCE_MS)
+    advance(COALESCE_MS)
     rerender({ gameId: 'reattach-game' })
 
     // Re-attached to the still-'pending' fetch: no duplicate request, still showing the skeleton.

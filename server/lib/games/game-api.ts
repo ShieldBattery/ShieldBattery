@@ -67,8 +67,8 @@ import { deriveResultSubmission } from './raw-results'
 const MAX_REPLAY_SIZE_BYTES = 5 * 1024 * 1024
 
 const throttle = createThrottle('games', {
-  rate: 20,
-  burst: 40,
+  rate: 40,
+  burst: 80,
   window: 60000,
 })
 

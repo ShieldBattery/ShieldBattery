@@ -17,11 +17,16 @@ export interface SbGameMapResult {
   status: SbGameMapStatus
 }
 
-// Exported for the hook's tests, which assert the debounce/backoff/give-up timings and would
+// Exported for the hook's tests, which assert the coalesce/backoff/give-up timings and would
 // silently drift if they hardcoded their own copies.
 
-/** How long a selection must hold still before we fetch its game (see the debounce in the effect). */
-export const MAP_FETCH_DEBOUNCE_MS = 150
+/**
+ * Coalescing window for rapid selection changes. A deliberate selection fetches immediately (leading
+ * edge — no artificial delay on the normal click-through-the-list case); only while selections keep
+ * changing faster than this (a fast scroll / held arrow) does the fetch wait for the list to settle,
+ * so an intermediate replay you blow past doesn't fire its own request.
+ */
+export const MAP_FETCH_COALESCE_MS = 150
 /** Base backoff before the first retry of a transiently-failed fetch (rate-limited / 5xx / network). */
 export const MAP_FETCH_RETRY_MS = 2000
 /** Backoff ceiling: a sustained failure polls at most this often while the panel stays open. */
@@ -58,6 +63,13 @@ const gameFetchRetries = new Map<string, number>()
 
 /** Hooks subscribed to a given game id's fetch outcome, notified whenever it changes. */
 const gameFetchListeners = new Map<string, Set<() => void>>()
+
+/**
+ * `Date.now()` when the last fetch was kicked off, across all games. Used to tell a deliberate
+ * selection (fetch immediately) from one made mid-scroll, still within `MAP_FETCH_COALESCE_MS` of the
+ * previous fetch (debounce it so a fast scroll only fetches the row it lands on).
+ */
+let lastFetchStartedAt = 0
 
 function subscribeToGameFetch(gameId: string | undefined, onChange: () => void): () => void {
   if (!gameId) return () => {}
@@ -106,17 +118,9 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
     if (!gameId || game || gameFetchStatus.has(gameId)) return () => {}
 
     let canceled = false
-    // Debounce a fresh selection so holding the arrow key doesn't fire a request per intermediate
-    // replay (each is a different game, so request coalescing can't help). A game that's already
-    // failed waits its backoff instead, so a returning/re-attaching selection retries no faster than
-    // the backoff.
-    const retries = gameFetchRetries.get(gameId) ?? 0
-    const delay =
-      retries === 0
-        ? MAP_FETCH_DEBOUNCE_MS
-        : Math.min(MAP_FETCH_RETRY_MS * 2 ** (retries - 1), MAP_FETCH_RETRY_MAX_MS)
-    const timer = setTimeout(() => {
+    const attempt = () => {
       if (canceled || gameFetchStatus.has(gameId)) return
+      lastFetchStartedAt = Date.now()
       gameFetchStatus.set(gameId, 'pending')
       notifyGameFetchListeners(gameId)
       // Deliberately no abort on unmount/reselection: the response is tiny and caching it in the
@@ -161,11 +165,29 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
           },
         }),
       )
-    }, delay)
+    }
+
+    const retries = gameFetchRetries.get(gameId) ?? 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    if (retries > 0) {
+      // Awaiting a retry: wait out the (persisted) exponential backoff.
+      timer = setTimeout(
+        attempt,
+        Math.min(MAP_FETCH_RETRY_MS * 2 ** (retries - 1), MAP_FETCH_RETRY_MAX_MS),
+      )
+    } else if (Date.now() - lastFetchStartedAt >= MAP_FETCH_COALESCE_MS) {
+      // Leading edge: nothing's been fetched within the coalesce window, so this is a deliberate
+      // selection — fetch at once, no artificial delay.
+      attempt()
+    } else {
+      // Trailing edge: selections are changing faster than the coalesce window (a fast scroll), so
+      // wait for this one to settle, coalescing the run down to the row landed on.
+      timer = setTimeout(attempt, MAP_FETCH_COALESCE_MS)
+    }
 
     return () => {
       canceled = true
-      clearTimeout(timer)
+      if (timer) clearTimeout(timer)
     }
   }, [gameId, game, dispatch, fetchStatus])
 
@@ -173,7 +195,7 @@ export function useSbGameMap(gameId: string | undefined): SbGameMapResult {
   if (map) {
     status = 'loaded'
   } else if (gameId && !game && (fetchStatus === undefined || fetchStatus === 'pending')) {
-    // Still on the way (debouncing / in flight / awaiting retry): assume a map is coming rather than
+    // Still on the way (coalescing / in flight / awaiting retry): assume a map is coming rather than
     // flashing the placeholder. `settled`/`gaveUp` fall through to unavailable.
     status = 'loading'
   } else {
@@ -191,4 +213,5 @@ export function resetSbGameMapStateForTests() {
   gameFetchStatus.clear()
   gameFetchRetries.clear()
   gameFetchListeners.clear()
+  lastFetchStartedAt = 0
 }
