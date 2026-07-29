@@ -4,10 +4,10 @@ import { urlPath } from '../../common/urls'
 import { push } from '../navigation/routing'
 
 /**
- * Returns the URL slug for a lobby name. Lobby names are user-generated and may contain no
- * sluggable characters at all (e.g. all symbols), in which case this falls back to the same `_`
- * placeholder used when the name is unknown. Both URL construction and slug correction must use
- * this so they can't disagree and cause a redirect loop.
+ * Returns the URL slug for a lobby name, falling back to a `_` placeholder when the name is
+ * unknown/empty or slugs to nothing (`slug`'s default config base64-encodes otherwise-unsluggable
+ * names rather than returning an empty string, but this guard doesn't rely on that). Both URL
+ * construction and slug correction must use this so they can't disagree and cause a redirect loop.
  */
 export function lobbySlug(name: string | undefined): string {
   return (name ? slug(name) : '') || '_'

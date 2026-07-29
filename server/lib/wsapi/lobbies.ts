@@ -1059,7 +1059,7 @@ export class LobbyApi {
   @Api(
     '/getLobbyState',
     validateBody({
-      lobbyId: isLobbyId,
+      lobbyId: nonEmptyString,
     }),
   )
   async getLobbyState(data: Map<string, any>, next: NextFunc) {
