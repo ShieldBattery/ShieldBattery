@@ -865,6 +865,7 @@
     },
     "createLobby": {
       "advancedSettings": "고급 설정",
+      "allowObservers": "관전자 허용",
       "backToList": "목록으로 돌아가기",
       "errorDialogTitle": "로비 생성 오류",
       "errorGeneric": "로비를 만드는 중 문제가 발생했습니다. 다시 시도해 주세요.",
@@ -879,7 +880,12 @@
       "mapRequired": "플레이할 맵을 선택해 주세요",
       "selectMap": "맵 선택",
       "title": "로비 만들기",
-      "useLegacyLimits": "옛 유닛 제한 사용"
+      "useLegacyLimits": "옛 유닛 제한 사용",
+      "visibility": "공개 범위",
+      "visibilityListed": "공개",
+      "visibilityListedDescription": "로비 목록에 표시되어 누구나 참여할 수 있습니다",
+      "visibilityUnlisted": "일부 공개",
+      "visibilityUnlistedDescription": "링크를 받은 사람만 참여할 수 있습니다"
     },
     "errors": {
       "alreadyInLobby": "이미 다른 로비에 참여 중입니다.",
@@ -899,12 +905,17 @@
       "title": "로비 참가"
     },
     "lobby": {
+      "copiedInviteLink": "복사되었습니다!",
+      "copyInviteLink": "초대 링크 복사",
       "gameType": "게임 방식",
       "leaveLobby": "로비 나가기",
       "startGame": "게임 시작",
       "unitLimit": "유닛 제한",
       "unitLimitExtended": "확장",
-      "unitLimitLegacy": "오리지널"
+      "unitLimitLegacy": "오리지널",
+      "visibility": "공개 범위",
+      "visibilityListed": "공개",
+      "visibilityUnlisted": "일부 공개"
     },
     "messageLayout": {
       "banPlayer": "<0><0></0></0>이(가) 로비에서 금지되었습니다",

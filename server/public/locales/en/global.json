@@ -888,6 +888,7 @@
     },
     "createLobby": {
       "advancedSettings": "Advanced settings",
+      "allowObservers": "Allow observers",
       "backToList": "Back to list",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
@@ -902,7 +903,12 @@
       "mapRequired": "Select a map to play",
       "selectMap": "Select map",
       "title": "Create lobby",
-      "useLegacyLimits": "Use legacy unit limit"
+      "useLegacyLimits": "Use legacy unit limit",
+      "visibility": "Visibility",
+      "visibilityListed": "Public",
+      "visibilityListedDescription": "Shown in the lobby list for anyone to join",
+      "visibilityUnlisted": "Unlisted",
+      "visibilityUnlistedDescription": "Only people you share the link with can join"
     },
     "errors": {
       "alreadyInLobby": "You're already in another lobby.",
@@ -923,12 +929,17 @@
       "title": "Join Lobby"
     },
     "lobby": {
+      "copiedInviteLink": "Copied!",
+      "copyInviteLink": "Copy invite link",
       "gameType": "Game type",
       "leaveLobby": "Leave lobby",
       "startGame": "Start game",
       "unitLimit": "Unit limit",
       "unitLimitExtended": "Extended",
-      "unitLimitLegacy": "Legacy"
+      "unitLimitLegacy": "Legacy",
+      "visibility": "Visibility",
+      "visibilityListed": "Public",
+      "visibilityUnlisted": "Unlisted"
     },
     "messageLayout": {
       "banPlayer": "<0><0></0></0> has been banned from the lobby",

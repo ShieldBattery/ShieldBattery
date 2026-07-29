@@ -31,7 +31,16 @@ export default function (router) {
 }
 
 async function upsertPreferences(ctx, next) {
-  const { name, gameType, gameSubType, recentMaps, selectedMap, useLegacyLimits } = ctx.request.body
+  const {
+    name,
+    gameType,
+    gameSubType,
+    recentMaps,
+    selectedMap,
+    useLegacyLimits,
+    visibility,
+    allowObservers,
+  } = ctx.request.body
 
   if (name && !isValidLobbyName(name)) {
     throw new httpErrors.BadRequest('invalid lobby name')
@@ -45,6 +54,10 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('invalid selected map')
   } else if (useLegacyLimits && typeof useLegacyLimits !== 'boolean') {
     throw new httpErrors.BadRequest('invalid use legacy limits')
+  } else if (visibility !== undefined && visibility !== 'listed' && visibility !== 'unlisted') {
+    throw new httpErrors.BadRequest('invalid visibility')
+  } else if (allowObservers !== undefined && typeof allowObservers !== 'boolean') {
+    throw new httpErrors.BadRequest('invalid allow observers')
   }
 
   const preferences = await upsertLobbyPreferences(ctx.session.user.id, {
@@ -54,6 +67,8 @@ async function upsertPreferences(ctx, next) {
     recentMaps: recentMaps.slice(0, 5),
     selectedMap,
     useLegacyLimits,
+    visibility,
+    allowObservers,
   })
   const recentMapInfos = await getMapInfos(preferences.recentMaps)
   ctx.body = {

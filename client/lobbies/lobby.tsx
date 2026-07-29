@@ -1,6 +1,6 @@
 import { List } from 'immutable'
-import React from 'react'
-import { WithTranslation, withTranslation } from 'react-i18next'
+import React, { useRef, useState } from 'react'
+import { useTranslation, WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
@@ -17,13 +17,16 @@ import {
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
+import { MaterialIcon } from '../icons/material/material-icon'
+import logger from '../logging/logger'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { FilledButton } from '../material/button'
+import { FilledButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
+import { makeServerUrl } from '../network/server-url'
 import { headlineMedium, labelLarge, labelMedium } from '../styles/typography'
 import { ClosedSlot } from './closed-slot'
 import { LobbyUserMenu } from './lobby-menu-items'
@@ -41,6 +44,7 @@ import {
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
 import { LobbyLoadingState } from './lobby-reducer'
+import { urlForLobby } from './lobby-url'
 import { OpenSlot } from './open-slot'
 import { PlayerSlot } from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
@@ -90,6 +94,12 @@ const Info = styled.div`
   flex-shrink: 0;
 `
 
+const InfoActions = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
+
 const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   ${elevationPlus1};
   width: 256px;
@@ -122,6 +132,43 @@ const Countdown = styled.div`
   ${headlineMedium};
   margin: 16px 0;
 `
+
+/**
+ * A button that copies a shareable link to this lobby. The lobby's id is what actually grants
+ * access, so this is the only way to invite someone into a lobby that isn't publicly listed.
+ */
+function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
+  const { t } = useTranslation()
+  const [copied, setCopied] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  return (
+    <TextButton
+      label={
+        copied
+          ? t('lobbies.lobby.copiedInviteLink', 'Copied!')
+          : t('lobbies.lobby.copyInviteLink', 'Copy invite link')
+      }
+      iconStart={<MaterialIcon icon='link' />}
+      onClick={() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current)
+        }
+
+        navigator.clipboard
+          .writeText(makeServerUrl(urlForLobby(lobby.id, lobby.name)))
+          .catch(err => logger.error('Error writing to clipboard: ' + (err?.stack ?? err)))
+        setCopied(true)
+
+        timeoutRef.current = setTimeout(() => {
+          timeoutRef.current = undefined
+          setCopied(false)
+        }, 2000)
+      }}
+      testName='copy-invite-link-button'
+    />
+  )
+}
 
 function LobbyChatMessage({ message }: MessageComponentProps) {
   // Cast to just lobby messages so we can check for exhaustiveness, even though this won't
@@ -353,15 +400,26 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           />
         </Left>
         <Info>
-          <FilledButton
-            label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
-            onClick={onLeaveLobbyClick}
-            testName='leave-lobby-button'
-          />
+          <InfoActions>
+            <FilledButton
+              label={t('lobbies.lobby.leaveLobby', 'Leave lobby')}
+              onClick={onLeaveLobbyClick}
+              testName='leave-lobby-button'
+            />
+            <CopyInviteLinkButton lobby={lobby} />
+          </InfoActions>
           <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
             <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
+          </InfoItem>
+          <InfoItem>
+            <InfoLabel as='span'>{t('lobbies.lobby.visibility', 'Visibility')}</InfoLabel>
+            <InfoValue as='span'>
+              {lobby.visibility === 'unlisted'
+                ? t('lobbies.lobby.visibilityUnlisted', 'Unlisted')
+                : t('lobbies.lobby.visibilityListed', 'Public')}
+            </InfoValue>
           </InfoItem>
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.unitLimit', 'Unit limit')}</InfoLabel>

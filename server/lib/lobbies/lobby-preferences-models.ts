@@ -1,4 +1,5 @@
 import { ReadonlyDeep } from 'type-fest'
+import { LobbyVisibility } from '../../../common/lobbies'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
 import { sql } from '../db/sql'
@@ -12,6 +13,8 @@ export interface LobbyPreferences {
   recentMaps?: string[]
   selectedMap?: string
   useLegacyLimits?: boolean
+  visibility?: LobbyVisibility
+  allowObservers?: boolean
 }
 
 type DbLobbyPreferences = Dbify<LobbyPreferences>
@@ -25,6 +28,8 @@ function fromDbLobbyPreferences(prefs: DbLobbyPreferences): LobbyPreferences {
     recentMaps: prefs.recent_maps !== null ? prefs.recent_maps : undefined,
     selectedMap: prefs.selected_map !== null ? prefs.selected_map : undefined,
     useLegacyLimits: prefs.use_legacy_limits !== null ? prefs.use_legacy_limits : undefined,
+    visibility: prefs.visibility !== null ? prefs.visibility : undefined,
+    allowObservers: prefs.allow_observers !== null ? prefs.allow_observers : undefined,
   }
 }
 
@@ -37,6 +42,8 @@ export async function upsertLobbyPreferences(
     recentMaps,
     selectedMap,
     useLegacyLimits,
+    visibility,
+    allowObservers,
   }: ReadonlyDeep<LobbyPreferences>,
 ): Promise<LobbyPreferences> {
   const { client, done } = await db()
@@ -44,9 +51,10 @@ export async function upsertLobbyPreferences(
   try {
     const result = await client.query<DbLobbyPreferences>(sql`
       INSERT INTO lobby_preferences
-        (user_id, name, game_type, game_sub_type, recent_maps, selected_map, use_legacy_limits)
+        (user_id, name, game_type, game_sub_type, recent_maps, selected_map, use_legacy_limits,
+          visibility, allow_observers)
       VALUES (${userId}, ${name}, ${gameType}, ${gameSubType}, ${recentMaps}, ${selectedMap},
-        ${useLegacyLimits})
+        ${useLegacyLimits}, ${visibility}, ${allowObservers})
       ON CONFLICT (user_id)
       DO UPDATE SET
         name = ${name},
@@ -54,7 +62,9 @@ export async function upsertLobbyPreferences(
         game_sub_type = ${gameSubType},
         recent_maps = ${recentMaps},
         selected_map = ${selectedMap},
-        use_legacy_limits = ${useLegacyLimits}
+        use_legacy_limits = ${useLegacyLimits},
+        visibility = ${visibility},
+        allow_observers = ${allowObservers}
       WHERE lobby_preferences.user_id = ${userId}
       RETURNING *;
     `)

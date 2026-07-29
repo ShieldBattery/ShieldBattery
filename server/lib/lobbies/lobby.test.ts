@@ -153,6 +153,43 @@ describe('Lobbies - melee', () => {
     expect(BOXER_LOBBY.host.region).toBeUndefined()
   })
 
+  test('defaults to being listed publicly', () => {
+    expect(BOXER_LOBBY.visibility).toBe('listed')
+  })
+
+  test('keeps a requested unlisted visibility', () => {
+    const lobby = createLobby({
+      name: 'Secret Squirrel',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      allowObservers: false,
+      visibility: 'unlisted',
+    })
+
+    expect(lobby.visibility).toBe('unlisted')
+  })
+
+  test('leaves visibility out of the summarized JSON', () => {
+    // Summaries only ever describe listed lobbies, so nothing downstream should be able to key off
+    // a visibility that is always the same value.
+    const unlisted = createLobby({
+      name: 'Secret Squirrel',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      allowObservers: false,
+      visibility: 'unlisted',
+    })
+
+    expect(toSummaryJson(BOXER_LOBBY)).not.toHaveProperty('visibility')
+    expect(toSummaryJson(unlisted)).not.toHaveProperty('visibility')
+  })
+
   test('should find available slot', () => {
     const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
     expect(t1).toBe(0)
