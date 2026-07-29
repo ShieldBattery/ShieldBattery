@@ -60,7 +60,7 @@ export function GameplayActivityWidget() {
   const isConnected = useAtomValue(isConnectedAtom)
   const isMatchLaunching = useAtomValue(matchLaunchingAtom)
 
-  const [onLobbyRoute] = useRoute('/lobbies/:lobby/*?')
+  const [onLobbyRoute] = useRoute('/lobbies/:lobbyId/*?')
 
   const positioningAreaRef = useRef<HTMLDivElement>(null)
   const widgetRef = useRef<HTMLDivElement>(null)
@@ -281,6 +281,7 @@ const LobbyInfo = styled.div`
 export function LobbyWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
   const lobbyName = useAppSelector(s => s.lobby.info.name)
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
   const hasUnread = useAppSelector(s => s.lobby.hasUnread)
   const lobbyInfo = useAppSelector(s => s.lobby.info)
   const totalSlots = slotCount(lobbyInfo)
@@ -301,7 +302,7 @@ export function LobbyWidget(props: WidgetContainerProps) {
       <OutlinedButton
         iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
         label={t('gameplayActivity.lobby.viewLobby', 'View lobby')}
-        onClick={() => push(urlPath`/lobbies/${lobbyName}`)}
+        onClick={() => push(urlPath`/lobbies/${lobbyId}`)}
       />
     </Widget>
   )

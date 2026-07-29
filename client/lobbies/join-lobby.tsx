@@ -171,7 +171,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
 function LobbyList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const { byName, list } = useAppSelector(s => s.lobbyList)
+  const { byId, list } = useAppSelector(s => s.lobbyList)
 
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
 
@@ -185,14 +185,14 @@ function LobbyList() {
     )
   }
 
-  const openLobbies = list.filter(name => (byName.get(name)?.openSlotCount ?? 0) > 0)
+  const openLobbies = list.filter(id => (byId.get(id)?.openSlotCount ?? 0) > 0)
   return (
     <div>
       {!openLobbies.isEmpty() ? (
-        openLobbies.map(name => (
+        openLobbies.map(id => (
           <ListEntry
-            key={name}
-            lobby={byName.get(name)!}
+            key={id}
+            lobby={byId.get(id)!}
             onClick={lobby => {
               if (IS_ELECTRON) {
                 if (isMatchmaking) {
@@ -210,8 +210,8 @@ function LobbyList() {
                   )
                 } else {
                   healthChecked(() => {
-                    dispatch(joinLobby(lobby.name))
-                    navigateToLobby(lobby.name)
+                    dispatch(joinLobby(lobby.id))
+                    navigateToLobby(lobby.id)
                   })()
                 }
               } else {

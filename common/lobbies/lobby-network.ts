@@ -3,6 +3,7 @@ import { GameType } from '../games/game-type'
 import { MapInfoJson } from '../maps'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
+import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
 
 export type LobbyEvent =
@@ -24,6 +25,7 @@ export type LobbyEvent =
   | LobbyStatusEvent
 
 export interface LobbySummaryJson {
+  id: SbLobbyId
   name: string
   map: MapInfoJson
   gameType: GameType

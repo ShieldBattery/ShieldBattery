@@ -1,4 +1,5 @@
 import { TypedIpcRenderer } from '../../common/ipc'
+import { urlPath } from '../../common/urls'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
 import {
   LOBBIES_GET_STATE,
@@ -45,8 +46,10 @@ import siteSocket from '../network/site-socket'
 
 const ipcRenderer = new TypedIpcRenderer()
 
+// Bypasses `createSiteSocketAction` so the create response (which carries the new lobby's id) can
+// be awaited here and handed to `onSuccess` for navigation.
 export const createLobby =
-  ({ name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true }) =>
+  ({ name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true }, onSuccess) =>
   dispatch => {
     // Resolve the host's home region the same way matchmaking does before queueing, so their slot
     // homes on a nearby relay at session create, and generate this session's netcode v2 keypair in
@@ -59,32 +62,37 @@ export const createLobby =
         () => undefined,
       ),
     ]).then(([desiredRegion, clientPubkey]) => {
-      dispatch(
-        createSiteSocketAction(LOBBY_CREATE_BEGIN, LOBBY_CREATE, '/lobbies/create', {
-          name,
-          map,
-          gameType,
-          gameSubType,
-          useLegacyLimits,
-          allowObservers,
-          region: desiredRegion?.region,
-          // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire
-          // format only distinguishes "present" from "absent", so a null rtt is sent as absent.
-          rttMs: desiredRegion?.rttMs ?? undefined,
-          clientPubkey,
-        }),
-      )
+      const params = {
+        name,
+        map,
+        gameType,
+        gameSubType,
+        useLegacyLimits,
+        allowObservers,
+        region: desiredRegion?.region,
+        // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire
+        // format only distinguishes "present" from "absent", so a null rtt is sent as absent.
+        rttMs: desiredRegion?.rttMs ?? undefined,
+        clientPubkey,
+      }
+
+      dispatch({ type: LOBBY_CREATE_BEGIN, payload: params })
+      const result = siteSocket.invoke('/lobbies/create', params)
+      dispatch({ type: LOBBY_CREATE, payload: result, meta: params })
+      if (onSuccess) {
+        result.then(onSuccess, () => {})
+      }
     })
   }
 
-export const joinLobby = name => dispatch => {
+export const joinLobby = id => dispatch => {
   Promise.all([
     resolveDesiredRegion().catch(() => undefined),
     Promise.resolve(ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys')).catch(() => undefined),
   ]).then(([desiredRegion, clientPubkey]) => {
     dispatch(
       createSiteSocketAction(LOBBY_JOIN_BEGIN, LOBBY_JOIN, '/lobbies/join', {
-        name,
+        id,
         region: desiredRegion?.region,
         rttMs: desiredRegion?.rttMs ?? undefined,
         clientPubkey,
@@ -147,26 +155,26 @@ export const sendChat = text =>
   createSiteSocketAction(LOBBY_SEND_CHAT_BEGIN, LOBBY_SEND_CHAT, '/lobbies/sendChat', { text })
 
 const STATE_CACHE_TIMEOUT = 20 * 1000
-export function getLobbyState(lobbyName) {
+export function getLobbyState(lobbyId) {
   return (dispatch, getState) => {
     const { lobbyState } = getState()
     const requestTime = window.performance.now()
     if (
-      lobbyState.has(lobbyName) &&
-      (!lobbyState.get(lobbyName).time ||
-        requestTime - lobbyState.get(lobbyName).time < STATE_CACHE_TIMEOUT)
+      lobbyState.has(lobbyId) &&
+      (!lobbyState.get(lobbyId).time ||
+        requestTime - lobbyState.get(lobbyId).time < STATE_CACHE_TIMEOUT)
     ) {
       return
     }
 
     dispatch({
       type: LOBBIES_GET_STATE_BEGIN,
-      payload: { lobbyName },
+      payload: { lobbyId },
     })
     dispatch({
       type: LOBBIES_GET_STATE,
-      payload: siteSocket.invoke('/lobbies/getLobbyState', { lobbyName }),
-      meta: { lobbyName, requestTime },
+      payload: siteSocket.invoke('/lobbies/getLobbyState', { lobbyId }),
+      meta: { lobbyId, requestTime },
     })
   }
 }
@@ -206,6 +214,6 @@ export function deactivateLobby() {
   }
 }
 
-export function navigateToLobby(lobbyName) {
-  push(`/lobbies/${encodeURIComponent(lobbyName)}`)
+export function navigateToLobby(lobbyId) {
+  push(urlPath`/lobbies/${lobbyId}`)
 }

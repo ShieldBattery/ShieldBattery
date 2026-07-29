@@ -1,4 +1,5 @@
 import { List, Range } from 'immutable'
+import { randomUUID } from 'node:crypto'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
@@ -20,6 +21,7 @@ import {
   teamTakenSlotCount,
 } from '../../../common/lobbies'
 import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   Slot,
   SlotType,
@@ -32,6 +34,7 @@ import {
   createUmsComputer,
 } from '../../../common/lobbies/slot'
 import { MapForce, MapInfo, getTeamNames, numTeams, toMapInfoJson } from '../../../common/maps'
+import { encodePrettyId } from '../../../common/pretty-id'
 import { RaceChar } from '../../../common/races'
 import { SbUserId } from '../../../common/users/sb-user-id'
 
@@ -90,6 +93,7 @@ export function getSlotsPerTeam(
  */
 export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
   return {
+    id: lobby.id,
     name: lobby.name,
     map: toMapInfoJson(lobby.map!),
     gameType: lobby.gameType,
@@ -260,6 +264,7 @@ export function createLobby({
   }
 
   const lobby = new Lobby({
+    id: makeSbLobbyId(encodePrettyId(randomUUID())),
     name,
     map,
     gameType,

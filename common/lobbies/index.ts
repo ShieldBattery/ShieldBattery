@@ -3,6 +3,7 @@ import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { SbUserId } from '../users/sb-user-id'
+import { SbLobbyId } from './sb-lobby-id'
 import { Slot, SlotType } from './slot'
 
 /**
@@ -30,6 +31,7 @@ export class Team extends Record({
 }) {}
 
 export class Lobby extends Record({
+  id: '' as SbLobbyId,
   name: '',
   map: undefined as MapInfo | undefined,
   gameType: GameType.Melee,

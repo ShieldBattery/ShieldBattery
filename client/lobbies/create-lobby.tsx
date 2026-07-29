@@ -6,6 +6,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
+import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { range } from '../../common/range'
 import { useTrackPageView } from '../analytics/analytics'
@@ -456,13 +457,16 @@ export function CreateLobby(props: CreateLobbyProps) {
                 const subType = isTeamType(gameType) ? gameSubType : undefined
 
                 dispatch(
-                  createLobby({
-                    name,
-                    map: mapId,
-                    gameType,
-                    gameSubType: subType,
-                    useLegacyLimits,
-                  }),
+                  createLobby(
+                    {
+                      name,
+                      map: mapId,
+                      gameType,
+                      gameSubType: subType,
+                      useLegacyLimits,
+                    },
+                    (result: { id: SbLobbyId }) => navigateToLobby(result.id),
+                  ),
                 )
 
                 debouncedSavePreferencesRef.current.cancel()
@@ -479,8 +483,6 @@ export function CreateLobby(props: CreateLobbyProps) {
                     useLegacyLimits: model.useLegacyLimits,
                   }),
                 )
-
-                navigateToLobby(name)
               }}
               onMapBrowse={mapSelectCallback => {
                 mapSelectCallbackRef.current = mapSelectCallback

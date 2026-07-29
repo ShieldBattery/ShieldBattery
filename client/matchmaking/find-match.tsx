@@ -1217,7 +1217,7 @@ export function FindMatch() {
   const matchmakingPreferences = useAppSelector(s => s.matchmakingPreferences.byType)
   const mapPools = useAppSelector(s => s.mapPools.byType)
   const inLobby = useAppSelector(s => s.lobby.inLobby)
-  const lobbyName = useAppSelector(s => s.lobby.info.name)
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
 
   // ─── Local state ────────────────────────────────────────────────────────────
   // The mode selection itself isn't stored here: it's derived from the persisted preferences (see
@@ -1485,7 +1485,7 @@ export function FindMatch() {
             </LobbyBannerText>
             <LobbyBannerButton
               label={t('matchmaking.findMatch.goToLobby', 'Go to lobby')}
-              onClick={() => push(urlPath`/lobbies/${lobbyName}`)}
+              onClick={() => push(urlPath`/lobbies/${lobbyId}`)}
             />
           </LobbyBanner>
         ) : null}

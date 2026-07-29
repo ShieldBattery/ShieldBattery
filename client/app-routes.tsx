@@ -73,7 +73,7 @@ export function AppRoutes({
       <Route path='/ladder/*?' component={LadderRouteComponent} />
       <Route path='/leagues/*?' component={LeagueRoot} />
       <Route path='/live' component={LiveStreamsPage} />
-      {IS_ELECTRON ? <Route path='/lobbies/:lobby/*?' component={LobbyView} /> : <></>}
+      {IS_ELECTRON ? <Route path='/lobbies/:lobbyId/*?' component={LobbyView} /> : <></>}
       <Route path='/maps/*?' component={MapsRoot} />
       <Route path='/news/:id/*?' component={NewsPostPage} />
       <Route path='/news' component={NewsArchivePage} />
