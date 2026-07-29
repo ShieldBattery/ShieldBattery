@@ -889,6 +889,9 @@
     "createLobby": {
       "advancedSettings": "Advanced settings",
       "backToList": "Back to list",
+      "errorDialogTitle": "Error creating lobby",
+      "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
+      "errorNameTaken": "A lobby with that name already exists. Please choose a different name.",
       "gameSubTypeHeader": "Teams",
       "gameSubTypeOption": "{{numTeams}} teams",
       "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
@@ -957,7 +960,7 @@
     },
     "state": {
       "exists": "You're not currently in this lobby. Would you like to join it?",
-      "nonexistent": "Lobby not found. Would you like to create it?",
+      "nonexistent": "Lobby not found. Would you like to create a new one?",
       "started": "This lobby has already started and cannot be joined."
     }
   },

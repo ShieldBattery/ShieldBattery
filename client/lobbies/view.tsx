@@ -299,7 +299,7 @@ function LobbyStateContent({
         <StateMessageLayout>
           <StateMessageIcon icon='other_houses' />
           <BodyLarge>
-            {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create it?')}
+            {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create a new one?')}
           </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.createLobby.title', 'Create lobby')}

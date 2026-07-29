@@ -1,15 +1,17 @@
 import { debounce } from 'lodash-es'
+import { InvokeError } from 'nydus-client'
 import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { useRoute } from 'wouter'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
+import { LobbyCreateErrorCode } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { range } from '../../common/range'
 import { useTrackPageView } from '../analytics/analytics'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { useForm, useFormCallbacks, Validator } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
 import { composeValidators, maxLength, regex, required } from '../forms/validators'
@@ -323,10 +325,6 @@ enum MapBrowseState {
 export function CreateLobby(props: CreateLobbyProps) {
   useTrackPageView('/lobbies/create')
 
-  const [routeMatches, routeParams] = useRoute('/play/lobbies/create/:name?')
-  const routeName =
-    routeMatches && routeParams.name ? decodeURIComponent(routeParams.name) : undefined
-
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
@@ -339,7 +337,7 @@ export function CreateLobby(props: CreateLobbyProps) {
   const storeSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const storeRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
 
-  const initialName = routeName ?? prefsName ?? ''
+  const initialName = prefsName ?? ''
 
   const model = useMemo(
     () =>
@@ -360,6 +358,7 @@ export function CreateLobby(props: CreateLobbyProps) {
   const [isAtTop, isAtBottom, topElem, bottomElem] = useScrollIndicatorState()
 
   const [browsingMaps, setBrowsingMaps] = useState(MapBrowseState.None)
+  const [isCreating, setIsCreating] = useState(false)
   const mapSelectCallbackRef = useRef<(mapId: SbMapId) => void>(undefined)
   const debouncedSavePreferencesRef = useRef(
     debounce((model: ReadonlyDeep<CreateLobbyModel>) => {
@@ -380,7 +379,7 @@ export function CreateLobby(props: CreateLobbyProps) {
     dispatch(getLobbyPreferences())
   }, [dispatch])
 
-  const isDisabled = isRequesting
+  const isDisabled = isRequesting || isCreating
 
   return (
     <Container>
@@ -452,6 +451,7 @@ export function CreateLobby(props: CreateLobbyProps) {
                 } = model
                 const subType = isTeamType(gameType) ? gameSubType : undefined
 
+                setIsCreating(true)
                 dispatch(
                   createLobby(
                     {
@@ -461,7 +461,27 @@ export function CreateLobby(props: CreateLobbyProps) {
                       gameSubType: subType,
                       useLegacyLimits,
                     },
-                    (result: { id: SbLobbyId }) => navigateToLobby(result.id, name),
+                    {
+                      onSuccess: (result: { id: SbLobbyId }) => navigateToLobby(result.id, name),
+                      onError: (err: Error) => {
+                        setIsCreating(false)
+                        dispatch(
+                          openSimpleDialog(
+                            t('lobbies.createLobby.errorDialogTitle', 'Error creating lobby'),
+                            err instanceof InvokeError &&
+                              err.body?.code === LobbyCreateErrorCode.NameTaken
+                              ? t(
+                                  'lobbies.createLobby.errorNameTaken',
+                                  'A lobby with that name already exists. Please choose a different name.',
+                                )
+                              : t(
+                                  'lobbies.createLobby.errorGeneric',
+                                  'Something went wrong while creating the lobby. Please try again.',
+                                ),
+                          ),
+                        )
+                      },
+                    },
                   ),
                 )
 

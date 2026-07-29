@@ -21,11 +21,16 @@ import {
   isUms,
   Lobby,
 } from '../../../common/lobbies'
-import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyCreateErrorCode,
+  LobbySlotCreateEvent,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
+import { isPrettyId } from '../../../common/pretty-id'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -57,6 +62,7 @@ const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
+const isLobbyId = (id: unknown) => typeof id === 'string' && isPrettyId(id)
 
 // The desired region is an opaque id, loosely validated here; the handler checks it against the
 // live region list and drops it if unknown, so a client with no measured regions joins region-less.
@@ -225,10 +231,6 @@ export class LobbyApi {
       throw new errors.BadRequest('lobby name contains invalid characters')
     }
 
-    if (this.lobbies.some(l => l.name === name)) {
-      throw new errors.Conflict('already another lobby with that name')
-    }
-
     let mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
@@ -249,6 +251,14 @@ export class LobbyApi {
         break
       default:
         numSlots = mapInfo.mapData.slots
+    }
+
+    // This check must not be separated from the inserts below by an await, or two in-flight
+    // creates with the same name could both pass it.
+    if (this.lobbies.some(l => l.name === name)) {
+      throw Object.assign(new errors.Conflict('already another lobby with that name'), {
+        body: { code: LobbyCreateErrorCode.NameTaken },
+      })
     }
 
     const lobby = Lobbies.createLobby({
@@ -283,7 +293,7 @@ export class LobbyApi {
   @Api(
     '/join',
     validateBody({
-      id: nonEmptyString,
+      id: isLobbyId,
       region: isValidRegion,
       rttMs: isValidRttMs,
       clientPubkey: isValidNetcodeV2Pubkey,
@@ -1049,7 +1059,7 @@ export class LobbyApi {
   @Api(
     '/getLobbyState',
     validateBody({
-      lobbyId: nonEmptyString,
+      lobbyId: isLobbyId,
     }),
   )
   async getLobbyState(data: Map<string, any>, next: NextFunc) {

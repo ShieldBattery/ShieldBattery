@@ -45,9 +45,12 @@ import siteSocket from '../network/site-socket'
 const ipcRenderer = new TypedIpcRenderer()
 
 // Bypasses `createSiteSocketAction` so the create response (which carries the new lobby's id) can
-// be awaited here and handed to `onSuccess` for navigation.
+// be awaited here and handed to the `onSuccess`/`onError` callbacks.
 export const createLobby =
-  ({ name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true }, onSuccess) =>
+  (
+    { name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true },
+    { onSuccess, onError } = {},
+  ) =>
   dispatch => {
     // Resolve the host's home region the same way matchmaking does before queueing, so their slot
     // homes on a nearby relay at session create, and generate this session's netcode v2 keypair in
@@ -77,9 +80,10 @@ export const createLobby =
       dispatch({ type: LOBBY_CREATE_BEGIN, payload: params })
       const result = siteSocket.invoke('/lobbies/create', params)
       dispatch({ type: LOBBY_CREATE, payload: result, meta: params })
-      if (onSuccess) {
-        result.then(onSuccess, () => {})
-      }
+      result.then(
+        payload => onSuccess?.(payload),
+        err => onError?.(err),
+      )
     })
   }
 

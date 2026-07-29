@@ -872,6 +872,9 @@
     "createLobby": {
       "advancedSettings": "Ajustes avanzados",
       "backToList": "Volver a la lista",
+      "errorDialogTitle": "Error al crear el lobby",
+      "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
+      "errorNameTaken": "Ya existe un lobby con ese nombre. Elige otro nombre.",
       "gameSubTypeHeader": "Equipos",
       "gameSubTypeOption": "{{numTeams}} equipos",
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
@@ -941,7 +944,7 @@
     },
     "state": {
       "exists": "Actualmente no estás en este lobby. ¿Únete?",
-      "nonexistent": "El lobby no existe. ¿Crearlo?",
+      "nonexistent": "No se encontró el lobby. ¿Quieres crear uno nuevo?",
       "started": "Este lobby ya ha comenzado y no se puede unir."
     }
   },

@@ -866,6 +866,9 @@
     "createLobby": {
       "advancedSettings": "高级设置",
       "backToList": "返回列表",
+      "errorDialogTitle": "创建房间出错",
+      "errorGeneric": "创建房间时出了点问题。请重试。",
+      "errorNameTaken": "已有同名的房间。请换一个名称。",
       "gameSubTypeHeader": "队伍",
       "gameSubTypeOption": "{{numTeams}}支队伍",
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
@@ -933,7 +936,7 @@
     },
     "state": {
       "exists": "你现在不在这个房间。想加入吗？",
-      "nonexistent": "未找到房间。要创建一个吗？",
+      "nonexistent": "未找到房间。要新建一个吗？",
       "started": "这个房间已经开始，无法加入。"
     }
   },

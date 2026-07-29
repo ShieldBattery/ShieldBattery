@@ -6,6 +6,14 @@ import { SbUserId } from '../users/sb-user-id'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
 
+/**
+ * Machine-readable codes attached to the error body of failed `/lobbies/create` invokes, so the
+ * client can distinguish failures worth explaining specifically.
+ */
+export enum LobbyCreateErrorCode {
+  NameTaken = 'nameTaken',
+}
+
 export type LobbyEvent =
   | LobbyInitEvent
   | LobbyDiffEvent
