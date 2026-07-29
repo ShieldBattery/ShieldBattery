@@ -234,7 +234,8 @@ const eventToAction: EventToActionMap = {
 
     dispatch(closeDialog(DialogType.LaunchingGame))
     const currentPath = location.pathname
-    if (currentPath === urlPath`/lobbies/${lobby.info.id}`) {
+    const lobbyPath = urlPath`/lobbies/${lobby.info.id}`
+    if (currentPath === lobbyPath || currentPath.startsWith(lobbyPath + '/')) {
       replace(urlPath`/`)
     }
     dispatch({

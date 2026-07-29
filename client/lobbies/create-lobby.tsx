@@ -28,12 +28,8 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodyLarge, titleLarge } from '../styles/typography'
-import {
-  createLobby,
-  getLobbyPreferences,
-  navigateToLobby,
-  updateLobbyPreferences,
-} from './action-creators'
+import { createLobby, getLobbyPreferences, updateLobbyPreferences } from './action-creators'
+import { navigateToLobby } from './lobby-url'
 
 // TODO(tec27): Move to common and use on the server as well
 const NUM_RECENT_MAPS = 5
@@ -465,7 +461,7 @@ export function CreateLobby(props: CreateLobbyProps) {
                       gameSubType: subType,
                       useLegacyLimits,
                     },
-                    (result: { id: SbLobbyId }) => navigateToLobby(result.id),
+                    (result: { id: SbLobbyId }) => navigateToLobby(result.id, name),
                   ),
                 )
 

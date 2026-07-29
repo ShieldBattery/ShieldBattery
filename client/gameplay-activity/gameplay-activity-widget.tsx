@@ -7,9 +7,9 @@ import styled, { css } from 'styled-components'
 import { Except } from 'type-fest'
 import { useRoute } from 'wouter'
 import { slotCount, takenSlotCount } from '../../common/lobbies'
-import { urlPath } from '../../common/urls'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { urlForLobby } from '../lobbies/lobby-url'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
@@ -302,7 +302,7 @@ export function LobbyWidget(props: WidgetContainerProps) {
       <OutlinedButton
         iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
         label={t('gameplayActivity.lobby.viewLobby', 'View lobby')}
-        onClick={() => push(urlPath`/lobbies/${lobbyId}`)}
+        onClick={() => push(urlForLobby(lobbyId, lobbyName))}
       />
     </Widget>
   )

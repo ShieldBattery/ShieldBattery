@@ -17,8 +17,9 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
-import { joinLobby, navigateToLobby } from './action-creators'
+import { joinLobby } from './action-creators'
 import { LobbySummary } from './lobby-list-reducer'
+import { navigateToLobby } from './lobby-url'
 
 const ListEntryRoot = styled.div`
   width: 100%;
@@ -211,7 +212,7 @@ function LobbyList() {
                 } else {
                   healthChecked(() => {
                     dispatch(joinLobby(lobby.id))
-                    navigateToLobby(lobby.id)
+                    navigateToLobby(lobby.id, lobby.name)
                   })()
                 }
               } else {

@@ -1,5 +1,4 @@
 import { TypedIpcRenderer } from '../../common/ipc'
-import { urlPath } from '../../common/urls'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
 import {
   LOBBIES_GET_STATE,
@@ -40,7 +39,6 @@ import {
   LOBBY_START_COUNTDOWN_BEGIN,
 } from '../actions'
 import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
-import { push } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import siteSocket from '../network/site-socket'
 
@@ -212,8 +210,4 @@ export function deactivateLobby() {
   return {
     type: LOBBY_DEACTIVATE,
   }
-}
-
-export function navigateToLobby(lobbyId) {
-  push(urlPath`/lobbies/${lobbyId}`)
 }
