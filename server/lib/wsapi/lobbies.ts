@@ -21,10 +21,16 @@ import {
   isUms,
   Lobby,
 } from '../../../common/lobbies'
-import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyCreateErrorCode,
+  LobbySlotCreateEvent,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
+import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
+import { isPrettyId } from '../../../common/pretty-id'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -56,6 +62,7 @@ const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
 
 const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
+const isLobbyId = (id: unknown) => typeof id === 'string' && isPrettyId(id)
 
 // The desired region is an opaque id, loosely validated here; the handler checks it against the
 // live region list and drops it if unknown, so a client with no measured regions joins region-less.
@@ -116,11 +123,11 @@ export class LobbyApi {
   readonly gameServerRegionsService = container.resolve(GameServerRegionsService)
   readonly netcodeV2Service = container.resolve(NetcodeV2Service)
 
-  lobbies = Map<string, Lobby>()
-  lobbyClients = Map<ClientSocketsGroup, string>()
-  lobbyBannedUsers = Map<string, Set<SbUserId>>()
-  lobbyCountdowns = Map<string, Countdown>()
-  loadingLobbies = Map<string, AbortController>()
+  lobbies = Map<SbLobbyId, Lobby>()
+  lobbyClients = Map<ClientSocketsGroup, SbLobbyId>()
+  lobbyBannedUsers = Map<SbLobbyId, Set<SbUserId>>()
+  lobbyCountdowns = Map<SbLobbyId, Countdown>()
+  loadingLobbies = Map<SbLobbyId, AbortController>()
   subscribedSockets = Map<string, ListSubscription>()
   readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
 
@@ -224,10 +231,6 @@ export class LobbyApi {
       throw new errors.BadRequest('lobby name contains invalid characters')
     }
 
-    if (this.lobbies.has(name)) {
-      throw new errors.Conflict('already another lobby with that name')
-    }
-
     let mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
       throw new errors.BadRequest('invalid map')
@@ -250,6 +253,14 @@ export class LobbyApi {
         numSlots = mapInfo.mapData.slots
     }
 
+    // This check must not be separated from the inserts below by an await, or two in-flight
+    // creates with the same name could both pass it.
+    if (this.lobbies.some(l => l.name === name)) {
+      throw Object.assign(new errors.Conflict('already another lobby with that name'), {
+        body: { code: LobbyCreateErrorCode.NameTaken },
+      })
+    }
+
     const lobby = Lobbies.createLobby({
       name,
       map: mapInfo,
@@ -266,29 +277,31 @@ export class LobbyApi {
       throw new errors.Conflict('user is already active in a gameplay activity')
     }
 
-    this.lobbies = this.lobbies.set(name, lobby)
-    this.lobbyClients = this.lobbyClients.set(client, name)
+    this.lobbies = this.lobbies.set(lobby.id, lobby)
+    this.lobbyClients = this.lobbyClients.set(client, lobby.id)
     if (rttMs !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(name, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+      this.lobbyPlayerNetwork.set(lobby.id, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
     }
     this._subscribeClientToLobby(lobby, user, client)
 
     this._publishListChange('add', Lobbies.toSummaryJson(lobby))
     this._warmLobbyRegions(lobby)
+
+    return { id: lobby.id }
   }
 
   @Api(
     '/join',
     validateBody({
-      name: isValidLobbyName,
+      id: isLobbyId,
       region: isValidRegion,
       rttMs: isValidRttMs,
       clientPubkey: isValidNetcodeV2Pubkey,
     }),
   )
   async join(data: Map<string, any>, next: NextFunc) {
-    const { name, region, rttMs, clientPubkey } = data.get('body') as {
-      name: string
+    const { id, region, rttMs, clientPubkey } = data.get('body') as {
+      id: SbLobbyId
       region?: GameServerRegionId
       rttMs?: number
       clientPubkey?: string
@@ -298,15 +311,15 @@ export class LobbyApi {
 
     const joinRegion = await this._resolveRegion(region)
 
-    if (!this.lobbies.has(name)) {
-      throw new errors.NotFound('no lobby found with that name')
+    if (!this.lobbies.has(id)) {
+      throw new errors.NotFound('no lobby found with that id')
     }
-    const lobby = this.lobbies.get(name)!
+    const lobby = this.lobbies.get(id)!
     this.ensureLobbyNotTransient(lobby)
 
     if (
-      this.lobbyBannedUsers.has(lobby.name) &&
-      this.lobbyBannedUsers.get(lobby.name)!.includes(client.userId)
+      this.lobbyBannedUsers.has(lobby.id) &&
+      this.lobbyBannedUsers.get(lobby.id)!.includes(client.userId)
     ) {
       throw new errors.Conflict('user has been banned from this lobby')
     }
@@ -342,10 +355,10 @@ export class LobbyApi {
     const mapInfo = (await getMapInfos([lobby.map!.id]))[0]
     updated = updated.set('map', mapInfo)
 
-    this.lobbies = this.lobbies.set(name, updated)
-    this.lobbyClients = this.lobbyClients.set(client, name)
+    this.lobbies = this.lobbies.set(id, updated)
+    this.lobbyClients = this.lobbyClients.set(client, id)
     if (rttMs !== undefined || clientPubkey !== undefined) {
-      this.lobbyPlayerNetwork.set(name, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
+      this.lobbyPlayerNetwork.set(id, client.userId, { rttMs, netcodeV2Pubkey: clientPubkey })
     }
 
     this._publishLobbyDiff(lobby, updated)
@@ -386,11 +399,11 @@ export class LobbyApi {
   }
 
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
-    const lobbyName = lobby.name
+    const lobbyId = lobby.id
     client.subscribe(
       LobbyApi._getPath(lobby),
       async () => {
-        const lobby = this.lobbies.get(lobbyName)
+        const lobby = this.lobbies.get(lobbyId)
         if (!lobby) {
           return undefined
         }
@@ -420,7 +433,7 @@ export class LobbyApi {
       },
       client => {
         try {
-          this._removeClientFromLobby(this.lobbies.get(lobbyName)!, client)
+          this._removeClientFromLobby(this.lobbies.get(lobbyId)!, client)
         } catch (err) {
           logger.warn({ err }, 'error removing client from lobby on disconnect')
         }
@@ -429,7 +442,7 @@ export class LobbyApi {
     user.subscribe(LobbyApi._getUserPath(lobby, user.userId), () => {
       return {
         type: 'status',
-        lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyName)!),
+        lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyId)!),
       }
     })
     client.subscribe(LobbyApi._getClientPath(lobby, client))
@@ -498,7 +511,7 @@ export class LobbyApi {
 
     const computer = Slots.createComputer()
     const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
-    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this.lobbies = this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
@@ -539,7 +552,7 @@ export class LobbyApi {
     } catch (err) {
       throw new errors.BadRequest((err as any).message)
     }
-    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this.lobbies = this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
@@ -584,7 +597,7 @@ export class LobbyApi {
     }
 
     const updatedLobby = Lobbies.setRace(lobby, teamIndex!, slotIndex!, race)
-    this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
+    this.lobbies = this.lobbies.set(lobby.id, updatedLobby)
     this._publishLobbyDiff(lobby, updatedLobby)
   }
 
@@ -621,7 +634,7 @@ export class LobbyApi {
       throw new errors.BadRequest((err as any).message)
     }
 
-    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this.lobbies = this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
   }
 
@@ -660,7 +673,7 @@ export class LobbyApi {
     ) {
       this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, slotToClose)
     }
-    const afterKick = this.lobbies.get(lobby.name)!
+    const afterKick = this.lobbies.get(lobby.id)!
 
     let updated
     try {
@@ -668,7 +681,7 @@ export class LobbyApi {
     } catch (err) {
       throw new errors.BadRequest((err as any).message)
     }
-    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this.lobbies = this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(afterKick, updated)
   }
 
@@ -708,7 +721,7 @@ export class LobbyApi {
       // NOTE(tec27): We know that removing a computer can never result in an empty lobby since a
       // human has to do it
       const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)!
-      this.lobbies = this.lobbies.set(lobby.name, updated)
+      this.lobbies = this.lobbies.set(lobby.id, updated)
       this._publishLobbyDiff(lobby, updated)
       this._warmLobbyRegions(updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
@@ -737,7 +750,7 @@ export class LobbyApi {
       throw new errors.BadRequest('invalid slot type')
     }
 
-    this.lobbyBannedUsers = this.lobbyBannedUsers.update(lobby.name, Set(), val =>
+    this.lobbyBannedUsers = this.lobbyBannedUsers.update(lobby.id, Set(), val =>
       val.add(playerToBan.userId!),
     )
 
@@ -768,7 +781,7 @@ export class LobbyApi {
     } catch (err) {
       throw new errors.BadRequest((err as any).message)
     }
-    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this.lobbies = this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
     this._warmLobbyRegions(updated)
   }
@@ -796,7 +809,7 @@ export class LobbyApi {
     } catch (err) {
       throw new errors.BadRequest((err as any).message)
     }
-    this.lobbies = this.lobbies.set(lobby.name, updated)
+    this.lobbies = this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
     this._warmLobbyRegions(updated)
   }
@@ -826,13 +839,13 @@ export class LobbyApi {
         type: 'leave',
         player,
       })
-      this.lobbies = this.lobbies.delete(lobby.name)
-      this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
-      this.lobbyPlayerNetwork.deleteLobby(lobby.name)
-      this._publishListChange('delete', lobby.name)
+      this.lobbies = this.lobbies.delete(lobby.id)
+      this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.id)
+      this.lobbyPlayerNetwork.deleteLobby(lobby.id)
+      this._publishListChange('delete', lobby.id)
     } else {
-      this.lobbies = this.lobbies.set(lobby.name, updatedLobby)
-      this.lobbyPlayerNetwork.deleteUser(lobby.name, client.userId)
+      this.lobbies = this.lobbies.set(lobby.id, updatedLobby)
+      this.lobbyPlayerNetwork.deleteUser(lobby.id, client.userId)
       this._publishLobbyDiff(
         lobby,
         updatedLobby,
@@ -878,17 +891,17 @@ export class LobbyApi {
     // Last chance to warm the lobby's regions before a session is created for it.
     this._warmLobbyRegions(lobby)
 
-    const lobbyName = lobby.name
+    const lobbyId = lobby.id
     const countdownTimer = createDeferred<void>()
     countdownTimer.catch(swallowNonBuiltins)
     setTimeout(() => countdownTimer.resolve(), 5000)
     this.lobbyCountdowns = this.lobbyCountdowns.set(
-      lobbyName,
+      lobbyId,
       new Countdown({ timer: countdownTimer }),
     )
 
     this._publishTo(lobby, { type: 'startCountdown' })
-    this._publishListChange('delete', lobby.name)
+    this._publishListChange('delete', lobby.id)
 
     const gameConfig: GameConfig = {
       gameType: lobby.gameType,
@@ -918,13 +931,13 @@ export class LobbyApi {
     let usersAtFault: SbUserId[] | undefined
     try {
       await countdownTimer
-      this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyName)
+      this.lobbyCountdowns = this.lobbyCountdowns.delete(lobbyId)
       const abortController = new AbortController()
-      this.loadingLobbies = this.loadingLobbies.set(lobbyName, abortController)
+      this.loadingLobbies = this.loadingLobbies.set(lobbyId, abortController)
 
       // Split the occupants' collected network info into the two per-user maps the game loader
       // takes: rtt for the latency estimate, pubkey for each slot's session token.
-      const networkByUser = this.lobbyPlayerNetwork.getAll(lobbyName)
+      const networkByUser = this.lobbyPlayerNetwork.getAll(lobbyId)
       const rttMsByUserId = new global.Map<SbUserId, number>()
       const netcodeV2PubkeyByUserId = new global.Map<SbUserId, string>()
       for (const [userId, info] of networkByUser) {
@@ -977,7 +990,7 @@ export class LobbyApi {
       // NOTE(tec27): This is valid to do only because we prevent changes to the lobby contents
       // once countdown/loading starts. I think a better implementation would be to add a stored
       // AbortSignal that we abort if a lobby is closed, but that's a more involved change atm.
-      if (this.lobbies.get(lobby.name) === lobby) {
+      if (this.lobbies.get(lobby.id) === lobby) {
         // This has been verified to be the same lobby, so sending cancel events is safe
         this._maybeCancelCountdown(lobby, false)
         this._maybeCancelLoading(lobby, false, usersAtFault)
@@ -986,14 +999,14 @@ export class LobbyApi {
   }
 
   _maybeCancelLoading(lobby: Lobby, isLobbyEmpty = false, usersAtFault?: SbUserId[]) {
-    if (!this.loadingLobbies.has(lobby.name)) {
+    if (!this.loadingLobbies.has(lobby.id)) {
       // This lobby was closed before loading completed, likely because all the human users left or
       // disconnected.
       return
     }
 
-    this.loadingLobbies.get(lobby.name)!.abort()
-    this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
+    this.loadingLobbies.get(lobby.id)!.abort()
+    this.loadingLobbies = this.loadingLobbies.delete(lobby.id)
     this._publishTo(lobby, {
       type: 'cancelLoading',
       usersAtFault,
@@ -1020,21 +1033,21 @@ export class LobbyApi {
         this.lobbyClients = this.lobbyClients.delete(client)
         this.activityRegistry.unregisterClientForUser(user.userId)
       })
-    this.lobbies = this.lobbies.delete(lobby.name)
-    this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.name)
-    this.loadingLobbies = this.loadingLobbies.delete(lobby.name)
-    this.lobbyPlayerNetwork.deleteLobby(lobby.name)
+    this.lobbies = this.lobbies.delete(lobby.id)
+    this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.id)
+    this.loadingLobbies = this.loadingLobbies.delete(lobby.id)
+    this.lobbyPlayerNetwork.deleteLobby(lobby.id)
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
   _maybeCancelCountdown(lobby: Lobby, isLobbyEmpty = false) {
-    if (!this.lobbyCountdowns.has(lobby.name)) {
+    if (!this.lobbyCountdowns.has(lobby.id)) {
       return
     }
 
-    const countdown = this.lobbyCountdowns.get(lobby.name)
+    const countdown = this.lobbyCountdowns.get(lobby.id)
     countdown?.timer?.reject(new CountdownCanceledError('Countdown cancelled'))
-    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.name)
+    this.lobbyCountdowns = this.lobbyCountdowns.delete(lobby.id)
     this._publishTo(lobby, {
       type: 'cancelCountdown',
     })
@@ -1046,26 +1059,26 @@ export class LobbyApi {
   @Api(
     '/getLobbyState',
     validateBody({
-      lobbyName: nonEmptyString,
+      lobbyId: nonEmptyString,
     }),
   )
   async getLobbyState(data: Map<string, any>, next: NextFunc) {
     this.getClient(data)
-    const { lobbyName } = data.get('body')
+    const { lobbyId } = data.get('body')
 
     let lobbyState
-    if (!this.lobbies.has(lobbyName)) {
+    if (!this.lobbies.has(lobbyId)) {
       lobbyState = 'nonexistent'
     } else {
       lobbyState = 'exists'
-      if (this.lobbyCountdowns.has(lobbyName)) {
+      if (this.lobbyCountdowns.has(lobbyId)) {
         lobbyState = 'countingDown'
-      } else if (this.loadingLobbies.has(lobbyName)) {
+      } else if (this.loadingLobbies.has(lobbyId)) {
         lobbyState = 'hasStarted'
       }
     }
 
-    return { lobbyName, lobbyState }
+    return { lobbyId, lobbyState }
   }
 
   getUser(data: Map<string, any>): UserSocketsGroup {
@@ -1106,7 +1119,7 @@ export class LobbyApi {
   }
 
   ensureLobbyNotLoading(lobby: Lobby) {
-    if (this.loadingLobbies.has(lobby.name)) {
+    if (this.loadingLobbies.has(lobby.id)) {
       throw new errors.Conflict('lobby has already started')
     }
   }
@@ -1115,10 +1128,10 @@ export class LobbyApi {
   // and being an active game (counting down, loading, etc.). Transient states can be rolled back
   // (bringing the lobby back to a non-transient state)
   ensureLobbyNotTransient(lobby: Lobby) {
-    if (this.lobbyCountdowns.has(lobby.name)) {
+    if (this.lobbyCountdowns.has(lobby.id)) {
       throw new errors.Conflict('lobby is counting down')
     }
-    if (this.loadingLobbies.has(lobby.name)) {
+    if (this.loadingLobbies.has(lobby.id)) {
       throw new errors.Conflict('lobby has already started')
     }
   }
@@ -1132,7 +1145,7 @@ export class LobbyApi {
     this.nydus.publish('/lobbiesCount', { count: this._getLobbiesCount() })
   }
 
-  _publishListChange(action: 'add' | 'delete' | 'update', summary: LobbySummaryJson | string) {
+  _publishListChange(action: 'add' | 'delete' | 'update', summary: LobbySummaryJson | SbLobbyId) {
     this.nydus.publish(MOUNT_BASE, { action, payload: summary })
     this._publishLobbiesCount()
   }
@@ -1287,15 +1300,15 @@ export class LobbyApi {
   }
 
   static _getPath(lobby: Lobby) {
-    return MOUNT_BASE + urlPath`/${lobby.name}`
+    return MOUNT_BASE + urlPath`/${lobby.id}`
   }
 
   static _getUserPath(lobby: Lobby, userId: SbUserId) {
-    return MOUNT_BASE + urlPath`/${lobby.name}/${userId}`
+    return MOUNT_BASE + urlPath`/${lobby.id}/${userId}`
   }
 
   static _getClientPath(lobby: Lobby, client: ClientSocketsGroup) {
-    return MOUNT_BASE + urlPath`/${lobby.name}/${client.userId}/${client.clientId}`
+    return MOUNT_BASE + urlPath`/${lobby.id}/${client.userId}/${client.clientId}`
   }
 }
 

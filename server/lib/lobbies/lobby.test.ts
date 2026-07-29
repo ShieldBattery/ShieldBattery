@@ -94,15 +94,16 @@ const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
   const json = JSON.stringify(toSummaryJson(lobby))
   const parsed = JSON.parse(json)
 
-  const id = lobby.host.userId
+  const hostId = lobby.host.userId
   expect(parsed).toEqual({
+    id: lobby.id,
     name: '5v3 Comp Stomp Pros Only',
     // TODO(tec27): Probably we should numerically convert this Date like in other places, or just
     // move the MapInfo out of this structure? Dunno
     map: toMapInfoJson(BigGameHunters),
     gameType: 'melee',
     gameSubType: 0,
-    host: { id },
+    host: { id: hostId },
     openSlotCount,
   })
 }

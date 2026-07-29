@@ -3,7 +3,16 @@ import { GameType } from '../games/game-type'
 import { MapInfoJson } from '../maps'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
+import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
+
+/**
+ * Machine-readable codes attached to the error body of failed `/lobbies/create` invokes, so the
+ * client can distinguish failures worth explaining specifically.
+ */
+export enum LobbyCreateErrorCode {
+  NameTaken = 'nameTaken',
+}
 
 export type LobbyEvent =
   | LobbyInitEvent
@@ -24,6 +33,7 @@ export type LobbyEvent =
   | LobbyStatusEvent
 
 export interface LobbySummaryJson {
+  id: SbLobbyId
   name: string
   map: MapInfoJson
   gameType: GameType

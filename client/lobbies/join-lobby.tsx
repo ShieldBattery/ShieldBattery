@@ -17,8 +17,9 @@ import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
-import { joinLobby, navigateToLobby } from './action-creators'
+import { joinLobby } from './action-creators'
 import { LobbySummary } from './lobby-list-reducer'
+import { navigateToLobby } from './lobby-url'
 
 const ListEntryRoot = styled.div`
   width: 100%;
@@ -171,7 +172,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
 function LobbyList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const { byName, list } = useAppSelector(s => s.lobbyList)
+  const { byId, list } = useAppSelector(s => s.lobbyList)
 
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
 
@@ -185,14 +186,14 @@ function LobbyList() {
     )
   }
 
-  const openLobbies = list.filter(name => (byName.get(name)?.openSlotCount ?? 0) > 0)
+  const openLobbies = list.filter(id => (byId.get(id)?.openSlotCount ?? 0) > 0)
   return (
     <div>
       {!openLobbies.isEmpty() ? (
-        openLobbies.map(name => (
+        openLobbies.map(id => (
           <ListEntry
-            key={name}
-            lobby={byName.get(name)!}
+            key={id}
+            lobby={byId.get(id)!}
             onClick={lobby => {
               if (IS_ELECTRON) {
                 if (isMatchmaking) {
@@ -210,8 +211,8 @@ function LobbyList() {
                   )
                 } else {
                   healthChecked(() => {
-                    dispatch(joinLobby(lobby.name))
-                    navigateToLobby(lobby.name)
+                    dispatch(joinLobby(lobby.id))
+                    navigateToLobby(lobby.id, lobby.name)
                   })()
                 }
               } else {

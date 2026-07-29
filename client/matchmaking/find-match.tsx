@@ -22,6 +22,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
+import { urlForLobby } from '../lobbies/lobby-url'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -1217,6 +1218,7 @@ export function FindMatch() {
   const matchmakingPreferences = useAppSelector(s => s.matchmakingPreferences.byType)
   const mapPools = useAppSelector(s => s.mapPools.byType)
   const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
 
   // ─── Local state ────────────────────────────────────────────────────────────
@@ -1485,7 +1487,7 @@ export function FindMatch() {
             </LobbyBannerText>
             <LobbyBannerButton
               label={t('matchmaking.findMatch.goToLobby', 'Go to lobby')}
-              onClick={() => push(urlPath`/lobbies/${lobbyName}`)}
+              onClick={() => push(urlForLobby(lobbyId, lobbyName))}
             />
           </LobbyBanner>
         ) : null}

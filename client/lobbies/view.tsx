@@ -2,10 +2,10 @@ import * as React from 'react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { Route, Switch } from 'wouter'
+import { Route, Switch, useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
-import { urlPath } from '../../common/urls'
+import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
@@ -36,6 +36,7 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
+import { lobbySlug, urlForLobby } from './lobby-url'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -50,20 +51,31 @@ const PreLobbyArea = styled.div`
 `
 
 export interface LobbyViewProps {
-  params: { lobby: string }
+  params: { lobbyId: string }
 }
 
 export function LobbyView(props: LobbyViewProps) {
   const dispatch = useAppDispatch()
-  const routeLobby = decodeURIComponent(props.params.lobby)
+  const routeLobbyId = makeSbLobbyId(props.params.lobbyId)
   const inLobby = useAppSelector(s => s.lobby.inLobby)
-  const lobbyName = useAppSelector(s => s.lobby.info.name)
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
 
-  const prevRouteLobby = usePrevious(routeLobby)
+  const [match, routeParams] = useRoute('/lobbies/:lobbyId/:slugStr?')
+  const lobbyName = useAppSelector(s =>
+    s.lobby.inLobby && s.lobby.info.id === routeLobbyId ? s.lobby.info.name : undefined,
+  )
+
+  useEffect(() => {
+    if (match && lobbyName && lobbySlug(lobbyName) !== routeParams?.slugStr) {
+      replace(urlForLobby(routeLobbyId, lobbyName))
+    }
+  }, [match, lobbyName, routeLobbyId, routeParams?.slugStr])
+
+  const prevRouteLobbyId = usePrevious(routeLobbyId)
   const prevInLobby = usePrevious(inLobby)
-  const prevLobbyName = usePrevious(lobbyName)
+  const prevLobbyId = usePrevious(lobbyId)
   const isLeavingLobby =
-    !inLobby && prevRouteLobby === routeLobby && prevInLobby && prevLobbyName === prevRouteLobby
+    !inLobby && prevRouteLobbyId === routeLobbyId && prevInLobby && prevLobbyId === prevRouteLobbyId
 
   const isActiveGame = useAppSelector(s => s.activeGame.isActive)
   const prevIsActiveGame = usePrevious(isActiveGame)
@@ -100,7 +112,7 @@ export function LobbyView(props: LobbyViewProps) {
       return () => {}
     }
 
-    dispatch(getLobbyState(routeLobby))
+    dispatch(getLobbyState(routeLobbyId))
 
     if (inLobby) {
       dispatch(activateLobby() as any)
@@ -109,7 +121,7 @@ export function LobbyView(props: LobbyViewProps) {
     return () => {
       dispatch(deactivateLobby() as any)
     }
-  }, [dispatch, inLobby, routeLobby, isConnected])
+  }, [dispatch, inLobby, routeLobbyId, isConnected])
 
   const isRedirecting = useRequireLogin()
   if (isRedirecting) {
@@ -118,20 +130,20 @@ export function LobbyView(props: LobbyViewProps) {
 
   return (
     <Switch>
-      <Route path='/lobbies/:lobby'>
-        <LobbyContent routeLobby={routeLobby} />
+      <Route path='/lobbies/:lobbyId/:slugStr?'>
+        <LobbyContent routeLobbyId={routeLobbyId} />
       </Route>
     </Switch>
   )
 }
 
-function LobbyContent({ routeLobby }: { routeLobby: string }) {
+function LobbyContent({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const inLobby = useAppSelector(s => s.lobby.inLobby)
-  const lobbyName = useAppSelector(s => s.lobby.info.name)
+  const lobbyId = useAppSelector(s => s.lobby.info.id)
 
   if (!inLobby) {
-    return <LobbyStateView routeLobby={routeLobby} />
-  } else if (lobbyName !== routeLobby) {
+    return <LobbyStateView routeLobbyId={routeLobbyId} />
+  } else if (lobbyId !== routeLobbyId) {
     return <InAnotherLobbyView />
   } else {
     return <ConnectedLobby />
@@ -204,9 +216,9 @@ function InAnotherLobbyView() {
   )
 }
 
-function LobbyStateView({ routeLobby }: { routeLobby: string }) {
+function LobbyStateView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const { t } = useTranslation()
-  const lobby = useAppSelector(s => s.lobbyState.get(routeLobby))
+  const lobby = useAppSelector(s => s.lobbyState.get(routeLobbyId))
   if (!lobby) {
     return null
   }
@@ -232,7 +244,7 @@ function LobbyStateView({ routeLobby }: { routeLobby: string }) {
             <LoadingIndicator />
           </LoadingArea>
         ) : null}
-        <LobbyStateContent state={lobby.state} routeLobby={routeLobby} />
+        <LobbyStateContent state={lobby.state} routeLobbyId={routeLobbyId} />
       </>
     )
   } else if (lobby.error) {
@@ -272,7 +284,13 @@ const StateMessageActionButton = styled(FilledButton)`
   margin-top: 32px;
 `
 
-function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobby: string }) {
+function LobbyStateContent({
+  state,
+  routeLobbyId,
+}: {
+  state: LobbyState
+  routeLobbyId: SbLobbyId
+}) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
   switch (state) {
@@ -281,12 +299,12 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
         <StateMessageLayout>
           <StateMessageIcon icon='other_houses' />
           <BodyLarge>
-            {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create it?')}
+            {t('lobbies.state.nonexistent', 'Lobby not found. Would you like to create a new one?')}
           </BodyLarge>
           <StateMessageActionButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             iconStart={<MaterialIcon icon='add' />}
-            onClick={() => push(urlPath`/play/lobbies/create/${routeLobby}`)}
+            onClick={() => push('/play/lobbies/create')}
             testName='create-lobby-button'
           />
         </StateMessageLayout>
@@ -310,7 +328,7 @@ function LobbyStateContent({ state, routeLobby }: { state: LobbyState; routeLobb
           <StateMessageActionButton
             label={t('lobbies.joinLobby.action', 'Join lobby')}
             iconStart={<MaterialIcon icon='add' />}
-            onClick={() => dispatch(joinLobby(routeLobby))}
+            onClick={() => dispatch(joinLobby(routeLobbyId))}
           />
         </StateMessageLayout>
       )

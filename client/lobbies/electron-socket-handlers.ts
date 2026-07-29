@@ -1,6 +1,7 @@
 import { NydusClient, RouteHandler } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
+import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { urlPath } from '../../common/urls'
 import {
   LOBBIES_COUNT_UPDATE,
@@ -61,13 +62,13 @@ function clearCountdownTimer() {
 
 type EventToActionMap = {
   [E in LobbyEvent['type']]: (
-    lobbyName: string,
+    lobbyId: SbLobbyId,
     event: Extract<LobbyEvent, { type: E }>,
   ) => Dispatchable | void
 }
 
 const eventToAction: EventToActionMap = {
-  init: (name, event) => {
+  init: (lobbyId, event) => {
     clearCountdownTimer()
     const { hash, mapData, mapUrl } = event.lobby.map
     ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
@@ -84,14 +85,14 @@ const eventToAction: EventToActionMap = {
     } as any
   },
 
-  diff: (name, event) => dispatch => {
+  diff: (lobbyId, event) => dispatch => {
     for (const diffEvent of event.diffEvents) {
-      const diffAction = eventToAction[diffEvent.type]!(name, diffEvent as any)
+      const diffAction = eventToAction[diffEvent.type]!(lobbyId, diffEvent as any)
       if (diffAction) dispatch(diffAction)
     }
   },
 
-  slotCreate: (name, event) => {
+  slotCreate: (lobbyId, event) => {
     if (event.slot.type === 'human') {
       audioManager.playSound(AvailableSound.JoinAlert)
       ipcRenderer.send('userAttentionRequired')
@@ -103,13 +104,13 @@ const eventToAction: EventToActionMap = {
     } as any
   },
 
-  raceChange: (name, event) =>
+  raceChange: (lobbyId, event) =>
     ({
       type: LOBBY_UPDATE_RACE_CHANGE,
       payload: event,
     }) as any,
 
-  leave: (name, event) => (dispatch, getState) => {
+  leave: (lobbyId, event) => (dispatch, getState) => {
     const { auth } = getState()
 
     const user = auth.self!.user.id
@@ -127,7 +128,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  kick: (name, event) => (dispatch, getState) => {
+  kick: (lobbyId, event) => (dispatch, getState) => {
     const { auth } = getState()
 
     const user = auth.self!.user.id
@@ -146,7 +147,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  ban: (name, event) => (dispatch, getState) => {
+  ban: (lobbyId, event) => (dispatch, getState) => {
     const { auth } = getState()
 
     const user = auth.self!.user.id
@@ -165,25 +166,25 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  hostChange: (name, event) =>
+  hostChange: (lobbyId, event) =>
     ({
       type: LOBBY_UPDATE_HOST_CHANGE,
       payload: event.host,
     }) as any,
 
-  slotChange: (name, event) =>
+  slotChange: (lobbyId, event) =>
     ({
       type: LOBBY_UPDATE_SLOT_CHANGE,
       payload: event,
     }) as any,
 
-  slotDeleted: (name, event) =>
+  slotDeleted: (lobbyId, event) =>
     ({
       type: LOBBY_UPDATE_SLOT_DELETED,
       payload: event,
     }) as any,
 
-  startCountdown: (name, event) => (dispatch, getState) => {
+  startCountdown: (lobbyId, event) => (dispatch, getState) => {
     clearCountdownTimer()
     let tick = 5
     dispatch({
@@ -207,14 +208,14 @@ const eventToAction: EventToActionMap = {
     }, 1000)
   },
 
-  cancelCountdown: (name, event) => {
+  cancelCountdown: (lobbyId, event) => {
     clearCountdownTimer()
     return {
       type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
     } as any
   },
 
-  cancelLoading: (name, event) => (dispatch, getState) => {
+  cancelLoading: (lobbyId, event) => (dispatch, getState) => {
     // NOTE(tec27): In very low latency environments things can interleave such that the server
     // cancels loading before our client actually finishes the countdown/gets into the loading
     // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
@@ -228,12 +229,13 @@ const eventToAction: EventToActionMap = {
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
-  gameStarted: (name, event) => (dispatch, getState) => {
+  gameStarted: (lobbyId, event) => (dispatch, getState) => {
     const { lobby } = getState()
 
     dispatch(closeDialog(DialogType.LaunchingGame))
     const currentPath = location.pathname
-    if (currentPath === urlPath`/lobbies/${lobby.info.name}`) {
+    const lobbyPath = urlPath`/lobbies/${lobby.info.id}`
+    if (currentPath === lobbyPath || currentPath.startsWith(lobbyPath + '/')) {
       replace(urlPath`/`)
     }
     dispatch({
@@ -244,7 +246,7 @@ const eventToAction: EventToActionMap = {
     } as any)
   },
 
-  chat(name, event) {
+  chat(lobbyId, event) {
     return (dispatch, getState) => {
       const {
         auth,
@@ -271,7 +273,7 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  status: (name, event) =>
+  status: (lobbyId, event) =>
     ({
       type: LOBBY_UPDATE_STATUS,
       payload: event,
@@ -283,12 +285,12 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
     const handler = eventToAction[event.type as LobbyEvent['type']]
     if (!handler) return
 
-    const action = handler(route.params.lobby, event)
+    const action = handler(route.params.lobbyId as SbLobbyId, event)
     if (action) dispatch(action)
   }
-  siteSocket.registerRoute('/lobbies/:lobby', lobbyHandler)
-  siteSocket.registerRoute('/lobbies/:lobby/:userId', lobbyHandler)
-  siteSocket.registerRoute('/lobbies/:lobby/:userId/:clientId', lobbyHandler)
+  siteSocket.registerRoute('/lobbies/:lobbyId', lobbyHandler)
+  siteSocket.registerRoute('/lobbies/:lobbyId/:userId', lobbyHandler)
+  siteSocket.registerRoute('/lobbies/:lobbyId/:userId/:clientId', lobbyHandler)
 
   siteSocket.registerRoute('/lobbies', (route, event) => {
     const { action, payload } = event

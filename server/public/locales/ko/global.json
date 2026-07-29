@@ -866,6 +866,9 @@
     "createLobby": {
       "advancedSettings": "고급 설정",
       "backToList": "목록으로 돌아가기",
+      "errorDialogTitle": "로비 생성 오류",
+      "errorGeneric": "로비를 만드는 중 문제가 발생했습니다. 다시 시도해 주세요.",
+      "errorNameTaken": "같은 이름의 로비가 이미 있습니다. 다른 이름을 사용해 주세요.",
       "gameSubTypeHeader": "팀 구성",
       "gameSubTypeOption": "{{numTeams}} 팀",
       "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
@@ -933,7 +936,7 @@
     },
     "state": {
       "exists": "현재 이 로비에 참여 중이 아닙니다. 참가하시겠어요?",
-      "nonexistent": "로비를 찾을 수 없습니다. 생성하시겠어요?",
+      "nonexistent": "로비를 찾을 수 없습니다. 새로 만드시겠어요?",
       "started": "이 로비는 이미 게임이 시작되어 참여할 수 없습니다."
     }
   },

@@ -135,7 +135,7 @@ function Lobbies() {
   return (
     <Switch>
       {IS_ELECTRON ? (
-        <Route path='/play/lobbies/create/*?'>
+        <Route path='/play/lobbies/create'>
           <CreateLobby
             onNavigateToList={() => {
               push('/play/lobbies')
