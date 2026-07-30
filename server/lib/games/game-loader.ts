@@ -103,6 +103,18 @@ export interface GameLoadPlayer {
    * this player's netcode v2 relay; a player with none is placed region-blind.
    */
   readonly region?: GameServerRegionId
+  /**
+   * This player's measured round-trip time (ms) to their home region, if recorded. Read when
+   * building the netcode v2 session-create roster, alongside `region`. A player with no value is
+   * forwarded to the coordinator without a latency sample.
+   */
+  readonly rttMs?: number
+  /**
+   * This player's per-session netcode v2 public key (base64), submitted at queue/lobby-join time.
+   * Threaded per-slot into the netcode v2 session-create request. Required for every human slot of
+   * a multi-human (netcode v2) game — a missing value fails the load fast rather than waiting.
+   */
+  readonly netcodeV2Pubkey?: string
 }
 
 const createLoadingData = Record({
@@ -137,8 +149,8 @@ export interface GameLoadRequest {
   /**
    * A list of the info about each slot in the map/lobby. This is only really useful data for UMS
    * lobbies, where slots may have different types, there might be hidden computer slots, etc. For
-   * a lobby, see `getPlayerInfos(Lobby)`. For matchmaking this can just be created from `players`
-   * directly.
+   * a lobby, see `getPlayerInfos(Lobby)`. A caller with a richer player model (e.g. matchmaking's
+   * team assignments) builds `players` and `playerInfos` side by side from it.
    */
   playerInfos: PlayerInfo[]
   /**
@@ -154,19 +166,6 @@ export interface GameLoadRequest {
    * matchmaking games.
    */
   ratings?: Array<[id: SbUserId, rating: number]>
-  /**
-   * Each player's measured round-trip time (ms) to their home region, keyed by user id. Read when
-   * building the netcode v2 session-create roster, alongside the `region` carried on each
-   * `GameLoadPlayer`. A user with no entry is forwarded to the coordinator without a latency
-   * sample.
-   */
-  rttMsByUserId?: ReadonlyMap<SbUserId, number>
-  /**
-   * Each player's per-session netcode v2 public key (base64), keyed by user id. Threaded per-slot
-   * into the netcode v2 session-create request. Required for every human slot of a multi-human
-   * (netcode v2) game — a missing entry fails the load fast rather than waiting.
-   */
-  netcodeV2PubkeyByUserId?: ReadonlyMap<SbUserId, string>
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
   signal?: AbortSignal
 }
@@ -288,8 +287,6 @@ export class GameLoader {
     mapId,
     gameConfig,
     ratings,
-    rttMsByUserId,
-    netcodeV2PubkeyByUserId,
     signal,
   }: GameLoadRequest): AsyncResult<GameLoadResult, GameLoaderError> {
     const gameLoaded = createDeferred<Result<GameLoadResult, GameLoaderError>>()
@@ -321,8 +318,6 @@ export class GameLoader {
           resultCodes,
           playerInfos,
           ratings,
-          rttMsByUserId,
-          netcodeV2PubkeyByUserId,
         }).onFailure(err => {
           this.maybeCancelLoadingFromSystem(gameId, err)
         })
@@ -538,8 +533,6 @@ export class GameLoader {
     resultCodes,
     playerInfos,
     ratings,
-    rttMsByUserId,
-    netcodeV2PubkeyByUserId,
   }: {
     gameId: string
     mapId: SbMapId
@@ -547,8 +540,6 @@ export class GameLoader {
     resultCodes: Map<SbUserId, string>
     playerInfos: PlayerInfo[]
     ratings?: Array<[id: SbUserId, rating: number]>
-    rttMsByUserId?: ReadonlyMap<SbUserId, number>
-    netcodeV2PubkeyByUserId?: ReadonlyMap<SbUserId, string>
   }): AsyncResult<void, GameLoaderError> {
     return Result.fromAsync(async () => {
       if (!this.loadingGames.has(gameId)) {
@@ -743,10 +734,10 @@ export class GameLoader {
           region: p.region,
           // The player's measured round-trip time to that region, if recorded. Combined with every
           // other slot's region/rtt to estimate the session's worst pairwise latency.
-          rttMs: rttMsByUserId?.get(p.userId),
+          rttMs: p.rttMs,
           // The player's per-session netcode v2 public key, submitted at queue/lobby-join time. The
           // coordinator embeds it in this slot's session token; a slot missing it fails create fast.
-          pubkey: netcodeV2PubkeyByUserId?.get(p.userId),
+          pubkey: p.netcodeV2Pubkey,
         }))
         const [setups, setupsError] = (
           await Result.fromAsyncCatching(

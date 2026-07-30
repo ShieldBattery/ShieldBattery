@@ -366,15 +366,14 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [player1.player, player2.player],
+      // p1 has a recorded rtt; p2 has none and must be sent without one.
+      players: [{ ...player1.player, rttMs: 42 }, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
         [{ id: p1, race: 't', isComputer: false }],
         [{ id: p2, race: 'z', isComputer: false }],
       ]),
-      // p1 has a recorded rtt; p2 has none and must be sent without one.
-      rttMsByUserId: new Map([[p1, 42]]),
     }
 
     const resultPromise = gameLoader.loadGame(request)
@@ -419,16 +418,15 @@ describe('games/game-loader/GameLoader', () => {
     const pubkey1 = Buffer.alloc(32, 1).toString('base64')
     const pubkey2 = Buffer.alloc(32, 2).toString('base64')
     const request: GameLoadRequest = {
-      players: [player1.player, player2.player],
+      players: [
+        { ...player1.player, netcodeV2Pubkey: pubkey1 },
+        { ...player2.player, netcodeV2Pubkey: pubkey2 },
+      ],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
         [{ id: p1, race: 't', isComputer: false }],
         [{ id: p2, race: 'z', isComputer: false }],
-      ]),
-      netcodeV2PubkeyByUserId: new Map([
-        [p1, pubkey1],
-        [p2, pubkey2],
       ]),
     }
 

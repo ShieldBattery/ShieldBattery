@@ -1161,36 +1161,20 @@ export class MatchmakingService {
       team.map(p => ({ id: p.userId, race: p.race, isComputer: false })),
     )
 
-    // Carry each player's queued home region through to the game loader, which forwards it to the
-    // coordinator to place their relay. It was validated against the live region list when they
-    // queued; a player with no recorded region is placed region-blind.
+    // Carry each player's queued home region, measured round-trip time, and netcode v2 public key
+    // through to the game loader. Region is forwarded to the coordinator to place the player's
+    // relay and was validated against the live region list when they queued; a player with no
+    // recorded region is placed region-blind. rtt is combined with every other player's region/rtt
+    // to estimate the session's worst pairwise latency. The pubkey was submitted when the player
+    // queued and is required for every human slot of a multi-human (netcode v2) game — a missing
+    // one fails the load fast.
     const gameLoadPlayers: GameLoadPlayer[] = playersInTeams.flat().map(p => ({
       userId: p.userId,
       isObserver: false,
       region: this.playerQueueData.get(p.userId)?.region?.region,
+      rttMs: this.playerQueueData.get(p.userId)?.region?.rttMs,
+      netcodeV2Pubkey: this.playerQueueData.get(p.userId)?.clientPubkey,
     }))
-
-    // Each player's measured round-trip time to that region, carried to the game loader alongside
-    // `region` — but keyed by user id rather than carried per-player, since `rttMs` is never meant
-    // to reach another player.
-    const rttMsByUserId = new Map<SbUserId, number>()
-    for (const p of gameLoadPlayers) {
-      const rttMs = this.playerQueueData.get(p.userId)?.region?.rttMs
-      if (rttMs !== undefined) {
-        rttMsByUserId.set(p.userId, rttMs)
-      }
-    }
-
-    // Each player's per-session netcode v2 public key, submitted when they queued and carried to the
-    // game loader to build the coordinator session token — keyed by user id (like `rttMs`) since no
-    // peer needs it.
-    const netcodeV2PubkeyByUserId = new Map<SbUserId, string>()
-    for (const p of gameLoadPlayers) {
-      const pubkey = this.playerQueueData.get(p.userId)?.clientPubkey
-      if (pubkey !== undefined) {
-        netcodeV2PubkeyByUserId.set(p.userId, pubkey)
-      }
-    }
 
     const entities = match.teams.flat()
     const chosenMap = mapInfo
@@ -1274,8 +1258,6 @@ export class MatchmakingService {
       mapId: chosenMap.id,
       gameConfig,
       ratings,
-      rttMsByUserId,
-      netcodeV2PubkeyByUserId,
     })
 
     if (loadResult.isError()) {
