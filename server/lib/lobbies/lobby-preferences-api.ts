@@ -34,7 +34,9 @@ const updateLobbyPreferencesSchema = Joi.object<UpdateLobbyPreferencesRequest>({
   // the real 1-7 sub type range.
   gameSubType: Joi.number().integer().min(0).max(7),
   recentMaps: Joi.array().items(Joi.string()).required(),
-  selectedMap: Joi.string(),
+  // The GET response nulls out a selected map that's no longer among the recent maps, and the
+  // create form saves that value back as-is, so null has to round-trip.
+  selectedMap: Joi.string().allow(null),
   useLegacyLimits: Joi.boolean(),
   visibility: Joi.valid(...ALL_LOBBY_VISIBILITIES),
   allowObservers: Joi.boolean(),
@@ -55,6 +57,7 @@ export class LobbyPreferencesApi {
 
     const preferences = await upsertLobbyPreferences(ctx.session!.user.id, {
       ...body,
+      selectedMap: body.selectedMap ?? undefined,
       recentMaps: body.recentMaps.slice(0, 5),
     })
     const recentMapInfos = await getMapInfos(preferences.recentMaps ?? [])

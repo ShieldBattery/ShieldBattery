@@ -138,7 +138,7 @@ export interface UpdateLobbyPreferencesRequest {
   gameType?: GameType
   gameSubType?: number
   recentMaps: SbMapId[]
-  selectedMap?: SbMapId
+  selectedMap?: SbMapId | null
   useLegacyLimits?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
