@@ -19,9 +19,9 @@ import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
 import { joinLobby } from './action-creators'
+import { lobbyJoinErrorMessage } from './lobby-join-errors'
 import { LobbySummary } from './lobby-list-reducer'
 import { navigateToLobby } from './lobby-url'
-import { lobbyJoinErrorMessage } from './view'
 
 const ListEntryRoot = styled.div`
   width: 100%;
