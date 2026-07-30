@@ -881,7 +881,6 @@
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
       "gameTypeHeader": "Tipo de juego",
       "lobbyName": "Nombre del lobby",
-      "lobbyNameInvalidCharacters": "El nombre del lobby contiene caracteres no válidos",
       "lobbyNameRequired": "Ingrese un nombre de lobby",
       "mapRequired": "Selecciona un mapa para jugar",
       "selectMap": "Seleccionar mapa",

@@ -36,6 +36,10 @@ describe('lobbies/lobby-url', () => {
       vi.doUnmock('slug')
       vi.resetModules()
     })
+
+    test('strips characters that are unsafe in a route param', () => {
+      expect(lobbySlug('100% @home ♥')).not.toMatch(/[%@]/)
+    })
   })
 
   describe('urlForLobby', () => {

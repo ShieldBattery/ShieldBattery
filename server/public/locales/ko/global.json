@@ -875,7 +875,6 @@
       "gameSubTypeOptionTvB": "{{topSlots}} 대 {{bottomSlots}}",
       "gameTypeHeader": "게임 모드",
       "lobbyName": "로비 이름",
-      "lobbyNameInvalidCharacters": "로비 이름에 사용할 수 없는 문자가 포함되어 있어요",
       "lobbyNameRequired": "로비 이름을 입력해 주세요",
       "mapRequired": "플레이할 맵을 선택해 주세요",
       "selectMap": "맵 선택",

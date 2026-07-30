@@ -4,7 +4,7 @@ import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
+import { LOBBY_NAME_MAXLENGTH } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import { LobbyVisibility } from '../../common/lobbies'
 import { LobbyCreateErrorCode } from '../../common/lobbies/lobby-network'
@@ -15,7 +15,7 @@ import { useTrackPageView } from '../analytics/analytics'
 import { openSimpleDialog } from '../dialogs/action-creators'
 import { useForm, useFormCallbacks, Validator } from '../forms/form-hook'
 import { SubmitOnEnter } from '../forms/submit-on-enter'
-import { composeValidators, maxLength, regex, required } from '../forms/validators'
+import { composeValidators, maxLength, required } from '../forms/validators'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { BrowseLocalMaps } from '../maps/browse-local-maps'
 import { BrowseServerMaps } from '../maps/browse-server-maps'
@@ -123,9 +123,6 @@ interface CreateLobbyModel {
 const lobbyNameValidator = composeValidators(
   required(t => t('lobbies.createLobby.lobbyNameRequired', 'Enter a lobby name')),
   maxLength(LOBBY_NAME_MAXLENGTH),
-  regex(LOBBY_NAME_PATTERN, t =>
-    t('lobbies.createLobby.lobbyNameInvalidCharacters', 'Lobby name contains invalid characters'),
-  ),
 )
 const mapSelectionValidator: Validator<MapSelectionValue, CreateLobbyModel> = (
   value,
