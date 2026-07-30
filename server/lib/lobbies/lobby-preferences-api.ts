@@ -33,10 +33,10 @@ const updateLobbyPreferencesSchema = Joi.object<UpdateLobbyPreferencesRequest>({
   // default the client's preferences state happens to hold (0), so 0 has to validate alongside
   // the real 1-7 sub type range.
   gameSubType: Joi.number().integer().min(0).max(7),
-  recentMaps: Joi.array().items(Joi.string()).required(),
+  recentMaps: Joi.array().items(Joi.string().uuid()).required(),
   // The GET response nulls out a selected map that's no longer among the recent maps, and the
   // create form saves that value back as-is, so null has to round-trip.
-  selectedMap: Joi.string().allow(null),
+  selectedMap: Joi.string().uuid().allow(null),
   useLegacyLimits: Joi.boolean(),
   visibility: Joi.valid(...ALL_LOBBY_VISIBILITIES),
   allowObservers: Joi.boolean(),
