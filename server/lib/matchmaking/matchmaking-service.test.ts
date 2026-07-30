@@ -8,6 +8,7 @@ import {
   MatchmakingPreferences,
   MatchmakingType,
 } from '../../../common/matchmaking'
+import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { MatchFoundMessage } from '../../../common/typeshare'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -152,6 +153,21 @@ describe('matchmaking/matchmaking-service', () => {
     prefs.matchmakingType = MatchmakingType.Match1v1
     ;(prefs as any).userId = userId
     await service.find(userId, clientId, [], [prefs], clientPubkey, desiredRegion)
+  }
+
+  /** Like `queuePlayer`, but with an explicit main race and alternate-race preference data. */
+  async function queuePlayerWithRacePrefs(
+    userId: SbUserId,
+    clientId: string,
+    race: RaceChar,
+    data: MatchmakingPreferences['data'],
+  ) {
+    const prefs = makePreferences()
+    prefs.matchmakingType = MatchmakingType.Match1v1
+    ;(prefs as any).userId = userId
+    prefs.race = race
+    prefs.data = data
+    await service.find(userId, clientId, [], [prefs], DEFAULT_PUBKEY)
   }
 
   async function queueMultiPlayer(
@@ -514,14 +530,12 @@ describe('matchmaking/matchmaking-service', () => {
     const slotForB = request.players.find((p: any) => p.userId === USER_B)
     expect(slotForA.region).toBe(REGION_US_EAST)
     expect(slotForB.region).toBeUndefined()
-    expect(request.rttMsByUserId).toEqual(new Map([[USER_A, 24]]))
-    // Both players submitted a pubkey when they queued; each reaches the loader keyed by user id.
-    expect(request.netcodeV2PubkeyByUserId).toEqual(
-      new Map([
-        [USER_A, DEFAULT_PUBKEY],
-        [USER_B, DEFAULT_PUBKEY],
-      ]),
-    )
+    expect(slotForA.rttMs).toBe(24)
+    expect(slotForB.rttMs).toBeUndefined()
+    // Both players submitted a pubkey when they queued; each reaches the loader on their own
+    // player entry.
+    expect(slotForA.netcodeV2Pubkey).toBe(DEFAULT_PUBKEY)
+    expect(slotForB.netcodeV2Pubkey).toBe(DEFAULT_PUBKEY)
   })
 
   test('preserves a queued player pubkey across a requeue', async () => {
@@ -579,7 +593,62 @@ describe('matchmaking/matchmaking-service', () => {
 
     expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
     const request = gameLoader.loadGame.mock.calls[0][0]
-    expect(request.netcodeV2PubkeyByUserId.get(USER_A)).toBe(pubkeyA)
+    const slotForA = request.players.find((p: any) => p.userId === USER_A)
+    expect(slotForA.netcodeV2Pubkey).toBe(pubkeyA)
+  })
+
+  test('builds playerInfos for the matched game, including the alternate-race branch', async () => {
+    asMockedFunction(getCurrentMapPool).mockResolvedValue({ maps: [MAP_ID] } as any)
+    asMockedFunction(getMapInfos).mockResolvedValue([{ id: MAP_ID } as any])
+    gameLoader.loadGame.mockResolvedValue(Result.ok({ gameId: GAME_ID }))
+
+    // Both queue the same main race, but only B opts into playing its alternate on the mirror
+    // matchup, so B (and only B) should land on its alternate race while A keeps its main one.
+    await queuePlayerWithRacePrefs(USER_A, CLIENT_A, 'z', {
+      useAlternateRace: false,
+      alternateRace: 't',
+    })
+    await queuePlayerWithRacePrefs(USER_B, CLIENT_B, 'z', {
+      useAlternateRace: true,
+      alternateRace: 't',
+    })
+
+    redisHandler({
+      type: 'matchFound',
+      data: {
+        mode: MatchmakingType.Match1v1,
+        teamA: [{ id: USER_A, ticket: 'ticket-a' }],
+        teamB: [{ id: USER_B, ticket: 'ticket-b' }],
+        quality: 12.5,
+        skillVariance: 30000,
+        winProbability: 0.42,
+        teamARating: 1500,
+        teamBRating: 1600,
+        maxLatency: 1,
+      },
+    })
+    await vi.advanceTimersByTimeAsync(0)
+
+    await service.accept(USER_A)
+    await service.accept(USER_B)
+    // Drain the runMatch promise chain (accept -> pickMap -> draft -> doGameLoad -> loadGame).
+    for (let i = 0; i < 20; i++) {
+      await vi.advanceTimersByTimeAsync(0)
+    }
+
+    expect(gameLoader.loadGame).toHaveBeenCalledTimes(1)
+    const request = gameLoader.loadGame.mock.calls[0][0]
+    const infoForA = request.playerInfos.find((p: any) => p.userId === USER_A)
+    const infoForB = request.playerInfos.find((p: any) => p.userId === USER_B)
+
+    for (const info of [infoForA, infoForB]) {
+      expect(info.typeId).toBe(6)
+      expect(info.playerId).toBe(0)
+      expect(info.type).toBe('human')
+    }
+    expect(infoForA.race).toBe('z')
+    // B opted into its alternate race for the mirror matchup; A did not, so A keeps its main race.
+    expect(infoForB.race).toBe('t')
   })
 
   test('records the match formation telemetry for a match that fails to start', async () => {

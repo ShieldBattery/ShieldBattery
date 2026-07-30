@@ -4,7 +4,7 @@ import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfigPlayer, GameSource, LobbyGameConfig } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
-import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
+import { SlotType } from '../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo, MapVisibility } from '../../../common/maps'
 import { BwUserLatency } from '../../../common/network'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -13,7 +13,13 @@ import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { getMapInfos } from '../maps/map-models'
 import { deleteUserRecordsForGame } from '../models/games-users'
 import { findUsersById } from '../users/user-model'
-import { BaseGameLoaderError, GameLoader, GameLoadErrorType, GameLoadRequest } from './game-loader'
+import {
+  BaseGameLoaderError,
+  GameLoader,
+  GameLoadErrorType,
+  GameLoadPlayer,
+  GameLoadRequest,
+} from './game-loader'
 import { deleteRecordForGame, updateGameConfig } from './game-models'
 import { registerGame } from './registration'
 
@@ -47,18 +53,17 @@ function lobbyConfig(teams: GameConfigPlayer[][]): LobbyGameConfig {
   }
 }
 
-function makePlayer(userId: SbUserId): { slot: Slot; playerInfo: PlayerInfo } {
-  const slot = createHuman(userId)
+function makePlayer(userId: SbUserId): { player: GameLoadPlayer; playerInfo: PlayerInfo } {
   return {
-    slot,
+    player: { userId, isObserver: false },
     playerInfo: {
-      id: slot.id,
+      id: `slot-${userId}`,
       userId,
-      race: slot.race,
-      playerId: slot.playerId,
+      race: 'r',
+      playerId: 0,
       teamId: 0,
       type: SlotType.Human,
-      typeId: slot.typeId,
+      typeId: 6,
     },
   }
 }
@@ -138,7 +143,7 @@ describe('games/game-loader/GameLoader', () => {
     )
   })
 
-  function registerActiveClients(players: Slot[]) {
+  function registerActiveClients(players: GameLoadPlayer[]) {
     activityRegistry.getClientForUser.mockImplementation((userId: SbUserId) =>
       players.some(p => p.userId === userId) ? makeClient(userId) : undefined,
     )
@@ -147,7 +152,7 @@ describe('games/game-loader/GameLoader', () => {
   test('fails immediately when a multi-human game loads and netcode v2 is not enabled', async () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
-    registerActiveClients([player1.slot, player2.slot])
+    registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(false)
 
@@ -160,7 +165,7 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [player1.slot, player2.slot],
+      players: [player1.player, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
@@ -191,7 +196,7 @@ describe('games/game-loader/GameLoader', () => {
 
   test('loads a solo game without requiring netcode v2 to be enabled', async () => {
     const player1 = makePlayer(p1)
-    registerActiveClients([player1.slot])
+    registerActiveClients([player1.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1)])
     netcodeV2Service.isEnabled.mockReturnValue(false)
 
@@ -201,7 +206,7 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [player1.slot],
+      players: [player1.player],
       playerInfos: [player1.playerInfo],
       mapId,
       gameConfig: lobbyConfig([[{ id: p1, race: 't', isComputer: false }]]),
@@ -238,7 +243,7 @@ describe('games/game-loader/GameLoader', () => {
   test('loads a multi-human game and persists useNetcodeV2 when netcode v2 is enabled', async () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
-    registerActiveClients([player1.slot, player2.slot])
+    registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockResolvedValue(
@@ -257,7 +262,7 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [player1.slot, player2.slot],
+      players: [player1.player, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
@@ -292,8 +297,8 @@ describe('games/game-loader/GameLoader', () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
     // p1 joined with a region; p2 has none and must be sent region-less.
-    const slot1 = player1.slot.set('region', region)
-    registerActiveClients([slot1, player2.slot])
+    const player1WithRegion: GameLoadPlayer = { ...player1.player, region }
+    registerActiveClients([player1WithRegion, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockResolvedValue(
@@ -312,7 +317,7 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [slot1, player2.slot],
+      players: [player1WithRegion, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
@@ -342,7 +347,7 @@ describe('games/game-loader/GameLoader', () => {
   test('threads each player measured rtt through to createSessionForGame', async () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
-    registerActiveClients([player1.slot, player2.slot])
+    registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockResolvedValue(
@@ -361,15 +366,14 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [player1.slot, player2.slot],
+      // p1 has a recorded rtt; p2 has none and must be sent without one.
+      players: [{ ...player1.player, rttMs: 42 }, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
         [{ id: p1, race: 't', isComputer: false }],
         [{ id: p2, race: 'z', isComputer: false }],
       ]),
-      // p1 has a recorded rtt; p2 has none and must be sent without one.
-      rttMsByUserId: new Map([[p1, 42]]),
     }
 
     const resultPromise = gameLoader.loadGame(request)
@@ -393,7 +397,7 @@ describe('games/game-loader/GameLoader', () => {
   test('threads each player netcode v2 pubkey through to createSessionForGame', async () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
-    registerActiveClients([player1.slot, player2.slot])
+    registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockResolvedValue(
@@ -414,16 +418,15 @@ describe('games/game-loader/GameLoader', () => {
     const pubkey1 = Buffer.alloc(32, 1).toString('base64')
     const pubkey2 = Buffer.alloc(32, 2).toString('base64')
     const request: GameLoadRequest = {
-      players: [player1.slot, player2.slot],
+      players: [
+        { ...player1.player, netcodeV2Pubkey: pubkey1 },
+        { ...player2.player, netcodeV2Pubkey: pubkey2 },
+      ],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
         [{ id: p1, race: 't', isComputer: false }],
         [{ id: p2, race: 'z', isComputer: false }],
-      ]),
-      netcodeV2PubkeyByUserId: new Map([
-        [p1, pubkey1],
-        [p2, pubkey2],
       ]),
     }
 
@@ -448,7 +451,7 @@ describe('games/game-loader/GameLoader', () => {
   test('publishes a provisioning status to every player when the coordinator reports provisioning', async () => {
     const player1 = makePlayer(p1)
     const player2 = makePlayer(p2)
-    registerActiveClients([player1.slot, player2.slot])
+    registerActiveClients([player1.player, player2.player])
     asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
     netcodeV2Service.isEnabled.mockReturnValue(true)
     netcodeV2Service.createSessionForGame.mockImplementation(async ({ onProvisioning }) => {
@@ -468,7 +471,7 @@ describe('games/game-loader/GameLoader', () => {
     } as any)
 
     const request: GameLoadRequest = {
-      players: [player1.slot, player2.slot],
+      players: [player1.player, player2.player],
       playerInfos: [player1.playerInfo, player2.playerInfo],
       mapId,
       gameConfig: lobbyConfig([
@@ -499,7 +502,7 @@ describe('games/game-loader/GameLoader', () => {
     try {
       const player1 = makePlayer(p1)
       const player2 = makePlayer(p2)
-      registerActiveClients([player1.slot, player2.slot])
+      registerActiveClients([player1.player, player2.player])
       asMockedFunction(findUsersById).mockResolvedValue([makeUser(p1), makeUser(p2)])
       netcodeV2Service.isEnabled.mockReturnValue(true)
       netcodeV2Service.createSessionForGame.mockImplementation(async ({ onProvisioning }) => {
@@ -519,7 +522,7 @@ describe('games/game-loader/GameLoader', () => {
       } as any)
 
       const request: GameLoadRequest = {
-        players: [player1.slot, player2.slot],
+        players: [player1.player, player2.player],
         playerInfos: [player1.playerInfo, player2.playerInfo],
         mapId,
         gameConfig: lobbyConfig([

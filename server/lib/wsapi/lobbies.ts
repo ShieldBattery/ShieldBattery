@@ -26,7 +26,7 @@ import {
 import { LobbyCreateErrorCode, LobbySlotCreateEvent } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
-import { Slot } from '../../../common/lobbies/slot'
+import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
 import { isPrettyId } from '../../../common/pretty-id'
 import { urlPath } from '../../../common/urls'
@@ -947,27 +947,22 @@ export class LobbyApi {
       const abortController = new AbortController()
       this.loadingLobbies = this.loadingLobbies.set(lobbyId, abortController)
 
-      // Split the occupants' collected network info into the two per-user maps the game loader
-      // takes: rtt for the latency estimate, pubkey for each slot's session token.
+      // Each occupant's collected network info, to merge into their `GameLoadPlayer`.
       const networkByUser = this.lobbyPlayerNetwork.getAll(lobbyId)
-      const rttMsByUserId = new global.Map<SbUserId, number>()
-      const netcodeV2PubkeyByUserId = new global.Map<SbUserId, string>()
-      for (const [userId, info] of networkByUser) {
-        if (info.rttMs !== undefined) {
-          rttMsByUserId.set(userId, info.rttMs)
-        }
-        if (info.netcodeV2Pubkey !== undefined) {
-          netcodeV2PubkeyByUserId.set(userId, info.netcodeV2Pubkey)
-        }
-      }
 
       const gameLoadResult = await this.gameLoader.loadGame({
-        players: getHumanSlots(lobby),
+        players: getHumanSlots(lobby)
+          .map(s => ({
+            userId: s.userId!,
+            isObserver: s.type === SlotType.Observer,
+            region: s.region,
+            rttMs: networkByUser.get(s.userId!)?.rttMs,
+            netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
+          }))
+          .toArray(),
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
-        rttMsByUserId,
-        netcodeV2PubkeyByUserId,
         signal: abortController.signal,
       })
 
