@@ -2,7 +2,6 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useRoute } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
@@ -12,13 +11,12 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
-import { replace } from '../navigation/routing'
 import { fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { BodyLarge, BodyMedium, HeadlineMedium, bodyLarge, labelMedium } from '../styles/typography'
-import { lobbySlug, urlForLobby } from './lobby-url'
+import { useCorrectLobbySlug } from './lobby-url'
 
 const Root = styled(CenteredContentContainer)`
   padding-block: 48px 24px;
@@ -48,7 +46,9 @@ const LobbyName = styled(HeadlineMedium)`
 
 const InfoLayout = styled.div`
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
+  justify-content: center;
   gap: 24px;
 `
 
@@ -119,7 +119,6 @@ export interface LobbyLandingPageProps {
 export function LobbyLandingPage({ params }: LobbyLandingPageProps) {
   const lobbyId = makeSbLobbyId(params.lobbyId)
 
-  const [match, routeParams] = useRoute('/lobbies/:lobbyId/:slugStr?')
   // Tagged with the lobby id it was resolved for, so a stale result from a previous id (e.g. if
   // this route's params change without the component unmounting) doesn't get rendered as current --
   // the state is treated as still-loading until a result tagged with the current id arrives.
@@ -152,11 +151,7 @@ export function LobbyLandingPage({ params }: LobbyLandingPageProps) {
   const state: LoadState | undefined = result?.lobbyId === lobbyId ? result.state : undefined
 
   const lobbyName = state?.status === 'loaded' ? state.data.summary.name : undefined
-  useEffect(() => {
-    if (match && lobbyName && lobbySlug(lobbyName) !== routeParams?.slugStr) {
-      replace(urlForLobby(lobbyId, lobbyName))
-    }
-  }, [match, lobbyName, lobbyId, routeParams?.slugStr])
+  useCorrectLobbySlug(lobbyId, lobbyName)
 
   let content: React.ReactNode
   if (!state) {

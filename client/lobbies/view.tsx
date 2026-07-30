@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { Route, Switch, useRoute } from 'wouter'
+import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
@@ -36,7 +36,7 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
-import { lobbySlug, urlForLobby } from './lobby-url'
+import { useCorrectLobbySlug } from './lobby-url'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -60,16 +60,11 @@ export function LobbyView(props: LobbyViewProps) {
   const inLobby = useAppSelector(s => s.lobby.inLobby)
   const lobbyId = useAppSelector(s => s.lobby.info.id)
 
-  const [match, routeParams] = useRoute('/lobbies/:lobbyId/:slugStr?')
   const lobbyName = useAppSelector(s =>
     s.lobby.inLobby && s.lobby.info.id === routeLobbyId ? s.lobby.info.name : undefined,
   )
 
-  useEffect(() => {
-    if (match && lobbyName && lobbySlug(lobbyName) !== routeParams?.slugStr) {
-      replace(urlForLobby(routeLobbyId, lobbyName))
-    }
-  }, [match, lobbyName, routeLobbyId, routeParams?.slugStr])
+  useCorrectLobbySlug(routeLobbyId, lobbyName)
 
   const prevRouteLobbyId = usePrevious(routeLobbyId)
   const prevInLobby = usePrevious(inLobby)
