@@ -73,7 +73,9 @@ export type LobbySummaryLoadState =
  * The result is tagged with the lobby id it was fetched for, so a stale result from a previous id
  * (e.g. if `lobbyId` changes without the caller unmounting) is never rendered as current -- the
  * state stays undefined until a result tagged with the current id arrives. A `refresh` doesn't
- * clear the existing result, so the previous state remains rendered until the new one lands.
+ * clear the existing result, so the previous state remains rendered until the new one lands. If a
+ * refresh fails for a reason other than a 404, the last successfully loaded summary is kept
+ * instead of being downgraded to the error state.
  */
 export function useLobbySummary(
   lobbyId: SbLobbyId,
@@ -97,11 +99,15 @@ export function useLobbySummary(
         if (controller.signal.aborted) {
           return
         }
-        setResult({
-          lobbyId,
-          state:
-            isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' },
-        })
+        const state: LobbySummaryLoadState =
+          isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' }
+        setResult(prev =>
+          // A lobby that's still loadable shouldn't lose its rendered details to a transient
+          // failure; only a 404 (definitively gone) replaces a loaded summary.
+          state.status === 'error' && prev?.lobbyId === lobbyId && prev.state.status === 'loaded'
+            ? prev
+            : { lobbyId, state },
+        )
       },
     )
 
