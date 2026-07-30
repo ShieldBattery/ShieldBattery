@@ -9,6 +9,9 @@ block headScripts
       src='https://cdn.usefathom.com/script.js', data-site=analyticsId, data-auto='false')
 
 block metaTags
+  if pageMeta.noindex
+    meta(name='robots', content='noindex', data-react-helmet='true')
+
   meta(property='og:url', content=pageMeta.url, data-react-helmet='true')
   meta(property='og:type', content=pageMeta.type, data-react-helmet='true')
   meta(property='og:title', content=pageMeta.title, data-react-helmet='true')

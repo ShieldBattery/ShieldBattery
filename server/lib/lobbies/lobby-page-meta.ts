@@ -51,5 +51,9 @@ export const lobbyPageMetadata: PageMetadataResolver = async (params, context) =
       summary.map.image512Url ??
       summary.map.image256Url ??
       defaultPageImage(context),
+    // The lobby's id is a capability token, not a stable public identifier: a link shared outside
+    // the app is expected to go dead once the lobby closes, so it must never linger in a search
+    // index (unlike the unfurl preview above, which crawlers request live).
+    noindex: true,
   }
 }

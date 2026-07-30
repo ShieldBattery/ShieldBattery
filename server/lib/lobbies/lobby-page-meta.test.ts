@@ -98,8 +98,18 @@ describe('lobbies/lobby-page-meta', () => {
         title: 'Fastest Game Ever',
         description: 'Melee lobby on Fighting Spirit — 3 open slots. Hosted by HostUser.',
         image: 'https://cdn.example.com/maps/fs-1024.jpg',
+        noindex: true,
       })
       expect(findUsersByIdMock).toHaveBeenCalledWith([HOST_ID])
+    })
+
+    test('marks the metadata noindex, since the lobby link is a dead capability token once closed', async () => {
+      summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+      findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+      const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
+
+      expect(result?.noindex).toBe(true)
     })
 
     test('singularizes the description when there is exactly one open slot', async () => {

@@ -16,4 +16,11 @@ export interface PageMetadata {
    * `summary_large_image` when unset.
    */
   cardType?: 'summary' | 'summary_large_image'
+  /**
+   * When true, the rendered page carries a robots noindex meta tag. Set for pages whose URLs are
+   * ephemeral or act as capability tokens (e.g. lobbies): they'd be dead or shouldn't be
+   * discoverable by the time a search index serves them. Link-preview crawlers ignore robots
+   * meta, so unfurling is unaffected.
+   */
+  noindex?: boolean
 }
