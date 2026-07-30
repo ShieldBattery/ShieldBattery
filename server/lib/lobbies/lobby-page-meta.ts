@@ -1,15 +1,12 @@
 import { gameTypeToLabel } from '../../../common/games/game-type'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
-import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
-import { isPrettyId } from '../../../common/pretty-id'
 import {
   defaultPageImage,
   defaultPageMetadata,
   englishT,
   PageMetadataResolver,
 } from '../page-metadata/types'
-import { findUsersById } from '../users/user-model'
-import { getLobbySummary } from './lobby-summaries'
+import { getLiveLobbyWithHost } from './lobby-summaries'
 
 /**
  * Resolves the Open Graph/Twitter Card metadata for a lobby's logged-out landing page (registered
@@ -17,35 +14,25 @@ import { getLobbySummary } from './lobby-summaries'
  *
  * Unlike games/leagues/news, a lobby's id (`SbLobbyId`) is itself the pretty (base64url-encoded)
  * form — there's no separate raw id to decode/encode (see `common/lobbies/sb-lobby-id.ts`).
- * `params.id` is checked with `isPrettyId` before it's ever used as a lookup key. Every response
- * for this route is marked `noindex`: a lobby's id is a capability token backed by ephemeral
- * in-memory state, so a shared link is expected to go dead once the lobby closes — and "already
- * dead" is the state a crawler will almost always find it in. A dead/expired/malformed id falls
- * back to the default site-wide metadata rather than showing stale lobby details; the landing
- * page itself tells a human visitor the lobby is gone.
+ * `params.id` is checked with `isPrettyId` (inside the shared lookup helper) before it's ever used
+ * as a lookup key. Every response for this route is marked `noindex`: a lobby's id is a capability
+ * token backed by ephemeral in-memory state, so a shared link is expected to go dead once the
+ * lobby closes — and "already dead" is the state a crawler will almost always find it in. A
+ * dead/expired/malformed id falls back to the default site-wide metadata rather than showing stale
+ * lobby details; the landing page itself tells a human visitor the lobby is gone.
  */
 export const lobbyPageMetadata: PageMetadataResolver = async (params, context) => {
-  const routeId = params.id
-  if (!routeId || !isPrettyId(routeId)) {
+  const result = await getLiveLobbyWithHost(params.id)
+  if (!result) {
     return { ...defaultPageMetadata(context), noindex: true }
   }
-
-  const lobbyId: SbLobbyId = makeSbLobbyId(routeId)
-  const summary = getLobbySummary(lobbyId)
-  if (!summary) {
-    return { ...defaultPageMetadata(context), noindex: true }
-  }
-
-  const [host] = await findUsersById([summary.host.id])
-  if (!host) {
-    return { ...defaultPageMetadata(context), noindex: true }
-  }
+  const { summary, host } = result
 
   const gameTypeLabel = gameTypeToLabel(summary.gameType, englishT)
   const slotWord = summary.openSlotCount === 1 ? 'slot' : 'slots'
 
   return {
-    url: context.canonicalHost + urlForLobby(lobbyId, summary.name),
+    url: context.canonicalHost + urlForLobby(summary.id, summary.name),
     type: 'website',
     title: summary.name,
     description:

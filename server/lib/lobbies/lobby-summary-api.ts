@@ -1,14 +1,11 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import { LobbySummaryResponse } from '../../../common/lobbies/lobby-network'
-import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
-import { isPrettyId } from '../../../common/pretty-id'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet } from '../http/route-decorators'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
-import { findUsersById } from '../users/user-model'
-import { getLobbySummary } from './lobby-summaries'
+import { getLiveLobbyWithHost } from './lobby-summaries'
 
 // Keyed by IP rather than session, since this endpoint is deliberately unauthenticated (a logged-
 // out visitor following a lobby link has no session at all). Rate similar to the other read-only
@@ -32,24 +29,11 @@ export class LobbySummaryApi {
   @httpGet('/:lobbyId/summary')
   @httpBefore(throttleMiddleware(throttle, ctx => ctx.ip))
   async getSummary(ctx: RouterContext): Promise<LobbySummaryResponse> {
-    const lobbyId = makeSbLobbyId(ctx.params.lobbyId)
-    if (!isPrettyId(lobbyId)) {
-      // A malformed id can never match a live lobby, so it's indistinguishable from "not found" as
-      // far as the landing page is concerned — both mean "this link doesn't work".
+    const result = await getLiveLobbyWithHost(ctx.params.lobbyId)
+    if (!result) {
       throw new httpErrors.NotFound('lobby not found')
     }
-
-    const summary = getLobbySummary(lobbyId)
-    if (!summary) {
-      throw new httpErrors.NotFound('lobby not found')
-    }
-
-    const [host] = await findUsersById([summary.host.id])
-    if (!host) {
-      // Shouldn't normally happen (the host is necessarily a real account), but a half response
-      // (summary without a resolvable host) is worse than a 404 here.
-      throw new httpErrors.NotFound('lobby not found')
-    }
+    const { summary, host } = result
 
     // Explicit field picks rather than a spread, so a field added to LobbySummaryJson or
     // MapInfoJson later can't silently join this unauthenticated response.
