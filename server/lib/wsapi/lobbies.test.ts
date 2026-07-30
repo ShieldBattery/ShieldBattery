@@ -255,6 +255,32 @@ describe('wsapi/lobbies/visibility', () => {
     expect(listPublishes()).toEqual([])
   })
 
+  test('joining an unlisted lobby does not publish an update to the list', async () => {
+    const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+    fakeNydus.publish.mockClear()
+
+    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+    // The occupants still see the new player; only the public list is kept in the dark.
+    expect(
+      fakeNydus.publish.mock.calls.some(
+        ([path, data]) => path === `/lobbies/${id}` && data?.type === 'diff',
+      ),
+    ).toBe(true)
+    expect(listPublishes()).toEqual([])
+  })
+
+  test('joining a listed lobby publishes an update to the list', async () => {
+    const { id } = await createLobby(host, 'Listed lobby', 'listed')
+    fakeNydus.publish.mockClear()
+
+    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+    expect(listPublishes()).toEqual([
+      { action: 'update', payload: expect.objectContaining({ name: 'Listed lobby' }) },
+    ])
+  })
+
   test('creating a listed lobby with a name matching an existing listed lobby fails', async () => {
     await createLobby(host, 'Duplicate name', 'listed')
 
