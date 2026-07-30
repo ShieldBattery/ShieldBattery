@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
+import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
 import { PageMetadata, PageMetadataContext, resolvePageMetadata } from './page-metadata'
@@ -22,10 +23,15 @@ vi.mock('../games/game-page-meta', () => ({
   gamePageMetadata: vi.fn(),
 }))
 
+vi.mock('../lobbies/lobby-page-meta', () => ({
+  lobbyPageMetadata: vi.fn(),
+}))
+
 const newsPostPageMetadataMock = asMockedFunction(newsPostPageMetadata)
 const leaguePageMetadataMock = asMockedFunction(leaguePageMetadata)
 const userPageMetadataMock = asMockedFunction(userPageMetadata)
 const gamePageMetadataMock = asMockedFunction(gamePageMetadata)
+const lobbyPageMetadataMock = asMockedFunction(lobbyPageMetadata)
 
 const CONTEXT: PageMetadataContext = {
   canonicalHost: 'https://shieldbattery.net',
@@ -46,6 +52,7 @@ describe('page-metadata/page-metadata', () => {
     leaguePageMetadataMock.mockReset()
     userPageMetadataMock.mockReset()
     gamePageMetadataMock.mockReset()
+    lobbyPageMetadataMock.mockReset()
   })
 
   test('matches a news post route and calls the resolver with the id param (no wildcard)', async () => {
@@ -104,6 +111,7 @@ describe('page-metadata/page-metadata', () => {
     expect(leaguePageMetadataMock).not.toHaveBeenCalled()
     expect(userPageMetadataMock).not.toHaveBeenCalled()
     expect(gamePageMetadataMock).not.toHaveBeenCalled()
+    expect(lobbyPageMetadataMock).not.toHaveBeenCalled()
     expect(result).toEqual(DEFAULT_METADATA)
   })
 
@@ -149,6 +157,17 @@ describe('page-metadata/page-metadata', () => {
     await resolvePageMetadata('/games/abc123', CONTEXT)
 
     expect(gamePageMetadataMock).toHaveBeenCalledWith({ id: 'abc123', '*': undefined }, CONTEXT)
+  })
+
+  test('matches the lobby route and calls the resolver with the id param', async () => {
+    lobbyPageMetadataMock.mockResolvedValueOnce(undefined)
+
+    await resolvePageMetadata('/lobbies/abc123/some-lobby-slug', CONTEXT)
+
+    expect(lobbyPageMetadataMock).toHaveBeenCalledWith(
+      { id: 'abc123', '*': 'some-lobby-slug' },
+      CONTEXT,
+    )
   })
 
   test('resolves a static route to its fixed title/description/canonical url', async () => {

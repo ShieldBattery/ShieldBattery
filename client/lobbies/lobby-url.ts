@@ -1,27 +1,25 @@
-import slug from 'slug'
+import { useEffect } from 'react'
+import { useRoute } from 'wouter'
+import { lobbySlug, urlForLobby } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { urlPath } from '../../common/urls'
-import { push } from '../navigation/routing'
-
-/**
- * Returns the URL slug for a lobby name, falling back to a `_` placeholder when the name is
- * unknown/empty or slugs to nothing (`slug`'s default config base64-encodes otherwise-unsluggable
- * names rather than returning an empty string, but this guard doesn't rely on that). Both URL
- * construction and slug correction must use this so they can't disagree and cause a redirect loop.
- */
-export function lobbySlug(name: string | undefined): string {
-  return (name ? slug(name) : '') || '_'
-}
-
-/**
- * Returns the URL for a particular lobby. If the lobby's name is available, the URL will include
- * a slug (otherwise there will be a redirect once the data has loaded).
- */
-export function urlForLobby(id: SbLobbyId, name?: string): string {
-  return urlPath`/lobbies/${id}/${lobbySlug(name)}`
-}
+import { push, replace } from '../navigation/routing'
 
 /** Navigates to a particular lobby. */
 export function navigateToLobby(id: SbLobbyId, name?: string, transitionFn = push): void {
   transitionFn(urlForLobby(id, name))
+}
+
+/**
+ * Replaces the current history entry with the canonical slugged lobby URL whenever the route's
+ * slug segment doesn't match the lobby's name (e.g. a stale or hand-edited link). Both the lobby
+ * view and the logged-out landing page must agree with `lobbySlug` here, or a wrong-slug URL
+ * could redirect in a loop.
+ */
+export function useCorrectLobbySlug(lobbyId: SbLobbyId, lobbyName: string | undefined): void {
+  const [match, routeParams] = useRoute('/lobbies/:lobbyId/:slugStr?')
+  useEffect(() => {
+    if (match && lobbyName && lobbySlug(lobbyName) !== routeParams?.slugStr) {
+      replace(urlForLobby(lobbyId, lobbyName))
+    }
+  }, [match, lobbyName, lobbyId, routeParams?.slugStr])
 }

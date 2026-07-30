@@ -209,6 +209,20 @@ export function toMapInfoJson(mapInfo: MapInfo): MapInfoJson {
   }
 }
 
+/**
+ * The subset of map info needed to render a map's image. Structurally satisfied by `MapInfoJson`,
+ * and by narrower wire types that deliberately omit the rest (e.g. the unauthenticated lobby
+ * summary's map).
+ */
+export interface MapImageInfo {
+  name: string
+  image256Url?: string
+  image512Url?: string
+  image1024Url?: string
+  image2048Url?: string
+  mapData: { width: number; height: number }
+}
+
 /** Returns the number of teams for a map/game type. */
 export function numTeams(
   gameType: GameType,

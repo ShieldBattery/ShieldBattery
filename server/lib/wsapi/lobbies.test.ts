@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
 import { LobbyCreateErrorCode, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
@@ -12,6 +13,7 @@ import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
+import { getLobbySummary } from '../lobbies/lobby-summaries'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
@@ -299,5 +301,17 @@ describe('wsapi/lobbies/visibility', () => {
     await createLobby(host, 'Duplicate name', 'listed')
 
     await expect(createLobby(otherHost, 'Duplicate name', 'unlisted')).resolves.toBeDefined()
+  })
+
+  test('a counting-down lobby is reported as gone by the summary getter', async () => {
+    const { id } = await createLobby(host, 'Listed lobby', 'listed')
+    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+    // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
+    // resolver must treat it the same as a lobby that doesn't exist at all.
+    vi.useFakeTimers()
+    lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
+
+    expect(getLobbySummary(makeSbLobbyId(id))).toBeUndefined()
   })
 })

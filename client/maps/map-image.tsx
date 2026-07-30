@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
-import { MapInfoJson } from '../../common/maps'
+import { MapImageInfo } from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -48,7 +48,7 @@ export function MapNoImage() {
 }
 
 export interface MapInfoImageProps {
-  map: ReadonlyDeep<MapInfoJson>
+  map: ReadonlyDeep<MapImageInfo>
   size?: number
   altText?: string
   decoding?: 'async' | 'sync' | 'auto'

@@ -1,6 +1,6 @@
 import { BasicChannelInfo } from '../chat'
 import { GameType } from '../games/game-type'
-import { MapInfoJson, SbMapId } from '../maps'
+import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { LobbyVisibility } from './index'
@@ -41,6 +41,29 @@ export interface LobbySummaryJson {
   gameSubType: number
   host: { id: SbUserId }
   openSlotCount: number
+}
+
+/**
+ * The subset of a lobby's map info served to unauthenticated visitors: just enough to render the
+ * landing page's map name and thumbnail (`MapImageInfo`). Deliberately excludes `mapUrl` (a
+ * time-limited download link for the map file itself) and the uploader/hash/visibility details —
+ * anyone holding a lobby link can call the summary endpoint, and they only need to see the map,
+ * not fetch it.
+ */
+export interface LobbySummaryMapJson extends MapImageInfo {
+  id: SbMapId
+}
+
+/**
+ * The response of the unauthenticated lobby summary endpoint
+ * (`GET /api/1/lobbies/:lobbyId/summary`), used by the logged-out web landing page for a lobby
+ * link. Possessing a lobby's id is what grants access to this data (ids are unguessable, and for
+ * unlisted lobbies the shared link is the invite), so it contains only what the landing page
+ * shows.
+ */
+export interface LobbySummaryResponse {
+  summary: Omit<LobbySummaryJson, 'map'> & { map: LobbySummaryMapJson }
+  host: SbUser
 }
 
 export interface LobbyInitEvent {

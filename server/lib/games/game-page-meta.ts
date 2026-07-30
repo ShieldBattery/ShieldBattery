@@ -1,17 +1,12 @@
-import type { TFunction } from 'i18next'
 import { GameConfig, GameConfigPlayer, GameSource } from '../../../common/games/configuration'
 import { matchmakingTypeToLabel } from '../../../common/matchmaking'
 import { decodePrettyId, encodePrettyId, isPrettyId } from '../../../common/pretty-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { getMapInfos } from '../maps/map-models'
-import { defaultPageImage, PageMetadataResolver } from '../page-metadata/types'
+import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { getGameRecord } from './game-models'
-
-// Crawler-facing metadata is English-only, so resolve labels with their default strings rather
-// than running the full i18next pipeline.
-const englishT = ((_key: string, defaultValue: string) => defaultValue) as unknown as TFunction
 
 // Pinned to UTC so the rendered date doesn't depend on the server host's timezone.
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {

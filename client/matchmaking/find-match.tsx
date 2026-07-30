@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
 import { ladderPlayerToMatchmakingDivision } from '../../common/ladder/ladder'
+import { urlForLobby } from '../../common/lobbies/lobby-url'
 import {
   ALL_MATCHMAKING_TYPES,
   getMatchmakingModeInfo,
@@ -22,7 +23,6 @@ import { useSelfUser } from '../auth/auth-utils'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
-import { urlForLobby } from '../lobbies/lobby-url'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'

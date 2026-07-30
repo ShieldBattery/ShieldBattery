@@ -1,10 +1,17 @@
 import { parse } from 'regexparam'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
+import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
 import logger from '../logging/logger'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
-import { defaultPageImage, PageMetadata, PageMetadataContext, PageMetadataResolver } from './types'
+import {
+  defaultPageImage,
+  defaultPageMetadata,
+  PageMetadata,
+  PageMetadataContext,
+  PageMetadataResolver,
+} from './types'
 
 export * from './types'
 
@@ -37,6 +44,7 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/leagues/:id/*?', resolver: leaguePageMetadata },
   { pattern: '/users/:id/*?', resolver: userPageMetadata },
   { pattern: '/games/:id/*?', resolver: gamePageMetadata },
+  { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
 
   staticRoute(
     '/download',
@@ -106,15 +114,4 @@ export async function resolvePageMetadata(
   }
 
   return defaultPageMetadata(context)
-}
-
-/** The metadata used for any page that doesn't have a more specific resolver match. */
-function defaultPageMetadata(context: PageMetadataContext): PageMetadata {
-  return {
-    url: context.canonicalHost,
-    type: 'website',
-    title: 'ShieldBattery',
-    description: 'Play StarCraft 1 on the premier community-run platform.',
-    image: defaultPageImage(context),
-  }
 }
