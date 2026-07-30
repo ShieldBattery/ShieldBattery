@@ -64,12 +64,17 @@ export class LobbySummaryApi {
       throw new httpErrors.NotFound('lobby not found')
     }
 
-    // Explicit field picks rather than a spread, so a field added to MapInfoJson later can't
-    // silently join this unauthenticated response.
+    // Explicit field picks rather than a spread, so a field added to LobbySummaryJson or
+    // MapInfoJson later can't silently join this unauthenticated response.
     const { map } = summary
     return {
       summary: {
-        ...summary,
+        id: summary.id,
+        name: summary.name,
+        gameType: summary.gameType,
+        gameSubType: summary.gameSubType,
+        host: { id: summary.host.id },
+        openSlotCount: summary.openSlotCount,
         map: {
           id: map.id,
           name: map.name,

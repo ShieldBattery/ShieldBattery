@@ -146,7 +146,12 @@ export class LobbyApi {
     // live lobby's summary without importing this websocket API directly.
     setLobbySummaryGetter(id => {
       const lobby = this.lobbies.get(id)
-      return lobby ? Lobbies.toSummaryJson(lobby) : undefined
+      // A counting-down or loading lobby can't be joined, so it's reported as gone rather than as
+      // an open lobby with slots available.
+      if (!lobby || this.lobbyCountdowns.has(id) || this.loadingLobbies.has(id)) {
+        return undefined
+      }
+      return Lobbies.toSummaryJson(lobby)
     })
   }
 

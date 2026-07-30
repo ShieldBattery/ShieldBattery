@@ -82,12 +82,19 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     setLobbySummaryGetter(summaryGetterMock)
   })
 
-  test('strips the map down to only the fields the landing page needs', async () => {
+  test('strips the summary and map down to only the fields the landing page needs', async () => {
     summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
     findUsersByIdMock.mockResolvedValueOnce([HOST])
 
     const api = new LobbySummaryApi()
     const response = await api.getSummary(makeSummaryCtx())
+
+    // A field added to LobbySummaryJson later (e.g. a player list) must never silently join this
+    // unauthenticated response.
+    expect(Object.keys(response.summary).sort()).toEqual(
+      ['gameSubType', 'gameType', 'host', 'id', 'map', 'name', 'openSlotCount'].sort(),
+    )
+    expect(Object.keys(response.summary.host)).toEqual(['id'])
 
     // The presigned `mapUrl`, and the uploader/hash/visibility details, must never re-enter this
     // unauthenticated response unnoticed -- if a field is added to MapInfoJson later, this list
@@ -122,5 +129,33 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
       image2048Url: FULL_MAP_INFO.image2048Url,
       mapData: { width: FULL_MAP_INFO.mapData.width, height: FULL_MAP_INFO.mapData.height },
     })
+  })
+
+  test('returns 404 when there is no live lobby with the given id', async () => {
+    summaryGetterMock.mockReturnValueOnce(undefined)
+
+    const api = new LobbySummaryApi()
+
+    await expect(api.getSummary(makeSummaryCtx())).rejects.toMatchObject({ status: 404 })
+    expect(findUsersByIdMock).not.toHaveBeenCalled()
+  })
+
+  test('returns 404 (not 400, and not an unhandled Joi error) for a malformed lobby id', async () => {
+    const api = new LobbySummaryApi()
+    const ctx = { params: { lobbyId: 'not-a-pretty-id!!' } } as any
+
+    await expect(api.getSummary(ctx)).rejects.toMatchObject({ status: 404 })
+    // A malformed id can never match a live lobby, so it's indistinguishable from "not found" --
+    // the getter must not even be consulted.
+    expect(summaryGetterMock).not.toHaveBeenCalled()
+  })
+
+  test('returns 404 when the host user cannot be resolved', async () => {
+    summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+    findUsersByIdMock.mockResolvedValueOnce([])
+
+    const api = new LobbySummaryApi()
+
+    await expect(api.getSummary(makeSummaryCtx())).rejects.toMatchObject({ status: 404 })
   })
 })
