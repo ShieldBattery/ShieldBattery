@@ -48,7 +48,7 @@ const ipcRenderer = new TypedIpcRenderer()
 // be awaited here and handed to the `onSuccess`/`onError` callbacks.
 export const createLobby =
   (
-    { name, map, gameType, gameSubType, useLegacyLimits, allowObservers = true },
+    { name, map, gameType, gameSubType, useLegacyLimits, allowObservers, visibility },
     { onSuccess, onError } = {},
   ) =>
   dispatch => {
@@ -70,6 +70,7 @@ export const createLobby =
         gameSubType,
         useLegacyLimits,
         allowObservers,
+        visibility,
         region: desiredRegion?.region,
         // `rttMs` is nullable on `DesiredRegion` (a manual pick can be unmeasured); the wire
         // format only distinguishes "present" from "absent", so a null rtt is sent as absent.

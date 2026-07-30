@@ -15,6 +15,14 @@ export const MAX_OBSERVERS = 4
 /** States that a lobby can be in. These are the possible return values of `getLobbyState`. */
 export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted'
 
+/**
+ * How discoverable a lobby is. `listed` lobbies are published on the public lobby list; `unlisted`
+ * ones never are, so they can only be reached by someone who has been given their id.
+ */
+export type LobbyVisibility = 'listed' | 'unlisted'
+
+export const ALL_LOBBY_VISIBILITIES: ReadonlyArray<LobbyVisibility> = ['listed', 'unlisted']
+
 export class Team extends Record({
   name: '',
   teamId: 0,
@@ -40,6 +48,7 @@ export class Lobby extends Record({
   teams: List<Team>(),
   host: new Slot(),
   useLegacyLimits: false,
+  visibility: 'listed' as LobbyVisibility,
 }) {}
 
 export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {

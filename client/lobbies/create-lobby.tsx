@@ -6,6 +6,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH, LOBBY_NAME_PATTERN } from '../../common/constants'
 import { ALL_GAME_TYPES, GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
+import { LobbyVisibility } from '../../common/lobbies'
 import { LobbyCreateErrorCode } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
@@ -22,6 +23,7 @@ import { MapSelect, MapSelectionValue } from '../maps/map-select'
 import { useAutoFocusRef } from '../material/auto-focus'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
+import { RadioButton, RadioGroup } from '../material/radio'
 import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indicator'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
@@ -29,7 +31,7 @@ import { TextField } from '../material/text-field'
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { bodyLarge, titleLarge } from '../styles/typography'
+import { bodyLarge, bodySmall, titleLarge } from '../styles/typography'
 import { createLobby, getLobbyPreferences, updateLobbyPreferences } from './action-creators'
 import { navigateToLobby } from './lobby-url'
 
@@ -82,6 +84,11 @@ const GameTypeAndSubType = styled.div`
   }
 `
 
+const VisibilitySettings = styled.div`
+  max-width: 400px;
+  margin-top: 32px;
+`
+
 const AdvancedSettings = styled.div`
   max-width: 320px;
   margin-top: 32px;
@@ -92,12 +99,25 @@ const SectionHeader = styled.div`
   margin: 16px 0;
 `
 
+// Spans rather than divs: these render inside a <label>, which only accepts phrasing content.
+const VisibilityOptionName = styled.span`
+  display: block;
+`
+
+const VisibilityOptionDescription = styled.span`
+  ${bodySmall};
+  display: block;
+  color: var(--theme-on-surface-variant);
+`
+
 interface CreateLobbyModel {
   name: string
   mapSelection: MapSelectionValue
   gameType: GameType
   gameSubType: number
   useLegacyLimits: boolean
+  visibility: LobbyVisibility
+  allowObservers: boolean
 }
 
 const lobbyNameValidator = composeValidators(
@@ -297,6 +317,46 @@ function CreateLobbyForm({
         numRecentMaps={NUM_RECENT_MAPS}
       />
 
+      <VisibilitySettings>
+        <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+        <RadioGroup {...bindInput('visibility')}>
+          <RadioButton
+            value='listed'
+            disabled={disabled}
+            label={
+              <>
+                <VisibilityOptionName>
+                  {t('lobbies.createLobby.visibilityListed', 'Public')}
+                </VisibilityOptionName>
+                <VisibilityOptionDescription>
+                  {t(
+                    'lobbies.createLobby.visibilityListedDescription',
+                    'Shown in the lobby list for anyone to join',
+                  )}
+                </VisibilityOptionDescription>
+              </>
+            }
+          />
+          <RadioButton
+            value='unlisted'
+            disabled={disabled}
+            label={
+              <>
+                <VisibilityOptionName>
+                  {t('lobbies.createLobby.visibilityUnlisted', 'Unlisted')}
+                </VisibilityOptionName>
+                <VisibilityOptionDescription>
+                  {t(
+                    'lobbies.createLobby.visibilityUnlistedDescription',
+                    'Only people you share the link with can join',
+                  )}
+                </VisibilityOptionDescription>
+              </>
+            }
+          />
+        </RadioGroup>
+      </VisibilitySettings>
+
       <AdvancedSettings>
         <SectionHeader>
           {t('lobbies.createLobby.advancedSettings', 'Advanced settings')}
@@ -305,6 +365,12 @@ function CreateLobbyForm({
           {...bindCheckable('useLegacyLimits')}
           label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
           disabled={disabled}
+          inputProps={{ tabIndex: 0 }}
+        />
+        <CheckBox
+          {...bindCheckable('allowObservers')}
+          label={t('lobbies.createLobby.allowObservers', 'Allow observers')}
+          disabled={disabled || getInputValue('gameType') !== GameType.Melee}
           inputProps={{ tabIndex: 0 }}
         />
       </AdvancedSettings>
@@ -333,6 +399,8 @@ export function CreateLobby(props: CreateLobbyProps) {
   const gameType = useAppSelector(s => s.lobbyPreferences.gameType)
   const gameSubType = useAppSelector(s => s.lobbyPreferences.gameSubType)
   const useLegacyLimits = useAppSelector(s => s.lobbyPreferences.useLegacyLimits)
+  const prefsVisibility = useAppSelector(s => s.lobbyPreferences.visibility)
+  const prefsAllowObservers = useAppSelector(s => s.lobbyPreferences.allowObservers)
 
   const storeSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const storeRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
@@ -350,8 +418,19 @@ export function CreateLobby(props: CreateLobbyProps) {
           recentMaps: storeRecentMaps.toArray(),
         },
         useLegacyLimits: useLegacyLimits ?? false,
+        visibility: prefsVisibility ?? 'listed',
+        allowObservers: prefsAllowObservers ?? true,
       }) satisfies CreateLobbyModel,
-    [initialName, gameType, gameSubType, storeSelectedMap, storeRecentMaps, useLegacyLimits],
+    [
+      initialName,
+      gameType,
+      gameSubType,
+      storeSelectedMap,
+      storeRecentMaps,
+      useLegacyLimits,
+      prefsVisibility,
+      prefsAllowObservers,
+    ],
   )
 
   const formRef = useRef<CreateLobbyFormHandle>(null)
@@ -370,6 +449,8 @@ export function CreateLobby(props: CreateLobbyProps) {
           gameType: model.gameType,
           gameSubType: model.gameSubType,
           useLegacyLimits: model.useLegacyLimits,
+          visibility: model.visibility,
+          allowObservers: model.allowObservers,
         }),
       )
     }, 200),
@@ -448,6 +529,8 @@ export function CreateLobby(props: CreateLobbyProps) {
                   gameSubType,
                   mapSelection: { mapId, recentMaps },
                   useLegacyLimits,
+                  visibility,
+                  allowObservers,
                 } = model
                 const subType = isTeamType(gameType) ? gameSubType : undefined
 
@@ -460,6 +543,8 @@ export function CreateLobby(props: CreateLobbyProps) {
                       gameType,
                       gameSubType: subType,
                       useLegacyLimits,
+                      visibility,
+                      allowObservers,
                     },
                     {
                       onSuccess: (result: { id: SbLobbyId }) => navigateToLobby(result.id, name),
@@ -497,6 +582,8 @@ export function CreateLobby(props: CreateLobbyProps) {
                     gameType: model.gameType,
                     gameSubType: model.gameSubType,
                     useLegacyLimits: model.useLegacyLimits,
+                    visibility: model.visibility,
+                    allowObservers: model.allowObservers,
                   }),
                 )
               }}

@@ -874,6 +874,7 @@
     },
     "createLobby": {
       "advancedSettings": "Расширенные настройки",
+      "allowObservers": "Разрешить зрителей",
       "backToList": "Обратно к списку",
       "errorDialogTitle": "Ошибка при создании лобби",
       "errorGeneric": "Что-то пошло не так при создании лобби. Пожалуйста, попробуйте ещё раз.",
@@ -888,7 +889,12 @@
       "mapRequired": "Выберите карту для игры",
       "selectMap": "Выберите карту",
       "title": "Создать лобби",
-      "useLegacyLimits": "Использовать классический лимит юнитов"
+      "useLegacyLimits": "Использовать классический лимит юнитов",
+      "visibility": "Видимость",
+      "visibilityListed": "Публичное",
+      "visibilityListedDescription": "Отображается в списке лобби, присоединиться может любой",
+      "visibilityUnlisted": "Доступ по ссылке",
+      "visibilityUnlistedDescription": "Присоединиться могут только те, у кого есть ссылка"
     },
     "errors": {
       "alreadyInLobby": "Вы уже находитесь в другом лобби.",
@@ -911,12 +917,17 @@
       "title": "Присоединиться к лобби"
     },
     "lobby": {
+      "copiedInviteLink": "Скопировано!",
+      "copyInviteLink": "Копировать ссылку-приглашение",
       "gameType": "Тип игры",
       "leaveLobby": "Выйти из лобби",
       "startGame": "Начать игру",
       "unitLimit": "Лимит единиц",
       "unitLimitExtended": "Расширенный",
-      "unitLimitLegacy": "Классический"
+      "unitLimitLegacy": "Классический",
+      "visibility": "Видимость",
+      "visibilityListed": "Публичное",
+      "visibilityUnlisted": "Доступ по ссылке"
     },
     "messageLayout": {
       "banPlayer": "<0><0></0></0> забанен в лобби",

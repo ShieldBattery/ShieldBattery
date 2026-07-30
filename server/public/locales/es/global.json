@@ -871,6 +871,7 @@
     },
     "createLobby": {
       "advancedSettings": "Ajustes avanzados",
+      "allowObservers": "Permitir observadores",
       "backToList": "Volver a la lista",
       "errorDialogTitle": "Error al crear el lobby",
       "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
@@ -885,7 +886,12 @@
       "mapRequired": "Selecciona un mapa para jugar",
       "selectMap": "Seleccionar mapa",
       "title": "Crear lobby",
-      "useLegacyLimits": "Usar límite de unidad heredado"
+      "useLegacyLimits": "Usar límite de unidad heredado",
+      "visibility": "Visibilidad",
+      "visibilityListed": "Público",
+      "visibilityListedDescription": "Aparece en la lista de lobbies y cualquiera puede unirse",
+      "visibilityUnlisted": "No listado",
+      "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace"
     },
     "errors": {
       "alreadyInLobby": "Ya estás en otro lobby.",
@@ -907,12 +913,17 @@
       "title": "Unirse al lobby"
     },
     "lobby": {
+      "copiedInviteLink": "¡Copiado!",
+      "copyInviteLink": "Copiar enlace de invitación",
       "gameType": "Tipo de juego",
       "leaveLobby": "Salir del lobby",
       "startGame": "Empezar juego",
       "unitLimit": "Límite de unidad",
       "unitLimitExtended": "Extendido",
-      "unitLimitLegacy": "Legado"
+      "unitLimitLegacy": "Legado",
+      "visibility": "Visibilidad",
+      "visibilityListed": "Público",
+      "visibilityUnlisted": "No listado"
     },
     "messageLayout": {
       "banPlayer": "<0><0></0></0> se prohibió del lobby",

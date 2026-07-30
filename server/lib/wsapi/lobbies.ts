@@ -10,6 +10,7 @@ import { GameServerRegion, GameServerRegionId } from '../../../common/game-serve
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
 import {
+  ALL_LOBBY_VISIBILITIES,
   findSlotById,
   findSlotByUserId,
   getHumanSlots,
@@ -20,12 +21,9 @@ import {
   hasOpposingSides,
   isUms,
   Lobby,
+  LobbyVisibility,
 } from '../../../common/lobbies'
-import {
-  LobbyCreateErrorCode,
-  LobbySlotCreateEvent,
-  LobbySummaryJson,
-} from '../../../common/lobbies/lobby-network'
+import { LobbyCreateErrorCode, LobbySlotCreateEvent } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot } from '../../../common/lobbies/slot'
@@ -76,6 +74,8 @@ const isValidRttMs = (rttMs: unknown) =>
 const isValidNetcodeV2Pubkey = (pubkey: unknown) =>
   pubkey === undefined ||
   (typeof pubkey === 'string' && Buffer.from(pubkey, 'base64').length === 32)
+const isValidVisibility = (visibility: unknown) =>
+  visibility === undefined || ALL_LOBBY_VISIBILITIES.includes(visibility as LobbyVisibility)
 
 /**
  * Returns `region` only when it appears in `regions`, otherwise undefined. The region list can
@@ -152,7 +152,10 @@ export class LobbyApi {
       return
     }
 
-    const summary = this.lobbies.valueSeq().map(l => Lobbies.toSummaryJson(l))
+    const summary = this.lobbies
+      .valueSeq()
+      .filter(l => l.visibility === 'listed')
+      .map(l => Lobbies.toSummaryJson(l))
     this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
 
     const onClose = () => {
@@ -194,7 +197,9 @@ export class LobbyApi {
       map: nonEmptyString,
       gameType: isValidGameType,
       gameSubType: isValidGameSubType,
+      allowObservers: (b: unknown) => b === undefined || b === true || b === false,
       useLegacyLimits: (b: unknown) => b === undefined || b === true || b === false,
+      visibility: isValidVisibility,
       region: isValidRegion,
       rttMs: isValidRttMs,
       clientPubkey: isValidNetcodeV2Pubkey,
@@ -208,6 +213,7 @@ export class LobbyApi {
       gameSubType,
       allowObservers,
       useLegacyLimits,
+      visibility,
       region,
       rttMs,
       clientPubkey,
@@ -218,6 +224,7 @@ export class LobbyApi {
       gameSubType?: number
       allowObservers?: boolean
       useLegacyLimits?: boolean
+      visibility?: LobbyVisibility
       region?: GameServerRegionId
       rttMs?: number
       clientPubkey?: string
@@ -253,9 +260,17 @@ export class LobbyApi {
         numSlots = mapInfo.mapData.slots
     }
 
+    const lobbyVisibility = visibility ?? 'listed'
+
     // This check must not be separated from the inserts below by an await, or two in-flight
     // creates with the same name could both pass it.
-    if (this.lobbies.some(l => l.name === name)) {
+    // Name uniqueness only applies among listed lobbies: an unlisted lobby must never influence a
+    // publicly-observable outcome (a NameTaken error would reveal its existence), and names are
+    // display-only, so duplicates outside the public list are harmless.
+    if (
+      lobbyVisibility === 'listed' &&
+      this.lobbies.some(l => l.visibility === 'listed' && l.name === name)
+    ) {
       throw Object.assign(new errors.Conflict('already another lobby with that name'), {
         body: { code: LobbyCreateErrorCode.NameTaken },
       })
@@ -272,6 +287,7 @@ export class LobbyApi {
       hostRegion,
       allowObservers: allowObservers ?? false,
       useLegacyLimits,
+      visibility: lobbyVisibility,
     })
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
@@ -284,7 +300,7 @@ export class LobbyApi {
     }
     this._subscribeClientToLobby(lobby, user, client)
 
-    this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+    this._publishListChange('add', lobby)
     this._warmLobbyRegions(lobby)
 
     return { id: lobby.id }
@@ -842,7 +858,7 @@ export class LobbyApi {
       this.lobbies = this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers = this.lobbyBannedUsers.delete(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
-      this._publishListChange('delete', lobby.id)
+      this._publishListChange('delete', lobby)
     } else {
       this.lobbies = this.lobbies.set(lobby.id, updatedLobby)
       this.lobbyPlayerNetwork.deleteUser(lobby.id, client.userId)
@@ -901,7 +917,7 @@ export class LobbyApi {
     )
 
     this._publishTo(lobby, { type: 'startCountdown' })
-    this._publishListChange('delete', lobby.id)
+    this._publishListChange('delete', lobby)
 
     const gameConfig: GameConfig = {
       gameType: lobby.gameType,
@@ -1012,7 +1028,7 @@ export class LobbyApi {
       usersAtFault,
     })
     if (!isLobbyEmpty) {
-      this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+      this._publishListChange('add', lobby)
     }
   }
 
@@ -1052,7 +1068,7 @@ export class LobbyApi {
       type: 'cancelCountdown',
     })
     if (!isLobbyEmpty) {
-      this._publishListChange('add', Lobbies.toSummaryJson(lobby))
+      this._publishListChange('add', lobby)
     }
   }
 
@@ -1138,15 +1154,32 @@ export class LobbyApi {
 
   _getLobbiesCount() {
     // TODO(tec27): Ideally this would remove full lobbies?
-    return Math.max(this.lobbies.size - (this.lobbyCountdowns.size + this.loadingLobbies.size), 0)
+    return this.lobbies.count(
+      l =>
+        l.visibility === 'listed' &&
+        !this.lobbyCountdowns.has(l.id) &&
+        !this.loadingLobbies.has(l.id),
+    )
   }
 
   _publishLobbiesCount() {
     this.nydus.publish('/lobbiesCount', { count: this._getLobbiesCount() })
   }
 
-  _publishListChange(action: 'add' | 'delete' | 'update', summary: LobbySummaryJson | SbLobbyId) {
-    this.nydus.publish(MOUNT_BASE, { action, payload: summary })
+  /**
+   * Publishes a change to the public lobby list, and refreshes the open-lobby count for everyone.
+   *
+   * A lobby's id is the capability that lets someone join it, so nothing about an unlisted lobby
+   * (not even the bare id in a `delete`) may reach the public list channel. Every list publish must
+   * go through here so that filtering can't be forgotten at a callsite.
+   */
+  _publishListChange(action: 'add' | 'delete' | 'update', lobby: Lobby) {
+    if (lobby.visibility === 'listed') {
+      this.nydus.publish(MOUNT_BASE, {
+        action,
+        payload: action === 'delete' ? lobby.id : Lobbies.toSummaryJson(lobby),
+      })
+    }
     this._publishLobbiesCount()
   }
 
@@ -1296,7 +1329,7 @@ export class LobbyApi {
       })
     }
 
-    this._publishListChange('update', Lobbies.toSummaryJson(newLobby))
+    this._publishListChange('update', newLobby)
   }
 
   static _getPath(lobby: Lobby) {

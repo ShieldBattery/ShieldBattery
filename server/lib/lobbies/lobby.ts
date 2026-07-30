@@ -4,6 +4,7 @@ import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
   Lobby,
+  LobbyVisibility,
   MAX_OBSERVERS,
   Team,
   canAddObservers,
@@ -233,6 +234,7 @@ export function createLobby({
   hostRegion,
   allowObservers,
   useLegacyLimits = false,
+  visibility = 'listed',
 }: {
   name: string
   map: MapInfo
@@ -245,6 +247,7 @@ export function createLobby({
   hostRegion?: GameServerRegionId
   allowObservers: boolean
   useLegacyLimits?: boolean
+  visibility?: LobbyVisibility
 }) {
   let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
   if (gameType === GameType.Melee && allowObservers) {
@@ -272,6 +275,7 @@ export function createLobby({
     teams,
     host: new Slot(),
     useLegacyLimits,
+    visibility,
   })
   let host
   const [hostTeamIndex, hostSlotIndex, hostSlot] = getLobbySlotsWithIndexes(lobby)

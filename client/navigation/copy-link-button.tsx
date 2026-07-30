@@ -6,7 +6,6 @@ import logger from '../logging/logger'
 import { IconButton } from '../material/button'
 import { Tooltip, TooltipPosition } from '../material/tooltip'
 import { makeServerUrl } from '../network/server-url'
-import { useStableCallback } from '../react/state-hooks'
 
 const StyledIconButton = styled(IconButton)`
   color: var(--theme-on-surface-variant);
@@ -24,6 +23,34 @@ function getCurrentUrl() {
   }
 }
 
+/**
+ * Shared clipboard-write behavior for "copy link" style buttons: writes the URL returned by
+ * `getUrl` to the clipboard and reports `copied` as true for 2 seconds afterward, so callers can
+ * swap in "Copied!" style feedback.
+ */
+export function useLinkCopier(getUrl: () => string): [copied: boolean, copyLink: () => void] {
+  const [copied, setCopied] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  function copyLink() {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+
+    navigator.clipboard
+      .writeText(getUrl())
+      .catch(err => logger.error('Error writing to clipboard: ' + (err?.stack ?? err)))
+    setCopied(true)
+
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = undefined
+      setCopied(false)
+    }, 2000)
+  }
+
+  return [copied, copyLink]
+}
+
 export interface CopyLinkButtonProps {
   className?: string
   tooltipPosition?: TooltipPosition
@@ -37,31 +64,14 @@ export function CopyLinkButton({
   startingText = i18n.t('navigation.copyLink.defaultText', 'Copy link'),
   copiedText = i18n.t('navigation.copyLink.copiedText', 'Copied!'),
 }: CopyLinkButtonProps) {
-  const [text, setText] = useState(startingText)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  const onClick = useStableCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-
-    navigator.clipboard
-      .writeText(getCurrentUrl())
-      .catch(err => logger.error('Error writing to clipboard: ' + (err?.stack ?? err)))
-    setText(copiedText)
-
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = undefined
-      setText(startingText)
-    }, 2000)
-  })
+  const [copied, copyLink] = useLinkCopier(getCurrentUrl)
 
   return (
-    <Tooltip text={text} position={tooltipPosition}>
+    <Tooltip text={copied ? copiedText : startingText} position={tooltipPosition}>
       <StyledIconButton
         className={className}
         icon={<MaterialIcon icon='link' />}
-        onClick={onClick}
+        onClick={copyLink}
       />
     </Tooltip>
   )

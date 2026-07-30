@@ -865,6 +865,7 @@
     },
     "createLobby": {
       "advancedSettings": "高级设置",
+      "allowObservers": "允许观战者",
       "backToList": "返回列表",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",
@@ -879,7 +880,12 @@
       "mapRequired": "选择要玩的地图",
       "selectMap": "选择地图",
       "title": "创建房间",
-      "useLegacyLimits": "使用旧版单位数量限制"
+      "useLegacyLimits": "使用旧版单位数量限制",
+      "visibility": "可见性",
+      "visibilityListed": "公开",
+      "visibilityListedDescription": "显示在房间列表中，任何人都可以加入",
+      "visibilityUnlisted": "不公开列出",
+      "visibilityUnlistedDescription": "只有拿到链接的人才能加入"
     },
     "errors": {
       "alreadyInLobby": "您已经在另一个房间了。",
@@ -899,12 +905,17 @@
       "title": "加入房间"
     },
     "lobby": {
+      "copiedInviteLink": "已复制！",
+      "copyInviteLink": "复制邀请链接",
       "gameType": "游戏类型",
       "leaveLobby": "离开房间",
       "startGame": "开始游戏",
       "unitLimit": "单位数量限制",
       "unitLimitExtended": "扩展",
-      "unitLimitLegacy": "原版"
+      "unitLimitLegacy": "原版",
+      "visibility": "可见性",
+      "visibilityListed": "公开",
+      "visibilityUnlisted": "不公开列出"
     },
     "messageLayout": {
       "banPlayer": "<0><0></0></0>已被房间封禁",

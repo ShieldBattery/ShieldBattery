@@ -1,6 +1,7 @@
 import httpErrors from 'http-errors'
 import { isValidLobbyName } from '../../../common/constants'
 import { isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
+import { ALL_LOBBY_VISIBILITIES } from '../../../common/lobbies'
 import { toMapInfoJson } from '../../../common/maps'
 import { getLobbyPreferences, upsertLobbyPreferences } from '../lobbies/lobby-preferences-models'
 import { getMapInfos } from '../maps/map-models'
@@ -31,7 +32,16 @@ export default function (router) {
 }
 
 async function upsertPreferences(ctx, next) {
-  const { name, gameType, gameSubType, recentMaps, selectedMap, useLegacyLimits } = ctx.request.body
+  const {
+    name,
+    gameType,
+    gameSubType,
+    recentMaps,
+    selectedMap,
+    useLegacyLimits,
+    visibility,
+    allowObservers,
+  } = ctx.request.body
 
   if (name && !isValidLobbyName(name)) {
     throw new httpErrors.BadRequest('invalid lobby name')
@@ -45,6 +55,10 @@ async function upsertPreferences(ctx, next) {
     throw new httpErrors.BadRequest('invalid selected map')
   } else if (useLegacyLimits && typeof useLegacyLimits !== 'boolean') {
     throw new httpErrors.BadRequest('invalid use legacy limits')
+  } else if (visibility !== undefined && !ALL_LOBBY_VISIBILITIES.includes(visibility)) {
+    throw new httpErrors.BadRequest('invalid visibility')
+  } else if (allowObservers !== undefined && typeof allowObservers !== 'boolean') {
+    throw new httpErrors.BadRequest('invalid allow observers')
   }
 
   const preferences = await upsertLobbyPreferences(ctx.session.user.id, {
@@ -54,6 +68,8 @@ async function upsertPreferences(ctx, next) {
     recentMaps: recentMaps.slice(0, 5),
     selectedMap,
     useLegacyLimits,
+    visibility,
+    allowObservers,
   })
   const recentMapInfos = await getMapInfos(preferences.recentMaps)
   ctx.body = {

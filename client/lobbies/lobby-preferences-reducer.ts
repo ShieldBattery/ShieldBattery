@@ -1,5 +1,6 @@
 import { List, Record } from 'immutable'
 import { GameType } from '../../common/games/game-type'
+import { LobbyVisibility } from '../../common/lobbies'
 import { MapInfoJson, SbMapId } from '../../common/maps'
 import {
   LOBBY_PREFERENCES_GET,
@@ -15,6 +16,8 @@ export class LobbyPreferences extends Record({
   recentMaps: List<SbMapId>(),
   selectedMap: undefined as SbMapId | undefined,
   useLegacyLimits: undefined as boolean | undefined,
+  visibility: undefined as LobbyVisibility | undefined,
+  allowObservers: undefined as boolean | undefined,
 
   isRequesting: false,
   hasLoaded: false,
