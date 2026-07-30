@@ -79,6 +79,15 @@ describe('lobbies/lobby-page-meta', () => {
       expect(summaryGetterMock).toHaveBeenCalledWith(LOBBY_ID)
     })
 
+    test('returns default metadata marked noindex when the lobby summary lookup throws', async () => {
+      summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
+      findUsersByIdMock.mockRejectedValueOnce(new Error('db is down'))
+
+      const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
+
+      expect(result).toEqual({ ...defaultPageMetadata(CONTEXT), noindex: true })
+    })
+
     test('returns default metadata marked noindex when the host user cannot be resolved', async () => {
       summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
       findUsersByIdMock.mockResolvedValueOnce([])

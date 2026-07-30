@@ -105,6 +105,9 @@ const AppHint = styled(BodyMedium)`
 type LoadState =
   { status: 'loaded'; data: LobbySummaryResponse } | { status: 'notFound' } | { status: 'error' }
 
+/** The load state driving {@link LobbyLandingContent}, exported for devonly test pages. */
+export type LobbyLandingState = LoadState
+
 export interface LobbyLandingPageProps {
   params: { lobbyId: string }
 }
@@ -153,6 +156,15 @@ export function LobbyLandingPage({ params }: LobbyLandingPageProps) {
   const lobbyName = state?.status === 'loaded' ? state.data.summary.name : undefined
   useCorrectLobbySlug(lobbyId, lobbyName)
 
+  return <LobbyLandingContent state={state} />
+}
+
+/**
+ * The presentational part of {@link LobbyLandingPage}: renders the loading/notFound/error/loaded
+ * states without doing any fetching itself, so it can be driven directly (e.g. from a devonly test
+ * page) without racing a real lobby.
+ */
+export function LobbyLandingContent({ state }: { state: LobbyLandingState | undefined }) {
   let content: React.ReactNode
   if (!state) {
     content = <LoadingDotsArea />

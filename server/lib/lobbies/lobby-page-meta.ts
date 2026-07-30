@@ -1,5 +1,6 @@
 import { gameTypeToLabel } from '../../../common/games/game-type'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
+import logger from '../logging/logger'
 import {
   defaultPageImage,
   defaultPageMetadata,
@@ -18,11 +19,21 @@ import { getLiveLobbyWithHost } from './lobby-summaries'
  * as a lookup key. Every response for this route is marked `noindex`: a lobby's id is a capability
  * token backed by ephemeral in-memory state, so a shared link is expected to go dead once the
  * lobby closes — and "already dead" is the state a crawler will almost always find it in. A
- * dead/expired/malformed id falls back to the default site-wide metadata rather than showing stale
- * lobby details; the landing page itself tells a human visitor the lobby is gone.
+ * dead/expired/malformed id, or a failed lookup, falls back to the default site-wide metadata
+ * rather than showing stale lobby details; the landing page itself tells a human visitor the
+ * lobby is gone.
  */
 export const lobbyPageMetadata: PageMetadataResolver = async (params, context) => {
-  const result = await getLiveLobbyWithHost(params.id)
+  // An error escaping this resolver falls through to the site-wide default metadata, which is not
+  // marked `noindex`. A failed lookup is therefore treated the same as "lobby not found" here, so
+  // every response for this route stays noindexed regardless of lookup failures.
+  let result
+  try {
+    result = await getLiveLobbyWithHost(params.id)
+  } catch (err) {
+    logger.warn({ err }, 'lobby summary lookup failed while resolving lobby page metadata')
+    result = undefined
+  }
   if (!result) {
     return { ...defaultPageMetadata(context), noindex: true }
   }
