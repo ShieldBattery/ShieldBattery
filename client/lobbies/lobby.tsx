@@ -1,5 +1,5 @@
 import { List } from 'immutable'
-import React, { useRef, useState } from 'react'
+import React from 'react'
 import { useTranslation, WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -18,7 +18,6 @@ import { Slot, SlotType } from '../../common/lobbies/slot'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
 import { MaterialIcon } from '../icons/material/material-icon'
-import logger from '../logging/logger'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
@@ -26,6 +25,7 @@ import { elevationPlus1 } from '../material/shadows'
 import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
+import { useLinkCopier } from '../navigation/copy-link-button'
 import { makeServerUrl } from '../network/server-url'
 import { headlineMedium, labelLarge, labelMedium } from '../styles/typography'
 import { ClosedSlot } from './closed-slot'
@@ -139,8 +139,7 @@ const Countdown = styled.div`
  */
 function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
   const { t } = useTranslation()
-  const [copied, setCopied] = useState(false)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const [copied, copyLink] = useLinkCopier(() => makeServerUrl(urlForLobby(lobby.id, lobby.name)))
 
   return (
     <TextButton
@@ -150,21 +149,7 @@ function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
           : t('lobbies.lobby.copyInviteLink', 'Copy invite link')
       }
       iconStart={<MaterialIcon icon='link' />}
-      onClick={() => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current)
-        }
-
-        navigator.clipboard
-          .writeText(makeServerUrl(urlForLobby(lobby.id, lobby.name)))
-          .catch(err => logger.error('Error writing to clipboard: ' + (err?.stack ?? err)))
-        setCopied(true)
-
-        timeoutRef.current = setTimeout(() => {
-          timeoutRef.current = undefined
-          setCopied(false)
-        }, 2000)
-      }}
+      onClick={copyLink}
       testName='copy-invite-link-button'
     />
   )

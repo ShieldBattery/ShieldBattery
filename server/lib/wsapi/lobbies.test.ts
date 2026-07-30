@@ -4,7 +4,7 @@ import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
-import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import { LobbyCreateErrorCode, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
@@ -253,5 +253,25 @@ describe('wsapi/lobbies/visibility', () => {
       ),
     ).toBe(true)
     expect(listPublishes()).toEqual([])
+  })
+
+  test('creating a listed lobby with a name matching an existing listed lobby fails', async () => {
+    await createLobby(host, 'Duplicate name', 'listed')
+
+    await expect(createLobby(otherHost, 'Duplicate name', 'listed')).rejects.toMatchObject({
+      body: { code: LobbyCreateErrorCode.NameTaken },
+    })
+  })
+
+  test('creating a listed lobby with a name matching an existing unlisted lobby succeeds', async () => {
+    await createLobby(host, 'Duplicate name', 'unlisted')
+
+    await expect(createLobby(otherHost, 'Duplicate name', 'listed')).resolves.toBeDefined()
+  })
+
+  test('creating an unlisted lobby with a name matching an existing listed lobby succeeds', async () => {
+    await createLobby(host, 'Duplicate name', 'listed')
+
+    await expect(createLobby(otherHost, 'Duplicate name', 'unlisted')).resolves.toBeDefined()
   })
 })

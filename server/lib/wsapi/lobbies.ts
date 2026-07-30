@@ -260,9 +260,17 @@ export class LobbyApi {
         numSlots = mapInfo.mapData.slots
     }
 
+    const lobbyVisibility = visibility ?? 'listed'
+
     // This check must not be separated from the inserts below by an await, or two in-flight
     // creates with the same name could both pass it.
-    if (this.lobbies.some(l => l.name === name)) {
+    // Name uniqueness only applies among listed lobbies: an unlisted lobby must never influence a
+    // publicly-observable outcome (a NameTaken error would reveal its existence), and names are
+    // display-only, so duplicates outside the public list are harmless.
+    if (
+      lobbyVisibility === 'listed' &&
+      this.lobbies.some(l => l.visibility === 'listed' && l.name === name)
+    ) {
       throw Object.assign(new errors.Conflict('already another lobby with that name'), {
         body: { code: LobbyCreateErrorCode.NameTaken },
       })
@@ -279,7 +287,7 @@ export class LobbyApi {
       hostRegion,
       allowObservers: allowObservers ?? false,
       useLegacyLimits,
-      visibility: visibility ?? 'listed',
+      visibility: lobbyVisibility,
     })
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new errors.Conflict('user is already active in a gameplay activity')
