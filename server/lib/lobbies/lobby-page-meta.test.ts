@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameType } from '../../../common/games/game-type'
 import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
-import { MapInfoJson, makeSbMapId } from '../../../common/maps'
+import { makeSbMapId, MapInfoJson } from '../../../common/maps'
 import { encodePrettyId } from '../../../common/pretty-id'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { PageMetadataContext } from '../page-metadata/page-metadata'
+import { defaultPageMetadata, PageMetadataContext } from '../page-metadata/page-metadata'
 import { findUsersById } from '../users/user-model'
 import { lobbyPageMetadata } from './lobby-page-meta'
 import { LobbySummaryGetter, setLobbySummaryGetter } from './lobby-summaries'
@@ -60,30 +60,32 @@ describe('lobbies/lobby-page-meta', () => {
       setLobbySummaryGetter(summaryGetterMock)
     })
 
-    test('returns undefined for a malformed id without calling the summary getter', async () => {
-      expect(await lobbyPageMetadata({ id: LOBBY_UUID }, CONTEXT)).toBeUndefined()
-      expect(await lobbyPageMetadata({ id: 'not-a-pretty-id-at-all!' }, CONTEXT)).toBeUndefined()
-      expect(await lobbyPageMetadata({ id: undefined }, CONTEXT)).toBeUndefined()
+    test('returns default metadata marked noindex for a malformed id without calling the summary getter', async () => {
+      const expected = { ...defaultPageMetadata(CONTEXT), noindex: true }
+
+      expect(await lobbyPageMetadata({ id: LOBBY_UUID }, CONTEXT)).toEqual(expected)
+      expect(await lobbyPageMetadata({ id: 'not-a-pretty-id-at-all!' }, CONTEXT)).toEqual(expected)
+      expect(await lobbyPageMetadata({ id: undefined }, CONTEXT)).toEqual(expected)
 
       expect(summaryGetterMock).not.toHaveBeenCalled()
     })
 
-    test('returns undefined when there is no live lobby with that id', async () => {
+    test('returns default metadata marked noindex when there is no live lobby with that id', async () => {
       summaryGetterMock.mockReturnValueOnce(undefined)
 
       const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
 
-      expect(result).toBeUndefined()
+      expect(result).toEqual({ ...defaultPageMetadata(CONTEXT), noindex: true })
       expect(summaryGetterMock).toHaveBeenCalledWith(LOBBY_ID)
     })
 
-    test('returns undefined when the host user cannot be resolved', async () => {
+    test('returns default metadata marked noindex when the host user cannot be resolved', async () => {
       summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
       findUsersByIdMock.mockResolvedValueOnce([])
 
       const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
 
-      expect(result).toBeUndefined()
+      expect(result).toEqual({ ...defaultPageMetadata(CONTEXT), noindex: true })
     })
 
     test('resolves a live lobby', async () => {

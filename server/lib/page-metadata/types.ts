@@ -21,6 +21,17 @@ export function defaultPageImage(context: PageMetadataContext): string {
   return `${context.canonicalHost}/images/logo-and-text-1200x630.png`
 }
 
+/** The metadata used for any page that doesn't have a more specific resolver match. */
+export function defaultPageMetadata(context: PageMetadataContext): PageMetadata {
+  return {
+    url: context.canonicalHost,
+    type: 'website',
+    title: 'ShieldBattery',
+    description: 'Play StarCraft 1 on the premier community-run platform.',
+    image: defaultPageImage(context),
+  }
+}
+
 /**
  * Resolves the {@link PageMetadata} for a route match. `params` holds the route's named/wildcard
  * segments (see {@link ROUTES}).

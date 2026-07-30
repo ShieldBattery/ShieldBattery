@@ -2,7 +2,12 @@ import { gameTypeToLabel } from '../../../common/games/game-type'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
-import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
+import {
+  defaultPageImage,
+  defaultPageMetadata,
+  englishT,
+  PageMetadataResolver,
+} from '../page-metadata/types'
 import { findUsersById } from '../users/user-model'
 import { getLobbySummary } from './lobby-summaries'
 
@@ -12,26 +17,28 @@ import { getLobbySummary } from './lobby-summaries'
  *
  * Unlike games/leagues/news, a lobby's id (`SbLobbyId`) is itself the pretty (base64url-encoded)
  * form — there's no separate raw id to decode/encode (see `common/lobbies/sb-lobby-id.ts`).
- * `params.id` is checked with `isPrettyId` before it's ever used as a lookup key; anything else, or
- * an id with no currently-live lobby behind it, returns `undefined`. A lobby is ephemeral in-memory
- * state, so a dead/expired link falling back to the generic site preview (rather than showing stale
- * lobby details) is deliberate — the landing page itself tells a human visitor the lobby is gone.
+ * `params.id` is checked with `isPrettyId` before it's ever used as a lookup key. Every response
+ * for this route is marked `noindex`: a lobby's id is a capability token backed by ephemeral
+ * in-memory state, so a shared link is expected to go dead once the lobby closes — and "already
+ * dead" is the state a crawler will almost always find it in. A dead/expired/malformed id falls
+ * back to the default site-wide metadata rather than showing stale lobby details; the landing
+ * page itself tells a human visitor the lobby is gone.
  */
 export const lobbyPageMetadata: PageMetadataResolver = async (params, context) => {
   const routeId = params.id
   if (!routeId || !isPrettyId(routeId)) {
-    return undefined
+    return { ...defaultPageMetadata(context), noindex: true }
   }
 
   const lobbyId: SbLobbyId = makeSbLobbyId(routeId)
   const summary = getLobbySummary(lobbyId)
   if (!summary) {
-    return undefined
+    return { ...defaultPageMetadata(context), noindex: true }
   }
 
   const [host] = await findUsersById([summary.host.id])
   if (!host) {
-    return undefined
+    return { ...defaultPageMetadata(context), noindex: true }
   }
 
   const gameTypeLabel = gameTypeToLabel(summary.gameType, englishT)
