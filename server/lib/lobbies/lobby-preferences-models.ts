@@ -1,5 +1,7 @@
 import { ReadonlyDeep } from 'type-fest'
+import { GameType } from '../../../common/games/game-type'
 import { LobbyVisibility } from '../../../common/lobbies'
+import { SbMapId } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db from '../db'
 import { sql } from '../db/sql'
@@ -8,10 +10,10 @@ import { Dbify } from '../db/types'
 export interface LobbyPreferences {
   userId: SbUserId
   name?: string
-  gameType?: number
+  gameType?: GameType
   gameSubType?: number
-  recentMaps?: string[]
-  selectedMap?: string
+  recentMaps?: SbMapId[]
+  selectedMap?: SbMapId
   useLegacyLimits?: boolean
   visibility?: LobbyVisibility
   allowObservers?: boolean
@@ -44,7 +46,7 @@ export async function upsertLobbyPreferences(
     useLegacyLimits,
     visibility,
     allowObservers,
-  }: ReadonlyDeep<LobbyPreferences>,
+  }: ReadonlyDeep<Omit<LobbyPreferences, 'userId'>>,
 ): Promise<LobbyPreferences> {
   const { client, done } = await db()
 

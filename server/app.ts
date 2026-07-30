@@ -192,7 +192,9 @@ container.register<Koa.Middleware<StateWithJwt>>('sessionMiddleware', {
 })
 container.register<http.Server>(http.Server, { useValue: mainServer })
 
-const websocketServer = container.resolve(WebsocketServer)
+// Resolved (not stored) here only so its constructor wires up nydus/socket handling before any
+// client connects; nothing else in this module needs the instance.
+container.resolve(WebsocketServer)
 
 // Resolved (not initialized) here only so its constructor registers the electron client
 // subscription before any client connects. Fetching the region list itself is demand-driven and
@@ -268,7 +270,7 @@ container.resolve(GameServerRegionsService)
 
   fileStoreMiddleware(app)
 
-  createRoutes(app, websocketServer, process.env.SB_GQL_ORIGIN!)
+  createRoutes(app, process.env.SB_GQL_ORIGIN!)
 
   const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
   const compilePromise = needToBuild
