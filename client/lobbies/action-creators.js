@@ -1,4 +1,5 @@
 import { TypedIpcRenderer } from '../../common/ipc'
+import { apiUrl } from '../../common/urls'
 import createSiteSocketAction from '../action-creators/site-socket-action-creator'
 import {
   LOBBIES_GET_STATE,
@@ -187,7 +188,7 @@ export function getLobbyPreferences() {
     dispatch({ type: LOBBY_PREFERENCES_GET_BEGIN })
     dispatch({
       type: LOBBY_PREFERENCES_GET,
-      payload: fetchJson('/api/1/lobbyPreferences'),
+      payload: fetchJson(apiUrl`lobby-preferences`),
     })
   }
 }
@@ -197,7 +198,7 @@ export function updateLobbyPreferences(preferences) {
     dispatch({ type: LOBBY_PREFERENCES_UPDATE_BEGIN })
     dispatch({
       type: LOBBY_PREFERENCES_UPDATE,
-      payload: fetchJson('/api/1/lobbyPreferences', {
+      payload: fetchJson(apiUrl`lobby-preferences`, {
         method: 'post',
         body: JSON.stringify(preferences),
       }),

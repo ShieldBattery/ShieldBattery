@@ -1,8 +1,9 @@
 import { BasicChannelInfo } from '../chat'
 import { GameType } from '../games/game-type'
-import { MapInfoJson } from '../maps'
+import { MapInfoJson, SbMapId } from '../maps'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
+import { LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
 
@@ -129,4 +130,36 @@ export interface LobbyChatEvent {
 
 export interface LobbyStatusEvent {
   type: 'status'
+}
+
+/** The body of a request to update the current user's saved lobby creation preferences. */
+export interface UpdateLobbyPreferencesRequest {
+  name?: string
+  gameType?: GameType
+  gameSubType?: number
+  recentMaps: SbMapId[]
+  selectedMap?: SbMapId
+  useLegacyLimits?: boolean
+  visibility?: LobbyVisibility
+  allowObservers?: boolean
+}
+
+/**
+ * The current user's saved lobby creation preferences, with `recentMaps` resolved to full map
+ * info instead of just ids.
+ */
+export interface LobbyPreferencesResponse {
+  userId: SbUserId
+  name?: string
+  gameType?: GameType
+  gameSubType?: number
+  recentMaps: MapInfoJson[]
+  /**
+   * The last-selected map's id, or `null` if it's no longer present among `recentMaps` (e.g. it
+   * was removed from recent maps by a later save).
+   */
+  selectedMap?: SbMapId | null
+  useLegacyLimits?: boolean
+  visibility?: LobbyVisibility
+  allowObservers?: boolean
 }

@@ -1,5 +1,4 @@
 import KoaRouter, { RouterContext } from '@koa/router'
-import fs from 'fs'
 import httpErrors from 'http-errors'
 import yaml from 'js-yaml'
 import Koa from 'koa'
@@ -16,16 +15,12 @@ import { getUrl, readFile } from './lib/files'
 import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-config'
 import { GameReportNotificationService } from './lib/games/game-report-notification-service'
 import { applyApiRoutes, resolveAllHttpApis } from './lib/http/http-api'
-import logger from './lib/logging/logger'
 import { NewsService } from './lib/news/news-service'
 import { PageMetadataContext, resolvePageMetadata } from './lib/page-metadata/page-metadata'
 import { getCspNonce } from './lib/security/csp'
 import { getJwt } from './lib/session/jwt-session-middleware'
 import { monotonicNow } from './lib/time/monotonic-now'
 import { getWebpackAssets } from './lib/webpack/manifest-reader'
-import { WebsocketServer } from './websockets'
-
-const jsOrTsFileMatcher = RegExp.prototype.test.bind(/\.(js|ts)$/)
 
 function send404() {
   throw new httpErrors.NotFound()
@@ -40,11 +35,7 @@ interface LatestYaml {
   releaseDate: string
 }
 
-export default function applyRoutes(
-  app: Koa,
-  websocketServer: WebsocketServer,
-  graphqlOrigin: string,
-) {
+export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   // TODO(tec27): Move this somewhere better if we have any other news-related stuff and/or
   // services that don't have an attached HTTP API to hang off of
   container.resolve(NewsService)
@@ -60,17 +51,6 @@ export default function applyRoutes(
     applyApiRoutes(router, httpApi)
   }
 
-  // api methods (through HTTP)
-  // TODO(tec27): migrate these to injected HttpApis
-  const apiFiles = fs.readdirSync(path.join(__dirname, 'lib', 'api'))
-  const baseApiPath = '/api/1/'
-  apiFiles.filter(jsOrTsFileMatcher).forEach(filename => {
-    const apiPath = baseApiPath + path.basename(filename, path.extname(filename))
-    const subRouter = new KoaRouter()
-    require('./lib/api/' + filename).default(subRouter, websocketServer)
-    router.use(apiPath, subRouter.routes())
-    logger.info('mounted ' + apiPath)
-  })
   // error out on any API URIs that haven't been explicitly handled, so that we don't end up
   // sending back HTML due to the wildcard rule below
   router.all('/api{/*param}', send404)
