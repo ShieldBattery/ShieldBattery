@@ -43,6 +43,18 @@ export interface LobbySummaryJson {
   openSlotCount: number
 }
 
+/**
+ * The response of the unauthenticated lobby summary endpoint
+ * (`GET /api/1/lobbies/:lobbyId/summary`), used by the logged-out web landing page for a lobby
+ * link. Possessing a lobby's id is what grants access to this data (ids are unguessable, and for
+ * unlisted lobbies the shared link is the invite), so it contains only what the landing page
+ * shows.
+ */
+export interface LobbySummaryResponse {
+  summary: LobbySummaryJson
+  host: SbUser
+}
+
 export interface LobbyInitEvent {
   type: 'init'
   // TODO(tec27): actually type this

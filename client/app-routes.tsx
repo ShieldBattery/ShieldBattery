@@ -35,6 +35,9 @@ const AdminPanel = React.lazy(() => import('./admin/panel'))
 const LobbyView = React.lazy(async () => ({
   default: (await import('./lobbies/view')).LobbyView,
 }))
+const LobbyLandingPage = React.lazy(async () => ({
+  default: (await import('./lobbies/lobby-landing')).LobbyLandingPage,
+}))
 const Signup = React.lazy(async () => ({
   default: (await import('./auth/signup')).Signup,
 }))
@@ -73,7 +76,11 @@ export function AppRoutes({
       <Route path='/ladder/*?' component={LadderRouteComponent} />
       <Route path='/leagues/*?' component={LeagueRoot} />
       <Route path='/live' component={LiveStreamsPage} />
-      {IS_ELECTRON ? <Route path='/lobbies/:lobbyId/*?' component={LobbyView} /> : <></>}
+      {IS_ELECTRON ? (
+        <Route path='/lobbies/:lobbyId/*?' component={LobbyView} />
+      ) : (
+        <Route path='/lobbies/:lobbyId/*?' component={LobbyLandingPage} />
+      )}
       <Route path='/maps/*?' component={MapsRoot} />
       <Route path='/news/:id/*?' component={NewsPostPage} />
       <Route path='/news' component={NewsArchivePage} />

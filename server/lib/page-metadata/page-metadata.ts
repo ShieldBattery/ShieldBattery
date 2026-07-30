@@ -1,6 +1,7 @@
 import { parse } from 'regexparam'
 import { gamePageMetadata } from '../games/game-page-meta'
 import { leaguePageMetadata } from '../leagues/league-page-meta'
+import { lobbyPageMetadata } from '../lobbies/lobby-page-meta'
 import logger from '../logging/logger'
 import { newsPostPageMetadata } from '../news/news-page-meta'
 import { userPageMetadata } from '../users/user-page-meta'
@@ -37,6 +38,7 @@ const ROUTES: ReadonlyArray<RouteDefinition> = [
   { pattern: '/leagues/:id/*?', resolver: leaguePageMetadata },
   { pattern: '/users/:id/*?', resolver: userPageMetadata },
   { pattern: '/games/:id/*?', resolver: gamePageMetadata },
+  { pattern: '/lobbies/:id/*?', resolver: lobbyPageMetadata },
 
   staticRoute(
     '/download',

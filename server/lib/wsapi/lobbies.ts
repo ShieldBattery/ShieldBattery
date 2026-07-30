@@ -37,6 +37,7 @@ import { GameServerRegionsService } from '../game-server-regions/game-server-reg
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import * as Lobbies from '../lobbies/lobby'
+import { setLobbySummaryGetter } from '../lobbies/lobby-summaries'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
@@ -138,6 +139,14 @@ export class LobbyApi {
   ) {
     this.clientSockets.on('newClient', client => {
       client.subscribe('/lobbiesCount', () => ({ count: this._getLobbiesCount() }))
+    })
+
+    // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
+    // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
+    // live lobby's summary without importing this websocket API directly.
+    setLobbySummaryGetter(id => {
+      const lobby = this.lobbies.get(id)
+      return lobby ? Lobbies.toSummaryJson(lobby) : undefined
     })
   }
 

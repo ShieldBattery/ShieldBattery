@@ -927,6 +927,18 @@
       "openSlotCount_other": "{{count}} slots open",
       "title": "Join Lobby"
     },
+    "landing": {
+      "download": "Download ShieldBattery",
+      "gameTypeLabel": "Game type",
+      "hostLabel": "Host",
+      "loadError": "There was a problem loading this lobby.",
+      "mapLabel": "Map",
+      "notFound": "This lobby is no longer open.",
+      "openInApp": "Already have ShieldBattery? Open this link from inside the app to join the lobby.",
+      "openSlotCount_one": "{{count}} open",
+      "openSlotCount_other": "{{count}} open",
+      "slotsLabel": "Slots"
+    },
     "lobby": {
       "copiedInviteLink": "Copied!",
       "copyInviteLink": "Copy invite link",
