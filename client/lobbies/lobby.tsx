@@ -26,7 +26,7 @@ import { Chat } from '../messaging/chat'
 import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
 import { useLinkCopier } from '../navigation/copy-link-button'
-import { makeServerUrl } from '../network/server-url'
+import { getServerOrigin } from '../network/server-url'
 import { headlineMedium, labelLarge, labelMedium } from '../styles/typography'
 import { ClosedSlot } from './closed-slot'
 import { LobbyUserMenu } from './lobby-menu-items'
@@ -139,7 +139,9 @@ const Countdown = styled.div`
  */
 function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
   const { t } = useTranslation()
-  const [copied, copyLink] = useLinkCopier(() => makeServerUrl(urlForLobby(lobby.id, lobby.name)))
+  const [copied, copyLink] = useLinkCopier(
+    () => getServerOrigin() + urlForLobby(lobby.id, lobby.name),
+  )
 
   return (
     <TextButton
