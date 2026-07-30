@@ -60,8 +60,7 @@ const DetailValue = styled.div`
 `
 
 /**
- * The load state of a lobby summary fetch, tagged with the lobby id it belongs to (see
- * `useLobbySummary`).
+ * The load state of a lobby summary fetch (see `useLobbySummary`).
  */
 export type LobbySummaryLoadState =
   { status: 'loaded'; data: LobbySummaryResponse } | { status: 'notFound' } | { status: 'error' }

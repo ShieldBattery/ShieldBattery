@@ -405,12 +405,15 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
     )
   }
 
+  // Every slot type counted by `openSlotCount` is joinable via the server's slot search, so a
+  // summary reporting 0 open slots means a join attempt is certain to fail with `Full`.
+  const isFull = summary?.status === 'loaded' && summary.data.summary.openSlotCount === 0
   const joinButton = (
     <StateMessageActionButton
       label={t('lobbies.joinLobby.action', 'Join lobby')}
       iconStart={<MaterialIcon icon='add' />}
       onClick={healthChecked(onJoinClick)}
-      disabled={isJoining}
+      disabled={isJoining || isFull}
       testName='join-lobby-button'
     />
   )
