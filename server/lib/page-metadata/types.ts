@@ -1,6 +1,12 @@
+import type { TFunction } from 'i18next'
 import type { PageMetadata } from '../../../common/page-metadata'
 
 export type { PageMetadata }
+
+// Crawler-facing metadata is English-only, so resolve labels with their default strings rather
+// than running the full i18next pipeline.
+export const englishT = ((_key: string, defaultValue: string) =>
+  defaultValue) as unknown as TFunction
 
 /** Values available to every {@link PageMetadataResolver}, regardless of the matched route. */
 export interface PageMetadataContext {

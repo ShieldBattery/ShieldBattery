@@ -1,15 +1,10 @@
-import type { TFunction } from 'i18next'
 import { gameTypeToLabel } from '../../../common/games/game-type'
 import { urlForLobby } from '../../../common/lobbies/lobby-url'
 import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
-import { defaultPageImage, PageMetadataResolver } from '../page-metadata/types'
+import { defaultPageImage, englishT, PageMetadataResolver } from '../page-metadata/types'
 import { findUsersById } from '../users/user-model'
 import { getLobbySummary } from './lobby-summaries'
-
-// Crawler-facing metadata is English-only, so resolve labels with their default strings rather
-// than running the full i18next pipeline.
-const englishT = ((_key: string, defaultValue: string) => defaultValue) as unknown as TFunction
 
 /**
  * Resolves the Open Graph/Twitter Card metadata for a lobby's logged-out landing page (registered

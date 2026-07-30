@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
-import { MapInfoJson, MapVisibility, SbMapId } from '../../common/maps'
+import { MapVisibility, SbMapId } from '../../common/maps'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -25,7 +25,7 @@ import {
   removeFromFavorites,
   removeMap,
 } from './action-creators'
-import { MapInfoImage } from './map-image'
+import { MapImageInfo, MapInfoImage } from './map-image'
 
 const Container = styled.div`
   position: relative;
@@ -182,7 +182,7 @@ const NoImage = () => (
 )
 
 export interface MapThumbnailProps {
-  map: ReadonlyDeep<MapInfoJson>
+  map: ReadonlyDeep<MapImageInfo & { id: SbMapId }>
   className?: string
   style?: React.CSSProperties
   forceAspectRatio?: number

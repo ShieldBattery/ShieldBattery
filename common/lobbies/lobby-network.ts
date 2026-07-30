@@ -44,6 +44,22 @@ export interface LobbySummaryJson {
 }
 
 /**
+ * The subset of a lobby's map info served to unauthenticated visitors: just enough to render the
+ * landing page's map name and thumbnail. Deliberately excludes `mapUrl` (a time-limited download
+ * link for the map file itself) and the uploader/hash/visibility details — anyone holding a lobby
+ * link can call the summary endpoint, and they only need to see the map, not fetch it.
+ */
+export interface LobbySummaryMapJson {
+  id: SbMapId
+  name: string
+  image256Url?: string
+  image512Url?: string
+  image1024Url?: string
+  image2048Url?: string
+  mapData: { width: number; height: number }
+}
+
+/**
  * The response of the unauthenticated lobby summary endpoint
  * (`GET /api/1/lobbies/:lobbyId/summary`), used by the logged-out web landing page for a lobby
  * link. Possessing a lobby's id is what grants access to this data (ids are unguessable, and for
@@ -51,7 +67,7 @@ export interface LobbySummaryJson {
  * shows.
  */
 export interface LobbySummaryResponse {
-  summary: LobbySummaryJson
+  summary: Omit<LobbySummaryJson, 'map'> & { map: LobbySummaryMapJson }
   host: SbUser
 }
 
