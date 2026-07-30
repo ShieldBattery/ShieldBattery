@@ -1,21 +1,15 @@
 import * as React from 'react'
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { gameTypeToLabel } from '../../common/games/game-type'
-import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { apiUrl } from '../../common/urls'
 import { MaterialIcon } from '../icons/material/material-icon'
-import { MapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
 import { LinkButton } from '../material/link-button'
-import { fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { CenteredContentContainer } from '../styles/centered-container'
-import { BodyLarge, BodyMedium, HeadlineMedium, bodyLarge, labelMedium } from '../styles/typography'
+import { BodyLarge, BodyMedium } from '../styles/typography'
+import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 
 const Root = styled(CenteredContentContainer)`
@@ -38,55 +32,6 @@ const StateMessageIcon = styled(MaterialIcon).attrs({ size: 96, filled: false })
   color: var(--theme-on-surface-variant);
 `
 
-const LobbyName = styled(HeadlineMedium)`
-  margin-bottom: 24px;
-  text-align: center;
-  overflow-wrap: break-word;
-`
-
-const InfoLayout = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 24px;
-`
-
-const MAP_THUMBNAIL_SIZE = 208
-
-const MapThumbnailContainer = styled.div`
-  flex-shrink: 0;
-  width: ${MAP_THUMBNAIL_SIZE}px;
-`
-
-const DetailsList = styled.div`
-  flex-grow: 1;
-  margin-top: 8px;
-
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-`
-
-const DetailRow = styled.div`
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-`
-
-const DetailLabel = styled.div`
-  ${labelMedium};
-  width: 88px;
-  flex-shrink: 0;
-
-  color: var(--theme-on-surface-variant);
-  text-align: right;
-`
-
-const DetailValue = styled.div`
-  ${bodyLarge};
-`
-
 const CtaLayout = styled.div`
   margin-top: 40px;
 
@@ -102,12 +47,6 @@ const AppHint = styled(BodyMedium)`
   text-align: center;
 `
 
-type LoadState =
-  { status: 'loaded'; data: LobbySummaryResponse } | { status: 'notFound' } | { status: 'error' }
-
-/** The load state driving {@link LobbyLandingContent}, exported for devonly test pages. */
-export type LobbyLandingState = LoadState
-
 export interface LobbyLandingPageProps {
   params: { lobbyId: string }
 }
@@ -121,37 +60,7 @@ export interface LobbyLandingPageProps {
  */
 export function LobbyLandingPage({ params }: LobbyLandingPageProps) {
   const lobbyId = makeSbLobbyId(params.lobbyId)
-
-  // Tagged with the lobby id it was resolved for, so a stale result from a previous id (e.g. if
-  // this route's params change without the component unmounting) doesn't get rendered as current --
-  // the state is treated as still-loading until a result tagged with the current id arrives.
-  const [result, setResult] = useState<{ lobbyId: string; state: LoadState }>()
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`, {
-      signal: controller.signal,
-    }).then(
-      data => {
-        setResult({ lobbyId, state: { status: 'loaded', data } })
-      },
-      err => {
-        if (controller.signal.aborted) {
-          return
-        }
-        setResult({
-          lobbyId,
-          state:
-            isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' },
-        })
-      },
-    )
-
-    return () => controller.abort()
-  }, [lobbyId])
-
-  const state: LoadState | undefined = result?.lobbyId === lobbyId ? result.state : undefined
+  const state = useLobbySummary(lobbyId)
 
   const lobbyName = state?.status === 'loaded' ? state.data.summary.name : undefined
   useCorrectLobbySlug(lobbyId, lobbyName)
@@ -164,7 +73,7 @@ export function LobbyLandingPage({ params }: LobbyLandingPageProps) {
  * states without doing any fetching itself, so it can be driven directly (e.g. from a devonly test
  * page) without racing a real lobby.
  */
-export function LobbyLandingContent({ state }: { state: LobbyLandingState | undefined }) {
+export function LobbyLandingContent({ state }: { state: LobbySummaryLoadState | undefined }) {
   let content: React.ReactNode
   if (!state) {
     content = <LoadingDotsArea />
@@ -177,7 +86,12 @@ export function LobbyLandingContent({ state }: { state: LobbyLandingState | unde
         content = <ErrorState />
         break
       case 'loaded':
-        content = <LiveLobby summary={state.data} />
+        content = (
+          <>
+            <LobbySummaryDetails summary={state.data} />
+            <DownloadCta showAppHint={true} />
+          </>
+        )
         break
       default:
         content = assertUnreachable(state)
@@ -193,7 +107,7 @@ function NotFoundState() {
   return (
     <StateMessageLayout>
       <StateMessageIcon icon='other_houses' />
-      <BodyLarge>{t('lobbies.landing.notFound', 'This lobby is no longer open.')}</BodyLarge>
+      <BodyLarge>{t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')}</BodyLarge>
       <DownloadCta />
     </StateMessageLayout>
   )
@@ -210,46 +124,6 @@ function ErrorState() {
       </BodyLarge>
       <DownloadCta />
     </StateMessageLayout>
-  )
-}
-
-function LiveLobby({ summary }: { summary: LobbySummaryResponse }) {
-  const { t } = useTranslation()
-  const { summary: lobby, host } = summary
-
-  return (
-    <>
-      <LobbyName>{lobby.name}</LobbyName>
-      <InfoLayout>
-        <MapThumbnailContainer>
-          <MapThumbnail map={lobby.map} size={MAP_THUMBNAIL_SIZE} />
-        </MapThumbnailContainer>
-        <DetailsList>
-          <DetailRow>
-            <DetailLabel>{t('lobbies.landing.mapLabel', 'Map')}</DetailLabel>
-            <DetailValue>{lobby.map.name}</DetailValue>
-          </DetailRow>
-          <DetailRow>
-            <DetailLabel>{t('lobbies.landing.hostLabel', 'Host')}</DetailLabel>
-            <DetailValue>{host.name}</DetailValue>
-          </DetailRow>
-          <DetailRow>
-            <DetailLabel>{t('lobbies.landing.gameTypeLabel', 'Game type')}</DetailLabel>
-            <DetailValue>{gameTypeToLabel(lobby.gameType, t)}</DetailValue>
-          </DetailRow>
-          <DetailRow>
-            <DetailLabel>{t('lobbies.landing.slotsLabel', 'Slots')}</DetailLabel>
-            <DetailValue>
-              {t('lobbies.landing.openSlotCount', {
-                defaultValue: '{{count}} open',
-                count: lobby.openSlotCount,
-              })}
-            </DetailValue>
-          </DetailRow>
-        </DetailsList>
-      </InfoLayout>
-      <DownloadCta showAppHint={true} />
-    </>
   )
 }
 

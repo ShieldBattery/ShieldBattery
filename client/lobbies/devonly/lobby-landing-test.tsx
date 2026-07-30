@@ -9,7 +9,8 @@ import { encodePrettyId } from '../../../common/pretty-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { labelSmall } from '../../styles/typography'
-import { LobbyLandingContent, LobbyLandingState } from '../lobby-landing'
+import { LobbyLandingContent } from '../lobby-landing'
+import { LobbySummaryLoadState } from '../lobby-summary'
 
 const MOCK_HOST: SbUser = { id: makeSbUserId(1), name: 'HostUser', created: 0 }
 
@@ -41,7 +42,7 @@ const SCENARIOS: Array<{ id: Scenario; label: string }> = [
   { id: 'loaded', label: 'Loaded' },
 ]
 
-function scenarioToState(scenario: Scenario): LobbyLandingState | undefined {
+function scenarioToState(scenario: Scenario): LobbySummaryLoadState | undefined {
   switch (scenario) {
     case 'loading':
       return undefined

@@ -4,7 +4,11 @@ import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
-import { LobbyCreateErrorCode, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyCreateErrorCode,
+  LobbyJoinErrorCode,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -301,6 +305,32 @@ describe('wsapi/lobbies/visibility', () => {
     await createLobby(host, 'Duplicate name', 'listed')
 
     await expect(createLobby(otherHost, 'Duplicate name', 'unlisted')).resolves.toBeDefined()
+  })
+
+  test('joining an unknown lobby id rejects with a noLongerOpen code', async () => {
+    await expect(
+      lobbyApi.join(apiData(joiner, { id: makeSbLobbyId('nonexistent-lobby') }), NOOP_NEXT),
+    ).rejects.toMatchObject({
+      body: { code: LobbyJoinErrorCode.NoLongerOpen },
+    })
+  })
+
+  test('joining a full lobby rejects with a full code', async () => {
+    const { id } = await lobbyApi.create(
+      apiData(host, {
+        name: 'Full lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.OneVsOne,
+        visibility: 'listed',
+      }),
+      NOOP_NEXT,
+    )
+    // 1v1 lobbies only have 2 slots, and the host already occupies one.
+    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+    await expect(lobbyApi.join(apiData(otherHost, { id }), NOOP_NEXT)).rejects.toMatchObject({
+      body: { code: LobbyJoinErrorCode.Full },
+    })
   })
 
   test('a counting-down lobby is reported as gone by the summary getter', async () => {

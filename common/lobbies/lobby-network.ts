@@ -15,6 +15,17 @@ export enum LobbyCreateErrorCode {
   NameTaken = 'nameTaken',
 }
 
+/**
+ * Machine-readable codes attached to the error body of failed `/lobbies/join` invokes, so the
+ * client can distinguish failures worth explaining specifically.
+ */
+export enum LobbyJoinErrorCode {
+  NoLongerOpen = 'noLongerOpen',
+  Full = 'full',
+  Banned = 'banned',
+  AlreadyStarted = 'alreadyStarted',
+}
+
 export type LobbyEvent =
   | LobbyInitEvent
   | LobbyDiffEvent
