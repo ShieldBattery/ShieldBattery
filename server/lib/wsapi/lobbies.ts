@@ -28,7 +28,7 @@ import {
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
-import { Slot } from '../../../common/lobbies/slot'
+import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
 import { isPrettyId } from '../../../common/pretty-id'
 import { urlPath } from '../../../common/urls'
@@ -950,7 +950,13 @@ export class LobbyApi {
       }
 
       const gameLoadResult = await this.gameLoader.loadGame({
-        players: getHumanSlots(lobby),
+        players: getHumanSlots(lobby)
+          .map(s => ({
+            userId: s.userId!,
+            isObserver: s.type === SlotType.Observer,
+            region: s.region,
+          }))
+          .toArray(),
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,

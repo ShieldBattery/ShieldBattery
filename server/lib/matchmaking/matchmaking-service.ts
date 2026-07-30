@@ -19,7 +19,7 @@ import {
 } from '../../../common/games/configuration'
 import { PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameType } from '../../../common/games/game-type'
-import { createHuman, Slot, SlotType } from '../../../common/lobbies/slot'
+import { SlotType } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import {
   getMatchmakingModeInfo,
@@ -38,7 +38,7 @@ import { MatchFoundMessage, PublishedMatchmakingMessage } from '../../../common/
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { GameLoader, GameLoadErrorType } from '../games/game-loader'
+import { GameLoader, GameLoadErrorType, GameLoadPlayer } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
@@ -1068,9 +1068,12 @@ export class MatchmakingService {
   }
 
   private async doGameLoad(match: Match, mapInfo: MapInfo) {
-    let slots: Slot[]
-    let playerInfos: PlayerInfo[]
-    let teams: GameConfigPlayer[][]
+    /**
+     * Each participant paired with the race they'll actually play, grouped into the game's teams.
+     * The shapes the game loader, the game process and the persisted game config each need are all
+     * derived from this below.
+     */
+    let playersInTeams: Array<Array<{ userId: SbUserId; race: RaceChar }>>
     const players = Array.from(match.players())
     const clients: ClientSocketsGroup[] = []
     let declined = false
@@ -1101,104 +1104,91 @@ export class MatchmakingService {
         // one of the players randomly to play their alternate race, leaving the other player to
         // play their main race.
         const randomPlayerIndex = randomInt(0, players.length)
-        slots = players.map((p, i) =>
-          createHuman(p.id, i === randomPlayerIndex ? p.preferenceData.alternateRace : p.race),
-        )
+        playersInTeams = [
+          players.map((p, i) => ({
+            userId: p.id,
+            // `alternateRace` is optional in stored preferences, so someone who asked for one
+            // without picking it plays random.
+            race: (i === randomPlayerIndex ? p.preferenceData.alternateRace : p.race) ?? 'r',
+          })),
+        ]
       } else if (
         playersHaveSameRace &&
         players.some(p => p.preferenceData.useAlternateRace === true)
       ) {
         // All players have the same main race and one of them wants to use an alternate race
-        slots = players.map(p =>
-          createHuman(
-            p.id,
-            p.preferenceData.useAlternateRace ? p.preferenceData.alternateRace : p.race,
-          ),
-        )
+        playersInTeams = [
+          players.map(p => ({
+            userId: p.id,
+            race:
+              (p.preferenceData.useAlternateRace ? p.preferenceData.alternateRace : p.race) ?? 'r',
+          })),
+        ]
       } else {
         // No alternate race selection, so everyone gets their selected race
-        slots = players.map(p => createHuman(p.id, p.race))
+        playersInTeams = [players.map(p => ({ userId: p.id, race: p.race }))]
       }
-
-      playerInfos = slots.map(s => ({
-        id: s.id,
-        userId: s.userId,
-        race: s.race,
-        playerId: s.playerId,
-        teamId: 0,
-        type: s.type,
-        typeId: s.typeId,
-      }))
-      teams = [
-        slots.map(s => ({
-          id: s.userId ?? makeSbUserId(0),
-          race: s.race,
-          isComputer: s.type === SlotType.Computer || s.type === SlotType.UmsComputer,
-        })),
-      ]
     } else {
       // For team modes, use draft results if available, otherwise use original race selections
       const draftState = match.getDraftState()
       const finalRaces = draftState?.getFinalRaces()
 
-      const slotsInTeams = match.teams.map(team =>
+      playersInTeams = match.teams.map(team =>
         team.flatMap(entity =>
-          Array.from(getPlayersFromEntity(entity), p =>
-            createHuman(p.id, finalRaces?.get(p.id) ?? p.race),
-          ),
+          Array.from(getPlayersFromEntity(entity), p => ({
+            userId: p.id,
+            race: finalRaces?.get(p.id) ?? p.race,
+          })),
         ),
       )
-      slots = slotsInTeams.flat()
-      playerInfos = slotsInTeams.flatMap((t, i) =>
-        t.map(s => ({
-          id: s.id,
-          userId: s.userId,
-          race: s.race,
-          playerId: s.playerId,
-          teamId: i,
-          type: s.type,
-          typeId: s.typeId,
-        })),
-      )
-      teams = slotsInTeams.map(t =>
-        t.map(s => ({
-          id: s.userId ?? makeSbUserId(0),
-          race: s.race,
-          isComputer: s.type === SlotType.Computer || s.type === SlotType.UmsComputer,
-        })),
-      )
     }
+
+    // Matchmaking games are always plain human players on a non-UMS map, so the UMS-only fields BW
+    // needs are their neutral values: `playerId` is unused outside UMS (BW takes the slot's index
+    // in this list), and 6 is the BW slot type id for a regular player.
+    const playerInfos: PlayerInfo[] = playersInTeams.flatMap((team, teamId) =>
+      team.map(p => ({
+        id: nanoid(),
+        userId: p.userId,
+        race: p.race,
+        playerId: 0,
+        teamId,
+        type: SlotType.Human,
+        typeId: 6,
+      })),
+    )
+    const teams: GameConfigPlayer[][] = playersInTeams.map(team =>
+      team.map(p => ({ id: p.userId, race: p.race, isComputer: false })),
+    )
 
     // Carry each player's queued home region through to the game loader, which forwards it to the
     // coordinator to place their relay. It was validated against the live region list when they
     // queued; a player with no recorded region is placed region-blind.
-    slots = slots.map(s =>
-      s.userId !== undefined
-        ? s.set('region', this.playerQueueData.get(s.userId)?.region?.region)
-        : s,
-    )
+    const gameLoadPlayers: GameLoadPlayer[] = playersInTeams.flat().map(p => ({
+      userId: p.userId,
+      isObserver: false,
+      region: this.playerQueueData.get(p.userId)?.region?.region,
+    }))
 
     // Each player's measured round-trip time to that region, carried to the game loader alongside
-    // `region` — but kept off the `Slot` itself (unlike `region`) since `rttMs` is never meant to
-    // reach another player.
+    // `region` — but keyed by user id rather than carried per-player, since `rttMs` is never meant
+    // to reach another player.
     const rttMsByUserId = new Map<SbUserId, number>()
-    for (const s of slots) {
-      const rttMs =
-        s.userId !== undefined ? this.playerQueueData.get(s.userId)?.region?.rttMs : undefined
+    for (const p of gameLoadPlayers) {
+      const rttMs = this.playerQueueData.get(p.userId)?.region?.rttMs
       if (rttMs !== undefined) {
-        rttMsByUserId.set(s.userId!, rttMs)
+        rttMsByUserId.set(p.userId, rttMs)
       }
     }
 
     // Each player's per-session netcode v2 public key, submitted when they queued and carried to the
-    // game loader to build the coordinator session token — kept off the `Slot` (like `rttMs`) since
-    // no peer needs it.
+    // game loader to build the coordinator session token — keyed by user id (like `rttMs`) since no
+    // peer needs it.
     const netcodeV2PubkeyByUserId = new Map<SbUserId, string>()
-    for (const s of slots) {
-      const pubkey =
-        s.userId !== undefined ? this.playerQueueData.get(s.userId)?.clientPubkey : undefined
+    for (const p of gameLoadPlayers) {
+      const pubkey = this.playerQueueData.get(p.userId)?.clientPubkey
       if (pubkey !== undefined) {
-        netcodeV2PubkeyByUserId.set(s.userId!, pubkey)
+        netcodeV2PubkeyByUserId.set(p.userId, pubkey)
       }
     }
 
@@ -1279,7 +1269,7 @@ export class MatchmakingService {
     }
 
     const loadResult = await this.gameLoader.loadGame({
-      players: slots,
+      players: gameLoadPlayers,
       playerInfos,
       mapId: chosenMap.id,
       gameConfig,

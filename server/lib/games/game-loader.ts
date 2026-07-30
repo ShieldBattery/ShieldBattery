@@ -4,10 +4,10 @@ import { singleton } from 'tsyringe'
 import { AsyncResult, Result } from 'typescript-result'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import { extendableDeadline } from '../../../common/async/extendable-deadline'
+import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameSetup, PlayerInfo } from '../../../common/games/game-launch-config'
 import { GameLoaderEvent } from '../../../common/games/game-loader-network'
-import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { MapInfo, SbMapId, toMapInfoJson } from '../../../common/maps'
 import { BwTurnRate, BwUserLatency } from '../../../common/network'
 import { urlPath } from '../../../common/urls'
@@ -84,9 +84,30 @@ export interface GameLoadResult {
   gameId: string
 }
 
+/**
+ * A human participant in a game being loaded. This is everything the loader itself needs to know
+ * about a player; whatever richer model a caller has (lobby slots, matchmaking entities, ...) is
+ * mapped into this at the call site. Per-slot data the game process needs but the loader only
+ * passes through lives on `GameLoadRequest.playerInfos` instead.
+ */
+export interface GameLoadPlayer {
+  /** The user occupying this spot in the game. */
+  readonly userId: SbUserId
+  /**
+   * Whether this player watches rather than plays. Observers load the game and get a netcode v2
+   * slot like anyone else, but are excluded from the relay's desync comparison.
+   */
+  readonly isObserver: boolean
+  /**
+   * The home game-server region this player selected, if any. Forwarded to the coordinator to home
+   * this player's netcode v2 relay; a player with none is placed region-blind.
+   */
+  readonly region?: GameServerRegionId
+}
+
 const createLoadingData = Record({
   gameSource: GameSource.Lobby,
-  players: ISet<Slot>(),
+  players: [] as ReadonlyArray<GameLoadPlayer>,
   finishedPlayers: ISet<SbUserId>(),
   abortController: null as unknown as AbortController,
   deferred: null as unknown as Deferred<Result<GameLoadResult, GameLoaderError>>,
@@ -99,7 +120,7 @@ type LoadingData = ReturnType<typeof createLoadingData>
 
 const LoadingDatas = {
   isAllFinished(loadingData: LoadingData) {
-    return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId!))
+    return loadingData.players.every(p => loadingData.finishedPlayers.has(p.userId))
   },
 }
 
@@ -108,10 +129,11 @@ const LoadingDatas = {
  */
 export interface GameLoadRequest {
   /**
-   * A list of players that should be created as human (or observer) type slots. At least one player
-   * should be present for things to work properly.
+   * The players that should be created as human (or observer) type slots. At least one player
+   * should be present for things to work properly. The order is preserved when assigning netcode v2
+   * slots (aside from the host, who is always moved to slot 0).
    */
-  players: Iterable<Slot>
+  players: ReadonlyArray<GameLoadPlayer>
   /**
    * A list of the info about each slot in the map/lobby. This is only really useful data for UMS
    * lobbies, where slots may have different types, there might be hidden computer slots, etc. For
@@ -134,17 +156,15 @@ export interface GameLoadRequest {
   ratings?: Array<[id: SbUserId, rating: number]>
   /**
    * Each player's measured round-trip time (ms) to their home region, keyed by user id. Read when
-   * building the netcode v2 session-create roster, alongside the region already carried on each
-   * player's `Slot`. Kept off `Slot` itself (rather than a field there, alongside `region`) because
-   * `Slot` is broadcast wholesale to lobby members and per-player rtt is not for peers' eyes; a
-   * user with no entry is forwarded to the coordinator without a latency sample.
+   * building the netcode v2 session-create roster, alongside the `region` carried on each
+   * `GameLoadPlayer`. A user with no entry is forwarded to the coordinator without a latency
+   * sample.
    */
   rttMsByUserId?: ReadonlyMap<SbUserId, number>
   /**
    * Each player's per-session netcode v2 public key (base64), keyed by user id. Threaded per-slot
    * into the netcode v2 session-create request. Required for every human slot of a multi-human
-   * (netcode v2) game — a missing entry fails the load fast rather than waiting. Kept off `Slot`
-   * (like `rttMsByUserId`) since no peer needs it.
+   * (netcode v2) game — a missing entry fails the load fast rather than waiting.
    */
   netcodeV2PubkeyByUserId?: ReadonlyMap<SbUserId, string>
   /** An `AbortSignal` that can be used to cancel the loading process midway through. */
@@ -284,7 +304,7 @@ export class GameLoader {
           gameId,
           createLoadingData({
             gameSource: gameConfig.gameSource,
-            players: ISet(players),
+            players: [...players],
             abortController,
             deferred: gameLoaded,
             signal: signal
@@ -315,12 +335,12 @@ export class GameLoader {
           }
 
           const unloaded = []
-          if (loadingData.finishedPlayers.size >= Math.floor(loadingData.players.size / 2)) {
+          if (loadingData.finishedPlayers.size >= Math.floor(loadingData.players.length / 2)) {
             // If at least half the players have finished loading, mark the rest of them as failed
             // since that can only really happen if some players failed to report a status or
             // crashed on game start.
             for (const p of loadingData.players) {
-              if (p.userId && !loadingData.finishedPlayers.has(p.userId)) {
+              if (!loadingData.finishedPlayers.has(p.userId)) {
                 unloaded.push(p.userId)
               }
             }
@@ -394,7 +414,7 @@ export class GameLoader {
     this.loadingGames = this.loadingGames.set(gameId, loadingData)
 
     if (LoadingDatas.isAllFinished(loadingData)) {
-      const allUserIds = loadingData.players.map(p => p.userId!).toArray()
+      const allUserIds = loadingData.players.map(p => p.userId)
       const activeClients = allUserIds
         .map(userId => this.activityRegistry.getClientForUser(userId))
         .filter(c => !!c)
@@ -447,7 +467,7 @@ export class GameLoader {
 
     const loadingData = this.loadingGames.get(gameId)!
 
-    const allUserIds = loadingData.players.map(p => p.userId!).toArray()
+    const allUserIds = loadingData.players.map(p => p.userId)
     const activeClients = allUserIds
       .map(userId => this.activityRegistry.getClientForUser(userId))
       .filter(c => !!c)
@@ -494,7 +514,7 @@ export class GameLoader {
 
     log.info(`game server still provisioning for ${gameId} in: ${regions.join(', ')}`)
     for (const player of loadingData.players) {
-      this.publisher.publish(gameUserPath(gameId, player.userId!), {
+      this.publisher.publish(gameUserPath(gameId, player.userId), {
         type: 'setLoadingStatus',
         gameId,
         status: 'provisioningGameServer',
@@ -544,7 +564,7 @@ export class GameLoader {
 
       const loadingData = this.loadingGames.get(gameId)!
       const { players, signal } = loadingData
-      const allUserIds = players.map(p => p.userId!).toArray()
+      const allUserIds = players.map(p => p.userId)
 
       const usersResult = Result.try(() => findUsersById(allUserIds))
       const chatRestrictedResult = Result.try(() =>
@@ -574,7 +594,7 @@ export class GameLoader {
       }
 
       const [users, usersError] = await usersResult.toTuple()
-      if (usersError || users.length !== players.size) {
+      if (usersError || users.length !== players.length) {
         return Result.error(
           new BaseGameLoaderError(
             GameLoadErrorType.Internal,
@@ -596,7 +616,7 @@ export class GameLoader {
         })
       }
 
-      const hasMultipleHumans = players.size > 1
+      const hasMultipleHumans = players.length > 1
       if (hasMultipleHumans && !this.netcodeV2Service.isEnabled()) {
         return Result.error(
           new BaseGameLoaderError(
@@ -670,7 +690,7 @@ export class GameLoader {
         userLatency: chosenUserLatency,
       })
       for (const player of players) {
-        const userId = player.userId!
+        const userId = player.userId
         this.publisher.publish(gameUserPath(gameId, userId), {
           type: 'setGameConfig',
           gameId,
@@ -690,21 +710,21 @@ export class GameLoader {
         // consumes this setup when its game init starts, so it must be published to every player
         // before they can proceed. A slot missing its pubkey fails the session create fast.
         //
-        // `players` includes observer slots alongside human slots (see `GameLoadRequest.players`'s
-        // doc comment), and `Slot.type` distinguishes them, so observer-ness is known here — mark
-        // it so the relay's desync comparator can exclude observers from the compared slot set.
+        // `players` includes observers alongside playing humans (see `GameLoadRequest.players`'s
+        // doc comment), and `GameLoadPlayer.isObserver` distinguishes them, so observer-ness is
+        // known here — mark it so the relay's desync comparator can exclude observers from the
+        // compared slot set.
         //
         // The host must land at rp2 slot 0: with native-lobby netcode v2, the host creates the
         // game's Storm session, and Storm always assigns its creator slot 0. The game DLL maps
         // BW Storm ids to rp2 slots by identity, so this roster has to agree the host is slot 0 or
         // that mapping breaks. Reuse the host already resolved for `generalSetup` (the same user
         // named in the published `GameSetup.host`) rather than re-deriving it here.
-        const playersArr = [...players]
         const hostUserId = generalSetup.host.userId
-        const hostPlayer = playersArr.find(p => p.userId === hostUserId)
-        let orderedPlayers: Slot[]
+        const hostPlayer = players.find(p => p.userId === hostUserId)
+        let orderedPlayers: ReadonlyArray<GameLoadPlayer>
         if (hostPlayer) {
-          orderedPlayers = [hostPlayer, ...playersArr.filter(p => p !== hostPlayer)]
+          orderedPlayers = [hostPlayer, ...players.filter(p => p !== hostPlayer)]
         } else {
           // Shouldn't happen — the host is always a human participant — but don't let it crash the
           // load, just fall back to the unordered assignment.
@@ -712,21 +732,21 @@ export class GameLoader {
             { gameId, hostUserId },
             'netcode v2: host not found among players, using unordered slot assignment',
           )
-          orderedPlayers = playersArr
+          orderedPlayers = players
         }
         const slots = orderedPlayers.map((p, slot) => ({
           slot,
-          userId: p.userId!,
-          observer: p.type === SlotType.Observer,
+          userId: p.userId,
+          observer: p.isObserver,
           // The region the player selected when they queued/joined, if any. Forwarded to the
           // coordinator to home this slot's relay; a slot with none falls back region-blind.
           region: p.region,
           // The player's measured round-trip time to that region, if recorded. Combined with every
           // other slot's region/rtt to estimate the session's worst pairwise latency.
-          rttMs: rttMsByUserId?.get(p.userId!),
+          rttMs: rttMsByUserId?.get(p.userId),
           // The player's per-session netcode v2 public key, submitted at queue/lobby-join time. The
           // coordinator embeds it in this slot's session token; a slot missing it fails create fast.
-          pubkey: netcodeV2PubkeyByUserId?.get(p.userId!),
+          pubkey: netcodeV2PubkeyByUserId?.get(p.userId),
         }))
         const [setups, setupsError] = (
           await Result.fromAsyncCatching(
