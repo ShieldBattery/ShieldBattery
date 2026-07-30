@@ -874,7 +874,6 @@
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
       "gameTypeHeader": "游戏类型",
       "lobbyName": "房间名称",
-      "lobbyNameInvalidCharacters": "房间名称包含无效字符",
       "lobbyNameRequired": "输入房间名称",
       "mapRequired": "选择要玩的地图",
       "selectMap": "选择地图",

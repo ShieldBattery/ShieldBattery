@@ -883,7 +883,6 @@
       "gameSubTypeOptionTvB": "{{topSlots}} против {{bottomSlots}}",
       "gameTypeHeader": "Тип игры",
       "lobbyName": "Название лобби",
-      "lobbyNameInvalidCharacters": "Название лобби содержит недопустимые символы",
       "lobbyNameRequired": "Введите название лобби",
       "mapRequired": "Выберите карту для игры",
       "selectMap": "Выберите карту",

@@ -5,7 +5,7 @@ import { container } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { isValidLobbyName, LOBBY_NAME_PATTERN, validRace } from '../../../common/constants'
+import { isValidLobbyName, validRace } from '../../../common/constants'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
 import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
@@ -226,10 +226,6 @@ export class LobbyApi {
     const client = this.getClient(data)
 
     const hostRegion = await this._resolveRegion(region)
-
-    if (!LOBBY_NAME_PATTERN.test(name)) {
-      throw new errors.BadRequest('lobby name contains invalid characters')
-    }
 
     let mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
