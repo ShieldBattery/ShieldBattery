@@ -24,6 +24,7 @@ export enum LobbyJoinErrorCode {
   Full = 'full',
   Banned = 'banned',
   AlreadyStarted = 'alreadyStarted',
+  AlreadyInActivity = 'alreadyInActivity',
 }
 
 export type LobbyEvent =

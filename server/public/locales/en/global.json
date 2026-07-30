@@ -920,6 +920,7 @@
     "joinLobby": {
       "action": "Join lobby",
       "browseLobbies": "Browse lobbies",
+      "errorAlreadyInActivity": "You are already in a game, searching for a match, or in another lobby.",
       "errorBanned": "You've been banned from this lobby.",
       "errorFull": "This lobby is full.",
       "errorGeneric": "Something went wrong while joining the lobby. Please try again.",

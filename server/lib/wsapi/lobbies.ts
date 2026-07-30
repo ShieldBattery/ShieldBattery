@@ -388,7 +388,9 @@ export class LobbyApi {
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
-      throw new errors.Conflict('user is already active in a gameplay activity')
+      throw Object.assign(new errors.Conflict('user is already active in a gameplay activity'), {
+        body: { code: LobbyJoinErrorCode.AlreadyInActivity },
+      })
     }
 
     // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593

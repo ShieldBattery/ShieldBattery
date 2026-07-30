@@ -333,6 +333,17 @@ describe('wsapi/lobbies/visibility', () => {
     })
   })
 
+  test('joining while already in a gameplay activity rejects with an alreadyInActivity code', async () => {
+    const { id } = await createLobby(otherHost, 'Other lobby', 'listed')
+
+    // Hosting a lobby registers the host as being in a gameplay activity.
+    await createLobby(host, 'Own lobby', 'listed')
+
+    await expect(lobbyApi.join(apiData(host, { id }), NOOP_NEXT)).rejects.toMatchObject({
+      body: { code: LobbyJoinErrorCode.AlreadyInActivity },
+    })
+  })
+
   test('a counting-down lobby is reported as gone by the summary getter', async () => {
     const { id } = await createLobby(host, 'Listed lobby', 'listed')
     await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)

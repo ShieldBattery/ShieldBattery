@@ -19,6 +19,7 @@ import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
 import { usePrevious } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { healthChecked } from '../starcraft/health-checked'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
@@ -308,20 +309,26 @@ function LobbyStateContent({
         </StateMessageLayout>
       )
     case 'exists':
-      return <JoinableLobbyView routeLobbyId={routeLobbyId} />
+      return <JoinableLobbyView key={routeLobbyId} routeLobbyId={routeLobbyId} />
     case 'countingDown':
     case 'hasStarted':
-      return (
-        <StateMessageLayout>
-          <StateMessageIcon icon='avg_pace' />
-          <BodyLarge>
-            {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
-          </BodyLarge>
-        </StateMessageLayout>
-      )
+      return <LobbyStartedMessage />
     default:
       return assertUnreachable(state)
   }
+}
+
+function LobbyStartedMessage() {
+  const { t } = useTranslation()
+
+  return (
+    <StateMessageLayout>
+      <StateMessageIcon icon='avg_pace' />
+      <BodyLarge>
+        {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
+      </BodyLarge>
+    </StateMessageLayout>
+  )
 }
 
 const JoinPreviewLayout = styled.div`
@@ -339,8 +346,8 @@ const JoinPreviewLayout = styled.div`
  * Renders the join interstitial for a lobby that isn't the current user's active lobby: a preview
  * of the lobby (fetched from the unauthenticated summary endpoint, same as the logged-out landing
  * page) plus a button to join it. Falls back to a bare join prompt if the preview fails to load
- * (the lobby may well still be joinable), and to a "no longer open" message if either the preview
- * or the join attempt itself finds the lobby gone.
+ * (the lobby may well still be joinable), and to a "no longer open" or "already started" message
+ * if the preview or the join attempt itself finds the lobby gone or started.
  */
 function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const dispatch = useAppDispatch()
@@ -349,6 +356,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const summary = useLobbySummary(routeLobbyId)
   const [isJoining, setIsJoining] = useState(false)
   const [lobbyGone, setLobbyGone] = useState(false)
+  const [lobbyStarted, setLobbyStarted] = useState(false)
 
   const onJoinClick = () => {
     setIsJoining(true)
@@ -373,8 +381,14 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
               )
               break
             case LobbyJoinErrorCode.AlreadyStarted:
+              setLobbyStarted(true)
+              break
+            case LobbyJoinErrorCode.AlreadyInActivity:
               snackbarController.showSnackbar(
-                t('lobbies.state.started', 'This lobby has already started and cannot be joined.'),
+                t(
+                  'lobbies.joinLobby.errorAlreadyInActivity',
+                  'You are already in a game, searching for a match, or in another lobby.',
+                ),
               )
               break
             default:
@@ -395,11 +409,15 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
     <StateMessageActionButton
       label={t('lobbies.joinLobby.action', 'Join lobby')}
       iconStart={<MaterialIcon icon='add' />}
-      onClick={onJoinClick}
+      onClick={healthChecked(onJoinClick)}
       disabled={isJoining}
       testName='join-lobby-button'
     />
   )
+
+  if (lobbyStarted) {
+    return <LobbyStartedMessage />
+  }
 
   if (lobbyGone || summary?.status === 'notFound') {
     return (
