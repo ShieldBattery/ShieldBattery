@@ -88,6 +88,9 @@ export function useLobbySummary(
       signal: controller.signal,
     }).then(
       data => {
+        if (controller.signal.aborted) {
+          return
+        }
         setResult({ lobbyId, state: { status: 'loaded', data } })
       },
       err => {
