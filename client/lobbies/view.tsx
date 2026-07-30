@@ -1,3 +1,4 @@
+import { TFunction } from 'i18next'
 import { InvokeError } from 'nydus-client'
 import * as React from 'react'
 import { useEffect, useState } from 'react'
@@ -356,6 +357,34 @@ const JoinPreviewLayout = styled.div`
 `
 
 /**
+ * Returns the user-facing message for a failed lobby join. Shared by every UI that dispatches
+ * `joinLobby` so the same failure reads the same everywhere.
+ */
+export function lobbyJoinErrorMessage(err: unknown, t: TFunction): string {
+  const code = err instanceof InvokeError ? err.body?.code : undefined
+  switch (code) {
+    case LobbyJoinErrorCode.NoLongerOpen:
+      return t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')
+    case LobbyJoinErrorCode.Full:
+      return t('lobbies.joinLobby.errorFull', 'This lobby is full.')
+    case LobbyJoinErrorCode.Banned:
+      return t('lobbies.joinLobby.errorBanned', "You've been banned from this lobby.")
+    case LobbyJoinErrorCode.AlreadyStarted:
+      return t('lobbies.state.started', 'This lobby has already started and cannot be joined.')
+    case LobbyJoinErrorCode.AlreadyInActivity:
+      return t(
+        'lobbies.joinLobby.errorAlreadyInActivity',
+        'You are already in a game, searching for a match, or in another lobby.',
+      )
+    default:
+      return t(
+        'lobbies.joinLobby.errorGeneric',
+        'Something went wrong while joining the lobby. Please try again.',
+      )
+  }
+}
+
+/**
  * Renders the join interstitial for a lobby that isn't the current user's active lobby: a preview
  * of the lobby (fetched from the unauthenticated summary endpoint, same as the logged-out landing
  * page) plus a button to join it. Falls back to a bare join prompt if the preview fails to load
@@ -391,34 +420,11 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
             case LobbyJoinErrorCode.NoLongerOpen:
               setLobbyGone(true)
               break
-            case LobbyJoinErrorCode.Full:
-              snackbarController.showSnackbar(
-                t('lobbies.joinLobby.errorFull', 'This lobby is full.'),
-              )
-              break
-            case LobbyJoinErrorCode.Banned:
-              snackbarController.showSnackbar(
-                t('lobbies.joinLobby.errorBanned', "You've been banned from this lobby."),
-              )
-              break
             case LobbyJoinErrorCode.AlreadyStarted:
               setLobbyStarted(true)
               break
-            case LobbyJoinErrorCode.AlreadyInActivity:
-              snackbarController.showSnackbar(
-                t(
-                  'lobbies.joinLobby.errorAlreadyInActivity',
-                  'You are already in a game, searching for a match, or in another lobby.',
-                ),
-              )
-              break
             default:
-              snackbarController.showSnackbar(
-                t(
-                  'lobbies.joinLobby.errorGeneric',
-                  'Something went wrong while joining the lobby. Please try again.',
-                ),
-              )
+              snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
               break
           }
 
