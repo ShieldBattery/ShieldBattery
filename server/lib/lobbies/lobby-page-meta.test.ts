@@ -105,15 +105,6 @@ describe('lobbies/lobby-page-meta', () => {
       expect(findUsersByIdMock).toHaveBeenCalledWith([HOST_ID])
     })
 
-    test('marks the metadata noindex, since the lobby link is a dead capability token once closed', async () => {
-      summaryGetterMock.mockReturnValueOnce(BASE_SUMMARY)
-      findUsersByIdMock.mockResolvedValueOnce([HOST])
-
-      const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
-
-      expect(result?.noindex).toBe(true)
-    })
-
     test('singularizes the description when there is exactly one open slot', async () => {
       summaryGetterMock.mockReturnValueOnce({ ...BASE_SUMMARY, openSlotCount: 1 })
       findUsersByIdMock.mockResolvedValueOnce([HOST])

@@ -1,15 +1,13 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
-import Joi from 'joi'
 import { LobbySummaryResponse } from '../../../common/lobbies/lobby-network'
-import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet } from '../http/route-decorators'
 import createThrottle from '../throttle/create-throttle'
 import throttleMiddleware from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
-import { validateRequest } from '../validation/joi-validator'
 import { getLobbySummary } from './lobby-summaries'
 
 // Keyed by IP rather than session, since this endpoint is deliberately unauthenticated (a logged-
@@ -19,12 +17,6 @@ const throttle = createThrottle('lobbySummary', {
   rate: 40,
   burst: 80,
   window: 60000,
-})
-
-const LOBBY_SUMMARY_PARAMS = Joi.object<{ lobbyId: SbLobbyId }>({
-  lobbyId: Joi.string()
-    .custom((value, helpers) => (isPrettyId(value) ? value : helpers.error('any.invalid')))
-    .required(),
 })
 
 /**
@@ -40,13 +32,8 @@ export class LobbySummaryApi {
   @httpGet('/:lobbyId/summary')
   @httpBefore(throttleMiddleware(throttle, ctx => ctx.ip))
   async getSummary(ctx: RouterContext): Promise<LobbySummaryResponse> {
-    let lobbyId: SbLobbyId
-    try {
-      const {
-        params: { lobbyId: validatedId },
-      } = validateRequest(ctx, { params: LOBBY_SUMMARY_PARAMS })
-      lobbyId = validatedId
-    } catch {
+    const lobbyId = makeSbLobbyId(ctx.params.lobbyId)
+    if (!isPrettyId(lobbyId)) {
       // A malformed id can never match a live lobby, so it's indistinguishable from "not found" as
       // far as the landing page is concerned — both mean "this link doesn't work".
       throw new httpErrors.NotFound('lobby not found')

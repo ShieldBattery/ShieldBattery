@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'vitest'
+import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { PathObject } from '../navigation/routing'
-import { navigateToLobby, urlForLobby } from './lobby-url'
+import { navigateToLobby } from './lobby-url'
 
 const LOBBY_ID = 'AbCdEfGhIjKlMnOpQrStUv' as SbLobbyId
 

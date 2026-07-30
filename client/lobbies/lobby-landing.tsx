@@ -192,6 +192,7 @@ function ErrorState() {
 
   return (
     <StateMessageLayout>
+      <StateMessageIcon icon='cloud_off' />
       <BodyLarge>
         {t('lobbies.landing.loadError', 'There was a problem loading this lobby.')}
       </BodyLarge>

@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep, Simplify } from 'type-fest'
-import { MapVisibility, SbMapId } from '../../common/maps'
+import { MapImageInfo, MapVisibility, SbMapId } from '../../common/maps'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -25,7 +25,7 @@ import {
   removeFromFavorites,
   removeMap,
 } from './action-creators'
-import { MapImageInfo, MapInfoImage } from './map-image'
+import { MapInfoImage } from './map-image'
 
 const Container = styled.div`
   position: relative;

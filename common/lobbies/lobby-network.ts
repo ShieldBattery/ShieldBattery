@@ -1,6 +1,6 @@
 import { BasicChannelInfo } from '../chat'
 import { GameType } from '../games/game-type'
-import { MapInfoJson, SbMapId } from '../maps'
+import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
 import { LobbyVisibility } from './index'
@@ -45,18 +45,13 @@ export interface LobbySummaryJson {
 
 /**
  * The subset of a lobby's map info served to unauthenticated visitors: just enough to render the
- * landing page's map name and thumbnail. Deliberately excludes `mapUrl` (a time-limited download
- * link for the map file itself) and the uploader/hash/visibility details — anyone holding a lobby
- * link can call the summary endpoint, and they only need to see the map, not fetch it.
+ * landing page's map name and thumbnail (`MapImageInfo`). Deliberately excludes `mapUrl` (a
+ * time-limited download link for the map file itself) and the uploader/hash/visibility details —
+ * anyone holding a lobby link can call the summary endpoint, and they only need to see the map,
+ * not fetch it.
  */
-export interface LobbySummaryMapJson {
+export interface LobbySummaryMapJson extends MapImageInfo {
   id: SbMapId
-  name: string
-  image256Url?: string
-  image512Url?: string
-  image1024Url?: string
-  image2048Url?: string
-  mapData: { width: number; height: number }
 }
 
 /**

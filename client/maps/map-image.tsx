@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
+import { MapImageInfo } from '../../common/maps'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { BodyLarge } from '../styles/typography'
@@ -44,20 +45,6 @@ export function MapNoImage() {
       <BodyLarge>{t('maps.thumbnail.noMapPreview', 'Map preview not available')}</BodyLarge>
     </NoImageContainer>
   )
-}
-
-/**
- * The subset of map info needed to render a map's image. Structurally satisfied by
- * `MapInfoJson`, and by narrower wire types that deliberately omit the rest (e.g. the
- * unauthenticated lobby summary's map).
- */
-export interface MapImageInfo {
-  name: string
-  image256Url?: string
-  image512Url?: string
-  image1024Url?: string
-  image2048Url?: string
-  mapData: { width: number; height: number }
 }
 
 export interface MapInfoImageProps {

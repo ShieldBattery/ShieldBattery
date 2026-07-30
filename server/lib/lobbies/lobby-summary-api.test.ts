@@ -68,7 +68,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   openSlotCount: 3,
 }
 
-/** A fake `RouterContext` satisfying `getSummary`'s param Joi validation. */
+/** A fake `RouterContext` satisfying `getSummary`'s param validation. */
 function makeSummaryCtx(): RouterContext {
   return { params: { lobbyId: LOBBY_PRETTY_ID } } as any
 }
@@ -140,7 +140,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     expect(findUsersByIdMock).not.toHaveBeenCalled()
   })
 
-  test('returns 404 (not 400, and not an unhandled Joi error) for a malformed lobby id', async () => {
+  test('returns 404 (not 400) for a malformed lobby id', async () => {
     const api = new LobbySummaryApi()
     const ctx = { params: { lobbyId: 'not-a-pretty-id!!' } } as any
 

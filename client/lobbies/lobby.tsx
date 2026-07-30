@@ -14,6 +14,7 @@ import {
   Lobby,
   Team,
 } from '../../common/lobbies'
+import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
@@ -44,7 +45,6 @@ import {
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
 import { LobbyLoadingState } from './lobby-reducer'
-import { urlForLobby } from './lobby-url'
 import { OpenSlot } from './open-slot'
 import { PlayerSlot } from './player-slot'
 import { ObserverSlots, RegularSlots, TeamName } from './slot'
