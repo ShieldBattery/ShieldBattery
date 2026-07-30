@@ -371,6 +371,14 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const [lobbyGone, setLobbyGone] = useState(false)
   const [lobbyStarted, setLobbyStarted] = useState(false)
 
+  // The parent view can only correct the URL slug from the lobby name in the store, which isn't
+  // populated until the user is actually in the lobby -- the summary lets this page fix a stale or
+  // hand-edited slug the same way the logged-out landing page does.
+  useCorrectLobbySlug(
+    routeLobbyId,
+    summary?.status === 'loaded' ? summary.data.summary.name : undefined,
+  )
+
   const onJoinClick = () => {
     setIsJoining(true)
     dispatch(
