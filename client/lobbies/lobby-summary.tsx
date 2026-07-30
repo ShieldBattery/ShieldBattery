@@ -67,14 +67,19 @@ export type LobbySummaryLoadState =
 
 /**
  * Fetches the unauthenticated lobby summary (`GET /api/1/lobbies/:lobbyId/summary`) for `lobbyId`.
- * Returns undefined while the fetch for the current `lobbyId` is in flight.
+ * Returns a tuple of the load state (undefined while the fetch for the current `lobbyId` is in
+ * flight) and a `refresh` function that re-runs the fetch for the current `lobbyId`.
  *
  * The result is tagged with the lobby id it was fetched for, so a stale result from a previous id
  * (e.g. if `lobbyId` changes without the caller unmounting) is never rendered as current -- the
- * state stays undefined until a result tagged with the current id arrives.
+ * state stays undefined until a result tagged with the current id arrives. A `refresh` doesn't
+ * clear the existing result, so the previous state remains rendered until the new one lands.
  */
-export function useLobbySummary(lobbyId: SbLobbyId): LobbySummaryLoadState | undefined {
+export function useLobbySummary(
+  lobbyId: SbLobbyId,
+): [state: LobbySummaryLoadState | undefined, refresh: () => void] {
   const [result, setResult] = useState<{ lobbyId: string; state: LobbySummaryLoadState }>()
+  const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -98,9 +103,11 @@ export function useLobbySummary(lobbyId: SbLobbyId): LobbySummaryLoadState | und
     )
 
     return () => controller.abort()
-  }, [lobbyId])
+  }, [lobbyId, refreshToken])
 
-  return result?.lobbyId === lobbyId ? result.state : undefined
+  const refresh = () => setRefreshToken(t => t + 1)
+
+  return [result?.lobbyId === lobbyId ? result.state : undefined, refresh]
 }
 
 /**

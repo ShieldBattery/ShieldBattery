@@ -60,7 +60,7 @@ export interface LobbyLandingPageProps {
  */
 export function LobbyLandingPage({ params }: LobbyLandingPageProps) {
   const lobbyId = makeSbLobbyId(params.lobbyId)
-  const state = useLobbySummary(lobbyId)
+  const [state] = useLobbySummary(lobbyId)
 
   const lobbyName = state?.status === 'loaded' ? state.data.summary.name : undefined
   useCorrectLobbySlug(lobbyId, lobbyName)

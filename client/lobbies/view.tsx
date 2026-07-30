@@ -40,7 +40,7 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
-import { LobbySummaryDetails, useLobbySummary } from './lobby-summary'
+import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 
 const LoadingArea = styled.div`
@@ -327,7 +327,20 @@ function LobbyStartedMessage() {
       <BodyLarge>
         {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
       </BodyLarge>
+      <BrowseLobbiesButton />
     </StateMessageLayout>
+  )
+}
+
+function BrowseLobbiesButton() {
+  const { t } = useTranslation()
+
+  return (
+    <StateMessageActionButton
+      label={t('lobbies.joinLobby.browseLobbies', 'Browse lobbies')}
+      iconStart={<MaterialIcon icon='list' />}
+      onClick={() => push('/play/lobbies')}
+    />
   )
 }
 
@@ -353,7 +366,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const dispatch = useAppDispatch()
   const { t } = useTranslation()
   const snackbarController = useSnackbarController()
-  const summary = useLobbySummary(routeLobbyId)
+  const [summary, refreshSummary] = useLobbySummary(routeLobbyId)
   const [isJoining, setIsJoining] = useState(false)
   const [lobbyGone, setLobbyGone] = useState(false)
   const [lobbyStarted, setLobbyStarted] = useState(false)
@@ -400,19 +413,52 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
               )
               break
           }
+
+          refreshSummary()
         },
       }),
     )
   }
 
+  return (
+    <JoinableLobbyContent
+      summary={summary}
+      lobbyGone={lobbyGone}
+      lobbyStarted={lobbyStarted}
+      isJoining={isJoining}
+      onJoinClick={healthChecked(onJoinClick)}
+    />
+  )
+}
+
+/**
+ * The presentational part of {@link JoinableLobbyView}: renders the loading/gone/started/error/
+ * loaded states without doing any fetching or dispatching itself, so it can be driven directly
+ * (e.g. from a devonly test page) without racing a real lobby or join attempt.
+ */
+export function JoinableLobbyContent({
+  summary,
+  lobbyGone,
+  lobbyStarted,
+  isJoining,
+  onJoinClick,
+}: {
+  summary: LobbySummaryLoadState | undefined
+  lobbyGone: boolean
+  lobbyStarted: boolean
+  isJoining: boolean
+  onJoinClick: () => void
+}) {
+  const { t } = useTranslation()
+
   // NOTE: The button stays enabled even if the summary reports 0 open slots — the summary is a
-  // one-shot snapshot, so fullness may have changed since it loaded. The server arbitrates on
-  // click, and a still-full lobby gets the specific `Full` error below.
+  // snapshot, so fullness may have changed since it loaded. The server arbitrates on click, and a
+  // still-full lobby gets a specific error message from the join attempt.
   const joinButton = (
     <StateMessageActionButton
       label={t('lobbies.joinLobby.action', 'Join lobby')}
       iconStart={<MaterialIcon icon='add' />}
-      onClick={healthChecked(onJoinClick)}
+      onClick={onJoinClick}
       disabled={isJoining}
       testName='join-lobby-button'
     />
@@ -427,11 +473,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
       <StateMessageLayout>
         <StateMessageIcon icon='other_houses' />
         <BodyLarge>{t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')}</BodyLarge>
-        <StateMessageActionButton
-          label={t('lobbies.joinLobby.browseLobbies', 'Browse lobbies')}
-          iconStart={<MaterialIcon icon='list' />}
-          onClick={() => push('/play/lobbies')}
-        />
+        <BrowseLobbiesButton />
       </StateMessageLayout>
     )
   }

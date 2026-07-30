@@ -16,7 +16,7 @@ const MOCK_HOST: SbUser = { id: makeSbUserId(1), name: 'HostUser', created: 0 }
 
 const MOCK_LOBBY_ID = makeSbLobbyId(encodePrettyId('5eed0000-0000-0000-0000-000000000042'))
 
-const MOCK_SUMMARY: LobbySummaryResponse = {
+export const MOCK_LOBBY_SUMMARY: LobbySummaryResponse = {
   summary: {
     id: MOCK_LOBBY_ID,
     name: 'Fastest Game Ever',
@@ -51,7 +51,7 @@ function scenarioToState(scenario: Scenario): LobbySummaryLoadState | undefined 
     case 'error':
       return { status: 'error' }
     case 'loaded':
-      return { status: 'loaded', data: MOCK_SUMMARY }
+      return { status: 'loaded', data: MOCK_LOBBY_SUMMARY }
     default:
       return assertUnreachable(scenario)
   }
