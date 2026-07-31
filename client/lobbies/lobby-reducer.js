@@ -1,7 +1,6 @@
+import { produce } from 'immer'
 import { List, Record } from 'immutable'
 import { nanoid } from 'nanoid'
-import { Lobby, Team } from '../../common/lobbies/index'
-import { Slot } from '../../common/lobbies/slot'
 import {
   LOBBY_ACTIVATE,
   LOBBY_DEACTIVATE,
@@ -45,12 +44,34 @@ export class LobbyLoadingState extends Record({
   isLoading: false,
 }) {}
 
+/** @type {import('../../common/lobbies/slot').Slot} */
+const EMPTY_SLOT = Object.freeze({
+  type: 'open',
+  race: 'r',
+  id: '',
+  joinedAt: 0,
+  hasForcedRace: false,
+  playerId: 0,
+  typeId: 0,
+})
+/** @type {import('../../common/lobbies').Lobby} */
+const EMPTY_LOBBY = Object.freeze({
+  id: '',
+  name: '',
+  map: undefined,
+  gameType: 'melee',
+  gameSubType: 0,
+  teams: [],
+  host: EMPTY_SLOT,
+  useLegacyLimits: false,
+  visibility: 'listed',
+})
+
 export class LobbyRecord extends Record({
-  // TODO(tec27): This isn't totally correct as some parts of this are actually the JSON versions
-  // (i.e. the map). This makes the normal Lobby functions usable on this though and dealing with
-  // the types in Immutable is a real pain. We should clean this up when we move this off
-  // Immutable though (and probably just move the Map data out of this struct generally).
-  info: new Lobby(),
+  // TODO(tec27): `info` holds the server's JSON-serialized lobby directly, so e.g. `map` is a
+  // `MapInfoJson` rather than a full `MapInfo`. We should probably move the map data out of this
+  // struct generally.
+  info: EMPTY_LOBBY,
   loadingState: new LobbyLoadingState(),
   chat: List(),
 
@@ -62,60 +83,54 @@ export class LobbyRecord extends Record({
   }
 }
 
-const infoReducer = keyedReducer(new Lobby(), {
+const infoReducer = keyedReducer(EMPTY_LOBBY, {
   [LOBBY_INIT_DATA](state, action) {
-    const { lobby } = action.payload
-    const teams = lobby.teams.map(team => {
-      const slots = team.slots.map(slot => new Slot(slot))
-      const hiddenSlots = team.hiddenSlots.map(slot => new Slot(slot))
-      return new Team({ ...team, slots: List(slots), hiddenSlots })
-    })
-    const lobbyInfo = new Lobby({
-      ...lobby,
-      teams: List(teams),
-      host: new Slot(lobby.host),
-    })
-
-    return lobbyInfo
+    return action.payload.lobby
   },
 
   [LOBBY_UPDATE_SLOT_CREATE](state, action) {
     const { teamIndex, slotIndex, slot } = action.payload
-    return state.setIn(['teams', teamIndex, 'slots', slotIndex], new Slot(slot))
+    return produce(state, draft => {
+      draft.teams[teamIndex].slots[slotIndex] = slot
+    })
   },
 
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {
     const { teamIndex, slotIndex, newRace } = action.payload
-    return state.setIn(['teams', teamIndex, 'slots', slotIndex, 'race'], newRace)
+    return produce(state, draft => {
+      draft.teams[teamIndex].slots[slotIndex].race = newRace
+    })
   },
 
   [LOBBY_UPDATE_SLOT_CHANGE](state, action) {
     const { teamIndex, slotIndex, player } = action.payload
-    return state.setIn(['teams', teamIndex, 'slots', slotIndex], new Slot(player))
+    return produce(state, draft => {
+      draft.teams[teamIndex].slots[slotIndex] = player
+    })
   },
 
   [LOBBY_UPDATE_LEAVE_SELF](state, action) {
-    return new Lobby()
+    return EMPTY_LOBBY
   },
 
   [LOBBY_UPDATE_KICK_SELF](state, action) {
-    return new Lobby()
+    return EMPTY_LOBBY
   },
 
   [LOBBY_UPDATE_BAN_SELF](state, action) {
-    return new Lobby()
+    return EMPTY_LOBBY
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
-    return state.set('host', new Slot(action.payload))
+    return { ...state, host: action.payload }
   },
 
   [LOBBY_UPDATE_GAME_STARTED](state, action) {
-    return new Lobby()
+    return EMPTY_LOBBY
   },
 
   ['@network/connect'](state, action) {
-    return new Lobby()
+    return EMPTY_LOBBY
   },
 })
 

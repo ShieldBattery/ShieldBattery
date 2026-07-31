@@ -1,4 +1,4 @@
-import { List, Range } from 'immutable'
+import { produce } from 'immer'
 import { randomUUID } from 'node:crypto'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
@@ -6,9 +6,9 @@ import {
   Lobby,
   LobbyVisibility,
   MAX_OBSERVERS,
+  SlotWithIndexes,
   Team,
   getLobbySlots,
-  getLobbySlotsWithIndexes,
   getObserverTeam,
   hasObservers,
   humanSlotCount,
@@ -119,7 +119,7 @@ export function findAvailableSlot(
       // Find the first available slot in the observer team
       const slotIndex = observerTeam!.slots.findIndex(slot => slot.type === SlotType.Open)
       return slotIndex !== -1
-        ? [teamIndex!, slotIndex, observerTeam!.slots.get(slotIndex)!]
+        ? [teamIndex!, slotIndex, observerTeam!.slots[slotIndex]]
         : [undefined, undefined, undefined]
     } else {
       // There is no available slot in the lobby
@@ -132,17 +132,16 @@ export function findAvailableSlot(
   // players (ie. the highest number of available slots). Note that we're excluding the observer
   // team from this algorithm, because we've handled the observer team above.
   const availableTeam = lobby.teams
-    .filterNot(team => team.isObserver)
+    .filter(team => !team.isObserver)
     .map<[index: number, team: Team]>((team, teamIndex) => [teamIndex, team])
-    .filter(([, team]) => teamTakenSlotCount(team) < team.slots.size)
+    .filter(([, team]) => teamTakenSlotCount(team) < team.slots.length)
     .sort(([, a], [, b]) => {
-      const availableCountA = a.slots.size - teamTakenSlotCount(a)
-      const availableCountB = b.slots.size - teamTakenSlotCount(b)
+      const availableCountA = a.slots.length - teamTakenSlotCount(a)
+      const availableCountB = b.slots.length - teamTakenSlotCount(b)
       if (availableCountA > availableCountB) return -1
       else if (availableCountA < availableCountB) return 1
       else return 0
-    })
-    .first()!
+    })[0]
 
   const [teamIndex, team] = availableTeam
   // After finding the available team, find the first available slot in that team and return its
@@ -150,7 +149,7 @@ export function findAvailableSlot(
   const slotIndex = team.slots.findIndex(
     slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
   )
-  return [teamIndex, slotIndex, team.slots.get(slotIndex)!]
+  return [teamIndex, slotIndex, team.slots[slotIndex]]
 }
 
 function createInitialTeams(
@@ -158,60 +157,60 @@ function createInitialTeams(
   gameType: GameType,
   gameSubType: number,
   numSlots: number,
-) {
+): Team[] {
   // When creating a lobby, we first create all the individual slots for the lobby, and then we
   // distribute each of the slots into their respective teams. The number of slots in each team is
   // fixed for the lifetime of the lobby; only the contents of the slots ever change.
   const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.mapData.umsForces)
-  let slots: List<Slot>
+  let slots: Slot[]
   if (!isUms(gameType)) {
-    slots = Range(0, numSlots)
-      .map(() => createOpen())
-      .toList()
+    slots = Array.from({ length: numSlots }, () => createOpen())
   } else {
-    slots = List(
-      map.mapData.umsForces.flatMap(force =>
-        force.players.map(player => {
-          const playerId = player.id
-          const playerRace = player.race
-          const race = playerRace !== 'any' ? playerRace : 'r'
-          const hasForcedRace = playerRace !== 'any'
-          return player.computer
-            ? createUmsComputer(race, playerId, player.typeId)
-            : createOpen(race, hasForcedRace, playerId)
-        }),
-      ),
+    slots = map.mapData.umsForces.flatMap(force =>
+      force.players.map(player => {
+        const playerId = player.id
+        const playerRace = player.race
+        const race = playerRace !== 'any' ? playerRace : 'r'
+        const hasForcedRace = playerRace !== 'any'
+        return player.computer
+          ? createUmsComputer(race, playerId, player.typeId)
+          : createOpen(race, hasForcedRace, playerId)
+      }),
     )
   }
 
   const teamNames = getTeamNames({ gameType, gameSubType, umsForces: map.mapData.umsForces })
+  const teamCount = numTeams(gameType, gameSubType, map.mapData.umsForces)
+  const teams: Team[] = []
   let slotIndex = 0
-  return Range(0, numTeams(gameType, gameSubType, map.mapData.umsForces))
-    .map(teamIndex => {
-      let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
-      let hiddenSlots
-      slotIndex += slotsPerTeam[teamIndex]
-      const teamName = teamNames[teamIndex]
-      let teamId
-      if (isUms(gameType)) {
-        // Player type 5 means regular computer and 6 means human
-        const isHiddenSlot = (player: Slot) => player.typeId !== 5 && player.typeId !== 6
-        teamId = map.mapData.umsForces[teamIndex].teamId
-        hiddenSlots = teamSlots.filter(isHiddenSlot)
-        teamSlots = teamSlots.filterNot(isHiddenSlot)
-      } else {
-        hiddenSlots = List<Slot>()
-        teamId = isTeamType(gameType) ? teamIndex + 1 : teamIndex
-      }
+  for (let teamIndex = 0; teamIndex < teamCount; teamIndex++) {
+    let teamSlots = slots.slice(slotIndex, slotIndex + slotsPerTeam[teamIndex])
+    let hiddenSlots: Slot[]
+    slotIndex += slotsPerTeam[teamIndex]
+    // Game types whose teams aren't named (melee, FFA, 1v1) have no entry for this team
+    const teamName = teamNames[teamIndex] ?? ''
+    let teamId: number
+    if (isUms(gameType)) {
+      // Player type 5 means regular computer and 6 means human
+      const isHiddenSlot = (player: Slot) => player.typeId !== 5 && player.typeId !== 6
+      teamId = map.mapData.umsForces[teamIndex].teamId
+      hiddenSlots = teamSlots.filter(isHiddenSlot)
+      teamSlots = teamSlots.filter(slot => !isHiddenSlot(slot))
+    } else {
+      hiddenSlots = []
+      teamId = isTeamType(gameType) ? teamIndex + 1 : teamIndex
+    }
 
-      return new Team({
-        name: teamName,
-        teamId,
-        slots: teamSlots,
-        hiddenSlots,
-      })
+    teams.push({
+      name: teamName,
+      teamId,
+      isObserver: false,
+      slots: teamSlots,
+      hiddenSlots,
     })
-    .toList()
+  }
+
+  return teams
 }
 
 /** Creates a new lobby, and an initial host player in the first slot. */
@@ -241,44 +240,46 @@ export function createLobby({
   useLegacyLimits?: boolean
   visibility?: LobbyVisibility
 }) {
-  let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
+  const teams = createInitialTeams(map, gameType, gameSubType, numSlots)
   if (allowObservers) {
     // Observer slots sit alongside the map's player slots rather than being taken from them, so
     // every game type gets the same fixed-size observer team. They start closed, so a lobby only
     // takes on observers once someone deliberately opens a slot or is moved into one.
-    const observerTeam = new Team({
+    teams.push({
       name: 'Observers',
+      teamId: 0,
       isObserver: true,
-      slots: Range(0, MAX_OBSERVERS)
-        .map(() => createClosed())
-        .toList(),
+      slots: Array.from({ length: MAX_OBSERVERS }, () => createClosed()),
+      hiddenSlots: [],
     })
-    teams = teams.push(observerTeam)
   }
 
-  const lobby = new Lobby({
+  const [hostTeamIndex, hostSlotIndex, hostSlot] = teams
+    .flatMap((team, teamIndex) =>
+      team.slots.map((slot, slotIndex): SlotWithIndexes => [teamIndex, slotIndex, slot]),
+    )
+    .find(([, , slot]) => slot.type === SlotType.Open)!
+
+  let host: Slot
+  if (!isUms(gameType)) {
+    host = createHuman(hostUserId, hostRace)
+  } else {
+    host = createHuman(hostUserId, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
+  }
+  host = { ...host, region: hostRegion }
+
+  const lobby: Lobby = {
     id: makeSbLobbyId(encodePrettyId(randomUUID())),
     name,
     map,
     gameType,
     gameSubType: +gameSubType,
     teams,
-    host: new Slot(),
+    host,
     useLegacyLimits,
     visibility,
-  })
-  let host
-  const [hostTeamIndex, hostSlotIndex, hostSlot] = getLobbySlotsWithIndexes(lobby)
-    .filter(([teamIndex, slotIndex, slot]) => slot.type === SlotType.Open)
-    .min()!
-
-  if (!isUms(gameType)) {
-    host = createHuman(hostUserId, hostRace)
-  } else {
-    host = createHuman(hostUserId, hostSlot.race, hostSlot.hasForcedRace, hostSlot.playerId)
   }
-  host = host.set('region', hostRegion)
-  return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host).set('host', host)
+  return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host)
 }
 
 /**
@@ -295,7 +296,7 @@ function addPlayerAndControlledSlots(
   // The team which the new player is joining is empty (ie. it has only open and/or closed slots);
   // fill the whole team with either computer slots or controlled slots (leaving the slot of the new
   // player as is)
-  const team = lobby.teams.get(teamIndex)!
+  const team = lobby.teams[teamIndex]
   const slots = team.slots.map((currentSlot, currentSlotIndex) => {
     if (currentSlotIndex === slotIndex) return player
     if (player.type === SlotType.Computer) {
@@ -311,16 +312,20 @@ function addPlayerAndControlledSlots(
         : createControlledOpen(player.race, player.id)
     }
   })
-  return lobby.setIn(['teams', teamIndex, 'slots'], slots)
+  return produce(lobby, draft => {
+    draft.teams[teamIndex].slots = slots
+  })
 }
 
 export function addPlayer(lobby: Lobby, teamIndex: number, slotIndex: number, player: Slot): Lobby {
-  const team = lobby.teams.get(teamIndex)!
+  const team = lobby.teams[teamIndex]
   // The observer team never holds controlled slots, so someone arriving in an observer slot of a
   // team game must not trigger the controlled-slot fill an empty player team would get.
   return hasControlledOpens(lobby.gameType) && !team.isObserver && isTeamEmpty(team)
     ? addPlayerAndControlledSlots(lobby, teamIndex, slotIndex, player)
-    : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], player)
+    : produce(lobby, draft => {
+        draft.teams[teamIndex].slots[slotIndex] = player
+      })
 }
 
 /** Updates the race of a particular player, returning the updated lobby. */
@@ -330,19 +335,24 @@ export function setRace(
   slotIndex: number,
   newRace: RaceChar,
 ): Lobby {
-  const team = lobby.teams.get(teamIndex)!
+  const team = lobby.teams[teamIndex]
   if (
     hasControlledOpens(lobby.gameType) &&
-    team.slots.count(slot => slot.type === SlotType.Computer) > 0
+    team.slots.some(slot => slot.type === SlotType.Computer)
   ) {
     // BW doesn't support computer teams in team melee having different races. Change all races
     // of a computer team at once.
     // The exact limitation is with some but not all slots being random, we could allow multiple
     // non-random races but the AI won't be able to take advantage of it anyway.
-    const slots = team.slots.map(slot => slot.set('race', newRace))
-    return lobby.setIn(['teams', teamIndex, 'slots'], slots)
+    return produce(lobby, draft => {
+      for (const slot of draft.teams[teamIndex].slots) {
+        slot.race = newRace
+      }
+    })
   } else {
-    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex, 'race'], newRace)
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots[slotIndex].race = newRace
+    })
   }
 }
 
@@ -352,11 +362,11 @@ export function setRace(
  * the updated lobby.
  */
 function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerIndex: number) {
-  const team = lobby.teams.get(teamIndex)!
-  const id = team.slots.get(playerIndex)!.id
+  const team = lobby.teams[teamIndex]
+  const id = team.slots[playerIndex].id
   if (
-    team.slots.count(slot => slot.type === SlotType.Human) === 1 ||
-    team.slots.count(slot => slot.type === SlotType.Computer) > 0
+    team.slots.filter(slot => slot.type === SlotType.Human).length === 1 ||
+    team.slots.some(slot => slot.type === SlotType.Computer)
   ) {
     // The player that is leaving is alone in this team, so to remove them we replace the whole team
     // with either opened or closed slots. Same goes if we're removing a computer in team melee/ffa
@@ -364,7 +374,9 @@ function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerI
     const slots = team.slots.map(currentSlot => {
       return currentSlot.type === SlotType.ControlledClosed ? createClosed() : createOpen()
     })
-    return lobby.setIn(['teams', teamIndex, 'slots'], slots)
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots = slots
+    })
   } else {
     // The team which the player is leaving has other human players in it; find the new oldest human
     // player in the team and:
@@ -372,19 +384,18 @@ function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerI
     //  2) update any controlled slots with controlledBy set to the leaver's ID to that ID
     const oldestInTeam = team.slots
       .filter(slot => slot.type === SlotType.Human && slot.id !== id)
-      .sortBy(p => p.joinedAt)
-      .first()!
-    return lobby.updateIn(['teams', teamIndex, 'slots'], slotsUntyped => {
-      const slots = slotsUntyped as List<Slot>
-      return slots.map(slot => {
-        if (slot.id === id) {
-          return createControlledOpen(slot.race, oldestInTeam.id)
-        } else if (slot.controlledBy === id) {
-          return slot.set('controlledBy', oldestInTeam.id)
-        } else {
-          return slot
-        }
-      })
+      .sort((a, b) => a.joinedAt - b.joinedAt)[0]
+    const slots = team.slots.map(slot => {
+      if (slot.id === id) {
+        return createControlledOpen(slot.race, oldestInTeam.id)
+      } else if (slot.controlledBy === id) {
+        return { ...slot, controlledBy: oldestInTeam.id }
+      } else {
+        return slot
+      }
+    })
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots = slots
     })
   }
 }
@@ -405,7 +416,7 @@ export function removePlayer(
     // nothing removed, e.g. player wasn't in the lobby
     return lobby
   }
-  const team = lobby.teams.get(teamIndex)!
+  const team = lobby.teams[teamIndex]
   // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
   // Observer slots carry no map data, so they get a plain open slot even in UMS. The observer
   // team also never holds controlled slots, so a departing observer skips the controlled-team
@@ -417,7 +428,9 @@ export function removePlayer(
   let updated =
     hasControlledOpens(lobby.gameType) && !team.isObserver
       ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
-      : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], vacatedSlot)
+      : produce(lobby, draft => {
+          draft.teams[teamIndex].slots[slotIndex] = vacatedSlot
+        })
 
   if (humanSlotCount(updated) < 1) {
     return undefined
@@ -427,9 +440,10 @@ export function removePlayer(
     // The player we removed was the host, find a new host (the "oldest" player in lobby)
     const newHost = getLobbySlots(updated)
       .filter(slot => slot.type === SlotType.Human || slot.type === SlotType.Observer)
-      .sortBy(p => p.joinedAt)
-      .first()!
-    updated = updated.set('host', newHost)
+      .sort((a, b) => a.joinedAt - b.joinedAt)[0]
+    updated = produce(updated, draft => {
+      draft.host = newHost
+    })
   }
 
   return updated
@@ -458,43 +472,47 @@ export function movePlayerToSlot(
   destTeamIndex: number,
   destSlotIndex: number,
 ): Lobby {
-  const sourceTeam = lobby.teams.get(sourceTeamIndex)!
-  const destTeam = lobby.teams.get(destTeamIndex)!
-  const originalSlot = sourceTeam.slots.get(sourceSlotIndex)!
-  const destSlot = destTeam.slots.get(destSlotIndex)!
+  const sourceTeam = lobby.teams[sourceTeamIndex]
+  const destTeam = lobby.teams[destTeamIndex]
+  const originalSlot = sourceTeam.slots[sourceSlotIndex]
+  const destSlot = destTeam.slots[destSlotIndex]
 
   let movedSlot = originalSlot
   if (isUms(lobby.gameType)) {
-    movedSlot = movedSlot.set('playerId', destSlot.playerId)
+    movedSlot = { ...movedSlot, playerId: destSlot.playerId }
     movedSlot = destSlot.hasForcedRace
-      ? movedSlot.set('race', destSlot.race).set('hasForcedRace', true)
-      : movedSlot.set('hasForcedRace', false)
+      ? { ...movedSlot, race: destSlot.race, hasForcedRace: true }
+      : { ...movedSlot, hasForcedRace: false }
   }
   if (destTeam.isObserver) {
-    movedSlot = movedSlot.set('type', SlotType.Observer)
+    movedSlot = { ...movedSlot, type: SlotType.Observer }
   } else if (sourceTeam.isObserver) {
-    movedSlot = movedSlot.set('type', SlotType.Human)
+    movedSlot = { ...movedSlot, type: SlotType.Human }
   }
 
   let updated = lobby
   if (originalSlot.id === lobby.host.id) {
     // The lobby's host is a copy of their slot, so it has to follow along with any changes the move
     // made to it.
-    updated = updated.set('host', movedSlot)
+    updated = produce(updated, draft => {
+      draft.host = movedSlot
+    })
   }
 
   if (hasControlledOpens(lobby.gameType) && !destTeam.isObserver && isTeamEmpty(destTeam)) {
     updated = addPlayerAndControlledSlots(updated, destTeamIndex, destSlotIndex, movedSlot)
   } else {
-    updated = updated.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], movedSlot)
+    updated = produce(updated, draft => {
+      draft.teams[destTeamIndex].slots[destSlotIndex] = movedSlot
+    })
   }
 
   if (hasControlledOpens(lobby.gameType) && !sourceTeam.isObserver) {
     if (sourceTeamIndex === destTeamIndex) {
-      updated = updated.setIn(
-        ['teams', sourceTeamIndex, 'slots', sourceSlotIndex],
-        createControlledOpen('r', destSlot.controlledBy!),
-      )
+      const controlledOpen = createControlledOpen('r', destSlot.controlledBy!)
+      updated = produce(updated, draft => {
+        draft.teams[sourceTeamIndex].slots[sourceSlotIndex] = controlledOpen
+      })
     } else {
       updated = removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
     }
@@ -505,7 +523,9 @@ export function movePlayerToSlot(
       isUms(lobby.gameType) && !sourceTeam.isObserver
         ? createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
         : createOpen()
-    updated = updated.setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], vacated)
+    updated = produce(updated, draft => {
+      draft.teams[sourceTeamIndex].slots[sourceSlotIndex] = vacated
+    })
   }
 
   return updated
@@ -517,18 +537,20 @@ export function movePlayerToSlot(
  * instead, as that operation has side-effects, unlike this one.
  */
 export function openSlot(lobby: Lobby, teamIndex: number, slotIndex: number): Lobby {
-  const slotToOpen = lobby.teams.get(teamIndex)!.slots.get(slotIndex)!
+  const slotToOpen = lobby.teams[teamIndex].slots[slotIndex]
 
   const openSlot = isUms(lobby.gameType)
     ? createOpen(slotToOpen.race, slotToOpen.hasForcedRace, slotToOpen.playerId)
     : createOpen()
   if (slotToOpen.type === SlotType.Closed) {
-    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex], openSlot)
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots[slotIndex] = openSlot
+    })
   } else if (slotToOpen.type === SlotType.ControlledClosed) {
-    return lobby.setIn(
-      ['teams', teamIndex, 'slots', slotIndex],
-      createControlledOpen(slotToOpen.race, slotToOpen.controlledBy!),
-    )
+    const controlledOpen = createControlledOpen(slotToOpen.race, slotToOpen.controlledBy!)
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots[slotIndex] = controlledOpen
+    })
   } else {
     throw new Error('trying to open an invalid slot type: ' + slotToOpen.type)
   }
@@ -540,18 +562,20 @@ export function openSlot(lobby: Lobby, teamIndex: number, slotIndex: number): Lo
  * player from the slot and then close their slot with this function.
  */
 export function closeSlot(lobby: Lobby, teamIndex: number, slotIndex: number) {
-  const slotToClose = lobby.teams.get(teamIndex)!.slots.get(slotIndex)!
+  const slotToClose = lobby.teams[teamIndex].slots[slotIndex]
 
   const closedSlot = isUms(lobby.gameType)
     ? createClosed(slotToClose.race, slotToClose.hasForcedRace, slotToClose.playerId)
     : createClosed()
   if (slotToClose.type === SlotType.Open) {
-    return lobby.setIn(['teams', teamIndex, 'slots', slotIndex], closedSlot)
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots[slotIndex] = closedSlot
+    })
   } else if (slotToClose.type === SlotType.ControlledOpen) {
-    return lobby.setIn(
-      ['teams', teamIndex, 'slots', slotIndex],
-      createControlledClosed(slotToClose.race, slotToClose.controlledBy!),
-    )
+    const controlledClosed = createControlledClosed(slotToClose.race, slotToClose.controlledBy!)
+    return produce(lobby, draft => {
+      draft.teams[teamIndex].slots[slotIndex] = controlledClosed
+    })
   } else {
     throw new Error('trying to close an invalid slot type: ' + slotToClose.type)
   }
@@ -567,9 +591,26 @@ function isSlotJoinable(slot: Slot): boolean {
  * can be joined directly, or failing that the first unoccupied one. Returns -1 if every slot is
  * occupied.
  */
-function findSlotToMoveInto(slots: List<Slot>): number {
+function findSlotToMoveInto(slots: ReadonlyArray<Slot>): number {
   const openIndex = slots.findIndex(isSlotJoinable)
   return openIndex !== -1 ? openIndex : slots.findIndex(isSlotUnoccupied)
+}
+
+/**
+ * Returns the item of `items` with the highest `score`, keeping the earlier item when two items
+ * score the same. Returns `undefined` if `items` is empty.
+ */
+function maxBy<T>(items: ReadonlyArray<T>, score: (item: T) => number): T | undefined {
+  let best: T | undefined
+  let bestScore = -Infinity
+  for (const item of items) {
+    const itemScore = score(item)
+    if (itemScore > bestScore) {
+      best = item
+      bestScore = itemScore
+    }
+  }
+  return best
 }
 
 /**
@@ -577,11 +618,11 @@ function findSlotToMoveInto(slots: List<Slot>): number {
  * came from.
  */
 export function makeObserver(lobby: Lobby, teamIndex: number, slotIndex: number): Lobby {
-  const team = lobby.teams.get(teamIndex)!
+  const team = lobby.teams[teamIndex]
   if (team.isObserver) {
     throw new Error("Trying to make an observer from obs team's slot")
   }
-  const slot = team.slots.get(slotIndex)!
+  const slot = team.slots[slotIndex]
   if (slot.type !== SlotType.Human) {
     throw new Error('Trying to make observer from an invalid slot type: ' + slot.type)
   }
@@ -614,7 +655,7 @@ export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
   if (obsTeamIndex === undefined) {
     throw new Error('Lobby does not allow observers')
   }
-  const slot = obsTeam!.slots.get(slotIndex)!
+  const slot = obsTeam!.slots[slotIndex]
   if (slot.type !== SlotType.Observer) {
     throw new Error('Trying to remove an observer from an invalid slot type: ' + slot.type)
   }
@@ -623,10 +664,10 @@ export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
     .map<[teamIndex: number, team: Team]>((team, teamIndex) => [teamIndex, team])
     .filter(([, team]) => !team.isObserver && team.slots.some(isSlotUnoccupied))
   const destTeam =
-    candidates
-      .filter(([, team]) => team.slots.some(isSlotJoinable))
-      .maxBy(([, team]) => team.slots.count(isSlotJoinable)) ??
-    candidates.maxBy(([, team]) => team.slots.count(isSlotUnoccupied))
+    maxBy(
+      candidates.filter(([, team]) => team.slots.some(isSlotJoinable)),
+      ([, team]) => team.slots.filter(isSlotJoinable).length,
+    ) ?? maxBy(candidates, ([, team]) => team.slots.filter(isSlotUnoccupied).length)
   if (!destTeam) {
     throw new Error('Cannot remove more observers')
   }

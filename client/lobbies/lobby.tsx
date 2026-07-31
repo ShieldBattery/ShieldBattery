@@ -234,112 +234,110 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
     const canAddObsSlots = canAddObservers(lobby)
     const canRemoveObsSlots = canRemoveObservers(lobby)
 
-    return team.slots
-      .map((slot: Slot) => {
-        const { type, userId, race, id, controlledBy } = slot
-        switch (type) {
-          case SlotType.Open:
-            return (
-              <OpenSlot
-                key={id}
-                race={race}
-                isHost={isHost}
-                isObserver={isObserver}
-                onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
-                onSwitchClick={() => onSwitchSlot(id)}
-                onCloseSlot={() => onCloseSlot(id)}
-              />
-            )
-          case SlotType.Closed:
-            return (
-              <ClosedSlot
-                key={id}
-                race={race}
-                isHost={isHost}
-                isObserver={isObserver}
-                onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
-                onOpenSlot={() => onOpenSlot(id)}
-              />
-            )
-          case SlotType.Human:
-            return (
-              <PlayerSlot
-                key={id}
-                userId={userId}
-                race={race}
-                isHost={isHost}
-                canSetRace={slot === mySlot && !slot.hasForcedRace}
-                canMakeObserver={canAddObsSlots}
-                isSelf={slot === mySlot}
-                onSetRace={(race: RaceChar) => onSetRace(id, race)}
-                onCloseSlot={() => onCloseSlot(id)}
-                onKickPlayer={() => onKickPlayer(id)}
-                onBanPlayer={() => onBanPlayer(id)}
-                onMakeObserver={() => onMakeObserver(id)}
-              />
-            )
-          case SlotType.Observer:
-            return (
-              <PlayerSlot
-                key={id}
-                userId={userId}
-                isHost={isHost}
-                isObserver={true}
-                canRemoveObserver={canRemoveObsSlots}
-                isSelf={slot === mySlot}
-                onCloseSlot={() => onCloseSlot(id)}
-                onKickPlayer={() => onKickPlayer(id)}
-                onBanPlayer={() => onBanPlayer(id)}
-                onRemoveObserver={() => onRemoveObserver(id)}
-              />
-            )
-          case SlotType.Computer:
-            return (
-              <PlayerSlot
-                key={id}
-                userId={userId}
-                race={race}
-                isComputer={true}
-                canSetRace={isHost}
-                isHost={isHost}
-                isSelf={false}
-                onSetRace={(race: RaceChar) => onSetRace(id, race)}
-                onCloseSlot={() => onCloseSlot(id)}
-                onKickPlayer={() => onKickPlayer(id)}
-              />
-            )
-          case SlotType.UmsComputer:
-            return <PlayerSlot key={id} userId={userId} race={race} isComputer={true} />
-          case SlotType.ControlledOpen:
-            return (
-              <OpenSlot
-                key={id}
-                race={race}
-                controlledOpen={true}
-                canSetRace={mySlot && controlledBy === mySlot.id}
-                isHost={isHost}
-                onSetRace={(race: RaceChar) => onSetRace(id, race)}
-                onSwitchClick={() => onSwitchSlot(id)}
-                onCloseSlot={() => onCloseSlot(id)}
-              />
-            )
-          case SlotType.ControlledClosed:
-            return (
-              <ClosedSlot
-                key={id}
-                race={race}
-                controlledClosed={true}
-                canSetRace={mySlot && controlledBy === mySlot.id}
-                isHost={isHost}
-                onOpenSlot={() => onOpenSlot(id)}
-                onSetRace={(race: RaceChar) => onSetRace(id, race)}
-              />
-            )
-          default:
-            return assertUnreachable(type)
-        }
-      })
-      .toArray()
+    return team.slots.map((slot: Slot) => {
+      const { type, userId, race, id, controlledBy } = slot
+      switch (type) {
+        case SlotType.Open:
+          return (
+            <OpenSlot
+              key={id}
+              race={race}
+              isHost={isHost}
+              isObserver={isObserver}
+              onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
+              onSwitchClick={() => onSwitchSlot(id)}
+              onCloseSlot={() => onCloseSlot(id)}
+            />
+          )
+        case SlotType.Closed:
+          return (
+            <ClosedSlot
+              key={id}
+              race={race}
+              isHost={isHost}
+              isObserver={isObserver}
+              onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
+              onOpenSlot={() => onOpenSlot(id)}
+            />
+          )
+        case SlotType.Human:
+          return (
+            <PlayerSlot
+              key={id}
+              userId={userId}
+              race={race}
+              isHost={isHost}
+              canSetRace={slot === mySlot && !slot.hasForcedRace}
+              canMakeObserver={canAddObsSlots}
+              isSelf={slot === mySlot}
+              onSetRace={(race: RaceChar) => onSetRace(id, race)}
+              onCloseSlot={() => onCloseSlot(id)}
+              onKickPlayer={() => onKickPlayer(id)}
+              onBanPlayer={() => onBanPlayer(id)}
+              onMakeObserver={() => onMakeObserver(id)}
+            />
+          )
+        case SlotType.Observer:
+          return (
+            <PlayerSlot
+              key={id}
+              userId={userId}
+              isHost={isHost}
+              isObserver={true}
+              canRemoveObserver={canRemoveObsSlots}
+              isSelf={slot === mySlot}
+              onCloseSlot={() => onCloseSlot(id)}
+              onKickPlayer={() => onKickPlayer(id)}
+              onBanPlayer={() => onBanPlayer(id)}
+              onRemoveObserver={() => onRemoveObserver(id)}
+            />
+          )
+        case SlotType.Computer:
+          return (
+            <PlayerSlot
+              key={id}
+              userId={userId}
+              race={race}
+              isComputer={true}
+              canSetRace={isHost}
+              isHost={isHost}
+              isSelf={false}
+              onSetRace={(race: RaceChar) => onSetRace(id, race)}
+              onCloseSlot={() => onCloseSlot(id)}
+              onKickPlayer={() => onKickPlayer(id)}
+            />
+          )
+        case SlotType.UmsComputer:
+          return <PlayerSlot key={id} userId={userId} race={race} isComputer={true} />
+        case SlotType.ControlledOpen:
+          return (
+            <OpenSlot
+              key={id}
+              race={race}
+              controlledOpen={true}
+              canSetRace={mySlot && controlledBy === mySlot.id}
+              isHost={isHost}
+              onSetRace={(race: RaceChar) => onSetRace(id, race)}
+              onSwitchClick={() => onSwitchSlot(id)}
+              onCloseSlot={() => onCloseSlot(id)}
+            />
+          )
+        case SlotType.ControlledClosed:
+          return (
+            <ClosedSlot
+              key={id}
+              race={race}
+              controlledClosed={true}
+              canSetRace={mySlot && controlledBy === mySlot.id}
+              isHost={isHost}
+              onOpenSlot={() => onOpenSlot(id)}
+              onSetRace={(race: RaceChar) => onSetRace(id, race)}
+            />
+          )
+        default:
+          return assertUnreachable(type)
+      }
+    })
   }
 
   override render() {
@@ -348,11 +346,11 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
     const obsSlots = []
-    for (let teamIndex = 0; teamIndex < lobby.teams.size; teamIndex++) {
-      const currentTeam = lobby.teams.get(teamIndex)!
+    for (let teamIndex = 0; teamIndex < lobby.teams.length; teamIndex++) {
+      const currentTeam = lobby.teams[teamIndex]
       const isObserver = currentTeam.isObserver
       const displayTeamName =
-        (isTeamType(lobby.gameType) || isLobbyUms || isObserver) && currentTeam.slots.size !== 0
+        (isTeamType(lobby.gameType) || isLobbyUms || isObserver) && currentTeam.slots.length !== 0
       if (displayTeamName) {
         slots.push(<TeamName key={'team' + teamIndex}>{currentTeam.name}</TeamName>)
       }

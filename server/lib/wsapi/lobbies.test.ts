@@ -413,7 +413,7 @@ describe('wsapi/lobbies', () => {
 
       lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
       const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
-      const obsSlot = obsTeam!.slots.get(0)!
+      const obsSlot = obsTeam!.slots[0]
       expect(obsSlot.type).toBe('observer')
 
       // Closing an occupied slot kicks the occupant and then closes whatever their removal left
@@ -421,7 +421,7 @@ describe('wsapi/lobbies', () => {
       await lobbyApi.closeSlot(apiData(host, { slotId: obsSlot.id }), NOOP_NEXT)
 
       lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
-      expect(lobby.teams.get(obsTeamIndex!)!.slots.get(0)!.type).toBe('closed')
+      expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
   })
