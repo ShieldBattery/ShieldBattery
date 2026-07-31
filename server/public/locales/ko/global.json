@@ -907,7 +907,7 @@
       "useLegacyLimits": "옛 유닛 제한 사용",
       "visibility": "공개 범위",
       "visibilityListed": "공개",
-      "visibilityListedDescription": "로비 목록에 표시되어 누구나 참여할 수 있습니다. 진행한 게임은 게임 페이지에 표시되고 리플레이도 공개됩니다",
+      "visibilityListedDescription": "로비 목록에 표시되어 누구나 참여할 수 있습니다. 리플레이는 공개되며, 다른 플레이어와 진행한 게임은 게임 페이지에 표시됩니다",
       "visibilityUnlisted": "일부 공개",
       "visibilityUnlistedDescription": "링크를 받은 사람만 참여할 수 있습니다"
     },

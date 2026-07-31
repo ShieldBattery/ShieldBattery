@@ -328,8 +328,8 @@ function CreateLobbyForm({
                 <VisibilityOptionDescription>
                   {t(
                     'lobbies.createLobby.visibilityListedDescription',
-                    'Shown in the lobby list for anyone to join. Its games appear on the ' +
-                      'games page and their replays are public',
+                    'Shown in the lobby list for anyone to join. Its replays are public, and ' +
+                      'its games against other players appear on the games page',
                   )}
                 </VisibilityOptionDescription>
               </>
