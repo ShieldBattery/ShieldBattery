@@ -5,6 +5,7 @@ import {
   GameDurationFilter,
   GameFormat,
   GameSortOption,
+  GameSourceFilter,
   makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 
@@ -16,6 +17,13 @@ export function parseDuration(value: string): GameDurationFilter {
   return Object.values(GameDurationFilter).includes(value as GameDurationFilter)
     ? (value as GameDurationFilter)
     : GameDurationFilter.All
+}
+
+/** Parses a `source` URL search param (the games page only). */
+export function parseSource(value: string): GameSourceFilter {
+  return Object.values(GameSourceFilter).includes(value as GameSourceFilter)
+    ? (value as GameSourceFilter)
+    : GameSourceFilter.All
 }
 
 /** Parses a `sort` URL search param. */

@@ -1,6 +1,7 @@
 import { Map as IMap } from 'immutable'
 import { NydusServer } from 'nydus'
 import { container } from 'tsyringe'
+import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
@@ -16,7 +17,7 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
-import { GameLoader } from '../games/game-loader'
+import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getLobbySummary } from '../lobbies/lobby-summaries'
 import { getMapInfos } from '../maps/map-models'
@@ -124,6 +125,9 @@ describe('wsapi/lobbies', () => {
   let otherHost: InspectableNydusClient
   let lister: InspectableNydusClient
 
+  /** Every request the stubbed `GameLoader` received via `loadGame`, in call order. */
+  let loadGameRequests: GameLoadRequest[]
+
   function apiData(client: InspectableNydusClient, body: Record<string, any> = {}) {
     return IMap<string, any>({ client, body })
   }
@@ -145,6 +149,7 @@ describe('wsapi/lobbies', () => {
     client: InspectableNydusClient,
     name: string,
     visibility?: 'listed' | 'unlisted',
+    allowObservers?: boolean,
   ) {
     return (await lobbyApi.create(
       apiData(client, {
@@ -152,6 +157,7 @@ describe('wsapi/lobbies', () => {
         map: BIG_GAME_HUNTERS.id,
         gameType: GameType.Melee,
         visibility,
+        allowObservers,
       }),
       NOOP_NEXT,
     )) as { id: string }
@@ -159,7 +165,13 @@ describe('wsapi/lobbies', () => {
 
   beforeEach(() => {
     container.registerInstance(GameplayActivityRegistry, new GameplayActivityRegistry())
-    container.registerInstance(GameLoader, {} as unknown as GameLoader)
+    loadGameRequests = []
+    container.registerInstance(GameLoader, {
+      loadGame: vi.fn(async (request: GameLoadRequest) => {
+        loadGameRequests.push(request)
+        return Result.ok({ gameId: 'test-game-id' })
+      }),
+    } as unknown as GameLoader)
     container.registerInstance(RestrictionService, {
       isRestricted: async () => false,
     } as unknown as RestrictionService)
@@ -425,6 +437,60 @@ describe('wsapi/lobbies', () => {
       lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
 
       expect(getLobbySummary(makeSbLobbyId(id))).toBeUndefined()
+    })
+  })
+
+  describe('game config', () => {
+    /** Runs the countdown started by `startCountdown` to completion, letting the game load begin. */
+    async function runCountdown(client: InspectableNydusClient) {
+      vi.useFakeTimers()
+      const countdown = lobbyApi.startCountdown(apiData(client), NOOP_NEXT)
+      await vi.advanceTimersByTimeAsync(5000)
+      await countdown
+    }
+
+    test('records visibility and an empty observers list for a listed lobby with no observers', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
+        visibility: 'listed',
+      })
+      expect(loadGameRequests[0].gameConfig.observers).toEqual([])
+    })
+
+    test('records visibility for an unlisted lobby', async () => {
+      const { id } = await createLobby(otherHost, 'Unlisted lobby', 'unlisted')
+      await lobbyApi.join(apiData(lister, { id }), NOOP_NEXT)
+
+      await runCountdown(otherHost)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.gameSourceExtra).toMatchObject({
+        visibility: 'unlisted',
+      })
+    })
+
+    test('records seated observers in the observers list', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+      await lobbyApi.join(apiData(lister, { id }), NOOP_NEXT)
+
+      const lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      const [, , listerSlot] = findSlotByUserId(lobby, LISTER_USER.id)
+      await lobbyApi.makeObserver(apiData(host, { slotId: listerSlot!.id }), NOOP_NEXT)
+
+      await runCountdown(host)
+
+      expect(loadGameRequests).toHaveLength(1)
+      expect(loadGameRequests[0].gameConfig.observers).toEqual([LISTER_USER.id])
+      // The observer must not appear as a participant in any team
+      expect(loadGameRequests[0].gameConfig.teams.flat()).not.toContainEqual(
+        expect.objectContaining({ id: LISTER_USER.id }),
+      )
     })
   })
 })

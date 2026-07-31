@@ -539,6 +539,11 @@
         "oldest": "最早优先",
         "shortest": "最短优先"
       },
+      "source": {
+        "all": "全部",
+        "custom": "自定义",
+        "ranked": "排位"
+      },
       "spoilerFree": "无剧透",
       "vs": "vs"
     },
@@ -902,7 +907,7 @@
       "useLegacyLimits": "使用旧版单位数量限制",
       "visibility": "可见性",
       "visibilityListed": "公开",
-      "visibilityListedDescription": "显示在房间列表中，任何人都可以加入",
+      "visibilityListedDescription": "显示在房间列表中，任何人都可以加入。进行的游戏会显示在游戏页面，录像对所有人公开",
       "visibilityUnlisted": "不公开列出",
       "visibilityUnlistedDescription": "只有拿到链接的人才能加入"
     },

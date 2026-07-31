@@ -542,6 +542,11 @@
         "oldest": "Oldest first",
         "shortest": "Shortest first"
       },
+      "source": {
+        "all": "All",
+        "custom": "Custom",
+        "ranked": "Ranked"
+      },
       "spoilerFree": "Spoiler-free",
       "vs": "vs"
     },
@@ -905,7 +910,7 @@
       "useLegacyLimits": "Use legacy unit limit",
       "visibility": "Visibility",
       "visibilityListed": "Public",
-      "visibilityListedDescription": "Shown in the lobby list for anyone to join",
+      "visibilityListedDescription": "Shown in the lobby list for anyone to join. Its games appear on the games page and their replays are public",
       "visibilityUnlisted": "Unlisted",
       "visibilityUnlistedDescription": "Only people you share the link with can join"
     },

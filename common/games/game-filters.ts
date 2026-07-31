@@ -28,6 +28,26 @@ export const getDurationLabel = (d: GameDurationFilter, t: TFunction): string =>
   }
 }
 
+/** Which game sources a games list includes. */
+export enum GameSourceFilter {
+  All = 'all',
+  Ranked = 'ranked',
+  Custom = 'custom',
+}
+
+export const getSourceLabel = (s: GameSourceFilter, t: TFunction): string => {
+  switch (s) {
+    case GameSourceFilter.All:
+      return t('game.filters.source.all', 'All')
+    case GameSourceFilter.Ranked:
+      return t('game.filters.source.ranked', 'Ranked')
+    case GameSourceFilter.Custom:
+      return t('game.filters.source.custom', 'Custom')
+    default:
+      return s satisfies never
+  }
+}
+
 /** Sort options for game lists. */
 export enum GameSortOption {
   LatestFirst = 'latest',

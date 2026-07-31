@@ -6,6 +6,7 @@ import {
   GameDurationFilter,
   GameFormat,
   GameSortOption,
+  GameSourceFilter,
 } from '../../common/games/game-filters'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useContextMenu } from '../dom/use-context-menu'
@@ -19,7 +20,14 @@ import { navigateToGameResults } from './action-creators'
 import { renderGamesWithDayHeaders, resolveDateRangeMs } from './day-header'
 import { GameContextMenuContent } from './game-context-menu'
 import { GameFilterBar } from './game-filter-bar'
-import { isDateSort, parseDuration, parseFormat, parseMatchup, parseSort } from './game-filter-url'
+import {
+  isDateSort,
+  parseDuration,
+  parseFormat,
+  parseMatchup,
+  parseSort,
+  parseSource,
+} from './game-filter-url'
 import { GameListEntry } from './game-list-entry'
 import { GameRecordSidePanel } from './game-record-side-panel'
 import { GameListSearchPage, useGameListSearch } from './use-game-list-search'
@@ -51,6 +59,7 @@ const ListColumn = styled.div`
 export interface GameListFilters {
   ranked?: boolean
   custom?: boolean
+  source?: GameSourceFilter
   duration?: GameDurationFilter
   sort?: GameSortOption
   mapName?: string
@@ -77,6 +86,8 @@ export interface GameListViewProps {
   ) => Promise<GameListSearchPage>
   /** Shows the Ranked/Custom source toggles and reads their URL params (match history only). */
   showRankedCustom?: boolean
+  /** Shows the game source (All/Ranked/Custom) filter chip and reads its URL param (games page only). */
+  showSourceFilter?: boolean
   /** Shows each row's win/loss result, from `forUserId`'s perspective (match history only). */
   showResult?: boolean
   /** Whose perspective results and the side panel roster are shown from (match history only). */
@@ -100,6 +111,7 @@ export interface GameListViewProps {
 export function GameListView({
   loadPage,
   showRankedCustom = false,
+  showSourceFilter = false,
   showResult = false,
   forUserId,
   noResultsText,
@@ -109,6 +121,7 @@ export function GameListView({
 
   const [rankedParam, setRankedParam] = useLocationSearchParam('ranked')
   const [customParam, setCustomParam] = useLocationSearchParam('custom')
+  const [sourceParam, setSourceParam] = useLocationSearchParam('source')
   const [durationParam, setDurationParam] = useLocationSearchParam('duration')
   const [sortParam, setSortParam] = useLocationSearchParam('sort')
   const [mapName, setMapNameParam] = useLocationSearchParam('mapName')
@@ -122,6 +135,9 @@ export function GameListView({
   // so a hand-edited `?ranked=true` on another surface can't leak into the request.
   const ranked = showRankedCustom && rankedParam === 'true'
   const custom = showRankedCustom && customParam === 'true'
+  // The source filter only exists on the games page; elsewhere we neither read nor send it, so a
+  // hand-edited `?source=custom` on another surface can't leak into the request.
+  const source = showSourceFilter ? parseSource(sourceParam) : GameSourceFilter.All
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
@@ -142,6 +158,7 @@ export function GameListView({
       {
         ranked: ranked || undefined,
         custom: custom || undefined,
+        source: source === GameSourceFilter.All ? undefined : source,
         duration: duration === GameDurationFilter.All ? undefined : duration,
         sort: sort === GameSortOption.LatestFirst ? undefined : sort,
         mapName: mapName || undefined,
@@ -241,6 +258,12 @@ export function GameListView({
       custom={custom}
       setCustom={v => {
         setCustomParam(v ? 'true' : '')
+        reset()
+      }}
+      showSourceFilter={showSourceFilter}
+      source={source}
+      setSource={v => {
+        setSourceParam(v === GameSourceFilter.All ? '' : v)
         reset()
       }}
       duration={duration}

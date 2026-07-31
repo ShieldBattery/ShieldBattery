@@ -966,6 +966,7 @@ export class LobbyApi {
       gameSourceExtra: {
         host: lobby.host.userId,
         useLegacyLimits: lobby.useLegacyLimits,
+        visibility: lobby.visibility,
       },
       lockedAlliances: false,
       observers: getLobbySlots(lobby)

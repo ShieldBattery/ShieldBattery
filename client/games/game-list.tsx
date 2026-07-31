@@ -102,6 +102,7 @@ export function GameList() {
 
         <GameListView
           loadPage={loadPage}
+          showSourceFilter={true}
           noResultsText={t('games.list.noMatchingGames', 'No matching games.')}
           errorText={t('games.list.retrievingError', 'There was an error retrieving the games.')}
         />

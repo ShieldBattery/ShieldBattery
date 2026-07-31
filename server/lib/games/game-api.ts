@@ -241,7 +241,18 @@ export class GameApi {
   @httpBefore(throttleMiddleware(gamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
   async getGamesList(ctx: RouterContext): Promise<GetGamesResponse> {
     const {
-      query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
+      query: {
+        source,
+        duration,
+        mapName,
+        playerName,
+        format,
+        matchup,
+        sort,
+        offset,
+        startDate,
+        endDate,
+      },
     } = validateRequest(ctx, {
       query: GET_GAMES_QUERY_SCHEMA,
     })
@@ -251,6 +262,7 @@ export class GameApi {
     const games = await getGames({
       limit: GET_GAMES_LIMIT,
       offset: offset ?? 0,
+      source,
       duration,
       mapName,
       playerName,

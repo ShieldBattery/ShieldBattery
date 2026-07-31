@@ -545,6 +545,11 @@
         "oldest": "Más antiguas primero",
         "shortest": "Más cortas primero"
       },
+      "source": {
+        "all": "Todas",
+        "custom": "Personalizado",
+        "ranked": "Clasificatoria"
+      },
       "spoilerFree": "Sin spoilers",
       "vs": "vs"
     },
@@ -908,7 +913,7 @@
       "useLegacyLimits": "Usar límite de unidad heredado",
       "visibility": "Visibilidad",
       "visibilityListed": "Público",
-      "visibilityListedDescription": "Aparece en la lista de lobbies y cualquiera puede unirse",
+      "visibilityListedDescription": "Aparece en la lista de lobbies y cualquiera puede unirse. Sus partidas aparecen en la página de partidas y sus replays son públicos",
       "visibilityUnlisted": "No listado",
       "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace"
     },

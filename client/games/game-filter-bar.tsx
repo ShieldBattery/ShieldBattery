@@ -12,8 +12,10 @@ import {
   GameDurationFilter,
   GameFormat,
   GameSortOption,
+  GameSourceFilter,
   getDurationLabel,
   getSortLabel,
+  getSourceLabel,
 } from '../../common/games/game-filters'
 import {
   FEATURED_REPLAY_GAME_TYPES,
@@ -57,6 +59,12 @@ const popoverVariants: Variants = {
   visible: { opacity: 1, y: 0 },
   exiting: { opacity: 0, y: -8 },
 }
+
+const SOURCE_OPTIONS = [
+  GameSourceFilter.All,
+  GameSourceFilter.Ranked,
+  GameSourceFilter.Custom,
+] as const
 
 const DURATION_OPTIONS = [
   GameDurationFilter.All,
@@ -162,6 +170,10 @@ export interface GameFilterBarProps {
   setRanked?: (v: boolean) => void
   custom?: boolean
   setCustom?: (v: boolean) => void
+  /** When true, shows the game source (All/Ranked/Custom) filter chip (games page only). */
+  showSourceFilter?: boolean
+  source?: GameSourceFilter
+  setSource?: (v: GameSourceFilter) => void
   duration: GameDurationFilter
   setDuration: (v: GameDurationFilter) => void
   sort: GameSortOption
@@ -205,6 +217,9 @@ export function GameFilterBar({
   setRanked,
   custom = false,
   setCustom,
+  showSourceFilter = false,
+  source = GameSourceFilter.All,
+  setSource,
   duration,
   setDuration,
   sort,
@@ -243,6 +258,7 @@ export function GameFilterBar({
   const hasDateRange = !!startDate || !!endDate
   const hasActiveFilters =
     (showRankedCustom && (ranked || custom)) ||
+    (showSourceFilter && source !== GameSourceFilter.All) ||
     duration !== GameDurationFilter.All ||
     hasAdvancedFilters ||
     (showGameType && gameType !== undefined) ||
@@ -275,6 +291,21 @@ export function GameFilterBar({
             onClick={() => setCustom?.(!custom)}
           />
         </>
+      )}
+
+      {showSourceFilter && (
+        <FilterChip
+          label={getSourceLabel(source, t)}
+          icon={<MaterialIcon icon='sports_esports' filled={false} size={18} />}>
+          {SOURCE_OPTIONS.map(s => (
+            <SelectableMenuItem
+              key={s}
+              text={getSourceLabel(s, t)}
+              selected={source === s}
+              onClick={() => setSource?.(s)}
+            />
+          ))}
+        </FilterChip>
       )}
 
       {showGameType && (
@@ -338,6 +369,7 @@ export function GameFilterBar({
           onClick={() => {
             setRanked?.(false)
             setCustom?.(false)
+            setSource?.(GameSourceFilter.All)
             setDuration(GameDurationFilter.All)
             setMapName('')
             setPlayerName('')

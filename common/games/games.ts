@@ -17,6 +17,7 @@ import {
   GameDurationFilter,
   GameFormat,
   GameSortOption,
+  GameSourceFilter,
 } from './game-filters'
 import { MatchupString } from './matchups'
 import { NetcodeV2RelayEvent } from './netcode-v2'
@@ -150,6 +151,8 @@ export interface GetGameResponse {
 }
 
 export interface GetGamesQueryParams {
+  /** Which game sources to include: Ranked = matchmaking, Custom = public lobby games, absent = all. */
+  source?: GameSourceFilter
   duration?: GameDurationFilter
   mapName?: string
   playerName?: string
