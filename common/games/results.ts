@@ -134,7 +134,10 @@ export interface RawPlayerResult {
   userId: SbUserId | null
   /** The player's index in StarCraft's `players` array (0-7). */
   bwPlayerId: number
-  /** The player's storm (networking) id (0-7), or `null` for a computer player. */
+  /**
+   * The player's storm (networking) id (0-11 — players share the storm id space with observers),
+   * or `null` for a computer player.
+   */
   stormId: number | null
   race: AssignedRaceChar
   /** The raw StarCraft victory state (shares numeric values with `GameClientResult`). */
@@ -169,7 +172,10 @@ export interface RawGameResultsReport {
   time: number
   /** Every non-observer human (with a BW player id) plus every computer player (≤8 rows). */
   players: RawPlayerResult[]
-  /** The reporting client's view of each storm slot's final network status (≤8 rows). */
+  /**
+   * The reporting client's view of each storm slot's final network status (one row per storm id,
+   * ≤12 rows — players and observers alike).
+   */
   netPlayers: RawNetPlayer[]
   /** How the local (reporting) player lost, if applicable. */
   localPlayerLoseType: GameClientLoseType | null

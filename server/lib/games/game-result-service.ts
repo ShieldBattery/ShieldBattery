@@ -170,7 +170,9 @@ const RAW_GAME_RESULTS_REPORT_SCHEMA = Joi.object<RawGameResultsReport>({
       Joi.object({
         userId: joiUserId().allow(null).required(),
         bwPlayerId: Joi.number().integer().min(0).max(7).required(),
-        stormId: Joi.number().integer().min(0).max(7).allow(null).required(),
+        // Players and observers share the 12-slot storm id space, so a *player* can hold any
+        // storm id when observers sort ahead of them in the roster
+        stormId: Joi.number().integer().min(0).max(11).allow(null).required(),
         race: Joi.string().valid('p', 't', 'z').required(),
         victoryState: Joi.valid(...ALL_GAME_CLIENT_RESULTS).required(),
         alliances: Joi.array()
@@ -184,12 +186,13 @@ const RAW_GAME_RESULTS_REPORT_SCHEMA = Joi.object<RawGameResultsReport>({
   netPlayers: Joi.array()
     .items(
       Joi.object({
-        stormId: Joi.number().integer().min(0).max(7).required(),
+        stormId: Joi.number().integer().min(0).max(11).required(),
         wasDropped: Joi.boolean().required(),
         hasQuit: Joi.boolean().required(),
       }),
     )
-    .max(8)
+    // One row per storm id in the session — 8 players + 4 observers
+    .max(12)
     .required(),
   localPlayerLoseType: Joi.string()
     .valid(...ALL_GAME_CLIENT_LOSE_TYPES)

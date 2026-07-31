@@ -503,9 +503,16 @@ export function movePlayerToSlot(
       updated = removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
     }
   } else {
-    const vacated = isUms(lobby.gameType)
-      ? createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
-      : createOpen()
+    // Observer slots are closed unless someone deliberately opens them, so a vacated one goes
+    // back to that state instead of staying open for a new joiner.
+    let vacated: Slot
+    if (sourceTeam.isObserver) {
+      vacated = createClosed()
+    } else if (isUms(lobby.gameType)) {
+      vacated = createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
+    } else {
+      vacated = createOpen()
+    }
     updated = updated.setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], vacated)
   }
 
@@ -619,14 +626,11 @@ export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
   }
   const [destTeamIndex, team] = destTeam
 
-  const updated = movePlayerToSlot(
+  return movePlayerToSlot(
     lobby,
     obsTeamIndex,
     slotIndex,
     destTeamIndex,
     findSlotToMoveInto(team.slots),
   )
-  // Observer slots are closed unless someone deliberately opens them, so the vacated one goes back
-  // to that state instead of staying open for a new joiner.
-  return updated.setIn(['teams', obsTeamIndex, 'slots', slotIndex], createClosed())
 }

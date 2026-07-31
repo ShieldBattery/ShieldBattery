@@ -1603,6 +1603,18 @@ describe('Lobbies - observers', () => {
     ).toBe(true)
   })
 
+  test('should re-close an observer slot vacated by a slot change', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 0, 1)
+    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('observer')
+
+    lobby = movePlayerToSlot(lobby, 1, 0, 0, 1)
+
+    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('human')
+    expect(lobby.teams.get(1)!.slots.every(s => s.type === 'closed')).toBe(true)
+  })
+
   test('should keep UMS hidden slots out of the observer team', () => {
     const lobby = createLobby({
       name: 'Team Micro + obs',
