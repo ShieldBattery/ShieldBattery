@@ -1,9 +1,6 @@
-import { InvokeError } from 'nydus-client'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
-import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { MapThumbnail } from '../maps/map-thumbnail'
@@ -198,35 +195,29 @@ export function LobbyInviteCardContent({
  * `useLobbySummary`) since the same lobby link often appears in several rendered messages at once.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
-  const joinLobbyAction = useJoinLobbyAction()
-  const [state] = useLobbySummary(lobbyId, { cached: true })
-  // The summary is read once per mount, so a lobby that dies while the card is on screen would
-  // keep showing as joinable; a failed join is the event that corrects it.
-  const [lobbyGone, setLobbyGone] = useState(false)
   const isInThisLobby = useAppSelector(s => s.lobby.inLobby && s.lobby.info.id === lobbyId)
 
   if (isInThisLobby) {
     // Someone seated in this lobby needs no invite to it (the common case being its own invite
     // link pasted into its own chat): they're already where Join would take them, and the join
-    // itself would only fail.
+    // itself would only fail. Gating outside the inner component also keeps every seated member
+    // from spending a summary fetch on the link.
     return null
   }
 
+  return <JoinableLobbyInviteCard lobbyId={lobbyId} />
+}
+
+function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
+  const joinLobbyAction = useJoinLobbyAction()
+  const [state] = useLobbySummary(lobbyId, { cached: true })
+
   return (
     <LobbyInviteCardContent
-      state={lobbyGone ? { status: 'notFound' } : state}
+      state={state}
       onJoinClick={() =>
         joinLobbyAction(lobbyId, {
           name: state?.status === 'loaded' ? state.data.summary.name : undefined,
-          onError: err => {
-            const code = err instanceof InvokeError ? err.body?.code : undefined
-            if (
-              code === LobbyJoinErrorCode.NoLongerOpen ||
-              code === LobbyJoinErrorCode.AlreadyStarted
-            ) {
-              setLobbyGone(true)
-            }
-          },
         })
       }
     />
