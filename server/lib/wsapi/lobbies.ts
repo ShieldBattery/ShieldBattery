@@ -726,8 +726,8 @@ export class LobbyApi {
       afterKickSlot.type === SlotType.Closed ||
       afterKickSlot.type === SlotType.ControlledClosed
     ) {
-      // Removing the occupant already left the slot closed (a vacated observer slot re-closes
-      // itself), and the kick published its own diff.
+      // Removing the occupant can already leave the slot closed (a controlled team's cleanup
+      // re-creates closed slots as closed), and the kick published its own diff.
       return
     }
 

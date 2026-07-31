@@ -365,7 +365,7 @@ unsafe fn game_results() -> GameThreadResults {
         }
 
         let storm_player_flags = bw.storm_player_flags();
-        let network_results = (0..crate::bw::MAX_STORM_PLAYERS)
+        let network_results = (0..bw::MAX_STORM_PLAYERS)
             .map(|i| {
                 (
                     StormPlayerId(i as u8),

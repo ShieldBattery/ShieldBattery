@@ -39,11 +39,10 @@ interface SeedAccount {
 }
 
 /**
- * The accounts to create. `claude-1`..`claude-12` line up with the SB_SESSION=session1..12
- * instances documented in the dev-env / verify-app skills (one account per running app instance).
- * Twelve numbered accounts is enough to fill the largest possible game (8 players + 4 observers).
- * Add more here if a flow needs them; with more than 4 accounts you'll want to start the Node
- * server with SB_DISABLE_THROTTLING=1 so the account-creation throttle doesn't reject the burst.
+ * The accounts to create. `claude-1`..`claude-12` line up with SB_SESSION=session1..12 app
+ * instances (one account per running instance). Twelve numbered accounts is enough to fill the
+ * largest possible game (8 players + 4 observers). On a fresh database, start the Node server
+ * with SB_DISABLE_THROTTLING=1 so the account-creation throttle doesn't reject the burst.
  */
 const ACCOUNTS: SeedAccount[] = [
   { username: 'claude-admin', email: 'claude-admin@example.org', admin: true },

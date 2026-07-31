@@ -404,8 +404,8 @@ describe('wsapi/lobbies', () => {
       const obsSlot = obsTeam!.slots.get(0)!
       expect(obsSlot.type).toBe('observer')
 
-      // Removing the occupant re-closes an observer slot on its own, so the close request must
-      // treat that as success rather than failing on an already-closed slot
+      // Closing an occupied slot kicks the occupant and then closes whatever their removal left
+      // behind, in one request
       await lobbyApi.closeSlot(apiData(host, { slotId: obsSlot.id }), NOOP_NEXT)
 
       lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!

@@ -406,18 +406,14 @@ export function removePlayer(
     return lobby
   }
   const team = lobby.teams.get(teamIndex)!
-  // Observer slots are closed unless someone deliberately opens them, so a departing observer's
-  // slot goes back to that state instead of staying open for a new joiner. The observer team also
-  // never holds controlled slots, so a departing observer skips the controlled-team cleanup even
-  // in game types whose player teams need it.
-  let vacatedSlot: Slot
-  if (team.isObserver) {
-    vacatedSlot = createClosed()
-  } else if (isUms(lobby.gameType)) {
-    vacatedSlot = createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
-  } else {
-    vacatedSlot = createOpen()
-  }
+  // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
+  // Observer slots carry no map data, so they get a plain open slot even in UMS. The observer
+  // team also never holds controlled slots, so a departing observer skips the controlled-team
+  // cleanup even in game types whose player teams need it.
+  const vacatedSlot =
+    isUms(lobby.gameType) && !team.isObserver
+      ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
+      : createOpen()
   let updated =
     hasControlledOpens(lobby.gameType) && !team.isObserver
       ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
@@ -503,16 +499,12 @@ export function movePlayerToSlot(
       updated = removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
     }
   } else {
-    // Observer slots are closed unless someone deliberately opens them, so a vacated one goes
-    // back to that state instead of staying open for a new joiner.
-    let vacated: Slot
-    if (sourceTeam.isObserver) {
-      vacated = createClosed()
-    } else if (isUms(lobby.gameType)) {
-      vacated = createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
-    } else {
-      vacated = createOpen()
-    }
+    // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
+    // Observer slots carry no map data, so they get a plain open slot even in UMS.
+    const vacated =
+      isUms(lobby.gameType) && !sourceTeam.isObserver
+        ? createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
+        : createOpen()
     updated = updated.setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], vacated)
   }
 
@@ -594,8 +586,13 @@ export function makeObserver(lobby: Lobby, teamIndex: number, slotIndex: number)
   if (obsTeamIndex === undefined) {
     throw new Error('Lobby does not allow observers')
   }
-  // A closed observer slot is a valid destination: the host asking for this is what opens it up.
-  const obsSlotIndex = findSlotToMoveInto(obsTeam!.slots)
+  // A closed observer slot is the preferred destination (the host asking for this is what opens
+  // it up), so that a slot the host opened for joiners stays available to them.
+  const obsSlots = obsTeam!.slots
+  let obsSlotIndex = obsSlots.findIndex(s => s.type === SlotType.Closed)
+  if (obsSlotIndex === -1) {
+    obsSlotIndex = obsSlots.findIndex(isSlotUnoccupied)
+  }
   if (obsSlotIndex === -1) {
     throw new Error('Cannot add more observers')
   }
@@ -605,7 +602,7 @@ export function makeObserver(lobby: Lobby, teamIndex: number, slotIndex: number)
 
 /**
  * Moves an observer back into a player slot. The team they get moved to is the one with the most
- * unoccupied slots, and the observer slot they came from is closed again.
+ * unoccupied slots, and the observer slot they came from is left open.
  */
 export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
   const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)

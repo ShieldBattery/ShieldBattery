@@ -452,8 +452,9 @@ describe('Lobbies - melee', () => {
     const observers = lobby.teams.get(1)!
     expect(players.slots).toHaveProperty('size', 6)
     expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
-    // The observer slot they came from is closed again rather than left open for a new joiner
-    expect(observers.slots.every(s => s.type === 'closed')).toBe(true)
+    // The observer slot they came from is left open for the next joiner
+    expect(observers.slots.get(0)!.type).toBe('open')
+    expect(observers.slots.skip(1).every(s => s.type === 'closed')).toBe(true)
     expect(players.slots.get(0)!.type).toBe('human')
     expect(players.slots.get(0)!.userId).toBe(HOST_USER_ID)
     expect(lobby.host.id).toBe(players.slots.get(0)!.id)
@@ -1522,7 +1523,13 @@ describe('Lobbies - observers', () => {
 
     lobby = removeObserver(lobby, 0)
 
-    expect(lobby.teams.get(2)!.slots.every(s => s.type === 'closed')).toBe(true)
+    expect(lobby.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    expect(
+      lobby.teams
+        .get(2)!
+        .slots.skip(1)
+        .every(s => s.type === 'closed'),
+    ).toBe(true)
     const [teamIndex, , hostSlot] = findSlotByUserId(lobby, HOST_USER_ID)
     expect(hostSlot!.type).toBe('human')
     // Arriving in an empty controlled team fills the rest of it with slots the host controls
@@ -1553,7 +1560,9 @@ describe('Lobbies - observers', () => {
 
     lobby = removeObserver(lobby, 0)
 
-    expect(lobby.teams.get(2)!.slots.every(s => s.type === 'closed')).toBe(true)
+    expect(lobby.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    // A vacated observer slot carries no UMS map data
+    expect(lobby.teams.get(2)!.slots.get(0)!.hasForcedRace).toBe(false)
     evaluateUmsSlot(lobby.teams.get(0)!.slots.get(0)!, 'human', HOST_USER_ID, 'r', false, 0)
   })
 
@@ -1582,9 +1591,15 @@ describe('Lobbies - observers', () => {
     const updated = removePlayer(lobby, 2, 0, leaver)!
 
     expect(updated).toBeDefined()
-    // The vacated observer slot re-closes rather than staying open for a new joiner, and the
-    // player teams are untouched by the leave
-    expect(updated.teams.get(2)!.slots.every(s => s.type === 'closed')).toBe(true)
+    // The vacated observer slot is left open for the next joiner, and the player teams are
+    // untouched by the leave (no controlled-team cleanup for the observer team)
+    expect(updated.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    expect(
+      updated.teams
+        .get(2)!
+        .slots.skip(1)
+        .every(s => s.type === 'closed'),
+    ).toBe(true)
     expect(updated.teams.get(0)!.slots.get(0)!.type).toBe('human')
     expect(updated.teams.get(1)!.slots.every(s => s.type === 'open')).toBe(true)
   })
@@ -1603,7 +1618,7 @@ describe('Lobbies - observers', () => {
     ).toBe(true)
   })
 
-  test('should re-close an observer slot vacated by a slot change', () => {
+  test('should leave an observer slot open when its occupant changes slots', () => {
     let lobby = BOXER_LOBBY_WITH_OBSERVERS
     lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
     lobby = makeObserver(lobby, 0, 1)
@@ -1612,7 +1627,26 @@ describe('Lobbies - observers', () => {
     lobby = movePlayerToSlot(lobby, 1, 0, 0, 1)
 
     expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('human')
-    expect(lobby.teams.get(1)!.slots.every(s => s.type === 'closed')).toBe(true)
+    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
+    expect(
+      lobby.teams
+        .get(1)!
+        .slots.skip(1)
+        .every(s => s.type === 'closed'),
+    ).toBe(true)
+  })
+
+  test('should prefer a closed observer slot when making an observer', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    lobby = openSlot(lobby, 1, 0)
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
+
+    lobby = makeObserver(lobby, 0, 1)
+
+    // The host-opened slot stays available for joiners; the converted player took a closed one
+    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
+    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('observer')
+    expect(lobby.teams.get(1)!.slots.get(1)!.userId).toBe(makeSbUserId(1))
   })
 
   test('should keep UMS hidden slots out of the observer team', () => {
