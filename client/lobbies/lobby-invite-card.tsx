@@ -1,23 +1,14 @@
-import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { MapThumbnail } from '../maps/map-thumbnail'
-import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton } from '../material/button'
 import { isShieldBatteryUrl } from '../navigation/external-link'
-import { useAppDispatch } from '../redux-hooks'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
-import { healthChecked } from '../starcraft/health-checked'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
-import { joinLobby } from './action-creators'
-import { lobbyJoinErrorMessage } from './lobby-join-errors'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
-import { navigateToLobby } from './lobby-url'
+import { useJoinLobbyAction } from './use-join-lobby-action'
 
 /**
  * How old a message can be while still rendering an invite card for a lobby link in it. Lobbies
@@ -203,43 +194,15 @@ export function LobbyInviteCardContent({
  * `useLobbySummary`) since the same lobby link often appears in several rendered messages at once.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
-  const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
-  const isMatchmaking = useAtomValue(isMatchmakingAtom)
+  const joinLobbyAction = useJoinLobbyAction()
   const [state] = useLobbySummary(lobbyId, { cached: true })
 
-  const onJoinClick = () => {
-    if (!IS_ELECTRON) {
-      dispatch(openDialog({ type: DialogType.Download }))
-      return
-    }
-    if (isMatchmaking) {
-      dispatch(
-        openSimpleDialog(
-          t('lobbies.joinLobby.matchmakingActiveDialogTitle', 'Joining lobbies disabled'),
-          t(
-            'lobbies.joinLobby.matchmakingActiveDialogText',
-            'You cannot join lobbies while a matchmaking search is active.',
-          ),
-        ),
-      )
-      return
-    }
-
-    // Joins directly (like clicking a lobby in the list), with the lobby route showing the join's
-    // outcome; failures also surface in a snackbar since navigation isn't blocked on the join.
-    healthChecked(() => {
-      dispatch(
-        joinLobby(lobbyId, {
-          onError: (err: unknown) => {
-            snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
-          },
-        }),
-      )
-      navigateToLobby(lobbyId, state?.status === 'loaded' ? state.data.summary.name : undefined)
-    })()
-  }
-
-  return <LobbyInviteCardContent state={state} onJoinClick={onJoinClick} />
+  return (
+    <LobbyInviteCardContent
+      state={state}
+      onJoinClick={() =>
+        joinLobbyAction(lobbyId, state?.status === 'loaded' ? state.data.summary.name : undefined)
+      }
+    />
+  )
 }
