@@ -959,6 +959,9 @@ export class LobbyApi {
         .map(s => s.userId!)
         .toArray(),
       teams: lobby.teams
+        // The observer team never contains participants, and an empty husk entry for it would
+        // read as a real (empty) team to matchup/results consumers.
+        .filterNot(team => team.isObserver)
         .map(team =>
           team.slots
             .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
