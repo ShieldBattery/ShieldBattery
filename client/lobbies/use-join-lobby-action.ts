@@ -15,15 +15,19 @@ import { navigateToLobby } from './lobby-url'
  * Returns a function that joins a lobby the way clicking one in the lobby list does. On web it
  * shows the download dialog; in the app it refuses while a matchmaking search is active, and
  * otherwise health-checks the game install, dispatches the join (reporting failures in a
- * snackbar), and navigates to the lobby route, which shows the join's outcome.
+ * snackbar, and to `onError` if given), and navigates to the lobby route, which shows the join's
+ * outcome.
  */
-export function useJoinLobbyAction(): (lobbyId: SbLobbyId, name?: string) => void {
+export function useJoinLobbyAction(): (
+  lobbyId: SbLobbyId,
+  options?: { name?: string; onError?: (err: unknown) => void },
+) => void {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
 
-  return (lobbyId, name) => {
+  return (lobbyId, options) => {
     if (!IS_ELECTRON) {
       dispatch(openDialog({ type: DialogType.Download }))
       return
@@ -46,10 +50,11 @@ export function useJoinLobbyAction(): (lobbyId: SbLobbyId, name?: string) => voi
         joinLobby(lobbyId, {
           onError: (err: unknown) => {
             snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
+            options?.onError?.(err)
           },
         }),
       )
-      navigateToLobby(lobbyId, name)
+      navigateToLobby(lobbyId, options?.name)
     })()
   }
 }

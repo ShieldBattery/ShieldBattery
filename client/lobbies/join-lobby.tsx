@@ -189,7 +189,7 @@ function LobbyList() {
           <ListEntry
             key={id}
             lobby={byId.get(id)!}
-            onClick={lobby => joinLobbyAction(lobby.id, lobby.name)}
+            onClick={lobby => joinLobbyAction(lobby.id, { name: lobby.name })}
           />
         ))
       ) : (
