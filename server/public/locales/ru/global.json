@@ -423,6 +423,10 @@
     "watchReplays": "Смотреть повторы"
   },
   "clientUpdate": {
+    "errorBoundary": {
+      "contents": "Что-то пошло не так при обновлении. Пожалуйста, посетите <2>наш сайт</2>, чтобы скачать последнюю версию.",
+      "title": "Ошибка при обновлении"
+    },
     "overlay": {
       "errorBody": "Произошла ошибка при загрузке обновления. Пожалуйста, перезапустите и попробуйте снова, или посетите <2>наш сайт</2>, чтобы скачать последнюю версию.",
       "errorTitle": "Ошибка при загрузке обновления",
@@ -450,6 +454,7 @@
       "create": "Создать",
       "decline": "Отказаться",
       "delete": "Удалить",
+      "done": "Готово",
       "download": "Скачать",
       "edit": "Редактировать",
       "hide": "Спрятать",
@@ -510,6 +515,17 @@
     "filters": {
       "advanced": "Расширенные",
       "custom": "Произвольные",
+      "date": "Дата",
+      "dateFrom": "С",
+      "datePast3Months": "Последние 3 месяца",
+      "datePastMonth": "Последний месяц",
+      "datePastWeek": "Последняя неделя",
+      "datePastYear": "Последний год",
+      "datePresets": "Быстрый выбор",
+      "dateRangeBetween": "{{start}} – {{end}}",
+      "dateRangeFrom": "С {{date}}",
+      "dateRangeUntil": "До {{date}}",
+      "dateTo": "По",
       "duration": {
         "10to20": "10–20 мин",
         "20to30": "20–30 мин",
@@ -708,6 +724,10 @@
     "reporting": {
       "actionedNotification": "К игроку, на которого Вы пожаловались, были приняты меры. Спасибо, что помогаете поддерживать честность сообщества.",
       "pointsRefundedNotification": "Рейтинговые очки, которые Вы потеряли в матче, были возвращены Вам после проверки матча."
+    },
+    "sidePanel": {
+      "empty": "Выберите игру, чтобы увидеть подробности",
+      "viewFullResults": "Показать полные результаты"
     }
   },
   "gameServerRegions": {
@@ -905,6 +925,11 @@
     },
     "joinLobby": {
       "action": "Присоединиться к лобби",
+      "browseLobbies": "К списку лобби",
+      "errorAlreadyInActivity": "Вы уже в игре, в поиске матча или в другом лобби.",
+      "errorBanned": "Вы заблокированы в этом лобби.",
+      "errorFull": "Это лобби заполнено.",
+      "errorGeneric": "Что-то пошло не так при присоединении к лобби. Пожалуйста, попробуйте ещё раз.",
       "matchmakingActiveDialogText": "Вы не можете присоединяться к лобби, пока активен поиск матчей.",
       "matchmakingActiveDialogTitle": "Присоединение к лобби отключено",
       "noActiveLobbies": "Нет активных лобби",
@@ -914,6 +939,11 @@
       "openSlotCount_many": "{{count}} слотов открыто",
       "openSlotCount_other": "{{count}} слота открыто",
       "title": "Присоединиться к лобби"
+    },
+    "landing": {
+      "download": "Скачать ShieldBattery",
+      "loadError": "Не удалось загрузить это лобби.",
+      "openInApp": "Уже есть ShieldBattery? Откройте эту ссылку из приложения, чтобы присоединиться к лобби."
     },
     "lobby": {
       "copiedInviteLink": "Скопировано!",
@@ -960,6 +990,17 @@
       "exists": "Вы не находитесь в этом лобби. Присоединиться?",
       "nonexistent": "Лобби не найдено. Хотите создать новое?",
       "started": "Это лобби уже запущено, и к нему нельзя присоединиться."
+    },
+    "summary": {
+      "gameTypeLabel": "Тип игры",
+      "hostLabel": "Хост",
+      "mapLabel": "Карта",
+      "noLongerOpen": "Это лобби уже недоступно.",
+      "openSlotCount_one": "{{count}} открыт",
+      "openSlotCount_few": "{{count}} открыто",
+      "openSlotCount_many": "{{count}} открыто",
+      "openSlotCount_other": "{{count}} открыто",
+      "slotsLabel": "Слоты"
     }
   },
   "map": {
@@ -1220,6 +1261,9 @@
     }
   },
   "material": {
+    "dateTextField": {
+      "pickerButtonLabel": "Показать выбор даты"
+    },
     "datetimeTextField": {
       "pickerButtonLabel": "Показать выбор даты"
     },
@@ -1333,6 +1377,8 @@
       "moveDown": "Переместить вниз",
       "moveUp": "Переместить вверх",
       "newPlaylistMenu": "Новый плейлист…",
+      "noFolders": "Нет папок с реплеями",
+      "noFoldersBody": "Добавьте папку в Настройки > Приложение > Система, чтобы начать индексацию реплеев.",
       "noMatches": "Нет подходящих реплеев",
       "playlist": {
         "createError": "Не удалось создать плейлист: {{errorMessage}}",
@@ -1402,8 +1448,13 @@
         "title": "Звук"
       },
       "system": {
+        "addReplayFolder": "Добавить папку",
+        "addReplayFolderTitle": "Выберите папку с реплеями",
         "filesOverline": "Файлы",
         "networkOverline": "Сеть",
+        "removeReplayFolder": "Удалить папку",
+        "replayFoldersDescription": "Папки, индексируемые вашей библиотекой реплеев. Стандартная папка реплеев StarCraft добавляется автоматически. При удалении папки её реплеи удаляются из библиотеки вместе с закладками и записями в плейлистах.",
+        "replayFoldersTitle": "Папки с реплеями",
         "replayQuickOpen": "Запускать повторы, открытые через ShieldBattery, сразу — без предварительного просмотра",
         "runOnStartup": "Запускать ShieldBattery при запуске системы",
         "serverRegion": {
@@ -1433,6 +1484,45 @@
         "apmValue": "Значение APM",
         "apmValueValidation": "Введите значение от 1 до 999",
         "colorCycling": "Включить циклическое изменение цвета",
+        "colorNames": {
+          "azure": "Лазурный",
+          "black": "Чёрный",
+          "blue": "Синий",
+          "blueishGrey": "Серо-голубой",
+          "brick": "Кирпичный",
+          "brown": "Коричневый",
+          "cyan": "Циан",
+          "deepTeal": "Тёмно-бирюзовый",
+          "emerald": "Изумрудный",
+          "gold": "Золотой",
+          "green": "Зелёный",
+          "grey": "Серый",
+          "lime": "Лаймовый",
+          "magenta": "Пурпурный",
+          "mint": "Мятный",
+          "moss": "Болотный",
+          "navy": "Тёмно-синий",
+          "olive": "Оливковый",
+          "orange": "Оранжевый",
+          "paleGreen": "Бледно-зелёный",
+          "paleYellow": "Бледно-жёлтый",
+          "peach": "Персиковый",
+          "pink": "Розовый",
+          "purple": "Фиолетовый",
+          "red": "Красный",
+          "rose": "Нежно-розовый",
+          "scarlet": "Алый",
+          "sky": "Небесный",
+          "tan": "Песочный",
+          "teal": "Бирюзовый",
+          "violet": "Лиловый",
+          "white": "Белый",
+          "yellow": "Жёлтый"
+        },
+        "colorPicker": {
+          "builtinColorsLabel": "Цвета StarCraft",
+          "customRgb": "Свой RGB"
+        },
         "consoleSkins": {
           "20thAnniversary": "20-летие StarCraft",
           "blizzcon2017": "BlizzCon 2017",
@@ -1444,6 +1534,32 @@
           "warcraft3": "WarCraft 3 Spoils"
         },
         "devOnlySettings": "Настройки только для разработчиков",
+        "ffaColorPreset": {
+          "arcade": "Аркада",
+          "attributionPrefix": "Палитра: ",
+          "classic": "Классика",
+          "colorblindSafe": "Для дальтоников",
+          "custom": "Свой",
+          "jewel": "Самоцветы",
+          "neon": "Неон",
+          "pear": "Pear",
+          "resurrect": "Resurrect",
+          "title": "Пресет"
+        },
+        "ffaColors": {
+          "attributionBy": "{{palette}} от {{author}}",
+          "attributionInspiredBy": "Вдохновлено {{palette}}",
+          "clear": "Очистить",
+          "pickerTargetPool": "Индивидуальные цвета · #{{n}}",
+          "pickerTargetSelf": "Ваш индивидуальный цвет",
+          "poolGroup": "Пул",
+          "poolHint": "Минимум 8 цветов, чтобы каждому игроку всегда доставался уникальный цвет.",
+          "quickSwatchesLabel": "Из этой палитры",
+          "selfAddLabel": "Закреплённый цвет для вас (необязательно)",
+          "selfSetHint": "В играх без команд у вас всегда будет этот цвет. Он зарезервирован, чтобы другие игроки его не заняли.",
+          "selfUnsetHint": "Вы получите цвет из пула, как и все остальные.",
+          "title": "Индивидуальные цвета"
+        },
         "gameTimer": "Таймер игры",
         "ingameSkins": {
           "carbot": "Carbot",
@@ -1451,7 +1567,13 @@
           "preorder": "Предварительный заказ",
           "title": "Внутриигровой скин"
         },
+        "interface": {
+          "title": "Интерфейс"
+        },
         "latency": "Показать задержку",
+        "mapMinimap": {
+          "title": "Карта и миникарта"
+        },
         "minimapPosition": {
           "bottomLeft": "Нижний левый угол",
           "standard": "Стандарт",
@@ -1463,25 +1585,75 @@
           "title": "Рельеф миникарты"
         },
         "showBonusSkins": "Показать бонусные скины",
+        "skins": {
+          "description": "Приобретаются у Blizzard.",
+          "title": "Скины"
+        },
         "startingFog": {
           "legacy": "Классический",
           "showResources": "Показать ресурсы",
           "showTerrainAndResources": "Показать местность и ресурсы",
           "title": "Начальный туман войны"
         },
+        "teamColorPreset": {
+          "colorblindSafe": "Для дальтоников",
+          "coolVsWarm": "Холодные против тёплых",
+          "custom": "Свой",
+          "legacyDiplomacy": "Классическая дипломатия",
+          "title": "Пресет",
+          "warmVsCool": "Тёплые против холодных"
+        },
         "teamColors": {
+          "addColor": "Добавить цвет",
+          "clear": "Очистить",
+          "copyFromPreset": "Скопировать из пресета",
+          "copyFromPresetCaption": "Перезапишет ваши собственные цвета",
+          "description": "Как цвета игроков выглядят в ваших играх. Переключайте режимы в игре с помощью Shift+Tab.",
+          "editHint": "Нажмите на цвет, чтобы изменить его, или перетащите, чтобы изменить порядок.",
+          "header": "Цвета игроков",
           "label": "Режим",
           "mode": {
             "presetEverywhere": "Использовать пресет везде",
+            "presetEverywhereDesc": "Ваша цветовая схема на юнитах и миникарте.",
             "presetOnMinimap": "Использовать пресет на миникарте",
-            "standard": "Стандартный"
+            "presetOnMinimapDesc": "Цвета союзников и врагов только на миникарте.",
+            "standard": "Стандартный",
+            "standardDesc": "Обычные цвета StarCraft. Настройки ниже не действуют."
           },
+          "offNote": "Выключено. Во всех играх используются индивидуальные цвета.",
+          "pickerTargetAlly": "Командная схема · союзники · #{{n}}",
+          "pickerTargetEnemy": "Командная схема · враги · #{{n}}",
+          "pickerTargetSelf": "Командная схема · ваш цвет",
+          "poolOrderedHint": "Цвета используются по порядку, слева направо.",
+          "poolShuffledHint": "Эти цвета используются в случайном порядке в каждой игре.",
           "preview": {
             "allies": "Союзники",
             "enemies": "Враги",
             "self": "Вы"
           },
-          "title": "Цвета команд"
+          "previewHeaderFfa": "Предпросмотр (без команд)",
+          "previewHeaderTeam": "Предпросмотр (4v4)",
+          "quickSwatchesLabel": "Из этой палитры",
+          "removeColor": "Удалить цвет",
+          "selectCustomHint": "Выберите пресет «Свой», чтобы редактировать цвета.",
+          "selfAddLabel": "Закреплённый цвет для вас (необязательно)",
+          "selfBadge": "ВЫ",
+          "selfFirstAllyHint": "Вы получите первый цвет союзника.",
+          "selfOverrideSetHint": "В командных играх вы всегда будете этого цвета.",
+          "selfShuffleHint": "В каждой игре вы получаете случайный цвет из пула вашей команды.",
+          "shuffle": "Перемешивать цвета в каждой игре",
+          "title": "Цвета команд",
+          "yourTeam": "Ваша команда"
+        },
+        "teamColorUsage": {
+          "always": "В командных играх и 1v1",
+          "alwaysDesc": "Ваш соперник в 1v1 всегда получает первый цвет врага.",
+          "alwaysShuffledDesc": "Ваш соперник в 1v1 получает случайный цвет из вашего пула врагов.",
+          "exceptIn1v1": "Только в командных играх",
+          "exceptIn1v1Desc": "В играх на двоих используются индивидуальные цвета.",
+          "never": "Никогда",
+          "neverDesc": "Каждый сохраняет свой цвет, даже когда меняются альянсы.",
+          "title": "Использование командных цветов"
         },
         "title": "Геймплей",
         "unitPortraits": {

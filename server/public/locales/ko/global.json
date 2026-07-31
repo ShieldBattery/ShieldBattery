@@ -420,6 +420,10 @@
     "watchReplays": "다시보기"
   },
   "clientUpdate": {
+    "errorBoundary": {
+      "contents": "업데이트 중 문제가 발생했습니다. <2>웹사이트</2>에서 최신 버전을 다운로드해 주세요.",
+      "title": "업데이트 오류"
+    },
     "overlay": {
       "errorBody": "업데이트를 다운로드하는 동안 오류가 발생했습니다. 다시 시작하고 시도하거나 <2>저희 웹사이트</2>를 방문하여 최신 버전을 다운로드하십시오.",
       "errorTitle": "업데이트 다운로드 중 오류 발생",
@@ -447,6 +451,7 @@
       "create": "만들기",
       "decline": "거절해",
       "delete": "삭제",
+      "done": "완료",
       "download": "다운로드",
       "edit": "편집",
       "hide": "숨기기",
@@ -501,6 +506,17 @@
     "filters": {
       "advanced": "고급",
       "custom": "커스텀",
+      "date": "날짜",
+      "dateFrom": "시작",
+      "datePast3Months": "최근 3개월",
+      "datePastMonth": "최근 1개월",
+      "datePastWeek": "최근 1주",
+      "datePastYear": "최근 1년",
+      "datePresets": "빠른 선택",
+      "dateRangeBetween": "{{start}} – {{end}}",
+      "dateRangeFrom": "{{date}}부터",
+      "dateRangeUntil": "{{date}}까지",
+      "dateTo": "종료",
       "duration": {
         "10to20": "10~20분",
         "20to30": "20~30분",
@@ -699,6 +715,10 @@
     "reporting": {
       "actionedNotification": "회원님이 신고하신 플레이어에게 조치가 취해졌습니다. 공정한 커뮤니티를 유지하는 데 도움을 주셔서 감사합니다.",
       "pointsRefundedNotification": "게임이 검토되어, 회원님이 잃은 랭크 점수가 복구되었습니다."
+    },
+    "sidePanel": {
+      "empty": "게임을 선택하면 상세 정보가 표시됩니다",
+      "viewFullResults": "전체 결과 보기"
     }
   },
   "gameServerRegions": {
@@ -896,12 +916,22 @@
     },
     "joinLobby": {
       "action": "로비 참가",
+      "browseLobbies": "로비 둘러보기",
+      "errorAlreadyInActivity": "이미 게임 중이거나, 매치메이킹 중이거나, 다른 로비에 참여 중입니다.",
+      "errorBanned": "이 로비에서 차단되었습니다.",
+      "errorFull": "로비가 가득 찼습니다.",
+      "errorGeneric": "로비에 참가하는 중 문제가 발생했습니다. 다시 시도해 주세요.",
       "matchmakingActiveDialogText": "매치메이킹이 진행 중일 때는 로비에 참여할 수 없습니다.",
       "matchmakingActiveDialogTitle": "로비 참가 비활성화됨",
       "noActiveLobbies": "활성 로비가 없습니다",
       "noOpenLobbies": "공개된 로비가 없습니다",
       "openSlotCount_other": "{{count}} 슬롯 열림",
       "title": "로비 참가"
+    },
+    "landing": {
+      "download": "ShieldBattery 다운로드",
+      "loadError": "로비를 불러오는 중 문제가 발생했습니다.",
+      "openInApp": "이미 ShieldBattery를 사용 중이신가요? 앱 안에서 이 링크를 열면 로비에 참가할 수 있습니다."
     },
     "lobby": {
       "copiedInviteLink": "복사되었습니다!",
@@ -948,6 +978,14 @@
       "exists": "현재 이 로비에 참여 중이 아닙니다. 참가하시겠어요?",
       "nonexistent": "로비를 찾을 수 없습니다. 새로 만드시겠어요?",
       "started": "이 로비는 이미 게임이 시작되어 참여할 수 없습니다."
+    },
+    "summary": {
+      "gameTypeLabel": "게임 방식",
+      "hostLabel": "호스트",
+      "mapLabel": "맵",
+      "noLongerOpen": "이 로비는 더 이상 열려 있지 않습니다.",
+      "openSlotCount_other": "{{count}}개 열림",
+      "slotsLabel": "슬롯"
     }
   },
   "map": {
@@ -1202,6 +1240,9 @@
     }
   },
   "material": {
+    "dateTextField": {
+      "pickerButtonLabel": "선택기 표시"
+    },
     "datetimeTextField": {
       "pickerButtonLabel": "선택기 표시"
     },
@@ -1315,6 +1356,8 @@
       "moveDown": "아래로 이동",
       "moveUp": "위로 이동",
       "newPlaylistMenu": "새 재생목록…",
+      "noFolders": "리플레이 폴더 없음",
+      "noFoldersBody": "설정 > 앱 > 시스템에서 폴더를 추가하면 리플레이 인덱싱이 시작됩니다.",
       "noMatches": "일치하는 리플레이가 없습니다",
       "playlist": {
         "createError": "재생목록을 만드는 중 오류가 발생했습니다: {{errorMessage}}",
@@ -1384,8 +1427,13 @@
         "title": "소리"
       },
       "system": {
+        "addReplayFolder": "폴더 추가",
+        "addReplayFolderTitle": "리플레이 폴더 선택",
         "filesOverline": "파일",
         "networkOverline": "네트워크",
+        "removeReplayFolder": "폴더 제거",
+        "replayFoldersDescription": "리플레이 라이브러리가 인덱싱하는 폴더입니다. 스타크래프트 기본 리플레이 폴더는 자동으로 추가됩니다. 폴더를 제거하면 해당 폴더의 리플레이가 북마크와 재생목록 항목을 포함해 라이브러리에서 제거됩니다.",
+        "replayFoldersTitle": "리플레이 폴더",
         "replayQuickOpen": "ShieldBattery로 연 리플레이를 미리보기 없이 바로 실행",
         "runOnStartup": "시스템 시작 시 ShieldBattery 실행",
         "serverRegion": {
@@ -1415,6 +1463,45 @@
         "apmValue": "APM 값",
         "apmValueValidation": "1에서 999 사이의 값을 입력하세요",
         "colorCycling": "색상 순환 사용",
+        "colorNames": {
+          "azure": "쪽빛",
+          "black": "검정",
+          "blue": "파랑",
+          "blueishGrey": "청회색",
+          "brick": "벽돌색",
+          "brown": "갈색",
+          "cyan": "시안",
+          "deepTeal": "진청록",
+          "emerald": "에메랄드",
+          "gold": "금색",
+          "green": "초록",
+          "grey": "회색",
+          "lime": "라임",
+          "magenta": "마젠타",
+          "mint": "민트",
+          "moss": "이끼색",
+          "navy": "남색",
+          "olive": "올리브",
+          "orange": "주황",
+          "paleGreen": "연초록",
+          "paleYellow": "연노랑",
+          "peach": "살구색",
+          "pink": "분홍",
+          "purple": "보라",
+          "red": "빨강",
+          "rose": "연분홍",
+          "scarlet": "주홍",
+          "sky": "하늘색",
+          "tan": "황갈색",
+          "teal": "청록",
+          "violet": "바이올렛",
+          "white": "흰색",
+          "yellow": "노랑"
+        },
+        "colorPicker": {
+          "builtinColorsLabel": "스타크래프트 기본 색상",
+          "customRgb": "커스텀 RGB"
+        },
         "consoleSkins": {
           "20thAnniversary": "스타크래프트 20주년",
           "blizzcon2017": "블리즈컨 2017",
@@ -1426,6 +1513,32 @@
           "warcraft3": "워크래프트 3 스포일즈"
         },
         "devOnlySettings": "개발자 전용 설정",
+        "ffaColorPreset": {
+          "arcade": "아케이드",
+          "attributionPrefix": "팔레트: ",
+          "classic": "클래식",
+          "colorblindSafe": "색약 친화",
+          "custom": "커스텀",
+          "jewel": "보석",
+          "neon": "네온",
+          "pear": "Pear",
+          "resurrect": "Resurrect",
+          "title": "프리셋"
+        },
+        "ffaColors": {
+          "attributionBy": "{{author}}의 {{palette}}",
+          "attributionInspiredBy": "{{palette}}에서 영감을 받음",
+          "clear": "비우기",
+          "pickerTargetPool": "개인 색상 · #{{n}}",
+          "pickerTargetSelf": "내 개인 색상",
+          "poolGroup": "색상 풀",
+          "poolHint": "최소 8가지 색상이 있어야 모든 플레이어가 항상 고유한 색상을 갖습니다.",
+          "quickSwatchesLabel": "이 팔레트에서",
+          "selfAddLabel": "내 고정 색상 (선택 사항)",
+          "selfSetHint": "팀이 없는 게임에서 항상 이 색상을 갖게 됩니다. 다른 플레이어가 가져가지 않도록 따로 예약됩니다.",
+          "selfUnsetHint": "다른 플레이어와 마찬가지로 풀에서 색상을 받습니다.",
+          "title": "개인 색상"
+        },
         "gameTimer": "게임 타이머",
         "ingameSkins": {
           "carbot": "카툰드",
@@ -1433,7 +1546,13 @@
           "preorder": "예약판",
           "title": "인게임 스킨"
         },
+        "interface": {
+          "title": "인터페이스"
+        },
         "latency": "지연 시간 표시",
+        "mapMinimap": {
+          "title": "맵 및 미니맵"
+        },
         "minimapPosition": {
           "bottomLeft": "좌측 하단",
           "standard": "기본 위치",
@@ -1445,25 +1564,75 @@
           "title": "미니맵 지형"
         },
         "showBonusSkins": "보너스 스킨 표시",
+        "skins": {
+          "description": "블리자드에서 구매해야 합니다.",
+          "title": "스킨"
+        },
         "startingFog": {
           "legacy": "오리지널",
           "showResources": "자원 표시",
           "showTerrainAndResources": "지형 및 자원 표시",
           "title": "초기 안개 설정"
         },
+        "teamColorPreset": {
+          "colorblindSafe": "색약 친화",
+          "coolVsWarm": "한색 대 난색",
+          "custom": "커스텀",
+          "legacyDiplomacy": "클래식 외교",
+          "title": "프리셋",
+          "warmVsCool": "난색 대 한색"
+        },
         "teamColors": {
+          "addColor": "색상 추가",
+          "clear": "비우기",
+          "copyFromPreset": "프리셋에서 복사",
+          "copyFromPresetCaption": "커스텀 색상을 덮어씁니다",
+          "description": "게임에서 플레이어 색상이 표시되는 방식입니다. 게임 중 Shift+Tab으로 모드를 전환할 수 있습니다.",
+          "editHint": "색상을 클릭해 변경하거나 드래그해 순서를 바꾸세요.",
+          "header": "플레이어 색상",
           "label": "모드",
           "mode": {
             "presetEverywhere": "모든 곳에 프리셋 사용",
+            "presetEverywhereDesc": "유닛과 미니맵에 내 색상 구성을 적용합니다.",
             "presetOnMinimap": "미니맵에 프리셋 사용",
-            "standard": "표준"
+            "presetOnMinimapDesc": "미니맵에서만 아군·적군 색상을 적용합니다.",
+            "standard": "표준",
+            "standardDesc": "스타크래프트 기본 색상입니다. 아래 설정은 적용되지 않습니다."
           },
+          "offNote": "꺼짐. 모든 게임에서 개인 색상이 사용됩니다.",
+          "pickerTargetAlly": "팀 배색 · 아군 · #{{n}}",
+          "pickerTargetEnemy": "팀 배색 · 적군 · #{{n}}",
+          "pickerTargetSelf": "팀 배색 · 내 색상",
+          "poolOrderedHint": "색상은 왼쪽부터 순서대로 사용됩니다.",
+          "poolShuffledHint": "이 색상들은 게임마다 무작위 순서로 사용됩니다.",
           "preview": {
             "allies": "아군",
             "enemies": "적군",
             "self": "나"
           },
-          "title": "팀 색상"
+          "previewHeaderFfa": "미리보기 (팀 없음)",
+          "previewHeaderTeam": "미리보기 (4:4)",
+          "quickSwatchesLabel": "이 팔레트에서",
+          "removeColor": "색상 제거",
+          "selectCustomHint": "색상을 편집하려면 커스텀 프리셋을 선택하세요.",
+          "selfAddLabel": "내 고정 색상 (선택 사항)",
+          "selfBadge": "나",
+          "selfFirstAllyHint": "첫 번째 아군 색상을 받게 됩니다.",
+          "selfOverrideSetHint": "팀 게임에서 항상 이 색상이 됩니다.",
+          "selfShuffleHint": "게임마다 팀 풀에서 무작위 색상을 받습니다.",
+          "shuffle": "게임마다 색상 섞기",
+          "title": "팀 색상",
+          "yourTeam": "내 팀"
+        },
+        "teamColorUsage": {
+          "always": "팀 게임과 1:1에서",
+          "alwaysDesc": "1:1 상대는 항상 첫 번째 적군 색상을 받습니다.",
+          "alwaysShuffledDesc": "1:1 상대는 적군 풀에서 무작위 색상을 받습니다.",
+          "exceptIn1v1": "팀 게임에서만",
+          "exceptIn1v1Desc": "2인 게임에서는 개인 색상을 사용합니다.",
+          "never": "사용 안 함",
+          "neverDesc": "동맹이 바뀌어도 모두 자기 색상을 유지합니다.",
+          "title": "팀 색상 사용"
         },
         "title": "게임플레이",
         "unitPortraits": {

@@ -420,6 +420,10 @@
     "watchReplays": "观看录像"
   },
   "clientUpdate": {
+    "errorBoundary": {
+      "contents": "更新时出了点问题。请访问<2>我们的网站</2>下载最新版本。",
+      "title": "更新出错"
+    },
     "overlay": {
       "errorBody": "下载更新时遇到错误。请重启程序并重试，或访问<2>我们的网站</2>下载最新版本。",
       "errorTitle": "下载更新时遇到错误",
@@ -447,6 +451,7 @@
       "create": "创建",
       "decline": "拒绝",
       "delete": "删除",
+      "done": "完成",
       "download": "下载",
       "edit": "编辑",
       "hide": "隐藏",
@@ -501,6 +506,17 @@
     "filters": {
       "advanced": "高级",
       "custom": "自定义",
+      "date": "日期",
+      "dateFrom": "开始",
+      "datePast3Months": "近3个月",
+      "datePastMonth": "近1个月",
+      "datePastWeek": "近1周",
+      "datePastYear": "近1年",
+      "datePresets": "快捷范围",
+      "dateRangeBetween": "{{start}} – {{end}}",
+      "dateRangeFrom": "自{{date}}",
+      "dateRangeUntil": "截至{{date}}",
+      "dateTo": "结束",
       "duration": {
         "10to20": "10-20分钟",
         "20to30": "20-30分钟",
@@ -699,6 +715,10 @@
     "reporting": {
       "actionedNotification": "我们已对您举报的一名玩家采取了处理措施。感谢您帮助维护公平的社区环境。",
       "pointsRefundedNotification": "经过审核，您在一场对局中失去的排位积分已返还给您。"
+    },
+    "sidePanel": {
+      "empty": "选择一场游戏查看详情",
+      "viewFullResults": "查看完整结果"
     }
   },
   "gameServerRegions": {
@@ -896,12 +916,22 @@
     },
     "joinLobby": {
       "action": "加入房间",
+      "browseLobbies": "浏览房间",
+      "errorAlreadyInActivity": "您已在游戏中、正在匹配或已在其他房间。",
+      "errorBanned": "您已被该房间封禁。",
+      "errorFull": "该房间已满。",
+      "errorGeneric": "加入房间时出了点问题。请重试。",
       "matchmakingActiveDialogText": "正在进行匹配时无法加入房间。",
       "matchmakingActiveDialogTitle": "加入房间已禁用",
       "noActiveLobbies": "目前没有活跃的房间",
       "noOpenLobbies": "目前没有开放的房间",
       "openSlotCount_other": "有{{count}}个空位",
       "title": "加入房间"
+    },
+    "landing": {
+      "download": "下载 ShieldBattery",
+      "loadError": "加载该房间时遇到问题。",
+      "openInApp": "已经安装了 ShieldBattery？在应用内打开此链接即可加入房间。"
     },
     "lobby": {
       "copiedInviteLink": "已复制！",
@@ -948,6 +978,14 @@
       "exists": "你现在不在这个房间。想加入吗？",
       "nonexistent": "未找到房间。要新建一个吗？",
       "started": "这个房间已经开始，无法加入。"
+    },
+    "summary": {
+      "gameTypeLabel": "游戏类型",
+      "hostLabel": "主机",
+      "mapLabel": "地图",
+      "noLongerOpen": "该房间已不再开放。",
+      "openSlotCount_other": "剩余{{count}}个",
+      "slotsLabel": "空位"
     }
   },
   "map": {
@@ -1202,6 +1240,9 @@
     }
   },
   "material": {
+    "dateTextField": {
+      "pickerButtonLabel": "打开选择器"
+    },
     "datetimeTextField": {
       "pickerButtonLabel": "打开选择器"
     },
@@ -1315,6 +1356,8 @@
       "moveDown": "下移",
       "moveUp": "上移",
       "newPlaylistMenu": "新建播放列表…",
+      "noFolders": "没有录像文件夹",
+      "noFoldersBody": "在设置 > 应用程序 > 系统中添加文件夹，即可开始索引录像。",
       "noMatches": "没有符合条件的录像",
       "playlist": {
         "createError": "创建播放列表时出错：{{errorMessage}}",
@@ -1384,8 +1427,13 @@
         "title": "声音"
       },
       "system": {
+        "addReplayFolder": "添加文件夹",
+        "addReplayFolderTitle": "选择录像文件夹",
         "filesOverline": "文件",
         "networkOverline": "网络",
+        "removeReplayFolder": "移除文件夹",
+        "replayFoldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
+        "replayFoldersTitle": "录像文件夹",
         "replayQuickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
         "runOnStartup": "开机时自动启动ShieldBattery",
         "serverRegion": {
@@ -1415,6 +1463,45 @@
         "apmValue": "APM值",
         "apmValueValidation": "输入一个1到999之间的数值",
         "colorCycling": "启用颜色循环",
+        "colorNames": {
+          "azure": "蔚蓝",
+          "black": "黑色",
+          "blue": "蓝色",
+          "blueishGrey": "蓝灰",
+          "brick": "砖红",
+          "brown": "棕色",
+          "cyan": "青色",
+          "deepTeal": "深蓝绿",
+          "emerald": "翡翠绿",
+          "gold": "金色",
+          "green": "绿色",
+          "grey": "灰色",
+          "lime": "青柠",
+          "magenta": "洋红",
+          "mint": "薄荷绿",
+          "moss": "苔藓绿",
+          "navy": "藏青",
+          "olive": "橄榄绿",
+          "orange": "橙色",
+          "paleGreen": "浅绿",
+          "paleYellow": "浅黄",
+          "peach": "桃色",
+          "pink": "粉色",
+          "purple": "紫色",
+          "red": "红色",
+          "rose": "玫瑰粉",
+          "scarlet": "猩红",
+          "sky": "天蓝",
+          "tan": "棕褐",
+          "teal": "蓝绿",
+          "violet": "紫罗兰",
+          "white": "白色",
+          "yellow": "黄色"
+        },
+        "colorPicker": {
+          "builtinColorsLabel": "星际争霸原版颜色",
+          "customRgb": "自定义 RGB"
+        },
         "consoleSkins": {
           "20thAnniversary": "星际争霸20周年",
           "blizzcon2017": "2017暴雪嘉年华",
@@ -1426,6 +1513,32 @@
           "warcraft3": "魔兽争霸3战利品"
         },
         "devOnlySettings": "开发者选项",
+        "ffaColorPreset": {
+          "arcade": "街机",
+          "attributionPrefix": "调色板：",
+          "classic": "经典",
+          "colorblindSafe": "色盲友好",
+          "custom": "自定义",
+          "jewel": "宝石",
+          "neon": "霓虹",
+          "pear": "Pear",
+          "resurrect": "Resurrect",
+          "title": "预设"
+        },
+        "ffaColors": {
+          "attributionBy": "{{palette}}，作者：{{author}}",
+          "attributionInspiredBy": "灵感来自 {{palette}}",
+          "clear": "清空",
+          "pickerTargetPool": "个人颜色 · #{{n}}",
+          "pickerTargetSelf": "您的个人颜色",
+          "poolGroup": "颜色池",
+          "poolHint": "至少需要 8 种颜色，确保每位玩家总能获得不重复的颜色。",
+          "quickSwatchesLabel": "来自此调色板",
+          "selfAddLabel": "为自己固定颜色（可选）",
+          "selfSetHint": "在无队伍的游戏中，您将始终使用此颜色。它会被预留，其他玩家不会占用。",
+          "selfUnsetHint": "您将和其他玩家一样从颜色池中获得颜色。",
+          "title": "个人颜色"
+        },
         "gameTimer": "游戏计时器",
         "ingameSkins": {
           "carbot": "爆笑星际",
@@ -1433,7 +1546,13 @@
           "preorder": "预购",
           "title": "游戏内皮肤"
         },
+        "interface": {
+          "title": "界面"
+        },
         "latency": "显示网络延迟",
+        "mapMinimap": {
+          "title": "地图与小地图"
+        },
         "minimapPosition": {
           "bottomLeft": "左下角",
           "standard": "标准",
@@ -1445,25 +1564,75 @@
           "title": "小地图地形"
         },
         "showBonusSkins": "显示奖励皮肤",
+        "skins": {
+          "description": "需从暴雪购买。",
+          "title": "皮肤"
+        },
         "startingFog": {
           "legacy": "原版",
           "showResources": "显示资源",
           "showTerrainAndResources": "显示地形和资源",
           "title": "初始战争迷雾"
         },
+        "teamColorPreset": {
+          "colorblindSafe": "色盲友好",
+          "coolVsWarm": "冷色对暖色",
+          "custom": "自定义",
+          "legacyDiplomacy": "经典外交",
+          "title": "预设",
+          "warmVsCool": "暖色对冷色"
+        },
         "teamColors": {
+          "addColor": "添加颜色",
+          "clear": "清空",
+          "copyFromPreset": "从预设复制",
+          "copyFromPresetCaption": "会覆盖您的自定义颜色",
+          "description": "玩家颜色在您游戏中的显示方式。游戏内按 Shift+Tab 可切换模式。",
+          "editHint": "点击颜色进行修改，拖动可调整顺序。",
+          "header": "玩家颜色",
           "label": "模式",
           "mode": {
             "presetEverywhere": "全部使用预设",
+            "presetEverywhereDesc": "您的配色方案应用于单位和小地图。",
             "presetOnMinimap": "在小地图上使用预设",
-            "standard": "标准"
+            "presetOnMinimapDesc": "盟友和敌人颜色仅应用于小地图。",
+            "standard": "标准",
+            "standardDesc": "星际争霸的普通颜色。下面的设置不会生效。"
           },
+          "offNote": "已关闭。所有游戏均使用个人颜色。",
+          "pickerTargetAlly": "队伍配色 · 盟友 · #{{n}}",
+          "pickerTargetEnemy": "队伍配色 · 敌人 · #{{n}}",
+          "pickerTargetSelf": "队伍配色 · 您的颜色",
+          "poolOrderedHint": "颜色从左到右按顺序使用。",
+          "poolShuffledHint": "这些颜色在每场游戏中随机排序使用。",
           "preview": {
             "allies": "盟友",
             "enemies": "敌人",
             "self": "自己"
           },
-          "title": "队伍颜色"
+          "previewHeaderFfa": "预览（无队伍）",
+          "previewHeaderTeam": "预览（4v4）",
+          "quickSwatchesLabel": "来自此调色板",
+          "removeColor": "移除颜色",
+          "selectCustomHint": "选择“自定义”预设即可编辑颜色。",
+          "selfAddLabel": "为自己固定颜色（可选）",
+          "selfBadge": "我",
+          "selfFirstAllyHint": "您将获得第一个盟友颜色。",
+          "selfOverrideSetHint": "在团队游戏中，您将始终使用此颜色。",
+          "selfShuffleHint": "每场游戏您会从您队伍的颜色池中随机获得一个颜色。",
+          "shuffle": "每场游戏随机排列颜色",
+          "title": "队伍颜色",
+          "yourTeam": "您的队伍"
+        },
+        "teamColorUsage": {
+          "always": "团队游戏和 1v1",
+          "alwaysDesc": "您的 1v1 对手总是获得第一个敌人颜色。",
+          "alwaysShuffledDesc": "您的 1v1 对手会从您的敌人颜色池中随机获得颜色。",
+          "exceptIn1v1": "仅团队游戏",
+          "exceptIn1v1Desc": "双人游戏改用个人颜色。",
+          "never": "从不",
+          "neverDesc": "每个人保留自己的颜色，即使结盟关系变化也不变。",
+          "title": "队伍颜色使用"
         },
         "title": "游戏性选项",
         "unitPortraits": {
