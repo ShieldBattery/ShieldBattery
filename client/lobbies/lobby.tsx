@@ -245,13 +245,9 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 race={race}
                 isHost={isHost}
                 isObserver={isObserver}
-                canMakeObserver={!isObserver && canAddObsSlots && team.slots.size > 1}
-                canRemoveObserver={isObserver && canRemoveObsSlots}
                 onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
                 onSwitchClick={() => onSwitchSlot(id)}
                 onCloseSlot={() => onCloseSlot(id)}
-                onMakeObserver={() => onMakeObserver(id)}
-                onRemoveObserver={() => onRemoveObserver(id)}
               />
             )
           case SlotType.Closed:
@@ -261,12 +257,8 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 race={race}
                 isHost={isHost}
                 isObserver={isObserver}
-                canMakeObserver={!isObserver && canAddObsSlots && team.slots.size > 1}
-                canRemoveObserver={isObserver && canRemoveObsSlots}
                 onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
                 onOpenSlot={() => onOpenSlot(id)}
-                onMakeObserver={() => onMakeObserver(id)}
-                onRemoveObserver={() => onRemoveObserver(id)}
               />
             )
           case SlotType.Human:
@@ -277,7 +269,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 race={race}
                 isHost={isHost}
                 canSetRace={slot === mySlot && !slot.hasForcedRace}
-                canMakeObserver={canAddObsSlots && team.slots.size > 1}
+                canMakeObserver={canAddObsSlots}
                 isSelf={slot === mySlot}
                 onSetRace={(race: RaceChar) => onSetRace(id, race)}
                 onCloseSlot={() => onCloseSlot(id)}
@@ -293,7 +285,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
                 userId={userId}
                 isHost={isHost}
                 isObserver={true}
-                canRemoveObserver={isObserver && canRemoveObsSlots}
+                canRemoveObserver={canRemoveObsSlots}
                 isSelf={slot === mySlot}
                 onCloseSlot={() => onCloseSlot(id)}
                 onKickPlayer={() => onKickPlayer(id)}

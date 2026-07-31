@@ -1596,15 +1596,18 @@ unsafe fn setup_slots(
 
         let mut num_observers = 0;
         for (i, slot) in slots.iter().enumerate() {
-            let slot_id = if is_ums {
-                slot.player_id.unwrap_or(0) as usize
-            } else if slot.is_observer() {
+            // Observers take the native observer slots (12..16) in every game type. This has to be
+            // checked before UMS handling: an observer isn't one of the map's slots, so their
+            // `player_id` is meaningless and must not be used to place them.
+            let slot_id = if slot.is_observer() {
                 num_observers += 1;
                 if num_observers > 4 {
                     panic!("Slots had more than 4 observers!");
                 }
 
                 11 + num_observers
+            } else if is_ums {
+                slot.player_id.unwrap_or(0) as usize
             } else {
                 i
             };
@@ -1641,9 +1644,11 @@ unsafe fn setup_slots(
                     false => u32::MAX,
                 },
                 race: slot.bw_race(),
-                player_type: if is_ums && !slot.is_human() {
+                player_type: if is_ums && !slot.is_human() && !slot.is_observer() {
                     // The type of UMS computers is set in the map file, and we have no reason to
-                    // worry about the various possibilities there are, so just pass the integer onwards.
+                    // worry about the various possibilities there are, so just pass the integer
+                    // onwards. Observers aren't map slots, so they're excluded: they get the same
+                    // type as in any other game type.
                     slot.player_type_id
                 } else {
                     slot.bw_player_type()

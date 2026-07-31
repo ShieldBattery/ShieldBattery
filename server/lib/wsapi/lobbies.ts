@@ -824,7 +824,7 @@ export class LobbyApi {
       throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.id, updated)
-    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
@@ -852,7 +852,7 @@ export class LobbyApi {
       throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.id, updated)
-    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
@@ -954,8 +954,10 @@ export class LobbyApi {
         useLegacyLimits: lobby.useLegacyLimits,
       },
       lockedAlliances: false,
-      // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
-      // they were there
+      observers: getLobbySlots(lobby)
+        .filter(s => s.type === SlotType.Observer)
+        .map(s => s.userId!)
+        .toArray(),
       teams: lobby.teams
         .map(team =>
           team.slots
@@ -1225,7 +1227,6 @@ export class LobbyApi {
     newLobby: Lobby,
     kickedUser?: SbUserId,
     bannedUser?: SbUserId,
-    deletedSlotIndex?: number,
   ) {
     if (oldLobby === newLobby) return
 
@@ -1278,23 +1279,6 @@ export class LobbyApi {
         diffEvents.push({
           type: 'leave',
           player,
-        })
-      }
-    }
-
-    // Check for deleted slots caused by obs slot creation/removal.
-    // In order for things on client to work properly, we need to tell them exactly *which* slot was
-    // deleted, which seems to be impossible to figure out just by comparing lobby diffs. So in a
-    // similar fashion as we do when determining if the user was kicked/banned, we pass the slot
-    // index of a deleted slot from the method that knows which slot it is
-    for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
-      const oldTeam = oldLobby.teams.get(teamIndex)!
-      const newTeam = newLobby.teams.get(teamIndex)!
-      if (oldTeam.slots.size > newTeam.slots.size) {
-        diffEvents.push({
-          type: 'slotDeleted',
-          teamIndex,
-          slotIndex: deletedSlotIndex,
         })
       }
     }
