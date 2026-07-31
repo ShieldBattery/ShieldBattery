@@ -138,6 +138,8 @@ fn run_smoke() {
             buffer_samples: Vec::new(),
             gap_samples_ms: Vec::new(),
             events: Vec::new(),
+            phase_applied_us: 0,
+            phase_target_us: 0,
             rows: Vec::new(),
         },
         // A populated, unhappy, re-homed session — stalls, a stale slot, link blips, full strips, and
@@ -154,6 +156,8 @@ fn run_smoke() {
             link_last_change_secs: Some(4),
             buffer_samples: buffer_samples_from_shape(BufferShape::Step, 90),
             gap_samples_ms: gap_samples_from_shape(BufferShape::Sawtooth, 90, 1800),
+            phase_applied_us: 6_400,
+            phase_target_us: 15_000,
             events: vec![
                 NetEventView {
                     elapsed_secs: 478,
@@ -726,6 +730,8 @@ impl PreviewApp {
             buffer_samples: buffer_samples_from_shape(k.shape, k.sample_count),
             gap_samples_ms: gap_samples_from_shape(k.shape, k.sample_count, k.gap_peak_ms),
             events,
+            phase_applied_us: 0,
+            phase_target_us: 0,
             rows,
         }
     }

@@ -146,6 +146,13 @@ pub struct NetStatsView {
     pub gap_samples_ms: Vec<u64>,
     /// The recent-events ticker, oldest first. Empty omits the section.
     pub events: Vec<NetEventView>,
+    /// Microseconds of send-phase delay currently held on each outbound turn's
+    /// wire handoff (the relay's phase-alignment directive at work). Zero when
+    /// no directive has ever arrived, which hides the header line entirely.
+    pub phase_applied_us: u32,
+    /// Microseconds of send-phase delay the newest directive commanded — where
+    /// the applied value is slewing to. Equal to the applied value at rest.
+    pub phase_target_us: u32,
     /// One row per remote slot.
     pub rows: Vec<NetStatRowView>,
 }
@@ -221,6 +228,25 @@ fn draw_header(ui: &mut egui::Ui, view: &NetStatsView) {
         .color(SECONDARY)
         .family(mono()),
     );
+
+    // Shown only once the relay has ever directed a send-phase shift: most
+    // sessions never get one (phases already inside the relay's dead-band), and
+    // an all-zero line would just invite questions.
+    if view.phase_applied_us > 0 || view.phase_target_us > 0 {
+        let applied_ms = view.phase_applied_us as f64 / 1000.0;
+        let target_ms = view.phase_target_us as f64 / 1000.0;
+        let text = if view.phase_applied_us == view.phase_target_us {
+            format!("send phase +{applied_ms:.1}ms (aligned)")
+        } else {
+            format!("send phase +{applied_ms:.1}ms → +{target_ms:.1}ms")
+        };
+        ui.label(
+            RichText::new(text)
+                .size(HEADER_SIZE)
+                .color(SECONDARY)
+                .family(mono()),
+        );
+    }
 
     ui.horizontal(|ui| {
         let (state_text, state_color) = if view.link_up {

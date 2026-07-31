@@ -63,6 +63,8 @@ fn build_netstat_view(status: &NetStatsStatus, users: &[SbUser]) -> NetStatsView
             .map(|d| d.as_millis() as u64)
             .collect(),
         events,
+        phase_applied_us: status.phase_applied_us,
+        phase_target_us: status.phase_target_us,
         rows,
     }
 }

@@ -530,6 +530,14 @@ pub struct NetStatsStatus {
     pub gap_samples: Vec<Duration>,
     /// The recent-events ticker (see [`NetStats::recent_events`]).
     pub events: Vec<NetEventEntry>,
+    /// Microseconds of send-phase delay the transport is currently holding each
+    /// outbound turn's wire handoff by, under the relay's phase-alignment
+    /// directives. Zero when no directive has ever arrived (phases already
+    /// aligned within the relay's dead-band are never corrected).
+    pub phase_applied_us: u32,
+    /// Microseconds of send-phase delay the newest directive commanded — where
+    /// the applied value is slewing to. Equal to the applied value at rest.
+    pub phase_target_us: u32,
     /// One row per remote roster slot with a storm mapping.
     pub rows: Vec<NetStatRow>,
 }

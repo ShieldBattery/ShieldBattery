@@ -1331,6 +1331,7 @@ impl TurnState {
         if !self.net_stats_visible {
             return None;
         }
+        let phase = *self.channels.phase_status.borrow();
         Some(NetStatsStatus {
             session_id: self.net_stats.session_id(),
             relay_id: self.net_stats.relay_id(),
@@ -1344,6 +1345,8 @@ impl TurnState {
             buffer_samples: self.net_stats.buffer_samples(),
             gap_samples: self.net_stats.gap_samples(),
             events: self.net_stats.recent_events(),
+            phase_applied_us: phase.applied_us,
+            phase_target_us: phase.target_us,
             rows: self.net_stat_rows(now),
         })
     }
@@ -1877,6 +1880,7 @@ mod tests {
             session_start: session_start_rx,
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -1980,6 +1984,7 @@ mod tests {
             session_start: session_start_rx,
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 0, Vec::new(), false);
         assert_eq!(state.latency_turns(), 1);
@@ -2018,6 +2023,7 @@ mod tests {
             session_start: session_start_rx,
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         // `has_computers` true, yet a sessionless game never self-closes: it is local-only from
         // birth, so there is no relay session to close.
@@ -2771,6 +2777,7 @@ mod tests {
             session_start: session_start_rx,
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let state = TurnState::new(channels, LOCAL_SLOT, 2, Vec::new(), false);
         (state, result_rx, result_expected)
@@ -3053,6 +3060,7 @@ mod tests {
             session_start: session_start_rx,
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -3187,6 +3195,7 @@ mod tests {
             session_start: mpsc::channel(1).1,
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         (
@@ -3242,6 +3251,7 @@ mod tests {
             session_start: mpsc::channel(1).1,
             connectivity: mpsc::channel::<(SlotId, bool)>(16).1,
             region_labels: region_labels_rx,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
@@ -3359,6 +3369,7 @@ mod tests {
             session_start: mpsc::channel(1).1,
             connectivity: connectivity_rx,
             region_labels: mpsc::channel(1).1,
+            phase_status: tokio::sync::watch::channel(Default::default()).1,
         };
         let roster = vec![(LOCAL_SLOT, LOCAL_USER), (PEER_SLOT, PEER_USER)];
         let mut state = TurnState::new(channels, LOCAL_SLOT, 2, roster, false);
