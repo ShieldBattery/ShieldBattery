@@ -19,6 +19,7 @@ import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
+import { knownRegionOrUndefined, LobbyService } from '../lobbies/lobby-service'
 import { getLobbySummary } from '../lobbies/lobby-summaries'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
@@ -34,7 +35,8 @@ import {
   InspectableNydusClient,
   NydusConnector,
 } from '../websockets/testing/websockets'
-import { knownRegionOrUndefined, LobbyApi } from './lobbies'
+import { TypedPublisher } from '../websockets/typed-publisher'
+import { LobbyApi } from './lobbies'
 
 function region(id: string): GameServerRegion {
   return {
@@ -45,7 +47,7 @@ function region(id: string): GameServerRegion {
   }
 }
 
-describe('wsapi/lobbies/knownRegionOrUndefined', () => {
+describe('lobbies/lobby-service/knownRegionOrUndefined', () => {
   const regions = [region('us-east'), region('eu-west')]
 
   test('keeps a region that is still in the live list', () => {
@@ -117,6 +119,7 @@ const NOOP_NEXT = async () => {}
 describe('wsapi/lobbies', () => {
   let nydus: NydusServer
   let fakeNydus: FakeNydusServer
+  let lobbyService: LobbyService
   let lobbyApi: LobbyApi
   let connector: NydusConnector
 
@@ -164,29 +167,37 @@ describe('wsapi/lobbies', () => {
   }
 
   beforeEach(() => {
-    container.registerInstance(GameplayActivityRegistry, new GameplayActivityRegistry())
-    loadGameRequests = []
-    container.registerInstance(GameLoader, {
-      loadGame: vi.fn(async (request: GameLoadRequest) => {
-        loadGameRequests.push(request)
-        return Result.ok({ gameId: 'test-game-id' })
-      }),
-    } as unknown as GameLoader)
-    container.registerInstance(RestrictionService, {
-      isRestricted: async () => false,
-    } as unknown as RestrictionService)
-    container.registerInstance(GameServerRegionsService, {
-      getRegions: async () => [],
-    } as unknown as GameServerRegionsService)
-    container.registerInstance(NetcodeV2Service, {
-      warmRegions: () => {},
-    } as unknown as NetcodeV2Service)
-
     nydus = createFakeNydusServer()
     fakeNydus = nydus as unknown as FakeNydusServer
     const sessionLookup = new RequestSessionLookup()
     const clientSockets = new ClientSocketsManager(nydus, sessionLookup)
     const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
+
+    loadGameRequests = []
+    lobbyService = new LobbyService(
+      new TypedPublisher(nydus),
+      new GameplayActivityRegistry(),
+      {
+        loadGame: vi.fn(async (request: GameLoadRequest) => {
+          loadGameRequests.push(request)
+          return Result.ok({ gameId: 'test-game-id' })
+        }),
+      } as unknown as GameLoader,
+      {
+        isRestricted: async () => false,
+      } as unknown as RestrictionService,
+      {
+        getRegions: async () => [],
+      } as unknown as GameServerRegionsService,
+      {
+        warmRegions: () => {},
+      } as unknown as NetcodeV2Service,
+      userSockets,
+    )
+    // The API resolves its service from the container, so the instance under test has to be
+    // registered before it's constructed.
+    container.registerInstance(LobbyService, lobbyService)
+
     lobbyApi = new LobbyApi(nydus, userSockets, clientSockets)
     connector = new NydusConnector(nydus, sessionLookup)
 
@@ -383,7 +394,7 @@ describe('wsapi/lobbies', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
 
-      const lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      const lobby = lobbyService.lobbies.get(makeSbLobbyId(id))!
       const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
       await lobbyApi.banPlayer(apiData(host, { slotId: joinerSlot!.id }), NOOP_NEXT)
 
@@ -407,11 +418,11 @@ describe('wsapi/lobbies', () => {
       )
       await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
 
-      let lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      let lobby = lobbyService.lobbies.get(makeSbLobbyId(id))!
       const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
       await lobbyApi.makeObserver(apiData(host, { slotId: joinerSlot!.id }), NOOP_NEXT)
 
-      lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      lobby = lobbyService.lobbies.get(makeSbLobbyId(id))!
       const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
       const obsSlot = obsTeam!.slots[0]
       expect(obsSlot.type).toBe('observer')
@@ -420,7 +431,7 @@ describe('wsapi/lobbies', () => {
       // behind, in one request
       await lobbyApi.closeSlot(apiData(host, { slotId: obsSlot.id }), NOOP_NEXT)
 
-      lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      lobby = lobbyService.lobbies.get(makeSbLobbyId(id))!
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
@@ -479,7 +490,7 @@ describe('wsapi/lobbies', () => {
       await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
       await lobbyApi.join(apiData(lister, { id }), NOOP_NEXT)
 
-      const lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      const lobby = lobbyService.lobbies.get(makeSbLobbyId(id))!
       const [, , listerSlot] = findSlotByUserId(lobby, LISTER_USER.id)
       await lobbyApi.makeObserver(apiData(host, { slotId: listerSlot!.id }), NOOP_NEXT)
 
