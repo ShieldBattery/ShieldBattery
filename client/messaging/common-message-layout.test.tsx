@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import { Provider as ReduxProvider } from 'react-redux'
-import { describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { encodePrettyId } from '../../common/pretty-id'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
+import { LOBBY_INVITE_CARD_MAX_AGE_MS } from '../lobbies/lobby-invite-card'
 import { TextMessage } from './common-message-layout'
 
 vi.mock('../lobbies/lobby-invite-card', async importOriginal => {
@@ -21,8 +22,18 @@ const userId = makeSbUserId(2)
 const LOBBY_ID = encodePrettyId('5eed0000-0000-0000-0000-000000000042')
 
 describe('client/messaging/common-message-layout/TextMessage', () => {
+  beforeEach(() => {
+    // The invite-card age gate compares the message time against the current time; pinning the
+    // clock to 0 makes the fixed `time={0}` used across these tests read as "just sent"
+    vi.spyOn(Date, 'now').mockReturnValue(0)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   const store = createStore()
-  const doRender = (text: string): HTMLElement => {
+  const doRender = (text: string, { time = 0 }: { time?: number } = {}): HTMLElement => {
     render(
       <ReduxProvider store={store}>
         <div data-testid='message-container'>
@@ -30,7 +41,7 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
             msgId='MESSAGE_ID'
             userId={userId}
             selfUserId={selfUserId}
-            time={0}
+            time={time}
             text={text}
           />
         </div>
@@ -94,5 +105,12 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
         `https://shieldbattery.net/lobbies/${LOBBY_ID}/other-slug`,
     )
     expect(screen.getAllByTestId('lobby-invite-card')).toHaveLength(1)
+  })
+
+  test('message older than the invite-card age limit renders no invite card', () => {
+    doRender(`join me: https://shieldbattery.net/lobbies/${LOBBY_ID}/my-cool-lobby`, {
+      time: -(LOBBY_INVITE_CARD_MAX_AGE_MS + 1),
+    })
+    expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
   })
 })

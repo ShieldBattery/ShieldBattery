@@ -10,7 +10,11 @@ import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { TransInterpolation } from '../i18n/i18next'
-import { lobbyIdFromMessageLink, LobbyInviteCard } from '../lobbies/lobby-invite-card'
+import {
+  LOBBY_INVITE_CARD_MAX_AGE_MS,
+  lobbyIdFromMessageLink,
+  LobbyInviteCard,
+} from '../lobbies/lobby-invite-card'
 import { ExternalLink } from '../navigation/external-link'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
@@ -74,6 +78,10 @@ export interface TextMessageProps {
 export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: TextMessageProps) {
   const filterClick = useMentionFilterClick()
   const { UserMenu, MessageMenu, disallowMentionInteraction } = useContext(ChatContext)
+  // The invite-card age gate needs the current time, which a pure render can't read directly;
+  // capture it once on mount. A message mounts when it first becomes visible (on arrival, or when
+  // scrollback loads), which is the moment the age check is about.
+  const [mountTime] = useState(() => Date.now())
 
   const { onContextMenu, contextMenuPopoverProps, selectedText } = useContextMenu()
 
@@ -165,7 +173,9 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         <Separator>{': '}</Separator>
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>
-      {inviteLobbyId !== undefined ? <LobbyInviteCard lobbyId={inviteLobbyId} /> : undefined}
+      {inviteLobbyId !== undefined && mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
+        <LobbyInviteCard lobbyId={inviteLobbyId} />
+      ) : undefined}
 
       <MessageContextMenu
         messageId={msgId}

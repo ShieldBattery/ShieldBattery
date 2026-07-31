@@ -14,6 +14,15 @@ import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { navigateToLobby } from './lobby-url'
 
 /**
+ * How old a message can be while still rendering an invite card for a lobby link in it. Lobbies
+ * are ephemeral, so links past this age are almost certainly dead — not rendering their cards
+ * keeps scrollback from filling with "no longer open" boxes, and caps how many summary fetches a
+ * message list can fan out (the summary endpoint is IP-throttled, and message contents are
+ * sender-controlled).
+ */
+export const LOBBY_INVITE_CARD_MAX_AGE_MS = 60 * 60 * 1000
+
+/**
  * Returns the lobby id embedded in a chat message link, or undefined if the link isn't a
  * ShieldBattery lobby link (an external URL, or a ShieldBattery URL for something other than a
  * lobby).
@@ -122,9 +131,10 @@ const SecondaryLine = styled.div`
  * page) without racing a real lobby.
  *
  * The loading state renders a placeholder sized to match the loaded card so the message it's
- * attached to doesn't grow again once the summary arrives. The error state renders nothing, same
- * as loading -- the inline link in the message text is still rendered and still works either way,
- * so there's nothing useful to show and no reserved height to preserve.
+ * attached to doesn't grow again once the summary arrives. The error state renders nothing at all,
+ * unlike loading's visible skeleton -- the inline link in the message text is still rendered and
+ * still works, so there's nothing useful to show and shrinking away is safe (only growth breaks
+ * the message list's autoscroll).
  */
 export function LobbyInviteCardContent({
   state,

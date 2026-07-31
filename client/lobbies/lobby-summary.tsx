@@ -114,13 +114,19 @@ function fetchLobbySummary(
     }
   }
 
-  const promise = fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`).then(
+  const promise: Promise<LobbySummaryLoadState> = fetchJson<LobbySummaryResponse>(
+    apiUrl`lobbies/${lobbyId}/summary`,
+  ).then(
     (data): LobbySummaryLoadState => ({ status: 'loaded', data }),
     (err): LobbySummaryLoadState => {
       if (isFetchError(err) && err.status === 404) {
         return { status: 'notFound' }
       }
-      summaryCache.delete(lobbyId)
+      // Evict only our own entry: a request that outlives its window may fail after a later
+      // caller has already repopulated the cache with a fresh in-flight fetch.
+      if (summaryCache.get(lobbyId)?.promise === promise) {
+        summaryCache.delete(lobbyId)
+      }
       return { status: 'error' }
     },
   )
@@ -142,9 +148,10 @@ function fetchLobbySummary(
  *
  * Pass `cached: true` to read through the shared cache described in {@link fetchLobbySummary}
  * instead of always hitting the network -- appropriate for call sites where the same lobby can be
- * requested many times at once and an eventually-consistent summary is fine. Leave it unset for a
- * single authoritative view (e.g. the join preview) that should always see the current state and
- * control its own refreshes.
+ * requested many times at once and an eventually-consistent summary is fine. Note that this makes
+ * `refresh` effectively a no-op for the rest of the cache window: it re-runs the read, but the
+ * read is handed the same cached result back. Leave `cached` unset for a single authoritative view
+ * (e.g. the join preview) that should always see the current state and control its own refreshes.
  */
 export function useLobbySummary(
   lobbyId: SbLobbyId,
