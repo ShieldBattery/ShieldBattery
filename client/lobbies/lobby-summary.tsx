@@ -123,7 +123,7 @@ export function resetSummaryCacheForTesting() {
  */
 export function fetchLobbySummary(
   lobbyId: SbLobbyId,
-  options: { cached?: boolean; signal?: AbortSignal } = {},
+  options: { cached?: false; signal?: AbortSignal } | { cached: true } = {},
 ): Promise<LobbySummaryLoadState> {
   if (!options.cached) {
     return fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`, {

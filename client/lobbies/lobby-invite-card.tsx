@@ -38,12 +38,6 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
   return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
 }
 
-const CARD_MARGIN_TOP_BOTTOM = 4
-const CARD_MARGIN_RIGHT = 8
-// Aligns the card under the message text: `MessageContainer` (message-layout.tsx) uses
-// `padding: 4px 8px 4px 72px`, where the 72px left padding is the timestamp column that message
-// text starts after.
-const CARD_MARGIN_LEFT = 72
 // All card states share one fixed width (and height, see below) so no state transition ever
 // changes the card's footprint.
 const CARD_WIDTH = 440
@@ -60,12 +54,12 @@ const CARD_HEIGHT = THUMBNAIL_SIZE + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
 
 const cardBase = css`
   width: ${CARD_WIDTH}px;
-  /* Margins don't count toward max-width's 100%, so they have to be subtracted explicitly or the
-   * card overflows narrow message lists into a horizontal scrollbar. */
-  max-width: calc(100% - ${CARD_MARGIN_LEFT + CARD_MARGIN_RIGHT}px);
+  max-width: 100%;
   height: ${CARD_HEIGHT}px;
-  margin: ${CARD_MARGIN_TOP_BOTTOM}px ${CARD_MARGIN_RIGHT}px ${CARD_MARGIN_TOP_BOTTOM}px
-    ${CARD_MARGIN_LEFT}px;
+  margin-top: 4px;
+  /* The card renders as a block child of the message container, whose hanging-indent trick
+   * (72px padding pushed back out with a negative text-indent) is meant for message text only. */
+  text-indent: 0;
 
   background-color: var(--theme-container-low);
   border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
