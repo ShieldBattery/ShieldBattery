@@ -46,8 +46,9 @@ export function computeMatchupString(teamRaces: RaceChar[][]): MatchupString | n
 /**
  * Extracts team arrays from a game config in a way that allows matchup computation.
  *
- * Empty teams are ignored first: some configs include them (e.g. an observer team in a melee lobby
- * with observers enabled gets serialized as an empty array). After filtering:
+ * Empty teams are ignored first: game records created while the observer team was serialized
+ * alongside the player teams contain it as an empty array (current records exclude it at the
+ * source). After filtering:
  *
  * - For configs with 2+ team arrays: returns them as-is
  * - For configs with 1 team array of exactly 2 players: splits into [[p1], [p2]]
