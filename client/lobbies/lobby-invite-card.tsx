@@ -1,22 +1,16 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { gameTypeToLabel } from '../../common/games/game-type'
-import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { apiUrl } from '../../common/urls'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
 import { isShieldBatteryUrl } from '../navigation/external-link'
-import { fetchJson } from '../network/fetch'
-import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
-import { LobbySummaryLoadState } from './lobby-summary'
+import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { navigateToLobby } from './lobby-url'
 
 /**
@@ -35,87 +29,35 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
   return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
 }
 
-/** How long a fetched summary is shared between all the cards that want it. */
-const SUMMARY_SHARE_MS = 30 * 1000
-
-const summaryCache = new Map<
-  SbLobbyId,
-  { expiresAt: number; promise: Promise<LobbySummaryLoadState> }
->()
-
-/**
- * Fetches a lobby's summary through a short-lived shared cache. The same lobby link often appears
- * in many rendered messages at once (repeated pastes, history pages, the full message list
- * remounting on a channel switch), and each message's card mounts its own fetch -- sharing the
- * result collapses those into one request per lobby per window instead of N identical hits against
- * the summary endpoint's IP throttle. Transient failures aren't kept, so a later mount retries.
- */
-function fetchSummaryShared(lobbyId: SbLobbyId): Promise<LobbySummaryLoadState> {
-  const now = Date.now()
-  const cached = summaryCache.get(lobbyId)
-  if (cached && cached.expiresAt > now) {
-    return cached.promise
-  }
-
-  const promise = fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`).then(
-    (data): LobbySummaryLoadState => ({ status: 'loaded', data }),
-    (err): LobbySummaryLoadState => {
-      if (isFetchError(err) && err.status === 404) {
-        return { status: 'notFound' }
-      }
-      summaryCache.delete(lobbyId)
-      return { status: 'error' }
-    },
-  )
-  summaryCache.set(lobbyId, { expiresAt: now + SUMMARY_SHARE_MS, promise })
-  return promise
-}
-
-/**
- * The card-oriented counterpart to `useLobbySummary`: same load states, but reads through
- * {@link fetchSummaryShared} so simultaneous cards for the same lobby share one request. The
- * result is tagged with the lobby id it was fetched for, so a stale result from a previous id is
- * never rendered as current.
- */
-function useSharedLobbySummary(lobbyId: SbLobbyId): LobbySummaryLoadState | undefined {
-  const [result, setResult] = useState<{ lobbyId: SbLobbyId; state: LobbySummaryLoadState }>()
-
-  useEffect(() => {
-    let canceled = false
-    fetchSummaryShared(lobbyId)
-      .then(state => {
-        if (!canceled) {
-          setResult({ lobbyId, state })
-        }
-      })
-      .catch(swallowNonBuiltins)
-
-    return () => {
-      canceled = true
-    }
-  }, [lobbyId])
-
-  return result?.lobbyId === lobbyId ? result.state : undefined
-}
-
 // Aligns the card under the message text: `MessageContainer` (message-layout.tsx) uses
 // `padding: 4px 8px 4px 72px`, where the 72px left padding is the timestamp column that message
 // text starts after.
 const CARD_MARGIN = '4px 8px 4px 72px'
 const CARD_MAX_WIDTH = 440
+const CARD_PADDING = 8
+const CARD_BORDER_WIDTH = 1
+
+const THUMBNAIL_SIZE = 64
+
+// The loaded card's height is fully determined by its thumbnail (forced to a square aspect ratio
+// below, regardless of the actual map's dimensions), its padding, and its border -- fixed here so
+// every other state (loading, not-found) can reserve the same height and the card never resizes
+// after it first mounts.
+const CARD_HEIGHT = THUMBNAIL_SIZE + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
 
 const CardRoot = styled.div`
   width: fit-content;
   max-width: ${CARD_MAX_WIDTH}px;
+  height: ${CARD_HEIGHT}px;
   margin: ${CARD_MARGIN};
-  padding: 8px;
+  padding: ${CARD_PADDING}px;
 
   display: flex;
   align-items: center;
   gap: 12px;
 
   background-color: var(--theme-container-low);
-  border: 1px solid var(--theme-outline-variant);
+  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
   border-radius: 8px;
 `
 
@@ -124,16 +66,30 @@ const GoneCard = styled.div`
   ${singleLine};
   width: fit-content;
   max-width: ${CARD_MAX_WIDTH}px;
+  height: ${CARD_HEIGHT}px;
   margin: ${CARD_MARGIN};
   padding: 8px 12px;
 
+  display: flex;
+  align-items: center;
+
   color: var(--theme-on-surface-variant);
   background-color: var(--theme-container-low);
-  border: 1px solid var(--theme-outline-variant);
+  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
   border-radius: 8px;
 `
 
-const THUMBNAIL_SIZE = 64
+// A purely visual placeholder shown while the summary is loading, sized to match `CardRoot` (the
+// tallest state) so the card never grows once the real content replaces it.
+const LoadingCard = styled.div`
+  width: ${CARD_MAX_WIDTH}px;
+  height: ${CARD_HEIGHT}px;
+  margin: ${CARD_MARGIN};
+
+  background-color: var(--theme-container-low);
+  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
+  border-radius: 8px;
+`
 
 const ThumbnailContainer = styled.div`
   flex-shrink: 0;
@@ -164,6 +120,11 @@ const SecondaryLine = styled.div`
  * The presentational part of {@link LobbyInviteCard}: renders the loading/notFound/error/loaded
  * states without fetching anything itself, so it can be driven directly (e.g. from a devonly test
  * page) without racing a real lobby.
+ *
+ * The loading state renders a placeholder sized to match the loaded card so the message it's
+ * attached to doesn't grow again once the summary arrives. The error state renders nothing, same
+ * as loading -- the inline link in the message text is still rendered and still works either way,
+ * so there's nothing useful to show and no reserved height to preserve.
  */
 export function LobbyInviteCardContent({
   state,
@@ -174,9 +135,11 @@ export function LobbyInviteCardContent({
 }) {
   const { t } = useTranslation()
 
-  if (!state || state.status === 'error') {
-    // The inline link in the message text is still rendered and still works, so there's nothing
-    // useful to show here while loading or if the preview couldn't be loaded.
+  if (!state) {
+    return <LoadingCard aria-hidden={true} />
+  }
+
+  if (state.status === 'error') {
     return null
   }
 
@@ -189,7 +152,7 @@ export function LobbyInviteCardContent({
   return (
     <CardRoot>
       <ThumbnailContainer>
-        <MapThumbnail map={lobby.map} size={THUMBNAIL_SIZE} />
+        <MapThumbnail map={lobby.map} size={THUMBNAIL_SIZE} forceAspectRatio={1} />
       </ThumbnailContainer>
       <InfoColumn>
         <LobbyName title={lobby.name}>{lobby.name}</LobbyName>
@@ -212,13 +175,12 @@ export function LobbyInviteCardContent({
 
 /**
  * A rich invite preview for a lobby link posted in chat: the lobby's map, name, host, game type,
- * and open slot count, with a button to join it. Renders nothing while the summary is loading or
- * if it fails to load for a reason other than the lobby being gone (the inline link in the message
- * text is unaffected either way).
+ * and open slot count, with a button to join it. Reads through the cached summary lookup (see
+ * `useLobbySummary`) since the same lobby link often appears in several rendered messages at once.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const dispatch = useAppDispatch()
-  const state = useSharedLobbySummary(lobbyId)
+  const [state] = useLobbySummary(lobbyId, { cached: true })
 
   const onJoinClick = () => {
     if (IS_ELECTRON) {

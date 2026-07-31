@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
@@ -65,42 +66,120 @@ const DetailValue = styled.div`
 export type LobbySummaryLoadState =
   { status: 'loaded'; data: LobbySummaryResponse } | { status: 'notFound' } | { status: 'error' }
 
+/** How long a cached summary fetch is shared between callers that opt into caching. */
+const SUMMARY_CACHE_MS = 30 * 1000
+
+const summaryCache = new Map<
+  SbLobbyId,
+  { expiresAt: number; promise: Promise<LobbySummaryLoadState> }
+>()
+
 /**
- * Fetches the unauthenticated lobby summary (`GET /api/1/lobbies/:lobbyId/summary`) for `lobbyId`.
- * Returns a tuple of the load state (undefined while the fetch for the current `lobbyId` is in
- * flight) and a `refresh` function that re-runs the fetch for the current `lobbyId`.
+ * Fetches the unauthenticated lobby summary (`GET /api/1/lobbies/:lobbyId/summary`) for `lobbyId`,
+ * either directly (`signal` aborts the request the same way a plain `fetchJson` call would) or,
+ * with `cached: true`, through a short-lived cache shared by every caller that opts in.
+ *
+ * Caching exists for call sites where the same lobby can be requested many times at once (e.g. the
+ * same lobby link appearing in several rendered chat messages, or a full message list remounting on
+ * a channel switch) -- collapsing those into one request per lobby per window avoids fanning out
+ * to the summary endpoint's IP throttle. A transient failure (anything other than a 404) isn't
+ * cached, so a later caller retries instead of being stuck with the error for the whole window; a
+ * 404 is cached like any other result, since a lobby that's gone stays gone.
+ */
+function fetchLobbySummary(
+  lobbyId: SbLobbyId,
+  options: { cached?: boolean; signal?: AbortSignal } = {},
+): Promise<LobbySummaryLoadState> {
+  if (!options.cached) {
+    return fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`, {
+      signal: options.signal,
+    }).then(
+      (data): LobbySummaryLoadState => ({ status: 'loaded', data }),
+      (err): LobbySummaryLoadState =>
+        isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' },
+    )
+  }
+
+  const now = Date.now()
+  const cached = summaryCache.get(lobbyId)
+  if (cached && cached.expiresAt > now) {
+    return cached.promise
+  }
+
+  // Sweep other expired entries out while we're here -- they're otherwise only replaced when the
+  // same lobby is requested again, so the cache would grow unbounded over a long session.
+  for (const [id, entry] of summaryCache) {
+    if (entry.expiresAt <= now) {
+      summaryCache.delete(id)
+    }
+  }
+
+  const promise = fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`).then(
+    (data): LobbySummaryLoadState => ({ status: 'loaded', data }),
+    (err): LobbySummaryLoadState => {
+      if (isFetchError(err) && err.status === 404) {
+        return { status: 'notFound' }
+      }
+      summaryCache.delete(lobbyId)
+      return { status: 'error' }
+    },
+  )
+  summaryCache.set(lobbyId, { expiresAt: now + SUMMARY_CACHE_MS, promise })
+  return promise
+}
+
+/**
+ * Loads a lobby's unauthenticated summary. Returns a tuple of the load state (undefined while the
+ * fetch for the current `lobbyId` is in flight) and a `refresh` function that re-runs the fetch for
+ * the current `lobbyId`.
  *
  * The result is tagged with the lobby id it was fetched for, so a stale result from a previous id
  * (e.g. if `lobbyId` changes without the caller unmounting) is never rendered as current -- the
  * state stays undefined until a result tagged with the current id arrives. A `refresh` doesn't
  * clear the existing result, so the previous state remains rendered until the new one lands. If a
- * refresh fails for a reason other than a 404, the last successfully loaded summary is kept
- * instead of being downgraded to the error state.
+ * refresh fails for a reason other than a 404, the last successfully loaded summary is kept instead
+ * of being downgraded to the error state.
+ *
+ * Pass `cached: true` to read through the shared cache described in {@link fetchLobbySummary}
+ * instead of always hitting the network -- appropriate for call sites where the same lobby can be
+ * requested many times at once and an eventually-consistent summary is fine. Leave it unset for a
+ * single authoritative view (e.g. the join preview) that should always see the current state and
+ * control its own refreshes.
  */
 export function useLobbySummary(
   lobbyId: SbLobbyId,
+  options?: { cached?: boolean },
 ): [state: LobbySummaryLoadState | undefined, refresh: () => void] {
-  const [result, setResult] = useState<{ lobbyId: string; state: LobbySummaryLoadState }>()
+  const cached = options?.cached ?? false
+  const [result, setResult] = useState<{ lobbyId: SbLobbyId; state: LobbySummaryLoadState }>()
   const [refreshToken, setRefreshToken] = useState(0)
 
   useEffect(() => {
+    if (cached) {
+      // The fetch itself is shared across every mount currently requesting this lobby, so it can't
+      // be aborted just because this particular mount goes away -- only ignore a result that
+      // arrives after that happens.
+      let canceled = false
+      fetchLobbySummary(lobbyId, { cached: true })
+        .then(state => {
+          if (!canceled) {
+            setResult({ lobbyId, state })
+          }
+        })
+        .catch(swallowNonBuiltins)
+
+      return () => {
+        canceled = true
+      }
+    }
+
     const controller = new AbortController()
 
-    fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`, {
-      signal: controller.signal,
-    }).then(
-      data => {
+    fetchLobbySummary(lobbyId, { signal: controller.signal })
+      .then(state => {
         if (controller.signal.aborted) {
           return
         }
-        setResult({ lobbyId, state: { status: 'loaded', data } })
-      },
-      err => {
-        if (controller.signal.aborted) {
-          return
-        }
-        const state: LobbySummaryLoadState =
-          isFetchError(err) && err.status === 404 ? { status: 'notFound' } : { status: 'error' }
         setResult(prev =>
           // A lobby that's still loadable shouldn't lose its rendered details to a transient
           // failure; only a 404 (definitively gone) replaces a loaded summary.
@@ -108,11 +187,11 @@ export function useLobbySummary(
             ? prev
             : { lobbyId, state },
         )
-      },
-    )
+      })
+      .catch(swallowNonBuiltins)
 
     return () => controller.abort()
-  }, [lobbyId, refreshToken])
+  }, [lobbyId, refreshToken, cached])
 
   const refresh = () => setRefreshToken(t => t + 1)
 
