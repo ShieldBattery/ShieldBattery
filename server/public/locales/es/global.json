@@ -422,6 +422,10 @@
     "watchReplays": "Mira replays"
   },
   "clientUpdate": {
+    "errorBoundary": {
+      "contents": "Algo salió mal durante la actualización. Visita <2>nuestro sitio web</2> para descargar la última versión.",
+      "title": "Error al actualizar"
+    },
     "overlay": {
       "errorBody": "Hubo un error al descargar la actualización. Reinicia y prueba de nuevo, o visita <2>nuestro sitio web</2> para descargar la última versión.",
       "errorTitle": "Error al descargar la actualización",
@@ -449,6 +453,7 @@
       "create": "Crear",
       "decline": "Rechazar",
       "delete": "Eliminar",
+      "done": "Listo",
       "download": "Descargar",
       "edit": "Editar",
       "hide": "Esconder",
@@ -507,6 +512,17 @@
     "filters": {
       "advanced": "Avanzado",
       "custom": "Personalizado",
+      "date": "Fecha",
+      "dateFrom": "Desde",
+      "datePast3Months": "Últimos 3 meses",
+      "datePastMonth": "Último mes",
+      "datePastWeek": "Última semana",
+      "datePastYear": "Último año",
+      "datePresets": "Rangos rápidos",
+      "dateRangeBetween": "{{start}} – {{end}}",
+      "dateRangeFrom": "Desde {{date}}",
+      "dateRangeUntil": "Hasta {{date}}",
+      "dateTo": "Hasta",
       "duration": {
         "10to20": "10-20 min",
         "20to30": "20-30 min",
@@ -705,6 +721,10 @@
     "reporting": {
       "actionedNotification": "Se tomaron medidas contra un jugador que reportaste. Gracias por ayudar a mantener la comunidad justa.",
       "pointsRefundedNotification": "Se te han devuelto los puntos de clasificación que perdiste en una partida que fue revisada."
+    },
+    "sidePanel": {
+      "empty": "Selecciona una partida para ver sus detalles",
+      "viewFullResults": "Ver resultados completos"
     }
   },
   "gameServerRegions": {
@@ -902,6 +922,11 @@
     },
     "joinLobby": {
       "action": "Unirse al lobby",
+      "browseLobbies": "Explorar lobbies",
+      "errorAlreadyInActivity": "Ya estás en una partida, en búsqueda de emparejamiento o en otro lobby.",
+      "errorBanned": "Te han baneado de este lobby.",
+      "errorFull": "Este lobby está lleno.",
+      "errorGeneric": "Algo salió mal al unirte al lobby. Intenta de nuevo.",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
       "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
       "noActiveLobbies": "No hay lobbies activos",
@@ -910,6 +935,11 @@
       "openSlotCount_many": "{{count}} de ranuras abiertas",
       "openSlotCount_other": "{{count}} ranuras abiertas",
       "title": "Unirse al lobby"
+    },
+    "landing": {
+      "download": "Descargar ShieldBattery",
+      "loadError": "Hubo un problema al cargar este lobby.",
+      "openInApp": "¿Ya tienes ShieldBattery? Abre este enlace desde la aplicación para unirte al lobby."
     },
     "lobby": {
       "copiedInviteLink": "¡Copiado!",
@@ -956,6 +986,16 @@
       "exists": "Actualmente no estás en este lobby. ¿Únete?",
       "nonexistent": "No se encontró el lobby. ¿Quieres crear uno nuevo?",
       "started": "Este lobby ya ha comenzado y no se puede unir."
+    },
+    "summary": {
+      "gameTypeLabel": "Tipo de juego",
+      "hostLabel": "Anfitrión",
+      "mapLabel": "Mapa",
+      "noLongerOpen": "Este lobby ya no está abierto.",
+      "openSlotCount_one": "{{count}} abierta",
+      "openSlotCount_many": "{{count}} abiertas",
+      "openSlotCount_other": "{{count}} abiertas",
+      "slotsLabel": "Ranuras"
     }
   },
   "map": {
@@ -1214,6 +1254,9 @@
     }
   },
   "material": {
+    "dateTextField": {
+      "pickerButtonLabel": "Mostrar selector"
+    },
     "datetimeTextField": {
       "pickerButtonLabel": "Mostrar selector"
     },
@@ -1327,6 +1370,8 @@
       "moveDown": "Bajar",
       "moveUp": "Subir",
       "newPlaylistMenu": "Nueva playlist…",
+      "noFolders": "No hay carpetas de replays",
+      "noFoldersBody": "Añade una carpeta en Ajustes > Aplicación > Sistema para empezar a indexar replays.",
       "noMatches": "Ningún replay coincide",
       "playlist": {
         "createError": "Error al crear la playlist: {{errorMessage}}",
@@ -1396,8 +1441,13 @@
         "title": "Sonido"
       },
       "system": {
+        "addReplayFolder": "Añadir carpeta",
+        "addReplayFolderTitle": "Selecciona una carpeta de replays",
         "filesOverline": "Archivos",
         "networkOverline": "Red",
+        "removeReplayFolder": "Quitar carpeta",
+        "replayFoldersDescription": "Carpetas indexadas por tu biblioteca de replays. La carpeta de replays predeterminada de StarCraft se añade automáticamente. Al quitar una carpeta, sus replays se eliminan de la biblioteca, incluidos sus marcadores y entradas en playlists.",
+        "replayFoldersTitle": "Carpetas de replays",
         "replayQuickOpen": "Inicie los replays abiertos con ShieldBattery inmediatamente sin vista previa",
         "runOnStartup": "Ejecute ShieldBattery al iniciar el sistema",
         "serverRegion": {
@@ -1427,6 +1477,45 @@
         "apmValue": "Valor APM",
         "apmValueValidation": "Introduzca un valor entre 1 y 999",
         "colorCycling": "Habilitar ciclo de color",
+        "colorNames": {
+          "azure": "Azur",
+          "black": "Negro",
+          "blue": "Azul",
+          "blueishGrey": "Gris azulado",
+          "brick": "Ladrillo",
+          "brown": "Marrón",
+          "cyan": "Cian",
+          "deepTeal": "Turquesa oscuro",
+          "emerald": "Esmeralda",
+          "gold": "Dorado",
+          "green": "Verde",
+          "grey": "Gris",
+          "lime": "Lima",
+          "magenta": "Magenta",
+          "mint": "Menta",
+          "moss": "Musgo",
+          "navy": "Azul marino",
+          "olive": "Oliva",
+          "orange": "Naranja",
+          "paleGreen": "Verde pálido",
+          "paleYellow": "Amarillo pálido",
+          "peach": "Melocotón",
+          "pink": "Rosa",
+          "purple": "Morado",
+          "red": "Rojo",
+          "rose": "Rosado",
+          "scarlet": "Escarlata",
+          "sky": "Celeste",
+          "tan": "Beige",
+          "teal": "Turquesa",
+          "violet": "Violeta",
+          "white": "Blanco",
+          "yellow": "Amarillo"
+        },
+        "colorPicker": {
+          "builtinColorsLabel": "Colores de StarCraft",
+          "customRgb": "RGB personalizado"
+        },
         "consoleSkins": {
           "20thAnniversary": "20.º aniversario de StarCraft",
           "blizzcon2017": "BlizzCon 2017",
@@ -1438,6 +1527,32 @@
           "warcraft3": "Botín de WarCraft 3"
         },
         "devOnlySettings": "Configuración solo para desarrolladores",
+        "ffaColorPreset": {
+          "arcade": "Arcade",
+          "attributionPrefix": "Paleta: ",
+          "classic": "Clásico",
+          "colorblindSafe": "Apto para daltónicos",
+          "custom": "Personalizado",
+          "jewel": "Joya",
+          "neon": "Neón",
+          "pear": "Pear",
+          "resurrect": "Resurrect",
+          "title": "Preajuste"
+        },
+        "ffaColors": {
+          "attributionBy": "{{palette}} de {{author}}",
+          "attributionInspiredBy": "Inspirado en {{palette}}",
+          "clear": "Limpiar",
+          "pickerTargetPool": "Colores individuales · #{{n}}",
+          "pickerTargetSelf": "Tu color individual",
+          "poolGroup": "Grupo de colores",
+          "poolHint": "Mínimo 8 colores, para que cada jugador siempre tenga un color único.",
+          "quickSwatchesLabel": "De esta paleta",
+          "selfAddLabel": "Color fijo para ti (opcional)",
+          "selfSetHint": "Siempre tendrás este color en partidas sin equipos. Se reserva para que otros jugadores no lo usen.",
+          "selfUnsetHint": "Recibirás un color del grupo, como todos los demás.",
+          "title": "Colores individuales"
+        },
         "gameTimer": "Temporizador de juego",
         "ingameSkins": {
           "carbot": "Carbot",
@@ -1445,7 +1560,13 @@
           "preorder": "Hacer un pedido",
           "title": "Máscara dentro del juego"
         },
+        "interface": {
+          "title": "Interfaz"
+        },
         "latency": "Mostrar latencia",
+        "mapMinimap": {
+          "title": "Mapa y minimapa"
+        },
         "minimapPosition": {
           "bottomLeft": "Esquina izquierda inferior",
           "standard": "Estándar",
@@ -1457,25 +1578,75 @@
           "title": "Terreno del minimapa"
         },
         "showBonusSkins": "Mostrar máscaras de bonificación",
+        "skins": {
+          "description": "Deben comprarse a Blizzard.",
+          "title": "Skins"
+        },
         "startingFog": {
           "legacy": "Legado",
           "showResources": "Mostrar recursos",
           "showTerrainAndResources": "Mostrar terreno y recursos",
           "title": "Comienza la niebla de guerra"
         },
+        "teamColorPreset": {
+          "colorblindSafe": "Apto para daltónicos",
+          "coolVsWarm": "Fríos vs cálidos",
+          "custom": "Personalizado",
+          "legacyDiplomacy": "Diplomacia clásica",
+          "title": "Preajuste",
+          "warmVsCool": "Cálidos vs fríos"
+        },
         "teamColors": {
+          "addColor": "Añadir un color",
+          "clear": "Limpiar",
+          "copyFromPreset": "Copiar del preajuste",
+          "copyFromPresetCaption": "Sobrescribe tus colores personalizados",
+          "description": "Cómo se ven los colores de los jugadores en tus partidas. Cambia de modo dentro del juego con Mayús+Tab.",
+          "editHint": "Haz clic en un color para cambiarlo o arrástralo para reordenar.",
+          "header": "Colores de los jugadores",
           "label": "Modo",
           "mode": {
             "presetEverywhere": "Usar preajuste en todas partes",
+            "presetEverywhereDesc": "Tu esquema de colores en las unidades y el minimapa.",
             "presetOnMinimap": "Usar preajuste en el minimapa",
-            "standard": "Estándar"
+            "presetOnMinimapDesc": "Colores de aliados y enemigos solo en el minimapa.",
+            "standard": "Estándar",
+            "standardDesc": "Los colores normales de StarCraft. Los ajustes de abajo no tienen efecto."
           },
+          "offNote": "Desactivado. Se usan los colores individuales en todas las partidas.",
+          "pickerTargetAlly": "Esquema de equipo · aliados · #{{n}}",
+          "pickerTargetEnemy": "Esquema de equipo · enemigos · #{{n}}",
+          "pickerTargetSelf": "Esquema de equipo · tu color",
+          "poolOrderedHint": "Los colores se usan en orden, desde la izquierda.",
+          "poolShuffledHint": "Estos colores se usan en orden aleatorio en cada partida.",
           "preview": {
             "allies": "Aliados",
             "enemies": "Enemigos",
             "self": "Tú"
           },
-          "title": "Colores de equipo"
+          "previewHeaderFfa": "Vista previa (sin equipos)",
+          "previewHeaderTeam": "Vista previa (4x4)",
+          "quickSwatchesLabel": "De esta paleta",
+          "removeColor": "Quitar color",
+          "selectCustomHint": "Selecciona el preajuste Personalizado para editar los colores.",
+          "selfAddLabel": "Color fijo para ti (opcional)",
+          "selfBadge": "TÚ",
+          "selfFirstAllyHint": "Tendrás el primer color de aliado.",
+          "selfOverrideSetHint": "Siempre serás de este color en partidas de equipos.",
+          "selfShuffleHint": "Recibirás un color aleatorio del grupo de tu equipo en cada partida.",
+          "shuffle": "Mezclar colores en cada partida",
+          "title": "Colores de equipo",
+          "yourTeam": "Tu equipo"
+        },
+        "teamColorUsage": {
+          "always": "En partidas de equipos y 1x1",
+          "alwaysDesc": "Tu oponente de 1x1 siempre recibe el primer color de enemigo.",
+          "alwaysShuffledDesc": "Tu oponente de 1x1 recibe un color aleatorio de tu grupo de enemigos.",
+          "exceptIn1v1": "Solo en partidas de equipos",
+          "exceptIn1v1Desc": "Las partidas de dos jugadores usan colores individuales.",
+          "never": "Nunca",
+          "neverDesc": "Cada uno mantiene su propio color, incluso cuando cambian las alianzas.",
+          "title": "Uso de colores de equipo"
         },
         "title": "Gameplay",
         "unitPortraits": {
