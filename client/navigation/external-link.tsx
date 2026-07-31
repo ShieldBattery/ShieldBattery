@@ -17,7 +17,7 @@ const ELECTRON_PROTO = 'shieldbattery:'
 const ELECTRON_HOST = 'app'
 const ELECTRON_ORIGIN = `${ELECTRON_PROTO}//${ELECTRON_HOST}`
 
-function isShieldBatteryUrl(url: URL): boolean {
+export function isShieldBatteryUrl(url: URL): boolean {
   const urlOrigin = url.origin.toLowerCase()
   return urlOrigin === ELECTRON_ORIGIN || urlOrigin === getServerOrigin().toLowerCase()
 }

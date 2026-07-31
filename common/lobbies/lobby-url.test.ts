@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { lobbySlug, urlForLobby } from './lobby-url'
+import { lobbyIdFromPath, lobbySlug, urlForLobby } from './lobby-url'
 import { SbLobbyId } from './sb-lobby-id'
 
 const LOBBY_ID = 'AbCdEfGhIjKlMnOpQrStUv' as SbLobbyId
@@ -48,6 +48,40 @@ describe('lobbies/lobby-url', () => {
 
     test('uses the "_" placeholder when no name is provided', () => {
       expect(urlForLobby(LOBBY_ID)).toBe(`/lobbies/${LOBBY_ID}/_`)
+    })
+  })
+
+  describe('lobbyIdFromPath', () => {
+    test('returns the id for a bare id path', () => {
+      expect(lobbyIdFromPath(`/lobbies/${LOBBY_ID}`)).toBe(LOBBY_ID)
+    })
+
+    test('returns the id for a slugged path', () => {
+      expect(lobbyIdFromPath(`/lobbies/${LOBBY_ID}/my-cool-lobby`)).toBe(LOBBY_ID)
+    })
+
+    test('returns the id when the path has a trailing slash', () => {
+      expect(lobbyIdFromPath(`/lobbies/${LOBBY_ID}/`)).toBe(LOBBY_ID)
+    })
+
+    test('returns the id when there are extra segments after the slug', () => {
+      expect(lobbyIdFromPath(`/lobbies/${LOBBY_ID}/my-cool-lobby/extra`)).toBe(LOBBY_ID)
+    })
+
+    test('returns undefined for the bare lobbies list path', () => {
+      expect(lobbyIdFromPath('/lobbies')).toBeUndefined()
+    })
+
+    test('returns undefined for an invalid id segment', () => {
+      expect(lobbyIdFromPath('/lobbies/not-a-valid-id')).toBeUndefined()
+    })
+
+    test('returns undefined for a non-lobby path', () => {
+      expect(lobbyIdFromPath(`/games/${LOBBY_ID}`)).toBeUndefined()
+    })
+
+    test('returns undefined for an empty string', () => {
+      expect(lobbyIdFromPath('')).toBeUndefined()
     })
   })
 })

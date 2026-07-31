@@ -5,23 +5,18 @@ import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { useTrackPageView } from '../analytics/analytics'
-import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
-import { DialogType } from '../dialogs/dialog-type'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton } from '../material/button'
 import siteSocket from '../network/site-socket'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
-import { joinLobby } from './action-creators'
-import { lobbyJoinErrorMessage } from './lobby-join-errors'
 import { LobbySummary } from './lobby-list-reducer'
-import { navigateToLobby } from './lobby-url'
+import { useJoinLobbyAction } from './use-join-lobby-action'
 
 const ListEntryRoot = styled.div`
   width: 100%;
@@ -173,11 +168,8 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
 
 function LobbyList() {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
-  const snackbarController = useSnackbarController()
+  const joinLobbyAction = useJoinLobbyAction()
   const { byId, list } = useAppSelector(s => s.lobbyList)
-
-  const isMatchmaking = useAtomValue(isMatchmakingAtom)
 
   if (!list.size) {
     return (
@@ -197,37 +189,7 @@ function LobbyList() {
           <ListEntry
             key={id}
             lobby={byId.get(id)!}
-            onClick={lobby => {
-              if (IS_ELECTRON) {
-                if (isMatchmaking) {
-                  dispatch(
-                    openSimpleDialog(
-                      t(
-                        'lobbies.joinLobby.matchmakingActiveDialogTitle',
-                        'Joining lobbies disabled',
-                      ),
-                      t(
-                        'lobbies.joinLobby.matchmakingActiveDialogText',
-                        'You cannot join lobbies while a matchmaking search is active.',
-                      ),
-                    ),
-                  )
-                } else {
-                  healthChecked(() => {
-                    dispatch(
-                      joinLobby(lobby.id, {
-                        onError: (err: unknown) => {
-                          snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
-                        },
-                      }),
-                    )
-                    navigateToLobby(lobby.id, lobby.name)
-                  })()
-                }
-              } else {
-                dispatch(openDialog({ type: DialogType.Download }))
-              }
-            }}
+            onClick={lobby => joinLobbyAction(lobby.id, { name: lobby.name })}
           />
         ))
       ) : (

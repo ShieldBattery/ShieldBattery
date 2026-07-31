@@ -1,6 +1,7 @@
 import slug from 'slug'
+import { isPrettyId } from '../pretty-id'
 import { urlPath } from '../urls'
-import { SbLobbyId } from './sb-lobby-id'
+import { makeSbLobbyId, SbLobbyId } from './sb-lobby-id'
 
 /**
  * Returns the URL slug for a lobby name, falling back to a `_` placeholder when the name is
@@ -18,4 +19,18 @@ export function lobbySlug(name: string | undefined): string {
  */
 export function urlForLobby(id: SbLobbyId, name?: string): string {
   return urlPath`/lobbies/${id}/${lobbySlug(name)}`
+}
+
+/**
+ * Returns the lobby id from a lobby URL path (`/lobbies/<id>` or `/lobbies/<id>/<slug>`), or
+ * undefined if the path isn't a lobby path or the id segment isn't a valid pretty id.
+ */
+export function lobbyIdFromPath(pathname: string): SbLobbyId | undefined {
+  const segments = pathname.split('/').filter(segment => segment.length > 0)
+  if (segments.length < 2 || segments[0] !== 'lobbies') {
+    return undefined
+  }
+
+  const id = segments[1]
+  return isPrettyId(id) ? makeSbLobbyId(id) : undefined
 }
