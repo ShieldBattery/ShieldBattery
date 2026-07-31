@@ -37,7 +37,6 @@ export type LobbyEvent =
   | LobbyBanEvent
   | LobbyHostChangeEvent
   | LobbySlotChangeEvent
-  | LobbySlotDeletedEvent
   | LobbyStartCountdownEvent
   | LobbyCancelCountdownEvent
   | LobbyCancelLoadingEvent
@@ -126,10 +125,6 @@ export interface LobbyHostChangeEvent {
 
 export interface LobbySlotChangeEvent {
   type: 'slotChange'
-}
-
-export interface LobbySlotDeletedEvent {
-  type: 'slotDeleted'
 }
 
 export interface LobbyStartCountdownEvent {

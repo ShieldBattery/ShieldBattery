@@ -8,31 +8,23 @@ import { SlotActions } from './slot-actions'
 export interface ClosedSlotProps {
   isHost?: boolean
   isObserver?: boolean
-  canMakeObserver?: boolean
-  canRemoveObserver?: boolean
   controlledClosed?: boolean
   canSetRace?: boolean
   race?: RaceChar
   onSetRace?: (race: RaceChar) => void
   onAddComputer?: () => void
   onOpenSlot: () => void
-  onMakeObserver?: () => void
-  onRemoveObserver?: () => void
 }
 
 export function ClosedSlot({
   isHost,
   isObserver,
-  canMakeObserver,
-  canRemoveObserver,
   controlledClosed,
   canSetRace,
   race = 'r',
   onSetRace,
   onAddComputer,
   onOpenSlot,
-  onMakeObserver,
-  onRemoveObserver,
 }: ClosedSlotProps) {
   const { t } = useTranslation()
 
@@ -41,12 +33,6 @@ export function ClosedSlot({
     slotActions.push([t('lobbies.slots.openSlot', 'Open slot'), onOpenSlot])
     if (!controlledClosed && !isObserver && onAddComputer) {
       slotActions.push([t('lobbies.slots.addComputer', 'Add computer'), onAddComputer])
-    }
-    if (canMakeObserver && onMakeObserver) {
-      slotActions.push([t('lobbies.slots.makeObserver', 'Make observer'), onMakeObserver])
-    }
-    if (canRemoveObserver && onRemoveObserver) {
-      slotActions.push([t('lobbies.slots.makePlayer', 'Make player'), onRemoveObserver])
     }
   }
 

@@ -16,9 +16,12 @@ export function canUserAccessReplay(game: GameRecord, userId: SbUserId | undefin
     if (!userId) {
       return false
     }
-    // Check if user was a participant
+    // Check if user was a participant, either playing or observing
     const allPlayers = game.config.teams.flat()
-    return allPlayers.some(p => !p.isComputer && p.id === userId)
+    return (
+      allPlayers.some(p => !p.isComputer && p.id === userId) ||
+      (game.config.observers?.includes(userId) ?? false)
+    )
   }
 
   return false

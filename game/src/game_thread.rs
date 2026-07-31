@@ -4,7 +4,7 @@ mod lobby_init;
 mod pathing;
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
@@ -364,13 +364,23 @@ unsafe fn game_results() -> GameThreadResults {
             }
         }
 
-        let network_results = (0..8)
+        let storm_player_flags = bw.storm_player_flags();
+        let network_results = (0..bw::MAX_STORM_PLAYERS)
             .map(|i| {
                 (
                     StormPlayerId(i as u8),
                     FinalNetworkStatus {
-                        was_dropped: (*game).player_was_dropped[i] != 0,
-                        has_quit: bw.storm_player_flags()[i] == 0,
+                        // Players and observers share the full storm id space (a session holds up
+                        // to 8 players + 4 observers, and an observer host takes slot 0, pushing a
+                        // player onto id 8), so every id needs an entry here — a missing one reads
+                        // as "has quit" downstream. BW's drop flags only exist for the first 8
+                        // ids, though; higher ids just report not-dropped, and the relay's own
+                        // leave reporting stays the authoritative drop signal for those.
+                        was_dropped: (*game)
+                            .player_was_dropped
+                            .get(i)
+                            .is_some_and(|&dropped| dropped != 0),
+                        has_quit: storm_player_flags[i] == 0,
                     },
                 )
             })
@@ -418,6 +428,13 @@ fn save_replay_for_upload(bw: &BwScr) -> Option<PathBuf> {
 }
 
 pub static HAS_INIT_BW: AtomicBool = AtomicBool::new(false);
+
+/// The storm ids `setup_slots` seated into the observer slots (`players[12 + n]`), `u32::MAX`
+/// where the slot is empty. Observers hold ordinary storm ids (their rp2 slots), but BW's
+/// game-start path renumbers an occupied observer slot's storm id to its own out-of-band
+/// `0x80 + n` convention — this records what the slot's storm id is *supposed* to be, so it can
+/// be re-asserted after game init (see `restore_observer_id_mappings`).
+pub static OBSERVER_STORM_IDS: [AtomicU32; 4] = [const { AtomicU32::new(u32::MAX) }; 4];
 
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.

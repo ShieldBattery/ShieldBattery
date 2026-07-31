@@ -550,6 +550,11 @@ export class LobbyApi {
     if (slotToAddComputer.type !== 'open' && slotToAddComputer.type !== 'closed') {
       throw new errors.BadRequest('invalid slot type')
     }
+    if (lobby.teams.get(teamIndex!)!.isObserver) {
+      // A computer can't watch a game, and the game itself has no concept of one in an observer
+      // slot — it would just be silently absent.
+      throw new errors.BadRequest('cannot add computer to an observer slot')
+    }
 
     const computer = Slots.createComputer()
     const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)
@@ -716,6 +721,15 @@ export class LobbyApi {
       this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, slotToClose)
     }
     const afterKick = this.lobbies.get(lobby.id)!
+    const afterKickSlot = afterKick.teams.get(teamIndex!)!.slots.get(slotIndex!)!
+    if (
+      afterKickSlot.type === SlotType.Closed ||
+      afterKickSlot.type === SlotType.ControlledClosed
+    ) {
+      // Removing the occupant can already leave the slot closed (a controlled team's cleanup
+      // re-creates closed slots as closed), and the kick published its own diff.
+      return
+    }
 
     let updated
     try {
@@ -824,7 +838,7 @@ export class LobbyApi {
       throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.id, updated)
-    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
@@ -852,7 +866,7 @@ export class LobbyApi {
       throw new errors.BadRequest((err as any).message)
     }
     this.lobbies = this.lobbies.set(lobby.id, updated)
-    this._publishLobbyDiff(lobby, updated, undefined, undefined, slotIndex)
+    this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
@@ -954,9 +968,14 @@ export class LobbyApi {
         useLegacyLimits: lobby.useLegacyLimits,
       },
       lockedAlliances: false,
-      // TODO(tec27): Add observers into this config somewhere? Right now we store no record that
-      // they were there
+      observers: getLobbySlots(lobby)
+        .filter(s => s.type === SlotType.Observer)
+        .map(s => s.userId!)
+        .toArray(),
       teams: lobby.teams
+        // The observer team never contains participants, and an empty husk entry for it would
+        // read as a real (empty) team to matchup/results consumers.
+        .filterNot(team => team.isObserver)
         .map(team =>
           team.slots
             .filter(s => s.type === 'human' || s.type === 'computer' || s.type === 'umsComputer')
@@ -1225,7 +1244,6 @@ export class LobbyApi {
     newLobby: Lobby,
     kickedUser?: SbUserId,
     bannedUser?: SbUserId,
-    deletedSlotIndex?: number,
   ) {
     if (oldLobby === newLobby) return
 
@@ -1278,23 +1296,6 @@ export class LobbyApi {
         diffEvents.push({
           type: 'leave',
           player,
-        })
-      }
-    }
-
-    // Check for deleted slots caused by obs slot creation/removal.
-    // In order for things on client to work properly, we need to tell them exactly *which* slot was
-    // deleted, which seems to be impossible to figure out just by comparing lobby diffs. So in a
-    // similar fashion as we do when determining if the user was kicked/banned, we pass the slot
-    // index of a deleted slot from the method that knows which slot it is
-    for (let teamIndex = 0; teamIndex < oldLobby.teams.size; teamIndex += 1) {
-      const oldTeam = oldLobby.teams.get(teamIndex)!
-      const newTeam = newLobby.teams.get(teamIndex)!
-      if (oldTeam.slots.size > newTeam.slots.size) {
-        diffEvents.push({
-          type: 'slotDeleted',
-          teamIndex,
-          slotIndex: deletedSlotIndex,
         })
       }
     }

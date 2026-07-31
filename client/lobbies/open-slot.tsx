@@ -10,8 +10,6 @@ import { SlotActions } from './slot-actions'
 export interface OpenSlotProps {
   isHost?: boolean
   isObserver?: boolean
-  canMakeObserver?: boolean
-  canRemoveObserver?: boolean
   controlledOpen?: boolean
   canSetRace?: boolean
   race?: RaceChar
@@ -19,15 +17,11 @@ export interface OpenSlotProps {
   onAddComputer?: () => void
   onSwitchClick: () => void
   onCloseSlot: () => void
-  onMakeObserver?: () => void
-  onRemoveObserver?: () => void
 }
 
 export function OpenSlot({
   isHost,
   isObserver,
-  canMakeObserver,
-  canRemoveObserver,
   controlledOpen,
   canSetRace,
   race = 'r',
@@ -35,8 +29,6 @@ export function OpenSlot({
   onAddComputer,
   onSwitchClick,
   onCloseSlot,
-  onMakeObserver,
-  onRemoveObserver,
 }: OpenSlotProps) {
   const { t } = useTranslation()
   const [isHovered, setIsHovered] = useState(false)
@@ -46,12 +38,6 @@ export function OpenSlot({
     slotActions.push([t('lobbies.slots.closeSlot', 'Close slot'), onCloseSlot])
     if (!controlledOpen && !isObserver && onAddComputer) {
       slotActions.push([t('lobbies.slots.addComputer', 'Add computer'), onAddComputer])
-    }
-    if (canMakeObserver && onMakeObserver) {
-      slotActions.push([t('lobbies.slots.makeObserver', 'Make observer'), onMakeObserver])
-    }
-    if (canRemoveObserver && onRemoveObserver) {
-      slotActions.push([t('lobbies.slots.makePlayer', 'Make player'), onRemoveObserver])
     }
   }
 

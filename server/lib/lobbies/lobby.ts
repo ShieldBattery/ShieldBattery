@@ -7,14 +7,12 @@ import {
   LobbyVisibility,
   MAX_OBSERVERS,
   Team,
-  canAddObservers,
-  canRemoveObservers,
   getLobbySlots,
   getLobbySlotsWithIndexes,
   getObserverTeam,
   hasObservers,
   humanSlotCount,
-  isInObserverTeam,
+  isSlotUnoccupied,
   isUms,
   openSlotCount,
   slotCount,
@@ -41,10 +39,6 @@ import { SbUserId } from '../../../common/users/sb-user-id'
 
 export function hasControlledOpens(gameType: GameType) {
   return gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll
-}
-
-export function hasDynamicObsSlots(gameType: GameType) {
-  return gameType === GameType.Melee
 }
 
 export function isTeamEmpty(team: Team) {
@@ -166,9 +160,8 @@ function createInitialTeams(
   numSlots: number,
 ) {
   // When creating a lobby, we first create all the individual slots for the lobby, and then we
-  // distribute each of the slots into their respective teams. This distribution of slots shouldn't
-  // change at all during the lifetime of a lobby, except when creating/deleting observer slots,
-  // which will be handled separately
+  // distribute each of the slots into their respective teams. The number of slots in each team is
+  // fixed for the lifetime of the lobby; only the contents of the slots ever change.
   const slotsPerTeam = getSlotsPerTeam(gameType, gameSubType, numSlots, map.mapData.umsForces)
   let slots: List<Slot>
   if (!isUms(gameType)) {
@@ -215,7 +208,6 @@ function createInitialTeams(
         name: teamName,
         teamId,
         slots: teamSlots,
-        originalSize: teamSlots.size,
         hiddenSlots,
       })
     })
@@ -250,20 +242,18 @@ export function createLobby({
   visibility?: LobbyVisibility
 }) {
   let teams = createInitialTeams(map, gameType, gameSubType, numSlots)
-  if (gameType === GameType.Melee && allowObservers) {
-    const observerCount = Math.min(
-      8 - teams.reduce((sum, team) => sum + team.slots.size, 0),
-      MAX_OBSERVERS,
-    )
-    const observerSlots = Range(0, observerCount)
-      .map(() => createClosed())
-      .toList()
+  if (allowObservers) {
+    // Observer slots sit alongside the map's player slots rather than being taken from them, so
+    // every game type gets the same fixed-size observer team. They start closed, so a lobby only
+    // takes on observers once someone deliberately opens a slot or is moved into one.
     const observerTeam = new Team({
       name: 'Observers',
       isObserver: true,
-      slots: observerSlots,
+      slots: Range(0, MAX_OBSERVERS)
+        .map(() => createClosed())
+        .toList(),
     })
-    teams = teams.concat(List.of(observerTeam))
+    teams = teams.push(observerTeam)
   }
 
   const lobby = new Lobby({
@@ -326,7 +316,9 @@ function addPlayerAndControlledSlots(
 
 export function addPlayer(lobby: Lobby, teamIndex: number, slotIndex: number, player: Slot): Lobby {
   const team = lobby.teams.get(teamIndex)!
-  return hasControlledOpens(lobby.gameType) && isTeamEmpty(team)
+  // The observer team never holds controlled slots, so someone arriving in an observer slot of a
+  // team game must not trigger the controlled-slot fill an empty player team would get.
+  return hasControlledOpens(lobby.gameType) && !team.isObserver && isTeamEmpty(team)
     ? addPlayerAndControlledSlots(lobby, teamIndex, slotIndex, player)
     : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], player)
 }
@@ -413,12 +405,19 @@ export function removePlayer(
     // nothing removed, e.g. player wasn't in the lobby
     return lobby
   }
-  const openSlot = isUms(lobby.gameType)
-    ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
-    : createOpen()
-  let updated = hasControlledOpens(lobby.gameType)
-    ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
-    : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], openSlot)
+  const team = lobby.teams.get(teamIndex)!
+  // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
+  // Observer slots carry no map data, so they get a plain open slot even in UMS. The observer
+  // team also never holds controlled slots, so a departing observer skips the controlled-team
+  // cleanup even in game types whose player teams need it.
+  const vacatedSlot =
+    isUms(lobby.gameType) && !team.isObserver
+      ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
+      : createOpen()
+  let updated =
+    hasControlledOpens(lobby.gameType) && !team.isObserver
+      ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
+      : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], vacatedSlot)
 
   if (humanSlotCount(updated) < 1) {
     return undefined
@@ -437,20 +436,20 @@ export function removePlayer(
 }
 
 /**
- * "Moves" one slot to another. For now it's only possible to move a `human` type slot to `open` or
- * `controlledOpen` type slot. Once the player is moved, there can be multiple side-effects:
+ * "Moves" the occupant of one slot into another slot, leaving an unoccupied slot behind. The
+ * source is expected to hold a `human` or `observer`, and the destination to be unoccupied. Team
+ * sizes never change; only slot contents do.
  *
- * 1) in melee/ffa/tvb lobby, there are no side-effects
- * 2) in ums lobby, dest slot might have forced race, while the source slot did not or is different
- * 3) in team melee/ffa lobby
- *  3.1) the source and dest slots are in the same team, no side-effects
- *  3.2) the source and dest slots are in different teams
- *    3.2.1) the team of source slot will become empty after move
- *    3.2.2) the team of source slot will have remaining players
- *      3.2.2.1) the slot that moved was the "controller" of that team
- *      3.2.2.2) the slot that moved was not the "controller" of that team
- *    3.2.3) the team of dest slot was empty before the move
- *    3.2.4) the team of dest slot was not empty before the move
+ * Depending on the game type and the teams involved, the move has additional effects:
+ *
+ * - In UMS lobbies, a slot's `playerId` and forced race come from the map, so the occupant takes on
+ *   the destination slot's values and leaves the source slot's behind.
+ * - Crossing the observer team's boundary retypes the occupant, since the observer team holds
+ *   `observer` slots and every other team holds `human` ones.
+ * - In team melee/ffa lobbies, the player teams are made of slots controlled by whoever is in them,
+ *   so leaving a team can empty it or hand control of its slots to a remaining player, and entering
+ *   an empty team fills the rest of it with slots the arriving player controls. The observer team
+ *   never holds controlled slots, so a move into or out of it skips that handling on that side.
  */
 export function movePlayerToSlot(
   lobby: Lobby,
@@ -459,73 +458,57 @@ export function movePlayerToSlot(
   destTeamIndex: number,
   destSlotIndex: number,
 ): Lobby {
-  let sourceSlot = lobby.teams.get(sourceTeamIndex)!.slots.get(sourceSlotIndex)!
-  const destSlot = lobby.teams.get(destTeamIndex)!.slots.get(destSlotIndex)!
-  if (!hasControlledOpens(lobby.gameType)) {
-    let openSlot: Slot
-    let updated = lobby
-    if (!isUms(lobby.gameType)) {
-      // 1) case - move the source slot to the destination slot and create an `open` slot at the
-      // source slot
-      openSlot = createOpen()
-    } else {
-      // 2) case - in UMS games, when player moves to a different slot, it's possible that the
-      // destination slot has a forced race, while the source slot didn't. Also, `playerId` of the
-      // moving player needs to change to the value of the destination slot.
-      const orig = sourceSlot
-      sourceSlot = sourceSlot.set('playerId', destSlot.playerId)
-      sourceSlot = destSlot.hasForcedRace
-        ? sourceSlot.set('race', destSlot.race).set('hasForcedRace', true)
-        : sourceSlot.set('hasForcedRace', false)
-      openSlot = createOpen(orig.race, orig.hasForcedRace, orig.playerId)
-      if (orig === lobby.host) {
-        // It was the host who moved to a different slot; update the lobby host record because it
-        // now has a different `playerId` and potentially a different `race`
-        updated = updated.set('host', sourceSlot)
-      }
-    }
+  const sourceTeam = lobby.teams.get(sourceTeamIndex)!
+  const destTeam = lobby.teams.get(destTeamIndex)!
+  const originalSlot = sourceTeam.slots.get(sourceSlotIndex)!
+  const destSlot = destTeam.slots.get(destSlotIndex)!
 
-    const hasObs = hasObservers(updated)
-    if (hasObs && isInObserverTeam(updated, destSlot) && sourceSlot.type !== SlotType.Observer) {
-      // If the destination slot is in the observer team, and the source slot is not already an
-      // observer, update the player to an `observer` type slot
-      sourceSlot = sourceSlot.set('type', SlotType.Observer)
-    }
-
-    if (hasObs && isInObserverTeam(updated, sourceSlot) && !isInObserverTeam(updated, destSlot)) {
-      // If the source slot is in the observer team and the destination slot is not, change the
-      // observer to a `human` type slot
-      sourceSlot = sourceSlot.set('type', SlotType.Human)
-    }
-
-    return updated
-      .setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
-      .setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], openSlot)
-  } else {
-    // 3) case - in team melee/ffa lobbies, there can be quite a few side-effects; handle them below
-    if (sourceTeamIndex === destTeamIndex) {
-      // 3.1) case - move the source slot to the destination slot and create a `controlledOpen` slot
-      // at the source
-      return lobby
-        .setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
-        .setIn(
-          ['teams', sourceTeamIndex, 'slots', sourceSlotIndex],
-          createControlledOpen('r', destSlot.controlledBy!),
-        )
-    } else {
-      let updated: Lobby
-      if (isTeamEmpty(lobby.teams.get(destTeamIndex)!)) {
-        // 3.2.3) case - move the source slot (player) to the destination team and fill out the rest
-        // of its slots properly
-        updated = addPlayerAndControlledSlots(lobby, destTeamIndex, destSlotIndex, sourceSlot)
-      } else {
-        // 3.2.4) case - move the source slot to the destination slot
-        updated = lobby.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], sourceSlot)
-      }
-      // 3.2.1) and 3.2.2) case - clean up the controlled team which the player is leaving
-      return removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
-    }
+  let movedSlot = originalSlot
+  if (isUms(lobby.gameType)) {
+    movedSlot = movedSlot.set('playerId', destSlot.playerId)
+    movedSlot = destSlot.hasForcedRace
+      ? movedSlot.set('race', destSlot.race).set('hasForcedRace', true)
+      : movedSlot.set('hasForcedRace', false)
   }
+  if (destTeam.isObserver) {
+    movedSlot = movedSlot.set('type', SlotType.Observer)
+  } else if (sourceTeam.isObserver) {
+    movedSlot = movedSlot.set('type', SlotType.Human)
+  }
+
+  let updated = lobby
+  if (originalSlot.id === lobby.host.id) {
+    // The lobby's host is a copy of their slot, so it has to follow along with any changes the move
+    // made to it.
+    updated = updated.set('host', movedSlot)
+  }
+
+  if (hasControlledOpens(lobby.gameType) && !destTeam.isObserver && isTeamEmpty(destTeam)) {
+    updated = addPlayerAndControlledSlots(updated, destTeamIndex, destSlotIndex, movedSlot)
+  } else {
+    updated = updated.setIn(['teams', destTeamIndex, 'slots', destSlotIndex], movedSlot)
+  }
+
+  if (hasControlledOpens(lobby.gameType) && !sourceTeam.isObserver) {
+    if (sourceTeamIndex === destTeamIndex) {
+      updated = updated.setIn(
+        ['teams', sourceTeamIndex, 'slots', sourceSlotIndex],
+        createControlledOpen('r', destSlot.controlledBy!),
+      )
+    } else {
+      updated = removePlayerAndControlledSlots(updated, sourceTeamIndex, sourceSlotIndex)
+    }
+  } else {
+    // A vacated slot is always left open for the next joiner; the host can close it if unwanted.
+    // Observer slots carry no map data, so they get a plain open slot even in UMS.
+    const vacated =
+      isUms(lobby.gameType) && !sourceTeam.isObserver
+        ? createOpen(originalSlot.race, originalSlot.hasForcedRace, originalSlot.playerId)
+        : createOpen()
+    updated = updated.setIn(['teams', sourceTeamIndex, 'slots', sourceSlotIndex], vacated)
+  }
+
+  return updated
 }
 
 /**
@@ -574,71 +557,77 @@ export function closeSlot(lobby: Lobby, teamIndex: number, slotIndex: number) {
   }
 }
 
-/** Moves a regular slot to the observer team. */
+/**
+ * Finds the index of the slot in `slots` that a player should be moved into: the first one that
+ * can be joined directly, or failing that the first unoccupied one. Returns -1 if every slot is
+ * occupied.
+ */
+function findSlotToMoveInto(slots: List<Slot>): number {
+  const openIndex = slots.findIndex(
+    slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
+  )
+  return openIndex !== -1 ? openIndex : slots.findIndex(isSlotUnoccupied)
+}
+
+/**
+ * Moves the player in a regular slot into a free slot of the observer team, opening the slot they
+ * came from.
+ */
 export function makeObserver(lobby: Lobby, teamIndex: number, slotIndex: number): Lobby {
-  if (!hasDynamicObsSlots(lobby.gameType)) {
-    throw new Error('Lobby type not supported')
-  }
-  if (!canAddObservers(lobby)) {
-    throw new Error('Cannot add more observers')
-  }
   const team = lobby.teams.get(teamIndex)!
   if (team.isObserver) {
     throw new Error("Trying to make an observer from obs team's slot")
   }
-  if (team.slots.size <= 1) {
-    throw new Error('Cannot make observer from the last slot in team')
-  }
   const slot = team.slots.get(slotIndex)!
-  if (
-    slot.type !== SlotType.Open &&
-    slot.type !== SlotType.Closed &&
-    slot.type !== SlotType.Human
-  ) {
+  if (slot.type !== SlotType.Human) {
     throw new Error('Trying to make observer from an invalid slot type: ' + slot.type)
   }
   const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
-  // We create a new slot in obs team and move human to it, or just replicate the slot there,
-  // and then delete the original slot.
-  if (slot.type === SlotType.Human) {
-    const newSlot = createOpen()
-    lobby = lobby.setIn(['teams', obsTeamIndex, 'slots'], obsTeam!.slots.push(newSlot))
-    lobby = movePlayerToSlot(lobby, teamIndex, slotIndex, obsTeamIndex!, obsTeam!.slots.size)
-  } else {
-    const newSlot = slot.type === SlotType.Open ? createOpen() : createClosed()
-    lobby = lobby.setIn(['teams', obsTeamIndex, 'slots'], obsTeam!.slots.push(newSlot))
+  if (obsTeamIndex === undefined) {
+    throw new Error('Lobby does not allow observers')
   }
-  return lobby.deleteIn(['teams', teamIndex, 'slots', slotIndex])
+  // A closed observer slot is the preferred destination (the host asking for this is what opens
+  // it up), so that a slot the host opened for joiners stays available to them.
+  const obsSlots = obsTeam!.slots
+  let obsSlotIndex = obsSlots.findIndex(s => s.type === SlotType.Closed)
+  if (obsSlotIndex === -1) {
+    obsSlotIndex = obsSlots.findIndex(isSlotUnoccupied)
+  }
+  if (obsSlotIndex === -1) {
+    throw new Error('Cannot add more observers')
+  }
+
+  return movePlayerToSlot(lobby, teamIndex, slotIndex, obsTeamIndex, obsSlotIndex)
 }
 
 /**
- * Moves a slot from the observer team to players. The team that the slot gets moved to is the
- * smallest one with space for players.
+ * Moves an observer back into a player slot. The team they get moved to is the one with the most
+ * unoccupied slots, and the observer slot they came from is left open.
  */
 export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
-  if (!hasDynamicObsSlots(lobby.gameType)) {
-    throw new Error('Lobby type not supported')
+  const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+  if (obsTeamIndex === undefined) {
+    throw new Error('Lobby does not allow observers')
   }
-  if (!canRemoveObservers(lobby)) {
+  const slot = obsTeam!.slots.get(slotIndex)!
+  if (slot.type !== SlotType.Observer) {
+    throw new Error('Trying to remove an observer from an invalid slot type: ' + slot.type)
+  }
+
+  const destTeam = lobby.teams
+    .map<[teamIndex: number, team: Team]>((team, teamIndex) => [teamIndex, team])
+    .filter(([, team]) => !team.isObserver && team.slots.some(isSlotUnoccupied))
+    .maxBy(([, team]) => team.slots.count(isSlotUnoccupied))
+  if (!destTeam) {
     throw new Error('Cannot remove more observers')
   }
-  const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+  const [destTeamIndex, team] = destTeam
 
-  const slot = obsTeam!.slots.get(slotIndex)!
-  const [newTeam, newTeamIndex] = lobby.teams
-    .filter(team => !team.isObserver && team.slots.size !== team.originalSize)
-    .map<[team: Team, index: number]>((team, index) => [team, index])
-    .minBy(([team]) => team.slots.size)!
-
-  // We create a new slot in the team and move human to it, or just replicate the slot there,
-  // and then delete the original slot.
-  if (slot.type === SlotType.Observer) {
-    const newSlot = createOpen()
-    lobby = lobby.setIn(['teams', newTeamIndex, 'slots'], newTeam.slots.push(newSlot))
-    lobby = movePlayerToSlot(lobby, obsTeamIndex!, slotIndex, newTeamIndex, newTeam.slots.size)
-  } else {
-    const newSlot = slot.type === SlotType.Open ? createOpen() : createClosed()
-    lobby = lobby.setIn(['teams', newTeamIndex, 'slots'], newTeam.slots.push(newSlot))
-  }
-  return lobby.deleteIn(['teams', obsTeamIndex, 'slots', slotIndex])
+  return movePlayerToSlot(
+    lobby,
+    obsTeamIndex,
+    slotIndex,
+    destTeamIndex,
+    findSlotToMoveInto(team.slots),
+  )
 }

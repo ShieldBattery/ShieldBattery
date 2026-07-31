@@ -24,7 +24,6 @@ import {
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
-  LOBBY_UPDATE_SLOT_DELETED,
   LOBBY_UPDATE_STATUS,
 } from '../actions'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
@@ -175,12 +174,6 @@ const eventToAction: EventToActionMap = {
   slotChange: (lobbyId, event) =>
     ({
       type: LOBBY_UPDATE_SLOT_CHANGE,
-      payload: event,
-    }) as any,
-
-  slotDeleted: (lobbyId, event) =>
-    ({
-      type: LOBBY_UPDATE_SLOT_DELETED,
       payload: event,
     }) as any,
 

@@ -25,6 +25,15 @@ interface BaseGameConfig<Source extends GameSource, SourceExtra> {
   gameSubType: number
   teams: GameConfigPlayer[][]
   /**
+   * The users who were in the game watching rather than playing. Observers are deliberately kept
+   * out of `teams`, which describes only the participants that results, ratings and matchups are
+   * derived from.
+   *
+   * Records created before this field existed won't have it set; readers should treat a missing
+   * value as having had no observers.
+   */
+  observers?: SbUserId[]
+  /**
    * Whether in-game alliance changes are disabled for this game, meaning the teams above remain
    * authoritative for the whole game (no player can leave or join a team after starting). Result
    * reconciliation uses this to enforce that only one team can win.

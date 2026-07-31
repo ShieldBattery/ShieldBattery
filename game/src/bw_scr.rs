@@ -1773,11 +1773,16 @@ impl BwScr {
                                 orig(&5u8, 1, 0);
                             } else {
                                 let storm_user = self.storm_command_user.resolve();
-                                self.dropped_players.store(
-                                    self.dropped_players.load(Ordering::Relaxed)
-                                        | (1 << storm_user),
-                                    Ordering::Relaxed,
-                                );
+                                // The mask has one bit per storm player; an out-of-range id here
+                                // means sender identity is corrupt, which shifting by it would
+                                // turn into an overflow panic on top of the actual problem.
+                                if storm_user < bw::MAX_STORM_PLAYERS as u32 {
+                                    self.dropped_players.store(
+                                        self.dropped_players.load(Ordering::Relaxed)
+                                            | (1 << storm_user),
+                                        Ordering::Relaxed,
+                                    );
+                                }
                                 info!(
                                     "Didn't see sync command for game player {command_user} net {storm_user}, {slice:02x?}, \
                                 they will be dropped",
@@ -2057,6 +2062,7 @@ impl BwScr {
                     if let Some(anti_troll) = self.anti_troll {
                         (*anti_troll.resolve()).active = 0;
                     }
+                    self.restore_observer_id_mappings();
                     game_thread::after_init_game_data();
                     1
                 },
@@ -3421,7 +3427,14 @@ impl BwScr {
             let Some(unique_player) = self.unique_player_for_storm(storm_player) else {
                 return false;
             };
-            let record = build_chat_record(unique_player, text);
+            // The record's sender field is a game player *id*, not a `players[]` index — the
+            // native renderer's name/format path only recognizes observers by their id range
+            // (0x80..0x84); an index in 12..16 falls through to its nameless bare-text path.
+            let sender_id = match unique_player {
+                12..=15 => 0x80 + (unique_player - 12),
+                other => other,
+            };
+            let record = build_chat_record(sender_id, text);
             // `0`: a live command not yet on the replay's command log, so the native command
             // processor appends it (`add_to_replay_data`) the same as any other in-game command —
             // see `process_injected_game_command`'s doc comment for the full reasoning.
@@ -3431,7 +3444,7 @@ impl BwScr {
                 let own = storm_player.0 as u32 == self.local_storm_id.resolve();
                 netcode_v2::with_turn_state(|s| {
                     s.record_chat(crate::debug_control::DebugChatLogEntry {
-                        sender_game_id: unique_player,
+                        sender_game_id: sender_id,
                         text: commands::truncate_utf8(text, commands::CHAT_TEXT_CAPACITY)
                             .to_string(),
                         own,
@@ -4030,11 +4043,10 @@ impl BwScr {
                     (*player).player_type,
                     (*player).storm_id
                 );
-                // Note: We set obs slot player types also be PLAYER_TYPE_HUMAN while BW uses
-                // a separate value for them, so this if includes both players and observers.
-                // Not 100% sure why we do it differently from BW, probably ended up doing that since
-                // the existing code didn't account for it and BW doesn't seem to care?
-                if (*player).player_type == bw::PLAYER_TYPE_HUMAN {
+                if matches!(
+                    (*player).player_type,
+                    bw::PLAYER_TYPE_HUMAN | bw::PLAYER_TYPE_OBSERVER
+                ) {
                     assert!(storm_id < 16);
                     let game_id = match i < 12 {
                         true => i,
@@ -4046,6 +4058,57 @@ impl BwScr {
                         self.local_player_id.write(game_id as u32);
                         self.local_unique_player_id.write(game_id as u32);
                     }
+                }
+            }
+        }
+    }
+
+    /// Re-asserts the observer slots' storm ids, the storm↔game id table entries derived from
+    /// them, and the local ids, after game init.
+    ///
+    /// Observers hold ordinary storm ids (their rp2 slots — the whole netcode addresses them
+    /// that way), but BW's own convention gives observers out-of-band storm ids `0x80 + n`, and
+    /// its game-start path renumbers an occupied observer slot (and, on the observer's own
+    /// client, the local storm id) to that convention. Team-game init additionally rebuilds the
+    /// storm↔game tables from per-team lobby data that describes only the 8 team slots, losing
+    /// the observer entries written during the lobby phase. Either way the result is the same:
+    /// an observer's commands resolve to the no-player id on everyone else, and the observer's
+    /// own client loses its observer-ranged unique id and starts participating in sync as if it
+    /// were a player. The storm ids each slot is supposed to hold are recorded at seating time
+    /// in [`game_thread::OBSERVER_STORM_IDS`]; inits that change nothing get identical values
+    /// rewritten, so this runs unconditionally.
+    unsafe fn restore_observer_id_mappings(&self) {
+        unsafe {
+            let net_player_to_game = self.net_player_to_game.resolve();
+            let net_player_to_unique = self.net_player_to_unique.resolve();
+            let players = self.players.resolve();
+            for (n, storm_id) in game_thread::OBSERVER_STORM_IDS.iter().enumerate() {
+                let storm_id = storm_id.load(Ordering::Relaxed);
+                let player = players.add(12 + n);
+                if (*player).player_type != bw::PLAYER_TYPE_OBSERVER {
+                    continue;
+                }
+                if storm_id >= NET_PLAYER_COUNT as u32 {
+                    continue;
+                }
+                let game_id = 128 + n as u32;
+                debug!(
+                    "Restoring observer id mapping: storm {} -> game {} (slot had storm {}, table had {})",
+                    storm_id,
+                    game_id,
+                    (*player).storm_id,
+                    *net_player_to_game.add(storm_id as usize),
+                );
+                (*player).storm_id = storm_id;
+                *net_player_to_game.add(storm_id as usize) = game_id;
+                *net_player_to_unique.add(storm_id as usize) = game_id;
+                let local_storm_id = self.local_storm_id.resolve();
+                // The local client is this observer if its storm id matches — either still the
+                // real one, or the renumbered value when init got to the local id too.
+                if local_storm_id == storm_id || local_storm_id == game_id {
+                    self.local_storm_id.write(storm_id);
+                    self.local_player_id.write(game_id);
+                    self.local_unique_player_id.write(game_id);
                 }
             }
         }

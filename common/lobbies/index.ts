@@ -7,8 +7,8 @@ import { SbLobbyId } from './sb-lobby-id'
 import { Slot, SlotType } from './slot'
 
 /**
- * The maximum number of observers allowed in a game, regardless of how many slots can be
- * converted.
+ * The number of observer slots a lobby that allows observers has. These are in addition to the
+ * map's player slots, and this is the most observers a game can hold.
  */
 export const MAX_OBSERVERS = 4
 
@@ -29,11 +29,6 @@ export class Team extends Record({
   isObserver: false,
   /** Slots that belong to a particular team. */
   slots: List<Slot>(),
-  /**
-   * Since slots can be made obs slots and that can be reverted, keep track of how many slots
-   * there were originally.
-   */
-  originalSize: 0,
   /** UMS maps can have slots which are not shown in lobby but get initialized in game. */
   hiddenSlots: List<Slot>(),
 }) {}
@@ -117,6 +112,13 @@ export function getIngameLobbySlotsWithIndexes(lobby: Lobby): List<SlotWithIndex
  */
 export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
   return getIngameLobbySlotsWithIndexes(lobby)
+    .filter(
+      ([teamIndex, , slot]) =>
+        // An observer slot with nobody in it has no in-game counterpart — the game reserves its
+        // observer slots unconditionally — and emitting one would claim a game slot meant for a
+        // player.
+        !lobby.teams.get(teamIndex)!.isObserver || slot.type === SlotType.Observer,
+    )
     .map(([teamIndex, _slotIndex, slot]) => ({
       id: slot.id,
       userId: slot.userId,
@@ -252,24 +254,30 @@ export function getObserverTeam(lobby: Lobby): [teamIndex?: number, team?: Team]
     : [undefined, undefined]
 }
 
-/** Checks whether a particular slot is inside the observer team. */
-export function isInObserverTeam(lobby: Lobby, slot: Slot): boolean {
-  const [, observerTeam] = getObserverTeam(lobby)
-  return !!(observerTeam && observerTeam.slots.find(s => s.id === slot.id))
+/**
+ * Returns whether a slot has nobody in it, and can therefore receive someone moving into it. Note
+ * that this includes closed slots: they are unoccupied, they just can't be joined into directly.
+ */
+export function isSlotUnoccupied(slot: Slot): boolean {
+  return (
+    slot.type === SlotType.Open ||
+    slot.type === SlotType.Closed ||
+    slot.type === SlotType.ControlledOpen ||
+    slot.type === SlotType.ControlledClosed
+  )
 }
 
-/** Checks if the lobby has any slots that can be made observers. */
+/** Checks if the lobby has an observer slot free for someone to be moved into. */
 export function canAddObservers(lobby: Lobby): boolean {
   const [, observerTeam] = getObserverTeam(lobby)
-  return !!(observerTeam && observerTeam.slots.size < MAX_OBSERVERS)
+  return !!observerTeam?.slots.some(isSlotUnoccupied)
 }
 
-/** Checks if the lobby has space for moving observers to players. */
+/** Checks if the lobby has an observer that could be moved into a free player slot. */
 export function canRemoveObservers(lobby: Lobby): boolean {
-  if (!hasObservers(lobby)) return false
-  return (
-    lobby.teams.find(team => {
-      return !team.isObserver && team.slots.size !== team.originalSize
-    }) !== undefined
-  )
+  const [, observerTeam] = getObserverTeam(lobby)
+  if (!observerTeam?.slots.some(slot => slot.type === SlotType.Observer)) {
+    return false
+  }
+  return lobby.teams.some(team => !team.isObserver && team.slots.some(isSlotUnoccupied))
 }

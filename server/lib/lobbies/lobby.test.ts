@@ -2,14 +2,20 @@ import { describe, expect, test } from 'vitest'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
 import {
+  canAddObservers,
+  canRemoveObservers,
   findSlotById,
   findSlotByUserId,
+  getObserverTeam,
+  getPlayerInfos,
   hasOpposingSides,
   humanSlotCount,
   Lobby,
+  MAX_OBSERVERS,
+  slotCount,
   Team,
 } from '../../../common/lobbies'
-import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
+import { createComputer, createHuman, createObserver, Slot } from '../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset, toMapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -115,9 +121,8 @@ describe('Lobbies - melee', () => {
     let l = BOXER_LOBBY_WITH_OBSERVERS
     evaluateMeleeLobby(l, 2, 6)
     let observers = l.teams.get(1)!
-    expect(observers.slots).toHaveProperty('size', 2)
-    expect(observers.slots.get(0)!.type).toBe('closed')
-    expect(observers.slots.get(1)!.type).toBe('closed')
+    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
+    expect(observers.slots.every(s => s.type === 'closed')).toBe(true)
 
     l = openSlot(l, 1, 0)
     observers = l.teams.get(1)!
@@ -390,82 +395,90 @@ describe('Lobbies - melee', () => {
     expect(() => openSlot(lobby, 0, 1)).toThrow()
   })
 
-  test('should support adding observer slots', () => {
+  test('should support making players observers', () => {
     let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    const babo = createHuman(makeSbUserId(1), 'z')
+    const computer = createComputer('p')
+    lobby = addPlayer(lobby, 0, 1, babo)
+    lobby = addPlayer(lobby, 0, 2, computer)
+
+    // Only slots with someone in them can be moved to the observer team
+    expect(() => makeObserver(lobby, 0, 2)).toThrow()
+    expect(() => makeObserver(lobby, 0, 3)).toThrow()
+    expect(() => makeObserver(lobby, 1, 0)).toThrow()
+
+    lobby = makeObserver(lobby, 0, 0)
+
     let players = lobby.teams.get(0)!
     let observers = lobby.teams.get(1)!
     expect(players.slots).toHaveProperty('size', 6)
-    expect(observers.slots).toHaveProperty('size', 2)
-
-    lobby = makeObserver(lobby, 0, 0)
-    players = lobby.teams.get(0)!
-    observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 5)
-    expect(observers.slots).toHaveProperty('size', 3)
+    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
     expect(players.slots.get(0)!.type).toBe('open')
-    expect(players.slots.get(1)!.type).toBe('open')
-    expect(players.slots.get(2)!.type).toBe('open')
-    expect(observers.slots.get(2)!.id).toBe(lobby.host.id)
+    expect(observers.slots.get(0)!.type).toBe('observer')
+    expect(observers.slots.get(0)!.userId).toBe(HOST_USER_ID)
+    expect(lobby.host.id).toBe(observers.slots.get(0)!.id)
+    expect(humanSlotCount(lobby)).toBe(2)
 
-    const babo = createHuman(makeSbUserId(1), 'z')
-    const pachi = createHuman(makeSbUserId(2), 'p')
-    const computer = createComputer('p')
-    lobby = addPlayer(lobby, 0, 0, babo)
-    lobby = addPlayer(lobby, 0, 1, pachi)
-    lobby = addPlayer(lobby, 0, 2, computer)
-    expect(() => makeObserver(lobby, 0, 2)).toThrow()
     lobby = makeObserver(lobby, 0, 1)
-    expect(() => makeObserver(lobby, 0, 0)).toThrow()
-
     players = lobby.teams.get(0)!
     observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 4)
-    expect(observers.slots).toHaveProperty('size', 4)
-    expect(players.slots.get(0)!.type).toBe('human')
-    expect(players.slots.get(0)!.userId).toBe(makeSbUserId(1))
-    expect(players.slots.get(1)!.type).toBe('computer')
-    expect(observers.slots.get(0)!.type).toBe('closed')
-    expect(observers.slots.get(1)!.type).toBe('closed')
-    expect(observers.slots.get(2)!.userId).toBe(HOST_USER_ID)
-    expect(observers.slots.get(3)!.userId).toBe(makeSbUserId(2))
+    expect(players.slots.get(1)!.type).toBe('open')
+    expect(observers.slots.get(1)!.userId).toBe(makeSbUserId(1))
+    expect(canAddObservers(lobby)).toBe(true)
+  })
 
+  test('should refuse to make an observer when the observer team is full', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    for (let i = 1; i <= MAX_OBSERVERS; i++) {
+      lobby = addPlayer(lobby, 0, i, createHuman(makeSbUserId(i), 'z'))
+      lobby = makeObserver(lobby, 0, i)
+    }
+
+    expect(canAddObservers(lobby)).toBe(false)
+    expect(lobby.teams.get(1)!.slots.every(s => s.type === 'observer')).toBe(true)
     expect(() => makeObserver(lobby, 0, 0)).toThrow()
   })
 
-  test('should support removing observer slots', () => {
+  test('should support moving observers back to players', () => {
     let lobby = BOXER_LOBBY_WITH_OBSERVERS
-
-    const babo = createHuman(makeSbUserId(1), 'z')
-    lobby = addPlayer(lobby, 0, 1, babo)
-
-    let players = lobby.teams.get(0)!
-    let observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 6)
-    expect(observers.slots).toHaveProperty('size', 2)
+    expect(canRemoveObservers(lobby)).toBe(false)
     expect(() => removeObserver(lobby, 0)).toThrow()
 
-    // Move boxer and open slot to obs
     lobby = makeObserver(lobby, 0, 0)
-    lobby = makeObserver(lobby, 0, 1)
-    // Move closed and boxer back
+    expect(canRemoveObservers(lobby)).toBe(true)
     lobby = removeObserver(lobby, 0)
-    lobby = removeObserver(lobby, 1)
-    players = lobby.teams.get(0)!
-    observers = lobby.teams.get(1)!
 
+    const players = lobby.teams.get(0)!
+    const observers = lobby.teams.get(1)!
     expect(players.slots).toHaveProperty('size', 6)
-    expect(observers.slots).toHaveProperty('size', 2)
-    expect(() => removeObserver(lobby, 0)).toThrow()
+    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
+    // The observer slot they came from is left open for the next joiner
+    expect(observers.slots.get(0)!.type).toBe('open')
+    expect(observers.slots.skip(1).every(s => s.type === 'closed')).toBe(true)
     expect(players.slots.get(0)!.type).toBe('human')
-    expect(players.slots.get(1)!.type).toBe('open')
-    expect(players.slots.get(2)!.type).toBe('open')
-    expect(players.slots.get(3)!.type).toBe('open')
-    expect(players.slots.get(4)!.type).toBe('closed')
-    expect(players.slots.get(5)!.type).toBe('human')
-    expect(players.slots.get(5)!.userId).toBe(HOST_USER_ID)
+    expect(players.slots.get(0)!.userId).toBe(HOST_USER_ID)
+    expect(lobby.host.id).toBe(players.slots.get(0)!.id)
+    expect(humanSlotCount(lobby)).toBe(1)
+    expect(canRemoveObservers(lobby)).toBe(false)
+  })
 
-    expect(observers.slots.get(0)!.type).toBe('closed')
-    expect(observers.slots.get(1)!.type).toBe('open')
+  test('should refuse to remove an observer with no player slot free', () => {
+    let lobby = createLobby({
+      name: 'Full up',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 2,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 0, 0)
+    lobby = addPlayer(lobby, 0, 0, createComputer('p'))
+
+    expect(canRemoveObservers(lobby)).toBe(false)
+    expect(() => removeObserver(lobby, 0)).toThrow()
   })
 })
 
@@ -1382,5 +1395,277 @@ describe('Lobbies - Use map settings', () => {
     evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
     evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
     evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+  })
+})
+
+const TEAM_MELEE_WITH_OBSERVERS = createLobby({
+  name: '4v4 Team Melee + obs',
+  map: BigGameHunters,
+  gameType: GameType.TeamMelee,
+  gameSubType: 2,
+  numSlots: 8,
+  hostUserId: HOST_USER_ID,
+  hostRace: 'r',
+  allowObservers: true,
+})
+
+const UMS_LOBBY_WITH_OBSERVERS = createLobby({
+  name: 'Accipiter + obs',
+  map: UMS_MAP_3,
+  gameType: GameType.UseMapSettings,
+  gameSubType: 0,
+  numSlots: 4,
+  hostUserId: HOST_USER_ID,
+  hostRace: 'r',
+  allowObservers: true,
+})
+
+describe('Lobbies - observers', () => {
+  test('should append a fixed-size observer team for every game type', () => {
+    const cases: Array<
+      [gameType: GameType, gameSubType: number, map: MapInfo, numSlots: number, playerTeams: number]
+    > = [
+      [GameType.Melee, 0, BigGameHunters, 8, 1],
+      [GameType.FreeForAll, 0, BigGameHunters, 8, 1],
+      [GameType.OneVsOne, 0, BigGameHunters, 2, 1],
+      [GameType.TopVsBottom, 2, BigGameHunters, 8, 2],
+      [GameType.TeamMelee, 3, BigGameHunters, 8, 3],
+      [GameType.TeamFreeForAll, 4, BigGameHunters, 8, 4],
+      [GameType.UseMapSettings, 0, UMS_MAP_1, 8, 3],
+    ]
+
+    for (const [gameType, gameSubType, map, numSlots, playerTeams] of cases) {
+      const lobby = createLobby({
+        name: 'Observers welcome',
+        map,
+        gameType,
+        gameSubType,
+        numSlots,
+        hostUserId: HOST_USER_ID,
+        hostRace: 'r',
+        allowObservers: true,
+      })
+
+      expect(lobby.teams).toHaveProperty('size', playerTeams + 1)
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      expect(obsTeamIndex).toBe(playerTeams)
+      expect(obsTeam!.slots).toHaveProperty('size', MAX_OBSERVERS)
+      expect(obsTeam!.slots.every(s => s.type === 'closed')).toBe(true)
+      // Observer slots are in addition to the map's player slots, not carved out of them
+      expect(slotCount(lobby)).toBe(numSlots)
+      expect(humanSlotCount(lobby)).toBe(1)
+    }
+  })
+
+  test('should leave the player slots alone when observers are not allowed', () => {
+    const lobby = createLobby({
+      name: 'No observers',
+      map: BigGameHunters,
+      gameType: GameType.TopVsBottom,
+      gameSubType: 2,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+
+    expect(lobby.teams).toHaveProperty('size', 2)
+    expect(getObserverTeam(lobby)[0]).toBeUndefined()
+    expect(canAddObservers(lobby)).toBe(false)
+    expect(canRemoveObservers(lobby)).toBe(false)
+  })
+
+  test('should only send joiners to observer slots once the player teams are full', () => {
+    let lobby = createLobby({
+      name: 'Overflow',
+      map: BigGameHunters,
+      gameType: GameType.TopVsBottom,
+      gameSubType: 1,
+      numSlots: 2,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+
+    // The observer slots start closed, so the free player slot is still what a joiner gets
+    lobby = openSlot(lobby, 2, 0)
+    const [t1, s1] = findAvailableSlot(lobby)
+    expect(t1).toBe(1)
+    expect(s1).toBe(0)
+
+    lobby = addPlayer(lobby, t1!, s1!, createHuman(makeSbUserId(1), 'z'))
+    const [t2, s2] = findAvailableSlot(lobby)
+    expect(t2).toBe(2)
+    expect(s2).toBe(0)
+
+    lobby = addPlayer(lobby, t2!, s2!, createHuman(makeSbUserId(2), 'p'))
+    const [t3, s3] = findAvailableSlot(lobby)
+    expect(t3).toBeUndefined()
+    expect(s3).toBeUndefined()
+  })
+
+  test('should keep the observer team out of team melee controlled slot handling', () => {
+    let lobby = TEAM_MELEE_WITH_OBSERVERS
+    expect(lobby.teams).toHaveProperty('size', 3)
+    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('controlledOpen')
+
+    lobby = makeObserver(lobby, 0, 0)
+
+    // The team the host left has no one controlling it anymore, so it becomes plain open slots
+    const vacatedTeam = lobby.teams.get(0)!
+    expect(vacatedTeam.slots).toHaveProperty('size', 4)
+    expect(vacatedTeam.slots.every(s => s.type === 'open')).toBe(true)
+    const observers = lobby.teams.get(2)!
+    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
+    expect(observers.slots.get(0)!.type).toBe('observer')
+    expect(observers.slots.get(0)!.userId).toBe(HOST_USER_ID)
+    expect(observers.slots.get(1)!.type).toBe('closed')
+
+    lobby = removeObserver(lobby, 0)
+
+    expect(lobby.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    expect(
+      lobby.teams
+        .get(2)!
+        .slots.skip(1)
+        .every(s => s.type === 'closed'),
+    ).toBe(true)
+    const [teamIndex, , hostSlot] = findSlotByUserId(lobby, HOST_USER_ID)
+    expect(hostSlot!.type).toBe('human')
+    // Arriving in an empty controlled team fills the rest of it with slots the host controls
+    const destTeam = lobby.teams.get(teamIndex!)!
+    expect(destTeam.slots.count(s => s.type === 'controlledOpen')).toBe(3)
+    expect(destTeam.slots.every(s => s.type === 'human' || s.controlledBy === hostSlot!.id)).toBe(
+      true,
+    )
+  })
+
+  test('should preserve UMS slot data across moves into and out of the observer team', () => {
+    let lobby = UMS_LOBBY_WITH_OBSERVERS
+    expect(lobby.teams).toHaveProperty('size', 3)
+    lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'p', true, 2))
+
+    lobby = makeObserver(lobby, 0, 0)
+
+    const obsSlot = lobby.teams.get(2)!.slots.get(0)!
+    expect(obsSlot.type).toBe('observer')
+    expect(obsSlot.userId).toBe(HOST_USER_ID)
+    expect(lobby.host.id).toBe(obsSlot.id)
+    // The slot they left keeps the map-defined player id and race
+    evaluateUmsSlot(lobby.teams.get(0)!.slots.get(0)!, 'open', undefined, 'r', false, 0)
+
+    const observerInfos = getPlayerInfos(lobby).filter(p => p.type === 'observer')
+    expect(observerInfos).toHaveLength(1)
+    expect(observerInfos[0].userId).toBe(HOST_USER_ID)
+
+    lobby = removeObserver(lobby, 0)
+
+    expect(lobby.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    // A vacated observer slot carries no UMS map data
+    expect(lobby.teams.get(2)!.slots.get(0)!.hasForcedRace).toBe(false)
+    evaluateUmsSlot(lobby.teams.get(0)!.slots.get(0)!, 'human', HOST_USER_ID, 'r', false, 0)
+  })
+
+  test('should leave unoccupied observer slots out of the player infos', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    expect(getPlayerInfos(lobby)).toHaveLength(6)
+
+    lobby = openSlot(lobby, 1, 0)
+    expect(getPlayerInfos(lobby)).toHaveLength(6)
+
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 0, 1)
+    const infos = getPlayerInfos(lobby)
+    expect(infos).toHaveLength(7)
+    expect(infos.filter(p => p.type === 'observer')).toHaveLength(1)
+  })
+
+  test('should let an observer leave a team melee lobby', () => {
+    let lobby = TEAM_MELEE_WITH_OBSERVERS
+    lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 1, 0)
+    const observers = lobby.teams.get(2)!
+    const leaver = observers.slots.get(0)!
+    expect(leaver.type).toBe('observer')
+
+    const updated = removePlayer(lobby, 2, 0, leaver)!
+
+    expect(updated).toBeDefined()
+    // The vacated observer slot is left open for the next joiner, and the player teams are
+    // untouched by the leave (no controlled-team cleanup for the observer team)
+    expect(updated.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    expect(
+      updated.teams
+        .get(2)!
+        .slots.skip(1)
+        .every(s => s.type === 'closed'),
+    ).toBe(true)
+    expect(updated.teams.get(0)!.slots.get(0)!.type).toBe('human')
+    expect(updated.teams.get(1)!.slots.every(s => s.type === 'open')).toBe(true)
+  })
+
+  test('should not create controlled slots when someone joins an observer slot in team melee', () => {
+    let lobby = TEAM_MELEE_WITH_OBSERVERS
+    lobby = openSlot(lobby, 2, 0)
+
+    lobby = addPlayer(lobby, 2, 0, createObserver(makeSbUserId(1)))
+
+    const observers = lobby.teams.get(2)!
+    expect(observers.slots.get(0)!.type).toBe('observer')
+    expect(observers.slots.get(0)!.userId).toBe(makeSbUserId(1))
+    expect(
+      observers.slots.filterNot(s => s.type === 'observer').every(s => s.type === 'closed'),
+    ).toBe(true)
+  })
+
+  test('should leave an observer slot open when its occupant changes slots', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 0, 1)
+    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('observer')
+
+    lobby = movePlayerToSlot(lobby, 1, 0, 0, 1)
+
+    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('human')
+    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
+    expect(
+      lobby.teams
+        .get(1)!
+        .slots.skip(1)
+        .every(s => s.type === 'closed'),
+    ).toBe(true)
+  })
+
+  test('should prefer a closed observer slot when making an observer', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    lobby = openSlot(lobby, 1, 0)
+    lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
+
+    lobby = makeObserver(lobby, 0, 1)
+
+    // The host-opened slot stays available for joiners; the converted player took a closed one
+    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
+    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('observer')
+    expect(lobby.teams.get(1)!.slots.get(1)!.userId).toBe(makeSbUserId(1))
+  })
+
+  test('should keep UMS hidden slots out of the observer team', () => {
+    const lobby = createLobby({
+      name: 'Team Micro + obs',
+      map: UMS_MAP_4,
+      gameType: GameType.UseMapSettings,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+
+    expect(lobby.teams).toHaveProperty('size', 5)
+    evaluateUmsTeam(lobby.teams.get(2)!, 3, 0, 1)
+    evaluateUmsTeam(lobby.teams.get(3)!, 4, 0, 1)
+    const observers = lobby.teams.get(4)!
+    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
+    expect(observers.hiddenSlots).toHaveProperty('size', 0)
   })
 })

@@ -22,6 +22,7 @@ import {
   getGameRecord,
 } from './game-models'
 import GameResultService, {
+  SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
   getValidationTeams,
   haveAllRequiredReportersReported,
   isResultsExempt,
@@ -545,5 +546,41 @@ describe('games/game-result-service/GameResultService periodic sweep — netcode
 
     await expect(sweepCallback()).resolves.toBeUndefined()
     expect(forceReconcileGame).not.toHaveBeenCalled()
+  })
+})
+
+describe('SUBMIT_GAME_RESULTS_REQUEST_SCHEMA (raw v2 reports)', () => {
+  const rawReport = (netPlayerCount: number) => ({
+    version: 2,
+    userId: makeSbUserId(1),
+    resultCode: 'abc123',
+    time: 60_000,
+    players: [
+      {
+        userId: makeSbUserId(1),
+        bwPlayerId: 0,
+        // Players share the storm id space with observers, so a player's storm id can exceed 7
+        stormId: 8,
+        race: 'z',
+        victoryState: 3,
+        alliances: [1, 0, 0, 0, 0, 0, 0, 0],
+      },
+    ],
+    netPlayers: Array.from({ length: netPlayerCount }, (_, stormId) => ({
+      stormId,
+      wasDropped: false,
+      hasQuit: stormId > 0,
+    })),
+    localPlayerLoseType: null,
+  })
+
+  test('accepts a report covering the full 12-slot storm id space', () => {
+    const { error } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(rawReport(12))
+    expect(error).toBeUndefined()
+  })
+
+  test('rejects more net player rows than the storm id space holds', () => {
+    const { error } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(rawReport(13))
+    expect(error).toBeDefined()
   })
 })

@@ -238,8 +238,8 @@ pub struct NetStatRowSnapshot {
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DebugChatLogEntry {
-    /// The player id (0-7; see `bw_scr::chat::ChatManager::handle_message`'s player-id ranges)
-    /// the message was attributed to.
+    /// The game player id the message was attributed to: 0-7 for players, 0x80-0x83 for
+    /// observers (see `bw_scr::chat::ChatManager::handle_message`'s player-id ranges).
     pub sender_game_id: u8,
     /// The message text as injected (already truncated to the classic chat record's capacity).
     pub text: String,

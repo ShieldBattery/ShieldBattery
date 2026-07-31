@@ -367,7 +367,7 @@ function CreateLobbyForm({
         <CheckBox
           {...bindCheckable('allowObservers')}
           label={t('lobbies.createLobby.allowObservers', 'Allow observers')}
-          disabled={disabled || getInputValue('gameType') !== GameType.Melee}
+          disabled={disabled}
           inputProps={{ tabIndex: 0 }}
         />
       </AdvancedSettings>

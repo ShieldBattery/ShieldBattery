@@ -316,7 +316,14 @@ pub const PLAYER_TYPE_NONE: u8 = 0x0;
 pub const PLAYER_TYPE_HUMAN: u8 = 0x2;
 pub const PLAYER_TYPE_LOBBY_COMPUTER: u8 = 0x5;
 pub const PLAYER_TYPE_OPEN: u8 = 0x6;
+/// An observer slot (players[12..16]) with nobody in it. (SC:R itself distinguishes closed (0x8)
+/// from open/joinable (0xC) observer slots; we seat everyone ourselves, so every empty observer
+/// slot just stays 0x8.)
 pub const PLAYER_TYPE_OBSERVER_NONE: u8 = 0x8;
+/// An observer slot occupied by a human. SC:R's chat/format paths branch on this type (e.g. an
+/// observer sender gets the `[Observer]` chat format instead of a team-force lookup that assumes
+/// `team >= 1`), so occupied observer slots must carry it rather than `PLAYER_TYPE_HUMAN`.
+pub const PLAYER_TYPE_OBSERVER: u8 = 0x9;
 pub const RACE_ZERG: u8 = 0x0;
 pub const RACE_TERRAN: u8 = 0x1;
 pub const RACE_PROTOSS: u8 = 0x2;
