@@ -82,42 +82,23 @@ describe('client/lobbies/lobby-summary/fetchLobbySummary', () => {
     expect(second).toEqual({ status: 'loaded', data: RESPONSE })
   })
 
-  test('queues reads past the fetch budget until the window refills', async () => {
+  test('denies reads past the fetch budget without caching the denial', async () => {
     fetchJsonMock.mockResolvedValue(RESPONSE)
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       await fetchLobbySummary(makeSbLobbyId(`lobby-${i}`), { cached: true })
     }
-    expect(fetchJsonMock).toHaveBeenCalledTimes(10)
+    expect(fetchJsonMock).toHaveBeenCalledTimes(15)
 
-    const queued = fetchLobbySummary(makeSbLobbyId('lobby-10'), { cached: true })
-    // Repeated reads of the same lobby share the queued read instead of queueing another
-    const alsoQueued = fetchLobbySummary(makeSbLobbyId('lobby-10'), { cached: true })
-    expect(fetchJsonMock).toHaveBeenCalledTimes(10)
+    const denied = await fetchLobbySummary(makeSbLobbyId('lobby-15'), { cached: true })
+    expect(denied).toEqual({ status: 'error' })
+    expect(fetchJsonMock).toHaveBeenCalledTimes(15)
 
-    await vi.advanceTimersByTimeAsync(31 * 1000)
-
-    expect(await queued).toEqual({ status: 'loaded', data: RESPONSE })
-    expect(await alsoQueued).toEqual({ status: 'loaded', data: RESPONSE })
-    expect(fetchJsonMock).toHaveBeenCalledTimes(11)
-  })
-
-  test('a queued read that fails transiently is not cached', async () => {
-    fetchJsonMock.mockResolvedValue(RESPONSE)
-
-    for (let i = 0; i < 10; i++) {
-      await fetchLobbySummary(makeSbLobbyId(`lobby-${i}`), { cached: true })
-    }
-    fetchJsonMock.mockRejectedValueOnce(new Error('network down'))
-
-    const queued = fetchLobbySummary(makeSbLobbyId('lobby-10'), { cached: true })
-    await vi.advanceTimersByTimeAsync(31 * 1000)
-    expect(await queued).toEqual({ status: 'error' })
-    expect(fetchJsonMock).toHaveBeenCalledTimes(11)
-
-    const retried = await fetchLobbySummary(makeSbLobbyId('lobby-10'), { cached: true })
+    // The budget refills in the next window, and the denial wasn't cached as this lobby's result
+    vi.advanceTimersByTime(31 * 1000)
+    const retried = await fetchLobbySummary(makeSbLobbyId('lobby-15'), { cached: true })
     expect(retried).toEqual({ status: 'loaded', data: RESPONSE })
-    expect(fetchJsonMock).toHaveBeenCalledTimes(12)
+    expect(fetchJsonMock).toHaveBeenCalledTimes(16)
   })
 
   test('a stale failing request does not evict a fresher cache entry', async () => {
