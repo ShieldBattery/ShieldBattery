@@ -2,6 +2,7 @@ import React, { useContext, useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { makeSbChannelId } from '../../common/chat'
+import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { matchChannelMentionsMarkup } from '../../common/text/channel-mentions'
 import { matchLinks } from '../../common/text/links'
 import { matchUserMentionsMarkup } from '../../common/text/user-mentions'
@@ -9,6 +10,7 @@ import { makeSbUserId, SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedChannelName } from '../chat/connected-channel-name'
 import { useContextMenu } from '../dom/use-context-menu'
 import { TransInterpolation } from '../i18n/i18next'
+import { lobbyIdFromMessageLink, LobbyInviteCard } from '../lobbies/lobby-invite-card'
 import { ExternalLink } from '../navigation/external-link'
 import { titleSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
@@ -77,6 +79,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
 
   const parsedText: React.ReactNode[] = []
   let isHighlighted = false
+  let inviteLobbyId: SbLobbyId | undefined
   const matches = getAllMatches(text)
   const sortedMatches = Array.from(matches).sort((a, b) => a.index - b.index)
   let lastIndex = 0
@@ -123,6 +126,11 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         />,
       )
     } else if (match.type === 'link') {
+      if (inviteLobbyId === undefined) {
+        // Only the first lobby link in a message gets an invite card.
+        inviteLobbyId = lobbyIdFromMessageLink(match.text)
+      }
+
       parsedText.push(
         <ExternalLink key={match.index} href={match.text}>
           {match.text}
@@ -157,6 +165,7 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         <Separator>{': '}</Separator>
         <Text>{parsedText}</Text>
       </TimestampMessageLayout>
+      {inviteLobbyId !== undefined ? <LobbyInviteCard lobbyId={inviteLobbyId} /> : undefined}
 
       <MessageContextMenu
         messageId={msgId}
