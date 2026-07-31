@@ -75,6 +75,34 @@ const summaryCache = new Map<
 >()
 
 /**
+ * How many cache-missing cached reads may actually hit the network per window. Cached reads are
+ * driven by rendered content (chat-message lobby links), and message text is sender-controlled:
+ * a history page full of distinct lobby-shaped ids must not be able to fan out one request each,
+ * both because of the summary endpoint's per-IP throttle (whose budget also serves the join
+ * preview and web landing page) and because none of those requests are the user's own doing. The
+ * budget is deliberately below the endpoint's sustained rate so direct, user-initiated summary
+ * views keep working even while at it.
+ */
+const SUMMARY_FETCH_BUDGET = 10
+const SUMMARY_FETCH_BUDGET_WINDOW_MS = 30 * 1000
+
+let budgetWindowStart = 0
+let budgetUsed = 0
+
+/** Consumes one unit of the cached-read fetch budget, returning whether any budget remained. */
+function takeSummaryFetchBudget(now: number): boolean {
+  if (now - budgetWindowStart >= SUMMARY_FETCH_BUDGET_WINDOW_MS) {
+    budgetWindowStart = now
+    budgetUsed = 0
+  }
+  if (budgetUsed >= SUMMARY_FETCH_BUDGET) {
+    return false
+  }
+  budgetUsed += 1
+  return true
+}
+
+/**
  * Fetches the unauthenticated lobby summary (`GET /api/1/lobbies/:lobbyId/summary`) for `lobbyId`,
  * either directly (`signal` aborts the request the same way a plain `fetchJson` call would) or,
  * with `cached: true`, through a short-lived cache shared by every caller that opts in.
@@ -114,10 +142,24 @@ function fetchLobbySummary(
     }
   }
 
+  if (!takeSummaryFetchBudget(now)) {
+    // Over-budget reads report as transient errors without touching the network, and aren't
+    // cached, so a later read (with budget) simply retries.
+    return Promise.resolve({ status: 'error' })
+  }
+
   const promise: Promise<LobbySummaryLoadState> = fetchJson<LobbySummaryResponse>(
     apiUrl`lobbies/${lobbyId}/summary`,
   ).then(
-    (data): LobbySummaryLoadState => ({ status: 'loaded', data }),
+    (data): LobbySummaryLoadState => {
+      // The shared window starts when the response arrives, not when the request started, so a
+      // slow fetch doesn't eat into it.
+      const entry = summaryCache.get(lobbyId)
+      if (entry?.promise === promise) {
+        entry.expiresAt = Date.now() + SUMMARY_CACHE_MS
+      }
+      return { status: 'loaded', data }
+    },
     (err): LobbySummaryLoadState => {
       if (isFetchError(err) && err.status === 404) {
         return { status: 'notFound' }

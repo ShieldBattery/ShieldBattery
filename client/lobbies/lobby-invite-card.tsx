@@ -16,9 +16,9 @@ import { navigateToLobby } from './lobby-url'
 /**
  * How old a message can be while still rendering an invite card for a lobby link in it. Lobbies
  * are ephemeral, so links past this age are almost certainly dead — not rendering their cards
- * keeps scrollback from filling with "no longer open" boxes, and caps how many summary fetches a
- * message list can fan out (the summary endpoint is IP-throttled, and message contents are
- * sender-controlled).
+ * keeps scrollback from filling with "no longer open" boxes and reduces how many cards load a
+ * summary at all. (This bounds cards by age, not count; the hard bound on summary-fetch fan-out
+ * from sender-controlled message content is the fetch budget in `lobby-summary.tsx`.)
  */
 export const LOBBY_INVITE_CARD_MAX_AGE_MS = 60 * 60 * 1000
 
@@ -42,7 +42,9 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
 // `padding: 4px 8px 4px 72px`, where the 72px left padding is the timestamp column that message
 // text starts after.
 const CARD_MARGIN = '4px 8px 4px 72px'
-const CARD_MAX_WIDTH = 440
+// All card states share one fixed width (and height, see below) so no state transition ever
+// changes the card's footprint.
+const CARD_WIDTH = 440
 const CARD_PADDING = 8
 const CARD_BORDER_WIDTH = 1
 
@@ -55,8 +57,8 @@ const THUMBNAIL_SIZE = 64
 const CARD_HEIGHT = THUMBNAIL_SIZE + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
 
 const CardRoot = styled.div`
-  width: fit-content;
-  max-width: ${CARD_MAX_WIDTH}px;
+  width: ${CARD_WIDTH}px;
+  max-width: 100%;
   height: ${CARD_HEIGHT}px;
   margin: ${CARD_MARGIN};
   padding: ${CARD_PADDING}px;
@@ -73,8 +75,8 @@ const CardRoot = styled.div`
 const GoneCard = styled.div`
   ${bodySmall};
   ${singleLine};
-  width: fit-content;
-  max-width: ${CARD_MAX_WIDTH}px;
+  width: ${CARD_WIDTH}px;
+  max-width: 100%;
   height: ${CARD_HEIGHT}px;
   margin: ${CARD_MARGIN};
   padding: 8px 12px;
@@ -91,7 +93,8 @@ const GoneCard = styled.div`
 // A purely visual placeholder shown while the summary is loading, sized to match `CardRoot` (the
 // tallest state) so the card never grows once the real content replaces it.
 const LoadingCard = styled.div`
-  width: ${CARD_MAX_WIDTH}px;
+  width: ${CARD_WIDTH}px;
+  max-width: 100%;
   height: ${CARD_HEIGHT}px;
   margin: ${CARD_MARGIN};
 
