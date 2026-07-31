@@ -102,6 +102,13 @@ function takeSummaryFetchBudget(now: number): boolean {
   return true
 }
 
+/** Clears the shared summary cache and fetch budget, so tests don't depend on each other. */
+export function resetSummaryCacheForTesting() {
+  summaryCache.clear()
+  budgetWindowStart = 0
+  budgetUsed = 0
+}
+
 /**
  * Fetches the unauthenticated lobby summary (`GET /api/1/lobbies/:lobbyId/summary`) for `lobbyId`,
  * either directly (`signal` aborts the request the same way a plain `fetchJson` call would) or,
@@ -114,7 +121,7 @@ function takeSummaryFetchBudget(now: number): boolean {
  * cached, so a later caller retries instead of being stuck with the error for the whole window; a
  * 404 is cached like any other result, since a lobby that's gone stays gone.
  */
-function fetchLobbySummary(
+export function fetchLobbySummary(
   lobbyId: SbLobbyId,
   options: { cached?: boolean; signal?: AbortSignal } = {},
 ): Promise<LobbySummaryLoadState> {
@@ -143,8 +150,10 @@ function fetchLobbySummary(
   }
 
   if (!takeSummaryFetchBudget(now)) {
-    // Over-budget reads report as transient errors without touching the network, and aren't
-    // cached, so a later read (with budget) simply retries.
+    // Over-budget reads report as transient errors without touching the network and aren't
+    // cached. Nothing retries a denied read on its own: a card denied here stays empty until it
+    // remounts (e.g. its channel is reopened), which is acceptable because the message's inline
+    // link keeps working regardless.
     return Promise.resolve({ status: 'error' })
   }
 

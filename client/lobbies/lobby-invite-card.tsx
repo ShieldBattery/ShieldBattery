@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { gameTypeToLabel } from '../../common/games/game-type'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
@@ -38,10 +38,12 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
   return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
 }
 
+const CARD_MARGIN_TOP_BOTTOM = 4
+const CARD_MARGIN_RIGHT = 8
 // Aligns the card under the message text: `MessageContainer` (message-layout.tsx) uses
 // `padding: 4px 8px 4px 72px`, where the 72px left padding is the timestamp column that message
 // text starts after.
-const CARD_MARGIN = '4px 8px 4px 72px'
+const CARD_MARGIN_LEFT = 72
 // All card states share one fixed width (and height, see below) so no state transition ever
 // changes the card's footprint.
 const CARD_WIDTH = 440
@@ -56,51 +58,53 @@ const THUMBNAIL_SIZE = 64
 // after it first mounts.
 const CARD_HEIGHT = THUMBNAIL_SIZE + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
 
-const CardRoot = styled.div`
+const cardBase = css`
   width: ${CARD_WIDTH}px;
-  max-width: 100%;
+  /* Margins don't count toward max-width's 100%, so they have to be subtracted explicitly or the
+   * card overflows narrow message lists into a horizontal scrollbar. */
+  max-width: calc(100% - ${CARD_MARGIN_LEFT + CARD_MARGIN_RIGHT}px);
   height: ${CARD_HEIGHT}px;
-  margin: ${CARD_MARGIN};
+  margin: ${CARD_MARGIN_TOP_BOTTOM}px ${CARD_MARGIN_RIGHT}px ${CARD_MARGIN_TOP_BOTTOM}px
+    ${CARD_MARGIN_LEFT}px;
+
+  background-color: var(--theme-container-low);
+  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
+  border-radius: 8px;
+
+  /* The chat area sets user-select: text on every descendant so message text copies cleanly; the
+   * card is UI rather than message text and must not splice itself into a copied selection. The
+   * doubled class outranks that rule. */
+  &&,
+  && * {
+    user-select: none;
+  }
+`
+
+const CardRoot = styled.div`
+  ${cardBase};
   padding: ${CARD_PADDING}px;
 
   display: flex;
   align-items: center;
   gap: 12px;
-
-  background-color: var(--theme-container-low);
-  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
-  border-radius: 8px;
 `
 
 const GoneCard = styled.div`
+  ${cardBase};
   ${bodySmall};
   ${singleLine};
-  width: ${CARD_WIDTH}px;
-  max-width: 100%;
-  height: ${CARD_HEIGHT}px;
-  margin: ${CARD_MARGIN};
   padding: 8px 12px;
 
   display: flex;
   align-items: center;
 
   color: var(--theme-on-surface-variant);
-  background-color: var(--theme-container-low);
-  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
-  border-radius: 8px;
 `
 
 // A purely visual placeholder shown while the summary is loading, sized to match `CardRoot` (the
 // tallest state) so the card never grows once the real content replaces it.
 const LoadingCard = styled.div`
-  width: ${CARD_WIDTH}px;
-  max-width: 100%;
-  height: ${CARD_HEIGHT}px;
-  margin: ${CARD_MARGIN};
-
-  background-color: var(--theme-container-low);
-  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
-  border-radius: 8px;
+  ${cardBase};
 `
 
 const ThumbnailContainer = styled.div`
