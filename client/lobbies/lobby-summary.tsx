@@ -66,6 +66,15 @@ const DetailValue = styled.div`
 export type LobbySummaryLoadState =
   { status: 'loaded'; data: LobbySummaryResponse } | { status: 'notFound' } | { status: 'error' }
 
+/**
+ * The result of a cached summary read that the fetch budget denied: no network request was made,
+ * and a read issued `retryAfterMs` from now lands in a refilled budget window.
+ */
+export interface LobbySummaryDenial {
+  status: 'denied'
+  retryAfterMs: number
+}
+
 /** How long a cached summary fetch is shared between callers that opt into caching. */
 const SUMMARY_CACHE_MS = 30 * 1000
 
@@ -86,6 +95,13 @@ const summaryCache = new Map<
  */
 const SUMMARY_FETCH_BUDGET = 15
 const SUMMARY_FETCH_BUDGET_WINDOW_MS = 30 * 1000
+
+/**
+ * How many times a mounted cached reader waits out the budget window and reads again after being
+ * denied, before settling for the error state. This bounds how long a card can sit in its loading
+ * state when a large backlog of distinct lobbies keeps exhausting consecutive windows.
+ */
+const MAX_DENIAL_RETRIES = 3
 
 let budgetWindowStart = 0
 let budgetUsed = 0
@@ -124,8 +140,16 @@ export function resetSummaryCacheForTesting() {
  */
 export function fetchLobbySummary(
   lobbyId: SbLobbyId,
+  options?: { cached?: false; signal?: AbortSignal },
+): Promise<LobbySummaryLoadState>
+export function fetchLobbySummary(
+  lobbyId: SbLobbyId,
+  options: { cached: true },
+): Promise<LobbySummaryLoadState | LobbySummaryDenial>
+export function fetchLobbySummary(
+  lobbyId: SbLobbyId,
   options: { cached?: false; signal?: AbortSignal } | { cached: true } = {},
-): Promise<LobbySummaryLoadState> {
+): Promise<LobbySummaryLoadState | LobbySummaryDenial> {
   if (!options.cached) {
     return fetchJson<LobbySummaryResponse>(apiUrl`lobbies/${lobbyId}/summary`, {
       signal: options.signal,
@@ -151,11 +175,12 @@ export function fetchLobbySummary(
   }
 
   if (!takeSummaryFetchBudget(now)) {
-    // Over-budget reads fail as transient errors without touching the network. The denial isn't
-    // cached, so a denied card that remounts (e.g. its channel is reopened) reads again against
-    // whatever budget is left at that point; until then it renders nothing, while its message's
-    // inline link keeps working.
-    return Promise.resolve({ status: 'error' })
+    // Denials never touch the network and are never cached; they carry when the window refills so
+    // the caller can choose to read again then.
+    return Promise.resolve({
+      status: 'denied',
+      retryAfterMs: budgetWindowStart + SUMMARY_FETCH_BUDGET_WINDOW_MS - now,
+    })
   }
 
   const promise: Promise<LobbySummaryLoadState> = fetchJson<LobbySummaryResponse>(
@@ -200,10 +225,12 @@ export function fetchLobbySummary(
  *
  * Pass `cached: true` to read through the shared cache described in {@link fetchLobbySummary}
  * instead of always hitting the network -- appropriate for call sites where the same lobby can be
- * requested many times at once and an eventually-consistent summary is fine. Note that this makes
- * `refresh` effectively a no-op for the rest of the cache window: it re-runs the read, but the
- * read is handed the same cached result back. Leave `cached` unset for a single authoritative view
- * (e.g. the join preview) that should always see the current state and control its own refreshes.
+ * requested many times at once and an eventually-consistent summary is fine. A fetch-budget denial
+ * is retried a bounded number of times as windows refill (the state stays undefined meanwhile),
+ * and only reported as an error once those run out. Note that caching makes `refresh` effectively
+ * a no-op for the rest of the cache window: it re-runs the read, but the read is handed the same
+ * cached result back. Leave `cached` unset for a single authoritative view (e.g. the join preview)
+ * that should always see the current state and control its own refreshes.
  */
 export function useLobbySummary(
   lobbyId: SbLobbyId,
@@ -217,18 +244,38 @@ export function useLobbySummary(
     if (cached) {
       // The fetch itself is shared across every mount currently requesting this lobby, so it can't
       // be aborted just because this particular mount goes away -- only ignore a result that
-      // arrives after that happens.
+      // arrives after that happens. A budget denial is waited out and re-read a bounded number of
+      // times; the retry timer is scoped to this mount, so an unmounted card stops competing for
+      // the refilled budget.
       let canceled = false
-      fetchLobbySummary(lobbyId, { cached: true })
-        .then(state => {
-          if (!canceled) {
+      let retryTimer: ReturnType<typeof setTimeout> | undefined
+      let denials = 0
+      const read = () => {
+        fetchLobbySummary(lobbyId, { cached: true })
+          .then(state => {
+            if (canceled) {
+              return
+            }
+            if (state.status === 'denied') {
+              denials += 1
+              if (denials <= MAX_DENIAL_RETRIES) {
+                retryTimer = setTimeout(read, state.retryAfterMs)
+              } else {
+                setResult({ lobbyId, state: { status: 'error' } })
+              }
+              return
+            }
             setResult({ lobbyId, state })
-          }
-        })
-        .catch(swallowNonBuiltins)
+          })
+          .catch(swallowNonBuiltins)
+      }
+      read()
 
       return () => {
         canceled = true
+        if (retryTimer !== undefined) {
+          clearTimeout(retryTimer)
+        }
       }
     }
 

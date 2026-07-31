@@ -1,10 +1,12 @@
+import { renderHook } from '@testing-library/react'
+import { act } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { LobbySummaryResponse } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { asMockedFunction } from '../../common/testing/mocks'
 import { fetchJson } from '../network/fetch'
 import { FetchError } from '../network/fetch-errors'
-import { fetchLobbySummary, resetSummaryCacheForTesting } from './lobby-summary'
+import { fetchLobbySummary, resetSummaryCacheForTesting, useLobbySummary } from './lobby-summary'
 
 vi.mock('../network/fetch', () => ({
   fetchJson: vi.fn(),
@@ -91,7 +93,7 @@ describe('client/lobbies/lobby-summary/fetchLobbySummary', () => {
     expect(fetchJsonMock).toHaveBeenCalledTimes(15)
 
     const denied = await fetchLobbySummary(makeSbLobbyId('lobby-15'), { cached: true })
-    expect(denied).toEqual({ status: 'error' })
+    expect(denied).toEqual({ status: 'denied', retryAfterMs: 30 * 1000 })
     expect(fetchJsonMock).toHaveBeenCalledTimes(15)
 
     // The budget refills in the next window, and the denial wasn't cached as this lobby's result
@@ -99,6 +101,48 @@ describe('client/lobbies/lobby-summary/fetchLobbySummary', () => {
     const retried = await fetchLobbySummary(makeSbLobbyId('lobby-15'), { cached: true })
     expect(retried).toEqual({ status: 'loaded', data: RESPONSE })
     expect(fetchJsonMock).toHaveBeenCalledTimes(16)
+  })
+
+  test('a denied cached hook read retries once the window refills', async () => {
+    fetchJsonMock.mockResolvedValue(RESPONSE)
+    for (let i = 0; i < 15; i++) {
+      await fetchLobbySummary(makeSbLobbyId(`lobby-${i}`), { cached: true })
+    }
+
+    const { result } = renderHook(() =>
+      useLobbySummary(makeSbLobbyId('lobby-15'), { cached: true }),
+    )
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(result.current[0]).toBeUndefined()
+    expect(fetchJsonMock).toHaveBeenCalledTimes(15)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31 * 1000)
+    })
+    expect(result.current[0]).toEqual({ status: 'loaded', data: RESPONSE })
+    expect(fetchJsonMock).toHaveBeenCalledTimes(16)
+  })
+
+  test('unmounting a denied cached hook read cancels its retry', async () => {
+    fetchJsonMock.mockResolvedValue(RESPONSE)
+    for (let i = 0; i < 15; i++) {
+      await fetchLobbySummary(makeSbLobbyId(`lobby-${i}`), { cached: true })
+    }
+
+    const { unmount } = renderHook(() =>
+      useLobbySummary(makeSbLobbyId('lobby-15'), { cached: true }),
+    )
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    unmount()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61 * 1000)
+    })
+    expect(fetchJsonMock).toHaveBeenCalledTimes(15)
   })
 
   test('a stale failing request does not evict a fresher cache entry', async () => {

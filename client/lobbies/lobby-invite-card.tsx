@@ -176,8 +176,8 @@ export function LobbyInviteCardContent({
         <LobbyName title={lobby.name}>{lobby.name}</LobbyName>
         <SecondaryLine>
           {host.name} · {gameTypeToLabel(lobby.gameType, t)} ·{' '}
-          {t('lobbies.summary.openSlotCount', {
-            defaultValue: '{{count}} open',
+          {t('lobbies.joinLobby.openSlotCount', {
+            defaultValue: '{{count}} slots open',
             count: lobby.openSlotCount,
           })}
         </SecondaryLine>
