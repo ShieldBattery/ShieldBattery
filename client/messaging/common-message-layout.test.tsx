@@ -83,6 +83,11 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
     expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
   })
 
+  test('lobby-shaped path on a foreign origin renders no invite card', () => {
+    doRender(`https://example.com/lobbies/${LOBBY_ID}/my-cool-lobby`)
+    expect(screen.queryByTestId('lobby-invite-card')).toBeNull()
+  })
+
   test('message with multiple lobby links renders only one invite card', () => {
     doRender(
       `https://shieldbattery.net/lobbies/${LOBBY_ID} or ` +
