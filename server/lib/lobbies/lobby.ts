@@ -316,7 +316,9 @@ function addPlayerAndControlledSlots(
 
 export function addPlayer(lobby: Lobby, teamIndex: number, slotIndex: number, player: Slot): Lobby {
   const team = lobby.teams.get(teamIndex)!
-  return hasControlledOpens(lobby.gameType) && isTeamEmpty(team)
+  // The observer team never holds controlled slots, so someone arriving in an observer slot of a
+  // team game must not trigger the controlled-slot fill an empty player team would get.
+  return hasControlledOpens(lobby.gameType) && !team.isObserver && isTeamEmpty(team)
     ? addPlayerAndControlledSlots(lobby, teamIndex, slotIndex, player)
     : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], player)
 }
@@ -403,12 +405,23 @@ export function removePlayer(
     // nothing removed, e.g. player wasn't in the lobby
     return lobby
   }
-  const openSlot = isUms(lobby.gameType)
-    ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
-    : createOpen()
-  let updated = hasControlledOpens(lobby.gameType)
-    ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
-    : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], openSlot)
+  const team = lobby.teams.get(teamIndex)!
+  // Observer slots are closed unless someone deliberately opens them, so a departing observer's
+  // slot goes back to that state instead of staying open for a new joiner. The observer team also
+  // never holds controlled slots, so a departing observer skips the controlled-team cleanup even
+  // in game types whose player teams need it.
+  let vacatedSlot: Slot
+  if (team.isObserver) {
+    vacatedSlot = createClosed()
+  } else if (isUms(lobby.gameType)) {
+    vacatedSlot = createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
+  } else {
+    vacatedSlot = createOpen()
+  }
+  let updated =
+    hasControlledOpens(lobby.gameType) && !team.isObserver
+      ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
+      : lobby.setIn(['teams', teamIndex, 'slots', slotIndex], vacatedSlot)
 
   if (humanSlotCount(updated) < 1) {
     return undefined

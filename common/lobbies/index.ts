@@ -254,12 +254,6 @@ export function getObserverTeam(lobby: Lobby): [teamIndex?: number, team?: Team]
     : [undefined, undefined]
 }
 
-/** Checks whether a particular slot is inside the observer team. */
-export function isInObserverTeam(lobby: Lobby, slot: Slot): boolean {
-  const [, observerTeam] = getObserverTeam(lobby)
-  return !!(observerTeam && observerTeam.slots.find(s => s.id === slot.id))
-}
-
 /**
  * Returns whether a slot has nobody in it, and can therefore receive someone moving into it. Note
  * that this includes closed slots: they are unoccupied, they just can't be joined into directly.

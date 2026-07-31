@@ -550,6 +550,11 @@ export class LobbyApi {
     if (slotToAddComputer.type !== 'open' && slotToAddComputer.type !== 'closed') {
       throw new errors.BadRequest('invalid slot type')
     }
+    if (lobby.teams.get(teamIndex!)!.isObserver) {
+      // A computer can't watch a game, and the game itself has no concept of one in an observer
+      // slot — it would just be silently absent.
+      throw new errors.BadRequest('cannot add computer to an observer slot')
+    }
 
     const computer = Slots.createComputer()
     const updated = Lobbies.addPlayer(lobby, teamIndex!, slotIndex!, computer)

@@ -15,7 +15,7 @@ import {
   slotCount,
   Team,
 } from '../../../common/lobbies'
-import { createComputer, createHuman, Slot } from '../../../common/lobbies/slot'
+import { createComputer, createHuman, createObserver, Slot } from '../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset, toMapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
@@ -1569,6 +1569,38 @@ describe('Lobbies - observers', () => {
     const infos = getPlayerInfos(lobby)
     expect(infos).toHaveLength(7)
     expect(infos.filter(p => p.type === 'observer')).toHaveLength(1)
+  })
+
+  test('should let an observer leave a team melee lobby', () => {
+    let lobby = TEAM_MELEE_WITH_OBSERVERS
+    lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 1, 0)
+    const observers = lobby.teams.get(2)!
+    const leaver = observers.slots.get(0)!
+    expect(leaver.type).toBe('observer')
+
+    const updated = removePlayer(lobby, 2, 0, leaver)!
+
+    expect(updated).toBeDefined()
+    // The vacated observer slot re-closes rather than staying open for a new joiner, and the
+    // player teams are untouched by the leave
+    expect(updated.teams.get(2)!.slots.every(s => s.type === 'closed')).toBe(true)
+    expect(updated.teams.get(0)!.slots.get(0)!.type).toBe('human')
+    expect(updated.teams.get(1)!.slots.every(s => s.type === 'open')).toBe(true)
+  })
+
+  test('should not create controlled slots when someone joins an observer slot in team melee', () => {
+    let lobby = TEAM_MELEE_WITH_OBSERVERS
+    lobby = openSlot(lobby, 2, 0)
+
+    lobby = addPlayer(lobby, 2, 0, createObserver(makeSbUserId(1)))
+
+    const observers = lobby.teams.get(2)!
+    expect(observers.slots.get(0)!.type).toBe('observer')
+    expect(observers.slots.get(0)!.userId).toBe(makeSbUserId(1))
+    expect(
+      observers.slots.filterNot(s => s.type === 'observer').every(s => s.type === 'closed'),
+    ).toBe(true)
   })
 
   test('should keep UMS hidden slots out of the observer team', () => {
