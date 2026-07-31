@@ -4,7 +4,7 @@ mod lobby_init;
 mod pathing;
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
@@ -418,6 +418,13 @@ fn save_replay_for_upload(bw: &BwScr) -> Option<PathBuf> {
 }
 
 pub static HAS_INIT_BW: AtomicBool = AtomicBool::new(false);
+
+/// The storm ids `setup_slots` seated into the observer slots (`players[12 + n]`), `u32::MAX`
+/// where the slot is empty. Observers hold ordinary storm ids (their rp2 slots), but BW's
+/// game-start path renumbers an occupied observer slot's storm id to its own out-of-band
+/// `0x80 + n` convention — this records what the slot's storm id is *supposed* to be, so it can
+/// be re-asserted after game init (see `restore_observer_id_mappings`).
+pub static OBSERVER_STORM_IDS: [AtomicU32; 4] = [const { AtomicU32::new(u32::MAX) }; 4];
 
 // Does the rest of initialization that is being done in main thread before running forge's
 // window proc.

@@ -1620,29 +1620,37 @@ unsafe fn setup_slots(
             } else {
                 0
             };
+            let storm_id = match slot.is_human() || slot.is_observer() {
+                // Netcode v2: write the real storm id from the roster (storm id ≡ rp2 slot) so
+                // `update_nation_and_human_ids` builds the id maps with no Storm-read
+                // reconciliation. Observer storm ids are rp2 slots as well (< 16, which the
+                // id-map builder requires); the lookup covers players and observers alike. A
+                // miss falls through to `u32::MAX`, which that builder asserts against — the
+                // same loud failure a missing player would get.
+                true => match v2_storm_ids {
+                    Some(map) => slot
+                        .user_id
+                        .and_then(|uid| map.get(&uid).copied())
+                        .map_or(u32::MAX, |storm| storm as u32),
+                    // Native path: placeholder overwritten by Storm-join reconciliation.
+                    None => 27,
+                },
+                false => u32::MAX,
+            };
+            if slot.is_observer() {
+                // BW's game-start path renumbers occupied observer slots to its own out-of-band
+                // storm-id convention; record what this slot's storm id is supposed to be so it
+                // can be re-asserted after game init.
+                game_thread::OBSERVER_STORM_IDS[slot_id - 12]
+                    .store(storm_id, std::sync::atomic::Ordering::Relaxed);
+            }
             *players.add(slot_id) = bw::Player {
                 id: if slot.is_observer() {
                     128 + (slot_id - 12) as u32
                 } else {
                     slot_id as u32
                 },
-                storm_id: match slot.is_human() || slot.is_observer() {
-                    // Netcode v2: write the real storm id from the roster (storm id ≡ rp2 slot) so
-                    // `update_nation_and_human_ids` builds the id maps with no Storm-read
-                    // reconciliation. Observer storm ids are rp2 slots as well (< 16, which the
-                    // id-map builder requires); the lookup covers players and observers alike. A
-                    // miss falls through to `u32::MAX`, which that builder asserts against — the
-                    // same loud failure a missing player would get.
-                    true => match v2_storm_ids {
-                        Some(map) => slot
-                            .user_id
-                            .and_then(|uid| map.get(&uid).copied())
-                            .map_or(u32::MAX, |storm| storm as u32),
-                        // Native path: placeholder overwritten by Storm-join reconciliation.
-                        None => 27,
-                    },
-                    false => u32::MAX,
-                },
+                storm_id,
                 race: slot.bw_race(),
                 player_type: if is_ums && !slot.is_human() && !slot.is_observer() {
                     // The type of UMS computers is set in the map file, and we have no reason to

@@ -92,15 +92,20 @@ impl ChatManager {
 
     /// Returns true if the message was handled (e.g. the original function should not be called).
     pub fn handle_message(&mut self, _message: &str, player_id: u32) -> bool {
-        if player_id >= 12 && !(125..=128).contains(&player_id) {
-            // We don't deal with any non-player messages (0-11 is players, 125-128 is observers)
-            return false;
-        }
+        // Chat senders arrive as game player ids: 0-11 for players, 0x80-0x83 for observers.
+        // The roster below keys players by their `players[]` index (observers at 12-15), so
+        // observer ids are mapped back to indexes before the lookup. Anything else (system
+        // messages etc.) isn't ours to handle.
+        let player_index = match player_id {
+            0..=11 => player_id,
+            128..=131 => player_id - 128 + 12,
+            _ => return false,
+        };
 
         let player = self
             .players
             .iter()
-            .find(|p| p.player_id.is_some_and(|id| id.0 as u32 == player_id));
+            .find(|p| p.player_id.is_some_and(|id| id.0 as u32 == player_index));
         if let Some(player) = player
             && (self.blocked_players.contains(&player.sb_user_id)
                 || self.muted_players.contains(&player.sb_user_id))
@@ -195,5 +200,71 @@ impl ChatManager {
         }
 
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bw::players::{BwPlayerId, StormPlayerId};
+
+    fn joined(name: &str, index: u8, user: u32) -> JoinedPlayer {
+        JoinedPlayer {
+            name: name.into(),
+            storm_id: StormPlayerId(index),
+            player_id: Some(BwPlayerId(index)),
+            sb_user_id: SbUserId(user),
+        }
+    }
+
+    fn manager_with_players() -> ChatManager {
+        let mut manager = ChatManager::new();
+        manager.set_local_player_info(SbUserId(1), false);
+        manager.set_players(&[
+            joined("player-a", 0, 1),
+            joined("player-b", 3, 2),
+            joined("watcher", 12, 3),
+            joined("watcher-2", 15, 4),
+        ]);
+        manager
+    }
+
+    #[test]
+    fn messages_from_unmuted_senders_pass_through() {
+        let mut manager = manager_with_players();
+        assert!(!manager.handle_message("hi", 0));
+        assert!(!manager.handle_message("hi", 3));
+        assert!(!manager.handle_message("hi", 128));
+        assert!(!manager.handle_message("hi", 131));
+    }
+
+    #[test]
+    fn muted_player_messages_are_swallowed() {
+        let mut manager = manager_with_players();
+        manager.add_muted_player(SbUserId(2));
+        assert!(manager.handle_message("hi", 3));
+        assert!(!manager.handle_message("hi", 0));
+    }
+
+    #[test]
+    fn observer_sender_ids_map_to_their_roster_indexes() {
+        let mut manager = manager_with_players();
+        manager.add_muted_player(SbUserId(3));
+        manager.add_blocked_player(SbUserId(4));
+        // Observers at players[] indexes 12 and 15 send as game player ids 0x80 and 0x83.
+        assert!(manager.handle_message("hi", 128));
+        assert!(manager.handle_message("hi", 131));
+        assert!(!manager.handle_message("hi", 129));
+    }
+
+    #[test]
+    fn non_chat_sender_ids_are_not_handled() {
+        let mut manager = manager_with_players();
+        manager.add_muted_player(SbUserId(3));
+        // Neutral slots, raw observer indexes, and out-of-range ids are not chat senders this
+        // manager deals with, even when the id could alias a muted roster entry.
+        for id in [12, 15, 16, 125, 127, 132, 255] {
+            assert!(!manager.handle_message("hi", id));
+        }
     }
 }

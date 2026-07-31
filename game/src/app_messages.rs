@@ -554,7 +554,8 @@ impl PlayerInfo {
 
     pub fn bw_player_type(&self) -> u8 {
         match self.player_type {
-            SbSlotType::Human | SbSlotType::Observer => bw::PLAYER_TYPE_HUMAN,
+            SbSlotType::Human => bw::PLAYER_TYPE_HUMAN,
+            SbSlotType::Observer => bw::PLAYER_TYPE_OBSERVER,
             SbSlotType::Computer => bw::PLAYER_TYPE_LOBBY_COMPUTER,
             SbSlotType::ControlledOpen
             | SbSlotType::ControlledClosed
