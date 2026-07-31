@@ -1241,7 +1241,7 @@
   },
   "material": {
     "dateTextField": {
-      "pickerButtonLabel": "打开日期选择器"
+      "pickerButtonLabel": "打开选择器"
     },
     "datetimeTextField": {
       "pickerButtonLabel": "打开选择器"
@@ -1357,7 +1357,7 @@
       "moveUp": "上移",
       "newPlaylistMenu": "新建播放列表…",
       "noFolders": "没有录像文件夹",
-      "noFoldersBody": "在设置 > 应用 > 系统中添加文件夹，即可开始索引录像。",
+      "noFoldersBody": "在设置 > 应用程序 > 系统中添加文件夹，即可开始索引录像。",
       "noMatches": "没有符合条件的录像",
       "playlist": {
         "createError": "创建播放列表时出错：{{errorMessage}}",
@@ -1432,7 +1432,7 @@
         "filesOverline": "文件",
         "networkOverline": "网络",
         "removeReplayFolder": "移除文件夹",
-        "replayFoldersDescription": "录像库索引的文件夹。StarCraft 默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
+        "replayFoldersDescription": "录像库索引的文件夹。星际争霸默认录像文件夹会自动添加。移除文件夹会将其中的录像从录像库中删除，包括对应的书签和播放列表条目。",
         "replayFoldersTitle": "录像文件夹",
         "replayQuickOpen": "使用ShieldBattery打开录像时直接开始播放录像，跳过录像预览",
         "runOnStartup": "开机时自动启动ShieldBattery",
@@ -1499,7 +1499,7 @@
           "yellow": "黄色"
         },
         "colorPicker": {
-          "builtinColorsLabel": "StarCraft 原版颜色",
+          "builtinColorsLabel": "星际争霸原版颜色",
           "customRgb": "自定义 RGB"
         },
         "consoleSkins": {
@@ -1597,7 +1597,7 @@
             "presetOnMinimap": "在小地图上使用预设",
             "presetOnMinimapDesc": "盟友和敌人颜色仅应用于小地图。",
             "standard": "标准",
-            "standardDesc": "StarCraft 的普通颜色。下面的设置不会生效。"
+            "standardDesc": "星际争霸的普通颜色。下面的设置不会生效。"
           },
           "offNote": "已关闭。所有游戏均使用个人颜色。",
           "pickerTargetAlly": "队伍配色 · 盟友 · #{{n}}",

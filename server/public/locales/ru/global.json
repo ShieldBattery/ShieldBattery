@@ -1262,7 +1262,7 @@
   },
   "material": {
     "dateTextField": {
-      "pickerButtonLabel": "Открыть календарь"
+      "pickerButtonLabel": "Показать выбор даты"
     },
     "datetimeTextField": {
       "pickerButtonLabel": "Показать выбор даты"
@@ -1548,7 +1548,7 @@
         },
         "ffaColors": {
           "attributionBy": "{{palette}} от {{author}}",
-          "attributionInspiredBy": "Вдохновлено палитрой {{palette}}",
+          "attributionInspiredBy": "Вдохновлено {{palette}}",
           "clear": "Очистить",
           "pickerTargetPool": "Индивидуальные цвета · #{{n}}",
           "pickerTargetSelf": "Ваш индивидуальный цвет",
