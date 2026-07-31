@@ -1649,6 +1649,63 @@ describe('Lobbies - observers', () => {
     expect(lobby.teams.get(1)!.slots.get(1)!.userId).toBe(makeSbUserId(1))
   })
 
+  test('should prefer a team with an open slot when unseating an observer', () => {
+    let lobby = createLobby({
+      name: '2v6 BGH + obs',
+      map: BigGameHunters,
+      gameType: GameType.TopVsBottom,
+      gameSubType: 2,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    // Seat an observer, then close the whole bottom team so the only open player slot is next to
+    // the host in the top team
+    lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 1, 0)
+    for (let i = 0; i < 6; i++) {
+      lobby = closeSlot(lobby, 1, i)
+    }
+
+    lobby = removeObserver(lobby, 0)
+
+    // The bottom team has more unoccupied slots, but they are all closed; the observer goes to
+    // the open slot instead of re-opening a slot the host closed
+    const [teamIndex, slotIndex, slot] = findSlotByUserId(lobby, makeSbUserId(1))
+    expect(teamIndex).toBe(0)
+    expect(slotIndex).toBe(1)
+    expect(slot!.type).toBe('human')
+    expect(lobby.teams.get(1)!.slots.every(s => s.type === 'closed')).toBe(true)
+  })
+
+  test('should re-open a closed slot for an unseated observer only when no open slot exists', () => {
+    let lobby = createLobby({
+      name: '2v6 BGH + obs',
+      map: BigGameHunters,
+      gameType: GameType.TopVsBottom,
+      gameSubType: 2,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'z'))
+    lobby = makeObserver(lobby, 1, 0)
+    for (let i = 0; i < 6; i++) {
+      lobby = closeSlot(lobby, 1, i)
+    }
+    lobby = closeSlot(lobby, 0, 1)
+
+    lobby = removeObserver(lobby, 0)
+
+    // With every unoccupied slot closed, the observer re-opens one from the team with the most
+    // unoccupied slots
+    const [teamIndex, , slot] = findSlotByUserId(lobby, makeSbUserId(1))
+    expect(teamIndex).toBe(1)
+    expect(slot!.type).toBe('human')
+  })
+
   test('should keep UMS hidden slots out of the observer team', () => {
     const lobby = createLobby({
       name: 'Team Micro + obs',
