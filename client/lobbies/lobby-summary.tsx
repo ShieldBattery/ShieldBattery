@@ -81,7 +81,9 @@ const summaryCache = new Map<
  * both because of the summary endpoint's per-IP throttle (whose budget also serves the join
  * preview and web landing page) and because none of those requests are the user's own doing. The
  * budget is deliberately below the endpoint's sustained rate so direct, user-initiated summary
- * views keep working even while at it.
+ * views keep working even while at it. Reads past the budget aren't dropped -- they wait for the
+ * next window (see the denial branch below) -- so the budget shapes traffic rather than deciding
+ * which cards ever load.
  */
 const SUMMARY_FETCH_BUDGET = 10
 const SUMMARY_FETCH_BUDGET_WINDOW_MS = 30 * 1000
@@ -150,11 +152,25 @@ export function fetchLobbySummary(
   }
 
   if (!takeSummaryFetchBudget(now)) {
-    // Over-budget reads report as transient errors without touching the network and aren't
-    // cached. Nothing retries a denied read on its own: a card denied here stays empty until it
-    // remounts (e.g. its channel is reopened), which is acceptable because the message's inline
-    // link keeps working regardless.
-    return Promise.resolve({ status: 'error' })
+    // Over-budget reads wait for the window to refill and then go through the whole read again:
+    // that retry can end in a cache hit (someone else fetched this lobby meanwhile), a real fetch,
+    // or another wait if the refilled window is exhausted first -- each window drains part of the
+    // backlog, so every waiter gets through eventually. The waiter is cached like an in-flight
+    // fetch so repeated reads of the same lobby share it, and it evicts itself just before
+    // retrying: the retry must see a cache miss (its own entry would otherwise be returned right
+    // back to it), and whatever the retry caches -- or deliberately doesn't, for a transient
+    // failure -- then stands on its own.
+    const waitMs = budgetWindowStart + SUMMARY_FETCH_BUDGET_WINDOW_MS - now
+    const promise: Promise<LobbySummaryLoadState> = new Promise<void>(resolve => {
+      setTimeout(resolve, waitMs)
+    }).then(() => {
+      if (summaryCache.get(lobbyId)?.promise === promise) {
+        summaryCache.delete(lobbyId)
+      }
+      return fetchLobbySummary(lobbyId, { cached: true })
+    })
+    summaryCache.set(lobbyId, { expiresAt: now + waitMs + SUMMARY_CACHE_MS, promise })
+    return promise
   }
 
   const promise: Promise<LobbySummaryLoadState> = fetchJson<LobbySummaryResponse>(

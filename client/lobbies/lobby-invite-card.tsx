@@ -106,6 +106,13 @@ const ThumbnailContainer = styled.div`
   width: ${THUMBNAIL_SIZE}px;
 `
 
+// A long lobby name gives InfoColumn a large flex basis that would otherwise shrink the button
+// past its label (which hard-clips, since the button contains its content); the name is the one
+// that truncates instead.
+const JoinButton = styled(FilledButton)`
+  flex-shrink: 0;
+`
+
 const InfoColumn = styled.div`
   min-width: 0;
   flex-grow: 1;
@@ -175,7 +182,7 @@ export function LobbyInviteCardContent({
           })}
         </SecondaryLine>
       </InfoColumn>
-      <FilledButton
+      <JoinButton
         label={t('lobbies.joinLobby.action', 'Join lobby')}
         onClick={onJoinClick}
         testName='lobby-invite-card-join-button'
