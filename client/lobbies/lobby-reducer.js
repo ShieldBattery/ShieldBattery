@@ -89,6 +89,10 @@ const infoReducer = keyedReducer(EMPTY_LOBBY, {
   },
 
   [LOBBY_UPDATE_SLOT_CREATE](state, action) {
+    if (!state.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return state
+    }
     const { teamIndex, slotIndex, slot } = action.payload
     return produce(state, draft => {
       draft.teams[teamIndex].slots[slotIndex] = slot
@@ -96,6 +100,10 @@ const infoReducer = keyedReducer(EMPTY_LOBBY, {
   },
 
   [LOBBY_UPDATE_RACE_CHANGE](state, action) {
+    if (!state.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return state
+    }
     const { teamIndex, slotIndex, newRace } = action.payload
     return produce(state, draft => {
       draft.teams[teamIndex].slots[slotIndex].race = newRace
@@ -103,6 +111,10 @@ const infoReducer = keyedReducer(EMPTY_LOBBY, {
   },
 
   [LOBBY_UPDATE_SLOT_CHANGE](state, action) {
+    if (!state.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return state
+    }
     const { teamIndex, slotIndex, player } = action.payload
     return produce(state, draft => {
       draft.teams[teamIndex].slots[slotIndex] = player
@@ -122,6 +134,10 @@ const infoReducer = keyedReducer(EMPTY_LOBBY, {
   },
 
   [LOBBY_UPDATE_HOST_CHANGE](state, action) {
+    if (!state.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return state
+    }
     return { ...state, host: action.payload }
   },
 
