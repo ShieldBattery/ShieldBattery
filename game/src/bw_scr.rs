@@ -2057,6 +2057,7 @@ impl BwScr {
                     if let Some(anti_troll) = self.anti_troll {
                         (*anti_troll.resolve()).active = 0;
                     }
+                    self.restore_observer_id_mappings();
                     game_thread::after_init_game_data();
                     1
                 },
@@ -4046,6 +4047,49 @@ impl BwScr {
                         self.local_player_id.write(game_id as u32);
                         self.local_unique_player_id.write(game_id as u32);
                     }
+                }
+            }
+        }
+    }
+
+    /// Re-derives the storm↔game id table entries and local player ids for occupied observer
+    /// slots from `players[12..16]`.
+    ///
+    /// Team-game init rebuilds those tables from the per-team lobby data, which describes only
+    /// the 8 team slots — the observer entries written during the lobby phase are lost. That
+    /// leaves an observer's commands attributed to the "no player" id on everyone else, and the
+    /// observer's own client without an observer-ranged local unique id, so it starts
+    /// participating in sync as if it were a player. The observer slots themselves survive game
+    /// init, so everything needed to rewrite the entries is still in the player table. Game-type
+    /// inits that keep the entries intact get the same values rewritten, so this is safe to run
+    /// unconditionally.
+    unsafe fn restore_observer_id_mappings(&self) {
+        unsafe {
+            let net_player_to_game = self.net_player_to_game.resolve();
+            let net_player_to_unique = self.net_player_to_unique.resolve();
+            let local_storm_id = self.local_storm_id.resolve();
+            let players = self.players.resolve();
+            for i in 12..16 {
+                let player = players.add(i);
+                if (*player).player_type != bw::PLAYER_TYPE_HUMAN {
+                    continue;
+                }
+                let storm_id = (*player).storm_id;
+                if storm_id >= NET_PLAYER_COUNT as u32 {
+                    continue;
+                }
+                let game_id = 128 + (i as u32 - 12);
+                debug!(
+                    "Restoring observer id mapping: storm {} -> game {} (table had {})",
+                    storm_id,
+                    game_id,
+                    *net_player_to_game.add(storm_id as usize),
+                );
+                *net_player_to_game.add(storm_id as usize) = game_id;
+                *net_player_to_unique.add(storm_id as usize) = game_id;
+                if storm_id == local_storm_id {
+                    self.local_player_id.write(game_id);
+                    self.local_unique_player_id.write(game_id);
                 }
             }
         }
