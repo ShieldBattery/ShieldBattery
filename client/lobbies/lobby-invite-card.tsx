@@ -102,6 +102,11 @@ const LoadingCard = styled.div`
 const ThumbnailContainer = styled.div`
   flex-shrink: 0;
   width: ${THUMBNAIL_SIZE}px;
+  /* The thumbnail's no-image fallback sizes itself to its (larger) placeholder icon rather than
+   * the requested size, so both axes are pinned and the excess clipped to keep the card's fixed
+   * height holding for maps without a generated image. */
+  height: ${THUMBNAIL_SIZE}px;
+  overflow: hidden;
 `
 
 // A long lobby name gives InfoColumn a large flex basis that would otherwise shrink the button
