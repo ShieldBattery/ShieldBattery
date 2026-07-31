@@ -172,7 +172,9 @@ export function TextMessage({ msgId, userId, selfUserId, time, text, testId }: T
         />
         <Separator>{': '}</Separator>
         <Text>{parsedText}</Text>
-        {inviteLobbyId !== undefined && mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
+        {inviteLobbyId !== undefined &&
+        !disallowMentionInteraction &&
+        mountTime - time < LOBBY_INVITE_CARD_MAX_AGE_MS ? (
           <LobbyInviteCard lobbyId={inviteLobbyId} />
         ) : undefined}
       </TimestampMessageLayout>
