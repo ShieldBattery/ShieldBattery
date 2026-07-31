@@ -1569,11 +1569,15 @@ unsafe fn setup_slots(
         let bw = get_bw();
         let is_ums = game_type.is_ums();
         let players = bw.players();
+        // Observers are seated at 12..16 and are the one part of `slots` whose count varies with
+        // who showed up, so the seeding of the regular range has to be based on the non-observer
+        // count for the same lobby to always produce the same layout.
+        let non_observer_slots = slots.iter().filter(|slot| !slot.is_observer()).count();
         for i in 0..12 {
             *players.add(i) = bw::Player {
                 id: i as u32,
                 storm_id: u32::MAX,
-                player_type: match slots.len() < i {
+                player_type: match non_observer_slots < i {
                     true => bw::PLAYER_TYPE_OPEN,
                     false => bw::PLAYER_TYPE_NONE,
                 },
