@@ -4,7 +4,7 @@ import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
-import { findSlotByUserId } from '../../../common/lobbies'
+import { findSlotByUserId, getObserverTeam } from '../../../common/lobbies'
 import {
   LobbyCreateErrorCode,
   LobbyJoinErrorCode,
@@ -378,6 +378,39 @@ describe('wsapi/lobbies', () => {
       await expect(lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)).rejects.toMatchObject({
         body: { code: LobbyJoinErrorCode.Banned },
       })
+    })
+  })
+
+  describe('closeSlot', () => {
+    test('closing an occupied observer slot kicks the occupant and leaves the slot closed', async () => {
+      const { id } = await lobbyApi.create(
+        apiData(host, {
+          name: 'Obs lobby',
+          map: BIG_GAME_HUNTERS.id,
+          gameType: GameType.Melee,
+          visibility: 'listed',
+          allowObservers: true,
+        }),
+        NOOP_NEXT,
+      )
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+      let lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      await lobbyApi.makeObserver(apiData(host, { slotId: joinerSlot!.id }), NOOP_NEXT)
+
+      lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      const obsSlot = obsTeam!.slots.get(0)!
+      expect(obsSlot.type).toBe('observer')
+
+      // Removing the occupant re-closes an observer slot on its own, so the close request must
+      // treat that as success rather than failing on an already-closed slot
+      await lobbyApi.closeSlot(apiData(host, { slotId: obsSlot.id }), NOOP_NEXT)
+
+      lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      expect(lobby.teams.get(obsTeamIndex!)!.slots.get(0)!.type).toBe('closed')
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
   })
 

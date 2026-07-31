@@ -721,6 +721,15 @@ export class LobbyApi {
       this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, slotToClose)
     }
     const afterKick = this.lobbies.get(lobby.id)!
+    const afterKickSlot = afterKick.teams.get(teamIndex!)!.slots.get(slotIndex!)!
+    if (
+      afterKickSlot.type === SlotType.Closed ||
+      afterKickSlot.type === SlotType.ControlledClosed
+    ) {
+      // Removing the occupant already left the slot closed (a vacated observer slot re-closes
+      // itself), and the kick published its own diff.
+      return
+    }
 
     let updated
     try {
