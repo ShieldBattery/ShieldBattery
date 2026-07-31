@@ -38,7 +38,7 @@ export enum GameSourceFilter {
 export const getSourceLabel = (s: GameSourceFilter, t: TFunction): string => {
   switch (s) {
     case GameSourceFilter.All:
-      return t('game.filters.source.all', 'All')
+      return t('game.filters.source.all', 'All games')
     case GameSourceFilter.Ranked:
       return t('game.filters.source.ranked', 'Ranked')
     case GameSourceFilter.Custom:

@@ -1,4 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
+import { GameSource } from '../../../common/games/configuration'
+import { GameSourceFilter } from '../../../common/games/game-filters'
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { LeagueId } from '../../../common/leagues/leagues'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -174,6 +176,49 @@ describe('games/game-models/getGames', () => {
     expect(template.text).toContain('g.start_time <=')
     expect(template.values).toContainEqual(new Date(startDate))
     expect(template.values).toContainEqual(new Date(endDate))
+  })
+
+  test('includes matchmaking and listed lobby games in one parenthesized OR by default', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0 })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    // The two source branches must sit inside a single parenthesized OR so the surrounding AND
+    // clauses can't widen the visibility gate.
+    expect(template.text).toMatch(
+      /\(g\.config->>'gameSource' = \$\d+ OR \(\s*g\.config->>'gameSource' = \$\d+\s+AND g\.config->'gameSourceExtra'->>'visibility' = \$\d+\s*\)\)/,
+    )
+    expect(template.values).toContain(GameSource.Matchmaking)
+    expect(template.values).toContain(GameSource.Lobby)
+    expect(template.values).toContain('listed')
+  })
+
+  test('restricts to matchmaking games for the Ranked source filter', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0, source: GameSourceFilter.Ranked })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).not.toContain("g.config->'gameSourceExtra'->>'visibility'")
+    expect(template.values).toContain(GameSource.Matchmaking)
+    expect(template.values).not.toContain(GameSource.Lobby)
+  })
+
+  test('requires both the lobby source and listed visibility for the Custom source filter', async () => {
+    const query = mockDbClient([])
+
+    await getGames({ limit: 10, offset: 0, source: GameSourceFilter.Custom })
+
+    expect(query).toHaveBeenCalledTimes(1)
+    const template = query.mock.calls[0][0]
+    expect(template.text).toContain("g.config->>'gameSource' =")
+    expect(template.text).toContain("g.config->'gameSourceExtra'->>'visibility' =")
+    expect(template.values).toContain(GameSource.Lobby)
+    expect(template.values).toContain('listed')
+    expect(template.values).not.toContain(GameSource.Matchmaking)
   })
 })
 
