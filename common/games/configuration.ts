@@ -1,4 +1,5 @@
 import { SetOptional } from 'type-fest'
+import { LobbyVisibility } from '../lobbies/lobby-visibility'
 import { MatchmakingType } from '../matchmaking'
 import { BwTurnRate } from '../network'
 import { RaceChar } from '../races'
@@ -73,6 +74,12 @@ export interface LobbyExtra {
   host?: SbUserId
   turnRate?: BwTurnRate | 0
   useLegacyLimits?: boolean
+  /**
+   * The lobby's visibility when the game started. Records created before this field existed won't
+   * have it set; readers should treat a missing value as `unlisted` (participants-only) rather than
+   * public.
+   */
+  visibility?: LobbyVisibility
 }
 
 export interface MatchmakingExtra1v1 {

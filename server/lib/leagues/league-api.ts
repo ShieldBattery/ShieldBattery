@@ -125,7 +125,18 @@ export class LeagueApi {
   async getLeagueGames(ctx: RouterContext): Promise<GetGamesResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const {
-      query: { duration, mapName, playerName, format, matchup, sort, offset, startDate, endDate },
+      query: {
+        source,
+        duration,
+        mapName,
+        playerName,
+        format,
+        matchup,
+        sort,
+        offset,
+        startDate,
+        endDate,
+      },
     } = validateRequest(ctx, {
       query: GET_GAMES_QUERY_SCHEMA,
     })
@@ -142,6 +153,7 @@ export class LeagueApi {
       leagueId,
       limit: GET_GAMES_LIMIT,
       offset: offset ?? 0,
+      source,
       duration,
       mapName,
       playerName,

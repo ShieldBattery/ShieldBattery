@@ -5,6 +5,7 @@ import {
   ALL_GAME_FORMATS,
   GameDurationFilter,
   GameSortOption,
+  GameSourceFilter,
 } from '../../../common/games/game-filters'
 import {
   GameRecord,
@@ -26,6 +27,7 @@ import { findUsersById } from '../users/user-model'
  * the `.integer()` requirement in particular — can't drift apart.
  */
 export const GET_GAMES_QUERY_SCHEMA = Joi.object<GetGamesQueryParams>({
+  source: Joi.string().valid(...Object.values(GameSourceFilter)),
   duration: Joi.string().valid(...Object.values(GameDurationFilter)),
   mapName: Joi.string().max(100),
   playerName: Joi.string().max(100),

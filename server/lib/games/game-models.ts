@@ -3,6 +3,7 @@ import {
   GameDurationFilter,
   GameFormat,
   GameSortOption,
+  GameSourceFilter,
   getTeamSizeForFormat,
   MatchupFilter,
 } from '../../../common/games/game-filters'
@@ -11,10 +12,11 @@ import { expandMatchupFilter, MatchupString } from '../../../common/games/matchu
 import { NetcodeV2RelayEvent } from '../../../common/games/netcode-v2'
 import { ReconciledResults } from '../../../common/games/results'
 import { LeagueId } from '../../../common/leagues/leagues'
+import { LobbyVisibility } from '../../../common/lobbies/lobby-visibility'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import db, { DbClient } from '../db'
 import { escapeSearchString } from '../db/escape-search-string'
-import { sql, sqlConcat, sqlRaw } from '../db/sql'
+import { sql, sqlConcat, sqlRaw, SqlTemplate } from '../db/sql'
 import { Dbify } from '../db/types'
 
 type DbGameRecord = Dbify<GameRecord>
@@ -274,10 +276,41 @@ export async function getRecentGamesForUser(
   }
 }
 
+/** A lobby game only counts as part of the public games list once it opts into being listed. */
+const LISTED_LOBBY_VISIBILITY: LobbyVisibility = 'listed'
+
 /**
- * Retrieves completed matchmaking games for the platform games list. Never returns a results-exempt
- * game (contains computer players — see `isResultsExempt`), though matchmaking never has computer
- * players in the first place.
+ * Builds the games-list `source` filter's WHERE clause: `Ranked` restricts to matchmaking games,
+ * `Custom` restricts to public lobby games (`gameSourceExtra.visibility === 'listed'`), and `All`
+ * (or an absent filter) includes both. An unlisted lobby game, or one predating the visibility
+ * field (neither carries `'listed'`), never matches the `Custom` branch.
+ */
+function getGameSourceWhereClause(source: GameSourceFilter | undefined): SqlTemplate {
+  const rankedClause = sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`
+  const customClause = sql`
+    g.config->>'gameSource' = ${GameSource.Lobby}
+    AND g.config->'gameSourceExtra'->>'visibility' = ${LISTED_LOBBY_VISIBILITY}
+  `
+
+  const effectiveSource = source ?? GameSourceFilter.All
+  switch (effectiveSource) {
+    case GameSourceFilter.Ranked:
+      return rankedClause
+    case GameSourceFilter.Custom:
+      return customClause
+    case GameSourceFilter.All:
+      return sql`(${rankedClause} OR (${customClause}))`
+    default:
+      return effectiveSource satisfies never
+  }
+}
+
+/**
+ * Retrieves completed games for the platform games list: matchmaking games, public lobby games, or
+ * both, depending on `source` (an absent filter, or `GameSourceFilter.All`, includes both). Never
+ * returns a results-exempt game (contains computer players — see `isResultsExempt`); this excludes
+ * every lobby game played against the computer, while matchmaking is never results-exempt since it
+ * has no computer players.
  *
  * If `leagueId` is given, the list is restricted to games played in that league (that is, games
  * that produced a `league_user_changes` row), which is what backs a league's Games tab.
@@ -287,6 +320,7 @@ export async function getGames(
     limit: number
     offset: number
     leagueId?: LeagueId
+    source?: GameSourceFilter
     duration?: GameDurationFilter
     mapName?: string
     playerName?: string
@@ -302,6 +336,7 @@ export async function getGames(
     limit,
     offset,
     leagueId,
+    source,
     duration,
     mapName,
     playerName,
@@ -315,10 +350,8 @@ export async function getGames(
   const { client, done } = await db(withClient)
   try {
     const whereClauses = [
-      sql`g.config->>'gameSource' = ${GameSource.Matchmaking}`,
+      getGameSourceWhereClause(source),
       sql`g.results IS NOT NULL`,
-      // Matchmaking never has computer players, so this can't currently exclude anything — kept
-      // for consistency/defense in depth with the other games-list surfaces.
       sql`(g.config->>'resultsExempt')::boolean IS NOT TRUE`,
     ]
     let needMapJoin = false

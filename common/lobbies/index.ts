@@ -3,6 +3,7 @@ import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { SbUserId } from '../users/sb-user-id'
+import { LobbyVisibility } from './lobby-visibility'
 import { SbLobbyId } from './sb-lobby-id'
 import { Slot, SlotType } from './slot'
 
@@ -15,13 +16,7 @@ export const MAX_OBSERVERS = 4
 /** States that a lobby can be in. These are the possible return values of `getLobbyState`. */
 export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted'
 
-/**
- * How discoverable a lobby is. `listed` lobbies are published on the public lobby list; `unlisted`
- * ones never are, so they can only be reached by someone who has been given their id.
- */
-export type LobbyVisibility = 'listed' | 'unlisted'
-
-export const ALL_LOBBY_VISIBILITIES: ReadonlyArray<LobbyVisibility> = ['listed', 'unlisted']
+export * from './lobby-visibility'
 
 export class Team extends Record({
   name: '',

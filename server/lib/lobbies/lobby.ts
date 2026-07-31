@@ -557,15 +557,18 @@ export function closeSlot(lobby: Lobby, teamIndex: number, slotIndex: number) {
   }
 }
 
+/** Returns whether a slot is one a player could join directly, without the host opening it. */
+function isSlotJoinable(slot: Slot): boolean {
+  return slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen
+}
+
 /**
  * Finds the index of the slot in `slots` that a player should be moved into: the first one that
  * can be joined directly, or failing that the first unoccupied one. Returns -1 if every slot is
  * occupied.
  */
 function findSlotToMoveInto(slots: List<Slot>): number {
-  const openIndex = slots.findIndex(
-    slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
-  )
+  const openIndex = slots.findIndex(isSlotJoinable)
   return openIndex !== -1 ? openIndex : slots.findIndex(isSlotUnoccupied)
 }
 
@@ -601,8 +604,10 @@ export function makeObserver(lobby: Lobby, teamIndex: number, slotIndex: number)
 }
 
 /**
- * Moves an observer back into a player slot. The team they get moved to is the one with the most
- * unoccupied slots, and the observer slot they came from is left open.
+ * Moves an observer back into a player slot, leaving the observer slot they came from open. The
+ * destination is the team with the most joinable slots; only when no team has one does the
+ * observer take (and thereby re-open) a slot the host had closed, from the team with the most
+ * unoccupied slots.
  */
 export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
   const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
@@ -614,10 +619,14 @@ export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
     throw new Error('Trying to remove an observer from an invalid slot type: ' + slot.type)
   }
 
-  const destTeam = lobby.teams
+  const candidates = lobby.teams
     .map<[teamIndex: number, team: Team]>((team, teamIndex) => [teamIndex, team])
     .filter(([, team]) => !team.isObserver && team.slots.some(isSlotUnoccupied))
-    .maxBy(([, team]) => team.slots.count(isSlotUnoccupied))
+  const destTeam =
+    candidates
+      .filter(([, team]) => team.slots.some(isSlotJoinable))
+      .maxBy(([, team]) => team.slots.count(isSlotJoinable)) ??
+    candidates.maxBy(([, team]) => team.slots.count(isSlotUnoccupied))
   if (!destTeam) {
     throw new Error('Cannot remove more observers')
   }
