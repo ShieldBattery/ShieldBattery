@@ -89,21 +89,31 @@ export const createLobby =
     })
   }
 
-export const joinLobby = id => dispatch => {
-  Promise.all([
-    resolveDesiredRegion().catch(() => undefined),
-    Promise.resolve(ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys')).catch(() => undefined),
-  ]).then(([desiredRegion, clientPubkey]) => {
-    dispatch(
-      createSiteSocketAction(LOBBY_JOIN_BEGIN, LOBBY_JOIN, '/lobbies/join', {
+export const joinLobby =
+  (id, { onSuccess, onError } = {}) =>
+  dispatch => {
+    Promise.all([
+      resolveDesiredRegion().catch(() => undefined),
+      Promise.resolve(ipcRenderer.invoke('activeGameGenNetcodeV2SessionKeys')).catch(
+        () => undefined,
+      ),
+    ]).then(([desiredRegion, clientPubkey]) => {
+      const params = {
         id,
         region: desiredRegion?.region,
         rttMs: desiredRegion?.rttMs ?? undefined,
         clientPubkey,
-      }),
-    )
-  })
-}
+      }
+
+      dispatch({ type: LOBBY_JOIN_BEGIN, payload: params })
+      const result = siteSocket.invoke('/lobbies/join', params)
+      dispatch({ type: LOBBY_JOIN, payload: result, meta: params })
+      result.then(
+        payload => onSuccess?.(payload),
+        err => onError?.(err),
+      )
+    })
+  }
 
 export const addComputer = slotId =>
   createSiteSocketAction(LOBBY_ADD_COMPUTER_BEGIN, LOBBY_ADD_COMPUTER, '/lobbies/addComputer', {

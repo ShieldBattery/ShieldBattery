@@ -1,10 +1,12 @@
+import { InvokeError } from 'nydus-client'
 import * as React from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Route, Switch } from 'wouter'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyState } from '../../common/lobbies'
+import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
 import { navigateToGameResults } from '../games/action-creators'
@@ -13,9 +15,11 @@ import { MaterialIcon } from '../icons/material/material-icon'
 import { openMapPreviewDialog } from '../maps/action-creators'
 import { FilledButton } from '../material/button'
 import { push, replace } from '../navigation/routing'
-import LoadingIndicator from '../progress/dots'
+import LoadingIndicator, { LoadingDotsArea } from '../progress/dots'
 import { usePrevious } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
+import { healthChecked } from '../starcraft/health-checked'
 import { BodyLarge } from '../styles/typography'
 import {
   activateLobby,
@@ -36,6 +40,8 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
+import { lobbyJoinErrorMessage } from './lobby-join-errors'
+import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 
 const LoadingArea = styled.div`
@@ -286,7 +292,6 @@ function LobbyStateContent({
   state: LobbyState
   routeLobbyId: SbLobbyId
 }) {
-  const dispatch = useAppDispatch()
   const { t } = useTranslation()
   switch (state) {
     case 'nonexistent':
@@ -305,39 +310,183 @@ function LobbyStateContent({
         </StateMessageLayout>
       )
     case 'exists':
-      // TODO(tec27): Show a preview of the lobby (like what's shown in the lobby list). We don't
-      // have a way to retrieve info about a single lobby in the lobby service and I don't want to
-      // change that a bunch right now (it needs replacing), so just taking the simple approach for
-      // now.
-      // TODO(tec27): Also handle join errors better, we have no real way of responding to failure
-      // here (like if the lobby is full)
-      return (
-        <StateMessageLayout>
-          <StateMessageIcon icon='meeting_room' />
-          <BodyLarge>
-            {t(
-              'lobbies.state.exists',
-              "You're not currently in this lobby. Would you like to join it?",
-            )}
-          </BodyLarge>
-          <StateMessageActionButton
-            label={t('lobbies.joinLobby.action', 'Join lobby')}
-            iconStart={<MaterialIcon icon='add' />}
-            onClick={() => dispatch(joinLobby(routeLobbyId))}
-          />
-        </StateMessageLayout>
-      )
+      return <JoinableLobbyView key={routeLobbyId} routeLobbyId={routeLobbyId} />
     case 'countingDown':
     case 'hasStarted':
-      return (
-        <StateMessageLayout>
-          <StateMessageIcon icon='avg_pace' />
-          <BodyLarge>
-            {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
-          </BodyLarge>
-        </StateMessageLayout>
-      )
+      return <LobbyStartedMessage />
     default:
       return assertUnreachable(state)
   }
+}
+
+function LobbyStartedMessage() {
+  const { t } = useTranslation()
+
+  return (
+    <StateMessageLayout>
+      <StateMessageIcon icon='avg_pace' />
+      <BodyLarge>
+        {t('lobbies.state.started', 'This lobby has already started and cannot be joined.')}
+      </BodyLarge>
+      <BrowseLobbiesButton />
+    </StateMessageLayout>
+  )
+}
+
+function BrowseLobbiesButton() {
+  const { t } = useTranslation()
+
+  return (
+    <StateMessageActionButton
+      label={t('lobbies.joinLobby.browseLobbies', 'Browse lobbies')}
+      iconStart={<MaterialIcon icon='list' />}
+      onClick={() => push('/play/lobbies')}
+    />
+  )
+}
+
+const JoinPreviewLayout = styled.div`
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`
+
+/**
+ * Renders the join interstitial for a lobby that isn't the current user's active lobby: a preview
+ * of the lobby (fetched from the unauthenticated summary endpoint, same as the logged-out landing
+ * page) plus a button to join it. Falls back to a bare join prompt if the preview fails to load
+ * (the lobby may well still be joinable), and to a "no longer open" or "already started" message
+ * if the preview or the join attempt itself finds the lobby gone or started.
+ */
+function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
+  const dispatch = useAppDispatch()
+  const { t } = useTranslation()
+  const snackbarController = useSnackbarController()
+  const [summary, refreshSummary] = useLobbySummary(routeLobbyId)
+  const [isJoining, setIsJoining] = useState(false)
+  const [lobbyGone, setLobbyGone] = useState(false)
+  const [lobbyStarted, setLobbyStarted] = useState(false)
+
+  // The parent view can only correct the URL slug from the lobby name in the store, which isn't
+  // populated until the user is actually in the lobby -- the summary lets this page fix a stale or
+  // hand-edited slug the same way the logged-out landing page does.
+  useCorrectLobbySlug(
+    routeLobbyId,
+    summary?.status === 'loaded' ? summary.data.summary.name : undefined,
+  )
+
+  const onJoinClick = () => {
+    setIsJoining(true)
+    dispatch(
+      joinLobby(routeLobbyId, {
+        onError: (err: unknown) => {
+          setIsJoining(false)
+
+          const code = err instanceof InvokeError ? err.body?.code : undefined
+          switch (code) {
+            case LobbyJoinErrorCode.NoLongerOpen:
+              setLobbyGone(true)
+              break
+            case LobbyJoinErrorCode.AlreadyStarted:
+              setLobbyStarted(true)
+              break
+            default:
+              snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
+              break
+          }
+
+          refreshSummary()
+        },
+      }),
+    )
+  }
+
+  return (
+    <JoinableLobbyContent
+      summary={summary}
+      lobbyGone={lobbyGone}
+      lobbyStarted={lobbyStarted}
+      isJoining={isJoining}
+      onJoinClick={healthChecked(onJoinClick)}
+    />
+  )
+}
+
+/**
+ * The presentational part of {@link JoinableLobbyView}: renders the loading/gone/started/error/
+ * loaded states without doing any fetching or dispatching itself, so it can be driven directly
+ * (e.g. from a devonly test page) without racing a real lobby or join attempt.
+ */
+export function JoinableLobbyContent({
+  summary,
+  lobbyGone,
+  lobbyStarted,
+  isJoining,
+  onJoinClick,
+}: {
+  summary: LobbySummaryLoadState | undefined
+  lobbyGone: boolean
+  lobbyStarted: boolean
+  isJoining: boolean
+  onJoinClick: () => void
+}) {
+  const { t } = useTranslation()
+
+  // NOTE: The button stays enabled even if the summary reports 0 open slots — the summary is a
+  // snapshot, so fullness may have changed since it loaded. The server arbitrates on click, and a
+  // still-full lobby gets a specific error message from the join attempt.
+  const joinButton = (
+    <StateMessageActionButton
+      label={t('lobbies.joinLobby.action', 'Join lobby')}
+      iconStart={<MaterialIcon icon='add' />}
+      onClick={onJoinClick}
+      disabled={isJoining}
+      testName='join-lobby-button'
+    />
+  )
+
+  if (lobbyStarted) {
+    return <LobbyStartedMessage />
+  }
+
+  if (lobbyGone || summary?.status === 'notFound') {
+    return (
+      <StateMessageLayout>
+        <StateMessageIcon icon='other_houses' />
+        <BodyLarge>{t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')}</BodyLarge>
+        <BrowseLobbiesButton />
+      </StateMessageLayout>
+    )
+  }
+
+  if (!summary) {
+    return <LoadingDotsArea />
+  }
+
+  if (summary.status === 'error') {
+    return (
+      <StateMessageLayout>
+        <StateMessageIcon icon='meeting_room' />
+        <BodyLarge>
+          {t(
+            'lobbies.state.exists',
+            "You're not currently in this lobby. Would you like to join it?",
+          )}
+        </BodyLarge>
+        {joinButton}
+      </StateMessageLayout>
+    )
+  }
+
+  return (
+    <JoinPreviewLayout>
+      <LobbySummaryDetails summary={summary.data} />
+      {joinButton}
+    </JoinPreviewLayout>
+  )
 }

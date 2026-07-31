@@ -14,10 +14,12 @@ import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
 import { FilledButton } from '../material/button'
 import siteSocket from '../network/site-socket'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
 import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
 import { joinLobby } from './action-creators'
+import { lobbyJoinErrorMessage } from './lobby-join-errors'
 import { LobbySummary } from './lobby-list-reducer'
 import { navigateToLobby } from './lobby-url'
 
@@ -172,6 +174,7 @@ function JoinLobby({ onNavigateToCreate }: JoinLobbyProps) {
 function LobbyList() {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const snackbarController = useSnackbarController()
   const { byId, list } = useAppSelector(s => s.lobbyList)
 
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
@@ -211,7 +214,13 @@ function LobbyList() {
                   )
                 } else {
                   healthChecked(() => {
-                    dispatch(joinLobby(lobby.id))
+                    dispatch(
+                      joinLobby(lobby.id, {
+                        onError: (err: unknown) => {
+                          snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
+                        },
+                      }),
+                    )
                     navigateToLobby(lobby.id, lobby.name)
                   })()
                 }

@@ -23,7 +23,11 @@ import {
   Lobby,
   LobbyVisibility,
 } from '../../../common/lobbies'
-import { LobbyCreateErrorCode, LobbySlotCreateEvent } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyCreateErrorCode,
+  LobbyJoinErrorCode,
+  LobbySlotCreateEvent,
+} from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
@@ -338,21 +342,31 @@ export class LobbyApi {
     const joinRegion = await this._resolveRegion(region)
 
     if (!this.lobbies.has(id)) {
-      throw new errors.NotFound('no lobby found with that id')
+      throw Object.assign(new errors.NotFound('no lobby found with that id'), {
+        body: { code: LobbyJoinErrorCode.NoLongerOpen },
+      })
     }
     const lobby = this.lobbies.get(id)!
-    this.ensureLobbyNotTransient(lobby)
+    try {
+      this.ensureLobbyNotTransient(lobby)
+    } catch (err) {
+      throw Object.assign(err as Error, { body: { code: LobbyJoinErrorCode.AlreadyStarted } })
+    }
 
     if (
       this.lobbyBannedUsers.has(lobby.id) &&
       this.lobbyBannedUsers.get(lobby.id)!.includes(client.userId)
     ) {
-      throw new errors.Conflict('user has been banned from this lobby')
+      throw Object.assign(new errors.Conflict('user has been banned from this lobby'), {
+        body: { code: LobbyJoinErrorCode.Banned },
+      })
     }
 
     const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
     if (teamIndex === undefined || slotIndex === undefined) {
-      throw new errors.Conflict('lobby is full')
+      throw Object.assign(new errors.Conflict('lobby is full'), {
+        body: { code: LobbyJoinErrorCode.Full },
+      })
     }
 
     let player
@@ -374,7 +388,9 @@ export class LobbyApi {
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
-      throw new errors.Conflict('user is already active in a gameplay activity')
+      throw Object.assign(new errors.Conflict('user is already active in a gameplay activity'), {
+        body: { code: LobbyJoinErrorCode.AlreadyInActivity },
+      })
     }
 
     // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593

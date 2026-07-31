@@ -4,7 +4,12 @@ import { container } from 'tsyringe'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
-import { LobbyCreateErrorCode, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import { findSlotByUserId } from '../../../common/lobbies'
+import {
+  LobbyCreateErrorCode,
+  LobbyJoinErrorCode,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
@@ -108,7 +113,7 @@ const LISTER_USER: SbUser = { id: makeSbUserId(4), name: 'ListerUser' } as SbUse
 
 const NOOP_NEXT = async () => {}
 
-describe('wsapi/lobbies/visibility', () => {
+describe('wsapi/lobbies', () => {
   let nydus: NydusServer
   let fakeNydus: FakeNydusServer
   let lobbyApi: LobbyApi
@@ -189,129 +194,204 @@ describe('wsapi/lobbies/visibility', () => {
     vi.useRealTimers()
   })
 
-  test('creating a listed lobby publishes it to the list and counts it', async () => {
-    await createLobby(host, 'Listed lobby', 'listed')
+  describe('visibility', () => {
+    test('creating a listed lobby publishes it to the list and counts it', async () => {
+      await createLobby(host, 'Listed lobby', 'listed')
 
-    expect(listPublishes()).toEqual([
-      { action: 'add', payload: expect.objectContaining({ name: 'Listed lobby' }) },
-    ])
-    expect(latestLobbiesCount()).toBe(1)
-  })
+      expect(listPublishes()).toEqual([
+        { action: 'add', payload: expect.objectContaining({ name: 'Listed lobby' }) },
+      ])
+      expect(latestLobbiesCount()).toBe(1)
+    })
 
-  test('creating an unlisted lobby publishes nothing to the list and is not counted', async () => {
-    await createLobby(host, 'Unlisted lobby', 'unlisted')
+    test('creating an unlisted lobby publishes nothing to the list and is not counted', async () => {
+      await createLobby(host, 'Unlisted lobby', 'unlisted')
 
-    expect(listPublishes()).toEqual([])
-    expect(latestLobbiesCount()).toBe(0)
-  })
+      expect(listPublishes()).toEqual([])
+      expect(latestLobbiesCount()).toBe(0)
+    })
 
-  test("a new subscriber's initial snapshot omits unlisted lobbies", async () => {
-    await createLobby(host, 'Unlisted lobby', 'unlisted')
-    await createLobby(otherHost, 'Listed lobby', 'listed')
+    test("a new subscriber's initial snapshot omits unlisted lobbies", async () => {
+      await createLobby(host, 'Unlisted lobby', 'unlisted')
+      await createLobby(otherHost, 'Listed lobby', 'listed')
 
-    await lobbyApi.subscribe(apiData(lister), NOOP_NEXT)
+      await lobbyApi.subscribe(apiData(lister), NOOP_NEXT)
 
-    const subscribeCall = fakeNydus.subscribeClient.mock.calls.find(
-      ([, path]) => path === '/lobbies',
-    )
-    const initialData = subscribeCall![2] as { action: string; payload: Iterable<LobbySummaryJson> }
-    expect(initialData.action).toBe('full')
-    expect(Array.from(initialData.payload).map(l => l.name)).toEqual(['Listed lobby'])
-  })
+      const subscribeCall = fakeNydus.subscribeClient.mock.calls.find(
+        ([, path]) => path === '/lobbies',
+      )
+      const initialData = subscribeCall![2] as {
+        action: string
+        payload: Iterable<LobbySummaryJson>
+      }
+      expect(initialData.action).toBe('full')
+      expect(Array.from(initialData.payload).map(l => l.name)).toEqual(['Listed lobby'])
+    })
 
-  test('closing an unlisted lobby does not publish its id to the list', async () => {
-    await createLobby(host, 'Unlisted lobby', 'unlisted')
-    fakeNydus.publish.mockClear()
+    test('closing an unlisted lobby does not publish its id to the list', async () => {
+      await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
 
-    // The host is the only occupant, so leaving deletes the lobby.
-    await lobbyApi.leave(apiData(host), NOOP_NEXT)
+      // The host is the only occupant, so leaving deletes the lobby.
+      await lobbyApi.leave(apiData(host), NOOP_NEXT)
 
-    expect(listPublishes()).toEqual([])
-  })
+      expect(listPublishes()).toEqual([])
+    })
 
-  test('closing a listed lobby publishes its id to the list', async () => {
-    const { id } = await createLobby(host, 'Listed lobby', 'listed')
-    fakeNydus.publish.mockClear()
+    test('closing a listed lobby publishes its id to the list', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
 
-    await lobbyApi.leave(apiData(host), NOOP_NEXT)
+      await lobbyApi.leave(apiData(host), NOOP_NEXT)
 
-    expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
-  })
+      expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
+    })
 
-  test('starting the countdown in an unlisted lobby does not publish its id to the list', async () => {
-    const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
-    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
-    fakeNydus.publish.mockClear()
+    test('starting the countdown in an unlisted lobby does not publish its id to the list', async () => {
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+      fakeNydus.publish.mockClear()
 
-    // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight. The
-    // handler publishes everything we care about before it suspends on the timer.
-    vi.useFakeTimers()
-    lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
+      // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight. The
+      // handler publishes everything we care about before it suspends on the timer.
+      vi.useFakeTimers()
+      lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
 
-    // The occupants still see the countdown; only the public list is kept in the dark.
-    expect(
-      fakeNydus.publish.mock.calls.some(
-        ([path, data]) => path === `/lobbies/${id}` && data?.type === 'startCountdown',
-      ),
-    ).toBe(true)
-    expect(listPublishes()).toEqual([])
-  })
+      // The occupants still see the countdown; only the public list is kept in the dark.
+      expect(
+        fakeNydus.publish.mock.calls.some(
+          ([path, data]) => path === `/lobbies/${id}` && data?.type === 'startCountdown',
+        ),
+      ).toBe(true)
+      expect(listPublishes()).toEqual([])
+    })
 
-  test('joining an unlisted lobby does not publish an update to the list', async () => {
-    const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
-    fakeNydus.publish.mockClear()
+    test('joining an unlisted lobby does not publish an update to the list', async () => {
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
 
-    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
 
-    // The occupants still see the new player; only the public list is kept in the dark.
-    expect(
-      fakeNydus.publish.mock.calls.some(
-        ([path, data]) => path === `/lobbies/${id}` && data?.type === 'diff',
-      ),
-    ).toBe(true)
-    expect(listPublishes()).toEqual([])
-  })
+      // The occupants still see the new player; only the public list is kept in the dark.
+      expect(
+        fakeNydus.publish.mock.calls.some(
+          ([path, data]) => path === `/lobbies/${id}` && data?.type === 'diff',
+        ),
+      ).toBe(true)
+      expect(listPublishes()).toEqual([])
+    })
 
-  test('joining a listed lobby publishes an update to the list', async () => {
-    const { id } = await createLobby(host, 'Listed lobby', 'listed')
-    fakeNydus.publish.mockClear()
+    test('joining a listed lobby publishes an update to the list', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
 
-    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
 
-    expect(listPublishes()).toEqual([
-      { action: 'update', payload: expect.objectContaining({ name: 'Listed lobby' }) },
-    ])
-  })
+      expect(listPublishes()).toEqual([
+        { action: 'update', payload: expect.objectContaining({ name: 'Listed lobby' }) },
+      ])
+    })
 
-  test('creating a listed lobby with a name matching an existing listed lobby fails', async () => {
-    await createLobby(host, 'Duplicate name', 'listed')
+    test('creating a listed lobby with a name matching an existing listed lobby fails', async () => {
+      await createLobby(host, 'Duplicate name', 'listed')
 
-    await expect(createLobby(otherHost, 'Duplicate name', 'listed')).rejects.toMatchObject({
-      body: { code: LobbyCreateErrorCode.NameTaken },
+      await expect(createLobby(otherHost, 'Duplicate name', 'listed')).rejects.toMatchObject({
+        body: { code: LobbyCreateErrorCode.NameTaken },
+      })
+    })
+
+    test('creating a listed lobby with a name matching an existing unlisted lobby succeeds', async () => {
+      await createLobby(host, 'Duplicate name', 'unlisted')
+
+      await expect(createLobby(otherHost, 'Duplicate name', 'listed')).resolves.toBeDefined()
+    })
+
+    test('creating an unlisted lobby with a name matching an existing listed lobby succeeds', async () => {
+      await createLobby(host, 'Duplicate name', 'listed')
+
+      await expect(createLobby(otherHost, 'Duplicate name', 'unlisted')).resolves.toBeDefined()
     })
   })
 
-  test('creating a listed lobby with a name matching an existing unlisted lobby succeeds', async () => {
-    await createLobby(host, 'Duplicate name', 'unlisted')
+  describe('join', () => {
+    test('joining an unknown lobby id rejects with a noLongerOpen code', async () => {
+      await expect(
+        lobbyApi.join(apiData(joiner, { id: makeSbLobbyId('nonexistent-lobby') }), NOOP_NEXT),
+      ).rejects.toMatchObject({
+        body: { code: LobbyJoinErrorCode.NoLongerOpen },
+      })
+    })
 
-    await expect(createLobby(otherHost, 'Duplicate name', 'listed')).resolves.toBeDefined()
+    test('joining a full lobby rejects with a full code', async () => {
+      const { id } = await lobbyApi.create(
+        apiData(host, {
+          name: 'Full lobby',
+          map: BIG_GAME_HUNTERS.id,
+          gameType: GameType.OneVsOne,
+          visibility: 'listed',
+        }),
+        NOOP_NEXT,
+      )
+      // 1v1 lobbies only have 2 slots, and the host already occupies one.
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+      await expect(lobbyApi.join(apiData(otherHost, { id }), NOOP_NEXT)).rejects.toMatchObject({
+        body: { code: LobbyJoinErrorCode.Full },
+      })
+    })
+
+    test('joining while already in a gameplay activity rejects with an alreadyInActivity code', async () => {
+      const { id } = await createLobby(otherHost, 'Other lobby', 'listed')
+
+      // Hosting a lobby registers the host as being in a gameplay activity.
+      await createLobby(host, 'Own lobby', 'listed')
+
+      await expect(lobbyApi.join(apiData(host, { id }), NOOP_NEXT)).rejects.toMatchObject({
+        body: { code: LobbyJoinErrorCode.AlreadyInActivity },
+      })
+    })
+
+    test('joining a lobby during its countdown rejects with an alreadyStarted code', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      // A countdown requires 2 opposing sides.
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+      // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight.
+      vi.useFakeTimers()
+      lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
+
+      // The client renders a counting-down/loading lobby as a whole separate screen, distinct from
+      // the ordinary join-error codes covered above.
+      await expect(lobbyApi.join(apiData(otherHost, { id }), NOOP_NEXT)).rejects.toMatchObject({
+        body: { code: LobbyJoinErrorCode.AlreadyStarted },
+      })
+    })
+
+    test('joining a lobby the user was banned from rejects with a banned code', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
+
+      const lobby = lobbyApi.lobbies.get(makeSbLobbyId(id))!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      await lobbyApi.banPlayer(apiData(host, { slotId: joinerSlot!.id }), NOOP_NEXT)
+
+      await expect(lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)).rejects.toMatchObject({
+        body: { code: LobbyJoinErrorCode.Banned },
+      })
+    })
   })
 
-  test('creating an unlisted lobby with a name matching an existing listed lobby succeeds', async () => {
-    await createLobby(host, 'Duplicate name', 'listed')
+  describe('summaries', () => {
+    test('a counting-down lobby is reported as gone by the summary getter', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
 
-    await expect(createLobby(otherHost, 'Duplicate name', 'unlisted')).resolves.toBeDefined()
-  })
+      // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
+      // resolver must treat it the same as a lobby that doesn't exist at all.
+      vi.useFakeTimers()
+      lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
 
-  test('a counting-down lobby is reported as gone by the summary getter', async () => {
-    const { id } = await createLobby(host, 'Listed lobby', 'listed')
-    await lobbyApi.join(apiData(joiner, { id }), NOOP_NEXT)
-
-    // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
-    // resolver must treat it the same as a lobby that doesn't exist at all.
-    vi.useFakeTimers()
-    lobbyApi.startCountdown(apiData(host), NOOP_NEXT).catch(() => {})
-
-    expect(getLobbySummary(makeSbLobbyId(id))).toBeUndefined()
+      expect(getLobbySummary(makeSbLobbyId(id))).toBeUndefined()
+    })
   })
 })

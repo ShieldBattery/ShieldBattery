@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { Link, Route, Switch } from 'wouter'
+import { JoinPreviewTest } from './join-preview-test'
 import { LobbyLandingTest } from './lobby-landing-test'
 import LobbyTest from './lobby-test'
 import RacePickerTest from './race-picker-test'
@@ -19,6 +20,9 @@ class DevLobbiesDashboard extends Component {
         <li>
           <Link href={`${BASE_URL}/lobby-landing`}>Lobby landing page</Link>
         </li>
+        <li>
+          <Link href={`${BASE_URL}/join-preview`}>Lobby join preview</Link>
+        </li>
       </ul>
     )
   }
@@ -30,6 +34,7 @@ export default () => {
       <Route path={`${BASE_URL}/lobby`} component={LobbyTest} />
       <Route path={`${BASE_URL}/race-picker`} component={RacePickerTest} />
       <Route path={`${BASE_URL}/lobby-landing`} component={LobbyLandingTest} />
+      <Route path={`${BASE_URL}/join-preview`} component={JoinPreviewTest} />
       <Route>
         <DevLobbiesDashboard />
       </Route>
