@@ -8,8 +8,11 @@
 -- default page view of the unauthenticated games endpoint falls back to a seq scan + top-N sort
 -- over the entire `games` table, which is exactly what that migration was added to prevent.
 --
--- The single-source filters remain served by the narrower partial indexes: matchmaking by the
--- 20260615120000/20260615120001 pair, listed-lobby by the 20260731120002/20260731120003 pair.
+-- This index also serves the Ranked (matchmaking-only) filter: that predicate implies this one, and
+-- listed lobby games are a small enough fraction of the table that the ordered walk skips few rows.
+-- The matchmaking-only pair from 20260615120000/20260615120001 therefore becomes redundant and is
+-- dropped in 20260731120004/20260731120005. The Custom (listed-lobby-only) filter gets its own
+-- narrower pair in 20260731120002/20260731120003, where the fraction argument runs the other way.
 --
 -- This builds CONCURRENTLY (hence the `-- no-transaction` directive above, since CREATE INDEX
 -- CONCURRENTLY can't run inside a transaction), and is its own migration because sqlx sends a
