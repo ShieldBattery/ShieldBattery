@@ -1,5 +1,4 @@
 import { debounce } from 'lodash-es'
-import { InvokeError } from 'nydus-client'
 import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -28,6 +27,7 @@ import { ScrollDivider, useScrollIndicatorState } from '../material/scroll-indic
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { TextField } from '../material/text-field'
+import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
@@ -443,7 +443,7 @@ export function CreateLobby(props: CreateLobbyProps) {
         updateLobbyPreferences({
           name: model.name,
           selectedMap: model.mapSelection.mapId,
-          recentMaps: model.mapSelection.recentMaps,
+          recentMaps: model.mapSelection.recentMaps ?? [],
           gameType: model.gameType,
           gameSubType: model.gameSubType,
           useLegacyLimits: model.useLegacyLimits,
@@ -537,7 +537,7 @@ export function CreateLobby(props: CreateLobbyProps) {
                   createLobby(
                     {
                       name,
-                      map: mapId,
+                      map: mapId!,
                       gameType,
                       gameSubType: subType,
                       useLegacyLimits,
@@ -551,8 +551,7 @@ export function CreateLobby(props: CreateLobbyProps) {
                         dispatch(
                           openSimpleDialog(
                             t('lobbies.createLobby.errorDialogTitle', 'Error creating lobby'),
-                            err instanceof InvokeError &&
-                              err.body?.code === LobbyCreateErrorCode.NameTaken
+                            isFetchError(err) && err.code === LobbyCreateErrorCode.NameTaken
                               ? t(
                                   'lobbies.createLobby.errorNameTaken',
                                   'A lobby with that name already exists. Please choose a different name.',

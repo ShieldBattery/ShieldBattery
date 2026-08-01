@@ -3,8 +3,8 @@ import { Result } from 'typescript-result'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { GameServerRegion, makeGameServerRegionId } from '../../../common/game-server-regions'
 import { GameType } from '../../../common/games/game-type'
-import { findSlotByUserId, getObserverTeam } from '../../../common/lobbies'
-import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { findSlotByUserId, getObserverTeam, LobbyVisibility } from '../../../common/lobbies'
+import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
@@ -28,7 +28,6 @@ import {
   clearTestLogs,
   createFakeNydusServer,
   FakeNydusServer,
-  InspectableNydusClient,
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -111,31 +110,24 @@ const JOINER_USER: SbUser = { id: makeSbUserId(2), name: 'JoinerUser' } as SbUse
 const OTHER_HOST_USER: SbUser = { id: makeSbUserId(3), name: 'OtherHostUser' } as SbUser
 const LISTER_USER: SbUser = { id: makeSbUserId(4), name: 'ListerUser' } as SbUser
 
+/** The socket groups a single connected client of a user is identified by. */
+interface Sockets {
+  user: UserSocketsGroup
+  client: ClientSocketsGroup
+}
+
 describe('lobbies/lobby-service', () => {
   let nydus: NydusServer
   let fakeNydus: FakeNydusServer
   let lobbyService: LobbyService
-  let clientSockets: ClientSocketsManager
-  let userSockets: UserSocketsManager
-  let connector: NydusConnector
 
-  let host: InspectableNydusClient
-  let joiner: InspectableNydusClient
-  let otherHost: InspectableNydusClient
-  let lister: InspectableNydusClient
+  let host: Sockets
+  let joiner: Sockets
+  let otherHost: Sockets
+  let lister: Sockets
 
   /** Every request the stubbed `GameLoader` received via `loadGame`, in call order. */
   let loadGameRequests: GameLoadRequest[]
-
-  /** Returns the socket group for every connected socket of the user a test client belongs to. */
-  function userFor(client: InspectableNydusClient): UserSocketsGroup {
-    return userSockets.getBySocket(client)!
-  }
-
-  /** Returns the socket group for the single client (machine) a test client belongs to. */
-  function clientFor(client: InspectableNydusClient): ClientSocketsGroup {
-    return clientSockets.getCurrentClient(client)!
-  }
 
   /** Returns the data published on the public lobby list channel, in order. */
   function listPublishes(): Array<{ action: string; payload: any }> {
@@ -151,28 +143,33 @@ describe('lobbies/lobby-service', () => {
   }
 
   async function createLobby(
-    client: InspectableNydusClient,
+    sockets: Sockets,
     name: string,
-    visibility?: 'listed' | 'unlisted',
+    visibility?: LobbyVisibility,
     allowObservers?: boolean,
+    gameType = GameType.Melee,
   ) {
     return await lobbyService.createLobby({
       name,
       map: BIG_GAME_HUNTERS.id,
-      gameType: GameType.Melee,
+      gameType,
       visibility,
       allowObservers,
-      user: userFor(client),
-      client: clientFor(client),
+      user: sockets.user,
+      client: sockets.client,
     })
+  }
+
+  function joinLobby(sockets: Sockets, id: SbLobbyId) {
+    return lobbyService.joinLobby({ id, user: sockets.user, client: sockets.client })
   }
 
   beforeEach(() => {
     nydus = createFakeNydusServer()
     fakeNydus = nydus as unknown as FakeNydusServer
     const sessionLookup = new RequestSessionLookup()
-    clientSockets = new ClientSocketsManager(nydus, sessionLookup)
-    userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
+    const clientSockets = new ClientSocketsManager(nydus, sessionLookup)
+    const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
 
     loadGameRequests = []
     lobbyService = new LobbyService(
@@ -196,16 +193,22 @@ describe('lobbies/lobby-service', () => {
       userSockets,
     )
 
-    connector = new NydusConnector(nydus, sessionLookup)
-
     asMockedFunction(getMapInfos).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([BIG_GAME_HUNTERS])
     asMockedFunction(findUsersById).mockResolvedValue([])
 
-    host = connector.connectClient(HOST_USER, 'HOST_CLIENT')
-    joiner = connector.connectClient(JOINER_USER, 'JOINER_CLIENT')
-    otherHost = connector.connectClient(OTHER_HOST_USER, 'OTHER_HOST_CLIENT')
-    lister = connector.connectClient(LISTER_USER, 'LISTER_CLIENT')
+    const connector = new NydusConnector(nydus, sessionLookup)
+    const connect = (user: SbUser, clientId: string): Sockets => {
+      connector.connectClient(user, clientId)
+      return {
+        user: userSockets.getById(user.id)!,
+        client: clientSockets.getById(user.id, clientId)!,
+      }
+    }
+    host = connect(HOST_USER, 'HOST_CLIENT')
+    joiner = connect(JOINER_USER, 'JOINER_CLIENT')
+    otherHost = connect(OTHER_HOST_USER, 'OTHER_HOST_CLIENT')
+    lister = connect(LISTER_USER, 'LISTER_CLIENT')
 
     clearTestLogs(nydus)
   })
@@ -231,21 +234,12 @@ describe('lobbies/lobby-service', () => {
       expect(latestLobbiesCount()).toBe(0)
     })
 
-    test('listed summaries omit unlisted lobbies', async () => {
-      await createLobby(host, 'Unlisted lobby', 'unlisted')
-      await createLobby(otherHost, 'Listed lobby', 'listed')
-
-      // This is what a client subscribing to the public lobby list receives as its initial
-      // snapshot, so an unlisted lobby leaking here would be as good as being listed.
-      expect(lobbyService.getListedSummaries().map(l => l.name)).toEqual(['Listed lobby'])
-    })
-
     test('closing an unlisted lobby does not publish its id to the list', async () => {
       await createLobby(host, 'Unlisted lobby', 'unlisted')
       fakeNydus.publish.mockClear()
 
       // The host is the only occupant, so leaving deletes the lobby.
-      lobbyService.leaveLobby({ user: userFor(host) })
+      lobbyService.leaveLobby({ user: host.user })
 
       expect(listPublishes()).toEqual([])
     })
@@ -254,20 +248,20 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
 
-      lobbyService.leaveLobby({ user: userFor(host) })
+      lobbyService.leaveLobby({ user: host.user })
 
       expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
     })
 
     test('starting the countdown in an unlisted lobby does not publish its id to the list', async () => {
       const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
       fakeNydus.publish.mockClear()
 
       // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight. The
       // service publishes everything we care about before it suspends on the timer.
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: clientFor(host) }).catch(() => {})
+      lobbyService.startCountdown({ client: host.client })
 
       // The occupants still see the countdown; only the public list is kept in the dark.
       expect(
@@ -282,7 +276,7 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
       fakeNydus.publish.mockClear()
 
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
       // The occupants still see the new player; only the public list is kept in the dark.
       expect(
@@ -297,7 +291,7 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
 
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
       expect(listPublishes()).toEqual([
         { action: 'update', payload: expect.objectContaining({ name: 'Listed lobby' }) },
@@ -323,36 +317,28 @@ describe('lobbies/lobby-service', () => {
 
       await expect(createLobby(otherHost, 'Duplicate name', 'unlisted')).resolves.toBeDefined()
     })
+
+    test('the listed summaries omit unlisted lobbies', async () => {
+      await createLobby(host, 'Unlisted lobby', 'unlisted')
+      await createLobby(otherHost, 'Listed lobby', 'listed')
+
+      expect(lobbyService.getListedSummaries().map(l => l.name)).toEqual(['Listed lobby'])
+    })
   })
 
   describe('join', () => {
     test('joining an unknown lobby id rejects with a NoLobby code', async () => {
-      await expect(
-        lobbyService.joinLobby({
-          id: makeSbLobbyId('nonexistent-lobby'),
-          user: userFor(joiner),
-          client: clientFor(joiner),
-        }),
-      ).rejects.toMatchObject({
+      await expect(joinLobby(joiner, 'nonexistent-lobby' as SbLobbyId)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.NoLobby,
       })
     })
 
     test('joining a full lobby rejects with a LobbyFull code', async () => {
-      const { id } = await lobbyService.createLobby({
-        name: 'Full lobby',
-        map: BIG_GAME_HUNTERS.id,
-        gameType: GameType.OneVsOne,
-        visibility: 'listed',
-        user: userFor(host),
-        client: clientFor(host),
-      })
+      const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
       // 1v1 lobbies only have 2 slots, and the host already occupies one.
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
-      await expect(
-        lobbyService.joinLobby({ id, user: userFor(otherHost), client: clientFor(otherHost) }),
-      ).rejects.toMatchObject({
+      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.LobbyFull,
       })
     })
@@ -363,9 +349,7 @@ describe('lobbies/lobby-service', () => {
       // Hosting a lobby registers the host as being in a gameplay activity.
       await createLobby(host, 'Own lobby', 'listed')
 
-      await expect(
-        lobbyService.joinLobby({ id, user: userFor(host), client: clientFor(host) }),
-      ).rejects.toMatchObject({
+      await expect(joinLobby(host, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.JoinAlreadyInActivity,
       })
     })
@@ -373,53 +357,78 @@ describe('lobbies/lobby-service', () => {
     test('joining a lobby during its countdown rejects with a JoinAlreadyStarted code', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       // A countdown requires 2 opposing sides.
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
       // Keeps the countdown from ever elapsing, so the test doesn't leave a game load in flight.
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: clientFor(host) }).catch(() => {})
+      lobbyService.startCountdown({ client: host.client })
 
-      // The client renders a counting-down/loading lobby as a whole separate screen, so this gets
-      // its own code rather than sharing one with the ordinary join failures above.
-      await expect(
-        lobbyService.joinLobby({ id, user: userFor(otherHost), client: clientFor(otherHost) }),
-      ).rejects.toMatchObject({
+      // The client renders a counting-down/loading lobby as a whole separate screen, distinct from
+      // the ordinary join-error codes covered above.
+      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.JoinAlreadyStarted,
       })
     })
 
     test('joining a lobby the user was banned from rejects with a Banned code', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
       const lobby = lobbyService.lobbies.get(id)!
       const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
-      lobbyService.banPlayer({ client: clientFor(host), slotId: joinerSlot!.id })
+      lobbyService.banPlayer({ client: host.client, slotId: joinerSlot!.id })
 
-      await expect(
-        lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) }),
-      ).rejects.toMatchObject({
+      await expect(joinLobby(joiner, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.Banned,
       })
     })
   })
 
+  describe('lobby id assertion', () => {
+    test('an operation naming a different lobby than the client is in is rejected', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+
+      expect(() =>
+        lobbyService.kickPlayer({
+          client: host.client,
+          lobbyId: 'some-other-lobby' as SbLobbyId,
+          slotId: joinerSlot!.id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.NotInLobby }))
+
+      // The operation must not have gone through against the lobby the client is actually in.
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+    })
+
+    test('an operation naming the lobby the client is in is allowed', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+
+      lobbyService.kickPlayer({
+        client: host.client,
+        lobbyId: id,
+        slotId: joinerSlot!.id,
+      })
+
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+    })
+  })
+
   describe('closeSlot', () => {
     test('closing an occupied observer slot kicks the occupant and leaves the slot closed', async () => {
-      const { id } = await lobbyService.createLobby({
-        name: 'Obs lobby',
-        map: BIG_GAME_HUNTERS.id,
-        gameType: GameType.Melee,
-        visibility: 'listed',
-        allowObservers: true,
-        user: userFor(host),
-        client: clientFor(host),
-      })
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true)
+      await joinLobby(joiner, id)
 
       let lobby = lobbyService.lobbies.get(id)!
       const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
-      lobbyService.makeObserver({ client: clientFor(host), slotId: joinerSlot!.id })
+      lobbyService.makeObserver({ client: host.client, slotId: joinerSlot!.id })
 
       lobby = lobbyService.lobbies.get(id)!
       const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
@@ -428,7 +437,7 @@ describe('lobbies/lobby-service', () => {
 
       // Closing an occupied slot kicks the occupant and then closes whatever their removal left
       // behind, in one request
-      lobbyService.closeSlot({ client: clientFor(host), slotId: obsSlot.id })
+      lobbyService.closeSlot({ client: host.client, slotId: obsSlot.id })
 
       lobby = lobbyService.lobbies.get(id)!
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
@@ -439,12 +448,12 @@ describe('lobbies/lobby-service', () => {
   describe('summaries', () => {
     test('a counting-down lobby is reported as gone by the summary getter', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
       // It can no longer be joined, so the unauthenticated summary endpoint and page-metadata
       // resolver must treat it the same as a lobby that doesn't exist at all.
       vi.useFakeTimers()
-      lobbyService.startCountdown({ client: clientFor(host) }).catch(() => {})
+      lobbyService.startCountdown({ client: host.client })
 
       expect(getLobbySummary(id)).toBeUndefined()
     })
@@ -452,16 +461,15 @@ describe('lobbies/lobby-service', () => {
 
   describe('game config', () => {
     /** Runs the countdown started by `startCountdown` to completion, letting the game load begin. */
-    async function runCountdown(client: InspectableNydusClient) {
+    async function runCountdown(sockets: Sockets) {
       vi.useFakeTimers()
-      const countdown = lobbyService.startCountdown({ client: clientFor(client) })
+      lobbyService.startCountdown({ client: sockets.client })
       await vi.advanceTimersByTimeAsync(5000)
-      await countdown
     }
 
     test('records visibility and an empty observers list for a listed lobby with no observers', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
+      await joinLobby(joiner, id)
 
       await runCountdown(host)
 
@@ -474,7 +482,7 @@ describe('lobbies/lobby-service', () => {
 
     test('records visibility for an unlisted lobby', async () => {
       const { id } = await createLobby(otherHost, 'Unlisted lobby', 'unlisted')
-      await lobbyService.joinLobby({ id, user: userFor(lister), client: clientFor(lister) })
+      await joinLobby(lister, id)
 
       await runCountdown(otherHost)
 
@@ -486,12 +494,12 @@ describe('lobbies/lobby-service', () => {
 
     test('records seated observers in the observers list', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
-      await lobbyService.joinLobby({ id, user: userFor(joiner), client: clientFor(joiner) })
-      await lobbyService.joinLobby({ id, user: userFor(lister), client: clientFor(lister) })
+      await joinLobby(joiner, id)
+      await joinLobby(lister, id)
 
       const lobby = lobbyService.lobbies.get(id)!
       const [, , listerSlot] = findSlotByUserId(lobby, LISTER_USER.id)
-      lobbyService.makeObserver({ client: clientFor(host), slotId: listerSlot!.id })
+      lobbyService.makeObserver({ client: host.client, slotId: listerSlot!.id })
 
       await runCountdown(host)
 

@@ -44,6 +44,7 @@ export function useJoinLobbyAction(): (lobbyId: SbLobbyId, options?: { name?: st
     healthChecked(() => {
       dispatch(
         joinLobby(lobbyId, {
+          onSuccess: () => {},
           onError: (err: unknown) => {
             snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
           },

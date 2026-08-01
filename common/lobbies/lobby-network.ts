@@ -1,14 +1,16 @@
 import { BasicChannelInfo } from '../chat'
+import { GameServerRegionId } from '../game-server-regions'
 import { GameType } from '../games/game-type'
 import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
+import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
-import { LobbyVisibility } from './index'
+import { LobbyState, LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
 
 /**
- * Machine-readable codes attached to the error body of failed `/lobbies/create` invokes, so the
+ * Machine-readable codes attached to the error body of failed lobby creation requests, so the
  * client can distinguish failures worth explaining specifically.
  */
 export enum LobbyCreateErrorCode {
@@ -16,8 +18,8 @@ export enum LobbyCreateErrorCode {
 }
 
 /**
- * Machine-readable codes attached to the error body of failed `/lobbies/join` invokes, so the
- * client can distinguish failures worth explaining specifically.
+ * Machine-readable codes attached to the error body of failed lobby join requests, so the client
+ * can distinguish failures worth explaining specifically.
  */
 export enum LobbyJoinErrorCode {
   NoLongerOpen = 'noLongerOpen',
@@ -25,6 +27,67 @@ export enum LobbyJoinErrorCode {
   Banned = 'banned',
   AlreadyStarted = 'alreadyStarted',
   AlreadyInActivity = 'alreadyInActivity',
+}
+
+/**
+ * The parts of a lobby request that identify the acting client session. Lobby membership is tracked
+ * per client (not per user), so every mutating request has to say which of the user's clients it is
+ * coming from.
+ */
+export interface LobbyClientRequest {
+  clientId: string
+}
+
+/**
+ * A lobby occupant's netcode inputs, reported when they create or join a lobby: the home region
+ * they chose (and the round-trip time they measured to it) plus their per-session netcode v2 public
+ * key. All optional — a client with nothing measured, or one that can't reach the app, reports
+ * none, and its slot is placed region-blind.
+ */
+export interface LobbyNetworkParams {
+  region?: GameServerRegionId
+  rttMs?: number
+  clientPubkey?: string
+}
+
+/** The body of a request to create a new lobby. */
+export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {
+  name: string
+  map: SbMapId
+  gameType: GameType
+  gameSubType?: number
+  allowObservers?: boolean
+  useLegacyLimits?: boolean
+  visibility?: LobbyVisibility
+}
+
+/** The response to a successful lobby creation, carrying the new lobby's id. */
+export interface CreateLobbyResponse {
+  id: SbLobbyId
+}
+
+/** The body of a request to join an existing lobby. */
+export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {}
+
+/** The body of a request to send a chat message to a lobby. */
+export interface SendLobbyChatRequest extends LobbyClientRequest {
+  text: string
+}
+
+/** The body of a request that acts on a single slot of a lobby. */
+export interface LobbySlotRequest extends LobbyClientRequest {
+  slotId: string
+}
+
+/** The body of a request to set the race of a single slot of a lobby. */
+export interface SetLobbyRaceRequest extends LobbySlotRequest {
+  race: RaceChar
+}
+
+/** The response describing whether a lobby exists, and whether it can still be joined. */
+export interface GetLobbyStateResponse {
+  lobbyId: SbLobbyId
+  lobbyState: LobbyState
 }
 
 export type LobbyEvent =

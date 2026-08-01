@@ -1,6 +1,14 @@
 import { TFunction } from 'i18next'
-import { InvokeError } from 'nydus-client'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
+import { isFetchError } from '../network/fetch-errors'
+
+/**
+ * Returns the machine-readable code a failed lobby join carried, or undefined for a failure the
+ * server didn't classify (a network error, a bug, an unexpected status).
+ */
+export function lobbyJoinErrorCode(err: unknown): LobbyJoinErrorCode | undefined {
+  return isFetchError(err) ? (err.code as LobbyJoinErrorCode | undefined) : undefined
+}
 
 /**
  * Returns the user-facing message for a failed lobby join. Shared by every UI that dispatches
@@ -8,8 +16,7 @@ import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
  * loaded callers (e.g. the lobby list) don't pull the code-split lobby view into their chunk.
  */
 export function lobbyJoinErrorMessage(err: unknown, t: TFunction): string {
-  const code = err instanceof InvokeError ? err.body?.code : undefined
-  switch (code) {
+  switch (lobbyJoinErrorCode(err)) {
     case LobbyJoinErrorCode.NoLongerOpen:
       return t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')
     case LobbyJoinErrorCode.Full:
