@@ -171,7 +171,10 @@ const lobbyHandlers = {
     draft.info = castDraft(action.payload.lobby)
     // Present when joining a lobby that's already `inGame` (e.g. taking a bench seat mid-game).
     draft.runState = action.payload.runState
-      ? { ...action.payload.runState, startedAt: performance.now() }
+      ? {
+          ...action.payload.runState,
+          startedAt: performance.now() - action.payload.runState.elapsedMs,
+        }
       : undefined
     draft.loadingState = EMPTY_LOADING_STATE
     pushChat(draft, {
@@ -320,7 +323,11 @@ const lobbyHandlers = {
 
     // Unlike the other lifecycle transitions above, the lobby survives its own game: its info is
     // left as-is, and `runState` tracks the game until it regroups.
-    draft.runState = { ...action.payload.runState, startedAt: performance.now() }
+    draft.runState = {
+      ...action.payload.runState,
+      // Anchored against the carried elapsed time, so someone arriving mid-game reads it right.
+      startedAt: performance.now() - action.payload.runState.elapsedMs,
+    }
     draft.loadingState = EMPTY_LOADING_STATE
     pushChat(draft, {
       id: nanoid(),

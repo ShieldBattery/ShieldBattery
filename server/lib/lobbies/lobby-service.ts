@@ -310,7 +310,11 @@ export class LobbyService {
   private _runStateJson(lobbyId: SbLobbyId): LobbyRunStateJson | undefined {
     const runState = this.runStates.get(lobbyId)
     return runState
-      ? { gameId: runState.gameId, inGameUsers: [...runState.inGameUsers] }
+      ? {
+          gameId: runState.gameId,
+          inGameUsers: [...runState.inGameUsers],
+          elapsedMs: Date.now() - runState.startedAt,
+        }
       : undefined
   }
 
