@@ -163,6 +163,12 @@ export interface LobbyUpdateGameStarted {
   type: '@lobbies/updateGameStarted'
   payload: {
     runState: LobbyRunStateJson
+    /**
+     * Whether we hold a slot in the game that started. Benched members get this event too, but no
+     * game launches locally for them, so only a participant's client has a game whose own
+     * lifecycle will eventually clear the active-game state again.
+     */
+    isParticipant: boolean
   }
 }
 
