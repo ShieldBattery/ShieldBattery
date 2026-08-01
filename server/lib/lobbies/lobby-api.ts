@@ -13,8 +13,10 @@ import {
   LobbyCreateErrorCode,
   LobbyJoinErrorCode,
   LobbySlotRequest,
+  MoveSlotRequest,
   SendLobbyChatRequest,
   SetLobbyRaceRequest,
+  UpdateLobbySettingsRequest,
 } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { isPrettyId } from '../../../common/pretty-id'
@@ -112,6 +114,29 @@ const lobbyClientBody = Joi.object<LobbyClientRequest>({
 const lobbySlotBody = Joi.object<LobbySlotRequest>({
   clientId: clientIdSchema,
   slotId: Joi.string().required(),
+})
+
+/**
+ * The body of a settings change. Every setting is optional (the host changes one at a time from the
+ * lobby's settings dialog), but a request that names none of them has nothing to do, so at least one
+ * is required. The service is what decides whether the combination is actually valid for the map.
+ */
+const updateLobbySettingsBody = Joi.object<UpdateLobbySettingsRequest>({
+  clientId: clientIdSchema,
+  map: Joi.string(),
+  gameType: Joi.string().valid(...ALL_GAME_TYPES),
+  gameSubType: Joi.number().min(1).max(7),
+  allowObservers: Joi.boolean(),
+  useLegacyLimits: Joi.boolean(),
+})
+  .or('map', 'gameType', 'gameSubType', 'allowObservers', 'useLegacyLimits')
+  .required()
+
+/** The body of a request to move a slot's occupant somewhere else. */
+const moveSlotBody = Joi.object<MoveSlotRequest>({
+  clientId: clientIdSchema,
+  fromSlotId: Joi.string().required(),
+  toSlotId: Joi.string().required(),
 })
 
 /**
@@ -296,6 +321,40 @@ export class LobbyApi {
     const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
     await this.lobbyService.sendChat({ client, lobbyId: params.lobbyId, text: body.text })
+  }
+
+  @httpPost('/:lobbyId/settings')
+  @httpBefore(...authedAction)
+  async updateSettings(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, {
+      params: lobbyIdParams,
+      body: updateLobbySettingsBody,
+    })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    await this.lobbyService.updateSettings({
+      client,
+      lobbyId: params.lobbyId,
+      map: body.map,
+      gameType: body.gameType,
+      gameSubType: body.gameSubType,
+      allowObservers: body.allowObservers,
+      useLegacyLimits: body.useLegacyLimits,
+    })
+  }
+
+  @httpPost('/:lobbyId/move-slot')
+  @httpBefore(...authedAction)
+  async moveSlot(ctx: RouterContext): Promise<void> {
+    const { params, body } = validateRequest(ctx, { params: lobbyIdParams, body: moveSlotBody })
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
+
+    this.lobbyService.moveSlot({
+      client,
+      lobbyId: params.lobbyId,
+      fromSlotId: body.fromSlotId,
+      toSlotId: body.toSlotId,
+    })
   }
 
   @httpPost('/:lobbyId/add-computer')

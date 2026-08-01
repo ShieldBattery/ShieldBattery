@@ -8,6 +8,7 @@ import {
   findSlotByUserId,
   getObserverTeam,
   getPlayerInfos,
+  hasObservers,
   hasOpposingSides,
   humanSlotCount,
   Lobby,
@@ -21,15 +22,20 @@ import { RaceChar } from '../../../common/races'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import {
   addPlayer,
+  addToBench,
+  applySettingsChange,
   closeSlot,
   createLobby,
   findAvailableSlot,
+  LobbySettings,
   makeObserver,
   movePlayerToSlot,
   openSlot,
   removeObserver,
   removePlayer,
+  seatBenchedUser,
   setRace,
+  swapSlots,
   toSummaryJson,
 } from './lobby'
 
@@ -1709,5 +1715,470 @@ describe('Lobbies - observers', () => {
     const observers = lobby.teams[4]
     expect(observers.slots).toHaveLength(MAX_OBSERVERS)
     expect(observers.hiddenSlots).toHaveLength(0)
+  })
+})
+
+/** A second map the same size as `BigGameHunters`, for map changes that keep the layout. */
+const FIGHTING_SPIRIT: MapInfo = {
+  ...BigGameHunters,
+  id: makeSbMapId('fighting-spirit'),
+  hash: 'f16h71n6',
+  name: 'Fighting Spirit',
+  mapData: { ...BigGameHunters.mapData, originalName: 'Fighting Spirit' },
+}
+
+/** A smaller map, for settings changes that shrink or grow the number of player slots. */
+const LOST_TEMPLE: MapInfo = {
+  ...BigGameHunters,
+  id: makeSbMapId('lost-temple'),
+  hash: '10577e3b',
+  name: 'Lost Temple',
+  mapData: { ...BigGameHunters.mapData, originalName: 'Lost Temple', slots: 4, umsSlots: 4 },
+}
+
+/** The settings a lobby currently has, with the ones a test is changing applied on top. */
+function settingsFor(lobby: Lobby, changes: Partial<LobbySettings> = {}): LobbySettings {
+  return {
+    map: lobby.map!,
+    gameType: lobby.gameType,
+    gameSubType: lobby.gameSubType,
+    numSlots: slotCount(lobby),
+    allowObservers: hasObservers(lobby),
+    useLegacyLimits: lobby.useLegacyLimits,
+    ...changes,
+  }
+}
+
+/**
+ * Creates a human slot with an explicit join time, so that tests can be specific about the order
+ * members are reconciled in.
+ */
+function humanAt(userId: number, race: RaceChar, joinedAt: number): Slot {
+  return { ...createHuman(makeSbUserId(userId), race), joinedAt }
+}
+
+/** Seats `count` humans into the next available slots, joining a second apart. */
+function addHumans(lobby: Lobby, count: number, race: RaceChar = 'z'): Lobby {
+  let updated = lobby
+  for (let i = 1; i <= count; i++) {
+    const [teamIndex, slotIndex] = findAvailableSlot(updated)
+    updated = addPlayer(updated, teamIndex!, slotIndex!, humanAt(i, race, i * 1000))
+  }
+  return updated
+}
+
+describe('Lobbies - settings changes', () => {
+  test('should keep every slot as it is when the layout is unaffected', () => {
+    const lobby = addHumans(BOXER_LOBBY, 2)
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { useLegacyLimits: true }))
+
+    expect(updated.useLegacyLimits).toBe(true)
+    expect(updated.teams).toBe(lobby.teams)
+    expect(updated.host).toBe(lobby.host)
+  })
+
+  test('should keep every slot as it is when swapping to a map with the same team sizes', () => {
+    const lobby = addHumans(BOXER_LOBBY, 2)
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { map: FIGHTING_SPIRIT }))
+
+    expect(updated.map).toBe(FIGHTING_SPIRIT)
+    expect(updated.teams).toBe(lobby.teams)
+    expect(updated.teams[0].slots[0]).toBe(lobby.teams[0].slots[0])
+    expect(updated.teams[0].slots[1]).toBe(lobby.teams[0].slots[1])
+    expect(updated.host).toBe(lobby.host)
+    expect(updated.bench).toBe(lobby.bench)
+  })
+
+  test('should send the players a shrink leaves over to the observer team, closed slots first', () => {
+    let lobby = createLobby({
+      name: 'Shrinking',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addHumans(lobby, 5)
+    // A slot the host opened for joiners should still be available to them afterwards
+    lobby = openSlot(lobby, 1, 0)
+    const displaced = [lobby.teams[0].slots[4], lobby.teams[0].slots[5]]
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { map: LOST_TEMPLE, numSlots: 4 }),
+    )
+
+    const players = updated.teams[0]
+    const observers = updated.teams[1]
+    expect(players.slots).toHaveLength(4)
+    expect(players.slots.map(s => s.userId)).toEqual([
+      HOST_USER_ID,
+      makeSbUserId(1),
+      makeSbUserId(2),
+      makeSbUserId(3),
+    ])
+    expect(observers.slots[0].type).toBe('open')
+    expect(observers.slots[1].type).toBe('observer')
+    expect(observers.slots[1].userId).toBe(makeSbUserId(4))
+    expect(observers.slots[2].type).toBe('observer')
+    expect(observers.slots[2].userId).toBe(makeSbUserId(5))
+    expect(observers.slots[3].type).toBe('closed')
+    // Keeping their slot ids is what makes this a move rather than a leave and a join
+    expect(observers.slots[1].id).toBe(displaced[0].id)
+    expect(observers.slots[2].id).toBe(displaced[1].id)
+    expect(updated.bench).toHaveLength(0)
+  })
+
+  test('should bench the players a shrink leaves over when there is no observer team', () => {
+    let lobby = createLobby({
+      name: 'Shrinking',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 5, 'p')
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { map: LOST_TEMPLE, numSlots: 4 }),
+    )
+
+    expect(updated.teams).toHaveLength(1)
+    // The host is seated first, however long everyone else has been waiting
+    expect(updated.teams[0].slots[0].userId).toBe(HOST_USER_ID)
+    expect(updated.host).toBe(updated.teams[0].slots[0])
+    expect(updated.bench).toEqual([
+      { userId: makeSbUserId(4), race: 'p', joinedAt: 4000, region: undefined },
+      { userId: makeSbUserId(5), race: 'p', joinedAt: 5000, region: undefined },
+    ])
+  })
+
+  test('should seat the observers that turning observers off displaces', () => {
+    let lobby = createLobby({
+      name: 'No more observing',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addHumans(lobby, 1)
+    lobby = makeObserver(lobby, 0, 1)
+    const observerSlot = lobby.teams[1].slots[0]
+    expect(observerSlot.type).toBe('observer')
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))
+
+    expect(updated.teams).toHaveLength(1)
+    const seated = updated.teams[0].slots[1]
+    expect(seated.type).toBe('human')
+    expect(seated.userId).toBe(makeSbUserId(1))
+    expect(seated.id).toBe(observerSlot.id)
+  })
+
+  test('should leave the player slots alone when observers are turned on', () => {
+    let lobby = addHumans(BOXER_LOBBY, 1)
+    lobby = closeSlot(lobby, 0, 3)
+    const players = lobby.teams[0]
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: true }))
+
+    expect(updated.teams).toHaveLength(2)
+    expect(updated.teams[0]).toBe(players)
+    expect(updated.teams[1].slots).toHaveLength(MAX_OBSERVERS)
+    expect(updated.teams[1].slots.every(s => s.type === 'closed')).toBe(true)
+    expect(updated.host).toBe(lobby.host)
+  })
+
+  test('should bench an observer that turning observers off has no seat for', () => {
+    let lobby = createLobby({
+      name: 'No room to sit',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addHumans(lobby, 3)
+    lobby = makeObserver(lobby, 0, 3)
+    lobby = addPlayer(lobby, 0, 3, humanAt(4, 'z', 4000))
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))
+
+    expect(updated.teams).toHaveLength(1)
+    expect(updated.bench).toEqual([
+      { userId: makeSbUserId(3), race: 'z', joinedAt: 3000, region: undefined },
+    ])
+  })
+
+  test('should seat the members waiting on the bench when the layout grows', () => {
+    let lobby = createLobby({
+      name: 'Growing',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 2,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+    lobby = addToBench(lobby, { userId: makeSbUserId(2), race: 'p', joinedAt: 2000 })
+    lobby = addToBench(lobby, { userId: makeSbUserId(3), race: 't', joinedAt: 3000 })
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { map: LOST_TEMPLE, numSlots: 4 }),
+    )
+
+    expect(updated.bench).toHaveLength(0)
+    const slots = updated.teams[0].slots
+    expect(slots.map(s => s.userId)).toEqual([
+      HOST_USER_ID,
+      makeSbUserId(1),
+      makeSbUserId(2),
+      makeSbUserId(3),
+    ])
+    // They take a seat with the race and seniority they were waiting with
+    expect(slots[2].race).toBe('p')
+    expect(slots[2].joinedAt).toBe(2000)
+    expect(slots[3].race).toBe('t')
+  })
+
+  test('should redistribute the players across the teams a new sub-type describes', () => {
+    let lobby = createLobby({
+      name: 'Rebalancing',
+      map: BigGameHunters,
+      gameType: GameType.TopVsBottom,
+      gameSubType: 2,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 3)
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { gameSubType: 4 }))
+
+    expect(updated.teams[0].slots).toHaveLength(4)
+    expect(updated.teams[1].slots).toHaveLength(4)
+    expect(updated.gameSubType).toBe(4)
+    expect(updated.teams[0].slots.filter(s => s.type === 'human')).toHaveLength(2)
+    expect(updated.teams[1].slots.filter(s => s.type === 'human')).toHaveLength(2)
+    expect(hasOpposingSides(updated)).toBe(true)
+    expect(updated.bench).toHaveLength(0)
+  })
+
+  test('should pour the players into the slots a UMS map defines', () => {
+    let lobby = createLobby({
+      name: 'Off to UMS',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'p',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1, 't')
+    const hostSlotId = lobby.host.id
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, {
+        map: UMS_MAP_1,
+        gameType: GameType.UseMapSettings,
+        gameSubType: 0,
+        numSlots: 8,
+      }),
+    )
+
+    expect(updated.teams).toHaveLength(3)
+    // The map's forced races and player ids win over the races the players brought with them
+    evaluateUmsSlot(updated.teams[0].slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(updated.teams[0].slots[1], 'human', makeSbUserId(1), 'z', true, 1)
+    expect(updated.teams[0].slots[0].id).toBe(hostSlotId)
+    expect(updated.teams[1].slots[0].type).toBe('umsComputer')
+    expect(updated.teams[2].slots[0].type).toBe('umsComputer')
+  })
+
+  test('should drop the computers a smaller layout has no room for', () => {
+    let lobby = createLobby({
+      name: 'Comp stomp',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+    for (let i = 2; i < 8; i++) {
+      lobby = addPlayer(lobby, 0, i, createComputer('t'))
+    }
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { map: LOST_TEMPLE, numSlots: 4 }),
+    )
+
+    const slots = updated.teams[0].slots
+    expect(slots.filter(s => s.type === 'human')).toHaveLength(2)
+    const computers = slots.filter(s => s.type === 'computer')
+    expect(computers).toHaveLength(2)
+    expect(computers.every(s => s.race === 't')).toBe(true)
+  })
+
+  test('should give a member the slot they were waiting for', () => {
+    let lobby = createLobby({
+      name: 'Waiting room',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addToBench(lobby, {
+      userId: makeSbUserId(1),
+      race: 'z',
+      joinedAt: 1000,
+      region: makeGameServerRegionId('us-east'),
+    })
+
+    const updated = seatBenchedUser(lobby, makeSbUserId(1), 0, 2)
+
+    expect(updated.bench).toHaveLength(0)
+    const seated = updated.teams[0].slots[2]
+    expect(seated.type).toBe('human')
+    expect(seated.userId).toBe(makeSbUserId(1))
+    expect(seated.race).toBe('z')
+    expect(seated.joinedAt).toBe(1000)
+    expect(seated.region).toBe(makeGameServerRegionId('us-east'))
+  })
+
+  test('should keep a lobby whose last seated member leaves but has someone on the bench', () => {
+    let lobby = createLobby({
+      name: 'Handover',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 1,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addToBench(lobby, { userId: makeSbUserId(1), race: 'z', joinedAt: 1000 })
+
+    const updated = removePlayer(lobby, 0, 0, lobby.host)
+
+    expect(updated).toBeDefined()
+    expect(updated!.bench).toHaveLength(1)
+    expect(updated!.teams[0].slots[0].type).toBe('open')
+  })
+})
+
+describe('Lobbies - swapping slots', () => {
+  test('should exchange two players in a lobby with no room to move', () => {
+    let lobby = createLobby({
+      name: 'Full up',
+      map: BigGameHunters,
+      gameType: GameType.OneVsOne,
+      gameSubType: 0,
+      numSlots: 2,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+    const host = lobby.teams[0].slots[0]
+    const other = lobby.teams[0].slots[1]
+
+    const updated = swapSlots(lobby, 0, 0, 0, 1)
+
+    expect(updated.teams[0].slots[0]).toBe(other)
+    expect(updated.teams[0].slots[1]).toBe(host)
+    expect(updated.host).toBe(updated.teams[0].slots[1])
+  })
+
+  test('should retype both occupants when a swap crosses the observer team', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    lobby = addHumans(lobby, 1)
+    lobby = makeObserver(lobby, 0, 1)
+    expect(lobby.teams[1].slots[0].type).toBe('observer')
+
+    const updated = swapSlots(lobby, 0, 0, 1, 0)
+
+    const seated = updated.teams[0].slots[0]
+    const observing = updated.teams[1].slots[0]
+    expect(seated.type).toBe('human')
+    expect(seated.userId).toBe(makeSbUserId(1))
+    expect(observing.type).toBe('observer')
+    expect(observing.userId).toBe(HOST_USER_ID)
+    expect(updated.host).toBe(observing)
+  })
+
+  test('should exchange the map data of two UMS slots', () => {
+    let lobby = UMS_LOBBY_3
+    lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'p', true, 2))
+
+    const updated = swapSlots(lobby, 0, 0, 1, 0)
+
+    // The host moves into a slot the map forces a race on, and the other player out of one
+    evaluateUmsSlot(updated.teams[1].slots[0], 'human', HOST_USER_ID, 'p', true, 2)
+    evaluateUmsSlot(updated.teams[0].slots[0], 'human', makeSbUserId(1), 'p', false, 0)
+    expect(updated.host).toBe(updated.teams[1].slots[0])
+  })
+
+  test('should refuse to swap a computer into the observer team', () => {
+    let lobby = BOXER_LOBBY_WITH_OBSERVERS
+    lobby = addHumans(lobby, 1)
+    lobby = makeObserver(lobby, 0, 1)
+    lobby = addPlayer(lobby, 0, 1, createComputer('t'))
+
+    expect(() => swapSlots(lobby, 0, 1, 1, 0)).toThrow()
+  })
+
+  test('should refuse to swap an unoccupied slot', () => {
+    const lobby = addHumans(BOXER_LOBBY, 1)
+
+    expect(() => swapSlots(lobby, 0, 0, 0, 2)).toThrow()
+  })
+
+  test('should hand a team melee team over to the player swapped into it', () => {
+    let lobby = TEAM_MELEE_2
+    lobby = addPlayer(lobby, 1, 0, humanAt(1, 'z', 1000))
+    const host = lobby.teams[0].slots[0]
+    const other = lobby.teams[1].slots[0]
+
+    const updated = swapSlots(lobby, 0, 0, 1, 0)
+
+    expect(updated.teams[0].slots[0]).toBe(other)
+    expect(updated.teams[1].slots[0]).toBe(host)
+    // The slots each team's departing player controlled follow along to whoever replaced them
+    expect(updated.teams[0].slots.slice(1).every(s => s.controlledBy === other.id)).toBe(true)
+    expect(updated.teams[1].slots.slice(1).every(s => s.controlledBy === host.id)).toBe(true)
+    expect(updated.host).toBe(updated.teams[1].slots[0])
+  })
+
+  test('should refuse to swap anything but two players in team melee', () => {
+    let lobby = TEAM_MELEE_2
+    lobby = addPlayer(lobby, 1, 0, createComputer('t'))
+
+    expect(() => swapSlots(lobby, 0, 0, 1, 0)).toThrow()
   })
 })
