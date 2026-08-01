@@ -392,7 +392,10 @@ describe('client/lobbies/lobby-reducer', () => {
 
     state = lobbyReducer(state, {
       type: '@lobbies/updateGameStarted',
-      payload: { runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] } },
+      payload: {
+        runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] },
+        isParticipant: true,
+      },
     })
 
     expect(state.info).toBe(LOBBY)
@@ -409,7 +412,7 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(() => {
       state = lobbyReducer(state, {
         type: '@lobbies/updateGameStarted',
-        payload: { runState: { gameId: 'game-1', inGameUsers: [] } },
+        payload: { runState: { gameId: 'game-1', inGameUsers: [] }, isParticipant: true },
       })
     }).not.toThrow()
 
@@ -422,7 +425,10 @@ describe('client/lobbies/lobby-reducer', () => {
     let state = lobbyReducer(undefined, initAction())
     state = lobbyReducer(state, {
       type: '@lobbies/updateGameStarted',
-      payload: { runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] } },
+      payload: {
+        runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] },
+        isParticipant: true,
+      },
     })
 
     state = lobbyReducer(state, {
@@ -440,7 +446,7 @@ describe('client/lobbies/lobby-reducer', () => {
     let state = lobbyReducer(undefined, initAction())
     state = lobbyReducer(state, {
       type: '@lobbies/updateGameStarted',
-      payload: { runState: { gameId: 'game-1', inGameUsers: [] } },
+      payload: { runState: { gameId: 'game-1', inGameUsers: [] }, isParticipant: true },
     })
 
     state = lobbyReducer(state, {

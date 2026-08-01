@@ -119,12 +119,13 @@ export default function ({
         jotaiStore.set(lastGameAtom, { id: status.id })
       }
 
-      if (status.state === 'playing' || status.state === 'error') {
+      if (status.state === 'playing' || status.state === 'error' || status.state === 'finished') {
         let done = false
         let retries = 0
 
-        // NOTE(tec27): Because these states are terminal, we don't need to worry about further
-        // game states coming in that would need to abort these ones. If that ever changes, we'd
+        // NOTE(tec27): Because these states are terminal (playing is terminal for the loading
+        // phase this reports on; finished/error for the game itself), we don't need to worry
+        // about further game states coming in that would need to abort these ones. If that ever changes, we'd
         // probably need a Map of game id -> abort controller or something
         const doFetch = () => {
           fetchJson(apiUrl`games/${status.id}/status`, {
