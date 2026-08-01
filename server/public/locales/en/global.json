@@ -1026,7 +1026,8 @@
       "programFolder": "Program folder",
       "title": "Local Maps",
       "uploadMapError": "An unknown error occurred while uploading the map. Please try again later.",
-      "uploadMapErrorTitle": "Error uploading the map"
+      "uploadMapErrorTitle": "Error uploading the map",
+      "uploadMapNoPlayerSlotsError": "This map has no start locations or usable player slots, so it can never be played. Add start locations to the map and try again."
     },
     "mapSelect": {
       "browseMaps": "Browse maps"

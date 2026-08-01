@@ -7,6 +7,7 @@ import {
   GetFavoritesResponse,
   GetMapsQueryParams,
   GetMapsResponse,
+  MapServiceErrorCode,
   MAX_MAP_FILE_SIZE_BYTES,
   SbMapId,
   UpdateMapResponse,
@@ -60,6 +61,12 @@ export function uploadLocalMap(
             defaultValue: "The map's file size exceeds the maximum allowed size of {{fileSize}}.",
             fileSize: prettyBytes(MAX_MAP_FILE_SIZE_BYTES),
           })
+        } else if (err.code === MapServiceErrorCode.NoPlayerSlots) {
+          message = i18n.t(
+            'maps.local.uploadMapNoPlayerSlotsError',
+            'This map has no start locations or usable player slots, so it can never be ' +
+              'played. Add start locations to the map and try again.',
+          )
         }
       }
 

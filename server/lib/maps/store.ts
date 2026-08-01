@@ -4,8 +4,9 @@ import { buffer } from 'node:stream/consumers'
 import { Duplex, Readable, Writable } from 'stream'
 import Queue from '../../../common/async/promise-queue'
 import { isTestRun } from '../../../common/is-test-run'
-import { MapExtension, MapVisibility } from '../../../common/maps'
+import { MapExtension, MapServiceErrorCode, MapVisibility } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
+import { CodedError } from '../errors/coded-error'
 import { writeFile } from '../files'
 import { addMap } from './map-models'
 import { MapParseData } from './parse-data'
@@ -40,6 +41,8 @@ export async function parseMap(
   return mapQueue.addToQueue(() => mapParseWorker(path, extension))
 }
 
+export class MapServiceError extends CodedError<MapServiceErrorCode> {}
+
 /**
  * Parses information in a map, generates images for it, and stores the resulting files in our
  * remote filestore. Parsed information is recorded in the database.
@@ -52,6 +55,17 @@ export async function storeMap(
 ) {
   const { mapData, image256, image512, image1024, image2048 } = await parseMap(path, extension)
   const { hash } = mapData
+
+  // A map with no start locations and no active force slots can't seat any players in either
+  // melee or UMS games, so it could never be played. Storing it would also make it invisible in
+  // every map listing (the player-count filters have no zero-player bucket), which reads as the
+  // upload silently vanishing.
+  if (mapData.meleePlayers === 0 && mapData.umsPlayers === 0) {
+    throw new MapServiceError(
+      MapServiceErrorCode.NoPlayerSlots,
+      'Map has no start locations or active player slots',
+    )
+  }
 
   const map = await addMap(
     { mapData, extension, uploadedBy, visibility, parserVersion: MAP_PARSER_VERSION },

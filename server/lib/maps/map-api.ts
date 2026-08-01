@@ -1,7 +1,9 @@
 import { RouterContext } from '@koa/router'
 import httpErrors from 'http-errors'
 import Joi from 'joi'
+import Koa from 'koa'
 import { JsonObject, SetRequired } from 'type-fest'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
   ALL_MAP_EXTENSIONS,
   ALL_MAP_SORT_TYPES,
@@ -14,6 +16,7 @@ import {
   GetMapsResponse,
   MAP_LIST_LIMIT,
   MapExtension,
+  MapServiceErrorCode,
   MapSortType,
   MapVisibility,
   MAX_MAP_FILE_SIZE_BYTES,
@@ -22,6 +25,7 @@ import {
   UpdateMapResponse,
   UploadMapResponse,
 } from '../../../common/maps'
+import { asHttpError } from '../errors/error-with-payload'
 import { deleteFiles, getSignedUrl } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { httpApi } from '../http/http-api'
@@ -38,7 +42,7 @@ import {
   updateMapImages,
   veryDangerousDeleteAllMaps,
 } from '../maps/map-models'
-import { storeMap, storeRegeneratedImages } from '../maps/store'
+import { MapServiceError, storeMap, storeRegeneratedImages } from '../maps/store'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
@@ -47,6 +51,27 @@ import { findUserById, findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
 import { mapPath } from './paths'
+
+function convertMapServiceError(err: unknown) {
+  if (!(err instanceof MapServiceError)) {
+    throw err
+  }
+
+  switch (err.code) {
+    case MapServiceErrorCode.NoPlayerSlots:
+      throw asHttpError(400, err)
+    default:
+      assertUnreachable(err.code)
+  }
+}
+
+async function convertMapServiceErrors(ctx: RouterContext, next: Koa.Next) {
+  try {
+    await next()
+  } catch (err) {
+    convertMapServiceError(err)
+  }
+}
 
 const mapsListThrottle = createThrottle('mapslist', {
   rate: 30,
@@ -229,6 +254,7 @@ export class MapsApi {
 
   @httpPost('/official')
   @httpBefore(
+    convertMapServiceErrors,
     ensureLoggedIn,
     checkAllPermissions('manageMaps'),
     handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
@@ -264,6 +290,7 @@ export class MapsApi {
 
   @httpPost('/')
   @httpBefore(
+    convertMapServiceErrors,
     ensureLoggedIn,
     throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user.id)),
     handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),

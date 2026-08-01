@@ -148,6 +148,14 @@ export function mapSortTypeToLabel(sortType: MapSortType, t: TFunction) {
 export { MapVisibility }
 export const ALL_MAP_VISIBILITIES: Readonly<MapVisibility[]> = Object.values(MapVisibility)
 
+export enum MapServiceErrorCode {
+  /**
+   * The map has no usable player slots: no start locations (which melee games seat players by)
+   * and no active player slots in its force data (which UMS games use).
+   */
+  NoPlayerSlots = 'noPlayerSlots',
+}
+
 export type NumPlayers = 2 | 3 | 4 | 5 | 6 | 7 | 8
 
 export type MapExtension = 'scx' | 'scm'
