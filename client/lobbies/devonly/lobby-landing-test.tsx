@@ -28,6 +28,7 @@ export const MOCK_LOBBY_SUMMARY: LobbySummaryResponse = {
     gameSubType: 0,
     host: { id: MOCK_HOST.id },
     openSlotCount: 3,
+  lifecycle: 'gathering',
   },
   host: MOCK_HOST,
 }
