@@ -36,6 +36,7 @@ import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { isInLobby } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -128,7 +129,7 @@ function currentLobbyRequest(
 ): ThunkAction {
   return (_dispatch, getState) => {
     const { lobby } = getState()
-    if (!lobby.inLobby) {
+    if (!isInLobby(lobby)) {
       return
     }
 

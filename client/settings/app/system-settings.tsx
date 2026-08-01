@@ -17,6 +17,7 @@ import {
 import { getRegionDisplayName } from '../../game-server-regions/region-names'
 import { pickAutoRegion } from '../../game-server-regions/region-resolution'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { isInLobby } from '../../lobbies/lobby-reducer'
 import logger from '../../logging/logger'
 import { isMatchmakingAtom, matchLaunchingAtom } from '../../matchmaking/matchmaking-atoms'
 import { IconButton, OutlinedButton } from '../../material/button'
@@ -188,7 +189,7 @@ export function AppSystemSettings() {
   const latencies = useAtomValue(gameServerRegionLatenciesAtom)
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
   const isMatchLaunching = useAtomValue(matchLaunchingAtom)
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
   // The region a game homes on is chosen when queueing/joining, so changing it mid-activity would
   // have no effect on the game about to launch; lock it while the user is in one of those.
   const regionLocked = isMatchmaking || isMatchLaunching || inLobby

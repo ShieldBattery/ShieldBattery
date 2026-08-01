@@ -8,6 +8,7 @@ import { FilledButton } from '../material/button'
 import { isShieldBatteryUrl } from '../navigation/external-link'
 import { useAppSelector } from '../redux-hooks'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
+import { isInLobby } from './lobby-reducer'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useJoinLobbyAction } from './use-join-lobby-action'
 
@@ -200,7 +201,7 @@ export function LobbyInviteCardContent({
  * `useLobbySummary`) since the same lobby link often appears in several rendered messages at once.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
-  const isInThisLobby = useAppSelector(s => s.lobby.inLobby && s.lobby.info.id === lobbyId)
+  const isInThisLobby = useAppSelector(s => isInLobby(s.lobby) && s.lobby.info.id === lobbyId)
 
   if (isInThisLobby) {
     // Someone seated in this lobby needs no invite to it (the common case being its own invite

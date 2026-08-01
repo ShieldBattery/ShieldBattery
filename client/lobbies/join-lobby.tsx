@@ -171,7 +171,7 @@ function LobbyList() {
   const joinLobbyAction = useJoinLobbyAction()
   const { byId, list } = useAppSelector(s => s.lobbyList)
 
-  if (!list.size) {
+  if (!list.length) {
     return (
       <div>
         <BodyLarge>
@@ -184,7 +184,7 @@ function LobbyList() {
   const openLobbies = list.filter(id => (byId.get(id)?.openSlotCount ?? 0) > 0)
   return (
     <div>
-      {!openLobbies.isEmpty() ? (
+      {openLobbies.length ? (
         openLobbies.map(id => (
           <ListEntry
             key={id}

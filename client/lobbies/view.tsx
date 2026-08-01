@@ -40,6 +40,7 @@ import {
 } from './action-creators'
 import LobbyComponent from './lobby'
 import { lobbyJoinErrorCode, lobbyJoinErrorMessage } from './lobby-join-errors'
+import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 
@@ -62,11 +63,11 @@ export interface LobbyViewProps {
 export function LobbyView(props: LobbyViewProps) {
   const dispatch = useAppDispatch()
   const routeLobbyId = makeSbLobbyId(props.params.lobbyId)
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
 
   const lobbyName = useAppSelector(s =>
-    s.lobby.inLobby && s.lobby.info.id === routeLobbyId ? s.lobby.info.name : undefined,
+    isInLobby(s.lobby) && s.lobby.info.id === routeLobbyId ? s.lobby.info.name : undefined,
   )
 
   useCorrectLobbySlug(routeLobbyId, lobbyName)
@@ -138,7 +139,7 @@ export function LobbyView(props: LobbyViewProps) {
 }
 
 function LobbyContent({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
 
   if (!inLobby) {

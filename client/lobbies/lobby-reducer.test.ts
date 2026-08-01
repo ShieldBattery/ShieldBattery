@@ -11,14 +11,15 @@ import {
   LOBBY_UPDATE_RACE_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
-import lobbyReducerImport, { LobbyRecord } from './lobby-reducer'
+import lobbyReducerImport, { isInLobby, LobbyState } from './lobby-reducer'
 
-// `lobby-reducer.js` is untyped JS; give the default export a minimal, honest signature for use
-// in these tests rather than fighting inference on every call site.
+// The lobby actions aren't part of the central `ReduxAction` union yet, so the reducer's exported
+// type is only as specific as `immerKeyedReducer`'s generic signature (`{ type: string }`). Give it
+// a locally honest signature for these tests rather than fighting inference on every call site.
 const lobbyReducer = lobbyReducerImport as (
-  state: LobbyRecord | undefined,
+  state: LobbyState | undefined,
   action: { type: string; payload?: any },
-) => LobbyRecord
+) => LobbyState
 
 const HOST_SLOT: Slot = {
   type: SlotType.Human,
@@ -131,7 +132,7 @@ describe('client/lobbies/lobby-reducer', () => {
     }).not.toThrow()
 
     expect(state.info.name).toBe('')
-    expect(state.inLobby).toBe(false)
+    expect(isInLobby(state)).toBe(false)
   })
 
   test('a raceChange trailing our own leave does not throw and leaves us out of the lobby', () => {
@@ -146,7 +147,7 @@ describe('client/lobbies/lobby-reducer', () => {
     }).not.toThrow()
 
     expect(state.info.name).toBe('')
-    expect(state.inLobby).toBe(false)
+    expect(isInLobby(state)).toBe(false)
   })
 
   test('a hostChange trailing our own ban does not throw and leaves us out of the lobby', () => {
@@ -161,6 +162,6 @@ describe('client/lobbies/lobby-reducer', () => {
     }).not.toThrow()
 
     expect(state.info.name).toBe('')
-    expect(state.inLobby).toBe(false)
+    expect(isInLobby(state)).toBe(false)
   })
 })
