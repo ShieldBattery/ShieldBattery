@@ -433,6 +433,19 @@ function addBonusPoolToDivisionBounds(
   ]
 }
 
+/**
+ * Returns every division with its points bounds at a given bonus pool, in ascending
+ * order. Intended for UI that needs the whole ladder at once (e.g. drawing division
+ * bands behind a points chart) rather than the division a particular value falls in.
+ */
+export function getAllDivisionsWithBounds(
+  solo: boolean,
+  bonusPool: number,
+): Array<Readonly<MatchmakingDivisionWithBounds>> {
+  const divisionsToPoints = solo ? DIVISIONS_TO_POINTS_SOLO : DIVISIONS_TO_POINTS_TEAM
+  return divisionsToPoints.map(b => addBonusPoolToDivisionBounds(b, bonusPool))
+}
+
 /** Converts a given points value into a matching `MatchmakingDivision`. */
 export function pointsToMatchmakingDivision(
   solo: boolean,
