@@ -263,6 +263,13 @@ export class LobbyService {
         logger.error({ err }, 'error handling the end of a game for a lobby member')
       }
     })
+    this.gameLifecycleEvents.on('gameEnded', ({ gameId }) => {
+      try {
+        this._onGameEnded(gameId)
+      } catch (err) {
+        logger.error({ err }, "error handling the end of a lobby's game")
+      }
+    })
   }
 
   /**
@@ -1712,6 +1719,21 @@ export class LobbyService {
     runState.inGameUsers.delete(userId)
     this._publishTo(lobby, { type: 'memberGameEnded', userId })
     this._maybeRegroup(lobbyId)
+  }
+
+  /**
+   * Ends a lobby's game for everyone still marked as in it, for game-over observations that aren't
+   * tied to any one player (the relay session closing, the reconcile sweep) — the only signal a
+   * client that crashed without reporting anything will ever produce.
+   */
+  private _onGameEnded(gameId: string) {
+    for (const [lobbyId, runState] of this.runStates) {
+      if (runState.gameId === gameId) {
+        runState.inGameUsers.clear()
+        this._maybeRegroup(lobbyId)
+        return
+      }
+    }
   }
 
   /**
