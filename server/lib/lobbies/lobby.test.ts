@@ -82,18 +82,18 @@ const BOXER_LOBBY_WITH_OBSERVERS = createLobby({
 })
 
 const evaluateMeleeLobby = (lobby: Lobby, teamSize: number, slotCount = 4) => {
-  expect(lobby.teams).toHaveProperty('size', teamSize)
-  const team = lobby.teams.get(0)!
-  expect(team.slots).toHaveProperty('size', slotCount)
+  expect(lobby.teams).toHaveLength(teamSize)
+  const team = lobby.teams[0]
+  expect(team.slots).toHaveLength(slotCount)
   expect(humanSlotCount(lobby)).toBe(1)
   expect(hasOpposingSides(lobby)).toBe(false)
-  const player = team.slots.get(0)!
+  const player = team.slots[0]
   expect(player.type).toBe('human')
   expect(player.race).toBe('r')
   expect(player).toEqual(lobby.host)
-  expect(team.slots.get(1)!.type).toBe('open')
-  expect(team.slots.get(2)!.type).toBe('open')
-  expect(team.slots.get(3)!.type).toBe('open')
+  expect(team.slots[1].type).toBe('open')
+  expect(team.slots[2].type).toBe('open')
+  expect(team.slots[3].type).toBe('open')
 }
 
 const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
@@ -120,14 +120,14 @@ describe('Lobbies - melee', () => {
 
     let l = BOXER_LOBBY_WITH_OBSERVERS
     evaluateMeleeLobby(l, 2, 6)
-    let observers = l.teams.get(1)!
-    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
+    let observers = l.teams[1]
+    expect(observers.slots).toHaveLength(MAX_OBSERVERS)
     expect(observers.slots.every(s => s.type === 'closed')).toBe(true)
 
     l = openSlot(l, 1, 0)
-    observers = l.teams.get(1)!
-    expect(observers.slots.get(0)!.type).toBe('open')
-    expect(observers.slots.get(1)!.type).toBe('closed')
+    observers = l.teams[1]
+    expect(observers.slots[0].type).toBe('open')
+    expect(observers.slots[1].type).toBe('closed')
   })
 
   test('should support summarized JSON serialization', () => {
@@ -270,7 +270,7 @@ describe('Lobbies - melee', () => {
 
     expect(lobby).not.toEqual(beforeRemoval)
     expect(humanSlotCount(lobby)).toBe(1)
-    expect(lobby.teams.get(t2!)!.slots.get(s2!)!.type).toBe('open')
+    expect(lobby.teams[t2!].slots[s2!].type).toBe('open')
 
     const [t3, s3, host] = findSlotByUserId(lobby, lobby.host.userId!)
     lobby = removePlayer(lobby, t3!, s3!, host!)!
@@ -284,7 +284,7 @@ describe('Lobbies - melee', () => {
 
     lobby = setRace(lobby, t1!, s1!, 'z')
 
-    expect(lobby.teams.get(t1!)!.slots.get(s1!)!.race).toBe('z')
+    expect(lobby.teams[t1!].slots[s1!].race).toBe('z')
   })
 
   test('should support finding players by user id', () => {
@@ -351,22 +351,22 @@ describe('Lobbies - melee', () => {
     lobby = movePlayerToSlot(lobby, t1!, s1!, 0, 3)
 
     expect(humanSlotCount(lobby)).toBe(2)
-    expect(lobby.teams.get(0)!.slots.get(3)).toBe(babo)
-    expect(lobby.teams.get(t1!)!.slots.get(s1!)!.type).toBe('open')
+    expect(lobby.teams[0].slots[3]).toBe(babo)
+    expect(lobby.teams[t1!].slots[s1!].type).toBe('open')
   })
 
   test('should support closing an open slot', () => {
     let lobby = BOXER_LOBBY
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    expect(lobby.teams[0].slots[1].type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('open')
+    expect(lobby.teams[0].slots[3].type).toBe('open')
 
     lobby = closeSlot(lobby, 0, 1)
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('closed')
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    expect(lobby.teams[0].slots[1].type).toBe('closed')
+    expect(lobby.teams[0].slots[2].type).toBe('open')
+    expect(lobby.teams[0].slots[3].type).toBe('open')
 
     expect(() => closeSlot(lobby, 0, 0)).toThrow()
     expect(() => closeSlot(lobby, 0, 1)).toThrow()
@@ -374,22 +374,22 @@ describe('Lobbies - melee', () => {
 
   test('should support opening a closed slot', () => {
     let lobby = BOXER_LOBBY
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    expect(lobby.teams[0].slots[1].type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('open')
+    expect(lobby.teams[0].slots[3].type).toBe('open')
 
     lobby = closeSlot(lobby, 0, 1)
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('closed')
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    expect(lobby.teams[0].slots[1].type).toBe('closed')
+    expect(lobby.teams[0].slots[2].type).toBe('open')
+    expect(lobby.teams[0].slots[3].type).toBe('open')
 
     lobby = openSlot(lobby, 0, 1)
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    expect(lobby.teams[0].slots[1].type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('open')
+    expect(lobby.teams[0].slots[3].type).toBe('open')
 
     expect(() => openSlot(lobby, 0, 0)).toThrow()
     expect(() => openSlot(lobby, 0, 1)).toThrow()
@@ -409,21 +409,21 @@ describe('Lobbies - melee', () => {
 
     lobby = makeObserver(lobby, 0, 0)
 
-    let players = lobby.teams.get(0)!
-    let observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 6)
-    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
-    expect(players.slots.get(0)!.type).toBe('open')
-    expect(observers.slots.get(0)!.type).toBe('observer')
-    expect(observers.slots.get(0)!.userId).toBe(HOST_USER_ID)
-    expect(lobby.host.id).toBe(observers.slots.get(0)!.id)
+    let players = lobby.teams[0]
+    let observers = lobby.teams[1]
+    expect(players.slots).toHaveLength(6)
+    expect(observers.slots).toHaveLength(MAX_OBSERVERS)
+    expect(players.slots[0].type).toBe('open')
+    expect(observers.slots[0].type).toBe('observer')
+    expect(observers.slots[0].userId).toBe(HOST_USER_ID)
+    expect(lobby.host.id).toBe(observers.slots[0].id)
     expect(humanSlotCount(lobby)).toBe(2)
 
     lobby = makeObserver(lobby, 0, 1)
-    players = lobby.teams.get(0)!
-    observers = lobby.teams.get(1)!
-    expect(players.slots.get(1)!.type).toBe('open')
-    expect(observers.slots.get(1)!.userId).toBe(makeSbUserId(1))
+    players = lobby.teams[0]
+    observers = lobby.teams[1]
+    expect(players.slots[1].type).toBe('open')
+    expect(observers.slots[1].userId).toBe(makeSbUserId(1))
     expect(canAddObservers(lobby)).toBe(true)
   })
 
@@ -435,7 +435,7 @@ describe('Lobbies - melee', () => {
     }
 
     expect(canAddObservers(lobby)).toBe(false)
-    expect(lobby.teams.get(1)!.slots.every(s => s.type === 'observer')).toBe(true)
+    expect(lobby.teams[1].slots.every(s => s.type === 'observer')).toBe(true)
     expect(() => makeObserver(lobby, 0, 0)).toThrow()
   })
 
@@ -448,16 +448,16 @@ describe('Lobbies - melee', () => {
     expect(canRemoveObservers(lobby)).toBe(true)
     lobby = removeObserver(lobby, 0)
 
-    const players = lobby.teams.get(0)!
-    const observers = lobby.teams.get(1)!
-    expect(players.slots).toHaveProperty('size', 6)
-    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
+    const players = lobby.teams[0]
+    const observers = lobby.teams[1]
+    expect(players.slots).toHaveLength(6)
+    expect(observers.slots).toHaveLength(MAX_OBSERVERS)
     // The observer slot they came from is left open for the next joiner
-    expect(observers.slots.get(0)!.type).toBe('open')
-    expect(observers.slots.skip(1).every(s => s.type === 'closed')).toBe(true)
-    expect(players.slots.get(0)!.type).toBe('human')
-    expect(players.slots.get(0)!.userId).toBe(HOST_USER_ID)
-    expect(lobby.host.id).toBe(players.slots.get(0)!.id)
+    expect(observers.slots[0].type).toBe('open')
+    expect(observers.slots.slice(1).every(s => s.type === 'closed')).toBe(true)
+    expect(players.slots[0].type).toBe('human')
+    expect(players.slots[0].userId).toBe(HOST_USER_ID)
+    expect(lobby.host.id).toBe(players.slots[0].id)
     expect(humanSlotCount(lobby)).toBe(1)
     expect(canRemoveObservers(lobby)).toBe(false)
   })
@@ -496,25 +496,25 @@ const TEAM_LOBBY = createLobby({
 describe('Lobbies - Top vs bottom', () => {
   test('should create the lobby correctly', () => {
     const l = TEAM_LOBBY
-    expect(l.teams).toHaveProperty('size', 2)
-    const team1 = l.teams.get(0)!
-    expect(team1.slots).toHaveProperty('size', 2)
-    const team2 = l.teams.get(1)!
-    expect(team2.slots).toHaveProperty('size', 6)
+    expect(l.teams).toHaveLength(2)
+    const team1 = l.teams[0]
+    expect(team1.slots).toHaveLength(2)
+    const team2 = l.teams[1]
+    expect(team2.slots).toHaveLength(6)
     expect(humanSlotCount(l)).toBe(1)
     expect(hasOpposingSides(l)).toBe(false)
-    const player = team1.slots.get(0)!
+    const player = team1.slots[0]
     expect(player.type).toBe('human')
     expect(player.userId).toBe(HOST_USER_ID)
     expect(player.race).toBe('r')
     expect(player).toEqual(l.host)
-    expect(team1.slots.get(1)!.type).toBe('open')
-    expect(team2.slots.get(0)!.type).toBe('open')
-    expect(team2.slots.get(1)!.type).toBe('open')
-    expect(team2.slots.get(2)!.type).toBe('open')
-    expect(team2.slots.get(3)!.type).toBe('open')
-    expect(team2.slots.get(4)!.type).toBe('open')
-    expect(team2.slots.get(5)!.type).toBe('open')
+    expect(team1.slots[1].type).toBe('open')
+    expect(team2.slots[0].type).toBe('open')
+    expect(team2.slots[1].type).toBe('open')
+    expect(team2.slots[2].type).toBe('open')
+    expect(team2.slots[3].type).toBe('open')
+    expect(team2.slots[4].type).toBe('open')
+    expect(team2.slots[5].type).toBe('open')
   })
 
   test('should balance teams when adding new players', () => {
@@ -574,8 +574,8 @@ describe('Lobbies - Top vs bottom', () => {
     lobby = movePlayerToSlot(lobby, t1!, s1!, 1, 3)
 
     expect(humanSlotCount(lobby)).toBe(2)
-    expect(lobby.teams.get(1)!.slots.get(3)).toBe(babo)
-    expect(lobby.teams.get(t1!)!.slots.get(s1!)!.type).toBe('open')
+    expect(lobby.teams[1].slots[3]).toBe(babo)
+    expect(lobby.teams[t1!].slots[s1!].type).toBe('open')
   })
 })
 
@@ -619,73 +619,73 @@ const evaluateControlledSlot = (slot: Slot, type: string, race: RaceChar, contro
 describe('Lobbies - Team melee', () => {
   test('should create the lobby correctly', () => {
     const l2 = TEAM_MELEE_2
-    expect(l2.teams).toHaveProperty('size', 2)
-    let team1 = l2.teams.get(0)!
-    expect(team1.slots).toHaveProperty('size', 4)
-    let team2 = l2.teams.get(1)!
-    expect(team2.slots).toHaveProperty('size', 4)
+    expect(l2.teams).toHaveLength(2)
+    let team1 = l2.teams[0]
+    expect(team1.slots).toHaveLength(4)
+    let team2 = l2.teams[1]
+    expect(team2.slots).toHaveLength(4)
     expect(humanSlotCount(l2)).toBe(1)
     expect(hasOpposingSides(l2)).toBe(false)
-    let player = team1.slots.get(0)!
+    let player = team1.slots[0]
     expect(player.type).toBe('human')
     expect(player.userId).toBe(HOST_USER_ID)
     expect(player.race).toBe('r')
     expect(player).toEqual(l2.host)
-    evaluateControlledSlot(team1.slots.get(1)!, 'controlledOpen', player.race, player.id)
-    evaluateControlledSlot(team1.slots.get(2)!, 'controlledOpen', player.race, player.id)
-    evaluateControlledSlot(team1.slots.get(3)!, 'controlledOpen', player.race, player.id)
-    expect(team2.slots.get(0)!.type).toBe('open')
-    expect(team2.slots.get(1)!.type).toBe('open')
-    expect(team2.slots.get(2)!.type).toBe('open')
-    expect(team2.slots.get(3)!.type).toBe('open')
+    evaluateControlledSlot(team1.slots[1], 'controlledOpen', player.race, player.id)
+    evaluateControlledSlot(team1.slots[2], 'controlledOpen', player.race, player.id)
+    evaluateControlledSlot(team1.slots[3], 'controlledOpen', player.race, player.id)
+    expect(team2.slots[0].type).toBe('open')
+    expect(team2.slots[1].type).toBe('open')
+    expect(team2.slots[2].type).toBe('open')
+    expect(team2.slots[3].type).toBe('open')
 
     const l3 = TEAM_MELEE_3
-    expect(l3.teams).toHaveProperty('size', 3)
-    team1 = l3.teams.get(0)!
-    expect(team1.slots).toHaveProperty('size', 3)
-    team2 = l3.teams.get(1)!
-    expect(team2.slots).toHaveProperty('size', 3)
-    let team3 = l3.teams.get(2)!
-    expect(team3.slots).toHaveProperty('size', 2)
+    expect(l3.teams).toHaveLength(3)
+    team1 = l3.teams[0]
+    expect(team1.slots).toHaveLength(3)
+    team2 = l3.teams[1]
+    expect(team2.slots).toHaveLength(3)
+    let team3 = l3.teams[2]
+    expect(team3.slots).toHaveLength(2)
     expect(humanSlotCount(l3)).toBe(1)
     expect(hasOpposingSides(l3)).toBe(false)
-    player = team1.slots.get(0)!
+    player = team1.slots[0]
     expect(player.type).toBe('human')
     expect(player.userId).toBe(HOST_USER_ID)
     expect(player.race).toBe('r')
     expect(player).toEqual(l3.host)
-    evaluateControlledSlot(team1.slots.get(1)!, 'controlledOpen', player.race, player.id)
-    evaluateControlledSlot(team1.slots.get(2)!, 'controlledOpen', player.race, player.id)
-    expect(team2.slots.get(0)!.type).toBe('open')
-    expect(team2.slots.get(1)!.type).toBe('open')
-    expect(team2.slots.get(2)!.type).toBe('open')
-    expect(team3.slots.get(0)!.type).toBe('open')
-    expect(team3.slots.get(1)!.type).toBe('open')
+    evaluateControlledSlot(team1.slots[1], 'controlledOpen', player.race, player.id)
+    evaluateControlledSlot(team1.slots[2], 'controlledOpen', player.race, player.id)
+    expect(team2.slots[0].type).toBe('open')
+    expect(team2.slots[1].type).toBe('open')
+    expect(team2.slots[2].type).toBe('open')
+    expect(team3.slots[0].type).toBe('open')
+    expect(team3.slots[1].type).toBe('open')
 
     const l4 = TEAM_MELEE_4
-    expect(l4.teams).toHaveProperty('size', 4)
-    team1 = l4.teams.get(0)!
-    expect(team1.slots).toHaveProperty('size', 2)
-    team2 = l4.teams.get(1)!
-    expect(team2.slots).toHaveProperty('size', 2)
-    team3 = l4.teams.get(2)!
-    expect(team3.slots).toHaveProperty('size', 2)
-    const team4 = l4.teams.get(3)!
-    expect(team4.slots).toHaveProperty('size', 2)
+    expect(l4.teams).toHaveLength(4)
+    team1 = l4.teams[0]
+    expect(team1.slots).toHaveLength(2)
+    team2 = l4.teams[1]
+    expect(team2.slots).toHaveLength(2)
+    team3 = l4.teams[2]
+    expect(team3.slots).toHaveLength(2)
+    const team4 = l4.teams[3]
+    expect(team4.slots).toHaveLength(2)
     expect(humanSlotCount(l4)).toBe(1)
     expect(hasOpposingSides(l4)).toBe(false)
-    player = team1.slots.get(0)!
+    player = team1.slots[0]
     expect(player.type).toBe('human')
     expect(player.userId).toBe(HOST_USER_ID)
     expect(player.race).toBe('r')
     expect(player).toEqual(l4.host)
-    evaluateControlledSlot(team1.slots.get(1)!, 'controlledOpen', player.race, player.id)
-    expect(team2.slots.get(0)!.type).toBe('open')
-    expect(team2.slots.get(1)!.type).toBe('open')
-    expect(team3.slots.get(0)!.type).toBe('open')
-    expect(team3.slots.get(1)!.type).toBe('open')
-    expect(team4.slots.get(0)!.type).toBe('open')
-    expect(team4.slots.get(1)!.type).toBe('open')
+    evaluateControlledSlot(team1.slots[1], 'controlledOpen', player.race, player.id)
+    expect(team2.slots[0].type).toBe('open')
+    expect(team2.slots[1].type).toBe('open')
+    expect(team3.slots[0].type).toBe('open')
+    expect(team3.slots[1].type).toBe('open')
+    expect(team4.slots[0].type).toBe('open')
+    expect(team4.slots[1].type).toBe('open')
   })
 
   test('should fill team slots when a player is added to an empty team', () => {
@@ -693,17 +693,17 @@ describe('Lobbies - Team melee', () => {
     const l = addPlayer(TEAM_MELEE_2, 1, 0, babo)
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBe(true)
-    expect(l.teams.get(1)!.slots.get(0)).toEqual(babo)
-    evaluateControlledSlot(l.teams.get(1)!.slots.get(1)!, 'controlledOpen', babo.race, babo.id)
+    expect(l.teams[1].slots[0]).toEqual(babo)
+    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', babo.race, babo.id)
   })
 
   test('should allow players to join slots that were previously controlled opens', () => {
-    expect(TEAM_MELEE_4.teams.get(0)!.slots.get(1)!.type).toBe('controlledOpen')
+    expect(TEAM_MELEE_4.teams[0].slots[1].type).toBe('controlledOpen')
     const babo = createHuman(makeSbUserId(1), 'z')
     const l = addPlayer(TEAM_MELEE_4, 0, 1, babo)
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBe(false)
-    expect(l.teams.get(0)!.slots.get(1)).toEqual(babo)
+    expect(l.teams[0].slots[1]).toEqual(babo)
   })
 
   test('should fill team slots with computers when a computer is added to an empty team', () => {
@@ -711,8 +711,8 @@ describe('Lobbies - Team melee', () => {
     const l = addPlayer(TEAM_MELEE_4, 1, 0, comp)
     expect(humanSlotCount(l)).toBe(1)
     expect(hasOpposingSides(l)).toBe(true)
-    expect(l.teams.get(1)!.slots.get(0)).toEqual(comp)
-    expect(l.teams.get(1)!.slots.get(1)!.type).toBe('computer')
+    expect(l.teams[1].slots[0]).toEqual(comp)
+    expect(l.teams[1].slots[1].type).toBe('computer')
   })
 
   test('should balance teams when adding new players', () => {
@@ -762,13 +762,13 @@ describe('Lobbies - Team melee', () => {
   test('should remove the controlled open slots when the last player on a team leaves', () => {
     const babo = createHuman(makeSbUserId(1), 'z')
     let l = addPlayer(TEAM_MELEE_4, 1, 0, babo)
-    evaluateControlledSlot(l.teams.get(1)!.slots.get(1)!, 'controlledOpen', babo.race, babo.id)
+    evaluateControlledSlot(l.teams[1].slots[1], 'controlledOpen', babo.race, babo.id)
     l = removePlayer(l, 1, 0, babo)!
 
     expect(humanSlotCount(l)).toBe(1)
     expect(hasOpposingSides(l)).toBe(false)
-    expect(l.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(l.teams.get(1)!.slots.get(1)!.type).toBe('open')
+    expect(l.teams[1].slots[0].type).toBe('open')
+    expect(l.teams[1].slots[1].type).toBe('open')
 
     expect(removePlayer(l, 0, 0, l.host)).toBeUndefined()
   })
@@ -776,15 +776,15 @@ describe('Lobbies - Team melee', () => {
   test('should remove all the computers in a team whenever one of the computers is removed', () => {
     const comp1 = createComputer('z')
     let l = addPlayer(TEAM_MELEE_4, 1, 0, comp1)
-    const comp2 = l.teams.get(1)!.slots.get(1)!
+    const comp2 = l.teams[1].slots[1]
     expect(comp2.type).toBe('computer')
     expect(comp2.race).toBe(comp1.race)
     l = removePlayer(l, 1, 0, comp1)!
 
     expect(humanSlotCount(l)).toBe(1)
     expect(hasOpposingSides(l)).toBe(false)
-    expect(l.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(l.teams.get(1)!.slots.get(1)!.type).toBe('open')
+    expect(l.teams[1].slots[0].type).toBe('open')
+    expect(l.teams[1].slots[1].type).toBe('open')
 
     expect(l.host.userId).toBe(HOST_USER_ID)
   })
@@ -797,13 +797,13 @@ describe('Lobbies - Team melee', () => {
     expect(humanSlotCount(l)).toBe(1)
     expect(hasOpposingSides(l)).toBe(false)
     expect(l.host).toEqual(babo)
-    expect(l.teams.get(0)!.slots.get(1)).toEqual(babo)
-    const controlledOpen = l.teams.get(0)!.slots.get(0)!
+    expect(l.teams[0].slots[1]).toEqual(babo)
+    const controlledOpen = l.teams[0].slots[0]
     evaluateControlledSlot(controlledOpen, 'controlledOpen', 'r', babo.id)
     // Ensure the player in the leaving player's slot got a new ID
     expect(controlledOpen.id).not.toEqual(TEAM_MELEE_2.host.id)
-    evaluateControlledSlot(l.teams.get(0)!.slots.get(2)!, 'controlledOpen', 'r', babo.id)
-    evaluateControlledSlot(l.teams.get(0)!.slots.get(3)!, 'controlledOpen', 'r', babo.id)
+    evaluateControlledSlot(l.teams[0].slots[2], 'controlledOpen', 'r', babo.id)
+    evaluateControlledSlot(l.teams[0].slots[3], 'controlledOpen', 'r', babo.id)
   })
 
   test('should support moving players between slots in the same team', () => {
@@ -814,34 +814,34 @@ describe('Lobbies - Team melee', () => {
     expect(humanSlotCount(l)).toBe(2)
     expect(hasOpposingSides(l)).toBe(false)
 
-    evaluateControlledSlot(l.teams.get(0)!.slots.get(1)!, 'controlledOpen', 'r', l.host.id)
-    evaluateControlledSlot(l.teams.get(0)!.slots.get(3)!, 'controlledOpen', l.host.race, l.host.id)
+    evaluateControlledSlot(l.teams[0].slots[1], 'controlledOpen', 'r', l.host.id)
+    evaluateControlledSlot(l.teams[0].slots[3], 'controlledOpen', l.host.race, l.host.id)
   })
 
   test('should support closing an open slot', () => {
     let lobby = TEAM_MELEE_2
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    const openSlot = lobby.teams.get(0)!.slots.get(1)!
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    const openSlot = lobby.teams[0].slots[1]
     expect(openSlot.type).toBe('controlledOpen')
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('controlledOpen')
+    expect(lobby.teams[0].slots[3].type).toBe('controlledOpen')
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots[1].type).toBe('open')
+    expect(lobby.teams[1].slots[2].type).toBe('open')
+    expect(lobby.teams[1].slots[3].type).toBe('open')
 
     lobby = closeSlot(lobby, 0, 1)
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    const closedSlot = lobby.teams.get(0)!.slots.get(1)!
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    const closedSlot = lobby.teams[0].slots[1]
     expect(closedSlot.type).toBe('controlledClosed')
     expect(closedSlot.race).toBe(openSlot.race)
     expect(closedSlot.controlledBy).toBe(openSlot.controlledBy)
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('controlledOpen')
+    expect(lobby.teams[0].slots[3].type).toBe('controlledOpen')
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots[1].type).toBe('open')
+    expect(lobby.teams[1].slots[2].type).toBe('open')
+    expect(lobby.teams[1].slots[3].type).toBe('open')
 
     expect(() => closeSlot(lobby, 0, 0)).toThrow()
     expect(() => closeSlot(lobby, 0, 1)).toThrow()
@@ -849,43 +849,43 @@ describe('Lobbies - Team melee', () => {
 
   test('should support opening a closed slot', () => {
     let lobby = TEAM_MELEE_2
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    const openSlot1 = lobby.teams.get(0)!.slots.get(1)!
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    const openSlot1 = lobby.teams[0].slots[1]
     expect(openSlot1.type).toBe('controlledOpen')
     expect(openSlot1.race).toBe(lobby.host.race)
     expect(openSlot1.controlledBy).toBe(lobby.host.id)
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('controlledOpen')
+    expect(lobby.teams[0].slots[3].type).toBe('controlledOpen')
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots[1].type).toBe('open')
+    expect(lobby.teams[1].slots[2].type).toBe('open')
+    expect(lobby.teams[1].slots[3].type).toBe('open')
 
     lobby = closeSlot(lobby, 0, 1)
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    const closedSlot = lobby.teams.get(0)!.slots.get(1)!
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    const closedSlot = lobby.teams[0].slots[1]
     expect(closedSlot.type).toBe('controlledClosed')
     expect(closedSlot.race).toBe(openSlot1.race)
     expect(closedSlot.controlledBy).toBe(openSlot1.controlledBy)
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('controlledOpen')
+    expect(lobby.teams[0].slots[3].type).toBe('controlledOpen')
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots[1].type).toBe('open')
+    expect(lobby.teams[1].slots[2].type).toBe('open')
+    expect(lobby.teams[1].slots[3].type).toBe('open')
 
     lobby = openSlot(lobby, 0, 1)
-    expect(lobby.teams.get(0)!.slots.get(0)).toEqual(lobby.host)
-    const openSlot2 = lobby.teams.get(0)!.slots.get(1)!
+    expect(lobby.teams[0].slots[0]).toEqual(lobby.host)
+    const openSlot2 = lobby.teams[0].slots[1]
     expect(openSlot2.type).toBe('controlledOpen')
     expect(openSlot2.race).toBe(closedSlot.race)
     expect(openSlot2.controlledBy).toBe(closedSlot.controlledBy)
-    expect(lobby.teams.get(0)!.slots.get(2)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(0)!.slots.get(3)!.type).toBe('controlledOpen')
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(2)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(3)!.type).toBe('open')
+    expect(lobby.teams[0].slots[2].type).toBe('controlledOpen')
+    expect(lobby.teams[0].slots[3].type).toBe('controlledOpen')
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots[1].type).toBe('open')
+    expect(lobby.teams[1].slots[2].type).toBe('open')
+    expect(lobby.teams[1].slots[3].type).toBe('open')
 
     expect(() => openSlot(lobby, 0, 0)).toThrow()
     expect(() => openSlot(lobby, 0, 1)).toThrow()
@@ -894,14 +894,14 @@ describe('Lobbies - Team melee', () => {
   test('should only allow a single race for computer teams', () => {
     const comp = createComputer('t')
     let lobby = addPlayer(TEAM_MELEE_3, 1, 0, comp)
-    expect(lobby.teams.get(1)!.slots.get(0)).toEqual(comp)
-    expect(lobby.teams.get(1)!.slots.get(1)!.race).toBe('t')
-    expect(lobby.teams.get(1)!.slots.get(2)!.race).toBe('t')
+    expect(lobby.teams[1].slots[0]).toEqual(comp)
+    expect(lobby.teams[1].slots[1].race).toBe('t')
+    expect(lobby.teams[1].slots[2].race).toBe('t')
 
     lobby = setRace(lobby, 1, 1, 'r')
-    expect(lobby.teams.get(1)!.slots.get(0)!.race).toBe('r')
-    expect(lobby.teams.get(1)!.slots.get(1)!.race).toBe('r')
-    expect(lobby.teams.get(1)!.slots.get(2)!.race).toBe('r')
+    expect(lobby.teams[1].slots[0].race).toBe('r')
+    expect(lobby.teams[1].slots[1].race).toBe('r')
+    expect(lobby.teams[1].slots[2].race).toBe('r')
   })
 })
 
@@ -1137,7 +1137,7 @@ const evaluateUmsLobby = (
   opposingSides: boolean,
   host: Slot,
 ) => {
-  expect(lobby.teams).toHaveProperty('size', teamCount)
+  expect(lobby.teams).toHaveLength(teamCount)
   expect(humanSlotCount(lobby)).toBe(humanSlotsCount)
   expect(hasOpposingSides(lobby)).toBe(opposingSides)
   expect(host).toEqual(lobby.host)
@@ -1150,8 +1150,8 @@ const evaluateUmsTeam = (
   hiddenSlotsCount: number,
 ) => {
   expect(team.teamId).toBe(teamId)
-  expect(team.slots).toHaveProperty('size', slotsCount)
-  expect(team.hiddenSlots).toHaveProperty('size', hiddenSlotsCount)
+  expect(team.slots).toHaveLength(slotsCount)
+  expect(team.hiddenSlots).toHaveLength(hiddenSlotsCount)
 }
 
 const evaluateUmsSlot = (
@@ -1172,229 +1172,229 @@ const evaluateUmsSlot = (
 describe('Lobbies - Use map settings', () => {
   test('should create the lobby correctly', () => {
     const l1 = UMS_LOBBY_1
-    let team1 = l1.teams.get(0)!
-    let team2 = l1.teams.get(1)!
-    let team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    let team1 = l1.teams[0]
+    let team2 = l1.teams[1]
+    let team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
 
     const l2 = UMS_LOBBY_2
-    team1 = l2.teams.get(0)!
-    team2 = l2.teams.get(1)!
-    team3 = l2.teams.get(2)!
-    evaluateUmsLobby(l2, 3, 1, true, team1.slots.get(0)!)
+    team1 = l2.teams[0]
+    team2 = l2.teams[1]
+    team3 = l2.teams[2]
+    evaluateUmsLobby(l2, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 1, 0)
     evaluateUmsTeam(team2, 2, 6, 0)
     evaluateUmsTeam(team3, 4, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 't', true, 1)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 't', true, 0)
-    evaluateUmsSlot(team2.slots.get(1)!, 'umsComputer', undefined, 'z', true, 3)
-    evaluateUmsSlot(team2.slots.get(2)!, 'umsComputer', undefined, 'z', true, 4)
-    evaluateUmsSlot(team2.slots.get(3)!, 'umsComputer', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(4)!, 'umsComputer', undefined, 't', true, 6)
-    evaluateUmsSlot(team2.slots.get(5)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'p', true, 2)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 't', true, 1)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 't', true, 0)
+    evaluateUmsSlot(team2.slots[1], 'umsComputer', undefined, 'z', true, 3)
+    evaluateUmsSlot(team2.slots[2], 'umsComputer', undefined, 'z', true, 4)
+    evaluateUmsSlot(team2.slots[3], 'umsComputer', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[4], 'umsComputer', undefined, 't', true, 6)
+    evaluateUmsSlot(team2.slots[5], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'p', true, 2)
 
     const l3 = UMS_LOBBY_3
-    team1 = l3.teams.get(0)!
-    team2 = l3.teams.get(1)!
-    evaluateUmsLobby(l3, 2, 1, false, team1.slots.get(0)!)
+    team1 = l3.teams[0]
+    team2 = l3.teams[1]
+    evaluateUmsLobby(l3, 2, 1, false, team1.slots[0])
     evaluateUmsTeam(team1, 1, 2, 0)
     evaluateUmsTeam(team2, 2, 2, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'r', false, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'r', false, 1)
-    evaluateUmsSlot(team2.slots.get(0)!, 'open', undefined, 'p', true, 2)
-    evaluateUmsSlot(team2.slots.get(1)!, 'open', undefined, 't', true, 3)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'r', false, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'r', false, 1)
+    evaluateUmsSlot(team2.slots[0], 'open', undefined, 'p', true, 2)
+    evaluateUmsSlot(team2.slots[1], 'open', undefined, 't', true, 3)
 
     const l4 = UMS_LOBBY_4
-    team1 = l4.teams.get(0)!
-    team2 = l4.teams.get(1)!
-    team3 = l4.teams.get(2)!
-    const team4 = l4.teams.get(3)!
-    evaluateUmsLobby(l4, 4, 1, false, team1.slots.get(0)!)
+    team1 = l4.teams[0]
+    team2 = l4.teams[1]
+    team3 = l4.teams[2]
+    const team4 = l4.teams[3]
+    evaluateUmsLobby(l4, 4, 1, false, team1.slots[0])
     evaluateUmsTeam(team1, 1, 3, 0)
     evaluateUmsTeam(team2, 2, 3, 0)
     evaluateUmsTeam(team3, 3, 0, 1)
     evaluateUmsTeam(team4, 4, 0, 1)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 't', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 't', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 't', true, 2)
-    evaluateUmsSlot(team2.slots.get(0)!, 'open', undefined, 't', true, 3)
-    evaluateUmsSlot(team2.slots.get(1)!, 'open', undefined, 't', true, 4)
-    evaluateUmsSlot(team2.slots.get(2)!, 'open', undefined, 't', true, 5)
-    evaluateUmsSlot(team3.hiddenSlots.get(0)!, 'umsComputer', undefined, 't', true, 6)
-    evaluateUmsSlot(team4.hiddenSlots.get(0)!, 'umsComputer', undefined, 't', true, 7)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 't', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 't', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 't', true, 2)
+    evaluateUmsSlot(team2.slots[0], 'open', undefined, 't', true, 3)
+    evaluateUmsSlot(team2.slots[1], 'open', undefined, 't', true, 4)
+    evaluateUmsSlot(team2.slots[2], 'open', undefined, 't', true, 5)
+    evaluateUmsSlot(team3.hiddenSlots[0], 'umsComputer', undefined, 't', true, 6)
+    evaluateUmsSlot(team4.hiddenSlots[0], 'umsComputer', undefined, 't', true, 7)
   })
 
   test('should support removing players', () => {
     const babo = createHuman(makeSbUserId(1), 'z', true, 1)
     let lobby = addPlayer(UMS_LOBBY_1, 0, 1, babo)
 
-    let team1 = lobby.teams.get(0)!
-    evaluateUmsLobby(lobby, 3, 2, true, team1.slots.get(0)!)
-    evaluateUmsSlot(team1.slots.get(1)!, 'human', makeSbUserId(1), 'z', true, 1)
+    let team1 = lobby.teams[0]
+    evaluateUmsLobby(lobby, 3, 2, true, team1.slots[0])
+    evaluateUmsSlot(team1.slots[1], 'human', makeSbUserId(1), 'z', true, 1)
 
-    lobby = removePlayer(lobby, 0, 1, team1.slots.get(1)!)!
-    team1 = lobby.teams.get(0)!
-    evaluateUmsLobby(lobby, 3, 1, true, team1.slots.get(0)!)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'z', true, 1)
+    lobby = removePlayer(lobby, 0, 1, team1.slots[1])!
+    team1 = lobby.teams[0]
+    evaluateUmsLobby(lobby, 3, 1, true, team1.slots[0])
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
   })
 
   test('should support moving players between slots', () => {
     let l1 = UMS_LOBBY_1
-    let team1 = l1.teams.get(0)!
-    let team2 = l1.teams.get(1)!
-    let team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    let team1 = l1.teams[0]
+    let team2 = l1.teams[1]
+    let team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
 
     l1 = movePlayerToSlot(l1, 0, 0, 0, 1)
-    team1 = l1.teams.get(0)!
-    team2 = l1.teams.get(1)!
-    team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(1)!)
+    team1 = l1.teams[0]
+    team2 = l1.teams[1]
+    team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[1])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'open', undefined, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'human', HOST_USER_ID, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'open', undefined, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'human', HOST_USER_ID, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
 
     let l3 = UMS_LOBBY_3
-    team1 = l3.teams.get(0)!
-    team2 = l3.teams.get(1)!
-    evaluateUmsLobby(l3, 2, 1, false, team1.slots.get(0)!)
+    team1 = l3.teams[0]
+    team2 = l3.teams[1]
+    evaluateUmsLobby(l3, 2, 1, false, team1.slots[0])
     evaluateUmsTeam(team1, 1, 2, 0)
     evaluateUmsTeam(team2, 2, 2, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'r', false, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'r', false, 1)
-    evaluateUmsSlot(team2.slots.get(0)!, 'open', undefined, 'p', true, 2)
-    evaluateUmsSlot(team2.slots.get(1)!, 'open', undefined, 't', true, 3)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'r', false, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'r', false, 1)
+    evaluateUmsSlot(team2.slots[0], 'open', undefined, 'p', true, 2)
+    evaluateUmsSlot(team2.slots[1], 'open', undefined, 't', true, 3)
 
     l3 = movePlayerToSlot(l3, 0, 0, 0, 1)
-    team1 = l3.teams.get(0)!
-    team2 = l3.teams.get(1)!
-    evaluateUmsLobby(l3, 2, 1, false, team1.slots.get(1)!)
+    team1 = l3.teams[0]
+    team2 = l3.teams[1]
+    evaluateUmsLobby(l3, 2, 1, false, team1.slots[1])
     evaluateUmsTeam(team1, 1, 2, 0)
     evaluateUmsTeam(team2, 2, 2, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'open', undefined, 'r', false, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'human', HOST_USER_ID, 'r', false, 1)
-    evaluateUmsSlot(team2.slots.get(0)!, 'open', undefined, 'p', true, 2)
-    evaluateUmsSlot(team2.slots.get(1)!, 'open', undefined, 't', true, 3)
+    evaluateUmsSlot(team1.slots[0], 'open', undefined, 'r', false, 0)
+    evaluateUmsSlot(team1.slots[1], 'human', HOST_USER_ID, 'r', false, 1)
+    evaluateUmsSlot(team2.slots[0], 'open', undefined, 'p', true, 2)
+    evaluateUmsSlot(team2.slots[1], 'open', undefined, 't', true, 3)
   })
 
   test('should support closing an open slot', () => {
     let l1 = UMS_LOBBY_1
-    let team1 = l1.teams.get(0)!
-    let team2 = l1.teams.get(1)!
-    let team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    let team1 = l1.teams[0]
+    let team2 = l1.teams[1]
+    let team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
 
     l1 = closeSlot(l1, 0, 1)
-    team1 = l1.teams.get(0)!
-    team2 = l1.teams.get(1)!
-    team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    team1 = l1.teams[0]
+    team2 = l1.teams[1]
+    team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'closed', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'closed', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
   })
 
   test('should support opening a closed slot', () => {
     let l1 = UMS_LOBBY_1
-    let team1 = l1.teams.get(0)!
-    let team2 = l1.teams.get(1)!
-    let team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    let team1 = l1.teams[0]
+    let team2 = l1.teams[1]
+    let team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
 
     l1 = closeSlot(l1, 0, 1)
-    team1 = l1.teams.get(0)!
-    team2 = l1.teams.get(1)!
-    team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    team1 = l1.teams[0]
+    team2 = l1.teams[1]
+    team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'closed', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'closed', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
 
     l1 = openSlot(l1, 0, 1)
-    team1 = l1.teams.get(0)!
-    team2 = l1.teams.get(1)!
-    team3 = l1.teams.get(2)!
-    evaluateUmsLobby(l1, 3, 1, true, team1.slots.get(0)!)
+    team1 = l1.teams[0]
+    team2 = l1.teams[1]
+    team3 = l1.teams[2]
+    evaluateUmsLobby(l1, 3, 1, true, team1.slots[0])
     evaluateUmsTeam(team1, 1, 6, 0)
     evaluateUmsTeam(team2, 2, 1, 0)
     evaluateUmsTeam(team3, 3, 1, 0)
-    evaluateUmsSlot(team1.slots.get(0)!, 'human', HOST_USER_ID, 'z', true, 0)
-    evaluateUmsSlot(team1.slots.get(1)!, 'open', undefined, 'z', true, 1)
-    evaluateUmsSlot(team1.slots.get(2)!, 'open', undefined, 'z', true, 2)
-    evaluateUmsSlot(team1.slots.get(3)!, 'open', undefined, 'z', true, 3)
-    evaluateUmsSlot(team1.slots.get(4)!, 'open', undefined, 'z', true, 4)
-    evaluateUmsSlot(team1.slots.get(5)!, 'open', undefined, 'z', true, 5)
-    evaluateUmsSlot(team2.slots.get(0)!, 'umsComputer', undefined, 'z', true, 7)
-    evaluateUmsSlot(team3.slots.get(0)!, 'umsComputer', undefined, 'z', true, 6)
+    evaluateUmsSlot(team1.slots[0], 'human', HOST_USER_ID, 'z', true, 0)
+    evaluateUmsSlot(team1.slots[1], 'open', undefined, 'z', true, 1)
+    evaluateUmsSlot(team1.slots[2], 'open', undefined, 'z', true, 2)
+    evaluateUmsSlot(team1.slots[3], 'open', undefined, 'z', true, 3)
+    evaluateUmsSlot(team1.slots[4], 'open', undefined, 'z', true, 4)
+    evaluateUmsSlot(team1.slots[5], 'open', undefined, 'z', true, 5)
+    evaluateUmsSlot(team2.slots[0], 'umsComputer', undefined, 'z', true, 7)
+    evaluateUmsSlot(team3.slots[0], 'umsComputer', undefined, 'z', true, 6)
   })
 })
 
@@ -1446,10 +1446,10 @@ describe('Lobbies - observers', () => {
         allowObservers: true,
       })
 
-      expect(lobby.teams).toHaveProperty('size', playerTeams + 1)
+      expect(lobby.teams).toHaveLength(playerTeams + 1)
       const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
       expect(obsTeamIndex).toBe(playerTeams)
-      expect(obsTeam!.slots).toHaveProperty('size', MAX_OBSERVERS)
+      expect(obsTeam!.slots).toHaveLength(MAX_OBSERVERS)
       expect(obsTeam!.slots.every(s => s.type === 'closed')).toBe(true)
       // Observer slots are in addition to the map's player slots, not carved out of them
       expect(slotCount(lobby)).toBe(numSlots)
@@ -1469,7 +1469,7 @@ describe('Lobbies - observers', () => {
       allowObservers: false,
     })
 
-    expect(lobby.teams).toHaveProperty('size', 2)
+    expect(lobby.teams).toHaveLength(2)
     expect(getObserverTeam(lobby)[0]).toBeUndefined()
     expect(canAddObservers(lobby)).toBe(false)
     expect(canRemoveObservers(lobby)).toBe(false)
@@ -1506,35 +1506,30 @@ describe('Lobbies - observers', () => {
 
   test('should keep the observer team out of team melee controlled slot handling', () => {
     let lobby = TEAM_MELEE_WITH_OBSERVERS
-    expect(lobby.teams).toHaveProperty('size', 3)
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('controlledOpen')
+    expect(lobby.teams).toHaveLength(3)
+    expect(lobby.teams[0].slots[1].type).toBe('controlledOpen')
 
     lobby = makeObserver(lobby, 0, 0)
 
     // The team the host left has no one controlling it anymore, so it becomes plain open slots
-    const vacatedTeam = lobby.teams.get(0)!
-    expect(vacatedTeam.slots).toHaveProperty('size', 4)
+    const vacatedTeam = lobby.teams[0]
+    expect(vacatedTeam.slots).toHaveLength(4)
     expect(vacatedTeam.slots.every(s => s.type === 'open')).toBe(true)
-    const observers = lobby.teams.get(2)!
-    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
-    expect(observers.slots.get(0)!.type).toBe('observer')
-    expect(observers.slots.get(0)!.userId).toBe(HOST_USER_ID)
-    expect(observers.slots.get(1)!.type).toBe('closed')
+    const observers = lobby.teams[2]
+    expect(observers.slots).toHaveLength(MAX_OBSERVERS)
+    expect(observers.slots[0].type).toBe('observer')
+    expect(observers.slots[0].userId).toBe(HOST_USER_ID)
+    expect(observers.slots[1].type).toBe('closed')
 
     lobby = removeObserver(lobby, 0)
 
-    expect(lobby.teams.get(2)!.slots.get(0)!.type).toBe('open')
-    expect(
-      lobby.teams
-        .get(2)!
-        .slots.skip(1)
-        .every(s => s.type === 'closed'),
-    ).toBe(true)
+    expect(lobby.teams[2].slots[0].type).toBe('open')
+    expect(lobby.teams[2].slots.slice(1).every(s => s.type === 'closed')).toBe(true)
     const [teamIndex, , hostSlot] = findSlotByUserId(lobby, HOST_USER_ID)
     expect(hostSlot!.type).toBe('human')
     // Arriving in an empty controlled team fills the rest of it with slots the host controls
-    const destTeam = lobby.teams.get(teamIndex!)!
-    expect(destTeam.slots.count(s => s.type === 'controlledOpen')).toBe(3)
+    const destTeam = lobby.teams[teamIndex!]
+    expect(destTeam.slots.filter(s => s.type === 'controlledOpen').length).toBe(3)
     expect(destTeam.slots.every(s => s.type === 'human' || s.controlledBy === hostSlot!.id)).toBe(
       true,
     )
@@ -1542,17 +1537,17 @@ describe('Lobbies - observers', () => {
 
   test('should preserve UMS slot data across moves into and out of the observer team', () => {
     let lobby = UMS_LOBBY_WITH_OBSERVERS
-    expect(lobby.teams).toHaveProperty('size', 3)
+    expect(lobby.teams).toHaveLength(3)
     lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'p', true, 2))
 
     lobby = makeObserver(lobby, 0, 0)
 
-    const obsSlot = lobby.teams.get(2)!.slots.get(0)!
+    const obsSlot = lobby.teams[2].slots[0]
     expect(obsSlot.type).toBe('observer')
     expect(obsSlot.userId).toBe(HOST_USER_ID)
     expect(lobby.host.id).toBe(obsSlot.id)
     // The slot they left keeps the map-defined player id and race
-    evaluateUmsSlot(lobby.teams.get(0)!.slots.get(0)!, 'open', undefined, 'r', false, 0)
+    evaluateUmsSlot(lobby.teams[0].slots[0], 'open', undefined, 'r', false, 0)
 
     const observerInfos = getPlayerInfos(lobby).filter(p => p.type === 'observer')
     expect(observerInfos).toHaveLength(1)
@@ -1560,10 +1555,10 @@ describe('Lobbies - observers', () => {
 
     lobby = removeObserver(lobby, 0)
 
-    expect(lobby.teams.get(2)!.slots.get(0)!.type).toBe('open')
+    expect(lobby.teams[2].slots[0].type).toBe('open')
     // A vacated observer slot carries no UMS map data
-    expect(lobby.teams.get(2)!.slots.get(0)!.hasForcedRace).toBe(false)
-    evaluateUmsSlot(lobby.teams.get(0)!.slots.get(0)!, 'human', HOST_USER_ID, 'r', false, 0)
+    expect(lobby.teams[2].slots[0].hasForcedRace).toBe(false)
+    evaluateUmsSlot(lobby.teams[0].slots[0], 'human', HOST_USER_ID, 'r', false, 0)
   })
 
   test('should leave unoccupied observer slots out of the player infos', () => {
@@ -1584,8 +1579,8 @@ describe('Lobbies - observers', () => {
     let lobby = TEAM_MELEE_WITH_OBSERVERS
     lobby = addPlayer(lobby, 1, 0, createHuman(makeSbUserId(1), 'z'))
     lobby = makeObserver(lobby, 1, 0)
-    const observers = lobby.teams.get(2)!
-    const leaver = observers.slots.get(0)!
+    const observers = lobby.teams[2]
+    const leaver = observers.slots[0]
     expect(leaver.type).toBe('observer')
 
     const updated = removePlayer(lobby, 2, 0, leaver)!
@@ -1593,15 +1588,10 @@ describe('Lobbies - observers', () => {
     expect(updated).toBeDefined()
     // The vacated observer slot is left open for the next joiner, and the player teams are
     // untouched by the leave (no controlled-team cleanup for the observer team)
-    expect(updated.teams.get(2)!.slots.get(0)!.type).toBe('open')
-    expect(
-      updated.teams
-        .get(2)!
-        .slots.skip(1)
-        .every(s => s.type === 'closed'),
-    ).toBe(true)
-    expect(updated.teams.get(0)!.slots.get(0)!.type).toBe('human')
-    expect(updated.teams.get(1)!.slots.every(s => s.type === 'open')).toBe(true)
+    expect(updated.teams[2].slots[0].type).toBe('open')
+    expect(updated.teams[2].slots.slice(1).every(s => s.type === 'closed')).toBe(true)
+    expect(updated.teams[0].slots[0].type).toBe('human')
+    expect(updated.teams[1].slots.every(s => s.type === 'open')).toBe(true)
   })
 
   test('should not create controlled slots when someone joins an observer slot in team melee', () => {
@@ -1610,30 +1600,25 @@ describe('Lobbies - observers', () => {
 
     lobby = addPlayer(lobby, 2, 0, createObserver(makeSbUserId(1)))
 
-    const observers = lobby.teams.get(2)!
-    expect(observers.slots.get(0)!.type).toBe('observer')
-    expect(observers.slots.get(0)!.userId).toBe(makeSbUserId(1))
-    expect(
-      observers.slots.filterNot(s => s.type === 'observer').every(s => s.type === 'closed'),
-    ).toBe(true)
+    const observers = lobby.teams[2]
+    expect(observers.slots[0].type).toBe('observer')
+    expect(observers.slots[0].userId).toBe(makeSbUserId(1))
+    expect(observers.slots.filter(s => s.type !== 'observer').every(s => s.type === 'closed')).toBe(
+      true,
+    )
   })
 
   test('should leave an observer slot open when its occupant changes slots', () => {
     let lobby = BOXER_LOBBY_WITH_OBSERVERS
     lobby = addPlayer(lobby, 0, 1, createHuman(makeSbUserId(1), 'z'))
     lobby = makeObserver(lobby, 0, 1)
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('observer')
+    expect(lobby.teams[1].slots[0].type).toBe('observer')
 
     lobby = movePlayerToSlot(lobby, 1, 0, 0, 1)
 
-    expect(lobby.teams.get(0)!.slots.get(1)!.type).toBe('human')
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(
-      lobby.teams
-        .get(1)!
-        .slots.skip(1)
-        .every(s => s.type === 'closed'),
-    ).toBe(true)
+    expect(lobby.teams[0].slots[1].type).toBe('human')
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots.slice(1).every(s => s.type === 'closed')).toBe(true)
   })
 
   test('should prefer a closed observer slot when making an observer', () => {
@@ -1644,9 +1629,9 @@ describe('Lobbies - observers', () => {
     lobby = makeObserver(lobby, 0, 1)
 
     // The host-opened slot stays available for joiners; the converted player took a closed one
-    expect(lobby.teams.get(1)!.slots.get(0)!.type).toBe('open')
-    expect(lobby.teams.get(1)!.slots.get(1)!.type).toBe('observer')
-    expect(lobby.teams.get(1)!.slots.get(1)!.userId).toBe(makeSbUserId(1))
+    expect(lobby.teams[1].slots[0].type).toBe('open')
+    expect(lobby.teams[1].slots[1].type).toBe('observer')
+    expect(lobby.teams[1].slots[1].userId).toBe(makeSbUserId(1))
   })
 
   test('should prefer a team with an open slot when unseating an observer', () => {
@@ -1676,7 +1661,7 @@ describe('Lobbies - observers', () => {
     expect(teamIndex).toBe(0)
     expect(slotIndex).toBe(1)
     expect(slot!.type).toBe('human')
-    expect(lobby.teams.get(1)!.slots.every(s => s.type === 'closed')).toBe(true)
+    expect(lobby.teams[1].slots.every(s => s.type === 'closed')).toBe(true)
   })
 
   test('should re-open a closed slot for an unseated observer only when no open slot exists', () => {
@@ -1718,11 +1703,11 @@ describe('Lobbies - observers', () => {
       allowObservers: true,
     })
 
-    expect(lobby.teams).toHaveProperty('size', 5)
-    evaluateUmsTeam(lobby.teams.get(2)!, 3, 0, 1)
-    evaluateUmsTeam(lobby.teams.get(3)!, 4, 0, 1)
-    const observers = lobby.teams.get(4)!
-    expect(observers.slots).toHaveProperty('size', MAX_OBSERVERS)
-    expect(observers.hiddenSlots).toHaveProperty('size', 0)
+    expect(lobby.teams).toHaveLength(5)
+    evaluateUmsTeam(lobby.teams[2], 3, 0, 1)
+    evaluateUmsTeam(lobby.teams[3], 4, 0, 1)
+    const observers = lobby.teams[4]
+    expect(observers.slots).toHaveLength(MAX_OBSERVERS)
+    expect(observers.hiddenSlots).toHaveLength(0)
   })
 })

@@ -1,35 +1,33 @@
 import { List, Range } from 'immutable'
 import { Component } from 'react'
-import { Lobby, Team } from '../../../common/lobbies'
-import { Slot } from '../../../common/lobbies/slot'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LobbyComponent from '../lobby'
 import { LobbyLoadingState } from '../lobby-reducer'
 
-const SLOTS = new List([
-  new Slot({ type: 'human', name: 'tec27', id: 'a', race: 'p' }),
-  new Slot({ type: 'human', name: '2Pacalypse-', id: 'b', race: 't' }),
-  new Slot({ type: 'human', name: 'dronebabo', id: 'c', race: 'z' }),
-  new Slot({ type: 'human', name: 'pachi', id: 'd', race: 'r' }),
-  new Slot({ type: 'human', name: 'Heyoka', id: 'e', race: 'r' }),
-  new Slot({ type: 'human', name: 'Legionnaire', id: 'f', race: 'p' }),
-  new Slot({ type: 'human', name: 'boesthius', id: 'g', race: 't' }),
-  new Slot({ type: 'human', name: 'harem', id: 'h', race: 'z' }),
-])
+const SLOTS = [
+  { type: 'human', name: 'tec27', id: 'a', race: 'p' },
+  { type: 'human', name: '2Pacalypse-', id: 'b', race: 't' },
+  { type: 'human', name: 'dronebabo', id: 'c', race: 'z' },
+  { type: 'human', name: 'pachi', id: 'd', race: 'r' },
+  { type: 'human', name: 'Heyoka', id: 'e', race: 'r' },
+  { type: 'human', name: 'Legionnaire', id: 'f', race: 'p' },
+  { type: 'human', name: 'boesthius', id: 'g', race: 't' },
+  { type: 'human', name: 'harem', id: 'h', race: 'z' },
+]
 
 const LOBBIES = Range(2, 9).map(numSlots => {
-  return new Lobby({
+  return {
     name: `My ${numSlots}-slot Lobby`,
     map: FightingSpirit,
     gameType: 'melee',
     gameSubType: 0,
-    teams: new List([
-      new Team({
-        slots: SLOTS.take(numSlots),
-      }),
-    ]),
-    host: SLOTS.get(0),
-  })
+    teams: [
+      {
+        slots: SLOTS.slice(0, numSlots),
+      },
+    ],
+    host: SLOTS[0],
+  }
 })
 
 const USER = { id: 27, name: 'tec27' }

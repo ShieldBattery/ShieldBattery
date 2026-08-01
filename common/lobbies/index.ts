@@ -1,4 +1,3 @@
-import { List, Record } from 'immutable'
 import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
@@ -18,42 +17,42 @@ export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted
 
 export * from './lobby-visibility'
 
-export class Team extends Record({
-  name: '',
-  teamId: 0,
-  isObserver: false,
+export interface Team {
+  readonly name: string
+  readonly teamId: number
+  readonly isObserver: boolean
   /** Slots that belong to a particular team. */
-  slots: List<Slot>(),
+  readonly slots: ReadonlyArray<Slot>
   /** UMS maps can have slots which are not shown in lobby but get initialized in game. */
-  hiddenSlots: List<Slot>(),
-}) {}
+  readonly hiddenSlots: ReadonlyArray<Slot>
+}
 
-export class Lobby extends Record({
-  id: '' as SbLobbyId,
-  name: '',
-  map: undefined as MapInfo | undefined,
-  gameType: GameType.Melee,
-  gameSubType: 0,
+export interface Lobby {
+  readonly id: SbLobbyId
+  readonly name: string
+  readonly map?: MapInfo
+  readonly gameType: GameType
+  readonly gameSubType: number
   /** All lobbies have at least one team (even Melee and FFA). */
-  teams: List<Team>(),
-  host: new Slot(),
-  useLegacyLimits: false,
-  visibility: 'listed' as LobbyVisibility,
-}) {}
+  readonly teams: ReadonlyArray<Team>
+  readonly host: Slot
+  readonly useLegacyLimits: boolean
+  readonly visibility: LobbyVisibility
+}
 
 export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {
   return gameType === GameType.UseMapSettings
 }
 
 /**
- * Returns a List of all the slots in a lobby.
+ * Returns an array of all the slots in a lobby.
  *
  * Since we don't keep a separate list just for the slots, this function iterates over all of the
- * teams in a lobby and accumulates the slots into a new list. Keep in mind that you lose the team
+ * teams in a lobby and accumulates the slots into a new array. Keep in mind that you lose the team
  * index and slot index, so use this function only when you care about the slots themselves, not
  * their indexes; otherwise, use the `getLobbySlotsWithIndexes`.
  */
-export function getLobbySlots(lobby: Lobby): List<Slot> {
+export function getLobbySlots(lobby: Lobby): Slot[] {
   return lobby.teams.flatMap(team => team.slots)
 }
 
@@ -61,7 +60,7 @@ export function getLobbySlots(lobby: Lobby): List<Slot> {
  * Gets all the player slots for a lobby, which for now are: `human`, `computer` and `umsComputer`
  * type slots.
  */
-export function getPlayerSlots(lobby: Lobby): List<Slot> {
+export function getPlayerSlots(lobby: Lobby): Slot[] {
   return getLobbySlots(lobby).filter(
     slot =>
       slot.type === SlotType.Human ||
@@ -71,7 +70,7 @@ export function getPlayerSlots(lobby: Lobby): List<Slot> {
 }
 
 /** Gets all the human slots in a lobby. This includes both the players and the observers. */
-export function getHumanSlots(lobby: Lobby): List<Slot> {
+export function getHumanSlots(lobby: Lobby): Slot[] {
   return getLobbySlots(lobby).filter(
     slot => slot.type === SlotType.Human || slot.type === SlotType.Observer,
   )
@@ -80,25 +79,27 @@ export function getHumanSlots(lobby: Lobby): List<Slot> {
 export type SlotWithIndexes = [teamIndex: number, slotIndex: number, slot: Slot]
 
 /**
- * Returns a List of tuples with info for each slot in the lobby.
+ * Returns an array of tuples with info for each slot in the lobby.
  *
  * This function is similar to the `getLobbySlots`, only it preserves the team index and slot index
- * after flat mapping the team, and as a result returns an immutable list where each element is in
- * the following form: [teamIndex, slotIndex, slot]
+ * after flat mapping the team, and as a result returns an array where each element is in the
+ * following form: [teamIndex, slotIndex, slot]
  */
-export function getLobbySlotsWithIndexes(lobby: Lobby): List<SlotWithIndexes> {
+export function getLobbySlotsWithIndexes(lobby: Lobby): SlotWithIndexes[] {
   return lobby.teams.flatMap((team, teamIndex) =>
-    team.slots.map((slot, slotIndex) => [teamIndex, slotIndex, slot]),
+    team.slots.map((slot, slotIndex): SlotWithIndexes => [teamIndex, slotIndex, slot]),
   )
 }
 
 /**
- * Returns a List of tuples with info for each slot in the lobby, including possible UMS hidden
+ * Returns an array of tuples with info for each slot in the lobby, including possible UMS hidden
  * slots that are necessary for game initialization.
  */
-export function getIngameLobbySlotsWithIndexes(lobby: Lobby): List<SlotWithIndexes> {
+export function getIngameLobbySlotsWithIndexes(lobby: Lobby): SlotWithIndexes[] {
   return lobby.teams.flatMap((team, teamIndex) =>
-    team.slots.concat(team.hiddenSlots).map((slot, slotIndex) => [teamIndex, slotIndex, slot]),
+    team.slots
+      .concat(team.hiddenSlots)
+      .map((slot, slotIndex): SlotWithIndexes => [teamIndex, slotIndex, slot]),
   )
 }
 
@@ -112,7 +113,7 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
         // An observer slot with nobody in it has no in-game counterpart — the game reserves its
         // observer slots unconditionally — and emitting one would claim a game slot meant for a
         // player.
-        !lobby.teams.get(teamIndex)!.isObserver || slot.type === SlotType.Observer,
+        !lobby.teams[teamIndex].isObserver || slot.type === SlotType.Observer,
     )
     .map(([teamIndex, _slotIndex, slot]) => ({
       id: slot.id,
@@ -121,9 +122,8 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
       playerId: slot.playerId,
       type: slot.type,
       typeId: slot.typeId,
-      teamId: lobby.teams.get(teamIndex)?.teamId ?? 0,
+      teamId: lobby.teams[teamIndex]?.teamId ?? 0,
     }))
-    .toArray()
 }
 
 /**
@@ -137,7 +137,7 @@ export function findSlotByUserId(lobby: Lobby, userId: SbUserId): SlotWithIndexe
 }
 
 /**
- * Finds the slot with the specified id in the lobby. Returns the [teamIndex, slotIndex, slot] list
+ * Finds the slot with the specified id in the lobby. Returns the [teamIndex, slotIndex, slot] tuple
  * if the slot is found; otherwise returns an empty array.
  */
 export function findSlotById(lobby: Lobby, id: string): SlotWithIndexes | [] {
@@ -151,8 +151,8 @@ export function findSlotById(lobby: Lobby, id: string): SlotWithIndexes | [] {
  */
 export function slotCount(lobby: Lobby): number {
   return lobby.teams
-    .filterNot(team => team.isObserver)
-    .reduce((slots, team) => slots + team.slots.size, 0)
+    .filter(team => !team.isObserver)
+    .reduce((slots, team) => slots + team.slots.length, 0)
 }
 
 /**
@@ -163,7 +163,8 @@ export function humanSlotCount(lobby: Lobby): number {
   return lobby.teams.reduce(
     (humanSlots, team) =>
       humanSlots +
-      team.slots.count(slot => slot.type === SlotType.Human || slot.type === SlotType.Observer),
+      team.slots.filter(slot => slot.type === SlotType.Human || slot.type === SlotType.Observer)
+        .length,
     0,
   )
 }
@@ -175,12 +176,12 @@ export function humanSlotCount(lobby: Lobby): number {
  * Player slot types for now are: `human`, `computer`, `umsComputer`
  */
 export function teamPlayerSlotCount(team: Team): number {
-  return team.slots.count(
+  return team.slots.filter(
     slot =>
       slot.type === SlotType.Human ||
       slot.type === SlotType.Computer ||
       slot.type === SlotType.UmsComputer,
-  )
+  ).length
 }
 
 /**
@@ -189,7 +190,7 @@ export function teamPlayerSlotCount(team: Team): number {
  */
 export function takenSlotCount(lobby: Lobby): number {
   return lobby.teams
-    .filterNot(team => team.isObserver)
+    .filter(team => !team.isObserver)
     .reduce((takenSlots, team) => takenSlots + teamTakenSlotCount(team), 0)
 }
 
@@ -198,9 +199,9 @@ export function takenSlotCount(lobby: Lobby): number {
  * or `controlledOpen`.
  */
 export function teamTakenSlotCount(team: Team): number {
-  return team.slots.count(
+  return team.slots.filter(
     slot => slot.type !== SlotType.Open && slot.type !== SlotType.ControlledOpen,
-  )
+  ).length
 }
 
 /**
@@ -212,9 +213,9 @@ export function openSlotCount(lobby: Lobby): number {
   return lobby.teams.reduce(
     (openSlots, team) =>
       openSlots +
-      team.slots.count(
+      team.slots.filter(
         slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
-      ),
+      ).length,
     0,
   )
 }
@@ -225,8 +226,8 @@ export function openSlotCount(lobby: Lobby): number {
  */
 export function hasOpposingSides(lobby: Lobby): boolean {
   return !isTeamType(lobby.gameType)
-    ? getPlayerSlots(lobby).size > 1
-    : lobby.teams.filter(team => !team.isObserver && teamPlayerSlotCount(team) > 0).size > 1
+    ? getPlayerSlots(lobby).length > 1
+    : lobby.teams.filter(team => !team.isObserver && teamPlayerSlotCount(team) > 0).length > 1
 }
 
 /** Returns true if the lobby has an observer team; false otherwise. */
