@@ -237,6 +237,46 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(state.chat).toHaveLength(201)
   })
 
+  test('a slotCreate naming a team the current layout does not have is dropped', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSlotCreate',
+        payload: { type: 'slotCreate', teamIndex: 3, slotIndex: 0, slot: SLOT_A },
+      })
+    }).not.toThrow()
+
+    expect(state.info.teams).toHaveLength(1)
+    expect(state.info.teams[0].slots).toEqual([HOST_SLOT, SLOT_A, SLOT_B])
+  })
+
+  test('a raceChange naming a slot past the end of its team is dropped', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateRaceChange',
+        payload: { type: 'raceChange', teamIndex: 0, slotIndex: 7, newRace: 'p' },
+      })
+    }).not.toThrow()
+
+    expect(state.info.teams[0].slots).toEqual([HOST_SLOT, SLOT_A, SLOT_B])
+  })
+
+  test('a slotChange naming a slot past the end of its team is dropped', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSlotChange',
+        payload: { type: 'slotChange', teamIndex: 0, slotIndex: 7, player: SLOT_A },
+      })
+    }).not.toThrow()
+
+    expect(state.info.teams[0].slots).toEqual([HOST_SLOT, SLOT_A, SLOT_B])
+  })
+
   test('settingsChange replaces state.info with the reconciled lobby and logs a chat message', () => {
     let state = lobbyReducer(undefined, initAction())
 

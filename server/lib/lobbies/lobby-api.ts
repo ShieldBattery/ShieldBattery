@@ -76,7 +76,6 @@ const authedAction = [
   ensureLoggedIn,
   throttleMiddleware(lobbyActionThrottle, ctx => String(ctx.session!.user.id)),
 ]
-
 /** Validates a route's `:lobbyId` as a well-formed lobby id. */
 const lobbyIdParams = Joi.object<{ lobbyId: SbLobbyId }>({
   lobbyId: Joi.string()

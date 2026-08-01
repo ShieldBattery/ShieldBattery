@@ -147,6 +147,8 @@ describe('lobbies/lobby-service', () => {
   let lister: Sockets
   /** Connects a client for a user that isn't one of the four the tests share. */
   let connectExtra: (id: number) => Sockets
+  /** Connects another client session for a user that already has one. */
+  let connectSecondClient: (user: SbUser) => Sockets
 
   /** Connects a further client (another tab/machine of `user`) and returns its socket groups. */
   let connect: (user: SbUser, clientId: string) => Sockets
@@ -155,7 +157,7 @@ describe('lobbies/lobby-service', () => {
   let loadGameRequests: GameLoadRequest[]
   /** The real emitter the service listens on, so tests can signal game ends into it. */
   let gameLifecycleEvents: GameLifecycleEvents
-  /** The registry the service holds its members' gameplay activity in. */
+  /** The registry the service holds gameplay activity in, so tests can check who is in one. */
   let activityRegistry: GameplayActivityRegistry
 
   /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
@@ -279,6 +281,7 @@ describe('lobbies/lobby-service', () => {
     lister = connect(LISTER_USER, 'LISTER_CLIENT')
     connectExtra = id =>
       connect({ id: makeSbUserId(id), name: `User${id}` } as SbUser, `CLIENT_${id}`)
+    connectSecondClient = user => connect(user, `SECOND_CLIENT_${user.id}`)
 
     clearTestLogs(nydus)
   })
@@ -446,6 +449,7 @@ describe('lobbies/lobby-service', () => {
       })
       // They are in the lobby like anyone else, and so can't be off in another activity
       expect(lobbyService.lobbyClients.get(otherHost.client)).toBe(id)
+      expect(activityRegistry.getClientForUser(OTHER_HOST_USER.id)).toBe(otherHost.client)
     })
 
     test('joining a lobby whose bench is also full rejects with a LobbyFull code', async () => {
@@ -502,6 +506,33 @@ describe('lobbies/lobby-service', () => {
     })
   })
 
+  describe('leave', () => {
+    test('a leave from another client of the same user is rejected', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      const secondClient = connectSecondClient(HOST_USER)
+
+      // Membership is per client, so a client that is in no lobby has nothing to leave, even when
+      // another client of the same user is in one.
+      expect(() => lobbyService.leaveLobby({ client: secondClient.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotInLobby }),
+      )
+
+      expect(lobbyService.lobbies.has(id)).toBe(true)
+      expect(lobbyService.lobbyClients.get(host.client)).toBe(id)
+    })
+
+    test('the client the request names is the one that leaves', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      lobbyService.leaveLobby({ client: joiner.client, lobbyId: id })
+
+      expect(lobbyService.lobbyClients.has(joiner.client)).toBe(false)
+      expect(lobbyService.lobbyClients.get(host.client)).toBe(id)
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeUndefined()
+    })
+  })
+
   describe('bench', () => {
     /** Creates a 1v1 lobby with both slots taken and `otherHost` waiting on the bench. */
     async function createLobbyWithBench(region?: string) {
@@ -513,19 +544,25 @@ describe('lobbies/lobby-service', () => {
 
     test('a member leaving the bench leaves the lobby', async () => {
       const id = await createLobbyWithBench()
+      fakeNydus.publish.mockClear()
 
       lobbyService.leaveLobby({ client: otherHost.client })
 
       expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(0)
       expect(lobbyService.lobbyClients.has(otherHost.client)).toBe(false)
       expect(lobbyService.getLobbyState({ lobbyId: id }).lobbyState).toBe('exists')
-      // No leave event is published for someone without a slot, so the benchRemove has to say why
-      // they're gone itself
+      // Someone waiting for a seat holds no slot, so no leave/kick/ban is published for them: this
+      // is the only event that tells their own client it is out of the lobby.
       expect(diffEvents(id)).toContainEqual({
         type: 'benchRemove',
         userId: OTHER_HOST_USER.id,
         reason: 'left',
       })
+      expect(
+        fakeNydus.publish.mock.calls.some(
+          ([path, data]) => path === `/lobbies/${id}/${OTHER_HOST_USER.id}` && data?.lobby === null,
+        ),
+      ).toBe(true)
     })
 
     test('closing a computer slot that dissolves its team seats waiting members', async () => {
@@ -660,6 +697,7 @@ describe('lobbies/lobby-service', () => {
 
     test('a member banned from the bench cannot rejoin', async () => {
       const id = await createLobbyWithBench()
+      fakeNydus.publish.mockClear()
 
       // Someone waiting for a seat has no slot, so the host names them by their user id
       lobbyService.banPlayer({ client: host.client, slotId: String(OTHER_HOST_USER.id) })
@@ -691,7 +729,13 @@ describe('lobbies/lobby-service', () => {
       const lobby = lobbyService.lobbies.get(id)!
       expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]).toBeDefined()
       expect(lobby.bench.map(b => b.userId)).toEqual([LISTER_USER.id])
-      expect(diffEvents(id)).toContainEqual({ type: 'benchRemove', userId: OTHER_HOST_USER.id })
+      // An absent reason is what says they were seated rather than removed from the lobby; the
+      // accompanying slot events describe the seat they got.
+      expect(diffEvents(id)).toContainEqual({
+        type: 'benchRemove',
+        userId: OTHER_HOST_USER.id,
+        reason: undefined,
+      })
     })
 
     test('opening a slot seats a waiting member', async () => {
@@ -1339,6 +1383,37 @@ describe('lobbies/lobby-service', () => {
       expect(() =>
         lobbyService.changeSlot({ client: joiner.client, slotId: closedSlot.id }),
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
+    })
+  })
+
+  describe('removeObserver', () => {
+    test('the observer slot it frees goes to the member who has been waiting', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+
+      // The joiner watches instead of playing, and the host closes the seat they left behind, so
+      // the lobby has nowhere for anyone new to sit
+      let lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      lobbyService.makeObserver({ client: host.client, slotId: joinerSlot!.id })
+      lobby = lobbyService.lobbies.get(id)!
+      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[0].slots[1].id })
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      lobby = lobbyService.lobbies.get(id)!
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      const obsSlot = obsTeam!.slots.find(s => s.type === 'observer')!
+      lobbyService.removeObserver({ client: host.client, slotId: obsSlot.id })
+
+      // Sending the observer back to a player slot leaves theirs open, which is exactly the kind of
+      // seat the bench is waiting for
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.bench).toHaveLength(0)
+      expect(findSlotByUserId(updated, JOINER_USER.id)[2]!.type).toBe('human')
+      const [seatedTeamIndex, , seatedSlot] = findSlotByUserId(updated, OTHER_HOST_USER.id)
+      expect(seatedTeamIndex).toBe(obsTeamIndex)
+      expect(seatedSlot!.type).toBe('observer')
     })
   })
 

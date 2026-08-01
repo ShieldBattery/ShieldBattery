@@ -1311,6 +1311,14 @@ export class LobbyService {
     this._warmLobbyRegions(updated)
   }
 
+  /**
+   * Takes the given client out of the lobby it occupies.
+   *
+   * Membership is per client, so the leave applies to the client that asked for it and no other:
+   * one of a user's clients must not be able to leave on another's behalf, and a client that is in
+   * a lobby must be able to leave it even when the user's registered active client is a different
+   * one.
+   */
   leaveLobby({ client, lobbyId }: { client: ClientSocketsGroup; lobbyId?: SbLobbyId }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     this._removeClientFromLobby(lobby, client)
