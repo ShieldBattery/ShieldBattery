@@ -15,7 +15,7 @@ export interface OpenSlotProps {
   race?: RaceChar
   onSetRace?: (race: RaceChar) => void
   onAddComputer?: () => void
-  onSwitchClick: () => void
+  onSwitchClick?: () => void
   onCloseSlot: () => void
 }
 
@@ -48,7 +48,9 @@ export function OpenSlot({
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           onClick={onSwitchClick}>
-          <SlotEmptyAvatar>{isHovered ? <MaterialIcon icon='swap_vert' /> : null}</SlotEmptyAvatar>
+          <SlotEmptyAvatar>
+            {isHovered && onSwitchClick ? <MaterialIcon icon='swap_vert' /> : null}
+          </SlotEmptyAvatar>
           <SlotEmptyName as='span'>{t('lobbies.slots.open', 'Open')}</SlotEmptyName>
         </SlotProfileOpen>
         {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
