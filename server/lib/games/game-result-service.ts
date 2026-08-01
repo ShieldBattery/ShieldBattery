@@ -642,6 +642,10 @@ export default class GameResultService {
    * response or interrupt the rest of a sweep.
    */
   async forceReconcileGame(gameId: string): Promise<void> {
+    // Whatever triggered this observed the game's end authoritatively (relay session closed,
+    // known-complete, liveness probe), so announce it before the results-exempt early-out below:
+    // a lobby regroups when its game ends whether or not that game ever reconciles results.
+    this.gameLifecycleEvents.emit('gameEnded', { gameId })
     try {
       const gameRecord = await this.retrieveGame(gameId)
       if (isResultsExempt(gameRecord.config)) {

@@ -1457,6 +1457,28 @@ describe('lobbies/lobby-service', () => {
       expect([...lobbyService.runStates.get(id)!.inGameUsers]).toEqual([HOST_USER.id])
     })
 
+    test('a whole-game end signal regroups everyone still marked as playing', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      // Nobody reported individually - e.g. both apps crashed - but the relay session closing
+      // fired the authoritative whole-game signal.
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'test-game-id' })
+
+      expect(lobbyService.runStates.has(id)).toBe(false)
+      expect(lobbyPublishes(id)).toEqual([{ type: 'regroup', gameId: 'test-game-id' }])
+    })
+
+    test('a whole-game end for a game no lobby is running is ignored', async () => {
+      const id = await createLobbyInGame()
+      fakeNydus.publish.mockClear()
+
+      gameLifecycleEvents.emit('gameEnded', { gameId: 'a-different-game' })
+
+      expect(lobbyService.runStates.has(id)).toBe(true)
+      expect(lobbyPublishes(id)).toEqual([])
+    })
+
     test('a repeated signal for a member who is already out is ignored', async () => {
       const id = await createLobbyInGame()
       fakeNydus.publish.mockClear()
