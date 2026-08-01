@@ -237,6 +237,12 @@ const eventToAction: EventToActionMap = {
     }
   },
 
+  settingsChange: () => undefined,
+
+  benchAdd: () => undefined,
+
+  benchRemove: () => undefined,
+
   // Nothing in the client's state depends on which of our own clients are in the lobby.
   status: () => {},
 }

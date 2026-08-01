@@ -38,6 +38,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   gameType: GameType.Melee,
   gameSubType: 0,
   teams: [],
+  bench: [],
   host: EMPTY_SLOT,
   useLegacyLimits: false,
   visibility: 'listed',
