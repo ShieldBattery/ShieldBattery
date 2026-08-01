@@ -16,6 +16,7 @@ import {
   hasOpposingSides,
   isUms,
   Lobby,
+  LobbyState,
   LobbyVisibility,
 } from '../../../common/lobbies'
 import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
@@ -1057,9 +1058,9 @@ export class LobbyService {
 
   getLobbyState({ lobbyId }: { lobbyId: SbLobbyId }): {
     lobbyId: SbLobbyId
-    lobbyState: string
+    lobbyState: LobbyState
   } {
-    let lobbyState
+    let lobbyState: LobbyState
     if (!this.lobbies.has(lobbyId)) {
       lobbyState = 'nonexistent'
     } else {

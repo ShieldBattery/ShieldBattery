@@ -56,7 +56,7 @@ interface ListSubscription {
  * The create and join failures the client explains individually additionally carry a machine-
  * readable `LobbyCreateErrorCode`/`LobbyJoinErrorCode` in the error body.
  */
-function convertLobbyServiceError(err: unknown): never {
+export function convertLobbyServiceError(err: unknown): never {
   if (!(err instanceof LobbyServiceError)) {
     throw err
   }
