@@ -269,6 +269,10 @@ const eventToAction: EventToActionMap = {
     }
   },
 
+  memberGameEnded: () => undefined,
+
+  regroup: () => undefined,
+
   settingsChange: (lobbyId, event) => {
     if (event.changedSettings.includes('map')) {
       // Start downloading the new map right away (like joining does), so that game loading isn't

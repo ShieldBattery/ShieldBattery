@@ -101,6 +101,19 @@ export interface GetLobbyStateResponse {
   lobbyState: LobbyState
 }
 
+/**
+ * Where a lobby is in its life: gathering players, counting down or loading into a game, or with a
+ * game in progress. A lobby exists until it's empty; games are things a lobby does, so `inGame`
+ * flows back into `gathering` when its game ends.
+ */
+export type LobbyLifecycle = 'gathering' | 'countingDown' | 'loading' | 'inGame'
+
+/** The running game of a lobby that is `inGame`, and which members are still in it. */
+export interface LobbyRunStateJson {
+  gameId: string
+  inGameUsers: SbUserId[]
+}
+
 export type LobbyEvent =
   | LobbyInitEvent
   | LobbyDiffEvent
@@ -120,6 +133,8 @@ export type LobbyEvent =
   | LobbySettingsChangeEvent
   | LobbyBenchAddEvent
   | LobbyBenchRemoveEvent
+  | LobbyMemberGameEndedEvent
+  | LobbyRegroupEvent
 
 /**
  * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
@@ -184,6 +199,8 @@ export interface LobbySummaryJson {
   occupantIds: ReadonlyArray<SbUserId>
   /** How many members are waiting on the bench for a seat. */
   benchCount: number
+  /** Where the lobby is in its life; a lobby with a game running stays listed and joinable. */
+  lifecycle: LobbyLifecycle
   /** When the lobby was created (Unix millis). */
   createdAt: number
 }
@@ -232,6 +249,8 @@ export interface LobbyInitEvent {
   // TODO(tec27): actually type this. This is the lobby as the server JSON-serialized it, so e.g.
   // `map` is really a `MapInfoJson` rather than the full `MapInfo` that `Lobby` declares.
   lobby: Lobby
+  /** The running game, when the lobby is `inGame` (e.g. for someone joining the bench mid-game). */
+  runState?: LobbyRunStateJson
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
 }
@@ -297,6 +316,22 @@ export interface LobbyCancelLoadingEvent {
 
 export interface LobbyGameStartedEvent {
   type: 'gameStarted'
+  runState: LobbyRunStateJson
+}
+
+/** A member's game ended and they are back in the lobby; the game itself may still be running. */
+export interface LobbyMemberGameEndedEvent {
+  type: 'memberGameEnded'
+  userId: SbUserId
+}
+
+/**
+ * The lobby's game is over for every member, and the lobby is gathering again with its seats and
+ * races kept. Carries the finished game's id so clients can link its results.
+ */
+export interface LobbyRegroupEvent {
+  type: 'regroup'
+  gameId: string
 }
 
 export interface LobbyChatMessage {
