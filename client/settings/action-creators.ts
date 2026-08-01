@@ -1,3 +1,4 @@
+import { useHistoryState } from 'wouter/use-browser-location'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LocalSettings, ScrSettings } from '../../common/settings/local-settings'
 import { audioManager } from '../audio/audio-manager'
@@ -11,8 +12,13 @@ import { SettingsPage } from './settings-page'
 
 const ipcRenderer = new TypedIpcRenderer()
 
-export const SETTINGS_OPEN_STATE = 'SETTINGS:open'
+const SETTINGS_OPEN_STATE = 'SETTINGS:open'
 export const SETTINGS_PAGE_KEY = 'settingsPage'
+
+/** Returns whether the settings UI is currently open. */
+export function useIsSettingsOpen(): boolean {
+  return useHistoryState() === SETTINGS_OPEN_STATE
+}
 
 /**
  * Opens the settings screen, optionally specifying a specific page to open. If the settings screen

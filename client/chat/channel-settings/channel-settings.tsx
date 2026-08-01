@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { useHistoryState } from 'wouter/use-browser-location'
 import {
   BasicChannelInfo,
   DetailedChannelInfo,
@@ -32,10 +31,7 @@ import {
   variants,
 } from '../../settings/settings-content'
 import { BannedUsersSettings } from './banned-users-settings'
-import {
-  CHANNEL_SETTINGS_OPEN_STATE,
-  closeChannelSettings,
-} from './channel-settings-action-creators'
+import { closeChannelSettings, useIsChannelSettingsOpen } from './channel-settings-action-creators'
 import {
   ChannelSettingsPage,
   GeneralChannelSettingsPage,
@@ -78,7 +74,7 @@ export function ChannelSettingsOverlay({
 
 export function ConnectedChannelSettings({ channelId }: { channelId: SbChannelId }) {
   const dispatch = useAppDispatch()
-  const isOpen = useHistoryState() === CHANNEL_SETTINGS_OPEN_STATE
+  const isOpen = useIsChannelSettingsOpen()
 
   return (
     <ChannelSettingsOverlay isOpen={isOpen}>

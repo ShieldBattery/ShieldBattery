@@ -1,10 +1,11 @@
 import { Provider as JotaiProvider } from 'jotai'
-import { LazyMotion, MotionConfig, Transition } from 'motion/react'
+import { AnimatePresence, LazyMotion, MotionConfig, Transition } from 'motion/react'
+import * as m from 'motion/react-m'
 import * as React from 'react'
-import { Suspense, useEffect, useLayoutEffect, useMemo } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { Provider as ReduxProvider } from 'react-redux'
 import { Store } from 'redux'
-import { StyleSheetManager } from 'styled-components'
+import styled, { StyleSheetManager } from 'styled-components'
 import { Provider as UrqlProvider } from 'urql'
 import { Route, Router, Switch } from 'wouter'
 import { AppRoutes } from './app-routes'
@@ -21,6 +22,7 @@ import { KeyListenerBoundary } from './keyboard/key-listener'
 import { logger } from './logging/logger'
 import { MainLayout, MainLayoutContent, MainLayoutLoadingDotsArea } from './main-layout'
 import { DraftScreenOverlay } from './matchmaking/draft-screen-overlay'
+import { zIndexSettings } from './material/zindex'
 import { NavigationTrapProvider } from './navigation/navigation-trap'
 import { UNAUTHORIZED_EMITTER } from './network/fetch'
 import { createGraphqlClient } from './network/graphql-client'
@@ -30,7 +32,7 @@ import { useAppDispatch, useAppSelector } from './redux-hooks'
 import { RootErrorBoundary } from './root-error-boundary'
 import { RootState } from './root-reducer'
 import { getServerConfig } from './server-config-storage'
-import { ConnectedSettings } from './settings/settings'
+import { useIsSettingsOpen } from './settings/action-creators'
 import { SnackbarOverlay } from './snackbars/snackbar-overlay'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
@@ -108,6 +110,64 @@ function UserSpecificUrqlProvider({ children }: { children: React.ReactNode }) {
   const graphqlClient = useUserSpecificGraphqlClient()
 
   return <UrqlProvider value={graphqlClient}>{children}</UrqlProvider>
+}
+
+const SettingsLoadingOverlay = styled(m.div)`
+  position: fixed;
+  top: var(--sb-system-bar-height, 0);
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background-color: var(--theme-container-lowest);
+  z-index: ${zIndexSettings};
+`
+
+/**
+ * Renders the settings screens, deferring the load of their code until the first time they're
+ * opened. While the code is being fetched, shows an overlay styled to match the settings
+ * container so opening settings gives immediate feedback even on slow connections; the overlay
+ * cross-fades with the real settings once they arrive. Stays mounted after loading so the close
+ * animation can play.
+ */
+function LazyConnectedSettings() {
+  const isOpen = useIsSettingsOpen()
+  const [SettingsComponent, setSettingsComponent] = useState<React.ComponentType>()
+
+  useEffect(() => {
+    if (isOpen && !SettingsComponent) {
+      import('./settings/settings').then(
+        module => setSettingsComponent(() => module.ConnectedSettings),
+        (err: Error) => {
+          // Leaving SettingsComponent unset means closing and reopening settings will retry the
+          // load (webpack retries failed chunk requests on the next import() call)
+          logger.error(`Failed to load settings: ${err?.stack ?? err}`)
+        },
+      )
+    }
+  }, [isOpen, SettingsComponent])
+
+  return (
+    <>
+      <AnimatePresence>
+        {isOpen && !SettingsComponent ? (
+          <SettingsLoadingOverlay
+            key='settings-loading'
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', duration: 0.3, bounce: 0 }}>
+            <LoadingDotsArea />
+          </SettingsLoadingOverlay>
+        ) : null}
+      </AnimatePresence>
+      {SettingsComponent ? <SettingsComponent /> : null}
+    </>
+  )
 }
 
 const loadMotionFeatures = () => import('./motion-features').then(m => m.domMax)
@@ -213,9 +273,7 @@ const AppContent = React.memo(() => {
         </Switch>
       </React.Suspense>
       <GameplayActivityWidget />
-      <React.Suspense fallback={<LoadingDotsArea />}>
-        <ConnectedSettings />
-      </React.Suspense>
+      <LazyConnectedSettings />
       <DraftScreenOverlay />
       <ConnectedDialogOverlay />
     </>

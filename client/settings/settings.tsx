@@ -4,7 +4,6 @@ import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { useHistoryState } from 'wouter/use-browser-location'
 import { useIsLoggedIn } from '../auth/auth-utils'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
@@ -14,7 +13,7 @@ import { Ripple } from '../material/ripple'
 import { useUserLocalStorageValue } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import { starcraftHealthy } from '../starcraft/health-state'
-import { closeSettings, SETTINGS_OPEN_STATE, SETTINGS_PAGE_KEY } from './action-creators'
+import { closeSettings, SETTINGS_PAGE_KEY, useIsSettingsOpen } from './action-creators'
 import { AppSoundSettings } from './app/sound-settings'
 import { AppSystemSettings } from './app/system-settings'
 import { GameplaySettings } from './game/gameplay-settings'
@@ -52,7 +51,7 @@ const ESCAPE = 'Escape'
 export function ConnectedSettings() {
   const dispatch = useAppDispatch()
   const isLoggedIn = useIsLoggedIn()
-  const isOpen = useHistoryState() === SETTINGS_OPEN_STATE
+  const isOpen = useIsSettingsOpen()
   const [page, setPage] = useUserLocalStorageValue<SettingsPage>(
     SETTINGS_PAGE_KEY,
     isLoggedIn ? UserSettingsPage.Account : UserSettingsPage.Language,
