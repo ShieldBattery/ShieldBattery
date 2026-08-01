@@ -28,11 +28,13 @@ export enum DialogType {
   FailedToAcceptMatch = 'failedToAcceptMatch',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
+  LobbySettings = 'lobbySettings',
   MapDetails = 'mapDetails',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
+  MoveSlot = 'moveSlot',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -173,6 +175,7 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
+type LobbySettingsDialogPayload = BaseDialogPayload<typeof DialogType.LobbySettings>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
   {
@@ -200,6 +203,13 @@ type MarkdownDialogPayload = BaseDialogPayload<
   }
 >
 type MatchmakingBannedDialogPayload = BaseDialogPayload<typeof DialogType.MatchmakingBanned>
+type MoveSlotDialogPayload = BaseDialogPayload<
+  typeof DialogType.MoveSlot,
+  {
+    /** The slot the host is moving an occupant out of; disabled as a destination in the list. */
+    fromSlotId: string
+  }
+>
 export type PostMatchDialogPayload = BaseDialogPayload<
   typeof DialogType.PostMatch,
   {
@@ -287,11 +297,13 @@ export type DialogPayload =
   | FailedToAcceptMatchDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
+  | LobbySettingsDialogPayload
   | MapDetailsDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload
+  | MoveSlotDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload

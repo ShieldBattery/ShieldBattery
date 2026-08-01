@@ -1,6 +1,9 @@
+import { TFunction } from 'i18next'
 import { memo, useContext } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { assertUnreachable } from '../../common/assert-unreachable'
+import { LobbyChangedSetting } from '../../common/lobbies/lobby-network'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { TransInterpolation } from '../i18n/i18next'
 import { ChatContext } from '../messaging/chat-context'
@@ -221,3 +224,60 @@ export function LobbyLoadingCanceledMessage({
     </SystemMessage>
   )
 }
+
+/** A short, human-readable label for a single changed lobby setting, used in a joined list. */
+function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string {
+  switch (setting) {
+    case 'map':
+      return t('lobbies.messageLayout.settingsChangeMap', 'map')
+    case 'gameType':
+      return t('lobbies.messageLayout.settingsChangeGameType', 'game type')
+    case 'gameSubType':
+      return t('lobbies.messageLayout.settingsChangeGameSubType', 'teams')
+    case 'useLegacyLimits':
+      return t('lobbies.messageLayout.settingsChangeUnitLimit', 'unit limit')
+    case 'allowObservers':
+      return t('lobbies.messageLayout.settingsChangeObservers', 'observers')
+    default:
+      return assertUnreachable(setting)
+  }
+}
+
+export const SettingsChangeMessage = memo<{
+  time: number
+  changedSettings: ReadonlyArray<LobbyChangedSetting>
+}>(props => {
+  const { time, changedSettings } = props
+  const { t } = useTranslation()
+  const settings = changedSettings.map(setting => changedSettingLabel(setting, t)).join(', ')
+
+  return (
+    <SystemMessage time={time}>
+      <span>
+        {t('lobbies.messageLayout.settingsChange', {
+          defaultValue: 'The host changed the lobby settings: {{settings}}',
+          settings,
+        })}
+      </span>
+    </SystemMessage>
+  )
+})
+
+export const BenchJoinMessage = memo<{ time: number; userId: SbUserId }>(props => {
+  const { time, userId } = props
+  const { t } = useTranslation()
+  const filterClick = useMentionFilterClick()
+  const { UserMenu } = useContext(ChatContext)
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <Trans t={t} i18nKey='lobbies.messageLayout.benchJoin'>
+          <SystemImportant>
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
+          </SystemImportant>{' '}
+          is waiting for a seat
+        </Trans>
+      </span>
+    </SystemMessage>
+  )
+})

@@ -237,11 +237,20 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  settingsChange: () => undefined,
+  settingsChange: (lobbyId, event) => ({
+    type: '@lobbies/updateSettingsChange',
+    payload: event,
+  }),
 
-  benchAdd: () => undefined,
+  benchAdd: (lobbyId, event) => ({
+    type: '@lobbies/updateBenchAdd',
+    payload: event,
+  }),
 
-  benchRemove: () => undefined,
+  benchRemove: (lobbyId, event) => ({
+    type: '@lobbies/updateBenchRemove',
+    payload: event,
+  }),
 
   // Nothing in the client's state depends on which of our own clients are in the lobby.
   status: () => {},

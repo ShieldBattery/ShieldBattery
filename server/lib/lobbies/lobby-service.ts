@@ -4,8 +4,10 @@ import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
-import { GameType } from '../../../common/games/game-type'
+import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
+  BenchedUser,
+  findBenchedUser,
   findSlotById,
   findSlotByUserId,
   getHumanSlots,
@@ -13,17 +15,25 @@ import {
   getLobbySlotsWithIndexes,
   getObserverTeam,
   getPlayerInfos,
+  hasObservers,
   hasOpposingSides,
+  isLobbyEmpty,
+  isSlotUnoccupied,
   isUms,
   Lobby,
   LobbyState,
   LobbyVisibility,
+  MAX_BENCH,
 } from '../../../common/lobbies'
-import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyChangedSetting,
+  LobbySlotCreateEvent,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
-import { SbMapId } from '../../../common/maps'
+import { MapInfo, SbMapId } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
@@ -142,6 +152,27 @@ export function knownRegionOrUndefined(
 
 interface Countdown {
   timer?: Deferred<void>
+}
+
+/** Returns the user ids of everyone in a lobby, seated or waiting on the bench. */
+function getLobbyMemberIds(lobby: Lobby): SbUserId[] {
+  return [...getHumanSlots(lobby).map(slot => slot.userId!), ...lobby.bench.map(b => b.userId)]
+}
+
+/**
+ * Returns whether a map defines any slot a person could occupy when its own settings are used. A
+ * map without one describes a lobby nobody can be in, so it can't be played that way.
+ */
+function hasUmsPlayerSlots(map: MapInfo): boolean {
+  return map.mapData.umsForces.some(force => force.players.some(player => !player.computer))
+}
+
+/**
+ * Finds the member a host operation names when no slot has that id: someone waiting on the bench
+ * holds no slot, so they are named by their user id instead.
+ */
+function findBenchedTarget(lobby: Lobby, id: string): BenchedUser | undefined {
+  return lobby.bench.find(benched => String(benched.userId) === id)
 }
 
 function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSlots: number) {
@@ -322,27 +353,38 @@ export class LobbyService {
     }
 
     const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
+    let updated: Lobby
     if (teamIndex === undefined || slotIndex === undefined) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
-    }
-
-    let player
-    const [, observerTeam] = getObserverTeam(lobby)
-    if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
-      player = Slots.createObserver(client.userId)
+      // Nobody is turned away from a lobby that is merely full: they wait on the bench until a seat
+      // frees up or the host makes room for them.
+      if (lobby.bench.length >= MAX_BENCH) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
+      }
+      updated = Lobbies.addToBench(lobby, {
+        userId: client.userId,
+        race: 'r',
+        joinedAt: Date.now(),
+        region: joinRegion,
+      })
     } else {
-      player = isUms(lobby.gameType)
-        ? Slots.createHuman(
-            client.userId,
-            availableSlot.race,
-            availableSlot.hasForcedRace,
-            availableSlot.playerId,
-          )
-        : Slots.createHuman(client.userId)
-    }
-    player = { ...player, region: joinRegion }
+      let player
+      const [, observerTeam] = getObserverTeam(lobby)
+      if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+        player = Slots.createObserver(client.userId)
+      } else {
+        player = isUms(lobby.gameType)
+          ? Slots.createHuman(
+              client.userId,
+              availableSlot.race,
+              availableSlot.hasForcedRace,
+              availableSlot.playerId,
+            )
+          : Slots.createHuman(client.userId)
+      }
+      player = { ...player, region: joinRegion }
 
-    let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+      updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+    }
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(
@@ -411,7 +453,7 @@ export class LobbyService {
         }
 
         try {
-          const userInfos = await findUsersById(getHumanSlots(lobby).map(s => s.userId!))
+          const userInfos = await findUsersById(getLobbyMemberIds(lobby))
 
           return {
             type: 'init',
@@ -484,6 +526,199 @@ export class LobbyService {
     })
   }
 
+  /**
+   * Changes the settings of a lobby that is still gathering, reconciling everyone in it into the
+   * layout the new settings describe.
+   *
+   * Settings that aren't named are left as they are. Since reconciliation can rearrange the whole
+   * lobby, the occupants receive the result as a complete lobby rather than as a set of changes,
+   * alongside the list of settings the host actually changed.
+   */
+  async updateSettings({
+    client,
+    lobbyId,
+    map,
+    gameType,
+    gameSubType,
+    allowObservers,
+    useLegacyLimits,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    map?: SbMapId
+    gameType?: GameType
+    gameSubType?: number
+    allowObservers?: boolean
+    useLegacyLimits?: boolean
+  }): Promise<void> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    let fetchedMap: MapInfo | undefined
+    if (map !== undefined) {
+      const found = (await getMapInfos([map]))[0]
+      if (!found) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
+      }
+      ;[fetchedMap] = await reparseMapsAsNeeded([found])
+    }
+
+    // Fetching the map info gives other operations on this lobby a chance to run, so everything
+    // below works from the lobby as it is now.
+    const current = this.getLobbyForClient(client, lobbyId)
+    const [, , currentPlayer] = findSlotByUserId(current, client.userId)
+    this.ensureIsLobbyHost(current, currentPlayer)
+    this.ensureLobbyNotTransient(current)
+
+    const mapInfo = fetchedMap ?? current.map!
+    const nextGameType = gameType ?? current.gameType
+    // Only team game types are configured by a sub-type, so carrying one over from a type that had
+    // one would leave the lobby describing a configuration it doesn't have.
+    const nextGameSubType = isTeamType(nextGameType) ? (gameSubType ?? current.gameSubType) : 0
+    const nextAllowObservers = allowObservers ?? hasObservers(current)
+    const nextUseLegacyLimits = useLegacyLimits ?? current.useLegacyLimits
+
+    if (isUms(nextGameType) && !hasUmsPlayerSlots(mapInfo)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidGameType,
+        'map defines no player slots to use its settings from',
+      )
+    }
+
+    let numSlots
+    switch (nextGameType) {
+      case 'oneVOne':
+        numSlots = 2
+        break
+      case 'teamMelee':
+      case 'teamFfa':
+        numSlots = 8
+        break
+      default:
+        numSlots = mapInfo.mapData.slots
+    }
+    checkSubTypeValidity(nextGameType, nextGameSubType, numSlots)
+
+    const changedSettings: LobbyChangedSetting[] = []
+    if (mapInfo.id !== current.map!.id) changedSettings.push('map')
+    if (nextGameType !== current.gameType) changedSettings.push('gameType')
+    if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
+    if (nextAllowObservers !== hasObservers(current)) changedSettings.push('allowObservers')
+    if (nextUseLegacyLimits !== current.useLegacyLimits) changedSettings.push('useLegacyLimits')
+
+    let updated
+    try {
+      updated = Lobbies.applySettingsChange(current, {
+        map: mapInfo,
+        gameType: nextGameType,
+        gameSubType: nextGameSubType,
+        numSlots,
+        allowObservers: nextAllowObservers,
+        useLegacyLimits: nextUseLegacyLimits,
+      })
+    } catch (err) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
+    }
+    updated = this._seatBenchOverflow(updated)
+
+    this.lobbies.set(updated.id, updated)
+    this._publishTo(updated, {
+      type: 'settingsChange',
+      changedSettings,
+      lobby: updated,
+    })
+    this._publishListChange('update', updated)
+    this._warmLobbyRegions(updated)
+  }
+
+  /**
+   * Moves the occupant of one slot into another at the host's direction. An unoccupied destination
+   * is a plain move; an occupied one exchanges the two occupants, which is the only way to
+   * rearrange a lobby that has no room left.
+   */
+  moveSlot({
+    client,
+    lobbyId,
+    fromSlotId,
+    toSlotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    fromSlotId: string
+    toSlotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
+    const [, , player] = findSlotByUserId(lobby, client.userId)
+    this.ensureIsLobbyHost(lobby, player)
+    this.ensureLobbyNotTransient(lobby)
+
+    const [sourceTeamIndex, sourceSlotIndex, sourceSlot] = findSlotById(lobby, fromSlotId)
+    const [destTeamIndex, destSlotIndex, destSlot] = findSlotById(lobby, toSlotId)
+    if (!sourceSlot || !destSlot) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
+    }
+    if (
+      sourceSlot.type !== SlotType.Human &&
+      sourceSlot.type !== SlotType.Observer &&
+      sourceSlot.type !== SlotType.Computer
+    ) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid source slot type')
+    }
+    if (sourceSlot === destSlot) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyInSlot, 'already in that slot')
+    }
+    const isMove = isSlotUnoccupied(destSlot)
+    if (isMove && destSlot.type !== SlotType.Open && destSlot.type !== SlotType.ControlledOpen) {
+      // A closed slot is one the host has deliberately taken out of the lobby; they can open it
+      // first if they want someone in it.
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotType,
+        'invalid destination slot type',
+      )
+    }
+    if (lobby.teams[destTeamIndex!].isObserver && sourceSlot.type === SlotType.Computer) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ComputerInObserverSlot,
+        'cannot move a computer to an observer slot',
+      )
+    }
+
+    let updated
+    try {
+      updated = isMove
+        ? Lobbies.movePlayerToSlot(
+            lobby,
+            sourceTeamIndex!,
+            sourceSlotIndex!,
+            destTeamIndex!,
+            destSlotIndex!,
+          )
+        : Lobbies.swapSlots(
+            lobby,
+            sourceTeamIndex!,
+            sourceSlotIndex!,
+            destTeamIndex!,
+            destSlotIndex!,
+          )
+    } catch (err) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
+    }
+
+    this.lobbies.set(lobby.id, updated)
+    this._publishLobbyDiff(lobby, updated)
+    this._warmLobbyRegions(updated)
+  }
+
   addComputer({
     client,
     lobbyId,
@@ -495,7 +730,7 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     if (isUms(lobby.gameType)) {
@@ -540,6 +775,9 @@ export class LobbyService {
     const lobby = this.getLobbyForClient(client, lobbyId)
     this.ensureLobbyNotTransient(lobby)
     const [sourceTeamIndex, sourceSlotIndex, sourceSlot] = findSlotByUserId(lobby, client.userId)
+    if (!sourceSlot && !findBenchedUser(lobby, client.userId)) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.NotInLobby, 'must be in a lobby')
+    }
 
     const [destTeamIndex, destSlotIndex, destSlot] = findSlotById(lobby, slotId)
     if (!destSlot) {
@@ -557,13 +795,17 @@ export class LobbyService {
 
     let updated
     try {
-      updated = Lobbies.movePlayerToSlot(
-        lobby,
-        sourceTeamIndex!,
-        sourceSlotIndex!,
-        destTeamIndex!,
-        destSlotIndex!,
-      )
+      updated = sourceSlot
+        ? Lobbies.movePlayerToSlot(
+            lobby,
+            sourceTeamIndex!,
+            sourceSlotIndex!,
+            destTeamIndex!,
+            destSlotIndex!,
+          )
+        : // Someone waiting on the bench takes the seat they picked, keeping what they were
+          // waiting with.
+          Lobbies.seatBenchedUser(lobby, client.userId, destTeamIndex!, destSlotIndex!)
     } catch (err) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.InvalidSlotOperation,
@@ -590,6 +832,11 @@ export class LobbyService {
     const lobby = this.getLobbyForClient(client, lobbyId)
     this.ensureLobbyNotLoading(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
+    if (!player) {
+      // A member waiting on the bench has no slot of their own, and every slot they could name
+      // belongs to someone else.
+      throw new LobbyServiceError(LobbyServiceErrorCode.NotOwnSlot, "cannot set other user's races")
+    }
 
     const [teamIndex, slotIndex, slotToSetRace] = findSlotById(lobby, slotId)
     if (!slotToSetRace) {
@@ -605,15 +852,15 @@ export class LobbyService {
     }
 
     if (slotToSetRace.type === 'computer') {
-      this.ensureIsLobbyHost(lobby, player!)
+      this.ensureIsLobbyHost(lobby, player)
     } else if (slotToSetRace.controlledBy) {
-      if (slotToSetRace.controlledBy !== player!.id) {
+      if (slotToSetRace.controlledBy !== player.id) {
         throw new LobbyServiceError(
           LobbyServiceErrorCode.NotSlotController,
           'must control a slot to set its race',
         )
       }
-    } else if (slotToSetRace.id !== player!.id) {
+    } else if (slotToSetRace.id !== player.id) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NotOwnSlot, "cannot set other user's races")
     } else if (slotToSetRace.hasForcedRace) {
       throw new LobbyServiceError(
@@ -638,7 +885,7 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     const [teamIndex, slotIndex, slotToOpen] = findSlotById(lobby, slotId)
@@ -663,6 +910,7 @@ export class LobbyService {
         { cause: err },
       )
     }
+    updated = this._seatBenchOverflow(updated)
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
@@ -679,7 +927,7 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     const [teamIndex, slotIndex, slotToClose] = findSlotById(lobby, slotId)
@@ -700,7 +948,9 @@ export class LobbyService {
       slotToClose.type === 'computer' ||
       slotToClose.type === 'observer'
     ) {
-      this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, slotToClose)
+      // Removing the occupant of the slot being closed must not let someone waiting on the bench
+      // take it, since the whole point of the request is to take that slot out of the lobby.
+      this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, slotToClose, false)
     }
     const afterKick = this.lobbies.get(lobby.id)!
 
@@ -729,12 +979,17 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     const [teamIndex, slotIndex, playerToKick] = findSlotById(lobby, slotId)
     if (!playerToKick) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
+      const benched = findBenchedTarget(lobby, slotId)
+      if (!benched) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
+      }
+      this._removeUserFromLobby(lobby, benched.userId, REMOVAL_TYPE_KICK)
+      return
     }
     if (
       playerToKick.type !== 'human' &&
@@ -747,24 +1002,43 @@ export class LobbyService {
     this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, playerToKick)
   }
 
-  _kickPlayerFromLobby(lobby: Lobby, teamIndex: number, slotIndex: number, playerToKick: Slot) {
+  _kickPlayerFromLobby(
+    lobby: Lobby,
+    teamIndex: number,
+    slotIndex: number,
+    playerToKick: Slot,
+    seatFromBench = true,
+  ) {
     if (playerToKick.type === 'computer') {
       // NOTE(tec27): We know that removing a computer can never result in an empty lobby since a
       // human has to do it
-      const updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)!
+      let updated = Lobbies.removePlayer(lobby, teamIndex, slotIndex, playerToKick)!
+      if (seatFromBench) {
+        updated = this._seatBenchOverflow(updated)
+      }
       this.lobbies.set(lobby.id, updated)
       this._publishLobbyDiff(lobby, updated)
       this._warmLobbyRegions(updated)
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
-      const client = this.activityRegistry.getClientForUser(playerToKick.userId!)
-      if (!client) {
-        throw new LobbyServiceError(
-          LobbyServiceErrorCode.TargetNoActiveClient,
-          'target player has no active client',
-        )
-      }
-      this._removeClientFromLobby(lobby, client, REMOVAL_TYPE_KICK)
+      this._removeUserFromLobby(lobby, playerToKick.userId!, REMOVAL_TYPE_KICK, seatFromBench)
     }
+  }
+
+  /** Removes a member from a lobby by user id, failing if they have no client to remove. */
+  private _removeUserFromLobby(
+    lobby: Lobby,
+    userId: SbUserId,
+    removalType: number,
+    seatFromBench = true,
+  ) {
+    const client = this.activityRegistry.getClientForUser(userId)
+    if (!client) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.TargetNoActiveClient,
+        'target player has no active client',
+      )
+    }
+    this._removeClientFromLobby(lobby, client, removalType, seatFromBench)
   }
 
   banPlayer({
@@ -778,32 +1052,27 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     const [, , playerToBan] = findSlotById(lobby, slotId)
-    if (!playerToBan) {
+    const benched = playerToBan ? undefined : findBenchedTarget(lobby, slotId)
+    if (!playerToBan && !benched) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
-    if (playerToBan.type !== 'human' && playerToBan.type !== 'observer') {
+    if (playerToBan && playerToBan.type !== 'human' && playerToBan.type !== 'observer') {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
+    const userToBan = playerToBan ? playerToBan.userId! : benched!.userId
 
     let bannedUsers = this.lobbyBannedUsers.get(lobby.id)
     if (!bannedUsers) {
       bannedUsers = new Set()
       this.lobbyBannedUsers.set(lobby.id, bannedUsers)
     }
-    bannedUsers.add(playerToBan.userId!)
+    bannedUsers.add(userToBan)
 
-    const clientToBan = this.activityRegistry.getClientForUser(playerToBan.userId!)
-    if (!clientToBan) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.TargetNoActiveClient,
-        'target player has no active client',
-      )
-    }
-    this._removeClientFromLobby(lobby, clientToBan, REMOVAL_TYPE_BAN)
+    this._removeUserFromLobby(lobby, userToBan, REMOVAL_TYPE_BAN)
   }
 
   makeObserver({
@@ -817,7 +1086,7 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
@@ -835,6 +1104,7 @@ export class LobbyService {
         { cause: err },
       )
     }
+    updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
@@ -851,7 +1121,7 @@ export class LobbyService {
   }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
@@ -885,23 +1155,52 @@ export class LobbyService {
     this._removeClientFromLobby(lobby, client)
   }
 
+  /**
+   * Seats the members waiting on the bench, longest-waiting first, for as long as the lobby has
+   * both someone waiting and a slot they could have joined into directly. Also picks a new host if
+   * the lobby's is gone, which is how a lobby whose last seated member left is handed to whoever
+   * was waiting behind them.
+   */
+  private _seatBenchOverflow(lobby: Lobby): Lobby {
+    let updated = lobby
+    while (updated.bench.length > 0) {
+      const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(updated)
+      if (teamIndex === undefined || slotIndex === undefined) {
+        break
+      }
+      updated = Lobbies.seatBenchedUser(updated, updated.bench[0].userId, teamIndex, slotIndex)
+    }
+    return Lobbies.reassignHost(updated)
+  }
+
   _removeClientFromLobby(
     lobby: Lobby,
     client: ClientSocketsGroup,
     removalType = REMOVAL_TYPE_NORMAL,
+    seatFromBench = true,
   ) {
     const [teamIndex, slotIndex, player] = findSlotByUserId(lobby, client.userId)
-    const updatedLobby = Lobbies.removePlayer(lobby, teamIndex!, slotIndex!, player!)
-    const isLobbyEmpty = !updatedLobby
+    let updatedLobby: Lobby | undefined
+    if (player) {
+      updatedLobby = Lobbies.removePlayer(lobby, teamIndex!, slotIndex!, player)
+      if (updatedLobby && seatFromBench) {
+        updatedLobby = this._seatBenchOverflow(updatedLobby)
+      }
+    } else {
+      // A member waiting on the bench occupies no slot, so nothing opens up by their leaving.
+      const withoutMember = Lobbies.removeFromBench(lobby, client.userId)
+      updatedLobby = isLobbyEmpty(withoutMember) ? undefined : withoutMember
+    }
+    const lobbyIsEmpty = !updatedLobby
 
-    if (isLobbyEmpty) {
+    if (!updatedLobby) {
       // The lobby is now empty and needs to be removed from the list
 
       // Ensure the client's local state gets updated to confirm the leave
-      this._publishTo(lobby, {
-        type: 'leave',
-        player,
-      })
+      this._publishTo(
+        lobby,
+        player ? { type: 'leave', player } : { type: 'benchRemove', userId: client.userId },
+      )
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
@@ -925,8 +1224,8 @@ export class LobbyService {
       lobby: null,
     })
 
-    this._maybeCancelCountdown(lobby, isLobbyEmpty)
-    this._maybeCancelLoading(lobby, isLobbyEmpty)
+    this._maybeCancelCountdown(lobby, lobbyIsEmpty)
+    this._maybeCancelLoading(lobby, lobbyIsEmpty)
 
     try {
       const user = this.getUserById(client.userId)
@@ -955,7 +1254,7 @@ export class LobbyService {
     }
 
     const [, , player] = findSlotByUserId(lobby, client.userId)
-    this.ensureIsLobbyHost(lobby, player!)
+    this.ensureIsLobbyHost(lobby, player)
     this.ensureLobbyNotTransient(lobby)
 
     // Last chance to warm the lobby's regions before a session is created for it.
@@ -1095,8 +1394,11 @@ export class LobbyService {
   _onGameLoaded(lobby: Lobby) {
     this._publishTo(lobby, { type: 'gameStarted' })
 
-    getHumanSlots(lobby)
-      .map(p => this.activityRegistry.getClientForUser(p.userId!)!)
+    // Members waiting on the bench take no part in the game, but the lobby is going away for
+    // everyone in it, so they are released along with the players.
+    getLobbyMemberIds(lobby)
+      .map(userId => this.activityRegistry.getClientForUser(userId))
+      .filter(client => !!client)
       .forEach(client => {
         const user = this.getUserById(client.userId)
         this._publishToUser(lobby, user.userId, {
@@ -1176,8 +1478,12 @@ export class LobbyService {
     return lobby
   }
 
-  ensureIsLobbyHost(lobby: Lobby, player: Slot) {
-    if (player.id !== lobby.host.id) {
+  /**
+   * Throws unless `player` is the slot the lobby's host occupies. A member with no slot (someone
+   * waiting on the bench) is never the host, so an absent slot fails the same way.
+   */
+  ensureIsLobbyHost(lobby: Lobby, player: Slot | undefined) {
+    if (player?.id !== lobby.host.id) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NotHost, 'must be a lobby host')
     }
   }
@@ -1346,6 +1652,20 @@ export class LobbyService {
           slotIndex: newSlotIndex,
           newRace: newSlot.race,
         })
+      }
+    }
+
+    // The bench is diffed after the slots, so that someone who was waiting and has just been seated
+    // is reported as leaving the bench only once the slot they went to has been described.
+    const oldBench = new Set(oldLobby.bench.map(benched => benched.userId))
+    for (const benched of oldLobby.bench) {
+      if (!newLobby.bench.some(entry => entry.userId === benched.userId)) {
+        diffEvents.push({ type: 'benchRemove', userId: benched.userId })
+      }
+    }
+    for (const benched of newLobby.bench) {
+      if (!oldBench.has(benched.userId)) {
+        diffEvents.push({ type: 'benchAdd', user: benched })
       }
     }
 

@@ -191,6 +191,47 @@ const lobbyHandlers = {
     draft.info.teams[teamIndex].slots[slotIndex] = player
   },
 
+  '@lobbies/updateSettingsChange'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    draft.info = castDraft(action.payload.lobby)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbySettingsChange,
+      time: Date.now(),
+      changedSettings: action.payload.changedSettings,
+    })
+  },
+
+  '@lobbies/updateBenchAdd'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    draft.info.bench.push(action.payload.user)
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyBenchJoin,
+      time: Date.now(),
+      userId: action.payload.user.userId,
+    })
+  },
+
+  '@lobbies/updateBenchRemove'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    // No chat message here: the bench member's seating or departure is reported by the slot/leave
+    // event that accompanies this one.
+    draft.info.bench = draft.info.bench.filter(benched => benched.userId !== action.payload.userId)
+  },
+
   '@lobbies/updateLeaveSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
