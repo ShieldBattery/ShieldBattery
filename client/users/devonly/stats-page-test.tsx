@@ -47,6 +47,7 @@ import {
   RivalEntry,
   SEASONS,
   TOUGHEST_OPPONENTS,
+  bonusPoolFor,
   currentBonusPool,
   divisionBands,
   mapStats,
@@ -223,6 +224,9 @@ function ModeCardView({
   // Only offer seasons this mode was actually played in — on real data a player
   // will often have nothing for a given season, and an empty series has no chart.
   const playedSeasons = SEASONS.filter(s => mode.history.some(p => p.season === s.id))
+  // Bands must use the pool of the season being looked at, not today's.
+  const selectedSeason = SEASONS.find(s => String(s.id) === season)
+  const bonusPool = selectedSeason ? bonusPoolFor(selectedSeason) : currentBonusPool()
 
   return (
     <ModeCard>
@@ -269,9 +273,7 @@ function ModeCardView({
             showBoundaries={season === ALL_SEASONS}
             // Divisions are defined on points, and their bounds differ between solo
             // and team modes.
-            bands={
-              metric === 'points' ? divisionBands(isSoloType(mode.type), currentBonusPool()) : []
-            }
+            bands={metric === 'points' ? divisionBands(isSoloType(mode.type), bonusPool) : []}
           />
         </CardBody>
       ) : undefined}

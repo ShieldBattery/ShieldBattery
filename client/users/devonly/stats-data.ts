@@ -2,11 +2,11 @@ import {
   ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
   MatchmakingType,
+  POINTS_FOR_RATING_TARGET_FACTOR,
   TEAM_SIZES,
   getDivisionColor,
   getDivisionsForPointsChange,
   getTotalBonusPool,
-  isSoloType,
 } from '../../../common/matchmaking'
 import { AssignedRaceChar } from '../../../common/races'
 import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
@@ -84,7 +84,17 @@ export const CURRENT_SEASON = SEASONS[SEASONS.length - 1]
  * `low + bonusPool * factor`, so this is what positions the bands.
  */
 export function currentBonusPool(): number {
-  return getTotalBonusPool(new Date(), CURRENT_SEASON.startDate, CURRENT_SEASON.endDate)
+  return bonusPoolFor(CURRENT_SEASON)
+}
+
+/**
+ * The pool as it stood for a given season: at its end if it's over, at now if it's
+ * still running. Drawing a past season's points against today's bounds would judge
+ * them by thresholds that never applied.
+ */
+export function bonusPoolFor(season: SeasonInfo): number {
+  const at = new Date(Math.min(Date.now(), Number(season.endDate)))
+  return getTotalBonusPool(at, season.startDate, season.endDate)
 }
 
 /**
@@ -123,9 +133,6 @@ export function divisionBands(solo: boolean, bonusPool: number): DivisionBand[] 
   )
 }
 
-/** Points are expected to land near `rating * POINTS_FOR_RATING_TARGET_FACTOR`. */
-const POINTS_FACTOR = 4
-
 /** Deterministic PRNG so the dev page looks the same on every reload. */
 function rng(seed: number): () => number {
   let s = seed >>> 0
@@ -156,7 +163,7 @@ function buildHistory(seed: number, targets: number[], totalGames: number): Rati
     for (let g = 0; g < n; g++) {
       rating += (goal - rating) / Math.max(n - g, 1) + (r() - 0.5) * 34
 
-      const target = rating * POINTS_FACTOR
+      const target = rating * POINTS_FOR_RATING_TARGET_FACTOR
       // Unconverged players get catch-up points on top of the normal gain.
       const approach = points >= target * 0.92 ? 0.02 : 0.055
       points += (target - points) * approach + (r() - 0.5) * 46
@@ -182,12 +189,12 @@ function makeMode(
 ): ModeStats {
   const history = buildHistory(seed, targets, totalGames)
   const last = history[history.length - 1]
-  const currentSeasonId = SEASONS[SEASONS.length - 1].id
-  const firstOfSeason = history.findIndex(p => p.season === currentSeasonId)
-  // A reset season starts from scratch; otherwise it continues the previous rating.
-  const seasonStartRating = SEASONS[SEASONS.length - 1].resetMmr
-    ? 1500
-    : history[firstOfSeason - 1].rating
+  const firstOfSeason = history.findIndex(p => p.season === CURRENT_SEASON.id)
+  // A reset season starts from scratch, and so does a history that has no earlier
+  // game to carry a rating over from (findIndex gives -1 for a season never played,
+  // 0 for one the history starts in).
+  const seasonStartRating =
+    CURRENT_SEASON.resetMmr || firstOfSeason <= 0 ? 1500 : history[firstOfSeason - 1].rating
 
   return {
     type,
@@ -318,10 +325,6 @@ export type ModeFilter = MatchmakingType | typeof ALL_MODES
  */
 export function teamSizeFor(mode: ModeFilter): number {
   return mode === ALL_MODES ? 1 : TEAM_SIZES[mode]
-}
-
-export function isSoloFilter(mode: ModeFilter): boolean {
-  return mode === ALL_MODES ? true : isSoloType(mode)
 }
 
 export function mapsFor(mode: ModeFilter, season: string): string[] {
