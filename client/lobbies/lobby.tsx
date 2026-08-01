@@ -489,7 +489,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               isHost={isHost}
               isObserver={isObserver}
               onAddComputer={!isLobbyUms ? () => onAddComputer(id) : undefined}
-              onSwitchClick={() => onSwitchSlot(id)}
+              onSwitchClick={runState ? undefined : () => onSwitchSlot(id)}
               onCloseSlot={() => onCloseSlot(id)}
             />
           )
@@ -567,7 +567,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               canSetRace={mySlot && controlledBy === mySlot.id}
               isHost={isHost}
               onSetRace={(race: RaceChar) => onSetRace(id, race)}
-              onSwitchClick={() => onSwitchSlot(id)}
+              onSwitchClick={runState ? undefined : () => onSwitchSlot(id)}
               onCloseSlot={() => onCloseSlot(id)}
             />
           )
