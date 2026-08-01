@@ -1,10 +1,15 @@
 import {
+  ALL_MATCHMAKING_TYPES,
   MatchmakingDivision,
+  MatchmakingType,
+  TEAM_SIZES,
   getDivisionColor,
   getDivisionsForPointsChange,
   getTotalBonusPool,
+  isSoloType,
 } from '../../../common/matchmaking'
 import { AssignedRaceChar } from '../../../common/races'
+import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
 
 /**
  * Mock data for the user stats dev page. Shaped like what the real queries would
@@ -31,8 +36,7 @@ export interface SeasonInfo {
 }
 
 export interface ModeStats {
-  key: string
-  label: string
+  type: MatchmakingType
   games: number
   rating: number
   seasonDelta: number
@@ -40,7 +44,7 @@ export interface ModeStats {
 }
 
 export interface RivalEntry {
-  userId: number
+  userId: SbUserId
   name: string
   games: number
   wins: number
@@ -171,8 +175,7 @@ function buildHistory(seed: number, targets: number[], totalGames: number): Rati
  * the chart underneath them.
  */
 function makeMode(
-  key: string,
-  label: string,
+  type: MatchmakingType,
   seed: number,
   targets: number[],
   totalGames: number,
@@ -187,8 +190,7 @@ function makeMode(
     : history[firstOfSeason - 1].rating
 
   return {
-    key,
-    label,
+    type,
     games: history.length,
     rating: Math.round(last.rating),
     seasonDelta: Math.round(last.rating - seasonStartRating),
@@ -206,10 +208,10 @@ export function seasonBoundaries(history: ReadonlyArray<RatingPoint>): number[] 
 }
 
 export const MODES: ReadonlyArray<ModeStats> = [
-  makeMode('1v1', 'Ranked 1v1', 20260730, [1771, 1804, 1918], 613),
-  makeMode('2v2', 'Ranked 2v2', 991, [1610, 1703, 1642], 96),
-  makeMode('2v2f', 'Ranked 2v2 Fastest', 4242, [1588, 1690, 1774], 214),
-  makeMode('3v3h', 'Ranked 3v3 Hunters', 8181, [1502, 1571, 1596], 132),
+  makeMode(MatchmakingType.Match1v1, 20260730, [1771, 1804, 1918], 613),
+  makeMode(MatchmakingType.Match2v2, 991, [1610, 1703, 1642], 96),
+  makeMode(MatchmakingType.Match2v2Fastest, 4242, [1588, 1690, 1774], 214),
+  makeMode(MatchmakingType.Match3v3Hunters, 8181, [1502, 1571, 1596], 132),
 ]
 
 /** Modes ordered so the player's most-played appears first. */
@@ -245,62 +247,84 @@ export function splitOnDiscontinuity(
 // --- Rivals ---------------------------------------------------------------
 
 export const BEST_ALLIES: ReadonlyArray<RivalEntry> = [
-  { userId: 4821, name: 'Nydus_Nomad', games: 61, wins: 44 },
-  { userId: 1190, name: 'PylonPusher', games: 28, wins: 19 },
-  { userId: 7734, name: 'SiegeCreep', games: 17, wins: 11 },
-  { userId: 2255, name: 'MacroMantis', games: 12, wins: 7 },
+  { userId: makeSbUserId(4821), name: 'Nydus_Nomad', games: 61, wins: 44 },
+  { userId: makeSbUserId(1190), name: 'PylonPusher', games: 28, wins: 19 },
+  { userId: makeSbUserId(7734), name: 'SiegeCreep', games: 17, wins: 11 },
+  { userId: makeSbUserId(2255), name: 'MacroMantis', games: 12, wins: 7 },
 ]
 
 export const RIVALS: ReadonlyArray<RivalEntry> = [
-  { userId: 9012, name: 'DarkSwarmDan', games: 74, wins: 39 },
-  { userId: 3376, name: 'ReaverRush', games: 52, wins: 30 },
-  { userId: 6640, name: 'TankLineTom', games: 41, wins: 17 },
-  { userId: 8123, name: 'LurkerLane', games: 33, wins: 18 },
+  { userId: makeSbUserId(9012), name: 'DarkSwarmDan', games: 74, wins: 39 },
+  { userId: makeSbUserId(3376), name: 'ReaverRush', games: 52, wins: 30 },
+  { userId: makeSbUserId(6640), name: 'TankLineTom', games: 41, wins: 17 },
+  { userId: makeSbUserId(8123), name: 'LurkerLane', games: 33, wins: 18 },
 ]
 
 export const TOUGHEST_OPPONENTS: ReadonlyArray<RivalEntry> = [
-  { userId: 5567, name: 'CarrierHasArrived', games: 22, wins: 4 },
-  { userId: 4402, name: 'GhostNukeGuy', games: 15, wins: 4 },
-  { userId: 6640, name: 'TankLineTom', games: 41, wins: 17 },
-  { userId: 7781, name: 'DefilerDiva', games: 11, wins: 5 },
+  { userId: makeSbUserId(5567), name: 'CarrierHasArrived', games: 22, wins: 4 },
+  { userId: makeSbUserId(4402), name: 'GhostNukeGuy', games: 15, wins: 4 },
+  { userId: makeSbUserId(6640), name: 'TankLineTom', games: 41, wins: 17 },
+  { userId: makeSbUserId(7781), name: 'DefilerDiva', games: 11, wins: 5 },
 ]
 
 // --- Matchups -------------------------------------------------------------
 
+/**
+ * Deliberately TPZ rather than the alphabetical order of `ALL_ASSIGNED_RACE_CHARS`:
+ * this is display order for the matrix axes, and TPZ is how races are conventionally
+ * listed for Brood War.
+ */
 export const MATRIX_RACES: ReadonlyArray<AssignedRaceChar> = ['t', 'p', 'z']
 
 export interface MapInfo {
   name: string
-  modes: string[]
+  modes: MatchmakingType[]
   seasons: number[]
 }
 
 export const MAP_POOL: ReadonlyArray<MapInfo> = [
-  { name: 'Fighting Spirit', modes: ['1v1', '2v2'], seasons: [1, 2, 3] },
-  { name: 'Polypoid', modes: ['1v1'], seasons: [1, 2, 3] },
-  { name: 'Eclipse', modes: ['1v1'], seasons: [1, 2] },
-  { name: 'Vermeer', modes: ['1v1'], seasons: [3] },
-  { name: 'Retro', modes: ['1v1'], seasons: [2, 3] },
-  { name: 'Circuit Breaker', modes: ['1v1'], seasons: [1] },
-  { name: 'Rush Hour', modes: ['2v2'], seasons: [2, 3] },
-  { name: 'Neo Sylphid', modes: ['2v2'], seasons: [1, 2] },
-  { name: 'Fastest Map Possible', modes: ['2v2f'], seasons: [1, 2, 3] },
-  { name: 'Ultra Fastest', modes: ['2v2f'], seasons: [3] },
-  { name: 'Hunters', modes: ['3v3h'], seasons: [1, 2, 3] },
-  { name: 'Deep Hunters', modes: ['3v3h'], seasons: [2, 3] },
+  {
+    name: 'Fighting Spirit',
+    modes: [MatchmakingType.Match1v1, MatchmakingType.Match2v2],
+    seasons: [1, 2, 3],
+  },
+  { name: 'Polypoid', modes: [MatchmakingType.Match1v1], seasons: [1, 2, 3] },
+  { name: 'Eclipse', modes: [MatchmakingType.Match1v1], seasons: [1, 2] },
+  { name: 'Vermeer', modes: [MatchmakingType.Match1v1], seasons: [3] },
+  { name: 'Retro', modes: [MatchmakingType.Match1v1], seasons: [2, 3] },
+  { name: 'Circuit Breaker', modes: [MatchmakingType.Match1v1], seasons: [1] },
+  { name: 'Rush Hour', modes: [MatchmakingType.Match2v2], seasons: [2, 3] },
+  { name: 'Neo Sylphid', modes: [MatchmakingType.Match2v2], seasons: [1, 2] },
+  {
+    name: 'Fastest Map Possible',
+    modes: [MatchmakingType.Match2v2Fastest],
+    seasons: [1, 2, 3],
+  },
+  { name: 'Ultra Fastest', modes: [MatchmakingType.Match2v2Fastest], seasons: [3] },
+  { name: 'Hunters', modes: [MatchmakingType.Match3v3Hunters], seasons: [1, 2, 3] },
+  { name: 'Deep Hunters', modes: [MatchmakingType.Match3v3Hunters], seasons: [2, 3] },
 ]
 
 export const ALL_MODES = 'all'
 export const ALL_SEASONS = 'all'
 export const ALL_MAPS = 'Overall'
 
-export function teamSizeFor(mode: string): number {
-  if (mode === '3v3h') return 3
-  if (mode === '2v2' || mode === '2v2f') return 2
-  return 1
+/** A matchup filter is either one matchmaking mode or every mode combined. */
+export type ModeFilter = MatchmakingType | typeof ALL_MODES
+
+/**
+ * Across all modes there is no single team size, so the combined view falls back to
+ * the 1v1 shape: your race against each opposing race, counting opponents individually.
+ */
+export function teamSizeFor(mode: ModeFilter): number {
+  return mode === ALL_MODES ? 1 : TEAM_SIZES[mode]
 }
 
-export function mapsFor(mode: string, season: string): string[] {
+export function isSoloFilter(mode: ModeFilter): boolean {
+  return mode === ALL_MODES ? true : isSoloType(mode)
+}
+
+export function mapsFor(mode: ModeFilter, season: string): string[] {
   return MAP_POOL.filter(
     m =>
       (mode === ALL_MODES || m.modes.includes(mode)) &&
@@ -334,12 +358,13 @@ export interface MatchupCell {
   wins: number
 }
 
-const MODE_TOTALS: Record<string, number> = {
-  all: 1055,
-  '1v1': 613,
-  '2v2': 96,
-  '2v2f': 214,
-  '3v3h': 132,
+const MODE_TOTALS: Record<ModeFilter, number> = {
+  [ALL_MODES]: MODES.reduce((sum, m) => sum + m.games, 0),
+  ...(Object.fromEntries(ALL_MATCHMAKING_TYPES.map(type => [type, 0])) as Record<
+    MatchmakingType,
+    number
+  >),
+  ...(Object.fromEntries(MODES.map(m => [m.type, m.games])) as Record<MatchmakingType, number>),
 }
 
 // This player mains Terran; ally races are near-random and opponents follow ladder
@@ -413,7 +438,7 @@ function poisson(lambda: number, r: () => number): number {
 }
 
 export function matchupCell(
-  mode: string,
+  mode: ModeFilter,
   season: string,
   map: string,
   row: AssignedRaceChar[],
@@ -438,7 +463,7 @@ export function matchupCell(
 }
 
 /** A map's win rate is the sum of its own matrix, so a label can't disagree with the grid. */
-export function mapStats(mode: string, season: string, map: string): MatchupCell {
+export function mapStats(mode: ModeFilter, season: string, map: string): MatchupCell {
   const combos = raceCombos(teamSizeFor(mode))
   let games = 0
   let wins = 0

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   CartesianGrid,
   Line,
@@ -11,6 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import styled from 'styled-components'
+import { MATCHMAKING_MODES, isSoloType } from '../../../common/matchmaking'
 import { AssignedRaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -38,6 +40,7 @@ import {
   DivisionBand,
   MODES_BY_PLAYTIME,
   MatchupCell,
+  ModeFilter,
   ModeStats,
   RIVALS,
   RatingPoint,
@@ -173,19 +176,27 @@ const ChartArea = styled.div`
   height: 260px;
 `
 
+const EmptyChart = styled.div`
+  ${bodyMedium};
+  height: 260px;
+  display: grid;
+  place-items: center;
+  color: var(--theme-on-surface-variant);
+`
+
 type Metric = 'rating' | 'points'
 
 function RatingSection() {
-  const [open, setOpen] = useState<string>(MODES_BY_PLAYTIME[0].key)
+  const [open, setOpen] = useState<string>(MODES_BY_PLAYTIME[0].type)
 
   return (
     <ModeList>
       {MODES_BY_PLAYTIME.map(mode => (
         <ModeCardView
-          key={mode.key}
+          key={mode.type}
           mode={mode}
-          open={open === mode.key}
-          onToggle={() => setOpen(open === mode.key ? '' : mode.key)}
+          open={open === mode.type}
+          onToggle={() => setOpen(open === mode.type ? '' : mode.type)}
         />
       ))}
     </ModeList>
@@ -201,6 +212,7 @@ function ModeCardView({
   open: boolean
   onToggle: () => void
 }) {
+  const { t } = useTranslation()
   const [metric, setMetric] = useState<Metric>('rating')
   const [season, setSeason] = useState<string>(ALL_SEASONS)
 
@@ -208,12 +220,15 @@ function ModeCardView({
     season === ALL_SEASONS ? mode.history : mode.history.filter(p => p.season === Number(season))
   // Points restart every season; rating only breaks where a season reset it.
   const runs = splitOnDiscontinuity(history, metric === 'points')
+  // Only offer seasons this mode was actually played in — on real data a player
+  // will often have nothing for a given season, and an empty series has no chart.
+  const playedSeasons = SEASONS.filter(s => mode.history.some(p => p.season === s.id))
 
   return (
     <ModeCard>
       <ModeHeader onClick={onToggle} aria-expanded={open}>
         <Grow>
-          <ModeTitle>{mode.label}</ModeTitle>
+          <ModeTitle>{MATCHMAKING_MODES[mode.type].label(t)}</ModeTitle>
           <ModeSub>{mode.games} games</ModeSub>
         </Grow>
         <MetricColumn>
@@ -239,7 +254,7 @@ function ModeCardView({
             <Chip $active={season === ALL_SEASONS} onClick={() => setSeason(ALL_SEASONS)}>
               All time
             </Chip>
-            {SEASONS.map(s => (
+            {playedSeasons.map(s => (
               <Chip
                 key={s.id}
                 $active={season === String(s.id)}
@@ -254,7 +269,9 @@ function ModeCardView({
             showBoundaries={season === ALL_SEASONS}
             // Divisions are defined on points, and their bounds differ between solo
             // and team modes.
-            bands={metric === 'points' ? divisionBands(mode.key === '1v1', currentBonusPool()) : []}
+            bands={
+              metric === 'points' ? divisionBands(isSoloType(mode.type), currentBonusPool()) : []
+            }
           />
         </CardBody>
       ) : undefined}
@@ -274,9 +291,21 @@ function RatingChart({
   bands: DivisionBand[]
 }) {
   const all = runs.flat()
-  const values = all.map(p => (metric === 'points' ? p.points : p.rating))
-  const lo = metric === 'points' ? 0 : Math.floor((Math.min(...values) - 40) / 50) * 50
-  const hi = Math.ceil((Math.max(...values) + 60) / 50) * 50
+  if (!all.length) {
+    return <EmptyChart>No games in this range</EmptyChart>
+  }
+
+  // reduce rather than Math.min(...values): a spread passes one argument per point,
+  // which blows the call-argument limit on a long enough history.
+  let min = Infinity
+  let max = -Infinity
+  for (const point of all) {
+    const value = metric === 'points' ? point.points : point.rating
+    if (value < min) min = value
+    if (value > max) max = value
+  }
+  const lo = metric === 'points' ? 0 : Math.floor((min - 40) / 50) * 50
+  const hi = Math.ceil((max + 60) / 50) * 50
 
   return (
     <ChartArea>
@@ -638,7 +667,8 @@ function tintFor(cell: MatchupCell): string {
 }
 
 function MatchupsSection() {
-  const [mode, setMode] = useState<string>(ALL_MODES)
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<ModeFilter>(ALL_MODES)
   const [season, setSeason] = useState<string>(ALL_SEASONS)
   const [map, setMap] = useState<string>(ALL_MAPS)
 
@@ -675,13 +705,13 @@ function MatchupsSection() {
           <Select
             value={mode}
             label='Game mode'
-            onChange={(value: string) => {
+            onChange={(value: ModeFilter) => {
               setMode(value)
               setMap(ALL_MAPS)
             }}>
             <SelectOption value={ALL_MODES} text='Overall' />
             {MODES_BY_PLAYTIME.map(m => (
-              <SelectOption key={m.key} value={m.key} text={m.label.replace(/^Ranked /, '')} />
+              <SelectOption key={m.type} value={m.type} text={MATCHMAKING_MODES[m.type].label(t)} />
             ))}
           </Select>
         </Filter>
