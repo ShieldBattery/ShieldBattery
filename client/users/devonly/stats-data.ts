@@ -205,6 +205,44 @@ function makeMode(
   }
 }
 
+export interface SeasonBands {
+  seasonId: number
+  /** Game index the season's span starts at. */
+  fromGame: number
+  /** Game index the span ends at, tiled against the next season so there's no gap. */
+  toGame: number
+  bands: DivisionBand[]
+}
+
+/**
+ * Bands per season rather than one set for the whole chart. Points restart every
+ * season and each season's bounds sit at its own bonus pool, so drawing one band set
+ * across an all-time view would judge every past season by the current pool — badly
+ * wrong early in a new season, when the pool is near zero and past totals tower over
+ * bounds that hadn't moved yet.
+ */
+export function seasonBandGroups(
+  history: ReadonlyArray<RatingPoint>,
+  solo: boolean,
+): SeasonBands[] {
+  const groups: SeasonBands[] = []
+  for (const season of SEASONS) {
+    const points = history.filter(p => p.season === season.id)
+    if (!points.length) continue
+    groups.push({
+      seasonId: season.id,
+      fromGame: points[0].game,
+      toGame: points[points.length - 1].game,
+      bands: divisionBands(solo, bonusPoolFor(season)),
+    })
+  }
+  // Butt each span against the next so the bands tile instead of leaving a gap.
+  for (let i = 0; i < groups.length - 1; i++) {
+    groups[i].toGame = groups[i + 1].fromGame
+  }
+  return groups
+}
+
 /** Game indices where a new season begins, for drawing boundary markers. */
 export function seasonBoundaries(history: ReadonlyArray<RatingPoint>): number[] {
   const out: number[] = []

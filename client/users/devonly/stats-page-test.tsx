@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import styled from 'styled-components'
 import { MATCHMAKING_MODES, isSoloType } from '../../../common/matchmaking'
-import { AssignedRaceChar } from '../../../common/races'
+import { AssignedRaceChar, raceCharToLabel } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { buttonReset } from '../../material/button-reset'
@@ -37,7 +37,6 @@ import {
   ALL_MODES,
   ALL_SEASONS,
   BEST_ALLIES,
-  DivisionBand,
   MODES_BY_PLAYTIME,
   MatchupCell,
   ModeFilter,
@@ -46,14 +45,13 @@ import {
   RatingPoint,
   RivalEntry,
   SEASONS,
+  SeasonBands,
   TOUGHEST_OPPONENTS,
-  bonusPoolFor,
-  currentBonusPool,
-  divisionBands,
   mapStats,
   mapsFor,
   matchupCell,
   raceCombos,
+  seasonBandGroups,
   seasonBoundaries,
   splitOnDiscontinuity,
   teamSizeFor,
@@ -235,9 +233,8 @@ function ModeCardView({
   // Only offer seasons this mode was actually played in — on real data a player
   // will often have nothing for a given season, and an empty series has no chart.
   const playedSeasons = SEASONS.filter(s => mode.history.some(p => p.season === s.id))
-  // Bands must use the pool of the season being looked at, not today's.
-  const selectedSeason = SEASONS.find(s => String(s.id) === season)
-  const bonusPool = selectedSeason ? bonusPoolFor(selectedSeason) : currentBonusPool()
+  // One band set per season in view, each at that season's own bonus pool.
+  const bandGroups = metric === 'points' ? seasonBandGroups(history, isSoloType(mode.type)) : []
 
   return (
     <ModeCard>
@@ -282,7 +279,7 @@ function ModeCardView({
             showBoundaries={season === ALL_SEASONS}
             // Divisions are defined on points, and their bounds differ between solo
             // and team modes.
-            bands={metric === 'points' ? divisionBands(isSoloType(mode.type), bonusPool) : []}
+            bandGroups={bandGroups}
           />
         </CardBody>
       ) : undefined}
@@ -294,12 +291,12 @@ function RatingChart({
   runs,
   metric,
   showBoundaries,
-  bands,
+  bandGroups,
 }: {
   runs: RatingPoint[][]
   metric: Metric
   showBoundaries: boolean
-  bands: DivisionBand[]
+  bandGroups: SeasonBands[]
 }) {
   const all = runs.flat()
   if (!all.length) {
@@ -322,20 +319,25 @@ function RatingChart({
     <ChartArea>
       <ResponsiveContainer width='100%' height='100%'>
         <LineChart margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
-          {/* Bands first, so the grid and the series draw over them. */}
-          {bands
-            .filter(b => b.low < hi && b.high > lo)
-            .map(b => (
-              <ReferenceArea
-                key={b.division}
-                y1={Math.max(lo, b.low)}
-                y2={Math.min(hi, b.high)}
-                fill={b.color}
-                fillOpacity={b.opacity}
-                stroke='none'
-                ifOverflow='hidden'
-              />
-            ))}
+          {/* Bands first, so the grid and the series draw over them. Each season's
+              span carries its own bounds, at the pool that applied then. */}
+          {bandGroups.flatMap(group =>
+            group.bands
+              .filter(b => b.low < hi && b.high > lo)
+              .map(b => (
+                <ReferenceArea
+                  key={`${group.seasonId}-${b.division}`}
+                  x1={group.fromGame}
+                  x2={group.toGame}
+                  y1={Math.max(lo, b.low)}
+                  y2={Math.min(hi, b.high)}
+                  fill={b.color}
+                  fillOpacity={b.opacity}
+                  stroke='none'
+                  ifOverflow='hidden'
+                />
+              )),
+          )}
           <CartesianGrid stroke='var(--theme-outline-variant)' vertical={false} />
           <XAxis
             dataKey='game'
@@ -635,15 +637,10 @@ const Combo = styled.span`
   gap: 2px;
 `
 
-const RACE_LABELS: Record<AssignedRaceChar, string> = {
-  t: 'Terran',
-  p: 'Protoss',
-  z: 'Zerg',
-}
-
 function ComboLabel({ parts }: { parts: AssignedRaceChar[] }) {
+  const { t } = useTranslation()
   if (parts.length === 1) {
-    return <RaceChip $race={parts[0]}>{RACE_LABELS[parts[0]]}</RaceChip>
+    return <RaceChip $race={parts[0]}>{raceCharToLabel(parts[0], t)}</RaceChip>
   }
   return (
     <Combo>
