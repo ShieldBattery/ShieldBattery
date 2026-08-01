@@ -4,62 +4,130 @@ import * as m from 'motion/react-m'
 import React, { useEffect, useRef, useState } from 'react'
 import ReactDOM from 'react-dom'
 import styled from 'styled-components'
-import { LaunchingGameDialog } from '../active-game/launching-game-dialog'
-import { EmailVerificationDialog } from '../auth/email-verification-dialog'
-import { BugReportDialog } from '../bugs/bug-report-dialog'
-import { AdminDeleteChatMessageDialog } from '../chat/admin/delete-message-dialog'
-import { ChannelBanUserDialog } from '../chat/channel-ban-user-dialog'
-import { ChannelKickUserConfirmation } from '../chat/channel-kick-user-dialog'
-import { ChannelLeaveConfirmation } from '../chat/channel-leave-dialog'
-import { ChannelUserPermissionsDialog } from '../chat/channel-settings/user-permissions-settings'
-import { ChannelTransferOwnershipDialog } from '../chat/channel-transfer-ownership-dialog'
-import { ChannelUnbanUserConfirmation } from '../chat/channel-unban-user-dialog'
 import { useIsDocumentVisible } from '../dom/document-visibility'
 import { FocusTrap } from '../dom/focus-trap'
 import { useExternalElement } from '../dom/use-external-element-ref'
-import DownloadDialog from '../download/download-dialog'
-import { ReportGameDialog } from '../games/report-game-dialog'
 import { KeyListenerBoundary } from '../keyboard/key-listener'
-import { LeagueExplainerDialog } from '../leagues/league-explainer'
-import MapDetailsDialog from '../maps/map-details'
-import { MapDownloadDialog } from '../maps/map-download-dialog'
-import { MapPreviewDialog } from '../maps/map-preview'
-import { AcceptMatchDialog, FailedToAcceptMatchDialog } from '../matchmaking/accept-match-dialog'
-import { MatchmakingBannedDialog } from '../matchmaking/matchmaking-banned-dialog'
-import { PostMatchDialog } from '../matchmaking/post-match-dialog'
 import { DialogContext } from '../material/dialog'
 import { isHandledDismissalEvent } from '../material/dismissal-events'
 import { zIndexDialogScrim } from '../material/zindex'
-import { ExternalLinkDialog } from '../navigation/external-link-dialog'
-import {
-  AcceptableUseDialog,
-  PrivacyPolicyDialog,
-  TermsOfServiceDialog,
-} from '../policies/policy-displays'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import {
-  CreatePlaylistDialog,
-  DeletePlaylistDialog,
-  RenamePlaylistDialog,
-} from '../replays/playlist-dialogs'
-import { ReplayInfoDialog } from '../replays/replay-info-display'
-import { ReplayLoadDialog } from '../replays/replay-load-dialog'
-import {
-  ChangeDisplayNameDialog,
-  ChangeEmailDialog,
-  ChangeLoginNameDialog,
-  ChangePasswordDialog,
-} from '../settings/user/account-settings'
-import { ShieldBatteryHealthDialog } from '../starcraft/shieldbattery-health'
-import { StarcraftHealthCheckupDialog } from '../starcraft/starcraft-health'
 import { dialogScrimOpacity } from '../styles/colors'
-import { RemoveUserAvatarDialog } from '../users/remove-user-avatar-dialog'
-import { CreateWhisper as CreateWhisperSessionDialog } from '../whispers/create-whisper'
 import { closeDialogById } from './action-creators'
 import { DialogState } from './dialog-reducer'
 import { DialogType } from './dialog-type'
 import { MarkdownDialog } from './markdown-dialog'
 import { SimpleDialog } from './simple-dialog'
+
+const LaunchingGameDialog = React.lazy(async () => ({
+  default: (await import('../active-game/launching-game-dialog')).LaunchingGameDialog,
+}))
+const EmailVerificationDialog = React.lazy(async () => ({
+  default: (await import('../auth/email-verification-dialog')).EmailVerificationDialog,
+}))
+const BugReportDialog = React.lazy(async () => ({
+  default: (await import('../bugs/bug-report-dialog')).BugReportDialog,
+}))
+const AdminDeleteChatMessageDialog = React.lazy(async () => ({
+  default: (await import('../chat/admin/delete-message-dialog')).AdminDeleteChatMessageDialog,
+}))
+const ChannelBanUserDialog = React.lazy(async () => ({
+  default: (await import('../chat/channel-ban-user-dialog')).ChannelBanUserDialog,
+}))
+const ChannelKickUserConfirmation = React.lazy(async () => ({
+  default: (await import('../chat/channel-kick-user-dialog')).ChannelKickUserConfirmation,
+}))
+const ChannelLeaveConfirmation = React.lazy(async () => ({
+  default: (await import('../chat/channel-leave-dialog')).ChannelLeaveConfirmation,
+}))
+const ChannelUserPermissionsDialog = React.lazy(async () => ({
+  default: (await import('../chat/channel-settings/user-permissions-settings'))
+    .ChannelUserPermissionsDialog,
+}))
+const ChannelTransferOwnershipDialog = React.lazy(async () => ({
+  default: (await import('../chat/channel-transfer-ownership-dialog'))
+    .ChannelTransferOwnershipDialog,
+}))
+const ChannelUnbanUserConfirmation = React.lazy(async () => ({
+  default: (await import('../chat/channel-unban-user-dialog')).ChannelUnbanUserConfirmation,
+}))
+const DownloadDialog = React.lazy(() => import('../download/download-dialog'))
+const ReportGameDialog = React.lazy(async () => ({
+  default: (await import('../games/report-game-dialog')).ReportGameDialog,
+}))
+const LeagueExplainerDialog = React.lazy(async () => ({
+  default: (await import('../leagues/league-explainer')).LeagueExplainerDialog,
+}))
+const MapDetailsDialog = React.lazy(() => import('../maps/map-details'))
+const MapDownloadDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
+}))
+const MapPreviewDialog = React.lazy(async () => ({
+  default: (await import('../maps/map-preview')).MapPreviewDialog,
+}))
+const AcceptMatchDialog = React.lazy(async () => ({
+  default: (await import('../matchmaking/accept-match-dialog')).AcceptMatchDialog,
+}))
+const FailedToAcceptMatchDialog = React.lazy(async () => ({
+  default: (await import('../matchmaking/accept-match-dialog')).FailedToAcceptMatchDialog,
+}))
+const MatchmakingBannedDialog = React.lazy(async () => ({
+  default: (await import('../matchmaking/matchmaking-banned-dialog')).MatchmakingBannedDialog,
+}))
+const PostMatchDialog = React.lazy(async () => ({
+  default: (await import('../matchmaking/post-match-dialog')).PostMatchDialog,
+}))
+const ExternalLinkDialog = React.lazy(async () => ({
+  default: (await import('../navigation/external-link-dialog')).ExternalLinkDialog,
+}))
+const AcceptableUseDialog = React.lazy(async () => ({
+  default: (await import('../policies/policy-displays')).AcceptableUseDialog,
+}))
+const PrivacyPolicyDialog = React.lazy(async () => ({
+  default: (await import('../policies/policy-displays')).PrivacyPolicyDialog,
+}))
+const TermsOfServiceDialog = React.lazy(async () => ({
+  default: (await import('../policies/policy-displays')).TermsOfServiceDialog,
+}))
+const CreatePlaylistDialog = React.lazy(async () => ({
+  default: (await import('../replays/playlist-dialogs')).CreatePlaylistDialog,
+}))
+const DeletePlaylistDialog = React.lazy(async () => ({
+  default: (await import('../replays/playlist-dialogs')).DeletePlaylistDialog,
+}))
+const RenamePlaylistDialog = React.lazy(async () => ({
+  default: (await import('../replays/playlist-dialogs')).RenamePlaylistDialog,
+}))
+const ReplayInfoDialog = React.lazy(async () => ({
+  default: (await import('../replays/replay-info-display')).ReplayInfoDialog,
+}))
+const ReplayLoadDialog = React.lazy(async () => ({
+  default: (await import('../replays/replay-load-dialog')).ReplayLoadDialog,
+}))
+const ChangeDisplayNameDialog = React.lazy(async () => ({
+  default: (await import('../settings/user/account-settings')).ChangeDisplayNameDialog,
+}))
+const ChangeEmailDialog = React.lazy(async () => ({
+  default: (await import('../settings/user/account-settings')).ChangeEmailDialog,
+}))
+const ChangeLoginNameDialog = React.lazy(async () => ({
+  default: (await import('../settings/user/account-settings')).ChangeLoginNameDialog,
+}))
+const ChangePasswordDialog = React.lazy(async () => ({
+  default: (await import('../settings/user/account-settings')).ChangePasswordDialog,
+}))
+const ShieldBatteryHealthDialog = React.lazy(async () => ({
+  default: (await import('../starcraft/shieldbattery-health')).ShieldBatteryHealthDialog,
+}))
+const StarcraftHealthCheckupDialog = React.lazy(async () => ({
+  default: (await import('../starcraft/starcraft-health')).StarcraftHealthCheckupDialog,
+}))
+const RemoveUserAvatarDialog = React.lazy(async () => ({
+  default: (await import('../users/remove-user-avatar-dialog')).RemoveUserAvatarDialog,
+}))
+const CreateWhisperSessionDialog = React.lazy(async () => ({
+  default: (await import('../whispers/create-whisper')).CreateWhisper,
+}))
 
 const Scrim = styled(m.div)`
   position: fixed;
@@ -292,12 +360,14 @@ function DialogDisplay({
         <FocusTrap focusableElem={focusableElem} focusOnMount={isTopDialog}>
           <span ref={setFocusableElem} tabIndex={-1}>
             <DialogContext.Provider value={{ isTopDialog }}>
-              <DialogComponent
-                key={dialogState.id}
-                onCancel={modal ? noop : (event?: React.MouseEvent) => onCancel(id, event)}
-                close={() => onCancel(id)}
-                {...dialogState.initData}
-              />
+              <React.Suspense fallback={null}>
+                <DialogComponent
+                  key={dialogState.id}
+                  onCancel={modal ? noop : (event?: React.MouseEvent) => onCancel(id, event)}
+                  close={() => onCancel(id)}
+                  {...dialogState.initData}
+                />
+              </React.Suspense>
             </DialogContext.Provider>
           </span>
         </FocusTrap>

@@ -5,31 +5,12 @@ import { ForgotPassword } from './auth/forgot-password'
 import { Login } from './auth/login'
 import { RecoverUsername } from './auth/recover-username'
 import { ResetPassword } from './auth/reset-password'
-import { ChannelRouteComponent } from './chat/chat-routes'
-import { DownloadPage } from './download/download-page'
 import { OnlyInApp } from './download/only-in-app'
-import { PlayRoot } from './gameplay-activity/play-root'
-import { GamesRouteComponent } from './games/route'
-import { Faq } from './home/faq'
 import { Home } from './home/home'
-import { LadderRouteComponent } from './ladder/ladder'
-import { LeagueRoot } from './leagues/league-routes'
 import { MainLayoutLoadingDotsArea } from './main-layout'
-import { MapsRoot } from './maps/maps-root'
 import { AnimatedSwitch } from './navigation/animated-switch'
-import { NewsArchivePage } from './news/news-archive-page'
-import { NewsPostPage } from './news/news-post-page'
 import { StaticNewsRedirect } from './news/static-news-redirect'
-import {
-  AcceptableUsePage,
-  PrivacyPolicyPage,
-  TermsOfServicePage,
-} from './policies/policy-displays'
-import { ReplaysRoot } from './replays/replays-root'
-import { LiveStreamsPage } from './twitch/live-streams-page'
 import { TwitchOAuthCallback } from './twitch/twitch-oauth-callback'
-import { ProfileRouteComponent } from './users/route'
-import { WhisperRouteComponent } from './whispers/route'
 
 const AdminPanel = React.lazy(() => import('./admin/panel'))
 const LobbyView = React.lazy(async () => ({
@@ -40,6 +21,57 @@ const LobbyLandingPage = React.lazy(async () => ({
 }))
 const Signup = React.lazy(async () => ({
   default: (await import('./auth/signup')).Signup,
+}))
+const Faq = React.lazy(async () => ({
+  default: (await import('./home/faq')).Faq,
+}))
+const DownloadPage = React.lazy(async () => ({
+  default: (await import('./download/download-page')).DownloadPage,
+}))
+const AcceptableUsePage = React.lazy(async () => ({
+  default: (await import('./policies/policy-displays')).AcceptableUsePage,
+}))
+const PrivacyPolicyPage = React.lazy(async () => ({
+  default: (await import('./policies/policy-displays')).PrivacyPolicyPage,
+}))
+const TermsOfServicePage = React.lazy(async () => ({
+  default: (await import('./policies/policy-displays')).TermsOfServicePage,
+}))
+const ChannelRouteComponent = React.lazy(async () => ({
+  default: (await import('./chat/chat-routes')).ChannelRouteComponent,
+}))
+const GamesRouteComponent = React.lazy(async () => ({
+  default: (await import('./games/route')).GamesRouteComponent,
+}))
+const LadderRouteComponent = React.lazy(async () => ({
+  default: (await import('./ladder/ladder')).LadderRouteComponent,
+}))
+const LeagueRoot = React.lazy(async () => ({
+  default: (await import('./leagues/league-routes')).LeagueRoot,
+}))
+const LiveStreamsPage = React.lazy(async () => ({
+  default: (await import('./twitch/live-streams-page')).LiveStreamsPage,
+}))
+const MapsRoot = React.lazy(async () => ({
+  default: (await import('./maps/maps-root')).MapsRoot,
+}))
+const NewsArchivePage = React.lazy(async () => ({
+  default: (await import('./news/news-archive-page')).NewsArchivePage,
+}))
+const NewsPostPage = React.lazy(async () => ({
+  default: (await import('./news/news-post-page')).NewsPostPage,
+}))
+const PlayRoot = React.lazy(async () => ({
+  default: (await import('./gameplay-activity/play-root')).PlayRoot,
+}))
+const ReplaysRoot = React.lazy(async () => ({
+  default: (await import('./replays/replays-root')).ReplaysRoot,
+}))
+const ProfileRouteComponent = React.lazy(async () => ({
+  default: (await import('./users/route')).ProfileRouteComponent,
+}))
+const WhisperRouteComponent = React.lazy(async () => ({
+  default: (await import('./whispers/route')).WhisperRouteComponent,
 }))
 
 export function AppRoutes({
