@@ -28,6 +28,8 @@ import {
 import {
   LobbyBenchRemoveEvent,
   LobbyChangedSetting,
+  LobbyLifecycle,
+  LobbyRunStateJson,
   LobbySlotCreateEvent,
   LobbySummaryJson,
 } from '../../../common/lobbies/lobby-network'
@@ -42,6 +44,7 @@ import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
 import { CodedError } from '../errors/coded-error'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
+import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import logger from '../logging/logger'
@@ -81,6 +84,7 @@ export enum LobbyServiceErrorCode {
   ComputerInObserverSlot = 'ComputerInObserverSlot',
   CountingDown = 'CountingDown',
   ForcedRace = 'ForcedRace',
+  GameInProgress = 'GameInProgress',
   InvalidGameSubType = 'InvalidGameSubType',
   InvalidGameType = 'InvalidGameType',
   InvalidMap = 'InvalidMap',
@@ -156,6 +160,18 @@ interface Countdown {
   timer?: Deferred<void>
 }
 
+/**
+ * The game a lobby currently has running, and which of the lobby's members are still in it.
+ *
+ * Members drop out of `inGameUsers` one at a time as their games end; when the last one does, the
+ * lobby regroups and this is discarded. Bench members were never in the game, so they never appear
+ * here.
+ */
+interface LobbyRunState {
+  gameId: string
+  inGameUsers: Set<SbUserId>
+}
+
 /** Returns the user ids of everyone in a lobby, seated or waiting on the bench. */
 function getLobbyMemberIds(lobby: Lobby): SbUserId[] {
   return [...getHumanSlots(lobby).map(slot => slot.userId!), ...lobby.bench.map(b => b.userId)]
@@ -198,6 +214,7 @@ export class LobbyService {
   readonly lobbyBannedUsers = new Map<SbLobbyId, Set<SbUserId>>()
   readonly lobbyCountdowns = new Map<SbLobbyId, Countdown>()
   readonly loadingLobbies = new Map<SbLobbyId, AbortController>()
+  readonly runStates = new Map<SbLobbyId, LobbyRunState>()
   readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
 
   constructor(
@@ -208,26 +225,70 @@ export class LobbyService {
     private gameServerRegionsService: GameServerRegionsService,
     private netcodeV2Service: NetcodeV2Service,
     private userSockets: UserSocketsManager,
+    private gameLifecycleEvents: GameLifecycleEvents,
   ) {
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
     // live lobby's summary without depending on this service directly.
     setLobbySummaryGetter(id => {
       const lobby = this.lobbies.get(id)
-      // A counting-down or loading lobby can't be joined, so it's reported as gone rather than as
-      // an open lobby with slots available.
-      if (!lobby || this.lobbyCountdowns.has(id) || this.loadingLobbies.has(id)) {
+      if (!lobby) {
         return undefined
       }
-      return Lobbies.toSummaryJson(lobby)
+      const lifecycle = this._lifecycleOf(id)
+      // A counting-down or loading lobby can't be joined, so it's reported as gone rather than as
+      // an open lobby with slots available. A lobby with a game running still takes joins (onto its
+      // bench), so it reports itself like any other.
+      if (lifecycle === 'countingDown' || lifecycle === 'loading') {
+        return undefined
+      }
+      return Lobbies.toSummaryJson(lobby, lifecycle)
     })
+
+    this.gameLifecycleEvents.on('userGameEnded', ({ gameId, userId }) => {
+      try {
+        this._onUserGameEnded(gameId, userId)
+      } catch (err) {
+        logger.error({ err }, 'error handling the end of a game for a lobby member')
+      }
+    })
+  }
+
+  /**
+   * Returns where a lobby is in its life, which is what everything that produces a summary or an
+   * init payload reports.
+   *
+   * A lobby that is doing none of these things is `gathering`, which is also what an id that names
+   * no lobby at all reports — existence is a separate question, answered by `lobbies`.
+   */
+  private _lifecycleOf(lobbyId: SbLobbyId): LobbyLifecycle {
+    if (this.lobbyCountdowns.has(lobbyId)) {
+      return 'countingDown'
+    }
+    if (this.loadingLobbies.has(lobbyId)) {
+      return 'loading'
+    }
+    if (this.runStates.has(lobbyId)) {
+      return 'inGame'
+    }
+    return 'gathering'
+  }
+
+  /** Serializes a lobby's running game for the wire, or `undefined` if it has none. */
+  private _runStateJson(lobbyId: SbLobbyId): LobbyRunStateJson | undefined {
+    const runState = this.runStates.get(lobbyId)
+    return runState
+      ? { gameId: runState.gameId, inGameUsers: [...runState.inGameUsers] }
+      : undefined
   }
 
   /** Returns a summary of every lobby that belongs on the public lobby list. */
   getListedSummaries(): LobbySummaryJson[] {
     return [...this.lobbies.values()]
       .filter(l => l.visibility === 'listed')
-      .map(l => Lobbies.toSummaryJson(l))
+      .map(l => [l, this._lifecycleOf(l.id)] as const)
+      .filter(([, lifecycle]) => lifecycle !== 'countingDown' && lifecycle !== 'loading')
+      .map(([lobby, lifecycle]) => Lobbies.toSummaryJson(lobby, lifecycle))
   }
 
   async createLobby({
@@ -362,13 +423,21 @@ export class LobbyService {
     if (!lobby) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
-    try {
-      this.ensureLobbyNotTransient(lobby)
-    } catch (err) {
+
+    const lifecycle = this._lifecycleOf(id)
+    // A lobby on its way into a game is briefly closed to joins: its roster is being handed to the
+    // game loader, so there is nothing a joiner could be added to yet. A lobby with a game already
+    // running still takes joins, onto its bench.
+    if (lifecycle === 'countingDown') {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.JoinAlreadyStarted,
-        (err as Error).message,
-        { cause: err },
+        'lobby is counting down',
+      )
+    }
+    if (lifecycle === 'loading') {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.JoinAlreadyStarted,
+        'lobby has already started',
       )
     }
 
@@ -381,7 +450,9 @@ export class LobbyService {
 
     const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
     let updated: Lobby
-    if (teamIndex === undefined || slotIndex === undefined) {
+    // While a game is running the lobby's seats belong to the people playing it, so a joiner waits
+    // on the bench until the lobby regroups, even if the layout has room.
+    if (lifecycle === 'inGame' || teamIndex === undefined || slotIndex === undefined) {
       // Nobody is turned away from a lobby that is merely full: they wait on the bench until a seat
       // frees up or the host makes room for them.
       if (lobby.bench.length >= MAX_BENCH) {
@@ -487,6 +558,7 @@ export class LobbyService {
           return {
             type: 'init',
             lobby,
+            runState: this._runStateJson(lobbyId),
             userInfos,
           }
         } catch (err) {
@@ -494,6 +566,7 @@ export class LobbyService {
           return {
             type: 'init',
             lobby,
+            runState: this._runStateJson(lobbyId),
             // Generally this should be okay (the client can batch retrieve the user info later),
             // just higher latency
             userInfos: [],
@@ -511,7 +584,7 @@ export class LobbyService {
     user.subscribe(getLobbyUserPath(lobbyId, user.userId), () => {
       return {
         type: 'status',
-        lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyId)!),
+        lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyId)!, this._lifecycleOf(lobbyId)),
       }
     })
     client.subscribe(getLobbyClientPath(lobbyId, client.userId, client.clientId))
@@ -1057,16 +1130,17 @@ export class LobbyService {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
-    this.ensureLobbyNotTransient(lobby)
 
     const [teamIndex, slotIndex, playerToKick] = findSlotById(lobby, slotId)
-    if (!playerToKick) {
-      const benched = findBenchedTarget(lobby, slotId)
-      if (!benched) {
-        throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
-      }
+    const benched = playerToKick ? undefined : findBenchedTarget(lobby, slotId)
+    this.ensureHostCanRemove(lobby, !!benched)
+
+    if (benched) {
       this._removeUserFromLobby(lobby, benched.userId, REMOVAL_TYPE_KICK)
       return
+    }
+    if (!playerToKick) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
     if (
       playerToKick.type !== 'human' &&
@@ -1130,10 +1204,11 @@ export class LobbyService {
     const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player)
-    this.ensureLobbyNotTransient(lobby)
 
     const [, , playerToBan] = findSlotById(lobby, slotId)
     const benched = playerToBan ? undefined : findBenchedTarget(lobby, slotId)
+    this.ensureHostCanRemove(lobby, !!benched)
+
     if (!playerToBan && !benched) {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
@@ -1239,8 +1314,16 @@ export class LobbyService {
    * both someone waiting and a slot they could have joined into directly. Also picks a new host if
    * the lobby's is gone, which is how a lobby whose last seated member left is handed to whoever
    * was waiting behind them.
+   *
+   * While a game is running the lobby's seats are that game's roster, so nobody is seated into one
+   * that opens up; the bench is drained instead when the lobby regroups. A new host is still picked,
+   * since a lobby whose host walks out mid-game needs one regardless.
    */
   private _seatBenchOverflow(lobby: Lobby): Lobby {
+    if (this.runStates.has(lobby.id)) {
+      return Lobbies.reassignHost(lobby)
+    }
+
     let updated = lobby
     while (updated.bench.length > 0) {
       const [teamIndex, slotIndex] = Lobbies.findAvailableSlot(updated)
@@ -1258,6 +1341,10 @@ export class LobbyService {
     removalType = REMOVAL_TYPE_NORMAL,
     seatFromBench = true,
   ) {
+    // Someone who disappears mid-game is out of it as far as the lobby is concerned, or the lobby
+    // would sit `inGame` forever waiting on a client that is never coming back.
+    const wasInGame = this.runStates.get(lobby.id)?.inGameUsers.delete(client.userId) ?? false
+
     const [teamIndex, slotIndex, player] = findSlotByUserId(lobby, client.userId)
     let updatedLobby: Lobby | undefined
     if (player) {
@@ -1284,6 +1371,7 @@ export class LobbyService {
       )
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
+      this.runStates.delete(lobby.id)
       this.lobbyPlayerNetwork.deleteLobby(lobby.id)
       this._publishListChange('delete', lobby)
     } else {
@@ -1310,6 +1398,9 @@ export class LobbyService {
     if (player) {
       this._maybeCancelCountdown(lobby, lobbyIsEmpty)
       this._maybeCancelLoading(lobby, lobbyIsEmpty)
+    }
+    if (!lobbyIsEmpty && wasInGame) {
+      this._maybeRegroup(lobby.id)
     }
 
     try {
@@ -1437,14 +1528,10 @@ export class LobbyService {
         throw gameLoadResult.error
       }
 
-      // The stored lobby can differ from the snapshot the countdown started with (bench members
-      // come and go freely during a countdown/load), so the members to release and the events to
-      // send work from the live object. Ids are never reused, so its presence means it is this
-      // same lobby; its absence means it already closed and was cleaned up.
-      const loaded = this.lobbies.get(lobbyId)
-      if (loaded) {
-        this._onGameLoaded(loaded)
-      }
+      // Works from the live lobby rather than the snapshot the countdown started with (bench
+      // members come and go freely during a countdown/load). Ids are never reused, so its presence
+      // means it is this same lobby; its absence means everyone left while it loaded.
+      this._onGameStarted(lobbyId, gameLoadResult.value.gameId)
     } catch (err) {
       if (err instanceof BaseGameLoaderError) {
         if (err.code === GameLoadErrorType.Internal) {
@@ -1482,30 +1569,91 @@ export class LobbyService {
     }
   }
 
-  _onGameLoaded(lobby: Lobby) {
-    this._publishTo(lobby, { type: 'gameStarted' })
+  /**
+   * Hands a lobby over to the game it just launched: the lobby stays exactly as it is, with its
+   * members still in it and still holding their gameplay activity, and simply reports that a game
+   * is running. It goes back to gathering once that game is over for every member (see
+   * `_maybeRegroup`).
+   *
+   * The members registered as being in the game are the seated ones (players and observers alike) —
+   * the bench takes no part in it and is free to keep filling up while it runs.
+   */
+  _onGameStarted(lobbyId: SbLobbyId, gameId: string) {
+    this.loadingLobbies.delete(lobbyId)
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby) {
+      // Everyone left while the game was loading, so there's no lobby left for it to belong to.
+      return
+    }
 
-    // Members waiting on the bench take no part in the game, but the lobby is going away for
-    // everyone in it, so they are released along with the players.
-    getLobbyMemberIds(lobby)
-      .map(userId => this.activityRegistry.getClientForUser(userId))
-      .filter(client => !!client)
-      .forEach(client => {
-        const user = this.getUserById(client.userId)
-        this._publishToUser(lobby, user.userId, {
-          type: 'status',
-          lobby: null,
-        })
-        user.unsubscribe(getLobbyUserPath(lobby.id, user.userId))
-        client.unsubscribe(getLobbyPath(lobby.id))
-        client.unsubscribe(getLobbyClientPath(lobby.id, client.userId, client.clientId))
-        this.lobbyClients.delete(client)
-        this.activityRegistry.unregisterClientForUser(user.userId)
-      })
-    this.lobbies.delete(lobby.id)
-    this.lobbyBannedUsers.delete(lobby.id)
-    this.loadingLobbies.delete(lobby.id)
-    this.lobbyPlayerNetwork.deleteLobby(lobby.id)
+    this.runStates.set(lobbyId, {
+      gameId,
+      inGameUsers: new Set(getHumanSlots(lobby).map(slot => slot.userId!)),
+    })
+
+    this._publishTo(lobby, { type: 'gameStarted', runState: this._runStateJson(lobbyId)! })
+    // The lobby left the public list when its countdown began; it belongs back on it now, marked as
+    // having a game in progress, since it can be joined (onto the bench) again.
+    this._publishListChange('add', lobby)
+  }
+
+  /**
+   * Records that one member's game is over and puts them back in the lobby, regrouping the lobby
+   * once the last of them is done.
+   *
+   * The signals that trigger this arrive at least once per member and can arrive for a member who
+   * has already left or whose lobby has moved on to another game, so everything about the member and
+   * the game is checked before anything is changed.
+   */
+  private _onUserGameEnded(gameId: string, userId: SbUserId) {
+    const client = this.activityRegistry.getClientForUser(userId)
+    const lobbyId = client ? this.lobbyClients.get(client) : undefined
+    if (lobbyId === undefined) {
+      return
+    }
+    const runState = this.runStates.get(lobbyId)
+    if (!runState || runState.gameId !== gameId || !runState.inGameUsers.has(userId)) {
+      return
+    }
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby) {
+      return
+    }
+
+    runState.inGameUsers.delete(userId)
+    this._publishTo(lobby, { type: 'memberGameEnded', userId })
+    this._maybeRegroup(lobbyId)
+  }
+
+  /**
+   * Puts a lobby back to gathering once nobody is left in its game, keeping the seats and races it
+   * had, and finally letting anyone who joined the bench during the game take a free seat.
+   *
+   * No-op while anyone is still playing.
+   */
+  private _maybeRegroup(lobbyId: SbLobbyId) {
+    const runState = this.runStates.get(lobbyId)
+    if (!runState || runState.inGameUsers.size > 0) {
+      return
+    }
+
+    this.runStates.delete(lobbyId)
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby) {
+      return
+    }
+
+    const updated = this._seatBenchOverflow(lobby)
+    this.lobbies.set(lobbyId, updated)
+    this._publishTo(updated, { type: 'regroup', gameId: runState.gameId })
+    if (updated === lobby) {
+      // The lobby itself is unchanged, but its list entry still has to be refreshed: what changed is
+      // its lifecycle.
+      this._publishListChange('update', updated)
+    } else {
+      this._publishLobbyDiff(lobby, updated)
+      this._warmLobbyRegions(updated)
+    }
   }
 
   // Cancels the countdown if one was occurring (no-op if it was not)
@@ -1585,15 +1733,42 @@ export class LobbyService {
     }
   }
 
-  // Ensures that the lobby is not in a 'transient' state, that is, a state between being a lobby
-  // and being an active game (counting down, loading, etc.). Transient states can be rolled back
-  // (bringing the lobby back to a non-transient state)
-  ensureLobbyNotTransient(lobby: Lobby) {
+  // Ensures that the lobby is not on its way into a game, that is, in a state between being a lobby
+  // and having an active game (counting down, loading). Those states can be rolled back, bringing
+  // the lobby back to gathering.
+  ensureLobbyNotStarting(lobby: Lobby) {
     if (this.lobbyCountdowns.has(lobby.id)) {
       throw new LobbyServiceError(LobbyServiceErrorCode.CountingDown, 'lobby is counting down')
     }
     if (this.loadingLobbies.has(lobby.id)) {
       throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyStarted, 'lobby has already started')
+    }
+  }
+
+  /**
+   * Ensures that the lobby is in a state where its contents can be rearranged: not on its way into a
+   * game, and not holding the roster of one that is running.
+   */
+  ensureLobbyNotTransient(lobby: Lobby) {
+    this.ensureLobbyNotStarting(lobby)
+    if (this.runStates.has(lobby.id)) {
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.GameInProgress,
+        'lobby has a game in progress',
+      )
+    }
+  }
+
+  /**
+   * Ensures the host may remove the member they named. While a game is running the seats hold the
+   * people playing it and are off limits, but the bench takes no part in the game and stays the
+   * host's to manage.
+   */
+  private ensureHostCanRemove(lobby: Lobby, targetIsBenched: boolean) {
+    if (targetIsBenched) {
+      this.ensureLobbyNotStarting(lobby)
+    } else {
+      this.ensureLobbyNotTransient(lobby)
     }
   }
 
@@ -1627,7 +1802,10 @@ export class LobbyService {
     if (lobby.visibility === 'listed') {
       this.publisher.publish(LOBBY_LIST_PATH, {
         action,
-        payload: action === 'delete' ? lobby.id : Lobbies.toSummaryJson(lobby),
+        payload:
+          action === 'delete'
+            ? lobby.id
+            : Lobbies.toSummaryJson(lobby, this._lifecycleOf(lobby.id)),
       })
     }
     this._publishLobbiesCount()
