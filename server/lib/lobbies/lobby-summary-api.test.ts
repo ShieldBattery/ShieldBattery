@@ -66,6 +66,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameSubType: 0,
   host: { id: HOST_ID },
   openSlotCount: 3,
+  lifecycle: 'gathering',
 }
 
 /** A fake `RouterContext` satisfying `getSummary`'s param validation. */
@@ -92,7 +93,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     // A field added to LobbySummaryJson later (e.g. a player list) must never silently join this
     // unauthenticated response.
     expect(Object.keys(response.summary).sort()).toEqual(
-      ['gameSubType', 'gameType', 'host', 'id', 'map', 'name', 'openSlotCount'].sort(),
+      ['gameSubType', 'gameType', 'host', 'id', 'lifecycle', 'map', 'name', 'openSlotCount'].sort(),
     )
     expect(Object.keys(response.summary.host)).toEqual(['id'])
 

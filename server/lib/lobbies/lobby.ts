@@ -20,7 +20,7 @@ import {
   takenSlotCount,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
-import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import { LobbyLifecycle, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   Slot,
@@ -88,7 +88,10 @@ export function getSlotsPerTeam(
  * Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the open
  * lobbies.
  */
-export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
+export function toSummaryJson(
+  lobby: Lobby,
+  lifecycle: LobbyLifecycle = 'gathering',
+): LobbySummaryJson {
   return {
     id: lobby.id,
     name: lobby.name,
@@ -97,6 +100,7 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
     openSlotCount: openSlotCount(lobby),
+    lifecycle,
   }
 }
 

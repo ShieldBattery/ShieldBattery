@@ -117,6 +117,7 @@ const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
     gameSubType: 0,
     host: { id: hostId },
     openSlotCount,
+    lifecycle: 'gathering',
   })
 }
 
