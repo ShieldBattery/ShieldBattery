@@ -60,6 +60,7 @@ const LOBBY: Lobby = {
       hiddenSlots: [],
     },
   ],
+  bench: [],
   host: HOST_SLOT,
   useLegacyLimits: false,
   visibility: 'listed',

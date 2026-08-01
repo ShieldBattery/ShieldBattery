@@ -379,6 +379,7 @@ export function createLobby({
     gameType,
     gameSubType: +gameSubType,
     teams,
+    bench: [],
     host,
     useLegacyLimits,
     visibility,
