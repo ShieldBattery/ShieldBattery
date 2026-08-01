@@ -4,8 +4,8 @@ import {
   MatchmakingType,
   POINTS_FOR_RATING_TARGET_FACTOR,
   TEAM_SIZES,
+  getAllDivisionsWithBounds,
   getDivisionColor,
-  getDivisionsForPointsChange,
   getTotalBonusPool,
 } from '../../../common/matchmaking'
 import { AssignedRaceChar } from '../../../common/races'
@@ -80,12 +80,11 @@ export const SEASONS: ReadonlyArray<SeasonInfo> = [
 export const CURRENT_SEASON = SEASONS[SEASONS.length - 1]
 
 /**
- * The bonus pool as it stands now, via the real accrual function. Division bounds are
- * `low + bonusPool * factor`, so this is what positions the bands.
+ * Newest first, for season pickers — the most recent season is what a player is
+ * usually after. `SEASONS` itself stays chronological, since the history generator
+ * and the band grouping both walk it in order.
  */
-export function currentBonusPool(): number {
-  return bonusPoolFor(CURRENT_SEASON)
-}
+export const SEASONS_NEWEST_FIRST: ReadonlyArray<SeasonInfo> = SEASONS.slice().reverse()
 
 /**
  * The pool as it stood for a given season: at its end if it's over, at now if it's
@@ -122,15 +121,13 @@ export interface DivisionBand {
  * can't drift away from what the matchmaker actually does.
  */
 export function divisionBands(solo: boolean, bonusPool: number): DivisionBand[] {
-  return getDivisionsForPointsChange(solo, 0, Number.MAX_SAFE_INTEGER, bonusPool).map(
-    ([division, low, high]) => ({
-      division,
-      low,
-      high,
-      color: getDivisionColor(division),
-      opacity: bandOpacity(division),
-    }),
-  )
+  return getAllDivisionsWithBounds(solo, bonusPool).map(([division, low, high]) => ({
+    division,
+    low,
+    high,
+    color: getDivisionColor(division),
+    opacity: bandOpacity(division),
+  }))
 }
 
 /** Deterministic PRNG so the dev page looks the same on every reload. */

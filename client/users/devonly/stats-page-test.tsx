@@ -44,7 +44,7 @@ import {
   RIVALS,
   RatingPoint,
   RivalEntry,
-  SEASONS,
+  SEASONS_NEWEST_FIRST,
   SeasonBands,
   TOUGHEST_OPPONENTS,
   mapStats,
@@ -232,7 +232,7 @@ function ModeCardView({
   const runs = splitOnDiscontinuity(history, metric === 'points')
   // Only offer seasons this mode was actually played in — on real data a player
   // will often have nothing for a given season, and an empty series has no chart.
-  const playedSeasons = SEASONS.filter(s => mode.history.some(p => p.season === s.id))
+  const playedSeasons = SEASONS_NEWEST_FIRST.filter(s => mode.history.some(p => p.season === s.id))
   // One band set per season in view, each at that season's own bonus pool.
   const bandGroups = metric === 'points' ? seasonBandGroups(history, isSoloType(mode.type)) : []
 
@@ -266,7 +266,11 @@ function ModeCardView({
               seasons a year, and a wrapping chip row stops being readable well
               before a long-lived account runs out of them. */}
           <Filter>
-            <Select value={season} label='Season' onChange={(value: string) => setSeason(value)}>
+            <Select
+              value={season}
+              label='Season'
+              allowErrors={false}
+              onChange={(value: string) => setSeason(value)}>
               <SelectOption value={ALL_SEASONS} text='All time' />
               {playedSeasons.map(s => (
                 <SelectOption key={s.id} value={String(s.id)} text={s.name} />
@@ -702,6 +706,7 @@ function MatchupsSection() {
           <Select
             value={mode}
             label='Game mode'
+            allowErrors={false}
             onChange={(value: ModeFilter) => {
               setMode(value)
               setMap(ALL_MAPS)
@@ -716,18 +721,23 @@ function MatchupsSection() {
           <Select
             value={season}
             label='Season'
+            allowErrors={false}
             onChange={(value: string) => {
               setSeason(value)
               setMap(ALL_MAPS)
             }}>
             <SelectOption value={ALL_SEASONS} text='Overall' />
-            {SEASONS.map(s => (
+            {SEASONS_NEWEST_FIRST.map(s => (
               <SelectOption key={s.id} value={String(s.id)} text={s.name} />
             ))}
           </Select>
         </Filter>
         <Filter $wide={true}>
-          <Select value={activeMap} label='Map' onChange={(value: string) => setMap(value)}>
+          <Select
+            value={activeMap}
+            label='Map'
+            allowErrors={false}
+            onChange={(value: string) => setMap(value)}>
             <SelectOption value={ALL_MAPS} text='Overall' />
             {availableMaps.map(m => (
               <SelectOption
