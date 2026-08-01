@@ -25,6 +25,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
+import { ElapsedTime } from '../matchmaking/elapsed-time'
 import { FilledButton, TextButton } from '../material/button'
 import { Card } from '../material/card'
 import { elevationPlus1 } from '../material/shadows'
@@ -48,13 +49,16 @@ import {
   LobbyCountdownCanceledMessage,
   LobbyCountdownStartedMessage,
   LobbyCountdownTickMessage,
+  LobbyGameStartedMessage,
   LobbyHostChangeMessage,
   LobbyLoadingCanceledMessage,
+  LobbyMemberGameEndedMessage,
+  LobbyRegroupMessage,
   SelfJoinLobbyMessage,
   SettingsChangeMessage,
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
-import { LobbyLoadingState } from './lobby-reducer'
+import { LobbyLoadingState, LobbyRunState } from './lobby-reducer'
 import { OpenSlot } from './open-slot'
 import { PlayerSlot } from './player-slot'
 import {
@@ -151,6 +155,10 @@ const StartButton = styled(FilledButton)`
 const Countdown = styled.div`
   ${headlineMedium};
   margin: 16px 0;
+`
+
+const StatusElapsedTime = styled(ElapsedTime)`
+  display: inline;
 `
 
 /**
@@ -407,6 +415,12 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
       )
     case LobbyMessageType.LobbyBenchJoin:
       return <BenchJoinMessage key={msg.id} time={msg.time} userId={msg.userId} />
+    case LobbyMessageType.LobbyGameStarted:
+      return <LobbyGameStartedMessage key={msg.id} time={msg.time} />
+    case LobbyMessageType.LobbyMemberGameEnded:
+      return <LobbyMemberGameEndedMessage key={msg.id} time={msg.time} userId={msg.userId} />
+    case LobbyMessageType.LobbyRegroup:
+      return <LobbyRegroupMessage key={msg.id} time={msg.time} gameId={msg.gameId} />
     default:
       msg satisfies never
       return null
@@ -415,6 +429,8 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
 
 export interface LobbyProps {
   lobby: Lobby
+  /** The lobby's running game, while it's `inGame`; absent while it's gathering. */
+  runState?: LobbyRunState
   loadingState: LobbyLoadingState
   chat: SbMessage[]
   user: ReadonlyDeep<SelfUserJson>
@@ -441,6 +457,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
     const {
       lobby,
       user,
+      runState,
       onSetRace,
       onAddComputer,
       onSwitchSlot,
@@ -454,12 +471,17 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
     } = this.props
 
     const [, , mySlot] = findSlotByUserId(lobby, user.id)
-    const isHost = mySlot && lobby.host.id === mySlot.id
+    // Host actions and the slot menus they live in are pointless while the lobby's game is
+    // running -- the server rejects them anyway, since a seated player is off playing, not
+    // sitting in the slot layout to be kicked, closed, or moved.
+    const isHost = mySlot && lobby.host.id === mySlot.id && !runState
     const canAddObsSlots = canAddObservers(lobby)
     const canRemoveObsSlots = canRemoveObservers(lobby)
+    const inGameUsers = runState ? new Set(runState.inGameUsers) : undefined
 
     return team.slots.map((slot: Slot) => {
       const { type, userId, race, id, controlledBy } = slot
+      const inGame = !!(inGameUsers && userId !== undefined && inGameUsers.has(userId))
       switch (type) {
         case SlotType.Open:
           return (
@@ -494,6 +516,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               canSetRace={slot === mySlot && !slot.hasForcedRace}
               canMakeObserver={canAddObsSlots}
               isSelf={slot === mySlot}
+              inGame={inGame}
               onSetRace={(race: RaceChar) => onSetRace(id, race)}
               onCloseSlot={() => onCloseSlot(id)}
               onKickPlayer={() => onKickPlayer(id)}
@@ -511,6 +534,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               isObserver={true}
               canRemoveObserver={canRemoveObsSlots}
               isSelf={slot === mySlot}
+              inGame={inGame}
               onCloseSlot={() => onCloseSlot(id)}
               onKickPlayer={() => onKickPlayer(id)}
               onBanPlayer={() => onBanPlayer(id)}
@@ -572,6 +596,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
       lobby,
       user,
       commandContext,
+      runState,
       onLeaveLobbyClick,
       onSendChatMessage,
       onOpenLobbySettings,
@@ -642,11 +667,13 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               testName='leave-lobby-button'
             />
             <CopyInviteLinkButton lobby={lobby} />
-            <LobbySettingsButton
-              lobby={lobby}
-              user={user}
-              onOpenLobbySettings={onOpenLobbySettings}
-            />
+            {!runState ? (
+              <LobbySettingsButton
+                lobby={lobby}
+                user={user}
+                onOpenLobbySettings={onOpenLobbySettings}
+              />
+            ) : null}
           </InfoActions>
           <SettingHighlightBlock value={lobby.map!.id}>
             <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
@@ -695,10 +722,28 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               </SettingHighlight>
             </InfoValue>
           </InfoItem>
+          {this.renderInGameStatus()}
           {this.renderCountdown()}
           {this.renderStartButton()}
         </Info>
       </ContentArea>
+    )
+  }
+
+  renderInGameStatus() {
+    const { runState, t } = this.props
+    if (!runState) {
+      return null
+    }
+
+    return (
+      <InfoItem>
+        <InfoLabel as='span'>{t('lobbies.lobby.status', 'Status')}</InfoLabel>
+        <InfoValue>
+          {t('lobbies.lobby.inGame', 'In game')}
+          <StatusElapsedTime startTimeMs={runState.startedAt} prefix=' · ' />
+        </InfoValue>
+      </InfoItem>
     )
   }
 
@@ -712,8 +757,8 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
   }
 
   renderStartButton() {
-    const { lobby, user, onStartGame, loadingState, t } = this.props
-    if (!user || lobby.host.userId !== user.id) {
+    const { lobby, user, onStartGame, loadingState, runState, t } = this.props
+    if (!user || lobby.host.userId !== user.id || runState) {
       return null
     }
 

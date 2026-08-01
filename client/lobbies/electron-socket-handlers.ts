@@ -2,14 +2,12 @@ import { NydusClient, RouteHandler } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { urlPath } from '../../common/urls'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
-import { replace } from '../navigation/routing'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 
@@ -216,30 +214,20 @@ const eventToAction: EventToActionMap = {
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
-  gameStarted: (lobbyId, event) => (dispatch, getState) => {
-    const state = getState()
-    const { lobby } = state
+  gameStarted: (lobbyId, event) => dispatch => {
+    // The game itself launches through the separate `/gameLoader/:gameId/:userId` route; this
+    // event just closes the "Launching game…" dialog and marks the lobby as running its game. The
+    // lobby's info is left alone (see the reducer), so staying on its route keeps working through
+    // the game and back.
 
     // The lobby's game is under way, so a countdown still running locally (one that trailed the
     // server's) has nothing left to run out to.
     clearCountdownTimer()
     dispatch(closeDialog(DialogType.LaunchingGame))
-    const currentPath = location.pathname
-    const lobbyPath = urlPath`/lobbies/${lobby.info.id}`
-    if (currentPath === lobbyPath || currentPath.startsWith(lobbyPath + '/')) {
-      replace(urlPath`/`)
-    }
-    if (selfIsBenched(state)) {
-      // The lobby is over for a benched member too, but no game of theirs has started: marking one
-      // active would stick, since only their own game's lifecycle ever clears that state again
-      dispatch({
-        type: '@lobbies/updateLeaveSelf',
-      })
-    } else {
-      dispatch({
-        type: '@lobbies/updateGameStarted',
-      })
-    }
+    dispatch({
+      type: '@lobbies/updateGameStarted',
+      payload: { runState: event.runState },
+    })
   },
 
   chat(lobbyId, event) {
@@ -269,9 +257,15 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  memberGameEnded: () => undefined,
+  memberGameEnded: (lobbyId, event) => ({
+    type: '@lobbies/updateMemberGameEnded',
+    payload: event,
+  }),
 
-  regroup: () => undefined,
+  regroup: (lobbyId, event) => ({
+    type: '@lobbies/updateRegroup',
+    payload: event,
+  }),
 
   settingsChange: (lobbyId, event) => {
     if (event.changedSettings.includes('map')) {

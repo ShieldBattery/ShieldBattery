@@ -5,6 +5,7 @@ import { GameResultErrorCode } from '../../../common/games/results'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { getUserGameRecord } from '../models/games-users'
 import { GameApi } from './game-api'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { getNetcodeV2Session } from './game-models'
 import { GameResultServiceError } from './game-result-service'
 
@@ -47,6 +48,7 @@ function makeRehomeApi({
     {} as any,
     netcodeV2Service as any,
     {} as any,
+    new GameLifecycleEvents(),
   )
   return { api, netcodeV2Service }
 }
@@ -167,6 +169,7 @@ function makeStatusApi({
     {} as any,
     {} as any,
     activityStatusService as any,
+    new GameLifecycleEvents(),
   )
   return { api, gameLoader, activityStatusService }
 }
@@ -236,6 +239,7 @@ function makeFlightApi({ isEnabled = true }: { isEnabled?: boolean } = {}) {
     {} as any,
     netcodeV2Service as any,
     {} as any,
+    new GameLifecycleEvents(),
   )
   return { api, netcodeV2Service }
 }
