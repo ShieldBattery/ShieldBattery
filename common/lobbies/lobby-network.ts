@@ -112,6 +112,11 @@ export type LobbyLifecycle = 'gathering' | 'countingDown' | 'loading' | 'inGame'
 export interface LobbyRunStateJson {
   gameId: string
   inGameUsers: SbUserId[]
+  /**
+   * How long the game has been running when this was serialized, so a client arriving mid-game
+   * (a bench join, a reconnect) can show elapsed time without a synchronized wall clock.
+   */
+  elapsedMs: number
 }
 
 export type LobbyEvent =

@@ -1831,7 +1831,11 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyService.lobbies.has(id)).toBe(true)
       expect(lobbyPublishes(id)).toContainEqual({
         type: 'gameStarted',
-        runState: { gameId: 'test-game-id', inGameUsers: [HOST_USER.id, JOINER_USER.id] },
+        runState: {
+          gameId: 'test-game-id',
+          inGameUsers: [HOST_USER.id, JOINER_USER.id],
+          elapsedMs: expect.any(Number),
+        },
       })
       // Holding the activity through the game is what keeps everyone out of matchmaking and other
       // lobbies until this one is done with them.
