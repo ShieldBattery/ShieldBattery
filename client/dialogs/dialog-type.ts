@@ -34,12 +34,14 @@ export enum DialogType {
   LeagueExplainer = 'leagueExplainer',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
+  LobbySettings = 'lobbySettings',
   MapDetails = 'mapDetails',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
   Markdown = 'markdown',
   MatchmakingBanned = 'matchmakingBanned',
   NewsPostSettings = 'newsPostSettings',
+  MoveSlot = 'moveSlot',
   PostMatch = 'postMatch',
   PrivacyPolicy = 'privacyPolicy',
   RemoveUserAvatar = 'removeUserAvatar',
@@ -228,6 +230,7 @@ type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
     onJoinFailed?: (message: string, error: unknown) => void
   }
 >
+type LobbySettingsDialogPayload = BaseDialogPayload<typeof DialogType.LobbySettings>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
   {
@@ -281,6 +284,13 @@ type NewsPostSettingsDialogPayload = BaseDialogPayload<
     showErrorsOnOpen?: boolean
     /** Called with the edited settings once the dialog is submitted. */
     onApply: (settings: NewsPostSettingsValues) => void
+  }
+>
+type MoveSlotDialogPayload = BaseDialogPayload<
+  typeof DialogType.MoveSlot,
+  {
+    /** The slot the host is moving an occupant out of; disabled as a destination in the list. */
+    fromSlotId: string
   }
 >
 export type PostMatchDialogPayload = BaseDialogPayload<
@@ -382,12 +392,14 @@ export type DialogPayload =
   | LeagueExplainerDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
+  | LobbySettingsDialogPayload
   | MapDetailsDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload
   | MarkdownDialogPayload
   | MatchmakingBannedDialogPayload
   | NewsPostSettingsDialogPayload
+  | MoveSlotDialogPayload
   | PostMatchDialogPayload
   | PrivacyPolicyDialogPayload
   | RemoveUserAvatarDialogPayload
