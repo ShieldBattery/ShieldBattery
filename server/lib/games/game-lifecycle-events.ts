@@ -15,8 +15,20 @@ export interface UserGameEndedEvent {
   userId: SbUserId
 }
 
+/**
+ * A whole game is over: something authoritative observed its end, independent of any single
+ * player's report — e.g. the netcode relay session closing, or the reconcile sweep declaring it
+ * complete. Clients that die without ever reporting (a crashed app posts nothing) are covered by
+ * this where the per-user signal never fires. At-least-once, and may arrive alongside per-user
+ * events for the same game.
+ */
+export interface GameEndedEvent {
+  gameId: string
+}
+
 type GameLifecycleEventMap = {
   userGameEnded: [event: UserGameEndedEvent]
+  gameEnded: [event: GameEndedEvent]
 }
 
 /**

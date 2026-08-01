@@ -512,8 +512,8 @@ export class GameApi {
     }
 
     if (
-      ((status >= GameStatus.Launching && status <= GameStatus.Playing) ||
-        status === GameStatus.Error) &&
+      status >= GameStatus.Launching &&
+      status <= GameStatus.Playing &&
       !this.gameLoader.isLoadingOrRecentlyLoaded(gameId)
     ) {
       throw new httpErrors.Conflict('game must be loading')
@@ -537,10 +537,12 @@ export class GameApi {
     } else if (status === GameStatus.Error) {
       // A launch failure is local to the reporting client and no relay ever sees it, so this stays
       // the client's own report for every game — and it's the reporter admitting fault, not
-      // accusing anyone else.
-      if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
-        throw new httpErrors.NotFound('game not found')
-      }
+      // accusing anyone else. During a load, an error report cancels the load (and assigns fault; a
+      // no-op otherwise). After the load is done the game is no longer the loader's concern, but the
+      // report still means the reporter's game is over - e.g. a crash mid-game - so it is accepted
+      // rather than rejected, or the game-end signal below would never fire for clients that die
+      // instead of finishing.
+      this.gameLoader.maybeCancelLoading(gameId, user.id)
     }
 
     if (status === GameStatus.Finished || status === GameStatus.Error) {
