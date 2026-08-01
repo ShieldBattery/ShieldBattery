@@ -1,5 +1,6 @@
 import {
   MatchmakingDivision,
+  getDivisionColor,
   getDivisionsForPointsChange,
   getTotalBonusPool,
 } from '../../../common/matchmaking'
@@ -21,12 +22,10 @@ export interface RatingPoint {
 export interface SeasonInfo {
   id: number
   name: string
-  /** Index of the first game played in this season. */
-  start: number
-  /** Index one past the last game played in this season. */
-  end: number
   /** Whether MMR was reset at the start of this season. */
   resetMmr: boolean
+  /** Roughly what fraction of a mode's games were played in this season. */
+  share: number
   startDate: Date
   endDate: Date
 }
@@ -51,27 +50,24 @@ export const SEASONS: ReadonlyArray<SeasonInfo> = [
   {
     id: 1,
     name: 'Season 1',
-    start: 0,
-    end: 234,
     resetMmr: true,
+    share: 0.38,
     startDate: new Date('2025-08-01T00:00:00Z'),
     endDate: new Date('2025-12-01T00:00:00Z'),
   },
   {
     id: 2,
     name: 'Season 2',
-    start: 234,
-    end: 465,
     resetMmr: false,
+    share: 0.38,
     startDate: new Date('2025-12-01T00:00:00Z'),
     endDate: new Date('2026-04-01T00:00:00Z'),
   },
   {
     id: 3,
     name: 'Season 3',
-    start: 465,
-    end: 613,
     resetMmr: true,
+    share: 0.24,
     startDate: new Date('2026-04-01T00:00:00Z'),
     endDate: new Date('2026-08-01T00:00:00Z'),
   },
@@ -88,31 +84,9 @@ export function currentBonusPool(): number {
 }
 
 /**
- * Dominant colour of each rank badge, sampled from the art in
- * `server/public/images/ranks/<division>-88px.png`. Sub-divisions of a tier share a
- * hue, so the opacity step below is what separates them.
+ * Fill weight climbs across the three sub-divisions of a tier. The tier colour is
+ * shared across its sub-divisions, so this step is what separates them.
  */
-const DIVISION_COLORS: Record<MatchmakingDivision, string> = {
-  [MatchmakingDivision.Unrated]: '#7d8385',
-  [MatchmakingDivision.Bronze1]: '#b97955',
-  [MatchmakingDivision.Bronze2]: '#dda88a',
-  [MatchmakingDivision.Bronze3]: '#dca889',
-  [MatchmakingDivision.Silver1]: '#7d8385',
-  [MatchmakingDivision.Silver2]: '#7c8385',
-  [MatchmakingDivision.Silver3]: '#7d8385',
-  [MatchmakingDivision.Gold1]: '#d8c479',
-  [MatchmakingDivision.Gold2]: '#d9c579',
-  [MatchmakingDivision.Gold3]: '#c4aa4d',
-  [MatchmakingDivision.Platinum1]: '#19a9ea',
-  [MatchmakingDivision.Platinum2]: '#19a9ea',
-  [MatchmakingDivision.Platinum3]: '#18a8ea',
-  [MatchmakingDivision.Diamond1]: '#dba8f8',
-  [MatchmakingDivision.Diamond2]: '#dca8f8',
-  [MatchmakingDivision.Diamond3]: '#dca8f8',
-  [MatchmakingDivision.Champion]: '#b73a18',
-}
-
-/** Fill weight climbs across the three sub-divisions of a tier. */
 function bandOpacity(division: MatchmakingDivision): number {
   if (division === MatchmakingDivision.Champion) return 0.24
   if (division.endsWith('2')) return 0.16
@@ -139,7 +113,7 @@ export function divisionBands(solo: boolean, bonusPool: number): DivisionBand[] 
       division,
       low,
       high,
-      color: DIVISION_COLORS[division],
+      color: getDivisionColor(division),
       opacity: bandOpacity(division),
     }),
   )
@@ -157,16 +131,22 @@ function rng(seed: number): () => number {
   }
 }
 
-function buildHistory(seed: number, targets: number[]): RatingPoint[] {
+/**
+ * Generates exactly `totalGames` points, split across the seasons by their share, so a
+ * mode's chart plots as many games as its header claims.
+ */
+function buildHistory(seed: number, targets: number[], totalGames: number): RatingPoint[] {
   const r = rng(seed)
   const out: RatingPoint[] = []
   let rating = 1500
+  let game = 0
 
   for (const [i, season] of SEASONS.entries()) {
     if (season.resetMmr) rating = 1500
     // Points are seasonal: they restart at 0 every season, even when MMR carries over.
     let points = 0
-    const n = season.end - season.start
+    // The last season takes the remainder so the total lands exactly on totalGames.
+    const n = i === SEASONS.length - 1 ? totalGames - game : Math.round(totalGames * season.share)
     const goal = targets[i]
 
     for (let g = 0; g < n; g++) {
@@ -179,45 +159,57 @@ function buildHistory(seed: number, targets: number[]): RatingPoint[] {
       points += 2.4 // bonus pool accrues whether or not it's earned in game
       if (points < 0) points = 0
 
-      out.push({ game: season.start + g, rating, points, season: season.id })
+      out.push({ game, rating, points, season: season.id })
+      game++
     }
   }
   return out
 }
 
+/**
+ * Builds a mode from its generated history, so the headline figures can't disagree with
+ * the chart underneath them.
+ */
+function makeMode(
+  key: string,
+  label: string,
+  seed: number,
+  targets: number[],
+  totalGames: number,
+): ModeStats {
+  const history = buildHistory(seed, targets, totalGames)
+  const last = history[history.length - 1]
+  const currentSeasonId = SEASONS[SEASONS.length - 1].id
+  const firstOfSeason = history.findIndex(p => p.season === currentSeasonId)
+  // A reset season starts from scratch; otherwise it continues the previous rating.
+  const seasonStartRating = SEASONS[SEASONS.length - 1].resetMmr
+    ? 1500
+    : history[firstOfSeason - 1].rating
+
+  return {
+    key,
+    label,
+    games: history.length,
+    rating: Math.round(last.rating),
+    seasonDelta: Math.round(last.rating - seasonStartRating),
+    history,
+  }
+}
+
+/** Game indices where a new season begins, for drawing boundary markers. */
+export function seasonBoundaries(history: ReadonlyArray<RatingPoint>): number[] {
+  const out: number[] = []
+  for (let i = 1; i < history.length; i++) {
+    if (history[i].season !== history[i - 1].season) out.push(history[i].game)
+  }
+  return out
+}
+
 export const MODES: ReadonlyArray<ModeStats> = [
-  {
-    key: '1v1',
-    label: 'Ranked 1v1',
-    games: 613,
-    rating: 1918,
-    seasonDelta: 418,
-    history: buildHistory(20260730, [1771, 1804, 1918]),
-  },
-  {
-    key: '2v2',
-    label: 'Ranked 2v2',
-    games: 96,
-    rating: 1642,
-    seasonDelta: -61,
-    history: buildHistory(991, [1610, 1703, 1642]),
-  },
-  {
-    key: '2v2f',
-    label: 'Ranked 2v2 Fastest',
-    games: 214,
-    rating: 1774,
-    seasonDelta: 193,
-    history: buildHistory(4242, [1588, 1690, 1774]),
-  },
-  {
-    key: '3v3h',
-    label: 'Ranked 3v3 Hunters',
-    games: 132,
-    rating: 1596,
-    seasonDelta: 25,
-    history: buildHistory(8181, [1502, 1571, 1596]),
-  },
+  makeMode('1v1', 'Ranked 1v1', 20260730, [1771, 1804, 1918], 613),
+  makeMode('2v2', 'Ranked 2v2', 991, [1610, 1703, 1642], 96),
+  makeMode('2v2f', 'Ranked 2v2 Fastest', 4242, [1588, 1690, 1774], 214),
+  makeMode('3v3h', 'Ranked 3v3 Hunters', 8181, [1502, 1571, 1596], 132),
 ]
 
 /** Modes ordered so the player's most-played appears first. */
@@ -234,13 +226,13 @@ export function splitOnDiscontinuity(
   history: ReadonlyArray<RatingPoint>,
   everyBoundary: boolean,
 ): RatingPoint[][] {
-  const breakAt = new Set(
-    SEASONS.filter((s, i) => (everyBoundary ? i > 0 : s.resetMmr)).map(s => s.start),
-  )
+  const resetSeasons = new Set(SEASONS.filter(s => s.resetMmr).map(s => s.id))
   const runs: RatingPoint[][] = []
   let current: RatingPoint[] = []
   for (const point of history) {
-    if (breakAt.has(point.game) && current.length) {
+    const previous = current[current.length - 1]
+    const crossedSeason = previous !== undefined && previous.season !== point.season
+    if (crossedSeason && (everyBoundary || resetSeasons.has(point.season))) {
       runs.push(current)
       current = []
     }

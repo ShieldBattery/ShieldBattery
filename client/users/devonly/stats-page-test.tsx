@@ -12,7 +12,10 @@ import {
 } from 'recharts'
 import styled from 'styled-components'
 import { AssignedRaceChar } from '../../../common/races'
+import { urlPath } from '../../../common/urls'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { buttonReset } from '../../material/button-reset'
+import { LinkButton } from '../../material/link-button'
 import { SelectOption } from '../../material/select/option'
 import { Select } from '../../material/select/select'
 import { TabItem, Tabs } from '../../material/tabs'
@@ -47,6 +50,7 @@ import {
   mapsFor,
   matchupCell,
   raceCombos,
+  seasonBoundaries,
   splitOnDiscontinuity,
   teamSizeFor,
 } from './stats-data'
@@ -86,17 +90,15 @@ const ModeCard = styled.div`
 `
 
 const ModeHeader = styled.button`
+  ${buttonReset};
   width: 100%;
   padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 16px;
 
-  background: none;
-  border: none;
   color: inherit;
   text-align: left;
-  cursor: pointer;
 
   &:hover {
     background: var(--theme-container);
@@ -118,7 +120,7 @@ const Grow = styled.div`
   min-width: 0;
 `
 
-const Metric = styled.div`
+const MetricColumn = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -154,10 +156,10 @@ const ChipRow = styled.div`
 `
 
 const Chip = styled.button<{ $active: boolean }>`
+  ${buttonReset};
   ${labelMedium};
   padding: 5px 12px;
   border-radius: 999px;
-  cursor: pointer;
 
   background: ${props => (props.$active ? 'var(--theme-container-highest)' : 'transparent')};
   border: 1px solid
@@ -214,12 +216,12 @@ function ModeCardView({
           <ModeTitle>{mode.label}</ModeTitle>
           <ModeSub>{mode.games} games</ModeSub>
         </Grow>
-        <Metric>
+        <MetricColumn>
           <MetricValue>{mode.rating}</MetricValue>
           <Delta $positive={mode.seasonDelta >= 0}>
             {mode.seasonDelta >= 0 ? '▲' : '▼'} {Math.abs(mode.seasonDelta)} this season
           </Delta>
-        </Metric>
+        </MetricColumn>
         <Caret $open={open} />
       </ModeHeader>
 
@@ -323,10 +325,10 @@ function RatingChart({
             ]}
           />
           {showBoundaries
-            ? SEASONS.slice(1).map(s => (
+            ? seasonBoundaries(all).map(game => (
                 <ReferenceLine
-                  key={s.id}
-                  x={s.start}
+                  key={game}
+                  x={game}
                   stroke='var(--theme-outline)'
                   strokeDasharray='4 4'
                 />
@@ -379,7 +381,9 @@ const PanelNote = styled.span`
   color: var(--theme-on-surface-variant);
 `
 
-const PlayerRow = styled.a`
+// LinkButton routes through wouter, so a click stays in the SPA instead of
+// hard-navigating out of it.
+const PlayerRow = styled(LinkButton)`
   display: flex;
   align-items: center;
   gap: 10px;
@@ -482,8 +486,7 @@ function RivalList({
         return (
           <PlayerRow
             key={`${title}-${entry.userId}`}
-            href={`/users/${entry.userId}/${entry.name}`}
-            title={`Go to ${entry.name}'s profile`}>
+            href={urlPath`/users/${entry.userId}/${entry.name}`}>
             <Avatar $color={AVATAR_COLORS[entry.userId % AVATAR_COLORS.length]}>
               {entry.name.charAt(0)}
             </Avatar>
@@ -571,7 +574,7 @@ const RowHead = styled.th`
   text-align: right;
 `
 
-const Cell = styled.td<{ $tint: string; $thin: boolean; $empty: boolean }>`
+const Cell = styled.td<{ $tint: string; $thin: boolean }>`
   box-sizing: border-box;
   min-width: 62px;
   padding: 7px 5px;
@@ -629,7 +632,9 @@ function tintFor(cell: MatchupCell): string {
   const rate = cell.wins / cell.games
   const d = Math.max(-0.28, Math.min(0.28, rate - 0.5))
   const alpha = ((Math.abs(d) / 0.28) * 0.3).toFixed(3)
-  return d >= 0 ? `rgba(105, 240, 174, ${alpha})` : `rgba(230, 96, 96, ${alpha})`
+  return d >= 0
+    ? `rgb(from var(--theme-positive) r g b / ${alpha})`
+    : `rgb(from var(--theme-negative) r g b / ${alpha})`
 }
 
 function MatchupsSection() {
@@ -743,8 +748,7 @@ function MatchupsSection() {
                     <Cell
                       key={col.join('')}
                       $tint={tintFor(cell)}
-                      $thin={cell.games > 0 && cell.games < 5}
-                      $empty={!cell.games}>
+                      $thin={cell.games > 0 && cell.games < 5}>
                       <CellRate $empty={!cell.games}>{cell.games ? `${rate}%` : '—'}</CellRate>
                       <CellRecord>
                         {cell.games ? `${cell.wins}–${cell.games - cell.wins}` : ''}
