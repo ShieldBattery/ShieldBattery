@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
-import { Lobby } from '../../common/lobbies'
+import { BenchedUser, Lobby } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { LobbyActions } from './actions'
+import { BenchJoinMessage, LobbyMessageType, SettingsChangeMessage } from './lobby-message-records'
 import lobbyReducerImport, { CurrentLobbyState, isInLobby } from './lobby-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it lobby
@@ -65,6 +66,12 @@ const LOBBY: Lobby = {
   useLegacyLimits: false,
   visibility: 'listed',
   createdAt: 0,
+}
+
+const BENCHED_USER: BenchedUser = {
+  userId: 4 as any,
+  race: 't',
+  joinedAt: 0,
 }
 
 function initAction(): LobbyActions {
@@ -222,5 +229,96 @@ describe('client/lobbies/lobby-reducer', () => {
     // The countdown start pushes two messages (started + first tick) but still trims just one
     state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
     expect(state.chat).toHaveLength(201)
+  })
+
+  test('settingsChange replaces state.info with the reconciled lobby and logs a chat message', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    const newLobby: Lobby = { ...LOBBY, useLegacyLimits: true }
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateSettingsChange',
+      payload: { type: 'settingsChange', changedSettings: ['useLegacyLimits'], lobby: newLobby },
+    })
+
+    expect(state.info).toBe(newLobby)
+    const lastMessage = state.chat[state.chat.length - 1]
+    expect(lastMessage.type).toBe(LobbyMessageType.LobbySettingsChange)
+    expect((lastMessage as SettingsChangeMessage).changedSettings).toEqual(['useLegacyLimits'])
+  })
+
+  test('a settingsChange trailing our own leave does not throw and leaves us out of the lobby', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateSettingsChange',
+        payload: { type: 'settingsChange', changedSettings: ['gameType'], lobby: { ...LOBBY } },
+      })
+    }).not.toThrow()
+
+    expect(state.info.name).toBe('')
+    expect(isInLobby(state)).toBe(false)
+  })
+
+  test('benchAdd pushes the user onto the bench and logs a chat message', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateBenchAdd',
+      payload: { type: 'benchAdd', user: BENCHED_USER },
+    })
+
+    expect(state.info.bench).toEqual([BENCHED_USER])
+    const lastMessage = state.chat[state.chat.length - 1]
+    expect(lastMessage.type).toBe(LobbyMessageType.LobbyBenchJoin)
+    expect((lastMessage as BenchJoinMessage).userId).toBe(BENCHED_USER.userId)
+  })
+
+  test('a benchAdd trailing our own kick does not throw and leaves us out of the lobby', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateKickSelf' })
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBenchAdd',
+        payload: { type: 'benchAdd', user: BENCHED_USER },
+      })
+    }).not.toThrow()
+
+    expect(state.info.name).toBe('')
+    expect(isInLobby(state)).toBe(false)
+  })
+
+  test('benchRemove filters the user out of the bench without logging a chat message', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateBenchAdd',
+      payload: { type: 'benchAdd', user: BENCHED_USER },
+    })
+    const chatLengthAfterAdd = state.chat.length
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateBenchRemove',
+      payload: { type: 'benchRemove', userId: BENCHED_USER.userId },
+    })
+
+    expect(state.info.bench).toEqual([])
+    expect(state.chat.length).toBe(chatLengthAfterAdd)
+  })
+
+  test('a benchRemove trailing our own ban does not throw and leaves us out of the lobby', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateBanSelf' })
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateBenchRemove',
+        payload: { type: 'benchRemove', userId: BENCHED_USER.userId },
+      })
+    }).not.toThrow()
+
+    expect(state.info.name).toBe('')
+    expect(isInLobby(state)).toBe(false)
   })
 })

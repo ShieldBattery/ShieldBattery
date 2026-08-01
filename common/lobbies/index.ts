@@ -1,5 +1,5 @@
-import { PlayerInfo } from '../games/game-launch-config'
 import { GameServerRegionId } from '../game-server-regions'
+import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
 import { RaceChar } from '../races'
@@ -162,6 +162,14 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
 }
 
 /**
+ * Finds the bench entry for a user, if they are one of the lobby's members waiting for a seat.
+ * Returns `undefined` for anyone who is seated, or not in the lobby at all.
+ */
+export function findBenchedUser(lobby: Lobby, userId: SbUserId): BenchedUser | undefined {
+  return lobby.bench.find(benched => benched.userId === userId)
+}
+
+/**
  * Finds the slot with the specified user ID in the lobby. Only works for `human` type slots (other
  * type of slots do not have valid user IDs). Returns the [teamIndex, slotIndex, slot] tuple if the
  * player is found; otherwise returns an empty array.
@@ -202,6 +210,14 @@ export function humanSlotCount(lobby: Lobby): number {
         .length,
     0,
   )
+}
+
+/**
+ * Returns whether a lobby has nobody left in it: nobody seated in a `human` or `observer` slot, and
+ * nobody waiting on the bench. Such a lobby has no one left to play it or to hand it to.
+ */
+export function isLobbyEmpty(lobby: Lobby): boolean {
+  return humanSlotCount(lobby) < 1 && lobby.bench.length === 0
 }
 
 /**

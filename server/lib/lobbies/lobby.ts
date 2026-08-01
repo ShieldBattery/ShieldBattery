@@ -4,6 +4,7 @@ import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
+  BenchedUser,
   Lobby,
   LobbyVisibility,
   MAX_OBSERVERS,
@@ -12,7 +13,7 @@ import {
   getLobbySlots,
   getObserverTeam,
   hasObservers,
-  humanSlotCount,
+  isLobbyEmpty,
   isSlotUnoccupied,
   isUms,
   slotCount,
@@ -34,6 +35,7 @@ import {
   createControlledClosed,
   createControlledOpen,
   createHuman,
+  createObserver,
   createOpen,
   createUmsComputer,
 } from '../../../common/lobbies/slot'
@@ -317,6 +319,22 @@ function createInitialTeams(
   return teams
 }
 
+/**
+ * Creates the observer team a lobby that allows observers has. Observer slots sit alongside the
+ * map's player slots rather than being taken from them, so every game type gets the same fixed-size
+ * team. They start closed, so a lobby only takes on observers once someone deliberately opens a
+ * slot or is moved into one.
+ */
+function createObserverTeam(): Team {
+  return {
+    name: 'Observers',
+    teamId: 0,
+    isObserver: true,
+    slots: Array.from({ length: MAX_OBSERVERS }, () => createClosed()),
+    hiddenSlots: [],
+  }
+}
+
 /** Creates a new lobby, and an initial host player in the first slot. */
 export function createLobby({
   name,
@@ -346,16 +364,7 @@ export function createLobby({
 }) {
   const teams = createInitialTeams(map, gameType, gameSubType, numSlots)
   if (allowObservers) {
-    // Observer slots sit alongside the map's player slots rather than being taken from them, so
-    // every game type gets the same fixed-size observer team. They start closed, so a lobby only
-    // takes on observers once someone deliberately opens a slot or is moved into one.
-    teams.push({
-      name: 'Observers',
-      teamId: 0,
-      isObserver: true,
-      slots: Array.from({ length: MAX_OBSERVERS }, () => createClosed()),
-      hiddenSlots: [],
-    })
+    teams.push(createObserverTeam())
   }
 
   const [hostTeamIndex, hostSlotIndex, hostSlot] = teams
@@ -507,10 +516,32 @@ function removePlayerAndControlledSlots(lobby: Lobby, teamIndex: number, playerI
 }
 
 /**
+ * Points a lobby's `host` at the slot it describes, choosing the longest-seated occupant instead
+ * when that slot is gone. Returns the lobby untouched when the host already refers to the right
+ * slot, and when nobody is seated to take over (the caller is expected to seat someone, e.g. from
+ * the bench, and call this again).
+ */
+export function reassignHost(lobby: Lobby): Lobby {
+  const slots = getLobbySlots(lobby)
+  const newHost =
+    slots.find(slot => slot.id === lobby.host.id) ??
+    slots
+      .filter(slot => slot.type === SlotType.Human || slot.type === SlotType.Observer)
+      .sort((a, b) => a.joinedAt - b.joinedAt)[0]
+  if (!newHost || newHost === lobby.host) {
+    return lobby
+  }
+  return produce(lobby, draft => {
+    draft.host = newHost
+  })
+}
+
+/**
  * Removes the player at the specified `teamIndex` and `slotIndex` from a lobby, returning the
- * updated lobby. If the lobby is closed (e.g. because it no longer has any human players),
+ * updated lobby. If the lobby is closed (e.g. because it no longer has anyone in it),
  * `undefined` will be returned. Note that if the host is being removed, a new, suitable host will
- * be chosen.
+ * be chosen; if only benched members remain, the lobby is returned with its host still naming the
+ * removed slot, for the caller to resolve by seating one of them.
  */
 export function removePlayer(
   lobby: Lobby,
@@ -531,28 +562,18 @@ export function removePlayer(
     isUms(lobby.gameType) && !team.isObserver
       ? createOpen(toRemove.race, toRemove.hasForcedRace, toRemove.playerId)
       : createOpen()
-  let updated =
+  const updated =
     hasControlledOpens(lobby.gameType) && !team.isObserver
       ? removePlayerAndControlledSlots(lobby, teamIndex, slotIndex)
       : produce(lobby, draft => {
           draft.teams[teamIndex].slots[slotIndex] = vacatedSlot
         })
 
-  if (humanSlotCount(updated) < 1) {
+  if (isLobbyEmpty(updated)) {
     return undefined
   }
 
-  if (lobby.host.id === toRemove.id) {
-    // The player we removed was the host, find a new host (the "oldest" player in lobby)
-    const newHost = getLobbySlots(updated)
-      .filter(slot => slot.type === SlotType.Human || slot.type === SlotType.Observer)
-      .sort((a, b) => a.joinedAt - b.joinedAt)[0]
-    updated = produce(updated, draft => {
-      draft.host = newHost
-    })
-  }
-
-  return updated
+  return reassignHost(updated)
 }
 
 /**
@@ -571,6 +592,34 @@ export function removePlayer(
  *   an empty team fills the rest of it with slots the arriving player controls. The observer team
  *   never holds controlled slots, so a move into or out of it skips that handling on that side.
  */
+/**
+ * Returns what an occupant looks like once they are in `destSlot` of `destTeam`, having come from
+ * `sourceTeam`: in UMS lobbies a slot's `playerId` and forced race come from the map, so they take
+ * on the destination's, and crossing the observer team's boundary retypes them, since the observer
+ * team holds `observer` slots and every other team holds `human` ones.
+ */
+function occupantInSlot(
+  gameType: GameType,
+  occupant: Slot,
+  sourceTeam: Team,
+  destTeam: Team,
+  destSlot: Slot,
+): Slot {
+  let moved = occupant
+  if (isUms(gameType)) {
+    moved = { ...moved, playerId: destSlot.playerId }
+    moved = destSlot.hasForcedRace
+      ? { ...moved, race: destSlot.race, hasForcedRace: true }
+      : { ...moved, hasForcedRace: false }
+  }
+  if (destTeam.isObserver) {
+    moved = { ...moved, type: SlotType.Observer }
+  } else if (sourceTeam.isObserver) {
+    moved = { ...moved, type: SlotType.Human }
+  }
+  return moved
+}
+
 export function movePlayerToSlot(
   lobby: Lobby,
   sourceTeamIndex: number,
@@ -583,18 +632,7 @@ export function movePlayerToSlot(
   const originalSlot = sourceTeam.slots[sourceSlotIndex]
   const destSlot = destTeam.slots[destSlotIndex]
 
-  let movedSlot = originalSlot
-  if (isUms(lobby.gameType)) {
-    movedSlot = { ...movedSlot, playerId: destSlot.playerId }
-    movedSlot = destSlot.hasForcedRace
-      ? { ...movedSlot, race: destSlot.race, hasForcedRace: true }
-      : { ...movedSlot, hasForcedRace: false }
-  }
-  if (destTeam.isObserver) {
-    movedSlot = { ...movedSlot, type: SlotType.Observer }
-  } else if (sourceTeam.isObserver) {
-    movedSlot = { ...movedSlot, type: SlotType.Human }
-  }
+  const movedSlot = occupantInSlot(lobby.gameType, originalSlot, sourceTeam, destTeam, destSlot)
 
   let updated = lobby
   if (originalSlot.id === lobby.host.id) {
@@ -635,6 +673,101 @@ export function movePlayerToSlot(
   }
 
   return updated
+}
+
+/** Returns whether a slot holds someone who could be moved to (or swapped into) another slot. */
+function isSlotOccupied(slot: Slot): boolean {
+  return (
+    slot.type === SlotType.Human ||
+    slot.type === SlotType.Observer ||
+    slot.type === SlotType.Computer
+  )
+}
+
+/**
+ * Hands the controlled slots of a team whose controller is no longer in it to the team's
+ * longest-seated remaining player, leaving the slots themselves (and their races) as they are.
+ */
+function reassignControlledSlots(lobby: Lobby, teamIndex: number): Lobby {
+  const team = lobby.teams[teamIndex]
+  const humans = team.slots.filter(slot => slot.type === SlotType.Human)
+  const humanIds = new Set(humans.map(slot => slot.id))
+  if (team.slots.every(slot => !slot.controlledBy || humanIds.has(slot.controlledBy))) {
+    return lobby
+  }
+  const controller = [...humans].sort((a, b) => a.joinedAt - b.joinedAt)[0]
+  if (!controller) {
+    return lobby
+  }
+
+  return produce(lobby, draft => {
+    for (const slot of draft.teams[teamIndex].slots) {
+      if (slot.controlledBy && !humanIds.has(slot.controlledBy)) {
+        slot.controlledBy = controller.id
+      }
+    }
+  })
+}
+
+/**
+ * Exchanges the occupants of two slots, each of which must hold a `human`, `observer`, or
+ * `computer`. Each occupant takes on the other slot's position with the same adjustments a move
+ * into it would make: UMS slot data comes from the map, and crossing the observer team's boundary
+ * retypes them. A computer has no in-game counterpart in an observer slot, so it cannot be swapped
+ * into one.
+ *
+ * Team melee/ffa lobbies build their player teams out of slots controlled by whoever occupies them,
+ * so only two humans can be exchanged there — any other combination would leave a team's controlled
+ * slots without a player to belong to. Control of those slots follows the swap: a team whose
+ * controller was swapped out hands them to its longest-seated remaining player.
+ */
+export function swapSlots(
+  lobby: Lobby,
+  sourceTeamIndex: number,
+  sourceSlotIndex: number,
+  destTeamIndex: number,
+  destSlotIndex: number,
+): Lobby {
+  const sourceTeam = lobby.teams[sourceTeamIndex]
+  const destTeam = lobby.teams[destTeamIndex]
+  const sourceSlot = sourceTeam.slots[sourceSlotIndex]
+  const destSlot = destTeam.slots[destSlotIndex]
+
+  if (sourceSlot.id === destSlot.id) {
+    throw new Error('trying to swap a slot with itself')
+  }
+  if (!isSlotOccupied(sourceSlot) || !isSlotOccupied(destSlot)) {
+    throw new Error('trying to swap an unoccupied slot: ' + sourceSlot.type + ', ' + destSlot.type)
+  }
+  if (
+    (destTeam.isObserver && sourceSlot.type === SlotType.Computer) ||
+    (sourceTeam.isObserver && destSlot.type === SlotType.Computer)
+  ) {
+    throw new Error('trying to swap a computer into the observer team')
+  }
+  if (
+    hasControlledOpens(lobby.gameType) &&
+    (sourceSlot.type !== SlotType.Human || destSlot.type !== SlotType.Human)
+  ) {
+    throw new Error('only players can be swapped in this game type: ' + lobby.gameType)
+  }
+
+  const intoDest = occupantInSlot(lobby.gameType, sourceSlot, sourceTeam, destTeam, destSlot)
+  const intoSource = occupantInSlot(lobby.gameType, destSlot, destTeam, sourceTeam, sourceSlot)
+
+  let updated = produce(lobby, draft => {
+    draft.teams[destTeamIndex].slots[destSlotIndex] = intoDest
+    draft.teams[sourceTeamIndex].slots[sourceSlotIndex] = intoSource
+  })
+
+  if (hasControlledOpens(lobby.gameType)) {
+    updated = reassignControlledSlots(updated, sourceTeamIndex)
+    if (destTeamIndex !== sourceTeamIndex) {
+      updated = reassignControlledSlots(updated, destTeamIndex)
+    }
+  }
+
+  return reassignHost(updated)
 }
 
 /**
@@ -786,4 +919,312 @@ export function removeObserver(lobby: Lobby, slotIndex: number): Lobby {
     destTeamIndex,
     findSlotToMoveInto(team.slots),
   )
+}
+
+/** Adds a member to the end of the bench, behind everyone already waiting for a seat. */
+export function addToBench(lobby: Lobby, user: BenchedUser): Lobby {
+  return produce(lobby, draft => {
+    draft.bench.push(user)
+  })
+}
+
+/** Removes a member from the bench, e.g. because they left the lobby. */
+export function removeFromBench(lobby: Lobby, userId: SbUserId): Lobby {
+  if (!lobby.bench.some(benched => benched.userId === userId)) {
+    return lobby
+  }
+  return produce(lobby, draft => {
+    draft.bench = draft.bench.filter(benched => benched.userId !== userId)
+  })
+}
+
+/**
+ * What a lobby member carries with them when they change seats: everything about them that isn't
+ * described by the slot they are in. An `id` is present for anyone who currently holds a slot, so
+ * that reusing it lets clients recognize the result as a move rather than a departure and an
+ * arrival.
+ */
+interface Occupant {
+  userId: SbUserId
+  race: RaceChar
+  joinedAt: number
+  region?: GameServerRegionId
+  id?: string
+}
+
+function occupantOf(slot: Slot): Occupant {
+  return {
+    userId: slot.userId!,
+    race: slot.race,
+    joinedAt: slot.joinedAt,
+    region: slot.region,
+    id: slot.id,
+  }
+}
+
+function occupantOfBenched(benched: BenchedUser): Occupant {
+  return {
+    userId: benched.userId,
+    race: benched.race,
+    joinedAt: benched.joinedAt,
+    region: benched.region,
+  }
+}
+
+function benchedFromOccupant(occupant: Occupant): BenchedUser {
+  return {
+    userId: occupant.userId,
+    race: occupant.race,
+    joinedAt: occupant.joinedAt,
+    region: occupant.region,
+  }
+}
+
+/**
+ * Builds the `human` slot an occupant gets when they are seated in `destSlot`. A UMS map's slots
+ * define their own race and player id, so those win over what the occupant brought with them.
+ */
+function humanSlotFor(occupant: Occupant, destSlot: Slot, gameType: GameType): Slot {
+  const base = destSlot.hasForcedRace
+    ? createHuman(occupant.userId, destSlot.race, true, destSlot.playerId)
+    : createHuman(
+        occupant.userId,
+        occupant.race,
+        false,
+        isUms(gameType) ? destSlot.playerId : undefined,
+      )
+  return {
+    ...base,
+    id: occupant.id ?? base.id,
+    joinedAt: occupant.joinedAt,
+    region: occupant.region,
+  }
+}
+
+/** Builds the `observer` slot an occupant gets when they are seated in the observer team. */
+function observerSlotFor(occupant: Occupant): Slot {
+  const base = createObserver(occupant.userId)
+  return {
+    ...base,
+    race: occupant.race,
+    id: occupant.id ?? base.id,
+    joinedAt: occupant.joinedAt,
+    region: occupant.region,
+  }
+}
+
+/**
+ * Moves a member off the bench and into the given slot, keeping the race, region, and join time
+ * they were waiting with. Their new slot is built the same way it would be for someone joining
+ * directly into it, so UMS map data and the observer team still decide what it looks like.
+ */
+export function seatBenchedUser(
+  lobby: Lobby,
+  userId: SbUserId,
+  teamIndex: number,
+  slotIndex: number,
+): Lobby {
+  const benched = lobby.bench.find(entry => entry.userId === userId)
+  if (!benched) {
+    throw new Error('user is not waiting on the bench')
+  }
+  const team = lobby.teams[teamIndex]
+  const destSlot = team.slots[slotIndex]
+  if (!isSlotJoinable(destSlot)) {
+    throw new Error('trying to seat someone in an invalid slot type: ' + destSlot.type)
+  }
+
+  const occupant = occupantOfBenched(benched)
+  const slot = team.isObserver
+    ? observerSlotFor(occupant)
+    : humanSlotFor(occupant, destSlot, lobby.gameType)
+  return addPlayer(removeFromBench(lobby, userId), teamIndex, slotIndex, slot)
+}
+
+/**
+ * Finds the player slot someone should be seated in, spread across the teams the same way a joiner
+ * would be. Returns `undefined` once every player team is full, since the observer team is only
+ * ever a destination for the people a new layout has no room for.
+ */
+function findPlayerSeat(lobby: Lobby): [teamIndex: number, slotIndex: number] | undefined {
+  const [teamIndex, slotIndex] = findAvailableSlot(lobby)
+  if (teamIndex === undefined || slotIndex === undefined || lobby.teams[teamIndex].isObserver) {
+    return undefined
+  }
+  return [teamIndex, slotIndex]
+}
+
+/**
+ * Finds the observer slot someone displaced out of a player slot should be put in: a closed one if
+ * there is any, so that a slot the host opened stays available to joiners. Returns -1 if the
+ * observer team is full.
+ */
+function findObserverSlotToFill(team: Team): number {
+  const closedIndex = team.slots.findIndex(slot => slot.type === SlotType.Closed)
+  return closedIndex !== -1 ? closedIndex : team.slots.findIndex(isSlotUnoccupied)
+}
+
+function countComputers(lobby: Lobby): number {
+  return getLobbySlots(lobby).filter(slot => slot.type === SlotType.Computer).length
+}
+
+/** The settings of a lobby that its host can change while it is gathering. */
+export interface LobbySettings {
+  map: MapInfo
+  gameType: GameType
+  gameSubType: number
+  /** How many player slots the lobby has, as derived from the map and the game type. */
+  numSlots: number
+  allowObservers: boolean
+  useLegacyLimits: boolean
+}
+
+/**
+ * Applies a change to a lobby's settings, rebuilding its slot layout and reconciling everyone in it
+ * into the result. Returns the updated lobby.
+ *
+ * A change that leaves the layout alone (a different unit limit, or a map with exactly the same
+ * team sizes) keeps every slot as it is, so nobody moves. Turning observers on or off only adds or
+ * removes the observer team, leaving the player slots — including any the host has closed — as they
+ * are, and finding the people who were observing a seat.
+ *
+ * Any other change gives the lobby the layout the new settings describe, and pours its members back
+ * into it in order of who has the strongest claim to a seat: the host first (a host is never left
+ * without one), then the players by how long they have been here, then any observers the change
+ * unseats, and finally whoever was waiting on the bench. Anyone left over goes to the observer team
+ * if there is one, and to the bench if there isn't: a settings change never removes anyone from the
+ * lobby. Computers are added back last, and only as far as the new layout has room for them.
+ *
+ * Members keep the slot ids they had, so clients can tell that someone moved rather than that one
+ * member left and another arrived.
+ */
+export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
+  const keepsLayout =
+    lobby.gameType === next.gameType &&
+    lobby.gameSubType === next.gameSubType &&
+    (lobby.map!.id === next.map.id || keepsSlotsPerTeam(lobby, next))
+  if (keepsLayout && hasObservers(lobby) === next.allowObservers) {
+    return { ...lobby, map: next.map, useLegacyLimits: next.useLegacyLimits }
+  }
+
+  const byJoinedAt = (a: Slot, b: Slot) => a.joinedAt - b.joinedAt
+  const [, currentObserverTeam] = getObserverTeam(lobby)
+  // Observers who already have a slot keep it, since the observer team is the same size whatever
+  // the player teams look like. Only turning observers off unseats them.
+  const unseatedObservers = next.allowObservers
+    ? []
+    : (currentObserverTeam?.slots.filter(slot => slot.type === SlotType.Observer) ?? []).sort(
+        byJoinedAt,
+      )
+
+  let teams: Team[]
+  let needSeats: Occupant[]
+  let observerTeamIndex: number | undefined
+  if (keepsLayout) {
+    teams = next.allowObservers
+      ? [...lobby.teams, createObserverTeam()]
+      : lobby.teams.filter(team => !team.isObserver)
+    needSeats = unseatedObservers.map(occupantOf)
+  } else {
+    teams = createInitialTeams(next.map, next.gameType, next.gameSubType, next.numSlots)
+    if (next.allowObservers) {
+      teams.push(currentObserverTeam ?? createObserverTeam())
+      observerTeamIndex = teams.length - 1
+    }
+    const seatedPlayers = lobby.teams
+      .filter(team => !team.isObserver)
+      .flatMap(team => team.slots)
+      .filter(slot => slot.type === SlotType.Human)
+      .sort(byJoinedAt)
+    needSeats = [...seatedPlayers, ...unseatedObservers].map(occupantOf)
+  }
+  const hostIndex = needSeats.findIndex(occupant => occupant.id === lobby.host.id)
+  if (hostIndex > 0) {
+    needSeats.unshift(...needSeats.splice(hostIndex, 1))
+  }
+  needSeats.push(...lobby.bench.map(occupantOfBenched))
+
+  let updated: Lobby = {
+    ...lobby,
+    map: next.map,
+    gameType: next.gameType,
+    gameSubType: next.gameSubType,
+    useLegacyLimits: next.useLegacyLimits,
+    teams,
+    bench: [],
+  }
+
+  const withoutSeats: Occupant[] = []
+  for (const occupant of needSeats) {
+    const seat = findPlayerSeat(updated)
+    if (!seat) {
+      withoutSeats.push(occupant)
+      continue
+    }
+    const [teamIndex, slotIndex] = seat
+    const destSlot = updated.teams[teamIndex].slots[slotIndex]
+    updated = addPlayer(
+      updated,
+      teamIndex,
+      slotIndex,
+      humanSlotFor(occupant, destSlot, next.gameType),
+    )
+  }
+
+  const bench: BenchedUser[] = []
+  for (const occupant of withoutSeats) {
+    const observerSlotIndex =
+      observerTeamIndex !== undefined
+        ? findObserverSlotToFill(updated.teams[observerTeamIndex])
+        : -1
+    if (observerSlotIndex === -1) {
+      bench.push(benchedFromOccupant(occupant))
+      continue
+    }
+    updated = addPlayer(updated, observerTeamIndex!, observerSlotIndex, observerSlotFor(occupant))
+  }
+  updated = { ...updated, bench }
+
+  if (!keepsLayout && !isUms(next.gameType)) {
+    // UMS computers are part of the map, so they come back with the layout rather than from the
+    // lobby that preceded it.
+    const races = getLobbySlots(lobby)
+      .filter(slot => slot.type === SlotType.Computer)
+      .map(slot => slot.race)
+    let placed = 0
+    while (placed < races.length) {
+      const seat = findPlayerSeat(updated)
+      if (!seat) {
+        break
+      }
+      const before = countComputers(updated)
+      updated = addPlayer(updated, seat[0], seat[1], createComputer(races[placed]))
+      // Adding a computer to an empty team in team melee/ffa fills the rest of that team with
+      // computers, which stands in for as many of the ones still to be placed.
+      placed += Math.max(1, countComputers(updated) - before)
+    }
+  }
+
+  const withHost = reassignHost(updated)
+  if (!getLobbySlots(withHost).some(slot => slot.id === withHost.host.id)) {
+    throw new Error('the new settings leave no slot for the lobby host')
+  }
+  return withHost
+}
+
+/** Returns whether the new settings describe teams of exactly the same sizes the lobby has now. */
+function keepsSlotsPerTeam(lobby: Lobby, next: LobbySettings): boolean {
+  if (isUms(next.gameType)) {
+    // A UMS map decides the races, player ids, and computers of every slot, so two of them having
+    // the same team sizes doesn't make their layouts interchangeable.
+    return false
+  }
+  const current = lobby.teams.filter(team => !team.isObserver).map(team => team.slots.length)
+  const wanted = getSlotsPerTeam(
+    next.gameType,
+    next.gameSubType,
+    next.numSlots,
+    next.map.mapData.umsForces,
+  )
+  return current.length === wanted.length && current.every((count, i) => count === wanted[i])
 }

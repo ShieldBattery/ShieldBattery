@@ -332,11 +332,7 @@ export interface UpdateLobbySettingsRequest {
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
-  | 'map'
-  | 'gameType'
-  | 'gameSubType'
-  | 'useLegacyLimits'
-  | 'allowObservers'
+  'map' | 'gameType' | 'gameSubType' | 'useLegacyLimits' | 'allowObservers'
 
 /**
  * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the
@@ -346,10 +342,9 @@ export type LobbyChangedSetting =
 export interface LobbySettingsChangeEvent {
   type: 'settingsChange'
   changedSettings: LobbyChangedSetting[]
-  // TODO(tec27): actually type this (same shape as LobbyInitEvent's lobby)
-  lobby: {
-    map: MapInfoJson
-  }
+  // TODO(tec27): actually type this. This is the lobby as the server JSON-serialized it, so e.g.
+  // `map` is really a `MapInfoJson` rather than the full `MapInfo` that `Lobby` declares.
+  lobby: Lobby
 }
 
 /**

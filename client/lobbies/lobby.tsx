@@ -1,22 +1,28 @@
-import React from 'react'
+import { Transition } from 'motion/react'
+import * as m from 'motion/react-m'
+import React, { useState } from 'react'
 import { useTranslation, WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { gameTypeToLabel, isTeamType } from '../../common/games/game-type'
+import { GameType, gameTypeToLabel, isTeamType } from '../../common/games/game-type'
 import {
   canAddObservers,
   canRemoveObservers,
   findSlotByUserId,
+  hasObservers,
   hasOpposingSides,
   isUms,
   Lobby,
+  slotCount,
   Team,
 } from '../../common/lobbies'
 import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { RaceChar } from '../../common/races'
 import { SelfUserJson } from '../../common/users/sb-user'
+import { SbUserId } from '../../common/users/sb-user-id'
+import { ConnectedAvatar } from '../avatars/avatar'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton, TextButton } from '../material/button'
@@ -28,10 +34,12 @@ import { SbMessage } from '../messaging/message-records'
 import { useLinkCopier } from '../navigation/copy-link-button'
 import { getServerOrigin } from '../network/server-url'
 import { headlineMedium, labelLarge, labelMedium } from '../styles/typography'
+import { ConnectedUsername } from '../users/connected-username'
 import { ClosedSlot } from './closed-slot'
 import { LobbyUserMenu } from './lobby-menu-items'
 import {
   BanLobbyPlayerMessage,
+  BenchJoinMessage,
   JoinLobbyMessage,
   KickLobbyPlayerMessage,
   LeaveLobbyMessage,
@@ -41,12 +49,22 @@ import {
   LobbyHostChangeMessage,
   LobbyLoadingCanceledMessage,
   SelfJoinLobbyMessage,
+  SettingsChangeMessage,
 } from './lobby-message-layout'
 import { LobbyMessageType } from './lobby-message-records'
 import { LobbyLoadingState } from './lobby-reducer'
 import { OpenSlot } from './open-slot'
 import { PlayerSlot } from './player-slot'
-import { ObserverSlots, RegularSlots, TeamName } from './slot'
+import {
+  ObserverSlots,
+  RegularSlots,
+  SlotLeft,
+  SlotName,
+  SlotProfile,
+  SlotRight,
+  Slot as SlotRow,
+  TeamName,
+} from './slot'
 
 const StyledChat = styled(Chat)`
   flex-grow: 1;
@@ -156,6 +174,163 @@ function CopyInviteLinkButton({ lobby }: { lobby: Lobby }) {
   )
 }
 
+/**
+ * A button that opens the host-only lobby settings dialog. Hidden entirely for non-hosts, mirroring
+ * the visibility check `renderStartButton` uses for the start-game button.
+ */
+function LobbySettingsButton({
+  lobby,
+  user,
+  onOpenLobbySettings,
+}: {
+  lobby: Lobby
+  user: ReadonlyDeep<SelfUserJson>
+  onOpenLobbySettings: () => void
+}) {
+  const { t } = useTranslation()
+  if (lobby.host.userId !== user.id) {
+    return null
+  }
+
+  return (
+    <TextButton
+      label={t('lobbies.lobby.settings', 'Lobby settings')}
+      iconStart={<MaterialIcon icon='settings' />}
+      onClick={onOpenLobbySettings}
+      testName='lobby-settings-button'
+    />
+  )
+}
+
+const highlightTransition: Transition = {
+  backgroundColor: { type: 'tween', duration: 0.9, ease: 'easeOut' },
+}
+
+const HighlightSpan = styled(m.span)`
+  display: inline-block;
+  border-radius: 4px;
+`
+
+const HighlightDiv = styled(m.div)`
+  border-radius: 4px;
+`
+
+const highlightInitial = { backgroundColor: 'rgba(255, 196, 0, 0.45)' } // ~amber60
+const highlightAnimate = { backgroundColor: 'rgba(255, 196, 0, 0)' }
+
+/**
+ * Returns a key that changes every time `value` changes (but not on first call) — used to force a
+ * `motion` component to remount and replay its `initial` -> `animate` transition on every change.
+ *
+ * Follows React's documented "adjusting state when a prop changes" pattern: the state update below
+ * happens directly in the render body (not an effect), so React reruns the component immediately
+ * with the new state before anything is painted, rather than committing a stale frame first.
+ */
+function useHighlightRemountKey(value: string | number): number {
+  const [state, setState] = useState({ value, key: 0 })
+  if (state.value !== value) {
+    setState({ value, key: state.key + 1 })
+  }
+  return state.key
+}
+
+/**
+ * Wraps an inline value so its background briefly flashes an accent color whenever `value` changes
+ * (but not on the wrapper's first mount) — used to call out lobby settings the host just changed.
+ */
+function SettingHighlight({
+  value,
+  children,
+}: {
+  value: string | number
+  children: React.ReactNode
+}) {
+  const remountKey = useHighlightRemountKey(value)
+  return (
+    <HighlightSpan
+      key={remountKey}
+      initial={remountKey > 0 ? highlightInitial : false}
+      animate={highlightAnimate}
+      transition={highlightTransition}>
+      {children}
+    </HighlightSpan>
+  )
+}
+
+/** Block-level counterpart to {@link SettingHighlight}, for wrapping non-inline content. */
+function SettingHighlightBlock({
+  value,
+  children,
+}: {
+  value: string | number
+  children: React.ReactNode
+}) {
+  const remountKey = useHighlightRemountKey(value)
+  return (
+    <HighlightDiv
+      key={remountKey}
+      initial={remountKey > 0 ? highlightInitial : false}
+      animate={highlightAnimate}
+      transition={highlightTransition}>
+      {children}
+    </HighlightDiv>
+  )
+}
+
+/** A label for a lobby's current game sub-type, e.g. "2 vs 6" or "3 teams". */
+function gameSubTypeLabel(lobby: Lobby, t: WithTranslation['t']): string | undefined {
+  if (!isTeamType(lobby.gameType)) {
+    return undefined
+  }
+
+  if (lobby.gameType === GameType.TopVsBottom) {
+    const topSlots = lobby.gameSubType
+    const bottomSlots = slotCount(lobby) - topSlots
+    return t('lobbies.createLobby.gameSubTypeOptionTvB', {
+      defaultValue: '{{topSlots}} vs {{bottomSlots}}',
+      topSlots,
+      bottomSlots,
+    })
+  }
+
+  return t('lobbies.createLobby.gameSubTypeOption', {
+    defaultValue: '{{numTeams}} teams',
+    numTeams: lobby.gameSubType,
+  })
+}
+
+const BenchAvatar = styled(ConnectedAvatar)`
+  width: 24px;
+  height: 24px;
+  margin-left: 1px; /* To align with bordered empty slot avatar area */
+  margin-right: 16px;
+
+  flex-grow: 0;
+  flex-shrink: 0;
+`
+
+const BenchSlots = styled(RegularSlots)`
+  margin-top: 8px;
+`
+
+/** A row for a lobby member on the bench: just their name, no race picker or slot menu. */
+function BenchRow({ userId }: { userId: SbUserId }) {
+  return (
+    <SlotRow data-testid='lobby-bench-row'>
+      <SlotLeft>
+        <SlotProfile>
+          <BenchAvatar userId={userId} />
+          <SlotName as='span'>
+            <ConnectedUsername userId={userId} />
+          </SlotName>
+        </SlotProfile>
+        <div />
+      </SlotLeft>
+      <SlotRight />
+    </SlotRow>
+  )
+}
+
 function LobbyChatMessage({ message }: MessageComponentProps) {
   // Cast to just lobby messages so we can check for exhaustiveness, even though this won't
   // necessarily be a lobby message. This will be safe because we just return null in the default
@@ -186,6 +361,12 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
       return (
         <LobbyLoadingCanceledMessage key={msg.id} time={msg.time} usersAtFault={msg.usersAtFault} />
       )
+    case LobbyMessageType.LobbySettingsChange:
+      return (
+        <SettingsChangeMessage key={msg.id} time={msg.time} changedSettings={msg.changedSettings} />
+      )
+    case LobbyMessageType.LobbyBenchJoin:
+      return <BenchJoinMessage key={msg.id} time={msg.time} userId={msg.userId} />
     default:
       msg satisfies never
       return null
@@ -208,8 +389,10 @@ interface LobbyProps {
   onBanPlayer: (slotId: string) => void
   onMakeObserver: (slotId: string) => void
   onRemoveObserver: (slotId: string) => void
+  onMoveSlot: (slotId: string) => void
   onMapPreview: () => void
   onStartGame: () => void
+  onOpenLobbySettings: () => void
 }
 
 class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
@@ -226,6 +409,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
       onBanPlayer,
       onMakeObserver,
       onRemoveObserver,
+      onMoveSlot,
     } = this.props
 
     const [, , mySlot] = findSlotByUserId(lobby, user.id)
@@ -274,6 +458,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               onKickPlayer={() => onKickPlayer(id)}
               onBanPlayer={() => onBanPlayer(id)}
               onMakeObserver={() => onMakeObserver(id)}
+              onMoveSlot={() => onMoveSlot(id)}
             />
           )
         case SlotType.Observer:
@@ -289,6 +474,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               onKickPlayer={() => onKickPlayer(id)}
               onBanPlayer={() => onBanPlayer(id)}
               onRemoveObserver={() => onRemoveObserver(id)}
+              onMoveSlot={() => onMoveSlot(id)}
             />
           )
         case SlotType.Computer:
@@ -304,6 +490,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               onSetRace={(race: RaceChar) => onSetRace(id, race)}
               onCloseSlot={() => onCloseSlot(id)}
               onKickPlayer={() => onKickPlayer(id)}
+              onMoveSlot={() => onMoveSlot(id)}
             />
           )
         case SlotType.UmsComputer:
@@ -340,7 +527,7 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
   }
 
   override render() {
-    const { lobby, onLeaveLobbyClick, onSendChatMessage, t } = this.props
+    const { lobby, user, onLeaveLobbyClick, onSendChatMessage, onOpenLobbySettings, t } = this.props
 
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
@@ -362,12 +549,23 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
       }
     }
 
+    const subTypeLabel = gameSubTypeLabel(lobby, t)
+    const observersAllowed = hasObservers(lobby)
+
     return (
       <ContentArea>
         <Left>
           <SlotsCard>
             <RegularSlots>{slots}</RegularSlots>
             <ObserverSlots>{obsSlots}</ObserverSlots>
+            {lobby.bench.length > 0 ? (
+              <BenchSlots>
+                <TeamName>{t('lobbies.lobby.benchTeamName', 'Waiting for a seat')}</TeamName>
+                {lobby.bench.map(benched => (
+                  <BenchRow key={benched.userId} userId={benched.userId} />
+                ))}
+              </BenchSlots>
+            ) : null}
           </SlotsCard>
           <StyledChat
             listProps={{ messages: this.props.chat, MessageComponent: LobbyChatMessage }}
@@ -383,12 +581,31 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               testName='leave-lobby-button'
             />
             <CopyInviteLinkButton lobby={lobby} />
+            <LobbySettingsButton
+              lobby={lobby}
+              user={user}
+              onOpenLobbySettings={onOpenLobbySettings}
+            />
           </InfoActions>
-          <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
+          <SettingHighlightBlock value={lobby.map!.id}>
+            <StyledMapThumbnail mapId={lobby.map!.id} showInfoLayer />
+          </SettingHighlightBlock>
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.gameType', 'Game type')}</InfoLabel>
-            <InfoValue as='span'>{gameTypeToLabel(lobby.gameType, t)}</InfoValue>
+            <InfoValue as='span'>
+              <SettingHighlight value={lobby.gameType}>
+                {gameTypeToLabel(lobby.gameType, t)}
+              </SettingHighlight>
+            </InfoValue>
           </InfoItem>
+          {subTypeLabel !== undefined ? (
+            <InfoItem>
+              <InfoLabel as='span'>{t('lobbies.lobby.gameSubType', 'Teams')}</InfoLabel>
+              <InfoValue as='span'>
+                <SettingHighlight value={lobby.gameSubType}>{subTypeLabel}</SettingHighlight>
+              </InfoValue>
+            </InfoItem>
+          ) : null}
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.visibility', 'Visibility')}</InfoLabel>
             <InfoValue as='span'>
@@ -400,9 +617,21 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
           <InfoItem>
             <InfoLabel as='span'>{t('lobbies.lobby.unitLimit', 'Unit limit')}</InfoLabel>
             <InfoValue as='span'>
-              {lobby.useLegacyLimits
-                ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
-                : t('lobbies.lobby.unitLimitExtended', 'Extended')}
+              <SettingHighlight value={String(lobby.useLegacyLimits)}>
+                {lobby.useLegacyLimits
+                  ? t('lobbies.lobby.unitLimitLegacy', 'Legacy')
+                  : t('lobbies.lobby.unitLimitExtended', 'Extended')}
+              </SettingHighlight>
+            </InfoValue>
+          </InfoItem>
+          <InfoItem>
+            <InfoLabel as='span'>{t('lobbies.lobby.observers', 'Observers')}</InfoLabel>
+            <InfoValue as='span'>
+              <SettingHighlight value={String(observersAllowed)}>
+                {observersAllowed
+                  ? t('lobbies.lobby.observersAllowed', 'Allowed')
+                  : t('lobbies.lobby.observersDisabled', 'Disabled')}
+              </SettingHighlight>
             </InfoValue>
           </InfoItem>
           {this.renderCountdown()}
