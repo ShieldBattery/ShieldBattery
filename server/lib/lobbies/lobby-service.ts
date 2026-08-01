@@ -181,7 +181,18 @@ interface Countdown {
 interface LobbyRunState {
   gameId: string
   inGameUsers: Set<SbUserId>
+  /** When the game started, for the stuck-game backstop's deadline. */
+  startedAt: number
 }
+
+/**
+ * How long a lobby's game may run before the lobby stops waiting on it and regroups anyway. Some
+ * games produce no end signal at all — a solo-vs-computers game has no relay session, and if its
+ * StarCraft process dies abnormally the app reports nothing — and a lobby wedged in its in-game
+ * state (host controls hidden, joins benched) until everyone leaves is worse than a regroup that
+ * fires under a still-running marathon game, which the members can simply ignore.
+ */
+const MAX_IN_GAME_MS = 8 * 60 * 60 * 1000
 
 /** Returns the user ids of everyone in a lobby, seated or waiting on the bench. */
 function getLobbyMemberIds(lobby: Lobby): SbUserId[] {
@@ -270,6 +281,20 @@ export class LobbyService {
         logger.error({ err }, "error handling the end of a lobby's game")
       }
     })
+
+    setInterval(() => {
+      const now = Date.now()
+      for (const [lobbyId, runState] of this.runStates) {
+        if (now - runState.startedAt > MAX_IN_GAME_MS) {
+          logger.warn(
+            { lobbyId, gameId: runState.gameId },
+            'lobby game exceeded the in-game deadline without an end signal; regrouping',
+          )
+          runState.inGameUsers.clear()
+          this._maybeRegroup(lobbyId)
+        }
+      }
+    }, 60 * 1000).unref()
   }
 
   /**
@@ -1600,14 +1625,15 @@ export class LobbyService {
       // Each occupant's collected network info, to merge into their `GameLoadPlayer`.
       const networkByUser = this.lobbyPlayerNetwork.getAll(lobbyId)
 
+      const loadedPlayers = getHumanSlots(lobby).map(s => ({
+        userId: s.userId!,
+        isObserver: s.type === SlotType.Observer,
+        region: s.region,
+        rttMs: networkByUser.get(s.userId!)?.rttMs,
+        netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
+      }))
       const gameLoadResult = await this.gameLoader.loadGame({
-        players: getHumanSlots(lobby).map(s => ({
-          userId: s.userId!,
-          isObserver: s.type === SlotType.Observer,
-          region: s.region,
-          rttMs: networkByUser.get(s.userId!)?.rttMs,
-          netcodeV2Pubkey: networkByUser.get(s.userId!)?.netcodeV2Pubkey,
-        })),
+        players: loadedPlayers,
         playerInfos: getPlayerInfos(lobby),
         mapId: lobby.map!.id,
         gameConfig,
@@ -1632,10 +1658,11 @@ export class LobbyService {
         throw gameLoadResult.error
       }
 
-      // Works from the live lobby rather than the snapshot the countdown started with (bench
-      // members come and go freely during a countdown/load). Ids are never reused, so its presence
-      // means it is this same lobby; its absence means everyone left while it loaded.
-      this._onGameStarted(lobbyId, gameLoadResult.value.gameId)
+      this._onGameStarted(
+        lobbyId,
+        gameLoadResult.value.gameId,
+        loadedPlayers.map(p => p.userId),
+      )
     } catch (err) {
       if (err instanceof BaseGameLoaderError) {
         if (err.code === GameLoadErrorType.Internal) {
@@ -1682,7 +1709,7 @@ export class LobbyService {
    * The members registered as being in the game are the seated ones (players and observers alike) —
    * the bench takes no part in it and is free to keep filling up while it runs.
    */
-  _onGameStarted(lobbyId: SbLobbyId, gameId: string) {
+  _onGameStarted(lobbyId: SbLobbyId, gameId: string, inGameUsers: ReadonlyArray<SbUserId>) {
     this.loadingLobbies.delete(lobbyId)
     const lobby = this.lobbies.get(lobbyId)
     if (!lobby) {
@@ -1690,9 +1717,13 @@ export class LobbyService {
       return
     }
 
+    // The roster comes from the loader's snapshot rather than the live lobby: a join can land a
+    // seat between the countdown snapshotting its players and the load finishing, and someone the
+    // game never included must not be waited on to report its end.
     this.runStates.set(lobbyId, {
       gameId,
-      inGameUsers: new Set(getHumanSlots(lobby).map(slot => slot.userId!)),
+      inGameUsers: new Set(inGameUsers),
+      startedAt: Date.now(),
     })
 
     this._publishTo(lobby, { type: 'gameStarted', runState: this._runStateJson(lobbyId)! })
