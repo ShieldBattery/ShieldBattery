@@ -649,15 +649,7 @@ export class LobbyService {
     this._publishLobbyDiff(lobby, updated)
   }
 
-  closeSlot({
-    user,
-    client,
-    slotId,
-  }: {
-    user: UserSocketsGroup
-    client: ClientSocketsGroup
-    slotId: string
-  }): void {
+  closeSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
@@ -681,7 +673,7 @@ export class LobbyService {
       slotToClose.type === 'computer' ||
       slotToClose.type === 'observer'
     ) {
-      this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, slotToClose)
+      this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, slotToClose)
     }
     const afterKick = this.lobbies.get(lobby.id)!
 
@@ -699,15 +691,7 @@ export class LobbyService {
     this._publishLobbyDiff(afterKick, updated)
   }
 
-  kickPlayer({
-    user,
-    client,
-    slotId,
-  }: {
-    user: UserSocketsGroup
-    client: ClientSocketsGroup
-    slotId: string
-  }): void {
+  kickPlayer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
@@ -725,16 +709,10 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
-    this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, playerToKick)
+    this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, playerToKick)
   }
 
-  _kickPlayerFromLobby(
-    lobby: Lobby,
-    user: UserSocketsGroup,
-    teamIndex: number,
-    slotIndex: number,
-    playerToKick: Slot,
-  ) {
+  _kickPlayerFromLobby(lobby: Lobby, teamIndex: number, slotIndex: number, playerToKick: Slot) {
     if (playerToKick.type === 'computer') {
       // NOTE(tec27): We know that removing a computer can never result in an empty lobby since a
       // human has to do it
@@ -1183,14 +1161,6 @@ export class LobbyService {
 
   _publishToUser(lobby: Lobby, userId: SbUserId, data?: any) {
     this.publisher.publish(getLobbyUserPath(lobby.id, userId), data)
-  }
-
-  _publishToClient(lobby: Lobby, userId: SbUserId, data?: any) {
-    const client = this.activityRegistry.getClientForUser(userId)
-    if (!client) {
-      return
-    }
-    this.publisher.publish(getLobbyClientPath(lobby.id, client.userId, client.clientId), data)
   }
 
   _publishLobbyDiff(

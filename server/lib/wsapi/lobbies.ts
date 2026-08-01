@@ -360,12 +360,11 @@ export class LobbyApi {
     }),
   )
   async closeSlot(data: IMap<string, any>, next: NextFunc) {
-    const user = this.getUser(data)
     const client = this.getClient(data)
     const { slotId } = data.get('body')
 
     try {
-      this.lobbyService.closeSlot({ user, client, slotId })
+      this.lobbyService.closeSlot({ client, slotId })
     } catch (err) {
       convertLobbyServiceError(err)
     }
@@ -373,12 +372,11 @@ export class LobbyApi {
 
   @Api('/kickPlayer')
   async kickPlayer(data: IMap<string, any>, next: NextFunc) {
-    const user = this.getUser(data)
     const client = this.getClient(data)
     const { slotId } = data.get('body')
 
     try {
-      this.lobbyService.kickPlayer({ user, client, slotId })
+      this.lobbyService.kickPlayer({ client, slotId })
     } catch (err) {
       convertLobbyServiceError(err)
     }
