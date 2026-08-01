@@ -78,6 +78,17 @@ const TabsArea = styled.div`
   max-width: 480px;
 `
 
+/**
+ * Selects are `width: 100%` of whatever contains them, and their dropdown arrow is
+ * absolutely positioned over the right edge. Without a width they collapse to fit a
+ * flex line and the value runs underneath the arrow, so give them one. Map values
+ * carry a win rate suffix and need the extra room.
+ */
+const Filter = styled.div<{ $wide?: boolean }>`
+  width: ${props => (props.$wide ? '288px' : '208px')};
+  max-width: 100%;
+`
+
 // --- Rating ---------------------------------------------------------------
 
 const ModeList = styled.div`
@@ -254,19 +265,17 @@ function ModeCardView({
               Points
             </Chip>
           </ChipRow>
-          <ChipRow>
-            <Chip $active={season === ALL_SEASONS} onClick={() => setSeason(ALL_SEASONS)}>
-              All time
-            </Chip>
-            {playedSeasons.map(s => (
-              <Chip
-                key={s.id}
-                $active={season === String(s.id)}
-                onClick={() => setSeason(String(s.id))}>
-                {s.name}
-              </Chip>
-            ))}
-          </ChipRow>
+          {/* A dropdown rather than a chip per season: ShieldBattery gains a few
+              seasons a year, and a wrapping chip row stops being readable well
+              before a long-lived account runs out of them. */}
+          <Filter>
+            <Select value={season} label='Season' onChange={(value: string) => setSeason(value)}>
+              <SelectOption value={ALL_SEASONS} text='All time' />
+              {playedSeasons.map(s => (
+                <SelectOption key={s.id} value={String(s.id)} text={s.name} />
+              ))}
+            </Select>
+          </Filter>
           <RatingChart
             runs={runs}
             metric={metric}
@@ -555,17 +564,6 @@ const Filters = styled.div`
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 16px;
-`
-
-/**
- * Selects are `width: 100%` of whatever contains them, and their dropdown arrow is
- * absolutely positioned over the right edge. Without a width they collapse to fit a
- * flex line and the value runs underneath the arrow, so give them one. Map values
- * carry a win rate suffix and need the extra room.
- */
-const Filter = styled.div<{ $wide?: boolean }>`
-  width: ${props => (props.$wide ? '288px' : '208px')};
-  max-width: 100%;
 `
 
 const Coverage = styled.div`
