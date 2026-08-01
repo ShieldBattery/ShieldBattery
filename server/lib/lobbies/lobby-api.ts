@@ -70,6 +70,7 @@ const lobbyChatThrottle = createThrottle('lobbies/chat', {
 const authed = [ensureLoggedIn, throttleMiddleware(lobbyThrottle, throttleByUser)]
 const authedAction = [ensureLoggedIn, throttleMiddleware(lobbyActionThrottle, throttleByUser)]
 
+
 /** Validates a route's `:lobbyId` as a well-formed lobby id. */
 const lobbyIdParams = Joi.object<{ lobbyId: SbLobbyId }>({
   lobbyId: Joi.string()

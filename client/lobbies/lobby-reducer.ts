@@ -136,6 +136,20 @@ type LobbyHandlerMap = {
 type AnyLobbyHandler = (draft: LobbyDraft, action: any, originalState: any) => void
 
 /**
+ * Returns whether the lobby currently has a slot at the given position, which is the precondition
+ * every handler that updates a slot by index shares.
+ *
+ * It fails either because we aren't in a lobby at all (e.g. the event trailed our own removal in a
+ * diff, leaving the empty lobby with no teams behind), or because the position doesn't match the
+ * layout we hold (e.g. the event raced a settings change that rebuilt it). Such an event describes
+ * a lobby we aren't looking at, so it is dropped rather than applied to whatever happens to be at
+ * that index.
+ */
+function hasSlotAt(draft: LobbyDraft, teamIndex: number, slotIndex: number): boolean {
+  return !!draft.info.teams[teamIndex]?.slots[slotIndex]
+}
+
+/**
  * Wraps every handler in `handlers` so that `finalizeLobbyUpdate` runs after each one
  * automatically, instead of relying on every handler remembering to call it itself. Making the
  * bookkeeping structural this way means a future handler can't forget it -- forgetting it would
@@ -171,12 +185,11 @@ const lobbyHandlers = {
   },
 
   '@lobbies/updateSlotCreate'(draft, action) {
-    if (!draft.info.name) {
-      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+    const { teamIndex, slotIndex, slot } = action.payload
+    if (!hasSlotAt(draft, teamIndex, slotIndex)) {
       return
     }
 
-    const { teamIndex, slotIndex, slot } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex] = slot
 
     if (slot.type === SlotType.Human) {
@@ -190,22 +203,20 @@ const lobbyHandlers = {
   },
 
   '@lobbies/updateRaceChange'(draft, action) {
-    if (!draft.info.name) {
-      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+    const { teamIndex, slotIndex, newRace } = action.payload
+    if (!hasSlotAt(draft, teamIndex, slotIndex)) {
       return
     }
 
-    const { teamIndex, slotIndex, newRace } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex].race = newRace
   },
 
   '@lobbies/updateSlotChange'(draft, action) {
-    if (!draft.info.name) {
-      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+    const { teamIndex, slotIndex, player } = action.payload
+    if (!hasSlotAt(draft, teamIndex, slotIndex)) {
       return
     }
 
-    const { teamIndex, slotIndex, player } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex] = player
   },
 
