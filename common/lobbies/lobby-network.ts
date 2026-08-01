@@ -5,7 +5,7 @@ import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
-import { Lobby, LobbyState, LobbyVisibility } from './index'
+import { BenchedUser, Lobby, LobbyState, LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
 
@@ -106,6 +106,9 @@ export type LobbyEvent =
   | LobbyGameStartedEvent
   | LobbyChatEvent
   | LobbyStatusEvent
+  | LobbySettingsChangeEvent
+  | LobbyBenchAddEvent
+  | LobbyBenchRemoveEvent
 
 export interface LobbySummaryJson {
   id: SbLobbyId
@@ -228,6 +231,65 @@ export interface LobbyChatEvent {
 
 export interface LobbyStatusEvent {
   type: 'status'
+}
+
+/**
+ * The body of a request by the host to change a gathering lobby's settings. Absent fields are left
+ * as they are. Changing the map, game type, or sub-type rebuilds the slot layout and reconciles the
+ * current members into it (seats kept where the layout allows, overflow to observer slots and then
+ * the bench).
+ */
+export interface UpdateLobbySettingsRequest {
+  clientId: string
+  map?: SbMapId
+  gameType?: GameType
+  gameSubType?: number
+  useLegacyLimits?: boolean
+  allowObservers?: boolean
+}
+
+/** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
+export type LobbyChangedSetting =
+  | 'map'
+  | 'gameType'
+  | 'gameSubType'
+  | 'useLegacyLimits'
+  | 'allowObservers'
+
+/**
+ * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the
+ * whole layout, so the event carries the complete new lobby rather than a diff; `changedSettings`
+ * names what the host actually changed so clients can call it out.
+ */
+export interface LobbySettingsChangeEvent {
+  type: 'settingsChange'
+  changedSettings: LobbyChangedSetting[]
+  // TODO(tec27): actually type this (same shape as LobbyInitEvent's lobby)
+  lobby: {
+    map: MapInfoJson
+  }
+}
+
+/**
+ * The body of a request by the host to move a seated player into another slot. An unoccupied
+ * destination is a plain move; an occupied one swaps the two occupants.
+ */
+export interface MoveSlotRequest {
+  clientId: string
+  fromSlotId: string
+  toSlotId: string
+}
+
+/** A diff event: someone joined the bench (joined while full, or was displaced by a layout change). */
+export interface LobbyBenchAddEvent {
+  type: 'benchAdd'
+  user: BenchedUser
+}
+
+/** A diff event: a bench member got a seat or left; their departure reason rides other events. */
+export interface LobbyBenchRemoveEvent {
+  type: 'benchRemove'
+  userId: SbUserId
 }
 
 /** The body of a request to update the current user's saved lobby creation preferences. */
