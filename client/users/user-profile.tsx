@@ -54,6 +54,8 @@ import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-s
 import {
   correctUsernameForProfile,
   navigateToUserProfile,
+  updateExpandedRanksUrlParam,
+  useIsExpandedRanksRequested,
   viewUserProfile,
 } from './action-creators'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
@@ -703,11 +705,15 @@ function SummaryPage({
   )
 
   const hasAnyRanks = getRankedTypesByActivity(profile.ladder).length > 0
+  const expandedRanks = useIsExpandedRanksRequested()
 
   return (
     <>
       {hasAnyRanks && (
-        <RankedSection ladder={profile.ladder}>
+        <RankedSection
+          ladder={profile.ladder}
+          expanded={expandedRanks}
+          onExpandedChange={updateExpandedRanksUrlParam}>
           {(matchmakingType, ladderPlayer) => (
             <UserRankDisplay
               matchmakingType={matchmakingType}

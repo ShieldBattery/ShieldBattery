@@ -2027,7 +2027,8 @@
       "totalGames": "Total games",
       "twitch": {
         "liveBadge": "Live"
-      }
+      },
+      "viewAllRanks": "View all {{total}} ranks"
     },
     "profileOverlay": {
       "info": "Info",

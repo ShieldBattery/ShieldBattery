@@ -36,7 +36,11 @@ import {
   titleSmall,
 } from '../styles/typography'
 import { LiveWatchRow } from '../twitch/live-indicators'
-import { navigateToUserProfile, viewUserProfile } from './action-creators'
+import {
+  navigateToUserProfile,
+  navigateToUserProfileWithExpandedRanks,
+  viewUserProfile,
+} from './action-creators'
 import { ExpandableRankDisplays } from './expandable-rank-displays'
 import { StaffBadge } from './staff-badge'
 
@@ -318,7 +322,12 @@ export function UserProfileOverlayContents({
           {hasAnyRanks ? (
             <div>
               <SectionHeader>{t('users.profileOverlay.ranked', 'Ranked')}</SectionHeader>
-              <ExpandableRankDisplays ladder={profile.ladder}>
+              <ExpandableRankDisplays
+                ladder={profile.ladder}
+                onShowMore={() => {
+                  onDismiss?.()
+                  navigateToUserProfileWithExpandedRanks(userId, username ?? '')
+                }}>
                 {(matchmakingType, ladderPlayer) => (
                   <RankDisplay
                     matchmakingType={matchmakingType}

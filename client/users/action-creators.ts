@@ -1,3 +1,4 @@
+import { useSearch } from 'wouter'
 import { getErrorStack } from '../../common/errors'
 import { apiUrl, urlPath } from '../../common/urls'
 import { SbPermissions } from '../../common/users/permissions'
@@ -41,6 +42,43 @@ export function navigateToUserProfile(
   transitionFn = push,
 ) {
   transitionFn(urlPath`/users/${userId}/${username}/${tab ?? ''}`)
+}
+
+const EXPANDED_RANKS_PARAM = 'ranks'
+const EXPANDED_RANKS_VALUE = 'expanded'
+
+/**
+ * Navigates to a specific user's profile with their full list of ranked modes expanded, rather
+ * than just their most-active ones.
+ */
+export function navigateToUserProfileWithExpandedRanks(userId: SbUserId, username: string) {
+  push({
+    pathname: urlPath`/users/${userId}/${username}`,
+    search: `${EXPANDED_RANKS_PARAM}=${EXPANDED_RANKS_VALUE}`,
+  })
+}
+
+/**
+ * Returns whether the current URL requests that the profile's ranked modes start expanded (i.e.
+ * the user got here by asking to see more ranks than a preview surface showed).
+ */
+export function useIsExpandedRanksRequested(): boolean {
+  const search = useSearch()
+  return new URLSearchParams(search).get(EXPANDED_RANKS_PARAM) === EXPANDED_RANKS_VALUE
+}
+
+/**
+ * Adjusts the current URL to reflect whether the profile's ranked modes are expanded, without
+ * adding a history entry.
+ */
+export function updateExpandedRanksUrlParam(expanded: boolean) {
+  const searchParams = new URLSearchParams(location.search)
+  if (expanded) {
+    searchParams.set(EXPANDED_RANKS_PARAM, EXPANDED_RANKS_VALUE)
+  } else {
+    searchParams.delete(EXPANDED_RANKS_PARAM)
+  }
+  replace({ pathname: location.pathname, search: searchParams.toString() })
 }
 
 /**
