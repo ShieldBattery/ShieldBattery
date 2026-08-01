@@ -19,13 +19,6 @@ import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLoader, GameLoadRequest } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
-import {
-  knownRegionOrUndefined,
-  LobbyService,
-  LobbyServiceError,
-  LobbyServiceErrorCode,
-} from '../lobbies/lobby-service'
-import { getLobbySummary } from '../lobbies/lobby-summaries'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
@@ -41,7 +34,14 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { convertLobbyServiceError, LobbyApi } from './lobbies'
+import {
+  knownRegionOrUndefined,
+  LobbyService,
+  LobbyServiceError,
+  LobbyServiceErrorCode,
+} from './lobby-service'
+import { convertLobbyServiceError, LobbyApi } from './lobby-socket-api'
+import { getLobbySummary } from './lobby-summaries'
 
 function region(id: string): GameServerRegion {
   return {
@@ -121,7 +121,7 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.UserOffline]: { status: 400 },
 }
 
-describe('wsapi/lobbies/convertLobbyServiceError', () => {
+describe('lobbies/lobby-socket-api/convertLobbyServiceError', () => {
   test.each(Object.values(LobbyServiceErrorCode))('maps %s', code => {
     const expected = EXPECTED_ERROR_MAPPING[code]
 
@@ -199,7 +199,7 @@ const LISTER_USER: SbUser = { id: makeSbUserId(4), name: 'ListerUser' } as SbUse
 
 const NOOP_NEXT = async () => {}
 
-describe('wsapi/lobbies', () => {
+describe('lobbies/lobby-socket-api', () => {
   let nydus: NydusServer
   let fakeNydus: FakeNydusServer
   let lobbyService: LobbyService

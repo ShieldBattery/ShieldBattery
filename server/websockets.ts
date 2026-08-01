@@ -1,10 +1,9 @@
-import fs from 'fs'
 import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
 import { nanoid } from 'nanoid'
 import { NydusServer, NydusServerOptions } from 'nydus'
-import path from 'path'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
+import registerLobbySocketApi from './lib/lobbies/lobby-socket-api'
 import log from './lib/logging/logger'
 import { isElectronClient } from './lib/network/electron-clients'
 import { getSingleQueryParam } from './lib/network/query-param'
@@ -13,13 +12,6 @@ import { StateWithJwt } from './lib/session/jwt-session-middleware'
 import getAddress from './lib/websockets/get-address'
 import { RequestSessionLookup, SessionInfo } from './lib/websockets/session-lookup'
 import { ClientSocketsManager, UserSocketsManager } from './lib/websockets/socket-groups'
-
-const apiHandlers = fs
-  .readdirSync(path.join(__dirname, 'lib', 'wsapi'))
-  // Colocated .test.ts files live beside the API modules; requiring one here would pull the test
-  // framework into the server process.
-  .filter(filename => /\.(js|ts)$/.test(filename) && !/\.test\.(js|ts)$/.test(filename))
-  .map(filename => require('./lib/wsapi/' + filename).default)
 
 // dummy response object, needed for session middleware's cookie setting stuff
 const dummyRes = {
@@ -89,11 +81,7 @@ export class WebsocketServer {
         log.error(`client ${client.id} send a message that was unparseable: ${msg}`)
       })
 
-    for (const handler of apiHandlers) {
-      if (handler) {
-        handler(this.nydus, this.userSockets, this.clientSockets)
-      }
-    }
+    registerLobbySocketApi(this.nydus, this.userSockets, this.clientSockets)
   }
 
   async onAuthorization(

@@ -12,7 +12,7 @@ const LOBBY_2 = makeSbLobbyId('lobby-2')
 const PUBKEY_A = Buffer.alloc(32, 1).toString('base64')
 const PUBKEY_B = Buffer.alloc(32, 2).toString('base64')
 
-describe('wsapi/lobby-player-network-store/LobbyPlayerNetworkStore', () => {
+describe('lobbies/lobby-player-network-store/LobbyPlayerNetworkStore', () => {
   test('returns an empty map for a lobby with no recorded info', () => {
     const store = new LobbyPlayerNetworkStore()
     expect(store.getAll(LOBBY_1)).toEqual(new Map())

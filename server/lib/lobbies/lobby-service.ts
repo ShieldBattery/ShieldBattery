@@ -47,8 +47,8 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { LobbyPlayerNetworkStore } from '../wsapi/lobby-player-network-store'
 import * as Lobbies from './lobby'
+import { LobbyPlayerNetworkStore } from './lobby-player-network-store'
 import { setLobbySummaryGetter } from './lobby-summaries'
 
 /**

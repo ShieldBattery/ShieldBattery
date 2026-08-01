@@ -11,12 +11,6 @@ import { LobbyCreateErrorCode, LobbyJoinErrorCode } from '../../../common/lobbie
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../../common/maps'
 import { isPrettyId } from '../../../common/pretty-id'
-import {
-  LOBBY_LIST_PATH,
-  LobbyService,
-  LobbyServiceError,
-  LobbyServiceErrorCode,
-} from '../lobbies/lobby-service'
 import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
   ClientSocketsGroup,
@@ -25,6 +19,12 @@ import {
   UserSocketsManager,
 } from '../websockets/socket-groups'
 import validateBody from '../websockets/validate-body'
+import {
+  LOBBY_LIST_PATH,
+  LobbyService,
+  LobbyServiceError,
+  LobbyServiceErrorCode,
+} from './lobby-service'
 
 const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
 const isLobbyId = (id: unknown) => typeof id === 'string' && isPrettyId(id)
