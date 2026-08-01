@@ -176,6 +176,7 @@ const evaluateSummarizedJson = (lobby: Lobby, openPlayerSlotCount: number) => {
     host: { id: hostId },
     useLegacyLimits: lobby.useLegacyLimits,
     ...counts,
+    lifecycle: 'gathering',
     createdAt: lobby.createdAt,
   })
 }

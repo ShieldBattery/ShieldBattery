@@ -51,6 +51,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   hasObserverTeam: false,
   benchCount: 0,
   occupantIds: [HOST_ID],
+  lifecycle: 'gathering',
   createdAt: 1234567890,
 }
 

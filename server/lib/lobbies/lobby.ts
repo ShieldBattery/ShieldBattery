@@ -21,6 +21,7 @@ import {
   teamTakenSlotCount,
 } from '../../../common/lobbies'
 import {
+  LobbyLifecycle,
   LobbyPreviewJson,
   LobbySummaryJson,
   LobbySummarySlotJson,
@@ -178,7 +179,10 @@ function toSummarySlotCounts(
  * order), so callers can compare serialized summaries to tell whether a change is one the list
  * would show at all.
  */
-export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
+export function toSummaryJson(
+  lobby: Lobby,
+  lifecycle: LobbyLifecycle = 'gathering',
+): LobbySummaryJson {
   return {
     id: lobby.id,
     name: lobby.name,
@@ -189,6 +193,7 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     useLegacyLimits: lobby.useLegacyLimits,
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
+    lifecycle,
     createdAt: lobby.createdAt,
   }
 }
