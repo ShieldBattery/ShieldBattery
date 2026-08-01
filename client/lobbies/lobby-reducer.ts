@@ -1,4 +1,5 @@
 import { castDraft, Draft } from 'immer'
+import { last } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
@@ -145,7 +146,34 @@ function finalizeLobbyUpdate(draft: LobbyDraft, chatChanged: boolean): void {
   draft.hasUnread = draft.hasUnread || (!draft.activated && chatChanged)
 }
 
-export default immerKeyedReducer(DEFAULT_STATE, {
+type LobbyHandlerMap = Record<string, (draft: LobbyDraft, action: any, originalState: any) => void>
+
+/**
+ * Wraps every handler in `handlers` so that `finalizeLobbyUpdate` runs after each one
+ * automatically, instead of relying on every handler remembering to call it itself. Making the
+ * bookkeeping structural this way means a future handler can't forget it -- forgetting it would
+ * silently break `hasUnread` tracking and the leave-clears-chat behavior.
+ *
+ * Chat changes are detected by comparing the chat log before and after the handler runs: both the
+ * length and the identity of the last element are checked, because a push that also trips the
+ * chat cap prunes the oldest entry, leaving the length unchanged.
+ */
+function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
+  const wrapped: LobbyHandlerMap = {}
+  for (const key of Object.keys(handlers)) {
+    const handler = (handlers as LobbyHandlerMap)[key]
+    wrapped[key] = (draft, action, originalState) => {
+      const beforeLength = draft.chat.length
+      const beforeLast = last(draft.chat)
+      handler(draft, action, originalState)
+      const chatChanged = draft.chat.length !== beforeLength || last(draft.chat) !== beforeLast
+      finalizeLobbyUpdate(draft, chatChanged)
+    }
+  }
+  return wrapped as T
+}
+
+const lobbyHandlers = {
   [LOBBY_INIT_DATA as any](draft: LobbyDraft, action: { payload: { lobby: Lobby } }) {
     draft.info = castDraft(action.payload.lobby)
     draft.loadingState = EMPTY_LOADING_STATE
@@ -158,7 +186,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         hostId: draft.info.host.userId!,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_SLOT_CREATE as any](
@@ -167,7 +194,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -179,9 +205,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         draft,
         new JoinLobbyMessageRecord({ id: nanoid(), time: Date.now(), userId: slot.userId! }),
       )
-      finalizeLobbyUpdate(draft, true)
-    } else {
-      finalizeLobbyUpdate(draft, false)
     }
   },
 
@@ -191,13 +214,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
     const { teamIndex, slotIndex, newRace } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex].race = newRace
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_SLOT_CHANGE as any](
@@ -206,37 +227,31 @@ export default immerKeyedReducer(DEFAULT_STATE, {
   ) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
     const { teamIndex, slotIndex, player } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex] = player
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_LEAVE_SELF as any](draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_KICK_SELF as any](draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_BAN_SELF as any](draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_HOST_CHANGE as any](draft: LobbyDraft, action: { payload: Slot }) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -249,19 +264,16 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         userId: draft.info.host.userId!,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_GAME_STARTED as any](draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
-    finalizeLobbyUpdate(draft, false)
   },
 
   ['@network/connect' as any](draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_CHAT_MESSAGE as any](
@@ -269,7 +281,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     action: { payload: { message: { time: number; from: SbUserId; text: string } } },
   ) {
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -281,12 +292,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       from: message.from,
       text: message.text,
     })
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_LEAVE as any](draft: LobbyDraft, action: { payload: { player: Slot } }) {
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -298,12 +307,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         userId: action.payload.player.userId!,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_KICK as any](draft: LobbyDraft, action: { payload: { player: Slot } }) {
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -315,12 +322,10 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         userId: action.payload.player.userId!,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_BAN as any](draft: LobbyDraft, action: { payload: { player: Slot } }) {
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -332,7 +337,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         userId: action.payload.player.userId!,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_COUNTDOWN_START as any](draft: LobbyDraft, action: { payload: number }) {
@@ -340,7 +344,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     draft.loadingState.countdownTimer = action.payload
 
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -353,14 +356,12 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         timeLeft: draft.loadingState.countdownTimer,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_COUNTDOWN_TICK as any](draft: LobbyDraft, action: { payload: number }) {
     draft.loadingState.countdownTimer = action.payload
 
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -372,7 +373,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         timeLeft: draft.loadingState.countdownTimer,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_COUNTDOWN_CANCELED as any](draft: LobbyDraft) {
@@ -380,18 +380,15 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     draft.loadingState.countdownTimer = -1
 
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
     pushChat(draft, new LobbyCountdownCanceledMessageRecord({ id: nanoid(), time: Date.now() }))
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_UPDATE_LOADING_START as any](draft: LobbyDraft) {
     draft.loadingState.isLoading = true
     draft.loadingState.isCountingDown = false
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_UPDATE_LOADING_CANCELED as any](
@@ -403,7 +400,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     draft.loadingState.countdownTimer = -1
 
     if (!draft.info.name) {
-      finalizeLobbyUpdate(draft, false)
       return
     }
 
@@ -415,7 +411,6 @@ export default immerKeyedReducer(DEFAULT_STATE, {
         usersAtFault: action.payload.usersAtFault,
       }),
     )
-    finalizeLobbyUpdate(draft, true)
   },
 
   [LOBBY_ACTIVATE as any](draft: LobbyDraft) {
@@ -423,13 +418,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       draft.hasUnread = false
       draft.activated = true
     }
-    finalizeLobbyUpdate(draft, false)
   },
 
   [LOBBY_DEACTIVATE as any](draft: LobbyDraft) {
     if (draft.info.name) {
       draft.activated = false
     }
-    finalizeLobbyUpdate(draft, false)
   },
-})
+}
+
+export default immerKeyedReducer(DEFAULT_STATE, withLobbyBookkeeping(lobbyHandlers))

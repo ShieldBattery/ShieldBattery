@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { gameTypeToLabel } from '../../common/games/game-type'
+import { LobbySummaryJson } from '../../common/lobbies/lobby-network'
 import { useTrackPageView } from '../analytics/analytics'
 import { MaterialIcon } from '../icons/material/material-icon'
 import logger from '../logging/logger'
@@ -14,8 +15,8 @@ import siteSocket from '../network/site-socket'
 import { useAppSelector } from '../redux-hooks'
 import { healthChecked } from '../starcraft/health-checked'
 import { FlexSpacer } from '../styles/flex-spacer'
-import { BodyLarge, BodyMedium, TitleLarge, TitleMedium } from '../styles/typography'
-import { LobbySummary } from './lobby-list-reducer'
+import { BodyLarge, BodyMedium, TitleLarge, titleMedium } from '../styles/typography'
+import { ConnectedUsername } from '../users/connected-username'
 import { useJoinLobbyAction } from './use-join-lobby-action'
 
 const ListEntryRoot = styled.div`
@@ -61,9 +62,13 @@ const MapPreview = styled.div`
   margin-left: 8px;
 `
 
+const HostName = styled(ConnectedUsername)`
+  ${titleMedium};
+`
+
 interface ListEntryProps {
-  lobby: LobbySummary
-  onClick: (lobby: LobbySummary) => void
+  lobby: LobbySummaryJson
+  onClick: (lobby: LobbySummaryJson) => void
 }
 
 function ListEntry({ lobby, onClick }: ListEntryProps) {
@@ -73,7 +78,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
     <ListEntryRoot onClick={() => onClick(lobby)} data-testid='lobby-list-entry'>
       <Info>
         <TitleLarge>{lobby.name}</TitleLarge>
-        <TitleMedium>{lobby.host.name}</TitleMedium>
+        <HostName userId={lobby.host.id} />
         <BodyMedium>{gameTypeToLabel(lobby.gameType, t)}</BodyMedium>
         <BodyMedium>
           {t('lobbies.joinLobby.openSlotCount', {
