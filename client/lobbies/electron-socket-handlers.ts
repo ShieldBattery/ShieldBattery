@@ -214,7 +214,7 @@ const eventToAction: EventToActionMap = {
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
-  gameStarted: (lobbyId, event) => dispatch => {
+  gameStarted: (lobbyId, event) => (dispatch, getState) => {
     // The game itself launches through the separate `/gameLoader/:gameId/:userId` route; this
     // event just closes the "Launching game…" dialog and marks the lobby as running its game. The
     // lobby's info is left alone (see the reducer), so staying on its route keeps working through
@@ -224,9 +224,16 @@ const eventToAction: EventToActionMap = {
     // server's) has nothing left to run out to.
     clearCountdownTimer()
     dispatch(closeDialog(DialogType.LaunchingGame))
+    const { auth } = getState()
     dispatch({
       type: '@lobbies/updateGameStarted',
-      payload: { runState: event.runState },
+      payload: {
+        runState: event.runState,
+        // Bench members receive this event too, but no game ever launches for them, so nothing
+        // would ever clear an active-game flag set on their behalf - only actual participants may
+        // mark the game active.
+        isParticipant: event.runState.inGameUsers.includes(auth.self!.user.id),
+      },
     })
   },
 
