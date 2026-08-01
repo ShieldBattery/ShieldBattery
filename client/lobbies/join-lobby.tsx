@@ -81,10 +81,12 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
         <HostName userId={lobby.host.id} interactive={false} />
         <BodyMedium>{gameTypeToLabel(lobby.gameType, t)}</BodyMedium>
         <BodyMedium>
-          {t('lobbies.joinLobby.openSlotCount', {
-            defaultValue: '{{count}} slots open',
-            count: lobby.openSlotCount,
-          })}
+          {lobby.lifecycle === 'inGame'
+            ? t('lobbies.lobby.inGame', 'In game')
+            : t('lobbies.joinLobby.openSlotCount', {
+                defaultValue: '{{count}} slots open',
+                count: lobby.openSlotCount,
+              })}
         </BodyMedium>
       </Info>
       <MapPreview>

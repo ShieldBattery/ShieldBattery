@@ -86,6 +86,7 @@ import { incrementUserStatsCount, makeCountKeys } from '../users/user-stats-mode
 import { joiUserId } from '../users/user-validators'
 import { ClientSocketsManager } from '../websockets/socket-groups'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { getGameRecord } from './game-models'
 import { computeCorroboratedVictors, deriveResultSubmission } from './raw-results'
 
@@ -283,6 +284,7 @@ export default class GameResultService {
     private matchmakingSeasonsService: MatchmakingSeasonsService,
     private clock: Clock,
     private redis: Redis,
+    private gameLifecycleEvents: GameLifecycleEvents,
   ) {
     const jobStartTime = new Date(this.clock.now())
     jobStartTime.setMinutes(jobStartTime.getMinutes() + RECONCILE_INCOMPLETE_RESULTS_MINUTES)
@@ -526,6 +528,10 @@ export default class GameResultService {
       relayReportTime,
       relayReportFrame,
     })
+
+    // A stored report means this user is done with the game, whether or not their client ever gets
+    // around to reporting a `Finished` status for it.
+    this.gameLifecycleEvents.emit('userGameEnded', { gameId, userId })
 
     // We don't need to hold up the response while we check for reconciling
     Promise.resolve()

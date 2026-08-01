@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { GameResultErrorCode } from '../../../common/games/results'
 import { getUserGameRecord } from '../models/games-users'
 import { GameApi } from './game-api'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { getNetcodeV2Session } from './game-models'
 import { GameResultServiceError } from './game-result-service'
 
@@ -44,6 +45,7 @@ function makeRehomeApi({
     {} as any,
     {} as any,
     netcodeV2Service as any,
+    new GameLifecycleEvents(),
   )
   return { api, netcodeV2Service }
 }
