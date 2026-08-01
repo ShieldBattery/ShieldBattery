@@ -2,6 +2,7 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
+import { LobbyRunStateJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { ReduxAction } from '../action-types'
@@ -45,11 +46,22 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   createdAt: 0,
 })
 
+/**
+ * A lobby's running game and who's still in it (see `LobbyRunStateJson`), plus a client-only
+ * timestamp captured when this client first observed the run state -- used to show a rough
+ * elapsed-time readout without the server needing to report an exact start time.
+ */
+export interface LobbyRunState extends LobbyRunStateJson {
+  startedAt: number
+}
+
 export interface CurrentLobbyState {
   // TODO(tec27): `info` holds the server's JSON-serialized lobby directly, so e.g. `map` is a
   // `MapInfoJson` rather than a full `MapInfo`. We should probably move the map data out of this
   // struct generally.
   info: Lobby
+  /** The lobby's running game, while it's `inGame`; absent while it's gathering. */
+  runState?: LobbyRunState
   loadingState: LobbyLoadingState
   /** The lobby's chat log. */
   chat: SbMessage[]
@@ -59,6 +71,7 @@ export interface CurrentLobbyState {
 
 const DEFAULT_STATE: CurrentLobbyState = {
   info: EMPTY_LOBBY,
+  runState: undefined,
   loadingState: EMPTY_LOADING_STATE,
   chat: [],
   activated: false,
@@ -143,6 +156,10 @@ function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
 const lobbyHandlers = {
   '@lobbies/init'(draft, action) {
     draft.info = castDraft(action.payload.lobby)
+    // Present when joining a lobby that's already `inGame` (e.g. taking a bench seat mid-game).
+    draft.runState = action.payload.runState
+      ? { ...action.payload.runState, startedAt: performance.now() }
+      : undefined
     draft.loadingState = EMPTY_LOADING_STATE
     pushChat(draft, {
       id: nanoid(),
@@ -254,16 +271,19 @@ const lobbyHandlers = {
 
   '@lobbies/updateLeaveSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
   '@lobbies/updateKickSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
   '@lobbies/updateBanSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
@@ -282,13 +302,56 @@ const lobbyHandlers = {
     })
   },
 
-  '@lobbies/updateGameStarted'(draft) {
-    draft.info = castDraft(EMPTY_LOBBY)
+  '@lobbies/updateGameStarted'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    // Unlike the other lifecycle transitions above, the lobby survives its own game: its info is
+    // left as-is, and `runState` tracks the game until it regroups.
+    draft.runState = { ...action.payload.runState, startedAt: performance.now() }
     draft.loadingState = EMPTY_LOADING_STATE
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyGameStarted,
+      time: Date.now(),
+    })
+  },
+
+  '@lobbies/updateMemberGameEnded'(draft, action) {
+    if (!draft.info.name || !draft.runState) {
+      return
+    }
+
+    draft.runState.inGameUsers = draft.runState.inGameUsers.filter(
+      id => id !== action.payload.userId,
+    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyMemberGameEnded,
+      time: Date.now(),
+      userId: action.payload.userId,
+    })
+  },
+
+  '@lobbies/updateRegroup'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    draft.runState = undefined
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyRegroup,
+      time: Date.now(),
+      gameId: action.payload.gameId,
+    })
   },
 
   '@network/connect'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 

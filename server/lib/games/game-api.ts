@@ -55,6 +55,7 @@ import throttleMiddleware, {
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from './game-list-data'
 import { GameLoader } from './game-loader'
 import {
@@ -224,6 +225,7 @@ export class GameApi {
     private replayService: ReplayService,
     private gamePointsRefundService: GamePointsRefundService,
     private netcodeV2Service: NetcodeV2Service,
+    private gameLifecycleEvents: GameLifecycleEvents,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -475,6 +477,12 @@ export class GameApi {
       if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
         throw new httpErrors.NotFound('game not found')
       }
+    }
+
+    if (status === GameStatus.Finished || status === GameStatus.Error) {
+      // The reporter's game is over one way or the other, so anything waiting on them (a lobby that
+      // regroups when its game ends) can stop waiting.
+      this.gameLifecycleEvents.emit('userGameEnded', { gameId, userId: user.id })
     }
 
     ctx.status = 204

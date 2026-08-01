@@ -5,6 +5,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../avatars/avatar'
 import ComputerAvatar from '../avatars/computer-avatar'
 import { useAppSelector } from '../redux-hooks'
+import { labelSmall } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { LobbyUserMenu } from './lobby-menu-items'
 import { RacePicker } from './race-picker'
@@ -42,6 +43,17 @@ const PlayerAvatar = styled(ConnectedAvatar)`
   height: 24px;
 `
 
+const InGameSlot = styled(Slot)<{ $inGame?: boolean }>`
+  ${props => (props.$inGame ? 'opacity: 0.6;' : '')}
+`
+
+const InGameTag = styled.span`
+  ${labelSmall};
+  flex-shrink: 0;
+  margin-right: 8px;
+  color: var(--theme-on-surface-variant);
+`
+
 export interface PlayerSlotProps {
   userId?: SbUserId
   isComputer?: boolean
@@ -52,6 +64,8 @@ export interface PlayerSlotProps {
   isObserver?: boolean
   canSetRace?: boolean
   race?: RaceChar
+  /** Whether this slot's occupant is still in the lobby's currently-running game. */
+  inGame?: boolean
   onSetRace?: (race: RaceChar) => void
   onCloseSlot?: () => void
   onKickPlayer?: () => void
@@ -71,6 +85,7 @@ export function PlayerSlot({
   isObserver,
   canSetRace,
   race = 'r',
+  inGame,
   onSetRace,
   onCloseSlot,
   onKickPlayer,
@@ -134,11 +149,12 @@ export function PlayerSlot({
   }
 
   return (
-    <Slot data-testid='lobby-slot'>
+    <InGameSlot data-testid='lobby-slot' $inGame={inGame}>
       <SlotLeft>
         <SlotProfile>
           {avatar}
           <SlotName as='span'>{displayName}</SlotName>
+          {inGame ? <InGameTag>{t('lobbies.lobby.inGame', 'In game')}</InGameTag> : null}
         </SlotProfile>
         {slotActions.length > 0 ? (
           <SlotActions slotActions={slotActions as [string, () => void][]} />
@@ -154,7 +170,7 @@ export function PlayerSlot({
           onSetRace={onSetRace}
         />
       </SlotRight>
-    </Slot>
+    </InGameSlot>
   )
 }
 

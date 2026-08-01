@@ -6,7 +6,9 @@ import { LobbyActions } from './actions'
 import {
   BenchJoinMessage,
   KickLobbyPlayerMessage,
+  LobbyMemberGameEndedMessage,
   LobbyMessageType,
+  LobbyRegroupMessage,
   SettingsChangeMessage,
 } from './lobby-message-records'
 import lobbyReducerImport, { CurrentLobbyState, isInLobby } from './lobby-reducer'
@@ -343,5 +345,88 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.info.name).toBe('')
     expect(isInLobby(state)).toBe(false)
+  })
+
+  test('gameStarted keeps state.info and sets runState', () => {
+    let state = lobbyReducer(undefined, initAction())
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateGameStarted',
+      payload: { runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] } },
+    })
+
+    expect(state.info).toBe(LOBBY)
+    expect(state.runState?.gameId).toBe('game-1')
+    expect(state.runState?.inGameUsers).toEqual([HOST_SLOT.userId, SLOT_A.userId])
+    const lastMessage = state.chat[state.chat.length - 1]
+    expect(lastMessage.type).toBe(LobbyMessageType.LobbyGameStarted)
+  })
+
+  test('a gameStarted trailing our own leave does not throw and leaves us out of the lobby', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+
+    expect(() => {
+      state = lobbyReducer(state, {
+        type: '@lobbies/updateGameStarted',
+        payload: { runState: { gameId: 'game-1', inGameUsers: [] } },
+      })
+    }).not.toThrow()
+
+    expect(state.info.name).toBe('')
+    expect(state.runState).toBeUndefined()
+    expect(isInLobby(state)).toBe(false)
+  })
+
+  test('memberGameEnded removes the user from runState.inGameUsers and logs a chat message', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateGameStarted',
+      payload: { runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] } },
+    })
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateMemberGameEnded',
+      payload: { type: 'memberGameEnded', userId: HOST_SLOT.userId! },
+    })
+
+    expect(state.runState?.inGameUsers).toEqual([SLOT_A.userId])
+    const lastMessage = state.chat[state.chat.length - 1]
+    expect(lastMessage.type).toBe(LobbyMessageType.LobbyMemberGameEnded)
+    expect((lastMessage as LobbyMemberGameEndedMessage).userId).toBe(HOST_SLOT.userId)
+  })
+
+  test('regroup clears runState and logs the finished game', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateGameStarted',
+      payload: { runState: { gameId: 'game-1', inGameUsers: [] } },
+    })
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateRegroup',
+      payload: { type: 'regroup', gameId: 'game-1' },
+    })
+
+    expect(state.info).toBe(LOBBY)
+    expect(state.runState).toBeUndefined()
+    const lastMessage = state.chat[state.chat.length - 1]
+    expect(lastMessage.type).toBe(LobbyMessageType.LobbyRegroup)
+    expect((lastMessage as LobbyRegroupMessage).gameId).toBe('game-1')
+  })
+
+  test('init stores runState when the event carries one (e.g. joining an in-game lobby)', () => {
+    const state = lobbyReducer(undefined, {
+      type: '@lobbies/init',
+      payload: {
+        type: 'init',
+        lobby: LOBBY,
+        userInfos: [],
+        runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!] },
+      },
+    })
+
+    expect(state.runState?.gameId).toBe('game-2')
+    expect(state.runState?.inGameUsers).toEqual([HOST_SLOT.userId])
   })
 })
