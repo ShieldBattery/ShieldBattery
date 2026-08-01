@@ -1,6 +1,5 @@
 import { net } from 'electron'
 import fs, { promises as fsPromises } from 'fs'
-import { Map } from 'immutable'
 import { mkdirp } from 'mkdirp'
 import path from 'path'
 import { Readable } from 'stream'
@@ -11,7 +10,7 @@ import log from '../logger'
 
 export class MapStore {
   private dirCreated: Promise<string | void | undefined>
-  private activeDownloads = Map<string, Promise<boolean>>()
+  private activeDownloads = new Map<string, Promise<boolean>>()
 
   constructor(readonly basePath: string) {
     this.dirCreated = mkdirp(basePath)
@@ -29,10 +28,7 @@ export class MapStore {
 
   async downloadMap(mapHash: string, mapFormat: MapExtension, mapUrl: string): Promise<boolean> {
     if (!this.activeDownloads.has(mapHash)) {
-      this.activeDownloads = this.activeDownloads.set(
-        mapHash,
-        this.checkAndDownloadMap(mapHash, mapFormat, mapUrl),
-      )
+      this.activeDownloads.set(mapHash, this.checkAndDownloadMap(mapHash, mapFormat, mapUrl))
     }
 
     return this.activeDownloads.get(mapHash)!
@@ -106,7 +102,7 @@ export class MapStore {
       log.error(`Error checking/downloading map: ${(err as any).stack ?? err}`)
       throw err
     } finally {
-      this.activeDownloads = this.activeDownloads.delete(mapHash)
+      this.activeDownloads.delete(mapHash)
     }
   }
 }

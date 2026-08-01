@@ -1,5 +1,4 @@
 import http from 'http'
-import { Map } from 'immutable'
 import { AddressInfo } from 'net'
 import { container } from 'tsyringe'
 import { WebSocket, WebSocketServer } from 'ws'
@@ -31,7 +30,7 @@ function authorize(info: AuthorizeInfo): boolean {
 }
 
 export class GameServer {
-  private idToSocket = Map<string, WebSocket>()
+  private idToSocket = new Map<string, WebSocket>()
   private activeGameManager = container.resolve(ActiveGameManager)
 
   constructor(
@@ -59,7 +58,7 @@ export class GameServer {
         socket.on('close', () => {
           log.verbose('game websocket disconnected')
           clearInterval(pingInterval)
-          this.idToSocket = this.idToSocket.delete(gameId)
+          this.idToSocket.delete(gameId)
         })
         socket.on('message', data => {
           this.onMessage(gameId, data.toString())
@@ -67,7 +66,7 @@ export class GameServer {
         socket.on('error', e => {
           log.error(`Game socket error ${String(e.stack ?? e)}`)
         })
-        this.idToSocket = this.idToSocket.set(gameId, socket)
+        this.idToSocket.set(gameId, socket)
         this.activeGameManager.handleGameConnected(gameId).catch(err => {
           log.error(`error handling game connection: ${err.stack ?? err}`)
         })
