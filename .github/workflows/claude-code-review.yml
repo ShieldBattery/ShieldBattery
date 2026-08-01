@@ -16,7 +16,13 @@ concurrency:
 
 jobs:
   claude-review:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    # Fork PRs can't run this automatically: on pull_request events from forks, GitHub
+    # withholds both OIDC tokens and repo secrets, so the action has no way to
+    # authenticate. Use the workflow_dispatch trigger with a pr_number to review those.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+       github.event.pull_request.head.repo.fork == false)
     runs-on: ubuntu-latest
 
     permissions:
