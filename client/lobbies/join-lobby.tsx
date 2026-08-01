@@ -78,6 +78,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
     <ListEntryRoot onClick={() => onClick(lobby)} data-testid='lobby-list-entry'>
       <Info>
         <TitleLarge>{lobby.name}</TitleLarge>
+        {/* Clicking the host's name must not fall through to the row and join the lobby. */}
         <HostName userId={lobby.host.id} interactive={false} />
         <BodyMedium>{gameTypeToLabel(lobby.gameType, t)}</BodyMedium>
         <BodyMedium>
