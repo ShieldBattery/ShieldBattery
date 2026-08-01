@@ -392,7 +392,11 @@ describe('client/lobbies/lobby-reducer', () => {
     state = lobbyReducer(state, {
       type: '@lobbies/updateGameStarted',
       payload: {
-        runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] },
+        runState: {
+          gameId: 'game-1',
+          inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!],
+          elapsedMs: 0,
+        },
         isParticipant: true,
       },
     })
@@ -411,7 +415,10 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(() => {
       state = lobbyReducer(state, {
         type: '@lobbies/updateGameStarted',
-        payload: { runState: { gameId: 'game-1', inGameUsers: [] }, isParticipant: true },
+        payload: {
+          runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 },
+          isParticipant: true,
+        },
       })
     }).not.toThrow()
 
@@ -425,7 +432,11 @@ describe('client/lobbies/lobby-reducer', () => {
     state = lobbyReducer(state, {
       type: '@lobbies/updateGameStarted',
       payload: {
-        runState: { gameId: 'game-1', inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!] },
+        runState: {
+          gameId: 'game-1',
+          inGameUsers: [HOST_SLOT.userId!, SLOT_A.userId!],
+          elapsedMs: 0,
+        },
         isParticipant: true,
       },
     })
@@ -445,7 +456,10 @@ describe('client/lobbies/lobby-reducer', () => {
     let state = lobbyReducer(undefined, initAction())
     state = lobbyReducer(state, {
       type: '@lobbies/updateGameStarted',
-      payload: { runState: { gameId: 'game-1', inGameUsers: [] }, isParticipant: true },
+      payload: {
+        runState: { gameId: 'game-1', inGameUsers: [], elapsedMs: 0 },
+        isParticipant: true,
+      },
     })
 
     state = lobbyReducer(state, {
@@ -467,7 +481,7 @@ describe('client/lobbies/lobby-reducer', () => {
         type: 'init',
         lobby: LOBBY,
         userInfos: [],
-        runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!] },
+        runState: { gameId: 'game-2', inGameUsers: [HOST_SLOT.userId!], elapsedMs: 0 },
       },
     })
 
