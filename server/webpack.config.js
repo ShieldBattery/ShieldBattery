@@ -7,7 +7,7 @@ const nodeEnv = process.env.NODE_ENV || 'development'
 const isProd = nodeEnv === 'production'
 
 const TARGET_BROWSERS =
-  'last 2 versions, not dead, >0.2%, not ie 11, not ie_mob 11, not op_mini all'
+  'last 2 versions, not dead, >0.2%, not ie 11, not ie_mob 11, not op_mini all, not and_uc > 0, not and_qq > 0, not kaios > 0, not ios_saf < 15, not safari < 15, not android < 120'
 
 const webpackOpts = {
   // Relative to the root directory
