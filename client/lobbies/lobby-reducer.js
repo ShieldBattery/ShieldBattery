@@ -23,7 +23,7 @@ import {
   LOBBY_UPDATE_SLOT_CHANGE,
   LOBBY_UPDATE_SLOT_CREATE,
 } from '../actions'
-import { TextMessageRecord } from '../messaging/message-records'
+import { CommonMessageType } from '../messaging/message-records'
 import { keyedReducer } from '../reducers/keyed-reducer'
 import {
   BanLobbyPlayerMessageRecord,
@@ -203,14 +203,13 @@ function prune(chatList) {
 const chatHandlers = {
   [LOBBY_UPDATE_CHAT_MESSAGE](lobbyInfo, lastLobbyInfo, state, action) {
     const newMessage = action.payload.message
-    return state.push(
-      new TextMessageRecord({
-        id: nanoid(),
-        time: newMessage.time,
-        from: newMessage.from,
-        text: newMessage.text,
-      }),
-    )
+    return state.push({
+      id: nanoid(),
+      type: CommonMessageType.TextMessage,
+      time: newMessage.time,
+      from: newMessage.from,
+      text: newMessage.text,
+    })
   },
 
   [LOBBY_UPDATE_SLOT_CREATE](lobbyInfo, lastLobbyInfo, state, action) {

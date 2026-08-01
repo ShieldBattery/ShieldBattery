@@ -1,4 +1,4 @@
-import { List } from 'immutable'
+import type { List } from 'immutable'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -13,7 +13,7 @@ import { useAppSelector } from '../redux-hooks'
 import { selectableTextContainer } from '../styles/text-selection'
 import { bodyLarge } from '../styles/typography'
 import { BlockedMessage, NewDayMessage, TextMessage } from './common-message-layout'
-import { CommonMessageType, NewDayMessageRecord, SbMessage } from './message-records'
+import { CommonMessageType, CommonNewDayMessage, SbMessage } from './message-records'
 
 function isSameDay(d1: Date, d2: Date) {
   return (
@@ -152,15 +152,16 @@ function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMes
         if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
           return messageLayout
         } else {
-          const newDayMessageRecord = new NewDayMessageRecord({
+          const newDayMessage: CommonNewDayMessage = {
             id: m.time + '-' + CommonMessageType.NewDayMessage,
+            type: CommonMessageType.NewDayMessage,
             time: m.time,
-          })
+          }
 
           return [
             <CommonMessageOrFallback
               key={'newday-' + m.id}
-              message={newDayMessageRecord}
+              message={newDayMessage}
               selfUserId={selfUserId}
               blockedUsers={blocks}
             />,

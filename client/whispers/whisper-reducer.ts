@@ -1,6 +1,6 @@
 import { Immutable } from 'immer'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { TextMessageRecord } from '../messaging/message-records'
+import { CommonMessageType, CommonTextMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -8,7 +8,7 @@ const INACTIVE_SESSION_MAX_HISTORY = 150
 
 export interface WhisperSession {
   target: SbUserId
-  messages: TextMessageRecord[]
+  messages: CommonTextMessage[]
 
   hasHistory: boolean
 
@@ -43,7 +43,7 @@ function updateMessages(
   state: WhisperState,
   target: SbUserId,
   makeUnread: boolean,
-  updateFn: (messages: TextMessageRecord[]) => TextMessageRecord[],
+  updateFn: (messages: CommonTextMessage[]) => CommonTextMessage[],
 ) {
   const session = state.byId.get(target)
   if (!session) {
@@ -100,12 +100,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       meta: { target },
     },
   ) {
-    const newMessage = new TextMessageRecord({
+    const newMessage: CommonTextMessage = {
       id,
+      type: CommonMessageType.TextMessage,
       time,
       from,
       text,
-    })
+    }
 
     // Reorder the sessions to put the one that got the message on top of the list
     state.sessions = new Set([target, ...state.sessions])
@@ -124,15 +125,13 @@ export default immerKeyedReducer(DEFAULT_STATE, {
       return
     }
 
-    const newMessages = action.payload.messages.map(
-      msg =>
-        new TextMessageRecord({
-          id: msg.id,
-          time: msg.time,
-          from: msg.from,
-          text: msg.text,
-        }),
-    )
+    const newMessages = action.payload.messages.map<CommonTextMessage>(msg => ({
+      id: msg.id,
+      type: CommonMessageType.TextMessage,
+      time: msg.time,
+      from: msg.from,
+      text: msg.text,
+    }))
 
     if (newMessages.length < limit) {
       session.hasHistory = false
