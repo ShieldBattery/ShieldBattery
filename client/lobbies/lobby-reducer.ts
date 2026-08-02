@@ -1,26 +1,13 @@
-import { castDraft, Draft } from 'immer'
+import { castDraft, Draft, Immutable } from 'immer'
 import { last } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
+import { ReduxAction } from '../action-types'
 import { CommonMessageType, SbMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import {
-  LobbyInit,
-  LobbyUpdateBan,
-  LobbyUpdateChatMessage,
-  LobbyUpdateCountdownStart,
-  LobbyUpdateCountdownTick,
-  LobbyUpdateHostChange,
-  LobbyUpdateKick,
-  LobbyUpdateLeave,
-  LobbyUpdateLoadingCanceled,
-  LobbyUpdateRaceChange,
-  LobbyUpdateSlotChange,
-  LobbyUpdateSlotCreate,
-} from './actions'
 import {
   BanLobbyPlayerMessageRecord,
   JoinLobbyMessageRecord,
@@ -136,7 +123,20 @@ function finalizeLobbyUpdate(draft: LobbyDraft, chatChanged: boolean): void {
   draft.hasUnread = draft.hasUnread || (!draft.activated && chatChanged)
 }
 
-type LobbyHandlerMap = Record<string, (draft: LobbyDraft, action: any, originalState: any) => void>
+/**
+ * Keys are constrained to real action types (and the handler map below is declared with
+ * `satisfies`, so excess-property checking applies): a typo'd key fails to compile instead of
+ * producing a handler that silently never fires.
+ */
+type LobbyHandlerMap = {
+  [A in ReduxAction['type']]?: (
+    draft: LobbyDraft,
+    action: Extract<ReduxAction, { type: A }>,
+    originalState: Immutable<LobbyState>,
+  ) => void
+}
+
+type AnyLobbyHandler = (draft: LobbyDraft, action: any, originalState: any) => void
 
 /**
  * Wraps every handler in `handlers` so that `finalizeLobbyUpdate` runs after each one
@@ -149,9 +149,9 @@ type LobbyHandlerMap = Record<string, (draft: LobbyDraft, action: any, originalS
  * chat cap prunes the oldest entry, leaving the length unchanged.
  */
 function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
-  const wrapped: LobbyHandlerMap = {}
+  const wrapped: Record<string, AnyLobbyHandler> = {}
   for (const key of Object.keys(handlers)) {
-    const handler = (handlers as LobbyHandlerMap)[key]
+    const handler = (handlers as Record<string, AnyLobbyHandler>)[key]
     wrapped[key] = (draft, action, originalState) => {
       const beforeLength = draft.chat.length
       const beforeLast = last(draft.chat)
@@ -164,7 +164,7 @@ function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
 }
 
 const lobbyHandlers = {
-  '@lobbies/init'(draft: LobbyDraft, action: LobbyInit) {
+  '@lobbies/init'(draft, action) {
     draft.info = castDraft(action.payload.lobby)
     draft.loadingState = EMPTY_LOADING_STATE
     pushChat(
@@ -178,7 +178,7 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateSlotCreate'(draft: LobbyDraft, action: LobbyUpdateSlotCreate) {
+  '@lobbies/updateSlotCreate'(draft, action) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -195,7 +195,7 @@ const lobbyHandlers = {
     }
   },
 
-  '@lobbies/updateRaceChange'(draft: LobbyDraft, action: LobbyUpdateRaceChange) {
+  '@lobbies/updateRaceChange'(draft, action) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -205,7 +205,7 @@ const lobbyHandlers = {
     draft.info.teams[teamIndex].slots[slotIndex].race = newRace
   },
 
-  '@lobbies/updateSlotChange'(draft: LobbyDraft, action: LobbyUpdateSlotChange) {
+  '@lobbies/updateSlotChange'(draft, action) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -215,22 +215,22 @@ const lobbyHandlers = {
     draft.info.teams[teamIndex].slots[slotIndex] = player
   },
 
-  '@lobbies/updateLeaveSelf'(draft: LobbyDraft) {
+  '@lobbies/updateLeaveSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  '@lobbies/updateKickSelf'(draft: LobbyDraft) {
+  '@lobbies/updateKickSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  '@lobbies/updateBanSelf'(draft: LobbyDraft) {
+  '@lobbies/updateBanSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  '@lobbies/updateHostChange'(draft: LobbyDraft, action: LobbyUpdateHostChange) {
+  '@lobbies/updateHostChange'(draft, action) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -247,17 +247,17 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateGameStarted'(draft: LobbyDraft) {
+  '@lobbies/updateGameStarted'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  '@network/connect'(draft: LobbyDraft) {
+  '@network/connect'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  '@lobbies/updateChatMessage'(draft: LobbyDraft, action: LobbyUpdateChatMessage) {
+  '@lobbies/updateChatMessage'(draft, action) {
     if (!draft.info.name) {
       return
     }
@@ -272,7 +272,7 @@ const lobbyHandlers = {
     })
   },
 
-  '@lobbies/updateLeave'(draft: LobbyDraft, action: LobbyUpdateLeave) {
+  '@lobbies/updateLeave'(draft, action) {
     if (!draft.info.name) {
       return
     }
@@ -287,7 +287,7 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateKick'(draft: LobbyDraft, action: LobbyUpdateKick) {
+  '@lobbies/updateKick'(draft, action) {
     if (!draft.info.name) {
       return
     }
@@ -302,7 +302,7 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateBan'(draft: LobbyDraft, action: LobbyUpdateBan) {
+  '@lobbies/updateBan'(draft, action) {
     if (!draft.info.name) {
       return
     }
@@ -317,7 +317,7 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateCountdownStart'(draft: LobbyDraft, action: LobbyUpdateCountdownStart) {
+  '@lobbies/updateCountdownStart'(draft, action) {
     draft.loadingState.isCountingDown = true
     draft.loadingState.countdownTimer = action.payload
 
@@ -336,7 +336,7 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateCountdownTick'(draft: LobbyDraft, action: LobbyUpdateCountdownTick) {
+  '@lobbies/updateCountdownTick'(draft, action) {
     draft.loadingState.countdownTimer = action.payload
 
     if (!draft.info.name) {
@@ -353,7 +353,7 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/updateCountdownCanceled'(draft: LobbyDraft) {
+  '@lobbies/updateCountdownCanceled'(draft) {
     draft.loadingState.isCountingDown = false
     draft.loadingState.countdownTimer = -1
 
@@ -364,12 +364,12 @@ const lobbyHandlers = {
     pushChat(draft, new LobbyCountdownCanceledMessageRecord({ id: nanoid(), time: Date.now() }))
   },
 
-  '@lobbies/updateLoadingStart'(draft: LobbyDraft) {
+  '@lobbies/updateLoadingStart'(draft) {
     draft.loadingState.isLoading = true
     draft.loadingState.isCountingDown = false
   },
 
-  '@lobbies/updateLoadingCanceled'(draft: LobbyDraft, action: LobbyUpdateLoadingCanceled) {
+  '@lobbies/updateLoadingCanceled'(draft, action) {
     draft.loadingState.isLoading = false
     draft.loadingState.isCountingDown = false
     draft.loadingState.countdownTimer = -1
@@ -388,18 +388,18 @@ const lobbyHandlers = {
     )
   },
 
-  '@lobbies/activate'(draft: LobbyDraft) {
+  '@lobbies/activate'(draft) {
     if (draft.info.name) {
       draft.hasUnread = false
       draft.activated = true
     }
   },
 
-  '@lobbies/deactivate'(draft: LobbyDraft) {
+  '@lobbies/deactivate'(draft) {
     if (draft.info.name) {
       draft.activated = false
     }
   },
-}
+} satisfies LobbyHandlerMap
 
 export default immerKeyedReducer(DEFAULT_STATE, withLobbyBookkeeping(lobbyHandlers))
