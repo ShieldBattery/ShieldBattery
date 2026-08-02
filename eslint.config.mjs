@@ -20,6 +20,39 @@ const compat = new FlatCompat({
   allConfig: js.configs.all,
 })
 
+// Shared pieces of `no-restricted-imports`. Config blocks further down narrow this rule for
+// specific directories, and flat config replaces a rule's options rather than merging them, so a
+// narrowed block has to re-state everything that should still apply there.
+const restrictedImportPaths = [
+  {
+    name: 'react-redux',
+    importNames: ['useDispatch', 'useSelector'],
+    message: 'Use useAppDispatch and useAppSelector from ./client/redux-hooks instead.',
+  },
+  {
+    name: 'type-fest',
+    importNames: ['Jsonify'],
+    message: 'Use Jsonify from ./common/json instead.',
+  },
+  {
+    name: 'electron',
+    importNames: ['ipcMain', 'ipcRenderer'],
+    message: 'Use ./common/ipc instead.',
+  },
+]
+
+const restrictedImportPatterns = [
+  {
+    group: ['motion/react'],
+    importNames: ['motion'],
+    message: "Use m instead: import * as m from 'motion/react-m'",
+  },
+  {
+    group: ['*/gql/types'],
+    message: 'Use the actual type import instead of the re-export for graphql scalars',
+  },
+]
+
 export default [
   {
     // NOTE(tec27): Make sure not to add any keys to this object or these won't be counted as global
@@ -209,34 +242,8 @@ export default [
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            {
-              name: 'react-redux',
-              importNames: ['useDispatch', 'useSelector'],
-              message: 'Use useAppDispatch and useAppSelector from ./client/redux-hooks instead.',
-            },
-            {
-              name: 'type-fest',
-              importNames: ['Jsonify'],
-              message: 'Use Jsonify from ./common/json instead.',
-            },
-            {
-              name: 'electron',
-              importNames: ['ipcMain', 'ipcRenderer'],
-              message: 'Use ./common/ipc instead.',
-            },
-          ],
-          patterns: [
-            {
-              group: ['motion/react'],
-              importNames: ['motion'],
-              message: "Use m instead: import * as m from 'motion/react-m'",
-            },
-            {
-              group: ['*/gql/types'],
-              message: 'Use the actual type import instead of the re-export for graphql scalars',
-            },
-          ],
+          paths: restrictedImportPaths,
+          patterns: restrictedImportPatterns,
         },
       ],
       'no-return-assign': 'error',
@@ -339,6 +346,39 @@ export default [
         ...globals.commonjs,
         ...Object.fromEntries(Object.entries(globals.node).map(([key]) => [key, 'off'])),
       },
+    },
+  },
+  {
+    // `immutable` is a server-only dependency. Everything here is reachable from the web client
+    // (`common/` included, since the client imports it freely), and a single import anywhere in
+    // that graph pulls the whole library into the browser bundle.
+    files: [
+      'client/**/*.js',
+      'client/**/*.jsx',
+      'client/**/*.ts',
+      'client/**/*.tsx',
+      'common/**/*.js',
+      'common/**/*.jsx',
+      'common/**/*.ts',
+      'common/**/*.tsx',
+    ],
+
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            ...restrictedImportPaths,
+            {
+              name: 'immutable',
+              message:
+                'immutable must stay out of the client bundle. Use immer (see ' +
+                'client/reducers/keyed-reducer.ts) or plain objects/arrays instead.',
+            },
+          ],
+          patterns: restrictedImportPatterns,
+        },
+      ],
     },
   },
   {
