@@ -1,6 +1,5 @@
 import { LobbySummaryJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LobbyListState {
@@ -27,23 +26,15 @@ function insertSorted(
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
-  [LOBBIES_COUNT_UPDATE as any](draft: LobbyListState, action: { payload: { count: number } }) {
+  ['@lobbies/countUpdate'](draft, action) {
     draft.count = action.payload.count
   },
 
-  ['@network/connect' as any]() {
+  ['@network/connect']() {
     return DEFAULT_STATE
   },
 
-  [LOBBIES_LIST_UPDATE as any](
-    draft: LobbyListState,
-    action: {
-      payload:
-        | { message: 'full'; data: LobbySummaryJson[] }
-        | { message: 'add' | 'update'; data: LobbySummaryJson }
-        | { message: 'delete'; data: SbLobbyId }
-    },
-  ) {
+  ['@lobbies/listUpdate'](draft, action) {
     const { message, data } = action.payload
 
     if (message === 'full') {

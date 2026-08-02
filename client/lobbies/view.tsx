@@ -116,11 +116,11 @@ export function LobbyView(props: LobbyViewProps) {
     dispatch(getLobbyState(routeLobbyId))
 
     if (inLobby) {
-      dispatch(activateLobby() as any)
+      dispatch(activateLobby())
     }
 
     return () => {
-      dispatch(deactivateLobby() as any)
+      dispatch(deactivateLobby())
     }
   }, [dispatch, inLobby, routeLobbyId, isConnected])
 

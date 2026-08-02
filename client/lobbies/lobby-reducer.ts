@@ -5,32 +5,22 @@ import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import { RaceChar } from '../../common/races'
-import { SbUserId } from '../../common/users/sb-user-id'
-import {
-  LOBBY_ACTIVATE,
-  LOBBY_DEACTIVATE,
-  LOBBY_INIT_DATA,
-  LOBBY_UPDATE_BAN,
-  LOBBY_UPDATE_BAN_SELF,
-  LOBBY_UPDATE_CHAT_MESSAGE,
-  LOBBY_UPDATE_COUNTDOWN_CANCELED,
-  LOBBY_UPDATE_COUNTDOWN_START,
-  LOBBY_UPDATE_COUNTDOWN_TICK,
-  LOBBY_UPDATE_GAME_STARTED,
-  LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_KICK,
-  LOBBY_UPDATE_KICK_SELF,
-  LOBBY_UPDATE_LEAVE,
-  LOBBY_UPDATE_LEAVE_SELF,
-  LOBBY_UPDATE_LOADING_CANCELED,
-  LOBBY_UPDATE_LOADING_START,
-  LOBBY_UPDATE_RACE_CHANGE,
-  LOBBY_UPDATE_SLOT_CHANGE,
-  LOBBY_UPDATE_SLOT_CREATE,
-} from '../actions'
 import { CommonMessageType, SbMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
+import {
+  LobbyInit,
+  LobbyUpdateBan,
+  LobbyUpdateChatMessage,
+  LobbyUpdateCountdownStart,
+  LobbyUpdateCountdownTick,
+  LobbyUpdateHostChange,
+  LobbyUpdateKick,
+  LobbyUpdateLeave,
+  LobbyUpdateLoadingCanceled,
+  LobbyUpdateRaceChange,
+  LobbyUpdateSlotChange,
+  LobbyUpdateSlotCreate,
+} from './actions'
 import {
   BanLobbyPlayerMessageRecord,
   JoinLobbyMessageRecord,
@@ -174,7 +164,7 @@ function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
 }
 
 const lobbyHandlers = {
-  [LOBBY_INIT_DATA as any](draft: LobbyDraft, action: { payload: { lobby: Lobby } }) {
+  '@lobbies/init'(draft: LobbyDraft, action: LobbyInit) {
     draft.info = castDraft(action.payload.lobby)
     draft.loadingState = EMPTY_LOADING_STATE
     pushChat(
@@ -188,10 +178,7 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_SLOT_CREATE as any](
-    draft: LobbyDraft,
-    action: { payload: { teamIndex: number; slotIndex: number; slot: Slot } },
-  ) {
+  '@lobbies/updateSlotCreate'(draft: LobbyDraft, action: LobbyUpdateSlotCreate) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -208,10 +195,7 @@ const lobbyHandlers = {
     }
   },
 
-  [LOBBY_UPDATE_RACE_CHANGE as any](
-    draft: LobbyDraft,
-    action: { payload: { teamIndex: number; slotIndex: number; newRace: RaceChar } },
-  ) {
+  '@lobbies/updateRaceChange'(draft: LobbyDraft, action: LobbyUpdateRaceChange) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -221,10 +205,7 @@ const lobbyHandlers = {
     draft.info.teams[teamIndex].slots[slotIndex].race = newRace
   },
 
-  [LOBBY_UPDATE_SLOT_CHANGE as any](
-    draft: LobbyDraft,
-    action: { payload: { teamIndex: number; slotIndex: number; player: Slot } },
-  ) {
+  '@lobbies/updateSlotChange'(draft: LobbyDraft, action: LobbyUpdateSlotChange) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -234,22 +215,22 @@ const lobbyHandlers = {
     draft.info.teams[teamIndex].slots[slotIndex] = player
   },
 
-  [LOBBY_UPDATE_LEAVE_SELF as any](draft: LobbyDraft) {
+  '@lobbies/updateLeaveSelf'(draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  [LOBBY_UPDATE_KICK_SELF as any](draft: LobbyDraft) {
+  '@lobbies/updateKickSelf'(draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  [LOBBY_UPDATE_BAN_SELF as any](draft: LobbyDraft) {
+  '@lobbies/updateBanSelf'(draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  [LOBBY_UPDATE_HOST_CHANGE as any](draft: LobbyDraft, action: { payload: Slot }) {
+  '@lobbies/updateHostChange'(draft: LobbyDraft, action: LobbyUpdateHostChange) {
     if (!draft.info.name) {
       // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
       return
@@ -266,20 +247,17 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_GAME_STARTED as any](draft: LobbyDraft) {
+  '@lobbies/updateGameStarted'(draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  ['@network/connect' as any](draft: LobbyDraft) {
+  '@network/connect'(draft: LobbyDraft) {
     draft.info = castDraft(EMPTY_LOBBY)
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
-  [LOBBY_UPDATE_CHAT_MESSAGE as any](
-    draft: LobbyDraft,
-    action: { payload: { message: { time: number; from: SbUserId; text: string } } },
-  ) {
+  '@lobbies/updateChatMessage'(draft: LobbyDraft, action: LobbyUpdateChatMessage) {
     if (!draft.info.name) {
       return
     }
@@ -294,7 +272,7 @@ const lobbyHandlers = {
     })
   },
 
-  [LOBBY_UPDATE_LEAVE as any](draft: LobbyDraft, action: { payload: { player: Slot } }) {
+  '@lobbies/updateLeave'(draft: LobbyDraft, action: LobbyUpdateLeave) {
     if (!draft.info.name) {
       return
     }
@@ -309,7 +287,7 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_KICK as any](draft: LobbyDraft, action: { payload: { player: Slot } }) {
+  '@lobbies/updateKick'(draft: LobbyDraft, action: LobbyUpdateKick) {
     if (!draft.info.name) {
       return
     }
@@ -324,7 +302,7 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_BAN as any](draft: LobbyDraft, action: { payload: { player: Slot } }) {
+  '@lobbies/updateBan'(draft: LobbyDraft, action: LobbyUpdateBan) {
     if (!draft.info.name) {
       return
     }
@@ -339,7 +317,7 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_COUNTDOWN_START as any](draft: LobbyDraft, action: { payload: number }) {
+  '@lobbies/updateCountdownStart'(draft: LobbyDraft, action: LobbyUpdateCountdownStart) {
     draft.loadingState.isCountingDown = true
     draft.loadingState.countdownTimer = action.payload
 
@@ -358,7 +336,7 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_COUNTDOWN_TICK as any](draft: LobbyDraft, action: { payload: number }) {
+  '@lobbies/updateCountdownTick'(draft: LobbyDraft, action: LobbyUpdateCountdownTick) {
     draft.loadingState.countdownTimer = action.payload
 
     if (!draft.info.name) {
@@ -375,7 +353,7 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_UPDATE_COUNTDOWN_CANCELED as any](draft: LobbyDraft) {
+  '@lobbies/updateCountdownCanceled'(draft: LobbyDraft) {
     draft.loadingState.isCountingDown = false
     draft.loadingState.countdownTimer = -1
 
@@ -386,15 +364,12 @@ const lobbyHandlers = {
     pushChat(draft, new LobbyCountdownCanceledMessageRecord({ id: nanoid(), time: Date.now() }))
   },
 
-  [LOBBY_UPDATE_LOADING_START as any](draft: LobbyDraft) {
+  '@lobbies/updateLoadingStart'(draft: LobbyDraft) {
     draft.loadingState.isLoading = true
     draft.loadingState.isCountingDown = false
   },
 
-  [LOBBY_UPDATE_LOADING_CANCELED as any](
-    draft: LobbyDraft,
-    action: { payload: { usersAtFault?: ReadonlyArray<SbUserId> } },
-  ) {
+  '@lobbies/updateLoadingCanceled'(draft: LobbyDraft, action: LobbyUpdateLoadingCanceled) {
     draft.loadingState.isLoading = false
     draft.loadingState.isCountingDown = false
     draft.loadingState.countdownTimer = -1
@@ -413,14 +388,14 @@ const lobbyHandlers = {
     )
   },
 
-  [LOBBY_ACTIVATE as any](draft: LobbyDraft) {
+  '@lobbies/activate'(draft: LobbyDraft) {
     if (draft.info.name) {
       draft.hasUnread = false
       draft.activated = true
     }
   },
 
-  [LOBBY_DEACTIVATE as any](draft: LobbyDraft) {
+  '@lobbies/deactivate'(draft: LobbyDraft) {
     if (draft.info.name) {
       draft.activated = false
     }

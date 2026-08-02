@@ -2,7 +2,6 @@ import { enableArrayMethods, enableMapSet } from 'immer'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { TypedIpcRenderer } from '../common/ipc'
-import { AUDIO_MANAGER_INITIALIZED } from './actions'
 import { App } from './app'
 import { audioManager } from './audio/audio-manager'
 import { bootstrapSession, getCurrentSession } from './auth/action-creators'
@@ -118,7 +117,7 @@ const rootElemPromise = new Promise((resolve, reject) => {
   })
 })
 
-const initAudioPromise = audioManager.initialize()
+audioManager.initialize()
 
 rootElemPromise
   .then(async elem => {
@@ -145,10 +144,6 @@ rootElemPromise
     }
     registerDispatch(reduxStore.dispatch)
     registerSocketHandlers()
-
-    initAudioPromise.then(() => {
-      reduxStore.dispatch({ type: AUDIO_MANAGER_INITIALIZED })
-    })
 
     const detected = getBestLanguage()
     detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)

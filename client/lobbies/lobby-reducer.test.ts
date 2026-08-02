@@ -2,24 +2,14 @@ import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import {
-  LOBBY_INIT_DATA,
-  LOBBY_UPDATE_BAN_SELF,
-  LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_KICK_SELF,
-  LOBBY_UPDATE_LEAVE_SELF,
-  LOBBY_UPDATE_RACE_CHANGE,
-  LOBBY_UPDATE_SLOT_CREATE,
-} from '../actions'
+import { LobbyActions } from './actions'
 import lobbyReducerImport, { isInLobby, LobbyState } from './lobby-reducer'
 
-// The lobby actions aren't part of the central `ReduxAction` union yet, so the reducer's exported
-// type is only as specific as `immerKeyedReducer`'s generic signature (`{ type: string }`). Give it
-// a locally honest signature for these tests rather than fighting inference on every call site.
-const lobbyReducer = lobbyReducerImport as (
-  state: LobbyState | undefined,
-  action: { type: string; payload?: any },
-) => LobbyState
+// `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it lobby
+// actions, so narrow the parameter to those, both for the extra checking and so that action objects
+// can be written inline without tripping excess property checks.
+const lobbyReducer: (state: LobbyState | undefined, action: LobbyActions) => LobbyState =
+  lobbyReducerImport
 
 const HOST_SLOT: Slot = {
   type: SlotType.Human,
@@ -73,18 +63,18 @@ const LOBBY: Lobby = {
   visibility: 'listed',
 }
 
-function initAction() {
-  return { type: LOBBY_INIT_DATA, payload: { lobby: LOBBY, userInfos: [] } }
+function initAction(): LobbyActions {
+  return { type: '@lobbies/init', payload: { type: 'init', lobby: LOBBY, userInfos: [] } }
 }
 
 describe('client/lobbies/lobby-reducer', () => {
-  test('LOBBY_INIT_DATA stores the payload lobby as state.info directly', () => {
+  test('init stores the payload lobby as state.info directly', () => {
     const state = lobbyReducer(undefined, initAction())
 
     expect(state.info).toBe(LOBBY)
   })
 
-  test('LOBBY_UPDATE_SLOT_CREATE replaces the targeted slot and leaves the others untouched', () => {
+  test('slotCreate replaces the targeted slot and leaves the others untouched', () => {
     let state = lobbyReducer(undefined, initAction())
 
     const newSlot: Slot = {
@@ -98,8 +88,8 @@ describe('client/lobbies/lobby-reducer', () => {
       typeId: 0,
     }
     state = lobbyReducer(state, {
-      type: LOBBY_UPDATE_SLOT_CREATE,
-      payload: { teamIndex: 0, slotIndex: 2, slot: newSlot },
+      type: '@lobbies/updateSlotCreate',
+      payload: { type: 'slotCreate', teamIndex: 0, slotIndex: 2, slot: newSlot },
     })
 
     expect(state.info.teams[0].slots[2]).toEqual(newSlot)
@@ -107,12 +97,12 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(state.info.teams[0].slots[1]).toEqual(SLOT_A)
   })
 
-  test('LOBBY_UPDATE_RACE_CHANGE updates just the race of the targeted slot', () => {
+  test('raceChange updates just the race of the targeted slot', () => {
     let state = lobbyReducer(undefined, initAction())
 
     state = lobbyReducer(state, {
-      type: LOBBY_UPDATE_RACE_CHANGE,
-      payload: { teamIndex: 0, slotIndex: 1, newRace: 'p' },
+      type: '@lobbies/updateRaceChange',
+      payload: { type: 'raceChange', teamIndex: 0, slotIndex: 1, newRace: 'p' },
     })
 
     expect(state.info.teams[0].slots[1]).toEqual({ ...SLOT_A, race: 'p' })
@@ -122,12 +112,12 @@ describe('client/lobbies/lobby-reducer', () => {
 
   test('a slotCreate trailing our own kick does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: LOBBY_UPDATE_KICK_SELF })
+    state = lobbyReducer(state, { type: '@lobbies/updateKickSelf' })
 
     expect(() => {
       state = lobbyReducer(state, {
-        type: LOBBY_UPDATE_SLOT_CREATE,
-        payload: { teamIndex: 0, slotIndex: 1, slot: SLOT_A },
+        type: '@lobbies/updateSlotCreate',
+        payload: { type: 'slotCreate', teamIndex: 0, slotIndex: 1, slot: SLOT_A },
       })
     }).not.toThrow()
 
@@ -137,12 +127,12 @@ describe('client/lobbies/lobby-reducer', () => {
 
   test('a raceChange trailing our own leave does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: LOBBY_UPDATE_LEAVE_SELF })
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
 
     expect(() => {
       state = lobbyReducer(state, {
-        type: LOBBY_UPDATE_RACE_CHANGE,
-        payload: { teamIndex: 0, slotIndex: 1, newRace: 'p' },
+        type: '@lobbies/updateRaceChange',
+        payload: { type: 'raceChange', teamIndex: 0, slotIndex: 1, newRace: 'p' },
       })
     }).not.toThrow()
 
@@ -152,11 +142,11 @@ describe('client/lobbies/lobby-reducer', () => {
 
   test('a hostChange trailing our own ban does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: LOBBY_UPDATE_BAN_SELF })
+    state = lobbyReducer(state, { type: '@lobbies/updateBanSelf' })
 
     expect(() => {
       state = lobbyReducer(state, {
-        type: LOBBY_UPDATE_HOST_CHANGE,
+        type: '@lobbies/updateHostChange',
         payload: SLOT_A,
       })
     }).not.toThrow()

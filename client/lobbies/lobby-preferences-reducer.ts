@@ -2,11 +2,6 @@ import { GameType } from '../../common/games/game-type'
 import { LobbyVisibility } from '../../common/lobbies'
 import { LobbyPreferencesResponse } from '../../common/lobbies/lobby-network'
 import { SbMapId } from '../../common/maps'
-import {
-  LOBBY_PREFERENCES_GET,
-  LOBBY_PREFERENCES_GET_BEGIN,
-  LOBBY_PREFERENCES_UPDATE,
-} from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface LobbyPreferencesState {
@@ -54,14 +49,11 @@ function createPreferences(response: LobbyPreferencesResponse): LobbyPreferences
 }
 
 export default immerKeyedReducer(DEFAULT_STATE, {
-  [LOBBY_PREFERENCES_GET_BEGIN as any]() {
+  ['@lobbies/getPreferencesBegin']() {
     return { ...DEFAULT_STATE, isRequesting: true }
   },
 
-  [LOBBY_PREFERENCES_GET as any](
-    draft: LobbyPreferencesState,
-    action: { payload: LobbyPreferencesResponse; error?: false } | { payload: Error; error: true },
-  ) {
+  ['@lobbies/getPreferences'](draft, action) {
     if (action.error) {
       return { ...draft, isRequesting: false, hasLoaded: true }
     }
@@ -69,10 +61,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     return createPreferences(action.payload)
   },
 
-  [LOBBY_PREFERENCES_UPDATE as any](
-    draft: LobbyPreferencesState,
-    action: { payload: LobbyPreferencesResponse; error?: false } | { payload: Error; error: true },
-  ) {
+  ['@lobbies/updatePreferences'](draft, action) {
     if (action.error) {
       return { ...draft, isRequesting: false, hasLoaded: true }
     }

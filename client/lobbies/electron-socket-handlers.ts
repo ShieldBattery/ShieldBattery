@@ -3,29 +3,6 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import { LobbyEvent } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { urlPath } from '../../common/urls'
-import {
-  LOBBIES_COUNT_UPDATE,
-  LOBBIES_LIST_UPDATE,
-  LOBBY_INIT_DATA,
-  LOBBY_UPDATE_BAN,
-  LOBBY_UPDATE_BAN_SELF,
-  LOBBY_UPDATE_CHAT_MESSAGE,
-  LOBBY_UPDATE_COUNTDOWN_CANCELED,
-  LOBBY_UPDATE_COUNTDOWN_START,
-  LOBBY_UPDATE_COUNTDOWN_TICK,
-  LOBBY_UPDATE_GAME_STARTED,
-  LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_KICK,
-  LOBBY_UPDATE_KICK_SELF,
-  LOBBY_UPDATE_LEAVE,
-  LOBBY_UPDATE_LEAVE_SELF,
-  LOBBY_UPDATE_LOADING_CANCELED,
-  LOBBY_UPDATE_LOADING_START,
-  LOBBY_UPDATE_RACE_CHANGE,
-  LOBBY_UPDATE_SLOT_CHANGE,
-  LOBBY_UPDATE_SLOT_CREATE,
-  LOBBY_UPDATE_STATUS,
-} from '../actions'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { closeDialog, openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
@@ -69,7 +46,7 @@ type EventToActionMap = {
 const eventToAction: EventToActionMap = {
   init: (lobbyId, event) => {
     clearCountdownTimer()
-    const { hash, mapData, mapUrl } = event.lobby.map
+    const { hash, mapData, mapUrl } = event.lobby.map!
     ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
       // TODO(tec27): Report this to the server so the loading is canceled immediately
 
@@ -79,9 +56,9 @@ const eventToAction: EventToActionMap = {
     })
 
     return {
-      type: LOBBY_INIT_DATA,
+      type: '@lobbies/init',
       payload: event,
-    } as any
+    }
   },
 
   diff: (lobbyId, event) => dispatch => {
@@ -98,16 +75,15 @@ const eventToAction: EventToActionMap = {
     }
 
     return {
-      type: LOBBY_UPDATE_SLOT_CREATE,
+      type: '@lobbies/updateSlotCreate',
       payload: event,
-    } as any
+    }
   },
 
-  raceChange: (lobbyId, event) =>
-    ({
-      type: LOBBY_UPDATE_RACE_CHANGE,
-      payload: event,
-    }) as any,
+  raceChange: (lobbyId, event) => ({
+    type: '@lobbies/updateRaceChange',
+    payload: event,
+  }),
 
   leave: (lobbyId, event) => (dispatch, getState) => {
     const { auth } = getState()
@@ -117,13 +93,13 @@ const eventToAction: EventToActionMap = {
       // The leaver was me all along!!!
       clearCountdownTimer()
       dispatch({
-        type: LOBBY_UPDATE_LEAVE_SELF,
-      } as any)
+        type: '@lobbies/updateLeaveSelf',
+      })
     } else {
       dispatch({
-        type: LOBBY_UPDATE_LEAVE,
+        type: '@lobbies/updateLeave',
         payload: event,
-      } as any)
+      })
     }
   },
 
@@ -136,13 +112,13 @@ const eventToAction: EventToActionMap = {
       clearCountdownTimer()
       externalShowSnackbar(i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'))
       dispatch({
-        type: LOBBY_UPDATE_KICK_SELF,
-      } as any)
+        type: '@lobbies/updateKickSelf',
+      })
     } else {
       dispatch({
-        type: LOBBY_UPDATE_KICK,
+        type: '@lobbies/updateKick',
         payload: event,
-      } as any)
+      })
     }
   },
 
@@ -155,46 +131,44 @@ const eventToAction: EventToActionMap = {
       clearCountdownTimer()
       externalShowSnackbar(i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'))
       dispatch({
-        type: LOBBY_UPDATE_BAN_SELF,
-      } as any)
+        type: '@lobbies/updateBanSelf',
+      })
     } else {
       dispatch({
-        type: LOBBY_UPDATE_BAN,
+        type: '@lobbies/updateBan',
         payload: event,
-      } as any)
+      })
     }
   },
 
-  hostChange: (lobbyId, event) =>
-    ({
-      type: LOBBY_UPDATE_HOST_CHANGE,
-      payload: event.host,
-    }) as any,
+  hostChange: (lobbyId, event) => ({
+    type: '@lobbies/updateHostChange',
+    payload: event.host,
+  }),
 
-  slotChange: (lobbyId, event) =>
-    ({
-      type: LOBBY_UPDATE_SLOT_CHANGE,
-      payload: event,
-    }) as any,
+  slotChange: (lobbyId, event) => ({
+    type: '@lobbies/updateSlotChange',
+    payload: event,
+  }),
 
   startCountdown: (lobbyId, event) => (dispatch, getState) => {
     clearCountdownTimer()
     let tick = 5
     dispatch({
-      type: LOBBY_UPDATE_COUNTDOWN_START,
+      type: '@lobbies/updateCountdownStart',
       payload: tick,
-    } as any)
+    })
     countdownState.sound = audioManager.playFadeableSound(AvailableSound.Countdown)
 
     countdownState.timer = setInterval(() => {
       tick -= 1
       dispatch({
-        type: LOBBY_UPDATE_COUNTDOWN_TICK,
+        type: '@lobbies/updateCountdownTick',
         payload: tick,
-      } as any)
+      })
       if (!tick) {
         clearCountdownTimer()
-        dispatch({ type: LOBBY_UPDATE_LOADING_START } as any)
+        dispatch({ type: '@lobbies/updateLoadingStart' })
 
         dispatch(openDialog({ type: DialogType.LaunchingGame }))
       }
@@ -204,8 +178,8 @@ const eventToAction: EventToActionMap = {
   cancelCountdown: (lobbyId, event) => {
     clearCountdownTimer()
     return {
-      type: LOBBY_UPDATE_COUNTDOWN_CANCELED,
-    } as any
+      type: '@lobbies/updateCountdownCanceled',
+    }
   },
 
   cancelLoading: (lobbyId, event) => (dispatch, getState) => {
@@ -216,9 +190,9 @@ const eventToAction: EventToActionMap = {
     clearCountdownTimer()
 
     dispatch({
-      type: LOBBY_UPDATE_LOADING_CANCELED,
+      type: '@lobbies/updateLoadingCanceled',
       payload: { usersAtFault: event.usersAtFault },
-    } as any)
+    })
     dispatch(closeDialog(DialogType.LaunchingGame))
   },
 
@@ -232,11 +206,11 @@ const eventToAction: EventToActionMap = {
       replace(urlPath`/`)
     }
     dispatch({
-      type: LOBBY_UPDATE_GAME_STARTED,
+      type: '@lobbies/updateGameStarted',
       payload: {
         lobby,
       },
-    } as any)
+    })
   },
 
   chat(lobbyId, event) {
@@ -256,9 +230,9 @@ const eventToAction: EventToActionMap = {
       }
 
       dispatch({
-        type: LOBBY_UPDATE_CHAT_MESSAGE,
+        type: '@lobbies/updateChatMessage',
         payload: event,
-      } as any)
+      })
 
       if (!isBlocked && (!lobby.activated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
@@ -266,11 +240,8 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  status: (lobbyId, event) =>
-    ({
-      type: LOBBY_UPDATE_STATUS,
-      payload: event,
-    }) as any,
+  // Nothing in the client's state depends on which of our own clients are in the lobby.
+  status: () => {},
 }
 
 export default function registerModule({ siteSocket }: { siteSocket: NydusClient }) {
@@ -288,21 +259,21 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
   siteSocket.registerRoute('/lobbies', (route, event) => {
     const { action, payload } = event
     dispatch({
-      type: LOBBIES_LIST_UPDATE,
+      type: '@lobbies/listUpdate',
       payload: {
         message: action,
         data: payload,
       },
-    } as any)
+    })
   })
 
   siteSocket.registerRoute('/lobbiesCount', (route, event) => {
     const { count } = event
     dispatch({
-      type: LOBBIES_COUNT_UPDATE,
+      type: '@lobbies/countUpdate',
       payload: {
         count,
       },
-    } as any)
+    })
   })
 }

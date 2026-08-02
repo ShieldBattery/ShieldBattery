@@ -20,22 +20,13 @@ import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { RaceChar } from '../../common/races'
 import { apiUrl } from '../../common/urls'
-import {
-  LOBBIES_GET_STATE,
-  LOBBIES_GET_STATE_BEGIN,
-  LOBBY_ACTIVATE,
-  LOBBY_DEACTIVATE,
-  LOBBY_PREFERENCES_GET,
-  LOBBY_PREFERENCES_GET_BEGIN,
-  LOBBY_PREFERENCES_UPDATE,
-  LOBBY_PREFERENCES_UPDATE_BEGIN,
-} from '../actions'
 import { ThunkAction } from '../dispatch-registry'
 import { resolveDesiredRegion } from '../game-server-regions/region-resolution'
 import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import { ActivateLobby, DeactivateLobby } from './actions'
 import { isInLobby } from './lobby-reducer'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -231,24 +222,24 @@ export function getLobbyState(lobbyId: SbLobbyId): ThunkAction {
     }
 
     dispatch({
-      type: LOBBIES_GET_STATE_BEGIN,
+      type: '@lobbies/getLobbyStateBegin',
       payload: { lobbyId },
-    } as any)
+    })
     dispatch({
-      type: LOBBIES_GET_STATE,
+      type: '@lobbies/getLobbyState',
       payload: fetchJson<GetLobbyStateResponse>(apiUrl`lobbies/${lobbyId}/state`),
       meta: { lobbyId, requestTime },
-    } as any)
+    })
   }
 }
 
 export function getLobbyPreferences(): ThunkAction {
   return dispatch => {
-    dispatch({ type: LOBBY_PREFERENCES_GET_BEGIN } as any)
+    dispatch({ type: '@lobbies/getPreferencesBegin' })
     dispatch({
-      type: LOBBY_PREFERENCES_GET,
+      type: '@lobbies/getPreferences',
       payload: fetchJson<LobbyPreferencesResponse>(apiUrl`lobby-preferences`),
-    } as any)
+    })
   }
 }
 
@@ -256,25 +247,25 @@ export function updateLobbyPreferences(
   preferences: ReadonlyDeep<UpdateLobbyPreferencesRequest>,
 ): ThunkAction {
   return dispatch => {
-    dispatch({ type: LOBBY_PREFERENCES_UPDATE_BEGIN } as any)
+    dispatch({ type: '@lobbies/updatePreferencesBegin' })
     dispatch({
-      type: LOBBY_PREFERENCES_UPDATE,
+      type: '@lobbies/updatePreferences',
       payload: fetchJson<LobbyPreferencesResponse>(apiUrl`lobby-preferences`, {
         method: 'post',
         body: JSON.stringify(preferences),
       }),
-    } as any)
+    })
   }
 }
 
-export function activateLobby() {
+export function activateLobby(): ActivateLobby {
   return {
-    type: LOBBY_ACTIVATE,
+    type: '@lobbies/activate',
   }
 }
 
-export function deactivateLobby() {
+export function deactivateLobby(): DeactivateLobby {
   return {
-    type: LOBBY_DEACTIVATE,
+    type: '@lobbies/deactivate',
   }
 }
