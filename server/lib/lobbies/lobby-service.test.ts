@@ -150,6 +150,9 @@ describe('lobbies/lobby-service', () => {
   /** Every request the stubbed `GameLoader` received via `loadGame`, in call order. */
   let loadGameRequests: GameLoadRequest[]
 
+  /** The stubbed `GameLoader.loadGame`, for tests that need to control when/how a load finishes. */
+  let loadGameMock: ReturnType<typeof vi.fn<(request: GameLoadRequest) => Promise<unknown>>>
+
   /** Returns the data published on the public lobby list channel, in order. */
   function listPublishes(): Array<{ action: string; payload: any }> {
     return fakeNydus.publish.mock.calls
@@ -236,14 +239,15 @@ describe('lobbies/lobby-service', () => {
     const userSockets = new UserSocketsManager(nydus, sessionLookup, async () => {})
 
     loadGameRequests = []
+    loadGameMock = vi.fn<(request: GameLoadRequest) => Promise<unknown>>(async request => {
+      loadGameRequests.push(request)
+      return Result.ok({ gameId: 'test-game-id' })
+    })
     lobbyService = new LobbyService(
       new TypedPublisher(nydus),
       new GameplayActivityRegistry(),
       {
-        loadGame: vi.fn(async (request: GameLoadRequest) => {
-          loadGameRequests.push(request)
-          return Result.ok({ gameId: 'test-game-id' })
-        }),
+        loadGame: loadGameMock,
       } as unknown as GameLoader,
       {
         isRestricted: async () => false,
@@ -871,6 +875,76 @@ describe('lobbies/lobby-service', () => {
 
       expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(0)
       expect(lobbyPublishes(id).some(data => data?.type === 'cancelCountdown')).toBe(false)
+    })
+
+    test('a failed load still cancels after a bench member left during it', async () => {
+      const id = await createLobbyWithBench()
+
+      let failLoad: (err: Error) => void
+      loadGameMock.mockImplementationOnce(async (request: GameLoadRequest) => {
+        loadGameRequests.push(request)
+        return await new Promise((_resolve, reject) => {
+          failLoad = reject
+        })
+      })
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client })
+      await vi.advanceTimersByTimeAsync(5000)
+      vi.useRealTimers()
+      expect(loadGameRequests).toHaveLength(1)
+
+      // The stored lobby gets updated by this mid-load, and the load failure must still find it
+      lobbyService.leaveLobby({ client: otherHost.client })
+      fakeNydus.publish.mockClear()
+
+      failLoad!(new Error('load exploded'))
+      await vi.waitFor(() => {
+        expect(lobbyPublishes(id).some(data => data?.type === 'cancelLoading')).toBe(true)
+      })
+
+      // The lobby is gathering again rather than wedged in its loading state
+      expect(lobbyService.getLobbyState({ lobbyId: id }).lobbyState).toBe('exists')
+    })
+
+    test('a game start does not release a bench member who already left for another lobby', async () => {
+      const id = await createLobbyWithBench()
+
+      let finishLoad: () => void
+      loadGameMock.mockImplementationOnce(async (request: GameLoadRequest) => {
+        loadGameRequests.push(request)
+        await new Promise<void>(resolve => {
+          finishLoad = resolve
+        })
+        return Result.ok({ gameId: 'test-game-id' })
+      })
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client })
+      await vi.advanceTimersByTimeAsync(5000)
+      vi.useRealTimers()
+
+      // The bench member moves on to a lobby of their own while the first one is loading
+      lobbyService.leaveLobby({ client: otherHost.client })
+      const { id: otherId } = await lobbyService.createLobby({
+        name: 'Moved on',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.Melee,
+        visibility: 'listed',
+        user: otherHost.user,
+        client: otherHost.client,
+      })
+
+      finishLoad!()
+      await vi.waitFor(() => {
+        expect(lobbyService.lobbies.has(id)).toBe(false)
+      })
+
+      // The first lobby's start must not have released their registration in the new activity —
+      // which would let this join go through instead of being rejected
+      await expect(joinLobby(otherHost, otherId)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.JoinAlreadyInActivity,
+      })
     })
 
     test('a member kicked from the bench is reported as kicked', async () => {
