@@ -1,5 +1,4 @@
 import { castDraft, Draft, Immutable } from 'immer'
-import { last } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
@@ -97,30 +96,33 @@ const CHAT_MESSAGE_LIMIT = 200
  * Appends message(s) to the lobby chat log, then drops the oldest entry if it grew past the cap --
  * matching the previous Immutable.js-backed version's `List#shift`, at most one entry is trimmed
  * per call, even if the call pushes more than one message.
+ *
+ * This is the only place that appends to the chat log, so it also owns unread tracking: a push
+ * while the view isn't activated marks the log unread.
  */
 function pushChat(draft: LobbyDraft, ...messages: SbMessage[]): void {
   draft.chat.push(...messages)
   if (draft.chat.length > CHAT_MESSAGE_LIMIT) {
     draft.chat.shift()
   }
+  draft.hasUnread ||= !draft.activated
 }
 
 /**
- * Applies the bookkeeping that runs after every handler below: if the lobby is gone, clears the
- * chat log along with `activated`/`hasUnread`; otherwise updates `hasUnread` from whether the chat
- * log just changed (`chatChanged`) and whether the view is currently activated. This mirrors the
- * interplay the previous Immutable.js-backed reducer had between these fields, including that
- * clearing a non-empty chat log on the way out of a lobby counts as a change in its own right (so
- * leaving a lobby with unread messages still queues up `hasUnread` for the next time one's joined).
+ * Applies the bookkeeping that runs after every handler below: once the lobby is gone, the view
+ * state gets reset, with a non-empty chat log getting cleared on the way out counting as unread
+ * (so leaving a lobby with unseen messages still queues up `hasUnread` for the next time one's
+ * joined). The empty-chat case assigns nothing, leaving the state referentially unchanged for
+ * actions that arrive while out of a lobby.
  */
-function finalizeLobbyUpdate(draft: LobbyDraft, chatChanged: boolean): void {
+function finalizeLobbyUpdate(draft: LobbyDraft): void {
   if (!draft.info.name) {
-    chatChanged = draft.chat.length > 0
-    draft.chat = []
     draft.activated = false
-    draft.hasUnread = false
+    draft.hasUnread = draft.chat.length > 0
+    if (draft.chat.length) {
+      draft.chat = []
+    }
   }
-  draft.hasUnread = draft.hasUnread || (!draft.activated && chatChanged)
 }
 
 /**
@@ -142,22 +144,15 @@ type AnyLobbyHandler = (draft: LobbyDraft, action: any, originalState: any) => v
  * Wraps every handler in `handlers` so that `finalizeLobbyUpdate` runs after each one
  * automatically, instead of relying on every handler remembering to call it itself. Making the
  * bookkeeping structural this way means a future handler can't forget it -- forgetting it would
- * silently break `hasUnread` tracking and the leave-clears-chat behavior.
- *
- * Chat changes are detected by comparing the chat log before and after the handler runs: both the
- * length and the identity of the last element are checked, because a push that also trips the
- * chat cap prunes the oldest entry, leaving the length unchanged.
+ * silently break the leave-clears-chat behavior.
  */
 function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
   const wrapped: Record<string, AnyLobbyHandler> = {}
   for (const key of Object.keys(handlers)) {
     const handler = (handlers as Record<string, AnyLobbyHandler>)[key]
     wrapped[key] = (draft, action, originalState) => {
-      const beforeLength = draft.chat.length
-      const beforeLast = last(draft.chat)
       handler(draft, action, originalState)
-      const chatChanged = draft.chat.length !== beforeLength || last(draft.chat) !== beforeLast
-      finalizeLobbyUpdate(draft, chatChanged)
+      finalizeLobbyUpdate(draft)
     }
   }
   return wrapped as T

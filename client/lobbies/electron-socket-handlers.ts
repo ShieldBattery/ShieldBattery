@@ -207,9 +207,6 @@ const eventToAction: EventToActionMap = {
     }
     dispatch({
       type: '@lobbies/updateGameStarted',
-      payload: {
-        lobby,
-      },
     })
   },
 

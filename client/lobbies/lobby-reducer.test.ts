@@ -67,6 +67,18 @@ function initAction(): LobbyActions {
   return { type: '@lobbies/init', payload: { type: 'init', lobby: LOBBY, userInfos: [] } }
 }
 
+function chatAction(text: string): LobbyActions {
+  return {
+    type: '@lobbies/updateChatMessage',
+    payload: {
+      type: 'chat',
+      message: { lobbyName: LOBBY.name, time: 27, from: HOST_SLOT.userId!, text },
+      mentions: [],
+      channelMentions: [],
+    },
+  }
+}
+
 describe('client/lobbies/lobby-reducer', () => {
   test('init stores the payload lobby as state.info directly', () => {
     const state = lobbyReducer(undefined, initAction())
@@ -153,5 +165,58 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.info.name).toBe('')
     expect(isInLobby(state)).toBe(false)
+  })
+
+  test('chat while activated stays read; leaving with messages in the log queues hasUnread', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    expect(state.activated).toBe(true)
+    expect(state.hasUnread).toBe(false)
+
+    state = lobbyReducer(state, chatAction('hey'))
+    expect(state.hasUnread).toBe(false)
+
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+    expect(state.chat).toHaveLength(0)
+    expect(state.activated).toBe(false)
+    expect(state.hasUnread).toBe(true)
+  })
+
+  test('chat while deactivated marks unread; activating clears it', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    state = lobbyReducer(state, { type: '@lobbies/deactivate' })
+
+    state = lobbyReducer(state, chatAction('hey'))
+    expect(state.hasUnread).toBe(true)
+
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    expect(state.hasUnread).toBe(false)
+  })
+
+  test('actions arriving while out of a lobby leave the state referentially unchanged', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+    // The first out-of-lobby action still settles the hasUnread queued up by leaving
+    state = lobbyReducer(state, { type: '@lobbies/deactivate' })
+
+    const settled = lobbyReducer(state, { type: '@lobbies/deactivate' })
+    expect(settled).toBe(state)
+  })
+
+  test('the chat cap trims at most one entry per push, even for multi-message pushes', () => {
+    let state = lobbyReducer(undefined, initAction())
+    // The init self-join message plus 199 chat messages fills the log to the 200-message cap
+    for (let i = 1; i < 200; i++) {
+      state = lobbyReducer(state, chatAction(`msg ${i}`))
+    }
+    expect(state.chat).toHaveLength(200)
+
+    state = lobbyReducer(state, chatAction('one more'))
+    expect(state.chat).toHaveLength(200)
+
+    // The countdown start pushes two messages (started + first tick) but still trims just one
+    state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
+    expect(state.chat).toHaveLength(201)
   })
 })

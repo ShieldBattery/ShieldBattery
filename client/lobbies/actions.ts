@@ -1,4 +1,3 @@
-import { Lobby } from '../../common/lobbies'
 import {
   GetLobbyStateResponse,
   LobbyBanEvent,
@@ -148,10 +147,6 @@ export interface LobbyUpdateCountdownTick {
 /** The game has been started and this lobby is now complete/closed. */
 export interface LobbyUpdateGameStarted {
   type: '@lobbies/updateGameStarted'
-  payload: {
-    /** The state of the lobby the game was started from, as of the moment it started. */
-    lobby: { info: Lobby }
-  }
 }
 
 /** A lobby we're in now has a new host player. */
