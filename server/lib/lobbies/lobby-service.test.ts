@@ -801,6 +801,37 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
+    test('closing a computer slot that dissolves its team seats waiting members', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      let lobby = lobbyService.lobbies.get(id)!
+      lobbyService.addComputer({ client: host.client, slotId: lobby.teams[1].slots[0].id })
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      await joinLobby(lister, id)
+
+      // Both teams full, so the next join waits on the bench
+      const extra = connectExtra(100)
+      await joinLobby(extra, id)
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(1)
+
+      // Closing one computer slot removes the whole computer team, leaving the rest of its slots
+      // open - open seats that must go to whoever was waiting
+      lobby = lobbyService.lobbies.get(id)!
+      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[1].slots[0].id })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.bench).toHaveLength(0)
+      expect(findSlotByUserId(updated, makeSbUserId(100))[2]!.type).toBe('human')
+    })
+
     test('a member leaving the bench does not cancel a countdown in progress', async () => {
       const id = await createLobbyWithBench()
 
