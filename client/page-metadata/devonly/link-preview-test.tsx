@@ -134,7 +134,7 @@ const PRESETS: Preset[] = [
   },
 ]
 
-/** Generates the exact `<meta>` tags `the server shell renderer would emit for `metadata`. */
+/** Generates the exact `<meta>` tags the server shell renderer would emit for `metadata`. */
 function renderMetaTags(metadata: PageMetadata): string {
   const attr = (value: string) =>
     value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -462,7 +462,7 @@ function XCard({ metadata }: { metadata: PageMetadata }) {
 /**
  * A devonly playground for `PageMetadata`: pick a preset (or edit fields directly) and see how the
  * result would unfurl as a Discord embed and an X (Twitter) card, alongside the exact `<meta>` tags
- * `the server shell renderer would emit for it. The "fetch a real path" mode instead loads the tags
+ * the server shell renderer would emit for it. The "fetch a real path" mode instead loads the tags
  * actually served by the running server for a given path, exercising the real resolvers.
  */
 export function LinkPreviewTest() {
