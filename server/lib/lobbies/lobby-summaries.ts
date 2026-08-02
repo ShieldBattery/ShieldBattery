@@ -12,12 +12,11 @@ let summaryGetter: LobbySummaryGetter | undefined
 /**
  * Registers the function used to resolve a lobby's summary by id.
  *
- * The wsapi `LobbyApi` (`server/lib/wsapi/lobbies.ts`) owns the in-memory lobby registry and
+ * `LobbyService` (`server/lib/lobbies/lobby-service.ts`) owns the in-memory lobby registry and
  * registers itself here at construction time. Other code that needs to read a live lobby's summary
- * (HTTP endpoints, page-metadata resolvers) should call {@link getLobbySummary} instead of importing
- * the websocket API directly — this mirrors the client's `dispatch-registry` pattern. A future
- * `LobbyService` extraction (moving the registry out of the wsapi class) will replace this seam with
- * a real injectable dependency.
+ * (HTTP endpoints, page-metadata resolvers) should call {@link getLobbySummary} instead of depending
+ * on the service directly, which keeps those read-only paths off the lobby dependency graph — this
+ * mirrors the client's `dispatch-registry` pattern.
  */
 export function setLobbySummaryGetter(getter: LobbySummaryGetter): void {
   summaryGetter = getter

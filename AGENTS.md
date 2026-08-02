@@ -19,15 +19,15 @@ ShieldBattery is a modern platform for playing StarCraft: Brood War/Remastered. 
 
 ## Quick Reference
 
-| Task                | Pattern                                          | Location                                |
-| ------------------- | ------------------------------------------------ | --------------------------------------- |
-| Add HTTP endpoint   | `@httpApi` class + `@httpGet`/`@httpPost` method | `server/lib/<feature>/<feature>-api.ts` |
-| Add WebSocket route | `@Mount` + `@Api` decorators                     | `server/lib/wsapi/`                     |
-| Add Redux state     | `immerKeyedReducer` + actions                    | `client/<feature>/<feature>-reducer.ts` |
-| Add local UI state  | Jotai atom                                       | `client/<feature>/<feature>-atoms.ts`   |
-| Add shared type     | Interface in `common/`                           | Use typeshare if coming from Rust       |
-| Add GraphQL query   | Resolver in server-rs + `pnpm gen-graphql`       | `server-rs/src/`                        |
-| Test component      | Create devonly page                              | `client/<feature>/devonly/`             |
+| Task                | Pattern                                          | Location                                       |
+| ------------------- | ------------------------------------------------ | ---------------------------------------------- |
+| Add HTTP endpoint   | `@httpApi` class + `@httpGet`/`@httpPost` method | `server/lib/<feature>/<feature>-api.ts`        |
+| Add WebSocket route | `@Mount` + `@Api` decorators                     | `server/lib/<feature>/<feature>-socket-api.ts` |
+| Add Redux state     | `immerKeyedReducer` + actions                    | `client/<feature>/<feature>-reducer.ts`        |
+| Add local UI state  | Jotai atom                                       | `client/<feature>/<feature>-atoms.ts`          |
+| Add shared type     | Interface in `common/`                           | Use typeshare if coming from Rust              |
+| Add GraphQL query   | Resolver in server-rs + `pnpm gen-graphql`       | `server-rs/src/`                               |
+| Test component      | Create devonly page                              | `client/<feature>/devonly/`                    |
 
 ### Key File Locations
 
@@ -211,7 +211,7 @@ export class ChatApi {
 
 **Common Middleware:** `ensureLoggedIn`, `checkAllPermissions()`, `throttleMiddleware()`, `handleMultipartFiles()`, `convertXxxErrors`
 
-**Path style:** URL path segments are dash-case, never camelCase — `@httpApi('/matchmaking-preferences')`, `@httpPost('/:gameId/netcode-rehome')`. This applies to WebSocket subscription paths too (`/matchmaking-preferences/:userId/:matchmakingType`). Path *params* (`:gameId`) and JSON body fields stay camelCase.
+**Path style:** URL path segments are dash-case, never camelCase — `@httpApi('/matchmaking-preferences')`, `@httpPost('/:gameId/netcode-rehome')`. This applies to WebSocket subscription paths too (`/matchmaking-preferences/:userId/:matchmakingType`). Path _params_ (`:gameId`) and JSON body fields stay camelCase.
 
 ### WebSocket API
 
@@ -268,13 +268,13 @@ struct field offsets and sizes (pointers are 4 vs 8 bytes — gate them with `#[
 and a `size_of` assertion per arch, as `StormSessionPlayer` in `bw_scr/scr.rs` does), any hardcoded
 absolute address or memory-layout offset, and pointer-width casts. Prefer arch-agnostic sources
 (samase_scarf resolves globals/functions/some offsets per-arch) over hardcoding; when an offset must
-be hardcoded, it needs a verified value for *each* arch, not one guessed from the other. Don't add a
+be hardcoded, it needs a verified value for _each_ arch, not one guessed from the other. Don't add a
 `cfg!(target_arch = "x86_64")` bail-out to dodge the work — verify the 64-bit values instead.
 
 **Always rebuild via `game\build.bat`, never a bare `cargo build`.** The app injects
 `game/dist/shieldbattery.dll` (see `app/game/active-game-manager.ts`), and only `build.bat` copies
 the freshly compiled DLL from `target/` into `dist/`. A bare `cargo build` updates `target/` but
-leaves `dist/` stale, so a launched game silently runs the *old* DLL — a change appears to have no
+leaves `dist/` stale, so a launched game silently runs the _old_ DLL — a change appears to have no
 effect (or to "fail" in a way that doesn't match the source). If a game-launch test contradicts
 your code, suspect a stale `dist/` DLL first.
 

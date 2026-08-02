@@ -15,8 +15,8 @@ export interface LobbyPlayerNetworkInfo {
  * id and user id. These feed the netcode v2 session create (the latency estimate, and the token's
  * embedded pubkey) and must never reach the wire-visible `Slot`: lobby diffs broadcast every slot's
  * full record to every member, and neither a player's rtt nor their pubkey is for peers' eyes. Kept
- * as its own small class (rather than inline bookkeeping on `LobbyApi`) so its lifecycle is
- * unit-testable without the websocket DI graph `LobbyApi` itself requires.
+ * as its own small class (rather than inline bookkeeping on `LobbyService`) so its lifecycle is
+ * unit-testable without the DI graph `LobbyService` itself requires.
  */
 export class LobbyPlayerNetworkStore {
   private byLobby = new Map<SbLobbyId, Map<SbUserId, LobbyPlayerNetworkInfo>>()

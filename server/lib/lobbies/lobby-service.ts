@@ -1,16 +1,11 @@
-import errors from 'http-errors'
-import { Map as IMap } from 'immutable'
-import { NextFunc, NydusClient, NydusServer } from 'nydus'
-import { container } from 'tsyringe'
+import { singleton } from 'tsyringe'
 import { ReadonlyDeep } from 'type-fest'
 import createDeferred, { Deferred } from '../../../common/async/deferred'
 import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
-import { isValidLobbyName, validRace } from '../../../common/constants'
 import { GameServerRegion, GameServerRegionId } from '../../../common/game-server-regions'
 import { GameConfig, GameSource } from '../../../common/games/configuration'
-import { GameType, isValidGameSubType, isValidGameType } from '../../../common/games/game-type'
+import { GameType } from '../../../common/games/game-type'
 import {
-  ALL_LOBBY_VISIBILITIES,
   findSlotById,
   findSlotByUserId,
   getHumanSlots,
@@ -21,27 +16,23 @@ import {
   hasOpposingSides,
   isUms,
   Lobby,
+  LobbyState,
   LobbyVisibility,
 } from '../../../common/lobbies'
-import {
-  LobbyCreateErrorCode,
-  LobbyJoinErrorCode,
-  LobbySlotCreateEvent,
-} from '../../../common/lobbies/lobby-network'
+import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
 import { SbMapId } from '../../../common/maps'
-import { isPrettyId } from '../../../common/pretty-id'
+import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { toBasicChannelInfo } from '../chat/chat-models'
+import { CodedError } from '../errors/coded-error'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { BaseGameLoaderError, GameLoader, GameLoadErrorType } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
-import * as Lobbies from '../lobbies/lobby'
-import { setLobbySummaryGetter } from '../lobbies/lobby-summaries'
 import logger from '../logging/logger'
 import { getMapInfos } from '../maps/map-models'
 import { reparseMapsAsNeeded } from '../maps/map-operations'
@@ -50,37 +41,92 @@ import { processMessageContents } from '../messaging/process-chat-message'
 import { NetcodeV2Service } from '../netcode-v2/netcode-v2-service'
 import { RestrictionService } from '../users/restriction-service'
 import { findUsersById } from '../users/user-model'
-import { Api, Mount, registerApiRoutes } from '../websockets/api-decorators'
 import {
   ClientSocketsGroup,
-  ClientSocketsManager,
   UserSocketsGroup,
   UserSocketsManager,
 } from '../websockets/socket-groups'
-import validateBody from '../websockets/validate-body'
+import { TypedPublisher } from '../websockets/typed-publisher'
+import * as Lobbies from './lobby'
 import { LobbyPlayerNetworkStore } from './lobby-player-network-store'
+import { setLobbySummaryGetter } from './lobby-summaries'
+
+/**
+ * Machine-readable codes for every way a lobby operation can fail. Transports translate these into
+ * whatever their callers understand (status codes, client-facing error codes), so the messages
+ * carried alongside them are the only human-readable part.
+ *
+ * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `Banned`, `JoinAlreadyStarted`,
+ * `JoinAlreadyInActivity`): joining is the one operation whose failures the client renders
+ * individually, so its outcomes are distinguished from the otherwise-identical failures of the
+ * host-only operations.
+ */
+export enum LobbyServiceErrorCode {
+  AlreadyInActivity = 'AlreadyInActivity',
+  AlreadyInSlot = 'AlreadyInSlot',
+  AlreadyStarted = 'AlreadyStarted',
+  Banned = 'Banned',
+  ChatRestricted = 'ChatRestricted',
+  ComputerInObserverSlot = 'ComputerInObserverSlot',
+  CountingDown = 'CountingDown',
+  ForcedRace = 'ForcedRace',
+  InvalidGameSubType = 'InvalidGameSubType',
+  InvalidGameType = 'InvalidGameType',
+  InvalidMap = 'InvalidMap',
+  InvalidSlotId = 'InvalidSlotId',
+  InvalidSlotOperation = 'InvalidSlotOperation',
+  InvalidSlotType = 'InvalidSlotType',
+  JoinAlreadyInActivity = 'JoinAlreadyInActivity',
+  JoinAlreadyStarted = 'JoinAlreadyStarted',
+  LobbyFull = 'LobbyFull',
+  NameTaken = 'NameTaken',
+  NoActiveClient = 'NoActiveClient',
+  NoLobby = 'NoLobby',
+  NotEnoughSides = 'NotEnoughSides',
+  NotHost = 'NotHost',
+  NotInLobby = 'NotInLobby',
+  NotObserverSlot = 'NotObserverSlot',
+  NotOwnSlot = 'NotOwnSlot',
+  NotSlotController = 'NotSlotController',
+  TargetNoActiveClient = 'TargetNoActiveClient',
+  UserOffline = 'UserOffline',
+}
+
+export class LobbyServiceError extends CodedError<LobbyServiceErrorCode> {}
+
+/**
+ * The nydus path of the public lobby list channel, which is also the base path every lobby-specific
+ * channel hangs off of.
+ */
+export const LOBBY_LIST_PATH = '/lobbies'
+
+/** The channel every occupant of a lobby is subscribed to. */
+export function getLobbyPath(lobbyId: SbLobbyId): string {
+  return LOBBY_LIST_PATH + urlPath`/${lobbyId}`
+}
+
+/** The channel a single user in a lobby is subscribed to, across all of their clients. */
+export function getLobbyUserPath(lobbyId: SbLobbyId, userId: SbUserId): string {
+  return LOBBY_LIST_PATH + urlPath`/${lobbyId}/${userId}`
+}
+
+/** The channel a single client of a user in a lobby is subscribed to. */
+export function getLobbyClientPath(lobbyId: SbLobbyId, userId: SbUserId, clientId: string): string {
+  return LOBBY_LIST_PATH + urlPath`/${lobbyId}/${userId}/${clientId}`
+}
+
+/**
+ * The events published on the lobby channels: changes to the public lobby list, the open-lobby
+ * count, and the per-lobby/per-user/per-client channels.
+ */
+type LobbyPublishEvent =
+  | { action: 'add' | 'delete' | 'update'; payload: SbLobbyId | LobbySummaryJson }
+  | { count: number }
+  | { type: string; [key: string]: any }
 
 const REMOVAL_TYPE_NORMAL = 0
 const REMOVAL_TYPE_KICK = 1
 const REMOVAL_TYPE_BAN = 2
-
-const nonEmptyString = (str: unknown) => typeof str === 'string' && str.length > 0
-const isLobbyId = (id: unknown) => typeof id === 'string' && isPrettyId(id)
-
-// The desired region is an opaque id, loosely validated here; the handler checks it against the
-// live region list and drops it if unknown, so a client with no measured regions joins region-less.
-const isValidRegion = (region: unknown) =>
-  region === undefined || (typeof region === 'string' && region.length > 0 && region.length <= 64)
-// `rttMs` is only meaningful alongside a region; the region list check is what actually gates it.
-const isValidRttMs = (rttMs: unknown) =>
-  rttMs === undefined || (typeof rttMs === 'number' && rttMs >= 0)
-// The per-session netcode v2 public key is optional here (a solo-vs-AI lobby never uses netcode v2),
-// but when present it must decode to exactly 32 raw bytes (an Ed25519 public key).
-const isValidNetcodeV2Pubkey = (pubkey: unknown) =>
-  pubkey === undefined ||
-  (typeof pubkey === 'string' && Buffer.from(pubkey, 'base64').length === 32)
-const isValidVisibility = (visibility: unknown) =>
-  visibility === undefined || ALL_LOBBY_VISIBILITIES.includes(visibility as LobbyVisibility)
 
 /**
  * Returns `region` only when it appears in `regions`, otherwise undefined. The region list can
@@ -99,55 +145,41 @@ interface Countdown {
   timer?: Deferred<void>
 }
 
-interface ListSubscription {
-  onUnsubscribe?: () => void
-  count: number
-}
-
 function checkSubTypeValidity(gameType: GameType, gameSubType: number = 0, numSlots: number) {
   if (gameType === 'topVBottom') {
     if (gameSubType < 1 || gameSubType > numSlots - 1) {
-      throw new errors.BadRequest('Invalid game sub-type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidGameSubType, 'Invalid game sub-type')
     }
   } else if (gameType === 'teamMelee' || gameType === 'teamFfa') {
     if (gameSubType < 2 || gameSubType > Math.min(4, numSlots)) {
-      throw new errors.BadRequest('Invalid game sub-type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidGameSubType, 'Invalid game sub-type')
     }
   }
 }
 
 class CountdownCanceledError extends Error {}
 
-const MOUNT_BASE = '/lobbies'
-
-@Mount(MOUNT_BASE)
-export class LobbyApi {
-  readonly activityRegistry = container.resolve(GameplayActivityRegistry)
-  readonly gameLoader = container.resolve(GameLoader)
-  readonly restrictionService = container.resolve(RestrictionService)
-  readonly gameServerRegionsService = container.resolve(GameServerRegionsService)
-  readonly netcodeV2Service = container.resolve(NetcodeV2Service)
-
+@singleton()
+export class LobbyService {
   readonly lobbies = new Map<SbLobbyId, Lobby>()
   readonly lobbyClients = new Map<ClientSocketsGroup, SbLobbyId>()
   readonly lobbyBannedUsers = new Map<SbLobbyId, Set<SbUserId>>()
   readonly lobbyCountdowns = new Map<SbLobbyId, Countdown>()
   readonly loadingLobbies = new Map<SbLobbyId, AbortController>()
-  readonly subscribedSockets = new Map<string, ListSubscription>()
   readonly lobbyPlayerNetwork = new LobbyPlayerNetworkStore()
 
   constructor(
-    readonly nydus: NydusServer,
-    readonly userSockets: UserSocketsManager,
-    readonly clientSockets: ClientSocketsManager,
+    private publisher: TypedPublisher<LobbyPublishEvent>,
+    private activityRegistry: GameplayActivityRegistry,
+    private gameLoader: GameLoader,
+    private restrictionService: RestrictionService,
+    private gameServerRegionsService: GameServerRegionsService,
+    private netcodeV2Service: NetcodeV2Service,
+    private userSockets: UserSocketsManager,
   ) {
-    this.clientSockets.on('newClient', client => {
-      client.subscribe('/lobbiesCount', () => ({ count: this._getLobbiesCount() }))
-    })
-
     // Registers this instance's registry as the source of truth for `lobby-summaries`'s seam, so
     // the unauthenticated HTTP summary endpoint and the lobby page-metadata resolver can read a
-    // live lobby's summary without importing this websocket API directly.
+    // live lobby's summary without depending on this service directly.
     setLobbySummaryGetter(id => {
       const lobby = this.lobbies.get(id)
       // A counting-down or loading lobby can't be joined, so it's reported as gone rather than as
@@ -159,95 +191,45 @@ export class LobbyApi {
     })
   }
 
-  @Api('/subscribe')
-  async subscribe(data: IMap<string, any>, next: NextFunc) {
-    const socket = data.get('client')
-    const existingSubscription = this.subscribedSockets.get(socket.id)
-    if (existingSubscription) {
-      existingSubscription.count++
-      return
-    }
-
-    const summary = [...this.lobbies.values()]
+  /** Returns a summary of every lobby that belongs on the public lobby list. */
+  getListedSummaries(): LobbySummaryJson[] {
+    return [...this.lobbies.values()]
       .filter(l => l.visibility === 'listed')
       .map(l => Lobbies.toSummaryJson(l))
-    this.nydus.subscribeClient(socket, MOUNT_BASE, { action: 'full', payload: summary })
-
-    const onClose = () => {
-      this.nydus.unsubscribeClient(socket, MOUNT_BASE)
-      this.subscribedSockets.delete(socket.id)
-    }
-    socket.once('close', onClose)
-    this.subscribedSockets.set(socket.id, {
-      onUnsubscribe: () => socket.removeListener('close', onClose),
-      count: 1,
-    })
   }
 
-  @Api('/unsubscribe')
-  async unsubscribe(data: IMap<string, any>, next: NextFunc) {
-    const socket = data.get('client') as NydusClient
-    const subscription = this.subscribedSockets.get(socket.id)
-    if (!subscription) {
-      throw new errors.Conflict('not subscribed')
-    }
-
-    if (subscription.count === 1) {
-      this.nydus.unsubscribeClient(socket, MOUNT_BASE)
-      this.subscribedSockets.delete(socket.id)
-      subscription.onUnsubscribe?.()
-    } else {
-      subscription.count--
-    }
-  }
-
-  @Api(
-    '/create',
-    validateBody({
-      name: isValidLobbyName,
-      map: nonEmptyString,
-      gameType: isValidGameType,
-      gameSubType: isValidGameSubType,
-      allowObservers: (b: unknown) => b === undefined || b === true || b === false,
-      useLegacyLimits: (b: unknown) => b === undefined || b === true || b === false,
-      visibility: isValidVisibility,
-      region: isValidRegion,
-      rttMs: isValidRttMs,
-      clientPubkey: isValidNetcodeV2Pubkey,
-    }),
-  )
-  async create(data: IMap<string, any>, next: NextFunc) {
-    const {
-      name,
-      map,
-      gameType,
-      gameSubType,
-      allowObservers,
-      useLegacyLimits,
-      visibility,
-      region,
-      rttMs,
-      clientPubkey,
-    } = data.get('body') as {
-      name: string
-      map: SbMapId
-      gameType: GameType
-      gameSubType?: number
-      allowObservers?: boolean
-      useLegacyLimits?: boolean
-      visibility?: LobbyVisibility
-      region?: GameServerRegionId
-      rttMs?: number
-      clientPubkey?: string
-    }
-    const user = this.getUser(data)
-    const client = this.getClient(data)
-
+  async createLobby({
+    name,
+    map,
+    gameType,
+    gameSubType,
+    allowObservers,
+    useLegacyLimits,
+    visibility,
+    region,
+    rttMs,
+    clientPubkey,
+    user,
+    client,
+  }: {
+    name: string
+    map: SbMapId
+    gameType: GameType
+    gameSubType?: number
+    allowObservers?: boolean
+    useLegacyLimits?: boolean
+    visibility?: LobbyVisibility
+    region?: GameServerRegionId
+    rttMs?: number
+    clientPubkey?: string
+    user: UserSocketsGroup
+    client: ClientSocketsGroup
+  }): Promise<{ id: SbLobbyId }> {
     const hostRegion = await this._resolveRegion(region)
 
     let mapInfo = (await getMapInfos([map]))[0]
     if (!mapInfo) {
-      throw new errors.BadRequest('invalid map')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidMap, 'invalid map')
     }
     ;[mapInfo] = await reparseMapsAsNeeded([mapInfo])
     checkSubTypeValidity(gameType, gameSubType, mapInfo.mapData.slots)
@@ -278,9 +260,10 @@ export class LobbyApi {
       lobbyVisibility === 'listed' &&
       [...this.lobbies.values()].some(l => l.visibility === 'listed' && l.name === name)
     ) {
-      throw Object.assign(new errors.Conflict('already another lobby with that name'), {
-        body: { code: LobbyCreateErrorCode.NameTaken },
-      })
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.NameTaken,
+        'already another lobby with that name',
+      )
     }
 
     const lobby = Lobbies.createLobby({
@@ -297,7 +280,10 @@ export class LobbyApi {
       visibility: lobbyVisibility,
     })
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
-      throw new errors.Conflict('user is already active in a gameplay activity')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.AlreadyInActivity,
+        'user is already active in a gameplay activity',
+      )
     }
 
     this.lobbies.set(lobby.id, lobby)
@@ -313,50 +299,47 @@ export class LobbyApi {
     return { id: lobby.id }
   }
 
-  @Api(
-    '/join',
-    validateBody({
-      id: isLobbyId,
-      region: isValidRegion,
-      rttMs: isValidRttMs,
-      clientPubkey: isValidNetcodeV2Pubkey,
-    }),
-  )
-  async join(data: IMap<string, any>, next: NextFunc) {
-    const { id, region, rttMs, clientPubkey } = data.get('body') as {
-      id: SbLobbyId
-      region?: GameServerRegionId
-      rttMs?: number
-      clientPubkey?: string
-    }
-    const user = this.getUser(data)
-    const client = this.getClient(data)
-
+  async joinLobby({
+    id,
+    region,
+    rttMs,
+    clientPubkey,
+    user,
+    client,
+  }: {
+    id: SbLobbyId
+    region?: GameServerRegionId
+    rttMs?: number
+    clientPubkey?: string
+    user: UserSocketsGroup
+    client: ClientSocketsGroup
+  }): Promise<void> {
     const joinRegion = await this._resolveRegion(region)
 
     if (!this.lobbies.has(id)) {
-      throw Object.assign(new errors.NotFound('no lobby found with that id'), {
-        body: { code: LobbyJoinErrorCode.NoLongerOpen },
-      })
+      throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
     const lobby = this.lobbies.get(id)!
     try {
       this.ensureLobbyNotTransient(lobby)
     } catch (err) {
-      throw Object.assign(err as Error, { body: { code: LobbyJoinErrorCode.AlreadyStarted } })
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.JoinAlreadyStarted,
+        (err as Error).message,
+        { cause: err },
+      )
     }
 
     if (this.lobbyBannedUsers.get(lobby.id)?.has(client.userId)) {
-      throw Object.assign(new errors.Conflict('user has been banned from this lobby'), {
-        body: { code: LobbyJoinErrorCode.Banned },
-      })
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.Banned,
+        'user has been banned from this lobby',
+      )
     }
 
     const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
     if (teamIndex === undefined || slotIndex === undefined) {
-      throw Object.assign(new errors.Conflict('lobby is full'), {
-        body: { code: LobbyJoinErrorCode.Full },
-      })
+      throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
     }
 
     let player
@@ -378,9 +361,10 @@ export class LobbyApi {
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
-      throw Object.assign(new errors.Conflict('user is already active in a gameplay activity'), {
-        body: { code: LobbyJoinErrorCode.AlreadyInActivity },
-      })
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.JoinAlreadyInActivity,
+        'user is already active in a gameplay activity',
+      )
     }
 
     // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
@@ -435,7 +419,7 @@ export class LobbyApi {
   _subscribeClientToLobby(lobby: Lobby, user: UserSocketsGroup, client: ClientSocketsGroup) {
     const lobbyId = lobby.id
     client.subscribe(
-      LobbyApi._getPath(lobby),
+      getLobbyPath(lobbyId),
       async () => {
         const lobby = this.lobbies.get(lobbyId)
         if (!lobby) {
@@ -469,37 +453,32 @@ export class LobbyApi {
         }
       },
     )
-    user.subscribe(LobbyApi._getUserPath(lobby, user.userId), () => {
+    user.subscribe(getLobbyUserPath(lobbyId, user.userId), () => {
       return {
         type: 'status',
         lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyId)!),
       }
     })
-    client.subscribe(LobbyApi._getClientPath(lobby, client))
+    client.subscribe(getLobbyClientPath(lobbyId, client.userId, client.clientId))
   }
 
-  @Api(
-    '/sendChat',
-    validateBody({
-      text: nonEmptyString,
-    }),
-  )
-  async sendChat(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  async sendChat({ client, text }: { client: ClientSocketsGroup; text: string }): Promise<void> {
     const lobby = this.getLobbyForClient(client)
     const time = Date.now()
-    let { text } = data.get('body')
 
     const isChatRestricted = await this.restrictionService.isRestricted(
       client.userId,
       RestrictionKind.Chat,
     )
     if (isChatRestricted) {
-      throw new errors.Forbidden('You are currently restricted from sending chat messages')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ChatRestricted,
+        'You are currently restricted from sending chat messages',
+      )
     }
 
-    text = filterChatMessage(text)
-    const [processedText, userMentions, channelMentions] = await processMessageContents(text)
+    const filtered = filterChatMessage(text)
+    const [processedText, userMentions, channelMentions] = await processMessageContents(filtered)
     this._publishTo(lobby, {
       type: 'chat',
       message: {
@@ -513,35 +492,33 @@ export class LobbyApi {
     })
   }
 
-  @Api(
-    '/addComputer',
-    validateBody({
-      slotId: nonEmptyString,
-    }),
-  )
-  async addComputer(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  addComputer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
     if (isUms(lobby.gameType)) {
-      throw new errors.BadRequest('invalid game type: ' + lobby.gameType)
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidGameType,
+        'invalid game type: ' + lobby.gameType,
+      )
     }
 
-    const { slotId } = data.get('body')
     const [teamIndex, slotIndex, slotToAddComputer] = findSlotById(lobby, slotId)
     if (!slotToAddComputer) {
-      throw new errors.BadRequest('invalid id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid id')
     }
     if (slotToAddComputer.type !== 'open' && slotToAddComputer.type !== 'closed') {
-      throw new errors.BadRequest('invalid slot type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
     if (lobby.teams[teamIndex!].isObserver) {
       // A computer can't watch a game, and the game itself has no concept of one in an observer
       // slot — it would just be silently absent.
-      throw new errors.BadRequest('cannot add computer to an observer slot')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ComputerInObserverSlot,
+        'cannot add computer to an observer slot',
+      )
     }
 
     const computer = Slots.createComputer()
@@ -551,28 +528,23 @@ export class LobbyApi {
     this._warmLobbyRegions(updated)
   }
 
-  @Api(
-    '/changeSlot',
-    validateBody({
-      slotId: nonEmptyString,
-    }),
-  )
-  async changeSlot(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  changeSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     this.ensureLobbyNotTransient(lobby)
     const [sourceTeamIndex, sourceSlotIndex, sourceSlot] = findSlotByUserId(lobby, client.userId)
 
-    const { slotId } = data.get('body')
     const [destTeamIndex, destSlotIndex, destSlot] = findSlotById(lobby, slotId)
     if (!destSlot) {
-      throw new errors.BadRequest('invalid id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid id')
     }
     if (destSlot.type !== 'open' && destSlot.type !== 'controlledOpen') {
-      throw new errors.BadRequest('invalid destination slot type')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotType,
+        'invalid destination slot type',
+      )
     }
     if (sourceSlot === destSlot) {
-      throw new errors.Conflict('already in that slot')
+      throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyInSlot, 'already in that slot')
     }
 
     let updated
@@ -585,30 +557,33 @@ export class LobbyApi {
         destSlotIndex!,
       )
     } catch (err) {
-      throw new errors.BadRequest((err as any).message)
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
     }
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
-  @Api(
-    '/setRace',
-    validateBody({
-      id: nonEmptyString,
-      race: validRace,
-    }),
-  )
-  async setRace(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  setRace({
+    client,
+    slotId,
+    race,
+  }: {
+    client: ClientSocketsGroup
+    slotId: string
+    race: RaceChar
+  }): void {
     const lobby = this.getLobbyForClient(client)
     this.ensureLobbyNotLoading(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
 
-    const { id, race } = data.get('body')
-    const [teamIndex, slotIndex, slotToSetRace] = findSlotById(lobby, id)
+    const [teamIndex, slotIndex, slotToSetRace] = findSlotById(lobby, slotId)
     if (!slotToSetRace) {
-      throw new errors.BadRequest('invalid id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid id')
     }
     if (
       slotToSetRace.type !== 'computer' &&
@@ -616,19 +591,25 @@ export class LobbyApi {
       slotToSetRace.type !== 'controlledOpen' &&
       slotToSetRace.type !== 'controlledClosed'
     ) {
-      throw new errors.BadRequest('invalid slot type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
     if (slotToSetRace.type === 'computer') {
       this.ensureIsLobbyHost(lobby, player!)
     } else if (slotToSetRace.controlledBy) {
       if (slotToSetRace.controlledBy !== player!.id) {
-        throw new errors.Forbidden('must control a slot to set its race')
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.NotSlotController,
+          'must control a slot to set its race',
+        )
       }
     } else if (slotToSetRace.id !== player!.id) {
-      throw new errors.Forbidden("cannot set other user's races")
+      throw new LobbyServiceError(LobbyServiceErrorCode.NotOwnSlot, "cannot set other user's races")
     } else if (slotToSetRace.hasForcedRace) {
-      throw new errors.Forbidden('this slot has a forced race and cannot be changed')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.ForcedRace,
+        'this slot has a forced race and cannot be changed',
+      )
     }
 
     const updatedLobby = Lobbies.setRace(lobby, teamIndex!, slotIndex!, race)
@@ -636,61 +617,48 @@ export class LobbyApi {
     this._publishLobbyDiff(lobby, updatedLobby)
   }
 
-  @Api(
-    '/openSlot',
-    validateBody({
-      slotId: nonEmptyString,
-    }),
-  )
-  async openSlot(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  openSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotId } = data.get('body')
     const [teamIndex, slotIndex, slotToOpen] = findSlotById(lobby, slotId)
     if (!slotToOpen) {
-      throw new errors.BadRequest('invalid slot id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
     if (
       slotToOpen.type === 'open' ||
       slotToOpen.type === 'controlledOpen' ||
       slotToOpen.type === 'umsComputer'
     ) {
-      throw new errors.BadRequest('invalid slot type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
     let updated
     try {
       updated = Lobbies.openSlot(lobby, teamIndex!, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest((err as any).message)
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
     }
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
   }
 
-  @Api(
-    '/closeSlot',
-    validateBody({
-      slotId: nonEmptyString,
-    }),
-  )
-  async closeSlot(data: IMap<string, any>, next: NextFunc) {
-    const user = this.getUser(data)
-    const client = this.getClient(data)
+  closeSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotId } = data.get('body')
     const [teamIndex, slotIndex, slotToClose] = findSlotById(lobby, slotId)
     if (!slotToClose) {
-      throw new errors.BadRequest('invalid slot id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
 
     if (
@@ -698,7 +666,7 @@ export class LobbyApi {
       slotToClose.type === 'controlledClosed' ||
       slotToClose.type === 'umsComputer'
     ) {
-      throw new errors.BadRequest('invalid slot type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
     if (
@@ -706,7 +674,7 @@ export class LobbyApi {
       slotToClose.type === 'computer' ||
       slotToClose.type === 'observer'
     ) {
-      this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, slotToClose)
+      this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, slotToClose)
     }
     const afterKick = this.lobbies.get(lobby.id)!
 
@@ -714,44 +682,38 @@ export class LobbyApi {
     try {
       updated = Lobbies.closeSlot(afterKick, teamIndex!, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest((err as any).message)
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
     }
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(afterKick, updated)
   }
 
-  @Api('/kickPlayer')
-  async kickPlayer(data: IMap<string, any>, next: NextFunc) {
-    const user = this.getUser(data)
-    const client = this.getClient(data)
+  kickPlayer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotId } = data.get('body')
     const [teamIndex, slotIndex, playerToKick] = findSlotById(lobby, slotId)
     if (!playerToKick) {
-      throw new errors.BadRequest('invalid slot id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
     if (
       playerToKick.type !== 'human' &&
       playerToKick.type !== 'computer' &&
       playerToKick.type !== 'observer'
     ) {
-      throw new errors.BadRequest('invalid slot type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
-    this._kickPlayerFromLobby(lobby, user, teamIndex!, slotIndex!, playerToKick)
+    this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, playerToKick)
   }
 
-  _kickPlayerFromLobby(
-    lobby: Lobby,
-    user: UserSocketsGroup,
-    teamIndex: number,
-    slotIndex: number,
-    playerToKick: Slot,
-  ) {
+  _kickPlayerFromLobby(lobby: Lobby, teamIndex: number, slotIndex: number, playerToKick: Slot) {
     if (playerToKick.type === 'computer') {
       // NOTE(tec27): We know that removing a computer can never result in an empty lobby since a
       // human has to do it
@@ -762,27 +724,27 @@ export class LobbyApi {
     } else if (playerToKick.type === 'human' || playerToKick.type === 'observer') {
       const client = this.activityRegistry.getClientForUser(playerToKick.userId!)
       if (!client) {
-        throw new errors.Conflict('target player has no active client')
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.TargetNoActiveClient,
+          'target player has no active client',
+        )
       }
       this._removeClientFromLobby(lobby, client, REMOVAL_TYPE_KICK)
     }
   }
 
-  @Api('/banPlayer')
-  async banPlayer(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  banPlayer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotId } = data.get('body')
     const [, , playerToBan] = findSlotById(lobby, slotId)
     if (!playerToBan) {
-      throw new errors.BadRequest('invalid slot id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
     if (playerToBan.type !== 'human' && playerToBan.type !== 'observer') {
-      throw new errors.BadRequest('invalid slot type')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
     let bannedUsers = this.lobbyBannedUsers.get(lobby.id)
@@ -794,67 +756,73 @@ export class LobbyApi {
 
     const clientToBan = this.activityRegistry.getClientForUser(playerToBan.userId!)
     if (!clientToBan) {
-      throw new errors.Conflict('target player has no active client')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.TargetNoActiveClient,
+        'target player has no active client',
+      )
     }
     this._removeClientFromLobby(lobby, clientToBan, REMOVAL_TYPE_BAN)
   }
 
-  @Api('/makeObserver')
-  async makeObserver(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  makeObserver({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotId } = data.get('body')
     const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
     if (!slot) {
-      throw new errors.BadRequest('invalid slot id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
 
     let updated
     try {
       updated = Lobbies.makeObserver(lobby, teamIndex!, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest((err as any).message)
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
     }
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
-  @Api('/removeObserver')
-  async removeObserver(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  removeObserver({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
     const lobby = this.getLobbyForClient(client)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
 
-    const { slotId } = data.get('body')
     const [teamIndex, slotIndex, slot] = findSlotById(lobby, slotId)
     if (!slot) {
-      throw new errors.BadRequest('invalid slot id')
+      throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotId, 'invalid slot id')
     }
     if (!lobby.teams[teamIndex!]?.isObserver) {
-      throw new errors.BadRequest('Slot is not in the observer team')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.NotObserverSlot,
+        'Slot is not in the observer team',
+      )
     }
 
     let updated
     try {
       updated = Lobbies.removeObserver(lobby, slotIndex!)
     } catch (err) {
-      throw new errors.BadRequest((err as any).message)
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        (err as any).message,
+        { cause: err },
+      )
     }
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
   }
 
-  @Api('/leave')
-  async leave(data: IMap<string, any>, next: NextFunc) {
-    const user = this.getUser(data)
+  leaveLobby({ user }: { user: UserSocketsGroup }): void {
     const client = this.getActiveClientForUser(user.userId)
     const lobby = this.getLobbyForClient(client)
     this._removeClientFromLobby(lobby, client)
@@ -905,21 +873,22 @@ export class LobbyApi {
 
     try {
       const user = this.getUserById(client.userId)
-      user.unsubscribe(LobbyApi._getUserPath(lobby, client.userId))
+      user.unsubscribe(getLobbyUserPath(lobby.id, client.userId))
     } catch {
       // Getting the user can fail if they've gone offline, but we don't need to unsubscribe
       // them in that case, so ignoring this error is fine
     }
-    client.unsubscribe(LobbyApi._getClientPath(lobby, client))
-    client.unsubscribe(LobbyApi._getPath(lobby))
+    client.unsubscribe(getLobbyClientPath(lobby.id, client.userId, client.clientId))
+    client.unsubscribe(getLobbyPath(lobby.id))
   }
 
-  @Api('/startCountdown')
-  async startCountdown(data: IMap<string, any>, next: NextFunc) {
-    const client = this.getClient(data)
+  async startCountdown({ client }: { client: ClientSocketsGroup }): Promise<void> {
     const lobby = this.getLobbyForClient(client)
     if (!hasOpposingSides(lobby)) {
-      throw new errors.BadRequest('must have at least 2 opposing sides')
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.NotEnoughSides,
+        'must have at least 2 opposing sides',
+      )
     }
 
     const [, , player] = findSlotByUserId(lobby, client.userId)
@@ -1058,9 +1027,9 @@ export class LobbyApi {
           type: 'status',
           lobby: null,
         })
-        user.unsubscribe(LobbyApi._getUserPath(lobby, user.userId))
-        client.unsubscribe(LobbyApi._getPath(lobby))
-        client.unsubscribe(LobbyApi._getClientPath(lobby, client))
+        user.unsubscribe(getLobbyUserPath(lobby.id, user.userId))
+        client.unsubscribe(getLobbyPath(lobby.id))
+        client.unsubscribe(getLobbyClientPath(lobby.id, client.userId, client.clientId))
         this.lobbyClients.delete(client)
         this.activityRegistry.unregisterClientForUser(user.userId)
       })
@@ -1087,17 +1056,11 @@ export class LobbyApi {
     }
   }
 
-  @Api(
-    '/getLobbyState',
-    validateBody({
-      lobbyId: nonEmptyString,
-    }),
-  )
-  async getLobbyState(data: IMap<string, any>, next: NextFunc) {
-    this.getClient(data)
-    const { lobbyId } = data.get('body')
-
-    let lobbyState
+  getLobbyState({ lobbyId }: { lobbyId: SbLobbyId }): {
+    lobbyId: SbLobbyId
+    lobbyState: LobbyState
+  } {
+    let lobbyState: LobbyState
     if (!this.lobbies.has(lobbyId)) {
       lobbyState = 'nonexistent'
     } else {
@@ -1112,46 +1075,36 @@ export class LobbyApi {
     return { lobbyId, lobbyState }
   }
 
-  getUser(data: IMap<string, any>): UserSocketsGroup {
-    const user = this.userSockets.getBySocket(data.get('client'))
-    if (!user) throw new errors.Unauthorized('authorization required')
-    return user
-  }
-
   getUserById(id: SbUserId): UserSocketsGroup {
     const user = this.userSockets.getById(id)
-    if (!user) throw new errors.BadRequest('user not online')
+    if (!user) throw new LobbyServiceError(LobbyServiceErrorCode.UserOffline, 'user not online')
     return user
   }
 
   getActiveClientForUser(userId: SbUserId): ClientSocketsGroup {
     const client = this.activityRegistry.getClientForUser(userId)
-    if (!client) throw new errors.BadRequest('no active client for user')
-    return client
-  }
-
-  getClient(data: IMap<string, any>): ClientSocketsGroup {
-    const client = this.clientSockets.getCurrentClient(data.get('client'))
-    if (!client) throw new errors.Unauthorized('authorization required')
+    if (!client) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.NoActiveClient, 'no active client for user')
+    }
     return client
   }
 
   getLobbyForClient(client: ClientSocketsGroup): Lobby {
     if (!this.lobbyClients.has(client)) {
-      throw new errors.BadRequest('must be in a lobby')
+      throw new LobbyServiceError(LobbyServiceErrorCode.NotInLobby, 'must be in a lobby')
     }
     return this.lobbies.get(this.lobbyClients.get(client)!)!
   }
 
   ensureIsLobbyHost(lobby: Lobby, player: Slot) {
     if (player.id !== lobby.host.id) {
-      throw new errors.Unauthorized('must be a lobby host')
+      throw new LobbyServiceError(LobbyServiceErrorCode.NotHost, 'must be a lobby host')
     }
   }
 
   ensureLobbyNotLoading(lobby: Lobby) {
     if (this.loadingLobbies.has(lobby.id)) {
-      throw new errors.Conflict('lobby has already started')
+      throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyStarted, 'lobby has already started')
     }
   }
 
@@ -1160,14 +1113,14 @@ export class LobbyApi {
   // (bringing the lobby back to a non-transient state)
   ensureLobbyNotTransient(lobby: Lobby) {
     if (this.lobbyCountdowns.has(lobby.id)) {
-      throw new errors.Conflict('lobby is counting down')
+      throw new LobbyServiceError(LobbyServiceErrorCode.CountingDown, 'lobby is counting down')
     }
     if (this.loadingLobbies.has(lobby.id)) {
-      throw new errors.Conflict('lobby has already started')
+      throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyStarted, 'lobby has already started')
     }
   }
 
-  _getLobbiesCount() {
+  getLobbiesCount() {
     // TODO(tec27): Ideally this would remove full lobbies?
     let count = 0
     for (const lobby of this.lobbies.values()) {
@@ -1183,7 +1136,7 @@ export class LobbyApi {
   }
 
   _publishLobbiesCount() {
-    this.nydus.publish('/lobbiesCount', { count: this._getLobbiesCount() })
+    this.publisher.publish('/lobbiesCount', { count: this.getLobbiesCount() })
   }
 
   /**
@@ -1195,7 +1148,7 @@ export class LobbyApi {
    */
   _publishListChange(action: 'add' | 'delete' | 'update', lobby: Lobby) {
     if (lobby.visibility === 'listed') {
-      this.nydus.publish(MOUNT_BASE, {
+      this.publisher.publish(LOBBY_LIST_PATH, {
         action,
         payload: action === 'delete' ? lobby.id : Lobbies.toSummaryJson(lobby),
       })
@@ -1204,19 +1157,11 @@ export class LobbyApi {
   }
 
   _publishTo(lobby: Lobby, data?: any) {
-    this.nydus.publish(LobbyApi._getPath(lobby), data)
+    this.publisher.publish(getLobbyPath(lobby.id), data)
   }
 
   _publishToUser(lobby: Lobby, userId: SbUserId, data?: any) {
-    this.nydus.publish(LobbyApi._getUserPath(lobby, userId), data)
-  }
-
-  _publishToClient(lobby: Lobby, userId: SbUserId, data?: any) {
-    const client = this.activityRegistry.getClientForUser(userId)
-    if (!client) {
-      return
-    }
-    this.nydus.publish(LobbyApi._getClientPath(lobby, client), data)
+    this.publisher.publish(getLobbyUserPath(lobby.id, userId), data)
   }
 
   _publishLobbyDiff(
@@ -1333,26 +1278,4 @@ export class LobbyApi {
 
     this._publishListChange('update', newLobby)
   }
-
-  static _getPath(lobby: Lobby) {
-    return MOUNT_BASE + urlPath`/${lobby.id}`
-  }
-
-  static _getUserPath(lobby: Lobby, userId: SbUserId) {
-    return MOUNT_BASE + urlPath`/${lobby.id}/${userId}`
-  }
-
-  static _getClientPath(lobby: Lobby, client: ClientSocketsGroup) {
-    return MOUNT_BASE + urlPath`/${lobby.id}/${client.userId}/${client.clientId}`
-  }
-}
-
-export default function registerApi(
-  nydus: NydusServer,
-  userSockets: UserSocketsManager,
-  clientSockets: ClientSocketsManager,
-) {
-  const api = new LobbyApi(nydus, userSockets, clientSockets)
-  registerApiRoutes(api, nydus)
-  return api
 }
