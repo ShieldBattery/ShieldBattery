@@ -51,7 +51,14 @@ function pluginContext() {
   }
 }
 
+/**
+ * Runs the code filter before the handler, the way rolldown does. Calling the handler directly
+ * would hide a filter that never matches.
+ */
 async function transform(code: string, file = 'client/feature/thing.tsx') {
+  const include = plugin.transform.filter.code.include as string
+  if (!code.includes(include)) return null
+
   const context = pluginContext()
   return await plugin.transform.handler.call(context, code, resolve(root, file))
 }

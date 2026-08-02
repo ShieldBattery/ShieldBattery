@@ -223,7 +223,6 @@
     "@vitest/eslint-plugin": "^1.6.23",
     "@vitest/ui": "^4.1.10",
     "babel-loader": "^10.1.1",
-    "babel-plugin-polyfill-corejs3": "1.0.0",
     "babel-plugin-react-compiler": "1.0.0",
     "babel-plugin-styled-components": "^2.3.0",
     "browserslist": "^4.28.7",

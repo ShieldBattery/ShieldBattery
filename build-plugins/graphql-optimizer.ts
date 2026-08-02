@@ -57,7 +57,10 @@ export function graphqlOptimizer(root: string): Plugin {
     },
 
     transform: {
-      filter: { id: /\.[jt]sx?$/, code: { include: 'graphql(' } },
+      // Matches the bare word rather than `graphql(`, because the tag can be imported under
+      // another name (`import { graphql as gql }`) and then never appear as a call. The import
+      // specifier is what guarantees the word is present at all.
+      filter: { id: /\.[jt]sx?$/, code: { include: 'graphql' } },
 
       async handler(code, id) {
         const program = this.parse(code, { lang: langFor(id) })
