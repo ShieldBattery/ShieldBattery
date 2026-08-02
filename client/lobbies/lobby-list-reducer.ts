@@ -15,7 +15,7 @@ const DEFAULT_STATE: LobbyListState = {
   count: 0,
 }
 
-/** Inserts `id` into `list` (kept sorted by lobby name) at the position that keeps it sorted. */
+/** Inserts `summary`'s id into `list` at the position that keeps it sorted by lobby name. */
 function insertSorted(
   list: SbLobbyId[],
   summary: LobbySummaryJson,

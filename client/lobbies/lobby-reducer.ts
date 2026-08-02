@@ -93,9 +93,9 @@ type LobbyDraft = Draft<Omit<LobbyState, 'chat'>> & Pick<LobbyState, 'chat'>
 const CHAT_MESSAGE_LIMIT = 200
 
 /**
- * Appends message(s) to the lobby chat log, then drops the oldest entry if it grew past the cap --
- * matching the previous Immutable.js-backed version's `List#shift`, at most one entry is trimmed
- * per call, even if the call pushes more than one message.
+ * Appends message(s) to the lobby chat log, then drops the oldest entry if it grew past the cap.
+ * At most one entry is trimmed per call, even when the call pushes more than one message, so a
+ * multi-message push can leave the log slightly over the cap until the next push.
  *
  * This is the only place that appends to the chat log, so it also owns unread tracking: a push
  * while the view isn't activated marks the log unread.
