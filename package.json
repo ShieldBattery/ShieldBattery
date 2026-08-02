@@ -62,6 +62,20 @@
     "test:integration": "NODE_ENV=production playwright test",
     "typecheck": "tsc"
   },
+  "browserslist": [
+    "last 2 versions",
+    "not dead",
+    ">0.2%",
+    "not ie 11",
+    "not ie_mob 11",
+    "not op_mini all",
+    "not and_uc > 0",
+    "not and_qq > 0",
+    "not kaios > 0",
+    "not ios_saf < 15",
+    "not safari < 15",
+    "not android < 120"
+  ],
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1090.0",
     "@aws-sdk/lib-storage": "^3.1090.0",
