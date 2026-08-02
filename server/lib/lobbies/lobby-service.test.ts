@@ -801,6 +801,21 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
+    test('a member leaving the bench does not cancel a countdown in progress', async () => {
+      const id = await createLobbyWithBench()
+
+      vi.useFakeTimers()
+      lobbyService.startCountdown({ client: host.client })
+      fakeNydus.publish.mockClear()
+
+      // The benched member holds no slot in the starting game, so their leave changes nothing
+      // about it
+      lobbyService.leaveLobby({ client: otherHost.client })
+
+      expect(lobbyService.lobbies.get(id)!.bench).toHaveLength(0)
+      expect(lobbyPublishes(id).some(data => data?.type === 'cancelCountdown')).toBe(false)
+    })
+
     test('a member kicked from the bench is reported as kicked', async () => {
       const id = await createLobbyWithBench()
 
