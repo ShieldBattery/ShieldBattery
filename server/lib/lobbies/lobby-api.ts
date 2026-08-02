@@ -35,8 +35,10 @@ import {
 } from '../websockets/socket-groups'
 import { LobbyService, LobbyServiceError, LobbyServiceErrorCode } from './lobby-service'
 
-// Creating and joining are one-off actions taken from a page of their own, so a matchmaking-like
-// rate is plenty.
+// Creating, joining, and leaving are one-off transitions in and out of a lobby, so a
+// matchmaking-like rate is plenty. Leaving deliberately sits here rather than on the in-lobby
+// bucket: a user still in a lobby is barred from every other gameplay activity, so an errant
+// client burning the in-lobby bucket must never leave them unable to get out.
 const lobbyThrottle = createThrottle('lobbies', {
   rate: 20,
   burst: 40,
@@ -265,7 +267,7 @@ export class LobbyApi {
   }
 
   @httpPost('/:lobbyId/leave')
-  @httpBefore(...authedAction)
+  @httpBefore(...authed)
   async leaveLobby(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {
       params: lobbyIdParams,
