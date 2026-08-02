@@ -25,6 +25,27 @@ const NONCE_TOKEN = '__SB_CSP_NONCE__'
  */
 const BUILT_ASSET_PREFIX = '"/scripts/'
 
+/**
+ * Every placeholder the server fills, matched in one pass so that substitution order cannot
+ * matter. Replacing sequentially would mean each later pattern scans text the earlier ones just
+ * inserted -- including user names and page titles -- and only some of these placeholders contain
+ * a `<` for the escaping to catch. `"/scripts/` contains none at all, and appears verbatim inside
+ * any JSON-serialized string starting with `/scripts/`.
+ */
+const PLACEHOLDERS = [
+  BUILT_ASSET_PREFIX,
+  NONCE_TOKEN,
+  PRECONNECT_SLOT,
+  NONCE_SCRIPT_SLOT,
+  HEAD_SCRIPTS_SLOT,
+  META_TAGS_SLOT,
+  FONTS_SLOT,
+]
+const PLACEHOLDER_PATTERN = new RegExp(
+  PLACEHOLDERS.map(placeholder => placeholder.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'g',
+)
+
 const SHELL_PATH = path.join(__dirname, '..', '..', 'client-shell', 'index.html')
 
 export interface ClientShellData {
@@ -106,24 +127,22 @@ export function renderClientShell(template: string, data: ClientShellData): stri
     )
     .join('')
 
-  // Every replacement is a function so its value is taken literally. As a plain string, `$&`,
-  // `` $` ``, `$'` and `$$` are substitution patterns -- and user names legally contain `$`,
-  // `` ` `` and `&` (`USERNAME_ALLOWED_CHARACTERS`), so a name like `` $` `` would otherwise
-  // splice part of the surrounding template into the page. Escaping cannot fix this; the
-  // characters are meaningful to `replace` itself, not to HTML.
-  return (
-    template
-      // Before anything user-supplied is spliced in. The token is letters and underscores, all of
-      // which user names allow, so substituting afterwards would rewrite a name that happens to
-      // equal it -- putting the request's nonce into page content an attacker chose the context of.
-      .replaceAll(NONCE_TOKEN, () => escapeAttribute(cspNonce))
-      .replaceAll(BUILT_ASSET_PREFIX, () => `"${publicAssetsUrl}scripts/`)
-      .replace(PRECONNECT_SLOT, () => preconnect)
-      .replace(NONCE_SCRIPT_SLOT, () => nonceScript)
-      .replace(HEAD_SCRIPTS_SLOT, () => headScripts)
-      .replace(META_TAGS_SLOT, () => renderPageMetaTags(pageMeta))
-      .replace(FONTS_SLOT, () => favicon + fonts)
-  )
+  const substitutions = new Map([
+    [BUILT_ASSET_PREFIX, `"${publicAssetsUrl}scripts/`],
+    [NONCE_TOKEN, escapeAttribute(cspNonce)],
+    [PRECONNECT_SLOT, preconnect],
+    [NONCE_SCRIPT_SLOT, nonceScript],
+    [HEAD_SCRIPTS_SLOT, headScripts],
+    [META_TAGS_SLOT, renderPageMetaTags(pageMeta)],
+    [FONTS_SLOT, favicon + fonts],
+  ])
+
+  // A replacer function, not a string: `$&`, `` $` ``, `$'` and `$$` are substitution patterns in
+  // a string replacement, and user names legally contain `$`, `` ` `` and `&`
+  // (`USERNAME_ALLOWED_CHARACTERS`), so a name like `` $` `` would splice part of the surrounding
+  // template into the page. Escaping cannot fix that; those characters are meaningful to
+  // `replace` itself, not to HTML.
+  return template.replace(PLACEHOLDER_PATTERN, match => substitutions.get(match) ?? match)
 }
 
 function renderPageMetaTags(pageMeta: PageMetadata): string {

@@ -119,6 +119,21 @@ describe('server/lib/client-shell/renderClientShell', () => {
     expect(html).not.toContain('content="test-nonce-value"')
   })
 
+  test('never rescans substituted content for other placeholders', () => {
+    // Values that happen to look like placeholders must survive. `"/scripts/` in particular has no
+    // `<` for escaping to catch, and appears verbatim in any JSON string starting with /scripts/.
+    const html = render({
+      initData: { path: '/scripts/evil.js', marker: '<!--sb:fonts-->' },
+      pageMeta: { ...PAGE_META, title: '<!--sb:meta-tags-->' },
+    })
+
+    expect(html).toContain('"/scripts/evil.js"')
+    expect(html).not.toContain('https://shieldbattery.net/scripts/evil.js')
+    // The real placeholders were still filled exactly once each.
+    expect(html).not.toContain('<!--sb:')
+    expect(html.match(/rel="stylesheet"/g)).toHaveLength(2)
+  })
+
   test('omits optional blocks when their inputs are absent', () => {
     const html = render({ initData: undefined, analyticsId: undefined, assetsOrigin: undefined })
 
