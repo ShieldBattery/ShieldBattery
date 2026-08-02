@@ -474,6 +474,32 @@ describe('lobbies/lobby-service', () => {
       })
     })
 
+    test('a join does not clobber changes that land during its map refresh', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+
+      let resolveMapFetch: (value: MapInfo[]) => void
+      asMockedFunction(getMapInfos).mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveMapFetch = resolve
+        }),
+      )
+      const callsBefore = asMockedFunction(getMapInfos).mock.calls.length
+      const join = joinLobby(joiner, id)
+      // Let the join run up to its pending map refresh, so the settings change lands mid-fetch
+      await vi.waitFor(() => {
+        expect(asMockedFunction(getMapInfos).mock.calls.length).toBeGreaterThan(callsBefore)
+      })
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, useLegacyLimits: true })
+
+      resolveMapFetch!([BIG_GAME_HUNTERS])
+      await join
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.useLegacyLimits).toBe(true)
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeDefined()
+    })
+
     test('joining a full lobby puts the joiner on the bench', async () => {
       const { id } = await createLobby(host, 'Full lobby', 'listed', undefined, GameType.OneVsOne)
       // 1v1 lobbies only have 2 slots, and the host already occupies one.
