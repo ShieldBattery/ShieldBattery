@@ -1125,9 +1125,10 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   }
 
   const withHost = reassignHost(updated)
-  // Checked against the pre-change host: in the layout-keeping branch an observer host unseated by
-  // turning observers off skips the needSeats priority entirely, so `reassignHost` could otherwise
-  // quietly hand their lobby to a seated player while they land on the bench.
+  // Checked against the pre-change host: even with the front-of-queue claim to a seat, the host
+  // can find none to claim (an observer host turning observers off while every player slot is
+  // taken), and `reassignHost` would then quietly hand their lobby to a seated player while they
+  // land on the bench.
   if (!getLobbySlots(withHost).some(slot => slot.id === lobby.host.id)) {
     throw new Error('the new settings leave no slot for the lobby host')
   }
