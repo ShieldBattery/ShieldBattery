@@ -462,8 +462,16 @@ export class LobbyService {
     client.subscribe(getLobbyClientPath(lobbyId, client.userId, client.clientId))
   }
 
-  async sendChat({ client, text }: { client: ClientSocketsGroup; text: string }): Promise<void> {
-    const lobby = this.getLobbyForClient(client)
+  async sendChat({
+    client,
+    lobbyId,
+    text,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    text: string
+  }): Promise<void> {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const time = Date.now()
 
     const isChatRestricted = await this.restrictionService.isRestricted(
@@ -492,8 +500,16 @@ export class LobbyService {
     })
   }
 
-  addComputer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  addComputer({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -528,8 +544,16 @@ export class LobbyService {
     this._warmLobbyRegions(updated)
   }
 
-  changeSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  changeSlot({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     this.ensureLobbyNotTransient(lobby)
     const [sourceTeamIndex, sourceSlotIndex, sourceSlot] = findSlotByUserId(lobby, client.userId)
 
@@ -570,14 +594,16 @@ export class LobbyService {
 
   setRace({
     client,
+    lobbyId,
     slotId,
     race,
   }: {
     client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
     slotId: string
     race: RaceChar
   }): void {
-    const lobby = this.getLobbyForClient(client)
+    const lobby = this.getLobbyForClient(client, lobbyId)
     this.ensureLobbyNotLoading(lobby)
     const [, , player] = findSlotByUserId(lobby, client.userId)
 
@@ -617,8 +643,16 @@ export class LobbyService {
     this._publishLobbyDiff(lobby, updatedLobby)
   }
 
-  openSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  openSlot({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -650,8 +684,16 @@ export class LobbyService {
     this._publishLobbyDiff(lobby, updated)
   }
 
-  closeSlot({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  closeSlot({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -692,8 +734,16 @@ export class LobbyService {
     this._publishLobbyDiff(afterKick, updated)
   }
 
-  kickPlayer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  kickPlayer({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -733,8 +783,16 @@ export class LobbyService {
     }
   }
 
-  banPlayer({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  banPlayer({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -764,8 +822,16 @@ export class LobbyService {
     this._removeClientFromLobby(lobby, clientToBan, REMOVAL_TYPE_BAN)
   }
 
-  makeObserver({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  makeObserver({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -790,8 +856,16 @@ export class LobbyService {
     this._warmLobbyRegions(updated)
   }
 
-  removeObserver({ client, slotId }: { client: ClientSocketsGroup; slotId: string }): void {
-    const lobby = this.getLobbyForClient(client)
+  removeObserver({
+    client,
+    lobbyId,
+    slotId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+    slotId: string
+  }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     const [, , player] = findSlotByUserId(lobby, client.userId)
     this.ensureIsLobbyHost(lobby, player!)
     this.ensureLobbyNotTransient(lobby)
@@ -822,9 +896,8 @@ export class LobbyService {
     this._warmLobbyRegions(updated)
   }
 
-  leaveLobby({ user }: { user: UserSocketsGroup }): void {
-    const client = this.getActiveClientForUser(user.userId)
-    const lobby = this.getLobbyForClient(client)
+  leaveLobby({ client, lobbyId }: { client: ClientSocketsGroup; lobbyId?: SbLobbyId }): void {
+    const lobby = this.getLobbyForClient(client, lobbyId)
     this._removeClientFromLobby(lobby, client)
   }
 
@@ -882,8 +955,14 @@ export class LobbyService {
     client.unsubscribe(getLobbyPath(lobby.id))
   }
 
-  async startCountdown({ client }: { client: ClientSocketsGroup }): Promise<void> {
-    const lobby = this.getLobbyForClient(client)
+  startCountdown({
+    client,
+    lobbyId: expectedLobbyId,
+  }: {
+    client: ClientSocketsGroup
+    lobbyId?: SbLobbyId
+  }): void {
+    const lobby = this.getLobbyForClient(client, expectedLobbyId)
     if (!hasOpposingSides(lobby)) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.NotEnoughSides,
@@ -935,6 +1014,19 @@ export class LobbyService {
         ),
     }
 
+    // The countdown and game load run to completion on their own: every failure downstream of
+    // this point resolves into cancel events published to the lobby rather than an error to the
+    // caller, so the operation is done (as far as the caller is concerned) once the countdown has
+    // begun.
+    this._runCountdownAndLoad(lobby, gameConfig, countdownTimer).catch(swallowNonBuiltins)
+  }
+
+  private async _runCountdownAndLoad(
+    lobby: Lobby,
+    gameConfig: GameConfig,
+    countdownTimer: Deferred<void>,
+  ): Promise<void> {
+    const lobbyId = lobby.id
     let usersAtFault: SbUserId[] | undefined
     try {
       await countdownTimer
@@ -1081,19 +1173,23 @@ export class LobbyService {
     return user
   }
 
-  getActiveClientForUser(userId: SbUserId): ClientSocketsGroup {
-    const client = this.activityRegistry.getClientForUser(userId)
-    if (!client) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.NoActiveClient, 'no active client for user')
-    }
-    return client
-  }
-
-  getLobbyForClient(client: ClientSocketsGroup): Lobby {
+  /**
+   * Returns the lobby the given client currently occupies.
+   *
+   * A client can only ever be in one lobby, so the lobby an operation applies to is derived from the
+   * acting client rather than named by the caller. `expectedId`, when given, additionally asserts
+   * that the derived lobby is the one the caller meant: a client that has moved on (a stale tab, a
+   * request in flight across a leave) would otherwise silently act on whatever lobby it is in now.
+   */
+  getLobbyForClient(client: ClientSocketsGroup, expectedId?: SbLobbyId): Lobby {
     if (!this.lobbyClients.has(client)) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NotInLobby, 'must be in a lobby')
     }
-    return this.lobbies.get(this.lobbyClients.get(client)!)!
+    const lobby = this.lobbies.get(this.lobbyClients.get(client)!)!
+    if (expectedId !== undefined && lobby.id !== expectedId) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.NotInLobby, 'not in that lobby')
+    }
+    return lobby
   }
 
   ensureIsLobbyHost(lobby: Lobby, player: Slot) {

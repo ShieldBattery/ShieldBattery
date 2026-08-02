@@ -1,4 +1,3 @@
-import { InvokeError } from 'nydus-client'
 import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -40,7 +39,7 @@ import {
   startCountdown,
 } from './action-creators'
 import LobbyComponent from './lobby'
-import { lobbyJoinErrorMessage } from './lobby-join-errors'
+import { lobbyJoinErrorCode, lobbyJoinErrorMessage } from './lobby-join-errors'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
 import { useCorrectLobbySlug } from './lobby-url'
 
@@ -384,11 +383,11 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
     setIsJoining(true)
     dispatch(
       joinLobby(routeLobbyId, {
+        onSuccess: () => {},
         onError: (err: unknown) => {
           setIsJoining(false)
 
-          const code = err instanceof InvokeError ? err.body?.code : undefined
-          switch (code) {
+          switch (lobbyJoinErrorCode(err)) {
             case LobbyJoinErrorCode.NoLongerOpen:
               setLobbyGone(true)
               break
