@@ -1430,7 +1430,14 @@ export class LobbyService {
         throw gameLoadResult.error
       }
 
-      this._onGameLoaded(lobby)
+      // The stored lobby can differ from the snapshot the countdown started with (bench members
+      // come and go freely during a countdown/load), so the members to release and the events to
+      // send work from the live object. Ids are never reused, so its presence means it is this
+      // same lobby; its absence means it already closed and was cleaned up.
+      const loaded = this.lobbies.get(lobbyId)
+      if (loaded) {
+        this._onGameLoaded(loaded)
+      }
     } catch (err) {
       if (err instanceof BaseGameLoaderError) {
         if (err.code === GameLoadErrorType.Internal) {
@@ -1440,13 +1447,12 @@ export class LobbyService {
         logger.error({ err }, 'unexpected error while loading game for lobby')
       }
 
-      // NOTE(tec27): This is valid to do only because we prevent changes to the lobby contents
-      // once countdown/loading starts. I think a better implementation would be to add a stored
-      // AbortSignal that we abort if a lobby is closed, but that's a more involved change atm.
-      if (this.lobbies.get(lobby.id) === lobby) {
-        // This has been verified to be the same lobby, so sending cancel events is safe
-        this._maybeCancelCountdown(lobby, false)
-        this._maybeCancelLoading(lobby, false, usersAtFault)
+      // Same as above: cancellation works from the live lobby, which can have been updated (not
+      // just replaced wholesale) since the countdown began
+      const current = this.lobbies.get(lobbyId)
+      if (current) {
+        this._maybeCancelCountdown(current, false)
+        this._maybeCancelLoading(current, false, usersAtFault)
       }
     }
   }
