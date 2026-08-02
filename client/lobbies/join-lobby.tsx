@@ -78,7 +78,7 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
     <ListEntryRoot onClick={() => onClick(lobby)} data-testid='lobby-list-entry'>
       <Info>
         <TitleLarge>{lobby.name}</TitleLarge>
-        <HostName userId={lobby.host.id} />
+        <HostName userId={lobby.host.id} interactive={false} />
         <BodyMedium>{gameTypeToLabel(lobby.gameType, t)}</BodyMedium>
         <BodyMedium>
           {t('lobbies.joinLobby.openSlotCount', {
