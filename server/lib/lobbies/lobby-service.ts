@@ -699,6 +699,20 @@ export class LobbyService {
         'invalid destination slot type',
       )
     }
+    if (
+      Lobbies.hasControlledOpens(lobby.gameType) &&
+      sourceSlot.type !== SlotType.Human &&
+      (destSlot.type === SlotType.ControlledOpen || !isSlotUnoccupied(destSlot))
+    ) {
+      // A controlled team is built around the humans in it, so only they can enter one: a computer
+      // team is moved or removed as a whole (a lone computer taken out of one would blank the rest
+      // of its team), same as everywhere else computers are placed in these game types. Moving into
+      // an *empty* team stays allowed — its plain open slots build a new team around the arrival.
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotType,
+        'only players can be moved in this game type',
+      )
+    }
     if (lobby.teams[destTeamIndex!].isObserver && sourceSlot.type === SlotType.Computer) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.ComputerInObserverSlot,

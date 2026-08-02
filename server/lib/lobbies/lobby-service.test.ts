@@ -757,6 +757,41 @@ describe('lobbies/lobby-service', () => {
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
     })
 
+    test('moving a computer into a controlled slot is rejected', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      let lobby = lobbyService.lobbies.get(id)!
+      // Filling the empty second team with computers, the only way computers exist in team melee
+      lobbyService.addComputer({ client: host.client, slotId: lobby.teams[1].slots[0].id })
+
+      lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.teams[1].slots.every(slot => slot.type === 'computer')).toBe(true)
+      const controlledSlot = lobby.teams[0].slots[1]
+      expect(controlledSlot.type).toBe('controlledOpen')
+
+      // A lone computer can't leave its team (removing one blanks the whole team), and a controlled
+      // team only takes humans
+      expect(() =>
+        lobbyService.moveSlot({
+          client: host.client,
+          lobbyId: id,
+          fromSlotId: lobby.teams[1].slots[0].id,
+          toSlotId: controlledSlot.id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
+
+      // The computer team must not have been dissolved by the rejected move
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.teams[1].slots.every(slot => slot.type === 'computer')).toBe(true)
+    })
+
     test('only the host can move slots around', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       await joinLobby(joiner, id)
