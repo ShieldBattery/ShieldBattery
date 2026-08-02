@@ -36,7 +36,7 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
-import { removePlayer } from './lobby'
+import { openSlot, removePlayer } from './lobby'
 import { knownRegionOrUndefined, LobbyService, LobbyServiceErrorCode } from './lobby-service'
 import { getLobbySummary } from './lobby-summaries'
 
@@ -533,6 +533,33 @@ describe('lobbies/lobby-service', () => {
       expect(findSlotByUserId(lobby, OTHER_HOST_USER.id)[2]!.type).toBe('human')
     })
 
+    test('a player seat vacated by a move to the observer team seats a waiting member', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
+      await joinLobby(joiner, id)
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      // Open an observer slot directly, since every service operation that opens one would have
+      // seated the waiting member itself already
+      let lobby = lobbyService.lobbies.get(id)!
+      const [obsTeamIndex] = getObserverTeam(lobby)
+      lobbyService.lobbies.set(id, openSlot(lobby, obsTeamIndex!, 0))
+
+      lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: joinerSlot!.id,
+        toSlotId: lobby.teams[obsTeamIndex!].slots[0].id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.bench).toHaveLength(0)
+      expect(findSlotByUserId(updated, JOINER_USER.id)[2]!.type).toBe('observer')
+      expect(findSlotByUserId(updated, OTHER_HOST_USER.id)[2]!.type).toBe('human')
+    })
+
     test('an observer slot vacated by making its occupant a player seats a waiting member', async () => {
       const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
       await joinLobby(joiner, id)
@@ -693,6 +720,39 @@ describe('lobbies/lobby-service', () => {
         }),
       ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidGameSubType })
     })
+
+    test("a change to a sub-type beyond the new map's slots is rejected", async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      asMockedFunction(getMapInfos).mockResolvedValue([TWO_SLOT_MAP])
+      asMockedFunction(reparseMapsAsNeeded).mockResolvedValue([TWO_SLOT_MAP])
+
+      // The sub-type is validated against the map's own slot count (not team melee's fixed 8
+      // total), the same way creating this lobby would be
+      await expect(
+        lobbyService.updateSettings({
+          client: host.client,
+          lobbyId: id,
+          map: TWO_SLOT_MAP.id,
+          gameType: GameType.TeamMelee,
+          gameSubType: 3,
+        }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.InvalidGameSubType })
+    })
+
+    test('a change that alters nothing is not applied or announced', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        useLegacyLimits: false,
+        allowObservers: false,
+      })
+
+      expect(lobbyPublishes(id)).toEqual([])
+      expect(listPublishes()).toEqual([])
+    })
   })
 
   describe('moveSlot', () => {
@@ -852,6 +912,20 @@ describe('lobbies/lobby-service', () => {
   })
 
   describe('closeSlot', () => {
+    test("closing the last seated member's slot is rejected", async () => {
+      const { id } = await createLobby(host, 'Solo lobby', 'listed')
+
+      // Removing the last seated member by closing their slot would either close the lobby out
+      // from under the host or, with members on the bench, strand it with nobody seated
+      expect(() =>
+        lobbyService.closeSlot({
+          client: host.client,
+          slotId: lobbyService.lobbies.get(id)!.host.id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotOperation }))
+      expect(lobbyService.lobbies.get(id)).toBeDefined()
+    })
+
     test('closing an occupied observer slot kicks the occupant and leaves the slot closed', async () => {
       const { id } = await createLobby(host, 'Obs lobby', 'listed', true)
       await joinLobby(joiner, id)
