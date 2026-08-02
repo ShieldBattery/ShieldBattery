@@ -351,7 +351,17 @@ export class LobbyService {
     if (!this.lobbies.has(id)) {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
-    const lobby = this.lobbies.get(id)!
+
+    // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
+    // Fetched before the lobby snapshot below: everything from the snapshot to the write-back has
+    // to stay synchronous, or a concurrent operation on the lobby (e.g. a settings change
+    // replacing the whole layout) would be silently reverted by it.
+    const refreshedMap = (await getMapInfos([this.lobbies.get(id)!.map!.id]))[0]
+
+    const lobby = this.lobbies.get(id)
+    if (!lobby) {
+      throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
+    }
     try {
       this.ensureLobbyNotTransient(lobby)
     } catch (err) {
@@ -410,9 +420,11 @@ export class LobbyService {
       )
     }
 
-    // TODO(tec27): Fix map signing URL refreshing in a more general way, see #593
-    const mapInfo = (await getMapInfos([lobby.map!.id]))[0]
-    updated = { ...updated, map: mapInfo }
+    if (refreshedMap && updated.map!.id === refreshedMap.id) {
+      // A settings change during the fetch above can have swapped the map, in which case its own
+      // freshly-fetched info stays and the stale refresh is discarded
+      updated = { ...updated, map: refreshedMap }
+    }
 
     this.lobbies.set(id, updated)
     this.lobbyClients.set(client, id)
