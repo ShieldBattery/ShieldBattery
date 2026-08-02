@@ -363,10 +363,16 @@ export interface LobbyBenchAddEvent {
   user: BenchedUser
 }
 
-/** A diff event: a bench member got a seat or left; their departure reason rides other events. */
+/**
+ * A diff event: a bench member got a seat, left, or was removed by the host. Bench members hold no
+ * slot, so unlike seated members they get no `leave`/`kick`/`ban` event — for anything but a
+ * seating, this event is the only report of their departure, and `reason` says why they're gone.
+ * An absent `reason` means they were seated, described by the slot events accompanying this one.
+ */
 export interface LobbyBenchRemoveEvent {
   type: 'benchRemove'
   userId: SbUserId
+  reason?: 'left' | 'kicked' | 'banned'
 }
 
 /** The body of a request to update the current user's saved lobby creation preferences. */

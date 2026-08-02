@@ -141,15 +141,17 @@ export function LobbySettingsDialog({ onCancel, close }: CommonDialogProps) {
       mapData: { slots },
     } = selectedMapInfo
 
-    // Ensure that the game sub-type is always valid for the selected map
+    // Ensure that the game sub-type is always valid for the selected map. The lower bound matters
+    // when the lobby's current game type has no sub-type at all (its value is 0), which every team
+    // type's options start above.
     if (gameType === GameType.TopVsBottom) {
       const maxTopSlots = slots - 1
-      if (subType > maxTopSlots) {
-        setInputValue('gameSubType', Math.min(maxTopSlots, Math.max(0, subType)))
+      if (subType < 1 || subType > maxTopSlots) {
+        setInputValue('gameSubType', Math.min(maxTopSlots, Math.max(1, subType)))
       }
     } else {
       const maxTeams = Math.min(4, slots)
-      if (subType > Math.min(4, slots)) {
+      if (subType < 2 || subType > maxTeams) {
         setInputValue('gameSubType', Math.min(maxTeams, Math.max(2, subType)))
       }
     }
