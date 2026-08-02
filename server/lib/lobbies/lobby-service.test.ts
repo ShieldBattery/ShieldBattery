@@ -817,6 +817,57 @@ describe('lobbies/lobby-service', () => {
       ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
     })
 
+    test('a controller handoff is published even for slots that stay in place', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      await joinLobby(joiner, id)
+
+      // Bring the joiner into the host's team (which empties the joiner's old team)
+      let lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      const controlledSlot = lobby.teams[0].slots.find(slot => slot.type === 'controlledOpen')!
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: joinerSlot!.id,
+        toSlotId: controlledSlot.id,
+      })
+
+      // The host leaves for the empty team, handing their team's controlled slots to the joiner.
+      // The slots that outlive the move keep their ids (the host's own slot gets recreated).
+      lobby = lobbyService.lobbies.get(id)!
+      const joinerSlotId = findSlotByUserId(lobby, JOINER_USER.id)[2]!.id
+      const keptControlledIds = lobby.teams[0].slots
+        .filter(slot => slot.type === 'controlledOpen')
+        .map(slot => slot.id)
+      expect(keptControlledIds.length).toBeGreaterThan(0)
+      fakeNydus.publish.mockClear()
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: lobby.host.id,
+        toSlotId: lobby.teams[1].slots[0].id,
+      })
+
+      // The handoff changes nothing about a kept slot but its controller, and clients decide who
+      // gets the race picker from it, so it must still be part of the published diff
+      for (const slotId of keptControlledIds) {
+        expect(diffEvents(id)).toContainEqual(
+          expect.objectContaining({
+            type: 'slotChange',
+            player: expect.objectContaining({ id: slotId, controlledBy: joinerSlotId }),
+          }),
+        )
+      }
+    })
+
     test('moving a computer into a controlled slot is rejected', async () => {
       const { id } = await lobbyService.createLobby({
         name: 'Team lobby',

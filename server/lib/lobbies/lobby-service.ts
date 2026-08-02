@@ -1694,14 +1694,14 @@ export class LobbyService {
       const samePlace = oldTeamIndex === newTeamIndex && oldSlotIndex === newSlotIndex
       if (samePlace && oldSlot === newSlot) continue
 
-      if (!samePlace && oldSlot.id === newSlot.id) {
-        diffEvents.push({
-          type: 'slotChange',
-          teamIndex: newTeamIndex,
-          slotIndex: newSlotIndex,
-          player: newSlot,
-        })
-      }
+      // Everything else about a kept slot - a new position, or in-place changes like a controlled
+      // slot's controller handoff - is communicated by re-sending the whole slot
+      diffEvents.push({
+        type: 'slotChange',
+        teamIndex: newTeamIndex,
+        slotIndex: newSlotIndex,
+        player: newSlot,
+      })
       if (samePlace && oldSlot.race !== newSlot.race) {
         diffEvents.push({
           type: 'raceChange',
