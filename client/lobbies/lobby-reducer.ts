@@ -54,7 +54,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   visibility: 'listed',
 })
 
-export interface LobbyState {
+export interface CurrentLobbyState {
   // TODO(tec27): `info` holds the server's JSON-serialized lobby directly, so e.g. `map` is a
   // `MapInfoJson` rather than a full `MapInfo`. We should probably move the map data out of this
   // struct generally.
@@ -66,7 +66,7 @@ export interface LobbyState {
   hasUnread: boolean
 }
 
-const DEFAULT_STATE: LobbyState = {
+const DEFAULT_STATE: CurrentLobbyState = {
   info: EMPTY_LOBBY,
   loadingState: EMPTY_LOADING_STATE,
   chat: [],
@@ -75,7 +75,7 @@ const DEFAULT_STATE: LobbyState = {
 }
 
 /** Returns whether the client currently considers itself to be a member of a lobby. */
-export function isInLobby(state: LobbyState): boolean {
+export function isInLobby(state: CurrentLobbyState): boolean {
   return !!(state.info && state.info.name)
 }
 
@@ -88,7 +88,7 @@ export function isInLobby(state: LobbyState): boolean {
  * for no benefit, since the records themselves are opaque leaf values immer never actually drafts
  * (their prototype isn't a plain object, so immer's own `isDraftable` check skips them at runtime).
  */
-type LobbyDraft = Draft<Omit<LobbyState, 'chat'>> & Pick<LobbyState, 'chat'>
+type LobbyDraft = Draft<Omit<CurrentLobbyState, 'chat'>> & Pick<CurrentLobbyState, 'chat'>
 
 const CHAT_MESSAGE_LIMIT = 200
 
@@ -134,7 +134,7 @@ type LobbyHandlerMap = {
   [A in ReduxAction['type']]?: (
     draft: LobbyDraft,
     action: Extract<ReduxAction, { type: A }>,
-    originalState: Immutable<LobbyState>,
+    originalState: Immutable<CurrentLobbyState>,
   ) => void
 }
 

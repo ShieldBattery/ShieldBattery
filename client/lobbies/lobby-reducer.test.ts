@@ -3,13 +3,15 @@ import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { LobbyActions } from './actions'
-import lobbyReducerImport, { isInLobby, LobbyState } from './lobby-reducer'
+import lobbyReducerImport, { CurrentLobbyState, isInLobby } from './lobby-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it lobby
 // actions, so narrow the parameter to those, both for the extra checking and so that action objects
 // can be written inline without tripping excess property checks.
-const lobbyReducer: (state: LobbyState | undefined, action: LobbyActions) => LobbyState =
-  lobbyReducerImport
+const lobbyReducer: (
+  state: CurrentLobbyState | undefined,
+  action: LobbyActions,
+) => CurrentLobbyState = lobbyReducerImport
 
 const HOST_SLOT: Slot = {
   type: SlotType.Human,

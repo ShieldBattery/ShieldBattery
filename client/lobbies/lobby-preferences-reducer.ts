@@ -55,7 +55,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@lobbies/getPreferences'](draft, action) {
     if (action.error) {
-      return { ...draft, isRequesting: false, hasLoaded: true }
+      draft.isRequesting = false
+      draft.hasLoaded = true
+      return draft
     }
 
     return createPreferences(action.payload)
@@ -63,7 +65,9 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
   ['@lobbies/updatePreferences'](draft, action) {
     if (action.error) {
-      return { ...draft, isRequesting: false, hasLoaded: true }
+      draft.isRequesting = false
+      draft.hasLoaded = true
+      return draft
     }
 
     return createPreferences(action.payload)
