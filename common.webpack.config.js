@@ -1,7 +1,10 @@
 // Common webpack config settings, call with options specific to each environment to create a real
-// config
+// config.
+//
+// Only the Electron main process, its preload and the replay DB worker are built here; the
+// renderer moved to Vite (see vite.electron.config.ts), which took the loaders for browser assets,
+// the chunk splitting and the hot-reload plumbing with it.
 
-import ReactRefreshWebpackPlugin from '@pmmmwh/react-refresh-webpack-plugin'
 import TerserWebpackPlugin from 'terser-webpack-plugin'
 import webpack from 'webpack'
 import packageJson from './package.json'
@@ -14,7 +17,6 @@ const isProd = nodeEnv === 'production'
 export default function ({
   webpack: webpackOpts,
   babel: babelOpts,
-  splitChunks = true,
   mainEntry,
   globalDefines = {},
   envDefines = {},
@@ -29,12 +31,6 @@ export default function ({
     mode: isProd ? 'production' : 'development',
     context: __dirname,
     externals: {
-      // Don't include jotai-devtools in prod
-      ...(isProd
-        ? {
-            'jotai-devtools': 'window',
-          }
-        : {}),
       ...webpackOpts.externals,
     },
     module: {
@@ -49,83 +45,15 @@ export default function ({
             },
           ],
         },
-        {
-          test: /\.svg$/,
-          exclude: /node_modules/,
-          use: [
-            {
-              loader: 'babel-loader',
-              options: babelOpts,
-            },
-            {
-              loader: 'react-svg-loader',
-              options: {
-                jsx: true,
-                svgo: {
-                  plugins: [
-                    {
-                      removeViewBox: false,
-                    },
-                  ],
-                },
-              },
-            },
-          ],
-        },
-        {
-          test: /\.html?$/,
-          use: [{ loader: 'html-loader' }],
-        },
-        // We only need CSS for jotai-devtools, which is dev-only
-        ...(isProd
-          ? []
-          : [
-              {
-                test: /\.css$/,
-                use: ['style-loader', 'css-loader'],
-              },
-            ]),
         ...extraRules,
       ],
     },
     optimization: {
       minimizer: isProd ? [new TerserWebpackPlugin()] : [],
-      splitChunks:
-        isProd && splitChunks
-          ? {
-              chunks: 'all',
-              cacheGroups: {
-                vendor: {
-                  test: /[\\/]node_modules[\\/]/,
-                  name: 'vendor',
-                  chunks: 'initial',
-                  priority: -10,
-                },
-                react: {
-                  test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-                  name: 'react',
-                  chunks: 'initial',
-                  priority: 30,
-                },
-                state: {
-                  test: /[\\/]node_modules[\\/](immer|immutable|jotai|redux|react-redux|@reduxjs)[\\/]/,
-                  name: 'state',
-                  chunks: 'initial',
-                  priority: 25,
-                },
-              },
-            }
-          : undefined,
     },
     plugins: [
       new webpack.DefinePlugin({
         ...globalDefines,
-
-        // This value will be set by Electron/our server in an inline script with a nonce value
-        // matching the CSP headers for the request. Having this define makes things work while
-        // hot reloading as well.
-        // eslint-disable-next-line camelcase
-        __webpack_nonce__: 'window.SB_CSP_NONCE',
 
         __WEBPACK_ENV: {
           NODE_ENV: JSON.stringify(nodeEnv),
@@ -134,9 +62,7 @@ export default function ({
         },
       }),
       ...webpackOpts.plugins,
-    ].concat(
-      isProd ? [] : [new ReactRefreshWebpackPlugin({ overlay: { sockIntegration: 'whm' } })],
-    ),
+    ],
 
     resolve: {
       extensions: ['.js', '.jsx', '.ts', '.tsx'],
@@ -148,7 +74,6 @@ export default function ({
     // Allow __filename usage in our files in dev
     config.node = { __filename: true, __dirname: true }
     config.devtool = 'eval-cheap-module-source-map'
-    config.plugins = config.plugins.concat([new webpack.HotModuleReplacementPlugin()])
   } else {
     if (config.target === 'electron-main') {
       // Disable webpack processing of these since electron-main scripts can actually make use of

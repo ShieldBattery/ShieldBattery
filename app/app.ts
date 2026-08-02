@@ -20,6 +20,7 @@ import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '.
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
+import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
 import { registerCurrentProgram } from './file-association'
 import { findInstallPath } from './find-install-path'
@@ -38,7 +39,6 @@ import { LocalSettingsManager, ScrSettingsManager } from './settings'
 import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
-import { getElectronWebpackAssets } from './webpack-manifest-reader'
 
 // Allow accessing __WEBPACK_ENV in development, since webpack adds it in production
 if (!(global as any).__WEBPACK_ENV) {
@@ -935,9 +935,38 @@ function setupIpc(localSettings: LocalSettingsManager, scrSettings: ScrSettingsM
   })
 }
 
+/** Origin the renderer's modules are served from while hot-reloading. */
+const DEV_SERVER_ORIGIN = 'http://localhost:5566'
+/**
+ * Where the dev server serves the shell, with its client and the React Refresh preamble already
+ * injected. The path is the shell's location relative to the Vite root, which is the repo root.
+ */
+const DEV_SHELL_URL = `${DEV_SERVER_ORIGIN}/app/index.html`
+
+/**
+ * Content types for everything served over `shieldbattery://`. Chromium enforces JavaScript MIME
+ * types on module scripts, so an unlabelled (or mislabelled) `.js` fails to load outright rather
+ * than being sniffed -- which is what the entire renderer is delivered as.
+ */
+const CONTENT_TYPES = new Map([
+  ['.css', 'text/css'],
+  ['.html', 'text/html'],
+  ['.js', 'text/javascript'],
+  ['.json', 'application/json'],
+  ['.opus', 'audio/ogg'],
+  ['.png', 'image/png'],
+  ['.svg', 'image/svg+xml'],
+  ['.webp', 'image/webp'],
+  ['.woff2', 'font/woff2'],
+])
+
+function contentTypeFor(pathname: string): string {
+  return CONTENT_TYPES.get(path.posix.extname(pathname).toLowerCase()) ?? 'application/octet-stream'
+}
+
 function setupCspProtocol(curSession: Session) {
   // Register a protocol that will perform two functions:
-  // - Return our index.html file and scripts/styles with the proper style/script values filled out
+  // - Return our shell HTML and the assets it references
   // - Add fake headers to the response such that we set up CSP with a nonce (necessary for
   //   styled-components to work properly), and unfortunately not really possible to do without
   //   HTTP headers
@@ -947,54 +976,36 @@ function setupCspProtocol(curSession: Session) {
     const pathname = path.posix.normalize(url.pathname)
 
     try {
-      if (pathname === '/index.js' || pathname.match(/^\/(assets|dist|native)\/.+$/)) {
+      if (pathname.match(/^\/(assets|dist|native)\/.+$/)) {
         const contents = await readFile(path.join(__dirname, pathname))
         // TODO(tec27): Unsure if this is the best way to convert this to something that TS 5.9 is
         // happy with to pass to Response?
         const data = new Uint8Array(contents)
-        // TODO(tec27): ideally this would probably set a reasonable content type?
-        return new Response(data)
+        return new Response(data, { headers: { 'content-type': contentTypeFor(pathname) } })
       } else {
-        const contents = await readFile(path.join(__dirname, 'index.html'), 'utf8')
         const nonce = crypto.randomBytes(16).toString('base64')
         const isHot = !!process.env.SB_HOT
-        const hasReactDevTools = !!process.env.SB_REACT_DEV
-        const analyticsId = process.env.SB_ANALYTICS_ID ?? __WEBPACK_ENV?.SB_ANALYTICS_ID ?? ''
 
-        const scriptUrls = isHot
-          ? ['http://localhost:5566/dist/bundle.js']
-          : await getElectronWebpackAssets()
+        const template = await getClientShellTemplate(
+          isHot ? { shellUrl: DEV_SHELL_URL, origin: DEV_SERVER_ORIGIN } : undefined,
+        )
+        const result = renderClientShell(template, {
+          cspNonce: nonce,
+          analyticsId: process.env.SB_ANALYTICS_ID ?? __WEBPACK_ENV?.SB_ANALYTICS_ID,
+          reactDevToolsUrl: process.env.SB_REACT_DEV ? 'http://localhost:8097' : undefined,
+        })
 
-        const scriptTags = scriptUrls
-          .map(
-            url =>
-              `<script type="text/javascript" src="${url}" nonce="${nonce}" crossorigin></script>`,
-          )
-          .join('\n')
-
-        const result = contents
-          .replace(/%SCRIPT_TAGS%/g, scriptTags)
-          .replace(/%CSP_NONCE%/g, nonce)
-          .replace(/%ANALYTICS_ID%/g, analyticsId)
-          .replace(
-            /%REACT_DEV%/g,
-            hasReactDevTools
-              ? `<script src="http://localhost:8097" nonce="${nonce}"></script>`
-              : '',
-          )
-
-        // Allow loading extra chunks from the dev server in non-production
-        const chunkPolicy = isHot ? 'http://localhost:5566' : ''
-        // If hot-reloading is on, we have to allow eval so it can work
-        const scriptEvalPolicy = isHot ? "'unsafe-eval'" : ''
+        // While hot-reloading the renderer's modules come from the dev server, which is a
+        // different origin than the document. No 'unsafe-eval' is needed alongside it: the dev
+        // server serves real modules rather than eval'd bundles.
+        const devServerPolicy = isHot ? ` ${DEV_SERVER_ORIGIN}` : ''
         const allowedFonts = "'self'" + (isDev ? ' data:' : '')
 
         return new Response(result, {
           headers: {
             'content-type': 'text/html',
             'content-security-policy':
-              `script-src 'self' 'nonce-${nonce}' ${chunkPolicy} ` +
-              `${scriptEvalPolicy};` +
+              `script-src 'self' 'nonce-${nonce}'${devServerPolicy};` +
               `style-src 'self' 'nonce-${nonce}';` +
               `font-src ${allowedFonts};` +
               "object-src 'none';" +

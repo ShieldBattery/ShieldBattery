@@ -1,6 +1,6 @@
 ---
 name: dev-env
-description: Start and health-check the ShieldBattery dev stack (Node server, Rust GraphQL server, webpack dev server, Electron app) as individually-controllable background processes. Use this whenever you need the app or servers running to verify a change, instead of `pnpm run local-dev` (which is an interactive run-pty TUI you can't drive or read).
+description: Start and health-check the ShieldBattery dev stack (Node server, Rust GraphQL server, app renderer dev server, Electron app) as individually-controllable background processes. Use this whenever you need the app or servers running to verify a change, instead of `pnpm run local-dev` (which is an interactive run-pty TUI you can't drive or read).
 ---
 
 # Running the dev stack
@@ -17,7 +17,7 @@ health checks, and logs.
 | Postgres + Redis | `docker-compose up -d` | 5433 / 6380 | DB + cache (see `.env`) |
 | Node web server | `pnpm run start-server` | 5555 | HTTP API + serves the web client (Vite middleware in dev) |
 | Rust GraphQL server | `cargo run` in `server-rs/` | 5556 | GraphQL API (`/gql`) |
-| Webpack dev server | `pnpm run dev` | 5566 | Electron renderer bundle + hot reload |
+| App renderer dev server | `pnpm run dev` | 5566 | Vite dev server for the Electron renderer + HMR |
 | GraphQL codegen watch | `pnpm run gen-graphql --watch` | — | Regenerates `client/gql/` on schema change (optional) |
 | Tailscale funnel | `node tools/dev-funnel.mjs` | — | **Required when `.env` points at a remote rp2 coordinator** (see below) |
 | Electron app | `pnpm run app` (or see verify-app) | — | The actual desktop client |
@@ -44,7 +44,7 @@ Config (ports, DB creds, `DATABASE_URL`) lives in `.env`. `SB_CANONICAL_HOST` is
    fresh start, run migrations: `pnpm run migrate:run`.
 2. **Node server** and **Rust server** can start in parallel. The Node server needs the Rust server
    for some flows (e.g. signup validates the username against it), so bring both up before testing.
-3. **Webpack dev server** is only needed if you're going to launch the Electron app (it serves the
+3. **App renderer dev server** is only needed if you're going to launch the Electron app (it serves the
    renderer bundle). The web client served by the Node server at :5555 does *not* need it.
 
 Start each as a **background** process so it keeps running across turns. Example:

@@ -43,13 +43,18 @@ window.addEventListener('unhandledrejection', event => {
 })
 
 if (isDev) {
-  // Fix for react-resizable-panels not getting a proper nonce from jotai-devtools
+  // The panel library behind jotai-devtools injects a `<style>` for its drag cursor without a
+  // nonce, which our style-src blocks. It appends the element empty and fills it afterwards, so the
+  // violation names an empty-content hash and points at whoever appended it rather than at the
+  // library.
+  //
+  // Every un-nonced style gets one, rather than identifying the source from the call stack: a dev
+  // server that pre-bundles dependencies puts the package inside a bundled chunk, so the stack
+  // names the chunk and matching on a package name silently stops working.
   const headAppendChild = document.head.appendChild.bind(document.head)
   document.head.appendChild = elem => {
     if (elem.tagName === 'STYLE' && !elem.getAttribute('nonce')) {
-      if (new Error().stack.includes('react-resizable-panels')) {
-        elem.setAttribute('nonce', __webpack_nonce__)
-      }
+      elem.setAttribute('nonce', window.SB_CSP_NONCE)
     }
     return headAppendChild(elem)
   }

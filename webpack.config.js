@@ -3,111 +3,6 @@ require('dotenv').config({ path: '.env-build', quiet: true })
 require('./babel-register')
 const makeConfig = require('./common.webpack.config.js').default
 const path = require('path')
-const webpack = require('webpack')
-
-// Configuration for the web part of the electron process (the client/ scripts
-// compiled for electron)
-const webWebpackOpts = {
-  // NOTE(tec27): Since we sandbox + context-isolate, this acts like a normal web browser
-  target: 'web',
-  entry: {
-    bundle: './client/index.jsx',
-  },
-  output: {
-    chunkFilename: '[name].chunk.js',
-    filename: '[name].js',
-    path: path.join(__dirname, 'app', 'dist'),
-    publicPath: process.env.NODE_ENV !== 'production' ? 'http://localhost:5566/dist/' : '/dist/',
-    crossOriginLoading: 'anonymous',
-  },
-  plugins: [
-    // For whatever reason, `import type { ... } from 'electron'` isn't being removed by
-    // babel/preset-typescript, so we just ignore them instead.
-    new webpack.IgnorePlugin({ checkResource: resource => resource === 'electron' }),
-    ...(process.env.NODE_ENV === 'production'
-      ? [
-          new (require('webpack-assets-manifest').WebpackAssetsManifest)({
-            output: 'manifest.json',
-            publicPath: '/dist/',
-            writeToDisk: true,
-            entrypoints: true,
-            entrypointsUseAssets: true,
-          }),
-        ]
-      : []),
-  ],
-}
-
-const webBabelOpts = {
-  babelrc: false,
-  configFile: false,
-  cacheDirectory: process.env.NODE_ENV !== 'production',
-  presets: [
-    ['@babel/preset-react', { runtime: 'automatic' }],
-    [
-      '@babel/preset-env',
-      {
-        targets: { electron: '43' },
-        modules: false,
-        useBuiltIns: 'usage',
-        corejs: 3,
-      },
-    ],
-    ['@babel/preset-typescript', { allExtensions: true, isTSX: true }],
-  ].concat(process.env.NODE_ENV !== 'production' ? [['jotai/babel/preset']] : []),
-  plugins: [
-    ['babel-plugin-react-compiler'],
-    [
-      require('@graphql-codegen/client-preset').babelOptimizerPlugin,
-      { artifactDirectory: './client/gql/', gqlTagName: 'graphql' },
-    ],
-    ['babel-plugin-styled-components'],
-    ['@babel/plugin-proposal-decorators', { legacy: true }],
-  ].concat(process.env.NODE_ENV !== 'production' ? [['react-refresh/babel']] : []),
-}
-
-if (process.env.NODE_ENV !== 'production') {
-  webWebpackOpts.entry.bundle = [
-    'webpack-hot-middleware/client?path=http://localhost:5566/__webpack_hmr',
-    webWebpackOpts.entry.bundle,
-  ].flat()
-}
-
-const SB_SERVER = (() => {
-  if (process.env.SB_SERVER) {
-    return process.env.SB_SERVER
-  }
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://shieldbattery.net'
-  }
-  try {
-    require('dotenv-expand')(require('dotenv').config({ path: './.env' }))
-    if (process.env.SB_CANONICAL_HOST) {
-      return process.env.SB_CANONICAL_HOST
-    }
-  } catch (err) {
-    // Intentionally empty, just means the server config isn't there/is broken for some reason
-  }
-  // Just use a "default" server address
-  return 'http://localhost:5555'
-})()
-
-console.error('Using a server of ' + SB_SERVER + ' by default')
-
-const electronWeb = makeConfig({
-  webpack: webWebpackOpts,
-  babel: webBabelOpts,
-  mainEntry: 'bundle',
-  globalDefines: {
-    IS_ELECTRON: true,
-  },
-  envDefines: {
-    SB_ANALYTICS_ID: process.env.SB_ANALYTICS_ID
-      ? JSON.stringify(process.env.SB_ANALYTICS_ID)
-      : undefined,
-    SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
-  },
-})
 
 // Configuration for the main process scripts of Electron (the app/ scripts)
 const mainWebpackOpts = {
@@ -167,7 +62,6 @@ const mainBabelOpts = {
 const electronMain = makeConfig({
   webpack: mainWebpackOpts,
   babel: mainBabelOpts,
-  splitChunks: false,
   mainEntry: 'index',
   globalDefines: {
     IS_ELECTRON: true,
@@ -176,7 +70,6 @@ const electronMain = makeConfig({
     SB_ANALYTICS_ID: process.env.SB_ANALYTICS_ID
       ? JSON.stringify(process.env.SB_ANALYTICS_ID)
       : undefined,
-    SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
     SB_SECURITY_IMPL: process.env.SB_BUILD_SECURITY_CLIENTS_IMPL
       ? JSON.stringify(path.resolve(__dirname, process.env.SB_BUILD_SECURITY_CLIENTS_IMPL))
       : undefined,
@@ -199,18 +92,12 @@ const electronMain = makeConfig({
 const electronPreload = makeConfig({
   webpack: preloadWebpackOpts,
   babel: mainBabelOpts,
-  splitChunks: false,
   mainEntry: 'preload',
   globalDefines: {
     IS_ELECTRON: true,
   },
-  envDefines: {
-    SB_ANALYTICS_ID: process.env.SB_ANALYTICS_ID
-      ? JSON.stringify(process.env.SB_ANALYTICS_ID)
-      : undefined,
-    SB_SERVER: SB_SERVER ? JSON.stringify(SB_SERVER) : undefined,
-  },
 })
 
-module.exports =
-  process.env.NODE_ENV === 'production' ? [electronWeb, electronMain, electronPreload] : electronWeb
+// The renderer is built by Vite (see vite.electron.config.ts); this only covers the Node-side
+// bundles, which are only ever built for production.
+module.exports = [electronMain, electronPreload]
