@@ -1066,6 +1066,7 @@ export class LobbyService {
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
+    this._warmLobbyRegions(updated)
   }
 
   closeSlot({
@@ -1134,8 +1135,12 @@ export class LobbyService {
         { cause: err },
       )
     }
+    // In controlled game types, removing the occupant can have dissolved a whole team into open
+    // slots (only the target slot gets closed afterwards), so someone waiting may have a seat now
+    updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(afterKick, updated)
+    this._warmLobbyRegions(updated)
   }
 
   kickPlayer({
