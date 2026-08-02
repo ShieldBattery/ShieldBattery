@@ -41,10 +41,12 @@ const PLACEHOLDERS = [
   META_TAGS_SLOT,
   FONTS_SLOT,
 ]
-const PLACEHOLDER_PATTERN = new RegExp(
-  PLACEHOLDERS.map(placeholder => placeholder.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
-  'g',
-)
+const PLACEHOLDER_PATTERN = new RegExp(PLACEHOLDERS.map(escapeForRegExp).join('|'), 'g')
+
+/** No placeholder above currently needs this; it's here so adding one can't quietly need it. */
+function escapeForRegExp(value: string): string {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 const SHELL_PATH = path.join(__dirname, '..', '..', 'client-shell', 'index.html')
 
