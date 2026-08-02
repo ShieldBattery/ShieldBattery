@@ -866,6 +866,9 @@ export class LobbyService {
         { cause: err },
       )
     }
+    // A seated player switching seats leaves their old slot open, so someone waiting on the bench
+    // may have a seat
+    updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
