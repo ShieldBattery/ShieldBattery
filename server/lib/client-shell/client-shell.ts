@@ -106,14 +106,19 @@ export function renderClientShell(template: string, data: ClientShellData): stri
     )
     .join('')
 
+  // Every replacement is a function so its value is taken literally. As a plain string, `$&`,
+  // `` $` ``, `$'` and `$$` are substitution patterns -- and user names legally contain `$`,
+  // `` ` `` and `&` (`USERNAME_ALLOWED_CHARACTERS`), so a name like `` $` `` would otherwise
+  // splice part of the surrounding template into the page. Escaping cannot fix this; the
+  // characters are meaningful to `replace` itself, not to HTML.
   return template
-    .replaceAll(BUILT_ASSET_PREFIX, `"${publicAssetsUrl}scripts/`)
-    .replace(PRECONNECT_SLOT, preconnect)
-    .replace(NONCE_SCRIPT_SLOT, nonceScript)
-    .replace(HEAD_SCRIPTS_SLOT, headScripts)
-    .replace(META_TAGS_SLOT, renderPageMetaTags(pageMeta))
-    .replace(FONTS_SLOT, favicon + fonts)
-    .replaceAll(NONCE_TOKEN, escapeAttribute(cspNonce))
+    .replaceAll(BUILT_ASSET_PREFIX, () => `"${publicAssetsUrl}scripts/`)
+    .replace(PRECONNECT_SLOT, () => preconnect)
+    .replace(NONCE_SCRIPT_SLOT, () => nonceScript)
+    .replace(HEAD_SCRIPTS_SLOT, () => headScripts)
+    .replace(META_TAGS_SLOT, () => renderPageMetaTags(pageMeta))
+    .replace(FONTS_SLOT, () => favicon + fonts)
+    .replaceAll(NONCE_TOKEN, () => escapeAttribute(cspNonce))
 }
 
 function renderPageMetaTags(pageMeta: PageMetadata): string {

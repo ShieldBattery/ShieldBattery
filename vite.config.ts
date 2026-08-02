@@ -155,9 +155,27 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       // style-src has no 'unsafe-inline', so without it every styled component fails to apply.
       // eslint-disable-next-line camelcase
       __webpack_nonce__: 'window.SB_CSP_NONCE',
+      // Each member is defined by its full access path *and* the base object is defined as a
+      // fallback. Both halves earn their place:
+      //
+      // The dotted keys are what make dead code actually disappear. Replacing only the base leaves
+      // `({NODE_ENV:'production'}).NODE_ENV !== 'production'`, which rolldown does not constant
+      // fold, so development-only branches still ship (harmless but large — it drags in the whole
+      // `/dev` route tree). webpack's DefinePlugin substituted the full member expression, which
+      // folds; this reproduces that.
+      //
+      // The base object covers members nothing here defines — `client/network/server-base-url.ts`
+      // reads `__WEBPACK_ENV.SB_SERVER` — which would otherwise be a ReferenceError rather than
+      // the `undefined` it was under webpack.
+      //
+      // Values are deliberately pre-stringified only in the dotted form: Vite JSON-stringifies a
+      // non-string value whole, so stringifying the leaves of the object as well would double
+      // encode them into `'"production"'`.
+      '__WEBPACK_ENV.NODE_ENV': JSON.stringify(isProd ? 'production' : 'development'),
+      '__WEBPACK_ENV.VERSION': JSON.stringify(packageJson.version),
       __WEBPACK_ENV: {
-        NODE_ENV: JSON.stringify(isProd ? 'production' : 'development'),
-        VERSION: JSON.stringify(packageJson.version),
+        NODE_ENV: isProd ? 'production' : 'development',
+        VERSION: packageJson.version,
       },
     },
 
@@ -204,8 +222,13 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       // The asset directory holds output from previous builds that remote clients may still be
       // loading; pruning it is `find_stale_scripts.py`'s job at deploy time, not the bundler's.
       emptyOutDir: false,
-      manifest: true,
-      sourcemap: true,
+      // 'hidden' rather than true: the deploy sync excludes *.map from the CDN precisely because
+      // the bundles don't reference them, so emitting sourceMappingURL comments would point every
+      // production chunk at a 404. The maps still get generated, and stay in the server image.
+      sourcemap: 'hidden',
+      // No build manifest. Nothing reads one now that the server takes asset tags from the shell
+      // HTML, and it would write a mutable file into a directory the CDN caches as immutable and
+      // that `find_stale_scripts.py` never prunes. Pass `--manifest` ad hoc for bundle analysis.
       rollupOptions: {
         output: {
           // Flat and content-hashed, which is what the deploy sync and its stale-object pruning

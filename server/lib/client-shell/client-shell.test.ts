@@ -92,6 +92,24 @@ describe('server/lib/client-shell/renderClientShell', () => {
     })
   })
 
+  test('treats replacement values literally, not as substitution patterns', () => {
+    // `$&`, `` $` ``, `$'` and `$$` are meaningful to String.replace. User names legally contain
+    // `$`, `` ` `` and `&`, so these must survive verbatim rather than splicing in the template.
+    const hostile = "$`$'$&$$"
+    const html = render({
+      pageMeta: { ...PAGE_META, title: hostile },
+      initData: { name: hostile },
+    })
+
+    // HTML-escaped, but note the escaped form still contains `$&` — escaping cannot defuse these,
+    // which is the whole point.
+    expect(html).toContain('content="$`$&#39;$&amp;$$"')
+    expect(html).toContain(JSON.stringify(hostile).slice(1, -1))
+    // A spliced template would duplicate the entry script tag.
+    expect(html.match(/index\.abc123\.js/g)).toHaveLength(1)
+    expect(html).toContain('<div id="app"></div>')
+  })
+
   test('omits optional blocks when their inputs are absent', () => {
     const html = render({ initData: undefined, analyticsId: undefined, assetsOrigin: undefined })
 
