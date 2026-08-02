@@ -2175,6 +2175,38 @@ describe('Lobbies - settings changes', () => {
     }
   })
 
+  test('should give computers a smaller empty team when the humans took the bigger ones', () => {
+    let lobby = createLobby({
+      name: 'Uneven teams',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+    for (let slotIndex = 2; slotIndex < 8; slotIndex++) {
+      lobby = addPlayer(lobby, 0, slotIndex, createComputer('t'))
+    }
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TeamMelee, gameSubType: 3, numSlots: 8 }),
+    )
+
+    // Sub-type 3 splits 8 slots into teams of [3, 3, 2]: the humans seed the two bigger teams,
+    // and the computers can only claim the empty smaller one, even though the open-seat counts
+    // make the humans' teams look just as roomy
+    expect(updated.teams).toHaveLength(3)
+    for (const team of updated.teams.slice(0, 2)) {
+      expect(team.slots[0].type).toBe('human')
+      expect(team.slots.slice(1).every(slot => slot.type === 'controlledOpen')).toBe(true)
+    }
+    expect(updated.teams[2].slots.every(slot => slot.type === 'computer')).toBe(true)
+  })
+
   test('should reject turning observers off when it would leave the host without a seat', () => {
     let lobby = createLobby({
       name: 'No seat for the host',

@@ -1055,6 +1055,20 @@ function findPlayerSeat(lobby: Lobby): [teamIndex: number, slotIndex: number] | 
 }
 
 /**
+ * Finds the first slot of a player team that has nobody in it at all, for occupants that can only
+ * take a team whole (computers in controlled game types). Returns `undefined` when every player
+ * team has someone in it.
+ */
+function findEmptyTeamSeat(lobby: Lobby): [teamIndex: number, slotIndex: number] | undefined {
+  const teamIndex = lobby.teams.findIndex(team => !team.isObserver && isTeamEmpty(team))
+  if (teamIndex === -1) {
+    return undefined
+  }
+  const slotIndex = lobby.teams[teamIndex].slots.findIndex(isSlotUnoccupied)
+  return slotIndex === -1 ? undefined : [teamIndex, slotIndex]
+}
+
+/**
  * Finds the observer slot someone displaced out of a player slot should be put in: a closed one if
  * there is any, so that a slot the host opened stays available to joiners. Returns -1 if the
  * observer team is full.
@@ -1196,14 +1210,15 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       .map(slot => slot.race)
     let placed = 0
     while (placed < races.length) {
-      const seat = findPlayerSeat(updated)
-      if (!seat) {
-        break
-      }
       // A controlled team is built around the humans in it and only holds computers as a whole
-      // team of them, so once no empty team is left the remaining computers have nowhere to go.
-      // (The seat search prefers the emptiest team, so a non-empty pick means none are empty.)
-      if (hasControlledOpens(next.gameType) && !isTeamEmpty(updated.teams[seat[0]])) {
+      // team of them, so in those game types computers get a seat by claiming a team that is
+      // still empty; once none is left the remaining computers have nowhere to go. (The general
+      // seat search can't be used to find one: it ranks teams by open seats, which can prefer a
+      // human's team over a smaller empty one.)
+      const seat = hasControlledOpens(next.gameType)
+        ? findEmptyTeamSeat(updated)
+        : findPlayerSeat(updated)
+      if (!seat) {
         break
       }
       const before = countComputers(updated)
