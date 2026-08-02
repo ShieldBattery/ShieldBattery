@@ -220,7 +220,8 @@ const eventToAction: EventToActionMap = {
   },
 
   gameStarted: (lobbyId, event) => (dispatch, getState) => {
-    const { lobby } = getState()
+    const state = getState()
+    const { lobby } = state
 
     dispatch(closeDialog(DialogType.LaunchingGame))
     const currentPath = location.pathname
@@ -228,9 +229,17 @@ const eventToAction: EventToActionMap = {
     if (currentPath === lobbyPath || currentPath.startsWith(lobbyPath + '/')) {
       replace(urlPath`/`)
     }
-    dispatch({
-      type: '@lobbies/updateGameStarted',
-    })
+    if (selfIsBenched(state)) {
+      // The lobby is over for a benched member too, but no game of theirs has started: marking one
+      // active would stick, since only their own game's lifecycle ever clears that state again
+      dispatch({
+        type: '@lobbies/updateLeaveSelf',
+      })
+    } else {
+      dispatch({
+        type: '@lobbies/updateGameStarted',
+      })
+    }
   },
 
   chat(lobbyId, event) {
