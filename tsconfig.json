@@ -18,6 +18,7 @@
 
   "include": [
     "app/**/*",
+    "build-plugins/**/*",
     "client/**/*",
     "common/**/*",
     "email/**/*",

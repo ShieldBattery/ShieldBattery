@@ -37,6 +37,10 @@ export async function attachViteDevServer(app: Koa, httpServer: Server): Promise
           '**/server/uploaded_files/**',
         ],
       },
+      // Vite serves anything under the workspace root on this port, where webpack-dev-middleware
+      // only answered under /scripts/. Its default denylist covers `.env` and `.env.*` but not
+      // this one, which is a real file at the repo root.
+      fs: { deny: ['.env-build'] },
     },
   })
 

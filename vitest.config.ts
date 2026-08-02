@@ -41,6 +41,7 @@ export default defineConfig({
             'server/**/*.test.{js,ts,tsx}',
             'common/**/*.test.{js,ts,tsx}',
             'tools/**/*.test.{js,ts,tsx}',
+            'build-plugins/**/*.test.{js,ts,tsx}',
           ],
           exclude: ['server/public/**'],
           setupFiles: ['core-js/proposals/reflect-metadata'],

@@ -45,8 +45,15 @@ const NONCE_TOKEN = '__SB_CSP_NONCE__'
 
 /**
  * Translates the `browserslist` key in package.json into esbuild-style target strings so the
- * browser support matrix has exactly one definition. Engines esbuild has no target for (Samsung
- * Internet, Android WebView, ...) fold into the engine they are built on.
+ * browser support matrix has exactly one definition.
+ *
+ * Only engines that version themselves *as* an esbuild target can be translated: Android
+ * Chrome/WebView and Opera Mobile use Chrome's and Opera's numbering, so they fold in. Engines
+ * that number independently cannot, and are dropped rather than mistranslated — Samsung Internet
+ * 29 is Chromium 125, not Chrome 29. Today that only affects Samsung Internet, whose supported
+ * releases sit well above the Chrome floor and so would not tighten the target anyway; if one of
+ * these ever became the binding constraint, the honest fix is to name it in the browserslist
+ * query rather than infer it here.
  */
 function browserslistToTargets(): string[] {
   // browserslist engine name -> esbuild engine name. A Map rather than an object because these
@@ -217,6 +224,9 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
         // `@svgr/plugin-svgo` would change that — SVGO's default preset strips `viewBox`, so it
         // would need `preset-default` with a `removeViewBox: false` override.
         include: '**/*.svg',
+        // A dependency's SVG is an image, not one of our components; turning one into JSX would
+        // break its importer. Nothing imports one today, so this only forecloses the trap.
+        exclude: '**/node_modules/**',
       }),
       jotai(),
       graphqlOptimizer(ROOT),

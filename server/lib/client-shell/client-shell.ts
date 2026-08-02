@@ -85,7 +85,18 @@ export async function getClientShellTemplate(url: string): Promise<string> {
     return await templateSource(url)
   }
   if (cachedTemplate === undefined) {
-    cachedTemplate = await readFile(SHELL_PATH, 'utf8')
+    try {
+      cachedTemplate = await readFile(SHELL_PATH, 'utf8')
+    } catch (err) {
+      // Nothing builds the client on demand any more, so a server started without a build fails
+      // here on every request rather than at boot. Say which step is missing; the bare ENOENT
+      // names a path that has never existed and reads like corruption.
+      throw new Error(
+        `Could not read the client shell at ${SHELL_PATH}. Run \`pnpm run build-web-client\` ` +
+          `to produce it.`,
+        { cause: err },
+      )
+    }
   }
   return cachedTemplate
 }
