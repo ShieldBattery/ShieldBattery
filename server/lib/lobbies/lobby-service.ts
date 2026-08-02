@@ -26,6 +26,7 @@ import {
   MAX_BENCH,
 } from '../../../common/lobbies'
 import {
+  LobbyBenchRemoveEvent,
   LobbyChangedSetting,
   LobbySlotCreateEvent,
   LobbySummaryJson,
@@ -1145,6 +1146,8 @@ export class LobbyService {
         { cause: err },
       )
     }
+    // The observer slot they vacated is open now, so someone waiting on the bench may have a seat
+    updated = this._seatBenchOverflow(updated)
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
     this._warmLobbyRegions(updated)
@@ -1199,7 +1202,9 @@ export class LobbyService {
       // Ensure the client's local state gets updated to confirm the leave
       this._publishTo(
         lobby,
-        player ? { type: 'leave', player } : { type: 'benchRemove', userId: client.userId },
+        player
+          ? { type: 'leave', player }
+          : { type: 'benchRemove', userId: client.userId, reason: 'left' },
       )
       this.lobbies.delete(lobby.id)
       this.lobbyBannedUsers.delete(lobby.id)
@@ -1660,7 +1665,21 @@ export class LobbyService {
     const oldBench = new Set(oldLobby.bench.map(benched => benched.userId))
     for (const benched of oldLobby.bench) {
       if (!newLobby.bench.some(entry => entry.userId === benched.userId)) {
-        diffEvents.push({ type: 'benchRemove', userId: benched.userId })
+        // Bench members hold no slot, so the slot-based leave/kick/ban events above never cover
+        // them; when they're gone from the lobby entirely (rather than seated into one of its
+        // slots), this event is the only report of their departure and has to say why itself.
+        const seated = getLobbySlots(newLobby).some(slot => slot.userId === benched.userId)
+        let reason: LobbyBenchRemoveEvent['reason']
+        if (!seated) {
+          if (kickedUser === benched.userId) {
+            reason = 'kicked'
+          } else if (bannedUser === benched.userId) {
+            reason = 'banned'
+          } else {
+            reason = 'left'
+          }
+        }
+        diffEvents.push({ type: 'benchRemove', userId: benched.userId, reason })
       }
     }
     for (const benched of newLobby.bench) {

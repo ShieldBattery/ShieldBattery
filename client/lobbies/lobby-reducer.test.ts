@@ -3,7 +3,12 @@ import { GameType } from '../../common/games/game-type'
 import { BenchedUser, Lobby } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { LobbyActions } from './actions'
-import { BenchJoinMessage, LobbyMessageType, SettingsChangeMessage } from './lobby-message-records'
+import {
+  BenchJoinMessage,
+  KickLobbyPlayerMessage,
+  LobbyMessageType,
+  SettingsChangeMessage,
+} from './lobby-message-records'
 import lobbyReducerImport, { CurrentLobbyState, isInLobby } from './lobby-reducer'
 
 // `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it lobby
@@ -289,7 +294,7 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(isInLobby(state)).toBe(false)
   })
 
-  test('benchRemove filters the user out of the bench without logging a chat message', () => {
+  test('a benchRemove without a reason (a seating) logs no chat message', () => {
     let state = lobbyReducer(undefined, initAction())
     state = lobbyReducer(state, {
       type: '@lobbies/updateBenchAdd',
@@ -304,6 +309,24 @@ describe('client/lobbies/lobby-reducer', () => {
 
     expect(state.info.bench).toEqual([])
     expect(state.chat.length).toBe(chatLengthAfterAdd)
+  })
+
+  test('a benchRemove carrying a departure reason logs the matching chat message', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateBenchAdd',
+      payload: { type: 'benchAdd', user: BENCHED_USER },
+    })
+
+    state = lobbyReducer(state, {
+      type: '@lobbies/updateBenchRemove',
+      payload: { type: 'benchRemove', userId: BENCHED_USER.userId, reason: 'kicked' },
+    })
+
+    expect(state.info.bench).toEqual([])
+    const lastMessage = state.chat[state.chat.length - 1]
+    expect(lastMessage.type).toBe(LobbyMessageType.KickLobbyPlayer)
+    expect((lastMessage as KickLobbyPlayerMessage).userId).toBe(BENCHED_USER.userId)
   })
 
   test('a benchRemove trailing our own ban does not throw and leaves us out of the lobby', () => {

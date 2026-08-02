@@ -227,9 +227,28 @@ const lobbyHandlers = {
       return
     }
 
-    // No chat message here: the bench member's seating or departure is reported by the slot/leave
-    // event that accompanies this one.
-    draft.info.bench = draft.info.bench.filter(benched => benched.userId !== action.payload.userId)
+    const { userId, reason } = action.payload
+    draft.info.bench = draft.info.bench.filter(benched => benched.userId !== userId)
+
+    // A reason means they're out of the lobby, which nothing else reports for a bench member. An
+    // absent one means they were seated, which the accompanying slot events already describe.
+    if (reason === 'left') {
+      pushChat(draft, { id: nanoid(), type: LobbyMessageType.LeaveLobby, time: Date.now(), userId })
+    } else if (reason === 'kicked') {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.KickLobbyPlayer,
+        time: Date.now(),
+        userId,
+      })
+    } else if (reason === 'banned') {
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.BanLobbyPlayer,
+        time: Date.now(),
+        userId,
+      })
+    }
   },
 
   '@lobbies/updateLeaveSelf'(draft) {
