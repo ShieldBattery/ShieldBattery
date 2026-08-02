@@ -44,11 +44,10 @@ const JotaiDevTools =
     ? undefined
     : React.lazy(() => import('./debug/jotai-devtools').then(m => ({ default: m.JotaiDevTools })))
 
-let ReduxDevToolsContainer: any
-if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
-  const devtools = require('./debug/redux-devtools')
-  ReduxDevToolsContainer = devtools.default
-}
+const ReduxDevToolsContainer =
+  IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production'
+    ? React.lazy(() => import('./debug/redux-devtools'))
+    : undefined
 
 const DevComponent =
   __WEBPACK_ENV.NODE_ENV === 'production' ? () => null : React.lazy(() => import('./dev'))

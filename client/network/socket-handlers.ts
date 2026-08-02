@@ -1,9 +1,7 @@
-import { NydusClient } from 'nydus-client'
 import { TypedIpcRenderer } from '../../common/ipc'
 import auth from '../auth/socket-handlers'
 import chat from '../chat/socket-handlers'
 import { dispatch } from '../dispatch-registry'
-import { gameServerRegionsAtom } from '../game-server-regions/game-server-regions-atoms'
 import games from '../games/socket-handlers'
 import { jotaiStore } from '../jotai-store'
 import lobbies from '../lobbies/socket-handlers'
@@ -14,14 +12,9 @@ import users from '../users/socket-handlers'
 import whispers from '../whispers/socket-handlers'
 import { isConnectedAtom } from './network-atoms'
 import siteSocket from './site-socket'
+import { SocketHandler, SocketHandlerParams } from './socket-handler'
 
-function networkStatusHandler({
-  siteSocket,
-  ipcRenderer,
-}: {
-  siteSocket: NydusClient
-  ipcRenderer: TypedIpcRenderer
-}) {
+function networkStatusHandler({ siteSocket, ipcRenderer }: SocketHandlerParams) {
   // TODO(tec27): we could probably pass through reconnecting status as well
   siteSocket
     .on('connect', () => {
@@ -39,38 +32,7 @@ function networkStatusHandler({
     })
 }
 
-function gameServerRegionsHandler({
-  siteSocket,
-  ipcRenderer,
-}: {
-  siteSocket: NydusClient
-  ipcRenderer: TypedIpcRenderer
-}) {
-  siteSocket.registerRoute('/gameServerRegions', (route, event) => {
-    if (event.type === 'fullUpdate') {
-      ipcRenderer.send('gameServerRegionsSetList', event.regions)
-      jotaiStore.set(gameServerRegionsAtom, event.regions)
-    } else {
-      logger.warning(`got unknown game server regions event type: ${event.type}`)
-    }
-  })
-}
-
-const envSpecificHandlers = IS_ELECTRON
-  ? [
-      gameServerRegionsHandler,
-      require('../active-game/socket-handlers').default,
-      require('../download/ipc-handlers').default,
-      require('../game-server-regions/ipc-handlers').default,
-      require('../lobbies/electron-socket-handlers').default,
-      require('../matchmaking/socket-handlers').default,
-      require('../replays/ipc-handlers').default,
-      require('../settings/ipc-handlers').default,
-      require('../system-bar/ipc-handlers').default,
-    ]
-  : []
-
-const handlers = [
+const handlers: SocketHandler[] = [
   auth,
   chat,
   games,
@@ -80,11 +42,19 @@ const handlers = [
   notifications,
   users,
   whispers,
-].concat(envSpecificHandlers)
+]
 
-export default function register() {
+export default async function register(): Promise<void> {
   const ipcRenderer = new TypedIpcRenderer()
-  for (const handler of handlers) {
+
+  // Loaded here rather than at module scope so the import can be dynamic: the bundler drops it
+  // from builds where this branch is statically false, which is every non-Electron build.
+  let envSpecificHandlers: SocketHandler[] = []
+  if (IS_ELECTRON) {
+    envSpecificHandlers = (await import('./electron-socket-handlers')).default
+  }
+
+  for (const handler of handlers.concat(envSpecificHandlers)) {
     handler({ siteSocket, ipcRenderer })
   }
 }

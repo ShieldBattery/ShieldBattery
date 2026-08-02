@@ -120,7 +120,7 @@ rootElemPromise
       }
     }
     registerDispatch(reduxStore.dispatch)
-    registerSocketHandlers()
+    await registerSocketHandlers()
 
     const detected = getBestLanguage()
     detectedLocale.setValue(Array.isArray(detected) ? detected[0] : detected)
