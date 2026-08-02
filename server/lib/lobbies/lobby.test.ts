@@ -1923,6 +1923,30 @@ describe('Lobbies - settings changes', () => {
     ])
   })
 
+  test('should reject turning observers off when it would leave the host without a seat', () => {
+    let lobby = createLobby({
+      name: 'No seat for the host',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 2,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addHumans(lobby, 1)
+    // The host observes, and the seat they left behind gets taken
+    lobby = makeObserver(lobby, 0, 0)
+    lobby = addPlayer(lobby, 0, 0, humanAt(2, 'z', 2000))
+    expect(lobby.host.type).toBe('observer')
+
+    // A displaced observer's claim to a seat is weaker than the sitting players', so this change
+    // has nowhere to put the host but the bench, and a host is never left without a seat
+    expect(() => applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))).toThrow(
+      /no slot for the lobby host/,
+    )
+  })
+
   test('should seat the members waiting on the bench when the layout grows', () => {
     let lobby = createLobby({
       name: 'Growing',

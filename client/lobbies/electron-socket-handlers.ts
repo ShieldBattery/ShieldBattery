@@ -237,20 +237,78 @@ const eventToAction: EventToActionMap = {
     }
   },
 
-  settingsChange: (lobbyId, event) => ({
-    type: '@lobbies/updateSettingsChange',
-    payload: event,
-  }),
+  settingsChange: (lobbyId, event) => {
+    if (event.changedSettings.includes('map')) {
+      // Start downloading the new map right away (like joining does), so that game loading isn't
+      // left to fetch it from scratch once the countdown completes
+      const { hash, mapData, mapUrl } = event.lobby.map!
+      ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
+        // This is already logged to our file by the map store, so we just log it to the console for
+        // easy visibility during development
+        console.error('Error downloading map: ' + err.stack)
+      })
+    }
+
+    return {
+      type: '@lobbies/updateSettingsChange',
+      payload: event,
+    }
+  },
 
   benchAdd: (lobbyId, event) => ({
     type: '@lobbies/updateBenchAdd',
     payload: event,
   }),
 
-  benchRemove: (lobbyId, event) => ({
-    type: '@lobbies/updateBenchRemove',
-    payload: event,
-  }),
+  benchRemove: (lobbyId, event) => (dispatch, getState) => {
+    const { auth } = getState()
+
+    if (auth.self!.user.id !== event.userId) {
+      dispatch({
+        type: '@lobbies/updateBenchRemove',
+        payload: event,
+      })
+      return
+    }
+
+    // A bench member holds no slot, so no leave/kick/ban event follows this one: if the removed
+    // member is us and we weren't seated (an absent reason), this event is how we find out we're
+    // out of the lobby.
+    switch (event.reason) {
+      case undefined:
+        dispatch({
+          type: '@lobbies/updateBenchRemove',
+          payload: event,
+        })
+        break
+      case 'left':
+        clearCountdownTimer()
+        dispatch({
+          type: '@lobbies/updateLeaveSelf',
+        })
+        break
+      case 'kicked':
+        clearCountdownTimer()
+        externalShowSnackbar(
+          i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'),
+        )
+        dispatch({
+          type: '@lobbies/updateKickSelf',
+        })
+        break
+      case 'banned':
+        clearCountdownTimer()
+        externalShowSnackbar(
+          i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'),
+        )
+        dispatch({
+          type: '@lobbies/updateBanSelf',
+        })
+        break
+      default:
+        event.reason satisfies never
+    }
+  },
 
   // Nothing in the client's state depends on which of our own clients are in the lobby.
   status: () => {},
