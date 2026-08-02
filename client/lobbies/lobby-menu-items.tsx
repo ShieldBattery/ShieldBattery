@@ -5,13 +5,14 @@ import { DestructiveMenuItem } from '../material/menu/item'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { MenuItemCategory, UserMenuProps } from '../users/user-context-menu'
 import { banPlayer, kickPlayer } from './action-creators'
+import { isInLobby } from './lobby-reducer'
 
 export function LobbyUserMenu({ userId, items, onMenuClose, MenuComponent }: UserMenuProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUserId = useAppSelector(s => s.auth.self!.user.id)
   const user = useAppSelector(s => s.users.byId.get(userId))
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobby = useAppSelector(s => s.lobby.info)
   const [, , slot] = findSlotByUserId(lobby, userId)
 

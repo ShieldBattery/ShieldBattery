@@ -3,7 +3,6 @@ import { GameRecordJson } from '../../common/games/games'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
-import { LOBBY_INIT_DATA, LOBBY_UPDATE_CHAT_MESSAGE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface UserRequestInfo {
@@ -205,11 +204,11 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     updateUsers(state, action.payload.mentions)
   },
 
-  [LOBBY_INIT_DATA as any](state: any, action: any) {
+  ['@lobbies/init'](state, action) {
     updateUsers(state, action.payload.userInfos)
   },
 
-  [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
+  ['@lobbies/updateChatMessage'](state, action) {
     updateUsers(state, action.payload.mentions)
   },
 

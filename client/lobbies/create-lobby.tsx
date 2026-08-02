@@ -413,7 +413,7 @@ export function CreateLobby(props: CreateLobbyProps) {
         gameSubType,
         mapSelection: {
           mapId: storeSelectedMap,
-          recentMaps: storeRecentMaps.toArray(),
+          recentMaps: storeRecentMaps,
         },
         useLegacyLimits: useLegacyLimits ?? false,
         visibility: prefsVisibility ?? 'listed',

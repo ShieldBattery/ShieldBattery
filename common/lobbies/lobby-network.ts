@@ -5,7 +5,7 @@ import { MapImageInfo, MapInfoJson, SbMapId } from '../maps'
 import { RaceChar } from '../races'
 import { SbUser } from '../users/sb-user'
 import { SbUserId } from '../users/sb-user-id'
-import { LobbyState, LobbyVisibility } from './index'
+import { Lobby, LobbyState, LobbyVisibility } from './index'
 import { SbLobbyId } from './sb-lobby-id'
 import { SlotJson } from './slot'
 
@@ -142,10 +142,9 @@ export interface LobbySummaryResponse {
 
 export interface LobbyInitEvent {
   type: 'init'
-  // TODO(tec27): actually type this
-  lobby: {
-    map: MapInfoJson
-  }
+  // TODO(tec27): actually type this. This is the lobby as the server JSON-serialized it, so e.g.
+  // `map` is really a `MapInfoJson` rather than the full `MapInfo` that `Lobby` declares.
+  lobby: Lobby
   /** An array of infos for all users that were in the lobby at this point. */
   userInfos: SbUser[]
 }
@@ -164,6 +163,9 @@ export interface LobbySlotCreateEvent {
 
 export interface LobbyRaceChangeEvent {
   type: 'raceChange'
+  teamIndex: number
+  slotIndex: number
+  newRace: RaceChar
 }
 
 export interface LobbyLeaveEvent {
@@ -183,11 +185,14 @@ export interface LobbyBanEvent {
 
 export interface LobbyHostChangeEvent {
   type: 'hostChange'
-  host: any
+  host: SlotJson
 }
 
 export interface LobbySlotChangeEvent {
   type: 'slotChange'
+  teamIndex: number
+  slotIndex: number
+  player: SlotJson
 }
 
 export interface LobbyStartCountdownEvent {

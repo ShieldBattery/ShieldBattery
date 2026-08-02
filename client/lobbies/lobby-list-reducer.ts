@@ -1,100 +1,69 @@
-import { List, Map, Record } from 'immutable'
-import { GameType } from '../../common/games/game-type'
 import { LobbySummaryJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
-import { MapInfoJson } from '../../common/maps'
-import { SbUserId } from '../../common/users/sb-user-id'
-import { LOBBIES_COUNT_UPDATE, LOBBIES_LIST_UPDATE } from '../actions'
+import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
-export class HostRecord extends Record({
-  name: '',
-  id: 0 as SbUserId,
-}) {}
+export interface LobbyListState {
+  /** Lobby ids, kept sorted by lobby name. */
+  list: SbLobbyId[]
+  byId: Map<SbLobbyId, LobbySummaryJson>
+  count: number
+}
 
-export class LobbySummary extends Record({
-  id: '' as SbLobbyId,
-  name: '',
-  map: undefined as MapInfoJson | undefined,
-  gameType: GameType.Melee,
-  gameSubType: 0,
-  host: new HostRecord(),
-  openSlotCount: -1,
-}) {}
-
-export class LobbyList extends Record({
-  list: List<SbLobbyId>(),
-  byId: Map<SbLobbyId, LobbySummary>(),
+const DEFAULT_STATE: LobbyListState = {
+  list: [],
+  byId: new Map(),
   count: 0,
-}) {}
-
-function createSummary(lobbyData: LobbySummaryJson): LobbySummary {
-  return new LobbySummary({
-    ...lobbyData,
-    host: new HostRecord(lobbyData.host),
-  })
 }
 
-function handleFull(state: LobbyList, data: LobbySummaryJson[]): LobbyList {
-  const byId = Map(
-    data.map(lobby => {
-      const summary = createSummary(lobby)
-      return [summary.id, summary]
-    }),
-  )
-  const list = byId
-    .valueSeq()
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(summary => summary.id)
-    .toList()
-  return new LobbyList({ list, byId, count: state.count })
+/** Inserts `summary`'s id into `list` at the position that keeps it sorted by lobby name. */
+function insertSorted(
+  list: SbLobbyId[],
+  summary: LobbySummaryJson,
+  byId: ReadonlyMap<SbLobbyId, LobbySummaryJson>,
+): void {
+  const index = list.findIndex(otherId => summary.name.localeCompare(byId.get(otherId)!.name) < 1)
+  list.splice(index === -1 ? list.length : index, 0, summary.id)
 }
 
-function handleAdd(state: LobbyList, data: LobbySummaryJson): LobbyList {
-  if (state.byId.has(data.id)) return state
+export default immerKeyedReducer(DEFAULT_STATE, {
+  ['@lobbies/countUpdate'](draft, action) {
+    draft.count = action.payload.count
+  },
 
-  const insertBefore = state.list.findEntry(
-    id => data.name.localeCompare(state.byId.get(id)!.name) < 1,
-  )
-  const index = insertBefore ? insertBefore[0] : state.list.size
-  const updatedList = state.list.insert(index, data.id)
-  return state.setIn(['byId', data.id], createSummary(data)).set('list', updatedList)
-}
+  ['@network/connect']() {
+    return DEFAULT_STATE
+  },
 
-function handleUpdate(state: LobbyList, data: LobbySummaryJson): LobbyList {
-  if (!state.byId.has(data.id)) return state
+  ['@lobbies/listUpdate'](draft, action) {
+    const { message, data } = action.payload
 
-  const summary = createSummary(data)
-  return state.setIn(['byId', summary.id], summary)
-}
+    if (message === 'full') {
+      draft.byId = new Map(data.map(summary => [summary.id, summary]))
+      draft.list = data
+        .slice()
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(summary => summary.id)
+      return
+    }
 
-function handleDelete(state: LobbyList, data: SbLobbyId): LobbyList {
-  if (!state.byId.has(data)) return state
+    if (message === 'add') {
+      if (draft.byId.has(data.id)) return
+      draft.byId.set(data.id, data)
+      insertSorted(draft.list, data, draft.byId)
+      return
+    }
 
-  const newState = state.deleteIn(['byId', data])
-  const listEntry = state.list.findEntry(id => id === data)
-  return listEntry ? newState.deleteIn(['list', listEntry[0]]) : newState
-}
+    if (message === 'update') {
+      if (!draft.byId.has(data.id)) return
+      draft.byId.set(data.id, data)
+      return
+    }
 
-export default function lobbyListReducer(state = new LobbyList(), action: any): LobbyList {
-  if (action.type === LOBBIES_COUNT_UPDATE) {
-    return state.set('count', action.payload.count)
-  } else if (action.type === '@network/connect') {
-    return new LobbyList()
-  }
-
-  if (action.type !== LOBBIES_LIST_UPDATE) return state
-
-  const { message, data } = action.payload
-  switch (message) {
-    case 'full':
-      return handleFull(state, data)
-    case 'add':
-      return handleAdd(state, data)
-    case 'update':
-      return handleUpdate(state, data)
-    case 'delete':
-      return handleDelete(state, data)
-    default:
-      return state
-  }
-}
+    if (message === 'delete') {
+      if (!draft.byId.has(data)) return
+      draft.byId.delete(data)
+      const index = draft.list.indexOf(data)
+      if (index !== -1) draft.list.splice(index, 1)
+    }
+  },
+})

@@ -5,6 +5,7 @@ import { DialogActions } from './dialogs/actions'
 import { GamesActions } from './games/actions'
 import { LadderActions } from './ladder/actions'
 import { LeaguesActions } from './leagues/actions'
+import { LobbyActions } from './lobbies/actions'
 import { MapsActions } from './maps/actions'
 import { MatchmakingActions } from './matchmaking/actions'
 import { MessagingActions } from './messaging/actions'
@@ -23,6 +24,7 @@ type AllActions =
   | GamesActions
   | LadderActions
   | LeaguesActions
+  | LobbyActions
   | MapsActions
   | MatchmakingActions
   | MessagingActions

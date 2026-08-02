@@ -14,7 +14,6 @@ import {
   SbChannelId,
 } from '../../common/chat'
 import { SbUserId } from '../../common/users/sb-user-id'
-import { LOBBY_UPDATE_CHAT_MESSAGE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
@@ -573,7 +572,7 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     updateDeletedChannels(state, action.payload.deletedChannels)
   },
 
-  [LOBBY_UPDATE_CHAT_MESSAGE as any](state: any, action: any) {
+  ['@lobbies/updateChatMessage'](state, action) {
     updateChannelInfos(state, action.payload.channelMentions)
   },
 

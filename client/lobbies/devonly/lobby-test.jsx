@@ -1,8 +1,7 @@
-import { List, Range } from 'immutable'
+import { Range } from 'immutable'
 import { Component } from 'react'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LobbyComponent from '../lobby'
-import { LobbyLoadingState } from '../lobby-reducer'
 
 const SLOTS = [
   { type: 'human', name: 'tec27', id: 'a', race: 'p' },
@@ -53,8 +52,8 @@ export default class LobbyTest extends Component {
           <LobbyComponent
             lobby={lobby}
             user={USER}
-            chat={new List()}
-            loadingState={new LobbyLoadingState()}
+            chat={[]}
+            loadingState={{ isCountingDown: false, countdownTimer: -1, isLoading: false }}
             onSendChatMessage={() => null}
           />
         </div>

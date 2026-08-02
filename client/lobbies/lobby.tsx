@@ -1,4 +1,3 @@
-import { List } from 'immutable'
 import React from 'react'
 import { useTranslation, WithTranslation, withTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -196,7 +195,7 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
 interface LobbyProps {
   lobby: Lobby
   loadingState: LobbyLoadingState
-  chat: List<SbMessage>
+  chat: SbMessage[]
   user: ReadonlyDeep<SelfUserJson>
   onLeaveLobbyClick: () => void
   onSetRace: (slotId: string, race: RaceChar) => void

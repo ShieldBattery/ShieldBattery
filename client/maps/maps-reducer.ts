@@ -1,6 +1,5 @@
 import { Immutable } from 'immer'
 import { MapInfoJson, SbMapId } from '../../common/maps'
-import { LOBBY_PREFERENCES_GET, LOBBY_PREFERENCES_UPDATE } from '../actions'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 export interface MapsState {
@@ -204,7 +203,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  [LOBBY_PREFERENCES_GET as any](state: MapsState, action: any) {
+  ['@lobbies/getPreferences'](state, action) {
     if (action.error) {
       return
     }
@@ -219,7 +218,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     }
   },
 
-  [LOBBY_PREFERENCES_UPDATE as any](state: MapsState, action: any) {
+  ['@lobbies/updatePreferences'](state, action) {
     if (action.error) {
       return
     }

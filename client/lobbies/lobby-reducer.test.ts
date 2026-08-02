@@ -2,23 +2,16 @@ import { describe, expect, test } from 'vitest'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
-import {
-  LOBBY_INIT_DATA,
-  LOBBY_UPDATE_BAN_SELF,
-  LOBBY_UPDATE_HOST_CHANGE,
-  LOBBY_UPDATE_KICK_SELF,
-  LOBBY_UPDATE_LEAVE_SELF,
-  LOBBY_UPDATE_RACE_CHANGE,
-  LOBBY_UPDATE_SLOT_CREATE,
-} from '../actions'
-import lobbyReducerImport, { LobbyRecord } from './lobby-reducer'
+import { LobbyActions } from './actions'
+import lobbyReducerImport, { CurrentLobbyState, isInLobby } from './lobby-reducer'
 
-// `lobby-reducer.js` is untyped JS; give the default export a minimal, honest signature for use
-// in these tests rather than fighting inference on every call site.
-const lobbyReducer = lobbyReducerImport as (
-  state: LobbyRecord | undefined,
-  action: { type: string; payload?: any },
-) => LobbyRecord
+// `immerKeyedReducer` accepts any action with a string `type`. These tests only ever feed it lobby
+// actions, so narrow the parameter to those, both for the extra checking and so that action objects
+// can be written inline without tripping excess property checks.
+const lobbyReducer: (
+  state: CurrentLobbyState | undefined,
+  action: LobbyActions,
+) => CurrentLobbyState = lobbyReducerImport
 
 const HOST_SLOT: Slot = {
   type: SlotType.Human,
@@ -72,18 +65,30 @@ const LOBBY: Lobby = {
   visibility: 'listed',
 }
 
-function initAction() {
-  return { type: LOBBY_INIT_DATA, payload: { lobby: LOBBY, userInfos: [] } }
+function initAction(): LobbyActions {
+  return { type: '@lobbies/init', payload: { type: 'init', lobby: LOBBY, userInfos: [] } }
+}
+
+function chatAction(text: string): LobbyActions {
+  return {
+    type: '@lobbies/updateChatMessage',
+    payload: {
+      type: 'chat',
+      message: { lobbyName: LOBBY.name, time: 27, from: HOST_SLOT.userId!, text },
+      mentions: [],
+      channelMentions: [],
+    },
+  }
 }
 
 describe('client/lobbies/lobby-reducer', () => {
-  test('LOBBY_INIT_DATA stores the payload lobby as state.info directly', () => {
+  test('init stores the payload lobby as state.info directly', () => {
     const state = lobbyReducer(undefined, initAction())
 
     expect(state.info).toBe(LOBBY)
   })
 
-  test('LOBBY_UPDATE_SLOT_CREATE replaces the targeted slot and leaves the others untouched', () => {
+  test('slotCreate replaces the targeted slot and leaves the others untouched', () => {
     let state = lobbyReducer(undefined, initAction())
 
     const newSlot: Slot = {
@@ -97,8 +102,8 @@ describe('client/lobbies/lobby-reducer', () => {
       typeId: 0,
     }
     state = lobbyReducer(state, {
-      type: LOBBY_UPDATE_SLOT_CREATE,
-      payload: { teamIndex: 0, slotIndex: 2, slot: newSlot },
+      type: '@lobbies/updateSlotCreate',
+      payload: { type: 'slotCreate', teamIndex: 0, slotIndex: 2, slot: newSlot },
     })
 
     expect(state.info.teams[0].slots[2]).toEqual(newSlot)
@@ -106,12 +111,12 @@ describe('client/lobbies/lobby-reducer', () => {
     expect(state.info.teams[0].slots[1]).toEqual(SLOT_A)
   })
 
-  test('LOBBY_UPDATE_RACE_CHANGE updates just the race of the targeted slot', () => {
+  test('raceChange updates just the race of the targeted slot', () => {
     let state = lobbyReducer(undefined, initAction())
 
     state = lobbyReducer(state, {
-      type: LOBBY_UPDATE_RACE_CHANGE,
-      payload: { teamIndex: 0, slotIndex: 1, newRace: 'p' },
+      type: '@lobbies/updateRaceChange',
+      payload: { type: 'raceChange', teamIndex: 0, slotIndex: 1, newRace: 'p' },
     })
 
     expect(state.info.teams[0].slots[1]).toEqual({ ...SLOT_A, race: 'p' })
@@ -121,46 +126,99 @@ describe('client/lobbies/lobby-reducer', () => {
 
   test('a slotCreate trailing our own kick does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: LOBBY_UPDATE_KICK_SELF })
+    state = lobbyReducer(state, { type: '@lobbies/updateKickSelf' })
 
     expect(() => {
       state = lobbyReducer(state, {
-        type: LOBBY_UPDATE_SLOT_CREATE,
-        payload: { teamIndex: 0, slotIndex: 1, slot: SLOT_A },
+        type: '@lobbies/updateSlotCreate',
+        payload: { type: 'slotCreate', teamIndex: 0, slotIndex: 1, slot: SLOT_A },
       })
     }).not.toThrow()
 
     expect(state.info.name).toBe('')
-    expect(state.inLobby).toBe(false)
+    expect(isInLobby(state)).toBe(false)
   })
 
   test('a raceChange trailing our own leave does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: LOBBY_UPDATE_LEAVE_SELF })
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
 
     expect(() => {
       state = lobbyReducer(state, {
-        type: LOBBY_UPDATE_RACE_CHANGE,
-        payload: { teamIndex: 0, slotIndex: 1, newRace: 'p' },
+        type: '@lobbies/updateRaceChange',
+        payload: { type: 'raceChange', teamIndex: 0, slotIndex: 1, newRace: 'p' },
       })
     }).not.toThrow()
 
     expect(state.info.name).toBe('')
-    expect(state.inLobby).toBe(false)
+    expect(isInLobby(state)).toBe(false)
   })
 
   test('a hostChange trailing our own ban does not throw and leaves us out of the lobby', () => {
     let state = lobbyReducer(undefined, initAction())
-    state = lobbyReducer(state, { type: LOBBY_UPDATE_BAN_SELF })
+    state = lobbyReducer(state, { type: '@lobbies/updateBanSelf' })
 
     expect(() => {
       state = lobbyReducer(state, {
-        type: LOBBY_UPDATE_HOST_CHANGE,
+        type: '@lobbies/updateHostChange',
         payload: SLOT_A,
       })
     }).not.toThrow()
 
     expect(state.info.name).toBe('')
-    expect(state.inLobby).toBe(false)
+    expect(isInLobby(state)).toBe(false)
+  })
+
+  test('chat while activated stays read; leaving with messages in the log queues hasUnread', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    expect(state.activated).toBe(true)
+    expect(state.hasUnread).toBe(false)
+
+    state = lobbyReducer(state, chatAction('hey'))
+    expect(state.hasUnread).toBe(false)
+
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+    expect(state.chat).toHaveLength(0)
+    expect(state.activated).toBe(false)
+    expect(state.hasUnread).toBe(true)
+  })
+
+  test('chat while deactivated marks unread; activating clears it', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    state = lobbyReducer(state, { type: '@lobbies/deactivate' })
+
+    state = lobbyReducer(state, chatAction('hey'))
+    expect(state.hasUnread).toBe(true)
+
+    state = lobbyReducer(state, { type: '@lobbies/activate' })
+    expect(state.hasUnread).toBe(false)
+  })
+
+  test('actions arriving while out of a lobby leave the state referentially unchanged', () => {
+    let state = lobbyReducer(undefined, initAction())
+    state = lobbyReducer(state, { type: '@lobbies/updateLeaveSelf' })
+    // The first out-of-lobby action still settles the hasUnread queued up by leaving
+    state = lobbyReducer(state, { type: '@lobbies/deactivate' })
+
+    const settled = lobbyReducer(state, { type: '@lobbies/deactivate' })
+    expect(settled).toBe(state)
+  })
+
+  test('the chat cap trims at most one entry per push, even for multi-message pushes', () => {
+    let state = lobbyReducer(undefined, initAction())
+    // The init self-join message plus 199 chat messages fills the log to the 200-message cap
+    for (let i = 1; i < 200; i++) {
+      state = lobbyReducer(state, chatAction(`msg ${i}`))
+    }
+    expect(state.chat).toHaveLength(200)
+
+    state = lobbyReducer(state, chatAction('one more'))
+    expect(state.chat).toHaveLength(200)
+
+    // The countdown start pushes two messages (started + first tick) but still trims just one
+    state = lobbyReducer(state, { type: '@lobbies/updateCountdownStart', payload: 5 })
+    expect(state.chat).toHaveLength(201)
   })
 })

@@ -23,6 +23,7 @@ import { useSelfUser } from '../auth/auth-utils'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { getInstantaneousSelfRank } from '../ladder/action-creators'
+import { isInLobby } from '../lobbies/lobby-reducer'
 import { RaceIcon } from '../lobbies/race-icon'
 import { FilledButton, TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
@@ -1217,7 +1218,7 @@ export function FindMatch() {
   const matchmakingStatus = useAppSelector(s => s.matchmakingStatus.byType)
   const matchmakingPreferences = useAppSelector(s => s.matchmakingPreferences.byType)
   const mapPools = useAppSelector(s => s.mapPools.byType)
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const lobbyId = useAppSelector(s => s.lobby.info.id)
   const lobbyName = useAppSelector(s => s.lobby.info.name)
 

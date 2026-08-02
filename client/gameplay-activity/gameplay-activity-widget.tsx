@@ -10,6 +10,7 @@ import { slotCount, takenSlotCount } from '../../common/lobbies'
 import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { isInLobby } from '../lobbies/lobby-reducer'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
 import { ElapsedTime } from '../matchmaking/elapsed-time'
@@ -54,7 +55,7 @@ const PositioningArea = styled.div`
 `
 
 export function GameplayActivityWidget() {
-  const inLobby = useAppSelector(s => s.lobby.inLobby)
+  const inLobby = useAppSelector(s => isInLobby(s.lobby))
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
   const inDraft = useAtomValue(isInDraftAtom)
   const isConnected = useAtomValue(isConnectedAtom)
