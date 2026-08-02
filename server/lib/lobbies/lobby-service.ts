@@ -1281,8 +1281,12 @@ export class LobbyService {
       lobby: null,
     })
 
-    this._maybeCancelCountdown(lobby, lobbyIsEmpty)
-    this._maybeCancelLoading(lobby, lobbyIsEmpty)
+    // A benched member holds no slot in the game being loaded, so their departure can't invalidate
+    // a countdown or load in progress
+    if (player) {
+      this._maybeCancelCountdown(lobby, lobbyIsEmpty)
+      this._maybeCancelLoading(lobby, lobbyIsEmpty)
+    }
 
     try {
       const user = this.getUserById(client.userId)
