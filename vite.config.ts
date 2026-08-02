@@ -6,6 +6,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { defineConfig, type Plugin, type UserConfig } from 'vite'
 import svgr from 'vite-plugin-svgr'
+import { graphqlOptimizer } from './build-plugins/graphql-optimizer'
 import packageJson from './package.json' with { type: 'json' }
 
 const ROOT = import.meta.dirname
@@ -175,6 +176,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
         svgrOptions: { svgoConfig: { plugins: [{ name: 'removeViewBox', active: false }] } },
       }),
       jotai(),
+      graphqlOptimizer(ROOT),
       await babel({
         presets: [reactCompilerPreset()],
         plugins: [
