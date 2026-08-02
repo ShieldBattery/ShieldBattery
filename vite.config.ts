@@ -24,8 +24,14 @@ const ASSET_OUT = 'server/public/scripts'
 const SHELL_OUT = 'server/client-shell/index.html'
 /**
  * Prefix for asset URLs written into the shell. The server rewrites this to the configured public
- * assets URL (which may be a CDN origin) when it serves the shell. Lazy chunks need no rewriting:
- * native ESM resolves them relative to the importing module's URL.
+ * assets URL (which may be a CDN origin) when it serves the shell.
+ *
+ * References *inside* the bundle are made relative instead (see `experimental.renderBuiltUrl`),
+ * because a baked-in absolute base would be resolved against the document rather than the module
+ * that uses it. That splits a CDN deploy in two: `import()` resolves relative to the importing
+ * module and hits the CDN, while the matching `<link rel=modulepreload>` and async-chunk
+ * stylesheets would point at the origin -- fetching every lazy chunk twice, and never serving its
+ * CSS from the CDN. It fails silently, since the origin does serve those files.
  */
 const ASSET_BASE = '/scripts/'
 
@@ -122,6 +128,14 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   return {
     root: ROOT,
     base: ASSET_BASE,
+
+    experimental: {
+      // Keep the shell's URLs absolute so the server can rewrite them to the public assets URL,
+      // but make every reference the bundle resolves itself relative to the importing module. See
+      // ASSET_BASE for what an absolute base costs on a CDN deploy.
+      renderBuiltUrl: (_filename, { hostType }) =>
+        hostType === 'html' ? undefined : { relative: true },
+    },
     // The server owns the shell; Vite only needs to transform it.
     appType: 'custom',
 
