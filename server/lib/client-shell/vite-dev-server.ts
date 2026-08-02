@@ -20,9 +20,24 @@ const SOURCE_SHELL_PATH = path.join(__dirname, '..', '..', '..', 'index.html')
  */
 export async function attachViteDevServer(app: Koa, httpServer: Server): Promise<void> {
   const vite = await createServer({
-    // Reuses our HTTP server for the HMR websocket rather than opening a second port, which also
-    // keeps HMR on the same origin as everything else.
-    server: { middlewareMode: true, hmr: { server: httpServer } },
+    server: {
+      // Reuses our HTTP server for the HMR websocket rather than opening a second port, which also
+      // keeps HMR on the same origin as everything else.
+      middlewareMode: true,
+      hmr: { server: httpServer },
+      // Vite's root is the repo root and its default ignores cover only .git, node_modules,
+      // test-results and outDir. Without these the watcher also walks the Rust build directories
+      // -- 60k+ files between them, rewritten continuously whenever the Rust server is running
+      // alongside this one, which `local-dev` does by default.
+      watch: {
+        ignored: [
+          '**/target/**',
+          '**/app/dist/**',
+          '**/server/public/**',
+          '**/server/uploaded_files/**',
+        ],
+      },
+    },
   })
 
   app.use(koaConnect(vite.middlewares))

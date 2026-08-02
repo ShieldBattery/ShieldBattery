@@ -111,14 +111,19 @@ export function renderClientShell(template: string, data: ClientShellData): stri
   // `` ` `` and `&` (`USERNAME_ALLOWED_CHARACTERS`), so a name like `` $` `` would otherwise
   // splice part of the surrounding template into the page. Escaping cannot fix this; the
   // characters are meaningful to `replace` itself, not to HTML.
-  return template
-    .replaceAll(BUILT_ASSET_PREFIX, () => `"${publicAssetsUrl}scripts/`)
-    .replace(PRECONNECT_SLOT, () => preconnect)
-    .replace(NONCE_SCRIPT_SLOT, () => nonceScript)
-    .replace(HEAD_SCRIPTS_SLOT, () => headScripts)
-    .replace(META_TAGS_SLOT, () => renderPageMetaTags(pageMeta))
-    .replace(FONTS_SLOT, () => favicon + fonts)
-    .replaceAll(NONCE_TOKEN, () => escapeAttribute(cspNonce))
+  return (
+    template
+      // Before anything user-supplied is spliced in. The token is letters and underscores, all of
+      // which user names allow, so substituting afterwards would rewrite a name that happens to
+      // equal it -- putting the request's nonce into page content an attacker chose the context of.
+      .replaceAll(NONCE_TOKEN, () => escapeAttribute(cspNonce))
+      .replaceAll(BUILT_ASSET_PREFIX, () => `"${publicAssetsUrl}scripts/`)
+      .replace(PRECONNECT_SLOT, () => preconnect)
+      .replace(NONCE_SCRIPT_SLOT, () => nonceScript)
+      .replace(HEAD_SCRIPTS_SLOT, () => headScripts)
+      .replace(META_TAGS_SLOT, () => renderPageMetaTags(pageMeta))
+      .replace(FONTS_SLOT, () => favicon + fonts)
+  )
 }
 
 function renderPageMetaTags(pageMeta: PageMetadata): string {

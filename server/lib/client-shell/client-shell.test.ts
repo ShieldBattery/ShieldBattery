@@ -110,6 +110,15 @@ describe('server/lib/client-shell/renderClientShell', () => {
     expect(html).toContain('<div id="app"></div>')
   })
 
+  test('does not substitute the nonce into user-controlled content', () => {
+    // The token is letters and underscores, which user names allow, so a user could set their
+    // name to it. Substituting after the slots are filled would leak the request's nonce.
+    const html = render({ pageMeta: { ...PAGE_META, title: '__SB_CSP_NONCE__' } })
+
+    expect(html).toContain('content="__SB_CSP_NONCE__"')
+    expect(html).not.toContain('content="test-nonce-value"')
+  })
+
   test('omits optional blocks when their inputs are absent', () => {
     const html = render({ initData: undefined, analyticsId: undefined, assetsOrigin: undefined })
 
