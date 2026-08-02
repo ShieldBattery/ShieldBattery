@@ -581,9 +581,6 @@ importers:
       magic-string:
         specifier: ^1.1.0
         version: 1.1.0
-      markdown-loader:
-        specifier: ^8.0.0
-        version: 8.0.0(webpack@5.108.4)
       memoize-one:
         specifier: ^6.0.0
         version: 6.0.0
@@ -7739,20 +7736,9 @@ packages:
     resolution: {integrity: sha512-8y/eV9QQZCiyn1SprXSrCmqJN0yNRATe+PO8ztwqrvrbdRLA3eYJF0yaR0YayLWkMbsQSKWS9N2gPcGEc4UsZg==}
     engines: {node: '>=0.10.0'}
 
-  markdown-loader@8.0.0:
-    resolution: {integrity: sha512-dxrR3WhK/hERbStPFb/yeNdEeWCKa2qUDdXiq3VTruBUWufOtERX04X0K44K4dnlN2i9pjSEzYIQJ3LjH0xkEw==}
-    engines: {node: '>=12.22.9'}
-    peerDependencies:
-      webpack: ^5.0.0
-
   marked@15.0.12:
     resolution: {integrity: sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA==}
     engines: {node: '>= 18'}
-    hasBin: true
-
-  marked@4.3.0:
-    resolution: {integrity: sha512-PRsaiG84bK+AMvxziE/lCFss8juXjNaWzVbN5tXAm4XjeaS9NAHhop+PjQxz2A9h8Q4M/xGmzP8vqNwy6JeK0A==}
-    engines: {node: '>= 12'}
     hasBin: true
 
   matcher-collection@2.0.1:
@@ -18743,14 +18729,7 @@ snapshots:
 
   map-cache@0.2.2: {}
 
-  markdown-loader@8.0.0(webpack@5.108.4):
-    dependencies:
-      marked: 4.3.0
-      webpack: 5.108.4(@swc/core@1.15.43(@swc/helpers@0.5.15))(clean-css@5.3.3)(csso@4.2.0)(esbuild@0.28.1)(html-minifier-terser@7.2.0)(lightningcss@1.32.0)(postcss@8.5.15)(uglify-js@3.19.3)(webpack-cli@7.2.1)
-
   marked@15.0.12: {}
-
-  marked@4.3.0: {}
 
   matcher-collection@2.0.1:
     dependencies:

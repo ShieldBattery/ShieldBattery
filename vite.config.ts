@@ -2,8 +2,8 @@ import babel from '@rolldown/plugin-babel'
 import react, { reactCompilerPreset } from '@vitejs/plugin-react'
 import browserslist from 'browserslist'
 import jotai from 'jotai-rolldown'
-import { readFile, rm, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { defineConfig, type Plugin, type UserConfig } from 'vite'
 import svgr from 'vite-plugin-svgr'
 import { graphqlOptimizer } from './build-plugins/graphql-optimizer'
@@ -107,6 +107,9 @@ function shellPlugin(): Plugin {
       const emitted = resolve(outDir, 'index.html')
       const destination = resolve(ROOT, SHELL_OUT)
       const html = await readFile(emitted, 'utf8')
+      // The destination is build output and therefore gitignored, so a fresh checkout won't have
+      // it -- which is every CI and container build.
+      await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, html, { encoding: 'utf8', flush: true })
       await rm(emitted)
     },
