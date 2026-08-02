@@ -116,9 +116,6 @@ function shellPlugin(): Plugin {
   }
 }
 
-/** The installed core-js version, so only polyfills that release actually has get injected. */
-const CORE_JS_VERSION = packageJson.dependencies['core-js'].replace(/^[^\d]*/, '')
-
 export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   const isProd = mode === 'production'
 
@@ -203,14 +200,27 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
       }),
       jotai(),
       graphqlOptimizer(ROOT),
+      // React Compiler is the only thing left on Babel, and only until oxc's Rust port becomes
+      // reachable from released Vite (oxc#24542).
+      //
+      // Notably absent: core-js injection. `babel-plugin-polyfill-corejs3` produces a bundle that
+      // throws on load, because core-js is CommonJS and rolldown's wrapper for it lives in the
+      // runtime chunk, while the injected side-effect imports hoist *into* that same chunk -- a
+      // circular import that leaves the wrappers uninitialized when they're called. Chunk grouping
+      // doesn't break the cycle, and the other injection modes either need `core-js-pure` (which
+      // changes semantics) or silently emit nothing.
+      //
+      // Dropping it costs nothing measurable today: with injection on, exactly seven polyfills
+      // were emitted (array.includes, four iterator helpers, set.union, uint8-array.to-hex) and
+      // all seven are false positives from babel matching method *names* -- nothing here calls
+      // `.union()`, `Iterator.from` or `.toHex()`, and `.includes`/`.every`/`.filter`/`.find`/
+      // `.forEach` on arrays predate every browser we target. `build.target` still lowers syntax.
+      //
+      // What this does remove is the safety net: a newly-used API that our floor lacks will now
+      // simply break there rather than being polyfilled. `@core-js/unplugin` is the intended fix
+      // once core-js v4 ships it, being rolldown-native rather than an injection of CJS imports.
       await babel({
         presets: [reactCompilerPreset()],
-        plugins: [
-          // Injects the core-js polyfills each file actually needs, for the browsers in the
-          // package.json `browserslist` key. This is the plugin @babel/preset-env itself uses for
-          // `useBuiltIns: 'usage'`.
-          ['polyfill-corejs3', { method: 'usage-global', version: CORE_JS_VERSION }],
-        ],
         exclude: [/[\\/]node_modules[\\/]/],
       }),
       shellPlugin(),
