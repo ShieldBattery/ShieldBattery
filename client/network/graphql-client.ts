@@ -2,6 +2,7 @@ import { cacheExchange, KeyingConfig, UpdatesConfig } from '@urql/exchange-graph
 import { Client, fetchExchange } from 'urql'
 import { ServerConfig } from '../../common/server-config'
 import { SbUserId } from '../../common/users/sb-user-id'
+import schema from '../gql/schema.json'
 import { CREDENTIAL_STORAGE } from './fetch'
 import { requestPolicyExchange } from './improved-request-policy-exchange'
 
@@ -14,8 +15,6 @@ export function createGraphqlClient(
 ) {
   const url = new URL(serverConfig.graphqlOrigin)
   url.pathname = '/gql'
-
-  const schema = require('../gql/schema.json')
 
   return new Client({
     url: url.toString(),

@@ -64,7 +64,7 @@ function PolicyPage(props: { title: string; children: React.ReactNode }) {
 }
 
 const AcceptableUseContent = React.lazy(async () => {
-  const { default: policy } = await import('../../common/policies/acceptable-use.html')
+  const { default: policy } = await import('../../common/policies/acceptable-use.html?raw')
   return { default: () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} /> }
 })
 
@@ -92,7 +92,7 @@ export function AcceptableUsePage() {
 }
 
 const PrivacyPolicyContent = React.lazy(async () => {
-  const { default: policy } = await import('../../common/policies/privacy.html')
+  const { default: policy } = await import('../../common/policies/privacy.html?raw')
   return { default: () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} /> }
 })
 
@@ -120,7 +120,7 @@ export function PrivacyPolicyPage() {
 }
 
 const TermsOfServiceContent = React.lazy(async () => {
-  const { default: policy } = await import('../../common/policies/terms-of-service.html')
+  const { default: policy } = await import('../../common/policies/terms-of-service.html?raw')
   return { default: () => <PolicyRoot dangerouslySetInnerHTML={{ __html: policy }} /> }
 })
 

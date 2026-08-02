@@ -1,5 +1,4 @@
 import { RouterContext } from '@koa/router'
-import views from '@ladjs/koa-views'
 import 'core-js/proposals/reflect-metadata'
 import { promises as fsPromises } from 'fs'
 import http from 'http'
@@ -7,7 +6,6 @@ import Koa from 'koa'
 import koaBody from 'koa-body'
 import koaCompress from 'koa-compress'
 import koaJwt from 'koa-jwt'
-import path from 'path'
 import { container } from 'tsyringe'
 import { DISCORD_WEBHOOK_URL_TOKEN } from './lib/discord/webhook-notifier'
 import isDev from './lib/env/is-dev'
@@ -82,18 +80,6 @@ const port = process.env.SB_HTTP_PORT
 
 container.register<Koa>(Koa, { useValue: app })
 
-let webpackCompiler: any
-
-function getWebpackCompiler() {
-  if (!webpackCompiler) {
-    const webpack = require('webpack')
-    const webpackConfig = require('./webpack.config.js')
-    webpackCompiler = webpack(webpackConfig)
-  }
-
-  return webpackCompiler
-}
-
 app.proxy = process.env.SB_HTTPS_REVERSE_PROXY === 'true'
 
 interface PossibleHttpError extends Error {
@@ -166,7 +152,6 @@ app
       br: false,
     }),
   )
-  .use(views(path.join(__dirname, 'views'), { extension: 'pug' }))
   .use(redirectToCanonical(process.env.SB_CANONICAL_HOST))
   .use(checkOrigin(process.env.SB_CANONICAL_HOST))
   .use(koaBody())
@@ -220,22 +205,6 @@ container.resolve(GameServerRegionsService)
     }
   }
 
-  if (isDev) {
-    const { webpackMiddleware, webpackHotMiddleware } = require('./lib/webpack/middleware')
-
-    app.use(
-      webpackMiddleware({
-        compiler: getWebpackCompiler(),
-        devMiddleware: {
-          // We use 'auto' for publicPath in production so it can use a CDN path, but in dev we need
-          // it to be a specific path so it gets handled by the dev middleware
-          publicPath: '/scripts/',
-        },
-      }),
-    )
-    app.use(webpackHotMiddleware(getWebpackCompiler()))
-  }
-
   log.info('Testing connection to redis.')
   const redis = container.resolve(Redis)
   try {
@@ -270,37 +239,18 @@ container.resolve(GameServerRegionsService)
 
   fileStoreMiddleware(app)
 
+  if (isDev) {
+    // Attached before the routes so that requests for client modules reach Vite rather than the
+    // catch-all that renders the shell.
+    const { attachViteDevServer } = require('./lib/client-shell/vite-dev-server')
+    await attachViteDevServer(app, mainServer)
+  }
+
   createRoutes(app, process.env.SB_GQL_ORIGIN!)
 
-  const needToBuild = !(isDev || process.env.SB_PREBUILT_ASSETS)
-  const compilePromise = needToBuild
-    ? new Promise((resolve, reject) =>
-        getWebpackCompiler().run((err: Error, stats: any) => (err ? reject(err) : resolve(stats))),
-      )
-    : Promise.resolve()
-  if (needToBuild) {
-    log.info('In production mode, building assets...')
-  }
-
-  try {
-    const stats: any = await compilePromise
-
-    if (stats) {
-      if ((stats.errors && stats.errors.length) || (stats.warnings && stats.warnings.length)) {
-        throw new Error(stats.toString())
-      }
-
-      const statStr = stats.toString({ colors: true })
-      log.info(`Webpack stats:\n${statStr}`)
-    }
-
-    mainServer.listen(port, function () {
-      log.info('Server listening on port ' + port)
-    })
-  } catch (err) {
-    log.error({ err }, 'Error building assets')
-    process.exit(1)
-  }
+  mainServer.listen(port, function () {
+    log.info('Server listening on port ' + port)
+  })
 })().catch(err => {
   log.error({ err }, 'Error initializing app')
   process.exit(1)

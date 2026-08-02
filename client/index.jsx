@@ -42,36 +42,6 @@ window.addEventListener('unhandledrejection', event => {
   )
 })
 
-let ReduxDevTools
-if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
-  const devtools = require('./debug/redux-devtools')
-  ReduxDevTools = devtools.DevTools
-}
-
-if (module.hot) {
-  // Dumb hack to make HMR work with CSP. The webpack-hot-middleware runtime blindly inserts scripts
-  // into the head without adding the nonce, with no real way to catch this easily. Anyway, we
-  // hook `appendChild` on the head, check if it's trying to insert a script, and if so we add the
-  // appropriate attribute before doing it.
-  const headAppendChild = document.head.appendChild.bind(document.head)
-  document.head.appendChild = elem => {
-    if (elem.tagName === 'SCRIPT' && new Error().stack.includes('__webpack_require__')) {
-      elem.setAttribute('nonce', __webpack_nonce__)
-    }
-
-    return headAppendChild(elem)
-  }
-
-  const bodyAppendChild = document.body.appendChild.bind(document.body)
-  document.body.appendChild = elem => {
-    if (elem.id === 'webpack-hot-middleware-clientOverlay') {
-      elem.setAttribute('nonce', __webpack_nonce__)
-    }
-
-    return bodyAppendChild(elem)
-  }
-}
-
 if (isDev) {
   // Fix for react-resizable-panels not getting a proper nonce from jotai-devtools
   const headAppendChild = document.head.appendChild.bind(document.head)
@@ -121,6 +91,13 @@ audioManager.initialize()
 
 rootElemPromise
   .then(async elem => {
+    // Loaded here rather than at module scope so the import can be dynamic: the bundler drops it
+    // from builds where this branch is statically false, which is every non-Electron build.
+    let ReduxDevTools
+    if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
+      ReduxDevTools = (await import('./debug/redux-devtools')).DevTools
+    }
+
     const reduxStore = createStore(ReduxDevTools)
     if (__WEBPACK_ENV.NODE_ENV !== 'production') {
       // Expose these for dev verification tooling (CDP-driven assertions on app state, and

@@ -73,11 +73,6 @@ export default function ({
           ],
         },
         {
-          test: /\.md$/,
-          exclude: /README.md$/,
-          use: [{ loader: 'html-loader' }, { loader: 'markdown-loader' }],
-        },
-        {
           test: /\.html?$/,
           use: [{ loader: 'html-loader' }],
         },

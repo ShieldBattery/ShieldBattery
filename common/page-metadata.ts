@@ -1,6 +1,6 @@
 /**
  * Server-rendered Open Graph/Twitter Card metadata for a page, rendered into the page's
- * `<head>` by `server/views/index.pug`.
+ * `<head>` by `server/lib/client-shell/`.
  */
 export interface PageMetadata {
   url: string

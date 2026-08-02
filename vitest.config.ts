@@ -41,6 +41,7 @@ export default defineConfig({
             'server/**/*.test.{js,ts,tsx}',
             'common/**/*.test.{js,ts,tsx}',
             'tools/**/*.test.{js,ts,tsx}',
+            'build-plugins/**/*.test.{js,ts,tsx}',
           ],
           exclude: ['server/public/**'],
           setupFiles: ['core-js/proposals/reflect-metadata'],
@@ -61,7 +62,10 @@ export default defineConfig({
           ],
           alias: {
             '\\.(svg)$': resolve(__dirname, 'client/__mocks__/svg-mock.tsx'),
-            '\\.(html|htm|md)$': resolve(__dirname, 'client/__mocks__/static-file-mock.ts'),
+            '\\.(html|htm|md)(\\?raw)?$': resolve(
+              __dirname,
+              'client/__mocks__/static-file-mock.ts',
+            ),
           },
         },
       },

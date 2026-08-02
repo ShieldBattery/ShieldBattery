@@ -22,6 +22,7 @@ allowBuilds:
   core-js-pure: true
   electron-winstaller: true
   esbuild: true
+  jotai-rolldown: false
   pino-datadog-transport: true
   protobufjs: true
   sharp: true
