@@ -577,22 +577,6 @@ export function removePlayer(
 }
 
 /**
- * "Moves" the occupant of one slot into another slot, leaving an unoccupied slot behind. The
- * source is expected to hold a `human` or `observer`, and the destination to be unoccupied. Team
- * sizes never change; only slot contents do.
- *
- * Depending on the game type and the teams involved, the move has additional effects:
- *
- * - In UMS lobbies, a slot's `playerId` and forced race come from the map, so the occupant takes on
- *   the destination slot's values and leaves the source slot's behind.
- * - Crossing the observer team's boundary retypes the occupant, since the observer team holds
- *   `observer` slots and every other team holds `human` ones.
- * - In team melee/ffa lobbies, the player teams are made of slots controlled by whoever is in them,
- *   so leaving a team can empty it or hand control of its slots to a remaining player, and entering
- *   an empty team fills the rest of it with slots the arriving player controls. The observer team
- *   never holds controlled slots, so a move into or out of it skips that handling on that side.
- */
-/**
  * Returns what an occupant looks like once they are in `destSlot` of `destTeam`, having come from
  * `sourceTeam`: in UMS lobbies a slot's `playerId` and forced race come from the map, so they take
  * on the destination's, and crossing the observer team's boundary retypes them, since the observer
@@ -620,6 +604,22 @@ function occupantInSlot(
   return moved
 }
 
+/**
+ * "Moves" the occupant of one slot into another slot, leaving an unoccupied slot behind. The
+ * source is expected to hold a `human` or `observer`, and the destination to be unoccupied. Team
+ * sizes never change; only slot contents do.
+ *
+ * Depending on the game type and the teams involved, the move has additional effects:
+ *
+ * - In UMS lobbies, a slot's `playerId` and forced race come from the map, so the occupant takes on
+ *   the destination slot's values and leaves the source slot's behind.
+ * - Crossing the observer team's boundary retypes the occupant, since the observer team holds
+ *   `observer` slots and every other team holds `human` ones.
+ * - In team melee/ffa lobbies, the player teams are made of slots controlled by whoever is in them,
+ *   so leaving a team can empty it or hand control of its slots to a remaining player, and entering
+ *   an empty team fills the rest of it with slots the arriving player controls. The observer team
+ *   never holds controlled slots, so a move into or out of it skips that handling on that side.
+ */
 export function movePlayerToSlot(
   lobby: Lobby,
   sourceTeamIndex: number,
@@ -1206,7 +1206,10 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   }
 
   const withHost = reassignHost(updated)
-  if (!getLobbySlots(withHost).some(slot => slot.id === withHost.host.id)) {
+  // Checked against the pre-change host: in the layout-keeping branch an observer host unseated by
+  // turning observers off skips the needSeats priority entirely, so `reassignHost` could otherwise
+  // quietly hand their lobby to a seated player while they land on the bench.
+  if (!getLobbySlots(withHost).some(slot => slot.id === lobby.host.id)) {
     throw new Error('the new settings leave no slot for the lobby host')
   }
   return withHost

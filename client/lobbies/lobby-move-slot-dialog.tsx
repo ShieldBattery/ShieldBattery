@@ -3,7 +3,8 @@ import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
-import { getLobbySlotsWithIndexes } from '../../common/lobbies'
+import { GameType } from '../../common/games/game-type'
+import { getLobbySlotsWithIndexes, Team } from '../../common/lobbies'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { SbUser } from '../../common/users/sb-user'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -29,6 +30,48 @@ const TeamHeader = styled.div`
     padding-top: 0;
   }
 `
+
+/**
+ * Returns whether the server would refuse to move/swap the occupant of `fromSlot` into `destSlot`,
+ * so the dialog can disable the destinations that would fail: closed slots (the host can open one
+ * first if they want someone in it), UMS computers (they're part of the map), computers entering
+ * the observer team from either side of a swap, and anything but a human-with-human exchange in
+ * game types whose teams are built out of controlled slots.
+ */
+function isInvalidDestination(
+  gameType: GameType,
+  fromTeam: Team,
+  fromSlot: Slot,
+  destTeam: Team,
+  destSlot: Slot,
+): boolean {
+  if (destSlot.type === SlotType.Closed || destSlot.type === SlotType.ControlledClosed) {
+    return true
+  }
+  if (destSlot.type === SlotType.UmsComputer) {
+    return true
+  }
+  if (destTeam.isObserver && fromSlot.type === SlotType.Computer) {
+    return true
+  }
+  if (fromTeam.isObserver && destSlot.type === SlotType.Computer) {
+    return true
+  }
+
+  const destOccupied =
+    destSlot.type === SlotType.Human ||
+    destSlot.type === SlotType.Observer ||
+    destSlot.type === SlotType.Computer
+  if (
+    (gameType === GameType.TeamMelee || gameType === GameType.TeamFreeForAll) &&
+    destOccupied &&
+    (fromSlot.type !== SlotType.Human || destSlot.type !== SlotType.Human)
+  ) {
+    return true
+  }
+
+  return false
+}
 
 function slotLabel(slot: Slot, usersById: ReadonlyMap<SbUserId, SbUser>, t: TFunction): string {
   switch (slot.type) {
@@ -80,19 +123,29 @@ export function LobbyMoveSlotDialog({ onCancel, close, fromSlotId }: LobbyMoveSl
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Keyed on occupantIdsKey, see above.
   }, [dispatch, occupantIdsKey])
 
+  const fromEntry = getLobbySlotsWithIndexes(lobby).find(([, , slot]) => slot.id === fromSlotId)
+  const fromTeam = fromEntry ? lobby.teams[fromEntry[0]] : undefined
+  const fromSlot = fromEntry?.[2]
+
   const rows: React.ReactNode[] = []
-  for (const team of lobby.teams) {
+  for (const [teamIndex, team] of lobby.teams.entries()) {
     if (team.slots.length === 0) {
       continue
     }
 
-    rows.push(<TeamHeader key={`team-${team.teamId}-${team.isObserver}`}>{team.name}</TeamHeader>)
+    // Keyed by index: in UMS lobbies multiple forces can share a `teamId`
+    rows.push(<TeamHeader key={`team-${teamIndex}`}>{team.name}</TeamHeader>)
     for (const slot of team.slots) {
       rows.push(
         <MenuItem
           key={slot.id}
           text={slotLabel(slot, usersById, t)}
-          disabled={slot.id === fromSlotId}
+          disabled={
+            slot.id === fromSlotId ||
+            !fromTeam ||
+            !fromSlot ||
+            isInvalidDestination(lobby.gameType, fromTeam, fromSlot, team, slot)
+          }
           onClick={() => {
             dispatch(moveSlot(fromSlotId, slot.id))
             close()
