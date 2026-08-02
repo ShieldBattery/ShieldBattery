@@ -962,6 +962,8 @@
       "visibilityUnlisted": "Unlisted"
     },
     "lobbySettings": {
+      "errorDialogTitle": "Error updating settings",
+      "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration.",
       "title": "Lobby settings"
     },
     "messageLayout": {

@@ -187,16 +187,27 @@ export function removeObserver(slotId: string): ThunkAction {
  * Updates the settings of the lobby the user is currently hosting. `settings` should contain only
  * the fields the caller wants changed (e.g. the diff between a settings form and the lobby's
  * current values) — anything absent is left as-is by the server.
+ *
+ * Unlike the fire-and-forget slot operations, this is a form submit with server-side validation
+ * that can reject (and some rejections, like a change that would leave the host without a seat,
+ * are reachable through normal use), so the caller handles the outcome through `spec`.
  */
 export function updateLobbySettings(
   settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>>,
+  spec: RequestHandlingSpec<void>,
 ): ThunkAction {
-  return currentLobbyRequest('updating lobby settings', lobbyId =>
-    fetchJson<void>(apiUrl`lobbies/${lobbyId}/settings`, {
+  return abortableThunk(spec, async (_dispatch, getState) => {
+    const { lobby } = getState()
+    if (!isInLobby(lobby)) {
+      return
+    }
+
+    await fetchJson<void>(apiUrl`lobbies/${lobby.info.id}/settings`, {
       method: 'POST',
       body: encodeBodyAsParams<UpdateLobbySettingsRequest>({ clientId, ...settings }),
-    }),
-  )
+      signal: spec.signal,
+    })
+  })
 }
 
 /** Moves the occupant of `fromSlotId` into `toSlotId`, swapping the two occupants if it's taken. */
