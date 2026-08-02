@@ -3,5 +3,6 @@
 /database.json
 /public/scripts/*
 /public/styles/*
+/client-shell/
 npm-debug.log
 uploaded_files/

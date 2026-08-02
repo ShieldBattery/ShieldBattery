@@ -61,7 +61,10 @@ export default defineConfig({
           ],
           alias: {
             '\\.(svg)$': resolve(__dirname, 'client/__mocks__/svg-mock.tsx'),
-            '\\.(html|htm|md)$': resolve(__dirname, 'client/__mocks__/static-file-mock.ts'),
+            '\\.(html|htm|md)(\\?raw)?$': resolve(
+              __dirname,
+              'client/__mocks__/static-file-mock.ts',
+            ),
           },
         },
       },
