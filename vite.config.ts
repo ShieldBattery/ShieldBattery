@@ -30,6 +30,14 @@ const SHELL_OUT = 'server/client-shell/index.html'
 const ASSET_BASE = '/scripts/'
 
 /**
+ * Stand-in nonce for the tags Vite injects when serving. Unlike the build's output, those include
+ * inline scripts (the React Refresh preamble), which our CSP will not run without a nonce. The
+ * server swaps this token for the request's real nonce. Build output needs none of this — see
+ * {@link shellPlugin}.
+ */
+const NONCE_TOKEN = '__SB_CSP_NONCE__'
+
+/**
  * Translates the `browserslist` key in package.json into esbuild-style target strings so the
  * browser support matrix has exactly one definition. Engines esbuild has no target for (Samsung
  * Internet, Android WebView, ...) fold into the engine they are built on.
@@ -108,7 +116,7 @@ function shellPlugin(): Plugin {
 /** The installed core-js version, so only polyfills that release actually has get injected. */
 const CORE_JS_VERSION = packageJson.dependencies['core-js'].replace(/^[^\d]*/, '')
 
-export default defineConfig(async ({ mode }): Promise<UserConfig> => {
+export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
   const isProd = mode === 'production'
 
   return {
@@ -116,6 +124,10 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     base: ASSET_BASE,
     // The server owns the shell; Vite only needs to transform it.
     appType: 'custom',
+
+    // Only when serving: see NONCE_TOKEN. Setting it for builds would put nonce attributes on
+    // output that doesn't need them.
+    html: command === 'serve' ? { cspNonce: NONCE_TOKEN } : undefined,
 
     resolve: {
       alias: isProd

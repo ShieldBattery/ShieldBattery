@@ -134,7 +134,7 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
       }
       const pageMeta = await resolvePageMetadata(ctx.path, pageMetadataContext)
       ctx.type = 'html'
-      ctx.body = renderClientShell(await getClientShellTemplate(), {
+      ctx.body = renderClientShell(await getClientShellTemplate(ctx.url), {
         initData,
         pageMeta,
         cspNonce: getCspNonce(ctx),

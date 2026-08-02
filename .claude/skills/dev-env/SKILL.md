@@ -15,7 +15,7 @@ health checks, and logs.
 | Service | Command (from repo root) | Port | Purpose |
 | --- | --- | --- | --- |
 | Postgres + Redis | `docker-compose up -d` | 5433 / 6380 | DB + cache (see `.env`) |
-| Node web server | `pnpm run start-server` | 5555 | HTTP API + serves the web client (webpack-dev-middleware in dev) |
+| Node web server | `pnpm run start-server` | 5555 | HTTP API + serves the web client (Vite middleware in dev) |
 | Rust GraphQL server | `cargo run` in `server-rs/` | 5556 | GraphQL API (`/gql`) |
 | Webpack dev server | `pnpm run dev` | 5566 | Electron renderer bundle + hot reload |
 | GraphQL codegen watch | `pnpm run gen-graphql --watch` | — | Regenerates `client/gql/` on schema change (optional) |

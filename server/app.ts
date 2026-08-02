@@ -239,6 +239,13 @@ container.resolve(GameServerRegionsService)
 
   fileStoreMiddleware(app)
 
+  if (isDev) {
+    // Attached before the routes so that requests for client modules reach Vite rather than the
+    // catch-all that renders the shell.
+    const { attachViteDevServer } = require('./lib/client-shell/vite-dev-server')
+    await attachViteDevServer(app, mainServer)
+  }
+
   createRoutes(app, process.env.SB_GQL_ORIGIN!)
 
   mainServer.listen(port, function () {

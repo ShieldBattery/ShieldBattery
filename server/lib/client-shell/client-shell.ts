@@ -2,18 +2,20 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { PageMetadata } from '../../../common/page-metadata'
 
-/**
- * Slots the client build leaves in the shell HTML for us to fill per request.
- *
- * Note that the build's own tags need nothing done to them: they are all external scripts and
- * stylesheets, which our CSP admits by origin. Only the inline scripts rendered below carry a
- * nonce, because inline content is the only thing `script-src` won't allow without one.
- */
+/** Slots in the shell HTML that the server fills per request. */
 const PRECONNECT_SLOT = '<!--sb:preconnect-->'
 const NONCE_SCRIPT_SLOT = '<!--sb:csp-nonce-script-->'
 const HEAD_SCRIPTS_SLOT = '<!--sb:head-scripts-->'
 const META_TAGS_SLOT = '<!--sb:meta-tags-->'
 const FONTS_SLOT = '<!--sb:fonts-->'
+
+/**
+ * Nonce placeholder, which only appears when the dev server produced the shell. Vite injects
+ * inline scripts there (its client, the React Refresh preamble) and stamps them with this via its
+ * `html.cspNonce` option. Build output has no inline content -- everything in it is an external
+ * script or stylesheet that our CSP admits by origin -- so this matches nothing in production.
+ */
+const NONCE_TOKEN = '__SB_CSP_NONCE__'
 
 /**
  * Prefix the client build writes asset URLs with. Rewritten per request because the public assets
@@ -41,12 +43,24 @@ export interface ClientShellData {
 }
 
 let cachedTemplate: string | undefined
+let templateSource: ((url: string) => Promise<string>) | undefined
 
 /**
- * Reads the shell the client build produced. Cached, because in production the file only changes
- * when a new build is deployed, which means a new process.
+ * Overrides where the shell comes from. The dev server uses this to serve the *source* HTML with
+ * Vite's client and refresh preamble injected, instead of a build output that doesn't exist yet.
  */
-export async function getClientShellTemplate(): Promise<string> {
+export function setShellTemplateSource(source: (url: string) => Promise<string>): void {
+  templateSource = source
+}
+
+/**
+ * Reads the shell the client build produced. Cached, because the file only changes when a new
+ * build is deployed, which means a new process.
+ */
+export async function getClientShellTemplate(url: string): Promise<string> {
+  if (templateSource) {
+    return await templateSource(url)
+  }
   if (cachedTemplate === undefined) {
     cachedTemplate = await readFile(SHELL_PATH, 'utf8')
   }
@@ -80,6 +94,10 @@ export function renderClientShell(template: string, data: ClientShellData): stri
       : '',
   ].join('')
 
+  // Rendered here rather than left in the source HTML because Vite rewrites root-relative URLs
+  // in the shell against its own base, which would point this at the script directory.
+  const favicon = `<link rel="icon" type="image/x-icon" href="/images/favicon.ico">`
+
   const fonts = [`fonts/fonts.css`, `fonts/icons.css`]
     .map(
       file =>
@@ -94,7 +112,8 @@ export function renderClientShell(template: string, data: ClientShellData): stri
     .replace(NONCE_SCRIPT_SLOT, nonceScript)
     .replace(HEAD_SCRIPTS_SLOT, headScripts)
     .replace(META_TAGS_SLOT, renderPageMetaTags(pageMeta))
-    .replace(FONTS_SLOT, fonts)
+    .replace(FONTS_SLOT, favicon + fonts)
+    .replaceAll(NONCE_TOKEN, escapeAttribute(cspNonce))
 }
 
 function renderPageMetaTags(pageMeta: PageMetadata): string {
