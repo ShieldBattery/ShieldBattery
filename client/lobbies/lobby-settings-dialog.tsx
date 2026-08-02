@@ -6,6 +6,7 @@ import { hasObservers } from '../../common/lobbies'
 import { UpdateLobbySettingsRequest } from '../../common/lobbies/lobby-network'
 import { SbMapId } from '../../common/maps'
 import { range } from '../../common/range'
+import { openSimpleDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
@@ -121,9 +122,29 @@ export function LobbySettingsDialog({ onCancel, close }: CommonDialogProps) {
       }
 
       if (Object.keys(settings).length > 0) {
-        dispatch(updateLobbySettings(settings))
+        dispatch(
+          updateLobbySettings(settings, {
+            onSuccess: () => {
+              close()
+            },
+            onError: () => {
+              // The dialog stays open with the submitted values, so the host can adjust and retry
+              dispatch(
+                openSimpleDialog(
+                  t('lobbies.lobbySettings.errorDialogTitle', 'Error updating settings'),
+                  t(
+                    'lobbies.lobbySettings.errorGeneric',
+                    'The lobby settings could not be updated. The current members may not fit ' +
+                      'the new configuration.',
+                  ),
+                ),
+              )
+            },
+          }),
+        )
+      } else {
+        close()
       }
-      close()
     },
   })
 

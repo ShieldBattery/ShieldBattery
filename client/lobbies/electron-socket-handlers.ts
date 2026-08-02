@@ -10,6 +10,7 @@ import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { replace } from '../navigation/routing'
+import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -22,6 +23,12 @@ interface CountdownState {
 const countdownState: CountdownState = {
   timer: undefined,
   sound: undefined,
+}
+
+/** Returns whether the current user is waiting on the lobby's bench rather than holding a slot. */
+function selfIsBenched(state: RootState): boolean {
+  const { auth, lobby } = state
+  return lobby.info.bench.some(benched => benched.userId === auth.self!.user.id)
 }
 
 function clearCountdownTimer() {
@@ -152,6 +159,12 @@ const eventToAction: EventToActionMap = {
   }),
 
   startCountdown: (lobbyId, event) => (dispatch, getState) => {
+    if (selfIsBenched(getState())) {
+      // A benched member holds no slot in the starting game, so they get no countdown, loading
+      // state, or launch dialog - the lobby simply ends for them once the game starts
+      return
+    }
+
     clearCountdownTimer()
     let tick = 5
     dispatch({
@@ -175,14 +188,24 @@ const eventToAction: EventToActionMap = {
     }, 1000)
   },
 
-  cancelCountdown: (lobbyId, event) => {
-    clearCountdownTimer()
-    return {
-      type: '@lobbies/updateCountdownCanceled',
+  cancelCountdown: (lobbyId, event) => (dispatch, getState) => {
+    if (selfIsBenched(getState())) {
+      // The countdown never ran for a benched member, so there is nothing to cancel or announce
+      return
     }
+
+    clearCountdownTimer()
+    dispatch({
+      type: '@lobbies/updateCountdownCanceled',
+    })
   },
 
   cancelLoading: (lobbyId, event) => (dispatch, getState) => {
+    if (selfIsBenched(getState())) {
+      // The countdown never ran for a benched member, so there is nothing to cancel or announce
+      return
+    }
+
     // NOTE(tec27): In very low latency environments things can interleave such that the server
     // cancels loading before our client actually finishes the countdown/gets into the loading
     // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
