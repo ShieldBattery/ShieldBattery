@@ -38,9 +38,21 @@ export async function attachViteDevServer(app: Koa, httpServer: Server): Promise
         ],
       },
       // Vite serves anything under the workspace root on this port, where webpack-dev-middleware
-      // only answered under /scripts/. Its default denylist covers `.env` and `.env.*` but not
-      // this one, which is a real file at the repo root.
-      fs: { deny: ['.env-build'] },
+      // only answered under /scripts/, so the denylist matters more than it used to.
+      //
+      // This *replaces* Vite's default rather than extending it, so the default has to be
+      // restated here or `.env`, keys and `.git` stop being protected. The only deliberate change
+      // is `.env*` in place of `.env` + `.env.*`, which additionally covers the `.env-build` at
+      // the repo root. Re-check this list when upgrading Vite.
+      fs: {
+        deny: [
+          '.env*',
+          '*.{crt,pem,key,p12,pfx,cer,der}',
+          '.npmrc',
+          '.yarnrc.yml',
+          '**/.git/**',
+        ],
+      },
     },
   })
 
