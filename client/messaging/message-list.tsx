@@ -1,4 +1,3 @@
-import type { List } from 'immutable'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
@@ -96,29 +95,8 @@ function CommonMessageOrFallback({
   }
 }
 
-// TODO(2Pac): Inline this when all messaging related components have been moved to immer
-function getMessagesLength(messages: List<SbMessage> | ReadonlyArray<SbMessage>): number {
-  if (Array.isArray(messages)) {
-    return messages.length
-  } else {
-    return (messages as List<SbMessage>).size
-  }
-}
-
-// TODO(2Pac): Inline this when all messaging related components have been moved to immer
-function getMessageAtIndex(
-  messages: List<SbMessage> | ReadonlyArray<SbMessage>,
-  index: number,
-): SbMessage | undefined {
-  if (Array.isArray(messages)) {
-    return messages[index]
-  } else {
-    return (messages as List<SbMessage>).get(index)
-  }
-}
-
 interface PureMessageListProps {
-  messages: List<SbMessage> | ReadonlyArray<SbMessage>
+  messages: ReadonlyArray<SbMessage>
   showEmptyState: boolean
   MessageComponent?: MessageComponentType
 }
@@ -128,8 +106,7 @@ function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMes
   const selfUserId = useSelfUser()!.id
   const blocks = useAppSelector(s => s.relationships.blocks)
 
-  const messagesLength = getMessagesLength(messages)
-  if (messagesLength < 1) {
+  if (messages.length < 1) {
     return showEmptyState ? (
       <EmptyList>{t('common.lists.empty', 'Nothing to see here')}</EmptyList>
     ) : undefined
@@ -148,7 +125,7 @@ function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMes
           />
         )
 
-        const prevMessage = index > 0 ? getMessageAtIndex(messages, index - 1) : null
+        const prevMessage = index > 0 ? messages[index - 1] : null
         if (!prevMessage || isSameDay(new Date(prevMessage.time), new Date(m.time))) {
           return messageLayout
         } else {
@@ -183,7 +160,7 @@ export interface MessageComponentProps {
 export type MessageComponentType = React.ComponentType<MessageComponentProps>
 
 export interface MessageListProps {
-  messages: List<SbMessage> | ReadonlyArray<SbMessage>
+  messages: ReadonlyArray<SbMessage>
   /** Whether to show empty state text when they are no messages. Defaults to true. */
   showEmptyState?: boolean
   /**
@@ -269,8 +246,8 @@ export class MessageList extends React.Component<MessageListProps> {
       scrollable.scrollTop = scrollable.scrollHeight
     } else if (prevProps.messages !== this.props.messages) {
       if (
-        getMessagesLength(prevProps.messages) < getMessagesLength(this.props.messages) &&
-        getMessageAtIndex(prevProps.messages, 0) !== getMessageAtIndex(this.props.messages, 0)
+        prevProps.messages.length < this.props.messages.length &&
+        prevProps.messages[0] !== this.props.messages[0]
       ) {
         // Inserted elements at the top, maintain scroll position relative to the last top element
         scrollable.scrollTop =

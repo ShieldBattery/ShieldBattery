@@ -1,4 +1,3 @@
-import { Range } from 'immutable'
 import { Component } from 'react'
 import { FightingSpirit } from '../../maps/devonly/maps-for-testing'
 import LobbyComponent from '../lobby'
@@ -14,7 +13,7 @@ const SLOTS = [
   { type: 'human', name: 'harem', id: 'h', race: 'z' },
 ]
 
-const LOBBIES = Range(2, 9).map(numSlots => {
+const LOBBIES = Array.from({ length: 7 }, (_, i) => i + 2).map(numSlots => {
   return {
     name: `My ${numSlots}-slot Lobby`,
     map: FightingSpirit,

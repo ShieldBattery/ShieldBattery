@@ -1,4 +1,3 @@
-import { Record } from 'immutable'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { BaseMessage } from '../messaging/base-message-record'
 
@@ -15,103 +14,63 @@ export enum LobbyMessageType {
   LobbyLoadingCanceled = 'lobbyLoadingCanceled',
 }
 
-export class JoinLobbyMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.JoinLobby as const,
-    time: 0,
-    userId: 0 as SbUserId,
-  })
-  implements BaseMessage {}
+export interface JoinLobbyMessage extends BaseMessage {
+  readonly type: LobbyMessageType.JoinLobby
+  readonly userId: SbUserId
+}
 
-export class LeaveLobbyMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.LeaveLobby as const,
-    time: 0,
-    userId: 0 as SbUserId,
-  })
-  implements BaseMessage {}
+export interface LeaveLobbyMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LeaveLobby
+  readonly userId: SbUserId
+}
 
-export class KickLobbyPlayerMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.KickLobbyPlayer as const,
-    time: 0,
-    userId: 0 as SbUserId,
-  })
-  implements BaseMessage {}
+export interface KickLobbyPlayerMessage extends BaseMessage {
+  readonly type: LobbyMessageType.KickLobbyPlayer
+  readonly userId: SbUserId
+}
 
-export class BanLobbyPlayerMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.BanLobbyPlayer as const,
-    time: 0,
-    userId: 0 as SbUserId,
-  })
-  implements BaseMessage {}
+export interface BanLobbyPlayerMessage extends BaseMessage {
+  readonly type: LobbyMessageType.BanLobbyPlayer
+  readonly userId: SbUserId
+}
 
-export class SelfJoinLobbyMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.SelfJoinLobby as const,
-    time: 0,
-    lobby: '',
-    hostId: 0 as SbUserId,
-  })
-  implements BaseMessage {}
+export interface SelfJoinLobbyMessage extends BaseMessage {
+  readonly type: LobbyMessageType.SelfJoinLobby
+  readonly lobby: string
+  readonly hostId: SbUserId
+}
 
-export class LobbyHostChangeMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.LobbyHostChange as const,
-    time: 0,
-    userId: 0 as SbUserId,
-  })
-  implements BaseMessage {}
+export interface LobbyHostChangeMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyHostChange
+  readonly userId: SbUserId
+}
 
-export class LobbyCountdownStartedMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.LobbyCountdownStarted as const,
-    time: 0,
-  })
-  implements BaseMessage {}
+export interface LobbyCountdownStartedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyCountdownStarted
+}
 
-export class LobbyCountdownTickMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.LobbyCountdownTick as const,
-    time: 0,
-    timeLeft: 0,
-  })
-  implements BaseMessage {}
+export interface LobbyCountdownTickMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyCountdownTick
+  readonly timeLeft: number
+}
 
-export class LobbyCountdownCanceledMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.LobbyCountdownCanceled as const,
-    time: 0,
-  })
-  implements BaseMessage {}
+export interface LobbyCountdownCanceledMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyCountdownCanceled
+}
 
-export class LobbyLoadingCanceledMessageRecord
-  extends Record({
-    id: '',
-    type: LobbyMessageType.LobbyLoadingCanceled as const,
-    time: 0,
-    usersAtFault: undefined as ReadonlyArray<SbUserId> | undefined,
-  })
-  implements BaseMessage {}
+export interface LobbyLoadingCanceledMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyLoadingCanceled
+  readonly usersAtFault?: ReadonlyArray<SbUserId>
+}
 
 export type LobbyMessage =
-  | JoinLobbyMessageRecord
-  | LeaveLobbyMessageRecord
-  | KickLobbyPlayerMessageRecord
-  | BanLobbyPlayerMessageRecord
-  | SelfJoinLobbyMessageRecord
-  | LobbyHostChangeMessageRecord
-  | LobbyCountdownStartedMessageRecord
-  | LobbyCountdownTickMessageRecord
-  | LobbyCountdownCanceledMessageRecord
-  | LobbyLoadingCanceledMessageRecord
+  | JoinLobbyMessage
+  | LeaveLobbyMessage
+  | KickLobbyPlayerMessage
+  | BanLobbyPlayerMessage
+  | SelfJoinLobbyMessage
+  | LobbyHostChangeMessage
+  | LobbyCountdownStartedMessage
+  | LobbyCountdownTickMessage
+  | LobbyCountdownCanceledMessage
+  | LobbyLoadingCanceledMessage

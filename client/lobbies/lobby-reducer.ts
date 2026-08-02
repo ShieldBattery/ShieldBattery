@@ -7,18 +7,7 @@ import { Slot, SlotType } from '../../common/lobbies/slot'
 import { ReduxAction } from '../action-types'
 import { CommonMessageType, SbMessage } from '../messaging/message-records'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
-import {
-  BanLobbyPlayerMessageRecord,
-  JoinLobbyMessageRecord,
-  KickLobbyPlayerMessageRecord,
-  LeaveLobbyMessageRecord,
-  LobbyCountdownCanceledMessageRecord,
-  LobbyCountdownStartedMessageRecord,
-  LobbyCountdownTickMessageRecord,
-  LobbyHostChangeMessageRecord,
-  LobbyLoadingCanceledMessageRecord,
-  SelfJoinLobbyMessageRecord,
-} from './lobby-message-records'
+import { LobbyMessageType } from './lobby-message-records'
 
 export interface LobbyLoadingState {
   isCountingDown: boolean
@@ -79,16 +68,7 @@ export function isInLobby(state: CurrentLobbyState): boolean {
   return !!(state.info && state.info.name)
 }
 
-/**
- * The mutable shape handlers below operate on. `info` is drafted through immer's `Draft<...>`
- * (`Lobby`/`Team`'s `teams`/`slots` fields are `readonly` and need unwrapping to be edited in
- * place); `chat` is left as its own already-mutable array type instead, rather than being drafted
- * as well -- its elements are Immutable.js message records, and immer's `Draft<T>` mapped type
- * would otherwise recurse into their generic, `this`-typed builder methods (`set`, `merge`, etc.)
- * for no benefit, since the records themselves are opaque leaf values immer never actually drafts
- * (their prototype isn't a plain object, so immer's own `isDraftable` check skips them at runtime).
- */
-type LobbyDraft = Draft<Omit<CurrentLobbyState, 'chat'>> & Pick<CurrentLobbyState, 'chat'>
+type LobbyDraft = Draft<CurrentLobbyState>
 
 const CHAT_MESSAGE_LIMIT = 200
 
@@ -101,7 +81,7 @@ const CHAT_MESSAGE_LIMIT = 200
  * while the view isn't activated marks the log unread.
  */
 function pushChat(draft: LobbyDraft, ...messages: SbMessage[]): void {
-  draft.chat.push(...messages)
+  draft.chat.push(...castDraft(messages))
   if (draft.chat.length > CHAT_MESSAGE_LIMIT) {
     draft.chat.shift()
   }
@@ -162,15 +142,13 @@ const lobbyHandlers = {
   '@lobbies/init'(draft, action) {
     draft.info = castDraft(action.payload.lobby)
     draft.loadingState = EMPTY_LOADING_STATE
-    pushChat(
-      draft,
-      new SelfJoinLobbyMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        lobby: draft.info.name,
-        hostId: draft.info.host.userId!,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.SelfJoinLobby,
+      time: Date.now(),
+      lobby: draft.info.name,
+      hostId: draft.info.host.userId!,
+    })
   },
 
   '@lobbies/updateSlotCreate'(draft, action) {
@@ -183,10 +161,12 @@ const lobbyHandlers = {
     draft.info.teams[teamIndex].slots[slotIndex] = slot
 
     if (slot.type === SlotType.Human) {
-      pushChat(
-        draft,
-        new JoinLobbyMessageRecord({ id: nanoid(), time: Date.now(), userId: slot.userId! }),
-      )
+      pushChat(draft, {
+        id: nanoid(),
+        type: LobbyMessageType.JoinLobby,
+        time: Date.now(),
+        userId: slot.userId!,
+      })
     }
   },
 
@@ -232,14 +212,12 @@ const lobbyHandlers = {
     }
 
     draft.info.host = action.payload
-    pushChat(
-      draft,
-      new LobbyHostChangeMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        userId: draft.info.host.userId!,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyHostChange,
+      time: Date.now(),
+      userId: draft.info.host.userId!,
+    })
   },
 
   '@lobbies/updateGameStarted'(draft) {
@@ -272,14 +250,12 @@ const lobbyHandlers = {
       return
     }
 
-    pushChat(
-      draft,
-      new LeaveLobbyMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        userId: action.payload.player.userId!,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LeaveLobby,
+      time: Date.now(),
+      userId: action.payload.player.userId!,
+    })
   },
 
   '@lobbies/updateKick'(draft, action) {
@@ -287,14 +263,12 @@ const lobbyHandlers = {
       return
     }
 
-    pushChat(
-      draft,
-      new KickLobbyPlayerMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        userId: action.payload.player.userId!,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.KickLobbyPlayer,
+      time: Date.now(),
+      userId: action.payload.player.userId!,
+    })
   },
 
   '@lobbies/updateBan'(draft, action) {
@@ -302,14 +276,12 @@ const lobbyHandlers = {
       return
     }
 
-    pushChat(
-      draft,
-      new BanLobbyPlayerMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        userId: action.payload.player.userId!,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.BanLobbyPlayer,
+      time: Date.now(),
+      userId: action.payload.player.userId!,
+    })
   },
 
   '@lobbies/updateCountdownStart'(draft, action) {
@@ -322,12 +294,13 @@ const lobbyHandlers = {
 
     pushChat(
       draft,
-      new LobbyCountdownStartedMessageRecord({ id: nanoid(), time: Date.now() }),
-      new LobbyCountdownTickMessageRecord({
+      { id: nanoid(), type: LobbyMessageType.LobbyCountdownStarted, time: Date.now() },
+      {
         id: nanoid(),
+        type: LobbyMessageType.LobbyCountdownTick,
         time: Date.now(),
         timeLeft: draft.loadingState.countdownTimer,
-      }),
+      },
     )
   },
 
@@ -338,14 +311,12 @@ const lobbyHandlers = {
       return
     }
 
-    pushChat(
-      draft,
-      new LobbyCountdownTickMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        timeLeft: draft.loadingState.countdownTimer,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyCountdownTick,
+      time: Date.now(),
+      timeLeft: draft.loadingState.countdownTimer,
+    })
   },
 
   '@lobbies/updateCountdownCanceled'(draft) {
@@ -356,7 +327,11 @@ const lobbyHandlers = {
       return
     }
 
-    pushChat(draft, new LobbyCountdownCanceledMessageRecord({ id: nanoid(), time: Date.now() }))
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyCountdownCanceled,
+      time: Date.now(),
+    })
   },
 
   '@lobbies/updateLoadingStart'(draft) {
@@ -373,14 +348,12 @@ const lobbyHandlers = {
       return
     }
 
-    pushChat(
-      draft,
-      new LobbyLoadingCanceledMessageRecord({
-        id: nanoid(),
-        time: Date.now(),
-        usersAtFault: action.payload.usersAtFault,
-      }),
-    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyLoadingCanceled,
+      time: Date.now(),
+      usersAtFault: action.payload.usersAtFault,
+    })
   },
 
   '@lobbies/activate'(draft) {
