@@ -126,6 +126,9 @@ describe('lobbies/lobby-service', () => {
   let otherHost: Sockets
   let lister: Sockets
 
+  /** Connects a further client (another tab/machine of `user`) and returns its socket groups. */
+  let connect: (user: SbUser, clientId: string) => Sockets
+
   /** Every request the stubbed `GameLoader` received via `loadGame`, in call order. */
   let loadGameRequests: GameLoadRequest[]
 
@@ -198,7 +201,7 @@ describe('lobbies/lobby-service', () => {
     asMockedFunction(findUsersById).mockResolvedValue([])
 
     const connector = new NydusConnector(nydus, sessionLookup)
-    const connect = (user: SbUser, clientId: string): Sockets => {
+    connect = (user: SbUser, clientId: string): Sockets => {
       connector.connectClient(user, clientId)
       return {
         user: userSockets.getById(user.id)!,
@@ -239,7 +242,7 @@ describe('lobbies/lobby-service', () => {
       fakeNydus.publish.mockClear()
 
       // The host is the only occupant, so leaving deletes the lobby.
-      lobbyService.leaveLobby({ user: host.user })
+      lobbyService.leaveLobby({ client: host.client })
 
       expect(listPublishes()).toEqual([])
     })
@@ -248,7 +251,7 @@ describe('lobbies/lobby-service', () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
       fakeNydus.publish.mockClear()
 
-      lobbyService.leaveLobby({ user: host.user })
+      lobbyService.leaveLobby({ client: host.client })
 
       expect(listPublishes()).toEqual([{ action: 'delete', payload: id }])
     })
@@ -402,6 +405,19 @@ describe('lobbies/lobby-service', () => {
 
       // The operation must not have gone through against the lobby the client is actually in.
       expect(findSlotByUserId(lobbyService.lobbies.get(id)!, JOINER_USER.id)[2]).toBeDefined()
+    })
+
+    test('leaving binds to the requesting client, not the last active one', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      // Another signed-in client of the same user that is in no lobby, e.g. a stale tab.
+      const secondClient = connect(HOST_USER, 'SECOND_HOST_CLIENT')
+
+      expect(() => lobbyService.leaveLobby({ client: secondClient.client, lobbyId: id })).toThrow(
+        expect.objectContaining({ code: LobbyServiceErrorCode.NotInLobby }),
+      )
+
+      // The client that is actually seated must not have been removed.
+      expect(findSlotByUserId(lobbyService.lobbies.get(id)!, HOST_USER.id)[2]).toBeDefined()
     })
 
     test('an operation naming the lobby the client is in is allowed', async () => {

@@ -51,6 +51,14 @@ const lobbyActionThrottle = createThrottle('lobbies/action', {
   window: 60000,
 })
 
+// Chat sends share channel chat's rate: far beyond human typing speed, but a cap on the mention
+// processing and occupant fan-out every message costs.
+const lobbyChatThrottle = createThrottle('lobbies/chat', {
+  rate: 30,
+  burst: 90,
+  window: 60000,
+})
+
 // Koa mounts every API sharing a base path onto the same prefix, and a router's `use` middleware
 // runs for every request under that prefix -- including ones only a *sibling* class has a route
 // for. `/lobbies` is also served by the deliberately unauthenticated `LobbySummaryApi`, so the login
@@ -264,16 +272,16 @@ export class LobbyApi {
       body: lobbyClientBody,
     })
 
-    const { user } = this.getSockets(ctx, body.clientId)
+    const client = this.getClientSockets(ctx.session!.user.id, body.clientId)
 
-    this.lobbyService.leaveLobby({ user, lobbyId: params.lobbyId })
+    this.lobbyService.leaveLobby({ client, lobbyId: params.lobbyId })
   }
 
-  // Chat has no rate limit of its own beyond the chat restriction the service applies: the lobby
-  // chat box is the ordinary way to talk to the people you're about to play, and the surrounding UI
-  // provides no way to send faster than a person types.
   @httpPost('/:lobbyId/chat')
-  @httpBefore(ensureLoggedIn)
+  @httpBefore(
+    ensureLoggedIn,
+    throttleMiddleware(lobbyChatThrottle, ctx => String(ctx.session!.user.id)),
+  )
   async sendChat(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {
       params: lobbyIdParams,

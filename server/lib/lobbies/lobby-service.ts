@@ -896,8 +896,7 @@ export class LobbyService {
     this._warmLobbyRegions(updated)
   }
 
-  leaveLobby({ user, lobbyId }: { user: UserSocketsGroup; lobbyId?: SbLobbyId }): void {
-    const client = this.getActiveClientForUser(user.userId)
+  leaveLobby({ client, lobbyId }: { client: ClientSocketsGroup; lobbyId?: SbLobbyId }): void {
     const lobby = this.getLobbyForClient(client, lobbyId)
     this._removeClientFromLobby(lobby, client)
   }
@@ -1172,14 +1171,6 @@ export class LobbyService {
     const user = this.userSockets.getById(id)
     if (!user) throw new LobbyServiceError(LobbyServiceErrorCode.UserOffline, 'user not online')
     return user
-  }
-
-  getActiveClientForUser(userId: SbUserId): ClientSocketsGroup {
-    const client = this.activityRegistry.getClientForUser(userId)
-    if (!client) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.NoActiveClient, 'no active client for user')
-    }
-    return client
   }
 
   /**
