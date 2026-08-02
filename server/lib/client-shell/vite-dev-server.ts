@@ -45,13 +45,7 @@ export async function attachViteDevServer(app: Koa, httpServer: Server): Promise
       // is `.env*` in place of `.env` + `.env.*`, which additionally covers the `.env-build` at
       // the repo root. Re-check this list when upgrading Vite.
       fs: {
-        deny: [
-          '.env*',
-          '*.{crt,pem,key,p12,pfx,cer,der}',
-          '.npmrc',
-          '.yarnrc.yml',
-          '**/.git/**',
-        ],
+        deny: ['.env*', '*.{crt,pem,key,p12,pfx,cer,der}', '.npmrc', '.yarnrc.yml', '**/.git/**'],
       },
     },
   })
