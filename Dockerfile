@@ -44,8 +44,6 @@ FROM node:24-bookworm-slim
 RUN corepack enable && pnpm --version
 
 ENV NODE_ENV=production
-# Tell the server not to try and run webpack
-ENV SB_PREBUILT_ASSETS=true
 
 # We need python to execute some python scripts (e.g. `s3cmd`). The `s3cmd` package pulls in its own
 # Python dependencies (including python-dateutil).

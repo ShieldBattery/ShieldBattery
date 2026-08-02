@@ -10,6 +10,7 @@ import { ServerConfig } from '../common/server-config'
 import { toSelfUserJson } from '../common/users/sb-user'
 import { ClientSessionInfo } from '../common/users/session'
 import './http-apis'
+import { getClientShellTemplate, renderClientShell } from './lib/client-shell/client-shell'
 import isDev from './lib/env/is-dev'
 import { getUrl, readFile } from './lib/files'
 import { FileStoreType, PublicAssetsConfig } from './lib/files/public-assets-config'
@@ -20,7 +21,6 @@ import { PageMetadataContext, resolvePageMetadata } from './lib/page-metadata/pa
 import { getCspNonce } from './lib/security/csp'
 import { getJwt } from './lib/session/jwt-session-middleware'
 import { monotonicNow } from './lib/time/monotonic-now'
-import { getWebpackAssets } from './lib/webpack/manifest-reader'
 
 function send404() {
   throw new httpErrors.NotFound()
@@ -132,9 +132,9 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
               }
             : undefined,
       }
-      const webpackAssets = await getWebpackAssets()
       const pageMeta = await resolvePageMetadata(ctx.path, pageMetadataContext)
-      await ctx.render('index', {
+      ctx.type = 'html'
+      ctx.body = renderClientShell(await getClientShellTemplate(), {
         initData,
         pageMeta,
         cspNonce: getCspNonce(ctx),
@@ -143,12 +143,8 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
           publicAssetsConfig.type !== FileStoreType.FileSystem
             ? publicAssetsConfig.origin
             : undefined,
-        // We add the version to these URLs to cache bust
-        fontsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/fonts.css?${packageJson.version}`,
-        iconsUrl: `${publicAssetsConfig.publicAssetsUrl}fonts/icons.css?${packageJson.version}`,
-        // These have unique names based on contents so they naturally cache bust (we do strip
-        // the first / though since the public assets URL always ends in one)
-        jsAssets: webpackAssets.js.map(f => `${publicAssetsConfig.publicAssetsUrl}${f.slice(1)}`),
+        publicAssetsUrl: publicAssetsConfig.publicAssetsUrl,
+        version: packageJson.version,
       })
     },
   )

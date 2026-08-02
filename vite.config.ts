@@ -29,9 +29,6 @@ const SHELL_OUT = 'server/client-shell/index.html'
  */
 const ASSET_BASE = '/scripts/'
 
-/** Placeholder the server replaces with the request's CSP nonce. */
-const NONCE_TOKEN = '__SB_CSP_NONCE__'
-
 /**
  * Translates the `browserslist` key in package.json into esbuild-style target strings so the
  * browser support matrix has exactly one definition. Engines esbuild has no target for (Samsung
@@ -81,23 +78,19 @@ function compareVersions(a: number[], b: number[]): number {
 }
 
 /**
- * Adds a nonce placeholder to every tag Vite emits into the shell and relocates the shell out of
- * the asset directory. Stamping here rather than matching tags in the finished HTML means tags
- * added by future Vite versions can't silently escape the CSP.
+ * Relocates the built shell out of the asset directory, which is CDN-cached as immutable and so is
+ * no place for a file the server re-reads and patches per request.
+ *
+ * Deliberately does not stamp CSP nonces onto the tags Vite emits. Everything it writes into the
+ * shell is an external `<script src>`, `<link rel=modulepreload>` or `<link rel=stylesheet>`, all
+ * of which our `script-src`/`style-src` already admit by origin. Only inline content needs a
+ * nonce, and the only inline script or style in a rendered page is the server's own (see
+ * `server/lib/client-shell/`). If a stricter nonce-only CSP is ever adopted -- dropping `'self'`
+ * in favour of `'strict-dynamic'` -- that stops being true and these tags will need stamping.
  */
 function shellPlugin(): Plugin {
   return {
     name: 'sb:shell',
-
-    transformIndexHtml: {
-      order: 'post',
-      handler(html) {
-        return html.replace(
-          /<(script|style|link)\b(?![^>]*\bnonce=)/g,
-          `<$1 nonce="${NONCE_TOKEN}"`,
-        )
-      },
-    },
 
     async writeBundle(options) {
       const outDir = options.dir

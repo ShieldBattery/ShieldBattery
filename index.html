@@ -7,11 +7,9 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"
     />
     <title>ShieldBattery</title>
-    <style>
-      :root {
-        color-scheme: only dark;
-      }
-    </style>
+    <!-- Equivalent to `:root { color-scheme: only dark }`, as a meta so the shell carries no
+         inline style and therefore needs no CSP nonce of its own. -->
+    <meta name="color-scheme" content="only dark" />
     <!--sb:preconnect-->
     <!--sb:csp-nonce-script-->
     <!--sb:head-scripts-->
