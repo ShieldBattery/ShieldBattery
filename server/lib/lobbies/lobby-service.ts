@@ -616,7 +616,9 @@ export class LobbyService {
       default:
         numSlots = mapInfo.mapData.slots
     }
-    checkSubTypeValidity(nextGameType, nextGameSubType, numSlots)
+    // Validated against the map's own slot count (not the derived team-type slot total), the same
+    // way creating a lobby validates it
+    checkSubTypeValidity(nextGameType, nextGameSubType, mapInfo.mapData.slots)
 
     const changedSettings: LobbyChangedSetting[] = []
     if (mapInfo.id !== current.map!.id) changedSettings.push('map')
@@ -624,6 +626,11 @@ export class LobbyService {
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
     if (nextAllowObservers !== hasObservers(current)) changedSettings.push('allowObservers')
     if (nextUseLegacyLimits !== current.useLegacyLimits) changedSettings.push('useLegacyLimits')
+    if (!changedSettings.length) {
+      // Every requested value matches what the lobby already has, so there is nothing to apply or
+      // to announce
+      return
+    }
 
     let updated
     try {
@@ -744,6 +751,9 @@ export class LobbyService {
         { cause: err },
       )
     }
+    // A move (e.g. into an observer slot) leaves the source slot open, so someone waiting on the
+    // bench may have a seat
+    updated = this._seatBenchOverflow(updated)
 
     this.lobbies.set(lobby.id, updated)
     this._publishLobbyDiff(lobby, updated)
@@ -974,6 +984,18 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.InvalidSlotType, 'invalid slot type')
     }
 
+    if (
+      (slotToClose.type === 'human' || slotToClose.type === 'observer') &&
+      getHumanSlots(lobby).length === 1
+    ) {
+      // Removing the last seated member would leave the lobby to be closed (or, with members
+      // waiting on the bench, alive but unable to ever seat them, since this slot gets closed
+      // rather than handed over). The host can leave instead if they don't want the lobby.
+      throw new LobbyServiceError(
+        LobbyServiceErrorCode.InvalidSlotOperation,
+        "cannot close the last seated member's slot",
+      )
+    }
     if (
       slotToClose.type === 'human' ||
       slotToClose.type === 'computer' ||

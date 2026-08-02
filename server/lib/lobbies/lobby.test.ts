@@ -1923,6 +1923,40 @@ describe('Lobbies - settings changes', () => {
     ])
   })
 
+  test('should only give computers whole empty teams when changing to a controlled game type', () => {
+    let lobby = createLobby({
+      name: 'Suddenly team melee',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 8,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+    for (let slotIndex = 2; slotIndex < 8; slotIndex++) {
+      lobby = addPlayer(lobby, 0, slotIndex, createComputer('t'))
+    }
+
+    const updated = applySettingsChange(
+      lobby,
+      settingsFor(lobby, { gameType: GameType.TeamMelee, gameSubType: 4, numSlots: 8 }),
+    )
+
+    // The humans seed two teams whose remaining slots they control; a controlled team never mixes
+    // in a computer, so the computers get the empty teams as whole computer teams and the leftovers
+    // are dropped
+    expect(updated.teams).toHaveLength(4)
+    for (const team of updated.teams.slice(0, 2)) {
+      expect(team.slots[0].type).toBe('human')
+      expect(team.slots[1].type).toBe('controlledOpen')
+    }
+    for (const team of updated.teams.slice(2)) {
+      expect(team.slots.every(slot => slot.type === 'computer')).toBe(true)
+    }
+  })
+
   test('should reject turning observers off when it would leave the host without a seat', () => {
     let lobby = createLobby({
       name: 'No seat for the host',

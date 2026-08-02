@@ -1092,6 +1092,12 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
       if (!seat) {
         break
       }
+      // A controlled team is built around the humans in it and only holds computers as a whole
+      // team of them, so once no empty team is left the remaining computers have nowhere to go.
+      // (The seat search prefers the emptiest team, so a non-empty pick means none are empty.)
+      if (hasControlledOpens(next.gameType) && !isTeamEmpty(updated.teams[seat[0]])) {
+        break
+      }
       const before = countComputers(updated)
       updated = addPlayer(updated, seat[0], seat[1], createComputer(races[placed]))
       // Adding a computer to an empty team in team melee/ffa fills the rest of that team with
