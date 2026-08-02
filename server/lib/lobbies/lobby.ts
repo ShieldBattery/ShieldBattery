@@ -1124,6 +1124,9 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
     teams = next.allowObservers
       ? [...lobby.teams, createObserverTeam()]
       : lobby.teams.filter(team => !team.isObserver)
+    if (next.allowObservers) {
+      observerTeamIndex = teams.length - 1
+    }
     needSeats = unseatedObservers.map(occupantOf)
   } else {
     teams = createInitialTeams(next.map, next.gameType, next.gameSubType, next.numSlots)

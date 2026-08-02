@@ -2081,6 +2081,29 @@ describe('Lobbies - settings changes', () => {
     expect(seated.id).toBe(observerSlot.id)
   })
 
+  test('should seat waiting members into the observer team that turning observers on adds', () => {
+    let lobby = createLobby({
+      name: 'Observers to the rescue',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 2,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: false,
+    })
+    lobby = addHumans(lobby, 1)
+    lobby = addToBench(lobby, { userId: makeSbUserId(2), race: 'p', joinedAt: 2000 })
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: true }))
+
+    expect(updated.bench).toEqual([])
+    const observerTeam = updated.teams[1]
+    expect(observerTeam.isObserver).toBe(true)
+    const seated = observerTeam.slots.find(slot => slot.type === 'observer')
+    expect(seated?.userId).toBe(makeSbUserId(2))
+  })
+
   test('should leave the player slots alone when observers are turned on', () => {
     let lobby = addHumans(BOXER_LOBBY, 1)
     lobby = closeSlot(lobby, 0, 3)
