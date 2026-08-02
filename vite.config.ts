@@ -195,8 +195,14 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     plugins: [
       react(),
       svgr({
+        // Bare `.svg` imports are React components here, so every SVG goes through the transform
+        // rather than only `?react`-suffixed ones.
+        //
+        // No `svgoConfig`: this chain is `@svgr/core` plus `@svgr/plugin-jsx`, with no SVGO, so
+        // nothing rewrites the markup and attributes like `viewBox` survive untouched. Installing
+        // `@svgr/plugin-svgo` would change that — SVGO's default preset strips `viewBox`, so it
+        // would need `preset-default` with a `removeViewBox: false` override.
         include: '**/*.svg',
-        svgrOptions: { svgoConfig: { plugins: [{ name: 'removeViewBox', active: false }] } },
       }),
       jotai(),
       graphqlOptimizer(ROOT),

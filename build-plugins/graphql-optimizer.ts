@@ -97,9 +97,10 @@ export function graphqlOptimizer(root: string): Plugin {
         if (!edits.length) return null
 
         const s = new MagicString(code)
-        for (const edit of edits) s.overwrite(edit.start, edit.end, edit.name)
+        for (const edit of edits) s.overwrite(edit.start, edit.end, localNameFor(edit.name))
         const names = [...new Set(edits.map(e => e.name))].sort()
-        s.prepend(`import { ${names.join(', ')} } from '${importPathFor(id, root)}'\n`)
+        const specifiers = names.map(name => `${name} as ${localNameFor(name)}`).join(', ')
+        s.prepend(`import { ${specifiers} } from '${importPathFor(id, root)}'\n`)
 
         return { code: s.toString(), map: s.generateMap({ hires: 'boundary' }) }
       },
@@ -134,6 +135,16 @@ function parseDocumentsMap(source: string, path: string): Map<string, string> {
   }
 
   return result
+}
+
+/**
+ * Imports are aliased rather than bound under their own name, because a file is free to already
+ * have a binding called e.g. `SomeQueryDocument` — importing it directly, or declaring it — and
+ * the resulting duplicate binding would fail the build with a SyntaxError pointing at generated
+ * code the author never wrote.
+ */
+function localNameFor(exportName: string): string {
+  return `__sbGqlDocument_${exportName}`
 }
 
 function importedName(specifier: ESTree.ImportSpecifier): string {
