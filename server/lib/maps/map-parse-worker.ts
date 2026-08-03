@@ -15,12 +15,17 @@ export interface MapParseWorkerRequest {
   bwDataPath: string
 }
 
+/**
+ * The worker posts image bytes as Buffers, but the receiving thread sees plain Uint8Arrays:
+ * structured clone preserves the bytes and not the subclass prototype. Typed as the receiver
+ * sees them; the receiver re-wraps as needed.
+ */
 export interface MapParseWorkerSuccess {
   mapData: MapParseData
-  image256?: Buffer
-  image512?: Buffer
-  image1024?: Buffer
-  image2048?: Buffer
+  image256?: Uint8Array
+  image512?: Uint8Array
+  image1024?: Uint8Array
+  image2048?: Uint8Array
 }
 
 export interface MapParseWorkerFailure {
