@@ -547,10 +547,18 @@ type MatchupBucket {
 	seasonId: Int!
 	mapId: SbMapId!
 	"""
-	The race the viewed player was assigned, after random is resolved.
+	The races on the viewed player's side, after random is resolved, alphabetical within the
+	side exactly as `assigned_matchup` stores them.
+	
+	A list rather than a single race because a side is a team composition in every mode but
+	this one: 2v2 cells are `tp` against `pz` and so on, and the client's matrix already keys
+	its axes by composition. For a solo mode it always holds exactly one race.
 	"""
-	race: AssignedRace!
-	opponentRace: AssignedRace!
+	races: [AssignedRace!]!
+	"""
+	The opposing side's composition, same encoding as `races`.
+	"""
+	opponentRaces: [AssignedRace!]!
 	games: Int!
 	"""
 	Wins out of `games`. Matchmaking records only wins and losses, so `games - wins` is the
@@ -842,13 +850,15 @@ type Query {
 	"""
 	A user's record split by race matchup, for one solo matchmaking mode.
 	
-	Returned as flat buckets keyed by season, map and the two races rather than as a
+	Returned as flat buckets keyed by season, map and the two sides rather than as a
 	pre-aggregated matrix: the page filters by season and by map, and every such filter is a
 	sum over a subset of these buckets. Sending them once lets the filters resolve locally
-	instead of re-querying, and the bucket count is bounded by seasons x maps x 9 rather than
-	by games played, so it doesn't grow with the length of an account's history.
+	instead of re-querying, and the bucket count is bounded by seasons x maps x cells rather
+	than by games played, so it doesn't grow with the length of an account's history.
 	
-	Errors for team modes, whose matchup strings can't say which side the player was on.
+	Errors for team modes, whose matchup strings can't say which side the player was on. The
+	error is deliberately loud: a team mode silently returning an empty matrix would look like
+	a player with no games rather than like a mode that isn't supported yet.
 	"""
 	userMatchupStats(userId: SbUserId!, matchmakingType: MatchmakingType!): MatchupStats!
 }

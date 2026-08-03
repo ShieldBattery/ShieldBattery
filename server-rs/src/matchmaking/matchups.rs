@@ -11,6 +11,17 @@
 //! that `games_users` doesn't record. So this serves solo modes only and rejects the rest rather
 //! than guessing.
 //!
+//! Team support is expected once #1269 settles how team ordering is stored, so everything except
+//! the one step that needs it is already size-agnostic:
+//!
+//! - [`parse_sides`] reads a side as a composition, so `pt-pz` parses exactly as `p-z` does.
+//! - [`MatchupBucket`] carries a *list* of races per side, so a 2v2 cell needs no schema change —
+//!   which also matches the client's matrix, whose axes are already keyed by composition.
+//! - Bucketing, ordering, map handling and the drop rules never look at how many races a side has.
+//!
+//! What's left for team modes is [`viewer_sides`] — picking which side was the viewer's — plus the
+//! column it would read to do so, and lifting the mode gate.
+//!
 //! The set of games comes from `matchmaking_rating_changes` rather than from `games.config`.
 //! Its primary key is `(user_id, matchmaking_type, game_id)`, so "this user's games in this mode"
 //! is an index prefix scan; identifying matchmaking games through the config jsonb instead would
@@ -36,13 +47,15 @@ pub struct MatchmakingMatchupsQuery;
 impl MatchmakingMatchupsQuery {
     /// A user's record split by race matchup, for one solo matchmaking mode.
     ///
-    /// Returned as flat buckets keyed by season, map and the two races rather than as a
+    /// Returned as flat buckets keyed by season, map and the two sides rather than as a
     /// pre-aggregated matrix: the page filters by season and by map, and every such filter is a
     /// sum over a subset of these buckets. Sending them once lets the filters resolve locally
-    /// instead of re-querying, and the bucket count is bounded by seasons x maps x 9 rather than
-    /// by games played, so it doesn't grow with the length of an account's history.
+    /// instead of re-querying, and the bucket count is bounded by seasons x maps x cells rather
+    /// than by games played, so it doesn't grow with the length of an account's history.
     ///
-    /// Errors for team modes, whose matchup strings can't say which side the player was on.
+    /// Errors for team modes, whose matchup strings can't say which side the player was on. The
+    /// error is deliberately loud: a team mode silently returning an empty matrix would look like
+    /// a player with no games rather than like a mode that isn't supported yet.
     async fn user_matchup_stats(
         &self,
         ctx: &Context<'_>,
@@ -136,7 +149,7 @@ fn aggregate(
         let Some(race) = parse_race(&row.assigned_race) else {
             continue;
         };
-        let Some(opponent_race) = solo_opponent(&row.assigned_matchup, race) else {
+        let Some((races, opponent_races)) = viewer_sides(&row.assigned_matchup, race) else {
             continue;
         };
 
@@ -147,8 +160,8 @@ fn aggregate(
             .entry(BucketKey {
                 season_id: season_for(seasons, row.change_date),
                 map_id: row.map_id,
-                race,
-                opponent_race,
+                races,
+                opponent_races,
             })
             .or_default();
         bucket.games += 1;
@@ -162,8 +175,8 @@ fn aggregate(
         .map(|(key, value)| MatchupBucket {
             season_id: key.season_id,
             map_id: key.map_id,
-            race: key.race,
-            opponent_race: key.opponent_race,
+            races: key.races,
+            opponent_races: key.opponent_races,
             games: value.games,
             wins: value.wins,
         })
@@ -175,8 +188,8 @@ fn aggregate(
         (
             b.season_id,
             b.map_id.0,
-            race_order(b.race),
-            race_order(b.opponent_race),
+            side_order(&b.races),
+            side_order(&b.opponent_races),
         )
     });
 
@@ -195,12 +208,12 @@ fn aggregate(
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct BucketKey {
     season_id: i32,
     map_id: SbMapId,
-    race: AssignedRace,
-    opponent_race: AssignedRace,
+    races: Vec<AssignedRace>,
+    opponent_races: Vec<AssignedRace>,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -215,9 +228,15 @@ pub struct MatchupBucket {
     /// rating history derives it.
     pub season_id: i32,
     pub map_id: SbMapId,
-    /// The race the viewed player was assigned, after random is resolved.
-    pub race: AssignedRace,
-    pub opponent_race: AssignedRace,
+    /// The races on the viewed player's side, after random is resolved, alphabetical within the
+    /// side exactly as `assigned_matchup` stores them.
+    ///
+    /// A list rather than a single race because a side is a team composition in every mode but
+    /// this one: 2v2 cells are `tp` against `pz` and so on, and the client's matrix already keys
+    /// its axes by composition. For a solo mode it always holds exactly one race.
+    pub races: Vec<AssignedRace>,
+    /// The opposing side's composition, same encoding as `races`.
+    pub opponent_races: Vec<AssignedRace>,
     pub games: i32,
     /// Wins out of `games`. Matchmaking records only wins and losses, so `games - wins` is the
     /// loss count exactly.
@@ -263,27 +282,72 @@ fn race_order(race: AssignedRace) -> u8 {
     }
 }
 
-/// The opponent's race in a solo game, given the canonical matchup string and the viewer's own
-/// assigned race.
+/// The races on one side of a matchup string, e.g. `pt` -> `[Protoss, Terran]`.
 ///
-/// Returns `None` when the pair doesn't contain the viewer's race, which would mean
+/// Order is left as `computeMatchupString` wrote it, which is alphabetical within a team. That's
+/// what makes a side comparable to any other side by value, and it's the order the buckets carry
+/// on the wire.
+fn parse_side(side: &str) -> Option<Vec<AssignedRace>> {
+    if side.is_empty() {
+        return None;
+    }
+    side.chars()
+        .map(|c| parse_race(c.encode_utf8(&mut [0u8; 4])))
+        .collect()
+}
+
+/// Both sides of a canonical matchup string, in the order it stores them.
+///
+/// Size-agnostic on purpose: `pt-pz` parses here exactly as `p-z` does. Only picking *which* side
+/// the viewer was on is mode-specific, and that's [`viewer_sides`].
+fn parse_sides(assigned_matchup: &str) -> Option<(Vec<AssignedRace>, Vec<AssignedRace>)> {
+    let (left, right) = assigned_matchup.split_once('-')?;
+    // Exactly two sides. A string with a second `-` isn't a matchup this code understands.
+    if right.contains('-') {
+        return None;
+    }
+    Some((parse_side(left)?, parse_side(right)?))
+}
+
+/// The viewer's side and their opponent's, as `(own, opponent)`.
+///
+/// This is the one mode-specific step, and the seam team modes will extend. For a solo mode the
+/// viewer's own race identifies their side, because each side holds exactly one race. For a team
+/// mode it cannot — in `pt-pz` a Protoss player sits on both sides — so team membership has to
+/// come from the row instead, which `games_users` does not yet record. Team support is therefore
+/// an added branch here plus a column on the query, not a change to any of the parsing,
+/// bucketing, or wire format around it.
+///
+/// Returns `None` when the viewer's race isn't in the matchup at all, which would mean
 /// `assigned_matchup` and `assigned_race` disagree about the same game. That shouldn't happen —
 /// both are written from the same reconciled results — but a mismatch is better dropped than
-/// attributed to whichever race happens to be on the left.
-fn solo_opponent(assigned_matchup: &str, race: AssignedRace) -> Option<AssignedRace> {
-    let (left, right) = assigned_matchup.split_once('-')?;
-    let left = parse_race(left)?;
-    let right = parse_race(right)?;
+/// attributed to whichever side happens to be on the left.
+fn viewer_sides(
+    assigned_matchup: &str,
+    race: AssignedRace,
+) -> Option<(Vec<AssignedRace>, Vec<AssignedRace>)> {
+    let (left, right) = parse_sides(assigned_matchup)?;
+    // Solo only: a side that isn't exactly one race can't be attributed by race alone, and
+    // guessing is what this returns `None` to avoid.
+    if left.len() != 1 || right.len() != 1 {
+        return None;
+    }
 
-    // Mirrors take the first branch and yield the same race, which is correct: in `p-p` the
-    // opponent is Protoss.
-    if left == race {
-        Some(right)
-    } else if right == race {
-        Some(left)
+    // Mirrors take the first branch and yield the same race on both sides, which is correct: in
+    // `p-p` the opponent is Protoss.
+    if left[0] == race {
+        Some((left, right))
+    } else if right[0] == race {
+        Some((right, left))
     } else {
         None
     }
+}
+
+/// Sort key for a side: its races in TPZ order. Compositions of different sizes never share a
+/// matrix, so comparing them by sequence is only ever exercised within one mode.
+fn side_order(side: &[AssignedRace]) -> Vec<u8> {
+    side.iter().copied().map(race_order).collect()
 }
 
 #[cfg(test)]
@@ -347,7 +411,11 @@ mod tests {
             stats
                 .buckets
                 .iter()
-                .find(|b| b.season_id == season && b.race == race && b.opponent_race == opponent)
+                .find(|b| {
+                    b.season_id == season
+                        && b.races == vec![race]
+                        && b.opponent_races == vec![opponent]
+                })
                 .unwrap_or_else(|| panic!("no bucket for season {season} {race:?}v{opponent:?}"))
         };
 
@@ -406,7 +474,7 @@ mod tests {
         let key = |s: &MatchupStats| {
             s.buckets
                 .iter()
-                .map(|b| (b.season_id, b.map_id.0, race_order(b.race)))
+                .map(|b| (b.season_id, b.map_id.0, side_order(&b.races)))
                 .collect::<Vec<_>>()
         };
         assert_eq!(key(&first), key(&second));
@@ -415,10 +483,10 @@ mod tests {
         assert_eq!(
             key(&first),
             vec![
-                (1, MAP_A, race_order(AssignedRace::Terran)),
-                (1, MAP_A, race_order(AssignedRace::Protoss)),
-                (1, MAP_A, race_order(AssignedRace::Zerg)),
-                (2, MAP_B, race_order(AssignedRace::Zerg)),
+                (1, MAP_A, vec![race_order(AssignedRace::Terran)]),
+                (1, MAP_A, vec![race_order(AssignedRace::Protoss)]),
+                (1, MAP_A, vec![race_order(AssignedRace::Zerg)]),
+                (2, MAP_B, vec![race_order(AssignedRace::Zerg)]),
             ]
         );
 
@@ -441,78 +509,118 @@ mod tests {
         assert!(stats.maps.is_empty());
     }
 
+    const T: AssignedRace = AssignedRace::Terran;
+    const P: AssignedRace = AssignedRace::Protoss;
+    const Z: AssignedRace = AssignedRace::Zerg;
+
     #[test]
-    fn solo_opponent_reads_the_other_side() {
-        assert_eq!(
-            solo_opponent("p-z", AssignedRace::Protoss),
-            Some(AssignedRace::Zerg)
-        );
+    fn viewer_sides_reads_the_other_side() {
+        assert_eq!(viewer_sides("p-z", P), Some((vec![P], vec![Z])));
         // The viewer is on the right of the canonical string here, since it sorts its teams.
-        assert_eq!(
-            solo_opponent("p-z", AssignedRace::Zerg),
-            Some(AssignedRace::Protoss)
-        );
-        assert_eq!(
-            solo_opponent("t-z", AssignedRace::Terran),
-            Some(AssignedRace::Zerg)
-        );
+        assert_eq!(viewer_sides("p-z", Z), Some((vec![Z], vec![P])));
+        assert_eq!(viewer_sides("t-z", T), Some((vec![T], vec![Z])));
     }
 
     #[test]
-    fn solo_opponent_handles_mirrors() {
-        assert_eq!(
-            solo_opponent("p-p", AssignedRace::Protoss),
-            Some(AssignedRace::Protoss)
-        );
-        assert_eq!(
-            solo_opponent("z-z", AssignedRace::Zerg),
-            Some(AssignedRace::Zerg)
-        );
+    fn viewer_sides_handles_mirrors() {
+        assert_eq!(viewer_sides("p-p", P), Some((vec![P], vec![P])));
+        assert_eq!(viewer_sides("z-z", Z), Some((vec![Z], vec![Z])));
     }
 
     #[test]
-    fn solo_opponent_rejects_a_matchup_the_player_isnt_in() {
+    fn viewer_sides_rejects_a_matchup_the_player_isnt_in() {
         // `assigned_matchup` and `assigned_race` disagreeing means one of them is wrong about
         // this game; attributing it to Protoss or Zerg would invent a record either way.
-        assert_eq!(solo_opponent("p-z", AssignedRace::Terran), None);
+        assert_eq!(viewer_sides("p-z", T), None);
     }
 
     #[test]
-    fn solo_opponent_rejects_team_and_malformed_matchups() {
-        // A team matchup reaching here would be a mode-filtering bug, and `pt` is not a race.
-        assert_eq!(solo_opponent("pt-pz", AssignedRace::Protoss), None);
-        assert_eq!(solo_opponent("p", AssignedRace::Protoss), None);
-        assert_eq!(solo_opponent("", AssignedRace::Protoss), None);
-        assert_eq!(solo_opponent("p-", AssignedRace::Protoss), None);
-        assert_eq!(solo_opponent("p-r", AssignedRace::Protoss), None);
+    fn viewer_sides_rejects_team_matchups_rather_than_guessing() {
+        // A Protoss player is on both sides of `pt-pz`, so race alone can't say which. This is
+        // the case that needs team membership, and until it exists the answer is no answer.
+        assert_eq!(viewer_sides("pt-pz", P), None);
+        assert_eq!(viewer_sides("pt-pz", T), None);
+        // Not even when the viewer's race appears on exactly one side -- the shape is what's
+        // unsupported, not this particular string's ambiguity.
+        assert_eq!(viewer_sides("pp-tz", Z), None);
+    }
+
+    #[test]
+    fn viewer_sides_rejects_malformed_matchups() {
+        assert_eq!(viewer_sides("p", P), None);
+        assert_eq!(viewer_sides("", P), None);
+        assert_eq!(viewer_sides("p-", P), None);
+        assert_eq!(viewer_sides("-p", P), None);
+        // Random is never stored as an assigned race.
+        assert_eq!(viewer_sides("p-r", P), None);
     }
 
     #[test]
     fn every_race_pairing_resolves() {
         // Each of the nine cells the matrix draws has to be reachable, mirrors included.
-        let races = [
-            AssignedRace::Terran,
-            AssignedRace::Protoss,
-            AssignedRace::Zerg,
-        ];
         let letter = |r: AssignedRace| match r {
-            AssignedRace::Terran => "t",
-            AssignedRace::Protoss => "p",
-            AssignedRace::Zerg => "z",
+            T => "t",
+            P => "p",
+            Z => "z",
         };
 
-        for mine in races {
-            for theirs in races {
+        for mine in [T, P, Z] {
+            for theirs in [T, P, Z] {
                 // Canonical form sorts the two races, which is what the column stores.
                 let mut pair = [letter(mine), letter(theirs)];
                 pair.sort_unstable();
                 let matchup = format!("{}-{}", pair[0], pair[1]);
                 assert_eq!(
-                    solo_opponent(&matchup, mine),
-                    Some(theirs),
+                    viewer_sides(&matchup, mine),
+                    Some((vec![mine], vec![theirs])),
                     "{matchup} from {mine:?} should face {theirs:?}",
                 );
             }
         }
+    }
+
+    // ---- Readiness for team modes -------------------------------------------------------
+    //
+    // Parsing is deliberately size-agnostic, so that supporting team modes is a change to
+    // `viewer_sides` (which side is the viewer's) rather than to how matchups are read at all.
+    // These pin that down now, while the shape is easy to change, rather than discovering later
+    // that the parsing baked in an assumption of one race per side.
+
+    #[test]
+    fn parse_sides_reads_team_compositions() {
+        assert_eq!(parse_sides("pt-pz"), Some((vec![P, T], vec![P, Z])));
+        assert_eq!(parse_sides("p-z"), Some((vec![P], vec![Z])));
+        // 3v3, and a team mirror.
+        assert_eq!(parse_sides("ptz-ptz"), Some((vec![P, T, Z], vec![P, T, Z])));
+        // Uneven sides parse too: rejecting them is a mode decision, not a parsing one.
+        assert_eq!(parse_sides("p-tz"), Some((vec![P], vec![T, Z])));
+    }
+
+    #[test]
+    fn parse_sides_rejects_input_that_isnt_two_sides() {
+        assert_eq!(parse_sides("ptz"), None);
+        assert_eq!(parse_sides("p-t-z"), None);
+        assert_eq!(parse_sides("pt-"), None);
+        assert_eq!(parse_sides("px-tz"), None);
+    }
+
+    #[test]
+    fn buckets_can_hold_team_compositions() {
+        // The wire format is already a composition per side, so a 2v2 bucket needs no schema
+        // change -- only a `viewer_sides` that can pick a side for a team mode.
+        let bucket = MatchupBucket {
+            season_id: 1,
+            map_id: SbMapId(MAP_A),
+            races: vec![P, T],
+            opponent_races: vec![P, Z],
+            games: 3,
+            wins: 2,
+        };
+        assert_eq!(bucket.races.len(), 2);
+        // Ordering generalizes to compositions rather than assuming a single race per side.
+        assert_eq!(
+            side_order(&bucket.races),
+            vec![race_order(P), race_order(T)]
+        );
     }
 }
