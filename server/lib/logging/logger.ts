@@ -27,7 +27,7 @@ export default pino(getLoggerOptions(), transport)
 
 export function getLoggerOptions() {
   return {
-    genReqId: nanoid,
+    genReqId: () => nanoid(),
     serializers: stdSerializers,
     // Make sure pino-http doesn't re-wrap these since we're specifying the serializers already
     wrapSerializers: false,

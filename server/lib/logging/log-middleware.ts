@@ -1,3 +1,4 @@
+import { IncomingMessage } from 'http'
 import koaPino from 'koa-pino-logger'
 import { getLoggerOptions, getLoggerTransports } from './logger'
 
@@ -24,7 +25,7 @@ const CLIENT_ASSET_PREFIXES = [
   '/node_modules/',
 ]
 
-function isClientAssetRequest(req) {
+function isClientAssetRequest(req: IncomingMessage): boolean {
   const url = req.url ?? ''
   return CLIENT_ASSET_PREFIXES.some(prefix => url.startsWith(prefix))
 }

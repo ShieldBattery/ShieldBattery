@@ -2,7 +2,7 @@
  * Generates the minimap preview images shown in the team-color settings panels
  * (`client/settings/game/team-color-preview.tsx`) -- one WebP per preview tileset, rendered from a
  * real map file through the same bw-chk + BW sprite data pipeline the map upload system uses
- * (`server/lib/maps/parse-map.js`, `server/lib/maps/map-parse-worker.js`).
+ * (`server/lib/maps/parse-map.ts`, `server/lib/maps/map-parse-worker.ts`).
  *
  * Usage (run from repo root):
  *   pnpm run gen-minimap-previews -- <maps-folder> [--bw-data <path>] [--out <dir>]

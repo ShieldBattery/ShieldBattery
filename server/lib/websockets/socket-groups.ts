@@ -228,7 +228,7 @@ export class UserSocketsManager extends EventEmitter<UserSocketsManagerEvents> {
         this.users.get(userId)!.add(socket)
       }
 
-      this.upsertUserIp(userId, getAddress(socket.conn.request)).catch(() => {
+      this.upsertUserIp(userId, getAddress(socket.conn.request)!).catch(() => {
         log.error({ req: socket.conn.request }, 'failed to save user IP address')
       })
     })

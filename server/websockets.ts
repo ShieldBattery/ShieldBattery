@@ -110,7 +110,7 @@ export class WebsocketServer {
         userId: ctx.session.user.id,
         clientId,
         userName: ctx.session.user.name,
-        address: getAddress(req),
+        address: getAddress(req)!,
         clientType: isElectronClient(ctx) ? 'electron' : 'web',
       }
       this.sessionLookup.set(req, handshakeData)

@@ -1,14 +1,14 @@
-import childProcess from 'child_process'
 import fs from 'fs'
-import { buffer } from 'node:stream/consumers'
-import { Duplex, Readable, Writable } from 'stream'
+import { Worker } from 'node:worker_threads'
 import Queue from '../../../common/async/promise-queue'
+import swallowNonBuiltins from '../../../common/async/swallow-non-builtins'
 import { isTestRun } from '../../../common/is-test-run'
 import { MapExtension, MapServiceErrorCode, MapVisibility } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { CodedError } from '../errors/coded-error'
 import { writeFile } from '../files'
 import { addMap } from './map-models'
+import type { MapParseWorkerRequest, MapParseWorkerResponse } from './map-parse-worker'
 import { MapParseData } from './parse-data'
 import { MAP_PARSER_VERSION } from './parser-version'
 import { imagePath, mapPath } from './paths'
@@ -156,139 +156,49 @@ async function mapParseWorker(
   extension: MapExtension,
   generateImages = true,
 ): Promise<MapParseResult> {
-  const { messages, image256, image512, image1024, image2048 } = await runChildProcess(
-    require.resolve('./map-parse-worker'),
-    [path, extension, generateImages ? BW_DATA_PATH : ''],
-  )
+  const bwDataPath = generateImages ? BW_DATA_PATH : ''
 
-  if (messages.length !== 1) {
-    throw new Error(
-      'Expected exactly one message from map parse worked, but got ' + messages.length,
-    )
-  }
-
-  if ('error' in messages[0]) {
-    throw new Error(`Encountered error parsing map: ${messages[0].error}`)
-  }
-
-  return {
-    mapData: messages[0],
-    image256: BW_DATA_PATH ? image256 : undefined,
-    image512: BW_DATA_PATH ? image512 : undefined,
-    image1024: BW_DATA_PATH ? image1024 : undefined,
-    image2048: BW_DATA_PATH ? image2048 : undefined,
-  }
-}
-
-interface ChildProcessResult {
-  messages: Array<MapParseData | { error: string }>
-  image256: Buffer
-  image512: Buffer
-  image1024: Buffer
-  image2048: Buffer
-}
-
-function runChildProcess(path: string, args?: ReadonlyArray<string>): Promise<ChildProcessResult> {
-  let childTimeout: ReturnType<typeof setTimeout> | undefined
-  const cleanup = () => {
-    if (childTimeout) {
-      clearTimeout(childTimeout)
-    }
-  }
-  const result = new Promise<ChildProcessResult>((resolve, reject) => {
-    const child = childProcess.fork(path, args, {
-      stdio: [0, 1, 2, 'pipe', 'pipe', 'pipe', 'pipe', 'ipc'],
-    })
-    const typedStdio = child.stdio as unknown as [
-      stdin: Writable,
-      stdout: Readable,
-      stderr: Readable,
-      img256: Readable,
-      img512: Readable,
-      img1024: Readable,
-      img2048: Readable,
-      ipc: Duplex,
-    ]
-
-    let error = false
-    let inited = false
-    // TODO(tec27): type this better
-    const messages: any[] = []
-    const resetTimeout = () => {
-      if (childTimeout) {
-        clearTimeout(childTimeout)
-      }
-      childTimeout = setTimeout(() => {
-        child.kill()
-        reject(new Error('Child process timeout'))
-        error = true
-      }, 60000)
-    }
-    resetTimeout()
-    child.once('error', e => {
-      // Should we kill the process here?? Some errors seem to happen when killing doesn't
-      // make sense and others would leave
-      child.kill()
-      reject(e)
-      error = true
+  return new Promise<MapParseResult>((resolve, reject) => {
+    const worker = new Worker(require.resolve('../../workers/launch-worker'), {
+      name: 'map-parse-worker',
+      workerData: require.resolve('./map-parse-worker'),
     })
 
-    // Start consuming the image pipes immediately: if the child writes image data before a
-    // consumer is attached, that data would be lost. Collecting each pipe into a Buffer from the
-    // start avoids that without requiring any synchronization messages between the processes.
-    const imagesPromise = Promise.all([
-      buffer(typedStdio[3]!),
-      buffer(typedStdio[4]!),
-      buffer(typedStdio[5]!),
-      buffer(typedStdio[6]!),
-    ])
-    // Pipe errors get surfaced (or superseded by an earlier failure) through the exit handler
-    // below; this just keeps a rejection while the child is still running from going unhandled
-    imagesPromise.catch(() => {})
-
-    child.on('exit', () => {
-      imagesPromise
-        .then(([image256, image512, image1024, image2048]) => {
-          resolve({ messages, image256, image512, image1024, image2048 })
-        })
-        .catch(reject)
-    })
-    child.on('message', message => {
-      if (inited) {
-        resetTimeout()
-        messages.push(message)
-      }
-    })
-    // Even still, syncing with the child is dumb. Both sides will have any sent messages eaten
-    // if they didn't get a chance to set .on('message') event handlers up yet.
-    // The sync steps here are following:
-    // 1) Parent spawns child and both set up their event handlers.
-    // 2) Parent starts to send 'init' to the child to signal readiness, child may lose messages
-    //    if it is still initializing.
-    // 3) Child eventually receives 'init', sending a singe 'init' back to parent, to tell parent
-    //    it can stop sending 'init'.
-    // 4) Now parent process should not lose any future data that gets sent to it :l
-    //    (Child doesn't get sent anything other than fork arguments and 'init' spam atm)
-    child.once('message', msg => {
-      console.assert(msg === 'init')
-      inited = true
-    })
-
-    const sendInit = () => {
-      if (inited || error) {
+    let settled = false
+    const settle = (fn: () => void) => {
+      if (settled) {
         return
       }
-
-      child.send('init')
-      setTimeout(sendInit, 10)
+      settled = true
+      clearTimeout(timeout)
+      fn()
     }
 
-    sendInit()
-  })
+    const timeout = setTimeout(() => {
+      settle(() => reject(new Error('Timed out parsing map')))
+      worker.terminate().catch(swallowNonBuiltins)
+    }, 60000)
 
-  result.finally(cleanup).catch(() => {
-    /* We return this promise so the error will be handled by whatever called this */
-  })
+    worker
+      .on('message', (response: MapParseWorkerResponse) => {
+        settle(() => {
+          if ('error' in response) {
+            reject(new Error(`Encountered error parsing map: ${response.error}`))
+          } else {
+            resolve(response)
+          }
+        })
+      })
+      .on('error', err => {
+        settle(() => reject(err instanceof Error ? err : new Error(String(err))))
+      })
+      .on('exit', code => {
+        settle(() =>
+          reject(new Error(`Map parse worker exited (code ${code}) before returning a result`)),
+        )
+      })
 
-  return result
+    const request: MapParseWorkerRequest = { path, extension, bwDataPath }
+    worker.postMessage(request)
+  })
 }
