@@ -6,17 +6,22 @@ import { hasObservers } from '../../common/lobbies'
 import { UpdateLobbySettingsRequest } from '../../common/lobbies/lobby-network'
 import { SbMapId } from '../../common/maps'
 import { range } from '../../common/range'
-import { openSimpleDialog } from '../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
+import { DialogType } from '../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../forms/form-hook'
+import { MaterialIcon } from '../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
 import { TextButton } from '../material/button'
 import { CheckBox } from '../material/check-box'
 import { Dialog } from '../material/dialog'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
+import { elevationPlus1, elevationPlus2 } from '../material/shadows'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
-import { bodyLarge } from '../styles/typography'
+import { ContainerLevel, containerStyles } from '../styles/colors'
+import { styledWithAttrs } from '../styles/styled-with-attrs'
+import { bodyLarge, labelSmall } from '../styles/typography'
 import { getLobbyPreferences, updateLobbySettings } from './action-creators'
 
 const StyledDialog = styled(Dialog)`
@@ -53,6 +58,35 @@ const MapOption = styled(ReduxMapThumbnail)`
   width: 88px;
   height: 88px;
   cursor: pointer;
+`
+
+const BrowseMapsTile = styled.div`
+  ${containerStyles(ContainerLevel.Low)};
+  ${elevationPlus1};
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:hover {
+    ${elevationPlus2};
+  }
+`
+
+const BrowseMapsIcon = styledWithAttrs(MaterialIcon, { icon: 'map', size: 36 })`
+  color: var(--theme-on-surface-variant);
+`
+
+const BrowseMapsText = styled.div`
+  ${labelSmall};
+  color: var(--theme-on-surface-variant);
+  margin-top: 4px;
+  text-align: center;
 `
 
 const CheckBoxes = styled.div`
@@ -225,7 +259,9 @@ export function LobbySettingsDialog({ onCancel, close }: CommonDialogProps) {
     }
   }
 
-  const mapOptionIds = Array.from(new Set([initialModel.mapId, ...recentMapIds]))
+  // `mapId` is included so a map picked via the browse dialog (which may not be in the recent
+  // list, or even have been the lobby's map to begin with) still shows up as an option.
+  const mapOptionIds = Array.from(new Set([mapId, initialModel.mapId, ...recentMapIds]))
 
   const buttons = [
     <TextButton label={t('common.actions.cancel', 'Cancel')} key='cancel' onClick={onCancel} />,
@@ -262,6 +298,20 @@ export function LobbySettingsDialog({ onCancel, close }: CommonDialogProps) {
               onClick={() => setInputValue('mapId', id)}
             />
           ))}
+          <BrowseMapsTile
+            onClick={() => {
+              dispatch(
+                openDialog({
+                  type: DialogType.SelectMap,
+                  initData: {
+                    onSelectMap: (id: SbMapId) => setInputValue('mapId', id),
+                  },
+                }),
+              )
+            }}>
+            <BrowseMapsIcon />
+            <BrowseMapsText>{t('maps.mapSelect.browseMaps', 'Browse maps')}</BrowseMapsText>
+          </BrowseMapsTile>
         </MapRow>
 
         <SectionHeader>
