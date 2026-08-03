@@ -4,7 +4,7 @@ import { UserIpInfo } from '../../../common/users/user-network'
 import db, { DbClient } from '../db'
 import { sql } from '../db/sql'
 import { Dbify } from '../db/types'
-import { UpsertUserIp } from '../network/user-ips-type'
+import type { UpsertUserIp } from '../network/user-ips-type'
 
 /**
  * Updates information about this user's IP address stored in the database. This information is used
