@@ -706,6 +706,35 @@ describe('lobbies/lobby-service', () => {
       expect(findSlotByUserId(updated, OTHER_HOST_USER.id)[2]!.type).toBe('human')
     })
 
+    test('a player seat vacated by a move onto a closed slot seats a waiting member', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const lobby = lobbyService.lobbies.get(id)!
+      const [joinerTeamIndex, joinerSlotIndex] = findSlotByUserId(lobby, JOINER_USER.id)
+      // Close every slot beyond the two seated players, leaving no room for a further join
+      for (const slotId of lobby.teams[0].slots.slice(2).map(s => s.id)) {
+        lobbyService.closeSlot({ client: host.client, slotId })
+      }
+      await joinLobby(otherHost, id)
+      expect(lobbyService.lobbies.get(id)!.bench.map(b => b.userId)).toEqual([OTHER_HOST_USER.id])
+
+      const beforeMove = lobbyService.lobbies.get(id)!
+      const closedSlot = beforeMove.teams[0].slots[2]
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: beforeMove.teams[joinerTeamIndex!].slots[joinerSlotIndex!].id,
+        toSlotId: closedSlot.id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.bench).toHaveLength(0)
+      expect(updated.teams[0].slots[2].userId).toBe(JOINER_USER.id)
+      expect(updated.teams[joinerTeamIndex!].slots[joinerSlotIndex!].userId).toBe(
+        OTHER_HOST_USER.id,
+      )
+    })
+
     test('an observer slot vacated by making its occupant a player seats a waiting member', async () => {
       const { id } = await createLobby(host, 'Obs lobby', 'listed', true, GameType.OneVsOne)
       await joinLobby(joiner, id)
@@ -940,19 +969,27 @@ describe('lobbies/lobby-service', () => {
       expect(updated.teams[0].slots[1].type).toBe('open')
     })
 
-    test('moving someone into a closed slot is rejected', async () => {
+    test('the host can move a player onto a closed slot, opening it as part of the move', async () => {
       const { id } = await createLobby(host, 'Listed lobby', 'listed')
-      const lobby = lobbyService.lobbies.get(id)!
-      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[0].slots[1].id })
+      await joinLobby(joiner, id)
+      let lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[0].slots[4].id })
+      lobby = lobbyService.lobbies.get(id)!
+      const closedSlot = lobby.teams[0].slots[4]
+      expect(closedSlot.type).toBe('closed')
 
-      expect(() =>
-        lobbyService.moveSlot({
-          client: host.client,
-          lobbyId: id,
-          fromSlotId: lobby.host.id,
-          toSlotId: lobbyService.lobbies.get(id)!.teams[0].slots[1].id,
-        }),
-      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: joinerSlot!.id,
+        toSlotId: closedSlot.id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.teams[0].slots[4].type).toBe('human')
+      expect(updated.teams[0].slots[4].userId).toBe(JOINER_USER.id)
+      expect(updated.teams[0].slots[1].type).toBe('open')
     })
 
     test('a controller handoff is published even for slots that stay in place', async () => {
@@ -1039,6 +1076,117 @@ describe('lobbies/lobby-service', () => {
       // The computer team must not have been dissolved by the rejected move
       const after = lobbyService.lobbies.get(id)!
       expect(after.teams[1].slots.every(slot => slot.type === 'computer')).toBe(true)
+    })
+
+    test('the host can move a player onto a controlled slot the host closed', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      let lobby = lobbyService.lobbies.get(id)!
+      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[0].slots[1].id })
+      lobby = lobbyService.lobbies.get(id)!
+      const controlledClosedSlot = lobby.teams[0].slots[1]
+      expect(controlledClosedSlot.type).toBe('controlledClosed')
+
+      // The second team is still empty, so the joiner lands there rather than in the first team's
+      // remaining controlled slot
+      await joinLobby(joiner, id)
+      lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: joinerSlot!.id,
+        toSlotId: controlledClosedSlot.id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.teams[0].slots[1].type).toBe('human')
+      expect(updated.teams[0].slots[1].userId).toBe(JOINER_USER.id)
+    })
+
+    test('moving a computer onto a controlled slot the host closed is rejected', async () => {
+      const { id } = await lobbyService.createLobby({
+        name: 'Team lobby',
+        map: BIG_GAME_HUNTERS.id,
+        gameType: GameType.TeamMelee,
+        gameSubType: 2,
+        visibility: 'listed',
+        user: host.user,
+        client: host.client,
+      })
+      let lobby = lobbyService.lobbies.get(id)!
+      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[0].slots[1].id })
+      lobby = lobbyService.lobbies.get(id)!
+      const controlledClosedSlot = lobby.teams[0].slots[1]
+      expect(controlledClosedSlot.type).toBe('controlledClosed')
+
+      // Filling the empty second team with computers, the only way computers exist in team melee
+      lobbyService.addComputer({ client: host.client, slotId: lobby.teams[1].slots[0].id })
+      lobby = lobbyService.lobbies.get(id)!
+
+      expect(() =>
+        lobbyService.moveSlot({
+          client: host.client,
+          lobbyId: id,
+          fromSlotId: lobby.teams[1].slots[0].id,
+          toSlotId: controlledClosedSlot.id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
+
+      // The destination must still be closed, and the computer team intact
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.teams[0].slots[1].type).toBe('controlledClosed')
+      expect(after.teams[1].slots.every(slot => slot.type === 'computer')).toBe(true)
+    })
+
+    test('the host can move a player onto a closed observer slot, making them an observer', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true)
+      await joinLobby(joiner, id)
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(lobby, JOINER_USER.id)
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      const obsSlot = obsTeam!.slots[0]
+      expect(obsSlot.type).toBe('closed')
+
+      lobbyService.moveSlot({
+        client: host.client,
+        lobbyId: id,
+        fromSlotId: joinerSlot!.id,
+        toSlotId: obsSlot.id,
+      })
+
+      const updated = lobbyService.lobbies.get(id)!
+      expect(updated.teams[obsTeamIndex!].slots[0].type).toBe('observer')
+      expect(updated.teams[obsTeamIndex!].slots[0].userId).toBe(JOINER_USER.id)
+      expect(updated.teams[0].slots[1].type).toBe('open')
+    })
+
+    test('moving a computer onto a closed observer slot is rejected', async () => {
+      const { id } = await createLobby(host, 'Obs lobby', 'listed', true)
+      let lobby = lobbyService.lobbies.get(id)!
+      lobbyService.addComputer({ client: host.client, slotId: lobby.teams[0].slots[1].id })
+
+      lobby = lobbyService.lobbies.get(id)!
+      const [, obsTeam] = getObserverTeam(lobby)
+      const obsSlot = obsTeam!.slots[0]
+      expect(obsSlot.type).toBe('closed')
+
+      expect(() =>
+        lobbyService.moveSlot({
+          client: host.client,
+          lobbyId: id,
+          fromSlotId: lobby.teams[0].slots[1].id,
+          toSlotId: obsSlot.id,
+        }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.ComputerInObserverSlot }))
     })
 
     test('only the host can move slots around', async () => {
@@ -1143,6 +1291,21 @@ describe('lobbies/lobby-service', () => {
       lobby = lobbyService.lobbies.get(id)!
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+    })
+  })
+
+  describe('changeSlot', () => {
+    test('a member cannot change their own seat onto a closed slot', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const lobby = lobbyService.lobbies.get(id)!
+      lobbyService.closeSlot({ client: host.client, slotId: lobby.teams[0].slots[4].id })
+      const closedSlot = lobbyService.lobbies.get(id)!.teams[0].slots[4]
+
+      // Closed slots are host-reserved; only the host's move-slot flow can seat someone onto one
+      expect(() =>
+        lobbyService.changeSlot({ client: joiner.client, slotId: closedSlot.id }),
+      ).toThrow(expect.objectContaining({ code: LobbyServiceErrorCode.InvalidSlotType }))
     })
   })
 

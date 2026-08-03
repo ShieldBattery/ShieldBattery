@@ -660,7 +660,10 @@ export class LobbyService {
   /**
    * Moves the occupant of one slot into another at the host's direction. An unoccupied destination
    * is a plain move; an occupied one exchanges the two occupants, which is the only way to
-   * rearrange a lobby that has no room left.
+   * rearrange a lobby that has no room left. A closed destination is host-reserved, not
+   * unavailable, so the host can move someone straight onto one and it opens as a side effect of
+   * the move. Self-serve seat changes (`changeSlot`) never do this — closed slots stay off-limits
+   * to a member picking their own seat.
    */
   moveSlot({
     client,
@@ -694,18 +697,12 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.AlreadyInSlot, 'already in that slot')
     }
     const isMove = isSlotUnoccupied(destSlot)
-    if (isMove && destSlot.type !== SlotType.Open && destSlot.type !== SlotType.ControlledOpen) {
-      // A closed slot is one the host has deliberately taken out of the lobby; they can open it
-      // first if they want someone in it.
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.InvalidSlotType,
-        'invalid destination slot type',
-      )
-    }
     if (
       Lobbies.hasControlledOpens(lobby.gameType) &&
       sourceSlot.type !== SlotType.Human &&
-      (destSlot.type === SlotType.ControlledOpen || !isSlotUnoccupied(destSlot))
+      (destSlot.type === SlotType.ControlledOpen ||
+        destSlot.type === SlotType.ControlledClosed ||
+        !isSlotUnoccupied(destSlot))
     ) {
       // A controlled team is built around the humans in it, so only they can enter one: a computer
       // team is moved or removed as a whole (a lone computer taken out of one would blank the rest
@@ -723,18 +720,25 @@ export class LobbyService {
       )
     }
 
+    // A closed destination is host-reserved rather than off-limits: open it as part of the move
+    // instead of making the host open it first in a separate step.
+    const lobbyToMove =
+      isMove && (destSlot.type === SlotType.Closed || destSlot.type === SlotType.ControlledClosed)
+        ? Lobbies.openSlot(lobby, destTeamIndex!, destSlotIndex!)
+        : lobby
+
     let updated
     try {
       updated = isMove
         ? Lobbies.movePlayerToSlot(
-            lobby,
+            lobbyToMove,
             sourceTeamIndex!,
             sourceSlotIndex!,
             destTeamIndex!,
             destSlotIndex!,
           )
         : Lobbies.swapSlots(
-            lobby,
+            lobbyToMove,
             sourceTeamIndex!,
             sourceSlotIndex!,
             destTeamIndex!,
