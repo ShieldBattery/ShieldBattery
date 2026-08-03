@@ -42,17 +42,19 @@ const ScenarioBtn = styled.button<{ $active: boolean }>`
  * The shared scenario switcher for the lobby devonly test pages.
  */
 export function ScenarioPicker<T extends string>({
+  label = 'Scenario',
   scenarios,
   active,
   onChange,
 }: {
+  label?: string
   scenarios: ReadonlyArray<{ id: T; label: string }>
   active: T
   onChange: (scenario: T) => void
 }) {
   return (
     <>
-      <ControlsLabel>Scenario</ControlsLabel>
+      <ControlsLabel>{label}</ControlsLabel>
       <ScenarioButtons>
         {scenarios.map(s => (
           <ScenarioBtn key={s.id} $active={active === s.id} onClick={() => onChange(s.id)}>
