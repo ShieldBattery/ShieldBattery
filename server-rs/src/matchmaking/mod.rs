@@ -12,6 +12,7 @@ pub mod backbone;
 pub mod config;
 pub mod history;
 pub mod matchmaker;
+pub mod matchups;
 mod metrics;
 
 /// A single player's entry in a match found message.

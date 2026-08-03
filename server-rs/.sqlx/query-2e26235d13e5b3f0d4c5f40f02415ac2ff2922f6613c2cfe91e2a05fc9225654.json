@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    g.map_id AS \"map_id!: SbMapId\",\n                    m.name AS \"map_name!\",\n                    mrc.change_date AT TIME ZONE 'UTC' AS \"change_date!: DateTime<Utc>\",\n                    gu.assigned_race::text AS \"assigned_race!\",\n                    g.assigned_matchup AS \"assigned_matchup!\",\n                    mrc.outcome::text AS \"outcome!\"\n                FROM matchmaking_rating_changes mrc\n                JOIN games g ON g.id = mrc.game_id\n                JOIN games_users gu ON gu.game_id = mrc.game_id AND gu.user_id = mrc.user_id\n                JOIN uploaded_maps m ON m.id = g.map_id\n                WHERE mrc.user_id = $1\n                    AND mrc.matchmaking_type = $2\n                    AND gu.assigned_race IS NOT NULL\n                    AND g.assigned_matchup IS NOT NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "games",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "map_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "uploaded_maps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "change_date!: DateTime<Utc>",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "assigned_race!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "assigned_matchup!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "games",
+            "name": "assigned_matchup"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "outcome!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      true,
+      null
+    ]
+  },
+  "hash": "2e26235d13e5b3f0d4c5f40f02415ac2ff2922f6613c2cfe91e2a05fc9225654"
+}

@@ -539,6 +539,46 @@ All of the matchmaking types that we support. These values match the enum values
 """
 scalar MatchmakingType
 
+type MatchupBucket {
+	"""
+	The season the games fell in, derived from each game's `change_date` the same way the
+	rating history derives it.
+	"""
+	seasonId: Int!
+	mapId: SbMapId!
+	"""
+	The race the viewed player was assigned, after random is resolved.
+	"""
+	race: AssignedRace!
+	opponentRace: AssignedRace!
+	games: Int!
+	"""
+	Wins out of `games`. Matchmaking records only wins and losses, so `games - wins` is the
+	loss count exactly.
+	"""
+	wins: Int!
+}
+
+type MatchupMap {
+	id: SbMapId!
+	name: String!
+}
+
+type MatchupStats {
+	matchmakingType: MatchmakingType!
+	"""
+	Games attributed to a matchup, which is the sum of every bucket's `games`. Lower than the
+	mode's total game count where a game predates the matchup backfill.
+	"""
+	totalGames: Int!
+	buckets: [MatchupBucket!]!
+	"""
+	Every map appearing in `buckets`, so the page's map filter can label itself without a
+	second request and without the name being repeated on each bucket.
+	"""
+	maps: [MatchupMap!]!
+}
+
 type Mutation {
 	"""
 	Files a report against another player from a game both users participated in. Any logged-in
@@ -799,6 +839,18 @@ type Query {
 	A user's rating and points over time in a single mode, oldest first.
 	"""
 	userRatingHistory(userId: SbUserId!, matchmakingType: MatchmakingType!): RatingHistory!
+	"""
+	A user's record split by race matchup, for one solo matchmaking mode.
+	
+	Returned as flat buckets keyed by season, map and the two races rather than as a
+	pre-aggregated matrix: the page filters by season and by map, and every such filter is a
+	sum over a subset of these buckets. Sending them once lets the filters resolve locally
+	instead of re-querying, and the bucket count is bounded by seasons x maps x 9 rather than
+	by games played, so it doesn't grow with the length of an account's history.
+	
+	Errors for team modes, whose matchup strings can't say which side the player was on.
+	"""
+	userMatchupStats(userId: SbUserId!, matchmakingType: MatchmakingType!): MatchupStats!
 }
 
 """
