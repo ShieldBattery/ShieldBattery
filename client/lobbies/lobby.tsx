@@ -33,6 +33,7 @@ import { MessageComponentProps } from '../messaging/message-list'
 import { SbMessage } from '../messaging/message-records'
 import { useLinkCopier } from '../navigation/copy-link-button'
 import { getServerOrigin } from '../network/server-url'
+import { useAppSelector } from '../redux-hooks'
 import { headlineMedium, labelLarge, labelMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 import { ClosedSlot } from './closed-slot'
@@ -65,6 +66,7 @@ import {
   Slot as SlotRow,
   TeamName,
 } from './slot'
+import { SlotActions } from './slot-actions'
 
 const StyledChat = styled(Chat)`
   flex-grow: 1;
@@ -313,18 +315,55 @@ const BenchSlots = styled(RegularSlots)`
   margin-top: 8px;
 `
 
-/** A row for a lobby member on the bench: just their name, no race picker or slot menu. */
-function BenchRow({ userId }: { userId: SbUserId }) {
+/** A row for a lobby member on the bench: just their name and (if host) a kick/ban menu. */
+function BenchRow({
+  userId,
+  isHost,
+  isSelf,
+  onKickPlayer,
+  onBanPlayer,
+}: {
+  userId: SbUserId
+  isHost?: boolean
+  isSelf?: boolean
+  onKickPlayer?: () => void
+  onBanPlayer?: () => void
+}) {
+  const { t } = useTranslation()
+  const user = useAppSelector(s => s.users.byId.get(userId))
+
+  const slotActions: [string, () => void][] = []
+  if (isHost && !isSelf) {
+    slotActions.push([
+      user
+        ? t('lobbies.slots.kickPlayer', {
+            defaultValue: 'Kick {{user}}',
+            user: user.name,
+          })
+        : t('lobbies.slots.kickUnnamedPlayer', 'Kick player'),
+      onKickPlayer!,
+    ])
+    slotActions.push([
+      user
+        ? t('lobbies.slots.banPlayer', {
+            defaultValue: 'Ban {{user}}',
+            user: user.name,
+          })
+        : t('lobbies.slots.banUnnamedPlayer', 'Ban player'),
+      onBanPlayer!,
+    ])
+  }
+
   return (
     <SlotRow data-testid='lobby-bench-row'>
       <SlotLeft>
         <SlotProfile>
           <BenchAvatar userId={userId} />
           <SlotName as='span'>
-            <ConnectedUsername userId={userId} />
+            <ConnectedUsername userId={userId} UserMenu={LobbyUserMenu} />
           </SlotName>
         </SlotProfile>
-        <div />
+        {slotActions.length > 0 ? <SlotActions slotActions={slotActions} /> : <div />}
       </SlotLeft>
       <SlotRight />
     </SlotRow>
@@ -373,7 +412,7 @@ function LobbyChatMessage({ message }: MessageComponentProps) {
   }
 }
 
-interface LobbyProps {
+export interface LobbyProps {
   lobby: Lobby
   loadingState: LobbyLoadingState
   chat: SbMessage[]
@@ -527,8 +566,19 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
   }
 
   override render() {
-    const { lobby, user, onLeaveLobbyClick, onSendChatMessage, onOpenLobbySettings, t } = this.props
+    const {
+      lobby,
+      user,
+      onLeaveLobbyClick,
+      onSendChatMessage,
+      onOpenLobbySettings,
+      onKickPlayer,
+      onBanPlayer,
+      t,
+    } = this.props
 
+    const [, , mySlot] = findSlotByUserId(lobby, user.id)
+    const isHost = mySlot && lobby.host.id === mySlot.id
     const isLobbyUms = isUms(lobby.gameType)
     const slots = []
     const obsSlots = []
@@ -562,7 +612,14 @@ class LobbyComponent extends React.Component<LobbyProps & WithTranslation> {
               <BenchSlots>
                 <TeamName>{t('lobbies.lobby.benchTeamName', 'Waiting for a seat')}</TeamName>
                 {lobby.bench.map(benched => (
-                  <BenchRow key={benched.userId} userId={benched.userId} />
+                  <BenchRow
+                    key={benched.userId}
+                    userId={benched.userId}
+                    isHost={isHost}
+                    isSelf={benched.userId === user.id}
+                    onKickPlayer={() => onKickPlayer(String(benched.userId))}
+                    onBanPlayer={() => onBanPlayer(String(benched.userId))}
+                  />
                 ))}
               </BenchSlots>
             ) : null}
