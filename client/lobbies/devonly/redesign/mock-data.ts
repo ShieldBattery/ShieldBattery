@@ -1,97 +1,148 @@
 import { GameType } from '../../../../common/games/game-type'
-import { BenchedUser, getLobbySlots, Lobby, Team } from '../../../../common/lobbies'
-import { LobbyChangedSetting, LobbyRunStateJson } from '../../../../common/lobbies/lobby-network'
+import { BenchedUser, Lobby, Team } from '../../../../common/lobbies'
+import { LobbyRunStateJson } from '../../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../../common/lobbies/sb-lobby-id'
-import { createHuman, createOpen, Slot, SlotType } from '../../../../common/lobbies/slot'
+import {
+  createClosed,
+  createComputer,
+  createHuman,
+  createObserver,
+  createOpen,
+  Slot,
+} from '../../../../common/lobbies/slot'
 import { makeSbMapId, MapInfo, MapInfoJson, MapVisibility, Tileset } from '../../../../common/maps'
 import { RaceChar } from '../../../../common/races'
 import { SbUser } from '../../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../../common/users/sb-user-id'
 
 /**
- * The six lifecycle snapshots every in-lobby redesign exploration must render (spec 6b). These are
- * points in a single lobby's life, not independent lobbies: `fullWithBench` -> `countdown` ->
- * `inGame` -> `regroup` is one continuous story, and `settingsChanged` branches off `gathering`.
+ * The lifecycle snapshots the in-lobby redesign page can render. These are points in one lobby's
+ * evening rather than separate lobbies: `gathering` -> `launching` -> `inGame` -> `regroup` is a
+ * continuous story, `fullWithBench` and `settingsChanged` branch off `gathering`, and
+ * `navigatedAway` is the same lobby seen from elsewhere in the app.
  */
 export type RedesignScenario =
-  'gathering' | 'fullWithBench' | 'countdown' | 'inGame' | 'regroup' | 'settingsChanged'
+  | 'gathering'
+  | 'fullWithBench'
+  | 'settingsChanged'
+  | 'launching'
+  | 'inGame'
+  | 'regroup'
+  | 'navigatedAway'
 
-/**
- * Whose perspective a variant page renders the lobby from. Affects which host/moderation
- * affordances show up and which chat/slot row is "you" -- not part of `ScenarioData` itself, since
- * the same scenario can be viewed from any role the lobby actually has a member for.
- */
+/** Whose perspective the page renders the lobby from. */
 export type ViewerRole = 'host' | 'member' | 'benched'
 
-/** A single line in a scenario's mock chat log. */
-export interface MockChatLine {
-  id: string
-  /** Absent for `system`/`resultsCard` lines, which aren't attributed to a lobby member. */
-  userId?: SbUserId
-  text: string
-  /** A server-generated notice (join/leave/settings/etc.), rendered without a chat bubble. */
-  system?: boolean
-  /** Marks the regroup results-card line so a variant can swap it for its own results component. */
-  resultsCard?: boolean
+/** The header's settings chips, named so a scenario can mark one of them as just-changed. */
+export type SettingChipId = 'gameType' | 'turnRate' | 'observers'
+
+export type MockChatLine =
+  | { kind: 'text'; id: string; userId: SbUserId; time: string; text: string }
+  /** A short notice about the room itself, rendered as a quiet indented line. */
+  | { kind: 'system'; id: string; icon: string; text: string }
+  /** A host settings change, rendered as an amber card. */
+  | {
+      kind: 'settingsChange'
+      id: string
+      icon: string
+      userId: SbUserId
+      setting: string
+      change: string
+      /** Whether the change reset everyone's ready state. */
+      readyReset: boolean
+    }
+  /** An arrival, rendered as a card because joins are social events rather than list mutations. */
+  | { kind: 'joinCard'; id: string; userId: SbUserId; text: string; detail: string }
+  /** Where the finished game's result card lands in the log. */
+  | { kind: 'victoryCard'; id: string }
+
+/** The result of the game a `regroup` lobby just finished. */
+export interface VictoryResult {
+  winner: string
+  duration: string
+  roster: string
 }
 
-/** Everything a variant page needs to render one lifecycle snapshot of the mock lobby. */
+/** One finished game in the evening's series. */
+export interface SeriesGame {
+  label: string
+  winner: string
+  duration: string
+}
+
+/** The evening's running score between the two teams. */
+export interface SeriesState {
+  teamNames: [string, string]
+  score: [number, number]
+  games: SeriesGame[]
+}
+
+/** How far along a launching lobby's players are in loading the game. */
+export interface LaunchState {
+  secondsLeft: number
+  loadedUserIds: SbUserId[]
+}
+
+/** Everything the page needs to render one lifecycle snapshot of the mock lobby. */
 export interface ScenarioData {
   lobby: Lobby
-  /** The lobby's running game, present only while it's `inGame`. */
-  runState?: LobbyRunStateJson
-  /** Seconds left on the countdown, present only during `countdown`. */
-  countdownTimer?: number
+  /** Which game of the evening this lobby is on. */
+  gameNumber: number
   chat: MockChatLine[]
-  /** Best-of series tally so far, present only during `regroup`. */
-  seriesScore?: [number, number]
-  /** Which settings the host just changed, present only during `settingsChanged`. */
-  changedSettings?: LobbyChangedSetting[]
+  /** Members who have readied up, while the lobby runs ready checks. */
+  readyUserIds: SbUserId[]
+  /** The turn rate the header chip reports. */
+  turnRate: string
+  /** Which settings chip the host just moved. */
+  updatedChip?: SettingChipId
+  runState?: LobbyRunStateJson
+  launch?: LaunchState
+  series?: SeriesState
+  victory?: VictoryResult
+  /** A bench member inheriting a seat as the lobby regroups. */
+  promotion?: { userId: SbUserId; note: string }
+  /** Series wins per player, shown beside the seats a regrouping lobby kept. */
+  winsByUser?: ReadonlyMap<SbUserId, number>
+  /** Candidates for the next game's map, voted on while a game runs. */
+  mapVote?: Array<{ name: string; votes: number }>
 }
 
 // High enough that no dev-DB user ever collides with these ids -- a collision lets a background
 // `@users/loadUsers` fetch for the real user overwrite these mock names out from under us.
 const tec27: SbUser = { id: makeSbUserId(90001), name: 'tec27', created: 0 }
-const twoPacalypse: SbUser = { id: makeSbUserId(90002), name: '2Pacalypse-', created: 0 }
-const dronebabo: SbUser = { id: makeSbUserId(90003), name: 'dronebabo', created: 0 }
-const pachi: SbUser = { id: makeSbUserId(90004), name: 'pachi', created: 0 }
-const heyoka: SbUser = { id: makeSbUserId(90005), name: 'Heyoka', created: 0 }
-const legionnaire: SbUser = { id: makeSbUserId(90006), name: 'Legionnaire', created: 0 }
-const boesthius: SbUser = { id: makeSbUserId(90007), name: 'boesthius', created: 0 }
-const harem: SbUser = { id: makeSbUserId(90008), name: 'harem', created: 0 }
-const flash: SbUser = { id: makeSbUserId(90009), name: 'Flash', created: 0 }
-const bisu: SbUser = { id: makeSbUserId(90010), name: 'Bisu', created: 0 }
-const jaedong: SbUser = { id: makeSbUserId(90011), name: 'Jaedong', created: 0 }
-const stork: SbUser = { id: makeSbUserId(90012), name: 'Stork', created: 0 }
+const pachi: SbUser = { id: makeSbUserId(90002), name: 'Pachi', created: 0 }
+const dronebro: SbUser = { id: makeSbUserId(90003), name: 'dronebro', created: 0 }
+const sunn0: SbUser = { id: makeSbUserId(90004), name: 'sunn0', created: 0 }
+const heartcutter: SbUser = { id: makeSbUserId(90005), name: 'Heartcutter', created: 0 }
+const nerdRage: SbUser = { id: makeSbUserId(90006), name: 'NerdRage', created: 0 }
+const blueSky: SbUser = { id: makeSbUserId(90007), name: 'blueSky', created: 0 }
+const heyoka: SbUser = { id: makeSbUserId(90008), name: 'Heyoka', created: 0 }
+const legionnaire: SbUser = { id: makeSbUserId(90009), name: 'Legionnaire', created: 0 }
+const stork: SbUser = { id: makeSbUserId(90010), name: 'Stork', created: 0 }
 
-/** Every user referenced by any scenario, for seeding the redux users store. */
+/** Every user any scenario references, for seeding the redux users store. */
 export const ALL_MOCK_USERS: SbUser[] = [
   tec27,
-  twoPacalypse,
-  dronebabo,
   pachi,
+  dronebro,
+  sunn0,
+  heartcutter,
+  nerdRage,
+  blueSky,
   heyoka,
   legionnaire,
-  boesthius,
-  harem,
-  flash,
-  bisu,
-  jaedong,
   stork,
 ]
 
 const RACE_BY_USER: ReadonlyMap<SbUserId, RaceChar> = new Map([
-  [tec27.id, 'p'],
-  [twoPacalypse.id, 't'],
-  [dronebabo.id, 'z'],
-  [pachi.id, 'r'],
-  [heyoka.id, 'r'],
+  [tec27.id, 't'],
+  [pachi.id, 'z'],
+  [dronebro.id, 'p'],
+  [sunn0.id, 'r'],
+  [heartcutter.id, 'r'],
+  [blueSky.id, 'z'],
+  [heyoka.id, 't'],
   [legionnaire.id, 'p'],
-  [boesthius.id, 't'],
-  [harem.id, 'z'],
-  [flash.id, 't'],
-  [bisu.id, 'p'],
-  [jaedong.id, 'z'],
   [stork.id, 'p'],
 ])
 
@@ -111,6 +162,20 @@ function team(teamId: number, name: string, slots: Slot[]): Team {
   return { teamId, name, isObserver: false, slots, hiddenSlots: [] }
 }
 
+function observerTeam(teamId: number, slots: Slot[]): Team {
+  return { teamId, name: 'Observers', isObserver: true, slots, hiddenSlots: [] }
+}
+
+// The mock maps carry the shared testing map's imagery so the rail's map card renders a real
+// minimap; everything else about them (name, size, tileset, slot count) is their own.
+const MAP_IMAGE_HASH = '0924d3cbab0061cdbcc1dc2e20586cf514df8c5391126dae71a280616afdc03c'
+const MAP_IMAGE_URLS = {
+  image256Url: `https://staging-cdn.shieldbattery.net/map_images/09/24/${MAP_IMAGE_HASH}-256.jpg`,
+  image512Url: `https://staging-cdn.shieldbattery.net/map_images/09/24/${MAP_IMAGE_HASH}-512.jpg`,
+  image1024Url: `https://staging-cdn.shieldbattery.net/map_images/09/24/${MAP_IMAGE_HASH}-1024.jpg`,
+  image2048Url: `https://staging-cdn.shieldbattery.net/map_images/09/24/${MAP_IMAGE_HASH}-2048.jpg`,
+}
+
 function makeMockMapJson(
   idSuffix: string,
   name: string,
@@ -121,7 +186,7 @@ function makeMockMapJson(
     id: makeSbMapId(`redesign-mock-map-${idSuffix}`),
     hash: idSuffix.padEnd(64, '0'),
     name,
-    description: `A ${slotCount}-player map used by the in-lobby redesign explorations.`,
+    description: `A ${slotCount}-player map used by the in-lobby redesign exploration.`,
     uploadedBy: tec27.id,
     uploadDate: Date.now(),
     visibility: MapVisibility.Official,
@@ -151,6 +216,7 @@ function makeMockMapJson(
     },
     mapUrl: 'https://example.org/redesign-mock-map.scx',
     imageVersion: 1,
+    ...MAP_IMAGE_URLS,
   }
 }
 
@@ -158,216 +224,360 @@ function toMapInfo(json: MapInfoJson): MapInfo {
   return { ...json, uploadDate: new Date(json.uploadDate) }
 }
 
-const BIG_GAME_HUNTERS_JSON = makeMockMapJson('8p', 'Big Game Hunters', Tileset.Twilight, 8)
-const DESTINATION_JSON = makeMockMapJson('6p', 'Destination', Tileset.Ice, 6)
+const BIG_GAME_HUNTERS_JSON = makeMockMapJson('bgh', 'Big Game Hunters', Tileset.Jungle, 8)
+const FIGHTING_SPIRIT_JSON = makeMockMapJson('fs', 'Fighting Spirit', Tileset.Jungle, 4)
 
 const BIG_GAME_HUNTERS = toMapInfo(BIG_GAME_HUNTERS_JSON)
-const DESTINATION = toMapInfo(DESTINATION_JSON)
 
 /**
- * The wire form of every mock map, meant to be dispatched into the redux maps store (`@maps/
- * loadMapInfos`) so `ReduxMapThumbnail` and friends can resolve them by id, the same way
- * `loadMapsForTesting` seeds `FightingSpirit` for `lobby-test.tsx`.
+ * The wire form of every mock map, meant to be dispatched into the redux maps store
+ * (`@maps/loadMapInfos`) so `ReduxMapThumbnail` and friends can resolve them by id.
  */
-export const ALL_MOCK_MAPS: MapInfoJson[] = [BIG_GAME_HUNTERS_JSON, DESTINATION_JSON]
+export const ALL_MOCK_MAPS: MapInfoJson[] = [BIG_GAME_HUNTERS_JSON, FIGHTING_SPIRIT_JSON]
+
+const LOBBY_NAME = 'BGH no-rush 20'
 
 function lobbyId(suffix: string) {
   return makeSbLobbyId(`redesign-mock-lobby-${suffix}`)
 }
 
-const LOBBY_NAME = "tec27's basement"
-
-// --- 1. gathering, partly full ---------------------------------------------------------------
-
-const gatheringTeam1 = [human(tec27), human(twoPacalypse), human(dronebabo), createOpen('r')]
-const gatheringTeam2 = [human(pachi), human(heyoka), createOpen('r'), createOpen('r')]
-
-const GATHERING_LOBBY: Lobby = {
-  id: lobbyId('gathering'),
-  name: LOBBY_NAME,
-  map: BIG_GAME_HUNTERS,
-  gameType: GameType.TeamMelee,
-  gameSubType: 2,
-  teams: [team(0, 'Team 1', gatheringTeam1), team(1, 'Team 2', gatheringTeam2)],
-  bench: [],
-  host: gatheringTeam1[0],
-  useLegacyLimits: false,
-  visibility: 'listed',
+function makeLobby(suffix: string, teams: Team[], bench: BenchedUser[], gameSubType = 4): Lobby {
+  return {
+    id: lobbyId(suffix),
+    name: LOBBY_NAME,
+    map: BIG_GAME_HUNTERS,
+    gameType: GameType.TopVsBottom,
+    gameSubType,
+    teams,
+    bench,
+    host: teams[0].slots[0],
+    useLegacyLimits: false,
+    visibility: 'listed',
+  }
 }
+
+// --- gathering ---------------------------------------------------------------------------------
+
+const gatheringTop = [human(tec27), human(pachi), createOpen('r'), createComputer('p')]
+const gatheringBottom = [human(dronebro), human(heartcutter), human(sunn0), createClosed('r')]
+const gatheringObservers = [createObserver(nerdRage.id)]
+
+const GATHERING_LOBBY = makeLobby(
+  'gathering',
+  [
+    team(0, 'Top', gatheringTop),
+    team(1, 'Bottom', gatheringBottom),
+    observerTeam(2, gatheringObservers),
+  ],
+  [onBench(blueSky, 4 * 60_000)],
+)
 
 const GATHERING_CHAT: MockChatLine[] = [
-  { id: 'g1', userId: tec27.id, text: "alright, let's get a few more in here" },
-  { id: 'g2', userId: twoPacalypse.id, text: 'gg last game btw, that was close' },
-  { id: 'g3', userId: dronebabo.id, text: 'give me a sec, refilling water' },
+  {
+    kind: 'text',
+    id: 'g1',
+    userId: pachi.id,
+    time: '21:02',
+    text: "who's bringing the 4th, we need one more for teams",
+  },
+  {
+    kind: 'text',
+    id: 'g2',
+    userId: dronebro.id,
+    time: '21:03',
+    text: "invited sunn0, he's installing the patch",
+  },
+  {
+    kind: 'settingsChange',
+    id: 'g3',
+    icon: 'map',
+    userId: tec27.id,
+    setting: 'map',
+    change: 'Fighting Spirit → Big Game Hunters',
+    readyReset: true,
+  },
+  {
+    kind: 'joinCard',
+    id: 'g4',
+    userId: sunn0.id,
+    text: 'sunn0 joined via invite link',
+    detail: 'seated on Team 1 · Bottom',
+  },
+  { kind: 'system', id: 'g5', icon: 'visibility', text: 'NerdRage is now watching' },
+  {
+    kind: 'text',
+    id: 'g6',
+    userId: sunn0.id,
+    time: '21:05',
+    text: 'yo. one game then I gotta sleep',
+  },
+  { kind: 'system', id: 'g7', icon: 'swap_vert', text: 'dronebro moved to Team 2, slot 2' },
+  {
+    kind: 'text',
+    id: 'g8',
+    userId: pachi.id,
+    time: '21:06',
+    text: '"one game" — famous last words',
+  },
 ]
 
-// --- 2. full + 2 benched -----------------------------------------------------------------------
+// --- full, with people waiting for a seat ------------------------------------------------------
 
-const fullTeam1 = [human(tec27), human(twoPacalypse), human(dronebabo), human(pachi)]
-const fullTeam2 = [human(heyoka), human(legionnaire), human(boesthius), human(harem)]
+const fullTop = [human(tec27), human(pachi), human(heyoka), createComputer('p')]
+const fullBottom = [human(dronebro), human(heartcutter), human(sunn0), human(legionnaire)]
 
-const FULL_WITH_BENCH_LOBBY: Lobby = {
-  id: lobbyId('full-bench'),
-  name: LOBBY_NAME,
-  map: BIG_GAME_HUNTERS,
-  gameType: GameType.TeamMelee,
-  gameSubType: 2,
-  teams: [team(0, 'Team 1', fullTeam1), team(1, 'Team 2', fullTeam2)],
-  bench: [onBench(flash, 90_000), onBench(bisu, 30_000)],
-  host: fullTeam1[0],
-  useLegacyLimits: false,
-  visibility: 'listed',
-}
+const FULL_WITH_BENCH_LOBBY = makeLobby(
+  'full-bench',
+  [
+    team(0, 'Top', fullTop),
+    team(1, 'Bottom', fullBottom),
+    observerTeam(2, [createObserver(nerdRage.id)]),
+  ],
+  [onBench(blueSky, 6 * 60_000), onBench(stork, 40_000)],
+)
 
 const FULL_WITH_BENCH_CHAT: MockChatLine[] = [
-  { id: 'f1', userId: harem.id, text: 'finally full!' },
-  { id: 'f2', system: true, text: 'Flash joined the bench.' },
-  { id: 'f3', system: true, text: 'Bisu joined the bench.' },
-  { id: 'f4', userId: bisu.id, text: "guess I'm on deck, gl all" },
+  {
+    kind: 'joinCard',
+    id: 'f1',
+    userId: blueSky.id,
+    text: 'blueSky joined via invite link',
+    detail: 'slots were full — first in line for a seat',
+  },
+  {
+    kind: 'text',
+    id: 'f2',
+    userId: heartcutter.id,
+    time: '21:14',
+    text: "that's a full house, nobody leave",
+  },
+  { kind: 'system', id: 'f3', icon: 'arrow_forward', text: 'Stork joined the lobby' },
+  {
+    kind: 'text',
+    id: 'f4',
+    userId: stork.id,
+    time: '21:15',
+    text: "I'll take whatever opens up, no rush",
+  },
 ]
 
-// --- 3. countdown --------------------------------------------------------------------------
+// --- the host just changed a setting -----------------------------------------------------------
 
-const countdownTeam1 = [human(tec27), human(twoPacalypse), human(dronebabo), human(pachi)]
-const countdownTeam2 = [human(heyoka), human(legionnaire), human(boesthius), human(harem)]
+const settingsTop = [human(tec27), human(pachi), createOpen('r'), createComputer('p')]
+const settingsBottom = [human(dronebro), human(heartcutter), human(sunn0), createClosed('r')]
 
-const COUNTDOWN_LOBBY: Lobby = {
-  id: lobbyId('countdown'),
-  name: LOBBY_NAME,
-  map: BIG_GAME_HUNTERS,
-  gameType: GameType.TeamMelee,
-  gameSubType: 2,
-  teams: [team(0, 'Team 1', countdownTeam1), team(1, 'Team 2', countdownTeam2)],
-  bench: [onBench(jaedong, 15_000)],
-  host: countdownTeam1[0],
-  useLegacyLimits: false,
-  visibility: 'listed',
-}
+const SETTINGS_CHANGED_LOBBY = makeLobby(
+  'settings-changed',
+  [
+    team(0, 'Top', settingsTop),
+    team(1, 'Bottom', settingsBottom),
+    observerTeam(2, [createObserver(nerdRage.id)]),
+  ],
+  [onBench(blueSky, 4 * 60_000)],
+)
 
-const COUNTDOWN_CHAT: MockChatLine[] = [
-  { id: 'cd1', system: true, text: 'tec27 started the countdown.' },
-  { id: 'cd2', userId: jaedong.id, text: 'oh sweet, made it just in time to watch' },
+const SETTINGS_CHANGED_CHAT: MockChatLine[] = [
+  ...GATHERING_CHAT,
+  {
+    kind: 'settingsChange',
+    id: 'sc1',
+    icon: 'tune',
+    userId: tec27.id,
+    setting: 'turn rate',
+    change: 'Auto → 12',
+    readyReset: true,
+  },
+  {
+    kind: 'text',
+    id: 'sc2',
+    userId: dronebro.id,
+    time: '21:07',
+    text: '12 is fine, my wifi is not',
+  },
 ]
 
-// --- 4. in-game -----------------------------------------------------------------------------
+// --- launching -----------------------------------------------------------------------------
 
-const inGameTeam1 = [human(tec27), human(twoPacalypse), human(dronebabo), human(pachi)]
-const inGameTeam2 = [human(heyoka), human(legionnaire), human(boesthius), human(harem)]
+const LAUNCHING_LOBBY = makeLobby(
+  'launching',
+  [
+    team(0, 'Top', gatheringTop),
+    team(1, 'Bottom', gatheringBottom),
+    observerTeam(2, gatheringObservers),
+  ],
+  [onBench(blueSky, 5 * 60_000)],
+)
 
-const IN_GAME_LOBBY: Lobby = {
-  id: lobbyId('in-game'),
-  name: LOBBY_NAME,
-  map: BIG_GAME_HUNTERS,
-  gameType: GameType.TeamMelee,
-  gameSubType: 2,
-  teams: [team(0, 'Team 1', inGameTeam1), team(1, 'Team 2', inGameTeam2)],
-  bench: [onBench(stork, 40_000)],
-  host: inGameTeam1[0],
-  useLegacyLimits: false,
-  visibility: 'listed',
-}
+const LAUNCHING_CHAT: MockChatLine[] = [
+  ...GATHERING_CHAT,
+  { kind: 'system', id: 'l1', icon: 'rocket_launch', text: 'tec27 started the game' },
+]
+
+// --- in game -------------------------------------------------------------------------------
+
+const IN_GAME_LOBBY = makeLobby(
+  'in-game',
+  [
+    team(0, 'Top', gatheringTop),
+    team(1, 'Bottom', gatheringBottom),
+    observerTeam(2, gatheringObservers),
+  ],
+  [onBench(blueSky, 12 * 60_000), onBench(stork, 2 * 60_000)],
+)
 
 const IN_GAME_RUN_STATE: LobbyRunStateJson = {
   gameId: 'redesign-mock-game-in-progress',
-  // harem dropped out of the game early -- everyone else is still in.
-  inGameUsers: [tec27, twoPacalypse, dronebabo, pachi, heyoka, legionnaire, boesthius].map(
-    u => u.id,
-  ),
-  elapsedMs: 8 * 60_000 + 42_000,
+  inGameUsers: [tec27.id, pachi.id, dronebro.id, heartcutter.id, sunn0.id, nerdRage.id],
+  elapsedMs: 31 * 60_000 + 2_000,
 }
 
 const IN_GAME_CHAT: MockChatLine[] = [
-  { id: 'ig1', system: true, text: 'harem left the match.' },
-  { id: 'ig2', userId: harem.id, text: 'sorry guys, dc, hang tight' },
-  { id: 'ig3', system: true, text: 'Stork joined the bench.' },
-  { id: 'ig4', userId: stork.id, text: 'saw a slot open up, hopping in when it wraps' },
+  {
+    kind: 'text',
+    id: 'ig1',
+    userId: blueSky.id,
+    time: '21:36',
+    text: 'they\'re 30 min into a "no rush 20"',
+  },
+  {
+    kind: 'text',
+    id: 'ig2',
+    userId: stork.id,
+    time: '21:37',
+    text: 'classic. want to queue up island maps for the next one?',
+  },
 ]
 
-// --- 5. regroup -----------------------------------------------------------------------------
+// --- regroup -------------------------------------------------------------------------------
 
-const regroupTeam1 = [human(tec27), human(twoPacalypse), human(dronebabo), human(pachi)]
-const regroupTeam2 = [human(heyoka), human(legionnaire), human(boesthius), human(harem)]
+const regroupTop = [human(tec27), human(pachi), human(blueSky)]
+const regroupBottom = [human(dronebro), human(heartcutter), createOpen('r')]
 
-const REGROUP_LOBBY: Lobby = {
-  id: lobbyId('regroup'),
-  name: LOBBY_NAME,
-  map: BIG_GAME_HUNTERS,
-  gameType: GameType.TeamMelee,
-  gameSubType: 2,
-  teams: [team(0, 'Team 1', regroupTeam1), team(1, 'Team 2', regroupTeam2)],
-  bench: [],
-  host: regroupTeam1[0],
-  useLegacyLimits: false,
-  visibility: 'listed',
-}
+const REGROUP_LOBBY = makeLobby(
+  'regroup',
+  [
+    team(0, 'Top', regroupTop),
+    team(1, 'Bottom', regroupBottom),
+    observerTeam(2, [createObserver(nerdRage.id)]),
+  ],
+  [],
+  3,
+)
 
 const REGROUP_CHAT: MockChatLine[] = [
-  { id: 'rg1', system: true, text: 'Game finished.' },
-  { id: 'rg2', text: 'results', resultsCard: true },
-  { id: 'rg3', userId: tec27.id, text: 'gg, run it back?' },
-  { id: 'rg4', system: true, text: 'Replay available: Big Game Hunters - Team Melee.' },
+  { kind: 'system', id: 'r1', icon: 'flag', text: "Game 3 ended — everyone's back in the lobby" },
+  { kind: 'victoryCard', id: 'r2' },
+  {
+    kind: 'text',
+    id: 'r3',
+    userId: dronebro.id,
+    time: '21:52',
+    text: 'gg wp. that recall was criminal',
+  },
+  {
+    kind: 'text',
+    id: 'r4',
+    userId: pachi.id,
+    time: '21:52',
+    text: 'one more, loser buys the server a coffee',
+  },
+  {
+    kind: 'system',
+    id: 'r5',
+    icon: 'arrow_back',
+    text: 'sunn0 left the lobby · blueSky is next up for a seat',
+  },
 ]
 
-// --- 6. settings changed + bench displacement ------------------------------------------------
-
-const settingsTeam1 = [human(tec27), human(twoPacalypse), human(dronebabo)]
-const settingsTeam2 = [human(heyoka), human(legionnaire), human(boesthius)]
-
-const SETTINGS_CHANGED_LOBBY: Lobby = {
-  id: lobbyId('settings-changed'),
-  name: LOBBY_NAME,
-  // The host shrank the map from the 8-player Big Game Hunters down to 6-player Destination,
-  // which is one seat short of the previous 4v4 -- harem didn't fit and landed on the bench.
-  map: DESTINATION,
-  gameType: GameType.TeamMelee,
-  gameSubType: 2,
-  teams: [team(0, 'Team 1', settingsTeam1), team(1, 'Team 2', settingsTeam2)],
-  bench: [onBench(harem, 5_000)],
-  host: settingsTeam1[0],
-  useLegacyLimits: false,
-  visibility: 'listed',
+const REGROUP_SERIES: SeriesState = {
+  teamNames: ['Team 1', 'Team 2'],
+  score: [2, 1],
+  games: [
+    { label: 'G1', winner: 'T1', duration: '18:22' },
+    { label: 'G2', winner: 'T2', duration: '31:07' },
+    { label: 'G3', winner: 'T1', duration: '23:41' },
+  ],
 }
 
-const SETTINGS_CHANGED_CHAT: MockChatLine[] = [
-  { id: 'sc1', system: true, text: 'tec27 changed the map to Destination.' },
-  { id: 'sc2', system: true, text: 'harem moved to the bench.' },
-  { id: 'sc3', userId: harem.id, text: 'aw, beaten by the map change, no worries' },
-]
+const REGROUP_WINS: ReadonlyMap<SbUserId, number> = new Map([
+  [tec27.id, 2],
+  [pachi.id, 2],
+  [dronebro.id, 1],
+  [heartcutter.id, 1],
+])
 
 const SCENARIO_DATA: Record<RedesignScenario, ScenarioData> = {
-  gathering: { lobby: GATHERING_LOBBY, chat: GATHERING_CHAT },
-  fullWithBench: { lobby: FULL_WITH_BENCH_LOBBY, chat: FULL_WITH_BENCH_CHAT },
-  countdown: { lobby: COUNTDOWN_LOBBY, chat: COUNTDOWN_CHAT, countdownTimer: 3 },
-  inGame: { lobby: IN_GAME_LOBBY, runState: IN_GAME_RUN_STATE, chat: IN_GAME_CHAT },
-  regroup: { lobby: REGROUP_LOBBY, chat: REGROUP_CHAT, seriesScore: [2, 1] },
+  gathering: {
+    lobby: GATHERING_LOBBY,
+    gameNumber: 1,
+    chat: GATHERING_CHAT,
+    readyUserIds: [tec27.id, pachi.id, heartcutter.id, nerdRage.id],
+    turnRate: '12',
+  },
+  fullWithBench: {
+    lobby: FULL_WITH_BENCH_LOBBY,
+    gameNumber: 1,
+    chat: FULL_WITH_BENCH_CHAT,
+    readyUserIds: [tec27.id, pachi.id, heartcutter.id, heyoka.id, nerdRage.id],
+    turnRate: '12',
+  },
   settingsChanged: {
     lobby: SETTINGS_CHANGED_LOBBY,
+    gameNumber: 1,
     chat: SETTINGS_CHANGED_CHAT,
-    changedSettings: ['map'],
+    // The turn rate change reset everyone's ready state.
+    readyUserIds: [],
+    turnRate: '12',
+    updatedChip: 'turnRate',
+  },
+  launching: {
+    lobby: LAUNCHING_LOBBY,
+    gameNumber: 4,
+    chat: LAUNCHING_CHAT,
+    readyUserIds: [tec27.id, pachi.id, dronebro.id, heartcutter.id, sunn0.id, nerdRage.id],
+    turnRate: '12',
+    launch: {
+      secondsLeft: 12,
+      loadedUserIds: [tec27.id, pachi.id, sunn0.id, nerdRage.id],
+    },
+  },
+  inGame: {
+    lobby: IN_GAME_LOBBY,
+    gameNumber: 4,
+    chat: IN_GAME_CHAT,
+    readyUserIds: [],
+    turnRate: '12',
+    runState: IN_GAME_RUN_STATE,
+    mapVote: [
+      { name: 'Fighting Spirit', votes: 2 },
+      { name: 'Polypoid', votes: 0 },
+    ],
+  },
+  regroup: {
+    lobby: REGROUP_LOBBY,
+    gameNumber: 4,
+    chat: REGROUP_CHAT,
+    readyUserIds: [],
+    turnRate: '12',
+    series: REGROUP_SERIES,
+    victory: {
+      winner: 'Team 1',
+      duration: '23:41',
+      roster: 'tec27, Pachi, sunn0',
+    },
+    promotion: { userId: blueSky.id, note: "gets sunn0's seat — he left" },
+    winsByUser: REGROUP_WINS,
+  },
+  navigatedAway: {
+    lobby: GATHERING_LOBBY,
+    gameNumber: 1,
+    chat: GATHERING_CHAT,
+    readyUserIds: [tec27.id, pachi.id, heartcutter.id, nerdRage.id],
+    turnRate: '12',
   },
 }
 
-/** Returns the full lifecycle snapshot for one of the spec's 6 required scenarios. */
+/** Returns the full lifecycle snapshot for one of the page's scenarios. */
 export function getScenarioData(scenario: RedesignScenario): ScenarioData {
   return SCENARIO_DATA[scenario]
-}
-
-/**
- * Picks which lobby member the viewer-role control represents, so variant pages can derive a
- * "self" user without each re-implementing the same fallbacks. Falls back to the host whenever
- * the lobby doesn't actually have a member in the requested role (e.g. `benched` with an empty
- * bench).
- */
-export function resolveViewerUserId(lobby: Lobby, viewer: ViewerRole): SbUserId {
-  if (viewer === 'host') {
-    return lobby.host.userId!
-  }
-  if (viewer === 'benched') {
-    return lobby.bench[0]?.userId ?? lobby.host.userId!
-  }
-
-  const nonHostMember = getLobbySlots(lobby).find(
-    slot => slot.type === SlotType.Human && slot.id !== lobby.host.id,
-  )
-  return nonHostMember?.userId ?? lobby.host.userId!
 }
