@@ -51,9 +51,12 @@ Promise.resolve()
     logger.info(`Starting replay workers with concurrency ${CONCURRENCY}`)
 
     function startWorker() {
-      const worker = new Worker(require.resolve('../launch-worker'), {
+      // In development the worker entry is TypeScript: the spawned thread inherits the parent's
+      // execArgv, so the register hook from the dev command line installs itself in the worker
+      // before the entry runs. In the compiled tree this resolves to plain .js and the
+      // production command line carries no hook to inherit.
+      const worker = new Worker(require.resolve('./replay-worker'), {
         name: `replay-worker`,
-        workerData: require.resolve('./replay-worker'),
       })
       logger.info(`Started replay worker ${worker.threadId}`)
       workers.push(worker)

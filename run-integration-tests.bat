@@ -19,12 +19,12 @@ for /F "tokens=%var% delims= " %%A in ("%*") do (
     goto nextarg
 )
 
-docker-compose down -v
+docker compose down -v
 if "%nobuild%" NEQ "true" (
-  docker-compose build
+  docker compose build
 )
 if errorlevel 1 goto exit
-docker-compose up -V -d
+docker compose up -V -d
 if errorlevel 1 goto exit
 
 cd ..

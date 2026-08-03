@@ -1,6 +1,5 @@
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
-import swc from 'unplugin-swc'
 import { defineConfig } from 'vitest/config'
 import packageJson from './package.json' with { type: 'json' }
 
@@ -14,12 +13,11 @@ export default defineConfig({
 
     projects: [
       // App (Electron main process)
+      //
+      // No custom transform plugins in this project or the server one: Vite 8's default oxc
+      // transform handles legacy decorators + emitDecoratorMetadata from tsconfig, which
+      // `server/lib/reflect/decorator-metadata.test.ts` asserts.
       {
-        plugins: [
-          swc.vite({
-            module: { type: 'nodenext' },
-          }),
-        ],
         test: {
           name: 'app',
           environment: 'node',
@@ -30,11 +28,6 @@ export default defineConfig({
       },
       // Server (Node)
       {
-        plugins: [
-          swc.vite({
-            module: { type: 'nodenext' },
-          }),
-        ],
         test: {
           name: 'server',
           environment: 'node',
