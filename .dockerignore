@@ -22,6 +22,7 @@ test-state/
 tools/
 
 # Server runtime files
+server-dist/
 server/.env
 server/config.js
 server/database.json

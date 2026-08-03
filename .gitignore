@@ -2,6 +2,7 @@ build/
 coverage/
 dist/
 node_modules/
+server-dist/
 test-results/
 test-state/
 server/.env

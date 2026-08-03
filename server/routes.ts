@@ -110,7 +110,12 @@ export default function applyRoutes(app: Koa, graphqlOrigin: string) {
   })
 
   if (isDev) {
-    const { handleMissingTranslationKeys } = require('./lib/i18n/i18next')
+    // The specifier is assembled at runtime so the compiler leaves this require inside the
+    // condition: statically analyzable requires get hoisted into unconditional module imports,
+    // and the i18n module's i18next packages are development-only and absent from production
+    // installs.
+    const devOnlyI18nPath = './lib/i18n/i18next'
+    const { handleMissingTranslationKeys } = require(devOnlyI18nPath)
     router.post('/locales/add/:lng/:ns', handleMissingTranslationKeys)
   }
 

@@ -33,6 +33,10 @@ COPY . .
 ENV NODE_ENV=production
 RUN pnpm run build-web-client
 
+# Compile the server ahead of time (after the client build: the compiled tree carries the client
+# shell + public assets alongside the code, see tsdown.server.config.ts)
+RUN pnpm run build-server
+
 # Then prune the server deps to only the production ones
 RUN pnpm prune --prod
 
@@ -66,13 +70,16 @@ WORKDIR /home/node/shieldbattery
 # Copy sqlx binary for migrations
 COPY --chown=node:node --from=rust-tools /usr/local/bin/sqlx tools/sqlx
 
-# Copy just the sources the server needs
+# Copy the compiled server and the few scripts that run from their source-tree locations. No
+# TypeScript sources or transpiler ship in this image: the server runs ahead-of-time-compiled
+# code from server-dist/.
 COPY --chown=node:node --from=builder /shieldbattery/node_modules ./node_modules
-COPY --chown=node:node --from=builder /shieldbattery/common ./common
-COPY --chown=node:node --from=builder /shieldbattery/server ./server
+COPY --chown=node:node --from=builder /shieldbattery/server-dist ./server-dist
 COPY --chown=node:node --from=builder /shieldbattery/migrations ./migrations
-COPY --chown=node:node --from=builder /shieldbattery/package.json /shieldbattery/babel.config.json ./
-COPY --chown=node:node --from=builder /shieldbattery/babel-register.js /shieldbattery/babel-register.js ./
+COPY --chown=node:node --from=builder /shieldbattery/package.json ./
+COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files ./server/deployment_files
+COPY --chown=node:node --from=builder /shieldbattery/server/update_server.sh ./server/update_server.sh
+COPY --chown=node:node --from=builder /shieldbattery/server/testing/run_mailgun.sh /shieldbattery/server/testing/run_google_cloud.sh ./server/testing/
 COPY --chown=node:node --from=builder /shieldbattery/server/deployment_files/entrypoint.sh /entrypoint.sh
 
 # Allow the various scripts to be run
