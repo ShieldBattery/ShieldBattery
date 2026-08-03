@@ -15,8 +15,10 @@ export const FILE_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000
 export default class LocalFsStore implements FileStore {
   readonly path: string
 
-  constructor({ path }: { path: string }) {
-    this.path = path
+  constructor({ path: root }: { path: string }) {
+    // Resolved eagerly (against the boot working directory if relative) so the store's location is
+    // fixed at construction instead of depending on the working directory at each operation.
+    this.path = path.resolve(root)
   }
 
   private getFullPath(filename: string) {
