@@ -42,8 +42,12 @@ test('change language for logged out user and verify it persists', async ({ page
   const spanishRadio = page.locator(`[data-testid=${TranslationLanguage.Spanish}-button]`)
   await spanishRadio.click()
 
-  // Wait for the language change to take effect
-  await page.waitForTimeout(300) // Wait for debounced language change
+  // Wait for the change to be applied (debounced dispatch + translation bundle load): i18next
+  // stamps the body when it completes, and the settings form snapshots the current language when
+  // it mounts, so reopening before this point would show the old language.
+  await expect(page.locator('body')).toHaveAttribute('data-lang', TranslationLanguage.Spanish, {
+    timeout: 10000,
+  })
 
   // Verify Spanish is now selected
   await expect(spanishRadio).toBeChecked()
@@ -87,8 +91,12 @@ test('change language for logged in user and verify it persists', async ({ conte
   const koreanRadio = page.locator(`[data-testid=${TranslationLanguage.Korean}-button]`)
   await koreanRadio.click()
 
-  // Wait for the language change to take effect
-  await page.waitForTimeout(300) // Wait for debounced language change
+  // Wait for the change to be applied (debounced dispatch + server request + translation bundle
+  // load): i18next stamps the body when it completes, and the settings form snapshots the current
+  // language when it mounts, so reopening before this point would show the old language.
+  await expect(page.locator('body')).toHaveAttribute('data-lang', TranslationLanguage.Korean, {
+    timeout: 10000,
+  })
 
   // Verify Korean is now selected
   await expect(koreanRadio).toBeChecked()
@@ -110,14 +118,21 @@ test('change language for logged in user and verify it persists', async ({ conte
   // Logout
   await clearLocalState({ context, page })
 
-  // Login again
+  // Login again. The dialog suppression must be in place before the login response arrives,
+  // since the flag only prevents the dialog from opening -- it can't close it.
   await loginPage.navigateTo()
-  await loginPage.loginWith(username, 'password123')
   await new EmailVerificationDialogPage(page).suppressEmailVerificationDialog()
+  await loginPage.loginWith(username, 'password123')
 
   // Verify we're logged in
   await page.waitForSelector('[data-testid=app-bar-user-button]')
   await expect(homePage.latestNewsTitleLocator()).toBeVisible()
+
+  // The session's locale is applied asynchronously after login; wait for it before opening the
+  // settings form, which snapshots the current language when it mounts.
+  await expect(page.locator('body')).toHaveAttribute('data-lang', TranslationLanguage.Korean, {
+    timeout: 10000,
+  })
 
   // Verify language setting persisted
   await page.click('[data-testid=settings-button]')

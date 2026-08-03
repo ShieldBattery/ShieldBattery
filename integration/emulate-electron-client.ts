@@ -85,7 +85,22 @@ export async function emulateElectronClientForRoute(
     fetchOptions.postData = JSON.stringify(body)
   }
 
-  const response = await route.fetch(fetchOptions)
+  // The server closes idle keep-alive connections, and the pooled request context this fetch
+  // goes through may reuse a socket at the same moment it's being closed, which surfaces as a
+  // connection error ("socket hang up"/ECONNRESET) before any response arrives. Retrying is the
+  // right response to that error and only that error: no response was received, so at worst the
+  // server saw a request it never answered. Anything else propagates.
+  let response: APIResponse
+  for (let attempt = 0; ; attempt++) {
+    try {
+      response = await route.fetch(fetchOptions)
+      break
+    } catch (err) {
+      if (attempt >= 2 || !/socket hang up|ECONNRESET/i.test(String(err))) {
+        throw err
+      }
+    }
+  }
   const actualOrigin = new URL(pageUrl).origin
   const resHeaders = {
     ...response.headers(),
