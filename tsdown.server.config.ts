@@ -37,8 +37,8 @@ export default defineConfig({
   format: 'cjs',
   platform: 'node',
   // Mirror the source layout file-for-file instead of bundling. `__dirname`-anchored paths keep
-  // meaning what they mean, and the worker entries (`launch-worker`, `map-parse-worker`,
-  // `replay-worker`) stay individually loadable files.
+  // meaning what they mean, and the worker entries (`map-parse-worker`, `replay-worker`) stay
+  // individually loadable files.
   unbundle: true,
   // Extensionless CJS `require`/`require.resolve` resolution only searches `.js`, so the worker
   // spawn sites break on the `.cjs` names this would otherwise default to on node.

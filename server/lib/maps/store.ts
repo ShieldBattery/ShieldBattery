@@ -169,9 +169,12 @@ async function mapParseWorker(
   const bwDataPath = generateImages ? BW_DATA_PATH : ''
 
   return new Promise<MapParseResult>((resolve, reject) => {
-    const worker = new Worker(require.resolve('../../workers/launch-worker'), {
+    // In development the worker entry is TypeScript: the spawned thread inherits the parent's
+    // execArgv, so the register hook from the dev command line installs itself in the worker
+    // before the entry runs. In the compiled tree this resolves to plain .js and the production
+    // command line carries no hook to inherit.
+    const worker = new Worker(require.resolve('./map-parse-worker'), {
       name: 'map-parse-worker',
-      workerData: require.resolve('./map-parse-worker'),
     })
 
     let settled = false

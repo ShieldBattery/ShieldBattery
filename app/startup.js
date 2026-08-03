@@ -1,6 +1,6 @@
-// This file is the first one that executes (after, potentially, a babel-register calling file). It
-// should avoid pulling in much until things have been configured and we're sure the app should
-// even run (e.g. check if another instance is already running)
+// This file is the first one that executes. It should avoid pulling in much until things have
+// been configured and we're sure the app should even run (e.g. check if another instance is
+// already running)
 
 import 'core-js/proposals/reflect-metadata'
 import { app } from 'electron'

@@ -6,7 +6,7 @@
  *
  * Usage (run from repo root):
  *   pnpm run gen-minimap-previews -- <maps-folder> [--bw-data <path>] [--out <dir>]
- *   node -r ./babel-register tools/gen-minimap-previews.ts <maps-folder> [--bw-data <path>] [--out <dir>]
+ *   node -r @swc-node/register tools/gen-minimap-previews.ts <maps-folder> [--bw-data <path>] [--out <dir>]
  *
  * <maps-folder>  A directory containing map files (.scm/.scx), one per tileset, any filenames --
  *                the tileset is read from each map's CHK data, not inferred from the file name.
