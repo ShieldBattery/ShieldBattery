@@ -23,9 +23,6 @@ import { afterEach, vi } from 'vitest'
   // entrypoint return a path string instead of throwing; we never actually use the value (ipcMain
   // ends up undefined, which is fine since tests don't drive real IPC).
   process.env.ELECTRON_OVERRIDE_DIST_PATH ??= '/nonexistent-electron-dist-for-tests'
-  ;(global as any).__WEBPACK_ENV = {
-    SB_SERVER: 'https://shieldbattery.net',
-  }
   ;(global as any).fetch = vi.fn(() => Promise.reject(new Error('fetch is disabled in tests')))
 
   // Ensure consistent locale formatting in tests

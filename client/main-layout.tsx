@@ -72,7 +72,7 @@ const ALT_S = { keyCode: keycode('s'), altKey: true }
 
 const SIDEBAR_WIDTH = 320
 
-if (__WEBPACK_ENV.NODE_ENV !== 'production' && CAN_PIN_WIDTH >= SIDEBAR_WIDTH + 1176) {
+if (import.meta.env.DEV && CAN_PIN_WIDTH >= SIDEBAR_WIDTH + 1176) {
   throw new Error('CAN_PIN_WIDTH must be less than SIDEBAR_WIDTH + 1176 or styles need adjusting')
 }
 

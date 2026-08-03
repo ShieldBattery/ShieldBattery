@@ -2,4 +2,4 @@
 export const baseUrl =
   IS_ELECTRON && window.SHIELDBATTERY_ELECTRON_API?.env?.SB_SERVER
     ? window.SHIELDBATTERY_ELECTRON_API.env.SB_SERVER
-    : __WEBPACK_ENV.SB_SERVER
+    : import.meta.env.SB_SERVER

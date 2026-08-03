@@ -11,8 +11,8 @@ import { makePublicAssetUrl, makeServerUrl } from '../network/server-url'
 import { JsonSessionStorageValue } from '../session-storage'
 import { getBestLanguage } from './language-detector'
 
-const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
-const CUR_VERSION = __WEBPACK_ENV.VERSION
+const isDev = import.meta.env.DEV
+const CUR_VERSION = import.meta.env.SB_VERSION
 
 /**
  * Type to use for interpolations in `Trans` components since React doesn't allow objects as

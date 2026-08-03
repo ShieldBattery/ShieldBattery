@@ -3,7 +3,7 @@ import { thunk } from 'redux-thunk'
 import { addSystemMiddleware } from './redux-system-info'
 import createRootReducer from './root-reducer'
 
-const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
+const isDev = import.meta.env.DEV
 
 // This is a replacement for redux-promise, which is unmaintained and has transitive deps exceeding
 // 500KB in the output bundle (not worth lol)

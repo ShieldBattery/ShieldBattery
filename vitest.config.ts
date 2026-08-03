@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
 import swc from 'unplugin-swc'
 import { defineConfig } from 'vitest/config'
+import packageJson from './package.json' with { type: 'json' }
 
 export default defineConfig({
   test: {
@@ -52,6 +53,15 @@ export default defineConfig({
         // No custom transforms needed beyond the standard React/TS handling: client/ and common/
         // contain no legacy decorators or const enums.
         plugins: [react()],
+        // Mirrors what the client builds inject, so a module reading one of these behaves the same
+        // under test as it does in a build. Vitest supplies MODE/DEV/PROD itself.
+        //
+        // `SB_SERVER` has to be a real value rather than left undefined: code that decides whether a
+        // URL points at us compares against it, and tests cover those decisions.
+        define: {
+          'import.meta.env.SB_VERSION': JSON.stringify(packageJson.version),
+          'import.meta.env.SB_SERVER': JSON.stringify('https://shieldbattery.net'),
+        },
         test: {
           name: 'client',
           environment: 'happy-dom',
@@ -61,7 +71,9 @@ export default defineConfig({
             resolve(__dirname, 'vitest-client-setup.ts'),
           ],
           alias: {
-            '\\.(svg)$': resolve(__dirname, 'client/__mocks__/svg-mock.tsx'),
+            // The suffix is optional so this keeps matching if an import is ever written without
+            // it; svgr only transforms `?react`, but either way a test wants the mock.
+            '\\.svg(\\?react)?$': resolve(__dirname, 'client/__mocks__/svg-mock.tsx'),
             '\\.(html|htm|md)(\\?raw)?$': resolve(
               __dirname,
               'client/__mocks__/static-file-mock.ts',

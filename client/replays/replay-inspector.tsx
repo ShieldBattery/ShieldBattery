@@ -24,7 +24,7 @@ import {
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { longTimestamp } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import Logo from '../logos/logo-no-bg.svg'
+import Logo from '../logos/logo-no-bg.svg?react'
 import { FilledButton, IconButton } from '../material/button'
 import { MenuItem } from '../material/menu/item'
 import { MenuList } from '../material/menu/menu'

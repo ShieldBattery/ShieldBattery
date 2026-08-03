@@ -34,11 +34,7 @@ export function FocusTrap({ children, focusableElem, focusOnMount = true }: Focu
     if (focusOnMount) {
       focusableElem?.focus()
     }
-    if (
-      __WEBPACK_ENV.NODE_ENV !== 'production' &&
-      focusableElem &&
-      !focusableElem?.hasAttribute('tabindex')
-    ) {
+    if (import.meta.env.DEV && focusableElem && !focusableElem?.hasAttribute('tabindex')) {
       throw new Error('focusableElem must have a tabIndex set')
     }
   }, [focusOnMount, focusableElem])

@@ -34,57 +34,36 @@ export const ASSET_NAMING = {
 }
 
 /**
- * Builds the `__WEBPACK_ENV` defines. Each member is defined by its full access path *and* the base
- * object is defined as a fallback. Both halves earn their place:
+ * Defines both client builds share, plus whatever `import.meta.env` members the caller adds.
  *
- * The dotted keys are what make dead code actually disappear. Replacing only the base leaves
- * `({NODE_ENV:'production'}).NODE_ENV !== 'production'`, which rolldown does not constant fold, so
- * development-only branches still ship (harmless but large — it drags in the whole `/dev` route
- * tree). webpack's DefinePlugin substituted the full member expression, which folds; this
- * reproduces that.
+ * Vite supplies `MODE`/`DEV`/`PROD` itself and replaces each access with a literal, which is what
+ * lets development-only branches disappear rather than merely evaluate to false — an unfolded
+ * branch would drag in the whole `/dev` route tree.
  *
- * The base object covers members this build doesn't define — the web client reads
- * `__WEBPACK_ENV.SB_SERVER`, which only the Electron build sets — so those read as the `undefined`
- * they were under webpack rather than throwing a ReferenceError.
- *
- * Values are stringified only in the dotted form: Vite JSON-stringifies a non-string value whole,
- * so stringifying the leaves of the object as well would double encode them into `'"production"'`.
+ * Members a build doesn't define simply read as `undefined`: `client/network/server-base-url.ts`
+ * reads `SB_SERVER`, which only the Electron build sets.
  */
-export function webpackEnvDefines(
-  isProd: boolean,
-  extra: Record<string, string> = {},
-): Record<string, unknown> {
-  const env: Record<string, string> = {
-    NODE_ENV: isProd ? 'production' : 'development',
-    VERSION: packageJson.version,
-    ...extra,
-  }
-
-  return {
-    ...Object.fromEntries(
-      Object.entries(env).map(([key, value]) => [`__WEBPACK_ENV.${key}`, JSON.stringify(value)]),
-    ),
-    __WEBPACK_ENV: env,
-  }
-}
-
-/** Defines both client builds share, plus whatever `__WEBPACK_ENV` members the caller adds. */
 export function sharedDefines({
-  isProd,
   isElectron,
   env = {},
 }: {
-  isProd: boolean
   isElectron: boolean
   env?: Record<string, string>
 }): Record<string, unknown> {
   return {
+    // A bare identifier rather than an `import.meta.env` member: the Electron main process reads it
+    // too, and that bundle is CommonJS, where there is no `import.meta` to read it from.
     IS_ELECTRON: isElectron,
     // styled-components reads this bare identifier to nonce the <style> tags it injects. Our
     // style-src has no 'unsafe-inline', so without it every styled component fails to apply.
     // eslint-disable-next-line camelcase
     __webpack_nonce__: 'window.SB_CSP_NONCE',
-    ...webpackEnvDefines(isProd, env),
+    ...Object.fromEntries(
+      Object.entries({ SB_VERSION: packageJson.version, ...env }).map(([key, value]) => [
+        `import.meta.env.${key}`,
+        JSON.stringify(value),
+      ]),
+    ),
   }
 }
 
@@ -137,17 +116,14 @@ export async function sharedPlugins(): Promise<NonNullable<UserConfig['plugins']
   return [
     react(),
     svgr({
-      // Bare `.svg` imports are React components here, so every SVG goes through the transform
-      // rather than only `?react`-suffixed ones.
+      // Left on the default `**/*.svg?react`: an SVG is a component only where the import asks for
+      // one, which keeps a dependency's SVG an image (turning one into JSX would break its
+      // importer) and leaves `*.svg` free to mean a URL, as `vite/client` types it.
       //
       // No `svgoConfig`: this chain is `@svgr/core` plus `@svgr/plugin-jsx`, with no SVGO, so
       // nothing rewrites the markup and attributes like `viewBox` survive untouched. Installing
       // `@svgr/plugin-svgo` would change that — SVGO's default preset strips `viewBox`, so it
       // would need `preset-default` with a `removeViewBox: false` override.
-      include: '**/*.svg',
-      // A dependency's SVG is an image, not one of our components; turning one into JSX would
-      // break its importer. Nothing imports one today, so this only forecloses the trap.
-      exclude: '**/node_modules/**',
     }),
     jotai(),
     graphqlOptimizer(ROOT),

@@ -3,7 +3,7 @@ import { createStore } from 'jotai'
 // imported before we create the store. Webpack will ensure this only gets imported in dev builds
 import { DevTools } from 'jotai-devtools'
 
-if (__WEBPACK_ENV.NODE_ENV !== 'production' && !DevTools) {
+if (import.meta.env.DEV && !DevTools) {
   // This shouldn't ever happen, we just need to convince prettier not to remove the import and
   // doing a bare import gets stripped by webpack because I guess it assumes the import is pure?
   console.log('jotai-devtools not found!!!')

@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import { DEV_INDICATOR } from '../../common/flags'
 import { useIsAdmin } from '../admin/admin-permissions'
 import { MaterialIcon } from '../icons/material/material-icon'
-import Lockup from '../logos/lockup-system-bar-24px.svg'
+import Lockup from '../logos/lockup-system-bar-24px.svg?react'
 import { IconButton } from '../material/button'
 import { zIndexSystemBar } from '../material/zindex'
 import { push } from '../navigation/routing'
@@ -81,7 +81,7 @@ const VersionTextRoot = styled.div`
   line-height: 1;
 `
 
-const CUR_VERSION = __WEBPACK_ENV.VERSION
+const CUR_VERSION = import.meta.env.SB_VERSION
 
 export function VersionText() {
   return <VersionTextRoot>v{CUR_VERSION}</VersionTextRoot>

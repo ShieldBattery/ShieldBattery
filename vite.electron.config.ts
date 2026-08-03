@@ -79,7 +79,7 @@ export default defineConfig(async ({ command, mode }): Promise<UserConfig> => {
     html: command === 'serve' ? { cspNonce: NONCE_TOKEN } : undefined,
 
     resolve: sharedResolve(isProd),
-    define: sharedDefines({ isProd, isElectron: true, env: { SB_SERVER: serverUrl } }),
+    define: sharedDefines({ isElectron: true, env: { SB_SERVER: serverUrl } }),
     oxc: sharedOxc(isProd),
 
     plugins: [

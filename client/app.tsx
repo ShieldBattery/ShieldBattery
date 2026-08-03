@@ -37,20 +37,18 @@ import { SnackbarOverlay } from './snackbars/snackbar-overlay'
 import GlobalStyle from './styles/global'
 import ResetStyle from './styles/reset'
 
-const IS_PRODUCTION = __WEBPACK_ENV.NODE_ENV === 'production'
+const IS_PRODUCTION = import.meta.env.PROD
 
-const JotaiDevTools =
-  __WEBPACK_ENV.NODE_ENV === 'production'
-    ? undefined
-    : React.lazy(() => import('./debug/jotai-devtools').then(m => ({ default: m.JotaiDevTools })))
+const JotaiDevTools = import.meta.env.PROD
+  ? undefined
+  : React.lazy(() => import('./debug/jotai-devtools').then(m => ({ default: m.JotaiDevTools })))
 
 const ReduxDevToolsContainer =
-  IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production'
+  IS_ELECTRON && import.meta.env.DEV
     ? React.lazy(() => import('./debug/redux-devtools'))
     : undefined
 
-const DevComponent =
-  __WEBPACK_ENV.NODE_ENV === 'production' ? () => null : React.lazy(() => import('./dev'))
+const DevComponent = import.meta.env.PROD ? () => null : React.lazy(() => import('./dev'))
 
 function LoadableDev() {
   return (

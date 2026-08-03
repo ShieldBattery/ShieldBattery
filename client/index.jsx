@@ -15,9 +15,7 @@ import { fetchJson } from './network/fetch'
 import registerSocketHandlers from './network/socket-handlers'
 import { setServerConfig } from './server-config-storage'
 
-// NOTE(tec27): Webpack seems to fail to utilize this in removing falsy conditional requires, so
-// only use this for checks intended to happen at runtime
-const isDev = __WEBPACK_ENV.NODE_ENV !== 'production'
+const isDev = import.meta.env.DEV
 
 // eslint-disable-next-line camelcase
 window.__webpack_nonce__ = window.SB_CSP_NONCE
@@ -99,12 +97,12 @@ rootElemPromise
     // Loaded here rather than at module scope so the import can be dynamic: the bundler drops it
     // from builds where this branch is statically false, which is every non-Electron build.
     let ReduxDevTools
-    if (IS_ELECTRON && __WEBPACK_ENV.NODE_ENV !== 'production') {
+    if (IS_ELECTRON && import.meta.env.DEV) {
       ReduxDevTools = (await import('./debug/redux-devtools')).DevTools
     }
 
     const reduxStore = createStore(ReduxDevTools)
-    if (__WEBPACK_ENV.NODE_ENV !== 'production') {
+    if (import.meta.env.DEV) {
       // Expose these for dev verification tooling (CDP-driven assertions on app state, and
       // querying the debug-only state of a running game process); compiled out of production
       // bundles.

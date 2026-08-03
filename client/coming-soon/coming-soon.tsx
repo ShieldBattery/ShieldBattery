@@ -1,8 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import GithubIcon from '../icons/brands/github.svg'
-import KofiIcon from '../icons/brands/kofi-lockup.svg'
-import PatreonIcon from '../icons/brands/patreon-lockup.svg'
+import GithubIcon from '../icons/brands/github.svg?react'
+import KofiIcon from '../icons/brands/kofi-lockup.svg?react'
+import PatreonIcon from '../icons/brands/patreon-lockup.svg?react'
 import { Tooltip } from '../material/tooltip'
 import { TitleLarge, TitleMedium } from '../styles/typography'
 
