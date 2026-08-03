@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import styled from 'styled-components'
-import { MatchmakingType } from '../../../common/matchmaking'
+import { MatchmakingType, isSoloType } from '../../../common/matchmaking'
 import { buttonReset } from '../../material/button-reset'
 import { labelMedium } from '../../styles/typography'
+import { createMatchupSource } from '../matchup-source'
+import { MatchupsSection } from '../matchups-section'
 import { ModeStatsCard, ModeStatsCardState } from '../mode-stats-card'
-import { MODES_BY_PLAYTIME, SEASONS } from './stats-data'
+import { MODES_BY_PLAYTIME, SEASONS, makeMatchupMode } from './stats-data'
 
 const Container = styled.div`
   padding: 24px;
@@ -76,6 +78,17 @@ export function StatsPageTest() {
             points={mode.history}
             totalGames={mode.history.length}
             downsampled={false}
+            // Solo modes only, matching the real page -- a team matchup string can't say which
+            // side the player was on, so those cards carry no matrix.
+            footer={
+              isSoloType(mode.type) ? (
+                <MatchupsSection
+                  source={createMatchupSource([makeMatchupMode(mode.type, mode.wins + 1)])}
+                  modes={[mode.type]}
+                  seasons={[...SEASONS].reverse()}
+                />
+              ) : undefined
+            }
           />
         ))}
       </ModeList>

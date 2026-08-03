@@ -54,9 +54,12 @@ export function raceCombos(size: number): AssignedRaceChar[][] {
 }
 
 /**
- * Where the matrix gets its numbers. The dev page implements this over generated data;
- * the real page will implement it over query results. Keeping it an interface is what
- * lets the component itself be shared between them.
+ * Where the matrix gets its numbers.
+ *
+ * An interface rather than the query result directly, so the same component serves the profile
+ * (backed by `userMatchupStats`) and the dev page at `/dev/users/stats` (backed by constructed
+ * fixtures). Both go through `createMatchupSource`, so the dev page exercises the real
+ * aggregation rather than a parallel one.
  */
 export interface MatchupDataSource {
   /** Maps in the pool for this mode and season, unsorted. */

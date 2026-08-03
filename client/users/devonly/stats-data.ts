@@ -3,6 +3,8 @@ import {
   NUM_PLACEMENT_MATCHES,
   POINTS_FOR_RATING_TARGET_FACTOR,
 } from '../../../common/matchmaking'
+import { AssignedRaceChar } from '../../../common/races'
+import { MatchupModeData } from '../matchup-source'
 import { RatingChartPoint, RatingChartSeason } from '../rating-chart-data'
 
 /**
@@ -170,3 +172,62 @@ export const MODES_BY_PLAYTIME: ReadonlyArray<DevMode> = [
   // single-game-run dot.
   makeMode(MatchmakingType.Match1v1Fastest, 777, [1540, 1560, 1580], 5, 0.4),
 ]
+
+/** Maps the matchup fixtures are spread across, standing in for a real season's pool. */
+export const MATCHUP_MAPS: ReadonlyArray<{ id: string; name: string }> = [
+  { id: 'map-fs', name: 'Fighting Spirit' },
+  { id: 'map-cb', name: 'Circuit Breaker' },
+  { id: 'map-po', name: 'Polypoid' },
+]
+
+/**
+ * Matchup buckets for one solo mode, shaped exactly as `userMatchupStats` returns them.
+ *
+ * Deliberately uneven: some cells are heavily played, some sit under the thin-sample
+ * threshold so their dimming is visible, and at least one is missing entirely so the empty
+ * cell renders. A uniform matrix would hide all three.
+ */
+export function makeMatchupBuckets(seed: number): MatchupModeData['buckets'] {
+  const races: AssignedRaceChar[] = ['t', 'p', 'z']
+  const buckets: Array<MatchupModeData['buckets'][number]> = []
+  let n = seed
+
+  const next = (max: number) => {
+    // Same mulberry-ish stepping the rest of this file uses: deterministic, so the dev page
+    // looks identical between reloads.
+    n = (n * 1103515245 + 12345) & 0x7fffffff
+    return n % max
+  }
+
+  for (const season of FIXTURE_SEASONS) {
+    for (const map of MATCHUP_MAPS) {
+      for (const race of races) {
+        for (const opponent of races) {
+          // Leave one cell of one map unplayed so the matrix has a blank in it.
+          if (season.id === 1 && map.id === 'map-po' && race === 't' && opponent === 'p') continue
+          const games = 1 + next(14)
+          buckets.push({
+            seasonId: season.id,
+            mapId: map.id,
+            races: [race],
+            opponentRaces: [opponent],
+            games,
+            wins: Math.round(games * (0.3 + next(45) / 100)),
+          })
+        }
+      }
+    }
+  }
+  return buckets
+}
+
+/** A complete `userMatchupStats` payload for one mode. */
+export function makeMatchupMode(type: MatchmakingType, seed: number): MatchupModeData {
+  const buckets = makeMatchupBuckets(seed)
+  return {
+    matchmakingType: type,
+    totalGames: buckets.reduce((sum, b) => sum + b.games, 0),
+    buckets,
+    maps: MATCHUP_MAPS,
+  }
+}

@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
 import { MatchmakingType, isSoloType } from '../../common/matchmaking'
-import { AssignedRaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { graphql } from '../gql'
 import { LoadingDotsArea } from '../progress/dots'
@@ -112,19 +111,10 @@ export function ConnectedMatchupsSection({
     )
   }
 
-  // The GraphQL scalars come through as plain strings; they're the same 'p' | 't' | 'z' the
-  // matrix keys its axes by.
   const modeData: MatchupModeData = {
-    matchmakingType: stats.matchmakingType as MatchmakingType,
+    matchmakingType: stats.matchmakingType,
     totalGames: stats.totalGames,
-    buckets: stats.buckets.map(b => ({
-      seasonId: b.seasonId,
-      mapId: b.mapId,
-      races: b.races as ReadonlyArray<AssignedRaceChar>,
-      opponentRaces: b.opponentRaces as ReadonlyArray<AssignedRaceChar>,
-      games: b.games,
-      wins: b.wins,
-    })),
+    buckets: stats.buckets,
     maps: stats.maps,
   }
 
