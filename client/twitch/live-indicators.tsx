@@ -1,7 +1,7 @@
 import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled, { css, keyframes } from 'styled-components'
-import TwitchIcon from '../icons/brands/twitch.svg'
+import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useNow } from '../react/date-hooks'
 import { bodyMedium, bodySmall, labelMedium, labelSmall, singleLine } from '../styles/typography'

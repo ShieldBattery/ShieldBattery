@@ -12,7 +12,8 @@ prove a component *looks* right, nothing more. To verify that something *works*,
 ## Prerequisites
 
 1. Dev stack running (see the **dev-env** skill): Postgres/Redis, Node server (:5555), Rust server
-   (:5556), and the **webpack dev server (:5566)** — the dev app loads its renderer from there.
+   (:5556), and the **app renderer dev server (:5566)** — the dev app fetches its shell and modules
+   from there.
 2. Seeded accounts: `pnpm run seed-dev` (gives `claude-admin` + `claude-1..3`, password
    `shieldbattery`).
 3. `playwright-cli` available. It's a **global** npm tool (not a project dependency) and is on PATH,
@@ -66,7 +67,7 @@ must match what `Start-Process` returned.
 `session1`/`session2`/`session3` already have their settings files configured (incl. the StarCraft
 path) under `%APPDATA%\ShieldBattery-Local`.
 
-> If `SB_HOT=1` shows a blank window, the webpack dev server (:5566) isn't ready yet — wait for it to
+> If `SB_HOT=1` shows a blank window, the renderer dev server (:5566) isn't ready yet — wait for it to
 > finish compiling, then reload (`playwright-cli reload`).
 
 ## Connect playwright-cli over CDP
@@ -140,10 +141,9 @@ both sides.
 > absent). Use the `getByRole` locator (or a `snapshot` ref click) instead. If a rare transient
 > `Error / Gone` (410) dialog pops, close it via its exact `× Close` ref from a snapshot (the role
 > locator `Close` is ambiguous with the window control) and redo the login.
-> **If every click times out with `<iframe id="react-refresh-overlay"> intercepts pointer events`**,
-> webpack's HMR error overlay is covering the page (it can linger, fully transparent, after a
-> transient dev error). Remove it, then retry the click:
-> `playwright-cli -s=cN eval "(document.getElementById('react-refresh-overlay')?.remove(), 'x')"`.
+> **If every click times out because something is intercepting pointer events**, the dev server's
+> error overlay is covering the page after a transient dev error. Remove it, then retry the click:
+> `playwright-cli -s=cN eval "(document.querySelector('vite-error-overlay')?.remove(), 'x')"`.
 
 Examples:
 

@@ -1,9 +1,8 @@
 import type { Database as SqliteDatabase, Statement } from 'better-sqlite3'
 // The win32-x64 subpath (rather than the default entrypoint) pins the exact N-API prebuild we
-// ship: better-sqlite3's platform entrypoints require their `.node` statically, so webpack routes
-// it through `native-addon-loader` into `dist/native/` (shipped by prod.yml/staging.yml) instead
-// of silently dropping an addon it can't see behind the default entrypoint's dynamic resolution.
-// In dev, Node resolves the subpath and loads the prebuild directly.
+// ship: better-sqlite3's platform entrypoints require their `.node` statically, which is what lets
+// the build see the addon and copy it next to the bundle. The default entrypoint resolves its
+// addon dynamically, so a build would silently drop it and the packaged app would fail to load.
 import Database from 'better-sqlite3/win32-x64'
 import path from 'node:path'
 import { RaceChar } from '../../common/races'

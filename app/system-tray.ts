@@ -1,12 +1,13 @@
 import { app, BrowserWindow, Menu, shell, Tray } from 'electron'
 import path from 'path'
+import { APP_ROOT } from './app-paths'
 import logger from './logger'
 import { getUserDataPath } from './user-data-path'
 
-const NORMAL_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray.png')
-const UNREAD_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-unread.png')
-const URGENT_ICON = path.join(__dirname, 'assets', 'shieldbattery-tray-urgent.png')
-const BALLOON_ICON = path.join(__dirname, 'assets', 'shieldbattery-64.png')
+const NORMAL_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-tray.png')
+const UNREAD_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-tray-unread.png')
+const URGENT_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-tray-urgent.png')
+const BALLOON_ICON = path.join(APP_ROOT, 'assets', 'shieldbattery-64.png')
 
 export default class SystemTray {
   private isShowingUrgentIcon: boolean

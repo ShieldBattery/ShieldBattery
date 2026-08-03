@@ -5,7 +5,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { LiveUsersContext } from '../twitch/live-state'
 import { getBatchUserInfo } from '../users/action-creators'
-import PlaceholderIcon from './avatar-placeholder.svg'
+import PlaceholderIcon from './avatar-placeholder.svg?react'
 import { randomColorForString } from './colors'
 
 /**

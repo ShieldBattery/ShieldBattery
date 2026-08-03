@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import LogoText from '../logos/logotext-640x100.svg'
+import LogoText from '../logos/logotext-640x100.svg?react'
 import { makePublicAssetUrl } from '../network/server-url'
 import Download from './download'
 

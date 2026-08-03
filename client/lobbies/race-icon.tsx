@@ -2,9 +2,9 @@ import * as React from 'react'
 import styled from 'styled-components'
 import { RaceChar } from '../../common/races'
 import { AutoSizeMaterialIcon } from '../icons/material/material-icon'
-import ZergIcon from '../icons/starcraft/hydra_24px.svg'
-import TerranIcon from '../icons/starcraft/marine_24px.svg'
-import ProtossIcon from '../icons/starcraft/zealot_24px.svg'
+import ZergIcon from '../icons/starcraft/hydra_24px.svg?react'
+import TerranIcon from '../icons/starcraft/marine_24px.svg?react'
+import ProtossIcon from '../icons/starcraft/zealot_24px.svg?react'
 import { getRaceColor } from '../styles/colors'
 
 const RandomIcon = styled(AutoSizeMaterialIcon).attrs({ icon: 'Ifl' })``

@@ -2,27 +2,17 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta property="csp-nonce" content="%CSP_NONCE%" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
     <title>ShieldBattery</title>
-    <link href="/assets/fonts/fonts.css" rel="stylesheet" type="text/css" nonce="%CSP_NONCE%" />
-    <link href="/assets/fonts/icons.css" rel="stylesheet" type="text/css" nonce="%CSP_NONCE%" />
-    <script
-      src="https://cdn.usefathom.com/script.js"
-      type="text/javascript"
-      nonce="%CSP_NONCE%"
-      data-auto="false"
-      data-site="%ANALYTICS_ID%"
-      defer></script>
-    %REACT_DEV%
+    <!--sb:csp-nonce-script-->
+    <!--sb:head-scripts-->
+    <!--sb:fonts-->
+    <script type="module" src="/client/index.jsx"></script>
   </head>
+
   <body class="electron">
     <div id="app"></div>
-    <script type="text/javascript" nonce="%CSP_NONCE%">
-      window.SB_CSP_NONCE = '%CSP_NONCE%'
-    </script>
-    %SCRIPT_TAGS%
   </body>
 </html>

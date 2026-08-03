@@ -1,4 +1,3 @@
-import isDev from 'electron-is-dev'
 import path from 'node:path'
 import { Worker } from 'node:worker_threads'
 import createDeferred, { Deferred } from '../../common/async/deferred'
@@ -131,21 +130,15 @@ export class ReplayLibraryService {
 
   private startWorker(): void {
     const workerData: ReplayDbWorkerData = {
-      // Dev loads the worker from TypeScript source through a babel-register launcher; production
-      // loads the prebuilt bundle directly (see `webpack.config.js`), so `entry` is unused there.
-      entry: isDev ? path.join(__dirname, 'worker', 'db-worker.ts') : undefined,
       dbPath: this.options.dbPath,
       watchedFolders: [...this.watchedFolders],
     }
-    const worker = isDev
-      ? new Worker(path.join(__dirname, 'worker', 'launch.js'), {
-          workerData,
-          name: 'replay-db-worker',
-        })
-      : new Worker(path.join(__dirname, 'db-worker.js'), {
-          workerData,
-          name: 'replay-db-worker',
-        })
+    // Its own entry in the same build output as this module, so the path holds wherever the app
+    // runs from.
+    const worker = new Worker(path.join(__dirname, 'db-worker.js'), {
+      workerData,
+      name: 'replay-db-worker',
+    })
 
     worker
       .on('message', (message: FromWorkerMessage) => this.onWorkerMessage(message))

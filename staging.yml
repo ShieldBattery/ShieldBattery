@@ -5,25 +5,13 @@ appId: net.shieldbattery.client.dev
 extraResources:
   - game/dist/**
 files:
-  - '!**/*.map'
-  - '!build/**/*'
-  - '!node_modules/**/*'
-  - 'index.html'
   - 'assets/**/*'
-  - '!dist/index.js'
-  - '!dist/preload.js'
-  - '!dist/db-worker.js'
-  - '!dist/**/*.appchunk.js'
-  - 'dist/**/*.js'
-  - 'dist/manifest.json'
-  - from: 'dist/'
-    to: './'
-    filter:
-      - 'index.js'
-      - 'preload.js'
-      - 'db-worker.js'
-      - '**/*.appchunk.js'
-      - 'native/**/*.node'
+  - 'dist/**/*'
+  # Exclusions last: a later pattern wins, so these would be undone by the includes above.
+  # node_modules is excluded because everything the app runs is bundled into dist/.
+  - '!node_modules/**/*'
+  - '!build/**/*'
+  - '!**/*.map'
 nsis:
   artifactName: '${productName}-setup-${version}.${ext}'
   # We disable oneClick for this config so that the install directory differs for this version

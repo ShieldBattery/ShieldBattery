@@ -10,7 +10,7 @@
   },
   {
     "command": ["pnpm", "run", "dev"],
-    "title": "Dev Webpack Server"
+    "title": "App Renderer Dev Server"
   },
   {
     "command": ["pnpm", "run", "gen-graphql", "--watch"],

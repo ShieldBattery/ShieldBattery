@@ -10,7 +10,15 @@ export interface NewInstanceNotification {
   args: string[]
 }
 
-export default function () {
+/**
+ * Ensures only one instance of the app runs, focusing the existing one if a second is launched.
+ *
+ * `loadNotifier` is called only on the instance that wins, and is a thunk so that the loser never
+ * loads the app -- it quits instead, and the app's module-scope setup must not run first.
+ */
+export default function (
+  loadNotifier: () => Promise<(data: NewInstanceNotification) => void>,
+): void {
   // OS X doesn't have a single instance issue
   if (process.platform === 'darwin') {
     return
@@ -47,13 +55,13 @@ export default function () {
 
       // This will only be executed by the first instance, because it will try to connect to a
       // socket on a server which is not running yet.
-      const notifyNewInstance = require('./app').notifyNewInstance
+      const notifyNewInstance = loadNotifier()
       net
         .createServer(connection => {
           connection.on('data', data => {
             try {
               const notification = JSON.parse(data.toString()) as NewInstanceNotification
-              notifyNewInstance(notification)
+              notifyNewInstance.then(notify => notify(notification)).catch(() => {})
             } catch (e) {
               // Not much to do here, we must have gotten data that wasn't valid JSON?
             }

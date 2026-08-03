@@ -1,6 +1,6 @@
 import * as React from 'react'
 import styled from 'styled-components'
-import Logo from '../logos/logo-no-bg.svg'
+import Logo from '../logos/logo-no-bg.svg?react'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { HeadlineSmall } from '../styles/typography'
 

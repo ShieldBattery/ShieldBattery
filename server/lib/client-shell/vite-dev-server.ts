@@ -37,8 +37,8 @@ export async function attachViteDevServer(app: Koa, httpServer: Server): Promise
           '**/server/uploaded_files/**',
         ],
       },
-      // Vite serves anything under the workspace root on this port, where webpack-dev-middleware
-      // only answered under /scripts/, so the denylist matters more than it used to.
+      // Vite serves anything under the workspace root on this port, not just built assets, so the
+      // denylist is what keeps the rest of the repo out of reach.
       //
       // This *replaces* Vite's default rather than extending it, so the default has to be
       // restated here or `.env`, keys and `.git` stop being protected. The only deliberate change
