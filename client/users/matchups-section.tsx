@@ -6,7 +6,7 @@ import { AssignedRaceChar, raceCharToLabel } from '../../common/races'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
 import { getRaceColor } from '../styles/colors'
-import { labelSmall, titleSmall } from '../styles/typography'
+import { labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { MatchupCell, MatchupDataSource, ModeFilter, raceCombos, teamSizeFor } from './matchup-data'
 import { ALL_MAPS, ALL_MODES, ALL_SEASONS } from './stats-filters'
 
@@ -28,9 +28,8 @@ const Filters = styled.div`
   margin-bottom: 16px;
 `
 
-const Coverage = styled.div`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
+const Total = styled.div`
+  ${labelMedium};
   margin-bottom: 10px;
   font-variant-numeric: tabular-nums;
 `
@@ -170,17 +169,9 @@ export function MatchupsSection({
   const combos = raceCombos(teamSizeFor(mode))
   const isTeam = teamSizeFor(mode) > 1
 
-  let played = 0
-  let thin = 0
-  let best = 0
-  for (const row of combos) {
-    for (const col of combos) {
-      const cell = source.cell(mode, season, activeMap, row, col)
-      if (cell.games) played++
-      if (cell.games && cell.games < THIN_SAMPLE) thin++
-      if (cell.games > best) best = cell.games
-    }
-  }
+  // The same sum the matrix cells add up to, which is why it's the map stats rather than a
+  // separate walk: whatever the filters are showing, this is its record.
+  const total = source.mapStats(mode, season, activeMap)
 
   return (
     <div>
@@ -239,21 +230,16 @@ export function MatchupsSection({
         </Filter>
       </Filters>
 
-      <Coverage>
-        {t('users.profile.stats.matrixCoverage', {
-          defaultValue: '{{total}} combinations · {{played}} played · best cell {{best}} games',
-          total: combos.length * combos.length,
-          played,
-          best,
+      {/* The record for whatever the filters are showing. Under the current season it equals
+          the card's own header, which is what makes the two legible together: the header is
+          current-season, this follows the filter. */}
+      <Total>
+        {t('users.profile.stats.matchupTotal', {
+          defaultValue: 'Total: {{wins}}–{{losses}}',
+          wins: total.wins,
+          losses: total.games - total.wins,
         })}
-        {thin
-          ? ` · ${t('users.profile.stats.matrixThin', {
-              defaultValue: '{{count}} under {{threshold}} games',
-              count: thin,
-              threshold: THIN_SAMPLE,
-            })}`
-          : ''}
-      </Coverage>
+      </Total>
 
       <MatrixScroll>
         <Matrix>
