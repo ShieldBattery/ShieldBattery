@@ -80,6 +80,13 @@ export function StatsPageTest() {
             downsampled={false}
             // Solo modes only, matching the real page -- a team matchup string can't say which
             // side the player was on, so those cards carry no matrix.
+            //
+            // The matrix is generated independently of the mode's rating history, so the
+            // placements card shows a small header record above a matrix of hundreds of games.
+            // That divergence is real rather than a fixture artefact: the header is
+            // current-season where the player has one, while the matrix is always all-time, so
+            // someone a few games into a reset season sees exactly this. Worth being able to
+            // look at, which is why it isn't smoothed over here.
             footer={
               isSoloType(mode.type) ? (
                 <MatchupsSection
