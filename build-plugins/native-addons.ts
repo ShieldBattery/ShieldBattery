@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
 import type { Plugin } from 'rolldown'
 
@@ -14,7 +14,8 @@ import type { Plugin } from 'rolldown'
  * Electron, which extracts it from the asar on demand) can load it directly.
  */
 export function nativeAddons(): Plugin {
-  const emitted = new Set<string>()
+  /** Addon copies this build needs, keyed by output-relative name. */
+  const wanted = new Map<string, string>()
 
   return {
     name: 'sb:native-addons',
@@ -30,15 +31,35 @@ export function nativeAddons(): Plugin {
         const contents = await readFile(resolved.id)
         const hash = createHash('sha256').update(contents).digest('hex').slice(0, 32)
         const fileName = `native/${path.basename(resolved.id, '.node')}-${hash}.node`
-
-        // The same addon reached from two entries resolves twice; emitting it twice is an error.
-        if (!emitted.has(fileName)) {
-          emitted.add(fileName)
-          this.emitFile({ type: 'asset', fileName, source: contents })
-        }
+        // The same addon reached from two entries resolves twice.
+        wanted.set(fileName, resolved.id)
 
         return { id: `./${fileName}`, external: true }
       },
+    },
+
+    /**
+     * Copied here rather than emitted as a build asset so that an addon already present can be left
+     * alone. The name carries a hash of the contents, so a file that is already there is by
+     * definition the right one, and rewriting it would fail whenever a running app has it loaded --
+     * an operating system that locks mapped libraries will not allow the overwrite, and the build
+     * dies partway with a broken output directory. A rebuild while the app is running is routine.
+     */
+    async writeBundle(options) {
+      const outDir = options.dir
+      if (!outDir) return
+
+      await Promise.all(
+        Array.from(wanted, async ([fileName, sourcePath]) => {
+          const destination = path.resolve(outDir, fileName)
+          const source = await stat(sourcePath)
+          const existing = await stat(destination).catch(() => undefined)
+          if (existing?.size === source.size) return
+
+          await mkdir(path.dirname(destination), { recursive: true })
+          await copyFile(sourcePath, destination)
+        }),
+      )
     },
   }
 }
