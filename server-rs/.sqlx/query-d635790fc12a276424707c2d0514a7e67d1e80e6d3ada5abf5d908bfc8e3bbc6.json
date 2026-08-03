@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    matchmaking_type AS \"matchmaking_type!: MatchmakingType\",\n                    count(*) AS \"total_games!\",\n                    count(*) FILTER (WHERE outcome = 'win') AS \"wins!\",\n                    count(*) FILTER (WHERE outcome = 'loss') AS \"losses!\",\n                    (array_agg(rating ORDER BY change_date DESC))[1] AS \"rating!: f32\",\n                    (array_agg(lifetime_games ORDER BY change_date DESC))[1]\n                        AS \"lifetime_games!\",\n                    (array_agg(rating ORDER BY change_date DESC)\n                        FILTER (WHERE change_date >= $2))[1] AS \"current?: f32\",\n                    (array_agg(rating ORDER BY change_date DESC)\n                        FILTER (WHERE change_date < $2))[1] AS \"previous?: f32\",\n                    (array_agg(lifetime_games ORDER BY change_date DESC)\n                        FILTER (WHERE change_date < $2))[1] AS \"previous_lifetime_games?\"\n                FROM matchmaking_rating_changes\n                WHERE user_id = $1\n                GROUP BY matchmaking_type\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "matchmaking_type!: MatchmakingType",
+        "type_info": {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "origin": {
+          "Table": {
+            "table": "matchmaking_rating_changes",
+            "name": "matchmaking_type"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "total_games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "wins!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "losses!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "rating!: f32",
+        "type_info": "Float4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "lifetime_games!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "current?: f32",
+        "type_info": "Float4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "previous?: f32",
+        "type_info": "Float4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "previous_lifetime_games?",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Timestamp"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "d635790fc12a276424707c2d0514a7e67d1e80e6d3ada5abf5d908bfc8e3bbc6"
+}

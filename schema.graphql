@@ -777,12 +777,61 @@ type Query {
 	The current matchmaker config: stored overrides plus the built-in defaults.
 	"""
 	matchmakingConfig: MatchmakerConfigView!
+	"""
+	Every mode a user has ever played ranked, with all-time totals and their standing
+	against the last rating they held before this season.
+	
+	All-time rather than current-season because it drives a page about all-time history:
+	sourcing the mode list from the current season's ratings hides a player's whole
+	history the moment they skip a season.
+	
+	The delta is deliberately measured across the season boundary rather than within the
+	current season: when a season resets MMR, everyone restarts from the same place, and
+	the interesting number is how their standing now compares to what they last held —
+	not how far they've climbed back from the reset. It's `None` for a mode first played
+	this season, which has nothing to compare against.
+	
+	Separate from [`user_rating_history`] because the profile shows this on every mode's
+	header, including collapsed ones whose history hasn't been fetched.
+	"""
+	userRankedModes(userId: SbUserId!): [UserRankedMode!]!
+	"""
+	A user's rating and points over time in a single mode, oldest first.
+	"""
+	userRatingHistory(userId: SbUserId!, matchmakingType: MatchmakingType!): RatingHistory!
 }
 
 """
 Any of the possible race choices that can be selected.
 """
 scalar Race
+
+type RatingHistory {
+	matchmakingType: MatchmakingType!
+	"""
+	Games actually played, before any downsampling.
+	"""
+	totalGames: Int!
+	"""
+	Whether `points` is a reduced view of the full history.
+	"""
+	downsampled: Boolean!
+	points: [RatingHistoryPoint!]!
+}
+
+type RatingHistoryPoint {
+	changeDate: DateTime!
+	"""
+	`None` for games played during placement matches, whose ratings are provisional and
+	never sent. Points are public throughout, so a placement game still carries those.
+	"""
+	rating: Float
+	points: Float!
+	"""
+	The season this game fell in, derived from `change_date`.
+	"""
+	seasonId: Int!
+}
 
 type ReconciledPlayerResult {
 	apm: Int!
@@ -1000,6 +1049,30 @@ type UrgentMessage {
 input UrgentMessageInput {
 	title: String!
 	message: String!
+}
+
+type UserRankedMode {
+	matchmakingType: MatchmakingType!
+	"""
+	Games played in this mode across every season.
+	"""
+	totalGames: Int!
+	wins: Int!
+	losses: Int!
+	"""
+	The most recent rating in this mode, whenever it was last played. `None` while the
+	player hasn't finished placement matches since their last MMR reset — a provisional
+	rating is never sent.
+	"""
+	rating: Float
+	"""
+	Current rating minus the last rating held before this season started. Spans an MMR
+	reset, so a reset season typically shows a drop until the player climbs back. `None`
+	for a mode first played this season, which has nothing to compare against, and `None`
+	whenever either endpoint sits inside placement matches — a delta against a hidden
+	rating would reveal it.
+	"""
+	delta: Float
 }
 
 """

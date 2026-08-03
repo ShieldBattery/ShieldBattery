@@ -2017,6 +2017,19 @@
       "record": "Record",
       "showAllRanks": "Show all {{total}} ranks",
       "showFewerRanks": "Show fewer",
+      "stats": {
+        "allTime": "All time",
+        "downsampled_one": "Showing a reduced view of {{count}} games to keep the chart readable.",
+        "downsampled_other": "Showing a reduced view of {{count}} games to keep the chart readable.",
+        "loadError": "There was a problem loading this history.",
+        "noGamesInRange": "No games in this range",
+        "noRankedGames": "This player has no ranked games yet.",
+        "points": "Points",
+        "rating": "Rating",
+        "ratingInPlacements": "Rating is hidden during placement matches.",
+        "season": "Season",
+        "seasonDelta": "{{amount}} vs. last season"
+      },
       "tabs": {
         "admin": "Admin",
         "matchHistory": "Match history",

@@ -15,7 +15,6 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { useHasAnyPermission } from '../admin/admin-permissions'
 import { ConnectedAvatar } from '../avatars/avatar'
-import { ComingSoon } from '../coming-soon/coming-soon'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { graphql } from '../gql'
@@ -67,6 +66,12 @@ import { UserRankDisplay } from './user-rank-display'
 
 const LoadableAdminUserPageLayout = React.lazy(async () => ({
   default: (await import('./admin/admin-layout')).AdminUserPageLayout,
+}))
+
+// Split out because it pulls in recharts, which is by some way the largest thing in the
+// bundle. Only visitors who open the Stats tab should pay for it.
+const LoadableUserProfileStats = React.lazy(async () => ({
+  default: (await import('./user-profile-stats')).UserProfileStats,
 }))
 
 const LoadingError = styled.div`
@@ -351,7 +356,11 @@ export function UserProfilePage({
       break
 
     case UserProfileSubPage.Stats:
-      content = <ComingSoonPage />
+      content = (
+        <React.Suspense fallback={<LoadingDotsArea />}>
+          <LoadableUserProfileStats userId={user.id} profile={profile} seasons={seasons} />
+        </React.Suspense>
+      )
       break
 
     case UserProfileSubPage.Seasons:
@@ -740,20 +749,6 @@ function SummaryPage({
       <SectionOverline>{t('users.profile.achievements', 'Achievements')}</SectionOverline>
       <EmptyListText>{t('common.lists.empty', 'Nothing to see here')}</EmptyListText>
     </>
-  )
-}
-
-const ComingSoonRoot = styled.div`
-  /* 34px + 6px from tab = 40px */
-  margin-top: 34px;
-  padding: 0 24px;
-`
-
-function ComingSoonPage() {
-  return (
-    <ComingSoonRoot>
-      <ComingSoon />
-    </ComingSoonRoot>
   )
 }
 

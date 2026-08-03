@@ -86,5 +86,11 @@ const cacheKeys: KeyingConfig = {
   MatchmakingExtra1V1Data: NON_KEYED_EMBEDDED,
   MatchmakingExtra1V1FastestData: NON_KEYED_EMBEDDED,
   MatchmakingExtra2V2Data: NON_KEYED_EMBEDDED,
+  // Rating history is a per-user, per-mode series: the points have no identity of their own
+  // and the containers are only meaningful under the query that asked for them. Without
+  // this the cache warns once per point, which is hundreds of warnings for one chart.
+  RatingHistory: NON_KEYED_EMBEDDED,
+  RatingHistoryPoint: NON_KEYED_EMBEDDED,
+  UserRankedMode: NON_KEYED_EMBEDDED,
   ReconciledPlayerResultEntry: NON_KEYED_EMBEDDED,
 }

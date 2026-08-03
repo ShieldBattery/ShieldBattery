@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                SELECT\n                    change_date AT TIME ZONE 'UTC' AS \"change_date!: DateTime<Utc>\",\n                    rating AS \"rating!: f32\",\n                    points AS \"points?: f32\",\n                    lifetime_games AS \"lifetime_games!\"\n                FROM matchmaking_rating_changes\n                WHERE user_id = $1 AND matchmaking_type = $2\n                ORDER BY change_date ASC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "change_date!: DateTime<Utc>",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "rating!: f32",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_rating_changes",
+            "name": "rating"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "points?: f32",
+        "type_info": "Float4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_rating_changes",
+            "name": "points"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "lifetime_games!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_rating_changes",
+            "name": "lifetime_games"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "903fde93006363a249a0e5bb0579947cde97510fbff1e975b0cedc1dff8130ba"
+}
