@@ -970,6 +970,27 @@ export type AdminUpdateUserPermissionsMutation = {
   }
 }
 
+export type UserMatchupStatsQueryVariables = Exact<{
+  userId: Types.SbUserId
+  matchmakingType: Types.MatchmakingType
+}>
+
+export type UserMatchupStatsQuery = {
+  userMatchupStats: {
+    matchmakingType: Types.MatchmakingType
+    totalGames: number
+    buckets: Array<{
+      seasonId: number
+      mapId: Types.SbMapId
+      races: Array<Types.AssignedRaceChar>
+      opponentRaces: Array<Types.AssignedRaceChar>
+      games: number
+      wins: number
+    }>
+    maps: Array<{ id: Types.SbMapId; name: string }>
+  }
+}
+
 export type UserProfileOverlayLiveQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
@@ -5236,6 +5257,88 @@ export const AdminUpdateUserPermissionsDocument = {
   AdminUpdateUserPermissionsMutation,
   AdminUpdateUserPermissionsMutationVariables
 >
+export const UserMatchupStatsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserMatchupStats' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakingType' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userMatchupStats' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'matchmakingType' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'totalGames' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'buckets' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'mapId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'races' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'opponentRaces' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'games' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'maps' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserMatchupStatsQuery, UserMatchupStatsQueryVariables>
 export const UserProfileOverlayLiveDocument = {
   kind: 'Document',
   definitions: [

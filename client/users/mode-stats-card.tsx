@@ -169,6 +169,7 @@ export function ModeStatsCard({
   points: allPoints,
   totalGames,
   downsampled,
+  footer,
 }: {
   matchmakingType: MatchmakingType
   wins: number
@@ -183,6 +184,11 @@ export function ModeStatsCard({
   points: ReadonlyArray<RatingChartPoint>
   totalGames?: number
   downsampled?: boolean
+  /**
+   * Rendered below the chart once the card has data. A slot rather than the card fetching it
+   * itself, so the dev page can keep driving this component from props alone.
+   */
+  footer?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const [metric, setMetric] = useState<RatingMetric>('rating')
@@ -298,6 +304,7 @@ export function ModeStatsCard({
                   })}
                 </Downsampled>
               ) : undefined}
+              {footer}
             </>
           ) : undefined}
         </CardBodyContent>

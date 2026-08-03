@@ -16,6 +16,7 @@ import { getMatchmakingSeasons } from '../matchmaking/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
+import { ConnectedMatchupsSection } from './connected-matchups-section'
 import { ModeStatsCard, ModeStatsCardState } from './mode-stats-card'
 import { RatingChartPoint, RatingChartSeason } from './rating-chart-data'
 
@@ -249,6 +250,16 @@ function ConnectedModeStatsCard({
       points={points}
       totalGames={data?.userRatingHistory.totalGames}
       downsampled={data?.userRatingHistory.downsampled}
+      // Only fetched once the card is open, since it's rendered inside the expanded body.
+      footer={
+        open ? (
+          <ConnectedMatchupsSection
+            userId={userId}
+            matchmakingType={matchmakingType}
+            seasons={seasons}
+          />
+        ) : undefined
+      }
     />
   )
 }
