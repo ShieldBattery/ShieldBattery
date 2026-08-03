@@ -42,6 +42,7 @@ export enum DialogType {
   ReplayInfo = 'replayInfo',
   ReplayLoad = 'replayLoad',
   ReportGame = 'reportGame',
+  SelectMap = 'selectMap',
   Simple = 'simple',
   ShieldBatteryHealth = 'shieldBatteryHealth',
   StarcraftHealth = 'starcraftHealth',
@@ -253,6 +254,13 @@ type ReportGameDialogPayload = BaseDialogPayload<
     reportedUserCandidates: SbUserId[]
   }
 >
+type SelectMapDialogPayload = BaseDialogPayload<
+  typeof DialogType.SelectMap,
+  {
+    /** Called once with the chosen map's ID; the dialog closes itself right after. */
+    onSelectMap: (mapId: SbMapId) => void
+  }
+>
 type SimpleDialogPayload = BaseDialogPayload<
   typeof DialogType.Simple,
   {
@@ -303,6 +311,7 @@ export type DialogPayload =
   | ReplayInfoDialogPayload
   | ReplayLoadDialogPayload
   | ReportGameDialogPayload
+  | SelectMapDialogPayload
   | SimpleDialogPayload
   | ShieldBatteryHealthDialogPayload
   | StarcraftHealthDialogPayload

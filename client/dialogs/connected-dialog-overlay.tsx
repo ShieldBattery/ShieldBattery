@@ -71,6 +71,9 @@ const MapDownloadDialog = React.lazy(async () => ({
 const MapPreviewDialog = React.lazy(async () => ({
   default: (await import('../maps/map-preview')).MapPreviewDialog,
 }))
+const SelectMapDialog = React.lazy(async () => ({
+  default: (await import('../maps/select-map-dialog')).SelectMapDialog,
+}))
 const AcceptMatchDialog = React.lazy(async () => ({
   default: (await import('../matchmaking/accept-match-dialog')).AcceptMatchDialog,
 }))
@@ -227,6 +230,8 @@ function getDialog(dialogType: DialogType): {
       return { component: ReplayLoadDialog, modal: true }
     case DialogType.ReportGame:
       return { component: ReportGameDialog }
+    case DialogType.SelectMap:
+      return { component: SelectMapDialog }
     case DialogType.Simple:
       return { component: SimpleDialog }
     case DialogType.ShieldBatteryHealth:
