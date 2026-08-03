@@ -6,14 +6,8 @@ import {
   ReplayPlaylist,
 } from '../../../common/replays-library'
 
-/**
- * The data handed to the replay DB worker at construction time (via `workerData`). `entry` is only
- * present in dev, where the launcher requires the worker module from source; the production bundle
- * is loaded directly and ignores it.
- */
+/** The data handed to the replay DB worker at construction time (via `workerData`). */
 export interface ReplayDbWorkerData {
-  /** Absolute path to the worker's transpiled-at-runtime module. Dev-only (see above). */
-  entry?: string
   /** Absolute path to the SQLite index file. */
   dbPath: string
   /** Absolute paths of the replay folders to index (each watched recursively). */

@@ -28,7 +28,7 @@ function escapeForRegExp(value: string): string {
   return value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-const BUILT_SHELL_PATH = path.join(__dirname, 'dist', 'index.html')
+const BUILT_SHELL_PATH = path.join(__dirname, 'index.html')
 
 export interface ClientShellData {
   /** CSP nonce for this load, which every inline and injected tag must carry. */

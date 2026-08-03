@@ -5,7 +5,7 @@
   "private": true,
   "version": "10.4.2",
   "description": "The standalone client for ShieldBattery",
-  "main": "index.js",
+  "main": "dist/index.js",
   "license": "MIT",
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com)",
   "dependencies": {

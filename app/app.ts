@@ -19,6 +19,7 @@ import { getErrorStack } from '../common/errors'
 import { FsDirent, TwitchOauthFlowResult, TypedIpcMain, TypedIpcSender } from '../common/ipc'
 import { LocalSettings } from '../common/settings/local-settings'
 import { setAppId } from './app-id'
+import { APP_ROOT } from './app-paths'
 import { checkShieldBatteryFiles } from './check-shieldbattery-files'
 import { getClientShellTemplate, renderClientShell } from './client-shell'
 import currentSession from './current-session'
@@ -40,15 +41,9 @@ import type { NewInstanceNotification } from './single-instance'
 import SystemTray from './system-tray'
 import { getUserDataPath } from './user-data-path'
 
-// Allow accessing __WEBPACK_ENV in development, since webpack adds it in production
-if (!(global as any).__WEBPACK_ENV) {
-  ;(global as any).__WEBPACK_ENV = {}
-}
-
 const collectPromise = import('./security/client').then(m => m.collect)
-const collect2Promise = (__WEBPACK_ENV as any).SB_SECURITY_IMPL
-  ? import((__WEBPACK_ENV as any).SB_SECURITY_IMPL).then(m => m.collect)
-  : undefined
+/** Resolves to `undefined` unless the build configured an implementation to prefer. */
+const collect2Promise = import('virtual:sb-security-impl').then(m => m.collect)
 
 process
   .on('uncaughtException', function (err) {
@@ -196,7 +191,7 @@ let cachedIdPath: string | undefined
 
 async function cacheIdsIfNeeded(newPath?: string, force?: boolean) {
   if (force || newPath !== cachedIdPath) {
-    const collect: Awaited<typeof collectPromise> = await (collect2Promise ?? collectPromise)
+    const collect = (await collect2Promise) ?? (await collectPromise)
     cachedIds = await collect(msg => logger.error(msg), modelId, newPath)
     cachedIdPath = newPath
   }
@@ -976,8 +971,8 @@ function setupCspProtocol(curSession: Session) {
     const pathname = path.posix.normalize(url.pathname)
 
     try {
-      if (pathname.match(/^\/(assets|dist|native)\/.+$/)) {
-        const contents = await readFile(path.join(__dirname, pathname))
+      if (pathname.match(/^\/(assets|dist)\/.+$/)) {
+        const contents = await readFile(path.join(APP_ROOT, pathname))
         // TODO(tec27): Unsure if this is the best way to convert this to something that TS 5.9 is
         // happy with to pass to Response?
         const data = new Uint8Array(contents)
@@ -991,7 +986,7 @@ function setupCspProtocol(curSession: Session) {
         )
         const result = renderClientShell(template, {
           cspNonce: nonce,
-          analyticsId: process.env.SB_ANALYTICS_ID ?? __WEBPACK_ENV?.SB_ANALYTICS_ID,
+          analyticsId: process.env.SB_ANALYTICS_ID ?? SB_ANALYTICS_ID,
           reactDevToolsUrl: process.env.SB_REACT_DEV ? 'http://localhost:8097' : undefined,
         })
 
@@ -1141,7 +1136,7 @@ async function createWindow() {
     show: false,
     title: 'ShieldBattery',
     webPreferences: {
-      preload: path.join(app.getAppPath(), 'preload.js'),
+      preload: path.join(__dirname, 'preload.js'),
       session: curSession,
       nodeIntegration: false,
       contextIsolation: true,

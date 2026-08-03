@@ -15,7 +15,10 @@ app.name = path.basename(getUserDataPath())
 // Ensure that it's only possible to open a single instance of the application in non-dev mode. If
 // someone tries to open two instances, we just focus the main window
 if (!isDev) {
-  ensureSingleInstance()
+  ensureSingleInstance(() => import('./app').then(m => m.notifyNewInstance))
 } else {
-  require('./app')
+  // Dynamic so that the app is only ever loaded from one place, and only once it should run.
+  import('./app').catch(err => {
+    console.error(`Failed to start the app: ${err?.stack ?? err}`)
+  })
 }
