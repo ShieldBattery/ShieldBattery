@@ -151,6 +151,16 @@ export interface MapParseResult {
   image2048?: Buffer
 }
 
+/**
+ * Restores a Buffer view over image bytes received from the parse worker. Structured clone
+ * delivers the worker's Buffers as plain Uint8Arrays (the subclass prototype doesn't survive
+ * postMessage), and the file store distinguishes Buffers from streams, so passing the raw
+ * received value along would be treated as a stream and crash on write.
+ */
+function asBuffer(data: Uint8Array | undefined): Buffer | undefined {
+  return data ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : undefined
+}
+
 async function mapParseWorker(
   path: string,
   extension: MapExtension,
@@ -185,7 +195,13 @@ async function mapParseWorker(
           if ('error' in response) {
             reject(new Error(`Encountered error parsing map: ${response.error}`))
           } else {
-            resolve(response)
+            resolve({
+              mapData: response.mapData,
+              image256: asBuffer(response.image256),
+              image512: asBuffer(response.image512),
+              image1024: asBuffer(response.image1024),
+              image2048: asBuffer(response.image2048),
+            })
           }
         })
       })

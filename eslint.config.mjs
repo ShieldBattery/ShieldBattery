@@ -69,6 +69,7 @@ export default [
       'server/node_modules/',
       'server/public/scripts/',
       'server/testing/google/',
+      'server-dist/',
       'server-rs/',
       'test-results/',
     ],

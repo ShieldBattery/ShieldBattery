@@ -38,7 +38,7 @@ if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" 
   # contents in the bucket and skip the (slow, whole-bucket-listing) sync when nothing changed.
   # The marker is only written after a fully successful sync, so a failed sync will be retried on
   # the next run.
-  CONTENT_HASH=$(cd server/public && find . -type f | sort | xargs md5sum | md5sum | cut -d ' ' -f 1)
+  CONTENT_HASH=$(cd server-dist/server/public && find . -type f | sort | xargs md5sum | md5sum | cut -d ' ' -f 1)
   MARKER_URI="s3://${SPACE_NAME}/deploy-markers/public-content-hash"
   REMOTE_HASH=$(s3cmd "${S3CMD_ARGS[@]}" --quiet get "$MARKER_URI" - 2>/dev/null || true)
 
@@ -56,7 +56,7 @@ if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" 
       --recursive \
       --exclude '*.map' \
       --add-header="Cache-Control: public, max-age=31536000, immutable" \
-      server/public/scripts/ s3://${SPACE_NAME}/public/scripts/ || exit 1
+      server-dist/server/public/scripts/ s3://${SPACE_NAME}/public/scripts/ || exit 1
     # Everything else has stable filenames (with cache-busting query strings where needed), so it
     # keeps the CDN's default caching
     s3cmd sync \
@@ -64,7 +64,7 @@ if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" 
       --acl-public \
       --recursive \
       --exclude 'scripts/*' \
-      server/public/ s3://${SPACE_NAME}/public/ || exit 1
+      server-dist/server/public/ s3://${SPACE_NAME}/public/ || exit 1
     echo -n "$CONTENT_HASH" | s3cmd "${S3CMD_ARGS[@]}" put - "$MARKER_URI"
     echo "Public assets synced"
 
@@ -75,7 +75,7 @@ if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" 
     # build they're running. Best-effort: failures leave the stale files for the next deploy.
     echo "Cleaning up stale script assets"
     STALE_SCRIPTS=$(s3cmd "${S3CMD_ARGS[@]}" ls "s3://${SPACE_NAME}/public/scripts/" |
-      python3 server/deployment_files/find_stale_scripts.py 180 server/public/scripts) || true
+      python3 server/deployment_files/find_stale_scripts.py 180 server-dist/server/public/scripts) || true
     if [[ -n "$STALE_SCRIPTS" ]]; then
       echo "$STALE_SCRIPTS" | xargs -n 100 s3cmd "${S3CMD_ARGS[@]}" del ||
         echo "Stale script cleanup failed, will retry on next sync"

@@ -5,7 +5,7 @@ import { container, inject, singleton } from 'tsyringe'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { SubscribedClientEvent, SubscribedUserEvent } from '../../../common/websockets'
 import log from '../logging/logger'
-import { UpsertUserIp } from '../network/user-ips-type'
+import type { UpsertUserIp } from '../network/user-ips-type'
 import getAddress from './get-address'
 import { RequestSessionLookup, SessionInfo } from './session-lookup'
 

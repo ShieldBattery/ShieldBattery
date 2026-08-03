@@ -1,5 +1,6 @@
+import './env'
+
 import { RouterContext } from '@koa/router'
-import 'core-js/proposals/reflect-metadata'
 import { promises as fsPromises } from 'fs'
 import http from 'http'
 import Koa from 'koa'
@@ -241,8 +242,12 @@ container.resolve(GameServerRegionsService)
 
   if (isDev) {
     // Attached before the routes so that requests for client modules reach Vite rather than the
-    // catch-all that renders the shell.
-    const { attachViteDevServer } = require('./lib/client-shell/vite-dev-server')
+    // catch-all that renders the shell. The specifier is assembled at runtime so the compiler
+    // leaves this require inside the condition: statically analyzable requires get hoisted into
+    // unconditional module imports, and Vite is development-only and absent from production
+    // installs.
+    const devOnlyVitePath = './lib/client-shell/vite-dev-server'
+    const { attachViteDevServer } = require(devOnlyVitePath)
     await attachViteDevServer(app, mainServer)
   }
 

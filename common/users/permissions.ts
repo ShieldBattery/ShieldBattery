@@ -1,4 +1,4 @@
-import { SbPermissions } from '../typeshare'
+import type { SbPermissions } from '../typeshare'
 
 export { SbPermissions }
 

@@ -10,6 +10,6 @@
   done
 ) &
 
-node ./server/index.js | \
+node --enable-source-maps ./server-dist/server/app.js | \
   ./node_modules/.bin/pino-tee warn ./server/logs/errors.log | \
   tee ./server/logs/server.log
