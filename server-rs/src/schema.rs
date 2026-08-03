@@ -9,6 +9,7 @@ use crate::game_reports::{GameReportsMutation, GameReportsQuery};
 use crate::games::GamesQuery;
 use crate::leagues::LeaguesQuery;
 use crate::matchmaking::admin::{MatchmakingConfigMutation, MatchmakingConfigQuery};
+use crate::matchmaking::history::MatchmakingHistoryQuery;
 use crate::news::{NewsMutation, NewsQuery};
 use crate::twitch::{TwitchMutation, TwitchQuery};
 use crate::users::{UsersMutation, UsersQuery};
@@ -25,6 +26,7 @@ pub struct Query(
     TwitchQuery,
     UsersQuery,
     MatchmakingConfigQuery,
+    MatchmakingHistoryQuery,
 );
 
 #[derive(MergedObject, Default)]

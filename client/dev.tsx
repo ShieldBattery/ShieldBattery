@@ -12,6 +12,7 @@ import { DevPageMetadata } from './page-metadata/devonly/routes'
 import { DevReplays } from './replays/devonly/routes'
 import { DevStarcraft } from './starcraft/devonly/dev-starcraft'
 import { DevTwitch } from './twitch/devonly/dev-twitch'
+import { DevUsers } from './users/devonly/routes'
 
 const Container = styled.div`
   width: 100%;
@@ -53,6 +54,7 @@ export default function Dev() {
             ['Replay components', 'replays', DevReplays],
             ['Starcraft', 'starcraft', DevStarcraft],
             ['Twitch components', 'twitch', DevTwitch],
+            ['User components', 'users', DevUsers],
           ]}
         />
       </Content>

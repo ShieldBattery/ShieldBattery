@@ -981,6 +981,35 @@ export type UserProfileOverlayLiveQuery = {
   } | null
 }
 
+export type UserRankedModesQueryVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type UserRankedModesQuery = {
+  userRankedModes: Array<{
+    matchmakingType: Types.MatchmakingType
+    totalGames: number
+    wins: number
+    losses: number
+    rating: number | null
+    delta: number | null
+  }>
+}
+
+export type UserRatingHistoryQueryVariables = Exact<{
+  userId: Types.SbUserId
+  matchmakingType: Types.MatchmakingType
+}>
+
+export type UserRatingHistoryQuery = {
+  userRatingHistory: {
+    matchmakingType: Types.MatchmakingType
+    totalGames: number
+    downsampled: boolean
+    points: Array<{ changeDate: string; rating: number | null; points: number; seasonId: number }>
+  }
+}
+
 export type UserProfileTwitchQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
@@ -5261,6 +5290,123 @@ export const UserProfileOverlayLiveDocument = {
     },
   ],
 } as unknown as DocumentNode<UserProfileOverlayLiveQuery, UserProfileOverlayLiveQueryVariables>
+export const UserRankedModesDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserRankedModes' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userRankedModes' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'totalGames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'losses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'rating' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'delta' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserRankedModesQuery, UserRankedModesQueryVariables>
+export const UserRatingHistoryDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserRatingHistory' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakingType' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userRatingHistory' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'matchmakingType' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'totalGames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'downsampled' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'points' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'changeDate' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'rating' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'points' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserRatingHistoryQuery, UserRatingHistoryQueryVariables>
 export const UserProfileTwitchDocument = {
   kind: 'Document',
   definitions: [
