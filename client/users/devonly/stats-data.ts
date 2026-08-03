@@ -190,14 +190,7 @@ export const MATCHUP_MAPS: ReadonlyArray<{ id: string; name: string }> = [
 export function makeMatchupBuckets(seed: number): MatchupModeData['buckets'] {
   const races: AssignedRaceChar[] = ['t', 'p', 'z']
   const buckets: Array<MatchupModeData['buckets'][number]> = []
-  let n = seed
-
-  const next = (max: number) => {
-    // Same mulberry-ish stepping the rest of this file uses: deterministic, so the dev page
-    // looks identical between reloads.
-    n = (n * 1103515245 + 12345) & 0x7fffffff
-    return n % max
-  }
+  const r = rng(seed)
 
   for (const season of FIXTURE_SEASONS) {
     for (const map of MATCHUP_MAPS) {
@@ -205,14 +198,15 @@ export function makeMatchupBuckets(seed: number): MatchupModeData['buckets'] {
         for (const opponent of races) {
           // Leave one cell of one map unplayed so the matrix has a blank in it.
           if (season.id === 1 && map.id === 'map-po' && race === 't' && opponent === 'p') continue
-          const games = 1 + next(14)
+          const games = 1 + Math.floor(r() * 14)
           buckets.push({
             seasonId: season.id,
             mapId: map.id,
             races: [race],
             opponentRaces: [opponent],
             games,
-            wins: Math.round(games * (0.3 + next(45) / 100)),
+            // Win rates between 30% and 75%, so the cell tinting spans both directions.
+            wins: Math.round(games * (0.3 + r() * 0.45)),
           })
         }
       }
