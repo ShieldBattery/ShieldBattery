@@ -1,4 +1,22 @@
+﻿import { execFileSync } from 'node:child_process'
 import { defineConfig } from 'tsdown'
+
+// Asserts that decorator metadata actually made it into the compiled output, in a fresh node
+// process resembling the runtime (CJS, reflect polyfill loaded first). tsyringe resolves
+// constructor dependencies through design:paramtypes; a transform that quietly stops emitting it
+// produces a build that only fails at boot. The unit suite can't cover this -- vitest transforms
+// test files itself, so no test file ever passes through this build.
+const METADATA_CHECK = `
+  require('core-js/proposals/reflect-metadata')
+  const { WebsocketServer } = require('./server-dist/server/websockets.js')
+  const types = Reflect.getMetadata('design:paramtypes', WebsocketServer) ?? []
+  const names = types.map(t => t && t.name)
+  if (types.length !== 7 || !names.includes('RequestSessionLookup')) {
+    throw new Error(
+      'design:paramtypes missing or wrong on compiled WebsocketServer: ' + JSON.stringify(names),
+    )
+  }
+`
 
 // Compiles the Node server ahead of time: `server/` + `common/` become a mirrored CJS tree under
 // `server-dist/`, and production runs `node server-dist/server/app.js` with no runtime
@@ -48,4 +66,17 @@ export default defineConfig({
     { from: 'server/client-shell', to: 'server-dist/server', flatten: false },
     { from: 'server/public', to: 'server-dist/server', flatten: false },
   ],
+  onSuccess: () => {
+    execFileSync(process.execPath, ['-e', METADATA_CHECK], {
+      stdio: ['ignore', 'ignore', 'inherit'],
+      env: {
+        ...process.env,
+        // The check only requires modules, but some of them validate their environment at module
+        // scope, more strictly in production. Metadata emission happened at compile time, so the
+        // check's runtime environment can be the lenient one with placeholder values.
+        NODE_ENV: 'development',
+        DATABASE_URL: 'postgres://metadata-check',
+      },
+    })
+  },
 })
