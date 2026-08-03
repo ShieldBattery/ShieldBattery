@@ -24,8 +24,8 @@ const SHELL_ENTRY = 'app/index.html'
  * Everything the renderer needs, in the directory the packager copies wholesale. The built shell
  * lands here too, as `index.html`; the main process reads it and fills its slots per request.
  *
- * The webpack build of the main process, its preload and the replay DB worker writes here as well,
- * which is why this build must not empty the directory.
+ * The main process, its preload and the replay DB worker are built into here too (see
+ * `rolldown.app.config.ts`), which is why this build must not empty the directory.
  */
 const OUT_DIR = 'app/dist'
 /**

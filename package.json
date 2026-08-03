@@ -24,7 +24,7 @@
   },
   "scripts": {
     "app": "pnpm run build-app-main && SB_HOT=1 electron app",
-    "build-app-main": "rolldown -c rolldown.app.config.ts",
+    "build-app-main": "NODE_ENV=development rolldown -c rolldown.app.config.ts",
     "build-app-client": "vite build -c vite.electron.config.ts && rolldown -c rolldown.app.config.ts",
     "build-game": "cmd /c \"game\\build.bat release\" && cmd /c \"game\\build.bat release x86_64\"",
     "build-web-client": "vite build",

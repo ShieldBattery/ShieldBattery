@@ -13,7 +13,15 @@ const ROOT = import.meta.dirname
  */
 const OUT_DIR = path.join(ROOT, 'app', 'dist')
 
-const isProd = process.env.NODE_ENV === 'production'
+/**
+ * Production unless development is asked for explicitly.
+ *
+ * This decides the `process.env.NODE_ENV` baked into the bundle, which `common/flags.ts` turns into
+ * real behaviour — a client that believes it is in development keeps its developer-only settings
+ * live. A build that forgot to say which it wanted must therefore come out as the shippable one,
+ * which also matches the renderer, where `vite build` is production and `vite` is not.
+ */
+const isProd = process.env.NODE_ENV !== 'development'
 
 /**
  * Build-only settings, read into a scratch object rather than `process.env`: these belong to the
