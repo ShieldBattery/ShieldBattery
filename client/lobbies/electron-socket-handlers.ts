@@ -25,10 +25,16 @@ const countdownState: CountdownState = {
   sound: undefined,
 }
 
-/** Returns whether the current user is waiting on the lobby's bench rather than holding a slot. */
+/**
+ * Returns whether the current user is waiting on the lobby's bench rather than holding a slot.
+ *
+ * Callers include timer callbacks that can outlive the lobby (or the session), so a missing self
+ * user reads as "not benched" rather than throwing.
+ */
 function selfIsBenched(state: RootState): boolean {
   const { auth, lobby } = state
-  return lobby.info.bench.some(benched => benched.userId === auth.self!.user.id)
+  const selfId = auth.self?.user.id
+  return selfId !== undefined && lobby.info.bench.some(benched => benched.userId === selfId)
 }
 
 function clearCountdownTimer() {
@@ -158,13 +164,10 @@ const eventToAction: EventToActionMap = {
     payload: event,
   }),
 
+  // The countdown belongs to the lobby, not to any one member's game: everyone in the lobby,
+  // benched or seated, follows it (and sees it) the same way. Only the local game launch it leads
+  // into is specific to the members holding a slot.
   startCountdown: (lobbyId, event) => (dispatch, getState) => {
-    if (selfIsBenched(getState())) {
-      // A benched member holds no slot in the starting game, so they get no countdown, loading
-      // state, or launch dialog - the lobby simply ends for them once the game starts
-      return
-    }
-
     clearCountdownTimer()
     let tick = 5
     dispatch({
@@ -183,29 +186,23 @@ const eventToAction: EventToActionMap = {
         clearCountdownTimer()
         dispatch({ type: '@lobbies/updateLoadingStart' })
 
-        dispatch(openDialog({ type: DialogType.LaunchingGame }))
+        // A benched member holds no slot in the game being loaded, so nothing launches locally for
+        // them and this dialog would have nothing to resolve it: they stay on the lobby instead.
+        if (!selfIsBenched(getState())) {
+          dispatch(openDialog({ type: DialogType.LaunchingGame }))
+        }
       }
     }, 1000)
   },
 
-  cancelCountdown: (lobbyId, event) => (dispatch, getState) => {
-    if (selfIsBenched(getState())) {
-      // The countdown never ran for a benched member, so there is nothing to cancel or announce
-      return
-    }
-
+  cancelCountdown: (lobbyId, event) => dispatch => {
     clearCountdownTimer()
     dispatch({
       type: '@lobbies/updateCountdownCanceled',
     })
   },
 
-  cancelLoading: (lobbyId, event) => (dispatch, getState) => {
-    if (selfIsBenched(getState())) {
-      // The countdown never ran for a benched member, so there is nothing to cancel or announce
-      return
-    }
-
+  cancelLoading: (lobbyId, event) => dispatch => {
     // NOTE(tec27): In very low latency environments things can interleave such that the server
     // cancels loading before our client actually finishes the countdown/gets into the loading
     // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
@@ -223,6 +220,9 @@ const eventToAction: EventToActionMap = {
     const state = getState()
     const { lobby } = state
 
+    // The lobby's game is under way, so a countdown still running locally (one that trailed the
+    // server's) has nothing left to run out to.
+    clearCountdownTimer()
     dispatch(closeDialog(DialogType.LaunchingGame))
     const currentPath = location.pathname
     const lobbyPath = urlPath`/lobbies/${lobby.info.id}`
