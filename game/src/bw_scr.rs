@@ -6462,6 +6462,15 @@ unsafe fn step_game_logic_hook(
     //
     // Fixing this by reverting any changes to unit.detection_status outside step_game_logic,
     // this simpler to implement than adding analysis for the obs UI functions.
+    //
+    // That vision-toggle UI only exists on replay and observer clients; a playing client's
+    // vision changes all go through synced commands handled inside step_game_logic, so nothing
+    // can corrupt detection_status between steps there and the save/restore passes are skipped.
+    let has_obs_vision_ui = game_thread::is_replay()
+        || BwPlayerId(bw.local_unique_player_id.resolve() as u8).is_observer();
+    if !has_obs_vision_ui {
+        return orig(param);
+    }
     let units = bw.units.resolve();
     {
         // For first call of this function detection_status_copy should be empty
