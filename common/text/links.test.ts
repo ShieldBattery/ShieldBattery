@@ -177,6 +177,33 @@ describe('common/text/links/matchLinks', () => {
     `)
   })
 
+  test('link with balanced parentheses in path', () => {
+    expect(doMatch('see http://en.wikipedia.org/wiki/Bracket_(disambiguation) here'))
+      .toMatchInlineSnapshot(`
+      [
+        "http://en.wikipedia.org/wiki/Bracket_(disambiguation)",
+      ]
+    `)
+  })
+
+  test('link with adversarial paren-heavy input does not hang and matches correctly', () => {
+    // A large run of unmatched opening parens preceding the URL, and a large run of unmatched
+    // closing parens trailing it. This shape used to trigger quadratic backtracking in a
+    // backreference-in-lookbehind regex; here it should just resolve to the plain URL.
+    const openParens = '('.repeat(5000)
+    const closeParens = ')'.repeat(5000)
+    const text = `${openParens}http://example.org/foo${closeParens} trailing text`
+
+    expect(doMatch(text)).toEqual(['http://example.org/foo'])
+  })
+
+  test('link with many balanced parens in path does not hang and matches correctly', () => {
+    const pairs = '(a)'.repeat(5000)
+    const text = `http://example.org/${pairs}`
+
+    expect(doMatch(text)).toEqual([text])
+  })
+
   /* eslint-disable-next-line vitest/no-commented-out-tests */
   /* TODO(tec27): Fix these, they're broken
 
