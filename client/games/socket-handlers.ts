@@ -34,14 +34,16 @@ export default function ({
       logger.verbose('Game failed to upload replay, retrying from the app')
       Promise.resolve()
         .then(async () => {
+          // Read the replay once and reuse it across retries, rather than re-reading it over IPC
+          // (a whole-file copy across the process boundary) on every attempt.
+          const file = await ipcRenderer.invoke('fsReadFile', request.replayPath)
+          if (!file) {
+            logger.verbose(`Replay file ${request.replayPath} doesn't exist, skipping`)
+            return
+          }
+
           for (let i = 0; i < ATTEMPTS; i++) {
             try {
-              const file = await ipcRenderer.invoke('fsReadFile', request.replayPath)
-              if (!file) {
-                logger.verbose(`Replay file ${request.replayPath} doesn't exist, skipping`)
-                return
-              }
-
               const formData = new FormData()
               formData.append('userId', String(request.userId))
               formData.append('resultCode', request.resultCode)
