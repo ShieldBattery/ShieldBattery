@@ -3,6 +3,7 @@
 mod lobby_init;
 mod pathing;
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::Receiver;
@@ -622,6 +623,14 @@ pub unsafe fn after_step_game() {
     }
 }
 
+thread_local! {
+    /// Scratch set for [`add_fow_sprites_for_replay_vision_change`], reused across calls to
+    /// avoid reallocating on every simulation step. Only ever touched from the game thread,
+    /// same as the function itself.
+    static FOW_SPRITE_POSITIONS: RefCell<FxHashSet<(i16, i16, UnitId)>> =
+        RefCell::new(FxHashSet::with_capacity_and_hasher(256, Default::default()));
+}
+
 pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
     unsafe {
         if is_replay() && !is_ums() && bw.starting_fog() != StartingFog::Legacy {
@@ -635,31 +644,33 @@ pub unsafe fn add_fow_sprites_for_replay_vision_change(bw: &BwScr) {
             // To get around this issue, check which neutral buildings don't have fog
             // sprites and add them back.
 
-            let mut fow_sprites = FxHashSet::with_capacity_and_hasher(256, Default::default());
-            for fow in bw.fow_sprites() {
-                let sprite = (*fow).sprite;
-                let pos = bw.sprite_position(sprite);
-                fow_sprites.insert((pos.x, pos.y, UnitId((*fow).unit_id)));
-            }
-            let replay_visions = bw.replay_visions();
-            for unit in bw.active_units() {
-                if unit.player() == 11 && unit.is_landed_building() {
-                    // This currently adds fow sprites even for buildings that became
-                    // neutral after player left. It's probably fine, but if it wasn't
-                    // desired, checking that `sprite.player == 11` should only include
-                    // buildings that existed from map start
-                    if let Some(sprite) = unit.sprite() {
-                        let is_visible = replay_visions.show_entire_map
-                            || sprite.visibility_mask() & replay_visions.players != 0;
-                        if !is_visible {
-                            let pos = bw.sprite_position(*sprite as *mut c_void);
-                            if fow_sprites.insert((pos.x, pos.y, unit.id())) {
-                                bw.create_fow_sprite(unit);
+            FOW_SPRITE_POSITIONS.with_borrow_mut(|fow_sprites| {
+                fow_sprites.clear();
+                for fow in bw.fow_sprites() {
+                    let sprite = (*fow).sprite;
+                    let pos = bw.sprite_position(sprite);
+                    fow_sprites.insert((pos.x, pos.y, UnitId((*fow).unit_id)));
+                }
+                let replay_visions = bw.replay_visions();
+                for unit in bw.active_units() {
+                    if unit.player() == 11 && unit.is_landed_building() {
+                        // This currently adds fow sprites even for buildings that became
+                        // neutral after player left. It's probably fine, but if it wasn't
+                        // desired, checking that `sprite.player == 11` should only include
+                        // buildings that existed from map start
+                        if let Some(sprite) = unit.sprite() {
+                            let is_visible = replay_visions.show_entire_map
+                                || sprite.visibility_mask() & replay_visions.players != 0;
+                            if !is_visible {
+                                let pos = bw.sprite_position(*sprite as *mut c_void);
+                                if fow_sprites.insert((pos.x, pos.y, unit.id())) {
+                                    bw.create_fow_sprite(unit);
+                                }
                             }
                         }
                     }
                 }
-            }
+            });
         }
     }
 }

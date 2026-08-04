@@ -682,8 +682,8 @@ impl OverlayState {
         if self.replay_panels.show_statistics {
             self.add_replay_statistics(bw, apm, ctx);
         }
-        self.update_replay_production(bw);
         if self.replay_panels.show_production {
+            self.update_replay_production(bw);
             self.add_production_ui(bw, ctx);
         }
     }

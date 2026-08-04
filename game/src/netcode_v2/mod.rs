@@ -1074,8 +1074,7 @@ impl TurnState {
                 self.lobby_flush_threads.len()
             );
         }
-        let commands = Bytes::copy_from_slice(buffer);
-        self.lobby_echo.push_back(commands.clone());
+        self.lobby_echo.push_back(Bytes::copy_from_slice(buffer));
         let depth = self.lobby_echo.len();
         if depth >= 32 && depth.is_multiple_of(32) {
             warn!("lobby echo backlog at {depth} turns (flush outpacing dispatch)");
@@ -1083,7 +1082,11 @@ impl TurnState {
         if matches!(buffer, [LOBBY_KEEP_ALIVE]) {
             return true;
         }
-        self.channels.lobby_out.try_send(commands.to_vec()).is_ok()
+        // `lobby_out` needs its own owned `Vec<u8>` (the relay channel's element type), so it's
+        // materialized straight from `buffer` rather than by cloning the `Bytes` just queued above
+        // and copying out of the clone — cloning a `Bytes` only shares the refcount, it doesn't hand
+        // back the kind of uniquely-owned buffer a `Vec` conversion could reuse without a copy.
+        self.channels.lobby_out.try_send(buffer.to_vec()).is_ok()
     }
 
     /// Drains every `(slot, buffer)` pair currently available from the driver's `lobby_in` channel
