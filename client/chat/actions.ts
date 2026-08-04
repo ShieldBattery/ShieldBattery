@@ -49,6 +49,7 @@ export type ChatActions =
   | SearchChannels
   | ActivateChannel
   | DeactivateChannel
+  | TrimChannelHistory
   | InitChannel
   | InitActiveUsers
   | UpdateJoin
@@ -262,6 +263,19 @@ export interface ActivateChannel {
  */
 export interface DeactivateChannel {
   type: '@chat/deactivateChannel'
+  payload: {
+    channelId: SbChannelId
+  }
+}
+
+/**
+ * Trim the message history of an active chat channel down to the same cap applied to inactive
+ * channels. This is a purely client-side action used to bound memory usage for channels that stay
+ * activated for a long time, and is only dispatched while the user is scrolled to the bottom of
+ * the message list (so the trim doesn't visibly remove content they're reading).
+ */
+export interface TrimChannelHistory {
+  type: '@chat/trimChannelHistory'
   payload: {
     channelId: SbChannelId
   }

@@ -28,6 +28,7 @@ import {
   leaveChannelWithConfirmation,
   retrieveUserList,
   sendMessage,
+  trimChannelHistory,
 } from './action-creators'
 import { ChannelContext } from './channel-context'
 import { CHANNEL_HEADER_HEIGHT, ChannelHeader } from './channel-header'
@@ -43,6 +44,7 @@ import {
   NewChannelOwnerMessage,
   SelfJoinChannelMessage,
 } from './chat-message-layout'
+import { INACTIVE_CHANNEL_MAX_HISTORY } from './chat-reducer'
 
 const MESSAGES_LIMIT = 50
 
@@ -234,6 +236,13 @@ export function ConnectedChatChannel({
     dispatch(getMessageHistory(channelId, MESSAGES_LIMIT)),
   )
 
+  const messageCount = channelMessages?.messages.length ?? 0
+  const onTrimHistory = useStableCallback(() => {
+    if (messageCount > INACTIVE_CHANNEL_MAX_HISTORY) {
+      dispatch(trimChannelHistory(channelId))
+    }
+  })
+
   const onSendChatMessage = useStableCallback((msg: string) =>
     dispatch(sendMessage(channelId, msg)),
   )
@@ -261,6 +270,7 @@ export function ConnectedChatChannel({
               mentionableUsers,
               baseMentionableUsers,
             }}
+            onTrimHistory={onTrimHistory}
             header={
               // These are basically guaranteed to be defined here, but still doing the check instead
               // of asserting them with ! because better to be safe than sorry, or something.

@@ -19,7 +19,9 @@ import {
   getMessageHistory,
   sendMessage,
   startWhisperSessionById,
+  trimSessionHistory,
 } from './action-creators'
+import { INACTIVE_SESSION_MAX_HISTORY } from './whisper-reducer'
 
 const MESSAGES_LIMIT = 50
 
@@ -143,6 +145,13 @@ export function ConnectedWhisper({
     )
   })
 
+  const messageCount = whisperSession?.messages.length ?? 0
+  const onTrimHistory = useStableCallback(() => {
+    if (messageCount > INACTIVE_SESSION_MAX_HISTORY) {
+      dispatch(trimSessionHistory(targetId))
+    }
+  })
+
   const onSendChatMessage = useStableCallback((msg: string) => {
     dispatch(
       sendMessage(targetId, msg, {
@@ -184,6 +193,7 @@ export function ConnectedWhisper({
           onSendChatMessage,
           storageKey: `whisper.${targetId}`,
         }}
+        onTrimHistory={onTrimHistory}
         extraContent={
           <UserInfoContainer>
             <UserProfileOverlayContents userId={targetId} showHintText={false} />

@@ -4,7 +4,7 @@ import { CommonMessageType, CommonTextMessage } from '../messaging/message-recor
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
-const INACTIVE_SESSION_MAX_HISTORY = 150
+export const INACTIVE_SESSION_MAX_HISTORY = 150
 
 export interface WhisperSession {
   target: SbUserId
@@ -164,6 +164,20 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
     session.hasHistory = session.hasHistory || hasHistory
     session.activated = false
+  },
+
+  ['@whispers/trimSessionHistory'](state, action) {
+    const { target } = action.payload
+    if (!state.byId.has(target)) {
+      return
+    }
+
+    const session = state.byId.get(target)!
+
+    const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
+
+    session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
+    session.hasHistory = session.hasHistory || hasHistory
   },
 
   ['@network/connect']() {

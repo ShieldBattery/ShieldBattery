@@ -17,7 +17,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
-const INACTIVE_CHANNEL_MAX_HISTORY = 150
+export const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
 export interface UsersState {
   active: Set<SbUserId>
@@ -541,6 +541,20 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
     state.activatedChannels.delete(channelId)
+  },
+
+  ['@chat/trimChannelHistory'](state, action) {
+    const { channelId } = action.payload
+
+    const channelMessages = state.idToMessages.get(channelId)
+    if (!channelMessages) {
+      return
+    }
+
+    const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
+
+    channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+    channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
   },
 
   ['@chat/preferencesChanged'](state, action) {

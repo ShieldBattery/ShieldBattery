@@ -39,7 +39,7 @@ import { RequestCoalescer } from '../network/request-coalescer'
 import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 import { DURATION_LONG } from '../snackbars/snackbar-durations'
-import { ActivateChannel, DeactivateChannel } from './actions'
+import { ActivateChannel, DeactivateChannel, TrimChannelHistory } from './actions'
 
 export function getJoinedChannels(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -604,6 +604,13 @@ export function activateChannel(channelId: SbChannelId): ActivateChannel {
 export function deactivateChannel(channelId: SbChannelId): DeactivateChannel {
   return {
     type: '@chat/deactivateChannel',
+    payload: { channelId },
+  }
+}
+
+export function trimChannelHistory(channelId: SbChannelId): TrimChannelHistory {
+  return {
+    type: '@chat/trimChannelHistory',
     payload: { channelId },
   }
 }

@@ -9,7 +9,7 @@ import { ThunkAction } from '../dispatch-registry'
 import { push, replace } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
-import { ActivateWhisperSession, DeactivateWhisperSession } from './actions'
+import { ActivateWhisperSession, DeactivateWhisperSession, TrimSessionHistory } from './actions'
 
 export function getWhisperSessions(spec: RequestHandlingSpec<void>): ThunkAction {
   return abortableThunk(spec, async dispatch => {
@@ -107,6 +107,13 @@ export function activateWhisperSession(target: SbUserId): ActivateWhisperSession
 export function deactivateWhisperSession(target: SbUserId): DeactivateWhisperSession {
   return {
     type: '@whispers/deactivateWhisperSession',
+    payload: { target },
+  }
+}
+
+export function trimSessionHistory(target: SbUserId): TrimSessionHistory {
+  return {
+    type: '@whispers/trimSessionHistory',
     payload: { target },
   }
 }
