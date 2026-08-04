@@ -13,8 +13,18 @@ import { DeletedSessionRegistry } from './deleted-sessions'
 const SESSION_TTL_SECONDS = Number(process.env.SB_SESSION_TTL)
 const JWT_SECRET = process.env.SB_JWT_SECRET!
 
-function sessionKey(userId: SbUserId, sessionId: string) {
+export function sessionKey(userId: SbUserId, sessionId: string) {
   return `sessions:${userId}:${sessionId}`
+}
+
+/**
+ * Key for the set of session IDs belonging to a user, used to look up their sessions without
+ * scanning the whole keyspace. Its TTL is refreshed alongside any member session's activity, so
+ * it always outlives its live members; sessionIds whose underlying keys have since expired may
+ * linger in the set, so consumers must tolerate deleting keys that no longer exist.
+ */
+export function userSessionsKey(userId: SbUserId) {
+  return `user-sessions:${userId}`
 }
 
 const jwtSign = promisify(jwt.sign) as any as (
@@ -79,11 +89,16 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
         stayLoggedIn,
       }
 
-      await redis.setex(
-        sessionKey(userId, sessionData.sessionId),
-        SESSION_TTL_SECONDS,
-        JSON.stringify(sessionData),
-      )
+      await redis
+        .pipeline()
+        .setex(
+          sessionKey(userId, sessionData.sessionId),
+          SESSION_TTL_SECONDS,
+          JSON.stringify(sessionData),
+        )
+        .sadd(userSessionsKey(userId), sessionData.sessionId)
+        .expire(userSessionsKey(userId), SESSION_TTL_SECONDS)
+        .exec()
 
       ctx.state.jwtData = {
         iat: Math.floor(now / 1000),
@@ -94,10 +109,11 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
 
     ctx.deleteSession = async () => {
       if (ctx.state.jwtData) {
-        const key = sessionKey(ctx.state.jwtData.userId, ctx.state.jwtData.sessionId)
+        const { userId, sessionId } = ctx.state.jwtData
+        const key = sessionKey(userId, sessionId)
 
         if (deletedSessions.register(key)) {
-          await redis.del(key)
+          await redis.pipeline().del(key).srem(userSessionsKey(userId), sessionId).exec()
         }
       }
 
@@ -134,7 +150,14 @@ export function jwtSessions(): Koa.Middleware<StateWithJwt> {
         const { jwtData } = ctx.state
 
         try {
-          await redis.expire(sessionKey(jwtData.userId, jwtData.sessionId), SESSION_TTL_SECONDS)
+          // The SADD re-indexes the session on every request, so sessions created before this
+          // set existed get picked up the next time they're used.
+          await redis
+            .pipeline()
+            .expire(sessionKey(jwtData.userId, jwtData.sessionId), SESSION_TTL_SECONDS)
+            .sadd(userSessionsKey(jwtData.userId), jwtData.sessionId)
+            .expire(userSessionsKey(jwtData.userId), SESSION_TTL_SECONDS)
+            .exec()
         } catch (err) {
           ctx.log.error({ err }, 'error setting session new expiration')
         }
