@@ -38,7 +38,7 @@ export async function parseMap(
   extension: MapExtension,
   generateImages = true,
 ): Promise<MapParseResult> {
-  return mapQueue.addToQueue(() => mapParseWorker(path, extension))
+  return mapQueue.addToQueue(() => mapParseWorker(path, extension, generateImages))
 }
 
 export class MapServiceError extends CodedError<MapServiceErrorCode> {}
