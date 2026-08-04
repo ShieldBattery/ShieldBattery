@@ -66,13 +66,8 @@ class Logger {
 
     this.out.on('open', () => {
       this.opened = true
-      while (this.buffer.length) {
-        const msg = this.buffer.shift()
-        const result = this.out.write(msg)
-        if (!result) {
-          this.handleDrain()
-          return
-        }
+      if (!this.drainBuffer()) {
+        this.handleDrain()
       }
     })
 
@@ -126,17 +121,34 @@ class Logger {
   private handleDrain() {
     this.draining = true
     this.out.once('drain', () => {
-      while (this.buffer.length) {
-        const msg = this.buffer.shift()
-        const result = this.out.write(msg)
-        if (!result) {
-          this.handleDrain()
-          return
-        }
+      if (this.drainBuffer()) {
+        this.draining = false
+      } else {
+        this.handleDrain()
       }
-
-      this.draining = false
     })
+  }
+
+  /**
+   * Writes as much of the buffer as the stream will accept, in order, removing the written
+   * entries. Stops early (leaving the rest buffered) if a write reports backpressure.
+   *
+   * Returns whether the buffer was fully drained (i.e. no backpressure was hit).
+   */
+  private drainBuffer(): boolean {
+    let i = 0
+    let canWriteMore = true
+    while (i < this.buffer.length) {
+      canWriteMore = this.out.write(this.buffer[i])
+      i++
+      if (!canWriteMore) {
+        break
+      }
+    }
+    if (i > 0) {
+      this.buffer.splice(0, i)
+    }
+    return canWriteMore
   }
 
   private system(msg: string) {
