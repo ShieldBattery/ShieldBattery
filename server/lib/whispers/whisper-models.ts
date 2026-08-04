@@ -41,6 +41,28 @@ export async function startWhisperSession(userId: SbUserId, targetUserId: SbUser
   }
 }
 
+/**
+ * Starts whisper sessions in both directions between two users (each user gets a session row
+ * pointing at the other), in a single round trip.
+ */
+export async function startWhisperSessionsBothDirections(
+  userIdA: SbUserId,
+  userIdB: SbUserId,
+): Promise<void> {
+  const { client, done } = await db()
+  try {
+    await client.query(sql`
+      INSERT INTO whisper_sessions (user_id, target_user_id, start_date)
+      VALUES
+        (${userIdA}, ${userIdB}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+        (${userIdB}, ${userIdA}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+      ON CONFLICT DO NOTHING;
+    `)
+  } finally {
+    done()
+  }
+}
+
 export async function closeWhisperSession(userId: SbUserId, targetId: SbUserId): Promise<boolean> {
   const { client, done } = await db()
   try {

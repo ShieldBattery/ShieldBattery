@@ -28,6 +28,7 @@ import {
   addMessageToWhisper,
   closeWhisperSession as dbCloseWhisperSession,
   startWhisperSession as dbStartWhisperSession,
+  startWhisperSessionsBothDirections as dbStartWhisperSessionsBothDirections,
   getMessagesForWhisperSession,
   getWhisperSessionsForUser,
 } from './whisper-models'
@@ -157,10 +158,9 @@ export default class WhisperService {
 
     // TODO(tec27): This makes the start throttle rather useless, doesn't it? Think of a better way
     // to throttle people starting tons of tons of sessions with different people
-    await Promise.all([
-      this.ensureWhisperSession(user, target),
-      this.ensureWhisperSession(target, user),
-    ])
+    await dbStartWhisperSessionsBothDirections(user.id, target.id)
+    this.applyWhisperSessionState(user, target)
+    this.applyWhisperSessionState(target, user)
 
     this.publisher.publish(getSessionPath(userId, targetUser), {
       action: 'message',
@@ -271,7 +271,15 @@ export default class WhisperService {
 
   private async ensureWhisperSession(user: SbUser, target: SbUser) {
     await dbStartWhisperSession(user.id, target.id)
+    this.applyWhisperSessionState(user, target)
+  }
 
+  /**
+   * Updates the in-memory session bookkeeping (and subscribes the user's sockets, if any) to
+   * reflect that `user` has a whisper session open with `target`. Assumes the corresponding DB row
+   * already exists.
+   */
+  private applyWhisperSessionState(user: SbUser, target: SbUser) {
     const userSockets = this.userSocketsManager.getById(user.id)
     // If the user is offline, the rest of the code will be done once they connect
     if (!userSockets) {
