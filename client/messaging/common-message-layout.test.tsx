@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { encodePrettyId } from '../../common/pretty-id'
 import { makeSbUserId } from '../../common/users/sb-user-id'
 import createStore from '../create-store'
-import { LOBBY_INVITE_CARD_MAX_AGE_MS } from '../lobbies/lobby-invite-card'
+import { LOBBY_INVITE_CARD_MAX_AGE_MS, lobbyIdFromMessageLink } from '../lobbies/lobby-invite-card'
 import { TextMessage } from './common-message-layout'
 
 vi.mock('../lobbies/lobby-invite-card', async importOriginal => {
@@ -82,6 +82,17 @@ describe('client/messaging/common-message-layout/TextMessage', () => {
 
   test('message with a mention of self user', () => {
     expect(doRender('Hey <@1>')).toMatchSnapshot()
+  })
+
+  // Canary for the invite-card tests below: card rendering depends on lobby-link detection, which
+  // compares a link's origin against the server origin assembled from the test environment
+  // (IS_ELECTRON global + the SB_SERVER define, via `baseUrl`). If this test fails alongside the
+  // card tests, that environment chain broke (or drifted in vitest config) — the component's card
+  // gating is not at fault. If the card tests fail while this passes, suspect the component.
+  test('lobby-link detection resolves ids against the test server origin', () => {
+    expect(
+      lobbyIdFromMessageLink(`https://shieldbattery.net/lobbies/${LOBBY_ID}/my-cool-lobby`),
+    ).toBe(LOBBY_ID)
   })
 
   test('message with a lobby link renders exactly one invite card', () => {
