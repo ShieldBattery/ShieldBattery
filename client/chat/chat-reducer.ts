@@ -17,7 +17,7 @@ import { SbUserId } from '../../common/users/sb-user-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
-export const INACTIVE_CHANNEL_MAX_HISTORY = 150
+const INACTIVE_CHANNEL_MAX_HISTORY = 150
 
 export interface UsersState {
   active: Set<SbUserId>
@@ -56,6 +56,8 @@ export interface ChatState {
   idToSelfPermissions: Map<SbChannelId, ChannelPermissions>
   /** A set of joined chat channels that are activated */
   activatedChannels: Set<SbChannelId>
+  /** A set of joined chat channels whose message list is scrolled to the bottom */
+  atBottomChannels: Set<SbChannelId>
   /** A set of joined chat channels that are unread */
   unreadChannels: Set<SbChannelId>
   /** A set of channel IDs saved in various chat messages that no longer exist. */
@@ -73,6 +75,7 @@ const DEFAULT_CHAT_STATE: Immutable<ChatState> = {
   idToSelfPreferences: new Map(),
   idToSelfPermissions: new Map(),
   activatedChannels: new Set(),
+  atBottomChannels: new Set(),
   unreadChannels: new Set(),
   deletedChannels: new Set(),
 }
@@ -153,6 +156,7 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
   state.idToSelfPreferences.delete(channelId)
   state.idToSelfPermissions.delete(channelId)
   state.activatedChannels.delete(channelId)
+  state.atBottomChannels.delete(channelId)
   state.unreadChannels.delete(channelId)
 }
 
@@ -182,8 +186,12 @@ function updateMessages(
   const isChannelActivated = state.activatedChannels.has(channelId)
   const isChannelUnread = state.unreadChannels.has(channelId)
 
+  // Trimming is safe when nobody is reading scrollback: either the channel isn't being viewed, or
+  // the viewer is pinned to the bottom, where auto-scroll makes removing top messages invisible.
+  const canTrim = !isChannelActivated || state.atBottomChannels.has(channelId)
+
   let sliced = false
-  if (!isChannelActivated && channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY) {
+  if (canTrim && channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY) {
     channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     sliced = true
   }
@@ -526,6 +534,8 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
 
     state.unreadChannels.delete(channelId)
     state.activatedChannels.add(channelId)
+    // Message lists mount pinned to the bottom.
+    state.atBottomChannels.add(channelId)
   },
 
   ['@chat/deactivateChannel'](state, action) {
@@ -541,20 +551,30 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
     channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
     state.activatedChannels.delete(channelId)
+    state.atBottomChannels.delete(channelId)
   },
 
-  ['@chat/trimChannelHistory'](state, action) {
-    const { channelId } = action.payload
+  ['@chat/updateChannelAtBottom'](state, action) {
+    const { channelId, atBottom } = action.payload
 
-    const channelMessages = state.idToMessages.get(channelId)
-    if (!channelMessages) {
-      return
+    const wasAtBottom = state.atBottomChannels.has(channelId)
+    if (atBottom) {
+      state.atBottomChannels.add(channelId)
+    } else {
+      state.atBottomChannels.delete(channelId)
     }
 
-    const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
+    if (atBottom && !wasAtBottom) {
+      // The user returned to the bottom after reading scrollback that accumulated past the cap;
+      // drop it now, where the removal is invisible.
+      const channelMessages = state.idToMessages.get(channelId)
+      if (channelMessages) {
+        const hasHistory = channelMessages.messages.length > INACTIVE_CHANNEL_MAX_HISTORY
 
-    channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
-    channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
+        channelMessages.messages = channelMessages.messages.slice(-INACTIVE_CHANNEL_MAX_HISTORY)
+        channelMessages.hasHistory = channelMessages.hasHistory || hasHistory
+      }
+    }
   },
 
   ['@chat/preferencesChanged'](state, action) {

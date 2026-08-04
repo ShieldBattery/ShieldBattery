@@ -9,7 +9,7 @@ export type WhisperActions =
   | LoadMessageHistory
   | ActivateWhisperSession
   | DeactivateWhisperSession
-  | TrimSessionHistory
+  | UpdateSessionAtBottom
   | WhisperSessionInit
   | WhisperSessionClose
   | WhisperMessageUpdate
@@ -59,15 +59,16 @@ export interface DeactivateWhisperSession {
 }
 
 /**
- * Trim the message history of an active whisper session down to the same cap applied to inactive
- * sessions. This is a purely client-side action used to bound memory usage for sessions that stay
- * activated for a long time, and is only dispatched while the user is scrolled to the bottom of
- * the message list (so the trim doesn't visibly remove content they're reading).
+ * Update whether an activated whisper session's message list is scrolled to the bottom. This is a
+ * purely client-side action; the reducer uses it to trim message history down to the same cap
+ * applied to inactive sessions, since removing old messages while pinned to the bottom is
+ * invisible to the user (auto-scroll keeps the view at the newest message).
  */
-export interface TrimSessionHistory {
-  type: '@whispers/trimSessionHistory'
+export interface UpdateSessionAtBottom {
+  type: '@whispers/updateSessionAtBottom'
   payload: {
     target: SbUserId
+    atBottom: boolean
   }
 }
 

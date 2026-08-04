@@ -4,7 +4,7 @@ import { CommonMessageType, CommonTextMessage } from '../messaging/message-recor
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
 
 // How many messages should be kept for inactive channels
-export const INACTIVE_SESSION_MAX_HISTORY = 150
+const INACTIVE_SESSION_MAX_HISTORY = 150
 
 export interface WhisperSession {
   target: SbUserId
@@ -13,6 +13,8 @@ export interface WhisperSession {
   hasHistory: boolean
 
   activated: boolean
+  /** Whether this session's message list is scrolled to the bottom. */
+  atBottom: boolean
   hasUnread: boolean
 }
 
@@ -22,6 +24,7 @@ function defaultWhisperSession(target: SbUserId): WhisperSession {
     messages: [],
     hasHistory: true,
     activated: false,
+    atBottom: false,
     hasUnread: false,
   }
 }
@@ -52,8 +55,12 @@ function updateMessages(
 
   session.messages = updateFn(session.messages)
 
+  // Trimming is safe when nobody is reading scrollback: either the session isn't being viewed, or
+  // the viewer is pinned to the bottom, where auto-scroll makes removing top messages invisible.
+  const canTrim = !session.activated || session.atBottom
+
   let sliced = false
-  if (!session.activated && session.messages.length > INACTIVE_SESSION_MAX_HISTORY) {
+  if (canTrim && session.messages.length > INACTIVE_SESSION_MAX_HISTORY) {
     session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
     sliced = true
   }
@@ -148,6 +155,8 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     const session = state.byId.get(target)!
     session.activated = true
+    // Message lists mount pinned to the bottom.
+    session.atBottom = true
     session.hasUnread = false
   },
 
@@ -164,20 +173,27 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
     session.hasHistory = session.hasHistory || hasHistory
     session.activated = false
+    session.atBottom = false
   },
 
-  ['@whispers/trimSessionHistory'](state, action) {
-    const { target } = action.payload
-    if (!state.byId.has(target)) {
+  ['@whispers/updateSessionAtBottom'](state, action) {
+    const { target, atBottom } = action.payload
+    const session = state.byId.get(target)
+    if (!session) {
       return
     }
 
-    const session = state.byId.get(target)!
+    const wasAtBottom = session.atBottom
+    session.atBottom = atBottom
 
-    const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
+    if (atBottom && !wasAtBottom) {
+      // The user returned to the bottom after reading scrollback that accumulated past the cap;
+      // drop it now, where the removal is invisible.
+      const hasHistory = session.messages.length > INACTIVE_SESSION_MAX_HISTORY
 
-    session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
-    session.hasHistory = session.hasHistory || hasHistory
+      session.messages = session.messages.slice(-INACTIVE_SESSION_MAX_HISTORY)
+      session.hasHistory = session.hasHistory || hasHistory
+    }
   },
 
   ['@network/connect']() {

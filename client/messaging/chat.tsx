@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { Merge, Simplify } from 'type-fest'
@@ -8,7 +8,6 @@ import { MenuItem, MenuItemProps } from '../material/menu/item'
 import { MenuItemSymbol, MenuItemType } from '../material/menu/menu-item-symbol'
 import { MessageInput, MessageInputHandle, MessageInputProps } from '../messaging/message-input'
 import { MessageList, MessageListProps } from '../messaging/message-list'
-import { useStableCallback } from '../react/state-hooks'
 import { useAppDispatch } from '../redux-hooks'
 import {
   BaseUserMenuItemsProvider,
@@ -59,11 +58,10 @@ export interface ChatProps {
   /** If true, prevents mentions and usernames from being interactable. Defaults to false. */
   disallowMentionInteraction?: boolean
   /**
-   * Called when the user is scrolled to the bottom of the message list and the message count
-   * changes (or they scroll back down to the bottom). Use this to cap in-memory history without
-   * visibly removing content the user is currently reading.
+   * Called when the user's scrolled-to-bottom state changes. Message lists mount pinned to the
+   * bottom, so owners should assume at-bottom initially.
    */
-  onTrimHistory?: () => void
+  onAtBottomChange?: (atBottom: boolean) => void
 }
 
 /**
@@ -82,26 +80,28 @@ export function Chat({
   UserMenu,
   MessageMenu = DefaultMessageMenu,
   disallowMentionInteraction: disallowUserInteraction,
-  onTrimHistory,
+  onAtBottomChange,
 }: ChatProps) {
   const dispatch = useAppDispatch()
   const [isScrolledUp, setIsScrolledUp] = useState<boolean>(false)
+  // Message lists mount pinned to the bottom, matching how `MessageList` initially scrolls.
+  const wasAtBottomRef = useRef(true)
 
-  const onScrollUpdate = useCallback((target: EventTarget) => {
-    const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
+  const onScrollUpdate = useCallback(
+    (target: EventTarget) => {
+      const { scrollTop, scrollHeight, clientHeight } = target as HTMLDivElement
 
-    const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
-    setIsScrolledUp(newIsScrolledUp)
-  }, [])
+      const newIsScrolledUp = scrollTop + clientHeight < scrollHeight
+      setIsScrolledUp(newIsScrolledUp)
 
-  const trimHistory = useStableCallback(() => {
-    onTrimHistory?.()
-  })
-  useEffect(() => {
-    if (!isScrolledUp) {
-      trimHistory()
-    }
-  }, [isScrolledUp, listProps.messages.length, trimHistory])
+      const newAtBottom = !newIsScrolledUp
+      if (newAtBottom !== wasAtBottomRef.current) {
+        wasAtBottomRef.current = newAtBottom
+        onAtBottomChange?.(newAtBottom)
+      }
+    },
+    [onAtBottomChange],
+  )
 
   const messageInputRef = useRef<MessageInputHandle>(null)
 

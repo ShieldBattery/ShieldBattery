@@ -49,7 +49,7 @@ export type ChatActions =
   | SearchChannels
   | ActivateChannel
   | DeactivateChannel
-  | TrimChannelHistory
+  | UpdateChannelAtBottom
   | InitChannel
   | InitActiveUsers
   | UpdateJoin
@@ -269,15 +269,16 @@ export interface DeactivateChannel {
 }
 
 /**
- * Trim the message history of an active chat channel down to the same cap applied to inactive
- * channels. This is a purely client-side action used to bound memory usage for channels that stay
- * activated for a long time, and is only dispatched while the user is scrolled to the bottom of
- * the message list (so the trim doesn't visibly remove content they're reading).
+ * Update whether an activated chat channel's message list is scrolled to the bottom. This is a
+ * purely client-side action; the reducer uses it to trim message history down to the same cap
+ * applied to inactive channels, since removing old messages while pinned to the bottom is
+ * invisible to the user (auto-scroll keeps the view at the newest message).
  */
-export interface TrimChannelHistory {
-  type: '@chat/trimChannelHistory'
+export interface UpdateChannelAtBottom {
+  type: '@chat/updateChannelAtBottom'
   payload: {
     channelId: SbChannelId
+    atBottom: boolean
   }
 }
 
