@@ -33,7 +33,6 @@ import { NotificationType } from '../../../common/notifications'
 import { Patch } from '../../../common/patch'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
-import transact from '../db/transaction'
 import { CodedError, makeErrorConverterMiddleware } from '../errors/coded-error'
 import { asHttpError } from '../errors/error-with-payload'
 import { writeFile } from '../files'
@@ -346,52 +345,51 @@ export class LeagueAdminApi {
       ? await resizeImage(badgeFile.filepath, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
       : [undefined, undefined]
 
-    return await transact(async client => {
-      let imagePath: string | undefined
-      if (image) {
-        imagePath = createImagePath('league-images', imageExtension)
-      }
-      let badgePath: string | undefined
-      if (badge) {
-        badgePath = createImagePath('league-images', badgeExtension)
-      }
+    let imagePath: string | undefined
+    if (image) {
+      imagePath = createImagePath('league-images', imageExtension)
+    }
+    let badgePath: string | undefined
+    if (badge) {
+      badgePath = createImagePath('league-images', badgeExtension)
+    }
 
-      const league = await createLeague(
-        {
-          ...leagueData,
-          imagePath,
-          badgePath,
-        },
-        client,
+    // Image paths are randomly generated rather than derived from the league, so the files can be
+    // stored before the row that points at them exists. Files that never get a row are unreachable
+    // and harmless, whereas a stored path pointing at a missing file would render as a broken
+    // image.
+    const filePromises: Array<Promise<unknown>> = []
+
+    if (image && imagePath) {
+      const buffer = await image.toBuffer()
+      filePromises.push(
+        writeFile(imagePath, buffer, {
+          acl: 'public-read',
+          type: mime.getType(imageExtension),
+        }),
       )
+    }
+    if (badge && badgePath) {
+      const buffer = await badge.toBuffer()
+      filePromises.push(
+        writeFile(badgePath, buffer, {
+          acl: 'public-read',
+          type: mime.getType(badgeExtension),
+        }),
+      )
+    }
 
-      const filePromises: Array<Promise<unknown>> = []
+    await Promise.all(filePromises)
 
-      if (image && imagePath) {
-        const buffer = await image.toBuffer()
-        filePromises.push(
-          writeFile(imagePath, buffer, {
-            acl: 'public-read',
-            type: mime.getType(imageExtension),
-          }),
-        )
-      }
-      if (badge && badgePath) {
-        const buffer = await badge.toBuffer()
-        filePromises.push(
-          writeFile(badgePath, buffer, {
-            acl: 'public-read',
-            type: mime.getType(badgeExtension),
-          }),
-        )
-      }
-
-      await Promise.all(filePromises)
-
-      return {
-        league: toLeagueJson(league),
-      }
+    const league = await createLeague({
+      ...leagueData,
+      imagePath,
+      badgePath,
     })
+
+    return {
+      league: toLeagueJson(league),
+    }
   }
 
   @httpPatch('/:leagueId')
@@ -455,64 +453,66 @@ export class LeagueAdminApi {
       ? await resizeImage(badgeFile.filepath, LEAGUE_BADGE_WIDTH, LEAGUE_BADGE_HEIGHT)
       : [undefined, undefined]
 
-    return await transact(async client => {
-      let imagePath: string | undefined
-      if (image) {
-        imagePath = createImagePath('league-images', imageExtension)
-      }
-      let badgePath: string | undefined
-      if (badge) {
-        badgePath = createImagePath('league-images', badgeExtension)
-      }
+    let imagePath: string | undefined
+    if (image) {
+      imagePath = createImagePath('league-images', imageExtension)
+    }
+    let badgePath: string | undefined
+    if (badge) {
+      badgePath = createImagePath('league-images', badgeExtension)
+    }
 
-      const updatedLeague: Patch<Omit<League, 'id'>> = {
-        ...leagueChanges,
-      }
-      delete (updatedLeague as any).image
-      delete (updatedLeague as any).deleteImage
-      delete (updatedLeague as any).badge
-      delete (updatedLeague as any).deleteBadge
+    // Image paths are randomly generated rather than derived from the league, so the files can be
+    // stored before the row that points at them exists. Files that never get a row are unreachable
+    // and harmless, whereas a stored path pointing at a missing file would render as a broken
+    // image.
+    const filePromises: Array<Promise<unknown>> = []
 
-      if (leagueChanges.deleteImage) {
-        updatedLeague.imagePath = null
-      } else if (imagePath) {
-        updatedLeague.imagePath = imagePath
-      }
-      if (leagueChanges.deleteBadge) {
-        updatedLeague.badgePath = null
-      } else if (badgePath) {
-        updatedLeague.badgePath = badgePath
-      }
+    if (image && imagePath) {
+      const buffer = await image.toBuffer()
+      filePromises.push(
+        writeFile(imagePath, buffer, {
+          acl: 'public-read',
+          type: mime.getType(imageExtension),
+        }),
+      )
+    }
+    if (badge && badgePath) {
+      const buffer = await badge.toBuffer()
+      filePromises.push(
+        writeFile(badgePath, buffer, {
+          acl: 'public-read',
+          type: mime.getType(badgeExtension),
+        }),
+      )
+    }
 
-      const league = await updateLeague(leagueId, updatedLeague, client)
+    await Promise.all(filePromises)
 
-      const filePromises: Array<Promise<unknown>> = []
+    const updatedLeague: Patch<Omit<League, 'id'>> = {
+      ...leagueChanges,
+    }
+    delete (updatedLeague as any).image
+    delete (updatedLeague as any).deleteImage
+    delete (updatedLeague as any).badge
+    delete (updatedLeague as any).deleteBadge
 
-      if (image && imagePath) {
-        const buffer = await image.toBuffer()
-        filePromises.push(
-          writeFile(imagePath, buffer, {
-            acl: 'public-read',
-            type: mime.getType(imageExtension),
-          }),
-        )
-      }
-      if (badge && badgePath) {
-        const buffer = await badge.toBuffer()
-        filePromises.push(
-          writeFile(badgePath, buffer, {
-            acl: 'public-read',
-            type: mime.getType(badgeExtension),
-          }),
-        )
-      }
+    if (leagueChanges.deleteImage) {
+      updatedLeague.imagePath = null
+    } else if (imagePath) {
+      updatedLeague.imagePath = imagePath
+    }
+    if (leagueChanges.deleteBadge) {
+      updatedLeague.badgePath = null
+    } else if (badgePath) {
+      updatedLeague.badgePath = badgePath
+    }
 
-      await Promise.all(filePromises)
+    const league = await updateLeague(leagueId, updatedLeague)
 
-      return {
-        league: toLeagueJson(league),
-      }
-    })
+    return {
+      league: toLeagueJson(league),
+    }
   }
 
   @httpPatch('/:leagueId/:userId/ban')

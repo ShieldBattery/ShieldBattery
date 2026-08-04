@@ -10,7 +10,6 @@ import {
   toBugReportJson,
 } from '../../../common/bugs'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import transact from '../db/transaction'
 import { DiscordWebhookNotifier } from '../discord/webhook-notifier'
 import { deleteFile, getSignedUrl, writeFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
@@ -27,6 +26,7 @@ import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import {
   createBugReport,
+  deleteBugReport,
   findDeletableBugReports,
   getBugReport,
   listBugReports,
@@ -101,31 +101,40 @@ export class BugsApi {
 
     const logsStream = createReadStream(ctx.request.files.logs.filepath)
 
-    await transact(async client => {
-      const report = await createBugReport(client, {
-        submitterId: ctx.session?.user?.id,
-        details: details.slice(0, 5000),
-        createdAt: new Date(this.clock.now()),
-      })
-      await writeFile(`bug-reports/${report.id}.zip`, logsStream, { acl: 'private' })
-
-      // This is best-effort and doesn't affect the success of the request
-      const sanitizedDetails = details.replace(/[\r\n]+/g, ' ')
-      this.webhookNotifier
-        .notify({
-          content:
-            `New bug report from: ${ctx.session?.user?.name ?? 'Unknown user'}\n\n` +
-            `> ${
-              sanitizedDetails.length > 100
-                ? sanitizedDetails.slice(0, 100) + '…'
-                : sanitizedDetails
-            }\n\n` +
-            `${process.env.SB_CANONICAL_HOST}/admin/bug-reports/${report.id}`,
-        })
-        .catch(err => {
-          logger.error({ err }, `error notifying webhook for new bug report`)
-        })
+    // The logs file is keyed by the report's ID, so the row has to exist before it can be
+    // uploaded. A report whose logs never made it is worse than no report at all (its download
+    // link can't resolve), so it gets deleted again if the upload fails.
+    const report = await createBugReport({
+      submitterId: ctx.session?.user?.id,
+      details: details.slice(0, 5000),
+      createdAt: new Date(this.clock.now()),
     })
+
+    try {
+      await writeFile(`bug-reports/${report.id}.zip`, logsStream, { acl: 'private' })
+    } catch (err: unknown) {
+      try {
+        await deleteBugReport(report.id)
+      } catch (deleteErr: unknown) {
+        logger.error({ err: deleteErr }, `failed to delete bug report ${report.id} after upload`)
+      }
+      throw err
+    }
+
+    // This is best-effort and doesn't affect the success of the request
+    const sanitizedDetails = details.replace(/[\r\n]+/g, ' ')
+    this.webhookNotifier
+      .notify({
+        content:
+          `New bug report from: ${ctx.session?.user?.name ?? 'Unknown user'}\n\n` +
+          `> ${
+            sanitizedDetails.length > 100 ? sanitizedDetails.slice(0, 100) + '…' : sanitizedDetails
+          }\n\n` +
+          `${process.env.SB_CANONICAL_HOST}/admin/bug-reports/${report.id}`,
+      })
+      .catch(err => {
+        logger.error({ err }, `error notifying webhook for new bug report`)
+      })
 
     return {}
   }

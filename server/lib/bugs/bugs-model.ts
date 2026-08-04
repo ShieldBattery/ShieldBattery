@@ -19,15 +19,32 @@ function convertFromDb(row: DbBugReport): BugReport {
 }
 
 export async function createBugReport(
-  client: DbClient,
   { submitterId, details, createdAt }: { submitterId?: SbUserId; details: string; createdAt: Date },
+  withClient?: DbClient,
 ): Promise<BugReport> {
-  const result = await client.query<DbBugReport>(sql`
-    INSERT INTO bug_reports (submitter_id, details, created_at)
-    VALUES (${submitterId}, ${details}, ${createdAt})
-    RETURNING *
-  `)
-  return convertFromDb(result.rows[0])
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbBugReport>(sql`
+      INSERT INTO bug_reports (submitter_id, details, created_at)
+      VALUES (${submitterId}, ${details}, ${createdAt})
+      RETURNING *
+    `)
+    return convertFromDb(result.rows[0])
+  } finally {
+    done()
+  }
+}
+
+export async function deleteBugReport(reportId: string, withClient?: DbClient): Promise<void> {
+  const { client, done } = await db(withClient)
+  try {
+    await client.query(sql`
+      DELETE FROM bug_reports
+      WHERE id = ${reportId}
+    `)
+  } finally {
+    done()
+  }
 }
 
 export async function listBugReports(

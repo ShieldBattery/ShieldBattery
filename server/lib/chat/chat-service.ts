@@ -497,71 +497,73 @@ export default class ChatService {
       ? await resizeImage(badgeFile.filepath, CHANNEL_BADGE_WIDTH, CHANNEL_BADGE_HEIGHT)
       : [undefined, undefined]
 
-    return await transact(async () => {
-      let bannerPath: string | undefined
-      if (banner) {
-        bannerPath = createImagePath('channel-images', bannerExtension)
-      }
-      let badgePath: string | undefined
-      if (badge) {
-        badgePath = createImagePath('channel-images', badgeExtension)
-      }
+    let bannerPath: string | undefined
+    if (banner) {
+      bannerPath = createImagePath('channel-images', bannerExtension)
+    }
+    let badgePath: string | undefined
+    if (badge) {
+      badgePath = createImagePath('channel-images', badgeExtension)
+    }
 
-      const updatedChannel: Patch<EditableChannelFields> = { ...updates }
-      delete (updatedChannel as any).banner
-      delete (updatedChannel as any).deleteBanner
-      delete (updatedChannel as any).badge
-      delete (updatedChannel as any).deleteBadge
+    // Image paths are randomly generated rather than derived from the channel, so the files can be
+    // stored before the row that points at them exists. Files that never get a row are unreachable
+    // and harmless, whereas a stored path pointing at a missing file would render as a broken
+    // image.
+    const filePromises: Array<Promise<unknown>> = []
 
-      if (updates.deleteBanner) {
-        updatedChannel.bannerPath = null
-      } else if (bannerPath) {
-        updatedChannel.bannerPath = bannerPath
-      }
-      if (updates.deleteBadge) {
-        updatedChannel.badgePath = null
-      } else if (badgePath) {
-        updatedChannel.badgePath = badgePath
-      }
+    if (banner && bannerPath) {
+      const buffer = await banner.toBuffer()
+      filePromises.push(
+        writeFile(bannerPath, buffer, {
+          acl: 'public-read',
+          type: mime.getType(bannerExtension),
+        }),
+      )
+    }
+    if (badge && badgePath) {
+      const buffer = await badge.toBuffer()
+      filePromises.push(
+        writeFile(badgePath, buffer, {
+          acl: 'public-read',
+          type: mime.getType(badgeExtension),
+        }),
+      )
+    }
 
-      const channel = await updateChannel(channelId, updatedChannel)
+    await Promise.all(filePromises)
 
-      const filePromises: Array<Promise<unknown>> = []
+    const updatedChannel: Patch<EditableChannelFields> = { ...updates }
+    delete (updatedChannel as any).banner
+    delete (updatedChannel as any).deleteBanner
+    delete (updatedChannel as any).badge
+    delete (updatedChannel as any).deleteBadge
 
-      if (banner && bannerPath) {
-        const buffer = await banner.toBuffer()
-        filePromises.push(
-          writeFile(bannerPath, buffer, {
-            acl: 'public-read',
-            type: mime.getType(bannerExtension),
-          }),
-        )
-      }
-      if (badge && badgePath) {
-        const buffer = await badge.toBuffer()
-        filePromises.push(
-          writeFile(badgePath, buffer, {
-            acl: 'public-read',
-            type: mime.getType(badgeExtension),
-          }),
-        )
-      }
+    if (updates.deleteBanner) {
+      updatedChannel.bannerPath = null
+    } else if (bannerPath) {
+      updatedChannel.bannerPath = bannerPath
+    }
+    if (updates.deleteBadge) {
+      updatedChannel.badgePath = null
+    } else if (badgePath) {
+      updatedChannel.badgePath = badgePath
+    }
 
-      await Promise.all(filePromises)
+    const channel = await updateChannel(channelId, updatedChannel)
 
-      this.publisher.publish(getChannelPath(channelId), {
-        action: 'edit',
-        channelInfo: toBasicChannelInfo(channel),
-        detailedChannelInfo: toDetailedChannelInfo(channel),
-        joinedChannelInfo: toJoinedChannelInfo(channel),
-      })
-
-      return {
-        channelInfo: toBasicChannelInfo(channel),
-        detailedChannelInfo: toDetailedChannelInfo(channel),
-        joinedChannelInfo: toJoinedChannelInfo(channel),
-      }
+    this.publisher.publish(getChannelPath(channelId), {
+      action: 'edit',
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
     })
+
+    return {
+      channelInfo: toBasicChannelInfo(channel),
+      detailedChannelInfo: toDetailedChannelInfo(channel),
+      joinedChannelInfo: toJoinedChannelInfo(channel),
+    }
   }
 
   async leaveChannel(channelId: SbChannelId, userId: SbUserId): Promise<void> {

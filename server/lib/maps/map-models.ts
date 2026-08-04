@@ -121,30 +121,39 @@ export interface MapParams {
  *
  * @param mapParams Information about the map (should be parsed from the map file)
  * @param storeNewMapFn A function that should store the relevant map data/images if this is a
- *   new map. This will be called during the DB transaction, if it fails then the transaction will
- *   be rolled back. It will not be called if this map already exists in the DB
+ *   new map. It is called before any rows are written, so that a `maps` row never refers to files
+ *   that failed to store; if it rejects, nothing is written to the DB. It will not be called if
+ *   this map already exists in the DB
  */
 export async function addMap(
   mapParams: MapParams,
   storeNewMapFn: () => Promise<void>,
 ): Promise<MapInfo> {
-  return transact(async client => {
-    const { mapData, extension, uploadedBy, visibility, parserVersion } = mapParams
-    const {
-      hash,
-      title,
-      description,
-      width,
-      height,
-      tileset,
-      meleePlayers,
-      umsPlayers,
-      isEud,
-      lobbyInitData,
-    } = mapData
+  const { mapData, extension, uploadedBy, visibility, parserVersion } = mapParams
+  const {
+    hash,
+    title,
+    description,
+    width,
+    height,
+    tileset,
+    meleePlayers,
+    umsPlayers,
+    isEud,
+    lobbyInitData,
+  } = mapData
 
-    const hashBuffer = Buffer.from(hash, 'hex')
-    const exists = await mapExists(hash)
+  const hashBuffer = Buffer.from(hash, 'hex')
+  // Stored files are keyed by the map hash, so storing them before the `maps` row exists is safe:
+  // the contents are identical for any given hash, and files with no row are inert (they're only
+  // ever reached through a row). Two concurrent uploads of the same new map both store the same
+  // bytes, and the loser of the `maps` insert fails its request, as it would have anyway.
+  const exists = await mapExists(hash)
+  if (!exists) {
+    await storeNewMapFn()
+  }
+
+  return transact(async client => {
     if (!exists) {
       const query = sql`
         INSERT INTO maps (hash, extension, title, description,
@@ -155,8 +164,6 @@ export async function addMap(
           ${isEud}, ${parserVersion}, 1);
       `
       await client.query(query)
-      // Run the `transactionFn` only if a new map is added
-      await storeNewMapFn()
     }
 
     const query = sql`
@@ -277,15 +284,22 @@ export async function updateMapImages(
   mapHash: string,
   storeImagesFn: () => Promise<void>,
 ): Promise<void> {
-  return transact(async client => {
-    const hashBuffer = Buffer.from(mapHash, 'hex')
-    const queryPromise = client.query<never>(sql`
+  // `image_version` is the cache-buster clients append to image URLs, so it can only be bumped
+  // once the new images are actually in place. If storing them fails, clients keep using the
+  // images that are still there, and the update can be retried.
+  await storeImagesFn()
+
+  const hashBuffer = Buffer.from(mapHash, 'hex')
+  const { client, done } = await db()
+  try {
+    await client.query<never>(sql`
       UPDATE maps
       SET image_version = image_version + 1
       WHERE hash = ${hashBuffer}
     `)
-    await Promise.all([queryPromise, storeImagesFn()])
-  })
+  } finally {
+    done()
+  }
 }
 
 /**
