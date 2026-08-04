@@ -466,6 +466,9 @@ impl UsersQuery {
                     uses, exhausted, notes
                 FROM user_signup_codes
                 ORDER BY expires_at DESC
+                -- Protective bound: this is admin-gated but has no pagination, so cap the
+                -- result set rather than returning it unbounded.
+                LIMIT 200
                 "#
             )
             .fetch_all(ctx.data::<PgPool>()?)
@@ -479,6 +482,9 @@ impl UsersQuery {
                 FROM user_signup_codes
                 WHERE NOT exhausted
                 ORDER BY expires_at DESC
+                -- Protective bound: this is admin-gated but has no pagination, so cap the
+                -- result set rather than returning it unbounded.
+                LIMIT 200
                 "#
             )
             .fetch_all(ctx.data::<PgPool>()?)

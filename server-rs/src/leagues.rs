@@ -58,6 +58,9 @@ impl LeaguesQuery {
                 FROM leagues
                 WHERE end_at <= NOW()
                 ORDER BY end_at DESC
+                -- Protective bound: leagues only accumulate over time and this table isn't
+                -- paginated yet, so cap the result set rather than returning it unbounded.
+                LIMIT 100
             "#,
         )
         .fetch_all(db)

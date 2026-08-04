@@ -415,6 +415,16 @@ pub async fn create_app(
             // dev mode
             999999
         })
+        .limit_complexity(if settings.env == Env::Production {
+            // Bound on per-query resolver fan-out (default cost = 1 per selected field,
+            // including fields pulled in through fragment spreads). Sized with ample headroom
+            // over the largest legitimate client query.
+            300
+        } else {
+            // NOTE(tec27): GQLi introspection selects a very large number of fields, so we allow
+            // much greater in dev mode
+            999999
+        })
         .finish();
 
     let sensitive_headers: Arc<[_]> = Arc::new([

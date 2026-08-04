@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link\n                FROM leagues\n                WHERE end_at <= NOW()\n                ORDER BY end_at DESC\n            ",
+  "query": "\n                SELECT id, name, matchmaking_type as \"matchmaking_type: _\", description,\n                    signups_after, start_at, end_at, badge_path, image_path, rules_and_info,\n                    link\n                FROM leagues\n                WHERE end_at <= NOW()\n                ORDER BY end_at DESC\n                -- Protective bound: leagues only accumulate over time and this table isn't\n                -- paginated yet, so cap the result set rather than returning it unbounded.\n                LIMIT 100\n            ",
   "describe": {
     "columns": [
       {
@@ -159,5 +159,5 @@
       true
     ]
   },
-  "hash": "092608e1bb06bad2efd88347bbe323aaca9d00a330812a31557d710679c9738f"
+  "hash": "73b573a100e17784eda908fce67bf3a9a0e20cb2c55344aa15041116ee107ef3"
 }
