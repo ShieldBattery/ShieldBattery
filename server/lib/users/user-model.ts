@@ -181,11 +181,11 @@ export async function createUser({
         VALUES (${userInternal.id}, ${hashedPassword});
       `)
 
-      const [permissions] = await Promise.all([
-        createPermissions(client, userInternal.id),
-        createUserStats(client, userInternal.id),
-        signupCodeId ? incrementSignupCodeUsage(signupCodeId, client) : Promise.resolve(),
-      ])
+      const permissions = await createPermissions(client, userInternal.id)
+      await createUserStats(client, userInternal.id)
+      if (signupCodeId) {
+        await incrementSignupCodeUsage(signupCodeId, client)
+      }
 
       await completeCreationFn(userInternal.id, client, transactionCompleted)
 
