@@ -22,13 +22,31 @@ pg.types.setTypeParser(
 // NOTE(tec27): Typings are now missing this option for some reason?
 ;(pg.defaults as any).parseInputDatesAsUTC = true
 
+const DEFAULT_POOL_MAX = 20
+const DEFAULT_CONNECT_TIMEOUT_MILLIS = 10000
+
+/** Parses a positive integer from an env var, falling back to `defaultValue` if unset/invalid. */
+function readPositiveIntEnv(value: string | undefined, defaultValue: number): number {
+  const parsed = Number(value)
+  return Number.isNaN(parsed) || parsed <= 0 ? defaultValue : parsed
+}
+
 let pool: pg.Pool | undefined
 // TODO(tec27): Inject this instead so that tests can initialize it if they need to
 if (!isTestRun()) {
   const connectionString = process.env.DATABASE_URL
   if (!connectionString) throw new Error('DATABASE_URL must be set')
 
-  pool = new pg.Pool({ connectionString })
+  pool = new pg.Pool({
+    connectionString,
+    max: readPositiveIntEnv(process.env.SB_DB_POOL_MAX, DEFAULT_POOL_MAX),
+    // A starved pool should fail fast with an actionable error rather than hanging requests
+    // indefinitely (the pg default is to wait forever for a connection to free up).
+    connectionTimeoutMillis: readPositiveIntEnv(
+      process.env.SB_DB_CONNECT_TIMEOUT_MILLIS,
+      DEFAULT_CONNECT_TIMEOUT_MILLIS,
+    ),
+  })
 }
 
 export interface DbPoolStats {
