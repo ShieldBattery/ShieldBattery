@@ -216,31 +216,54 @@ export async function updateParseData(
   oldMapInfos: MapInfo[],
   parseFn: (mapInfo: MapInfo) => Promise<[data: MapParseData, parserVersion: number] | []>,
 ): Promise<void> {
+  // The parses can be very slow (remote file retrieval + worker-thread parsing), so they all
+  // complete before a DB client is acquired — holding a pooled connection idle across a whole
+  // batch of parses can starve the pool under concurrent requests.
+  const results = await Promise.allSettled(
+    oldMapInfos.map(async mapInfo => {
+      const [newData, parserVersion] = await parseFn(mapInfo)
+      return { mapInfo, newData, parserVersion }
+    }),
+  )
+
+  const updates: Array<{ mapInfo: MapInfo; newData: MapParseData; parserVersion: number }> = []
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const { mapInfo, newData, parserVersion } = result.value
+      if (newData && parserVersion !== undefined) {
+        updates.push({ mapInfo, newData, parserVersion })
+      }
+    }
+  }
+  if (!updates.length) {
+    return
+  }
+
   const { client, done } = await db()
   try {
-    await Promise.allSettled(
-      oldMapInfos.map(async mapInfo => {
-        const [newData, parserVersion] = await parseFn(mapInfo)
-        if (newData && parserVersion !== undefined) {
-          const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
-          await client.query<never>(sql`
-            UPDATE maps
-            SET
-              title = ${newData.title},
-              description = ${newData.description},
-              width = ${newData.width},
-              height = ${newData.height},
-              tileset = ${newData.tileset},
-              players_melee = ${newData.meleePlayers},
-              players_ums = ${newData.umsPlayers},
-              lobby_init_data = ${newData.lobbyInitData},
-              is_eud = ${newData.isEud},
-              parser_version = ${parserVersion}
-            WHERE hash = ${hashBuffer}
-          `)
-        }
-      }),
-    )
+    for (const { mapInfo, newData, parserVersion } of updates) {
+      const hashBuffer = Buffer.from(mapInfo.hash, 'hex')
+      try {
+        await client.query<never>(sql`
+          UPDATE maps
+          SET
+            title = ${newData.title},
+            description = ${newData.description},
+            width = ${newData.width},
+            height = ${newData.height},
+            tileset = ${newData.tileset},
+            players_melee = ${newData.meleePlayers},
+            players_ums = ${newData.umsPlayers},
+            lobby_init_data = ${newData.lobbyInitData},
+            is_eud = ${newData.isEud},
+            parser_version = ${parserVersion}
+          WHERE hash = ${hashBuffer}
+        `)
+      } catch {
+        // A failed update just leaves that map on its old parser version, where it will be
+        // retried the next time it's requested — same as a failed parse.
+      }
+    }
   } finally {
     done()
   }
