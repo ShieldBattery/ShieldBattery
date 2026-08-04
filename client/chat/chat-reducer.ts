@@ -108,15 +108,16 @@ function removeUserFromChannel(
     messageType = ClientChatMessageType.BanUser
   }
 
-  updateMessages(state, channelId, true, m =>
-    m.concat({
+  updateMessages(state, channelId, true, m => {
+    m.push({
       id: nanoid(),
       type: messageType,
       channelId,
       time: Date.now(),
       userId,
-    }),
-  )
+    })
+    return m
+  })
 
   if (newOwnerId) {
     setChannelOwner(state, channelId, newOwnerId)
@@ -131,15 +132,16 @@ function setChannelOwner(state: ChatState, channelId: SbChannelId, newOwnerId: S
 
   joinedChannelInfo.ownerId = newOwnerId
 
-  updateMessages(state, channelId, true, m =>
-    m.concat({
+  updateMessages(state, channelId, true, m => {
+    m.push({
       id: nanoid(),
       type: ClientChatMessageType.NewChannelOwner,
       channelId,
       time: Date.now(),
       newOwnerId,
-    }),
-  )
+    })
+    return m
+  })
 }
 
 function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
@@ -160,8 +162,9 @@ function removeSelfFromChannel(state: ChatState, channelId: SbChannelId) {
  * @param state The complete chat state which holds all of the channels.
  * @param channelId The ID of the channel in which to update the messages.
  * @param makeUnread A boolean flag indicating whether to mark a channel as having unread messages.
- * @param updateFn A function which should perform the update operation on the messages field. Note
- *   that this function should return a new array, instead of performing the update in-place.
+ * @param updateFn A function which performs the update operation on the messages field. It may
+ *   mutate the passed-in array in place (e.g. via `push`) and must return the array to use as the
+ *   new messages value.
  */
 function updateMessages(
   state: ChatState,
@@ -252,14 +255,15 @@ function initChannel(state: ChatState, channelId: SbChannelId, data: InitialChan
   state.idToSelfPreferences.set(channelId, selfPreferences)
   state.idToSelfPermissions.set(channelId, selfPermissions)
 
-  updateMessages(state, channelId, false, m =>
-    m.concat({
+  updateMessages(state, channelId, false, m => {
+    m.push({
       id: nanoid(),
       type: ClientChatMessageType.SelfJoinChannel,
       channelId,
       time: Date.now(),
-    }),
-  )
+    })
+    return m
+  })
 }
 
 export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
@@ -293,7 +297,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     channelUsers.active.add(user.id)
     detailedChannelInfo.userCount += 1
 
-    updateMessages(state, channelId, true, m => m.concat(message))
+    updateMessages(state, channelId, true, m => {
+      m.push(message)
+      return m
+    })
   },
 
   ['@chat/updateLeave'](state, action) {
@@ -346,7 +353,10 @@ export default immerKeyedReducer(DEFAULT_CHAT_STATE, {
     const { message: newMessage, channelMentions } = action.payload
     const { channelId } = action.meta
 
-    updateMessages(state, channelId, true, m => m.concat(newMessage))
+    updateMessages(state, channelId, true, m => {
+      m.push(newMessage)
+      return m
+    })
     updateChannelInfos(state, channelMentions)
   },
 
