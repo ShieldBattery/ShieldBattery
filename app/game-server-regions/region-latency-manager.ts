@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { singleton } from 'tsyringe'
 import { GameServerRegionLatencies } from '../../common/game-server-regions'
+import shallowEquals from '../../common/shallow-equals'
 import { measureRegionLatency } from './region-latency-measurement'
 import { GameServerRegionList } from './region-list'
 
@@ -114,6 +115,8 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
   subscribeToResume: (onResume: () => void) => Promise<() => void> = defaultSubscribeToResume
 
   private latencies: GameServerRegionLatencies = {}
+  /** The table last written to disk, so `sweepOnce` can skip re-persisting an unchanged one. */
+  private lastPersistedLatencies?: GameServerRegionLatencies
   private sweeping = false
   private sweepQueued = false
   private lastFingerprint = ''
@@ -224,10 +227,18 @@ export class RegionLatencyManager extends EventEmitter<RegionLatencyManagerEvent
 
     this.latencies = latencies
 
-    try {
-      await savePersistedLatencies(await this.persistFilePath(), latencies)
-    } catch (err: any) {
-      log('error', `error persisting region latencies: ${err.stack ?? err}`).catch(() => {})
+    // A region's entry is only ever replaced by a fresh object when it's actually re-measured
+    // (see `kept` above); a failed measurement carries forward the exact same object reference.
+    // So a shallow (per-region reference) comparison against what's on disk is a faithful "did
+    // anything actually change" check here, not an approximation of a deeper one -- it can't be
+    // fooled by an equal-but-recreated value, because unchanged regions are never recreated.
+    if (!this.lastPersistedLatencies || !shallowEquals(latencies, this.lastPersistedLatencies)) {
+      try {
+        await savePersistedLatencies(await this.persistFilePath(), latencies)
+        this.lastPersistedLatencies = latencies
+      } catch (err: any) {
+        log('error', `error persisting region latencies: ${err.stack ?? err}`).catch(() => {})
+      }
     }
 
     this.emit('updated', latencies)

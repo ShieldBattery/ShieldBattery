@@ -1,7 +1,7 @@
 import fsPromises from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../common/game-server-regions'
 import { computeNetworkFingerprint, RegionLatencyManager } from './region-latency-manager'
 import { GameServerRegionList } from './region-list'
@@ -191,6 +191,40 @@ describe('RegionLatencyManager', () => {
 
     const onDiskRaw = await fsPromises.readFile(persistPath, { encoding: 'utf8' })
     expect(JSON.parse(onDiskRaw)[REGION_A.id].rttMs).toBe(17)
+  })
+
+  it('skips the disk write when a sweep produces an unchanged table', async () => {
+    const persistPath = await makeTempPersistPath()
+    const regionList = new GameServerRegionList()
+    const manager = makeManager(regionList)
+    manager.persistFilePath = async () => persistPath
+
+    const firstResult = {
+      regionId: REGION_A.id,
+      rttMs: 42,
+      source: 'beacon' as const,
+      measuredAt: 12345,
+    }
+    manager.measureRegion = async () => firstResult
+
+    let updateCount = 0
+    manager.on('updated', () => updateCount++)
+
+    regionList.setRegions([REGION_A])
+    await waitUntil(() => updateCount === 1)
+
+    const writeSpy = vi.spyOn(fsPromises, 'writeFile')
+    try {
+      // The measurement fails on this sweep, so the previous (already-persisted) entry carries
+      // forward unchanged -- there's nothing new to write.
+      manager.measureRegion = async () => undefined
+      manager.requestSweep()
+      await waitUntil(() => updateCount === 2)
+
+      expect(writeSpy).not.toHaveBeenCalled()
+    } finally {
+      writeSpy.mockRestore()
+    }
   })
 
   it('reloads a persisted table as a stale hint, without letting it suppress the startup sweep', async () => {
