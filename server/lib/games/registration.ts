@@ -59,17 +59,15 @@ export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, start
       config: gameConfig,
       selectedMatchup,
     })
-    await Promise.all(
-      humanPlayers.map(p =>
-        createGameUserRecord(client, {
-          userId: p.id,
-          gameId,
-          startTime,
-          selectedRace: p.race,
-          resultCode: resultCodes.get(p.id)!,
-        }),
-      ),
-    )
+    for (const p of humanPlayers) {
+      await createGameUserRecord(client, {
+        userId: p.id,
+        gameId,
+        startTime,
+        selectedRace: p.race,
+        resultCode: resultCodes.get(p.id)!,
+      })
+    }
   })
 
   return { gameId, resultCodes }

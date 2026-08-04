@@ -31,7 +31,6 @@ import {
 import { RaceChar } from '../../../common/races'
 import { urlPath } from '../../../common/urls'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { UserStats } from '../../../common/users/user-stats'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import { CodedError } from '../errors/coded-error'
@@ -827,7 +826,6 @@ export default class GameResultService {
         gameRecord.startTime,
       )
 
-      const matchmakingDbPromises: Array<Promise<unknown>> = []
       const matchmakingRankingChanges: MatchmakingRating[] = []
       const leagueLeaderboardChanges: LeagueUser[] = []
       if (
@@ -843,20 +841,18 @@ export default class GameResultService {
         // deadlocks
         const userIds = Array.from(reconciled.results.keys()).sort()
 
-        const [mmrs, activeLeagues] = await Promise.all([
-          getMatchmakingRatingsWithLock(
-            client,
-            userIds,
-            gameRecord.config.gameSourceExtra.type,
-            season.id,
-          ),
-          getActiveLeaguesForUsers(
-            userIds,
-            gameRecord.config.gameSourceExtra.type,
-            gameRecord.startTime,
-            client,
-          ),
-        ])
+        const mmrs = await getMatchmakingRatingsWithLock(
+          client,
+          userIds,
+          gameRecord.config.gameSourceExtra.type,
+          season.id,
+        )
+        const activeLeagues = await getActiveLeaguesForUsers(
+          userIds,
+          gameRecord.config.gameSourceExtra.type,
+          gameRecord.startTime,
+          client,
+        )
         if (mmrs.length !== userIds.length) {
           throw new Error('missing MMR for some users')
         }
@@ -903,7 +899,7 @@ export default class GameResultService {
           const { matchmaking: matchmakingChange, leagues: leagueChanges } = ratingChanges.get(
             mmr.userId,
           )!
-          matchmakingDbPromises.push(insertMatchmakingRatingChange(client, matchmakingChange))
+          await insertMatchmakingRatingChange(client, matchmakingChange)
 
           const selectedRace = idToSelectedRace.get(mmr.userId)!
           const assignedRace = reconciled.results.get(mmr.userId)!.race
@@ -948,7 +944,7 @@ export default class GameResultService {
                 mmr.rZLosses + (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
             }
 
-            matchmakingDbPromises.push(updateMatchmakingRating(client, updatedMmr))
+            await updateMatchmakingRating(client, updatedMmr)
             matchmakingRankingChanges.push(updatedMmr)
           }
 
@@ -962,7 +958,7 @@ export default class GameResultService {
               continue
             }
 
-            matchmakingDbPromises.push(insertLeagueUserChange(leagueChange, client))
+            await insertLeagueUserChange(leagueChange, client)
 
             const winCount = leagueChange.outcome === 'win' ? 1 : 0
             const lossCount = leagueChange.outcome === 'win' ? 0 : 1
@@ -1006,19 +1002,18 @@ export default class GameResultService {
                 (selectedRace === 'r' && assignedRace === 'z' ? lossCount : 0),
             }
 
-            matchmakingDbPromises.push(updateLeagueUser(updatedLeagueUser, client))
+            await updateLeagueUser(updatedLeagueUser, client)
             leagueLeaderboardChanges.push(updatedLeagueUser)
           }
         }
       }
-      const userPromises = resultEntries.map(([userId, result]) =>
-        setUserReconciledResult(client, userId, gameId, result),
-      )
+      for (const [userId, result] of resultEntries) {
+        await setUserReconciledResult(client, userId, gameId, result)
+      }
 
       // TODO(tec27): Perhaps we should auto-trigger a dispute request in particular cases, such
       // as when a user has an unknown result?
 
-      const statsUpdatePromises: Array<Promise<UserStats>> = []
       if (gameRecord.config.gameType !== GameType.UseMapSettings && !reconciled.disputed) {
         for (const [userId, result] of reconciled.results.entries()) {
           if (result.result !== 'win' && result.result !== 'loss') {
@@ -1030,7 +1025,7 @@ export default class GameResultService {
           const countKeys = makeCountKeys(selectedRace, assignedRace, result.result)
 
           for (const key of countKeys) {
-            statsUpdatePromises.push(incrementUserStatsCount(client, userId, key))
+            await incrementUserStatsCount(client, userId, key)
           }
         }
       }
@@ -1048,12 +1043,7 @@ export default class GameResultService {
         ? computeMatchupString(teams.map(team => team.map(p => reconciled.results.get(p.id)!.race)))
         : null
 
-      await Promise.all([
-        ...userPromises,
-        ...matchmakingDbPromises,
-        ...statsUpdatePromises,
-        setReconciledResult(client, gameId, reconciled, assignedMatchup),
-      ])
+      await setReconciledResult(client, gameId, reconciled, assignedMatchup)
 
       if (matchmakingRankingChanges.length) {
         // NOTE(tec27): This is a best-effort thing, as these leaderboards are basically just a
