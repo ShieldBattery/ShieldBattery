@@ -40,6 +40,8 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   legacyCursorSizing: false,
   useCustomCursorSize: false,
   customCursorSize: 0.25,
+  grabPanSensitivityOn: true,
+  grabPanSensitivity: 40,
   gameServerRegion: undefined,
   replayLibraryFolders: undefined,
 }

@@ -7,17 +7,14 @@ import { Slider } from '../../material/slider'
 import { Tooltip } from '../../material/tooltip'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
-import { bodyMedium, LabelMedium } from '../../styles/typography'
+import { LabelMedium } from '../../styles/typography'
 import { mergeLocalSettings, mergeScrSettings } from '../action-creators'
-import { FormContainer, SectionContainer, SectionOverline } from '../settings-content'
-
-const ExplanationText = styled.div`
-  ${bodyMedium};
-
-  margin-block: 8px 16px;
-
-  color: var(--theme-on-surface-variant);
-`
+import {
+  FormContainer,
+  SectionContainer,
+  SettingsSectionDescription,
+  SettingsSectionHeader,
+} from '../settings-content'
 
 const SubSettings = styled.div`
   padding-top: 4px;
@@ -34,7 +31,11 @@ const ItemWithTooltip = styled.div`
   gap: 8px;
 `
 
-const CursorSizeLabels = styled.div`
+const GrabPanRow = styled(ItemWithTooltip)`
+  margin-top: 16px;
+`
+
+const SliderEndpointLabels = styled.div`
   width: 100%;
   margin-bottom: 12px;
 
@@ -60,6 +61,8 @@ interface GameInputSettingsModel {
   legacyCursorSizing: boolean
   useCustomCursorSize: boolean
   customCursorSize: number
+  grabPanSensitivityOn: boolean
+  grabPanSensitivity: number
 }
 
 export function GameInputSettings() {
@@ -79,6 +82,8 @@ export function GameInputSettings() {
     legacyCursorSizing: localSettings.legacyCursorSizing,
     useCustomCursorSize: localSettings.useCustomCursorSize,
     customCursorSize: localSettings.customCursorSize,
+    grabPanSensitivityOn: localSettings.grabPanSensitivityOn,
+    grabPanSensitivity: localSettings.grabPanSensitivity,
   }
 
   const { bindCustom, bindCheckable, getInputValue, submit, form } =
@@ -109,6 +114,8 @@ export function GameInputSettings() {
             legacyCursorSizing: model.legacyCursorSizing,
             useCustomCursorSize: model.useCustomCursorSize,
             customCursorSize: model.customCursorSize,
+            grabPanSensitivityOn: model.grabPanSensitivityOn,
+            grabPanSensitivity: model.grabPanSensitivity,
           },
           {
             onSuccess: () => {},
@@ -123,6 +130,9 @@ export function GameInputSettings() {
     <form noValidate={true} onSubmit={submit}>
       <FormContainer>
         <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.game.input.scrollingHeader', 'Scrolling')}
+          </SettingsSectionHeader>
           <Slider
             {...bindCustom('keyboardScrollSpeed')}
             label={t('settings.game.input.keyboardScrollSpeed', 'Keyboard scroll speed')}
@@ -139,8 +149,43 @@ export function GameInputSettings() {
             max={6}
             step={1}
           />
+          <GrabPanRow>
+            <CheckBox
+              {...bindCheckable('grabPanSensitivityOn')}
+              label={t('settings.game.input.grabPan', 'Custom grab pan sensitivity')}
+              inputProps={{ tabIndex: 0 }}
+            />
+            <Tooltip
+              position='right'
+              text={t(
+                'settings.game.input.grabPanTooltip',
+                'Adjusts how fast the camera moves when panning with the middle mouse button. ' +
+                  'When disabled, matches the legacy StarCraft: Remastered behavior.',
+              )}>
+              <TooltipIcon />
+            </Tooltip>
+          </GrabPanRow>
+          <SubSettings>
+            <Slider
+              {...bindCustom('grabPanSensitivity')}
+              tabIndex={0}
+              min={0}
+              max={100}
+              step={5}
+              disabled={!getInputValue('grabPanSensitivityOn')}
+              showTicks={false}
+              showBalloon={false}
+            />
+            <SliderEndpointLabels>
+              <LabelMedium>{t('settings.game.input.grabPanSlower', 'Slower')}</LabelMedium>
+              <LabelMedium>{t('settings.game.input.grabPanFaster', 'Faster')}</LabelMedium>
+            </SliderEndpointLabels>
+          </SubSettings>
         </SectionContainer>
         <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.game.input.mouseSensitivityHeader', 'Mouse sensitivity')}
+          </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('mouseSensitivityOn')}
             label={t('settings.game.input.customMouseSensitivity', 'Custom mouse sensitivity')}
@@ -158,6 +203,9 @@ export function GameInputSettings() {
           />
         </SectionContainer>
         <SectionContainer>
+          <SettingsSectionHeader>
+            {t('settings.game.input.cursorHeader', 'Cursor')}
+          </SettingsSectionHeader>
           <CheckBox
             {...bindCheckable('mouseConfineOn')}
             label={t('settings.game.input.lockCursor', 'Lock cursor to window')}
@@ -198,14 +246,14 @@ export function GameInputSettings() {
                 showTicks={true}
                 showBalloon={false}
               />
-              <CursorSizeLabels>
+              <SliderEndpointLabels>
                 <LabelMedium>
                   {t('settings.game.input.customCursorSizeSmallest', 'Smallest')}
                 </LabelMedium>
                 <LabelMedium>
                   {t('settings.game.input.customCursorSizeLargest', 'Largest')}
                 </LabelMedium>
-              </CursorSizeLabels>
+              </SliderEndpointLabels>
             </SubSettings>
             <ItemWithTooltip>
               <CheckBox
@@ -227,16 +275,16 @@ export function GameInputSettings() {
           </SubSettings>
         </SectionContainer>
         <SectionContainer>
-          <SectionOverline>
+          <SettingsSectionHeader>
             {t('settings.game.input.legacySettingsHeader', 'Legacy settings')}
-          </SectionOverline>
-          <ExplanationText>
+          </SettingsSectionHeader>
+          <SettingsSectionDescription>
             {t(
               'settings.game.input.legacySettingsDescription',
               'These settings are available for compatibility with the StarCraft: Remastered ' +
                 'settings, but are not recommended for use because they cause performance issues.',
             )}
-          </ExplanationText>
+          </SettingsSectionDescription>
           <CheckBox
             {...bindCheckable('mouseScalingOn')}
             label={t('settings.game.input.mouseScaling', 'Use mouse scaling')}

@@ -200,6 +200,19 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
   customCursorSize: number
 
   /**
+   * Whether `grabPanSensitivity` applies to grab pan (panning the camera by holding the middle
+   * mouse button and dragging). When off, grab pan keeps the game's built-in fixed (very fast)
+   * behavior; this only gates the custom sensitivity, not grab pan itself.
+   */
+  grabPanSensitivityOn: boolean
+  /**
+   * A 0-100 slider position controlling grab pan sensitivity, used when `grabPanSensitivityOn` is
+   * on. Mapped exponentially to a camera-pixels-per-mouse-pixel gain, from about an eighth of the
+   * cursor's speed at 0 (precise) through 1:1 at 50 up to a fast sweep at 100.
+   */
+  grabPanSensitivity: number
+
+  /**
    * The manually-selected game server region id (see `common/game-server-regions.ts`), or
    * undefined for Auto (the client homes on the lowest-measured-latency region). A value that's no
    * longer in the server-provided region list is treated the same as undefined.

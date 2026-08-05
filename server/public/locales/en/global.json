@@ -1657,9 +1657,14 @@
         "visualizeNetworkStalls": "Visualize network stalls"
       },
       "input": {
+        "cursorHeader": "Cursor",
         "customCursorSizeLargest": "Largest",
         "customCursorSizeSmallest": "Smallest",
         "customMouseSensitivity": "Custom mouse sensitivity",
+        "grabPan": "Custom grab pan sensitivity",
+        "grabPanFaster": "Faster",
+        "grabPanSlower": "Slower",
+        "grabPanTooltip": "Adjusts how fast the camera moves when panning with the middle mouse button. When disabled, matches the legacy StarCraft: Remastered behavior.",
         "hardwareCursor": "Hardware cursor",
         "hardwareCursorTooltip": "Recommended for best performance and input responsiveness",
         "keyboardScrollSpeed": "Keyboard scroll speed",
@@ -1671,6 +1676,8 @@
         "mouseScaling": "Use mouse scaling",
         "mouseScrollSpeed": "Mouse scroll speed",
         "mouseSensitivity": "Mouse sensitivity",
+        "mouseSensitivityHeader": "Mouse sensitivity",
+        "scrollingHeader": "Scrolling",
         "title": "Input",
         "useCustomCursorSize": "Use custom cursor size"
       },

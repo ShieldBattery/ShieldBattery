@@ -16,7 +16,7 @@ import { cloneCustomTeamColors } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 18
+const VERSION = 19
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -339,6 +339,12 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       if (Array.isArray(replayLibraryFolders) && replayLibraryFolders.length === 0) {
         delete newSettings.replayLibraryFolders
       }
+    }
+
+    if (!settings.version || settings.version < 19) {
+      log.verbose('Found settings version 18, migrating to version 19')
+      newSettings.grabPanSensitivityOn = DEFAULT_LOCAL_SETTINGS.grabPanSensitivityOn
+      newSettings.grabPanSensitivity = DEFAULT_LOCAL_SETTINGS.grabPanSensitivity
     }
 
     newSettings.version = VERSION
