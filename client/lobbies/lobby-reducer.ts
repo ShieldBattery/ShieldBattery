@@ -235,6 +235,7 @@ const lobbyHandlers = {
       type: LobbyMessageType.LobbySettingsChange,
       time: Date.now(),
       changedSettings: action.payload.changedSettings,
+      changedBy: draft.info.host.userId!,
     })
   },
 

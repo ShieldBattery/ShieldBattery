@@ -45,14 +45,17 @@ export function ScenarioPicker<T extends string>({
   scenarios,
   active,
   onChange,
+  label = 'Scenario',
 }: {
   scenarios: ReadonlyArray<{ id: T; label: string }>
   active: T
   onChange: (scenario: T) => void
+  /** What this row of choices is picking between. */
+  label?: string
 }) {
   return (
     <>
-      <ControlsLabel>Scenario</ControlsLabel>
+      <ControlsLabel>{label}</ControlsLabel>
       <ScenarioButtons>
         {scenarios.map(s => (
           <ScenarioBtn key={s.id} $active={active === s.id} onClick={() => onChange(s.id)}>
