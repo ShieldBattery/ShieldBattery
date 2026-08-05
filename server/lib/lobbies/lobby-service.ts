@@ -79,7 +79,6 @@ export enum LobbyServiceErrorCode {
   JoinAlreadyInActivity = 'JoinAlreadyInActivity',
   JoinAlreadyStarted = 'JoinAlreadyStarted',
   LobbyFull = 'LobbyFull',
-  NameTaken = 'NameTaken',
   NoActiveClient = 'NoActiveClient',
   NoLobby = 'NoLobby',
   NotEnoughSides = 'NotEnoughSides',
@@ -250,21 +249,6 @@ export class LobbyService {
     }
 
     const lobbyVisibility = visibility ?? 'listed'
-
-    // This check must not be separated from the inserts below by an await, or two in-flight
-    // creates with the same name could both pass it.
-    // Name uniqueness only applies among listed lobbies: an unlisted lobby must never influence a
-    // publicly-observable outcome (a NameTaken error would reveal its existence), and names are
-    // display-only, so duplicates outside the public list are harmless.
-    if (
-      lobbyVisibility === 'listed' &&
-      [...this.lobbies.values()].some(l => l.visibility === 'listed' && l.name === name)
-    ) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.NameTaken,
-        'already another lobby with that name',
-      )
-    }
 
     const lobby = Lobbies.createLobby({
       name,
