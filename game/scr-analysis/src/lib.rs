@@ -655,6 +655,21 @@ impl<'e> Analysis<'e> {
         self.0.move_screen()
     }
 
+    /// Base address (as an operand) of the UI input dispatch's function-pointer table, indexed by
+    /// event type. Slot 3 holds the active drag callback (grab pan / selection box), or null when
+    /// no drag is in progress.
+    pub fn global_event_handlers(&mut self) -> Option<Operand<'e>> {
+        self.0.global_event_handlers()
+    }
+
+    pub fn ui_default_middle_down_handler(&mut self) -> Option<VirtualAddress> {
+        self.0.ui_default_middle_down_handler()
+    }
+
+    pub fn ui_default_middle_up_handler(&mut self) -> Option<VirtualAddress> {
+        self.0.ui_default_middle_up_handler()
+    }
+
     pub fn map_width_pixels(&mut self) -> Option<Operand<'e>> {
         self.0.map_width_pixels()
     }

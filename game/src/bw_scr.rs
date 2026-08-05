@@ -326,6 +326,17 @@ pub struct BwScr {
     use_legacy_cursor_sizing: AtomicBool,
     use_custom_cursor_size: AtomicBool,
     custom_cursor_size: Mutex<f32>,
+    /// Engine pieces for the adjustable middle-mouse grab pan, resolved all-or-nothing. `None`
+    /// (any piece missing) leaves the game's built-in pan behavior untouched rather than failing
+    /// game launch.
+    grab_pan: Option<GrabPan>,
+    /// Whether the user's custom grab pan sensitivity replaces the game's built-in pan behavior
+    /// (which moves the camera across the map's entire scrollable extent in 100 pixels of mouse
+    /// travel). When false the built-in behavior runs unmodified.
+    grab_pan_sensitivity_on: AtomicBool,
+    /// Camera pixels moved per mouse pixel dragged while grab panning, stored as `f32` bits.
+    /// Written on the async thread at `set_settings`, read on the game thread per pan update.
+    grab_pan_gain: AtomicU32,
     visualize_network_stalls: AtomicBool,
     is_processing_game_commands: AtomicBool,
     /// True if the network is currently stalled (updated whenever `step_network` is called).
@@ -490,6 +501,87 @@ unsafe fn safe_read_bytes(addr: *const u8, len: usize) -> Option<Vec<u8>> {
             return None;
         }
         Some(std::slice::from_raw_parts(addr, read_len).to_vec())
+    }
+}
+
+/// Engine pieces for the adjustable middle-mouse grab pan.
+///
+/// BW's own grab pan works by having the middle-down handler store an anchor and install a pan
+/// callback into `global_event_handlers[3]` (the "active drag" slot, shared with box selection);
+/// the event loop calls that slot each pass the mouse moved while it's non-null, and the middle-up
+/// handler nulls it.
+///
+/// Our middle-down hook lets the original run (so the cursor still hides for the duration) and then
+/// swaps the slot to a callback of our own that pans the camera by the cursor's movement times the
+/// user's gain, rather than BW's fraction-of-the-whole-map mapping. To make this a *relative* drag
+/// that can pan arbitrarily far — and to keep the OS cursor off the window edge, where the
+/// `MouseConfine` clip would otherwise pin it and stall the pan — the callback warps the cursor back
+/// to the window center every pass and accumulates the offset from center. On middle-up we restore
+/// the cursor to where the drag began.
+///
+/// The cursor is read and warped with the Win32 `GetCursorPos`/`SetCursorPos` (screen coordinates),
+/// not the game's cursor globals: the warp needs to *set* the cursor in screen space anyway, and
+/// this avoids depending on the `mouse_x`/`mouse_y` global analysis, which doesn't resolve on every
+/// game build.
+///
+/// A drag can also end without middle-up firing (UI transitions that null or memset the handler
+/// table), so the swapped-in callback keeps no resources needing teardown: it simply stops being
+/// called. The only cost of a middle-up we miss is the cursor staying at center instead of being
+/// restored, until the next input moves it.
+struct GrabPan {
+    middle_down_handler: VirtualAddress,
+    middle_up_handler: VirtualAddress,
+    /// Base of the event-handler function-pointer table; slot 3 is the active drag callback.
+    global_event_handlers: Value<*mut u8>,
+    /// Screen-coordinate cursor positions for the active warp drag, or `None` when no custom-gain
+    /// drag is in progress (so middle-up doesn't restore the cursor when the feature is off).
+    /// Written and read on the game thread only (input handling is single-threaded); the Mutex is
+    /// just for `Sync`.
+    anchor: Mutex<Option<GrabPanAnchor>>,
+}
+
+#[derive(Copy, Clone)]
+struct GrabPanAnchor {
+    /// Where the cursor was when the drag began, restored on middle-up.
+    origin_x: i32,
+    origin_y: i32,
+    /// The window-center point the cursor is warped back to each pass; the per-pass camera movement
+    /// is the cursor's offset from here.
+    center_x: i32,
+    center_y: i32,
+    /// Leftover sub-pixel camera movement carried between passes, so a gain below 1 still pans on
+    /// slow drags instead of truncating every fractional step to zero.
+    frac_x: f32,
+    frac_y: f32,
+}
+
+/// Installed into `global_event_handlers[3]` while a custom-sensitivity grab pan is active. The
+/// event argument is unused: the cursor is read from the OS instead (see [`GrabPan`]).
+unsafe extern "C" fn grab_pan_update_hook(_event: *mut bw::ControlEvent) {
+    crate::bw::get_bw().grab_pan_update()
+}
+
+/// The screen-coordinate center of a window's client area, or `None` if it can't be measured (e.g.
+/// the window is minimized). Used as the point the grab-pan cursor is warped back to.
+unsafe fn window_client_center(hwnd: winapi::shared::windef::HWND) -> Option<(i32, i32)> {
+    use winapi::shared::windef::POINT;
+    use winapi::um::winuser::{ClientToScreen, GetClientRect};
+    unsafe {
+        let mut rect = mem::zeroed();
+        if GetClientRect(hwnd, &mut rect) == 0 {
+            return None;
+        }
+        if rect.right <= 0 || rect.bottom <= 0 {
+            return None;
+        }
+        let mut point = POINT {
+            x: rect.right / 2,
+            y: rect.bottom / 2,
+        };
+        if ClientToScreen(hwnd, &mut point) == 0 {
+            return None;
+        }
+        Some((point.x, point.y))
     }
 }
 
@@ -1376,6 +1468,25 @@ impl BwScr {
         let game_screen_height_ratio = analysis.game_screen_height_ratio();
         let zoom = analysis.zoom().ok_or("zoom")?;
         let move_screen = analysis.move_screen().ok_or("move_screen")?;
+        // Non-fatal: without these the middle-mouse grab pan keeps the game's built-in behavior
+        // instead of failing game launch. Resolve each piece separately so a missing one names
+        // itself in the log rather than disabling the whole feature anonymously.
+        let grab_pan_middle_down = analysis.ui_default_middle_down_handler();
+        let grab_pan_middle_up = analysis.ui_default_middle_up_handler();
+        let grab_pan_table = analysis.global_event_handlers();
+        let grab_pan = match (grab_pan_middle_down, grab_pan_middle_up, grab_pan_table) {
+            (Some(down), Some(up), Some(table)) => Some((down, up, table)),
+            _ => {
+                warn!(
+                    "Could not find grab pan pieces; adjustable grab pan sensitivity is disabled. \
+                     middle_down_handler={}, middle_up_handler={}, global_event_handlers={}",
+                    grab_pan_middle_down.is_some(),
+                    grab_pan_middle_up.is_some(),
+                    grab_pan_table.is_some(),
+                );
+                None
+            }
+        };
         let update_game_screen_size = analysis
             .update_game_screen_size()
             .ok_or("update_game_screen_size")?;
@@ -1503,6 +1614,14 @@ impl BwScr {
             cmdicons: Value::new(ctx, cmdicons),
             screen_x: Value::new(ctx, screen_x),
             screen_y: Value::new(ctx, screen_y),
+            grab_pan: grab_pan.map(|(middle_down_handler, middle_up_handler, table)| GrabPan {
+                middle_down_handler,
+                middle_up_handler,
+                global_event_handlers: Value::new(ctx, table),
+                anchor: Mutex::new(None),
+            }),
+            grab_pan_sensitivity_on: AtomicBool::new(false),
+            grab_pan_gain: AtomicU32::new(1.0f32.to_bits()),
             game_screen_width_bwpx: Value::new(ctx, game_screen_width_bwpx),
             game_screen_height_bwpx: Value::new(ctx, game_screen_height_bwpx),
             zoom: Value::new(ctx, zoom),
@@ -2049,6 +2168,34 @@ impl BwScr {
                 },
                 address,
             );
+
+            if let Some(ref grab_pan) = self.grab_pan {
+                let address = grab_pan.middle_down_handler.0 as usize - base;
+                exe.hook_closure_address(
+                    UiDefaultMiddleDownHandler,
+                    move |event, orig| {
+                        // The original hides the cursor and installs the built-in pan callback into
+                        // the active-drag slot; letting it run first keeps the cursor hide and
+                        // leaves only the slot swap to us.
+                        let ret = orig(event);
+                        self.grab_pan_middle_down();
+                        ret
+                    },
+                    address,
+                );
+
+                let address = grab_pan.middle_up_handler.0 as usize - base;
+                exe.hook_closure_address(
+                    UiDefaultMiddleUpHandler,
+                    move |event, orig| {
+                        // Restore the cursor to where the drag began before the original reveals it
+                        // again (and clears the active-drag slot).
+                        self.grab_pan_middle_up();
+                        orig(event)
+                    },
+                    address,
+                );
+            }
 
             let address = self.init_game_data.0 as usize - base;
             exe.hook_closure_address(
@@ -4021,6 +4168,114 @@ impl BwScr {
         self.move_unit.call3(*unit, pos.x as i32, pos.y as i32)
     }
 
+    /// Runs after the game's middle-mouse-down handler (which has hidden the cursor and installed
+    /// the built-in pan callback). If the custom sensitivity is enabled, records where the drag
+    /// began, warps the cursor to the window center, and swaps the active-drag slot to
+    /// [`grab_pan_update_hook`].
+    fn grab_pan_middle_down(&self) {
+        use winapi::shared::windef::POINT;
+        use winapi::um::winuser::{GetCursorPos, SetCursorPos};
+
+        let Some(ref grab_pan) = self.grab_pan else {
+            return;
+        };
+        // Clear any drag that ended without its middle-up (e.g. a UI transition that cleared the
+        // slot) so a later middle-up can't restore the cursor to a stale origin.
+        *grab_pan.anchor.lock() = None;
+        if !self.grab_pan_sensitivity_on.load(Ordering::Acquire) {
+            return;
+        }
+        let Some(hwnd) = crate::forge::game_window_handle() else {
+            return;
+        };
+        unsafe {
+            let mut origin = POINT { x: 0, y: 0 };
+            if GetCursorPos(&mut origin) == 0 {
+                return;
+            }
+            let Some((center_x, center_y)) = window_client_center(hwnd) else {
+                return;
+            };
+            SetCursorPos(center_x, center_y);
+            *grab_pan.anchor.lock() = Some(GrabPanAnchor {
+                origin_x: origin.x,
+                origin_y: origin.y,
+                center_x,
+                center_y,
+                frac_x: 0.0,
+                frac_y: 0.0,
+            });
+            let table = grab_pan.global_event_handlers.resolve() as *mut usize;
+            table
+                .add(3)
+                .write(grab_pan_update_hook as *const () as usize);
+        }
+    }
+
+    /// The active-drag callback while a custom-sensitivity grab pan is in progress. Moves the camera
+    /// by the cursor's offset from the window center times the gain, then warps the cursor back to
+    /// center so the next pass measures fresh movement and the cursor never reaches the confine
+    /// edge. The dispatcher only calls this on passes where the mouse actually moved, so a still
+    /// cursor simply holds the camera.
+    fn grab_pan_update(&self) {
+        use winapi::shared::windef::POINT;
+        use winapi::um::winuser::{GetCursorPos, SetCursorPos};
+
+        let Some(ref grab_pan) = self.grab_pan else {
+            return;
+        };
+        let gain = f32::from_bits(self.grab_pan_gain.load(Ordering::Acquire));
+        unsafe {
+            let mut pos = POINT { x: 0, y: 0 };
+            if GetCursorPos(&mut pos) == 0 {
+                return;
+            }
+            let mut guard = grab_pan.anchor.lock();
+            let Some(anchor) = guard.as_mut() else {
+                return;
+            };
+            let dx = pos.x - anchor.center_x;
+            let dy = pos.y - anchor.center_y;
+            if dx == 0 && dy == 0 {
+                return;
+            }
+            // Apply whole camera pixels this pass and carry the fraction, so a gain below 1
+            // accumulates across passes instead of losing every step to truncation.
+            let move_x = dx as f32 * gain + anchor.frac_x;
+            let move_y = dy as f32 * gain + anchor.frac_y;
+            let whole_x = move_x.trunc();
+            let whole_y = move_y.trunc();
+            anchor.frac_x = move_x - whole_x;
+            anchor.frac_y = move_y - whole_y;
+            let (center_x, center_y) = (anchor.center_x, anchor.center_y);
+            drop(guard);
+
+            let x = self.screen_x.resolve() as f32 + whole_x;
+            let y = self.screen_y.resolve() as f32 + whole_y;
+            // The `as u32` casts saturate, clamping negatives to 0; move_screen clamps to the
+            // map's scroll bounds itself.
+            (self.move_screen)(x as u32, y as u32);
+            SetCursorPos(center_x, center_y);
+        }
+    }
+
+    /// Runs on middle-mouse-up before the game's handler reveals the cursor again. Restores the
+    /// cursor to where the drag began, undoing the warping done during the drag. Does nothing if no
+    /// warp drag was active (the custom sensitivity was off, so the cursor was never warped).
+    fn grab_pan_middle_up(&self) {
+        use winapi::um::winuser::SetCursorPos;
+
+        let Some(ref grab_pan) = self.grab_pan else {
+            return;
+        };
+        let Some(anchor) = grab_pan.anchor.lock().take() else {
+            return;
+        };
+        unsafe {
+            SetCursorPos(anchor.origin_x, anchor.origin_y);
+        }
+    }
+
     unsafe fn update_nation_and_human_ids(&self) {
         unsafe {
             let net_player_to_game = self.net_player_to_game.resolve();
@@ -5058,6 +5313,21 @@ impl bw::Bw for BwScr {
             .get("customCursorSize")
             .and_then(|x| x.as_f64())
             .unwrap_or(0.25) as f32;
+        let grab_pan_sensitivity_on = settings
+            .local
+            .get("grabPanSensitivityOn")
+            .and_then(|x| x.as_bool())
+            .unwrap_or(false);
+        let grab_pan_sensitivity = settings
+            .local
+            .get("grabPanSensitivity")
+            .and_then(|x| x.as_f64())
+            .unwrap_or(40.0) as f32;
+        // The 0-100 slider value maps exponentially onto a camera-px-per-mouse-px gain of
+        // 0.125..=32 (2^-3..=2^5): the floor pans at an eighth of the cursor's speed for precise
+        // framing, 50 is 1:1, and the top end is a fast sweep. The drag callback accumulates
+        // sub-pixel remainder so gains below 1 still move the camera on slow drags.
+        let grab_pan_gain = (grab_pan_sensitivity.clamp(0.0, 100.0) * 0.08 - 3.0).exp2();
 
         self.is_carbot.store(is_carbot, Ordering::Release);
         self.show_skins.store(show_skins, Ordering::Release);
@@ -5069,6 +5339,10 @@ impl bw::Bw for BwScr {
         self.use_custom_cursor_size
             .store(use_custom_cursor_size, Ordering::Release);
         *self.custom_cursor_size.lock() = custom_cursor_size;
+        self.grab_pan_sensitivity_on
+            .store(grab_pan_sensitivity_on, Ordering::Release);
+        self.grab_pan_gain
+            .store(grab_pan_gain.to_bits(), Ordering::Release);
 
         *self.team_color_config.lock() =
             settings.team_colors.as_ref().and_then(|tc| tc.to_config());
@@ -6309,6 +6583,11 @@ mod hooks {
         !0 => NetFormatTurnRate(*mut scr::NetFormatTurnRateResult, bool) ->
             *mut scr::NetFormatTurnRateResult;
         !0 => UpdateGameScreenSize(f32);
+        // The default middle-mouse-down/up UI event handlers. Each takes the event and returns a
+        // value the dispatcher ignores. Down is hooked to swap in the custom-sensitivity grab pan
+        // callback after the original installs the built-in one; up to restore the cursor position.
+        !0 => UiDefaultMiddleDownHandler(*mut c_void) -> u32;
+        !0 => UiDefaultMiddleUpHandler(*mut c_void) -> u32;
         // The three minimap dot-draw functions, hooked for the minimap-only team-color mode. All
         // cdecl (the dispatcher takes no argument we use; both per-player helpers take the player id
         // as their first stack argument and the caller cleans it up). Full overrides that always

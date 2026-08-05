@@ -395,6 +395,12 @@ fn forge_inited() -> bool {
 /// thread (the handle is only stored, never dereferenced as a pointer here).
 #[cfg(debug_assertions)]
 pub fn debug_window_handle() -> Option<HWND> {
+    game_window_handle()
+}
+
+/// The game window's HWND, if the window has been created. Readable from any thread (the handle
+/// is only stored here, never dereferenced as a pointer).
+pub fn game_window_handle() -> Option<HWND> {
     let raw = FORGE_WINDOW.load(Ordering::Acquire);
     if raw == 0 { None } else { Some(raw as HWND) }
 }
