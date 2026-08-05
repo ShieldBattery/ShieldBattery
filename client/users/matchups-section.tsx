@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { MATCHMAKING_MODES, MatchmakingType } from '../../common/matchmaking'
 import { AssignedRaceChar, raceCharToLabel } from '../../common/races'
+import { RaceIcon } from '../lobbies/race-icon'
 import { SelectOption } from '../material/select/option'
 import { Select } from '../material/select/select'
-import { getRaceColor } from '../styles/colors'
 import { labelMedium, labelSmall, titleSmall } from '../styles/typography'
 import { MatchupCell, MatchupDataSource, ModeFilter, raceCombos, teamSizeFor } from './matchup-data'
 import { ALL_MAPS, ALL_MODES, ALL_SEASONS } from './stats-filters'
@@ -52,14 +52,14 @@ const Corner = styled.th`
   white-space: nowrap;
 `
 
+/* Both heads hold icons rather than text now, so they carry no type styles -- the icon's own
+   box sets the height and the padding does the rest. */
 const ColHead = styled.th`
-  ${titleSmall};
   padding: 4px 5px;
   text-align: center;
 `
 
 const RowHead = styled.th`
-  ${titleSmall};
   padding: 5px 7px;
   text-align: right;
 `
@@ -87,13 +87,19 @@ const CellRecord = styled.div`
   min-height: 1.3em;
 `
 
-const RaceChip = styled.span<{ $race: AssignedRaceChar }>`
-  color: ${props => getRaceColor(props.$race)};
-`
-
 const Combo = styled.span`
   display: inline-flex;
+  align-items: center;
   gap: 2px;
+`
+
+/**
+ * 20px keeps a team composition's icons inside a header cell that also has to fit the widest
+ * matrix a mode can produce; `RaceIcon` colours itself per race, which is what the axes read by.
+ */
+const ComboIcon = styled(RaceIcon)`
+  width: 20px;
+  height: 20px;
 `
 
 /** Cells with too few games to mean anything are dimmed rather than hidden. */
@@ -101,15 +107,12 @@ const THIN_SAMPLE = 5
 
 function ComboLabel({ parts }: { parts: AssignedRaceChar[] }) {
   const { t } = useTranslation()
-  if (parts.length === 1) {
-    return <RaceChip $race={parts[0]}>{raceCharToLabel(parts[0], t)}</RaceChip>
-  }
   return (
     <Combo>
       {parts.map((race, i) => (
-        <RaceChip key={i} $race={race}>
-          {race.toUpperCase()}
-        </RaceChip>
+        // The label is what a screen reader gets in place of the icon, so it stays the race's
+        // real name rather than the single letter the axes used to show.
+        <ComboIcon key={i} race={race} ariaLabel={raceCharToLabel(race, t)} />
       ))}
     </Combo>
   )
