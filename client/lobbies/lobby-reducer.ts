@@ -237,6 +237,7 @@ const lobbyHandlers = {
       type: LobbyMessageType.LobbySettingsChange,
       time: Date.now(),
       changedSettings: action.payload.changedSettings,
+      changedBy: draft.info.host.userId!,
     })
 
     // The server sends only the settings-change event for this transition, with no accompanying
