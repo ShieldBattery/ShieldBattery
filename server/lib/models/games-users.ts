@@ -56,6 +56,16 @@ export interface GameUserRecord {
   assignedRace: AssignedRaceChar | null
   result: ReconciledResult | null
   apm: number | null
+  /**
+   * Which team this user was on, as an index into `getTeamsFromConfig`'s result for the game's
+   * config. `null` where it isn't known: rows predating the column and not yet backfilled, and
+   * games with no determinable teams (Melee with more than two players). Treat `null` as unknown
+   * rather than as a team.
+   *
+   * Note this is not a side of the game's matchup string -- `computeMatchupString` sorts the teams
+   * before joining, so team 0 isn't reliably that string's left half.
+   */
+  team: number | null
   replayFileId: string | null
   /** How this user's slot departed mid-game (left/dropped), or null if never recorded. */
   departureKind: DepartureKind | null
@@ -77,7 +87,7 @@ type DbGameUser = Dbify<GameUserRecord>
 
 export type CreateGameUserRecordData = Pick<
   GameUserRecord,
-  'userId' | 'gameId' | 'startTime' | 'selectedRace' | 'resultCode'
+  'userId' | 'gameId' | 'startTime' | 'selectedRace' | 'resultCode' | 'team'
 >
 
 /**
@@ -87,15 +97,15 @@ export type CreateGameUserRecordData = Pick<
  */
 export async function createGameUserRecord(
   client: DbClient,
-  { userId, gameId, startTime, selectedRace, resultCode }: CreateGameUserRecordData,
+  { userId, gameId, startTime, selectedRace, resultCode, team }: CreateGameUserRecordData,
 ) {
   return client.query(sql`
     INSERT INTO games_users (
       user_id, game_id, start_time, selected_race, result_code, reported_results, reported_at,
-      assigned_race, result, apm
+      assigned_race, result, apm, team
     ) VALUES (
       ${userId}, ${gameId}, ${startTime}, ${selectedRace}, ${resultCode}, NULL, NULL,
-      NULL, NULL, NULL
+      NULL, NULL, NULL, ${team}
     )
   `)
 }
@@ -145,6 +155,7 @@ export async function getUserGameRecord(
       assignedRace: row.assigned_race,
       result: row.result,
       apm: row.apm,
+      team: row.team,
       replayFileId: row.replay_file_id,
       departureKind: row.departure_kind,
       departureTime: row.departure_time,

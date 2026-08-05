@@ -1,6 +1,7 @@
 import { GameConfig } from '../../../common/games/configuration'
 import { computeMatchupString, getTeamsFromConfig } from '../../../common/games/matchups'
 import { SbMapId } from '../../../common/maps'
+import { SbUserId } from '../../../common/users/sb-user-id'
 import transact from '../db/transaction'
 import { createGameUserRecord } from '../models/games-users'
 import { createGameRecord } from './game-models'
@@ -48,6 +49,19 @@ export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, start
     ? computeMatchupString(teams.map(team => team.map(p => p.race)))
     : null
 
+  // Which team each player was on, denormalized onto their row so that reading ally-vs-opponent
+  // later doesn't mean fetching this game's config back out of JSONB.
+  //
+  // Derived from the same `teams` the matchup string is, so the two can't disagree about how the
+  // game was divided. Stays empty when `getTeamsFromConfig` returns null (Melee with more than two
+  // players, where there are no teams to record), leaving those rows NULL rather than guessing.
+  const teamByPlayer = new Map<SbUserId, number>()
+  for (const [index, team] of (teams ?? []).entries()) {
+    for (const player of team) {
+      teamByPlayer.set(player.id, index)
+    }
+  }
+
   // NOTE(tec27): the value here makes the linter happy, but this will actually be set in the
   // transaction below
   let gameId = ''
@@ -66,6 +80,7 @@ export async function registerGame(mapId: SbMapId, gameConfig: GameConfig, start
         startTime,
         selectedRace: p.race,
         resultCode: resultCodes.get(p.id)!,
+        team: teamByPlayer.get(p.id) ?? null,
       })
     }
   })

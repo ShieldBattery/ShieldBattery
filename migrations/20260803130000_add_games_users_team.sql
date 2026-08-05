@@ -1,0 +1,27 @@
+-- Adds the team a user was on for a game, denormalized from `games.config->'teams'`.
+--
+-- `games_users` records what a player did but not which side they did it on, so anything that
+-- needs ally-vs-opponent has to read the config JSONB for every game a user has played -- a wide
+-- row fetched to recover one bit per participant. That's what makes per-player team stats
+-- (matchups for team modes, rivals) expensive today, and the cost grows with `games` even though
+-- the answer doesn't.
+--
+-- Nullable, deliberately, for three separate reasons:
+--   * rows written before this column existed, until the backfill has run;
+--   * games whose teams can't be determined at all -- `getTeamsFromConfig` returns null for Melee
+--     with more than two players, where "team" has no meaning;
+--   * rows written by old application code during the deploy window.
+-- Readers must therefore treat NULL as "unknown", never as a team.
+--
+-- The value is the index into `getTeamsFromConfig`'s result, which is the same derivation
+-- `selected_matchup` and `assigned_matchup` are computed from -- so a row's team and its game's
+-- matchup string can't disagree about how the game was divided. Note that this index does NOT
+-- correspond to a side of the matchup string: `computeMatchupString` sorts the teams before
+-- joining them, so team 0 is not reliably the left half.
+--
+-- NOTE: This migration intentionally only does the (instant) DDL. Adding a nullable column with no
+-- default is a metadata-only change in Postgres, so it takes no meaningful lock and doesn't rewrite
+-- the table. Backfilling the existing rows is done separately and out-of-band via
+-- tools/backfill-teams.sql so we don't lock a hot table for the duration of rewriting every row.
+
+ALTER TABLE games_users ADD COLUMN team smallint;
