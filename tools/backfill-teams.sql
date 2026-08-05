@@ -48,6 +48,7 @@ DECLARE
   would_change bigint;
   processed bigint := 0;
   changed bigint := 0;
+  undeterminable bigint := 0;
 BEGIN
   LOOP
     batch_last_id := NULL;
@@ -66,10 +67,21 @@ BEGIN
 
       -- Drop empty teams (e.g. observer teams in melee lobbies serialize as []) before working out
       -- the real layout. This mirrors getTeamsFromConfig() in common/games/matchups.ts.
+      --
+      -- The type guards are not paranoia: `games` is long-lived and `config` is schemaless, so a
+      -- historical row whose `teams` is missing, null, an object or a scalar is entirely possible.
+      -- `jsonb_array_elements` raises on those rather than returning nothing, which would abort the
+      -- whole backfill part-way through -- committed batches kept, the rest never processed. Each
+      -- unusable shape is counted and skipped instead.
+      IF jsonb_typeof(r.config->'teams') <> 'array' THEN
+        undeterminable := undeterminable + 1;
+        CONTINUE;
+      END IF;
+
       non_empty_teams := ARRAY(
         SELECT t
         FROM jsonb_array_elements(r.config->'teams') AS t
-        WHERE jsonb_array_length(t) > 0
+        WHERE jsonb_typeof(t) = 'array' AND jsonb_array_length(t) > 0
       );
       teams_count := coalesce(array_length(non_empty_teams, 1), 0);
 
@@ -83,7 +95,10 @@ BEGIN
         END IF;
       END IF;
 
-      CONTINUE WHEN teams_count < 2 AND NOT is_1v1_single_team;
+      IF teams_count < 2 AND NOT is_1v1_single_team THEN
+        undeterminable := undeterminable + 1;
+        CONTINUE;
+      END IF;
 
       IF is_1v1_single_team THEN
         teams_for_matchup := ARRAY[
@@ -144,10 +159,15 @@ BEGIN
     END IF;
   END LOOP;
 
+  -- `undeterminable` is the number worth reading before running this for real: those games have no
+  -- team layout to recover, so their rows stay NULL however many times this is run. A large count
+  -- means the historical data is shaped differently than expected, not that the backfill failed.
   IF dry_run THEN
-    RAISE NOTICE 'backfill_teams dry run: % of % games would change', changed, processed;
+    RAISE NOTICE 'backfill_teams dry run: % of % games would change (% have no determinable teams)',
+      changed, processed, undeterminable;
   ELSE
-    RAISE NOTICE 'backfill_teams: done, updated % of % games', changed, processed;
+    RAISE NOTICE 'backfill_teams: done, updated % of % games (% have no determinable teams)',
+      changed, processed, undeterminable;
   END IF;
 END;
 $$;
