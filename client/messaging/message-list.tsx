@@ -103,8 +103,15 @@ interface PureMessageListProps {
 
 function PureMessageList({ messages, showEmptyState, MessageComponent }: PureMessageListProps) {
   const { t } = useTranslation()
-  const selfUserId = useSelfUser()!.id
+  const selfUser = useSelfUser()
   const blocks = useAppSelector(s => s.relationships.blocks)
+
+  // Message lists only exist behind a login in the real app, but /dev pages mount outside that
+  // gate and can render one with no session — show nothing there rather than crash.
+  if (!selfUser) {
+    return undefined
+  }
+  const selfUserId = selfUser.id
 
   if (messages.length < 1) {
     return showEmptyState ? (
