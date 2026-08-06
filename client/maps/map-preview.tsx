@@ -61,6 +61,7 @@ export function MapPreviewDialog({ mapId, onCancel }: MapPreviewDialogProps) {
       style={style as any}
       onCancel={onCancel}
       fullBleed={true}
+      overlayTitle={true}
       showCloseButton={true}
       title={map?.name ?? ''}>
       {map ? <ZoomableMapImage map={map} /> : null}

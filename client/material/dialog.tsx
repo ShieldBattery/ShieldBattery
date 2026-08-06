@@ -63,11 +63,11 @@ const Surface = styled(m.div)<{ $isTopDialog?: boolean }>`
   pointer-events: ${props => (props.$isTopDialog ? 'auto' : 'none')};
 `
 
-const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
+const TitleBar = styled.div<{ $overlay?: boolean; $showDivider?: boolean }>`
   position: relative;
 
   ${props =>
-    props.$fullBleed
+    props.$overlay
       ? css`
           position: absolute;
           top: 0;
@@ -190,6 +190,12 @@ export interface DialogProps {
    * content must handle scrolling itself.
    */
   fullBleed?: boolean
+  /**
+   * Whether the title bar floats over the content as a hover-revealed scrim instead of taking its
+   * own row. It intercepts pointer input over the top strip of the dialog, so it's only suitable
+   * when the content under it is non-interactive.
+   */
+  overlayTitle?: boolean
   showCloseButton?: boolean
   style?: React.CSSProperties
   tabs?: React.ReactNode
@@ -205,6 +211,7 @@ export function Dialog({
   children,
   className,
   fullBleed = false,
+  overlayTitle = false,
   showCloseButton = false,
   style,
   tabs,
@@ -258,7 +265,7 @@ export function Dialog({
         exit={isDocVisible ? 'exit' : undefined}
         transition={dialogTransition}
         $isTopDialog={dialogContext.isTopDialog}>
-        <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
+        <TitleBar $overlay={overlayTitle} $showDivider={!isAtTop && !tabs}>
           <Title>{title}</Title>
           {titleAction}
           {closeButton}
