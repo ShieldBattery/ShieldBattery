@@ -102,13 +102,6 @@ const InfoColumn = styled.div`
   gap: 12px;
 `
 
-const TopRow = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-`
-
 const StatsRow = styled.div`
   display: flex;
   align-items: center;
@@ -147,10 +140,15 @@ const StatDivider = styled.div`
   transform: skewX(-14deg);
 `
 
+/**
+ * `margin-left` cancels `TextButton`'s 8px start padding, so the first button's label lines up
+ * with the stat labels above it.
+ */
 const HostTools = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-left: -8px;
 `
 
 const HostToolButton = styled(TextButton)`
@@ -358,12 +356,12 @@ const NextSlotValue = styled.div`
 `
 
 const SeriesList = styled.div`
-  min-width: 320px;
-  padding: 8px;
+  min-width: 360px;
+  padding: 12px 16px;
 
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 `
 
 const SeriesSection = styled.div`
@@ -372,13 +370,24 @@ const SeriesSection = styled.div`
   gap: 4px;
 `
 
+/** `SectionLabel` carries a 4px horizontal padding meant for the roster rail; the popover's
+ * sections instead need a flush left edge shared with the rows below them. */
+const PopoverSectionLabel = styled(SectionLabel)`
+  padding: 0;
+`
+
 const SeriesRow = styled.div`
-  min-height: 36px;
-  padding-left: 8px;
+  min-height: 44px;
+  gap: 10px;
 
   display: flex;
   align-items: center;
-  gap: 8px;
+
+  border-radius: 6px;
+
+  &:hover {
+    background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+  }
 `
 
 const SeriesGameNumber = styled.div`
@@ -388,27 +397,55 @@ const SeriesGameNumber = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
+const SeriesMain = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
 const SeriesMapName = styled.div`
   ${bodyMedium};
   ${singleLine};
-  flex-grow: 1;
+`
+
+const SeriesFactRow = styled.div`
+  ${labelSmall};
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--theme-on-surface-variant);
+`
+
+const SeriesTrophyIcon = styled(MaterialIcon)`
+  flex-shrink: 0;
+  color: var(--theme-amber);
+`
+
+const SeriesWinner = styled.span`
+  ${singleLine};
   min-width: 0;
 `
 
-const SeriesFact = styled.div`
-  ${labelSmall};
+const SeriesFactDivider = styled.span`
+  flex-shrink: 0;
+`
+
+const SeriesDuration = styled.span`
   ${singleLine};
   flex-shrink: 0;
-  color: var(--theme-on-surface-variant);
 `
 
 const SeriesAction = styled(IconButton)`
   width: 32px;
   min-height: 32px;
   padding: 0;
+  flex-shrink: 0;
 `
 
-/** One finished game in the night's list: what was played, who took it, and how to revisit it. */
+/** One finished game from the lobby's games so far: what was played, who took it, and how to revisit it. */
 function SeriesGameRow({
   game,
   gameNumber,
@@ -422,12 +459,23 @@ function SeriesGameRow({
 }) {
   const mapName = useAppSelector(s => s.maps.byId.get(game.mapId)?.name)
 
+  const winningTeam = game.teams[game.winningTeamIndex]
+  const winnerLabel = `Team ${game.winningTeamIndex + 1}${
+    winningTeam?.name ? ` · ${winningTeam.name}` : ''
+  }`
+
   return (
     <SeriesRow>
       <SeriesGameNumber>G{gameNumber}</SeriesGameNumber>
-      <SeriesMapName title={mapName}>{mapName ?? 'unknown map'}</SeriesMapName>
-      <SeriesFact>Team {game.winningTeamIndex + 1}</SeriesFact>
-      <SeriesFact>{formatGameDuration(game.durationMs)}</SeriesFact>
+      <SeriesMain>
+        <SeriesMapName title={mapName}>{mapName ?? 'unknown map'}</SeriesMapName>
+        <SeriesFactRow>
+          <SeriesTrophyIcon icon='trophy' size={14} filled />
+          <SeriesWinner>{winnerLabel}</SeriesWinner>
+          <SeriesFactDivider>·</SeriesFactDivider>
+          <SeriesDuration>{formatGameDuration(game.durationMs)}</SeriesDuration>
+        </SeriesFactRow>
+      </SeriesMain>
       <SeriesAction
         icon={<MaterialIcon icon='play_arrow' />}
         title='Watch replay'
@@ -443,8 +491,8 @@ function SeriesGameRow({
 }
 
 /**
- * One tile in the night's timeline: a finished game's number, length, and winning team, opening a
- * small menu to watch its replay or read its full summary.
+ * One tile in the session's games timeline: a finished game's number, length, and winning team,
+ * opening a small menu to watch its replay or read its full summary.
  */
 function GameTile({
   game,
@@ -540,7 +588,7 @@ function NextGameSlot({ nextGameNumber }: { nextGameNumber: number }) {
 /**
  * The lobby room's map banner: a full-bleed, theme-tinted crop of the map sits behind a
  * thumbnail card, the lobby's key facts, and the host's seating tools, giving the room a sense of
- * place. Below that runs a horizontal timeline of the night's games, ending in the upcoming
+ * place. Below that runs a horizontal timeline of the lobby's games so far, ending in the upcoming
  * game's slot, which reflects the countdown as the lobby heads into its next game.
  */
 export function RoomMapBanner({
@@ -569,7 +617,7 @@ export function RoomMapBanner({
     ['People', memberCount(lobby)],
   ]
 
-  // The night's leader gets a chip in the timeline's label row, but only while the lead is
+  // The current leader gets a chip in the timeline's label row, but only while the lead is
   // unambiguous — a tie at the top names nobody.
   const wins = getWinsByUser(series)
   let leaderId: SbUserId | undefined
@@ -606,50 +654,43 @@ export function RoomMapBanner({
       <Scrim />
       <Content>
         <ThumbnailCard $aspectRatio={map.mapData.width / map.mapData.height}>
-          <ReduxMapThumbnail
-            mapId={map.id}
-            size={512}
-            showInfoLayer={true}
-            hasFavoriteAction={false}
-          />
+          <ReduxMapThumbnail mapId={map.id} size={512} showInfoLayer={true} />
         </ThumbnailCard>
         <InfoColumn>
-          <TopRow>
-            <StatsRow>
-              {mapStats.map(([label, value], i) => (
-                <React.Fragment key={label}>
-                  {i > 0 ? <StatDivider /> : null}
-                  <StatBlock>
-                    <StatLabel>{label}</StatLabel>
-                    <StatValue>{value}</StatValue>
-                  </StatBlock>
-                </React.Fragment>
-              ))}
-            </StatsRow>
-            {isHost && playerTeamCount > 1 ? (
-              <HostTools>
-                <HostToolButton
-                  label='Swap teams'
-                  iconStart={<MaterialIcon icon='swap_horiz' size={18} />}
-                  onClick={() => onArrangeTeams(TeamArrangement.Swap)}
-                />
-                <HostToolButton
-                  label='Shuffle'
-                  iconStart={<MaterialIcon icon='shuffle' size={18} />}
-                  onClick={() => onArrangeTeams(TeamArrangement.Shuffle)}
-                />
-                <HostToolButton
-                  label='Balance'
-                  iconStart={<MaterialIcon icon='balance' size={18} />}
-                  title='Balances teams by MMR'
-                  onClick={() => onArrangeTeams(TeamArrangement.Balance)}
-                />
-              </HostTools>
-            ) : null}
-          </TopRow>
+          <StatsRow>
+            {mapStats.map(([label, value], i) => (
+              <React.Fragment key={label}>
+                {i > 0 ? <StatDivider /> : null}
+                <StatBlock>
+                  <StatLabel>{label}</StatLabel>
+                  <StatValue>{value}</StatValue>
+                </StatBlock>
+              </React.Fragment>
+            ))}
+          </StatsRow>
+          {isHost && playerTeamCount > 1 ? (
+            <HostTools>
+              <HostToolButton
+                label='Swap teams'
+                iconStart={<MaterialIcon icon='swap_horiz' size={18} />}
+                onClick={() => onArrangeTeams(TeamArrangement.Swap)}
+              />
+              <HostToolButton
+                label='Shuffle'
+                iconStart={<MaterialIcon icon='shuffle' size={18} />}
+                onClick={() => onArrangeTeams(TeamArrangement.Shuffle)}
+              />
+              <HostToolButton
+                label='Balance'
+                iconStart={<MaterialIcon icon='balance' size={18} />}
+                title='Balances teams by MMR'
+                onClick={() => onArrangeTeams(TeamArrangement.Balance)}
+              />
+            </HostTools>
+          ) : null}
           <TimelineSection>
             <TimelineLabelRow>
-              <SectionLabel>The night</SectionLabel>
+              <SectionLabel>Games</SectionLabel>
               {uniqueLeaderId !== undefined ? (
                 <LeaderChip>
                   <LeaderAvatar userId={uniqueLeaderId} />
@@ -690,11 +731,11 @@ export function RoomMapBanner({
               originY='top'>
               <SeriesList>
                 <SeriesSection>
-                  <SectionLabel>Standings</SectionLabel>
+                  <PopoverSectionLabel>Standings</PopoverSectionLabel>
                   <LobbyScoreboard />
                 </SeriesSection>
                 <SeriesSection>
-                  <SectionLabel>Games</SectionLabel>
+                  <PopoverSectionLabel>Games</PopoverSectionLabel>
                   {series.map((game, index) => (
                     <SeriesGameRow
                       key={game.gameId}
