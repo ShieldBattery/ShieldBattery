@@ -89,7 +89,7 @@ export function VisibilityPicker({ value, onChange, disabled }: VisibilityPicker
         aria-pressed={value === 'unlisted'}
         $selected={value === 'unlisted'}
         onClick={() => onChange('unlisted')}>
-        <CardIcon icon='link' />
+        <CardIcon icon='visibility_off' />
         <CardTitle>{t('lobbies.createLobby.visibilityUnlisted', 'Unlisted')}</CardTitle>
         <CardDescription>
           {t(

@@ -905,6 +905,9 @@
       "gameTypeHeader": "Game type",
       "lobbyName": "Lobby name",
       "lobbyNameRequired": "Enter a lobby name",
+      "mapHeader": "Map",
+      "mapPlayerCount_one": "{{count}} player",
+      "mapPlayerCount_other": "{{count}} players",
       "mapRequired": "Select a map to play",
       "selectMap": "Select map",
       "title": "Create lobby",
@@ -924,13 +927,9 @@
       "kicked": "You have been kicked from the lobby."
     },
     "hostGame": {
+      "changeMap": "Change map",
       "defaultLobbyName": "{{name}}'s lobby",
       "defaultLobbyNameFallback": "My lobby",
-      "hostAgain": "Host again",
-      "lastSetup": "Last setup",
-      "observersOff": "observers off",
-      "observersOn": "observers on",
-      "orStartFresh": "or start fresh",
       "title": "Host a game",
       "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
       "visibilityUnlistedDescription": "Only people with the link can join. Games and replays are unlisted."

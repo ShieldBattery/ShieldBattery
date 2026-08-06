@@ -5,20 +5,18 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
-import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
+import { GameType, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openSimpleDialog } from '../../dialogs/action-creators'
 import { MaterialIcon } from '../../icons/material/material-icon'
-import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { FilledButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { ContainerLevel, containerStyles } from '../../styles/colors'
-import { bodyLarge, bodySmall, labelSmall, singleLine, titleLarge } from '../../styles/typography'
+import { titleLarge } from '../../styles/typography'
 import {
   createLobby,
   CreateLobbyParams,
@@ -63,63 +61,6 @@ const LoadingContainer = styled.div`
 
 const Title = styled.div`
   ${titleLarge};
-`
-
-const HostAgainCard = styled.div`
-  ${containerStyles(ContainerLevel.Low)};
-
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 4px;
-`
-
-const HostAgainThumbnail = styled(ReduxMapThumbnail)`
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-  border-radius: 4px;
-  overflow: hidden;
-`
-
-const HostAgainInfo = styled.div`
-  flex-grow: 1;
-  min-width: 0;
-`
-
-const HostAgainOverline = styled.div`
-  ${labelSmall};
-  color: var(--theme-amber);
-  text-transform: uppercase;
-`
-
-const HostAgainTitle = styled.div`
-  ${bodyLarge};
-  ${singleLine};
-`
-
-const HostAgainMeta = styled.div`
-  ${bodySmall};
-  ${singleLine};
-  color: var(--theme-on-surface-variant);
-`
-
-const Divider = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-`
-
-const DividerLine = styled.div`
-  flex-grow: 1;
-  height: 1px;
-  background-color: var(--theme-outline-variant);
-`
-
-const DividerLabel = styled.div`
-  ${labelSmall};
-  color: var(--theme-on-surface-variant);
 `
 
 const CreateButton = styled(FilledButton)`
@@ -178,8 +119,8 @@ export interface HostGameProps {
 }
 
 /**
- * The redesigned "Host a game" surface: a quick-recreate card for the last setup, and a form for
- * starting fresh built on the shared `GameSetupForm` core.
+ * The redesigned "Host a game" surface: a form built on the shared `GameSetupForm` core, prefilled
+ * from the user's saved lobby preferences.
  */
 export function HostGame(props: HostGameProps) {
   const dispatch = useAppDispatch()
@@ -219,10 +160,10 @@ function HostGameContent({
   const prefsSelectedMap = useAppSelector(s => s.lobbyPreferences.selectedMap)
   const prefsRecentMaps = useAppSelector(s => s.lobbyPreferences.recentMaps)
 
-  // Captured once when this mounts (which only happens once preferences have loaded): the starting
-  // point for both the "host again" card and the form below. Later preference changes -- including
-  // this component's own autosaves as the form below is edited -- intentionally don't feed back
-  // into either, or the "host again" card would drift to reflect an in-progress, unsubmitted edit.
+  // Captured once when this mounts (which only happens once preferences have loaded): the form's
+  // starting point. Later preference changes -- including this component's own autosaves as the
+  // form below is edited -- intentionally don't feed back into it, or an in-progress, unsubmitted
+  // edit would keep overwriting what the user is typing.
   const [initial] = useState(() => ({
     name: prefsName,
     gameType: prefsGameType ?? GameType.Melee,
@@ -233,10 +174,6 @@ function HostGameContent({
     selectedMap: prefsSelectedMap ?? undefined,
     recentMaps: prefsRecentMaps,
   }))
-
-  const initialMapInfo = useAppSelector(s =>
-    initial.selectedMap ? s.maps.byId.get(initial.selectedMap) : undefined,
-  )
 
   const [isCreating, setIsCreating] = useState(false)
   const [name, setName] = useState(initial.name)
@@ -325,8 +262,6 @@ function HostGameContent({
     )
   }
 
-  const canHostAgain = !!initial.selectedMap && !!initialMapInfo
-
   const setupModel: GameSetupModel = {
     mapId: initial.selectedMap,
     gameType: initial.gameType,
@@ -349,59 +284,10 @@ function HostGameContent({
         <Title>{t('lobbies.hostGame.title', 'Host a game')}</Title>
       </HeaderBlock>
 
-      {canHostAgain ? (
-        <>
-          <HostAgainCard>
-            <HostAgainThumbnail mapId={initial.selectedMap!} forceAspectRatio={1} size={256} />
-            <HostAgainInfo>
-              <HostAgainOverline>{t('lobbies.hostGame.lastSetup', 'Last setup')}</HostAgainOverline>
-              <HostAgainTitle>
-                {initialMapInfo!.name} · {gameTypeToLabel(initial.gameType, t)}
-              </HostAgainTitle>
-              <HostAgainMeta>
-                {initial.allowObservers
-                  ? t('lobbies.hostGame.observersOn', 'observers on')
-                  : t('lobbies.hostGame.observersOff', 'observers off')}
-                {' · '}
-                {initial.visibility === 'listed'
-                  ? t('lobbies.createLobby.visibilityListed', 'Public')
-                  : t('lobbies.createLobby.visibilityUnlisted', 'Unlisted')}
-              </HostAgainMeta>
-            </HostAgainInfo>
-            <FilledButton
-              label={t('lobbies.hostGame.hostAgain', 'Host again')}
-              disabled={isCreating}
-              onClick={() => {
-                const hostAgainName = initial.name.trim()
-                  ? initial.name
-                  : defaultLobbyName(t, selfUser?.name)
-
-                doCreateLobby({
-                  name: hostAgainName,
-                  map: initial.selectedMap!,
-                  gameType: initial.gameType,
-                  gameSubType: isTeamType(initial.gameType) ? initial.gameSubType : undefined,
-                  useLegacyLimits: initial.useLegacyLimits,
-                  allowObservers: initial.allowObservers,
-                  visibility: initial.visibility,
-                })
-              }}
-            />
-          </HostAgainCard>
-
-          <Divider>
-            <DividerLine />
-            <DividerLabel>{t('lobbies.hostGame.orStartFresh', 'or start fresh')}</DividerLabel>
-            <DividerLine />
-          </Divider>
-        </>
-      ) : null}
-
       <GameSetupForm
         ref={formRef}
         disabled={isCreating}
         model={setupModel}
-        recentMapIds={initial.recentMaps}
         onValidatedChange={model => {
           setSetup(model)
           debouncedSaveRef.current?.()

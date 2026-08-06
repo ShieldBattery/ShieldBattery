@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled, { css } from 'styled-components'
+import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import {
   ALL_GAME_TYPES,
@@ -15,12 +15,12 @@ import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
+import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { styledWithAttrs } from '../../styles/styled-with-attrs'
-import { labelLarge, labelSmall } from '../../styles/typography'
+import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
 import { TeamSplitPicker } from './team-split-picker'
 
 export const Section = styled.div`
@@ -40,54 +40,68 @@ const Form = styled.form`
   gap: 32px;
 `
 
-const MapGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-`
+const MapCard = styled.button<{ $hasMap: boolean }>`
+  ${buttonReset};
 
-const MapThumbnailWrapper = styled.div<{ $selected?: boolean }>`
-  width: 100%;
-  aspect-ratio: 1;
-
-  ${props =>
-    props.$selected
-      ? css`
-          outline: 2px solid var(--theme-amber);
-          outline-offset: 2px;
-        `
-      : ''}
-`
-
-const StyledSelectedIcon = styledWithAttrs(MaterialIcon, { icon: 'check_circle', size: 64 })`
-  text-shadow: 0 0 8px #000;
-`
-
-const BrowseMapsTile = styled.div`
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  aspect-ratio: 1;
+  ${props => (props.$hasMap ? '' : 'justify-content: center;')}
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  min-height: 120px;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: left;
 
-  border: 1px dashed var(--theme-outline);
-  border-radius: 4px;
-  cursor: pointer;
+  border: ${props =>
+    props.$hasMap ? '1px solid var(--theme-outline-variant)' : '1px dashed var(--theme-outline)'};
 
   &:hover {
     background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
   }
+
+  &:disabled {
+    cursor: default;
+    opacity: var(--theme-disabled-opacity);
+    pointer-events: none;
+  }
 `
 
-const BrowseMapsIcon = styledWithAttrs(MaterialIcon, { icon: 'search', size: 40 })`
+const MapCardThumbnail = styled.div`
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+`
+
+const MapCardInfo = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+  text-align: left;
+`
+
+const MapCardName = styled.div`
+  ${bodyLarge};
+  ${singleLine};
+`
+
+const MapCardMeta = styled.div`
+  ${bodySmall};
   color: var(--theme-on-surface-variant);
 `
 
-const BrowseMapsText = styled.div`
-  ${labelSmall};
+const ChangeMapLabel = styled.div`
+  ${labelLarge};
+  color: var(--theme-amber);
+  flex-shrink: 0;
+`
+
+const EmptyMapIcon = styled(MaterialIcon)`
   color: var(--theme-on-surface-variant);
-  margin-top: 4px;
-  text-align: center;
+`
+
+const EmptyMapText = styled.div`
+  ${labelLarge};
 `
 
 const GameTypeRow = styled.div`
@@ -125,8 +139,6 @@ export interface GameSetupFormProps {
   disabled?: boolean
   /** The form's starting values; only read once, when the form mounts. */
   model: GameSetupModel
-  /** Candidate maps for the recent-map tile grid, most recent first. */
-  recentMapIds: ReadonlyArray<SbMapId>
   onValidatedChange?: (model: ReadonlyDeep<GameSetupModel>) => void
   onSubmit: (model: ReadonlyDeep<GameSetupModel>) => void
   ref?: React.Ref<GameSetupFormHandle>
@@ -140,7 +152,6 @@ export interface GameSetupFormProps {
 export function GameSetupForm({
   disabled,
   model,
-  recentMapIds,
   onValidatedChange,
   onSubmit,
   ref,
@@ -193,16 +204,6 @@ export function GameSetupForm({
     }
   }, [gameType, selectedMapInfo, getInputValue, setInputValue])
 
-  // The tiles keep the order `recentMapIds` was passed in, so selecting one highlights it in
-  // place instead of reshuffling the grid; the recency reorder only shows up on the next visit,
-  // once a lobby has actually been created with the map. Ids from outside the list (the form's
-  // starting map, or one picked via the browse dialog) are appended at the end, evicting from the
-  // tail to keep the grid at five map tiles.
-  const extraMapIds = Array.from(
-    new Set([model.mapId, mapId].filter((id): id is SbMapId => !!id && !recentMapIds.includes(id))),
-  )
-  const mapOptionIds = [...recentMapIds.slice(0, 5 - extraMapIds.length), ...extraMapIds]
-
   const openMapBrowseDialog = () => {
     dispatch(
       openDialog({
@@ -217,30 +218,43 @@ export function GameSetupForm({
   return (
     <Form noValidate={true} onSubmit={submit}>
       <Section>
-        <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
-        <MapGrid>
-          {mapOptionIds.map(id => {
-            const onCardClick = disabled ? undefined : () => setInputValue('mapId', id)
-
-            return (
-              <MapThumbnailWrapper key={id} $selected={id === mapId}>
+        <SectionHeader>{t('lobbies.createLobby.mapHeader', 'Map')}</SectionHeader>
+        <MapCard type='button' disabled={disabled} $hasMap={!!mapId} onClick={openMapBrowseDialog}>
+          {mapId ? (
+            <>
+              <MapCardThumbnail>
+                {/* Purely decorative: the surrounding card is the click target, and rendering the
+                    thumbnail's own action buttons would nest buttons inside it. */}
                 <ReduxMapThumbnail
-                  mapId={id}
+                  mapId={mapId}
                   forceAspectRatio={1}
-                  size={512}
-                  showInfoLayer={true}
-                  isSelected={id === mapId}
-                  selectedIcon={<StyledSelectedIcon />}
-                  onClick={onCardClick}
+                  size={256}
+                  hasFavoriteAction={false}
+                  hasMapPreviewAction={false}
                 />
-              </MapThumbnailWrapper>
-            )
-          })}
-          <BrowseMapsTile onClick={disabled ? undefined : openMapBrowseDialog}>
-            <BrowseMapsIcon />
-            <BrowseMapsText>{t('maps.mapSelect.browseMaps', 'Browse maps')}</BrowseMapsText>
-          </BrowseMapsTile>
-        </MapGrid>
+              </MapCardThumbnail>
+              <MapCardInfo>
+                <MapCardName>{selectedMapInfo?.name ?? ''}</MapCardName>
+                <MapCardMeta>
+                  {selectedMapInfo
+                    ? t('lobbies.createLobby.mapPlayerCount', {
+                        defaultValue: '{{count}} players',
+                        // eslint-disable-next-line camelcase -- i18next's plural-form key convention
+                        defaultValue_one: '{{count}} player',
+                        count: selectedMapInfo.mapData.slots,
+                      })
+                    : ''}
+                </MapCardMeta>
+              </MapCardInfo>
+              <ChangeMapLabel>{t('lobbies.hostGame.changeMap', 'Change map')}</ChangeMapLabel>
+            </>
+          ) : (
+            <>
+              <EmptyMapIcon icon='map' />
+              <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
+            </>
+          )}
+        </MapCard>
         {mapIdError ? <InputError error={mapIdError} /> : null}
       </Section>
 
