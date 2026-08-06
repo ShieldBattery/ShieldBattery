@@ -44,8 +44,7 @@ const NoticeCard = styled.div`
   margin: 4px 0;
   padding: 8px 12px;
 
-  border-left: 3px solid var(--theme-amber);
-  border-radius: 4px;
+  border-radius: 8px;
   background-color: color-mix(in srgb, var(--theme-amber) 8%, transparent);
   color: var(--theme-on-surface);
 
@@ -183,6 +182,8 @@ const TeamColumn = styled.div`
 `
 
 const TeamHeading = styled(SectionLabel)`
+  padding: 0;
+
   display: flex;
   align-items: center;
   gap: 6px;
