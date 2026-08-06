@@ -22,7 +22,7 @@
 --
 -- Usage (psql, and NOT wrapped in an explicit transaction, so the per-batch COMMITs can take
 -- effect):
---   \i tools/backfill-teams.sql                -- installs/updates the procedure
+--   \i tools/backfills/backfill-teams.sql      -- installs/updates the procedure
 --   CALL backfill_teams(dry_run => true);      -- report how many rows *would* change, no writes
 --   CALL backfill_teams();                     -- run it for real (5000-game batches)
 --   CALL backfill_teams(batch_size => 20000);  -- larger batches
