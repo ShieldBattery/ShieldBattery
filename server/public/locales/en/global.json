@@ -894,6 +894,7 @@
     "createLobby": {
       "advancedSettings": "Advanced settings",
       "allowObservers": "Allow observers",
+      "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
       "backToList": "Back to list",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
@@ -923,16 +924,16 @@
       "kicked": "You have been kicked from the lobby."
     },
     "hostGame": {
-      "allowObserversDescription": "Up to {{maxObservers}} observer seats in any game type",
       "defaultLobbyName": "{{name}}'s lobby",
       "defaultLobbyNameFallback": "My lobby",
       "hostAgain": "Host again",
       "lastSetup": "Last setup",
-      "nameHint": "Optional — we picked one for you",
       "observersOff": "observers off",
       "observersOn": "observers on",
       "orStartFresh": "or start fresh",
-      "title": "Host a game"
+      "title": "Host a game",
+      "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
+      "visibilityUnlistedDescription": "Only people with the link can join. Games and replays are unlisted."
     },
     "joinLobby": {
       "action": "Join lobby",

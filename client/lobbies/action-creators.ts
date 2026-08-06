@@ -54,6 +54,16 @@ async function resolveNetworkParams(): Promise<LobbyNetworkParams> {
   }
 }
 
+export interface CreateLobbyParams {
+  name: string
+  map: SbMapId
+  gameType: GameType
+  gameSubType?: number
+  useLegacyLimits?: boolean
+  allowObservers?: boolean
+  visibility?: LobbyVisibility
+}
+
 export function createLobby(
   {
     name,
@@ -63,15 +73,7 @@ export function createLobby(
     useLegacyLimits,
     allowObservers,
     visibility,
-  }: {
-    name: string
-    map: SbMapId
-    gameType: GameType
-    gameSubType?: number
-    useLegacyLimits?: boolean
-    allowObservers?: boolean
-    visibility?: LobbyVisibility
-  },
+  }: CreateLobbyParams,
   spec: RequestHandlingSpec<CreateLobbyResponse>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {

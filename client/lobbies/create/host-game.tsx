@@ -7,6 +7,7 @@ import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility } from '../../../common/lobbies'
+import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openSimpleDialog } from '../../dialogs/action-creators'
@@ -18,18 +19,39 @@ import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { ContainerLevel, containerStyles } from '../../styles/colors'
 import { bodyLarge, bodySmall, labelSmall, singleLine, titleLarge } from '../../styles/typography'
-import { createLobby, getLobbyPreferences, updateLobbyPreferences } from '../action-creators'
+import {
+  createLobby,
+  CreateLobbyParams,
+  getLobbyPreferences,
+  updateLobbyPreferences,
+} from '../action-creators'
 import { navigateToLobby } from '../lobby-url'
-import { GameSetupForm, GameSetupFormHandle, GameSetupModel } from './game-setup-form'
+import {
+  GameSetupForm,
+  GameSetupFormHandle,
+  GameSetupModel,
+  Section,
+  SectionHeader,
+} from './game-setup-form'
 import { VisibilityPicker } from './visibility-picker'
 
 /** The most recent maps kept in the create form's preferences, newest first. */
 const NUM_RECENT_MAPS = 5
 
 const Content = styled.div`
-  max-width: 480px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 16px 24px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+`
+
+const HeaderBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 `
 
 const LoadingContainer = styled.div`
@@ -39,13 +61,8 @@ const LoadingContainer = styled.div`
   min-height: 240px;
 `
 
-const BackButtonRow = styled.div`
-  margin-bottom: 8px;
-`
-
 const Title = styled.div`
   ${titleLarge};
-  margin-bottom: 16px;
 `
 
 const HostAgainCard = styled.div`
@@ -92,7 +109,6 @@ const Divider = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 24px 0;
 `
 
 const DividerLine = styled.div`
@@ -106,31 +122,12 @@ const DividerLabel = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const SectionHeader = styled.div`
-  ${bodyLarge};
-  margin: 20px 0 8px;
+const CreateButton = styled(FilledButton)`
+  align-self: flex-end;
 `
 
-const NameSection = styled.div`
-  margin-top: 20px;
-`
-
-const NameHint = styled.div`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-  margin-top: 4px;
-`
-
-const VisibilitySection = styled.div`
-  margin-top: 20px;
-`
-
-const CreateButtonRow = styled.div`
-  margin-top: 24px;
-`
-
-const FullWidthButton = styled(FilledButton)`
-  width: 100%;
+const LobbyNameField = styled(TextField)`
+  max-width: 480px;
 `
 
 /** The lobby name shown by default when the field is left empty. */
@@ -166,13 +163,25 @@ function ensureMapIncluded(recentMaps: ReadonlyArray<SbMapId>, mapId: SbMapId): 
 
 export interface HostGameProps {
   onNavigateToList?: () => void
+  /**
+   * When set, called with the request the form would have sent instead of creating a lobby on the
+   * server (and navigating into it). Lets dev pages exercise the full form flow without producing
+   * real lobbies.
+   */
+  createLobbyOverride?: (params: CreateLobbyParams) => void
+  /**
+   * When set, called with the preferences that would have been saved instead of persisting them
+   * to the server. Lets dev pages exercise the form without overwriting the user's real saved
+   * preferences.
+   */
+  savePreferencesOverride?: (prefs: ReadonlyDeep<UpdateLobbyPreferencesRequest>) => void
 }
 
 /**
  * The redesigned "Host a game" surface: a quick-recreate card for the last setup, and a form for
  * starting fresh built on the shared `GameSetupForm` core.
  */
-export function HostGame({ onNavigateToList }: HostGameProps) {
+export function HostGame(props: HostGameProps) {
   const dispatch = useAppDispatch()
   const hasLoaded = useAppSelector(s => s.lobbyPreferences.hasLoaded)
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
@@ -189,10 +198,14 @@ export function HostGame({ onNavigateToList }: HostGameProps) {
     )
   }
 
-  return <HostGameContent onNavigateToList={onNavigateToList} />
+  return <HostGameContent {...props} />
 }
 
-function HostGameContent({ onNavigateToList }: HostGameProps) {
+function HostGameContent({
+  onNavigateToList,
+  createLobbyOverride,
+  savePreferencesOverride,
+}: HostGameProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
@@ -226,9 +239,7 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
   )
 
   const [isCreating, setIsCreating] = useState(false)
-  const [name, setName] = useState(() =>
-    initial.name.trim() ? initial.name : defaultLobbyName(t, selfUser?.name),
-  )
+  const [name, setName] = useState(initial.name)
   const [visibility, setVisibility] = useState<LobbyVisibility>(initial.visibility)
   // Mirrors whatever `GameSetupForm` currently holds, so a name/visibility edit's autosave (which
   // doesn't go through the form at all) still saves the setup fields alongside them.
@@ -240,25 +251,31 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
     allowObservers: initial.allowObservers,
   })
 
+  const savePreferences = (prefs: ReadonlyDeep<UpdateLobbyPreferencesRequest>) => {
+    if (savePreferencesOverride) {
+      savePreferencesOverride(prefs)
+    } else {
+      dispatch(updateLobbyPreferences(prefs))
+    }
+  }
+
   // A debounced save always fires after whichever render triggered it, so it needs to read
   // whatever `name`/`visibility`/`setup` are by the time it actually runs rather than whatever
   // they were when the debounce was created; `useEffectEvent` gives a stable function that always
   // sees the latest values without that staleness.
   const saveNow = useEffectEvent(() => {
-    dispatch(
-      updateLobbyPreferences({
-        name,
-        selectedMap: setup.mapId,
-        recentMaps: setup.mapId
-          ? ensureMapIncluded(initial.recentMaps, setup.mapId)
-          : initial.recentMaps,
-        gameType: setup.gameType,
-        gameSubType: setup.gameSubType,
-        useLegacyLimits: setup.useLegacyLimits,
-        visibility,
-        allowObservers: setup.allowObservers,
-      }),
-    )
+    savePreferences({
+      name,
+      selectedMap: setup.mapId,
+      recentMaps: setup.mapId
+        ? ensureMapIncluded(initial.recentMaps, setup.mapId)
+        : initial.recentMaps,
+      gameType: setup.gameType,
+      gameSubType: setup.gameSubType,
+      useLegacyLimits: setup.useLegacyLimits,
+      visibility,
+      allowObservers: setup.allowObservers,
+    })
   })
 
   // Built once (in an Effect, so the Effect Event above may be called from within it) and exposed
@@ -290,6 +307,24 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
     )
   }
 
+  const doCreateLobby = (params: CreateLobbyParams) => {
+    if (createLobbyOverride) {
+      createLobbyOverride(params)
+      return
+    }
+
+    setIsCreating(true)
+    dispatch(
+      createLobby(params, {
+        onSuccess: result => navigateToLobby(result.id, params.name),
+        onError: () => {
+          setIsCreating(false)
+          showErrorDialog()
+        },
+      }),
+    )
+  }
+
   const canHostAgain = !!initial.selectedMap && !!initialMapInfo
 
   const setupModel: GameSetupModel = {
@@ -302,17 +337,17 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
 
   return (
     <Content>
-      {onNavigateToList ? (
-        <BackButtonRow>
+      <HeaderBlock>
+        {onNavigateToList ? (
           <TextButton
             label={t('lobbies.createLobby.backToList', 'Back to list')}
             iconStart={<MaterialIcon icon='arrow_back' />}
             onClick={onNavigateToList}
           />
-        </BackButtonRow>
-      ) : null}
+        ) : null}
 
-      <Title>{t('lobbies.hostGame.title', 'Host a game')}</Title>
+        <Title>{t('lobbies.hostGame.title', 'Host a game')}</Title>
+      </HeaderBlock>
 
       {canHostAgain ? (
         <>
@@ -341,27 +376,15 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
                   ? initial.name
                   : defaultLobbyName(t, selfUser?.name)
 
-                setIsCreating(true)
-                dispatch(
-                  createLobby(
-                    {
-                      name: hostAgainName,
-                      map: initial.selectedMap!,
-                      gameType: initial.gameType,
-                      gameSubType: isTeamType(initial.gameType) ? initial.gameSubType : undefined,
-                      useLegacyLimits: initial.useLegacyLimits,
-                      allowObservers: initial.allowObservers,
-                      visibility: initial.visibility,
-                    },
-                    {
-                      onSuccess: result => navigateToLobby(result.id, hostAgainName),
-                      onError: () => {
-                        setIsCreating(false)
-                        showErrorDialog()
-                      },
-                    },
-                  ),
-                )
+                doCreateLobby({
+                  name: hostAgainName,
+                  map: initial.selectedMap!,
+                  gameType: initial.gameType,
+                  gameSubType: isTeamType(initial.gameType) ? initial.gameSubType : undefined,
+                  useLegacyLimits: initial.useLegacyLimits,
+                  allowObservers: initial.allowObservers,
+                  visibility: initial.visibility,
+                })
               }}
             />
           </HostAgainCard>
@@ -386,67 +409,54 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
         onSubmit={model => {
           const finalName = name.trim() ? name.trim() : defaultLobbyName(t, selfUser?.name)
 
-          setIsCreating(true)
-          dispatch(
-            createLobby(
-              {
-                name: finalName,
-                map: model.mapId!,
-                gameType: model.gameType,
-                gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
-                useLegacyLimits: model.useLegacyLimits,
-                allowObservers: model.allowObservers,
-                visibility,
-              },
-              {
-                onSuccess: result => navigateToLobby(result.id, finalName),
-                onError: () => {
-                  setIsCreating(false)
-                  showErrorDialog()
-                },
-              },
-            ),
-          )
+          doCreateLobby({
+            name: finalName,
+            map: model.mapId!,
+            gameType: model.gameType,
+            gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
+            useLegacyLimits: model.useLegacyLimits,
+            allowObservers: model.allowObservers,
+            visibility,
+          })
 
           debouncedSaveRef.current?.cancel()
 
-          dispatch(
-            updateLobbyPreferences({
-              name: finalName,
-              selectedMap: model.mapId,
-              recentMaps: updateRecentMaps(model.mapId!, initial.recentMaps),
-              gameType: model.gameType,
-              gameSubType: model.gameSubType,
-              useLegacyLimits: model.useLegacyLimits,
-              visibility,
-              allowObservers: model.allowObservers,
-            }),
-          )
+          savePreferences({
+            // The preferences record what the user actually typed (possibly nothing), so a
+            // left-empty name stays a ghost placeholder on the next visit instead of
+            // materializing the auto-generated name into the field.
+            name,
+            selectedMap: model.mapId,
+            recentMaps: updateRecentMaps(model.mapId!, initial.recentMaps),
+            gameType: model.gameType,
+            gameSubType: model.gameSubType,
+            useLegacyLimits: model.useLegacyLimits,
+            visibility,
+            allowObservers: model.allowObservers,
+          })
         }}
       />
 
-      <NameSection>
-        <TextField
-          value={name}
-          onChange={event => {
-            setName(event.target.value)
-            debouncedSaveRef.current?.()
-          }}
-          disabled={isCreating}
-          floatingLabel={true}
-          label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
-          inputProps={{
-            maxLength: LOBBY_NAME_MAXLENGTH,
-            autoCapitalize: 'off',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}
-        />
-        <NameHint>{t('lobbies.hostGame.nameHint', 'Optional — we picked one for you')}</NameHint>
-      </NameSection>
+      <LobbyNameField
+        value={name}
+        onChange={event => {
+          setName(event.target.value)
+          debouncedSaveRef.current?.()
+        }}
+        disabled={isCreating}
+        floatingLabel={true}
+        label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+        inputProps={{
+          placeholder: defaultLobbyName(t, selfUser?.name),
+          maxLength: LOBBY_NAME_MAXLENGTH,
+          autoCapitalize: 'off',
+          autoComplete: 'off',
+          autoCorrect: 'off',
+          spellCheck: false,
+        }}
+      />
 
-      <VisibilitySection>
+      <Section>
         <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
         <VisibilityPicker
           value={visibility}
@@ -456,15 +466,13 @@ function HostGameContent({ onNavigateToList }: HostGameProps) {
             debouncedSaveRef.current?.()
           }}
         />
-      </VisibilitySection>
+      </Section>
 
-      <CreateButtonRow>
-        <FullWidthButton
-          label={t('lobbies.createLobby.title', 'Create lobby')}
-          disabled={isCreating}
-          onClick={() => formRef.current?.submit()}
-        />
-      </CreateButtonRow>
+      <CreateButton
+        label={t('lobbies.createLobby.title', 'Create lobby')}
+        disabled={isCreating}
+        onClick={() => formRef.current?.submit()}
+      />
     </Content>
   )
 }

@@ -101,6 +101,13 @@ export interface FilterChipProps {
   label: string
   /** Whether the chip is selected. */
   selected?: boolean
+  /**
+   * Whether the chip shows a leading checkmark icon while `selected` (and no `icon` is set).
+   * Defaults to true. The checkmark widens the chip when it appears, so rows whose layout should
+   * stay put while selection moves between chips (e.g. an exclusive-choice group that already
+   * reads its selection from the highlight) can turn it off to keep every chip's width constant.
+   */
+  checkmark?: boolean
   /** Whether the chip is disabled. */
   disabled?: boolean
   /**
@@ -133,6 +140,7 @@ export interface FilterChipProps {
 export function FilterChip({
   label,
   selected = false,
+  checkmark = true,
   icon,
   className,
   disabled,
@@ -176,14 +184,17 @@ export function FilterChip({
     })
   })
 
-  const showLeadingIcon = selected || icon
-  const leadingIcon = selected && !icon ? <MaterialIcon icon='check' size={ICON_SIZE} /> : icon
+  const leadingIcon =
+    selected && !icon && checkmark ? <MaterialIcon icon='check' size={ICON_SIZE} /> : icon
+  const showLeadingIcon = !!leadingIcon
   const isHighlighted = selected || (hasMenu && open)
 
   return (
     <>
       <FilterChipRoot
         ref={composedRef}
+        type='button'
+        aria-pressed={hasMenu ? undefined : selected}
         className={className}
         $highlighted={isHighlighted}
         $hasLeadingIcon={!!showLeadingIcon}

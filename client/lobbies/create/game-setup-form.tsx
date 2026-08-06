@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import styled, { css } from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import {
   ALL_GAME_TYPES,
@@ -20,28 +20,47 @@ import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { styledWithAttrs } from '../../styles/styled-with-attrs'
-import { bodyLarge, bodySmall, labelSmall } from '../../styles/typography'
+import { labelLarge, labelSmall } from '../../styles/typography'
 import { TeamSplitPicker } from './team-split-picker'
 
-const SectionHeader = styled.div`
-  ${bodyLarge};
-  margin: 20px 0 8px;
-
-  &:first-child {
-    margin-top: 0;
-  }
-`
-
-const MapRow = styled.div`
+export const Section = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
 `
 
-const MapTile = styled(ReduxMapThumbnail)`
-  width: 120px;
-  height: 120px;
-  cursor: pointer;
+export const SectionHeader = styled.div`
+  ${labelLarge};
+  color: var(--theme-on-surface-variant);
+`
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+`
+
+const MapGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+`
+
+const MapThumbnailWrapper = styled.div<{ $selected?: boolean }>`
+  width: 100%;
+  aspect-ratio: 1;
+
+  ${props =>
+    props.$selected
+      ? css`
+          outline: 2px solid var(--theme-amber);
+          outline-offset: 2px;
+        `
+      : ''}
+`
+
+const StyledSelectedIcon = styledWithAttrs(MaterialIcon, { icon: 'check_circle', size: 64 })`
+  text-shadow: 0 0 8px #000;
 `
 
 const BrowseMapsTile = styled.div`
@@ -49,8 +68,7 @@ const BrowseMapsTile = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 120px;
-  height: 120px;
+  aspect-ratio: 1;
 
   border: 1px dashed var(--theme-outline);
   border-radius: 4px;
@@ -61,7 +79,7 @@ const BrowseMapsTile = styled.div`
   }
 `
 
-const BrowseMapsIcon = styledWithAttrs(MaterialIcon, { icon: 'search', size: 32 })`
+const BrowseMapsIcon = styledWithAttrs(MaterialIcon, { icon: 'search', size: 40 })`
   color: var(--theme-on-surface-variant);
 `
 
@@ -76,16 +94,6 @@ const GameTypeRow = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-`
-
-const ObserversSection = styled.div`
-  margin-top: 20px;
-`
-
-const ObserversHint = styled.div`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-  margin: 4px 0 0 30px;
 `
 
 export interface GameSetupModel {
@@ -117,7 +125,7 @@ export interface GameSetupFormProps {
   disabled?: boolean
   /** The form's starting values; only read once, when the form mounts. */
   model: GameSetupModel
-  /** Candidate maps for the recent-map tile row, most recent first. */
+  /** Candidate maps for the recent-map tile grid, most recent first. */
   recentMapIds: ReadonlyArray<SbMapId>
   onValidatedChange?: (model: ReadonlyDeep<GameSetupModel>) => void
   onSubmit: (model: ReadonlyDeep<GameSetupModel>) => void
@@ -185,63 +193,75 @@ export function GameSetupForm({
     }
   }, [gameType, selectedMapInfo, getInputValue, setInputValue])
 
-  // `model.mapId` is included so a map picked via the browse dialog (which may not be in the
-  // recent list, or even have been the form's starting map) still shows up as an option.
-  const mapOptionIds = Array.from(
-    new Set([mapId, model.mapId, ...recentMapIds].filter((id): id is SbMapId => !!id)),
-  ).slice(0, 5)
+  // The tiles keep the order `recentMapIds` was passed in, so selecting one highlights it in
+  // place instead of reshuffling the grid; the recency reorder only shows up on the next visit,
+  // once a lobby has actually been created with the map. Ids from outside the list (the form's
+  // starting map, or one picked via the browse dialog) are appended at the end, evicting from the
+  // tail to keep the grid at five map tiles.
+  const extraMapIds = Array.from(
+    new Set([model.mapId, mapId].filter((id): id is SbMapId => !!id && !recentMapIds.includes(id))),
+  )
+  const mapOptionIds = [...recentMapIds.slice(0, 5 - extraMapIds.length), ...extraMapIds]
+
+  const openMapBrowseDialog = () => {
+    dispatch(
+      openDialog({
+        type: DialogType.SelectMap,
+        initData: {
+          onSelectMap: (id: SbMapId) => setInputValue('mapId', id),
+        },
+      }),
+    )
+  }
 
   return (
-    <form noValidate={true} onSubmit={submit}>
-      <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
-      <MapRow>
-        {mapOptionIds.map(id => (
-          <MapTile
-            key={id}
-            mapId={id}
-            forceAspectRatio={1}
-            size={256}
-            showInfoLayer={true}
-            isSelected={id === mapId}
-            onClick={disabled ? undefined : () => setInputValue('mapId', id)}
-          />
-        ))}
-        <BrowseMapsTile
-          onClick={
-            disabled
-              ? undefined
-              : () => {
-                  dispatch(
-                    openDialog({
-                      type: DialogType.SelectMap,
-                      initData: {
-                        onSelectMap: (id: SbMapId) => setInputValue('mapId', id),
-                      },
-                    }),
-                  )
-                }
-          }>
-          <BrowseMapsIcon />
-          <BrowseMapsText>{t('maps.mapSelect.browseMaps', 'Browse maps')}</BrowseMapsText>
-        </BrowseMapsTile>
-      </MapRow>
-      <InputError error={mapIdError} />
+    <Form noValidate={true} onSubmit={submit}>
+      <Section>
+        <SectionHeader>{t('lobbies.createLobby.selectMap', 'Select map')}</SectionHeader>
+        <MapGrid>
+          {mapOptionIds.map(id => {
+            const onCardClick = disabled ? undefined : () => setInputValue('mapId', id)
 
-      <SectionHeader>{t('lobbies.createLobby.gameTypeHeader', 'Game type')}</SectionHeader>
-      <GameTypeRow>
-        {ALL_GAME_TYPES.map(type => (
-          <FilterChip
-            key={type}
-            label={gameTypeToLabel(type, t)}
-            selected={type === gameType}
-            disabled={disabled}
-            onClick={() => setInputValue('gameType', type)}
-          />
-        ))}
-      </GameTypeRow>
+            return (
+              <MapThumbnailWrapper key={id} $selected={id === mapId}>
+                <ReduxMapThumbnail
+                  mapId={id}
+                  forceAspectRatio={1}
+                  size={512}
+                  showInfoLayer={true}
+                  isSelected={id === mapId}
+                  selectedIcon={<StyledSelectedIcon />}
+                  onClick={onCardClick}
+                />
+              </MapThumbnailWrapper>
+            )
+          })}
+          <BrowseMapsTile onClick={disabled ? undefined : openMapBrowseDialog}>
+            <BrowseMapsIcon />
+            <BrowseMapsText>{t('maps.mapSelect.browseMaps', 'Browse maps')}</BrowseMapsText>
+          </BrowseMapsTile>
+        </MapGrid>
+        {mapIdError ? <InputError error={mapIdError} /> : null}
+      </Section>
+
+      <Section>
+        <SectionHeader>{t('lobbies.createLobby.gameTypeHeader', 'Game type')}</SectionHeader>
+        <GameTypeRow>
+          {ALL_GAME_TYPES.map(type => (
+            <FilterChip
+              key={type}
+              label={gameTypeToLabel(type, t)}
+              selected={type === gameType}
+              checkmark={false}
+              disabled={disabled}
+              onClick={() => setInputValue('gameType', type)}
+            />
+          ))}
+        </GameTypeRow>
+      </Section>
 
       {isTeamType(gameType) && selectedMapInfo ? (
-        <>
+        <Section>
           <SectionHeader>{t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}</SectionHeader>
           <TeamSplitPicker
             gameType={gameType}
@@ -250,33 +270,28 @@ export function GameSetupForm({
             onChange={value => setInputValue('gameSubType', value)}
             disabled={disabled}
           />
-        </>
+        </Section>
       ) : null}
 
-      <ObserversSection>
-        <CheckBox
-          {...bindCheckable('allowObservers')}
-          label={t('lobbies.createLobby.allowObservers', 'Allow observers')}
-          disabled={disabled}
-          inputProps={{ tabIndex: 0 }}
-        />
-      </ObserversSection>
-      <ObserversHint>
-        {t('lobbies.hostGame.allowObserversDescription', {
-          defaultValue: 'Up to {{maxObservers}} observer seats in any game type',
-          maxObservers: MAX_OBSERVERS,
-        })}
-      </ObserversHint>
-
-      <SectionHeader>
-        {t('lobbies.createLobby.advancedSettings', 'Advanced settings')}
-      </SectionHeader>
-      <CheckBox
-        {...bindCheckable('useLegacyLimits')}
-        label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
-        disabled={disabled}
-        inputProps={{ tabIndex: 0 }}
-      />
-    </form>
+      <Section>
+        <div>
+          <CheckBox
+            {...bindCheckable('allowObservers')}
+            label={t('lobbies.createLobby.allowObserversWithMax', {
+              defaultValue: 'Allow observers (up to {{maxObservers}})',
+              maxObservers: MAX_OBSERVERS,
+            })}
+            disabled={disabled}
+            inputProps={{ tabIndex: 0 }}
+          />
+          <CheckBox
+            {...bindCheckable('useLegacyLimits')}
+            label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
+            disabled={disabled}
+            inputProps={{ tabIndex: 0 }}
+          />
+        </div>
+      </Section>
+    </Form>
   )
 }

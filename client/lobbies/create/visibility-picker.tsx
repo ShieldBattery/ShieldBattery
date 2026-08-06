@@ -8,6 +8,7 @@ import { bodySmall, labelLarge } from '../../styles/typography'
 const Row = styled.div`
   display: flex;
   gap: 8px;
+  max-width: 640px;
 `
 
 const Card = styled.button<{ $selected: boolean }>`
@@ -77,9 +78,8 @@ export function VisibilityPicker({ value, onChange, disabled }: VisibilityPicker
         <CardTitle>{t('lobbies.createLobby.visibilityListed', 'Public')}</CardTitle>
         <CardDescription>
           {t(
-            'lobbies.createLobby.visibilityListedDescription',
-            'Shown in the lobby list for anyone to join. Its replays are public, and ' +
-              'its games against other players appear on the games page',
+            'lobbies.hostGame.visibilityListedDescription',
+            'Anyone can join from the lobby list. Games and replays are public.',
           )}
         </CardDescription>
       </Card>
@@ -93,8 +93,8 @@ export function VisibilityPicker({ value, onChange, disabled }: VisibilityPicker
         <CardTitle>{t('lobbies.createLobby.visibilityUnlisted', 'Unlisted')}</CardTitle>
         <CardDescription>
           {t(
-            'lobbies.createLobby.visibilityUnlistedDescription',
-            'Only people you share the link with can join',
+            'lobbies.hostGame.visibilityUnlistedDescription',
+            'Only people with the link can join. Games and replays are unlisted.',
           )}
         </CardDescription>
       </Card>
