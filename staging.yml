@@ -23,6 +23,9 @@ win:
     - dll
   signtoolOptions:
     certificateSubjectName: Fast Expo Collective LLC
+    # Signs via scsigntool so the YubiKey PIN is entered once per build instead of
+    # once per signed file. See the hook for details.
+    sign: ./tools/codesign/smartcard-sign.cjs
     publisherName:
       - Fast Expo Collective LLC
     signingHashAlgorithms:

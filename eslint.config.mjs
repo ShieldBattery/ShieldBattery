@@ -427,6 +427,23 @@ export default [
     },
   },
   {
+    // Plain-Node CommonJS scripts (e.g. electron-builder hooks, which must be require()able).
+    files: ['**/*.cjs'],
+
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.commonjs,
+      },
+      ecmaVersion: 2022,
+      sourceType: 'commonjs',
+    },
+
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
     files: ['client/gql/fragment-masking.ts', 'client/gql/gql.ts'],
 
     linterOptions: {
