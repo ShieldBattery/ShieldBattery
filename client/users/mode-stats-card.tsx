@@ -12,8 +12,7 @@ import { styledWithAttrs } from '../styles/styled-with-attrs'
 import { bodySmall, labelMedium, singleLine, titleLarge, titleMedium } from '../styles/typography'
 import { RatingChart } from './rating-chart'
 import { RatingChartPoint, RatingChartSeason, RatingMetric } from './rating-chart-data'
-
-const ALL_SEASONS = 'all'
+import { ALL_SEASONS } from './stats-filters'
 
 /**
  * What the card has to show. Kept as one value rather than separate `fetching`/`error`
