@@ -516,11 +516,11 @@ export function MatchupMatrix({
   // collapse. So the cards carry names alone in the global scope.
   const showsRecord = scope === 'mine'
 
-  // That same double counting makes the bucket sum a count of perspectives rather than of games:
-  // `teamSize * 2` of them per game, since the aggregation only counts a game it can read as two
-  // even sides of that size. Dividing is what turns it back into games. The record can't be
-  // rescued the same way -- halving both halves of a 50% split still leaves 50%.
-  const totalGames = showsRecord ? total.games : Math.round(total.games / (teamSize * 2))
+  // That same double counting makes the bucket sum a count of sides rather than of games: two per
+  // game in every mode, since a side is counted once however many players stood on it. Dividing is
+  // what turns it back into games. The record can't be rescued the same way -- halving both halves
+  // of a 50% split still leaves 50%.
+  const totalGames = showsRecord ? total.games : Math.round(total.games / 2)
 
   // The top and bottom bands are clamped, so they stand for everything past their edge rather
   // than for one 200-point slice; the labels say so instead of implying a hard cut.

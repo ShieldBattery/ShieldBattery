@@ -54,8 +54,8 @@ export function MatchupsPageTest() {
 
   // Regenerating on every render would reshuffle the matrix as you click around it. The scope is
   // part of the key because the global matrix is a different payload, not a filtered view of the
-  // same one: the same shape and the same map pool, but every game counted once per participant
-  // across the whole ladder, which is why its numbers are larger and its records collapse to even.
+  // same one: the same shape and the same map pool, but every game across the whole ladder,
+  // counted from both sides, which is why its numbers are larger and its records collapse to even.
   const source = useMemo(() => createMatchupSource(makeMatchupMode(mode, scope)), [mode, scope])
 
   return (
