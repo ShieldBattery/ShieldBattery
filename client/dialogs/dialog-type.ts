@@ -28,6 +28,7 @@ export enum DialogType {
   FailedToAcceptMatch = 'failedToAcceptMatch',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
+  LobbyGameSetup = 'lobbyGameSetup',
   LobbySettings = 'lobbySettings',
   MapDetails = 'mapDetails',
   MapDownload = 'mapDownload',
@@ -175,6 +176,7 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
+type LobbyGameSetupDialogPayload = BaseDialogPayload<typeof DialogType.LobbyGameSetup>
 type LobbySettingsDialogPayload = BaseDialogPayload<typeof DialogType.LobbySettings>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
@@ -297,6 +299,7 @@ export type DialogPayload =
   | FailedToAcceptMatchDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
+  | LobbyGameSetupDialogPayload
   | LobbySettingsDialogPayload
   | MapDetailsDialogPayload
   | MapDownloadDialogPayload

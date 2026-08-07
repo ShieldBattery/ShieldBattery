@@ -4,6 +4,7 @@ import { HostGameTest } from './host-game-test'
 import { JoinPreviewTest } from './join-preview-test'
 import { LobbyInviteCardTest } from './lobby-invite-card-test'
 import { LobbyLandingTest } from './lobby-landing-test'
+import { LobbyRoomTest } from './lobby-room-test'
 import LobbyTest from './lobby-test'
 import RacePickerTest from './race-picker-test'
 
@@ -13,6 +14,9 @@ class DevLobbiesDashboard extends Component {
   render() {
     return (
       <ul>
+        <li>
+          <Link href={`${BASE_URL}/room`}>Lobby room (redesign)</Link>
+        </li>
         <li>
           <Link href={`${BASE_URL}/host-game`}>Host a game (redesign)</Link>
         </li>
@@ -39,6 +43,7 @@ class DevLobbiesDashboard extends Component {
 export default () => {
   return (
     <Switch>
+      <Route path={`${BASE_URL}/room`} component={LobbyRoomTest} />
       <Route path={`${BASE_URL}/host-game`} component={HostGameTest} />
       <Route path={`${BASE_URL}/lobby`} component={LobbyTest} />
       <Route path={`${BASE_URL}/race-picker`} component={RacePickerTest} />
