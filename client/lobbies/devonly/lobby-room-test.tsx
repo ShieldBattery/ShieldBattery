@@ -17,6 +17,8 @@ import { RaceChar } from '../../../common/races'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { DispatchFunction } from '../../dispatch-registry'
 import { JotaiStore } from '../../jotai-store'
 import { BigGameHunters, loadMapsForTesting } from '../../maps/devonly/maps-for-testing'
@@ -29,6 +31,7 @@ import {
   LobbySeriesTeam,
   readyUsersAtom,
 } from '../room/room-atoms'
+import { IsolatedReduxProvider } from './isolated-redux'
 import { ScenarioPicker } from './scenario-picker'
 
 type LobbyTestDispatch = DispatchFunction<ReduxAction>
@@ -318,9 +321,11 @@ const testStore = createStore()
 
 export function LobbyRoomTest() {
   return (
-    <Provider store={testStore}>
-      <LobbyRoomTestInner />
-    </Provider>
+    <IsolatedReduxProvider>
+      <Provider store={testStore}>
+        <LobbyRoomTestInner />
+      </Provider>
+    </IsolatedReduxProvider>
   )
 }
 
@@ -332,17 +337,14 @@ function LobbyRoomTestInner() {
 
   const viewerId = VIEWER_IDS[viewpoint]
 
-  // The connection lifecycle empties the lobby reducer (see '@network/connect' in
-  // lobby-reducer.ts), and the site socket can connect after this page has already seeded — so
-  // reseed whenever the seeded lobby disappears, not just when the scenario changes.
-  const seeded = useAppSelector(s => !!s.lobby.info.name)
+  // The page-local store starts out empty, so seed on mount and reseed when the scenario changes.
   const lastSeededScenario = useRef<ScenarioId | undefined>(undefined)
   useEffect(() => {
-    if (!seeded || lastSeededScenario.current !== scenario) {
+    if (lastSeededScenario.current !== scenario) {
       lastSeededScenario.current = scenario
       seedScenario(dispatch, store, scenario)
     }
-  }, [dispatch, store, scenario, seeded])
+  }, [dispatch, store, scenario])
 
   // Ticks a started countdown down so the pre-launch state reads the way it will in a real lobby.
   const countdownTimer = useAppSelector(s =>
@@ -401,7 +403,7 @@ function LobbyRoomTestInner() {
             onStartGame={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
             onForceStart={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
             onCancelCountdown={() => dispatch({ type: '@lobbies/updateCountdownCanceled' })}
-            onOpenGameSetup={() => console.log('onOpenGameSetup')}
+            onOpenGameSetup={() => dispatch(openDialog({ type: DialogType.LobbyGameSetup }))}
             onSlotAction={(action, slotId) => console.log('onSlotAction', action, slotId)}
             onArrangeTeams={arrangement => console.log('onArrangeTeams', arrangement)}
             onWatchReplay={gameId => console.log('onWatchReplay', gameId)}

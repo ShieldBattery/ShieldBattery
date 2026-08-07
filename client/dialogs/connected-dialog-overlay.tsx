@@ -58,6 +58,9 @@ const ReportGameDialog = React.lazy(async () => ({
 const LeagueExplainerDialog = React.lazy(async () => ({
   default: (await import('../leagues/league-explainer')).LeagueExplainerDialog,
 }))
+const LobbyGameSetupDialog = React.lazy(async () => ({
+  default: (await import('../lobbies/room/game-setup-dialog')).GameSetupDialog,
+}))
 const LobbyMoveSlotDialog = React.lazy(async () => ({
   default: (await import('../lobbies/lobby-move-slot-dialog')).LobbyMoveSlotDialog,
 }))
@@ -202,6 +205,8 @@ function getDialog(dialogType: DialogType): {
       return { component: LaunchingGameDialog, modal: true }
     case DialogType.LeagueExplainer:
       return { component: LeagueExplainerDialog }
+    case DialogType.LobbyGameSetup:
+      return { component: LobbyGameSetupDialog }
     case DialogType.LobbySettings:
       return { component: LobbySettingsDialog }
     case DialogType.MapDetails:

@@ -925,6 +925,9 @@
       "banned": "You have been banned from the lobby.",
       "kicked": "You have been kicked from the lobby."
     },
+    "gameSetup": {
+      "title": "Game setup"
+    },
     "hostGame": {
       "changeMap": "Change map",
       "defaultLobbyName": "{{name}}'s lobby",
