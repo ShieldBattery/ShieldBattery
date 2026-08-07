@@ -20,7 +20,7 @@ import {
   takenSlotCount,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
-import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import { LobbyLifecycle, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   Slot,
@@ -88,7 +88,10 @@ export function getSlotsPerTeam(
  * Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the open
  * lobbies.
  */
-export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
+export function toSummaryJson(
+  lobby: Lobby,
+  lifecycle: LobbyLifecycle = 'gathering',
+): LobbySummaryJson {
   return {
     id: lobby.id,
     name: lobby.name,
@@ -97,6 +100,7 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
     openSlotCount: openSlotCount(lobby),
+    lifecycle,
   }
 }
 
@@ -995,14 +999,21 @@ export interface LobbySettings {
  * A change that leaves the layout alone (a different unit limit, or a map with exactly the same
  * team sizes) keeps every slot as it is, so nobody moves. Turning observers on or off only adds or
  * removes the observer team, leaving the player slots — including any the host has closed — as they
- * are, and finding the people who were observing a seat.
+ * are: turning them on gives anyone waiting on the bench somewhere to sit, and turning them off
+ * finds the people who were observing a seat.
  *
  * Any other change gives the lobby the layout the new settings describe, and pours its members back
- * into it in order of who has the strongest claim to a seat: the host first (a host is never left
- * without one), then the players by how long they have been here, then any observers the change
- * unseats, and finally whoever was waiting on the bench. Anyone left over goes to the observer team
- * if there is one, and to the bench if there isn't: a settings change never removes anyone from the
- * lobby. Computers are added back last, and only as far as the new layout has room for them.
+ * into it in order of who has the strongest claim to a seat: the host first, then the players by how
+ * long they have been here, then any observers the change unseats, and finally whoever was waiting
+ * on the bench. Anyone left over goes to the observer team if there is one, and to the bench if
+ * there isn't: a settings change never removes anyone from the lobby. Computers are added back last,
+ * and only as far as the new layout has room for them.
+ *
+ * The host has no claim on a seat beyond going first, so a change that leaves them without one
+ * (turning observers off while they are observing a lobby whose player slots are all taken) puts
+ * them on the bench like anyone else, and the host role passes to the longest-seated member. A
+ * change that would leave nobody seated to pass it to is refused, since the result would be a lobby
+ * no one could change anything in.
  *
  * Members keep the slot ids they had, so clients can tell that someone moved rather than that one
  * member left and another arrived.
@@ -1125,12 +1136,12 @@ export function applySettingsChange(lobby: Lobby, next: LobbySettings): Lobby {
   }
 
   const withHost = reassignHost(updated)
-  // Checked against the pre-change host: even with the front-of-queue claim to a seat, the host
-  // can find none to claim (an observer host turning observers off while every player slot is
-  // taken), and `reassignHost` would then quietly hand their lobby to a seated player while they
-  // land on the bench.
-  if (!getLobbySlots(withHost).some(slot => slot.id === lobby.host.id)) {
-    throw new Error('the new settings leave no slot for the lobby host')
+  // Checked against the host the new layout picked, not the old one: a host who loses their seat
+  // is benched like anyone else and the role passes to the longest-seated member. Only a layout
+  // that seats nobody who could host is refused, since every host-only operation — including
+  // changing these settings back — would then be unusable.
+  if (!getLobbySlots(withHost).some(slot => slot.id === withHost.host.id)) {
+    throw new Error('the new settings leave nobody who could host the lobby')
   }
   return withHost
 }

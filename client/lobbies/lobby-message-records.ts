@@ -15,6 +15,9 @@ export enum LobbyMessageType {
   LobbyLoadingCanceled = 'lobbyLoadingCanceled',
   LobbySettingsChange = 'lobbySettingsChange',
   LobbyBenchJoin = 'lobbyBenchJoin',
+  LobbyGameStarted = 'lobbyGameStarted',
+  LobbyMemberGameEnded = 'lobbyMemberGameEnded',
+  LobbyRegroup = 'lobbyRegroup',
 }
 
 export interface JoinLobbyMessage extends BaseMessage {
@@ -76,6 +79,20 @@ export interface BenchJoinMessage extends BaseMessage {
   readonly userId: SbUserId
 }
 
+export interface LobbyGameStartedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyGameStarted
+}
+
+export interface LobbyMemberGameEndedMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyMemberGameEnded
+  readonly userId: SbUserId
+}
+
+export interface LobbyRegroupMessage extends BaseMessage {
+  readonly type: LobbyMessageType.LobbyRegroup
+  readonly gameId: string
+}
+
 export type LobbyMessage =
   | JoinLobbyMessage
   | LeaveLobbyMessage
@@ -89,3 +106,6 @@ export type LobbyMessage =
   | LobbyLoadingCanceledMessage
   | SettingsChangeMessage
   | BenchJoinMessage
+  | LobbyGameStartedMessage
+  | LobbyMemberGameEndedMessage
+  | LobbyRegroupMessage

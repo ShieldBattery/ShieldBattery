@@ -47,6 +47,7 @@ import throttleMiddleware from '../throttle/middleware'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import { GET_GAMES_QUERY_SCHEMA, getGameListSideData } from './game-list-data'
 import { GameLoader } from './game-loader'
 import {
@@ -211,6 +212,7 @@ export class GameApi {
     private replayService: ReplayService,
     private gamePointsRefundService: GamePointsRefundService,
     private netcodeV2Service: NetcodeV2Service,
+    private gameLifecycleEvents: GameLifecycleEvents,
   ) {}
 
   @httpPost('/:gameId/nullify-points')
@@ -444,8 +446,8 @@ export class GameApi {
     }
 
     if (
-      ((status >= GameStatus.Launching && status <= GameStatus.Playing) ||
-        status === GameStatus.Error) &&
+      status >= GameStatus.Launching &&
+      status <= GameStatus.Playing &&
       !this.gameLoader.isLoadingOrRecentlyLoaded(gameId)
     ) {
       throw new httpErrors.Conflict('game must be loading')
@@ -459,9 +461,18 @@ export class GameApi {
         throw new httpErrors.NotFound('game not found')
       }
     } else if (status === GameStatus.Error) {
-      if (!this.gameLoader.maybeCancelLoading(gameId, user.id)) {
-        throw new httpErrors.NotFound('game not found')
-      }
+      // During a load, an error report cancels the load (and assigns fault; a no-op otherwise).
+      // After the load is done the game is no longer the loader's concern, but the report still
+      // means the reporter's game is over - e.g. a crash mid-game - so it is accepted rather than
+      // rejected, or the game-end signal below would never fire for clients that die instead of
+      // finishing.
+      this.gameLoader.maybeCancelLoading(gameId, user.id)
+    }
+
+    if (status === GameStatus.Finished || status === GameStatus.Error) {
+      // The reporter's game is over one way or the other, so anything waiting on them (a lobby that
+      // regroups when its game ends) can stop waiting.
+      this.gameLifecycleEvents.emit('userGameEnded', { gameId, userId: user.id })
     }
 
     ctx.status = 204

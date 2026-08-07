@@ -46,6 +46,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameSubType: 0,
   host: { id: HOST_ID },
   openSlotCount: 3,
+  lifecycle: 'gathering',
 }
 
 describe('lobbies/lobby-page-meta', () => {

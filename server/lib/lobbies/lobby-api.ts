@@ -75,7 +75,6 @@ const authedAction = [
   ensureLoggedIn,
   throttleMiddleware(lobbyActionThrottle, ctx => String(ctx.session!.user.id)),
 ]
-
 /** Validates a route's `:lobbyId` as a well-formed lobby id. */
 const lobbyIdParams = Joi.object<{ lobbyId: SbLobbyId }>({
   lobbyId: Joi.string()
@@ -180,6 +179,7 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.AlreadyInSlot:
     case LobbyServiceErrorCode.AlreadyStarted:
     case LobbyServiceErrorCode.CountingDown:
+    case LobbyServiceErrorCode.GameInProgress:
     case LobbyServiceErrorCode.TargetNoActiveClient:
       throw asHttpError(409, err)
 

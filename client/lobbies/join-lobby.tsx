@@ -78,13 +78,16 @@ function ListEntry({ lobby, onClick }: ListEntryProps) {
     <ListEntryRoot onClick={() => onClick(lobby)} data-testid='lobby-list-entry'>
       <Info>
         <TitleLarge>{lobby.name}</TitleLarge>
+        {/* Clicking the host's name must not fall through to the row and join the lobby. */}
         <HostName userId={lobby.host.id} interactive={false} />
         <BodyMedium>{gameTypeToLabel(lobby.gameType, t)}</BodyMedium>
         <BodyMedium>
-          {t('lobbies.joinLobby.openSlotCount', {
-            defaultValue: '{{count}} slots open',
-            count: lobby.openSlotCount,
-          })}
+          {lobby.lifecycle === 'inGame'
+            ? t('lobbies.lobby.inGame', 'In game')
+            : t('lobbies.joinLobby.openSlotCount', {
+                defaultValue: '{{count}} slots open',
+                count: lobby.openSlotCount,
+              })}
         </BodyMedium>
       </Info>
       <MapPreview>
@@ -186,7 +189,12 @@ function LobbyList() {
     )
   }
 
-  const openLobbies = list.filter(id => (byId.get(id)?.openSlotCount ?? 0) > 0)
+  const openLobbies = list.filter(id => {
+    const lobby = byId.get(id)
+    // A lobby with a game in progress is joinable (onto the bench) even with every seat taken,
+    // and the server deliberately lists it; only gathering lobbies hide when full.
+    return !!lobby && (lobby.lifecycle === 'inGame' || lobby.openSlotCount > 0)
+  })
   return (
     <div>
       {openLobbies.length ? (

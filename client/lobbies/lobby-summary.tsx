@@ -289,10 +289,12 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
           <DetailRow>
             <DetailLabel>{t('lobbies.summary.slotsLabel', 'Slots')}</DetailLabel>
             <DetailValue>
-              {t('lobbies.summary.openSlotCount', {
-                defaultValue: '{{count}} open',
-                count: lobby.openSlotCount,
-              })}
+              {lobby.lifecycle === 'inGame'
+                ? t('lobbies.lobby.inGame', 'In game')
+                : t('lobbies.summary.openSlotCount', {
+                    defaultValue: '{{count}} open',
+                    count: lobby.openSlotCount,
+                  })}
             </DetailValue>
           </DetailRow>
         </DetailsList>

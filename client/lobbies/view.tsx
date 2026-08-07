@@ -44,7 +44,7 @@ import LobbyComponent from './lobby'
 import { lobbyJoinErrorCode, lobbyJoinErrorMessage } from './lobby-join-errors'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryDetails, LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
-import { useCorrectLobbySlug } from './lobby-url'
+import { navigateToLobby, useCorrectLobbySlug } from './lobby-url'
 
 const LoadingArea = styled.div`
   height: 32px;
@@ -84,6 +84,7 @@ export function LobbyView(props: LobbyViewProps) {
   const prevIsActiveGame = usePrevious(isActiveGame)
   const gameClientGameId = useAppSelector(s => s.gameClient.gameId)
   const prevGameClientGameId = usePrevious(gameClientGameId)
+  const currentLobbyName = useAppSelector(s => s.lobby.info.name)
 
   useEffect(() => {
     // TODO(tec27): This check seems kind of bad because you could (theoretically) get kicked from
@@ -96,7 +97,11 @@ export function LobbyView(props: LobbyViewProps) {
   }, [isLeavingLobby, isActiveGame])
   useEffect(() => {
     if (!isActiveGame && prevIsActiveGame) {
-      if (prevGameClientGameId) {
+      if (inLobby) {
+        // The lobby survives its own game, so land back in it rather than the results screen --
+        // its regroup message links to the results for anyone who wants them.
+        navigateToLobby(lobbyId, currentLobbyName, replace)
+      } else if (prevGameClientGameId) {
         navigateToGameResults(
           prevGameClientGameId,
           true /* isPostGame */,
@@ -107,7 +112,7 @@ export function LobbyView(props: LobbyViewProps) {
         replace('/')
       }
     }
-  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame])
+  }, [isActiveGame, prevGameClientGameId, prevIsActiveGame, inLobby, lobbyId, currentLobbyName])
 
   const isConnected = useAppSelector(s => s.network.isConnected)
   useEffect(() => {
@@ -157,12 +162,14 @@ function ConnectedLobby() {
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
   const lobby = useAppSelector(s => s.lobby.info)
+  const runState = useAppSelector(s => s.lobby.runState)
   const loadingState = useAppSelector(s => s.lobby.loadingState)
   const chat = useAppSelector(s => s.lobby.chat)
 
   return (
     <LobbyComponent
       lobby={lobby}
+      runState={runState}
       loadingState={loadingState}
       chat={chat}
       user={selfUser!}

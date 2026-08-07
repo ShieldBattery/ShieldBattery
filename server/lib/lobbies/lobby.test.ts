@@ -117,6 +117,7 @@ const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
     gameSubType: 0,
     host: { id: hostId },
     openSlotCount,
+    lifecycle: 'gathering',
   })
 }
 
@@ -2012,28 +2013,79 @@ describe('Lobbies - settings changes', () => {
     expect(updated.teams[2].slots.every(slot => slot.type === 'computer')).toBe(true)
   })
 
-  test('should reject turning observers off when it would leave the host without a seat', () => {
+  test('should bench an observing host that turning observers off has no seat for', () => {
     let lobby = createLobby({
-      name: 'No seat for the host',
+      name: 'Host without a seat',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    lobby = addHumans(lobby, 3)
+    // The host watches their own lobby, and the seat they left gets taken while they do
+    lobby = makeObserver(lobby, 0, 0)
+    lobby = addPlayer(lobby, 0, 0, humanAt(4, 'z', 4000))
+    expect(lobby.host.userId).toBe(HOST_USER_ID)
+
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))
+
+    expect(updated.teams).toHaveLength(1)
+    expect(updated.teams[0].slots.every(s => s.type === 'human')).toBe(true)
+    expect(updated.bench.map(b => b.userId)).toEqual([HOST_USER_ID])
+    // Someone who is in the lobby has to be able to run it, so the role goes to whoever has been
+    // seated the longest
+    expect(updated.host.userId).toBe(makeSbUserId(1))
+    expect(updated.teams[0].slots.some(s => s.id === updated.host.id)).toBe(true)
+  })
+
+  test('should refuse a change that would leave nobody to host the lobby', () => {
+    let lobby = createLobby({
+      name: 'Comps only',
+      map: BigGameHunters,
+      gameType: GameType.Melee,
+      gameSubType: 0,
+      numSlots: 4,
+      hostUserId: HOST_USER_ID,
+      hostRace: 'r',
+      allowObservers: true,
+    })
+    // The host watches a lobby they have filled entirely with computers, so turning observers off
+    // would seat nobody who could run it
+    lobby = makeObserver(lobby, 0, 0)
+    for (let i = 0; i < 4; i++) {
+      lobby = addPlayer(lobby, 0, i, createComputer('t'))
+    }
+
+    expect(() =>
+      applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false })),
+    ).toThrow()
+  })
+
+  test('should seat the members waiting on the bench into the observer team turning observers on adds', () => {
+    let lobby = createLobby({
+      name: 'Room to watch',
       map: BigGameHunters,
       gameType: GameType.Melee,
       gameSubType: 0,
       numSlots: 2,
       hostUserId: HOST_USER_ID,
       hostRace: 'r',
-      allowObservers: true,
+      allowObservers: false,
     })
     lobby = addHumans(lobby, 1)
-    // The host observes, and the seat they left behind gets taken
-    lobby = makeObserver(lobby, 0, 0)
-    lobby = addPlayer(lobby, 0, 0, humanAt(2, 'z', 2000))
-    expect(lobby.host.type).toBe('observer')
+    lobby = addToBench(lobby, { userId: makeSbUserId(2), race: 'p', joinedAt: 2000 })
 
-    // A displaced observer's claim to a seat is weaker than the sitting players', so this change
-    // has nowhere to put the host but the bench, and a host is never left without a seat
-    expect(() => applySettingsChange(lobby, settingsFor(lobby, { allowObservers: false }))).toThrow(
-      /no slot for the lobby host/,
-    )
+    const updated = applySettingsChange(lobby, settingsFor(lobby, { allowObservers: true }))
+
+    expect(updated.bench).toHaveLength(0)
+    const observer = updated.teams[1].slots[0]
+    expect(observer.type).toBe('observer')
+    expect(observer.userId).toBe(makeSbUserId(2))
+    expect(observer.race).toBe('p')
+    expect(observer.joinedAt).toBe(2000)
   })
 
   test('should seat the members waiting on the bench when the layout grows', () => {
