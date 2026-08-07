@@ -3499,13 +3499,36 @@
         "matchHistory": "比赛历史",
         "season": "赛季",
         "stats": "统计数据",
-        "summary": "概要"
+        "summary": "概要",
+        "matchups": "对阵"
       },
       "totalGames": "总比赛数",
       "twitch": {
         "liveBadge": "直播中"
       },
-      "viewAllRanks": "查看全部{{total}}项排名"
+      "viewAllRanks": "查看全部{{total}}项排名",
+      "matchups": {
+        "allMaps": "全部地图",
+        "axisMe": "我",
+        "axisMyTeam": "我方",
+        "axisOpponent": "对手",
+        "axisOpponentTeam": "对方",
+        "gameMode": "游戏模式",
+        "loadError": "加载对阵数据时遇到问题。",
+        "map": "地图",
+        "noGames": "还没有记录对阵的比赛。",
+        "noGlobalGames": "该模式还没有排位比赛。",
+        "overall": "全部",
+        "rating": "评分",
+        "ratingMax": "最大值",
+        "ratingMin": "最小值",
+        "scope": "显示的对阵范围",
+        "scopeGlobal": "全服",
+        "scopeMine": "我的对阵",
+        "season": "赛季",
+        "total": "总计：{{wins}}–{{losses}}",
+        "totalGames_other": "总计：{{count}} 场比赛"
+      }
     },
     "profileOverlay": {
       "commends": "赞扬：{{commends}}",

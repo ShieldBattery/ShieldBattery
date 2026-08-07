@@ -3597,13 +3597,38 @@
         "matchHistory": "Historial de partidos",
         "season": "Temporadas",
         "stats": "Estadísticas",
-        "summary": "Resumen"
+        "summary": "Resumen",
+        "matchups": "Enfrentamientos"
       },
       "totalGames": "Juegos totales",
       "twitch": {
         "liveBadge": "En vivo"
       },
-      "viewAllRanks": "Ver los {{total}} rangos"
+      "viewAllRanks": "Ver los {{total}} rangos",
+      "matchups": {
+        "allMaps": "Todos los mapas",
+        "axisMe": "yo",
+        "axisMyTeam": "mi equipo",
+        "axisOpponent": "rival",
+        "axisOpponentTeam": "equipo rival",
+        "gameMode": "Modo de juego",
+        "loadError": "Hubo un problema al cargar los enfrentamientos.",
+        "map": "Mapa",
+        "noGames": "Aún no hay partidas con un enfrentamiento registrado.",
+        "noGlobalGames": "Aún no hay partidas clasificatorias en este modo.",
+        "overall": "General",
+        "rating": "Clasificación",
+        "ratingMax": "máximo",
+        "ratingMin": "mínimo",
+        "scope": "Enfrentamientos mostrados",
+        "scopeGlobal": "Global",
+        "scopeMine": "Mis enfrentamientos",
+        "season": "Temporada",
+        "total": "Total: {{wins}}–{{losses}}",
+        "totalGames_one": "Total: {{count}} partida",
+        "totalGames_many": "Total: {{count}} partidas",
+        "totalGames_other": "Total: {{count}} partidas"
+      }
     },
     "profileOverlay": {
       "commends": "Elogios: {{commends}}",
