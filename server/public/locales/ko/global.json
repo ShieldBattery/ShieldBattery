@@ -1021,7 +1021,8 @@
       "programFolder": "프로그램 폴더",
       "title": "로컬 맵",
       "uploadMapError": "맵 업로드 중 알 수 없는 오류가 발생했습니다. 나중에 다시 시도해 주세요.",
-      "uploadMapErrorTitle": "맵 업로드 오류"
+      "uploadMapErrorTitle": "맵 업로드 오류",
+      "uploadMapNoPlayerSlotsError": "이 맵에는 시작 위치나 사용할 수 있는 플레이어 슬롯이 없어 플레이할 수 없습니다. 맵에 시작 위치를 추가한 후 다시 시도해 주세요."
     },
     "mapSelect": {
       "browseMaps": "맵 찾아보기"
@@ -1649,9 +1650,14 @@
         "visualizeNetworkStalls": "네트워크 지연 시각화"
       },
       "input": {
+        "cursorHeader": "커서",
         "customCursorSizeLargest": "가장 큼",
         "customCursorSizeSmallest": "가장 작음",
         "customMouseSensitivity": "사용자 지정 마우스 감도",
+        "grabPan": "사용자 지정 화면 끌기 감도",
+        "grabPanFaster": "빠르게",
+        "grabPanSlower": "느리게",
+        "grabPanTooltip": "마우스 가운데 버튼으로 화면을 끌 때 카메라가 움직이는 속도를 조절합니다. 끄면 기존 스타크래프트: 리마스터와 동일하게 동작합니다.",
         "hardwareCursor": "하드웨어 커서",
         "hardwareCursorTooltip": "최적의 성능과 입력 반응 속도를 위해 권장됩니다",
         "keyboardScrollSpeed": "키보드 스크롤 속도",
@@ -1663,6 +1669,8 @@
         "mouseScaling": "마우스 스케일링 사용",
         "mouseScrollSpeed": "마우스 스크롤 속도",
         "mouseSensitivity": "마우스 감도",
+        "mouseSensitivityHeader": "마우스 감도",
+        "scrollingHeader": "화면 스크롤",
         "title": "입력",
         "useCustomCursorSize": "사용자 지정 커서 크기 사용"
       },
@@ -2000,15 +2008,50 @@
       },
       "copyLink": "프로필 링크 복사",
       "latestGames": "최근 게임",
+      "matchups": {
+        "allMaps": "전체 맵",
+        "axisMe": "나",
+        "axisMyTeam": "우리 팀",
+        "axisOpponent": "상대",
+        "axisOpponentTeam": "상대 팀",
+        "gameMode": "게임 모드",
+        "loadError": "종족전 기록을 불러오는 중 문제가 발생했습니다.",
+        "map": "맵",
+        "noGames": "아직 종족전이 기록된 게임이 없습니다.",
+        "noGlobalGames": "아직 이 모드에 랭크전 기록이 없습니다.",
+        "overall": "전체",
+        "rating": "레이팅",
+        "ratingMax": "최대",
+        "ratingMin": "최소",
+        "scope": "표시할 종족전",
+        "scopeGlobal": "전체 유저",
+        "scopeMine": "내 종족전",
+        "season": "시즌",
+        "total": "전적: {{wins}}–{{losses}}",
+        "totalGames_other": "총 {{count}}게임"
+      },
       "points": "점수",
       "rank": "순위",
       "rating": "레이팅",
       "record": "전적",
       "showAllRanks": "전체 순위 {{total}}개 보기",
       "showFewerRanks": "간략히 보기",
+      "stats": {
+        "allTime": "전체 기간",
+        "downsampled_other": "차트를 읽기 쉽도록 {{count}}개의 게임을 축약해서 표시합니다.",
+        "loadError": "기록을 불러오는 중 문제가 발생했습니다.",
+        "noGamesInRange": "이 구간에는 게임이 없습니다",
+        "noRankedGames": "이 플레이어는 아직 랭크전 기록이 없습니다.",
+        "points": "점수",
+        "rating": "레이팅",
+        "ratingInPlacements": "배치 경기 중에는 레이팅이 표시되지 않습니다.",
+        "season": "시즌",
+        "seasonDelta": "지난 시즌 대비 {{amount}}"
+      },
       "tabs": {
         "admin": "관리자",
         "matchHistory": "경기 기록",
+        "matchups": "종족전",
         "season": "시즌",
         "stats": "통계",
         "summary": "요약"
@@ -2016,7 +2059,8 @@
       "totalGames": "총 게임 수",
       "twitch": {
         "liveBadge": "라이브"
-      }
+      },
+      "viewAllRanks": "전체 순위 {{total}}개 보기"
     },
     "profileOverlay": {
       "info": "정보",

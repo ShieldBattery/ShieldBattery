@@ -1036,7 +1036,8 @@
       "programFolder": "Папка программы",
       "title": "Локальные карты",
       "uploadMapError": "Произошла неизвестная ошибка при загрузке карты. Пожалуйста, попробуйте позже.",
-      "uploadMapErrorTitle": "Ошибка при загрузке карты"
+      "uploadMapErrorTitle": "Ошибка при загрузке карты",
+      "uploadMapNoPlayerSlotsError": "На этой карте нет стартовых позиций или пригодных слотов для игроков, поэтому сыграть на ней невозможно. Добавьте стартовые позиции на карту и попробуйте снова."
     },
     "mapSelect": {
       "browseMaps": "Просмотреть карты"
@@ -1670,9 +1671,14 @@
         "visualizeNetworkStalls": "Визуализировать сетевые задержки"
       },
       "input": {
+        "cursorHeader": "Курсор",
         "customCursorSizeLargest": "Максимальный",
         "customCursorSizeSmallest": "Минимальный",
         "customMouseSensitivity": "Пользовательская чувствительность мыши",
+        "grabPan": "Пользовательская чувствительность перетаскивания",
+        "grabPanFaster": "Быстрее",
+        "grabPanSlower": "Медленнее",
+        "grabPanTooltip": "Задаёт скорость движения камеры при перетаскивании средней кнопкой мыши. Если выключено, поведение совпадает с обычным StarCraft: Remastered.",
         "hardwareCursor": "Аппаратный курсор",
         "hardwareCursorTooltip": "Рекомендуется для лучшей производительности и отзывчивости управления",
         "keyboardScrollSpeed": "Скорость прокрутки клавиатуры",
@@ -1684,6 +1690,8 @@
         "mouseScaling": "Использовать масштабирование мыши",
         "mouseScrollSpeed": "Скорость прокрутки мыши",
         "mouseSensitivity": "Чувствительность мыши",
+        "mouseSensitivityHeader": "Чувствительность мыши",
+        "scrollingHeader": "Прокрутка",
         "title": "Ввод",
         "useCustomCursorSize": "Использовать пользовательский размер курсора"
       },
@@ -2030,15 +2038,56 @@
       },
       "copyLink": "Скопировать ссылку на профиль",
       "latestGames": "Последние игры",
+      "matchups": {
+        "allMaps": "Все карты",
+        "axisMe": "я",
+        "axisMyTeam": "моя команда",
+        "axisOpponent": "соперник",
+        "axisOpponentTeam": "команда соперника",
+        "gameMode": "Режим игры",
+        "loadError": "Не удалось загрузить матчапы.",
+        "map": "Карта",
+        "noGames": "Пока нет игр с записанным матчапом.",
+        "noGlobalGames": "В этом режиме пока нет рейтинговых игр.",
+        "overall": "Все",
+        "rating": "Рейтинг",
+        "ratingMax": "максимум",
+        "ratingMin": "минимум",
+        "scope": "Какие матчапы показывать",
+        "scopeGlobal": "Общие",
+        "scopeMine": "Мои матчапы",
+        "season": "Сезон",
+        "total": "Всего: {{wins}}–{{losses}}",
+        "totalGames_one": "Всего: {{count}} игра",
+        "totalGames_few": "Всего: {{count}} игры",
+        "totalGames_many": "Всего: {{count}} игр",
+        "totalGames_other": "Всего: {{count}} игры"
+      },
       "points": "Очки",
       "rank": "Ранг",
       "rating": "Рейтинг",
       "record": "Рекорд",
       "showAllRanks": "Показать все ранги ({{total}})",
       "showFewerRanks": "Свернуть",
+      "stats": {
+        "allTime": "За всё время",
+        "downsampled_one": "Показано {{count}} игра в сокращённом виде, чтобы график оставался читаемым.",
+        "downsampled_few": "Показано {{count}} игры в сокращённом виде, чтобы график оставался читаемым.",
+        "downsampled_many": "Показано {{count}} игр в сокращённом виде, чтобы график оставался читаемым.",
+        "downsampled_other": "Показано {{count}} игры в сокращённом виде, чтобы график оставался читаемым.",
+        "loadError": "Не удалось загрузить эту историю.",
+        "noGamesInRange": "В этом диапазоне нет игр",
+        "noRankedGames": "У этого игрока пока нет рейтинговых игр.",
+        "points": "Очки",
+        "rating": "Рейтинг",
+        "ratingInPlacements": "Во время квалификационных матчей рейтинг скрыт.",
+        "season": "Сезон",
+        "seasonDelta": "{{amount}} к прошлому сезону"
+      },
       "tabs": {
         "admin": "Админ",
         "matchHistory": "История матчей",
+        "matchups": "Матчапы",
         "season": "Сезоны",
         "stats": "Статистика",
         "summary": "Краткое содержание"
@@ -2046,7 +2095,8 @@
       "totalGames": "Всего игр",
       "twitch": {
         "liveBadge": "В эфире"
-      }
+      },
+      "viewAllRanks": "Показать все ранги ({{total}})"
     },
     "profileOverlay": {
       "info": "Информация",

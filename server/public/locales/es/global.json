@@ -1031,7 +1031,8 @@
       "programFolder": "Carpeta del programa",
       "title": "Mapas locales",
       "uploadMapError": "Ocurrió un error al cargar el mapa.",
-      "uploadMapErrorTitle": "Error al subir el mapa"
+      "uploadMapErrorTitle": "Error al subir el mapa",
+      "uploadMapNoPlayerSlotsError": "Este mapa no tiene ubicaciones iniciales ni espacios de jugador utilizables, así que no se puede jugar. Añade ubicaciones iniciales al mapa e inténtalo de nuevo."
     },
     "mapSelect": {
       "browseMaps": "Explorar mapas"
@@ -1663,9 +1664,14 @@
         "visualizeNetworkStalls": "Visualizar los bloqueos de la red"
       },
       "input": {
+        "cursorHeader": "Cursor",
         "customCursorSizeLargest": "Más grande",
         "customCursorSizeSmallest": "Más pequeño",
         "customMouseSensitivity": "Sensibilidad personalizada del mouse",
+        "grabPan": "Sensibilidad personalizada de arrastre",
+        "grabPanFaster": "Más rápido",
+        "grabPanSlower": "Más lento",
+        "grabPanTooltip": "Ajusta la velocidad a la que se mueve la cámara al arrastrar con el botón central del ratón. Si se desactiva, se comporta igual que StarCraft: Remastered.",
         "hardwareCursor": "Cursores de hardware",
         "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
         "keyboardScrollSpeed": "Velocidad de desplazamiento del teclado",
@@ -1677,6 +1683,8 @@
         "mouseScaling": "Usar la escala del mouse",
         "mouseScrollSpeed": "Velocidad de desplazamiento del ratón",
         "mouseSensitivity": "Sensibilidad del ratón",
+        "mouseSensitivityHeader": "Sensibilidad del ratón",
+        "scrollingHeader": "Desplazamiento",
         "title": "Aporte",
         "useCustomCursorSize": "Usar tamaño de cursor personalizado"
       },
@@ -2020,15 +2028,54 @@
       },
       "copyLink": "Copiar enlace al perfil",
       "latestGames": "Últimos juegos",
+      "matchups": {
+        "allMaps": "Todos los mapas",
+        "axisMe": "yo",
+        "axisMyTeam": "mi equipo",
+        "axisOpponent": "rival",
+        "axisOpponentTeam": "equipo rival",
+        "gameMode": "Modo de juego",
+        "loadError": "Hubo un problema al cargar los enfrentamientos.",
+        "map": "Mapa",
+        "noGames": "Aún no hay partidas con un enfrentamiento registrado.",
+        "noGlobalGames": "Aún no hay partidas clasificatorias en este modo.",
+        "overall": "General",
+        "rating": "Clasificación",
+        "ratingMax": "máximo",
+        "ratingMin": "mínimo",
+        "scope": "Enfrentamientos mostrados",
+        "scopeGlobal": "Global",
+        "scopeMine": "Mis enfrentamientos",
+        "season": "Temporada",
+        "total": "Total: {{wins}}–{{losses}}",
+        "totalGames_one": "Total: {{count}} partida",
+        "totalGames_many": "Total: {{count}} partidas",
+        "totalGames_other": "Total: {{count}} partidas"
+      },
       "points": "Puntos",
       "rank": "Rango",
       "rating": "Clasificación",
       "record": "Registro",
       "showAllRanks": "Mostrar los {{total}} rangos",
       "showFewerRanks": "Mostrar menos",
+      "stats": {
+        "allTime": "Histórico",
+        "downsampled_one": "Se muestra una vista reducida de {{count}} partida para que la gráfica sea legible.",
+        "downsampled_many": "Se muestra una vista reducida de {{count}} partidas para que la gráfica sea legible.",
+        "downsampled_other": "Se muestra una vista reducida de {{count}} partidas para que la gráfica sea legible.",
+        "loadError": "Hubo un problema al cargar este historial.",
+        "noGamesInRange": "No hay partidas en este rango",
+        "noRankedGames": "Este jugador aún no tiene partidas clasificatorias.",
+        "points": "Puntos",
+        "rating": "Clasificación",
+        "ratingInPlacements": "La clasificación se oculta durante las partidas de colocación.",
+        "season": "Temporada",
+        "seasonDelta": "{{amount}} vs. la temporada pasada"
+      },
       "tabs": {
         "admin": "Administración",
         "matchHistory": "Historial de partidos",
+        "matchups": "Enfrentamientos",
         "season": "Temporadas",
         "stats": "Estadísticas",
         "summary": "Resumen"
@@ -2036,7 +2083,8 @@
       "totalGames": "Juegos totales",
       "twitch": {
         "liveBadge": "En vivo"
-      }
+      },
+      "viewAllRanks": "Ver los {{total}} rangos"
     },
     "profileOverlay": {
       "info": "Información",
