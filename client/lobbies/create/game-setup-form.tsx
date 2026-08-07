@@ -10,8 +10,6 @@ import {
 } from '../../../common/games/game-type'
 import { MAX_OBSERVERS } from '../../../common/lobbies'
 import { SbMapId } from '../../../common/maps'
-import { openDialog } from '../../dialogs/action-creators'
-import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
@@ -20,7 +18,7 @@ import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
-import { useAppDispatch, useAppSelector } from '../../redux-hooks'
+import { useAppSelector } from '../../redux-hooks'
 import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
 import { TeamSplitPicker } from './team-split-picker'
 
@@ -192,6 +190,7 @@ export interface GameSetupModel {
 
 export interface GameSetupFormHandle {
   submit(): void
+  setMap(mapId: SbMapId): void
 }
 
 const mapIdValidator: Validator<SbMapId | undefined, GameSetupModel> = (
@@ -213,6 +212,11 @@ export interface GameSetupFormProps {
   model: GameSetupModel
   onValidatedChange?: (model: ReadonlyDeep<GameSetupModel>) => void
   onSubmit: (model: ReadonlyDeep<GameSetupModel>) => void
+  /**
+   * Called when the user asks to pick a different map. The host surface decides how the map
+   * browser is shown; it delivers the result back through the form handle's `setMap`.
+   */
+  onChangeMap: () => void
   ref?: React.Ref<GameSetupFormHandle>
 }
 
@@ -226,10 +230,10 @@ export function GameSetupForm({
   model,
   onValidatedChange,
   onSubmit,
+  onChangeMap,
   ref,
 }: GameSetupFormProps) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
   const { bindCheckable, bindCustom, getInputValue, setInputValue, form, submit } =
     useForm<GameSetupModel>(model, {
       mapId: mapIdValidator,
@@ -240,7 +244,10 @@ export function GameSetupForm({
     onSubmit,
   })
 
-  useImperativeHandle(ref, () => ({ submit }))
+  useImperativeHandle(ref, () => ({
+    submit,
+    setMap: (mapId: SbMapId) => setInputValue('mapId', mapId),
+  }))
 
   const mapId = getInputValue('mapId')
   const mapIdError = bindCustom('mapId').errorText
@@ -276,17 +283,6 @@ export function GameSetupForm({
     }
   }, [gameType, selectedMapInfo, getInputValue, setInputValue])
 
-  const openMapBrowseDialog = () => {
-    dispatch(
-      openDialog({
-        type: DialogType.SelectMap,
-        initData: {
-          onSelectMap: (id: SbMapId) => setInputValue('mapId', id),
-        },
-      }),
-    )
-  }
-
   return (
     <Form noValidate={true} onSubmit={submit}>
       <Columns>
@@ -299,7 +295,7 @@ export function GameSetupForm({
                   forceAspectRatio={1}
                   size={512}
                   showInfoLayer={true}
-                  onClick={disabled ? undefined : openMapBrowseDialog}
+                  onClick={disabled ? undefined : onChangeMap}
                 />
               </MapThumbnailWrapper>
               <MapInfo>
@@ -319,12 +315,12 @@ export function GameSetupForm({
                 type='button'
                 label={t('lobbies.hostGame.changeMap', 'Change map')}
                 disabled={disabled}
-                onClick={openMapBrowseDialog}
+                onClick={onChangeMap}
               />
             </MapPanel>
           ) : (
             <>
-              <EmptyMapPlaceholder type='button' disabled={disabled} onClick={openMapBrowseDialog}>
+              <EmptyMapPlaceholder type='button' disabled={disabled} onClick={onChangeMap}>
                 <EmptyMapIcon icon='map' />
                 <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
               </EmptyMapPlaceholder>
@@ -332,7 +328,7 @@ export function GameSetupForm({
                 type='button'
                 label={t('lobbies.createLobby.selectMap', 'Select map')}
                 disabled={disabled}
-                onClick={openMapBrowseDialog}
+                onClick={onChangeMap}
               />
             </>
           )}

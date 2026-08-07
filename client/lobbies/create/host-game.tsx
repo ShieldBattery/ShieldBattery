@@ -12,6 +12,8 @@ import { SbMapId } from '../../../common/maps'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openSimpleDialog } from '../../dialogs/action-creators'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { BrowseLocalMaps } from '../../maps/browse-local-maps'
+import { BrowseServerMaps } from '../../maps/browse-server-maps'
 import { FilledButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { LoadingDotsArea } from '../../progress/dots'
@@ -36,6 +38,21 @@ import { VisibilityPicker } from './visibility-picker'
 /** The most recent maps kept in the create form's preferences, newest first. */
 const NUM_RECENT_MAPS = 5
 
+const Root = styled.div`
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+`
+
+const FormScroller = styled.div<{ $hidden: boolean }>`
+  flex-grow: 1;
+  min-height: 0;
+  contain: strict;
+  overflow-y: auto;
+
+  display: ${props => (props.$hidden ? 'none' : 'block')};
+`
+
 const Content = styled.div`
   max-width: 960px;
   margin: 0 auto;
@@ -50,6 +67,26 @@ const HeaderBlock = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
+`
+
+const BrowseColumn = styled.div`
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+`
+
+const BrowseHeader = styled(HeaderBlock)`
+  padding: 16px 24px 0;
+`
+
+const BrowseArea = styled.div`
+  flex-grow: 1;
+  min-height: 0;
 `
 
 const LoadingContainer = styled.div`
@@ -106,13 +143,19 @@ function updateRecentMaps(selectedId: SbMapId, recentMaps: ReadonlyArray<SbMapId
  * Returns `recentMaps` with `mapId` guaranteed to be a member, appending it (and evicting the
  * least-recent entry if already at the cap) when it isn't already there. The preferences endpoint
  * rejects a save whose `selectedMap` isn't among its own `recentMaps`, which a map picked through
- * the browse dialog wouldn't be until a lobby is actually created with it -- the autosave still
+ * the map browser wouldn't be until a lobby is actually created with it -- the autosave still
  * needs a valid pair before that happens, so it appends rather than leaving the map unsaved.
  */
 function ensureMapIncluded(recentMaps: ReadonlyArray<SbMapId>, mapId: SbMapId): SbMapId[] {
   return recentMaps.includes(mapId)
     ? [...recentMaps]
     : [...recentMaps.slice(0, NUM_RECENT_MAPS - 1), mapId]
+}
+
+enum MapBrowseState {
+  None,
+  Server,
+  Local,
 }
 
 export interface HostGameProps {
@@ -244,6 +287,12 @@ function HostGameContent({
   }, [])
 
   const formRef = useRef<GameSetupFormHandle>(null)
+  const [browseState, setBrowseState] = useState(MapBrowseState.None)
+
+  const pick = (mapId: SbMapId) => {
+    formRef.current?.setMap(mapId)
+    setBrowseState(MapBrowseState.None)
+  }
 
   const showErrorDialog = () => {
     dispatch(
@@ -284,96 +333,130 @@ function HostGameContent({
   }
 
   return (
-    <Content>
-      <HeaderBlock>
-        {onNavigateToList ? (
-          <TextButton
-            label={t('lobbies.createLobby.backToList', 'Back to list')}
-            iconStart={<MaterialIcon icon='arrow_back' />}
-            onClick={onNavigateToList}
-          />
-        ) : null}
+    <Root>
+      {browseState !== MapBrowseState.None ? (
+        <BrowseColumn>
+          <BrowseHeader>
+            <TextButton
+              label={t('common.actions.back', 'Back')}
+              iconStart={<MaterialIcon icon='arrow_back' />}
+              onClick={() =>
+                setBrowseState(
+                  browseState === MapBrowseState.Local
+                    ? MapBrowseState.Server
+                    : MapBrowseState.None,
+                )
+              }
+            />
+            <Title>{t('lobbies.createLobby.selectMap', 'Select map')}</Title>
+          </BrowseHeader>
+          <BrowseArea>
+            {browseState === MapBrowseState.Server ? (
+              <BrowseServerMaps
+                onMapClick={pick}
+                onBrowseLocalMaps={() => setBrowseState(MapBrowseState.Local)}
+              />
+            ) : (
+              <BrowseLocalMaps onMapUpload={pick} />
+            )}
+          </BrowseArea>
+        </BrowseColumn>
+      ) : null}
 
-        <Title>{t('lobbies.hostGame.title', 'Host a game')}</Title>
-      </HeaderBlock>
+      <FormScroller $hidden={browseState !== MapBrowseState.None}>
+        <Content>
+          <HeaderBlock>
+            {onNavigateToList ? (
+              <TextButton
+                label={t('lobbies.createLobby.backToList', 'Back to list')}
+                iconStart={<MaterialIcon icon='arrow_back' />}
+                onClick={onNavigateToList}
+              />
+            ) : null}
 
-      <GameSetupForm
-        ref={formRef}
-        disabled={isCreating}
-        model={setupModel}
-        onValidatedChange={model => {
-          setSetup(model)
-          debouncedSaveRef.current?.()
-        }}
-        onSubmit={model => {
-          const finalName = name.trim() ? name.trim() : defaultLobbyName(t, selfUser?.name)
+            <Title>{t('lobbies.hostGame.title', 'Host a game')}</Title>
+          </HeaderBlock>
 
-          doCreateLobby({
-            name: finalName,
-            map: model.mapId!,
-            gameType: model.gameType,
-            gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
-            useLegacyLimits: model.useLegacyLimits,
-            allowObservers: model.allowObservers,
-            visibility,
-          })
-
-          debouncedSaveRef.current?.cancel()
-
-          savePreferences({
-            // The preferences record what the user actually typed (possibly nothing), so a
-            // left-empty name stays a ghost placeholder on the next visit instead of
-            // materializing the auto-generated name into the field.
-            name,
-            selectedMap: model.mapId,
-            recentMaps: updateRecentMaps(model.mapId!, initial.recentMaps),
-            gameType: model.gameType,
-            gameSubType: model.gameSubType,
-            useLegacyLimits: model.useLegacyLimits,
-            visibility,
-            allowObservers: model.allowObservers,
-          })
-        }}
-      />
-
-      <NameAndVisibilityRow>
-        <LobbyNameField
-          value={name}
-          onChange={event => {
-            setName(event.target.value)
-            debouncedSaveRef.current?.()
-          }}
-          disabled={isCreating}
-          floatingLabel={true}
-          label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
-          inputProps={{
-            placeholder: defaultLobbyName(t, selfUser?.name),
-            maxLength: LOBBY_NAME_MAXLENGTH,
-            autoCapitalize: 'off',
-            autoComplete: 'off',
-            autoCorrect: 'off',
-            spellCheck: false,
-          }}
-        />
-
-        <VisibilitySection>
-          <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
-          <VisibilityPicker
-            value={visibility}
+          <GameSetupForm
+            ref={formRef}
             disabled={isCreating}
-            onChange={value => {
-              setVisibility(value)
+            model={setupModel}
+            onChangeMap={() => setBrowseState(MapBrowseState.Server)}
+            onValidatedChange={model => {
+              setSetup(model)
               debouncedSaveRef.current?.()
             }}
-          />
-        </VisibilitySection>
-      </NameAndVisibilityRow>
+            onSubmit={model => {
+              const finalName = name.trim() ? name.trim() : defaultLobbyName(t, selfUser?.name)
 
-      <CreateButton
-        label={t('lobbies.createLobby.title', 'Create lobby')}
-        disabled={isCreating}
-        onClick={() => formRef.current?.submit()}
-      />
-    </Content>
+              doCreateLobby({
+                name: finalName,
+                map: model.mapId!,
+                gameType: model.gameType,
+                gameSubType: isTeamType(model.gameType) ? model.gameSubType : undefined,
+                useLegacyLimits: model.useLegacyLimits,
+                allowObservers: model.allowObservers,
+                visibility,
+              })
+
+              debouncedSaveRef.current?.cancel()
+
+              savePreferences({
+                // The preferences record what the user actually typed (possibly nothing), so a
+                // left-empty name stays a ghost placeholder on the next visit instead of
+                // materializing the auto-generated name into the field.
+                name,
+                selectedMap: model.mapId,
+                recentMaps: updateRecentMaps(model.mapId!, initial.recentMaps),
+                gameType: model.gameType,
+                gameSubType: model.gameSubType,
+                useLegacyLimits: model.useLegacyLimits,
+                visibility,
+                allowObservers: model.allowObservers,
+              })
+            }}
+          />
+
+          <NameAndVisibilityRow>
+            <LobbyNameField
+              value={name}
+              onChange={event => {
+                setName(event.target.value)
+                debouncedSaveRef.current?.()
+              }}
+              disabled={isCreating}
+              floatingLabel={true}
+              label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+              inputProps={{
+                placeholder: defaultLobbyName(t, selfUser?.name),
+                maxLength: LOBBY_NAME_MAXLENGTH,
+                autoCapitalize: 'off',
+                autoComplete: 'off',
+                autoCorrect: 'off',
+                spellCheck: false,
+              }}
+            />
+
+            <VisibilitySection>
+              <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+              <VisibilityPicker
+                value={visibility}
+                disabled={isCreating}
+                onChange={value => {
+                  setVisibility(value)
+                  debouncedSaveRef.current?.()
+                }}
+              />
+            </VisibilitySection>
+          </NameAndVisibilityRow>
+
+          <CreateButton
+            label={t('lobbies.createLobby.title', 'Create lobby')}
+            disabled={isCreating}
+            onClick={() => formRef.current?.submit()}
+          />
+        </Content>
+      </FormScroller>
+    </Root>
   )
 }
