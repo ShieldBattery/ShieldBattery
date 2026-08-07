@@ -539,6 +539,83 @@ All of the matchmaking types that we support. These values match the enum values
 """
 scalar MatchmakingType
 
+type MatchupBucket {
+	"""
+	The season the games fell in, derived from each game's `change_date` the same way the
+	rating history derives it.
+	"""
+	seasonId: Int!
+	mapId: SbMapId!
+	"""
+	The races on the viewed player's side, after random is resolved, in TPZ order within the
+	side.
+	
+	A list rather than a single race because a side is a team composition: 2v2 cells are `tp`
+	against `pz` and so on, which is how the client's matrix keys its axes. For a solo mode it
+	holds exactly one race. Who played which race isn't recorded, deliberately — that's what
+	keeps a 3v3 matrix at 10x10 instead of 27x27.
+	"""
+	races: [AssignedRace!]!
+	"""
+	The opposing side's composition, same encoding as `races`.
+	"""
+	opponentRaces: [AssignedRace!]!
+	"""
+	Lower edge of the rating band these games fell in, `RATING_BAND_SIZE` wide and clamped
+	into `[RATING_BAND_MIN, RATING_BAND_MAX]`. The bottom band is "this and below" and the top
+	is "this and above", so the range filter never has to reason about open ends.
+	"""
+	ratingBand: Int!
+	games: Int!
+	"""
+	Wins out of `games`. Matchmaking records only wins and losses, so `games - wins` is the
+	loss count exactly.
+	"""
+	wins: Int!
+}
+
+type MatchupMap {
+	id: SbMapId!
+	name: String!
+	"""
+	The map's file, which is where its preview images live.
+	
+	Resolved through the shared map loaders rather than fetched alongside the buckets: the
+	image URLs are built in exactly one place (`MapFile`), it batches with every other map on
+	the page, and the buckets stay a pure aggregation with nothing to serialize into the
+	global cache.
+	
+	Never fails the query. This field exists to draw a thumbnail next to a record; a map whose
+	file is missing — or whose row won't decode — should cost the picture, not the numbers the
+	page is actually for. Failures are logged rather than swallowed silently, since a map file
+	that can't be read is worth knowing about even though it isn't worth an error here.
+	"""
+	mapFile: MapFile
+}
+
+type MatchupStats {
+	matchmakingType: MatchmakingType!
+	"""
+	Games attributed to a matchup, which is the sum of every bucket's `games`. Lower than the
+	mode's total game count where a game predates the `games_users.team` backfill or was never
+	reconciled, since neither can be placed in a cell.
+	"""
+	totalGames: Int!
+	buckets: [MatchupBucket!]!
+	"""
+	Every map appearing in `buckets`, so the page's map filter can label itself without a
+	second request and without the name being repeated on each bucket.
+	"""
+	maps: [MatchupMap!]!
+	"""
+	The band grid the buckets are placed on, so the rating filter can lay out its scale from
+	the payload instead of hard-coding numbers that would then have two homes.
+	"""
+	ratingBandSize: Int!
+	minRatingBand: Int!
+	maxRatingBand: Int!
+}
+
 type Mutation {
 	"""
 	Files a report against another player from a game both users participated in. Any logged-in
@@ -799,6 +876,37 @@ type Query {
 	A user's rating and points over time in a single mode, oldest first.
 	"""
 	userRatingHistory(userId: SbUserId!, matchmakingType: MatchmakingType!): RatingHistory!
+	"""
+	A user's record split by race matchup, for one matchmaking mode.
+	
+	Returned as flat buckets keyed by season, map and the two sides rather than as a
+	pre-aggregated matrix: the page filters by season and by map, and every such filter is a
+	sum over a subset of these buckets. Sending them once lets the filters resolve locally
+	instead of re-querying, and the bucket count is bounded by seasons x maps x cells rather
+	than by games played, so it doesn't grow with the length of an account's history.
+	"""
+	userMatchupStats(userId: SbUserId!, matchmakingType: MatchmakingType!): MatchupStats!
+	"""
+	The same matrix computed across every player in a mode, for comparing a record against the
+	ladder at large.
+	
+	The payload has the same shape as [`Self::user_matchup_stats`] — same buckets, same maps,
+	same band grid — so the page filters it with exactly the same code. One thing differs:
+	**every game is counted once per participant**, from that participant's side. A PvZ game
+	adds one to PvZ and one to ZvP, which is what makes the matrix readable from either end and
+	makes each cell's win rate the win rate of playing that side.
+	
+	Unlike the per-user query this reads every rated game in the mode, so it's aggregated in
+	SQL rather than in memory and the result is cached — see [`GLOBAL_CACHE_TTL_SECONDS`].
+	
+	Bucket count is seasons x maps x cells x bands, which for the widest mode has a large
+	theoretical ceiling. In practice it stays far under it: compositions cluster, and most
+	(map, band, season) combinations never see most cells. If a mode ever does approach the
+	ceiling, the fix is to take the season and map as arguments and filter in SQL rather than
+	to drop a dimension — the client would refetch on those two filters instead of resolving
+	them locally.
+	"""
+	globalMatchupStats(matchmakingType: MatchmakingType!): MatchupStats!
 }
 
 """
