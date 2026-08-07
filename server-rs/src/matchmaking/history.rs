@@ -223,7 +223,7 @@ pub struct RatingHistory {
     pub points: Vec<RatingHistoryPoint>,
 }
 
-async fn fetch_seasons(db: &PgPool) -> sqlx::Result<Vec<MatchmakingSeason>> {
+pub(crate) async fn fetch_seasons(db: &PgPool) -> sqlx::Result<Vec<MatchmakingSeason>> {
     sqlx::query_as!(
         MatchmakingSeason,
         r#"
@@ -242,7 +242,7 @@ async fn fetch_seasons(db: &PgPool) -> sqlx::Result<Vec<MatchmakingSeason>> {
 
 /// The season a game falls in: the last one that started at or before it. Seasons must be
 /// sorted by `start_date` ascending.
-fn season_for(seasons: &[MatchmakingSeason], at: DateTime<Utc>) -> i32 {
+pub(crate) fn season_for(seasons: &[MatchmakingSeason], at: DateTime<Utc>) -> i32 {
     seasons
         .iter()
         .rev()
