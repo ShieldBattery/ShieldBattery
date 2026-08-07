@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -12,25 +12,12 @@ import {
 import { SbUserId } from '../../common/users/sb-user-id'
 import { UserProfileJson } from '../../common/users/user-network'
 import { graphql } from '../gql'
-import { getMatchmakingSeasons } from '../matchmaking/action-creators'
 import { LoadingDotsArea } from '../progress/dots'
-import { useAppDispatch } from '../redux-hooks'
 import { bodyLarge } from '../styles/typography'
 import { ModeStatsCard, ModeStatsCardState } from './mode-stats-card'
+import { UserRankedModesQuery } from './ranked-modes-query'
 import { RatingChartPoint, RatingChartSeason } from './rating-chart-data'
-
-const UserRankedModesQuery = graphql(/* GraphQL */ `
-  query UserRankedModes($userId: SbUserId!) {
-    userRankedModes(userId: $userId) {
-      matchmakingType
-      totalGames
-      wins
-      losses
-      rating
-      delta
-    }
-  }
-`)
+import { useProfileSeasons } from './use-profile-seasons'
 
 const UserRatingHistoryQuery = graphql(/* GraphQL */ `
   query UserRatingHistory($userId: SbUserId!, $matchmakingType: MatchmakingType!) {
@@ -72,7 +59,6 @@ export function UserProfileStats({
   seasons: ReadonlyDeep<Map<SeasonId, MatchmakingSeasonJson>>
 }) {
   const { t } = useTranslation()
-  const dispatch = useAppDispatch()
 
   // Sourced from the history rather than `profile.ladder`, which only carries the current
   // season: a player who sat this season out has a full history and no current-season rating,
@@ -91,27 +77,9 @@ export function UserProfileStats({
   const [open, setOpen] = useState<MatchmakingType | undefined | null>(null)
   const openMode = open === null ? modes[0]?.matchmakingType : open
 
-  // The profile request only carries the *current* season, so on a direct load of this tab the
-  // store has one entry -- and every season-aware decision in the chart quietly degrades:
-  // the line breaks at every boundary, past seasons get no bands, and the season picker and
-  // axis collapse to one entry. `/ladder` is the only other thing that fetches the full list,
-  // so this tab has to ask for it too. The endpoint is cached server-side.
-  const [seasonsState, setSeasonsState] = useState<'loading' | 'ready' | 'error'>('loading')
-  useEffect(() => {
-    dispatch(
-      getMatchmakingSeasons({
-        onSuccess: () => setSeasonsState('ready'),
-        // The chart is wrong rather than merely empty without the full list, so a failure
-        // shows the load error instead of a chart built on one season.
-        onError: () => setSeasonsState('error'),
-      }),
-    )
-  }, [dispatch])
-
-  // Chronological: both the splitting and the band grouping walk this in order.
-  const chartSeasons: RatingChartSeason[] = Array.from(seasons.values())
-    .map(s => ({ id: s.id, name: s.name, startDate: s.startDate, resetMmr: s.resetMmr }))
-    .sort((a, b) => a.startDate - b.startDate)
+  // The chart is wrong rather than merely empty without the full season list, so this waits on
+  // it and shows the load error if it never arrives.
+  const { state: seasonsState, seasons: chartSeasons } = useProfileSeasons(seasons)
 
   // Checked before the empty-modes case: a failed query also has no modes, and "no ranked
   // games yet" would be a false statement about the player rather than about the load.

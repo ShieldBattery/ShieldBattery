@@ -4,7 +4,8 @@ import { MatchmakingType } from '../../../common/matchmaking'
 import { buttonReset } from '../../material/button-reset'
 import { labelMedium } from '../../styles/typography'
 import { ModeStatsCard, ModeStatsCardState } from '../mode-stats-card'
-import { MODES_BY_PLAYTIME, SEASONS } from './stats-data'
+import { SEASONS } from './fixtures'
+import { MODES_BY_PLAYTIME } from './stats-data'
 
 const Container = styled.div`
   padding: 24px;
