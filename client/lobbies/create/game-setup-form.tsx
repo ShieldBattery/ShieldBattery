@@ -15,6 +15,7 @@ import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks, Validator } from '../../forms/form-hook'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
+import { OutlinedButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { FilterChip } from '../../material/filter-chip'
@@ -35,27 +36,121 @@ export const SectionHeader = styled.div`
 `
 
 const Form = styled.form`
+  container-type: inline-size;
+`
+
+/**
+ * Splits the form into a map showcase panel and the rest of the settings. A container query
+ * (rather than a media query) drives the split so the same form lays out correctly whether it's
+ * rendered in the wide "Host a game" page or the narrower in-lobby settings dialog.
+ */
+const Columns = styled.div`
   display: flex;
   flex-direction: column;
   gap: 32px;
+
+  @container (min-width: 720px) {
+    flex-direction: row;
+    gap: 24px;
+    align-items: flex-start;
+  }
 `
 
-const MapCard = styled.button<{ $hasMap: boolean }>`
+const MapColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  @container (min-width: 720px) {
+    width: 320px;
+    flex-shrink: 0;
+  }
+`
+
+const SettingsColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex-grow: 1;
+  min-width: 0;
+`
+
+/**
+ * Arranges the map thumbnail/placeholder alongside its name and player count. Narrow containers
+ * lay these out as a single compact row; wide containers stack them, matching the thumbnail's own
+ * name bar taking over what the row would otherwise show inline.
+ */
+const MapPanel = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+
+  @container (min-width: 720px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+`
+
+const MapThumbnailWrapper = styled.div`
+  width: 96px;
+  height: 96px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+
+  @container (min-width: 720px) {
+    width: 100%;
+    height: auto;
+  }
+`
+
+const MapInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-grow: 1;
+  min-width: 0;
+`
+
+const MapName = styled.div`
+  ${bodyLarge};
+  ${singleLine};
+
+  @container (min-width: 720px) {
+    display: none;
+  }
+`
+
+const MapMeta = styled.div`
+  ${bodySmall};
+  color: var(--theme-on-surface-variant);
+`
+
+const ChangeMapButton = styled(OutlinedButton)`
+  flex-shrink: 0;
+
+  @container (min-width: 720px) {
+    width: 100%;
+  }
+`
+
+const EmptyMapPlaceholder = styled.button`
   ${buttonReset};
 
   display: flex;
+  flex-direction: column;
   align-items: center;
-  ${props => (props.$hasMap ? '' : 'justify-content: center;')}
-  gap: 12px;
-  width: 100%;
-  max-width: 640px;
-  min-height: 120px;
-  padding: 12px;
-  border-radius: 8px;
-  text-align: left;
+  justify-content: center;
+  gap: 8px;
 
-  border: ${props =>
-    props.$hasMap ? '1px solid var(--theme-outline-variant)' : '1px dashed var(--theme-outline)'};
+  width: 96px;
+  height: 96px;
+  aspect-ratio: 1;
+  flex-shrink: 0;
+
+  border: 1px dashed var(--theme-outline);
+  border-radius: 4px;
 
   &:hover {
     background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
@@ -66,34 +161,11 @@ const MapCard = styled.button<{ $hasMap: boolean }>`
     opacity: var(--theme-disabled-opacity);
     pointer-events: none;
   }
-`
 
-const MapCardThumbnail = styled.div`
-  width: 96px;
-  height: 96px;
-  flex-shrink: 0;
-`
-
-const MapCardInfo = styled.div`
-  flex-grow: 1;
-  min-width: 0;
-  text-align: left;
-`
-
-const MapCardName = styled.div`
-  ${bodyLarge};
-  ${singleLine};
-`
-
-const MapCardMeta = styled.div`
-  ${bodySmall};
-  color: var(--theme-on-surface-variant);
-`
-
-const ChangeMapLabel = styled.div`
-  ${labelLarge};
-  color: var(--theme-amber);
-  flex-shrink: 0;
+  @container (min-width: 720px) {
+    width: 100%;
+    height: auto;
+  }
 `
 
 const EmptyMapIcon = styled(MaterialIcon)`
@@ -217,25 +289,22 @@ export function GameSetupForm({
 
   return (
     <Form noValidate={true} onSubmit={submit}>
-      <Section>
-        <SectionHeader>{t('lobbies.createLobby.mapHeader', 'Map')}</SectionHeader>
-        <MapCard type='button' disabled={disabled} $hasMap={!!mapId} onClick={openMapBrowseDialog}>
+      <Columns>
+        <MapColumn>
           {mapId ? (
-            <>
-              <MapCardThumbnail>
-                {/* Purely decorative: the surrounding card is the click target, and rendering the
-                    thumbnail's own action buttons would nest buttons inside it. */}
+            <MapPanel>
+              <MapThumbnailWrapper>
                 <ReduxMapThumbnail
                   mapId={mapId}
                   forceAspectRatio={1}
-                  size={256}
-                  hasFavoriteAction={false}
-                  hasMapPreviewAction={false}
+                  size={512}
+                  showInfoLayer={true}
+                  onClick={disabled ? undefined : openMapBrowseDialog}
                 />
-              </MapCardThumbnail>
-              <MapCardInfo>
-                <MapCardName>{selectedMapInfo?.name ?? ''}</MapCardName>
-                <MapCardMeta>
+              </MapThumbnailWrapper>
+              <MapInfo>
+                <MapName>{selectedMapInfo?.name ?? ''}</MapName>
+                <MapMeta>
                   {selectedMapInfo
                     ? t('lobbies.createLobby.mapPlayerCount', {
                         defaultValue: '{{count}} players',
@@ -244,68 +313,83 @@ export function GameSetupForm({
                         count: selectedMapInfo.mapData.slots,
                       })
                     : ''}
-                </MapCardMeta>
-              </MapCardInfo>
-              <ChangeMapLabel>{t('lobbies.hostGame.changeMap', 'Change map')}</ChangeMapLabel>
-            </>
+                </MapMeta>
+              </MapInfo>
+              <ChangeMapButton
+                type='button'
+                label={t('lobbies.hostGame.changeMap', 'Change map')}
+                disabled={disabled}
+                onClick={openMapBrowseDialog}
+              />
+            </MapPanel>
           ) : (
             <>
-              <EmptyMapIcon icon='map' />
-              <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
+              <EmptyMapPlaceholder type='button' disabled={disabled} onClick={openMapBrowseDialog}>
+                <EmptyMapIcon icon='map' />
+                <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
+              </EmptyMapPlaceholder>
+              <ChangeMapButton
+                type='button'
+                label={t('lobbies.createLobby.selectMap', 'Select map')}
+                disabled={disabled}
+                onClick={openMapBrowseDialog}
+              />
             </>
           )}
-        </MapCard>
-        {mapIdError ? <InputError error={mapIdError} /> : null}
-      </Section>
+          {mapIdError ? <InputError error={mapIdError} /> : null}
+        </MapColumn>
 
-      <Section>
-        <SectionHeader>{t('lobbies.createLobby.gameTypeHeader', 'Game type')}</SectionHeader>
-        <GameTypeRow>
-          {ALL_GAME_TYPES.map(type => (
-            <FilterChip
-              key={type}
-              label={gameTypeToLabel(type, t)}
-              selected={type === gameType}
-              checkmark={false}
-              disabled={disabled}
-              onClick={() => setInputValue('gameType', type)}
-            />
-          ))}
-        </GameTypeRow>
-      </Section>
+        <SettingsColumn>
+          <Section>
+            <SectionHeader>{t('lobbies.createLobby.gameTypeHeader', 'Game type')}</SectionHeader>
+            <GameTypeRow>
+              {ALL_GAME_TYPES.map(type => (
+                <FilterChip
+                  key={type}
+                  label={gameTypeToLabel(type, t)}
+                  selected={type === gameType}
+                  checkmark={false}
+                  disabled={disabled}
+                  onClick={() => setInputValue('gameType', type)}
+                />
+              ))}
+            </GameTypeRow>
+          </Section>
 
-      {isTeamType(gameType) && selectedMapInfo ? (
-        <Section>
-          <SectionHeader>{t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}</SectionHeader>
-          <TeamSplitPicker
-            gameType={gameType}
-            slots={selectedMapInfo.mapData.slots}
-            value={getInputValue('gameSubType')}
-            onChange={value => setInputValue('gameSubType', value)}
-            disabled={disabled}
-          />
-        </Section>
-      ) : null}
+          {isTeamType(gameType) && selectedMapInfo ? (
+            <Section>
+              <SectionHeader>{t('lobbies.createLobby.gameSubTypeHeader', 'Teams')}</SectionHeader>
+              <TeamSplitPicker
+                gameType={gameType}
+                slots={selectedMapInfo.mapData.slots}
+                value={getInputValue('gameSubType')}
+                onChange={value => setInputValue('gameSubType', value)}
+                disabled={disabled}
+              />
+            </Section>
+          ) : null}
 
-      <Section>
-        <div>
-          <CheckBox
-            {...bindCheckable('allowObservers')}
-            label={t('lobbies.createLobby.allowObserversWithMax', {
-              defaultValue: 'Allow observers (up to {{maxObservers}})',
-              maxObservers: MAX_OBSERVERS,
-            })}
-            disabled={disabled}
-            inputProps={{ tabIndex: 0 }}
-          />
-          <CheckBox
-            {...bindCheckable('useLegacyLimits')}
-            label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
-            disabled={disabled}
-            inputProps={{ tabIndex: 0 }}
-          />
-        </div>
-      </Section>
+          <Section>
+            <div>
+              <CheckBox
+                {...bindCheckable('allowObservers')}
+                label={t('lobbies.createLobby.allowObserversWithMax', {
+                  defaultValue: 'Allow observers (up to {{maxObservers}})',
+                  maxObservers: MAX_OBSERVERS,
+                })}
+                disabled={disabled}
+                inputProps={{ tabIndex: 0 }}
+              />
+              <CheckBox
+                {...bindCheckable('useLegacyLimits')}
+                label={t('lobbies.createLobby.useLegacyLimits', 'Use legacy unit limit')}
+                disabled={disabled}
+                inputProps={{ tabIndex: 0 }}
+              />
+            </div>
+          </Section>
+        </SettingsColumn>
+      </Columns>
     </Form>
   )
 }
