@@ -67,8 +67,21 @@ const CreateButton = styled(FilledButton)`
   align-self: flex-end;
 `
 
+const NameAndVisibilityRow = styled.div`
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+`
+
 const LobbyNameField = styled(TextField)`
-  max-width: 480px;
+  flex: 0 1 320px;
+  min-width: 240px;
+`
+
+const VisibilitySection = styled(Section)`
+  flex: 1 1 400px;
+  min-width: 0;
 `
 
 /** The lobby name shown by default when the field is left empty. */
@@ -323,36 +336,38 @@ function HostGameContent({
         }}
       />
 
-      <LobbyNameField
-        value={name}
-        onChange={event => {
-          setName(event.target.value)
-          debouncedSaveRef.current?.()
-        }}
-        disabled={isCreating}
-        floatingLabel={true}
-        label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
-        inputProps={{
-          placeholder: defaultLobbyName(t, selfUser?.name),
-          maxLength: LOBBY_NAME_MAXLENGTH,
-          autoCapitalize: 'off',
-          autoComplete: 'off',
-          autoCorrect: 'off',
-          spellCheck: false,
-        }}
-      />
-
-      <Section>
-        <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
-        <VisibilityPicker
-          value={visibility}
-          disabled={isCreating}
-          onChange={value => {
-            setVisibility(value)
+      <NameAndVisibilityRow>
+        <LobbyNameField
+          value={name}
+          onChange={event => {
+            setName(event.target.value)
             debouncedSaveRef.current?.()
           }}
+          disabled={isCreating}
+          floatingLabel={true}
+          label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+          inputProps={{
+            placeholder: defaultLobbyName(t, selfUser?.name),
+            maxLength: LOBBY_NAME_MAXLENGTH,
+            autoCapitalize: 'off',
+            autoComplete: 'off',
+            autoCorrect: 'off',
+            spellCheck: false,
+          }}
         />
-      </Section>
+
+        <VisibilitySection>
+          <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+          <VisibilityPicker
+            value={visibility}
+            disabled={isCreating}
+            onChange={value => {
+              setVisibility(value)
+              debouncedSaveRef.current?.()
+            }}
+          />
+        </VisibilitySection>
+      </NameAndVisibilityRow>
 
       <CreateButton
         label={t('lobbies.createLobby.title', 'Create lobby')}
