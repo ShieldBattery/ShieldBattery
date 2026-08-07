@@ -51,7 +51,11 @@ export function TeamSplitPicker({
     <Row>
       {options.map(option => {
         const label = isTopVsBottom
-          ? `${option}v${slots - option}`
+          ? t('lobbies.createLobby.teamSplitOption', {
+              defaultValue: '{{top}}v{{bottom}}',
+              top: option,
+              bottom: slots - option,
+            })
           : t('lobbies.createLobby.gameSubTypeOption', {
               defaultValue: '{{numTeams}} teams',
               numTeams: option,

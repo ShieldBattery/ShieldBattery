@@ -368,7 +368,11 @@ function HostGameContent({
   let slotsPart: string | undefined
   if (selectedMapInfo && slots !== undefined) {
     if (setup.gameType === GameType.TopVsBottom) {
-      slotsPart = `${setup.gameSubType}v${slots - setup.gameSubType}`
+      slotsPart = t('lobbies.createLobby.teamSplitOption', {
+        defaultValue: '{{top}}v{{bottom}}',
+        top: setup.gameSubType,
+        bottom: slots - setup.gameSubType,
+      })
     } else if (isTeamType(setup.gameType)) {
       slotsPart = t('lobbies.createLobby.gameSubTypeOption', {
         defaultValue: '{{numTeams}} teams',

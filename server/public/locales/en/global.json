@@ -931,6 +931,7 @@
       "slotsPreviewUms_other": "{{count}} slots · layout set by the map",
       "slotsPreviewVs": "VS",
       "teamSplitHeader": "Team split",
+      "teamSplitOption": "{{top}}v{{bottom}}",
       "title": "Create lobby",
       "useLegacyLimits": "Use legacy unit limit",
       "visibility": "Visibility",

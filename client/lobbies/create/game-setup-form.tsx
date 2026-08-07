@@ -487,18 +487,10 @@ export function GameSetupForm({
               />
             </MapPanel>
           ) : (
-            <>
-              <EmptyMapPlaceholder type='button' disabled={disabled} onClick={onChangeMap}>
-                <EmptyMapIcon icon='map' />
-                <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
-              </EmptyMapPlaceholder>
-              <ChangeMapButton
-                type='button'
-                label={t('lobbies.createLobby.selectMap', 'Select map')}
-                disabled={disabled}
-                onClick={onChangeMap}
-              />
-            </>
+            <EmptyMapPlaceholder type='button' disabled={disabled} onClick={onChangeMap}>
+              <EmptyMapIcon icon='map' />
+              <EmptyMapText>{t('lobbies.createLobby.selectMap', 'Select map')}</EmptyMapText>
+            </EmptyMapPlaceholder>
           )}
           {mapIdError ? <InputError error={mapIdError} /> : null}
 
