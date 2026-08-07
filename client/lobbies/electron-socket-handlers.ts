@@ -10,6 +10,7 @@ import { dispatch, Dispatchable } from '../dispatch-registry'
 import windowFocus from '../dom/window-focus'
 import i18n from '../i18n/i18next'
 import { replace } from '../navigation/routing'
+import { RootState } from '../root-reducer'
 import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
 
 const ipcRenderer = new TypedIpcRenderer()
@@ -22,6 +23,18 @@ interface CountdownState {
 const countdownState: CountdownState = {
   timer: undefined,
   sound: undefined,
+}
+
+/**
+ * Returns whether the current user is waiting on the lobby's bench rather than holding a slot.
+ *
+ * Callers include timer callbacks that can outlive the lobby (or the session), so a missing self
+ * user reads as "not benched" rather than throwing.
+ */
+function selfIsBenched(state: RootState): boolean {
+  const { auth, lobby } = state
+  const selfId = auth.self?.user.id
+  return selfId !== undefined && lobby.info.bench.some(benched => benched.userId === selfId)
 }
 
 function clearCountdownTimer() {
@@ -151,6 +164,9 @@ const eventToAction: EventToActionMap = {
     payload: event,
   }),
 
+  // The countdown belongs to the lobby, not to any one member's game: everyone in the lobby,
+  // benched or seated, follows it (and sees it) the same way. Only the local game launch it leads
+  // into is specific to the members holding a slot.
   startCountdown: (lobbyId, event) => (dispatch, getState) => {
     clearCountdownTimer()
     let tick = 5
@@ -170,19 +186,23 @@ const eventToAction: EventToActionMap = {
         clearCountdownTimer()
         dispatch({ type: '@lobbies/updateLoadingStart' })
 
-        dispatch(openDialog({ type: DialogType.LaunchingGame }))
+        // A benched member holds no slot in the game being loaded, so nothing launches locally for
+        // them and this dialog would have nothing to resolve it: they stay on the lobby instead.
+        if (!selfIsBenched(getState())) {
+          dispatch(openDialog({ type: DialogType.LaunchingGame }))
+        }
       }
     }, 1000)
   },
 
-  cancelCountdown: (lobbyId, event) => {
+  cancelCountdown: (lobbyId, event) => dispatch => {
     clearCountdownTimer()
-    return {
+    dispatch({
       type: '@lobbies/updateCountdownCanceled',
-    }
+    })
   },
 
-  cancelLoading: (lobbyId, event) => (dispatch, getState) => {
+  cancelLoading: (lobbyId, event) => dispatch => {
     // NOTE(tec27): In very low latency environments things can interleave such that the server
     // cancels loading before our client actually finishes the countdown/gets into the loading
     // state. Clearing the countdown timer here ensures that our client doesn't try to take us to
@@ -197,17 +217,29 @@ const eventToAction: EventToActionMap = {
   },
 
   gameStarted: (lobbyId, event) => (dispatch, getState) => {
-    const { lobby } = getState()
+    const state = getState()
+    const { lobby } = state
 
+    // The lobby's game is under way, so a countdown still running locally (one that trailed the
+    // server's) has nothing left to run out to.
+    clearCountdownTimer()
     dispatch(closeDialog(DialogType.LaunchingGame))
     const currentPath = location.pathname
     const lobbyPath = urlPath`/lobbies/${lobby.info.id}`
     if (currentPath === lobbyPath || currentPath.startsWith(lobbyPath + '/')) {
       replace(urlPath`/`)
     }
-    dispatch({
-      type: '@lobbies/updateGameStarted',
-    })
+    if (selfIsBenched(state)) {
+      // The lobby is over for a benched member too, but no game of theirs has started: marking one
+      // active would stick, since only their own game's lifecycle ever clears that state again
+      dispatch({
+        type: '@lobbies/updateLeaveSelf',
+      })
+    } else {
+      dispatch({
+        type: '@lobbies/updateGameStarted',
+      })
+    }
   },
 
   chat(lobbyId, event) {
@@ -234,6 +266,79 @@ const eventToAction: EventToActionMap = {
       if (!isBlocked && (!lobby.activated || !windowFocus.isFocused())) {
         audioManager.playSound(AvailableSound.MessageAlert)
       }
+    }
+  },
+
+  settingsChange: (lobbyId, event) => {
+    if (event.changedSettings.includes('map')) {
+      // Start downloading the new map right away (like joining does), so that game loading isn't
+      // left to fetch it from scratch once the countdown completes
+      const { hash, mapData, mapUrl } = event.lobby.map!
+      ipcRenderer.invoke('mapStoreDownloadMap', hash, mapData.format, mapUrl!)?.catch(err => {
+        // This is already logged to our file by the map store, so we just log it to the console for
+        // easy visibility during development
+        console.error('Error downloading map: ' + err.stack)
+      })
+    }
+
+    return {
+      type: '@lobbies/updateSettingsChange',
+      payload: event,
+    }
+  },
+
+  benchAdd: (lobbyId, event) => ({
+    type: '@lobbies/updateBenchAdd',
+    payload: event,
+  }),
+
+  benchRemove: (lobbyId, event) => (dispatch, getState) => {
+    const { auth } = getState()
+
+    if (auth.self!.user.id !== event.userId) {
+      dispatch({
+        type: '@lobbies/updateBenchRemove',
+        payload: event,
+      })
+      return
+    }
+
+    // A bench member holds no slot, so no leave/kick/ban event follows this one: if the removed
+    // member is us and we weren't seated (an absent reason), this event is how we find out we're
+    // out of the lobby.
+    switch (event.reason) {
+      case undefined:
+        dispatch({
+          type: '@lobbies/updateBenchRemove',
+          payload: event,
+        })
+        break
+      case 'left':
+        clearCountdownTimer()
+        dispatch({
+          type: '@lobbies/updateLeaveSelf',
+        })
+        break
+      case 'kicked':
+        clearCountdownTimer()
+        externalShowSnackbar(
+          i18n.t('lobbies.events.kicked', 'You have been kicked from the lobby.'),
+        )
+        dispatch({
+          type: '@lobbies/updateKickSelf',
+        })
+        break
+      case 'banned':
+        clearCountdownTimer()
+        externalShowSnackbar(
+          i18n.t('lobbies.events.banned', 'You have been banned from the lobby.'),
+        )
+        dispatch({
+          type: '@lobbies/updateBanSelf',
+        })
+        break
+      default:
+        event.reason satisfies never
     }
   },
 

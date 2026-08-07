@@ -954,10 +954,16 @@
       "openInApp": "Already have ShieldBattery? Open this link from inside the app to join the lobby."
     },
     "lobby": {
+      "benchTeamName": "Waiting for a seat",
       "copiedInviteLink": "Copied!",
       "copyInviteLink": "Copy invite link",
+      "gameSubType": "Teams",
       "gameType": "Game type",
       "leaveLobby": "Leave lobby",
+      "observers": "Observers",
+      "observersAllowed": "Allowed",
+      "observersDisabled": "Disabled",
+      "settings": "Lobby settings",
       "startGame": "Start game",
       "unitLimit": "Unit limit",
       "unitLimitExtended": "Extended",
@@ -966,8 +972,14 @@
       "visibilityListed": "Public",
       "visibilityUnlisted": "Unlisted"
     },
+    "lobbySettings": {
+      "errorDialogTitle": "Error updating settings",
+      "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration.",
+      "title": "Lobby settings"
+    },
     "messageLayout": {
       "banPlayer": "<0><0></0></0> has been banned from the lobby",
+      "benchJoin": "<0><0></0></0> is waiting for a seat",
       "countdownCanceled": "The game countdown has been canceled",
       "countdownStarted": "The game countdown has begun",
       "gameInitializationCanceled": "Game initialization has been canceled",
@@ -977,7 +989,16 @@
       "joinLobby": "<0><0></0></0> has joined the lobby",
       "kickPlayer": "<0><0></0></0> has been kicked from the lobby",
       "leaveLobby": "<0><0></0></0> has left the lobby",
-      "selfJoin": "You have joined <1>{{lobby}}</1>. The host is <4><0></0></4>."
+      "selfJoin": "You have joined <1>{{lobby}}</1>. The host is <4><0></0></4>.",
+      "settingsChange": "The host changed the lobby settings: {{settings}}",
+      "settingsChangeGameSubType": "teams",
+      "settingsChangeGameType": "game type",
+      "settingsChangeMap": "map",
+      "settingsChangeObservers": "observers",
+      "settingsChangeUnitLimit": "unit limit"
+    },
+    "moveSlot": {
+      "title": "Move to…"
     },
     "slots": {
       "addComputer": "Add computer",
@@ -988,6 +1009,7 @@
       "kickUnnamedPlayer": "Kick player",
       "makeObserver": "Make observer",
       "makePlayer": "Make player",
+      "moveToSlot": "Move to…",
       "name": "Closed",
       "open": "Open",
       "openSlot": "Open slot",

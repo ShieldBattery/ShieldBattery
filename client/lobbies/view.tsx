@@ -8,6 +8,8 @@ import { LobbyState } from '../../common/lobbies'
 import { LobbyJoinErrorCode } from '../../common/lobbies/lobby-network'
 import { makeSbLobbyId, SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { useRequireLogin, useSelfUser } from '../auth/auth-utils'
+import { openDialog } from '../dialogs/action-creators'
+import { DialogType } from '../dialogs/dialog-type'
 import { navigateToGameResults } from '../games/action-creators'
 import { ResultsSubPage } from '../games/results-sub-page'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -194,6 +196,9 @@ function ConnectedLobby() {
       onRemoveObserver={slotId => {
         dispatch(removeObserver(slotId))
       }}
+      onMoveSlot={slotId => {
+        dispatch(openDialog({ type: DialogType.MoveSlot, initData: { fromSlotId: slotId } }))
+      }}
       onStartGame={() => {
         dispatch(startCountdown())
       }}
@@ -202,6 +207,9 @@ function ConnectedLobby() {
       }}
       onMapPreview={() => {
         dispatch(openMapPreviewDialog(lobby.map!.id))
+      }}
+      onOpenLobbySettings={() => {
+        dispatch(openDialog({ type: DialogType.LobbySettings }))
       }}
     />
   )

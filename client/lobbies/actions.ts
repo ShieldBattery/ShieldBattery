@@ -1,12 +1,15 @@
 import {
   GetLobbyStateResponse,
   LobbyBanEvent,
+  LobbyBenchAddEvent,
+  LobbyBenchRemoveEvent,
   LobbyChatEvent,
   LobbyInitEvent,
   LobbyKickEvent,
   LobbyLeaveEvent,
   LobbyPreferencesResponse,
   LobbyRaceChangeEvent,
+  LobbySettingsChangeEvent,
   LobbySlotChangeEvent,
   LobbySlotCreateEvent,
   LobbySummaryJson,
@@ -40,8 +43,11 @@ export type LobbyActions =
   | LobbyUpdateLoadingStart
   | LobbyUpdateLoadingCanceled
   | LobbyUpdateRaceChange
+  | LobbyUpdateSettingsChange
   | LobbyUpdateSlotChange
   | LobbyUpdateSlotCreate
+  | LobbyUpdateBenchAdd
+  | LobbyUpdateBenchRemove
   | GetLobbyPreferencesBegin
   | GetLobbyPreferencesSuccess
   | GetLobbyPreferencesFailure
@@ -208,6 +214,27 @@ export interface LobbyUpdateSlotChange {
 export interface LobbyUpdateSlotCreate {
   type: '@lobbies/updateSlotCreate'
   payload: LobbySlotCreateEvent
+}
+
+/** The host has changed the settings of a lobby we're in. */
+export interface LobbyUpdateSettingsChange {
+  type: '@lobbies/updateSettingsChange'
+  payload: LobbySettingsChangeEvent
+}
+
+/**
+ * Someone has joined the bench of a lobby we're in (they joined while full, or were displaced by
+ * a layout change).
+ */
+export interface LobbyUpdateBenchAdd {
+  type: '@lobbies/updateBenchAdd'
+  payload: LobbyBenchAddEvent
+}
+
+/** Someone has left the bench of a lobby we're in (got a seat, or left the lobby). */
+export interface LobbyUpdateBenchRemove {
+  type: '@lobbies/updateBenchRemove'
+  payload: LobbyBenchRemoveEvent
 }
 
 /** We are beginning to retrieve the lobby preferences from the server. */

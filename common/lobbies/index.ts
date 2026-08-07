@@ -1,6 +1,8 @@
+import { GameServerRegionId } from '../game-server-regions'
 import { PlayerInfo } from '../games/game-launch-config'
 import { GameType, isTeamType } from '../games/game-type'
 import { MapInfo } from '../maps'
+import { RaceChar } from '../races'
 import { SbUserId } from '../users/sb-user-id'
 import { LobbyVisibility } from './lobby-visibility'
 import { SbLobbyId } from './sb-lobby-id'
@@ -14,6 +16,32 @@ export const MAX_OBSERVERS = 4
 
 /** States that a lobby can be in. These are the possible return values of `getLobbyState`. */
 export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted'
+
+/**
+ * The most players a lobby can hold beyond its seats. The bench absorbs joins to a full lobby and
+ * players displaced when the host shrinks the layout, so it stays bounded to keep a popular public
+ * lobby from accumulating an unbounded crowd (every bench member holds a gameplay-activity
+ * registration).
+ */
+export const MAX_BENCH = 8
+
+/**
+ * A lobby member without a seat: they joined while the lobby was full, or the host changed to a
+ * layout with fewer slots than there were players. Bench members are full members (they chat, hold
+ * their gameplay activity, and count toward the lobby being non-empty) — they just don't take part
+ * in a launched game until they get a seat.
+ */
+export interface BenchedUser {
+  readonly userId: SbUserId
+  /** The race they last held while seated, restored when they take a seat. */
+  readonly race: RaceChar
+  readonly joinedAt: number
+  /**
+   * The home game-server region they selected when they joined, if any, carried so taking a seat
+   * places their slot the same way a direct join would have.
+   */
+  readonly region?: GameServerRegionId
+}
 
 export * from './lobby-visibility'
 
@@ -35,6 +63,8 @@ export interface Lobby {
   readonly gameSubType: number
   /** All lobbies have at least one team (even Melee and FFA). */
   readonly teams: ReadonlyArray<Team>
+  /** Members waiting for a seat, in the order they should receive one. */
+  readonly bench: ReadonlyArray<BenchedUser>
   readonly host: Slot
   readonly useLegacyLimits: boolean
   readonly visibility: LobbyVisibility
@@ -127,6 +157,14 @@ export function getPlayerInfos(lobby: Lobby): PlayerInfo[] {
 }
 
 /**
+ * Finds the bench entry for a user, if they are one of the lobby's members waiting for a seat.
+ * Returns `undefined` for anyone who is seated, or not in the lobby at all.
+ */
+export function findBenchedUser(lobby: Lobby, userId: SbUserId): BenchedUser | undefined {
+  return lobby.bench.find(benched => benched.userId === userId)
+}
+
+/**
  * Finds the slot with the specified user ID in the lobby. Only works for `human` type slots (other
  * type of slots do not have valid user IDs). Returns the [teamIndex, slotIndex, slot] tuple if the
  * player is found; otherwise returns an empty array.
@@ -167,6 +205,14 @@ export function humanSlotCount(lobby: Lobby): number {
         .length,
     0,
   )
+}
+
+/**
+ * Returns whether a lobby has nobody left in it: nobody seated in a `human` or `observer` slot, and
+ * nobody waiting on the bench. Such a lobby has no one left to play it or to hand it to.
+ */
+export function isLobbyEmpty(lobby: Lobby): boolean {
+  return humanSlotCount(lobby) < 1 && lobby.bench.length === 0
 }
 
 /**
