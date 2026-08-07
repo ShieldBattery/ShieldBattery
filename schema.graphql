@@ -595,12 +595,6 @@ type MatchupMap {
 
 type MatchupStats {
 	matchmakingType: MatchmakingType!
-	"""
-	Games attributed to a matchup, which is the sum of every bucket's `games`. Lower than the
-	mode's total game count where a game predates the `games_users.team` backfill or was never
-	reconciled, since neither can be placed in a cell.
-	"""
-	totalGames: Int!
 	buckets: [MatchupBucket!]!
 	"""
 	Every map appearing in `buckets`, so the page's map filter can label itself without a

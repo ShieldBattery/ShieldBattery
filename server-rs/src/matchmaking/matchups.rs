@@ -300,7 +300,6 @@ async fn compute_global(db: &PgPool, matchmaking_type: MatchmakingType) -> Resul
 
     let mut buckets = Vec::with_capacity(rows.len());
     let mut map_names: HashMap<SbMapId, String> = HashMap::new();
-    let mut total_games = 0i32;
     for row in rows {
         // A side the aggregation can't read shouldn't happen -- the query filters nulls out of
         // `roster` before they can reach here -- but it's dropped rather than guessed at,
@@ -310,7 +309,6 @@ async fn compute_global(db: &PgPool, matchmaking_type: MatchmakingType) -> Resul
             continue;
         };
         let games = row.games as i32;
-        total_games += games;
         map_names.entry(row.map_id).or_insert(row.map_name);
         buckets.push(MatchupBucket {
             season_id: row.season_id,
@@ -339,12 +337,7 @@ async fn compute_global(db: &PgPool, matchmaking_type: MatchmakingType) -> Resul
         .collect();
     maps.sort_unstable_by(|a, b| a.name.cmp(&b.name).then(a.id.0.cmp(&b.id.0)));
 
-    Ok(MatchupStats::new(
-        matchmaking_type,
-        total_games,
-        buckets,
-        maps,
-    ))
+    Ok(MatchupStats::new(matchmaking_type, buckets, maps))
 }
 
 /// One side as the global aggregation spells it: race letters already in TPZ order.
@@ -379,9 +372,8 @@ struct MatchupRow {
 
 /// Folds participant rows into per-(season, map, matchup) buckets.
 ///
-/// A game whose sides can't be reconstructed is dropped rather than counted, including from
-/// `total_games`: it can't be placed in any cell, so counting it would make the buckets fail to
-/// sum to the total the page displays.
+/// A game whose sides can't be reconstructed is dropped rather than guessed at: it can't be
+/// placed in any cell, and a cell is the only thing this payload is read through.
 fn aggregate(
     rows: Vec<MatchupRow>,
     viewer: SbUserId,
@@ -397,7 +389,6 @@ fn aggregate(
 
     let mut counts: HashMap<BucketKey, MutableBucket> = HashMap::new();
     let mut map_names: HashMap<SbMapId, String> = HashMap::new();
-    let mut total_games = 0i32;
 
     for players in games.into_values() {
         let Some((races, opponent_races)) =
@@ -411,7 +402,6 @@ fn aggregate(
         // Every row of a game carries the same game-level values, so the first one will do.
         let game = &players[0];
 
-        total_games += 1;
         map_names
             .entry(game.map_id)
             .or_insert_with(|| game.map_name.clone());
@@ -463,7 +453,7 @@ fn aggregate(
         .collect();
     maps.sort_unstable_by(|a, b| a.name.cmp(&b.name).then(a.id.0.cmp(&b.id.0)));
 
-    MatchupStats::new(matchmaking_type, total_games, buckets, maps)
+    MatchupStats::new(matchmaking_type, buckets, maps)
 }
 
 /// Width of a rating band, and the range they're clamped into.
@@ -576,10 +566,6 @@ impl MatchupMap {
 #[derive(SimpleObject, Serialize, Deserialize, Debug, Clone)]
 pub struct MatchupStats {
     pub matchmaking_type: MatchmakingType,
-    /// Games attributed to a matchup, which is the sum of every bucket's `games`. Lower than the
-    /// mode's total game count where a game predates the `games_users.team` backfill or was never
-    /// reconciled, since neither can be placed in a cell.
-    pub total_games: i32,
     pub buckets: Vec<MatchupBucket>,
     /// Every map appearing in `buckets`, so the page's map filter can label itself without a
     /// second request and without the name being repeated on each bucket.
@@ -595,13 +581,11 @@ pub struct MatchupStats {
 impl MatchupStats {
     fn new(
         matchmaking_type: MatchmakingType,
-        total_games: i32,
         buckets: Vec<MatchupBucket>,
         maps: Vec<MatchupMap>,
     ) -> Self {
         Self {
             matchmaking_type,
-            total_games,
             buckets,
             maps,
             rating_band_size: RATING_BAND_SIZE,
@@ -810,6 +794,15 @@ mod tests {
         )
     }
 
+    /// How many games the aggregation actually counted, summed out of the cells.
+    ///
+    /// The payload carries no total of its own -- a cell is the only thing it's read through -- so
+    /// a test that cares which games survived adds the cells up. Distinct from `buckets.len()`,
+    /// which counts cells rather than games and so can't tell a dropped game from a folded one.
+    fn counted_games(stats: &MatchupStats) -> i32 {
+        stats.buckets.iter().map(|b| b.games).sum()
+    }
+
     #[test]
     fn aggregate_groups_by_season_map_and_matchup() {
         // The same PvZ cell twice on one map, the reverse cell from the other side, a mirror, and
@@ -828,7 +821,7 @@ mod tests {
             MatchmakingType::Match1v1,
         );
 
-        assert_eq!(stats.total_games, 5);
+        assert_eq!(counted_games(&stats), 5);
         assert_eq!(stats.buckets.len(), 4);
 
         let find = |season: i32, race, opponent| {
@@ -897,7 +890,7 @@ mod tests {
             MatchmakingType::Match2v2,
         );
 
-        assert_eq!(stats.total_games, 2);
+        assert_eq!(counted_games(&stats), 2);
         assert_eq!(stats.buckets.len(), 2);
 
         let tp_vs_pz = stats
@@ -916,10 +909,10 @@ mod tests {
     }
 
     #[test]
-    fn aggregate_drops_games_it_cannot_place_including_from_the_total() {
-        // The page shows `totalGames` above a matrix built from the buckets. If a game that no
-        // cell can hold still counted toward the total, the matrix would silently fail to sum
-        // to the number printed above it.
+    fn aggregate_drops_games_it_cannot_place() {
+        // Four ways a game can be unreadable, against one that isn't. A cell is the only thing
+        // this payload is read through, so a game no cell can hold has to leave no trace at all --
+        // anywhere it lingered would be a number the matrix below it doesn't add up to.
         let stats = aggregate(
             [
                 solo(1, 100, MAP_A, "p", "z", "win"),
@@ -957,7 +950,7 @@ mod tests {
             MatchmakingType::Match1v1,
         );
 
-        assert_eq!(stats.total_games, 1);
+        assert_eq!(counted_games(&stats), 1);
         assert_eq!(stats.buckets.len(), 1);
         assert_eq!(stats.buckets[0].games, 1);
     }
@@ -1009,7 +1002,7 @@ mod tests {
     #[test]
     fn aggregate_handles_an_empty_history() {
         let stats = aggregate(Vec::new(), VIEWER, &seasons(), MatchmakingType::Match1v1);
-        assert_eq!(stats.total_games, 0);
+        assert_eq!(counted_games(&stats), 0);
         assert!(stats.buckets.is_empty());
         assert!(stats.maps.is_empty());
         // The band grid ships even when nothing else does -- the filter has to draw a scale
@@ -1090,7 +1083,7 @@ mod tests {
             MatchmakingType::Match1v1,
         );
 
-        assert_eq!(stats.total_games, 2);
+        assert_eq!(counted_games(&stats), 2);
         let bands: Vec<_> = stats.buckets.iter().map(|b| b.rating_band).collect();
         assert_eq!(bands, vec![1200, 2000]);
         // Same cell in both, so a filter spanning both bands sums to the pair.
@@ -1121,7 +1114,7 @@ mod tests {
             MatchmakingType::Match1v1,
         );
 
-        assert_eq!(stats.total_games, 1);
+        assert_eq!(counted_games(&stats), 1);
         assert_eq!(stats.buckets.len(), 1);
         assert_eq!(stats.buckets[0].rating_band, 1900);
     }
@@ -1147,7 +1140,7 @@ mod tests {
             MatchmakingType::Match1v1,
         );
 
-        assert_eq!(stats.total_games, 1);
+        assert_eq!(counted_games(&stats), 1);
         assert_eq!(stats.buckets.len(), 1);
     }
 

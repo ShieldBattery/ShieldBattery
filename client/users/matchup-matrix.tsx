@@ -451,6 +451,17 @@ export function MatchupMatrix({
   // Which cell the pointer is over, so its two axis heads can be highlighted.
   const [hovered, setHovered] = useState<{ row: string; col: string }>()
 
+  // The seasons on offer are the ones the *loaded* scope was played in, so a season only the
+  // ladder saw would survive a switch to "my matchups" as an id with no option behind it: a blank
+  // dropdown over an empty grid, and no message to explain it, since a season selection means the
+  // filters aren't wide open. The same reason the mode picker resets it. `map` needs no reset --
+  // the `activeMap` fallback below already covers a selection the new pool doesn't have.
+  const changeScope = (next: MatchupScope) => {
+    if (next === scope) return
+    onScopeChange(next)
+    setSeason(ALL_SEASONS)
+  }
+
   // Clamped rather than trusted, since the band grid comes from the payload and a mode with a
   // different one would otherwise leave the thumbs outside the track. The high end is also held a
   // band above the low one, matching the slider's own `minRange`, so a stale selection can't put
@@ -505,6 +516,12 @@ export function MatchupMatrix({
   // collapse. So the cards carry names alone in the global scope.
   const showsRecord = scope === 'mine'
 
+  // That same double counting makes the bucket sum a count of perspectives rather than of games:
+  // `teamSize * 2` of them per game, since the aggregation only counts a game it can read as two
+  // even sides of that size. Dividing is what turns it back into games. The record can't be
+  // rescued the same way -- halving both halves of a 50% split still leaves 50%.
+  const totalGames = showsRecord ? total.games : Math.round(total.games / (teamSize * 2))
+
   // The top and bottom bands are clamped, so they stand for everything past their edge rather
   // than for one 200-point slice; the labels say so instead of implying a hard cut.
   const formatBand = (value: number) => {
@@ -547,7 +564,7 @@ export function MatchupMatrix({
               })
             : t('users.profile.matchups.totalGames', {
                 defaultValue: 'Total: {{count}} games',
-                count: total.games,
+                count: totalGames,
               })}
         </Total>
 
@@ -684,13 +701,13 @@ export function MatchupMatrix({
         <ScopeChip
           $active={scope === 'mine'}
           aria-pressed={scope === 'mine'}
-          onClick={() => onScopeChange('mine')}>
+          onClick={() => changeScope('mine')}>
           {t('users.profile.matchups.scopeMine', 'My matchups')}
         </ScopeChip>
         <ScopeChip
           $active={scope === 'global'}
           aria-pressed={scope === 'global'}
-          onClick={() => onScopeChange('global')}>
+          onClick={() => changeScope('global')}>
           {t('users.profile.matchups.scopeGlobal', 'Global')}
         </ScopeChip>
       </ScopeRow>
