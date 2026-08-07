@@ -1,0 +1,108 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH mode_games AS (\n                SELECT DISTINCT game_id\n                FROM matchmaking_rating_changes\n                WHERE matchmaking_type = $1\n            ),\n            -- The full roster, read from `games_users` and only *joined* to the rating rows.\n            -- Building it out of `matchmaking_rating_changes` instead would make a participant\n            -- with no rating row invisible, which doesn't merely lose their rating -- it shrinks\n            -- the side they were on and silently changes what matchup the game was.\n            roster AS (\n                SELECT\n                    gu.game_id,\n                    gu.user_id,\n                    gu.team,\n                    gu.assigned_race::text AS race,\n                    (mrc.rating - mrc.rating_change) AS pre_rating\n                FROM games_users gu\n                JOIN mode_games mg ON mg.game_id = gu.game_id\n                LEFT JOIN matchmaking_rating_changes mrc\n                    ON mrc.game_id = gu.game_id\n                    AND mrc.user_id = gu.user_id\n                    AND mrc.matchmaking_type = $1\n                WHERE gu.team IS NOT NULL\n                    AND gu.assigned_race IS NOT NULL\n            ),\n            -- `avg` skips nulls, which is the same \"average whoever we can read\" rule\n            -- `game_rating_band` applies on the per-user path.\n            game_info AS (\n                SELECT game_id, avg(pre_rating) AS mean_rating, count(*) AS roster_n\n                FROM roster\n                GROUP BY game_id\n            ),\n            seasons AS (\n                SELECT\n                    id,\n                    start_date,\n                    lead(start_date) OVER (ORDER BY start_date) AS end_date\n                FROM matchmaking_seasons\n            ),\n            -- One perspective per *side*, not per rated participant. Every player on a side\n            -- resolves to the same own/opp pair, so counting them one by one would land a team\n            -- game in its cell `team_size` times over -- harmless to the win rate, but the cell\n            -- also shows a record, and that record would read 2x (2v2) or 3x (3v3) the games\n            -- actually played. A cell is about a composition meeting another, so a side is the\n            -- thing to count.\n            --\n            -- `outcome` and `change_date` belong to the side rather than to any one player and\n            -- teammates share them, so `min` is picking a representative, not ranking anything.\n            sides_seen AS (\n                SELECT\n                    mrc.game_id,\n                    r.team,\n                    min(mrc.outcome::text) AS outcome,\n                    min(mrc.change_date) AS change_date\n                FROM matchmaking_rating_changes mrc\n                JOIN roster r ON r.game_id = mrc.game_id AND r.user_id = mrc.user_id\n                WHERE mrc.matchmaking_type = $1\n                GROUP BY mrc.game_id, r.team\n            ),\n            sides AS (\n                SELECT\n                    ss.game_id,\n                    ss.outcome,\n                    ss.change_date,\n                    array_agg(o.race ORDER BY\n                        CASE o.race WHEN 't' THEN 0 WHEN 'p' THEN 1 ELSE 2 END)\n                        FILTER (WHERE o.team = ss.team) AS own,\n                    array_agg(o.race ORDER BY\n                        CASE o.race WHEN 't' THEN 0 WHEN 'p' THEN 1 ELSE 2 END)\n                        FILTER (WHERE o.team <> ss.team) AS opp,\n                    count(*) FILTER (WHERE o.team = ss.team) AS own_n,\n                    count(*) FILTER (WHERE o.team <> ss.team) AS opp_n,\n                    count(DISTINCT o.team) AS teams\n                FROM sides_seen ss\n                JOIN roster o ON o.game_id = ss.game_id\n                GROUP BY ss.game_id, ss.outcome, ss.change_date, ss.team\n            )\n            SELECT\n                se.id AS \"season_id!\",\n                g.map_id AS \"map_id!: SbMapId\",\n                m.name AS \"map_name!\",\n                s.own AS \"own!: Vec<String>\",\n                s.opp AS \"opp!: Vec<String>\",\n                GREATEST($3, LEAST($4, floor(gi.mean_rating / $5) * $5))::int AS \"rating_band!\",\n                count(*) AS \"games!\",\n                count(*) FILTER (WHERE s.outcome = 'win') AS \"wins!\"\n            FROM sides s\n            JOIN game_info gi ON gi.game_id = s.game_id\n            JOIN games g ON g.id = s.game_id\n            JOIN uploaded_maps m ON m.id = g.map_id\n            JOIN seasons se\n                ON s.change_date >= se.start_date\n                AND (se.end_date IS NULL OR s.change_date < se.end_date)\n            WHERE s.own_n = $2\n                AND s.opp_n = $2\n                AND s.teams = 2\n                AND gi.roster_n = $2 * 2\n                -- Nobody in the game had a readable rating, so there's no band to place it in.\n                AND gi.mean_rating IS NOT NULL\n            GROUP BY 1, 2, 3, 4, 5, 6\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "season_id!",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "matchmaking_seasons",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "map_id!: SbMapId",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "games",
+            "name": "map_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "map_name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "uploaded_maps",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "own!: Vec<String>",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "opp!: Vec<String>",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "rating_band!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "games!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "wins!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        {
+          "Custom": {
+            "name": "matchmaking_type",
+            "kind": {
+              "Enum": [
+                "1v1",
+                "2v2",
+                "1v1fastest",
+                "2v2bgh",
+                "2v2hunters",
+                "2v2fastest",
+                "3v3bgh",
+                "3v3hunters",
+                "3v3fastest"
+              ]
+            }
+          }
+        },
+        "Int8",
+        "Float8",
+        "Float8",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "f30c3ab797e8a2246861487d31f84b5c06e35955ac11c326e0be25a7d37c6872"
+}

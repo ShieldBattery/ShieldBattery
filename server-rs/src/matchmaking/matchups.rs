@@ -126,9 +126,20 @@ impl MatchmakingMatchupsQuery {
     ///
     /// The payload has the same shape as [`Self::user_matchup_stats`] — same buckets, same maps,
     /// same band grid — so the page filters it with exactly the same code. One thing differs:
-    /// **every game is counted once per participant**, from that participant's side. A PvZ game
-    /// adds one to PvZ and one to ZvP, which is what makes the matrix readable from either end and
-    /// makes each cell's win rate the win rate of playing that side.
+    /// **every game is counted once per side**. A PvZ game adds one to PvZ and one to ZvP, which
+    /// is what makes the matrix readable from either end and makes each cell's win rate the win
+    /// rate of playing that side.
+    ///
+    /// Per side, not per participant, so a 2v2 counts twice rather than four times: the four
+    /// players resolve to two distinct sides, and a cell's record has to be a count of games for
+    /// it to mean what it says. That flat factor of two — the same in every mode — is what the
+    /// client divides out to report a game count.
+    ///
+    /// It's two rather than "one or two" because reconciliation writes a rating change for every
+    /// participant of a matchmaking game, so each side always has someone to be seen through. A
+    /// side that somehow had nobody wouldn't distort a cell — the other side's cell would simply
+    /// be the only one to count the game — so the case is left to undercount that one figure
+    /// rather than to drop the game out of both cells to protect it.
     ///
     /// Unlike the per-user query this reads every rated game in the mode, so it's aggregated in
     /// SQL rather than in memory and the result is cached — see [`GLOBAL_CACHE_TTL_SECONDS`].
@@ -237,32 +248,43 @@ async fn compute_global(db: &PgPool, matchmaking_type: MatchmakingType) -> Resul
                     lead(start_date) OVER (ORDER BY start_date) AS end_date
                 FROM matchmaking_seasons
             ),
-            -- One perspective per rated participant: they supply the outcome and the team that
-            -- decides which half of the roster is "own".
-            viewers AS (
-                SELECT mrc.game_id, mrc.user_id, mrc.outcome, mrc.change_date, r.team
+            -- One perspective per *side*, not per rated participant. Every player on a side
+            -- resolves to the same own/opp pair, so counting them one by one would land a team
+            -- game in its cell `team_size` times over -- harmless to the win rate, but the cell
+            -- also shows a record, and that record would read 2x (2v2) or 3x (3v3) the games
+            -- actually played. A cell is about a composition meeting another, so a side is the
+            -- thing to count.
+            --
+            -- `outcome` and `change_date` belong to the side rather than to any one player and
+            -- teammates share them, so `min` is picking a representative, not ranking anything.
+            sides_seen AS (
+                SELECT
+                    mrc.game_id,
+                    r.team,
+                    min(mrc.outcome::text) AS outcome,
+                    min(mrc.change_date) AS change_date
                 FROM matchmaking_rating_changes mrc
                 JOIN roster r ON r.game_id = mrc.game_id AND r.user_id = mrc.user_id
                 WHERE mrc.matchmaking_type = $1
+                GROUP BY mrc.game_id, r.team
             ),
             sides AS (
                 SELECT
-                    v.game_id,
-                    v.user_id,
-                    v.outcome,
-                    v.change_date,
+                    ss.game_id,
+                    ss.outcome,
+                    ss.change_date,
                     array_agg(o.race ORDER BY
                         CASE o.race WHEN 't' THEN 0 WHEN 'p' THEN 1 ELSE 2 END)
-                        FILTER (WHERE o.team = v.team) AS own,
+                        FILTER (WHERE o.team = ss.team) AS own,
                     array_agg(o.race ORDER BY
                         CASE o.race WHEN 't' THEN 0 WHEN 'p' THEN 1 ELSE 2 END)
-                        FILTER (WHERE o.team <> v.team) AS opp,
-                    count(*) FILTER (WHERE o.team = v.team) AS own_n,
-                    count(*) FILTER (WHERE o.team <> v.team) AS opp_n,
+                        FILTER (WHERE o.team <> ss.team) AS opp,
+                    count(*) FILTER (WHERE o.team = ss.team) AS own_n,
+                    count(*) FILTER (WHERE o.team <> ss.team) AS opp_n,
                     count(DISTINCT o.team) AS teams
-                FROM viewers v
-                JOIN roster o ON o.game_id = v.game_id
-                GROUP BY v.game_id, v.user_id, v.outcome, v.change_date, v.team
+                FROM sides_seen ss
+                JOIN roster o ON o.game_id = ss.game_id
+                GROUP BY ss.game_id, ss.outcome, ss.change_date, ss.team
             )
             SELECT
                 se.id AS "season_id!",

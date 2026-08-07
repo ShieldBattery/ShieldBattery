@@ -90,8 +90,9 @@ export function makeMatchupBuckets(seed: number, teamSize: number): MatchupModeD
  * shows different data and the same mode always shows the same data.
  *
  * Both scopes have the same shape -- `globalMatchupStats` returns the same buckets and maps as the
- * per-user query -- so the scope only changes the seed. Global games are scaled up, since every
- * game there is counted once per participant across the whole ladder.
+ * per-user query -- so the scope only changes the seed. Global games are scaled up, since they
+ * cover the whole ladder rather than one account, and by an even factor because the real payload
+ * counts every game from both sides and the page divides that back down.
  */
 export function makeMatchupMode(
   type: MatchmakingType,
@@ -103,7 +104,7 @@ export function makeMatchupMode(
     return { buckets, maps: MATCHUP_MAPS }
   }
   return {
-    buckets: buckets.map(b => ({ ...b, games: b.games * 37, wins: b.wins * 37 })),
+    buckets: buckets.map(b => ({ ...b, games: b.games * 38, wins: b.wins * 38 })),
     maps: MATCHUP_MAPS,
   }
 }
