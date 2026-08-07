@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
-import { GameType, isTeamType } from '../../../common/games/game-type'
+import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
 import { LobbyVisibility } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
@@ -14,11 +14,11 @@ import { openSimpleDialog } from '../../dialogs/action-creators'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { BrowseLocalMaps } from '../../maps/browse-local-maps'
 import { BrowseServerMaps } from '../../maps/browse-server-maps'
-import { FilledButton, TextButton } from '../../material/button'
+import { FilledButton, IconButton, TextButton } from '../../material/button'
 import { TextField } from '../../material/text-field'
 import { LoadingDotsArea } from '../../progress/dots'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
-import { titleLarge } from '../../styles/typography'
+import { bodySmall, singleLine, titleLarge } from '../../styles/typography'
 import {
   createLobby,
   CreateLobbyParams,
@@ -60,13 +60,19 @@ const Content = styled.div`
 
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 24px;
 `
 
 const HeaderBlock = styled.div`
   display: flex;
   flex-direction: column;
   gap: 4px;
+`
+
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
 `
 
 const BrowseColumn = styled.div`
@@ -81,6 +87,7 @@ const BrowseColumn = styled.div`
 `
 
 const BrowseHeader = styled(HeaderBlock)`
+  align-items: flex-start;
   padding: 16px 24px 0;
 `
 
@@ -100,28 +107,33 @@ const Title = styled.div`
   ${titleLarge};
 `
 
-const CreateButton = styled(FilledButton)`
-  align-self: flex-end;
+const FooterBar = styled.div<{ $hidden: boolean }>`
+  flex-shrink: 0;
+  border-top: 1px solid var(--theme-outline-variant);
+  background-color: var(--theme-container-low);
+
+  display: ${props => (props.$hidden ? 'none' : 'block')};
 `
 
-const NameAndVisibilityRow = styled.div`
+const FooterContent = styled.div`
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 10px 24px;
+
   display: flex;
-  gap: 24px;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
 `
 
-const LobbyNameField = styled(TextField)`
-  flex: 0 1 320px;
-  min-width: 240px;
-`
-
-const VisibilitySection = styled(Section)`
-  flex: 1 1 400px;
+const SummaryText = styled.div`
+  ${bodySmall};
+  ${singleLine};
+  color: var(--theme-on-surface-variant);
+  flex-grow: 1;
   min-width: 0;
 `
 
-/** The lobby name shown by default when the field is left empty. */
+/** The lobby name shown by default when the field is left empty and no map has been picked yet. */
 function defaultLobbyName(t: TFunction, selfUserName: string | undefined): string {
   return selfUserName
     ? t('lobbies.hostGame.defaultLobbyName', {
@@ -244,6 +256,10 @@ function HostGameContent({
     allowObservers: initial.allowObservers,
   })
 
+  const selectedMapInfo = useAppSelector(s =>
+    setup.mapId ? s.maps.byId.get(setup.mapId) : undefined,
+  )
+
   const savePreferences = (prefs: ReadonlyDeep<UpdateLobbyPreferencesRequest>) => {
     if (savePreferencesOverride) {
       savePreferencesOverride(prefs)
@@ -332,6 +348,55 @@ function HostGameContent({
     allowObservers: initial.allowObservers,
   }
 
+  // Once a map is selected, the placeholder names the lobby after the map and game type instead
+  // of the host, since that's more informative to players browsing the lobby list.
+  const placeholderName = selectedMapInfo
+    ? t('lobbies.hostGame.defaultLobbyNameFromMap', {
+        defaultValue: '{{mapName}} {{gameType}}',
+        mapName: selectedMapInfo.name,
+        gameType: gameTypeToLabel(setup.gameType, t).toLocaleLowerCase(),
+      })
+    : defaultLobbyName(t, selfUser?.name)
+
+  let slots: number | undefined
+  if (selectedMapInfo) {
+    slots =
+      setup.gameType === GameType.UseMapSettings
+        ? selectedMapInfo.mapData.umsSlots
+        : selectedMapInfo.mapData.slots
+  }
+  let slotsPart: string | undefined
+  if (selectedMapInfo && slots !== undefined) {
+    if (setup.gameType === GameType.TopVsBottom) {
+      slotsPart = `${setup.gameSubType}v${slots - setup.gameSubType}`
+    } else if (isTeamType(setup.gameType)) {
+      slotsPart = t('lobbies.createLobby.gameSubTypeOption', {
+        defaultValue: '{{numTeams}} teams',
+        numTeams: setup.gameSubType,
+      })
+    } else if (setup.gameType === GameType.OneVsOne) {
+      slotsPart = undefined
+    } else {
+      slotsPart = t('lobbies.hostGame.summarySlots', {
+        defaultValue: '{{count}} slots',
+        count: slots,
+      })
+    }
+  }
+  const summary = [
+    visibility === 'listed'
+      ? t('lobbies.createLobby.visibilityListed', 'Public')
+      : t('lobbies.createLobby.visibilityUnlisted', 'Unlisted'),
+    gameTypeToLabel(setup.gameType, t),
+    slotsPart,
+    selectedMapInfo?.name,
+    setup.allowObservers
+      ? t('lobbies.hostGame.summaryObserversOn', 'Observers on')
+      : t('lobbies.hostGame.summaryObserversOff', 'No observers'),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
   return (
     <Root>
       {browseState !== MapBrowseState.None ? (
@@ -365,29 +430,63 @@ function HostGameContent({
 
       <FormScroller $hidden={browseState !== MapBrowseState.None}>
         <Content>
-          <HeaderBlock>
+          <Header>
             {onNavigateToList ? (
-              <TextButton
-                label={t('lobbies.createLobby.backToList', 'Back to list')}
-                iconStart={<MaterialIcon icon='arrow_back' />}
+              <IconButton
+                icon={<MaterialIcon icon='arrow_back' />}
+                title={t('common.actions.back', 'Back')}
                 onClick={onNavigateToList}
               />
             ) : null}
 
-            <Title>{t('lobbies.hostGame.title', 'Host a game')}</Title>
-          </HeaderBlock>
+            <Title>{t('lobbies.createLobby.title', 'Create lobby')}</Title>
+          </Header>
 
           <GameSetupForm
             ref={formRef}
             disabled={isCreating}
             model={setupModel}
+            recentMaps={initial.recentMaps}
+            nameSection={
+              <TextField
+                value={name}
+                onChange={event => {
+                  setName(event.target.value)
+                  debouncedSaveRef.current?.()
+                }}
+                disabled={isCreating}
+                floatingLabel={true}
+                label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+                inputProps={{
+                  placeholder: placeholderName,
+                  maxLength: LOBBY_NAME_MAXLENGTH,
+                  autoCapitalize: 'off',
+                  autoComplete: 'off',
+                  autoCorrect: 'off',
+                  spellCheck: false,
+                }}
+              />
+            }
+            visibilitySection={
+              <Section>
+                <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
+                <VisibilityPicker
+                  value={visibility}
+                  disabled={isCreating}
+                  onChange={value => {
+                    setVisibility(value)
+                    debouncedSaveRef.current?.()
+                  }}
+                />
+              </Section>
+            }
             onChangeMap={() => setBrowseState(MapBrowseState.Server)}
             onValidatedChange={model => {
               setSetup(model)
               debouncedSaveRef.current?.()
             }}
             onSubmit={model => {
-              const finalName = name.trim() ? name.trim() : defaultLobbyName(t, selfUser?.name)
+              const finalName = name.trim() ? name.trim() : placeholderName
 
               doCreateLobby({
                 name: finalName,
@@ -416,47 +515,19 @@ function HostGameContent({
               })
             }}
           />
+        </Content>
+      </FormScroller>
 
-          <NameAndVisibilityRow>
-            <LobbyNameField
-              value={name}
-              onChange={event => {
-                setName(event.target.value)
-                debouncedSaveRef.current?.()
-              }}
-              disabled={isCreating}
-              floatingLabel={true}
-              label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
-              inputProps={{
-                placeholder: defaultLobbyName(t, selfUser?.name),
-                maxLength: LOBBY_NAME_MAXLENGTH,
-                autoCapitalize: 'off',
-                autoComplete: 'off',
-                autoCorrect: 'off',
-                spellCheck: false,
-              }}
-            />
-
-            <VisibilitySection>
-              <SectionHeader>{t('lobbies.createLobby.visibility', 'Visibility')}</SectionHeader>
-              <VisibilityPicker
-                value={visibility}
-                disabled={isCreating}
-                onChange={value => {
-                  setVisibility(value)
-                  debouncedSaveRef.current?.()
-                }}
-              />
-            </VisibilitySection>
-          </NameAndVisibilityRow>
-
-          <CreateButton
+      <FooterBar $hidden={browseState !== MapBrowseState.None}>
+        <FooterContent>
+          <SummaryText>{summary}</SummaryText>
+          <FilledButton
             label={t('lobbies.createLobby.title', 'Create lobby')}
             disabled={isCreating}
             onClick={() => formRef.current?.submit()}
           />
-        </Content>
-      </FormScroller>
+        </FooterContent>
+      </FooterBar>
     </Root>
   )
 }
