@@ -2014,6 +2014,7 @@
         "axisMyTeam": "우리 팀",
         "axisOpponent": "상대",
         "axisOpponentTeam": "상대 팀",
+        "cellGames_other": "{{count}}게임",
         "gameMode": "게임 모드",
         "loadError": "종족전 기록을 불러오는 중 문제가 발생했습니다.",
         "map": "맵",

@@ -2024,6 +2024,8 @@
         "axisMyTeam": "my team",
         "axisOpponent": "opponent",
         "axisOpponentTeam": "opponent team",
+        "cellGames_one": "{{count}} game",
+        "cellGames_other": "{{count}} games",
         "gameMode": "Game mode",
         "loadError": "There was a problem loading matchups.",
         "map": "Map",
@@ -2038,7 +2040,7 @@
         "scopeMine": "My matchups",
         "season": "Season",
         "total": "Total: {{wins}}–{{losses}}",
-        "totalGames_one": "Total: {{count}} games",
+        "totalGames_one": "Total: {{count}} game",
         "totalGames_other": "Total: {{count}} games"
       },
       "points": "Points",

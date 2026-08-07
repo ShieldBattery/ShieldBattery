@@ -2014,6 +2014,7 @@
         "axisMyTeam": "我方",
         "axisOpponent": "对手",
         "axisOpponentTeam": "对方",
+        "cellGames_other": "{{count}} 场比赛",
         "gameMode": "游戏模式",
         "loadError": "加载对阵数据时遇到问题。",
         "map": "地图",

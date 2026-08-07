@@ -619,17 +619,43 @@ export function MatchupMatrix({
                   </RowHead>
                   {combos.map(col => {
                     const cell = source.cell(active, row, col)
+                    // A mirror cell in the global scope is the one place both sides of a game
+                    // land together: PvP counts the winner and the loser into the same cell, so
+                    // its rate is 50% by arithmetic and its record is n-n for the same reason.
+                    // Neither is a fact about the matchup, so the cell drops both and says how
+                    // many games it saw -- halved, since it holds each of them twice.
+                    const mirrored = scope === 'global' && row.join('') === col.join('')
+                    const games = mirrored ? Math.round(cell.games / 2) : cell.games
                     const rate = cell.games ? Math.round((cell.wins / cell.games) * 100) : 0
+                    // What sits under the rate: a record normally, a game count for a mirror
+                    // cell, and nothing at all when the cell is empty either way.
+                    let below = ''
+                    if (mirrored && games) below = String(games)
+                    else if (!mirrored && cell.games)
+                      below = `${cell.wins}–${cell.games - cell.wins}`
                     return (
                       <Cell
                         key={col.join('')}
-                        $tint={tintFor(cell)}
-                        $thin={cell.games > 0 && cell.games < THIN_SAMPLE}
+                        // Untinted rather than tinted at 50%: the shade would be reporting the
+                        // arithmetic, and a rounding artifact could paint the whole diagonal.
+                        $tint={mirrored ? 'var(--theme-container)' : tintFor(cell)}
+                        $thin={games > 0 && games < THIN_SAMPLE}
+                        // The count stands alone in the cell to keep the column width fixed, so
+                        // the unit lives here -- and this is the only thing a screen reader gets
+                        // for a mirror cell besides the dash.
+                        title={
+                          mirrored && games
+                            ? t('users.profile.matchups.cellGames', {
+                                defaultValue: '{{count}} games',
+                                count: games,
+                              })
+                            : undefined
+                        }
                         onMouseEnter={() => setHovered({ row: row.join(''), col: col.join('') })}>
-                        <CellRate $empty={!cell.games}>{cell.games ? `${rate}%` : '—'}</CellRate>
-                        <CellRecord>
-                          {cell.games ? `${cell.wins}–${cell.games - cell.wins}` : ''}
-                        </CellRecord>
+                        <CellRate $empty={!cell.games || mirrored}>
+                          {!cell.games || mirrored ? '—' : `${rate}%`}
+                        </CellRate>
+                        <CellRecord>{below}</CellRecord>
                       </Cell>
                     )
                   })}

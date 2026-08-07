@@ -886,9 +886,20 @@ type Query {
 	
 	The payload has the same shape as [`Self::user_matchup_stats`] — same buckets, same maps,
 	same band grid — so the page filters it with exactly the same code. One thing differs:
-	**every game is counted once per participant**, from that participant's side. A PvZ game
-	adds one to PvZ and one to ZvP, which is what makes the matrix readable from either end and
-	makes each cell's win rate the win rate of playing that side.
+	**every game is counted once per side**. A PvZ game adds one to PvZ and one to ZvP, which
+	is what makes the matrix readable from either end and makes each cell's win rate the win
+	rate of playing that side.
+	
+	Per side, not per participant, so a 2v2 counts twice rather than four times: the four
+	players resolve to two distinct sides, and a cell's record has to be a count of games for
+	it to mean what it says. That flat factor of two — the same in every mode — is what the
+	client divides out to report a game count.
+	
+	It's two rather than "one or two" because reconciliation writes a rating change for every
+	participant of a matchmaking game, so each side always has someone to be seen through. A
+	side that somehow had nobody wouldn't distort a cell — the other side's cell would simply
+	be the only one to count the game — so the case is left to undercount that one figure
+	rather than to drop the game out of both cells to protect it.
 	
 	Unlike the per-user query this reads every rated game in the mode, so it's aggregated in
 	SQL rather than in memory and the result is cached — see [`GLOBAL_CACHE_TTL_SECONDS`].
