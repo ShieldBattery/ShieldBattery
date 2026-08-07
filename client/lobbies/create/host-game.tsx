@@ -349,14 +349,21 @@ function HostGameContent({
   }
 
   // Once a map is selected, the placeholder names the lobby after the map and game type instead
-  // of the host, since that's more informative to players browsing the lobby list.
-  const placeholderName = selectedMapInfo
-    ? t('lobbies.hostGame.defaultLobbyNameFromMap', {
-        defaultValue: '{{mapName}} {{gameType}}',
-        mapName: selectedMapInfo.name,
-        gameType: gameTypeToLabel(setup.gameType, t).toLocaleLowerCase(),
-      })
-    : defaultLobbyName(t, selfUser?.name)
+  // of the host, since that's more informative to players browsing the lobby list. This string
+  // becomes the actual lobby name when the field is left empty, and map names are unbounded, so
+  // when the map-based name would exceed the lobby name cap (and be rejected by the server), the
+  // host-based name is used instead.
+  let placeholderName = defaultLobbyName(t, selfUser?.name)
+  if (selectedMapInfo) {
+    const mapBasedName = t('lobbies.hostGame.defaultLobbyNameFromMap', {
+      defaultValue: '{{mapName}} {{gameType}}',
+      mapName: selectedMapInfo.name,
+      gameType: gameTypeToLabel(setup.gameType, t).toLocaleLowerCase(),
+    })
+    if (mapBasedName.length <= LOBBY_NAME_MAXLENGTH) {
+      placeholderName = mapBasedName
+    }
+  }
 
   let slots: number | undefined
   if (selectedMapInfo) {
