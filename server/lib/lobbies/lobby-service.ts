@@ -702,7 +702,13 @@ export class LobbyService {
     ) {
       this._kickPlayerFromLobby(lobby, teamIndex!, slotIndex!, slotToClose)
     }
-    const afterKick = this.lobbies.get(lobby.id)!
+
+    // If the closed slot held the lobby's last human, the kick above already tore the lobby down
+    // and published its removal. There is nothing left to close.
+    const afterKick = this.lobbies.get(lobby.id)
+    if (!afterKick) {
+      return
+    }
 
     let updated
     try {

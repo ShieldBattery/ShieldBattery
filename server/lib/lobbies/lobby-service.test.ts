@@ -451,6 +451,21 @@ describe('lobbies/lobby-service', () => {
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
+
+    test('the host closing their own slot while being the sole occupant just removes the lobby', async () => {
+      const { id } = await createLobby(host, 'Solo lobby', 'listed')
+
+      const lobby = lobbyService.lobbies.get(id)!
+      const [, , hostSlot] = findSlotByUserId(lobby, HOST_USER.id)
+
+      // Kicking the host empties the lobby before the slot itself can be closed, so there is
+      // nothing left to close; this should be a clean no-op rather than an error.
+      expect(() =>
+        lobbyService.closeSlot({ client: host.client, slotId: hostSlot!.id }),
+      ).not.toThrow()
+
+      expect(lobbyService.lobbies.get(id)).toBeUndefined()
+    })
   })
 
   describe('summaries', () => {
