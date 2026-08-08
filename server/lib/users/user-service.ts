@@ -127,21 +127,22 @@ export class UserService {
   }
 
   /**
-   * Sets (or clears, when `avatar` is `undefined`) a user's avatar, returning the updated user info
-   * along with the previously-stored path (so the caller can delete the orphaned file). Works for
-   * any user ID, not just the current user (e.g. admin moderation removing another user's avatar).
-   * Refreshes the cached user data and, if `ctx` is provided and its session belongs to the
-   * affected user, the current session.
+   * Sets (or clears, when `avatar` is `undefined`) a user's avatar, returning the updated user
+   * info. Works for any user ID, not just the current user (e.g. admin moderation removing another
+   * user's avatar). Refreshes the cached user data and, if `ctx` is provided and its session
+   * belongs to the affected user, the current session.
    *
    * When setting an avatar, the file is written to the store *before* the DB is updated so the DB
    * never references a file that doesn't exist; if the DB update then fails, the just-written file
-   * is cleaned up.
+   * is cleaned up. Once the DB update succeeds, the avatar change is durable, so any
+   * previously-stored avatar file is deleted best-effort right away rather than leaving that to the
+   * caller (which may never run its own cleanup if something later in this method throws).
    */
   async updateUserAvatar(
     id: SbUserId,
     avatar: { path: string; data: Buffer; contentType?: string } | undefined,
     ctx?: Koa.Context,
-  ): Promise<{ userInfo: SelfUserInfo; previousPath?: string }> {
+  ): Promise<SelfUserInfo> {
     let previousPath: string | undefined
     if (avatar) {
       await writeFile(avatar.path, avatar.data, { acl: 'public-read', type: avatar.contentType })
@@ -159,13 +160,29 @@ export class UserService {
       ;({ previousPath } = await setUserAvatarPath(id, undefined))
     }
 
-    const selfInfo = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
+    if (previousPath) {
+      deleteFile(previousPath).catch(err =>
+        logger.error({ err }, 'error deleting previous avatar file'),
+      )
+    }
+
+    let selfInfo: SelfUserInfo
+    try {
+      selfInfo = await this.getSelfUserInfo(id, CacheBehavior.ForceRefresh)
+    } catch (err) {
+      // The avatar change above already applied durably, so a failure here (e.g. a transient
+      // Redis/DB blip) shouldn't fail the whole request. Fall back to whatever's cached instead of
+      // surfacing an error for an update that already succeeded; this may briefly return a stale
+      // avatar URL if the cache hasn't caught up yet.
+      logger.error({ err }, 'failed to refresh user info after updating avatar')
+      selfInfo = await this.getSelfUserInfo(id, CacheBehavior.AllowCached)
+    }
 
     if (ctx && ctx.session?.user.id === id) {
       ;(ctx.session as any as AppSession) = selfInfo
     }
 
-    return { userInfo: selfInfo, previousPath }
+    return selfInfo
   }
 
   /**

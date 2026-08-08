@@ -84,7 +84,6 @@ import ChatService from '../chat/chat-service'
 import { UNIQUE_VIOLATION } from '../db/pg-error-codes'
 import transact from '../db/transaction'
 import isDev from '../env/is-dev'
-import { deleteFile } from '../files'
 import { handleMultipartFiles } from '../files/handle-multipart-files'
 import { createImagePath, resizeImage } from '../files/images'
 import { getGameListSideData } from '../games/game-list-data'
@@ -940,19 +939,11 @@ export class UserApi {
     const avatarPath = createImagePath('user-avatars', imageExtension)
     const buffer = await image.toBuffer()
 
-    const { userInfo, previousPath } = await this.userService.updateUserAvatar(
+    const userInfo = await this.userService.updateUserAvatar(
       params.id,
       { path: avatarPath, data: buffer, contentType: mime.getType(imageExtension) ?? undefined },
       ctx,
     )
-
-    if (previousPath) {
-      // Best-effort cleanup of the now-orphaned old avatar; a failure here shouldn't fail the
-      // request since the user's avatar has already been updated successfully.
-      deleteFile(previousPath).catch(err =>
-        ctx.log.error({ err }, 'error deleting previous avatar file'),
-      )
-    }
 
     return { user: toSelfUserJson(userInfo.user) }
   }
@@ -969,17 +960,7 @@ export class UserApi {
       }).required(),
     })
 
-    const { userInfo, previousPath } = await this.userService.updateUserAvatar(
-      params.id,
-      undefined,
-      ctx,
-    )
-
-    if (previousPath) {
-      deleteFile(previousPath).catch(err =>
-        ctx.log.error({ err }, 'error deleting previous avatar file'),
-      )
-    }
+    const userInfo = await this.userService.updateUserAvatar(params.id, undefined, ctx)
 
     return { user: toSelfUserJson(userInfo.user) }
   }
@@ -1472,17 +1453,7 @@ export class AdminUserApi {
       throw new UserApiError(UserErrorCode.NotFound, 'user not found')
     }
 
-    const { userInfo, previousPath } = await this.userService.updateUserAvatar(
-      params.id,
-      undefined,
-      ctx,
-    )
-
-    if (previousPath) {
-      deleteFile(previousPath).catch(err =>
-        ctx.log.error({ err }, 'error deleting previous avatar file'),
-      )
-    }
+    const userInfo = await this.userService.updateUserAvatar(params.id, undefined, ctx)
 
     // NOTE: `userInfo.user` is a `SelfUser` (includes email), so we build the `SbUser` response
     // explicitly rather than reusing it wholesale.
