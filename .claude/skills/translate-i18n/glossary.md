@@ -79,6 +79,9 @@ consistent. (Seed — extend over time.)
   feminine: la playlist; Spotify-style), **bookmark/Bookmarked→marcador/Marcadores** (Añadir
   marcador/Quitar marcador; the replay bookmark — kept distinct from a map's favorite),
   **library→biblioteca**, game (a played match)→partida, **spoiler-free→Sin spoilers**.
+- **Lobby terms:** lobby→lobby (loanword, masculine: el lobby, lleno), **bench (waiting members) →
+  banquillo** (the sports substitutes' bench), observer (spectator)→observador,
+  host (person)→anfitrión, slot→espacio ("Espacios libres"; slot rows use Abierto/Cerrado).
 
 ### ru
 - Register: formal **Вы** (the existing file is consistently Вы; do not use ты here).
@@ -97,6 +100,9 @@ consistent. (Seed — extend over time.)
   **bookmark/Bookmarked→закладки** family (В закладки/Убрать из закладок/Закладки; kept distinct
   from a map's favorite, which stays избранное), **library→библиотека**,
   **spoiler-free→Без спойлеров**.
+- **Lobby terms:** lobby→лобби (indeclinable, neuter: лобби заполнено), **bench (waiting members)
+  → скамейка** (на скамейке), observer (spectator)→зритель, host→хост, slot rows use
+  Открыто/Закрыто, legacy unit limit→классический лимит.
 
 ### ko
 - **Register: use formal-polite 합니다/습니다체 for sentences.** The existing `ko/global.json` is
@@ -120,6 +126,9 @@ consistent. (Seed — extend over time.)
 - **Replay library terms:** replay→리플레이 (in-file), **playlist→재생목록** (YouTube convention),
   **bookmark→북마크** (북마크 추가/북마크 해제; Bookmarked nav→북마크; distinct from maps' 즐겨찾기),
   **library→라이브러리** (Steam convention), **spoiler-free→스포일러 방지**.
+- **Lobby terms:** lobby→로비, **bench (waiting members) → 벤치**, observer (spectator)→관전자
+  (unit stays 옵저버 per terms), host→호스트, slot rows use 열림/닫힘, legacy unit limit→옛 유닛
+  제한 (in-file useLegacyLimits).
 
 ### zh-Hans
 - Register: use 您 for second person (the existing file is ~3:1 您 vs 你; it's the normal polite UI
@@ -138,3 +147,7 @@ consistent. (Seed — extend over time.)
   (添加书签/取消书签; Bookmarked nav→书签; distinct from maps' 收藏), **replay library→录像库**
   (also the "In library" state: 已在录像库), **spoiler-free→无剧透**. Specific played games use
   游戏 on game pages (matches 复制游戏链接).
+- **Lobby terms:** lobby→房间 (in-file; never 大厅 for a joinable lobby), **bench (waiting
+  members) → 替补席**, observer (spectator)→观战者 (an observer seat→观战位), host
+  (person)→房主 (房主：X; the in-file hostLabel 主机 is legacy MT — prefer 房主 for people),
+  slot rows use 开放/已关闭, legacy unit limit→旧版单位限制.

@@ -21,6 +21,11 @@ export function lobbyJoinErrorMessage(err: unknown, t: TFunction): string {
       return t('lobbies.summary.noLongerOpen', 'This lobby is no longer open.')
     case LobbyJoinErrorCode.Full:
       return t('lobbies.joinLobby.errorFull', 'This lobby is full.')
+    case LobbyJoinErrorCode.ObserversFull:
+      return t(
+        'lobbies.joinLobby.errorObserversFull',
+        'This lobby has no observer slots open. Try joining as a player instead.',
+      )
     case LobbyJoinErrorCode.Banned:
       return t('lobbies.joinLobby.errorBanned', "You've been banned from this lobby.")
     case LobbyJoinErrorCode.AlreadyStarted:

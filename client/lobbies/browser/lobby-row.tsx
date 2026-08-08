@@ -1,0 +1,200 @@
+import { useTranslation } from 'react-i18next'
+import styled, { css } from 'styled-components'
+import { gameTypeToLabel } from '../../../common/games/game-type'
+import { SbUserId } from '../../../common/users/sb-user-id'
+import { AvatarStack } from '../../avatars/avatar-stack'
+import { buttonReset } from '../../material/button-reset'
+import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
+import { ConnectedUsername } from '../../users/connected-username'
+import { LobbyChip } from './browser-parts'
+import { LobbySummary, openPlayerSlotCount, playerSlotCounts } from './summary-utils'
+
+const RowRoot = styled.button<{ $selected: boolean }>`
+  ${buttonReset};
+
+  position: relative;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 16px 10px 18px;
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  border-radius: 8px;
+  text-align: left;
+
+  /* The accent bar marks the selection the rail is showing; it grows out of nothing on hover. */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    left: 6px;
+    width: 3px;
+
+    border-radius: 2px;
+    background-color: var(--theme-primary);
+    opacity: 0;
+    transition: opacity 100ms linear;
+  }
+
+  &:hover {
+    background-color: var(--theme-container-low);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: -2px;
+  }
+
+  ${props =>
+    props.$selected
+      ? css`
+          background-color: rgb(from var(--theme-primary) r g b / 0.12);
+          --sb-avatar-stack-ring: color-mix(
+            in srgb,
+            var(--theme-primary) 12%,
+            var(--theme-surface)
+          );
+
+          &:hover {
+            background-color: rgb(from var(--theme-primary) r g b / 0.16);
+          }
+
+          &::before {
+            opacity: 1;
+          }
+        `
+      : css`
+          &:hover::before {
+            opacity: 0.4;
+          }
+        `};
+`
+
+const Main = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
+const Name = styled.div`
+  ${titleMedium};
+  ${singleLine};
+`
+
+const MetaLine = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+
+  color: var(--theme-on-surface-variant);
+`
+
+const MetaSeparator = styled.span`
+  padding: 0 6px;
+  opacity: 0.7;
+`
+
+const Trailing = styled.div`
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`
+
+const Occupancy = styled.div`
+  ${labelLarge};
+
+  min-width: 44px;
+
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+const OccupancyTaken = styled.span`
+  color: var(--theme-on-surface);
+`
+
+/**
+ * Reserves a column for the row's badge (or its absence), so badges line up with each other down
+ * the list. Only a floor: a long enough readout takes the space it needs out of the lobby's name
+ * rather than spilling into the occupancy beside it.
+ */
+const StatusSlot = styled.div`
+  min-width: 124px;
+  flex-shrink: 0;
+
+  display: flex;
+  justify-content: flex-end;
+`
+
+/** Whatever the row has to say about the lobby's state right now, if anything. */
+function StatusBadge({ summary }: { summary: LobbySummary }) {
+  const { t } = useTranslation()
+
+  // Player seats, not overall joinability: a lobby whose player seats are gone reads as Full even
+  // when an open observer seat keeps it in the default (joinable) view — the badge explains why
+  // its count reads 8/8, and the rail explains what joining now means.
+  if (openPlayerSlotCount(summary) === 0) {
+    return <LobbyChip>{t('lobbies.browser.full', 'Full')}</LobbyChip>
+  }
+
+  return null
+}
+
+export interface LobbyRowProps {
+  summary: LobbySummary
+  selected: boolean
+  /** The viewer's friends who are inside this lobby, in seating order. */
+  friendIds: ReadonlyArray<SbUserId>
+  onSelect: () => void
+}
+
+/**
+ * One lobby in the browser's list: what it is and who's running it, with the facts you'd scan for
+ * — friends inside, how full it is — lined up down the right.
+ */
+export function LobbyRow({ summary, selected, friendIds, onSelect }: LobbyRowProps) {
+  const { t } = useTranslation()
+  const { taken, total } = playerSlotCounts(summary)
+
+  return (
+    <RowRoot
+      type='button'
+      $selected={selected}
+      aria-pressed={selected}
+      onClick={onSelect}
+      data-testid='lobby-list-entry'>
+      <Main>
+        <Name title={summary.name}>{summary.name}</Name>
+        <MetaLine>
+          <span>{summary.map.name}</span>
+          <MetaSeparator>·</MetaSeparator>
+          <span>{gameTypeToLabel(summary.gameType, t)}</span>
+          <MetaSeparator>·</MetaSeparator>
+          <ConnectedUsername userId={summary.host.id} interactive={false} />
+        </MetaLine>
+      </Main>
+
+      <Trailing>
+        <AvatarStack userIds={friendIds} size={20} max={3} />
+        <StatusSlot>
+          <StatusBadge summary={summary} />
+        </StatusSlot>
+        {/* Last in the row, so the count sits at the same offset no matter what precedes it. */}
+        <Occupancy>
+          <OccupancyTaken>{taken}</OccupancyTaken>/{total}
+        </Occupancy>
+      </Trailing>
+    </RowRoot>
+  )
+}
