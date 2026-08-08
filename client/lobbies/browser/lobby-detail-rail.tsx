@@ -558,6 +558,9 @@ export function LobbyDetailRail({
             <FullWidthFilledButton
               label={t('lobbies.browser.joinLobby', 'Join lobby')}
               onClick={() => onJoin(false)}
+              // A lobby with no open player seats has nothing to join as a player; observing,
+              // when available, keeps its own entry below.
+              disabled={summary.playerSlots.open === 0}
               testName='join-lobby-button'
             />
             {summary.observerSlots.open > 0 ? (
