@@ -901,19 +901,13 @@
       "title": "Lobbies ({{lobbyCount}})"
     },
     "createLobby": {
-      "advancedSettings": "Advanced settings",
-      "allowObservers": "Allow observers",
       "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
-      "backToList": "Back to list",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
-      "errorNameTaken": "A lobby with that name already exists. Please choose a different name.",
       "gameSubTypeHeader": "Teams",
       "gameSubTypeOption": "{{numTeams}} teams",
-      "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
       "gameTypeHeader": "Game type",
       "lobbyName": "Lobby name",
-      "lobbyNameRequired": "Enter a lobby name",
       "mapPlayerCount_one": "{{count}} player",
       "mapPlayerCount_other": "{{count}} players",
       "mapRequired": "Select a map to play",
@@ -936,9 +930,7 @@
       "useLegacyLimits": "Use legacy unit limit",
       "visibility": "Visibility",
       "visibilityListed": "Public",
-      "visibilityListedDescription": "Shown in the lobby list for anyone to join. Its replays are public, and its games against other players appear on the games page",
-      "visibilityUnlisted": "Unlisted",
-      "visibilityUnlistedDescription": "Only people you share the link with can join"
+      "visibilityUnlisted": "Unlisted"
     },
     "errors": {
       "alreadyInLobby": "You're already in another lobby.",

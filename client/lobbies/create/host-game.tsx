@@ -9,6 +9,7 @@ import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/gam
 import { LobbyVisibility } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
+import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
 import { openSimpleDialog } from '../../dialogs/action-creators'
 import { MaterialIcon } from '../../icons/material/material-icon'
@@ -191,6 +192,8 @@ export interface HostGameProps {
  * from the user's saved lobby preferences.
  */
 export function HostGame(props: HostGameProps) {
+  useTrackPageView('/lobbies/create')
+
   const dispatch = useAppDispatch()
   const hasLoaded = useAppSelector(s => s.lobbyPreferences.hasLoaded)
   const isRequesting = useAppSelector(s => s.lobbyPreferences.isRequesting)
@@ -469,6 +472,7 @@ function HostGameContent({
                 floatingLabel={true}
                 alwaysHasValue={true}
                 label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+                testName='lobby-name-input'
                 inputProps={{
                   placeholder: placeholderName,
                   maxLength: LOBBY_NAME_MAXLENGTH,
@@ -537,6 +541,7 @@ function HostGameContent({
             label={t('lobbies.createLobby.title', 'Create lobby')}
             disabled={isCreating}
             onClick={() => formRef.current?.submit()}
+            testName='create-lobby-submit'
           />
         </FooterContent>
       </FooterBar>
