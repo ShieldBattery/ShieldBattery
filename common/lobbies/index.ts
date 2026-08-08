@@ -41,6 +41,8 @@ export interface Lobby {
   readonly host: Slot
   readonly useLegacyLimits: boolean
   readonly visibility: LobbyVisibility
+  /** When the lobby was created (Unix millis). */
+  readonly createdAt: number
 }
 
 export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {

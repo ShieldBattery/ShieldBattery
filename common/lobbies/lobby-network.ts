@@ -16,6 +16,7 @@ import { SlotJson } from './slot'
 export enum LobbyJoinErrorCode {
   NoLongerOpen = 'noLongerOpen',
   Full = 'full',
+  ObserversFull = 'observersFull',
   Banned = 'banned',
   AlreadyStarted = 'alreadyStarted',
   AlreadyInActivity = 'alreadyInActivity',
@@ -59,7 +60,13 @@ export interface CreateLobbyResponse {
 }
 
 /** The body of a request to join an existing lobby. */
-export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {}
+export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {
+  /**
+   * When set, the joiner wants an observer seat specifically: they take an open observer slot or
+   * the join fails, rather than being seated as a player or benched.
+   */
+  asObserver?: boolean
+}
 
 /** The body of a request to send a chat message to a lobby. */
 export interface SendLobbyChatRequest extends LobbyClientRequest {
@@ -99,6 +106,26 @@ export type LobbyEvent =
   | LobbyChatEvent
   | LobbyStatusEvent
 
+/**
+ * A slot as shown to lobby browsers: its occupancy and just enough about the occupant to render a
+ * preview row. Deliberately narrower than `SlotJson` — the list channel reaches every connected
+ * client, so per-member details like chosen regions stay off it. Controlled open/closed slots
+ * (team melee/FFA) read as plain open/closed here; UMS computers read as computers.
+ */
+export type LobbySummarySlotJson =
+  | { type: 'open' }
+  | { type: 'closed' }
+  | { type: 'human'; userId: SbUserId; race: RaceChar }
+  | { type: 'computer'; race: RaceChar }
+  | { type: 'observer'; userId: SbUserId }
+
+/** A team of a lobby's slot layout, as shown to lobby browsers. */
+export interface LobbySummaryTeamJson {
+  name: string
+  isObserver: boolean
+  slots: ReadonlyArray<LobbySummarySlotJson>
+}
+
 export interface LobbySummaryJson {
   id: SbLobbyId
   name: string
@@ -107,6 +134,11 @@ export interface LobbySummaryJson {
   gameSubType: number
   host: { id: SbUserId }
   openSlotCount: number
+  useLegacyLimits: boolean
+  /** The lobby's slot layout, so browsers can preview who's inside before joining. */
+  teams: ReadonlyArray<LobbySummaryTeamJson>
+  /** When the lobby was created (Unix millis). */
+  createdAt: number
 }
 
 /**
@@ -128,7 +160,7 @@ export interface LobbySummaryMapJson extends MapImageInfo {
  * shows.
  */
 export interface LobbySummaryResponse {
-  summary: Omit<LobbySummaryJson, 'map'> & { map: LobbySummaryMapJson }
+  summary: Omit<LobbySummaryJson, 'map' | 'teams' | 'createdAt'> & { map: LobbySummaryMapJson }
   host: SbUser
 }
 
