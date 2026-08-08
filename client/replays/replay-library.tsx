@@ -11,7 +11,6 @@ import {
   GameDurationFilter,
   GameFormat,
   GameSortOption,
-  makeEncodedMatchupString,
 } from '../../common/games/game-filters'
 import { getGameDurationString } from '../../common/games/games'
 import { TypedIpcRenderer } from '../../common/ipc'
@@ -36,6 +35,7 @@ import {
   resolveDateRangeMs,
 } from '../games/day-header'
 import { GameFilterBar } from '../games/game-filter-bar'
+import { parseMatchup } from '../games/game-filter-url'
 import { GameListEntryLayout, SelectableRowContainer } from '../games/game-list-entry'
 import { PlayerTeamsDisplay } from '../games/player-teams-display'
 import { MaterialIcon } from '../icons/material/material-icon'
@@ -94,10 +94,6 @@ function parseSort(value: string): GameSortOption {
 
 function parseFormat(value: string): GameFormat | undefined {
   return ALL_GAME_FORMATS.includes(value as GameFormat) ? (value as GameFormat) : undefined
-}
-
-function parseMatchup(value: string): EncodedMatchupString | undefined {
-  return value ? makeEncodedMatchupString(value) : undefined
 }
 
 function parseModeFilter(value: string): SupportedReplayGameType | 'others' | undefined {
@@ -410,7 +406,7 @@ export function ReplayLibrary() {
   const duration = parseDuration(durationParam)
   const sort = parseSort(sortParam)
   const format = parseFormat(formatParam)
-  const matchup = parseMatchup(matchupParam)
+  const matchup = parseMatchup(matchupParam, format)
   const gameType = parseModeFilter(gameTypeParam)
   const view = parseView(viewParam)
 
@@ -932,6 +928,9 @@ export function ReplayLibrary() {
           format={format}
           setFormat={v => {
             setFormatParam(v ?? '')
+            // A matchup is tied to a specific format (team size), so any existing value no longer
+            // applies once the format changes. Clear it so it doesn't linger in the URL as cruft.
+            setMatchupParam('')
             reset()
           }}
           matchup={matchup}
