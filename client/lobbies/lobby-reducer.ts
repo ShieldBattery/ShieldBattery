@@ -41,6 +41,7 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   host: EMPTY_SLOT,
   useLegacyLimits: false,
   visibility: 'listed',
+  createdAt: 0,
 })
 
 export interface CurrentLobbyState {

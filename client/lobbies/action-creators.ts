@@ -97,13 +97,25 @@ export function createLobby(
   })
 }
 
-export function joinLobby(id: SbLobbyId, spec: RequestHandlingSpec<void>): ThunkAction {
+export interface JoinLobbyParams {
+  /**
+   * When set, the joiner wants an observer seat specifically: they take an open observer slot or
+   * the join fails, rather than being seated as a player or benched.
+   */
+  asObserver?: boolean
+}
+
+export function joinLobby(
+  id: SbLobbyId,
+  { asObserver }: JoinLobbyParams = {},
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
   return abortableThunk(spec, async () => {
     const network = await resolveNetworkParams()
 
     await fetchJson<void>(apiUrl`lobbies/${id}/join`, {
       method: 'POST',
-      body: encodeBodyAsParams<JoinLobbyRequest>({ clientId, ...network }),
+      body: encodeBodyAsParams<JoinLobbyRequest>({ clientId, asObserver, ...network }),
       signal: spec.signal,
     })
   })

@@ -63,6 +63,7 @@ const LOBBY: Lobby = {
   host: HOST_SLOT,
   useLegacyLimits: false,
   visibility: 'listed',
+  createdAt: 0,
 }
 
 function initAction(): LobbyActions {
