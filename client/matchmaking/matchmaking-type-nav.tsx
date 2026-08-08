@@ -11,7 +11,7 @@ import { useKeyListener } from '../keyboard/key-listener'
 import { useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Ripple } from '../material/ripple'
-import { labelMedium, singleLine, sofiaSans } from '../styles/typography'
+import { labelLarge, labelMedium, singleLine, sofiaSans } from '../styles/typography'
 
 const PAGEUP = 'PageUp'
 const PAGEDOWN = 'PageDown'
@@ -54,6 +54,7 @@ const Eyebrow = styled.div`
 
 const ItemButton = styled.button<{ $active: boolean }>`
   ${buttonReset};
+  ${labelLarge};
   ${sofiaSans};
 
   position: relative;
@@ -65,7 +66,6 @@ const ItemButton = styled.button<{ $active: boolean }>`
   align-items: center;
 
   border-radius: 6px;
-  font-size: 14px;
   font-weight: 600;
   text-align: left;
 
