@@ -112,21 +112,27 @@ export async function upsertManyMatchmakingPreferences(
 }
 
 /**
- * Retrieve the latest `MatchmakingPreferences` for a user for a particular matchmaking type, or
- * `null` if they haven't set any yet.
+ * Retrieves all of a user's stored `MatchmakingPreferences` in a single query, keyed by matchmaking
+ * type. Types the user hasn't saved preferences for are absent from the result. Pass `withClient` to
+ * run on an existing connection.
  */
-export async function getMatchmakingPreferences(
+export async function getAllMatchmakingPreferences(
   userId: SbUserId,
-  matchmakingType: MatchmakingType,
-): Promise<StoredMatchmakingPreferences | undefined> {
-  const { client, done } = await db()
+  withClient?: DbClient,
+): Promise<Map<MatchmakingType, StoredMatchmakingPreferences>> {
+  const { client, done } = await db(withClient)
   try {
     const result = await client.query<DbMatchmakingPreferences>(sql`
       SELECT *
       FROM matchmaking_preferences
-      WHERE user_id = ${userId} AND matchmaking_type = ${matchmakingType}
+      WHERE user_id = ${userId}
     `)
-    return result.rows.length > 0 ? convertFromDb(result.rows[0]) : undefined
+    return new Map(
+      result.rows.map(row => {
+        const stored = convertFromDb(row)
+        return [stored.preferences.matchmakingType, stored]
+      }),
+    )
   } finally {
     done()
   }

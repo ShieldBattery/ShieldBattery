@@ -91,6 +91,39 @@ export async function getCurrentMapPool(
   }
 }
 
+/**
+ * Returns the currently active map pool for each of the given matchmaking types in a single query,
+ * keyed by matchmaking type. Types with no active pool are absent from the result. Pass `withClient`
+ * to run on an existing connection.
+ */
+export async function getCurrentMapPools(
+  matchmakingTypes: ReadonlyArray<MatchmakingType>,
+  withClient?: DbClient,
+): Promise<Map<MatchmakingType, MatchmakingMapPool>> {
+  if (!matchmakingTypes.length) {
+    return new Map()
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingMapPool>(sql`
+      SELECT DISTINCT ON (matchmaking_type) *
+      FROM matchmaking_map_pools
+      WHERE matchmaking_type = ANY(${matchmakingTypes}::matchmaking_type[])
+        AND start_date <= ${new Date()}
+      ORDER BY matchmaking_type, start_date DESC;
+    `)
+    return new Map(
+      result.rows.map(row => {
+        const mapPool = convertFromDb(row)
+        return [mapPool.matchmakingType, mapPool]
+      }),
+    )
+  } finally {
+    done()
+  }
+}
+
 export async function getMapPoolById(
   mapPoolId: number,
   withClient?: DbClient,
