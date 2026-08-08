@@ -271,7 +271,7 @@ export function LobbyInviteCardContent({
         map: lobby.map,
         gameType: lobby.gameType,
         hostName: host.name,
-        openSlotCount: lobby.openSlotCount,
+        openSlotCount: lobby.playerSlots.open,
       }}
       joinButton={{ joined: false, onClick: onJoinClick }}
     />

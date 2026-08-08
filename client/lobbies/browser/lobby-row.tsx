@@ -9,7 +9,7 @@ import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { LobbyChip } from './browser-parts'
-import { LobbySummary, openPlayerSlotCount, playerSlotCounts } from './summary-utils'
+import { LobbySummary } from './summary-utils'
 
 const RowRoot = styled.button<{ $selected: boolean }>`
   ${buttonReset};
@@ -131,7 +131,7 @@ function StatusBadge({ summary }: { summary: LobbySummary }) {
   // Player seats, not overall joinability: a lobby whose player seats are gone reads as Full even
   // when an open observer seat keeps it in the default (joinable) view — the badge explains why
   // its count reads 8/8, and the rail explains what joining now means.
-  if (openPlayerSlotCount(summary) === 0) {
+  if (summary.playerSlots.open === 0) {
     return <LobbyChip>{t('lobbies.browser.full', 'Full')}</LobbyChip>
   }
 
@@ -216,8 +216,8 @@ export interface LobbyRowProps {
  */
 export function LobbyRow({ summary, selected, friendIds, isOwn, onSelect, onJoin }: LobbyRowProps) {
   const { t } = useTranslation()
-  const { taken, total } = playerSlotCounts(summary)
-  const canJoin = !isOwn && openPlayerSlotCount(summary) > 0
+  const { taken, total, open } = summary.playerSlots
+  const canJoin = !isOwn && open > 0
 
   return (
     <RowWrapper $selected={selected} $hasJoinButton={canJoin}>

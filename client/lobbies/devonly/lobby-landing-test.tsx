@@ -27,7 +27,7 @@ export const MOCK_LOBBY_SUMMARY: LobbySummaryResponse = {
     gameType: GameType.Melee,
     gameSubType: 0,
     host: { id: MOCK_HOST.id },
-    openSlotCount: 3,
+    playerSlots: { taken: 1, total: 4, open: 3 },
     useLegacyLimits: false,
   },
   host: MOCK_HOST,

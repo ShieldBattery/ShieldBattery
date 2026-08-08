@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { GameType } from '../../../common/games/game-type'
 import {
+  LobbyPreviewJson,
   LobbySummaryJson,
   LobbySummarySlotJson,
   LobbySummaryTeamJson,
 } from '../../../common/lobbies/lobby-network'
-import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
+import { makeSbLobbyId, SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { MapInfoJson } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
 import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
@@ -20,7 +21,7 @@ import {
   FightingSpirit,
   loadMapsForTesting,
 } from '../../maps/devonly/maps-for-testing'
-import { useAppDispatch } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { titleMedium } from '../../styles/typography'
 import { LobbyBrowser } from '../browser/lobby-browser'
 import { IsolatedReduxProvider } from './isolated-redux'
@@ -70,6 +71,9 @@ const VIEWER_USER: SelfUserJson = {
 }
 
 const SEED_ACTIONS: ReadonlyArray<ReduxAction> = [
+  // The browser only opens its subscriptions while the socket is up, and this page stands in for
+  // what those subscriptions would deliver.
+  { type: '@network/connect' },
   {
     type: '@auth/loadCurrentSession',
     payload: { user: VIEWER_USER, permissions: { ...DEFAULT_PERMISSIONS }, jwt: '' },
@@ -115,12 +119,38 @@ interface SummarySpec {
   ageMinutes: number
 }
 
-function makeSummary(spec: SummarySpec): LobbySummaryJson {
-  const openSlotCount = spec.teams.reduce(
-    (count, t) => count + t.slots.filter(slot => slot.type === 'open').length,
-    0,
-  )
+/** Tallies a spec's seats the way the server does before it puts a lobby on the wire. */
+function slotCounts(teams: ReadonlyArray<LobbySummaryTeamJson>) {
+  const playerSlots = { taken: 0, total: 0, open: 0 }
+  const observerSlots = { taken: 0, open: 0 }
+  const occupantIds: SbUserId[] = []
 
+  for (const t of teams) {
+    for (const slot of t.slots) {
+      if (slot.type === 'human' || slot.type === 'observer') {
+        occupantIds.push(slot.userId)
+      }
+
+      if (t.isObserver) {
+        if (slot.type === 'observer') observerSlots.taken += 1
+        else if (slot.type === 'open') observerSlots.open += 1
+      } else {
+        playerSlots.total += 1
+        if (slot.type === 'human' || slot.type === 'computer') playerSlots.taken += 1
+        else if (slot.type === 'open') playerSlots.open += 1
+      }
+    }
+  }
+
+  return {
+    playerSlots,
+    observerSlots,
+    hasObserverTeam: teams.some(t => t.isObserver),
+    occupantIds,
+  }
+}
+
+function makePreview(spec: SummarySpec): LobbyPreviewJson {
   return {
     id: makeSbLobbyId(spec.id),
     name: spec.name,
@@ -128,17 +158,22 @@ function makeSummary(spec: SummarySpec): LobbySummaryJson {
     gameType: spec.gameType,
     gameSubType: spec.gameSubType ?? 0,
     host: { id: spec.host },
-    openSlotCount,
     useLegacyLimits: spec.useLegacyLimits ?? false,
-    teams: spec.teams,
+    ...slotCounts(spec.teams),
     createdAt: Date.now() - spec.ageMinutes * MINUTE,
+    teams: spec.teams,
   }
 }
 
+/** Drops the slot layout, leaving exactly what the public list channel carries. */
+function toSummary({ teams, ...summary }: LobbyPreviewJson): LobbySummaryJson {
+  return summary
+}
+
 /** A full evening: every game type and occupancy the browser has to render. */
-function busyEveningLobbies(): LobbySummaryJson[] {
+function busyEveningLobbies(): LobbyPreviewJson[] {
   return [
-    makeSummary({
+    makePreview({
       id: 'browser-bgh-norush',
       name: 'BGH no-rush 20',
       map: BigGameHunters,
@@ -158,7 +193,7 @@ function busyEveningLobbies(): LobbySummaryJson[] {
         ]),
       ],
     }),
-    makeSummary({
+    makePreview({
       id: 'browser-ums-poker',
       name: 'UMS night — poker defense',
       map: FightingSpirit,
@@ -174,7 +209,7 @@ function busyEveningLobbies(): LobbySummaryJson[] {
         ]),
       ],
     }),
-    makeSummary({
+    makePreview({
       id: 'browser-sq-scrims',
       name: 'clan sQ scrims',
       map: BigGameHunters,
@@ -193,7 +228,7 @@ function busyEveningLobbies(): LobbySummaryJson[] {
         observerTeam([observer(DRONEBRO), open(), closed(), closed()]),
       ],
     }),
-    makeSummary({
+    makePreview({
       id: 'browser-1v1-practice',
       name: 'pvz practice, be nice',
       map: FightingSpirit,
@@ -202,7 +237,7 @@ function busyEveningLobbies(): LobbySummaryJson[] {
       ageMinutes: 3,
       teams: [team('', [human(SUNN0, 'p'), open()])],
     }),
-    makeSummary({
+    makePreview({
       id: 'browser-observers',
       name: 'showmatch — obs welcome',
       map: FightingSpirit,
@@ -214,7 +249,7 @@ function busyEveningLobbies(): LobbySummaryJson[] {
         observerTeam([open(), open(), closed(), closed()]),
       ],
     }),
-    makeSummary({
+    makePreview({
       id: 'browser-rush-hour',
       name: 'rush hour',
       map: FightingSpirit,
@@ -228,9 +263,9 @@ function busyEveningLobbies(): LobbySummaryJson[] {
   ]
 }
 
-function quietLobbies(): LobbySummaryJson[] {
+function quietLobbies(): LobbyPreviewJson[] {
   return [
-    makeSummary({
+    makePreview({
       id: 'browser-quiet',
       name: 'anyone up for a game',
       map: FightingSpirit,
@@ -243,9 +278,9 @@ function quietLobbies(): LobbySummaryJson[] {
 }
 
 /** Nothing joinable: the list is empty until Show full is on, then everything is a dead end. */
-function allFullLobbies(): LobbySummaryJson[] {
+function allFullLobbies(): LobbyPreviewJson[] {
   return [
-    makeSummary({
+    makePreview({
       id: 'browser-full-1',
       name: 'packed house',
       map: FightingSpirit,
@@ -254,7 +289,7 @@ function allFullLobbies(): LobbySummaryJson[] {
       ageMinutes: 14,
       teams: [team('', [human(TEC27, 't'), human(PACHI, 'z'), human(KOALA, 'p'), computer('r')])],
     }),
-    makeSummary({
+    makePreview({
       id: 'browser-full-2',
       name: 'no room at the inn',
       map: BigGameHunters,
@@ -289,7 +324,7 @@ const SCENARIOS: ReadonlyArray<{ id: ScenarioId; label: string }> = [
   { id: 'allFull', label: 'All full' },
 ]
 
-function scenarioLobbies(scenario: ScenarioId): LobbySummaryJson[] {
+function scenarioPreviews(scenario: ScenarioId): LobbyPreviewJson[] {
   switch (scenario) {
     case 'busyEvening':
       return busyEveningLobbies()
@@ -308,8 +343,14 @@ function scenarioLobbies(scenario: ScenarioId): LobbySummaryJson[] {
  * Fills the page-local store with the state the real browser reads: the maps, the people, the
  * viewer's friendships, and the lobby list itself — pushed through the same `listUpdate` action the
  * `/lobbies` channel publishes.
+ *
+ * Returns the scenario's full previews keyed by lobby id, so the page can answer the browser's
+ * preview subscription the way that lobby's own channel would.
  */
-function seedScenario(dispatch: BrowserTestDispatch, scenario: ScenarioId) {
+function seedScenario(
+  dispatch: BrowserTestDispatch,
+  scenario: ScenarioId,
+): Map<SbLobbyId, LobbyPreviewJson> {
   dispatch(loadMapsForTesting())
   dispatch({ type: '@users/loadUsers', payload: MOCK_USERS })
   dispatch({
@@ -330,9 +371,14 @@ function seedScenario(dispatch: BrowserTestDispatch, scenario: ScenarioId) {
     },
   })
 
-  const lobbies = scenarioLobbies(scenario)
-  dispatch({ type: '@lobbies/listUpdate', payload: { message: 'full', data: lobbies } })
-  dispatch({ type: '@lobbies/countUpdate', payload: { count: lobbies.length } })
+  const previews = scenarioPreviews(scenario)
+  dispatch({
+    type: '@lobbies/listUpdate',
+    payload: { message: 'full', data: previews.map(toSummary) },
+  })
+  dispatch({ type: '@lobbies/countUpdate', payload: { count: previews.length } })
+
+  return new Map(previews.map(preview => [preview.id, preview]))
 }
 
 const Container = styled.div`
@@ -377,15 +423,27 @@ export function LobbyBrowserTest() {
 function LobbyBrowserTestInner() {
   const dispatch = useAppDispatch()
   const [scenario, setScenario] = useState<ScenarioId>('busyEvening')
+  const previewLobbyId = useAppSelector(s => s.lobbyList.previewLobbyId)
 
   // The page-local store starts out empty, so seed on mount and reseed when the scenario changes.
+  const previewsRef = useRef<Map<SbLobbyId, LobbyPreviewJson>>(new Map())
   const lastSeededScenario = useRef<ScenarioId | undefined>(undefined)
   useEffect(() => {
     if (lastSeededScenario.current !== scenario) {
       lastSeededScenario.current = scenario
-      seedScenario(dispatch, scenario)
+      previewsRef.current = seedScenario(dispatch, scenario)
     }
   }, [dispatch, scenario])
+
+  // Stands in for the lobby's preview channel: whichever lobby the browser subscribes to gets its
+  // slot layout back, so the rail's roster fills in the way it does against a real server.
+  useEffect(() => {
+    const preview =
+      previewLobbyId !== undefined ? previewsRef.current.get(previewLobbyId) : undefined
+    if (preview) {
+      dispatch({ type: '@lobbies/previewUpdate', payload: preview })
+    }
+  }, [dispatch, previewLobbyId])
 
   return (
     <Container>

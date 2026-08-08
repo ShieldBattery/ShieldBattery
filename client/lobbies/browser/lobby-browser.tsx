@@ -20,6 +20,7 @@ import { useRelationshipsLoader } from '../../social/friends-list'
 import { healthChecked } from '../../starcraft/health-checked'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, bodyMedium, titleLarge } from '../../styles/typography'
+import { subscribeToLobbyPreview, unsubscribeFromLobbyPreview } from '../action-creators'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
 import { useJoinLobbyAction } from '../use-join-lobby-action'
@@ -129,8 +130,9 @@ export interface LobbyBrowserProps {
 
 /**
  * The lobby browser: everything open right now down the left, and a live preview of whichever one
- * you're looking at down the right. The preview keeps updating from the same list channel that
- * feeds the rows, so seats fill while you decide.
+ * you're looking at down the right. The rows come from the public list channel; the preview's
+ * seat-by-seat roster comes from a second subscription that follows the selection, so seats fill
+ * while you decide without every lobby's slot layout streaming to everyone.
  */
 export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   useTrackPageView('/lobbies')
@@ -164,6 +166,8 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
 
   const lobbyList = useAppSelector(s => s.lobbyList.list)
   const lobbiesById = useAppSelector(s => s.lobbyList.byId)
+  const previewLobbyId = useAppSelector(s => s.lobbyList.previewLobbyId)
+  const previewTeams = useAppSelector(s => s.lobbyList.previewTeams)
   const friends = useAppSelector(s => s.relationships.friends)
   // Host names are only needed to answer a search, so this stays out of the way otherwise.
   const usersById = useAppSelector(s => (searchQuery ? s.users.byId : NO_USERS))
@@ -184,7 +188,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     .filter(summary => {
       // Full gathering lobbies hide by default; the Full chip on the row reveals them once the
       // viewer opts in via the filter.
-      if (!showFull && summary.openSlotCount === 0) {
+      if (!showFull && summary.playerSlots.open === 0) {
         return false
       }
       if (gameType !== undefined && summary.gameType !== gameType) {
@@ -202,6 +206,23 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   // started, it was filtered out), at which point the top of the list takes over again.
   const selectedId = visible.some(summary => summary.id === clickedId) ? clickedId : visible[0]?.id
   const selected = selectedId !== undefined ? lobbiesById.get(selectedId) : undefined
+  // The subscription is opened from an effect, so for the render right after the selection moves,
+  // the layout in the store is still the previous lobby's. Showing it would put one lobby's people
+  // in another's rail, so it waits for the new lobby's preview to land.
+  const selectedTeams = previewLobbyId === selectedId ? previewTeams : undefined
+
+  // The list channel carries only what a row shows, so the rail's roster comes from the selected
+  // lobby's own preview channel. Deselecting (or leaving the page) closes it.
+  useEffect(() => {
+    if (!isConnected || selectedId === undefined) {
+      return () => {}
+    }
+
+    dispatch(subscribeToLobbyPreview(selectedId))
+    return () => {
+      dispatch(unsubscribeFromLobbyPreview())
+    }
+  }, [dispatch, isConnected, selectedId])
 
   // A row-initiated join failure surfaces in the rail, so it needs to know which lobby it belongs
   // to: the rail only shows it while that lobby is still the one selected.
@@ -302,6 +323,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
         <LobbyDetailRail
           key={selectedId ?? 'none'}
           summary={selected}
+          teams={selectedTeams}
           friendIds={(selectedId && friendIdsByLobby.get(selectedId)) || []}
           joinError={joinError && joinError.lobbyId === selectedId ? joinError.message : undefined}
           onJoin={asObserver => {

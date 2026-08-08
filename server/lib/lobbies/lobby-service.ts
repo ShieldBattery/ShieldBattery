@@ -19,7 +19,11 @@ import {
   LobbyState,
   LobbyVisibility,
 } from '../../../common/lobbies'
-import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyPreviewJson,
+  LobbySlotCreateEvent,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
@@ -105,6 +109,15 @@ export function getLobbyPath(lobbyId: SbLobbyId): string {
   return LOBBY_LIST_PATH + urlPath`/${lobbyId}`
 }
 
+/**
+ * The channel carrying a single lobby's seat-by-seat layout, for browsers previewing it. The
+ * segment after the lobby id is a user id on the sibling channels, and user ids are numeric, so the
+ * literal `preview` can never name one of those.
+ */
+export function getLobbyPreviewPath(lobbyId: SbLobbyId): string {
+  return LOBBY_LIST_PATH + urlPath`/${lobbyId}/preview`
+}
+
 /** The channel a single user in a lobby is subscribed to, across all of their clients. */
 export function getLobbyUserPath(lobbyId: SbLobbyId, userId: SbUserId): string {
   return LOBBY_LIST_PATH + urlPath`/${lobbyId}/${userId}`
@@ -116,11 +129,12 @@ export function getLobbyClientPath(lobbyId: SbLobbyId, userId: SbUserId, clientI
 }
 
 /**
- * The events published on the lobby channels: changes to the public lobby list, the open-lobby
- * count, and the per-lobby/per-user/per-client channels.
+ * The events published on the lobby channels: changes to the public lobby list, a single lobby's
+ * preview, the open-lobby count, and the per-lobby/per-user/per-client channels.
  */
 type LobbyPublishEvent =
   | { action: 'add' | 'delete' | 'update'; payload: SbLobbyId | LobbySummaryJson }
+  | { action: 'preview'; payload: LobbyPreviewJson }
   | { count: number }
   | { type: string; [key: string]: any }
 
@@ -1296,11 +1310,15 @@ export class LobbyService {
   }
 
   /**
-   * Publishes a change to the public lobby list, and refreshes the open-lobby count for everyone.
+   * Publishes a change to the public lobby list.
    *
    * A lobby's id is the capability that lets someone join it, so nothing about an unlisted lobby
    * (not even the bare id in a `delete`) may reach the public list channel. Every list publish must
    * go through here so that filtering can't be forgotten at a callsite.
+   *
+   * Only a lobby entering or leaving the list can change the open-lobby count, so only those
+   * refresh it. That count channel reaches every connected client on the server, whether or not
+   * they're anywhere near the lobby browser.
    */
   _publishListChange(action: 'add' | 'delete' | 'update', lobby: Lobby) {
     if (lobby.visibility === 'listed') {
@@ -1309,7 +1327,23 @@ export class LobbyService {
         payload: action === 'delete' ? lobby.id : Lobbies.toSummaryJson(lobby),
       })
     }
-    this._publishLobbiesCount()
+    if (action !== 'update') {
+      this._publishLobbiesCount()
+    }
+  }
+
+  /** Publishes a lobby's current seat-by-seat layout to whoever is previewing it. */
+  _publishPreview(lobby: Lobby) {
+    this.publisher.publish(getLobbyPreviewPath(lobby.id), {
+      action: 'preview',
+      payload: Lobbies.toPreviewJson(lobby),
+    })
+  }
+
+  /** Returns the full preview of a lobby by id, or undefined if no such lobby exists. */
+  getPreview(lobbyId: SbLobbyId): LobbyPreviewJson | undefined {
+    const lobby = this.lobbies.get(lobbyId)
+    return lobby ? Lobbies.toPreviewJson(lobby) : undefined
   }
 
   _publishTo(lobby: Lobby, data?: any) {
@@ -1432,6 +1466,19 @@ export class LobbyService {
       })
     }
 
-    this._publishListChange('update', newLobby)
+    // Previewers are looking at this lobby specifically and want every seat as it moves. Their
+    // channel is empty whenever nobody has the lobby selected, so publishing unconditionally costs
+    // nothing in the common case.
+    this._publishPreview(newLobby)
+
+    // The list, on the other hand, reaches every browser on the server, and its rows only show the
+    // summary's scalars. A race pick or a swap between two seats of the same team leaves all of
+    // them identical, so republishing would wake every subscriber to redraw nothing.
+    if (
+      JSON.stringify(Lobbies.toSummaryJson(oldLobby)) !==
+      JSON.stringify(Lobbies.toSummaryJson(newLobby))
+    ) {
+      this._publishListChange('update', newLobby)
+    }
   }
 }

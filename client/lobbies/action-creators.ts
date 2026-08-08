@@ -26,6 +26,7 @@ import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import siteSocket from '../network/site-socket'
 import { ActivateLobby, DeactivateLobby } from './actions'
 import { isInLobby } from './lobby-reducer'
 
@@ -285,6 +286,34 @@ export function updateLobbyPreferences(
         method: 'post',
         body: JSON.stringify(preferences),
       }),
+    })
+  }
+}
+
+/**
+ * Opens a preview of `lobbyId`, which carries its seat-by-seat layout as it changes. A socket holds
+ * at most one preview, so this replaces whichever lobby was being previewed before — no separate
+ * unsubscribe is needed to move between lobbies.
+ */
+export function subscribeToLobbyPreview(lobbyId: SbLobbyId): ThunkAction {
+  return dispatch => {
+    dispatch({ type: '@lobbies/previewSelect', payload: { lobbyId } })
+
+    siteSocket.invoke('/lobbies/preview-subscribe', { lobbyId }).catch(err => {
+      // A lobby can close between being picked and this request landing. The list's own delete is
+      // what moves the selection off a lobby that's gone, so there's nothing to recover here.
+      logger.warning(`Failed to subscribe to lobby preview: ${getErrorStack(err)}`)
+    })
+  }
+}
+
+/** Closes the lobby preview, if one is open. */
+export function unsubscribeFromLobbyPreview(): ThunkAction {
+  return dispatch => {
+    dispatch({ type: '@lobbies/previewSelect', payload: { lobbyId: undefined } })
+
+    siteSocket.invoke('/lobbies/preview-unsubscribe').catch(err => {
+      logger.warning(`Failed to unsubscribe from lobby preview: ${getErrorStack(err)}`)
     })
   }
 }

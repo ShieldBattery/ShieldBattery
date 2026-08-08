@@ -119,10 +119,10 @@ export type LobbyEvent =
   | LobbyStatusEvent
 
 /**
- * A slot as shown to lobby browsers: its occupancy and just enough about the occupant to render a
- * preview row. Deliberately narrower than `SlotJson` — the list channel reaches every connected
- * client, so per-member details like chosen regions stay off it. Controlled open/closed slots
- * (team melee/FFA) read as plain open/closed here; UMS computers read as computers.
+ * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
+ * render a preview row. Deliberately narrower than `SlotJson` — anyone holding a lobby's id can
+ * watch its preview, so per-member details like chosen regions stay off it. Controlled open/closed
+ * slots (team melee/FFA) read as plain open/closed here; UMS computers read as computers.
  */
 export type LobbySummarySlotJson =
   | { type: 'open' }
@@ -131,13 +131,37 @@ export type LobbySummarySlotJson =
   | { type: 'computer'; race: RaceChar }
   | { type: 'observer'; userId: SbUserId }
 
-/** A team of a lobby's slot layout, as shown to lobby browsers. */
+/** A team of a lobby's slot layout, as shown to a lobby's previewers. */
 export interface LobbySummaryTeamJson {
   name: string
   isObserver: boolean
   slots: ReadonlyArray<LobbySummarySlotJson>
 }
 
+/**
+ * The tally of a lobby's player seats: the ones people actually play from, humans and computers
+ * alike, counted against every player slot the layout has (open and closed included). Observer
+ * seats are counted separately — they're a different kind of spot, and folding them in would make
+ * a 4-player map read as an 8-player one.
+ */
+export interface LobbyPlayerSlotCounts {
+  taken: number
+  total: number
+  open: number
+}
+
+/** The tally of a lobby's observer seats: how many are filled, and how many anyone could take. */
+export interface LobbyObserverSlotCounts {
+  taken: number
+  open: number
+}
+
+/**
+ * A lobby as the public list channel carries it: everything a browser row shows plus what its
+ * filters and sorts need, and nothing that changes when someone merely picks a race or swaps seats.
+ * The list reaches every subscribed client on every change, so the seat-by-seat layout lives on the
+ * per-lobby preview channel ({@link LobbyPreviewJson}) instead.
+ */
 export interface LobbySummaryJson {
   id: SbLobbyId
   name: string
@@ -145,12 +169,27 @@ export interface LobbySummaryJson {
   gameType: GameType
   gameSubType: number
   host: { id: SbUserId }
-  openSlotCount: number
   useLegacyLimits: boolean
-  /** The lobby's slot layout, so browsers can preview who's inside before joining. */
-  teams: ReadonlyArray<LobbySummaryTeamJson>
+  playerSlots: LobbyPlayerSlotCounts
+  observerSlots: LobbyObserverSlotCounts
+  /**
+   * Whether the lobby has an observer team at all. Not derivable from `observerSlots`: a team whose
+   * seats are all closed tallies 0 taken and 0 open, and still means the lobby allows observers.
+   */
+  hasObserverTeam: boolean
+  /** Every seated person, players and observers alike, in the order they sit. */
+  occupantIds: ReadonlyArray<SbUserId>
   /** When the lobby was created (Unix millis). */
   createdAt: number
+}
+
+/**
+ * A single lobby as its previewers see it: its summary plus the seat-by-seat layout, so a browser
+ * can show who is sitting where before joining. Published only on that lobby's preview channel,
+ * which a client subscribes to one lobby at a time.
+ */
+export type LobbyPreviewJson = LobbySummaryJson & {
+  teams: ReadonlyArray<LobbySummaryTeamJson>
 }
 
 /**
@@ -172,7 +211,14 @@ export interface LobbySummaryMapJson extends MapImageInfo {
  * shows.
  */
 export interface LobbySummaryResponse {
-  summary: Omit<LobbySummaryJson, 'map' | 'teams' | 'createdAt'> & { map: LobbySummaryMapJson }
+  /**
+   * Only what the landing page renders: who is inside (`occupantIds`) and how the lobby's observer
+   * seats are arranged stay off an endpoint that answers anyone holding the link.
+   */
+  summary: Omit<
+    LobbySummaryJson,
+    'map' | 'createdAt' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds'
+  > & { map: LobbySummaryMapJson }
   host: SbUser
 }
 

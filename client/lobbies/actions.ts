@@ -6,6 +6,7 @@ import {
   LobbyKickEvent,
   LobbyLeaveEvent,
   LobbyPreferencesResponse,
+  LobbyPreviewJson,
   LobbyRaceChangeEvent,
   LobbySlotChangeEvent,
   LobbySlotCreateEvent,
@@ -22,6 +23,8 @@ export type LobbyActions =
   | GetLobbyStateSuccess
   | GetLobbyStateFailure
   | LobbiesListUpdate
+  | LobbyPreviewSelect
+  | LobbyPreviewUpdate
   | ActivateLobby
   | DeactivateLobby
   | LobbyInit
@@ -84,6 +87,23 @@ export interface LobbiesListUpdate {
     | { message: 'full'; data: LobbySummaryJson[] }
     | { message: 'add' | 'update'; data: LobbySummaryJson }
     | { message: 'delete'; data: SbLobbyId }
+}
+
+/**
+ * We are now previewing a particular lobby (or, with no id, none at all). Any layout already held
+ * for a different lobby is dropped: a preview only ever describes the lobby named here.
+ */
+export interface LobbyPreviewSelect {
+  type: '@lobbies/previewSelect'
+  payload: {
+    lobbyId?: SbLobbyId
+  }
+}
+
+/** The server has sent us the seat-by-seat layout of a lobby we're previewing. */
+export interface LobbyPreviewUpdate {
+  type: '@lobbies/previewUpdate'
+  payload: LobbyPreviewJson
 }
 
 /**

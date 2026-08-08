@@ -291,7 +291,7 @@ export function LobbySummaryDetails({ summary }: { summary: LobbySummaryResponse
             <DetailValue>
               {t('lobbies.summary.openSlotCount', {
                 defaultValue: '{{count}} open',
-                count: lobby.openSlotCount,
+                count: lobby.playerSlots.open,
               })}
             </DetailValue>
           </DetailRow>

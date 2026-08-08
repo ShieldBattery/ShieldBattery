@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
-import { LobbySummarySlotJson, LobbySummaryTeamJson } from '../../../common/lobbies/lobby-network'
+import { LobbySummarySlotJson } from '../../../common/lobbies/lobby-network'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { ConnectedAvatar } from '../../avatars/avatar'
@@ -25,7 +25,7 @@ import { ConnectedUsername } from '../../users/connected-username'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
 import { HostCrown, LobbyChip, RaceMark, SectionLabel } from './browser-parts'
-import { hasObserverTeam, hasOpenObserverSlot, LobbySummary, observerCounts } from './summary-utils'
+import { LobbyPreviewTeams, LobbySummary } from './summary-utils'
 
 const RailRoot = styled.div`
   /* The rail sits on a raised surface, so avatar-stack rings need to match it rather than the page. */
@@ -176,6 +176,17 @@ const ClosedRow = styled.div`
   opacity: 0.6;
 `
 
+/**
+ * Holds the shape of the seat list for the round trip the layout takes to arrive, so the rail's
+ * height is settled before the roster fills it in.
+ */
+const PendingRow = styled.div`
+  ${slotRow};
+
+  background-color: var(--theme-container-high);
+  opacity: 0.4;
+`
+
 const RowAvatar = styled(ConnectedAvatar)`
   width: 24px;
   height: 24px;
@@ -261,7 +272,7 @@ const FullWidthTextButton = styled(TextButton)`
 /** A label for the way a lobby's seats are split up, e.g. "3 vs 5" or "3 teams". */
 function gameSubTypeLabel(
   gameType: GameType,
-  playerTeams: ReadonlyArray<LobbySummaryTeamJson>,
+  playerTeams: LobbyPreviewTeams,
   t: TFunction,
 ): string | undefined {
   if (!isTeamType(gameType) || playerTeams.length < 2) {
@@ -352,6 +363,11 @@ function SlotRow({
 export interface LobbyDetailRailProps {
   /** The lobby being previewed, or undefined when the list has nothing to select. */
   summary: LobbySummary | undefined
+  /**
+   * `summary`'s slot layout, or undefined until its preview arrives. Everything else renders from
+   * `summary` alone, so only the roster and the sub-type chip wait on this.
+   */
+  teams: LobbyPreviewTeams | undefined
   /** The viewer's friends inside this lobby, in seating order. */
   friendIds: ReadonlyArray<SbUserId>
   /** A join failure aimed at the previewed lobby specifically, or undefined when there's none. */
@@ -363,8 +379,8 @@ export interface LobbyDetailRailProps {
 
 /**
  * A live window into the selected lobby: its map and settings, every seat and who's in it, and the
- * two ways to get inside. The list channel keeps streaming while this is open, so the seats fill and
- * empty as they really do.
+ * two ways to get inside. Both channels feeding it keep streaming while it's open, so the seats fill
+ * and empty as they really do.
  *
  * `joinError` is controlled by the caller, which is expected to only pass one down when it belongs
  * to this lobby specifically. Mount this keyed by the selected lobby's id anyway — a remount gives
@@ -373,6 +389,7 @@ export interface LobbyDetailRailProps {
  */
 export function LobbyDetailRail({
   summary,
+  teams,
   friendIds,
   joinError,
   onJoin,
@@ -394,12 +411,14 @@ export function LobbyDetailRail({
   const isOwnLobby = inCurrentLobby && currentLobbyId === summary.id
 
   const map = summary.map
-  const playerTeams = summary.teams.filter(team => !team.isObserver)
-  const observerTeam = summary.teams.find(team => team.isObserver)
-  const observers = observerCounts(summary)
-  const subTypeLabel = gameSubTypeLabel(summary.gameType, playerTeams, t)
+  const playerTeams = teams?.filter(team => !team.isObserver)
+  const observerTeam = teams?.find(team => team.isObserver)
+  const observers = summary.observerSlots
+  // How the seats are split between teams is only knowable from the layout, so this chip joins the
+  // row when the rest of the roster does.
+  const subTypeLabel = playerTeams && gameSubTypeLabel(summary.gameType, playerTeams, t)
   // Melee and its kin have a single unnamed team, and a heading over the whole roster says nothing.
-  const showTeamHeadings = playerTeams.length > 1 || !!playerTeams[0]?.name
+  const showTeamHeadings = !!playerTeams && (playerTeams.length > 1 || !!playerTeams[0]?.name)
 
   return (
     <RailRoot className={className}>
@@ -432,7 +451,7 @@ export function LobbyDetailRail({
         <ChipRow>
           <LobbyChip>{gameTypeToLabel(summary.gameType, t)}</LobbyChip>
           {subTypeLabel ? <LobbyChip>{subTypeLabel}</LobbyChip> : null}
-          {hasObserverTeam(summary) ? (
+          {summary.hasObserverTeam ? (
             <LobbyChip>{t('lobbies.browser.observers', 'Observers')}</LobbyChip>
           ) : null}
           {summary.useLegacyLimits ? (
@@ -441,7 +460,15 @@ export function LobbyDetailRail({
         </ChipRow>
 
         <Slots>
-          {playerTeams.map((team, teamIndex) => (
+          {!playerTeams ? (
+            <Section aria-hidden={true}>
+              {Array.from({ length: summary.playerSlots.total }, (_, slotIndex) => (
+                <PendingRow key={slotIndex} />
+              ))}
+            </Section>
+          ) : null}
+
+          {playerTeams?.map((team, teamIndex) => (
             <Section key={teamIndex}>
               {showTeamHeadings ? (
                 <SectionHeading>
@@ -531,7 +558,7 @@ export function LobbyDetailRail({
               onClick={() => onJoin(false)}
               testName='join-lobby-button'
             />
-            {hasOpenObserverSlot(summary) ? (
+            {summary.observerSlots.open > 0 ? (
               <FullWidthTextButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
                 iconStart={<MaterialIcon icon='visibility' size={20} />}

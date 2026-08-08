@@ -6,6 +6,7 @@ import { GameType } from '../../../common/games/game-type'
 import { findSlotByUserId, getObserverTeam, LobbyVisibility } from '../../../common/lobbies'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { makeSbMapId, MapInfo, MapVisibility, Tileset } from '../../../common/maps'
+import { RaceChar } from '../../../common/races'
 import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
@@ -140,10 +141,24 @@ describe('lobbies/lobby-service', () => {
       .map(([, data]) => data)
   }
 
+  /** Returns the data published on a single lobby's preview channel, in order. */
+  function previewPublishes(lobbyId: SbLobbyId): Array<{ action: string; payload: any }> {
+    return fakeNydus.publish.mock.calls
+      .filter(([path]) => path === `/lobbies/${lobbyId}/preview`)
+      .map(([, data]) => data)
+  }
+
+  /** Returns every open-lobby count published, in order. */
+  function countPublishes(): Array<{ count: number }> {
+    return fakeNydus.publish.mock.calls
+      .filter(([path]) => path === '/lobbiesCount')
+      .map(([, data]) => data)
+  }
+
   /** Returns the most recently published open-lobby count, or undefined if none was published. */
   function latestLobbiesCount(): number | undefined {
-    const counts = fakeNydus.publish.mock.calls.filter(([path]) => path === '/lobbiesCount')
-    return counts.length ? counts[counts.length - 1][1].count : undefined
+    const counts = countPublishes()
+    return counts.length ? counts[counts.length - 1].count : undefined
   }
 
   async function createLobby(
@@ -334,6 +349,89 @@ describe('lobbies/lobby-service', () => {
       await createLobby(otherHost, 'Listed lobby', 'listed')
 
       expect(lobbyService.getListedSummaries().map(l => l.name)).toEqual(['Listed lobby'])
+    })
+  })
+
+  describe('list and preview publishing', () => {
+    /** Sets `user`'s race in the lobby they're in, the way a client request would. */
+    function setRace(sockets: Sockets, lobbyId: SbLobbyId, race: RaceChar) {
+      const [, , slot] = findSlotByUserId(lobbyService.lobbies.get(lobbyId)!, sockets.user.userId)
+      lobbyService.setRace({ client: sockets.client, slotId: slot!.id, race })
+    }
+
+    test('a race change reaches previewers without touching the list or the lobby count', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      setRace(joiner, id, 'z')
+
+      const previews = previewPublishes(id)
+      expect(previews).toHaveLength(1)
+      expect(previews[0].payload.teams[0].slots[1]).toMatchObject({ race: 'z' })
+      // Nothing a row shows changed, so neither the list nor the count everyone is subscribed to
+      // has any reason to hear about it.
+      expect(listPublishes()).toEqual([])
+      expect(countPublishes()).toEqual([])
+    })
+
+    test('a join reaches both the list and previewers', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await joinLobby(joiner, id)
+
+      expect(listPublishes()).toEqual([
+        {
+          action: 'update',
+          payload: expect.objectContaining({
+            playerSlots: expect.objectContaining({ taken: 2 }),
+            occupantIds: [HOST_USER.id, JOINER_USER.id],
+          }),
+        },
+      ])
+      expect(previewPublishes(id)).toHaveLength(1)
+      // The lobby was already listed and still is, so the open-lobby count is unchanged.
+      expect(countPublishes()).toEqual([])
+    })
+
+    test('a leave reaches both the list and previewers', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      fakeNydus.publish.mockClear()
+
+      lobbyService.leaveLobby({ client: joiner.client })
+
+      expect(listPublishes()).toEqual([
+        {
+          action: 'update',
+          payload: expect.objectContaining({ occupantIds: [HOST_USER.id] }),
+        },
+      ])
+      expect(previewPublishes(id)).toHaveLength(1)
+    })
+
+    test('an unlisted lobby still reaches its previewers', async () => {
+      // Holding a lobby's id is what grants a preview of it, so an unlisted lobby previews exactly
+      // like a listed one even though it never appears on the public list.
+      const { id } = await createLobby(host, 'Unlisted lobby', 'unlisted')
+      fakeNydus.publish.mockClear()
+
+      await joinLobby(joiner, id)
+
+      expect(listPublishes()).toEqual([])
+      expect(previewPublishes(id)).toHaveLength(1)
+      expect(previewPublishes(id)[0].payload.occupantIds).toEqual([HOST_USER.id, JOINER_USER.id])
+    })
+
+    test('the preview carries the slot layout the summary leaves out', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await joinLobby(joiner, id)
+
+      expect(previewPublishes(id)[0].payload).toHaveProperty('teams')
+      expect((listPublishes()[0].payload as any).teams).toBeUndefined()
     })
   })
 
