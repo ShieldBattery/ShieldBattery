@@ -240,14 +240,22 @@ async function main(): Promise<void> {
 
   let placeholderCount = 0
   for (const tilesetId of ALL_TILESET_IDS) {
-    if (!rendered.has(tilesetId)) {
-      const placeholder = await renderPlaceholder(tilesetId)
-      const sizeChange = writeImage(outDir, tilesetId, placeholder)
-      placeholderCount++
-      console.log(
-        `~ ${tilesetId}.webp  <-  flat placeholder (no map rendered for this tileset) (${sizeChange})`,
-      )
+    if (rendered.has(tilesetId)) {
+      continue
     }
+    // A prior run may have already produced a real render for this tileset even though this
+    // run's maps folder doesn't cover it -- don't clobber that with a placeholder.
+    const outPath = path.join(outDir, `${tilesetId}.webp`)
+    if (fs.existsSync(outPath)) {
+      continue
+    }
+
+    const placeholder = await renderPlaceholder(tilesetId)
+    const sizeChange = writeImage(outDir, tilesetId, placeholder)
+    placeholderCount++
+    console.log(
+      `~ ${tilesetId}.webp  <-  flat placeholder (no map rendered for this tileset) (${sizeChange})`,
+    )
   }
 
   console.log(
