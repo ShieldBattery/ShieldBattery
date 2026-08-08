@@ -10,43 +10,32 @@
 const URL_REGEX = /https?:\/\/[^\s"\]]+/gi
 
 /**
- * Trailing characters that end a sentence rather than a URL. '?' and ',' are deliberately left
- * out: they routinely show up as meaningful trailing characters in query strings and lists of
- * URLs, so stripping them unconditionally would corrupt valid links.
- */
-function isSentenceEndingPunctuation(char: string | undefined): boolean {
-  return char === '.' || char === '!'
-}
-
-/**
  * Strips trailing characters from a matched URL that more likely close out the surrounding text
- * than belong to the URL itself: closing parens that don't pair with an opening paren earlier in
- * the URL (e.g. the ")" wrapping a URL in "(http://example.org/)"), and sentence-ending
- * punctuation (e.g. the "." ending a sentence in "check http://example.org."). Both are stripped
- * repeatedly, in either order, until neither applies, so e.g. a period after an unbalanced
- * closing paren ("(http://example.org/foo).") has both trimmed rather than just the period.
+ * than belong to the URL itself: a single sentence-ending period (e.g. the "." ending "check
+ * http://example.org."), and everything from the first closing paren that doesn't pair with an
+ * opening paren earlier in the URL (e.g. the ")" wrapping a URL in "(http://example.org/)").
+ *
+ * These are exactly the two exclusions the original backreference-in-lookbehind regex made, in the
+ * order it effectively applied them: strip the period first, then truncate at the unbalanced
+ * paren. Other punctuation ('!', '?', ',', extra dots of an ellipsis, a dot followed by ')') stays
+ * part of the URL, matching what that regex accepted.
  */
 function trimTrailingPunctuation(url: string): string {
-  let unclosedParens = 0
-  for (const char of url) {
-    if (char === '(') {
-      unclosedParens++
-    } else if (char === ')') {
-      unclosedParens--
-    }
+  let end = url.length
+  if (url[end - 1] === '.') {
+    end--
   }
 
-  let end = url.length
-  let didTrim = true
-  while (didTrim) {
-    didTrim = false
-    if (unclosedParens < 0 && url[end - 1] === ')') {
-      end--
+  let unclosedParens = 0
+  for (let i = 0; i < end; i++) {
+    if (url[i] === '(') {
       unclosedParens++
-      didTrim = true
-    } else if (isSentenceEndingPunctuation(url[end - 1])) {
-      end--
-      didTrim = true
+    } else if (url[i] === ')') {
+      if (unclosedParens === 0) {
+        end = i
+        break
+      }
+      unclosedParens--
     }
   }
 

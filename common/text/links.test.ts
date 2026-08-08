@@ -204,6 +204,22 @@ describe('common/text/links/matchLinks', () => {
     expect(doMatch('http://example.org/foo.')).toEqual(['http://example.org/foo'])
   })
 
+  test('only a single trailing period is stripped, so an ellipsis keeps its other dots', () => {
+    expect(doMatch('http://example.org/foo...')).toEqual(['http://example.org/foo..'])
+  })
+
+  test('a trailing exclamation mark stays part of the link', () => {
+    expect(doMatch('wow http://example.org/foo!')).toEqual(['http://example.org/foo!'])
+  })
+
+  test('a period before the closing paren of a wrapping parenthetical stays', () => {
+    expect(doMatch('(see http://example.org/foo.)')).toEqual(['http://example.org/foo.'])
+  })
+
+  test('text after an unbalanced closing paren is never part of the link', () => {
+    expect(doMatch('(http://example.org/foo)..')).toEqual(['http://example.org/foo'])
+  })
+
   test('link with adversarial paren-heavy input does not hang and matches correctly', () => {
     // A large run of unmatched opening parens preceding the URL, and a large run of unmatched
     // closing parens trailing it. This shape used to trigger quadratic backtracking in a
