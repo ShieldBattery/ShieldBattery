@@ -204,12 +204,20 @@ describe('common/text/links/matchLinks', () => {
     expect(doMatch('http://example.org/foo.')).toEqual(['http://example.org/foo'])
   })
 
-  test('only a single trailing period is stripped, so an ellipsis keeps its other dots', () => {
-    expect(doMatch('http://example.org/foo...')).toEqual(['http://example.org/foo..'])
+  test('a whole trailing ellipsis is stripped', () => {
+    expect(doMatch('http://example.org/foo...')).toEqual(['http://example.org/foo'])
   })
 
-  test('a trailing exclamation mark stays part of the link', () => {
-    expect(doMatch('wow http://example.org/foo!')).toEqual(['http://example.org/foo!'])
+  test('trailing exclamation marks are stripped', () => {
+    expect(doMatch('wow http://example.org/foo!!')).toEqual(['http://example.org/foo'])
+  })
+
+  test('mixed trailing sentence punctuation is stripped', () => {
+    expect(doMatch('wow http://example.org/foo!.')).toEqual(['http://example.org/foo'])
+  })
+
+  test('a question mark stops the trailing-punctuation strip', () => {
+    expect(doMatch('huh http://example.org/foo?!')).toEqual(['http://example.org/foo?'])
   })
 
   test('a period before the closing paren of a wrapping parenthetical stays', () => {

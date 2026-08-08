@@ -11,18 +11,19 @@ const URL_REGEX = /https?:\/\/[^\s"\]]+/gi
 
 /**
  * Strips trailing characters from a matched URL that more likely close out the surrounding text
- * than belong to the URL itself: a single sentence-ending period (e.g. the "." ending "check
- * http://example.org."), and everything from the first closing paren that doesn't pair with an
+ * than belong to the URL itself: any run of trailing sentence-ending punctuation ('.' and '!',
+ * covering "check http://example.org." and "http://example.org!!!" alike — real URLs essentially
+ * never end in either), and everything from the first closing paren that doesn't pair with an
  * opening paren earlier in the URL (e.g. the ")" wrapping a URL in "(http://example.org/)").
  *
- * These are exactly the two exclusions the original backreference-in-lookbehind regex made, in the
- * order it effectively applied them: strip the period first, then truncate at the unbalanced
- * paren. Other punctuation ('!', '?', ',', extra dots of an ellipsis, a dot followed by ')') stays
- * part of the URL, matching what that regex accepted.
+ * '?' and ',' stay part of the URL: both show up legitimately at the end of real URLs (a bare
+ * query string, comma-shaped path segments) often enough that stripping would corrupt more links
+ * than it fixes. A period that isn't at the very end (e.g. before the ")" in
+ * "(http://example.org.)") also stays.
  */
 function trimTrailingPunctuation(url: string): string {
   let end = url.length
-  if (url[end - 1] === '.') {
+  while (url[end - 1] === '.' || url[end - 1] === '!') {
     end--
   }
 
