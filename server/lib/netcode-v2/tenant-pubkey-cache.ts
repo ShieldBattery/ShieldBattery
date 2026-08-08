@@ -54,9 +54,15 @@ export class TenantPubkeyCache {
    * is what lets a coordinator-side key rotation take effect without an app server restart.
    * Rate-limited (at most once per 30s) so a flood of garbage signatures can't turn into a flood of
    * requests to the coordinator: a call inside the cooldown returns undefined without fetching,
-   * meaning "still just the (already known to be failing) cached key."
+   * meaning "still just the (already known to be failing) cached key." A call that arrives while a
+   * refetch is already in flight joins that fetch instead, regardless of cooldown, since the
+   * rotated key it's about to deliver is exactly what such a caller wants.
    */
   async refetchAfterVerificationFailure(): Promise<KeyObject | undefined> {
+    if (this.inFlight) {
+      return this.inFlight
+    }
+
     const now = Date.now()
     if (now - this.lastRefetchAttemptMs < REFETCH_COOLDOWN_MS) {
       return undefined

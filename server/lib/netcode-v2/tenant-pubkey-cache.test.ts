@@ -100,4 +100,27 @@ describe('netcode-v2/TenantPubkeyCache', () => {
     expect(fetchPubkeyHex).toHaveBeenCalledTimes(2)
     expect(rateLimited).toBeUndefined()
   })
+
+  test('refetchAfterVerificationFailure joins an in-flight refetch instead of returning undefined', async () => {
+    const { publicKey } = generateKeyPairSync('ed25519')
+    let resolveFetch: (hex: string) => void = () => {}
+    const fetchPubkeyHex = vi.fn(
+      () =>
+        new Promise<string>(resolve => {
+          resolveFetch = resolve
+        }),
+    )
+
+    const cache = new TenantPubkeyCache(fetchPubkeyHex)
+    const pending1 = cache.refetchAfterVerificationFailure()
+    // Arrives while the first refetch is still unresolved and well inside what would otherwise be
+    // the cooldown window — it should join the in-flight fetch rather than bailing out early.
+    const pending2 = cache.refetchAfterVerificationFailure()
+    resolveFetch(rawPublicKeyHex(publicKey))
+    const [key1, key2] = await Promise.all([pending1, pending2])
+
+    expect(fetchPubkeyHex).toHaveBeenCalledTimes(1)
+    expect(key1).toBeDefined()
+    expect(key2).toBe(key1)
+  })
 })
