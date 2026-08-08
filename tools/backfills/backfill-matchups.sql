@@ -64,10 +64,20 @@ BEGIN
 
       -- Drop empty teams (e.g. observer teams in melee lobbies serialize as []) before working out
       -- the real layout. This mirrors getTeamsFromConfig() in common/games/matchups.ts.
+      --
+      -- The type guards are not paranoia: `games` is long-lived and `config` is schemaless, so a
+      -- historical row whose `teams` is missing, null, an object or a scalar is entirely possible.
+      -- `jsonb_array_elements` raises on those rather than returning nothing, which would abort the
+      -- whole backfill part-way through -- committed batches kept, the rest never processed. Rows
+      -- with an unusable shape are skipped, leaving their matchup columns as they were.
+      IF jsonb_typeof(r.config->'teams') <> 'array' THEN
+        CONTINUE;
+      END IF;
+
       non_empty_teams := ARRAY(
         SELECT t
         FROM jsonb_array_elements(r.config->'teams') AS t
-        WHERE jsonb_array_length(t) > 0
+        WHERE jsonb_typeof(t) = 'array' AND jsonb_array_length(t) > 0
       );
       teams_count := coalesce(array_length(non_empty_teams, 1), 0);
 
