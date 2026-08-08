@@ -1144,6 +1144,20 @@ unsafe fn copy_session_player_name(node: *mut scr::StormSessionPlayer, name: &CS
     }
 }
 
+/// The BW game player id of a `players[]` slot index.
+///
+/// Player slots `0..8` are their own id, but observers are out-of-band: slots `12..16` have the
+/// ids `0x80..0x84` (128-131). Native code keyed off a game player id — chat name rendering,
+/// command attribution — recognizes an observer only by that id range, and treats the raw slot
+/// indices 12-15 as some other (nonexistent) player, so a slot index must be converted before it
+/// is used anywhere a game player id is expected.
+fn game_player_id_for_slot(slot: u8) -> u8 {
+    match slot {
+        12..=15 => 0x80 + (slot - 12),
+        other => other,
+    }
+}
+
 /// The classic chat command's fixed record size: a 2-byte header (`0x5c`, sender game id) followed
 /// by a 0x50-byte NUL-padded text field.
 const CHAT_RECORD_LEN: usize = 0x52;
@@ -3577,10 +3591,7 @@ impl BwScr {
             // The record's sender field is a game player *id*, not a `players[]` index — the
             // native renderer's name/format path only recognizes observers by their id range
             // (0x80..0x84); an index in 12..16 falls through to its nameless bare-text path.
-            let sender_id = match unique_player {
-                12..=15 => 0x80 + (unique_player - 12),
-                other => other,
-            };
+            let sender_id = game_player_id_for_slot(unique_player);
             let record = build_chat_record(sender_id, text);
             // `0`: a live command not yet on the replay's command log, so the native command
             // processor appends it (`add_to_replay_data`) the same as any other in-game command —
@@ -3687,7 +3698,8 @@ impl BwScr {
     /// (from [`unique_player_for_storm`](Self::unique_player_for_storm)). In a team game a normal
     /// player's commands run under that team's main player; an observer has no team (its
     /// `players[].team` is 0, which would underflow `team_game_main_player`), so it acts under its
-    /// own slot. Outside a team game, and always for an observer, the slot index is the game player.
+    /// own identity. Otherwise the game player id is the slot's own id, which for an observer is
+    /// the out-of-band 0x80-ranged one — see [`game_player_id_for_slot`].
     unsafe fn command_game_player(&self, unique_player: u8) -> u8 {
         unsafe {
             if game_thread::is_team_game() && !BwPlayerId(unique_player).is_observer() {
@@ -3696,7 +3708,7 @@ impl BwScr {
                 let team = (*players.add(unique_player as usize)).team;
                 (*self.game()).team_game_main_player[team as usize - 1]
             } else {
-                unique_player
+                game_player_id_for_slot(unique_player)
             }
         }
     }
@@ -6873,5 +6885,24 @@ fn sh_get_folder_path_w_hook(
             }
         }
         ret
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn observer_slots_map_to_out_of_band_game_player_ids() {
+        for slot in 0..8u8 {
+            assert_eq!(game_player_id_for_slot(slot), slot);
+        }
+        assert_eq!(game_player_id_for_slot(12), 0x80);
+        assert_eq!(game_player_id_for_slot(13), 0x81);
+        assert_eq!(game_player_id_for_slot(14), 0x82);
+        assert_eq!(game_player_id_for_slot(15), 0x83);
+        for slot in 12..16u8 {
+            assert!(BwPlayerId(game_player_id_for_slot(slot)).is_observer());
+        }
     }
 }
