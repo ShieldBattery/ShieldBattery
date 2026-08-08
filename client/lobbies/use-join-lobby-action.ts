@@ -4,24 +4,48 @@ import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { healthChecked } from '../starcraft/health-checked'
 import { joinLobby } from './action-creators'
 import { lobbyJoinErrorMessage } from './lobby-join-errors'
+import { isInLobby } from './lobby-reducer'
 import { navigateToLobby } from './lobby-url'
 
+export interface JoinLobbyActionOptions {
+  /** The lobby's name, used to build the URL the join navigates to. */
+  name?: string
+  /** Ask for an observer seat specifically, failing rather than taking a player seat or the bench. */
+  asObserver?: boolean
+  /**
+   * Called with a user-facing message when the join fails. Providing it also holds the navigation
+   * back until the join succeeds, so a surface that can show the failure in place (with the lobby
+   * still on screen) gets to, instead of the lobby view reporting it after a navigation.
+   */
+  onJoinFailed?: (message: string) => void
+}
+
 /**
- * Returns a function that joins a lobby the way clicking one in the lobby list does. On web it
- * shows the download dialog; in the app it refuses while a matchmaking search is active, and
- * otherwise health-checks the game install, dispatches the join (reporting failures in a
- * snackbar), and navigates to the lobby route, which shows the join's outcome.
+ * Returns a function that joins a lobby the way clicking one in the lobby browser does. On web it
+ * shows the download dialog; in the app it refuses while a matchmaking search is active.
+ *
+ * A client can only ever be seated in one lobby: already being in the target lobby just navigates
+ * there, and being in a different one opens a confirmation before trading it for the new one.
+ * Otherwise it health-checks the game install and dispatches the join.
+ *
+ * Without `onJoinFailed` it navigates to the lobby route straight away and reports a failure in a
+ * snackbar, since the route is where the join's outcome would be seen anyway.
  */
-export function useJoinLobbyAction(): (lobbyId: SbLobbyId, options?: { name?: string }) => void {
+export function useJoinLobbyAction(): (
+  lobbyId: SbLobbyId,
+  options?: JoinLobbyActionOptions,
+) => void {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
+  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
+  const currentLobbyId = useAppSelector(s => s.lobby.info.id)
 
   return (lobbyId, options) => {
     if (!IS_ELECTRON) {
@@ -41,16 +65,53 @@ export function useJoinLobbyAction(): (lobbyId: SbLobbyId, options?: { name?: st
       return
     }
 
+    if (inCurrentLobby) {
+      if (currentLobbyId === lobbyId) {
+        navigateToLobby(lobbyId, options?.name)
+      } else {
+        dispatch(
+          openDialog({
+            type: DialogType.LobbyLeaveAndJoin,
+            initData: {
+              lobbyId,
+              name: options?.name,
+              asObserver: options?.asObserver,
+              onJoinFailed: options?.onJoinFailed,
+            },
+          }),
+        )
+      }
+      return
+    }
+
+    const onJoinFailed = options?.onJoinFailed
+
     healthChecked(() => {
       dispatch(
-        joinLobby(lobbyId, {
-          onSuccess: () => {},
-          onError: (err: unknown) => {
-            snackbarController.showSnackbar(lobbyJoinErrorMessage(err, t))
+        joinLobby(
+          lobbyId,
+          { asObserver: options?.asObserver },
+          {
+            onSuccess: () => {
+              if (onJoinFailed) {
+                navigateToLobby(lobbyId, options?.name)
+              }
+            },
+            onError: (err: unknown) => {
+              const message = lobbyJoinErrorMessage(err, t)
+              if (onJoinFailed) {
+                onJoinFailed(message)
+              } else {
+                snackbarController.showSnackbar(message)
+              }
+            },
           },
-        }),
+        ),
       )
-      navigateToLobby(lobbyId, options?.name)
+
+      if (!onJoinFailed) {
+        navigateToLobby(lobbyId, options?.name)
+      }
     })()
   }
 }

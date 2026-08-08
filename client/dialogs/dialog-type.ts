@@ -1,6 +1,7 @@
 import { ChannelPermissions, SbChannelId } from '../../common/chat'
 import { GameRecordJson } from '../../common/games/games'
 import { ClientLeagueUserChangeJson, LeagueJson } from '../../common/leagues/leagues'
+import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { SbMapId } from '../../common/maps'
 import { MatchmakingSeasonJson, PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -28,6 +29,8 @@ export enum DialogType {
   FailedToAcceptMatch = 'failedToAcceptMatch',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
+  LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
+  LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
   MapDetails = 'mapDetails',
   MapDownload = 'mapDownload',
   MapPreview = 'mapPreview',
@@ -172,6 +175,25 @@ type ExternalLinkDialogPayload = BaseDialogPayload<
 type FailedToAcceptMatchDialogPayload = BaseDialogPayload<typeof DialogType.FailedToAcceptMatch>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
+type LobbyLeaveAndCreateDialogPayload = BaseDialogPayload<
+  typeof DialogType.LobbyLeaveAndCreate,
+  {
+    /** Performs the create the form's submit was holding for confirmation. */
+    onConfirm: () => void
+  }
+>
+type LobbyLeaveAndJoinDialogPayload = BaseDialogPayload<
+  typeof DialogType.LobbyLeaveAndJoin,
+  {
+    lobbyId: SbLobbyId
+    /** The target lobby's name, used to build the URL a successful join navigates to. */
+    name?: string
+    /** Ask for an observer seat specifically, failing rather than taking a player seat or the bench. */
+    asObserver?: boolean
+    /** Called with a user-facing message when the join fails. */
+    onJoinFailed?: (message: string) => void
+  }
+>
 type MapDetailsDialogPayload = BaseDialogPayload<
   typeof DialogType.MapDetails,
   {
@@ -279,6 +301,8 @@ export type DialogPayload =
   | FailedToAcceptMatchDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
+  | LobbyLeaveAndCreateDialogPayload
+  | LobbyLeaveAndJoinDialogPayload
   | MapDetailsDialogPayload
   | MapDownloadDialogPayload
   | MapPreviewDialogPayload

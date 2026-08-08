@@ -667,6 +667,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "离开房间",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "玩家槽位：",
       "viewLobby": "查看房间"
@@ -888,28 +889,54 @@
     "activity": {
       "title": "房间 ({{lobbyCount}})"
     },
+    "browser": {
+      "createDisabledWhileMatchmaking": "正在进行匹配时无法创建房间。",
+      "emptyAllFull": "目前所有房间都已满",
+      "emptyNoLobbies": "目前没有人创建房间",
+      "emptyNoMatches": "没有符合筛选条件的房间",
+      "filterFriends": "好友",
+      "filterGameType": "游戏类型",
+      "filterGameTypeAll": "所有游戏类型",
+      "filterShowFull": "显示已满",
+      "friendsInside_other": "{{count}}位好友在此房间中",
+      "full": "已满",
+      "hostedBy": "房主：<1></1>",
+      "join": "加入",
+      "joinAsObserver": "以观战者身份加入",
+      "joinLobby": "加入房间",
+      "legacyLimits": "旧版单位限制",
+      "observers": "观战者",
+      "observersCount": "观战者 · {{taken}}/{{total}}",
+      "observerSlotsOpen_other": "剩余{{count}}个",
+      "oneFriendInside": "有一位好友在此房间中",
+      "railPlaceholder": "选择一个房间以查看详情",
+      "returnToLobby": "返回房间",
+      "showFullLobbies": "显示已满的房间",
+      "slotClosed": "已关闭",
+      "slotComputer": "电脑",
+      "slotOpen": "开放",
+      "sortMostPlayers": "玩家最多",
+      "sortNewest": "最新",
+      "sortOpenSlots": "空位最多",
+      "statLobbies_other": "{{count}}个房间",
+      "statPlayers_other": "{{count}}名玩家",
+      "title": "房间"
+    },
     "createLobby": {
-      "advancedSettings": "高级设置",
-      "allowObservers": "允许观战者",
-      "backToList": "返回列表",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",
-      "errorNameTaken": "已有同名的房间。请换一个名称。",
       "gameSubTypeHeader": "队伍",
       "gameSubTypeOption": "{{numTeams}}支队伍",
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
       "gameTypeHeader": "游戏类型",
       "lobbyName": "房间名称",
-      "lobbyNameRequired": "输入房间名称",
       "mapRequired": "选择要玩的地图",
       "selectMap": "选择地图",
       "title": "创建房间",
       "useLegacyLimits": "使用旧版单位数量限制",
       "visibility": "可见性",
       "visibilityListed": "公开",
-      "visibilityListedDescription": "显示在房间列表中，任何人都可以加入。录像对所有人公开，与其他玩家进行的游戏会显示在游戏页面",
-      "visibilityUnlisted": "不公开列出",
-      "visibilityUnlistedDescription": "只有拿到链接的人才能加入"
+      "visibilityUnlisted": "不公开列出"
     },
     "errors": {
       "alreadyInLobby": "您已经在另一个房间了。",
@@ -926,17 +953,30 @@
       "errorBanned": "您已被该房间封禁。",
       "errorFull": "该房间已满。",
       "errorGeneric": "加入房间时出了点问题。请重试。",
+      "errorObserversFull": "该房间没有空余的观战位，请尝试以玩家身份加入。",
       "matchmakingActiveDialogText": "正在进行匹配时无法加入房间。",
       "matchmakingActiveDialogTitle": "加入房间已禁用",
-      "noActiveLobbies": "目前没有活跃的房间",
-      "noOpenLobbies": "目前没有开放的房间",
-      "openSlotCount_other": "有{{count}}个空位",
-      "title": "加入房间"
+      "openSlotCount_other": "有{{count}}个空位"
     },
     "landing": {
       "download": "下载 ShieldBattery",
       "loadError": "加载该房间时遇到问题。",
       "openInApp": "已经安装了 ShieldBattery？在应用内打开此链接即可加入房间。"
+    },
+    "leaveAndCreate": {
+      "confirmAction": "离开并创建",
+      "dialogTitle": "离开当前房间？",
+      "hostAloneNotice": "创建此房间后，“{{current}}”将会关闭，因为房间里没有其他人。",
+      "hostNotice": "您是“{{current}}”的房主。创建新房间后，房主将移交给其他玩家。",
+      "memberNotice": "创建此房间后，您将离开“{{current}}”。"
+    },
+    "leaveAndJoin": {
+      "confirmAction": "离开并加入",
+      "dialogTitle": "离开当前房间？",
+      "genericLobbyName": "新房间",
+      "hostAloneBody": "加入“{{target}}”后，“{{current}}”将会关闭，因为房间里没有其他人。",
+      "hostBody": "您是“{{current}}”的房主。加入“{{target}}”后，房主将移交给其他玩家。",
+      "memberBody": "加入“{{target}}”后，您将离开“{{current}}”。"
     },
     "lobby": {
       "copiedInviteLink": "已复制！",

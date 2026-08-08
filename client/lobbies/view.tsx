@@ -383,7 +383,7 @@ function JoinableLobbyView({ routeLobbyId }: { routeLobbyId: SbLobbyId }) {
   const onJoinClick = () => {
     setIsJoining(true)
     dispatch(
-      joinLobby(routeLobbyId, {
+      joinLobby(routeLobbyId, undefined, {
         onSuccess: () => {},
         onError: (err: unknown) => {
           setIsJoining(false)

@@ -166,6 +166,10 @@ export function convertLobbyServiceError(err: unknown): void {
       throw new HttpErrorWithPayload(409, err.message, { code: LobbyJoinErrorCode.Banned })
     case LobbyServiceErrorCode.LobbyFull:
       throw new HttpErrorWithPayload(409, err.message, { code: LobbyJoinErrorCode.Full })
+    case LobbyServiceErrorCode.ObserversFull:
+      throw new HttpErrorWithPayload(409, err.message, {
+        code: LobbyJoinErrorCode.ObserversFull,
+      })
     case LobbyServiceErrorCode.JoinAlreadyInActivity:
       throw new HttpErrorWithPayload(409, err.message, {
         code: LobbyJoinErrorCode.AlreadyInActivity,
@@ -216,6 +220,7 @@ export class LobbyApi {
         region: regionSchema,
         rttMs: rttMsSchema,
         clientPubkey: clientPubkeySchema,
+        leaveCurrentLobby: Joi.boolean(),
       }),
     })
 
@@ -232,6 +237,7 @@ export class LobbyApi {
       region: body.region,
       rttMs: body.rttMs,
       clientPubkey: body.clientPubkey,
+      leaveCurrentLobby: body.leaveCurrentLobby,
       user,
       client,
     })
@@ -247,6 +253,8 @@ export class LobbyApi {
         region: regionSchema,
         rttMs: rttMsSchema,
         clientPubkey: clientPubkeySchema,
+        asObserver: Joi.boolean(),
+        leaveCurrentLobby: Joi.boolean(),
       }),
     })
 
@@ -257,6 +265,8 @@ export class LobbyApi {
       region: body.region,
       rttMs: body.rttMs,
       clientPubkey: body.clientPubkey,
+      asObserver: body.asObserver,
+      leaveCurrentLobby: body.leaveCurrentLobby,
       user,
       client,
     })

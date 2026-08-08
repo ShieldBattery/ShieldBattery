@@ -31,6 +31,7 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { openSlot } from './lobby'
 import { knownRegionOrUndefined, LobbyService, LobbyServiceErrorCode } from './lobby-service'
 import { getLobbySummary } from './lobby-summaries'
 
@@ -151,6 +152,7 @@ describe('lobbies/lobby-service', () => {
     visibility?: LobbyVisibility,
     allowObservers?: boolean,
     gameType = GameType.Melee,
+    leaveCurrentLobby?: boolean,
   ) {
     return await lobbyService.createLobby({
       name,
@@ -158,13 +160,27 @@ describe('lobbies/lobby-service', () => {
       gameType,
       visibility,
       allowObservers,
+      leaveCurrentLobby,
       user: sockets.user,
       client: sockets.client,
     })
   }
 
-  function joinLobby(sockets: Sockets, id: SbLobbyId) {
-    return lobbyService.joinLobby({ id, user: sockets.user, client: sockets.client })
+  function joinLobby(
+    sockets: Sockets,
+    id: SbLobbyId,
+    region?: string,
+    asObserver?: boolean,
+    leaveCurrentLobby?: boolean,
+  ) {
+    return lobbyService.joinLobby({
+      id,
+      region: region !== undefined ? makeGameServerRegionId(region) : undefined,
+      asObserver,
+      leaveCurrentLobby,
+      user: sockets.user,
+      client: sockets.client,
+    })
   }
 
   beforeEach(() => {
@@ -376,6 +392,234 @@ describe('lobbies/lobby-service', () => {
       await expect(joinLobby(joiner, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.Banned,
       })
+    })
+
+    test('an explicit observer join seats the joiner in an open observer slot', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      const lobby = lobbyService.lobbies.get(id)!
+      const [obsTeamIndex] = getObserverTeam(lobby)
+      // Every observer slot starts closed; open one directly, since opening one is its own
+      // operation with its own coverage elsewhere. This test only cares what a join does with one
+      // available.
+      lobbyService.lobbies.set(id, openSlot(lobby, obsTeamIndex!, 0))
+
+      await joinLobby(joiner, id, undefined, true)
+
+      const updated = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(updated, JOINER_USER.id)
+      expect(joinerSlot!.type).toBe('observer')
+    })
+
+    test('an explicit observer join rejects with ObserversFull when the lobby has no observer team', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', false)
+
+      await expect(joinLobby(joiner, id, undefined, true)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.ObserversFull,
+      })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('an explicit observer join rejects with ObserversFull when every observer slot is closed', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+
+      // An explicit observer request must never fall back to a player slot, unlike an ordinary
+      // join that happens to land in the observer team.
+      await expect(joinLobby(joiner, id, undefined, true)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.ObserversFull,
+      })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('joining a lobby the client is already in resolves as a no-op', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const before = lobbyService.lobbies.get(id)!
+
+      await expect(joinLobby(joiner, id)).resolves.toBeUndefined()
+
+      // The lobby object is untouched: the join returned before doing anything, rather than
+      // re-seating the joiner into a second slot.
+      expect(lobbyService.lobbies.get(id)).toBe(before)
+    })
+
+    test('joining a different lobby without leaveCurrentLobby still rejects with JoinAlreadyInActivity', async () => {
+      const { id: ownId } = await createLobby(host, 'Own lobby', 'listed')
+      await joinLobby(joiner, ownId)
+
+      const { id: otherId } = await createLobby(otherHost, 'Other lobby', 'listed')
+
+      await expect(joinLobby(joiner, otherId)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.JoinAlreadyInActivity,
+      })
+
+      // The rejected join must not have disturbed the client's existing membership.
+      const ownLobby = lobbyService.lobbies.get(ownId)!
+      expect(findSlotByUserId(ownLobby, JOINER_USER.id)[2]).toBeDefined()
+    })
+
+    test('joining with leaveCurrentLobby while a member of another lobby moves the client between them', async () => {
+      const { id: oldId } = await createLobby(otherHost, 'Old lobby', 'listed')
+      await joinLobby(joiner, oldId)
+
+      const { id: newId } = await createLobby(host, 'New lobby', 'listed')
+
+      await joinLobby(joiner, newId, undefined, undefined, true)
+
+      const newLobby = lobbyService.lobbies.get(newId)!
+      expect(findSlotByUserId(newLobby, JOINER_USER.id)[2]).toBeDefined()
+
+      const oldLobby = lobbyService.lobbies.get(oldId)!
+      expect(findSlotByUserId(oldLobby, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('joining with leaveCurrentLobby while hosting another lobby closes it', async () => {
+      const { id: oldId } = await createLobby(host, 'Old lobby', 'listed')
+      const { id: newId } = await createLobby(otherHost, 'New lobby', 'listed')
+
+      await joinLobby(host, newId, undefined, undefined, true)
+
+      const newLobby = lobbyService.lobbies.get(newId)!
+      expect(findSlotByUserId(newLobby, HOST_USER.id)[2]).toBeDefined()
+      // The host was the old lobby's only occupant, so leaving it behind closes it entirely.
+      expect(lobbyService.lobbies.has(oldId)).toBe(false)
+    })
+
+    test('joining with leaveCurrentLobby while hosting an occupied lobby hands off the host role instead of closing it', async () => {
+      const { id: oldId } = await createLobby(host, 'Old lobby', 'listed')
+      await joinLobby(lister, oldId)
+
+      const { id: newId } = await createLobby(otherHost, 'New lobby', 'listed')
+
+      await joinLobby(host, newId, undefined, undefined, true)
+
+      const newLobby = lobbyService.lobbies.get(newId)!
+      expect(findSlotByUserId(newLobby, HOST_USER.id)[2]).toBeDefined()
+
+      // The old lobby still had another occupant, so it survives the host's departure with the
+      // host role handed off, rather than closing behind them.
+      expect(lobbyService.lobbies.has(oldId)).toBe(true)
+      const oldLobby = lobbyService.lobbies.get(oldId)!
+      expect(findSlotByUserId(oldLobby, HOST_USER.id)[2]).toBeUndefined()
+      expect(oldLobby.host.userId).toBe(LISTER_USER.id)
+    })
+
+    test('leaveCurrentLobby does not leave the current lobby when the target join fails', async () => {
+      const { id: ownId } = await createLobby(host, 'Own lobby', 'listed')
+      await joinLobby(joiner, ownId)
+
+      const { id: fullId } = await createLobby(
+        otherHost,
+        'Full lobby',
+        'listed',
+        undefined,
+        GameType.OneVsOne,
+      )
+      // 1v1 lobbies only have 2 slots, and the host already occupies one.
+      await joinLobby(lister, fullId)
+
+      await expect(joinLobby(joiner, fullId, undefined, undefined, true)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.LobbyFull,
+      })
+
+      // The failed join must not have removed the client from its actual lobby.
+      const ownLobby = lobbyService.lobbies.get(ownId)!
+      expect(findSlotByUserId(ownLobby, JOINER_USER.id)[2]).toBeDefined()
+    })
+  })
+
+  describe('create with leaveCurrentLobby', () => {
+    test('creating while a member of another lobby seats them as host and removes them from the old one', async () => {
+      const { id: oldId } = await createLobby(host, 'Old lobby', 'listed')
+      await joinLobby(joiner, oldId)
+
+      const { id: newId } = await createLobby(
+        joiner,
+        'New lobby',
+        'listed',
+        undefined,
+        GameType.Melee,
+        true,
+      )
+
+      const newLobby = lobbyService.lobbies.get(newId)!
+      expect(newLobby.host.userId).toBe(JOINER_USER.id)
+
+      const oldLobby = lobbyService.lobbies.get(oldId)!
+      expect(findSlotByUserId(oldLobby, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('creating while hosting an occupied lobby hands off the host role instead of closing it', async () => {
+      const { id: oldId } = await createLobby(host, 'Old lobby', 'listed')
+      await joinLobby(lister, oldId)
+
+      const { id: newId } = await createLobby(
+        host,
+        'New lobby',
+        'listed',
+        undefined,
+        GameType.Melee,
+        true,
+      )
+
+      const newLobby = lobbyService.lobbies.get(newId)!
+      expect(newLobby.host.userId).toBe(HOST_USER.id)
+
+      // The old lobby still had another occupant, so it survives the host's departure with the
+      // host role handed off, rather than closing behind them.
+      expect(lobbyService.lobbies.has(oldId)).toBe(true)
+      const oldLobby = lobbyService.lobbies.get(oldId)!
+      expect(findSlotByUserId(oldLobby, HOST_USER.id)[2]).toBeUndefined()
+      expect(oldLobby.host.userId).toBe(LISTER_USER.id)
+    })
+
+    test('creating while hosting alone closes the old lobby', async () => {
+      const { id: oldId } = await createLobby(host, 'Old lobby', 'listed')
+
+      const { id: newId } = await createLobby(
+        host,
+        'New lobby',
+        'listed',
+        undefined,
+        GameType.Melee,
+        true,
+      )
+
+      expect(lobbyService.lobbies.has(newId)).toBe(true)
+      // The host was the old lobby's only occupant, so leaving it behind closes it entirely.
+      expect(lobbyService.lobbies.has(oldId)).toBe(false)
+    })
+
+    test('leaveCurrentLobby does not leave the current lobby when the create fails', async () => {
+      const { id: ownId } = await createLobby(host, 'Own lobby', 'listed')
+      await joinLobby(joiner, ownId)
+
+      // Simulates the map having gone missing between the client fetching it and submitting.
+      asMockedFunction(getMapInfos).mockResolvedValueOnce([])
+
+      await expect(
+        createLobby(joiner, 'Invalid map lobby', 'listed', undefined, GameType.Melee, true),
+      ).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.InvalidMap,
+      })
+
+      // The failed create must not have removed the client from its actual lobby.
+      const ownLobby = lobbyService.lobbies.get(ownId)!
+      expect(findSlotByUserId(ownLobby, JOINER_USER.id)[2]).toBeDefined()
+    })
+
+    test('creating a lobby while already in one without leaveCurrentLobby still rejects with AlreadyInActivity', async () => {
+      const { id: ownId } = await createLobby(host, 'Own lobby', 'listed')
+      await joinLobby(joiner, ownId)
+
+      await expect(createLobby(joiner, 'New lobby', 'listed')).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.AlreadyInActivity,
+      })
+
+      // The rejected create must not have disturbed the client's existing membership.
+      const ownLobby = lobbyService.lobbies.get(ownId)!
+      expect(findSlotByUserId(ownLobby, JOINER_USER.id)[2]).toBeDefined()
     })
   })
 

@@ -1,3 +1,4 @@
+import { castDraft } from 'immer'
 import { LobbySummaryJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { immerKeyedReducer } from '../reducers/keyed-reducer'
@@ -38,7 +39,7 @@ export default immerKeyedReducer(DEFAULT_STATE, {
     const { message, data } = action.payload
 
     if (message === 'full') {
-      draft.byId = new Map(data.map(summary => [summary.id, summary]))
+      draft.byId = new Map(data.map(summary => [summary.id, castDraft(summary)]))
       draft.list = data
         .slice()
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -48,14 +49,14 @@ export default immerKeyedReducer(DEFAULT_STATE, {
 
     if (message === 'add') {
       if (draft.byId.has(data.id)) return
-      draft.byId.set(data.id, data)
+      draft.byId.set(data.id, castDraft(data))
       insertSorted(draft.list, data, draft.byId)
       return
     }
 
     if (message === 'update') {
       if (!draft.byId.has(data.id)) return
-      draft.byId.set(data.id, data)
+      draft.byId.set(data.id, castDraft(data))
       return
     }
 

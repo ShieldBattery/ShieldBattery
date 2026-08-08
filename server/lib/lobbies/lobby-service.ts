@@ -56,10 +56,10 @@ import { setLobbySummaryGetter } from './lobby-summaries'
  * whatever their callers understand (status codes, client-facing error codes), so the messages
  * carried alongside them are the only human-readable part.
  *
- * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `Banned`, `JoinAlreadyStarted`,
- * `JoinAlreadyInActivity`): joining is the one operation whose failures the client renders
- * individually, so its outcomes are distinguished from the otherwise-identical failures of the
- * host-only operations.
+ * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `ObserversFull`, `Banned`,
+ * `JoinAlreadyStarted`, `JoinAlreadyInActivity`): joining is the one operation whose failures the
+ * client renders individually, so its outcomes are distinguished from the otherwise-identical
+ * failures of the host-only operations.
  */
 export enum LobbyServiceErrorCode {
   AlreadyInActivity = 'AlreadyInActivity',
@@ -87,6 +87,7 @@ export enum LobbyServiceErrorCode {
   NotObserverSlot = 'NotObserverSlot',
   NotOwnSlot = 'NotOwnSlot',
   NotSlotController = 'NotSlotController',
+  ObserversFull = 'ObserversFull',
   TargetNoActiveClient = 'TargetNoActiveClient',
   UserOffline = 'UserOffline',
 }
@@ -208,6 +209,7 @@ export class LobbyService {
     region,
     rttMs,
     clientPubkey,
+    leaveCurrentLobby,
     user,
     client,
   }: {
@@ -221,6 +223,12 @@ export class LobbyService {
     region?: GameServerRegionId
     rttMs?: number
     clientPubkey?: string
+    /**
+     * When set, a client currently in a different lobby is removed from it as part of this create
+     * rather than the create failing outright. Applied only after every failure check has passed,
+     * so a failed create never strands the client lobby-less.
+     */
+    leaveCurrentLobby?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<{ id: SbLobbyId }> {
@@ -263,6 +271,18 @@ export class LobbyService {
       useLegacyLimits,
       visibility: lobbyVisibility,
     })
+
+    if (leaveCurrentLobby && this.lobbyClients.has(client)) {
+      // Every failure above has already been checked, so the client is only removed from its
+      // current lobby once the new lobby is known to be creatable. This also frees the activity
+      // registry entry that `registerActiveClient` below needs, the same way an explicit leave
+      // does (host-migration/close-when-empty semantics apply as usual).
+      const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
+      if (currentLobby) {
+        this._removeClientFromLobby(currentLobby, client)
+      }
+    }
+
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.AlreadyInActivity,
@@ -288,6 +308,8 @@ export class LobbyService {
     region,
     rttMs,
     clientPubkey,
+    asObserver,
+    leaveCurrentLobby,
     user,
     client,
   }: {
@@ -295,6 +317,14 @@ export class LobbyService {
     region?: GameServerRegionId
     rttMs?: number
     clientPubkey?: string
+    /** Whether the joiner wants an observer seat specifically; see the handling below. */
+    asObserver?: boolean
+    /**
+     * When set, a client currently in a different lobby is removed from it as part of this join
+     * rather than the join failing outright. Applied only after every failure check on the target
+     * lobby has passed, so a failed join never strands the client lobby-less.
+     */
+    leaveCurrentLobby?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<void> {
@@ -304,6 +334,14 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
     const lobby = this.lobbies.get(id)!
+
+    if (this.lobbyClients.get(client) === id) {
+      // Already seated in the target lobby: joining it again is what a member clicking join on
+      // their own lobby (e.g. during a countdown) looks like, so it resolves as a no-op success
+      // rather than reaching the checks below.
+      return
+    }
+
     try {
       this.ensureLobbyNotTransient(lobby)
     } catch (err) {
@@ -321,28 +359,60 @@ export class LobbyService {
       )
     }
 
-    const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
-    if (teamIndex === undefined || slotIndex === undefined) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
-    }
-
-    let player
-    const [, observerTeam] = getObserverTeam(lobby)
-    if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+    let teamIndex: number | undefined
+    let slotIndex: number | undefined
+    let player: Slot
+    if (asObserver) {
+      // An explicit observer request takes an open observer slot or fails outright: unlike an
+      // ordinary join, it must never fall back to a player slot, since that isn't what was asked
+      // for.
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      const obsSlotIndex = obsTeam?.slots.findIndex(s => s.type === SlotType.Open) ?? -1
+      if (obsTeamIndex === undefined || obsSlotIndex === -1) {
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.ObserversFull,
+          'no observer slots are open',
+        )
+      }
+      teamIndex = obsTeamIndex
+      slotIndex = obsSlotIndex
       player = Slots.createObserver(client.userId)
     } else {
-      player = isUms(lobby.gameType)
-        ? Slots.createHuman(
-            client.userId,
-            availableSlot.race,
-            availableSlot.hasForcedRace,
-            availableSlot.playerId,
-          )
-        : Slots.createHuman(client.userId)
+      const [availTeamIndex, availSlotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
+      if (availTeamIndex === undefined || availSlotIndex === undefined) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
+      }
+      teamIndex = availTeamIndex
+      slotIndex = availSlotIndex
+
+      const [, observerTeam] = getObserverTeam(lobby)
+      if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+        player = Slots.createObserver(client.userId)
+      } else {
+        player = isUms(lobby.gameType)
+          ? Slots.createHuman(
+              client.userId,
+              availableSlot.race,
+              availableSlot.hasForcedRace,
+              availableSlot.playerId,
+            )
+          : Slots.createHuman(client.userId)
+      }
     }
     player = { ...player, region: joinRegion }
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+
+    if (leaveCurrentLobby && this.lobbyClients.has(client)) {
+      // Every failure above has already been checked, so the client is only removed from its
+      // current lobby once the target join is known to succeed. This also frees the activity
+      // registry entry that `registerActiveClient` below needs, the same way an explicit leave
+      // does (host-migration/close-when-empty semantics apply as usual).
+      const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
+      if (currentLobby) {
+        this._removeClientFromLobby(currentLobby, client)
+      }
+    }
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(

@@ -1,5 +1,6 @@
 import { produce } from 'immer'
 import { randomUUID } from 'node:crypto'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
@@ -19,7 +20,11 @@ import {
   takenSlotCount,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
-import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbySummaryJson,
+  LobbySummarySlotJson,
+  LobbySummaryTeamJson,
+} from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   Slot,
@@ -83,6 +88,40 @@ export function getSlotsPerTeam(
 }
 
 /**
+ * Maps a slot to how lobby browsers see it: just enough about the occupant to render a preview row.
+ * Controlled open/closed slots (team melee/FFA) read as plain open/closed, and UMS computers read as
+ * computers, matching `LobbySummarySlotJson`'s narrower shape.
+ */
+function toSummarySlotJson(slot: Slot): LobbySummarySlotJson {
+  switch (slot.type) {
+    case SlotType.Human:
+      return { type: 'human', userId: slot.userId!, race: slot.race }
+    case SlotType.Observer:
+      return { type: 'observer', userId: slot.userId! }
+    case SlotType.Computer:
+    case SlotType.UmsComputer:
+      return { type: 'computer', race: slot.race }
+    case SlotType.Open:
+    case SlotType.ControlledOpen:
+      return { type: 'open' }
+    case SlotType.Closed:
+    case SlotType.ControlledClosed:
+      return { type: 'closed' }
+    default:
+      return assertUnreachable(slot.type)
+  }
+}
+
+/** Maps a team to how lobby browsers see it. */
+function toSummaryTeamJson(team: Team): LobbySummaryTeamJson {
+  return {
+    name: team.name,
+    isObserver: team.isObserver,
+    slots: team.slots.map(toSummarySlotJson),
+  }
+}
+
+/**
  * Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the open
  * lobbies.
  */
@@ -95,6 +134,9 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
     openSlotCount: openSlotCount(lobby),
+    useLegacyLimits: lobby.useLegacyLimits,
+    teams: lobby.teams.map(toSummaryTeamJson),
+    createdAt: lobby.createdAt,
   }
 }
 
@@ -278,6 +320,7 @@ export function createLobby({
     host,
     useLegacyLimits,
     visibility,
+    createdAt: Date.now(),
   }
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host)
 }

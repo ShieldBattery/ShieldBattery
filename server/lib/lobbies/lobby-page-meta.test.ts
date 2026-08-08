@@ -46,6 +46,9 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameSubType: 0,
   host: { id: HOST_ID },
   openSlotCount: 3,
+  useLegacyLimits: false,
+  teams: [],
+  createdAt: 1234567890,
 }
 
 describe('lobbies/lobby-page-meta', () => {

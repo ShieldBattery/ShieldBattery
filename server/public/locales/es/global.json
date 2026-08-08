@@ -673,6 +673,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "Salir del lobby",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Espacios:",
       "viewLobby": "Ver lobby"
@@ -894,28 +895,62 @@
     "activity": {
       "title": "Lobbies ({{lobbyCount}})"
     },
+    "browser": {
+      "createDisabledWhileMatchmaking": "No puedes crear un lobby mientras una búsqueda de emparejamiento está activa.",
+      "emptyAllFull": "Ahora mismo todos los lobbies están llenos",
+      "emptyNoLobbies": "Ahora mismo no hay ningún lobby abierto",
+      "emptyNoMatches": "Ningún lobby coincide con tus filtros",
+      "filterFriends": "Amigos",
+      "filterGameType": "Tipo de juego",
+      "filterGameTypeAll": "Todos los tipos de juego",
+      "filterShowFull": "Mostrar llenos",
+      "friendsInside_one": "{{count}} amigo está en este lobby",
+      "friendsInside_many": "{{count}} amigos están en este lobby",
+      "friendsInside_other": "{{count}} amigos están en este lobby",
+      "full": "Lleno",
+      "hostedBy": "anfitrión: <1></1>",
+      "join": "Unirse",
+      "joinAsObserver": "Unirse como observador",
+      "joinLobby": "Unirse al lobby",
+      "legacyLimits": "Límite legado",
+      "observers": "Observadores",
+      "observersCount": "Observadores · {{taken}}/{{total}}",
+      "observerSlotsOpen_one": "{{count}} libre",
+      "observerSlotsOpen_many": "{{count}} libres",
+      "observerSlotsOpen_other": "{{count}} libres",
+      "oneFriendInside": "Un amigo está en este lobby",
+      "railPlaceholder": "Selecciona un lobby para verlo en detalle",
+      "returnToLobby": "Volver al lobby",
+      "showFullLobbies": "Mostrar lobbies llenos",
+      "slotClosed": "Cerrado",
+      "slotComputer": "Computadora",
+      "slotOpen": "Abierto",
+      "sortMostPlayers": "Más jugadores",
+      "sortNewest": "Más recientes",
+      "sortOpenSlots": "Espacios libres",
+      "statLobbies_one": "{{count}} lobby",
+      "statLobbies_many": "{{count}} lobbies",
+      "statLobbies_other": "{{count}} lobbies",
+      "statPlayers_one": "{{count}} jugador",
+      "statPlayers_many": "{{count}} jugadores",
+      "statPlayers_other": "{{count}} jugadores",
+      "title": "Lobbies"
+    },
     "createLobby": {
-      "advancedSettings": "Ajustes avanzados",
-      "allowObservers": "Permitir observadores",
-      "backToList": "Volver a la lista",
       "errorDialogTitle": "Error al crear el lobby",
       "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
-      "errorNameTaken": "Ya existe un lobby con ese nombre. Elige otro nombre.",
       "gameSubTypeHeader": "Equipos",
       "gameSubTypeOption": "{{numTeams}} equipos",
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
       "gameTypeHeader": "Tipo de juego",
       "lobbyName": "Nombre del lobby",
-      "lobbyNameRequired": "Ingrese un nombre de lobby",
       "mapRequired": "Selecciona un mapa para jugar",
       "selectMap": "Seleccionar mapa",
       "title": "Crear lobby",
       "useLegacyLimits": "Usar límite de unidad heredado",
       "visibility": "Visibilidad",
       "visibilityListed": "Público",
-      "visibilityListedDescription": "Aparece en la lista de lobbies y cualquiera puede unirse. Sus replays son públicos, y sus partidas contra otros jugadores aparecen en la página de partidas",
-      "visibilityUnlisted": "No listado",
-      "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace"
+      "visibilityUnlisted": "No listado"
     },
     "errors": {
       "alreadyInLobby": "Ya estás en otro lobby.",
@@ -932,19 +967,32 @@
       "errorBanned": "Te han baneado de este lobby.",
       "errorFull": "Este lobby está lleno.",
       "errorGeneric": "Algo salió mal al unirte al lobby. Intenta de nuevo.",
+      "errorObserversFull": "Este lobby no tiene espacios de observador libres. Prueba a unirte como jugador.",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
       "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
-      "noActiveLobbies": "No hay lobbies activos",
-      "noOpenLobbies": "No hay lobbies abiertos",
       "openSlotCount_one": "{{count}} ranura abierta",
       "openSlotCount_many": "{{count}} de ranuras abiertas",
-      "openSlotCount_other": "{{count}} ranuras abiertas",
-      "title": "Unirse al lobby"
+      "openSlotCount_other": "{{count}} ranuras abiertas"
     },
     "landing": {
       "download": "Descargar ShieldBattery",
       "loadError": "Hubo un problema al cargar este lobby.",
       "openInApp": "¿Ya tienes ShieldBattery? Abre este enlace desde la aplicación para unirte al lobby."
+    },
+    "leaveAndCreate": {
+      "confirmAction": "Salir y crear",
+      "dialogTitle": "¿Salir de tu lobby actual?",
+      "hostAloneNotice": "Crear este lobby cerrará {{current}}, ya que no hay nadie más dentro.",
+      "hostNotice": "Eres el anfitrión de {{current}}. Crear un nuevo lobby le pasará el rol de anfitrión a otro jugador.",
+      "memberNotice": "Crear este lobby te sacará de {{current}}."
+    },
+    "leaveAndJoin": {
+      "confirmAction": "Salir y unirse",
+      "dialogTitle": "¿Salir de tu lobby actual?",
+      "genericLobbyName": "otro lobby",
+      "hostAloneBody": "Unirte a {{target}} cerrará {{current}}, ya que no hay nadie más dentro.",
+      "hostBody": "Eres el anfitrión de {{current}}. Unirte a {{target}} le pasará el rol de anfitrión a otro jugador.",
+      "memberBody": "Unirte a {{target}} te sacará de {{current}}."
     },
     "lobby": {
       "copiedInviteLink": "¡Copiado!",

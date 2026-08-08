@@ -5,8 +5,8 @@ import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'
 import { useRequireLogin } from '../auth/auth-utils'
 import { OnlyInApp } from '../download/only-in-app'
+import { LobbyBrowser } from '../lobbies/browser/lobby-browser'
 import { HostGame } from '../lobbies/create/host-game'
-import JoinLobby from '../lobbies/join-lobby'
 import { FindMatch } from '../matchmaking/find-match'
 import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
 import { push } from '../navigation/routing'
@@ -146,7 +146,7 @@ function Lobbies() {
         <></>
       )}
       <Route>
-        <JoinLobby
+        <LobbyBrowser
           onNavigateToCreate={() => {
             push('/play/lobbies/create')
           }}
