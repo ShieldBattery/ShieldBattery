@@ -1,10 +1,10 @@
+import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { gameTypeToLabel } from '../../../common/games/game-type'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { AvatarStack } from '../../avatars/avatar-stack'
 import { MapThumbnail } from '../../maps/map-thumbnail'
-import { FilledButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
@@ -179,65 +179,6 @@ function StatusBadge({ summary }: { summary: LobbySummary }) {
   return null
 }
 
-/**
- * The row's own compact join affordance, revealed on hover so it doesn't compete with the row's
- * badge/occupancy readout at rest. It sits over where the occupancy count renders, so that count
- * fades out alongside it coming in (see `RowWrapper` below) rather than the two overlapping.
- */
-const JoinButton = styled(FilledButton)`
-  position: absolute;
-  right: 16px;
-  top: 50%;
-
-  min-width: 0;
-  min-height: 32px;
-  padding-inline: 14px;
-
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(calc(-50% + 4px));
-
-  transition:
-    opacity 150ms ease,
-    transform 150ms ease;
-`
-
-const revealedJoinButton = css`
-  ${JoinButton} {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(-50%);
-  }
-
-  ${Occupancy} {
-    opacity: 0;
-  }
-`
-
-/**
- * `RowRoot` is a `<button>`, so its join affordance can't nest inside it (buttons can't contain
- * buttons). This wraps it instead, positioning the compact join button over the row's trailing
- * edge as a sibling, revealed on hover, while selected, or (for keyboard users tabbing to the
- * button, which stays focusable even while visually hidden) on focus-within. `$hasJoinButton`
- * gates all three: when there's no button to reveal (a full or the viewer's own lobby), the
- * occupancy count must stay put rather than fading out over nothing.
- */
-const RowWrapper = styled.div<{ $selected: boolean; $hasJoinButton: boolean }>`
-  position: relative;
-
-  ${props => (props.$hasJoinButton && props.$selected ? revealedJoinButton : null)};
-
-  ${props =>
-    props.$hasJoinButton
-      ? css`
-          &:hover,
-          &:focus-within {
-            ${revealedJoinButton};
-          }
-        `
-      : null};
-`
-
 export interface LobbyRowProps {
   summary: LobbySummary
   selected: boolean
@@ -248,68 +189,79 @@ export interface LobbyRowProps {
   onSelect: () => void
   /** Joins this lobby as a player, or — for the viewer's own lobby — returns to it. */
   onJoin: () => void
+  /** Reaches the underlying row `<button>`, so the list can move focus alongside selection. */
+  ref?: React.Ref<HTMLButtonElement>
 }
 
 /**
  * One lobby in the browser's list: what it is and who's running it, with the facts you'd scan for
- * — friends inside, how full it is — lined up down the right. Hovering (or selecting) it surfaces a
- * quick join button, and double-clicking joins outright.
+ * — friends inside, how full it is — lined up down the right. Clicking (or arrowing to) a row
+ * selects it for the rail's preview; double-clicking — or Enter — joins outright.
  */
-export function LobbyRow({ summary, selected, friendIds, isOwn, onSelect, onJoin }: LobbyRowProps) {
+export function LobbyRow({
+  summary,
+  selected,
+  friendIds,
+  isOwn,
+  onSelect,
+  onJoin,
+  ref,
+}: LobbyRowProps) {
   const { t } = useTranslation()
   const { taken, total, open } = summary.playerSlots
   const canJoin = !isOwn && open > 0
 
+  // Roving tabindex: the list is one tab stop — Tab lands on the selected row, and the arrow keys
+  // (handled at the page level) move the selection and focus together.
   return (
-    <RowWrapper $selected={selected} $hasJoinButton={canJoin}>
-      <RowRoot
-        type='button'
-        $selected={selected}
-        aria-pressed={selected}
-        onClick={onSelect}
-        onDoubleClick={onJoin}
-        data-testid='lobby-list-entry'>
-        <Thumbnail>
-          <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
-        </Thumbnail>
-        <Main>
-          <PrimaryColumn>
-            <Name title={summary.name}>{summary.name}</Name>
-            <MapName>{summary.map.name}</MapName>
-          </PrimaryColumn>
-          <HostColumn>
-            <HostNameRow>
-              <HostCrown />
-              <HostName>
-                <ConnectedUsername userId={summary.host.id} interactive={false} />
-              </HostName>
-            </HostNameRow>
-            <GameTypeLabel>{gameTypeToLabel(summary.gameType, t)}</GameTypeLabel>
-          </HostColumn>
-        </Main>
-
-        <Trailing>
-          <AvatarStack userIds={friendIds} size={20} max={3} />
-          <StatusSlot>
-            <StatusBadge summary={summary} />
-          </StatusSlot>
-          {/* Last in the row, so the count sits at the same offset no matter what precedes it. */}
-          <Occupancy>
-            <OccupancyTaken>{taken}</OccupancyTaken>/{total}
-          </Occupancy>
-        </Trailing>
-      </RowRoot>
-
-      {canJoin ? (
-        <JoinButton
-          label={t('lobbies.browser.join', 'Join')}
-          onClick={() => {
-            onSelect()
+    <RowRoot
+      ref={ref}
+      type='button'
+      $selected={selected}
+      aria-pressed={selected}
+      tabIndex={selected ? 0 : -1}
+      onClick={onSelect}
+      onDoubleClick={onJoin}
+      onKeyDown={e => {
+        // The keyboard twin of double-click. preventDefault stops the browser's synthetic
+        // click, which would only re-select.
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          if (canJoin || isOwn) {
             onJoin()
-          }}
-          testName='lobby-row-join'
-        />
-      ) : null}
-    </RowWrapper>
+          }
+        }
+      }}
+      data-testid='lobby-list-entry'>
+      <Thumbnail>
+        <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+      </Thumbnail>
+      <Main>
+        <PrimaryColumn>
+          <Name title={summary.name}>{summary.name}</Name>
+          <MapName>{summary.map.name}</MapName>
+        </PrimaryColumn>
+        <HostColumn>
+          <HostNameRow>
+            <HostCrown tabIndex={-1} />
+            <HostName>
+              <ConnectedUsername userId={summary.host.id} interactive={false} />
+            </HostName>
+          </HostNameRow>
+          <GameTypeLabel>{gameTypeToLabel(summary.gameType, t)}</GameTypeLabel>
+        </HostColumn>
+      </Main>
+
+      <Trailing>
+        <AvatarStack userIds={friendIds} size={20} max={3} />
+        <StatusSlot>
+          <StatusBadge summary={summary} />
+        </StatusSlot>
+        {/* Last in the row, so the count sits at the same offset no matter what precedes it. */}
+        <Occupancy>
+          <OccupancyTaken>{taken}</OccupancyTaken>/{total}
+        </Occupancy>
+      </Trailing>
+    </RowRoot>
   )
 }

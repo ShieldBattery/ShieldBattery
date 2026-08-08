@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai'
 import * as React from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../../common/errors'
@@ -202,6 +202,8 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     .sort((a, b) => compareSummaries(a, b, sort))
 
   const [clickedId, setClickedId] = useState<SbLobbyId>()
+  // Reaches each visible row's <button>, so arrow-key selection can drag focus along with it.
+  const rowRefs = useRef<Map<SbLobbyId, HTMLButtonElement>>(new Map())
   // A click holds the selection until that lobby leaves the visible list (it filled up, its game
   // started, it was filtered out), at which point the top of the list takes over again.
   const selectedId = visible.some(summary => summary.id === clickedId) ? clickedId : visible[0]?.id
@@ -232,6 +234,76 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     setClickedId(lobbyId)
     setJoinError(undefined)
   }
+
+  // Drives the list from the keyboard anywhere on the page — text fields and layered UI excepted
+  // — moving the selection and focus together so Enter and the rail always follow the highlight.
+  const onListKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    ) {
+      return
+    }
+    if (
+      event.key !== 'ArrowDown' &&
+      event.key !== 'ArrowUp' &&
+      event.key !== 'Home' &&
+      event.key !== 'End'
+    ) {
+      return
+    }
+    const target = event.target instanceof Element ? event.target : null
+    if (
+      target?.closest(
+        'input, textarea, select, [contenteditable], [role="dialog"], [role="menu"], [role="listbox"]',
+      )
+    ) {
+      return
+    }
+    if (!visible.length) {
+      return
+    }
+
+    event.preventDefault()
+
+    const fromIndex = Math.max(
+      0,
+      visible.findIndex(summary => summary.id === selectedId),
+    )
+    let nextIndex: number
+    switch (event.key) {
+      case 'ArrowDown':
+        nextIndex = Math.min(visible.length - 1, fromIndex + 1)
+        break
+      case 'ArrowUp':
+        nextIndex = Math.max(0, fromIndex - 1)
+        break
+      case 'Home':
+        nextIndex = 0
+        break
+      case 'End':
+        nextIndex = visible.length - 1
+        break
+      default:
+        return
+    }
+
+    const next = visible[nextIndex]
+    selectLobby(next.id)
+    const el = rowRefs.current.get(next.id)
+    el?.focus()
+    el?.scrollIntoView({ block: 'nearest' })
+  })
+
+  useEffect(() => {
+    document.addEventListener('keydown', onListKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onListKeyDown)
+    }
+  }, [])
 
   const joinFrom = (summary: LobbySummary, asObserver: boolean) => {
     setJoinError(undefined)
@@ -304,6 +376,13 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
             return (
               <LobbyRow
                 key={summary.id}
+                ref={el => {
+                  if (el) {
+                    rowRefs.current.set(summary.id, el)
+                  } else {
+                    rowRefs.current.delete(summary.id)
+                  }
+                }}
                 summary={summary}
                 selected={summary.id === selectedId}
                 friendIds={friendIdsByLobby.get(summary.id) ?? []}
