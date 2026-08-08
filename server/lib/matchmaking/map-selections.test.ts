@@ -48,5 +48,24 @@ describe('server/matchmaking/computeMatchMapCandidates', () => {
         computeMatchMapCandidates('veto', pool, [[m('a'), m('b'), m('c'), m('d')], [m('a')]]),
       ).toEqual(new Set([m('b'), m('c'), m('d')]))
     })
+
+    it('excludes vetoes for maps outside the current pool from the fallback', () => {
+      // `a`/`b`/`c`/`d` are each vetoed twice by the two full-pool vetoes below, while `stale`
+      // (left over from a selection made against a since-rotated pool) is only vetoed once. A
+      // fallback keyed on raw veto counts would pick `stale` as the "least-vetoed" map even
+      // though it isn't a candidate the match could actually be played on.
+      const stale = m('stale')
+      const result = computeMatchMapCandidates('veto', pool, [
+        [m('a'), m('b'), m('c'), m('d')],
+        [m('a'), m('b'), m('c'), m('d')],
+        [stale],
+      ])
+
+      expect(result.has(stale)).toBe(false)
+      expect(result.size).toBeGreaterThan(0)
+      for (const id of result) {
+        expect(pool).toContain(id)
+      }
+    })
   })
 })

@@ -56,10 +56,15 @@ export function computeMatchMapCandidates(
   }
 
   if (!pool.size) {
-    // All available maps were vetoed; build a final pool from the least-vetoed maps. We know every
-    // map in the original pool has a veto entry here (the whole pool was vetoed), so the sorted list
-    // is non-empty.
-    const sortedByVetoCount = Array.from(vetoCount.entries()).sort((a, b) => a[1] - b[1])
+    // All available maps were vetoed; build a final pool from the least-vetoed maps. Vetoes are
+    // filtered against the pool in effect at selection time, and the pool can rotate before match
+    // time, so `vetoCount` may still hold entries for maps that are no longer in `fullMapPool` —
+    // exclude those before ranking, since they can never be valid candidates. We know every map in
+    // the original pool has a veto entry here (the whole pool was vetoed), so the filtered list is
+    // non-empty.
+    const sortedByVetoCount = Array.from(vetoCount.entries())
+      .filter(([id]) => fullMapPool.includes(id))
+      .sort((a, b) => a[1] - b[1])
     const leastVetoCount = sortedByVetoCount[0][1]
     let lastElem = 1
     while (
