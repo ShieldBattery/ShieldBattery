@@ -44,10 +44,17 @@ vi.mock('./matchmaker-rs-client', async () => {
 })
 
 vi.mock('./models', () => ({
-  getMatchmakingRating: vi.fn(),
+  getMatchmakingRatings: vi.fn(),
   createInitialMatchmakingRating: vi.fn(),
   insertMatchmakingCompletion: vi.fn().mockResolvedValue(undefined),
   insertMatchmakingMatchFormation: vi.fn().mockResolvedValue(undefined),
+}))
+
+// The queue path loads a player's ratings on a shared connection; there's no connection pool in unit
+// tests, so run the callback with a stand-in client (every model call it makes is mocked).
+vi.mock('../db', async () => ({
+  ...(await vi.importActual<any>('../db')),
+  withDbClient: vi.fn(async (fn: (client: any) => Promise<any>) => await fn({})),
 }))
 
 vi.mock('./matchmaking-map-pools-models', async () => ({
@@ -63,7 +70,7 @@ vi.mock('../maps/map-models', async () => ({
 import { getMapInfos } from '../maps/map-models'
 import { getCurrentMapPool } from './matchmaking-map-pools-models'
 import {
-  getMatchmakingRating,
+  getMatchmakingRatings,
   insertMatchmakingCompletion,
   insertMatchmakingMatchFormation,
 } from './models'
@@ -91,10 +98,10 @@ function makePreferences(): MatchmakingPreferences {
   } as unknown as MatchmakingPreferences
 }
 
-function makeMmr(userId: SbUserId) {
+function makeMmr(userId: SbUserId, matchmakingType = MatchmakingType.Match1v1) {
   return {
     userId,
-    matchmakingType: MatchmakingType.Match1v1,
+    matchmakingType,
     seasonId: SEASON.id,
     rating: 1500,
     uncertainty: 200,
@@ -233,8 +240,9 @@ describe('matchmaking/matchmaking-service', () => {
       warmRegions: vi.fn(),
     }
 
-    asMockedFunction(getMatchmakingRating).mockImplementation(async (userId: SbUserId) =>
-      makeMmr(userId),
+    asMockedFunction(getMatchmakingRatings).mockImplementation(
+      async (userId: SbUserId, types: ReadonlyArray<MatchmakingType>) =>
+        types.map(type => makeMmr(userId, type)),
     )
     asMockedFunction(rsQueuePlayer).mockResolvedValue(Result.ok())
     asMockedFunction(rsCancelPlayer).mockResolvedValue(Result.ok())

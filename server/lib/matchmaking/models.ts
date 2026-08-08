@@ -175,6 +175,37 @@ export async function getMatchmakingRating(
 }
 
 /**
+ * Retrieves the current `MatchmakingRating` for a user for multiple matchmaking types at once. Types
+ * the user has no rating for in this season are simply absent from the result, so callers must
+ * handle a result that is shorter than the requested type list. Pass `withClient` to run on an
+ * existing connection.
+ */
+export async function getMatchmakingRatings(
+  userId: SbUserId,
+  matchmakingTypes: ReadonlyArray<MatchmakingType>,
+  seasonId: SeasonId,
+  withClient?: DbClient,
+): Promise<MatchmakingRating[]> {
+  if (!matchmakingTypes.length) {
+    return []
+  }
+
+  const { client, done } = await db(withClient)
+  try {
+    const result = await client.query<DbMatchmakingRating>(sql`
+      SELECT *
+      FROM matchmaking_ratings
+      WHERE user_id = ${userId}
+        AND matchmaking_type = ANY(${matchmakingTypes}::matchmaking_type[])
+        AND season_id = ${seasonId};
+    `)
+    return result.rows.map(r => fromDbMatchmakingRating(r))
+  } finally {
+    done()
+  }
+}
+
+/**
  * Retrieves the matchmaking ratings for every user for a given matchmaking type and season. This is
  * intended to be used for refreshing the rankings and should be used sparingly.
  */
@@ -204,14 +235,18 @@ export async function getAllSeasonMatchmakingRatings(
  *
  * This will try to utilize a past MMR record (from a previous season, including from users playing
  * from the same machine) if one can be found.
+ *
+ * Pass `withClient` to run on an existing connection (e.g. when creating ratings for several types
+ * in a row, so each one doesn't take its own connection from the pool).
  */
 export async function createInitialMatchmakingRating(
   userId: SbUserId,
   matchmakingType: MatchmakingType,
   season: MatchmakingSeason,
   connectedUsers: ReadonlyArray<SbUserId>,
+  withClient?: DbClient,
 ): Promise<MatchmakingRating> {
-  const { client, done } = await db()
+  const { client, done } = await db(withClient)
   try {
     // First, try to find a previous season's MMR that hasn't been reset
     const previousMmrs = await client.query<

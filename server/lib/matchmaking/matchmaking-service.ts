@@ -37,6 +37,7 @@ import { randomInt, randomItem } from '../../../common/random'
 import { MatchFoundMessage, PublishedMatchmakingMessage } from '../../../common/typeshare'
 import { RestrictionKind } from '../../../common/users/restrictions'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
+import { withDbClient } from '../db'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
 import { GameLoader, GameLoadErrorType, GameLoadPlayer } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
@@ -62,7 +63,7 @@ import {
 import MatchmakingStatusService from '../matchmaking/matchmaking-status'
 import {
   createInitialMatchmakingRating,
-  getMatchmakingRating,
+  getMatchmakingRatings,
   insertMatchmakingCompletion,
   insertMatchmakingMatchFormation,
   MatchmakingMatchFailPhase,
@@ -560,21 +561,25 @@ export class MatchmakingService {
       this.netcodeV2Service.warmRegions([region.region])
     }
 
-    // Load MMR for all queued types in parallel
-    const typeDataEntries = await Promise.all(
-      allPreferences.map(async pref => {
-        const { matchmakingType: type, race, mapSelections, data: preferenceData } = pref
-        const mmr = await this.retrieveMmr(userId, type, season, identifiers)
-        const playerData = matchmakingRatingToPlayerData({
-          mmr,
-          race,
-          mapSelections: mapSelections.slice(),
-          preferenceData,
-          identifiers,
-        })
-        return { type, race, mmr, playerData }
-      }),
+    const ratings = await this.retrieveMmrs(
+      userId,
+      allPreferences.map(pref => pref.matchmakingType),
+      season,
+      identifiers,
     )
+
+    const typeDataEntries = allPreferences.map(pref => {
+      const { matchmakingType: type, race, mapSelections, data: preferenceData } = pref
+      const mmr = ratings.get(type)!
+      const playerData = matchmakingRatingToPlayerData({
+        mmr,
+        race,
+        mapSelections: mapSelections.slice(),
+        preferenceData,
+        identifiers,
+      })
+      return { type, race, mmr, playerData }
+    })
 
     // Store the full player data and queue entry for use when the match event arrives from Rust.
     // Both must be set *before* queuing in Rust: the Rust search loop runs independently, so a
@@ -840,19 +845,53 @@ export class MatchmakingService {
     return { region, rttMs }
   }
 
-  private async retrieveMmr(
+  /**
+   * Retrieves the user's inactivity-adjusted MMR for each of the given matchmaking types, creating
+   * an initial rating for any type they don't have one in yet. The result has an entry for every
+   * requested type.
+   *
+   * Everything runs on a single shared connection: a player can queue for every matchmaking type at
+   * once, and taking a pool connection per type (plus more for the missing ones) can starve
+   * unrelated requests.
+   */
+  private async retrieveMmrs(
     userId: SbUserId,
-    type: MatchmakingType,
+    types: ReadonlyArray<MatchmakingType>,
     season: MatchmakingSeason,
     identifiers: ReadonlyArray<ClientIdentifierString>,
-  ): Promise<MatchmakingRating> {
-    let currentMmr = await getMatchmakingRating(userId, type, season.id)
-    if (!currentMmr) {
-      const sameUsers = await this.userIdentifierManager.findUsersWithIdentifiers(identifiers)
-      currentMmr = await createInitialMatchmakingRating(userId, type, season, sameUsers)
-    }
+  ): Promise<Map<MatchmakingType, MatchmakingRating>> {
+    const ratings = await withDbClient(async client => {
+      const existing = new Map(
+        (await getMatchmakingRatings(userId, types, season.id, client)).map(mmr => [
+          mmr.matchmakingType,
+          mmr,
+        ]),
+      )
 
-    return adjustMatchmakingRatingForInactivity(currentMmr, new Date(this.clock.now()))
+      // Other accounts played from the same machine, used to seed a new rating from their history.
+      // The lookup only depends on the identifiers, so it's done at most once and only if some type
+      // actually needs a new rating.
+      let sameUsers: SbUserId[] | undefined
+      for (const type of types) {
+        if (existing.has(type)) {
+          continue
+        }
+
+        sameUsers ??= await this.userIdentifierManager.findUsersWithIdentifiers(identifiers, client)
+        existing.set(
+          type,
+          await createInitialMatchmakingRating(userId, type, season, sameUsers, client),
+        )
+      }
+
+      return existing
+    })
+
+    const now = new Date(this.clock.now())
+    for (const [type, mmr] of ratings) {
+      ratings.set(type, adjustMatchmakingRatingForInactivity(mmr, now))
+    }
+    return ratings
   }
 
   private subscribeUserToQueueUpdates(
