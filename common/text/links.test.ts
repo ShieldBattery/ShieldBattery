@@ -186,6 +186,24 @@ describe('common/text/links/matchLinks', () => {
     `)
   })
 
+  test('link in parentheses followed by a sentence-ending period', () => {
+    expect(doMatch('hello (http://example.org/foo).')).toEqual(['http://example.org/foo'])
+  })
+
+  test('link in parentheses followed by an exclamation mark', () => {
+    expect(doMatch('(http://example.org/foo)!')).toEqual(['http://example.org/foo'])
+  })
+
+  test('link with balanced parens in path, wrapped in parens, followed by a period', () => {
+    expect(doMatch('see (http://example.org/wiki/Foo_(bar)).')).toEqual([
+      'http://example.org/wiki/Foo_(bar)',
+    ])
+  })
+
+  test('link followed by a sentence-ending period with no surrounding parens', () => {
+    expect(doMatch('http://example.org/foo.')).toEqual(['http://example.org/foo'])
+  })
+
   test('link with adversarial paren-heavy input does not hang and matches correctly', () => {
     // A large run of unmatched opening parens preceding the URL, and a large run of unmatched
     // closing parens trailing it. This shape used to trigger quadratic backtracking in a

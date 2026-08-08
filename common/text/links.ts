@@ -10,10 +10,21 @@
 const URL_REGEX = /https?:\/\/[^\s"\]]+/gi
 
 /**
+ * Trailing characters that end a sentence rather than a URL. '?' and ',' are deliberately left
+ * out: they routinely show up as meaningful trailing characters in query strings and lists of
+ * URLs, so stripping them unconditionally would corrupt valid links.
+ */
+function isSentenceEndingPunctuation(char: string | undefined): boolean {
+  return char === '.' || char === '!'
+}
+
+/**
  * Strips trailing characters from a matched URL that more likely close out the surrounding text
  * than belong to the URL itself: closing parens that don't pair with an opening paren earlier in
- * the URL (e.g. the ")" wrapping a URL in "(http://example.org/)"), and a single trailing period
- * (e.g. the "." ending a sentence in "check http://example.org.").
+ * the URL (e.g. the ")" wrapping a URL in "(http://example.org/)"), and sentence-ending
+ * punctuation (e.g. the "." ending a sentence in "check http://example.org."). Both are stripped
+ * repeatedly, in either order, until neither applies, so e.g. a period after an unbalanced
+ * closing paren ("(http://example.org/foo).") has both trimmed rather than just the period.
  */
 function trimTrailingPunctuation(url: string): string {
   let unclosedParens = 0
@@ -26,12 +37,17 @@ function trimTrailingPunctuation(url: string): string {
   }
 
   let end = url.length
-  while (unclosedParens < 0 && url[end - 1] === ')') {
-    end--
-    unclosedParens++
-  }
-  if (url[end - 1] === '.') {
-    end--
+  let didTrim = true
+  while (didTrim) {
+    didTrim = false
+    if (unclosedParens < 0 && url[end - 1] === ')') {
+      end--
+      unclosedParens++
+      didTrim = true
+    } else if (isSentenceEndingPunctuation(url[end - 1])) {
+      end--
+      didTrim = true
+    }
   }
 
   return end === url.length ? url : url.slice(0, end)
