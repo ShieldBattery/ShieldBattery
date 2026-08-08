@@ -12,9 +12,8 @@ import { ConnectedAvatar } from '../../avatars/avatar'
 import { AvatarStack } from '../../avatars/avatar-stack'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { openMapPreviewDialog } from '../../maps/action-creators'
-import { MapThumbnail } from '../../maps/map-thumbnail'
+import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { FilledButton, TextButton } from '../../material/button'
-import { buttonReset } from '../../material/button-reset'
 import { useAppDispatch } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -22,7 +21,6 @@ import {
   labelMedium,
   singleLine,
   titleMedium,
-  titleSmall,
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
 import { useJoinLobbyAction } from '../use-join-lobby-action'
@@ -82,35 +80,19 @@ const HostNames = styled.span`
   min-width: 0;
 `
 
-const MapCard = styled.button`
-  ${buttonReset};
-
-  padding: 8px;
-
+const MapSection = styled.div`
   display: flex;
-  align-items: center;
-  gap: 12px;
-
-  border-radius: 8px;
-  background-color: var(--theme-container-high);
-  text-align: left;
-
-  &:hover {
-    background-color: var(--theme-container-highest);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--theme-primary);
-    outline-offset: -2px;
-  }
+  flex-direction: column;
+  gap: 8px;
 `
 
 /**
- * The thumbnail sizes itself with percentage heights, so its frame needs a definite height of its
- * own; the map's own proportions set the width.
+ * The thumbnail sizes itself with percentage heights, so its frame needs an explicit aspect ratio
+ * to give it a definite height — without one, the percentage-height chain collapses to 0 against
+ * this rail's auto-height layout.
  */
-const MapThumbnailFrame = styled.div<{ $aspectRatio: number }>`
-  height: 72px;
+const MapFrame = styled.div<{ $aspectRatio: number }>`
+  width: 100%;
   aspect-ratio: ${props => props.$aspectRatio};
   flex-shrink: 0;
 
@@ -118,30 +100,9 @@ const MapThumbnailFrame = styled.div<{ $aspectRatio: number }>`
   overflow: hidden;
 `
 
-const MapInfo = styled.div`
-  flex-grow: 1;
-  min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-`
-
-const MapName = styled.div`
-  ${titleSmall};
-  ${singleLine};
-`
-
-const MapFacts = styled.div`
+const MapMeta = styled.div`
   ${bodySmall};
-  ${singleLine};
 
-  color: var(--theme-on-surface-variant);
-`
-
-const MapZoomIcon = styled.span`
-  flex-shrink: 0;
-  display: flex;
   color: var(--theme-on-surface-variant);
 `
 
@@ -431,23 +392,19 @@ export function LobbyDetailRail({ summary, friendIds, className }: LobbyDetailRa
         </HostLine>
       </Header>
 
-      <MapCard
-        type='button'
-        title={t('maps.thumbnail.showMapPreview', 'Show map preview')}
-        onClick={() => dispatch(openMapPreviewDialog(map.id))}>
-        <MapThumbnailFrame $aspectRatio={map.mapData.width / map.mapData.height}>
-          <MapThumbnail map={map} size={256} />
-        </MapThumbnailFrame>
-        <MapInfo>
-          <MapName title={map.name}>{map.name}</MapName>
-          <MapFacts>
-            {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
-          </MapFacts>
-        </MapInfo>
-        <MapZoomIcon>
-          <MaterialIcon icon='zoom_in' size={20} />
-        </MapZoomIcon>
-      </MapCard>
+      <MapSection>
+        <MapFrame $aspectRatio={map.mapData.width / map.mapData.height}>
+          <ReduxMapThumbnail
+            mapId={map.id}
+            size={512}
+            showInfoLayer={true}
+            onClick={() => dispatch(openMapPreviewDialog(map.id))}
+          />
+        </MapFrame>
+        <MapMeta>
+          {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
+        </MapMeta>
+      </MapSection>
 
       <ChipRow>
         <LobbyChip>{gameTypeToLabel(summary.gameType, t)}</LobbyChip>
