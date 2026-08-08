@@ -467,6 +467,7 @@ function HostGameContent({
                 }}
                 disabled={isCreating}
                 floatingLabel={true}
+                alwaysHasValue={true}
                 label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
                 inputProps={{
                   placeholder: placeholderName,
