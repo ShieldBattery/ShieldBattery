@@ -22,6 +22,14 @@ jobs:
         working-directory: ./game
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - name: x86
+            target: '--target i686-pc-windows-msvc'
+            display: 'x86'
+          - name: x64
+            target: '--target x86_64-pc-windows-msvc'
+            display: 'x64'
     steps:
       - uses: actions/checkout@v4
 
@@ -34,8 +42,8 @@ jobs:
         with:
           workspaces: ./game
 
-      - name: clippy
-        run: cargo clippy --all-targets --workspace -- -D warnings
+      - name: clippy ${{ matrix.display }}
+        run: cargo clippy --all-targets --workspace ${{ matrix.target }} -- -D warnings
 
   fmt:
     runs-on: windows-latest
