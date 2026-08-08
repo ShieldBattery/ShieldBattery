@@ -12,6 +12,10 @@ export enum UserProfileSubPage {
    */
   Stats = 'stats',
   /**
+   * The player's record by race matchup, their team's composition against the opposing team's.
+   */
+  Matchups = 'matchups',
+  /**
    * The full match history of the player.
    */
   MatchHistory = 'match-history',
