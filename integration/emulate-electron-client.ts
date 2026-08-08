@@ -66,10 +66,14 @@ export async function emulateElectronClientForRoute(
     origin: 'shieldbattery://app',
   }
 
+  const isSignup =
+    route.request().method().toUpperCase() === 'POST' &&
+    route.request().url().endsWith('/api/1/users')
+
   const fetchOptions: Parameters<Route['fetch']>[0] = { headers: reqHeaders }
   if (
-    route.request().method().toUpperCase() === 'POST' &&
-    (route.request().url().endsWith('/api/1/users') ||
+    isSignup ||
+    (route.request().method().toUpperCase() === 'POST' &&
       route.request().url().endsWith('/api/1/sessions'))
   ) {
     // Add client identifiers - using the same identifier for types 1, 2, 3, 4 to trigger
@@ -91,7 +95,8 @@ export async function emulateElectronClientForRoute(
   // right response to that error and only that error: no response was received, so at worst the
   // server saw a request it never answered. Anything else propagates.
   let response: APIResponse
-  for (let attempt = 0; ; attempt++) {
+  let attempt = 0
+  for (; ; attempt++) {
     try {
       response = await route.fetch(fetchOptions)
       break
@@ -101,6 +106,29 @@ export async function emulateElectronClientForRoute(
       }
     }
   }
+
+  if (isSignup && attempt > 0 && response.status() === 409) {
+    // Signup isn't idempotent, so retrying it above is only safe if we also handle the case
+    // where the original attempt actually reached the server before the connection reset: this
+    // retried request then lands on an "already exists" conflict for an account this client
+    // never got a response for. Recover by logging in with the same credentials rather than
+    // failing the test over a transient network blip.
+    const signupBody = JSON.parse(fetchOptions.postData as string)
+    response = await route.fetch({
+      ...fetchOptions,
+      url: route
+        .request()
+        .url()
+        .replace(/\/api\/1\/users$/, '/api/1/sessions'),
+      postData: JSON.stringify({
+        username: signupBody.username,
+        password: signupBody.password,
+        clientIds: signupBody.clientIds,
+        locale: signupBody.locale,
+      }),
+    })
+  }
+
   const actualOrigin = new URL(pageUrl).origin
   const resHeaders = {
     ...response.headers(),
