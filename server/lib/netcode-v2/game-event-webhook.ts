@@ -154,11 +154,13 @@ export function registerGameEventWebhookRoutes(router: KoaRouter) {
     throttleMiddleware(gameEventsThrottle, ctx => String(ctx.ip)),
     gameEventBody,
     async ctx => {
-      // Auth/feature-gate first, and strictly before body validation: netcode v2 not being
-      // configured must 404 regardless of what was POSTed, and a bad signature must not get a
-      // validation-error oracle into the expected body shape. This needs the raw body bytes (not
-      // the parsed JSON), which `gameEventBody` above already captured as `ctx.request.rawBody`;
-      // that's still just *reading* the body, so it doesn't jump the auth-before-validation order.
+      // Auth/feature-gate before schema validation: netcode v2 not being configured must 404, and a
+      // bad signature must not get a validation-error oracle into the expected body shape. This
+      // needs the raw body bytes (not the parsed JSON), which `gameEventBody` above already
+      // captured as `ctx.request.rawBody`; that's still just *reading* the body, not validating its
+      // shape, so it doesn't undermine the auth-before-schema-validation order. Note that
+      // `gameEventBody` itself still runs ahead of this handler like any koa-body route, so a body
+      // over the `jsonLimit` gets a 413 before auth ever runs.
       const authStatus = await checkGameEventWebhookAuth(
         ctx.get('x-rp2-timestamp'),
         ctx.get('x-rp2-signature'),
