@@ -667,7 +667,6 @@
   },
   "gameplayActivity": {
     "lobby": {
-      "leaveLobby": "离开房间",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "玩家槽位：",
       "viewLobby": "查看房间"

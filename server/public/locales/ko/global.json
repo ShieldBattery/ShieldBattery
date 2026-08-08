@@ -667,7 +667,6 @@
   },
   "gameplayActivity": {
     "lobby": {
-      "leaveLobby": "로비 나가기",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "슬롯:",
       "viewLobby": "로비 보기"

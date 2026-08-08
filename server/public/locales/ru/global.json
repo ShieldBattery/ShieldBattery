@@ -676,7 +676,6 @@
   },
   "gameplayActivity": {
     "lobby": {
-      "leaveLobby": "Выйти из лобби",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Слоты:",
       "viewLobby": "Открыть лобби"

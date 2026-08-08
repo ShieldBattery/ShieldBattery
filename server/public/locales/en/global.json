@@ -679,7 +679,6 @@
   },
   "gameplayActivity": {
     "lobby": {
-      "leaveLobby": "Leave lobby",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Slots:",
       "viewLobby": "View lobby"
