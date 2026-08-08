@@ -8,18 +8,20 @@
 //! Reaching an `https` server through a proxy means tunneling: connect to the proxy, ask it to
 //! `CONNECT host:port`, and run TLS inside the tunnel end-to-end with the real server. That's what
 //! [`ProxyConnector`] does — it produces the byte stream, and the TLS layer wrapping it is none the
-//! wiser. Plain `http` is simpler and needs no tunnel: the request goes to the proxy with an
-//! absolute URL, which hyper does on its own once it's connecting to the proxy's address.
+//! wiser. Plain `http` needs no tunnel: the connection goes to the proxy's own address and the
+//! request carries an absolute URL to say what to forward it to — see [`ProxyStream`] for how that
+//! request form gets selected.
 
 use std::future::Future;
+use std::io::{self, IoSlice};
 use std::pin::Pin;
 use std::sync::LazyLock;
 use std::task::{Context, Poll};
 
 use hyper::Uri;
-use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::client::legacy::connect::{Connected, Connection, HttpConnector};
 use hyper_util::rt::TokioIo;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
 use tokio::net::TcpStream;
 use tower_service::Service;
 
@@ -197,6 +199,72 @@ fn system_proxy() -> Option<ProxyConfig> {
     None
 }
 
+/// A TCP connection produced by [`ProxyConnector`], which additionally reports whether requests
+/// written to it must use absolute-form request lines.
+///
+/// hyper's client chooses the request line's form from [`Connected::is_proxied`]: a forward proxy
+/// handling a plain `http` request needs the absolute URL (`GET http://host/path HTTP/1.1`),
+/// because the address that was dialed is the proxy's own and an origin-form path alone would not
+/// say where to forward the request to. Direct connections and `CONNECT` tunnels both end at the
+/// origin server, which expects origin-form, so only an untunneled connection to a proxy reports
+/// itself as proxied.
+pub struct ProxyStream {
+    stream: TcpStream,
+    proxied: bool,
+}
+
+impl ProxyStream {
+    fn wrap(stream: TcpStream, proxied: bool) -> TokioIo<ProxyStream> {
+        TokioIo::new(ProxyStream { stream, proxied })
+    }
+}
+
+impl Connection for ProxyStream {
+    fn connected(&self) -> Connected {
+        self.stream.connected().proxy(self.proxied)
+    }
+}
+
+impl AsyncRead for ProxyStream {
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.stream).poll_read(cx, buf)
+    }
+}
+
+impl AsyncWrite for ProxyStream {
+    fn poll_write(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.stream).poll_write(cx, buf)
+    }
+
+    fn poll_write_vectored(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[IoSlice<'_>],
+    ) -> Poll<io::Result<usize>> {
+        Pin::new(&mut self.stream).poll_write_vectored(cx, bufs)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        self.stream.is_write_vectored()
+    }
+
+    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.stream).poll_flush(cx)
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        Pin::new(&mut self.stream).poll_shutdown(cx)
+    }
+}
+
 /// Connector that opens a proxy tunnel when one is configured for the target, and connects
 /// directly otherwise. Sits underneath the TLS connector, which treats either result the same.
 #[derive(Clone)]
@@ -214,7 +282,7 @@ impl ProxyConnector {
 }
 
 impl Service<Uri> for ProxyConnector {
-    type Response = TokioIo<TcpStream>;
+    type Response = TokioIo<ProxyStream>;
     type Error = Box<dyn std::error::Error + Send + Sync>;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -227,19 +295,25 @@ impl Service<Uri> for ProxyConnector {
         let proxy = CONFIG.proxy_for(&uri).map(|proxy| proxy.to_string());
         let Some(proxy) = proxy else {
             let mut inner = self.inner.clone();
-            return Box::pin(async move { inner.call(uri).await.map_err(Into::into) });
+            return Box::pin(async move {
+                let stream = inner.call(uri).await?;
+                Ok(ProxyStream::wrap(stream.into_inner(), false))
+            });
         };
 
-        // A plain-http request through a proxy just goes to the proxy's address; hyper sends the
-        // absolute URL, so no tunnel is needed. https has to be tunneled so TLS terminates at the
-        // real server rather than the proxy.
+        // A plain-http request through a proxy just goes to the proxy's address, with the absolute
+        // URL in the request line saying where the proxy should forward it; no tunnel is needed.
+        // https has to be tunneled so TLS terminates at the real server rather than the proxy.
         if uri.scheme_str() == Some("http") {
             let mut inner = self.inner.clone();
             let proxy_uri = match format!("http://{proxy}").parse::<Uri>() {
                 Ok(uri) => uri,
                 Err(err) => return Box::pin(async move { Err(err.into()) }),
             };
-            return Box::pin(async move { inner.call(proxy_uri).await.map_err(Into::into) });
+            return Box::pin(async move {
+                let stream = inner.call(proxy_uri).await?;
+                Ok(ProxyStream::wrap(stream.into_inner(), true))
+            });
         }
 
         Box::pin(async move {
@@ -247,7 +321,7 @@ impl Service<Uri> for ProxyConnector {
             let port = uri.port_u16().unwrap_or(443);
             let stream = TcpStream::connect(&proxy).await?;
             let stream = connect_tunnel(stream, host, port).await?;
-            Ok(TokioIo::new(stream))
+            Ok(ProxyStream::wrap(stream, false))
         })
     }
 }
