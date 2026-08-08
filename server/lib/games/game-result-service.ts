@@ -519,7 +519,7 @@ export default class GameResultService {
           }
         : { time, playerResults: report.playerResults }
 
-    await setReportedResults({
+    const recorded = await setReportedResults({
       userId,
       gameId,
       reportedResults,
@@ -527,6 +527,15 @@ export default class GameResultService {
       relayReportTime,
       relayReportFrame,
     })
+    if (!recorded) {
+      // A concurrent duplicate submission recorded results between our pre-check above and this
+      // write; the write's own guard makes the first one win, so treat this exactly like the
+      // pre-check catching it.
+      throw new GameResultServiceError(
+        GameResultErrorCode.AlreadyReported,
+        'results already reported',
+      )
+    }
 
     // We don't need to hold up the response while we check for reconciling
     Promise.resolve()

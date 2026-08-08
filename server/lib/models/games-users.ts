@@ -168,9 +168,13 @@ export async function getUserGameRecord(
 }
 
 /**
- * Updates a particular user's results for a game, optionally stamping when/where a netcode-v2
+ * Records a particular user's results for a game, optionally stamping when/where a netcode-v2
  * relay recorded the report arriving (omitted, or explicitly `undefined`/`null`, for a report that
  * didn't come from the relay).
+ *
+ * Only the first report wins: the update is guarded on `reported_results` still being unset, so
+ * concurrent duplicate submissions can't overwrite each other. Returns whether this call was the
+ * one that recorded the results.
  */
 export async function setReportedResults({
   userId,
@@ -182,19 +186,20 @@ export async function setReportedResults({
 }: ReadonlyDeep<ReportedResultsData> & {
   relayReportTime?: Date
   relayReportFrame?: number | null
-}) {
+}): Promise<boolean> {
   const { client, done } = await db()
 
   try {
-    await client.query(sql`
+    const result = await client.query(sql`
       UPDATE games_users
       SET
         reported_results = ${reportedResults},
         reported_at = ${reportedAt},
         relay_report_time = ${relayReportTime ?? null},
         relay_report_frame = ${relayReportFrame ?? null}
-      WHERE user_id = ${userId} AND game_id = ${gameId}
+      WHERE user_id = ${userId} AND game_id = ${gameId} AND reported_results IS NULL
     `)
+    return (result.rowCount ?? 0) > 0
   } finally {
     done()
   }
