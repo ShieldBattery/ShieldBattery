@@ -959,6 +959,7 @@
       "errorBanned": "You've been banned from this lobby.",
       "errorFull": "This lobby is full.",
       "errorGeneric": "Something went wrong while joining the lobby. Please try again.",
+      "joined": "Joined",
       "matchmakingActiveDialogText": "You cannot join lobbies while a matchmaking search is active.",
       "matchmakingActiveDialogTitle": "Joining lobbies disabled",
       "noActiveLobbies": "There are no active lobbies",

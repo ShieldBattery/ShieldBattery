@@ -1,12 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
-import { gameTypeToLabel } from '../../common/games/game-type'
+import { ReadonlyDeep } from 'type-fest'
+import { GameType, gameTypeToLabel } from '../../common/games/game-type'
+import { openSlotCount as countOpenLobbySlots } from '../../common/lobbies'
 import { lobbyIdFromPath } from '../../common/lobbies/lobby-url'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
+import { MapImageInfo, SbMapId } from '../../common/maps'
+import { openMapPreviewDialog } from '../maps/action-creators'
 import { MapThumbnail } from '../maps/map-thumbnail'
 import { FilledButton } from '../material/button'
 import { isShieldBatteryUrl } from '../navigation/external-link'
-import { useAppSelector } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { bodySmall, singleLine, titleSmall } from '../styles/typography'
 import { isInLobby } from './lobby-reducer'
 import { LobbySummaryLoadState, useLobbySummary } from './lobby-summary'
@@ -45,11 +49,22 @@ const CARD_BORDER_WIDTH = 1
 
 const THUMBNAIL_SIZE = 64
 
-// The loaded card's height is fully determined by its thumbnail (forced to a square aspect ratio
-// below, regardless of the actual map's dimensions), its padding, and its border -- fixed here so
-// every other state (loading, not-found) can reserve the same height and the card never resizes
-// after it first mounts.
-const CARD_HEIGHT = THUMBNAIL_SIZE + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
+// InfoColumn stacks 3 rows (lobby name, host/game type, open slot count) separated by its own
+// `gap`; their combined height comes straight from the typography tokens those rows render with
+// (`titleSmall`/`bodySmall`'s `line-height`, see client/styles/typography.ts) rather than a
+// guessed number, so it stays correct if either token's line-height ever changes.
+const INFO_COLUMN_GAP = 2
+const LOBBY_NAME_LINE_HEIGHT = 20 // titleSmall
+const SECONDARY_LINE_HEIGHT = 16 // bodySmall
+const INFO_STACK_HEIGHT = LOBBY_NAME_LINE_HEIGHT + SECONDARY_LINE_HEIGHT * 2 + INFO_COLUMN_GAP * 2
+
+// The loaded card's height is determined by whichever of its two columns is taller -- the
+// thumbnail (forced to a square aspect ratio below, regardless of the actual map's dimensions) or
+// the 3-row info stack -- plus the card's own padding and border. Fixed here so every other state
+// (loading, not-found) can reserve the same height and the card never resizes after it first
+// mounts.
+const CARD_HEIGHT =
+  Math.max(THUMBNAIL_SIZE, INFO_STACK_HEIGHT) + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
 
 const cardBase = css`
   width: ${CARD_WIDTH}px;
@@ -123,7 +138,7 @@ const InfoColumn = styled.div`
 
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: ${INFO_COLUMN_GAP}px;
 `
 
 const LobbyName = styled.div`
@@ -138,9 +153,80 @@ const SecondaryLine = styled.div`
 `
 
 /**
- * The presentational part of {@link LobbyInviteCard}: renders the loading/notFound/error/loaded
- * states without fetching anything itself, so it can be driven directly (e.g. from a devonly test
- * page) without racing a real lobby.
+ * The plain, already-resolved data {@link LobbyInviteCardBody} needs to render a loaded card,
+ * regardless of whether it came from a summary fetch or the viewer's own live lobby state.
+ */
+export interface LobbyInviteDisplayData {
+  name: string
+  map: ReadonlyDeep<MapImageInfo & { id: SbMapId }>
+  gameType: GameType
+  hostName: string
+  openSlotCount: number
+}
+
+/**
+ * The card's join button: either an active join action, or a disabled acknowledgment that the
+ * viewer is already seated in the lobby.
+ */
+type LobbyInviteJoinButton = { joined: false; onClick: () => void } | { joined: true }
+
+/**
+ * Renders a loaded invite card's body from already-resolved display data, shared by the
+ * fetch-backed ({@link LobbyInviteCardContent}) and own-lobby ({@link LobbyInviteJoinedCard})
+ * variants so the markup exists in exactly one place.
+ */
+function LobbyInviteCardBody({
+  display,
+  joinButton,
+}: {
+  display: LobbyInviteDisplayData
+  joinButton: LobbyInviteJoinButton
+}) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+
+  const hostAndGameType = `${display.hostName} · ${gameTypeToLabel(display.gameType, t)}`
+  const slotsText = t('lobbies.joinLobby.openSlotCount', {
+    defaultValue: '{{count}} slots open',
+    count: display.openSlotCount,
+  })
+
+  return (
+    <CardRoot>
+      <ThumbnailContainer>
+        <MapThumbnail
+          map={display.map}
+          size={THUMBNAIL_SIZE}
+          forceAspectRatio={1}
+          onPreview={() => dispatch(openMapPreviewDialog(display.map.id))}
+        />
+      </ThumbnailContainer>
+      <InfoColumn>
+        <LobbyName title={display.name}>{display.name}</LobbyName>
+        <SecondaryLine title={hostAndGameType}>{hostAndGameType}</SecondaryLine>
+        <SecondaryLine title={slotsText}>{slotsText}</SecondaryLine>
+      </InfoColumn>
+      {joinButton.joined ? (
+        <JoinButton
+          label={t('lobbies.joinLobby.joined', 'Joined')}
+          disabled={true}
+          testName='lobby-invite-card-join-button'
+        />
+      ) : (
+        <JoinButton
+          label={t('lobbies.joinLobby.action', 'Join lobby')}
+          onClick={joinButton.onClick}
+          testName='lobby-invite-card-join-button'
+        />
+      )}
+    </CardRoot>
+  )
+}
+
+/**
+ * The presentational part of {@link LobbyInviteCard}'s fetch-backed variant: renders the
+ * loading/notFound/error/loaded states without fetching anything itself, so it can be driven
+ * directly (e.g. from a devonly test page) without racing a real lobby.
  *
  * The loading state renders a placeholder sized to match the loaded card so the message it's
  * attached to doesn't grow again once the summary arrives. The error state renders nothing at all,
@@ -172,43 +258,46 @@ export function LobbyInviteCardContent({
   const { summary: lobby, host } = state.data
 
   return (
-    <CardRoot>
-      <ThumbnailContainer>
-        <MapThumbnail map={lobby.map} size={THUMBNAIL_SIZE} forceAspectRatio={1} />
-      </ThumbnailContainer>
-      <InfoColumn>
-        <LobbyName title={lobby.name}>{lobby.name}</LobbyName>
-        <SecondaryLine>
-          {host.name} · {gameTypeToLabel(lobby.gameType, t)} ·{' '}
-          {t('lobbies.joinLobby.openSlotCount', {
-            defaultValue: '{{count}} slots open',
-            count: lobby.openSlotCount,
-          })}
-        </SecondaryLine>
-      </InfoColumn>
-      <JoinButton
-        label={t('lobbies.joinLobby.action', 'Join lobby')}
-        onClick={onJoinClick}
-        testName='lobby-invite-card-join-button'
-      />
-    </CardRoot>
+    <LobbyInviteCardBody
+      display={{
+        name: lobby.name,
+        map: lobby.map,
+        gameType: lobby.gameType,
+        hostName: host.name,
+        openSlotCount: lobby.openSlotCount,
+      }}
+      joinButton={{ joined: false, onClick: onJoinClick }}
+    />
   )
+}
+
+/**
+ * The presentational part of {@link LobbyInviteCard}'s own-lobby variant: the same card layout as
+ * the fetch-backed one, but with a disabled "Joined" button in place of the join action. Exported
+ * so a devonly test page can drive it with mock display data the same way it drives
+ * {@link LobbyInviteCardContent}.
+ */
+export function LobbyInviteJoinedCard({ display }: { display: LobbyInviteDisplayData }) {
+  return <LobbyInviteCardBody display={display} joinButton={{ joined: true }} />
 }
 
 /**
  * A rich invite preview for a lobby link posted in chat: the lobby's map, name, host, game type,
  * and open slot count, with a button to join it. Reads through the cached summary lookup (see
  * `useLobbySummary`) since the same lobby link often appears in several rendered messages at once.
+ *
+ * A viewer already seated in the linked lobby (the common case being its own invite link pasted
+ * into its own chat) still sees the card, built from the live lobby state instead of a summary
+ * fetch: the summary endpoint 404s for a lobby that's mid-countdown or loading (the getter that
+ * backs it excludes transient lobbies), which would otherwise show a seated member their own live
+ * lobby as "no longer open"; reading local state instead sidesteps that entirely, and keeps the
+ * zero-fetch property for the common case of a lobby's own link appearing in its own chat.
  */
 export function LobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
   const isInThisLobby = useAppSelector(s => isInLobby(s.lobby) && s.lobby.info.id === lobbyId)
 
   if (isInThisLobby) {
-    // Someone seated in this lobby needs no invite to it (the common case being its own invite
-    // link pasted into its own chat): they're already where Join would take them, and the join
-    // itself would only fail. Gating outside the inner component also keeps every seated member
-    // from spending a summary fetch on the link.
-    return null
+    return <OwnLobbyInviteCard />
   }
 
   return <JoinableLobbyInviteCard lobbyId={lobbyId} />
@@ -226,6 +315,29 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
           name: state?.status === 'loaded' ? state.data.summary.name : undefined,
         })
       }
+    />
+  )
+}
+
+/**
+ * Renders the invite card for the lobby the viewer is currently seated in, entirely from local
+ * lobby state -- see the invariant on {@link LobbyInviteCard} for why this never fetches a
+ * summary. Only ever rendered while `isInLobby` holds for the current lobby, so `info` is that
+ * lobby's live data and its host slot is always occupied.
+ */
+function OwnLobbyInviteCard() {
+  const info = useAppSelector(s => s.lobby.info)
+  const hostName = useAppSelector(s => s.users.byId.get(info.host.userId!)?.name) ?? ''
+
+  return (
+    <LobbyInviteJoinedCard
+      display={{
+        name: info.name,
+        map: info.map!,
+        gameType: info.gameType,
+        hostName,
+        openSlotCount: countOpenLobbySlots(info),
+      }}
     />
   )
 }
