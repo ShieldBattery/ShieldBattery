@@ -12,6 +12,9 @@ import { Slot, SlotType } from './slot'
  */
 export const MAX_OBSERVERS = 4
 
+/** The most recent maps kept in a user's lobby preferences, newest first. */
+export const NUM_RECENT_MAPS = 5
+
 /** States that a lobby can be in. These are the possible return values of `getLobbyState`. */
 export type LobbyState = 'nonexistent' | 'exists' | 'countingDown' | 'hasStarted'
 

@@ -6,7 +6,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
-import { LobbyVisibility } from '../../../common/lobbies'
+import { LobbyVisibility, NUM_RECENT_MAPS } from '../../../common/lobbies'
 import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
 import { useTrackPageView } from '../../analytics/analytics'
@@ -35,9 +35,6 @@ import {
   SectionHeader,
 } from './game-setup-form'
 import { VisibilityPicker } from './visibility-picker'
-
-/** The most recent maps kept in the create form's preferences, newest first. */
-const NUM_RECENT_MAPS = 5
 
 const Root = styled.div`
   height: 100%;

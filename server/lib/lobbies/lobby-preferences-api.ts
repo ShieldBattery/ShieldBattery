@@ -3,7 +3,7 @@ import httpErrors from 'http-errors'
 import Joi from 'joi'
 import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { ALL_GAME_TYPES } from '../../../common/games/game-type'
-import { ALL_LOBBY_VISIBILITIES } from '../../../common/lobbies'
+import { ALL_LOBBY_VISIBILITIES, NUM_RECENT_MAPS } from '../../../common/lobbies'
 import {
   LobbyPreferencesResponse,
   UpdateLobbyPreferencesRequest,
@@ -33,7 +33,7 @@ const updateLobbyPreferencesSchema = Joi.object<UpdateLobbyPreferencesRequest>({
   // default the client's preferences state happens to hold (0), so 0 has to validate alongside
   // the real 1-7 sub type range.
   gameSubType: Joi.number().integer().min(0).max(7),
-  recentMaps: Joi.array().items(Joi.string().uuid()).required(),
+  recentMaps: Joi.array().items(Joi.string().uuid()).max(NUM_RECENT_MAPS).required(),
   // The GET response nulls out a selected map that's no longer among the recent maps, and the
   // create form saves that value back as-is, so null has to round-trip.
   selectedMap: Joi.string().uuid().allow(null),
@@ -51,20 +51,25 @@ export class LobbyPreferencesApi {
       body: updateLobbyPreferencesSchema,
     })
 
-    if (body.selectedMap && !body.recentMaps.includes(body.selectedMap)) {
+    const recentMaps = body.recentMaps.slice(0, NUM_RECENT_MAPS)
+    if (body.selectedMap && !recentMaps.includes(body.selectedMap)) {
       throw new httpErrors.BadRequest('invalid selected map')
     }
 
     const preferences = await upsertLobbyPreferences(ctx.session!.user.id, {
       ...body,
       selectedMap: body.selectedMap ?? undefined,
-      recentMaps: body.recentMaps.slice(0, 5),
+      recentMaps,
     })
     const recentMapInfos = await getMapInfos(preferences.recentMaps ?? [])
+    const recentMapIds = recentMapInfos.map(m => m.id)
+    const { selectedMap } = preferences
 
     return {
       ...preferences,
       recentMaps: recentMapInfos.map(m => toMapInfoJson(m)),
+      selectedMap:
+        selectedMap !== undefined && recentMapIds.includes(selectedMap) ? selectedMap : null,
     }
   }
 
