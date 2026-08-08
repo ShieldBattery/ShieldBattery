@@ -31,6 +31,7 @@ import {
   NydusConnector,
 } from '../websockets/testing/websockets'
 import { TypedPublisher } from '../websockets/typed-publisher'
+import { openSlot } from './lobby'
 import { knownRegionOrUndefined, LobbyService, LobbyServiceErrorCode } from './lobby-service'
 import { getLobbySummary } from './lobby-summaries'
 
@@ -163,8 +164,14 @@ describe('lobbies/lobby-service', () => {
     })
   }
 
-  function joinLobby(sockets: Sockets, id: SbLobbyId) {
-    return lobbyService.joinLobby({ id, user: sockets.user, client: sockets.client })
+  function joinLobby(sockets: Sockets, id: SbLobbyId, region?: string, asObserver?: boolean) {
+    return lobbyService.joinLobby({
+      id,
+      region: region !== undefined ? makeGameServerRegionId(region) : undefined,
+      asObserver,
+      user: sockets.user,
+      client: sockets.client,
+    })
   }
 
   beforeEach(() => {
@@ -376,6 +383,44 @@ describe('lobbies/lobby-service', () => {
       await expect(joinLobby(joiner, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.Banned,
       })
+    })
+
+    test('an explicit observer join seats the joiner in an open observer slot', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+      const lobby = lobbyService.lobbies.get(id)!
+      const [obsTeamIndex] = getObserverTeam(lobby)
+      // Every observer slot starts closed; open one directly, since opening one is its own
+      // operation with its own coverage elsewhere. This test only cares what a join does with one
+      // available.
+      lobbyService.lobbies.set(id, openSlot(lobby, obsTeamIndex!, 0))
+
+      await joinLobby(joiner, id, undefined, true)
+
+      const updated = lobbyService.lobbies.get(id)!
+      const [, , joinerSlot] = findSlotByUserId(updated, JOINER_USER.id)
+      expect(joinerSlot!.type).toBe('observer')
+    })
+
+    test('an explicit observer join rejects with ObserversFull when the lobby has no observer team', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', false)
+
+      await expect(joinLobby(joiner, id, undefined, true)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.ObserversFull,
+      })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
+    })
+
+    test('an explicit observer join rejects with ObserversFull when every observer slot is closed', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed', true)
+
+      // An explicit observer request must never fall back to a player slot, unlike an ordinary
+      // join that happens to land in the observer team.
+      await expect(joinLobby(joiner, id, undefined, true)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.ObserversFull,
+      })
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
     })
   })
 

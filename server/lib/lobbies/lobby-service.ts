@@ -56,10 +56,10 @@ import { setLobbySummaryGetter } from './lobby-summaries'
  * whatever their callers understand (status codes, client-facing error codes), so the messages
  * carried alongside them are the only human-readable part.
  *
- * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `Banned`, `JoinAlreadyStarted`,
- * `JoinAlreadyInActivity`): joining is the one operation whose failures the client renders
- * individually, so its outcomes are distinguished from the otherwise-identical failures of the
- * host-only operations.
+ * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `ObserversFull`, `Banned`,
+ * `JoinAlreadyStarted`, `JoinAlreadyInActivity`): joining is the one operation whose failures the
+ * client renders individually, so its outcomes are distinguished from the otherwise-identical
+ * failures of the host-only operations.
  */
 export enum LobbyServiceErrorCode {
   AlreadyInActivity = 'AlreadyInActivity',
@@ -87,6 +87,7 @@ export enum LobbyServiceErrorCode {
   NotObserverSlot = 'NotObserverSlot',
   NotOwnSlot = 'NotOwnSlot',
   NotSlotController = 'NotSlotController',
+  ObserversFull = 'ObserversFull',
   TargetNoActiveClient = 'TargetNoActiveClient',
   UserOffline = 'UserOffline',
 }
@@ -288,6 +289,7 @@ export class LobbyService {
     region,
     rttMs,
     clientPubkey,
+    asObserver,
     user,
     client,
   }: {
@@ -295,6 +297,8 @@ export class LobbyService {
     region?: GameServerRegionId
     rttMs?: number
     clientPubkey?: string
+    /** Whether the joiner wants an observer seat specifically; see the handling below. */
+    asObserver?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<void> {
@@ -321,24 +325,45 @@ export class LobbyService {
       )
     }
 
-    const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
-    if (teamIndex === undefined || slotIndex === undefined) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
-    }
-
-    let player
-    const [, observerTeam] = getObserverTeam(lobby)
-    if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+    let teamIndex: number | undefined
+    let slotIndex: number | undefined
+    let player: Slot
+    if (asObserver) {
+      // An explicit observer request takes an open observer slot or fails outright: unlike an
+      // ordinary join, it must never fall back to a player slot, since that isn't what was asked
+      // for.
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      const obsSlotIndex = obsTeam?.slots.findIndex(s => s.type === SlotType.Open) ?? -1
+      if (obsTeamIndex === undefined || obsSlotIndex === -1) {
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.ObserversFull,
+          'no observer slots are open',
+        )
+      }
+      teamIndex = obsTeamIndex
+      slotIndex = obsSlotIndex
       player = Slots.createObserver(client.userId)
     } else {
-      player = isUms(lobby.gameType)
-        ? Slots.createHuman(
-            client.userId,
-            availableSlot.race,
-            availableSlot.hasForcedRace,
-            availableSlot.playerId,
-          )
-        : Slots.createHuman(client.userId)
+      const [availTeamIndex, availSlotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
+      if (availTeamIndex === undefined || availSlotIndex === undefined) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
+      }
+      teamIndex = availTeamIndex
+      slotIndex = availSlotIndex
+
+      const [, observerTeam] = getObserverTeam(lobby)
+      if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+        player = Slots.createObserver(client.userId)
+      } else {
+        player = isUms(lobby.gameType)
+          ? Slots.createHuman(
+              client.userId,
+              availableSlot.race,
+              availableSlot.hasForcedRace,
+              availableSlot.playerId,
+            )
+          : Slots.createHuman(client.userId)
+      }
     }
     player = { ...player, region: joinRegion }
 
