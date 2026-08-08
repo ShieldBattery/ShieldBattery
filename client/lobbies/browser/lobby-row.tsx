@@ -8,7 +8,7 @@ import { FilledButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
-import { LobbyChip } from './browser-parts'
+import { HostCrown, LobbyChip } from './browser-parts'
 import { LobbySummary } from './summary-utils'
 
 const RowRoot = styled.button<{ $selected: boolean }>`
@@ -65,6 +65,29 @@ const Main = styled.div`
   min-width: 0;
 
   display: flex;
+  align-items: flex-start;
+  gap: 16px;
+`
+
+const PrimaryColumn = styled.div`
+  flex-grow: 1;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+`
+
+/**
+ * Fixed width, so the host's name starts at the same x-position in every row: scanning down the
+ * list for a host means scanning a straight column, not re-finding it after however much map and
+ * game-type text happened to precede it.
+ */
+const HostColumn = styled.div`
+  width: 160px;
+  flex-shrink: 0;
+
+  display: flex;
   flex-direction: column;
   gap: 2px;
 `
@@ -74,16 +97,34 @@ const Name = styled.div`
   ${singleLine};
 `
 
-const MetaLine = styled.div`
+const MapName = styled.div`
   ${bodyMedium};
   ${singleLine};
 
   color: var(--theme-on-surface-variant);
 `
 
-const MetaSeparator = styled.span`
-  padding: 0 6px;
-  opacity: 0.7;
+const HostNameRow = styled.div`
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+`
+
+const HostName = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+  min-width: 0;
+
+  color: var(--theme-on-surface);
+`
+
+const GameTypeLabel = styled.div`
+  ${bodyMedium};
+  ${singleLine};
+
+  color: var(--theme-on-surface-variant);
 `
 
 const Trailing = styled.div`
@@ -232,14 +273,19 @@ export function LobbyRow({ summary, selected, friendIds, isOwn, onSelect, onJoin
           <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
         </Thumbnail>
         <Main>
-          <Name title={summary.name}>{summary.name}</Name>
-          <MetaLine>
-            <span>{summary.map.name}</span>
-            <MetaSeparator>·</MetaSeparator>
-            <span>{gameTypeToLabel(summary.gameType, t)}</span>
-            <MetaSeparator>·</MetaSeparator>
-            <ConnectedUsername userId={summary.host.id} interactive={false} />
-          </MetaLine>
+          <PrimaryColumn>
+            <Name title={summary.name}>{summary.name}</Name>
+            <MapName>{summary.map.name}</MapName>
+          </PrimaryColumn>
+          <HostColumn>
+            <HostNameRow>
+              <HostCrown />
+              <HostName>
+                <ConnectedUsername userId={summary.host.id} interactive={false} />
+              </HostName>
+            </HostNameRow>
+            <GameTypeLabel>{gameTypeToLabel(summary.gameType, t)}</GameTypeLabel>
+          </HostColumn>
         </Main>
 
         <Trailing>
