@@ -226,7 +226,9 @@ const QuietLine = styled.div`
 `
 
 const FriendsCallout = styled.div`
-  --sb-avatar-stack-ring: rgb(from var(--theme-primary) r g b / 0.12);
+  /* The callout's tint pre-blended over the rail, so the stack's rings stay opaque — a
+     translucent ring would let the face beneath show through where it overlaps. */
+  --sb-avatar-stack-ring: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-container-low));
 
   padding: 8px 12px;
 
@@ -527,7 +529,7 @@ export function LobbyDetailRail({
 
         {friendIds.length ? (
           <FriendsCallout>
-            <AvatarStack userIds={friendIds} size={24} max={4} />
+            <AvatarStack userIds={friendIds} size={24} max={4} showNamesTooltip />
             <FriendsText>
               {friendIds.length === 1
                 ? t('lobbies.browser.oneFriendInside', 'A friend is in this lobby')

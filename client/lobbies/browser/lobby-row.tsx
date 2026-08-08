@@ -135,6 +135,19 @@ const Trailing = styled.div`
   gap: 16px;
 `
 
+/**
+ * A fixed-width column for the stack of the viewer's friends in the lobby (or its absence), so the
+ * columns around it hold the same x-position in every row no matter how many faces the stack
+ * shows. Sized for the stack at its widest: three faces, or two plus the overflow tail.
+ */
+const FriendsSlot = styled.div`
+  width: 52px;
+  flex-shrink: 0;
+
+  display: flex;
+  justify-content: flex-end;
+`
+
 const Occupancy = styled.div`
   ${labelLarge};
 
@@ -153,12 +166,12 @@ const OccupancyTaken = styled.span`
 `
 
 /**
- * Reserves a column for the row's badge (or its absence), so badges line up with each other down
- * the list. Only a floor: a long enough readout takes the space it needs out of the lobby's name
- * rather than spilling into the occupancy beside it.
+ * A fixed-width column for the row's badge (or its absence), so badges line up with each other
+ * down the list and the columns before them start at the same x-position in every row. A chip too
+ * long for it ellipsizes rather than widening this row's slot relative to its neighbors'.
  */
 const StatusSlot = styled.div`
-  min-width: 124px;
+  width: 124px;
   flex-shrink: 0;
 
   display: flex;
@@ -253,7 +266,9 @@ export function LobbyRow({
       </Main>
 
       <Trailing>
-        <AvatarStack userIds={friendIds} size={20} max={3} />
+        <FriendsSlot>
+          <AvatarStack userIds={friendIds} size={20} max={3} showNamesTooltip />
+        </FriendsSlot>
         <StatusSlot>
           <StatusBadge summary={summary} />
         </StatusSlot>
