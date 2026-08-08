@@ -99,6 +99,25 @@ export async function deleteRecordForGame(gameId: string): Promise<void> {
 }
 
 /**
+ * Locks a game's row for the remainder of the current transaction and returns whether the game
+ * already has reconciled results (also `true` if the game row no longer exists). Reconciliation can
+ * be triggered concurrently from several places (result submission, relay session close, the
+ * periodic sweeps), and each trigger works from a game snapshot taken before its transaction began,
+ * so writers must take this lock and re-check before applying result-derived changes — otherwise
+ * two triggers can both see an unreconciled snapshot and apply additive side effects (e.g. win/loss
+ * stat counters) twice.
+ */
+export async function lockGameAndCheckReconciled(
+  client: DbClient,
+  gameId: string,
+): Promise<boolean> {
+  const result = await client.query<{ results: unknown }>(sql`
+    SELECT results FROM games WHERE id = ${gameId} FOR UPDATE
+  `)
+  return result.rows.length === 0 || result.rows[0].results !== null
+}
+
+/**
  * Sets the reconciled (and probably final) result for a particular game. This is intended
  * to be executed in a transaction that updates all the users and the full game results at once.
  */

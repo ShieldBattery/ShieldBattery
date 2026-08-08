@@ -7,19 +7,29 @@ import {
 } from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import { GameRecord } from '../../../common/games/games'
+import { GameClientResult } from '../../../common/games/results'
 import { makeSbMapId } from '../../../common/maps'
 import { MatchmakingType } from '../../../common/matchmaking'
 import { asMockedFunction } from '../../../common/testing/mocks'
-import { makeSbUserId } from '../../../common/users/sb-user-id'
-import { areAllHumansAccountedFor } from '../models/games-users'
+import { SbUserId, makeSbUserId } from '../../../common/users/sb-user-id'
+import { getDesyncEventsForGame } from '../models/game-desync-events'
+import {
+  StoredResultReport,
+  areAllHumansAccountedFor,
+  getCurrentReportedResults,
+  setUserReconciledResult,
+} from '../models/games-users'
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { FakeClock } from '../time/testing/fake-clock'
+import { incrementUserStatsCount } from '../users/user-stats-model'
 import {
   findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
   getGameRecord,
+  lockGameAndCheckReconciled,
+  setReconciledResult,
 } from './game-models'
 import GameResultService, {
   SUBMIT_GAME_RESULTS_REQUEST_SCHEMA,
@@ -38,6 +48,8 @@ vi.mock('./game-models', async () => {
     findFullyReportedUnreconciledGames: vi.fn(),
     findKnownCompleteUnreconciledGames: vi.fn(),
     findUnreconciledV2GamesForProbe: vi.fn(),
+    lockGameAndCheckReconciled: vi.fn(),
+    setReconciledResult: vi.fn(),
   }
 })
 
@@ -47,6 +59,32 @@ vi.mock('../models/games-users', async () => {
   return {
     ...actual,
     areAllHumansAccountedFor: vi.fn(),
+    getCurrentReportedResults: vi.fn(),
+    setUserReconciledResult: vi.fn(),
+  }
+})
+
+vi.mock('../db/transaction', () => ({
+  default: vi.fn(async (next: (client: any) => Promise<any>) => next({} as any)),
+}))
+
+vi.mock('../models/game-desync-events', async () => {
+  const actual = await vi.importActual<typeof import('../models/game-desync-events')>(
+    '../models/game-desync-events',
+  )
+  return {
+    ...actual,
+    getDesyncEventsForGame: vi.fn(),
+  }
+})
+
+vi.mock('../users/user-stats-model', async () => {
+  const actual = await vi.importActual<typeof import('../users/user-stats-model')>(
+    '../users/user-stats-model',
+  )
+  return {
+    ...actual,
+    incrementUserStatsCount: vi.fn(),
   }
 })
 
@@ -582,5 +620,88 @@ describe('SUBMIT_GAME_RESULTS_REQUEST_SCHEMA (raw v2 reports)', () => {
   test('rejects more net player rows than the storm id space holds', () => {
     const { error } = SUBMIT_GAME_RESULTS_REQUEST_SCHEMA.validate(rawReport(13))
     expect(error).toBeDefined()
+  })
+})
+
+describe('games/game-result-service/GameResultService#maybeReconcileResults', () => {
+  const GAME_ID = 'game-reconcile-1'
+
+  let clock: FakeClock
+  let service: GameResultService
+
+  function makeLobbyGameRecord(): GameRecord {
+    return {
+      id: GAME_ID,
+      startTime: new Date(0),
+      mapId: makeSbMapId('1'),
+      config: lobbyConfig({ lockedAlliances: true }),
+      disputable: false,
+      disputeRequested: false,
+      disputeReviewed: false,
+      gameLength: null,
+      results: null,
+      selectedMatchup: null,
+      assignedMatchup: null,
+    }
+  }
+
+  function legacyReport(reporter: SbUserId): StoredResultReport {
+    return {
+      kind: 'legacy',
+      reporter,
+      time: 60_000,
+      playerResults: [
+        [p1, { result: GameClientResult.Victory, race: 't', apm: 100 }],
+        [p2, { result: GameClientResult.Defeat, race: 'z', apm: 100 }],
+      ],
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    clock = new FakeClock()
+    clock.setCurrentTime(1_000_000)
+
+    service = new GameResultService(
+      { on: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { publish: vi.fn() } as any,
+      { scheduleJob: vi.fn(), unscheduleJob: vi.fn() } as any,
+      { getSeasonForDate: vi.fn().mockResolvedValue([{ id: 1 }, undefined]) } as any,
+      clock,
+      {} as any,
+    )
+  })
+
+  test('a stale snapshot cannot re-apply result side effects after a reconcile committed', async () => {
+    // Simulates the DB state the games row lock serializes on: the first committed reconcile
+    // flips it, and every later lock-and-check observes the committed value.
+    let reconciledInDb = false
+    asMockedFunction(lockGameAndCheckReconciled).mockImplementation(async () => reconciledInDb)
+    asMockedFunction(setReconciledResult).mockImplementation(async () => {
+      reconciledInDb = true
+    })
+    asMockedFunction(getCurrentReportedResults).mockResolvedValue([
+      legacyReport(p1),
+      legacyReport(p2),
+    ])
+    asMockedFunction(getDesyncEventsForGame).mockResolvedValue([])
+    asMockedFunction(setUserReconciledResult).mockResolvedValue(undefined as any)
+    asMockedFunction(incrementUserStatsCount).mockResolvedValue(undefined as any)
+
+    // Two triggers (e.g. a result submission's fire-and-forget reconcile and the relay's
+    // known-complete force-reconcile) each capture an unreconciled snapshot before either
+    // transaction commits.
+    const staleRecord = makeLobbyGameRecord()
+
+    const first = await (service as any).maybeReconcileResults(staleRecord)
+    expect(first).toBe(true)
+    const statsCallsAfterFirst = asMockedFunction(incrementUserStatsCount).mock.calls.length
+    expect(statsCallsAfterFirst).toBeGreaterThan(0)
+
+    const second = await (service as any).maybeReconcileResults(staleRecord)
+    expect(second).toBe(false)
+    expect(asMockedFunction(incrementUserStatsCount).mock.calls.length).toBe(statsCallsAfterFirst)
   })
 })

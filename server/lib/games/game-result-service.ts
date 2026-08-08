@@ -39,6 +39,7 @@ import {
   findKnownCompleteUnreconciledGames,
   findUnreconciledGames,
   findUnreconciledV2GamesForProbe,
+  lockGameAndCheckReconciled,
   setReconciledResult,
 } from '../games/game-models'
 import {
@@ -807,7 +808,17 @@ export default class GameResultService {
     }
 
     const reconcileDate = new Date(this.clock.now())
-    await transact(async client => {
+    const committed = await transact(async client => {
+      // The `gameRecord.results` check at the top of this method ran against a snapshot taken
+      // before this transaction began, and multiple triggers (a submission's fire-and-forget
+      // reconcile, the relay's known-complete force-reconcile, the desync-grace re-check, and the
+      // periodic sweeps) can race here for the same game. Re-check under the games row lock so
+      // whichever transaction commits first wins and every other one backs off without applying
+      // additive side effects (win/loss stat counters, rating changes) a second time.
+      if (await lockGameAndCheckReconciled(client, gameId)) {
+        return false
+      }
+
       // TODO(tec27): in some cases, we'll be re-reconciling results, and we may need to go back
       // and "fixup" rank changes and win/loss counters
       const resultEntries = Array.from(reconciled.results.entries())
@@ -1074,9 +1085,11 @@ export default class GameResultService {
           // point in the (near) future
         })
       }
+
+      return true
     })
 
-    return true
+    return committed
   }
 
   /**
