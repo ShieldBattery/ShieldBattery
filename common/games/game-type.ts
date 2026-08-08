@@ -40,6 +40,35 @@ export function gameTypeToLabel(gameType: GameType, t: TFunction): string {
       return assertUnreachable(gameType)
   }
 }
+export function gameTypeToDescription(gameType: GameType, t: TFunction): string {
+  switch (gameType) {
+    case GameType.Melee:
+      return t(
+        'game.gameTypeDescription.melee',
+        'Standard rules. Pick alliances in-game, last force standing wins.',
+      )
+    case GameType.FreeForAll:
+      return t('game.gameTypeDescription.freeForAll', 'No alliances. Everyone for themselves.')
+    case GameType.OneVsOne:
+      return t('game.gameTypeDescription.oneOnOne', 'A straight duel. Exactly two players.')
+    case GameType.TopVsBottom:
+      return t('game.gameTypeDescription.topVsBottom', 'Fixed teams. Pick how the slots split up.')
+    case GameType.TeamMelee:
+      return t('game.gameTypeDescription.teamMelee', 'Teammates share control of a single base.')
+    case GameType.TeamFreeForAll:
+      return t(
+        'game.gameTypeDescription.teamFreeForAll',
+        'Shared-control teams, every team for itself.',
+      )
+    case GameType.UseMapSettings:
+      return t(
+        'game.gameTypeDescription.useMapSettings',
+        "The map's own units, triggers, and rules.",
+      )
+    default:
+      return assertUnreachable(gameType)
+  }
+}
 /**
  * Checks if the given `gameType` is a "team" type, meaning that a user can select the configuration
  * of the slots when creating a lobby, and the slots will be divided into different teams with

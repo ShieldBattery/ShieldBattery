@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { LobbyCreateErrorCode, LobbyJoinErrorCode } from '../../../common/lobbies/lobby-network'
+import { LobbyJoinErrorCode } from '../../../common/lobbies/lobby-network'
 import { convertLobbyServiceError } from './lobby-api'
 import { LobbyServiceError, LobbyServiceErrorCode } from './lobby-service'
 
@@ -8,11 +8,11 @@ import { LobbyServiceError, LobbyServiceErrorCode } from './lobby-service'
  * the HTTP API's wire contract for lobby errors: a new `LobbyServiceErrorCode` fails to compile
  * until it's added here, and a mapping change fails the test until the table agrees.
  *
- * Failures without a client-facing create/join code carry their service code in the body instead.
+ * Failures without a client-facing join code carry their service code in the body instead.
  */
 const EXPECTED_ERROR_MAPPING: Record<
   LobbyServiceErrorCode,
-  { status: number; bodyCode?: LobbyCreateErrorCode | LobbyJoinErrorCode }
+  { status: number; bodyCode?: LobbyJoinErrorCode }
 > = {
   [LobbyServiceErrorCode.AlreadyInActivity]: { status: 409 },
   [LobbyServiceErrorCode.AlreadyInSlot]: { status: 409 },
@@ -37,7 +37,6 @@ const EXPECTED_ERROR_MAPPING: Record<
     bodyCode: LobbyJoinErrorCode.AlreadyStarted,
   },
   [LobbyServiceErrorCode.LobbyFull]: { status: 409, bodyCode: LobbyJoinErrorCode.Full },
-  [LobbyServiceErrorCode.NameTaken]: { status: 409, bodyCode: LobbyCreateErrorCode.NameTaken },
   [LobbyServiceErrorCode.NoActiveClient]: { status: 400 },
   [LobbyServiceErrorCode.NoLobby]: { status: 404, bodyCode: LobbyJoinErrorCode.NoLongerOpen },
   [LobbyServiceErrorCode.NotEnoughSides]: { status: 400 },

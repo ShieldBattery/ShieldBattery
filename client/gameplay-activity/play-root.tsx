@@ -5,7 +5,7 @@ import styled from 'styled-components'
 import { Redirect, Route, Switch, useRoute } from 'wouter'
 import { useRequireLogin } from '../auth/auth-utils'
 import { OnlyInApp } from '../download/only-in-app'
-import { CreateLobby } from '../lobbies/create-lobby'
+import { HostGame } from '../lobbies/create/host-game'
 import JoinLobby from '../lobbies/join-lobby'
 import { FindMatch } from '../matchmaking/find-match'
 import { TabItem, TabItemContainer, Tabs } from '../material/tabs'
@@ -136,7 +136,7 @@ function Lobbies() {
     <Switch>
       {IS_ELECTRON ? (
         <Route path='/play/lobbies/create'>
-          <CreateLobby
+          <HostGame
             onNavigateToList={() => {
               push('/play/lobbies')
             }}

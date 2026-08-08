@@ -10,7 +10,6 @@ import {
   GetLobbyStateResponse,
   JoinLobbyRequest,
   LobbyClientRequest,
-  LobbyCreateErrorCode,
   LobbyJoinErrorCode,
   LobbySlotRequest,
   SendLobbyChatRequest,
@@ -118,9 +117,9 @@ const lobbySlotBody = Joi.object<LobbySlotRequest>({
  * Translates a failure from `LobbyService` into an HTTP error, passing anything that isn't a service
  * error through untouched.
  *
- * The create and join failures the client explains individually additionally carry a machine-
- * readable `LobbyCreateErrorCode`/`LobbyJoinErrorCode` as the response body's `code`, in place of
- * the service code every other failure reports.
+ * The join failures the client explains individually additionally carry a machine-readable
+ * `LobbyJoinErrorCode` as the response body's `code`, in place of the service code every other
+ * failure reports.
  *
  * Note that no failure here maps to 401: a 401 tells the client its session is gone and triggers a
  * logout, which is the wrong response to (say) naming a client id that has since disconnected.
@@ -158,9 +157,6 @@ export function convertLobbyServiceError(err: unknown): void {
     case LobbyServiceErrorCode.CountingDown:
     case LobbyServiceErrorCode.TargetNoActiveClient:
       throw asHttpError(409, err)
-
-    case LobbyServiceErrorCode.NameTaken:
-      throw new HttpErrorWithPayload(409, err.message, { code: LobbyCreateErrorCode.NameTaken })
 
     case LobbyServiceErrorCode.NoLobby:
       throw new HttpErrorWithPayload(404, err.message, { code: LobbyJoinErrorCode.NoLongerOpen })

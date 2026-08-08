@@ -301,16 +301,8 @@ describe('lobbies/lobby-service', () => {
       ])
     })
 
-    test('creating a listed lobby with a name matching an existing listed lobby fails', async () => {
+    test('creating a listed lobby with a name matching an existing listed lobby succeeds', async () => {
       await createLobby(host, 'Duplicate name', 'listed')
-
-      await expect(createLobby(otherHost, 'Duplicate name', 'listed')).rejects.toMatchObject({
-        code: LobbyServiceErrorCode.NameTaken,
-      })
-    })
-
-    test('creating a listed lobby with a name matching an existing unlisted lobby succeeds', async () => {
-      await createLobby(host, 'Duplicate name', 'unlisted')
 
       await expect(createLobby(otherHost, 'Duplicate name', 'listed')).resolves.toBeDefined()
     })

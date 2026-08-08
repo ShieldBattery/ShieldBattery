@@ -27,12 +27,16 @@ import {
 } from './action-creators'
 import { MapInfoImage } from './map-image'
 
+// The overlay chrome self-hides on small tiles so the map art stays recognizable: the two 48px
+// corner icon buttons collide with each other below ~176px wide, and the 48px-tall name bar
+// swallows nearly half the art below ~120px, so each disappears below its own threshold.
 const Container = styled.div`
   position: relative;
   width: 100%;
   height: 100%;
   border-radius: 4px;
   contain: content;
+  container-type: inline-size;
 `
 
 const TEXT_PROTECTION_HEIGHT_PX = 48
@@ -120,12 +124,20 @@ const MapPreviewIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   left: 4px;
+
+  @container (max-width: 175px) {
+    display: none;
+  }
 `
 
 const FavoriteActionIcon = styled(IconButton)`
   position: absolute;
   top: 4px;
   right: 4px;
+
+  @container (max-width: 175px) {
+    display: none;
+  }
 `
 
 const TextProtection = styled.div`
@@ -140,6 +152,10 @@ const TextProtection = styled.div`
   justify-content: space-between;
 
   background-color: rgb(from var(--color-blue10) r g b / 0.5);
+
+  @container (max-width: 119px) {
+    display: none;
+  }
 `
 
 const MapName = styled.div`

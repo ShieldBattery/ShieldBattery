@@ -129,7 +129,11 @@ function mapsSectionToTitle(section: MapsSection, t: TFunction): string {
 }
 
 interface BrowseServerMapsProps {
-  title: string
+  /**
+   * Shown as a page title above the tabs. Omit to render without a title bar (e.g. when this is
+   * already hosted inside a dialog/other surface that provides its own title).
+   */
+  title?: string
   uploadedMapId?: SbMapId
   onMapRemove?: (mapId: SbMapId) => void
   onMapClick?: (mapId: SbMapId) => void
@@ -355,9 +359,11 @@ export function BrowseServerMaps({
   // TODO(tec27): Add back button if needed
   return (
     <Container>
-      <TitleBar>
-        <TitleLarge>{title}</TitleLarge>
-      </TitleBar>
+      {title ? (
+        <TitleBar>
+          <TitleLarge>{title}</TitleLarge>
+        </TitleBar>
+      ) : null}
       <TabArea>
         <Tabs
           activeTab={activeTab}

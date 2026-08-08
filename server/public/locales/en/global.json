@@ -569,6 +569,15 @@
       "unknown": "Unknown",
       "useMapSettings": "Use map settings"
     },
+    "gameTypeDescription": {
+      "freeForAll": "No alliances. Everyone for themselves.",
+      "melee": "Standard rules. Pick alliances in-game, last force standing wins.",
+      "oneOnOne": "A straight duel. Exactly two players.",
+      "teamFreeForAll": "Shared-control teams, every team for itself.",
+      "teamMelee": "Teammates share control of a single base.",
+      "topVsBottom": "Fixed teams. Pick how the slots split up.",
+      "useMapSettings": "The map's own units, triggers, and rules."
+    },
     "launchingGameDialog": {
       "startingGameServer": "Starting a game server…",
       "title": "Launching game…"
@@ -892,27 +901,36 @@
       "title": "Lobbies ({{lobbyCount}})"
     },
     "createLobby": {
-      "advancedSettings": "Advanced settings",
-      "allowObservers": "Allow observers",
-      "backToList": "Back to list",
+      "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
-      "errorNameTaken": "A lobby with that name already exists. Please choose a different name.",
       "gameSubTypeHeader": "Teams",
       "gameSubTypeOption": "{{numTeams}} teams",
-      "gameSubTypeOptionTvB": "{{topSlots}} vs {{bottomSlots}}",
       "gameTypeHeader": "Game type",
       "lobbyName": "Lobby name",
-      "lobbyNameRequired": "Enter a lobby name",
+      "mapPlayerCount_one": "{{count}} player",
+      "mapPlayerCount_other": "{{count}} players",
       "mapRequired": "Select a map to play",
+      "optionsHeader": "Options",
+      "recentMapsHeader": "Recent maps",
       "selectMap": "Select map",
+      "slotsHeader": "Slots",
+      "slotsPreviewOneOnOne": "Head-to-head · 2 players",
+      "slotsPreviewOpen_one": "{{count}} open slots on {{mapName}}",
+      "slotsPreviewOpen_other": "{{count}} open slots on {{mapName}}",
+      "slotsPreviewTeams_one": "{{numTeams}} teams sharing {{count}} slots",
+      "slotsPreviewTeams_other": "{{numTeams}} teams sharing {{count}} slots",
+      "slotsPreviewTvb": "{{top}} vs {{bottom}} on {{mapName}}",
+      "slotsPreviewUms_one": "{{count}} slots · layout set by the map",
+      "slotsPreviewUms_other": "{{count}} slots · layout set by the map",
+      "slotsPreviewVs": "VS",
+      "teamSplitHeader": "Team split",
+      "teamSplitOption": "{{top}}v{{bottom}}",
       "title": "Create lobby",
       "useLegacyLimits": "Use legacy unit limit",
       "visibility": "Visibility",
       "visibilityListed": "Public",
-      "visibilityListedDescription": "Shown in the lobby list for anyone to join. Its replays are public, and its games against other players appear on the games page",
-      "visibilityUnlisted": "Unlisted",
-      "visibilityUnlistedDescription": "Only people you share the link with can join"
+      "visibilityUnlisted": "Unlisted"
     },
     "errors": {
       "alreadyInLobby": "You're already in another lobby.",
@@ -921,6 +939,18 @@
     "events": {
       "banned": "You have been banned from the lobby.",
       "kicked": "You have been kicked from the lobby."
+    },
+    "hostGame": {
+      "changeMap": "Change map",
+      "defaultLobbyName": "{{name}}'s lobby",
+      "defaultLobbyNameFallback": "My lobby",
+      "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "summaryObserversOff": "No observers",
+      "summaryObserversOn": "Observers on",
+      "summarySlots_one": "{{count}} slots",
+      "summarySlots_other": "{{count}} slots",
+      "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
+      "visibilityUnlistedDescription": "Only people with the link can join. Games and replays are unlisted."
     },
     "joinLobby": {
       "action": "Join lobby",
