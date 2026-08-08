@@ -440,7 +440,9 @@ impl From<&GameSetupInfo> for LobbyOptions {
 #[allow(dead_code)]
 pub enum MapInfo {
     Replay(ReplayMapInfo),
-    Game(GameMapInfo),
+    // Boxed since `GameMapInfo` is much larger than `ReplayMapInfo`; `Box<T>` deserializes
+    // transparently, so this doesn't change the wire format.
+    Game(Box<GameMapInfo>),
 }
 
 #[derive(Clone, Debug, Deserialize)]
