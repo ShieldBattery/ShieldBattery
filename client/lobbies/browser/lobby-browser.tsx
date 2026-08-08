@@ -20,6 +20,9 @@ import { useRelationshipsLoader } from '../../social/friends-list'
 import { healthChecked } from '../../starcraft/health-checked'
 import { FlexSpacer } from '../../styles/flex-spacer'
 import { bodyLarge, bodyMedium, titleLarge } from '../../styles/typography'
+import { isInLobby } from '../lobby-reducer'
+import { navigateToLobby } from '../lobby-url'
+import { useJoinLobbyAction } from '../use-join-lobby-action'
 import { LobbyBrowserFilters, useLobbyBrowserFilterState } from './lobby-browser-filters'
 import { LobbyDetailRail } from './lobby-detail-rail'
 import { LobbyRow } from './lobby-row'
@@ -39,11 +42,14 @@ const NO_USERS: ReadonlyMap<SbUserId, SbUser> = new Map()
 
 const Root = styled.div`
   height: 100%;
-  /* This page is a grid item in the play area's layout, whose track minimum defaults to its
-     content's min-content size. The fixed-width rail plus the rows' no-wrap text give that
-     content a floor of its own (~950px) unless a min-width overrides it, so without this the page
-     gets clipped at the track's edge instead of shrinking below that floor. */
+  /* This page is a grid item in the play area's layout, whose tracks' minimums default to the
+     content's min-content size in both axes. The fixed-width rail plus the rows' no-wrap text
+     give the content a width floor of its own (~950px), and a long slot list gives it a height
+     floor taller than the viewport — without these overrides the page gets clipped at the column
+     track's edge and grows the row track instead of letting the list and rail scroll internally
+     (which also keeps the rail's join footer on screen). */
   min-width: 0;
+  min-height: 0;
   padding: 16px 0 24px;
 
   display: flex;
@@ -132,6 +138,9 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   const dispatch = useAppDispatch()
   const isConnected = useAppSelector(s => s.network.isConnected)
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
+  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
+  const currentLobbyId = useAppSelector(s => s.lobby.info.id)
+  const joinLobbyAction = useJoinLobbyAction()
 
   useRelationshipsLoader()
 
@@ -194,6 +203,25 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
   const selectedId = visible.some(summary => summary.id === clickedId) ? clickedId : visible[0]?.id
   const selected = selectedId !== undefined ? lobbiesById.get(selectedId) : undefined
 
+  // A row-initiated join failure surfaces in the rail, so it needs to know which lobby it belongs
+  // to: the rail only shows it while that lobby is still the one selected.
+  const [joinError, setJoinError] = useState<{ lobbyId: SbLobbyId; message: string }>()
+
+  const selectLobby = (lobbyId: SbLobbyId) => {
+    setClickedId(lobbyId)
+    setJoinError(undefined)
+  }
+
+  const joinFrom = (summary: LobbySummary, asObserver: boolean) => {
+    setJoinError(undefined)
+    setClickedId(summary.id)
+    joinLobbyAction(summary.id, {
+      name: summary.name,
+      asObserver,
+      onJoinFailed: message => setJoinError({ lobbyId: summary.id, message }),
+    })
+  }
+
   const stats = lobbyListStats(summaries)
   const canCreate = IS_ELECTRON
 
@@ -250,20 +278,37 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     panes = (
       <>
         <ListPane>
-          {visible.map(summary => (
-            <LobbyRow
-              key={summary.id}
-              summary={summary}
-              selected={summary.id === selectedId}
-              friendIds={friendIdsByLobby.get(summary.id) ?? []}
-              onSelect={() => setClickedId(summary.id)}
-            />
-          ))}
+          {visible.map(summary => {
+            const isOwn = inCurrentLobby && currentLobbyId === summary.id
+            return (
+              <LobbyRow
+                key={summary.id}
+                summary={summary}
+                selected={summary.id === selectedId}
+                friendIds={friendIdsByLobby.get(summary.id) ?? []}
+                isOwn={isOwn}
+                onSelect={() => selectLobby(summary.id)}
+                onJoin={() => {
+                  if (isOwn) {
+                    navigateToLobby(summary.id, summary.name)
+                  } else {
+                    joinFrom(summary, false)
+                  }
+                }}
+              />
+            )
+          })}
         </ListPane>
         <LobbyDetailRail
           key={selectedId ?? 'none'}
           summary={selected}
           friendIds={(selectedId && friendIdsByLobby.get(selectedId)) || []}
+          joinError={joinError && joinError.lobbyId === selectedId ? joinError.message : undefined}
+          onJoin={asObserver => {
+            if (selected) {
+              joinFrom(selected, asObserver)
+            }
+          }}
         />
       </>
     )

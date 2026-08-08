@@ -220,6 +220,7 @@ export class LobbyApi {
         region: regionSchema,
         rttMs: rttMsSchema,
         clientPubkey: clientPubkeySchema,
+        leaveCurrentLobby: Joi.boolean(),
       }),
     })
 
@@ -236,6 +237,7 @@ export class LobbyApi {
       region: body.region,
       rttMs: body.rttMs,
       clientPubkey: body.clientPubkey,
+      leaveCurrentLobby: body.leaveCurrentLobby,
       user,
       client,
     })
@@ -252,6 +254,7 @@ export class LobbyApi {
         rttMs: rttMsSchema,
         clientPubkey: clientPubkeySchema,
         asObserver: Joi.boolean(),
+        leaveCurrentLobby: Joi.boolean(),
       }),
     })
 
@@ -263,6 +266,7 @@ export class LobbyApi {
       rttMs: body.rttMs,
       clientPubkey: body.clientPubkey,
       asObserver: body.asObserver,
+      leaveCurrentLobby: body.leaveCurrentLobby,
       user,
       client,
     })

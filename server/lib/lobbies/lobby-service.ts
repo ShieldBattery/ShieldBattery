@@ -209,6 +209,7 @@ export class LobbyService {
     region,
     rttMs,
     clientPubkey,
+    leaveCurrentLobby,
     user,
     client,
   }: {
@@ -222,6 +223,12 @@ export class LobbyService {
     region?: GameServerRegionId
     rttMs?: number
     clientPubkey?: string
+    /**
+     * When set, a client currently in a different lobby is removed from it as part of this create
+     * rather than the create failing outright. Applied only after every failure check has passed,
+     * so a failed create never strands the client lobby-less.
+     */
+    leaveCurrentLobby?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<{ id: SbLobbyId }> {
@@ -264,6 +271,18 @@ export class LobbyService {
       useLegacyLimits,
       visibility: lobbyVisibility,
     })
+
+    if (leaveCurrentLobby && this.lobbyClients.has(client)) {
+      // Every failure above has already been checked, so the client is only removed from its
+      // current lobby once the new lobby is known to be creatable. This also frees the activity
+      // registry entry that `registerActiveClient` below needs, the same way an explicit leave
+      // does (host-migration/close-when-empty semantics apply as usual).
+      const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
+      if (currentLobby) {
+        this._removeClientFromLobby(currentLobby, client)
+      }
+    }
+
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.AlreadyInActivity,
@@ -290,6 +309,7 @@ export class LobbyService {
     rttMs,
     clientPubkey,
     asObserver,
+    leaveCurrentLobby,
     user,
     client,
   }: {
@@ -299,6 +319,12 @@ export class LobbyService {
     clientPubkey?: string
     /** Whether the joiner wants an observer seat specifically; see the handling below. */
     asObserver?: boolean
+    /**
+     * When set, a client currently in a different lobby is removed from it as part of this join
+     * rather than the join failing outright. Applied only after every failure check on the target
+     * lobby has passed, so a failed join never strands the client lobby-less.
+     */
+    leaveCurrentLobby?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<void> {
@@ -308,6 +334,14 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
     const lobby = this.lobbies.get(id)!
+
+    if (this.lobbyClients.get(client) === id) {
+      // Already seated in the target lobby: joining it again is what a member clicking join on
+      // their own lobby (e.g. during a countdown) looks like, so it resolves as a no-op success
+      // rather than reaching the checks below.
+      return
+    }
+
     try {
       this.ensureLobbyNotTransient(lobby)
     } catch (err) {
@@ -368,6 +402,17 @@ export class LobbyService {
     player = { ...player, region: joinRegion }
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+
+    if (leaveCurrentLobby && this.lobbyClients.has(client)) {
+      // Every failure above has already been checked, so the client is only removed from its
+      // current lobby once the target join is known to succeed. This also frees the activity
+      // registry entry that `registerActiveClient` below needs, the same way an explicit leave
+      // does (host-migration/close-when-empty semantics apply as usual).
+      const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
+      if (currentLobby) {
+        this._removeClientFromLobby(currentLobby, client)
+      }
+    }
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(

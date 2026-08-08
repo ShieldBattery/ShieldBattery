@@ -676,6 +676,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "Выйти из лобби",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Слоты:",
       "viewLobby": "Открыть лобби"
@@ -912,6 +913,7 @@
       "friendsInside_other": "{{count}} друга в этом лобби",
       "full": "Заполнено",
       "hostedBy": "хост: <1></1>",
+      "join": "Присоединиться",
       "joinAsObserver": "Присоединиться как зритель",
       "joinLobby": "Присоединиться к лобби",
       "legacyLimits": "Классический лимит",
@@ -923,6 +925,7 @@
       "observerSlotsOpen_other": "{{count}} свободного места",
       "oneFriendInside": "В этом лобби есть Ваш друг",
       "railPlaceholder": "Выберите лобби для предпросмотра",
+      "returnToLobby": "Вернуться в лобби",
       "showFullLobbies": "Показать заполненные лобби",
       "slotClosed": "Закрыто",
       "slotComputer": "Компьютер",
@@ -983,6 +986,21 @@
       "download": "Скачать ShieldBattery",
       "loadError": "Не удалось загрузить это лобби.",
       "openInApp": "Уже есть ShieldBattery? Откройте эту ссылку из приложения, чтобы присоединиться к лобби."
+    },
+    "leaveAndCreate": {
+      "confirmAction": "Выйти и создать",
+      "dialogTitle": "Выйти из текущего лобби?",
+      "hostAloneNotice": "Создав это лобби, вы закроете «{{current}}» — в нём больше никого нет.",
+      "hostNotice": "Вы — хост лобби «{{current}}». Создав новое лобби, вы передадите роль хоста другому игроку.",
+      "memberNotice": "Создав это лобби, вы выйдете из «{{current}}»."
+    },
+    "leaveAndJoin": {
+      "confirmAction": "Выйти и присоединиться",
+      "dialogTitle": "Выйти из текущего лобби?",
+      "genericLobbyName": "новое лобби",
+      "hostAloneBody": "Присоединившись к лобби «{{target}}», вы закроете «{{current}}» — в нём больше никого нет.",
+      "hostBody": "Вы — хост лобби «{{current}}». Присоединившись к лобби «{{target}}», вы передадите роль хоста другому игроку.",
+      "memberBody": "Присоединившись к лобби «{{target}}», вы выйдете из «{{current}}»."
     },
     "lobby": {
       "copiedInviteLink": "Скопировано!",

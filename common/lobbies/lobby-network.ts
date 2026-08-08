@@ -52,6 +52,12 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   allowObservers?: boolean
   useLegacyLimits?: boolean
   visibility?: LobbyVisibility
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before hosting this one. Without it, being in any gameplay activity (including another lobby)
+   * fails the create.
+   */
+  leaveCurrentLobby?: boolean
 }
 
 /** The response to a successful lobby creation, carrying the new lobby's id. */
@@ -66,6 +72,12 @@ export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams
    * the join fails, rather than being seated as a player or benched.
    */
   asObserver?: boolean
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before being seated in this one. Without it, being in any gameplay activity (including another
+   * lobby) fails the join.
+   */
+  leaveCurrentLobby?: boolean
 }
 
 /** The body of a request to send a chat message to a lobby. */
