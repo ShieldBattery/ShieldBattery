@@ -39,6 +39,11 @@ const NO_USERS: ReadonlyMap<SbUserId, SbUser> = new Map()
 
 const Root = styled.div`
   height: 100%;
+  /* This page is a grid item in the play area's layout, whose track minimum defaults to its
+     content's min-content size. The fixed-width rail plus the rows' no-wrap text give that
+     content a floor of its own (~950px) unless a min-width overrides it, so without this the page
+     gets clipped at the track's edge instead of shrinking below that floor. */
+  min-width: 0;
   padding: 16px 0 24px;
 
   display: flex;

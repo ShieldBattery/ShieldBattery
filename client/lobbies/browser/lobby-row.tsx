@@ -3,6 +3,7 @@ import styled, { css } from 'styled-components'
 import { gameTypeToLabel } from '../../../common/games/game-type'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { AvatarStack } from '../../avatars/avatar-stack'
+import { MapThumbnail } from '../../maps/map-thumbnail'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
@@ -12,10 +13,9 @@ import { LobbySummary, openPlayerSlotCount, playerSlotCounts } from './summary-u
 const RowRoot = styled.button<{ $selected: boolean }>`
   ${buttonReset};
 
-  position: relative;
   width: 100%;
-  min-height: 64px;
-  padding: 10px 16px 10px 18px;
+  min-height: 80px;
+  padding: 8px 16px 8px 8px;
 
   display: flex;
   align-items: center;
@@ -23,21 +23,6 @@ const RowRoot = styled.button<{ $selected: boolean }>`
 
   border-radius: 8px;
   text-align: left;
-
-  /* The accent bar marks the selection the rail is showing; it grows out of nothing on hover. */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 12px;
-    bottom: 12px;
-    left: 6px;
-    width: 3px;
-
-    border-radius: 2px;
-    background-color: var(--theme-primary);
-    opacity: 0;
-    transition: opacity 100ms linear;
-  }
 
   &:hover {
     background-color: var(--theme-container-low);
@@ -61,16 +46,17 @@ const RowRoot = styled.button<{ $selected: boolean }>`
           &:hover {
             background-color: rgb(from var(--theme-primary) r g b / 0.16);
           }
-
-          &::before {
-            opacity: 1;
-          }
         `
-      : css`
-          &:hover::before {
-            opacity: 0.4;
-          }
-        `};
+      : null};
+`
+
+const Thumbnail = styled.div`
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+
+  border-radius: 4px;
+  overflow: hidden;
 `
 
 const Main = styled.div`
@@ -174,6 +160,9 @@ export function LobbyRow({ summary, selected, friendIds, onSelect }: LobbyRowPro
       aria-pressed={selected}
       onClick={onSelect}
       data-testid='lobby-list-entry'>
+      <Thumbnail>
+        <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+      </Thumbnail>
       <Main>
         <Name title={summary.name}>{summary.name}</Name>
         <MetaLine>
