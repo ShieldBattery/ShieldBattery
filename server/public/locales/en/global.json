@@ -679,6 +679,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "Leave lobby",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Slots:",
       "viewLobby": "View lobby"
@@ -913,6 +914,7 @@
       "friendsInside_other": "{{count}} friends are in this lobby",
       "full": "Full",
       "hostedBy": "hosted by <1></1>",
+      "join": "Join",
       "joinAsObserver": "Join as observer",
       "joinLobby": "Join lobby",
       "legacyLimits": "Legacy limits",
@@ -922,6 +924,7 @@
       "observerSlotsOpen_other": "{{count}} open",
       "oneFriendInside": "A friend is in this lobby",
       "railPlaceholder": "Select a lobby to preview it",
+      "returnToLobby": "Return to lobby",
       "showFullLobbies": "Show full lobbies",
       "slotClosed": "Closed",
       "slotComputer": "Computer",
@@ -1006,6 +1009,21 @@
       "download": "Download ShieldBattery",
       "loadError": "There was a problem loading this lobby.",
       "openInApp": "Already have ShieldBattery? Open this link from inside the app to join the lobby."
+    },
+    "leaveAndCreate": {
+      "confirmAction": "Leave and create",
+      "dialogTitle": "Leave your current lobby?",
+      "hostAloneNotice": "Creating this lobby will close {{current}}, since no one else is in it.",
+      "hostNotice": "You're hosting {{current}}. Creating a new lobby will hand it off to another player.",
+      "memberNotice": "Creating this lobby will remove you from {{current}}."
+    },
+    "leaveAndJoin": {
+      "confirmAction": "Leave and join",
+      "dialogTitle": "Leave your current lobby?",
+      "genericLobbyName": "the new lobby",
+      "hostAloneBody": "Joining {{target}} will close {{current}}, since no one else is in it.",
+      "hostBody": "You're hosting {{current}}. Joining {{target}} will hand it off to another player.",
+      "memberBody": "Joining {{target}} will remove you from {{current}}."
     },
     "lobby": {
       "copiedInviteLink": "Copied!",

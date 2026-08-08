@@ -667,6 +667,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "로비 나가기",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "슬롯:",
       "viewLobby": "로비 보기"
@@ -900,6 +901,7 @@
       "friendsInside_other": "친구 {{count}}명이 이 로비에 있습니다",
       "full": "가득 참",
       "hostedBy": "호스트: <1></1>",
+      "join": "참여",
       "joinAsObserver": "관전자로 참여",
       "joinLobby": "로비 참여",
       "legacyLimits": "옛 유닛 제한",
@@ -908,6 +910,7 @@
       "observerSlotsOpen_other": "{{count}}자리 비어 있음",
       "oneFriendInside": "친구가 이 로비에 있습니다",
       "railPlaceholder": "미리 볼 로비를 선택하세요",
+      "returnToLobby": "로비로 돌아가기",
       "showFullLobbies": "가득 찬 로비 보기",
       "slotClosed": "닫힘",
       "slotComputer": "컴퓨터",
@@ -959,6 +962,21 @@
       "download": "ShieldBattery 다운로드",
       "loadError": "로비를 불러오는 중 문제가 발생했습니다.",
       "openInApp": "이미 ShieldBattery를 사용 중이신가요? 앱 안에서 이 링크를 열면 로비에 참가할 수 있습니다."
+    },
+    "leaveAndCreate": {
+      "confirmAction": "나가고 만들기",
+      "dialogTitle": "현재 로비에서 나가시겠습니까?",
+      "hostAloneNotice": "이 로비를 만들면 {{current}}에 다른 참가자가 없으므로 해당 로비가 닫힙니다.",
+      "hostNotice": "현재 {{current}}의 호스트입니다. 새 로비를 만들면 다른 플레이어에게 호스트가 넘어갑니다.",
+      "memberNotice": "이 로비를 만들면 {{current}}에서 나가게 됩니다."
+    },
+    "leaveAndJoin": {
+      "confirmAction": "나가고 참여하기",
+      "dialogTitle": "현재 로비에서 나가시겠습니까?",
+      "genericLobbyName": "새 로비",
+      "hostAloneBody": "{{target}}에 참여하면 {{current}}에 다른 참가자가 없으므로 로비가 닫힙니다.",
+      "hostBody": "현재 {{current}}의 호스트입니다. {{target}}에 참여하면 다른 플레이어에게 호스트가 넘어갑니다.",
+      "memberBody": "{{target}}에 참여하면 {{current}}에서 나가게 됩니다."
     },
     "lobby": {
       "copiedInviteLink": "복사되었습니다!",

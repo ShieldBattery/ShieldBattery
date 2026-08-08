@@ -667,6 +667,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "离开房间",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "玩家槽位：",
       "viewLobby": "查看房间"
@@ -900,6 +901,7 @@
       "friendsInside_other": "{{count}}位好友在此房间中",
       "full": "已满",
       "hostedBy": "房主：<1></1>",
+      "join": "加入",
       "joinAsObserver": "以观战者身份加入",
       "joinLobby": "加入房间",
       "legacyLimits": "旧版单位限制",
@@ -908,6 +910,7 @@
       "observerSlotsOpen_other": "剩余{{count}}个",
       "oneFriendInside": "有一位好友在此房间中",
       "railPlaceholder": "选择一个房间以查看详情",
+      "returnToLobby": "返回房间",
       "showFullLobbies": "显示已满的房间",
       "slotClosed": "已关闭",
       "slotComputer": "电脑",
@@ -959,6 +962,21 @@
       "download": "下载 ShieldBattery",
       "loadError": "加载该房间时遇到问题。",
       "openInApp": "已经安装了 ShieldBattery？在应用内打开此链接即可加入房间。"
+    },
+    "leaveAndCreate": {
+      "confirmAction": "离开并创建",
+      "dialogTitle": "离开当前房间？",
+      "hostAloneNotice": "创建此房间后，“{{current}}”将会关闭，因为房间里没有其他人。",
+      "hostNotice": "您是“{{current}}”的房主。创建新房间后，房主将移交给其他玩家。",
+      "memberNotice": "创建此房间后，您将离开“{{current}}”。"
+    },
+    "leaveAndJoin": {
+      "confirmAction": "离开并加入",
+      "dialogTitle": "离开当前房间？",
+      "genericLobbyName": "新房间",
+      "hostAloneBody": "加入“{{target}}”后，“{{current}}”将会关闭，因为房间里没有其他人。",
+      "hostBody": "您是“{{current}}”的房主。加入“{{target}}”后，房主将移交给其他玩家。",
+      "memberBody": "加入“{{target}}”后，您将离开“{{current}}”。"
     },
     "lobby": {
       "copiedInviteLink": "已复制！",

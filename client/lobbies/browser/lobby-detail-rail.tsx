@@ -1,6 +1,5 @@
 import { TFunction } from 'i18next'
 import { m } from 'motion/react'
-import { useState } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
@@ -14,7 +13,7 @@ import { MaterialIcon } from '../../icons/material/material-icon'
 import { openMapPreviewDialog } from '../../maps/action-creators'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
 import { FilledButton, TextButton } from '../../material/button'
-import { useAppDispatch } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
   bodySmall,
@@ -23,7 +22,8 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
-import { useJoinLobbyAction } from '../use-join-lobby-action'
+import { isInLobby } from '../lobby-reducer'
+import { navigateToLobby } from '../lobby-url'
 import { HostCrown, LobbyChip, RaceMark, SectionLabel } from './browser-parts'
 import { hasObserverTeam, hasOpenObserverSlot, LobbySummary, observerCounts } from './summary-utils'
 
@@ -33,25 +33,40 @@ const RailRoot = styled.div`
 
   width: 360px;
   flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  border-radius: 8px;
+  background-color: var(--theme-container-low);
+  overflow: hidden;
+`
+
+const PlaceholderRoot = styled(RailRoot)`
+  ${bodyMedium};
+
+  padding: 16px;
+  align-items: center;
+  justify-content: center;
+
+  color: var(--theme-on-surface-variant);
+  text-align: center;
+`
+
+/**
+ * Everything above the join buttons, scrolling on its own so the buttons stay put while a long
+ * slot list doesn't.
+ */
+const RailScroll = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 16px;
 
   display: flex;
   flex-direction: column;
   gap: 16px;
 
-  border-radius: 8px;
-  background-color: var(--theme-container-low);
   overflow-y: auto;
-`
-
-const PlaceholderRoot = styled(RailRoot)`
-  ${bodyMedium};
-
-  align-items: center;
-  justify-content: center;
-
-  color: var(--theme-on-surface-variant);
-  text-align: center;
 `
 
 const Header = styled.div`
@@ -220,12 +235,14 @@ const FriendsText = styled.div`
 `
 
 const RailFoot = styled.div`
-  margin-top: auto;
-  padding-top: 8px;
+  flex-shrink: 0;
+  padding: 12px 16px 16px;
 
   display: flex;
   flex-direction: column;
   gap: 8px;
+
+  border-top: 1px solid var(--theme-outline-variant);
 `
 
 const JoinError = styled.div`
@@ -337,6 +354,10 @@ export interface LobbyDetailRailProps {
   summary: LobbySummary | undefined
   /** The viewer's friends inside this lobby, in seating order. */
   friendIds: ReadonlyArray<SbUserId>
+  /** A join failure aimed at the previewed lobby specifically, or undefined when there's none. */
+  joinError?: string
+  /** Joins the previewed lobby, or asks for an observer seat when `true` is passed. */
+  onJoin: (asObserver: boolean) => void
   className?: string
 }
 
@@ -345,14 +366,22 @@ export interface LobbyDetailRailProps {
  * two ways to get inside. The list channel keeps streaming while this is open, so the seats fill and
  * empty as they really do.
  *
- * Mount this keyed by the selected lobby's id — the join failure it shows belongs to the lobby it
- * was aimed at, and a remount is what clears it when the selection moves.
+ * `joinError` is controlled by the caller, which is expected to only pass one down when it belongs
+ * to this lobby specifically. Mount this keyed by the selected lobby's id anyway — a remount gives
+ * each lobby its own scroll position and slot-fade-in animations, instead of carrying them over
+ * from whatever was previously selected.
  */
-export function LobbyDetailRail({ summary, friendIds, className }: LobbyDetailRailProps) {
+export function LobbyDetailRail({
+  summary,
+  friendIds,
+  joinError,
+  onJoin,
+  className,
+}: LobbyDetailRailProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const joinLobbyAction = useJoinLobbyAction()
-  const [joinError, setJoinError] = useState<string>()
+  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
+  const currentLobbyId = useAppSelector(s => s.lobby.info.id)
 
   if (!summary) {
     return (
@@ -362,6 +391,8 @@ export function LobbyDetailRail({ summary, friendIds, className }: LobbyDetailRa
     )
   }
 
+  const isOwnLobby = inCurrentLobby && currentLobbyId === summary.id
+
   const map = summary.map
   const playerTeams = summary.teams.filter(team => !team.isObserver)
   const observerTeam = summary.teams.find(team => team.isObserver)
@@ -370,141 +401,145 @@ export function LobbyDetailRail({ summary, friendIds, className }: LobbyDetailRa
   // Melee and its kin have a single unnamed team, and a heading over the whole roster says nothing.
   const showTeamHeadings = playerTeams.length > 1 || !!playerTeams[0]?.name
 
-  const join = (asObserver: boolean) => {
-    setJoinError(undefined)
-    joinLobbyAction(summary.id, {
-      name: summary.name,
-      asObserver,
-      onJoinFailed: setJoinError,
-    })
-  }
-
   return (
     <RailRoot className={className}>
-      <Header>
-        <LobbyName title={summary.name}>{summary.name}</LobbyName>
-        <HostLine>
-          <HostNames>
-            <Trans t={t} i18nKey='lobbies.browser.hostedBy'>
-              hosted by <ConnectedUsername userId={summary.host.id} />
-            </Trans>
-          </HostNames>
-        </HostLine>
-      </Header>
+      <RailScroll>
+        <Header>
+          <LobbyName title={summary.name}>{summary.name}</LobbyName>
+          <HostLine>
+            <HostNames>
+              <Trans t={t} i18nKey='lobbies.browser.hostedBy'>
+                hosted by <ConnectedUsername userId={summary.host.id} />
+              </Trans>
+            </HostNames>
+          </HostLine>
+        </Header>
 
-      <MapSection>
-        <MapFrame $aspectRatio={map.mapData.width / map.mapData.height}>
-          <ReduxMapThumbnail
-            mapId={map.id}
-            size={512}
-            showInfoLayer={true}
-            onClick={() => dispatch(openMapPreviewDialog(map.id))}
-          />
-        </MapFrame>
-        <MapMeta>
-          {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
-        </MapMeta>
-      </MapSection>
+        <MapSection>
+          <MapFrame $aspectRatio={map.mapData.width / map.mapData.height}>
+            <ReduxMapThumbnail
+              mapId={map.id}
+              size={512}
+              showInfoLayer={true}
+              onClick={() => dispatch(openMapPreviewDialog(map.id))}
+            />
+          </MapFrame>
+          <MapMeta>
+            {map.mapData.width}×{map.mapData.height} · {tilesetToName(map.mapData.tileset, t)}
+          </MapMeta>
+        </MapSection>
 
-      <ChipRow>
-        <LobbyChip>{gameTypeToLabel(summary.gameType, t)}</LobbyChip>
-        {subTypeLabel ? <LobbyChip>{subTypeLabel}</LobbyChip> : null}
-        {hasObserverTeam(summary) ? (
-          <LobbyChip>{t('lobbies.browser.observers', 'Observers')}</LobbyChip>
-        ) : null}
-        {summary.useLegacyLimits ? (
-          <LobbyChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</LobbyChip>
-        ) : null}
-      </ChipRow>
+        <ChipRow>
+          <LobbyChip>{gameTypeToLabel(summary.gameType, t)}</LobbyChip>
+          {subTypeLabel ? <LobbyChip>{subTypeLabel}</LobbyChip> : null}
+          {hasObserverTeam(summary) ? (
+            <LobbyChip>{t('lobbies.browser.observers', 'Observers')}</LobbyChip>
+          ) : null}
+          {summary.useLegacyLimits ? (
+            <LobbyChip>{t('lobbies.browser.legacyLimits', 'Legacy limits')}</LobbyChip>
+          ) : null}
+        </ChipRow>
 
-      <Slots>
-        {playerTeams.map((team, teamIndex) => (
-          <Section key={teamIndex}>
-            {showTeamHeadings ? (
-              <SectionHeading>
-                {team.name ||
-                  t('game.teamName.number', {
-                    defaultValue: 'Team {{teamNumber}}',
-                    teamNumber: teamIndex + 1,
-                  })}
-              </SectionHeading>
-            ) : null}
-            {team.slots.map((slot, slotIndex) => (
-              <SlotRow
-                key={`${slotIndex}-${slot.type === 'human' || slot.type === 'observer' ? slot.userId : slot.type}`}
-                slot={slot}
-                hostId={summary.host.id}
-                isObserverTeam={false}
-              />
-            ))}
-          </Section>
-        ))}
-
-        {/*
-         * An observer team whose slots are all closed has nothing to preview — no one watching, no
-         * seat to take — so only the settings chip says observers are allowed at all.
-         */}
-        {observerTeam && observers.taken + observers.open > 0 ? (
-          <Section>
-            <SectionHeading>
-              {t('lobbies.browser.observersCount', {
-                defaultValue: 'Observers · {{taken}}/{{total}}',
-                taken: observers.taken,
-                total: observers.taken + observers.open,
-              })}
-            </SectionHeading>
-            {observerTeam.slots.map((slot, slotIndex) =>
-              slot.type === 'observer' ? (
+        <Slots>
+          {playerTeams.map((team, teamIndex) => (
+            <Section key={teamIndex}>
+              {showTeamHeadings ? (
+                <SectionHeading>
+                  {team.name ||
+                    t('game.teamName.number', {
+                      defaultValue: 'Team {{teamNumber}}',
+                      teamNumber: teamIndex + 1,
+                    })}
+                </SectionHeading>
+              ) : null}
+              {team.slots.map((slot, slotIndex) => (
                 <SlotRow
-                  key={`${slotIndex}-${slot.userId}`}
+                  key={`${slotIndex}-${slot.type === 'human' || slot.type === 'observer' ? slot.userId : slot.type}`}
                   slot={slot}
                   hostId={summary.host.id}
-                  isObserverTeam={true}
+                  isObserverTeam={false}
                 />
-              ) : null,
-            )}
-            {observers.open > 0 ? (
-              <QuietLine>
-                {t('lobbies.browser.observerSlotsOpen', {
-                  defaultValue: '{{count}} open',
-                  count: observers.open,
-                })}
-              </QuietLine>
-            ) : null}
-          </Section>
-        ) : null}
-      </Slots>
+              ))}
+            </Section>
+          ))}
 
-      {friendIds.length ? (
-        <FriendsCallout>
-          <AvatarStack userIds={friendIds} size={24} max={4} />
-          <FriendsText>
-            {friendIds.length === 1
-              ? t('lobbies.browser.oneFriendInside', 'A friend is in this lobby')
-              : t('lobbies.browser.friendsInside', {
-                  defaultValue: '{{count}} friends are in this lobby',
-                  // eslint-disable-next-line camelcase -- i18next's plural-form key convention
-                  defaultValue_one: '{{count}} friend is in this lobby',
-                  count: friendIds.length,
+          {/*
+           * An observer team whose slots are all closed has nothing to preview — no one watching, no
+           * seat to take — so only the settings chip says observers are allowed at all.
+           */}
+          {observerTeam && observers.taken + observers.open > 0 ? (
+            <Section>
+              <SectionHeading>
+                {t('lobbies.browser.observersCount', {
+                  defaultValue: 'Observers · {{taken}}/{{total}}',
+                  taken: observers.taken,
+                  total: observers.taken + observers.open,
                 })}
-          </FriendsText>
-        </FriendsCallout>
-      ) : null}
+              </SectionHeading>
+              {observerTeam.slots.map((slot, slotIndex) =>
+                slot.type === 'observer' ? (
+                  <SlotRow
+                    key={`${slotIndex}-${slot.userId}`}
+                    slot={slot}
+                    hostId={summary.host.id}
+                    isObserverTeam={true}
+                  />
+                ) : null,
+              )}
+              {observers.open > 0 ? (
+                <QuietLine>
+                  {t('lobbies.browser.observerSlotsOpen', {
+                    defaultValue: '{{count}} open',
+                    count: observers.open,
+                  })}
+                </QuietLine>
+              ) : null}
+            </Section>
+          ) : null}
+        </Slots>
+
+        {friendIds.length ? (
+          <FriendsCallout>
+            <AvatarStack userIds={friendIds} size={24} max={4} />
+            <FriendsText>
+              {friendIds.length === 1
+                ? t('lobbies.browser.oneFriendInside', 'A friend is in this lobby')
+                : t('lobbies.browser.friendsInside', {
+                    defaultValue: '{{count}} friends are in this lobby',
+                    // eslint-disable-next-line camelcase -- i18next's plural-form key convention
+                    defaultValue_one: '{{count}} friend is in this lobby',
+                    count: friendIds.length,
+                  })}
+            </FriendsText>
+          </FriendsCallout>
+        ) : null}
+      </RailScroll>
 
       <RailFoot>
-        {joinError ? <JoinError>{joinError}</JoinError> : null}
-        <FullWidthFilledButton
-          label={t('lobbies.browser.joinLobby', 'Join lobby')}
-          onClick={() => join(false)}
-          testName='join-lobby-button'
-        />
-        {hasOpenObserverSlot(summary) ? (
-          <FullWidthTextButton
-            label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
-            iconStart={<MaterialIcon icon='visibility' size={20} />}
-            onClick={() => join(true)}
+        {isOwnLobby ? (
+          <FullWidthFilledButton
+            label={t('lobbies.browser.returnToLobby', 'Return to lobby')}
+            iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
+            onClick={() => navigateToLobby(summary.id, summary.name)}
+            testName='return-to-lobby-button'
           />
-        ) : null}
+        ) : (
+          <>
+            {joinError ? <JoinError>{joinError}</JoinError> : null}
+            <FullWidthFilledButton
+              label={t('lobbies.browser.joinLobby', 'Join lobby')}
+              onClick={() => onJoin(false)}
+              testName='join-lobby-button'
+            />
+            {hasOpenObserverSlot(summary) ? (
+              <FullWidthTextButton
+                label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
+                iconStart={<MaterialIcon icon='visibility' size={20} />}
+                onClick={() => onJoin(true)}
+              />
+            ) : null}
+          </>
+        )}
       </RailFoot>
     </RailRoot>
   )

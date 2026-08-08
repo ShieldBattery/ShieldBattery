@@ -4,11 +4,12 @@ import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
-import { useAppDispatch } from '../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { healthChecked } from '../starcraft/health-checked'
 import { joinLobby } from './action-creators'
 import { lobbyJoinErrorMessage } from './lobby-join-errors'
+import { isInLobby } from './lobby-reducer'
 import { navigateToLobby } from './lobby-url'
 
 export interface JoinLobbyActionOptions {
@@ -26,8 +27,11 @@ export interface JoinLobbyActionOptions {
 
 /**
  * Returns a function that joins a lobby the way clicking one in the lobby browser does. On web it
- * shows the download dialog; in the app it refuses while a matchmaking search is active, and
- * otherwise health-checks the game install and dispatches the join.
+ * shows the download dialog; in the app it refuses while a matchmaking search is active.
+ *
+ * A client can only ever be seated in one lobby: already being in the target lobby just navigates
+ * there, and being in a different one opens a confirmation before trading it for the new one.
+ * Otherwise it health-checks the game install and dispatches the join.
  *
  * Without `onJoinFailed` it navigates to the lobby route straight away and reports a failure in a
  * snackbar, since the route is where the join's outcome would be seen anyway.
@@ -40,6 +44,8 @@ export function useJoinLobbyAction(): (
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
   const isMatchmaking = useAtomValue(isMatchmakingAtom)
+  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
+  const currentLobbyId = useAppSelector(s => s.lobby.info.id)
 
   return (lobbyId, options) => {
     if (!IS_ELECTRON) {
@@ -56,6 +62,25 @@ export function useJoinLobbyAction(): (
           ),
         ),
       )
+      return
+    }
+
+    if (inCurrentLobby) {
+      if (currentLobbyId === lobbyId) {
+        navigateToLobby(lobbyId, options?.name)
+      } else {
+        dispatch(
+          openDialog({
+            type: DialogType.LobbyLeaveAndJoin,
+            initData: {
+              lobbyId,
+              name: options?.name,
+              asObserver: options?.asObserver,
+              onJoinFailed: options?.onJoinFailed,
+            },
+          }),
+        )
+      }
       return
     }
 

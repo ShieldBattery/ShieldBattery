@@ -62,6 +62,11 @@ export interface CreateLobbyParams {
   useLegacyLimits?: boolean
   allowObservers?: boolean
   visibility?: LobbyVisibility
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before hosting this one. Without it, being in any gameplay activity fails the create.
+   */
+  leaveCurrentLobby?: boolean
 }
 
 export function createLobby(
@@ -73,6 +78,7 @@ export function createLobby(
     useLegacyLimits,
     allowObservers,
     visibility,
+    leaveCurrentLobby,
   }: CreateLobbyParams,
   spec: RequestHandlingSpec<CreateLobbyResponse>,
 ): ThunkAction {
@@ -90,6 +96,7 @@ export function createLobby(
         useLegacyLimits,
         allowObservers,
         visibility,
+        leaveCurrentLobby,
         ...network,
       }),
       signal: spec.signal,
@@ -103,11 +110,16 @@ export interface JoinLobbyParams {
    * the join fails, rather than being seated as a player or benched.
    */
   asObserver?: boolean
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before being seated in this one. Without it, being in any gameplay activity fails the join.
+   */
+  leaveCurrentLobby?: boolean
 }
 
 export function joinLobby(
   id: SbLobbyId,
-  { asObserver }: JoinLobbyParams = {},
+  { asObserver, leaveCurrentLobby }: JoinLobbyParams = {},
   spec: RequestHandlingSpec<void>,
 ): ThunkAction {
   return abortableThunk(spec, async () => {
@@ -115,7 +127,12 @@ export function joinLobby(
 
     await fetchJson<void>(apiUrl`lobbies/${id}/join`, {
       method: 'POST',
-      body: encodeBodyAsParams<JoinLobbyRequest>({ clientId, asObserver, ...network }),
+      body: encodeBodyAsParams<JoinLobbyRequest>({
+        clientId,
+        asObserver,
+        leaveCurrentLobby,
+        ...network,
+      }),
       signal: spec.signal,
     })
   })

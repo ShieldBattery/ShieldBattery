@@ -10,6 +10,7 @@ import { slotCount, takenSlotCount } from '../../common/lobbies'
 import { urlForLobby } from '../../common/lobbies/lobby-url'
 import { useObservedDimensions } from '../dom/dimension-hooks'
 import { MaterialIcon } from '../icons/material/material-icon'
+import { leaveLobby } from '../lobbies/action-creators'
 import { isInLobby } from '../lobbies/lobby-reducer'
 import { cancelFindMatch } from '../matchmaking/action-creators'
 import { isInDraftAtom } from '../matchmaking/draft-atoms'
@@ -281,6 +282,7 @@ const LobbyInfo = styled.div`
 
 export function LobbyWidget(props: WidgetContainerProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
   const lobbyName = useAppSelector(s => s.lobby.info.name)
   const lobbyId = useAppSelector(s => s.lobby.info.id)
   const hasUnread = useAppSelector(s => s.lobby.hasUnread)
@@ -304,6 +306,12 @@ export function LobbyWidget(props: WidgetContainerProps) {
         iconStart={<MaterialIcon icon='arrow_forward' size={20} />}
         label={t('gameplayActivity.lobby.viewLobby', 'View lobby')}
         onClick={() => push(urlForLobby(lobbyId, lobbyName))}
+      />
+      <OutlinedButton
+        iconStart={<MaterialIcon icon='logout' size={20} />}
+        label={t('gameplayActivity.lobby.leaveLobby', 'Leave lobby')}
+        onClick={() => dispatch(leaveLobby())}
+        testName='widget-leave-lobby-button'
       />
     </Widget>
   )

@@ -58,6 +58,12 @@ const ReportGameDialog = React.lazy(async () => ({
 const LeagueExplainerDialog = React.lazy(async () => ({
   default: (await import('../leagues/league-explainer')).LeagueExplainerDialog,
 }))
+const LobbyLeaveAndCreateDialog = React.lazy(async () => ({
+  default: (await import('../lobbies/lobby-leave-and-create-dialog')).LobbyLeaveAndCreateDialog,
+}))
+const LobbyLeaveAndJoinDialog = React.lazy(async () => ({
+  default: (await import('../lobbies/lobby-leave-and-join-dialog')).LobbyLeaveAndJoinDialog,
+}))
 const MapDetailsDialog = React.lazy(() => import('../maps/map-details'))
 const MapDownloadDialog = React.lazy(async () => ({
   default: (await import('../maps/map-download-dialog')).MapDownloadDialog,
@@ -193,6 +199,10 @@ function getDialog(dialogType: DialogType): {
       return { component: LaunchingGameDialog, modal: true }
     case DialogType.LeagueExplainer:
       return { component: LeagueExplainerDialog }
+    case DialogType.LobbyLeaveAndCreate:
+      return { component: LobbyLeaveAndCreateDialog }
+    case DialogType.LobbyLeaveAndJoin:
+      return { component: LobbyLeaveAndJoinDialog }
     case DialogType.MapDetails:
       return { component: MapDetailsDialog }
     case DialogType.MapDownload:

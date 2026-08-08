@@ -4,6 +4,7 @@ import { gameTypeToLabel } from '../../../common/games/game-type'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { AvatarStack } from '../../avatars/avatar-stack'
 import { MapThumbnail } from '../../maps/map-thumbnail'
+import { FilledButton } from '../../material/button'
 import { buttonReset } from '../../material/button-reset'
 import { bodyMedium, labelLarge, singleLine, titleMedium } from '../../styles/typography'
 import { ConnectedUsername } from '../../users/connected-username'
@@ -137,53 +138,132 @@ function StatusBadge({ summary }: { summary: LobbySummary }) {
   return null
 }
 
+/**
+ * The row's own compact join affordance, revealed on hover so it doesn't compete with the row's
+ * badge/occupancy readout at rest. It sits over where the occupancy count renders, so that count
+ * fades out alongside it coming in (see `RowWrapper` below) rather than the two overlapping.
+ */
+const JoinButton = styled(FilledButton)`
+  position: absolute;
+  right: 16px;
+  top: 50%;
+
+  min-width: 0;
+  min-height: 32px;
+  padding-inline: 14px;
+
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(calc(-50% + 4px));
+
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+`
+
+const revealedJoinButton = css`
+  ${JoinButton} {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(-50%);
+  }
+
+  ${Occupancy} {
+    opacity: 0;
+  }
+`
+
+/**
+ * `RowRoot` is a `<button>`, so its join affordance can't nest inside it (buttons can't contain
+ * buttons). This wraps it instead, positioning the compact join button over the row's trailing
+ * edge as a sibling, revealed on hover, while selected, or (for keyboard users tabbing to the
+ * button, which stays focusable even while visually hidden) on focus-within. `$hasJoinButton`
+ * gates all three: when there's no button to reveal (a full or the viewer's own lobby), the
+ * occupancy count must stay put rather than fading out over nothing.
+ */
+const RowWrapper = styled.div<{ $selected: boolean; $hasJoinButton: boolean }>`
+  position: relative;
+
+  ${props => (props.$hasJoinButton && props.$selected ? revealedJoinButton : null)};
+
+  ${props =>
+    props.$hasJoinButton
+      ? css`
+          &:hover,
+          &:focus-within {
+            ${revealedJoinButton};
+          }
+        `
+      : null};
+`
+
 export interface LobbyRowProps {
   summary: LobbySummary
   selected: boolean
   /** The viewer's friends who are inside this lobby, in seating order. */
   friendIds: ReadonlyArray<SbUserId>
+  /** Whether this is the lobby the viewer is currently in. */
+  isOwn: boolean
   onSelect: () => void
+  /** Joins this lobby as a player, or — for the viewer's own lobby — returns to it. */
+  onJoin: () => void
 }
 
 /**
  * One lobby in the browser's list: what it is and who's running it, with the facts you'd scan for
- * — friends inside, how full it is — lined up down the right.
+ * — friends inside, how full it is — lined up down the right. Hovering (or selecting) it surfaces a
+ * quick join button, and double-clicking joins outright.
  */
-export function LobbyRow({ summary, selected, friendIds, onSelect }: LobbyRowProps) {
+export function LobbyRow({ summary, selected, friendIds, isOwn, onSelect, onJoin }: LobbyRowProps) {
   const { t } = useTranslation()
   const { taken, total } = playerSlotCounts(summary)
+  const canJoin = !isOwn && openPlayerSlotCount(summary) > 0
 
   return (
-    <RowRoot
-      type='button'
-      $selected={selected}
-      aria-pressed={selected}
-      onClick={onSelect}
-      data-testid='lobby-list-entry'>
-      <Thumbnail>
-        <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
-      </Thumbnail>
-      <Main>
-        <Name title={summary.name}>{summary.name}</Name>
-        <MetaLine>
-          <span>{summary.map.name}</span>
-          <MetaSeparator>·</MetaSeparator>
-          <span>{gameTypeToLabel(summary.gameType, t)}</span>
-          <MetaSeparator>·</MetaSeparator>
-          <ConnectedUsername userId={summary.host.id} interactive={false} />
-        </MetaLine>
-      </Main>
+    <RowWrapper $selected={selected} $hasJoinButton={canJoin}>
+      <RowRoot
+        type='button'
+        $selected={selected}
+        aria-pressed={selected}
+        onClick={onSelect}
+        onDoubleClick={onJoin}
+        data-testid='lobby-list-entry'>
+        <Thumbnail>
+          <MapThumbnail map={summary.map} size={256} forceAspectRatio={1} />
+        </Thumbnail>
+        <Main>
+          <Name title={summary.name}>{summary.name}</Name>
+          <MetaLine>
+            <span>{summary.map.name}</span>
+            <MetaSeparator>·</MetaSeparator>
+            <span>{gameTypeToLabel(summary.gameType, t)}</span>
+            <MetaSeparator>·</MetaSeparator>
+            <ConnectedUsername userId={summary.host.id} interactive={false} />
+          </MetaLine>
+        </Main>
 
-      <Trailing>
-        <AvatarStack userIds={friendIds} size={20} max={3} />
-        <StatusSlot>
-          <StatusBadge summary={summary} />
-        </StatusSlot>
-        {/* Last in the row, so the count sits at the same offset no matter what precedes it. */}
-        <Occupancy>
-          <OccupancyTaken>{taken}</OccupancyTaken>/{total}
-        </Occupancy>
-      </Trailing>
-    </RowRoot>
+        <Trailing>
+          <AvatarStack userIds={friendIds} size={20} max={3} />
+          <StatusSlot>
+            <StatusBadge summary={summary} />
+          </StatusSlot>
+          {/* Last in the row, so the count sits at the same offset no matter what precedes it. */}
+          <Occupancy>
+            <OccupancyTaken>{taken}</OccupancyTaken>/{total}
+          </Occupancy>
+        </Trailing>
+      </RowRoot>
+
+      {canJoin ? (
+        <JoinButton
+          label={t('lobbies.browser.join', 'Join')}
+          onClick={() => {
+            onSelect()
+            onJoin()
+          }}
+          testName='lobby-row-join'
+        />
+      ) : null}
+    </RowWrapper>
   )
 }

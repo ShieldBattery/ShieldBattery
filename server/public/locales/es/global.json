@@ -673,6 +673,7 @@
   },
   "gameplayActivity": {
     "lobby": {
+      "leaveLobby": "Salir del lobby",
       "slotCount": "{{takenSlots}} / {{totalSlots}}",
       "slotsLabel": "Espacios:",
       "viewLobby": "Ver lobby"
@@ -908,6 +909,7 @@
       "friendsInside_other": "{{count}} amigos están en este lobby",
       "full": "Lleno",
       "hostedBy": "anfitrión: <1></1>",
+      "join": "Unirse",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
       "legacyLimits": "Límite legado",
@@ -918,6 +920,7 @@
       "observerSlotsOpen_other": "{{count}} libres",
       "oneFriendInside": "Un amigo está en este lobby",
       "railPlaceholder": "Selecciona un lobby para verlo en detalle",
+      "returnToLobby": "Volver al lobby",
       "showFullLobbies": "Mostrar lobbies llenos",
       "slotClosed": "Cerrado",
       "slotComputer": "Computadora",
@@ -975,6 +978,21 @@
       "download": "Descargar ShieldBattery",
       "loadError": "Hubo un problema al cargar este lobby.",
       "openInApp": "¿Ya tienes ShieldBattery? Abre este enlace desde la aplicación para unirte al lobby."
+    },
+    "leaveAndCreate": {
+      "confirmAction": "Salir y crear",
+      "dialogTitle": "¿Salir de tu lobby actual?",
+      "hostAloneNotice": "Crear este lobby cerrará {{current}}, ya que no hay nadie más dentro.",
+      "hostNotice": "Eres el anfitrión de {{current}}. Crear un nuevo lobby le pasará el rol de anfitrión a otro jugador.",
+      "memberNotice": "Crear este lobby te sacará de {{current}}."
+    },
+    "leaveAndJoin": {
+      "confirmAction": "Salir y unirse",
+      "dialogTitle": "¿Salir de tu lobby actual?",
+      "genericLobbyName": "otro lobby",
+      "hostAloneBody": "Unirte a {{target}} cerrará {{current}}, ya que no hay nadie más dentro.",
+      "hostBody": "Eres el anfitrión de {{current}}. Unirte a {{target}} le pasará el rol de anfitrión a otro jugador.",
+      "memberBody": "Unirte a {{target}} te sacará de {{current}}."
     },
     "lobby": {
       "copiedInviteLink": "¡Copiado!",
