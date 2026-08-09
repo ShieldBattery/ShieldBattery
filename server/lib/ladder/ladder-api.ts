@@ -31,7 +31,7 @@ import {
 import { Redis } from '../redis/redis'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import { findUserById, findUsersById } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
@@ -158,7 +158,7 @@ export class LadderApi {
   }
 
   @httpGet('/:matchmakingType')
-  @httpBefore(throttleMiddleware(getRankingsThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(getRankingsThrottle, throttleByIp))
   async getCurrentSeasonRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
     const { params, query } = validateRequest(ctx, {
       params: Joi.object<{ matchmakingType: MatchmakingType }>({
@@ -236,7 +236,7 @@ export class LadderApi {
   }
 
   @httpGet('/:matchmakingType/:seasonId')
-  @httpBefore(throttleMiddleware(getRankingsThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(getRankingsThrottle, throttleByIp))
   async getPreviousSeasonRankings(ctx: RouterContext): Promise<GetRankingsResponse> {
     const { params, query } = validateRequest(ctx, {
       params: Joi.object<{ matchmakingType: MatchmakingType; seasonId: SeasonId }>({

@@ -47,7 +47,11 @@ import { getAllReplaysForGame, getBestReplayForGame } from '../replays/replay-mo
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, {
+  throttleByIp,
+  throttleByUser,
+  throttleByUserOrIp,
+} from '../throttle/middleware'
 import { findUsersByIdAsMap } from '../users/user-model'
 import { joiUserId } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
@@ -247,7 +251,7 @@ export class GameApi {
   }
 
   @httpGet('/list')
-  @httpBefore(throttleMiddleware(gamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  @httpBefore(throttleMiddleware(gamesListThrottle, throttleByUserOrIp))
   async getGamesList(ctx: RouterContext): Promise<GetGamesResponse> {
     const {
       query: {
@@ -299,7 +303,7 @@ export class GameApi {
   }
 
   @httpGet('/:gameId')
-  @httpBefore(throttleMiddleware(gameInfoThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  @httpBefore(throttleMiddleware(gameInfoThrottle, throttleByUserOrIp))
   async getGame(ctx: RouterContext): Promise<GetGameResponse> {
     const {
       params: { gameId },
@@ -404,7 +408,7 @@ export class GameApi {
   }
 
   @httpPost('/:gameId/subscribe')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, throttleByUser))
   async subscribeToGame(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -419,7 +423,7 @@ export class GameApi {
   }
 
   @httpPost('/:gameId/unsubscribe')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, throttleByUser))
   async unsubscribeFromGame(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -434,7 +438,7 @@ export class GameApi {
   }
 
   @httpPut('/:gameId/status')
-  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(ensureLoggedIn, throttleMiddleware(throttle, throttleByUser))
   async updateGameStatus(ctx: RouterContext): Promise<void> {
     const {
       params: { gameId },
@@ -481,7 +485,7 @@ export class GameApi {
   // secret to that user. The game client posts here when its home relay looks dead and it needs the
   // session re-homed; the server (not the client) does the tenant-signed coordinator round trip.
   @httpPost('/:gameId/netcode-rehome')
-  @httpBefore(throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)))
+  @httpBefore(throttleMiddleware(gameResultsThrottle, throttleByIp))
   async netcodeV2Rehome(ctx: RouterContext): Promise<NetcodeV2RehomeResponse> {
     const {
       params: { gameId },
@@ -591,7 +595,7 @@ export class GameApi {
   // the body is intended to be secret per user and authenticate that they are the one who sent it.
   @httpPost('/:gameId/replay')
   @httpBefore(
-    throttleMiddleware(gameResultsThrottle, ctx => String(ctx.ip)),
+    throttleMiddleware(gameResultsThrottle, throttleByIp),
     handleMultipartFiles(MAX_REPLAY_SIZE_BYTES),
   )
   async submitGameReplay(ctx: RouterContext): Promise<void> {

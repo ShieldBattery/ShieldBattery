@@ -2,6 +2,32 @@ import httpErrors from 'http-errors'
 import { ExtendableContext, Middleware, Next } from 'koa'
 import { TokenBucketThrottle } from './create-throttle'
 
+/**
+ * Throttle identifier for endpoints that require a logged-in user (i.e. sit behind
+ * `ensureLoggedIn`): buckets are per-user. Throws if there is no session, so don't use it on
+ * public endpoints.
+ */
+export function throttleByUser(ctx: ExtendableContext): string {
+  return String(ctx.session!.user.id)
+}
+
+/**
+ * Throttle identifier for public endpoints: buckets are per-user when logged in, falling back to
+ * per-IP for anonymous requests.
+ */
+export function throttleByUserOrIp(ctx: ExtendableContext): string {
+  return String(ctx.session?.user?.id ?? ctx.ip)
+}
+
+/**
+ * Throttle identifier that is always the client IP, even for logged-in users. For operations
+ * where switching accounts shouldn't grant a fresh bucket (e.g. account creation, password
+ * recovery).
+ */
+export function throttleByIp(ctx: ExtendableContext): string {
+  return String(ctx.ip)
+}
+
 // Env var that lets us turn throttling off for testing
 const THROTTLING_DISABLED = Boolean(process.env.SB_DISABLE_THROTTLING ?? false)
 

@@ -110,7 +110,11 @@ import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import { getJwt } from '../session/jwt-session-middleware'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, {
+  throttleByIp,
+  throttleByUser,
+  throttleByUserOrIp,
+} from '../throttle/middleware'
 import { Clock } from '../time/clock'
 import { validateRequest } from '../validation/joi-validator'
 import { TypedPublisher } from '../websockets/typed-publisher'
@@ -293,7 +297,7 @@ export class UserApi {
   }
 
   @httpPost('/')
-  @httpBefore(throttleMiddleware(accountCreationThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(accountCreationThrottle, throttleByIp))
   async createUser(ctx: RouterContext): Promise<ClientSessionInfo> {
     if (!isElectronClient(ctx)) {
       throw new httpErrors.BadRequest('This method is only allowed within the app')
@@ -420,7 +424,7 @@ export class UserApi {
   }
 
   @httpPost('/username-available/:username')
-  @httpBefore(throttleMiddleware(usernameAvailableThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(usernameAvailableThrottle, throttleByIp))
   async checkUsernameAvailable(ctx: RouterContext): Promise<UsernameAvailableResponse> {
     const {
       params: { username },
@@ -453,7 +457,7 @@ export class UserApi {
   }
 
   @httpPost('/recovery/user')
-  @httpBefore(throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(forgotUserPassThrottle, throttleByIp))
   async recoverUsername(ctx: RouterContext): Promise<void> {
     const {
       body: { email },
@@ -488,7 +492,7 @@ export class UserApi {
   }
 
   @httpPost('/recovery/password')
-  @httpBefore(throttleMiddleware(forgotUserPassThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(forgotUserPassThrottle, throttleByIp))
   async requestPasswordReset(ctx: RouterContext): Promise<void> {
     const {
       body: { username, email },
@@ -535,7 +539,7 @@ export class UserApi {
   }
 
   @httpPost('/recovery/reset-password')
-  @httpBefore(throttleMiddleware(resetPasswordThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(resetPasswordThrottle, throttleByIp))
   async resetPassword(ctx: RouterContext): Promise<void> {
     const {
       body: { code, password },
@@ -559,9 +563,7 @@ export class UserApi {
   }
 
   @httpGet('/batch-info')
-  @httpBefore(
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
-  )
+  @httpBefore(throttleMiddleware(accountRetrievalThrottle, throttleByUserOrIp))
   async batchGetInfo(ctx: RouterContext): Promise<GetBatchUserInfoResponse> {
     const { query } = validateRequest(ctx, {
       query: Joi.object<{ u: SbUserId[] }>({
@@ -578,9 +580,7 @@ export class UserApi {
   }
 
   @httpGet('/:id/profile')
-  @httpBefore(
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
-  )
+  @httpBefore(throttleMiddleware(accountRetrievalThrottle, throttleByUserOrIp))
   async getUserProfile(ctx: RouterContext): Promise<GetUserProfileResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -679,11 +679,7 @@ export class UserApi {
   }
 
   @httpGet('/:id/match-history')
-  @httpBefore(
-    throttleMiddleware(matchHistoryRetrievalThrottle, ctx =>
-      String(ctx.session?.user?.id ?? ctx.ip),
-    ),
-  )
+  @httpBefore(throttleMiddleware(matchHistoryRetrievalThrottle, throttleByUserOrIp))
   async getMatchHistory(ctx: RouterContext): Promise<GetMatchHistoryResponse> {
     const {
       params,
@@ -762,11 +758,7 @@ export class UserApi {
   }
 
   @httpGet('/:id/ranking-history')
-  @httpBefore(
-    throttleMiddleware(rankingsHistoryRetrievalThrottle, ctx =>
-      String(ctx.session?.user?.id ?? ctx.ip),
-    ),
-  )
+  @httpBefore(throttleMiddleware(rankingsHistoryRetrievalThrottle, throttleByUserOrIp))
   async getUserRankingHistory(ctx: RouterContext): Promise<GetUserRankingHistoryResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -820,10 +812,7 @@ export class UserApi {
   }
 
   @httpPost('/:id/policies')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(accountUpdateThrottle, throttleByUser))
   async acceptPolicies(ctx: RouterContext): Promise<AcceptPoliciesResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -869,10 +858,7 @@ export class UserApi {
   }
 
   @httpPost('/:id/language')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountUpdateThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(accountUpdateThrottle, throttleByUser))
   async changeLanguage(ctx: RouterContext): Promise<ChangeLanguagesResponse> {
     const { params, body } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -899,7 +885,7 @@ export class UserApi {
   @httpPost('/:id/avatar')
   @httpBefore(
     ensureLoggedIn,
-    throttleMiddleware(avatarUpdateThrottle, ctx => String(ctx.session!.user.id)),
+    throttleMiddleware(avatarUpdateThrottle, throttleByUser),
     handleMultipartFiles(MAX_IMAGE_SIZE_BYTES),
   )
   async updateAvatar(ctx: RouterContext): Promise<UpdateCurrentUserAvatarResponse> {
@@ -949,10 +935,7 @@ export class UserApi {
   }
 
   @httpDelete('/:id/avatar')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(avatarUpdateThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(avatarUpdateThrottle, throttleByUser))
   async removeAvatar(ctx: RouterContext): Promise<UpdateCurrentUserAvatarResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -966,10 +949,7 @@ export class UserApi {
   }
 
   @httpPost('/:id/email-verification/send')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(sendVerificationThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(sendVerificationThrottle, throttleByUser))
   async resendVerificationEmail(ctx: RouterContext): Promise<void> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -1002,10 +982,7 @@ export class UserApi {
   }
 
   @httpPost('/:id/email-verification')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(emailVerificationThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(emailVerificationThrottle, throttleByUser))
   async verifyEmail(ctx: RouterContext): Promise<void> {
     const {
       params,
@@ -1041,10 +1018,7 @@ export class UserApi {
   }
 
   @httpGet('/:id/relationships')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(accountRetrievalThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(accountRetrievalThrottle, throttleByUser))
   async getRelationships(ctx: RouterContext): Promise<GetRelationshipsResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -1066,10 +1040,7 @@ export class UserApi {
   }
 
   @httpPost('/:id/relationships/friend-requests')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(relationshipsThrottle, throttleByUser))
   async sendFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const { params } = validateRequest(ctx, {
       params: Joi.object<{ id: SbUserId }>({
@@ -1091,10 +1062,7 @@ export class UserApi {
   }
 
   @httpDelete('/:toId/relationships/friend-requests/:fromId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(relationshipsThrottle, throttleByUser))
   async removeFriendRequest(ctx: RouterContext): Promise<void> {
     const {
       params: { toId, fromId },
@@ -1121,10 +1089,7 @@ export class UserApi {
   }
 
   @httpPost('/:toId/relationships/friends/:fromId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(relationshipsThrottle, throttleByUser))
   async acceptFriendRequest(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const {
       params: { toId, fromId },
@@ -1146,10 +1111,7 @@ export class UserApi {
   }
 
   @httpDelete('/:removerId/relationships/friends/:targetId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(relationshipsThrottle, throttleByUser))
   async removeFriend(ctx: RouterContext): Promise<void> {
     const {
       params: { removerId, targetId },
@@ -1171,10 +1133,7 @@ export class UserApi {
   }
 
   @httpPost('/:blockerId/relationships/blocks/:targetId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(relationshipsThrottle, throttleByUser))
   async blockUser(ctx: RouterContext): Promise<ModifyRelationshipResponse> {
     const {
       params: { blockerId, targetId },
@@ -1196,10 +1155,7 @@ export class UserApi {
   }
 
   @httpDelete('/:unblockerId/relationships/blocks/:targetId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(relationshipsThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(relationshipsThrottle, throttleByUser))
   async unblockUser(ctx: RouterContext): Promise<void> {
     const {
       params: { unblockerId, targetId },

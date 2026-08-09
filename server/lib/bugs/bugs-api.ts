@@ -20,7 +20,7 @@ import logger from '../logging/logger'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUserOrIp } from '../throttle/middleware'
 import { Clock } from '../time/clock'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
@@ -79,7 +79,7 @@ export class BugsApi {
 
   @httpPost('/')
   @httpBefore(
-    throttleMiddleware(reportThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
+    throttleMiddleware(reportThrottle, throttleByUserOrIp),
     handleMultipartFiles(MAX_LOGS_FILE_SIZE),
   )
   async reportBug(ctx: RouterContext): Promise<ReportBugResponse> {

@@ -10,7 +10,7 @@ import {
   NetcodeV2SessionClosedNotification,
 } from '../../../common/games/netcode-v2'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import {
   checkGameEventWebhookAuth,
@@ -151,7 +151,7 @@ export const GAME_EVENT_BODY_SCHEMA = Joi.alternatives<NetcodeV2GameEvent>(
 export function registerGameEventWebhookRoutes(router: KoaRouter) {
   router.post(
     '/netcode-v2/game-events',
-    throttleMiddleware(gameEventsThrottle, ctx => String(ctx.ip)),
+    throttleMiddleware(gameEventsThrottle, throttleByIp),
     gameEventBody,
     async ctx => {
       // Auth/feature-gate before schema validation: netcode v2 not being configured must 404, and a

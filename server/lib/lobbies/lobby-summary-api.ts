@@ -4,7 +4,7 @@ import { LobbySummaryResponse } from '../../../common/lobbies/lobby-network'
 import { httpApi } from '../http/http-api'
 import { httpBefore, httpGet } from '../http/route-decorators'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import { getLiveLobbyWithHost } from './lobby-summaries'
 
 // Keyed by IP rather than session, since this endpoint is deliberately unauthenticated (a logged-
@@ -27,7 +27,7 @@ const throttle = createThrottle('lobbySummary', {
 @httpApi('/lobbies')
 export class LobbySummaryApi {
   @httpGet('/:lobbyId/summary')
-  @httpBefore(throttleMiddleware(throttle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(throttle, throttleByIp))
   async getSummary(ctx: RouterContext): Promise<LobbySummaryResponse> {
     const result = await getLiveLobbyWithHost(ctx.params.lobbyId)
     if (!result) {

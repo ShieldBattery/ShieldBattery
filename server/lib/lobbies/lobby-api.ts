@@ -25,7 +25,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpGet, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import {
   ClientSocketsGroup,
@@ -65,14 +65,8 @@ const lobbyChatThrottle = createThrottle('lobbies/chat', {
 // for. `/lobbies` is also served by the deliberately unauthenticated `LobbySummaryApi`, so the login
 // check has to be attached per route here rather than to the class, or it would guard that endpoint
 // too.
-const authed = [
-  ensureLoggedIn,
-  throttleMiddleware(lobbyThrottle, ctx => String(ctx.session!.user.id)),
-]
-const authedAction = [
-  ensureLoggedIn,
-  throttleMiddleware(lobbyActionThrottle, ctx => String(ctx.session!.user.id)),
-]
+const authed = [ensureLoggedIn, throttleMiddleware(lobbyThrottle, throttleByUser)]
+const authedAction = [ensureLoggedIn, throttleMiddleware(lobbyActionThrottle, throttleByUser)]
 
 /** Validates a route's `:lobbyId` as a well-formed lobby id. */
 const lobbyIdParams = Joi.object<{ lobbyId: SbLobbyId }>({
@@ -286,10 +280,7 @@ export class LobbyApi {
   }
 
   @httpPost('/:lobbyId/chat')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(lobbyChatThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(lobbyChatThrottle, throttleByUser))
   async sendChat(ctx: RouterContext): Promise<void> {
     const { params, body } = validateRequest(ctx, {
       params: lobbyIdParams,

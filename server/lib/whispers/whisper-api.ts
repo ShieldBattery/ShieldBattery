@@ -15,7 +15,7 @@ import { httpApi, httpBeforeAll } from '../http/http-api'
 import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorators'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
 import { findUserByName } from '../users/user-model'
 import { joiUserId, joiUsername } from '../users/user-validators'
 import { validateRequest } from '../validation/joi-validator'
@@ -77,13 +77,13 @@ export class WhisperApi {
   }
 
   @httpGet('/sessions')
-  @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(getWhisperSessionsThrottle, throttleByUser))
   async getWhisperSessions(ctx: RouterContext): Promise<GetWhisperSessionsResponse> {
     return await this.whisperService.getWhisperSessions(ctx.session!.user.id)
   }
 
   @httpPost('/by-name/:targetName')
-  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(startThrottle, throttleByUser))
   async startWhisperSessionByName(ctx: RouterContext): Promise<{ userId: SbUserId }> {
     const {
       params: { targetName },
@@ -105,7 +105,7 @@ export class WhisperApi {
   }
 
   @httpPost('/:targetId')
-  @httpBefore(throttleMiddleware(startThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(startThrottle, throttleByUser))
   async startWhisperSessionById(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -121,7 +121,7 @@ export class WhisperApi {
   }
 
   @httpDelete('/:targetId')
-  @httpBefore(throttleMiddleware(closeThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(closeThrottle, throttleByUser))
   async closeWhisperSession(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -137,7 +137,7 @@ export class WhisperApi {
   }
 
   @httpPost('/:targetId/messages')
-  @httpBefore(throttleMiddleware(sendThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(sendThrottle, throttleByUser))
   async sendWhisperMessage(ctx: RouterContext): Promise<void> {
     const {
       params: { targetId },
@@ -160,7 +160,7 @@ export class WhisperApi {
   // for old clients.
   // Last used: 8.0.2 (November 2021)
   @httpGet('/:targetName/messages')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(retrievalThrottle, throttleByUser))
   getSessionHistoryOld(
     ctx: RouterContext,
   ): Omit<GetSessionHistoryResponse, 'mentions' | 'channelMentions' | 'deletedChannels'> {
@@ -171,7 +171,7 @@ export class WhisperApi {
   }
 
   @httpGet('/:targetId/messages2')
-  @httpBefore(throttleMiddleware(retrievalThrottle, ctx => String(ctx.session!.user.id)))
+  @httpBefore(throttleMiddleware(retrievalThrottle, throttleByUser))
   async getSessionHistory(ctx: RouterContext): Promise<GetSessionHistoryResponse> {
     const {
       params: { targetId },

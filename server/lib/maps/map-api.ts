@@ -46,7 +46,7 @@ import { MapServiceError, storeMap, storeRegeneratedImages } from '../maps/store
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser, throttleByUserOrIp } from '../throttle/middleware'
 import { findUserById, findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { processStoredMapFile, reparseMapsAsNeeded } from './map-operations'
@@ -124,7 +124,7 @@ type ServerGetFavoritedMapsQueryParams = SetRequired<
 @httpApi('/maps')
 export class MapsApi {
   @httpGet('/')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  @httpBefore(throttleMiddleware(mapsListThrottle, throttleByUserOrIp))
   async list(ctx: RouterContext): Promise<GetMapsResponse> {
     const {
       query: { visibility, sort, numPlayers, tilesets, q: searchQuery, offset },
@@ -179,10 +179,7 @@ export class MapsApi {
   }
 
   @httpGet('/favorites')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(mapsListThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(mapsListThrottle, throttleByUser))
   async listFavorites(ctx: RouterContext): Promise<GetFavoritesResponse> {
     const {
       query: { sort, numPlayers, tilesets, q: searchQuery },
@@ -224,7 +221,7 @@ export class MapsApi {
   }
 
   @httpGet('/batch-info')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  @httpBefore(throttleMiddleware(mapsListThrottle, throttleByUserOrIp))
   async getInfo(ctx: RouterContext): Promise<GetBatchMapInfoResponse> {
     const { query } = validateRequest(ctx, {
       query: Joi.object<{ m: SbMapId[] }>({
@@ -292,7 +289,7 @@ export class MapsApi {
   @httpBefore(
     convertMapServiceErrors,
     ensureLoggedIn,
-    throttleMiddleware(mapUploadThrottle, ctx => String(ctx.session!.user.id)),
+    throttleMiddleware(mapUploadThrottle, throttleByUser),
     handleMultipartFiles(MAX_MAP_FILE_SIZE_BYTES),
   )
   async upload(ctx: RouterContext): Promise<UploadMapResponse> {
@@ -325,10 +322,7 @@ export class MapsApi {
   }
 
   @httpPatch('/:mapId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(mapUpdateThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(mapUpdateThrottle, throttleByUser))
   async update(ctx: RouterContext): Promise<UpdateMapResponse> {
     const mapId = getValidatedMapId(ctx)
     const {
@@ -371,10 +365,7 @@ export class MapsApi {
   }
 
   @httpDelete('/:mapId')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(mapRemoveThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(mapRemoveThrottle, throttleByUser))
   async remove(ctx: RouterContext): Promise<void> {
     const mapId = getValidatedMapId(ctx)
 
@@ -399,10 +390,7 @@ export class MapsApi {
   }
 
   @httpPost('/:mapId/favorite')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(mapFavoriteThrottle, throttleByUser))
   async addToFavorites(ctx: RouterContext): Promise<void> {
     const mapId = getValidatedMapId(ctx)
 
@@ -411,10 +399,7 @@ export class MapsApi {
   }
 
   @httpDelete('/:mapId/favorite')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(mapFavoriteThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(mapFavoriteThrottle, throttleByUser))
   async removeFromFavorites(ctx: RouterContext): Promise<void> {
     const mapId = getValidatedMapId(ctx)
 
@@ -423,7 +408,7 @@ export class MapsApi {
   }
 
   @httpPost('/:mapId/download-url')
-  @httpBefore(throttleMiddleware(mapsListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)))
+  @httpBefore(throttleMiddleware(mapsListThrottle, throttleByUserOrIp))
   async getDownloadUrl(ctx: RouterContext): Promise<{ url: string }> {
     const mapId = getValidatedMapId(ctx)
 

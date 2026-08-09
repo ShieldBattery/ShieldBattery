@@ -14,7 +14,7 @@ import { httpGet, httpPost } from '../http/route-decorators'
 import { getMapInfos } from '../maps/map-models'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
 import { validateRequest } from '../validation/joi-validator'
 import { getLobbyPreferences, upsertLobbyPreferences } from './lobby-preferences-models'
 
@@ -43,7 +43,7 @@ const updateLobbyPreferencesSchema = Joi.object<UpdateLobbyPreferencesRequest>({
 }).required()
 
 @httpApi('/lobby-preferences')
-@httpBeforeAll(ensureLoggedIn, throttleMiddleware(throttle, ctx => String(ctx.session!.user.id)))
+@httpBeforeAll(ensureLoggedIn, throttleMiddleware(throttle, throttleByUser))
 export class LobbyPreferencesApi {
   @httpPost('/')
   async upsertPreferences(ctx: RouterContext): Promise<LobbyPreferencesResponse> {

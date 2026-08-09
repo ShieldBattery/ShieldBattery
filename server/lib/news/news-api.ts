@@ -12,7 +12,7 @@ import { httpBefore, httpPost } from '../http/route-decorators'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser } from '../throttle/middleware'
 import { smallVariantPath } from './news-image-paths'
 
 const imageUploadThrottle = createThrottle('newsimages', {
@@ -36,7 +36,7 @@ export class NewsApi {
   @httpBefore(
     ensureLoggedIn,
     checkAllPermissions('manageNews'),
-    throttleMiddleware(imageUploadThrottle, ctx => String(ctx.session!.user.id)),
+    throttleMiddleware(imageUploadThrottle, throttleByUser),
     handleMultipartFiles(MAX_IMAGE_SIZE_BYTES),
   )
   async uploadImage(ctx: RouterContext): Promise<NewsImageUploadResponse> {

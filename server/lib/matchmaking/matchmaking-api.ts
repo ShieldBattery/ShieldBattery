@@ -30,7 +30,7 @@ import logger from '../logging/logger'
 import { checkAllPermissions } from '../permissions/check-permissions'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUser, throttleByUserOrIp } from '../throttle/middleware'
 import { joiClientIdentifiers } from '../users/client-ids'
 import { RestrictionService } from '../users/restriction-service'
 import { UserIdentifierManager } from '../users/user-identifier-manager'
@@ -123,10 +123,7 @@ export class MatchmakingApi {
   ) {}
 
   @httpPost('/find')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(matchmakingThrottle, throttleByUser))
   async findMatch(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<FindMatchRequest>({
@@ -254,28 +251,19 @@ export class MatchmakingApi {
   }
 
   @httpDelete('/find')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(matchmakingThrottle, throttleByUser))
   async cancelSearch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.cancel(ctx.session!.user.id)
   }
 
   @httpPost('/accept')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(matchmakingThrottle, throttleByUser))
   async acceptMatch(ctx: RouterContext): Promise<void> {
     await this.matchmakingService.accept(ctx.session!.user.id)
   }
 
   @httpPost('/draft/provisional-pick')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(draftActionThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(draftActionThrottle, throttleByUser))
   async updateProvisionalRace(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<DraftProvisionalPickRequest>({
@@ -289,10 +277,7 @@ export class MatchmakingApi {
   }
 
   @httpPost('/draft/lock-pick')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(draftActionThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(draftActionThrottle, throttleByUser))
   async lockInPick(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<DraftLockPickRequest>({
@@ -306,10 +291,7 @@ export class MatchmakingApi {
   }
 
   @httpPost('/draft/chat')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(draftActionThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(draftActionThrottle, throttleByUser))
   async sendDraftChatMessage(ctx: RouterContext): Promise<void> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<DraftChatMessageRequest>({
@@ -321,10 +303,7 @@ export class MatchmakingApi {
   }
 
   @httpGet('/ban-status')
-  @httpBefore(
-    ensureLoggedIn,
-    throttleMiddleware(matchmakingThrottle, ctx => String(ctx.session!.user.id)),
-  )
+  @httpBefore(ensureLoggedIn, throttleMiddleware(matchmakingThrottle, throttleByUser))
   async getBanStatus(ctx: RouterContext): Promise<GetMatchmakingBanStatusResponse> {
     // Report the latest end time across both the automatic dodge-ban and any manual matchmaking
     // restriction, so the banned dialog counts down to whichever keeps the user out longer.
@@ -344,9 +323,7 @@ export class MatchmakingApi {
   }
 
   @httpGet('/seasons')
-  @httpBefore(
-    throttleMiddleware(seasonsRetrievalThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
-  )
+  @httpBefore(throttleMiddleware(seasonsRetrievalThrottle, throttleByUserOrIp))
   async getMatchmakingSeasons(ctx: RouterContext): Promise<GetMatchmakingSeasonsResponse> {
     return {
       seasons: (await this.matchmakingSeasonsService.getAllSeasons()).map(s =>

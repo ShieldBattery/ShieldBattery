@@ -19,7 +19,7 @@ import { httpBefore, httpDelete, httpGet, httpPost } from '../http/route-decorat
 import { joiLocale } from '../i18n/locale-validator'
 import { isElectronClient } from '../network/electron-clients'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByIp } from '../throttle/middleware'
 import { Clock } from '../time/clock'
 import { isUserBanned, retrieveBanHistory } from '../users/ban-models'
 import { joiClientIdentifiers } from '../users/client-ids'
@@ -116,7 +116,7 @@ export class SessionApi {
   }
 
   @httpPost('/')
-  @httpBefore(throttleMiddleware(loginThrottle, ctx => ctx.ip))
+  @httpBefore(throttleMiddleware(loginThrottle, throttleByIp))
   async startNewSession(ctx: RouterContext): Promise<ReadonlyDeep<ClientSessionInfo>> {
     const { body } = validateRequest(ctx, {
       body: Joi.object<LogInRequestBody>({

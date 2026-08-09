@@ -48,7 +48,7 @@ import { Redis } from '../redis/redis'
 import { ReplayService } from '../replays/replay-service'
 import ensureLoggedIn from '../session/ensure-logged-in'
 import createThrottle from '../throttle/create-throttle'
-import throttleMiddleware from '../throttle/middleware'
+import throttleMiddleware, { throttleByUserOrIp } from '../throttle/middleware'
 import { findUsersById } from '../users/user-model'
 import { validateRequest } from '../validation/joi-validator'
 import { json } from '../validation/json-validator'
@@ -118,9 +118,7 @@ export class LeagueApi {
   ) {}
 
   @httpGet('/:leagueId/games')
-  @httpBefore(
-    throttleMiddleware(leagueGamesListThrottle, ctx => String(ctx.session?.user?.id ?? ctx.ip)),
-  )
+  @httpBefore(throttleMiddleware(leagueGamesListThrottle, throttleByUserOrIp))
   async getLeagueGames(ctx: RouterContext): Promise<GetGamesResponse> {
     const leagueId = leagueIdFromUrl(ctx)
     const {
