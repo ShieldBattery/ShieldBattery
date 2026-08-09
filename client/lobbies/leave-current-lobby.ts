@@ -1,5 +1,7 @@
 import { humanSlotCount, Lobby } from '../../common/lobbies'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { useAppSelector } from '../redux-hooks'
+import { isInLobby } from './lobby-reducer'
 
 /**
  * Which "you'll be leaving your current lobby" copy applies to the viewer, given their current
@@ -29,4 +31,26 @@ export function leaveCurrentLobbyVariant(
   return humanSlotCount(currentLobby) <= 1
     ? LeaveCurrentLobbyVariant.HostAlone
     : LeaveCurrentLobbyVariant.HostWithOthers
+}
+
+/**
+ * Reads the viewer's leave-current-lobby situation out of the store for a confirmation prompt:
+ * which copy variant applies, and the current lobby's name to slot into it. Falls back to
+ * `Member` when the viewer isn't in a lobby at all (a prompt shown in that state has nothing to
+ * warn about, but should still render sensibly).
+ */
+export function useLeaveCurrentLobbyPrompt(): {
+  variant: LeaveCurrentLobbyVariant
+  currentLobbyName: string
+} {
+  const selfId = useAppSelector(s => s.auth.self!.user.id)
+  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
+  const currentLobbyInfo = useAppSelector(s => s.lobby.info)
+
+  return {
+    variant: inCurrentLobby
+      ? leaveCurrentLobbyVariant(currentLobbyInfo, selfId)
+      : LeaveCurrentLobbyVariant.Member,
+    currentLobbyName: currentLobbyInfo.name,
+  }
 }

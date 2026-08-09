@@ -6,13 +6,12 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { BodyLarge } from '../styles/typography'
 import { joinLobby } from './action-creators'
-import { leaveCurrentLobbyVariant, LeaveCurrentLobbyVariant } from './leave-current-lobby'
+import { LeaveCurrentLobbyVariant, useLeaveCurrentLobbyPrompt } from './leave-current-lobby'
 import { lobbyJoinErrorMessage } from './lobby-join-errors'
-import { isInLobby } from './lobby-reducer'
 import { navigateToLobby } from './lobby-url'
 
 export interface LobbyLeaveAndJoinProps extends CommonDialogProps {
@@ -37,13 +36,7 @@ export function LobbyLeaveAndJoinDialog({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const snackbarController = useSnackbarController()
-  const selfId = useAppSelector(s => s.auth.self!.user.id)
-  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
-  const currentLobbyInfo = useAppSelector(s => s.lobby.info)
-  const currentLobbyName = currentLobbyInfo.name
-  const variant = inCurrentLobby
-    ? leaveCurrentLobbyVariant(currentLobbyInfo, selfId)
-    : LeaveCurrentLobbyVariant.Member
+  const { variant, currentLobbyName } = useLeaveCurrentLobbyPrompt()
   const [isJoining, setIsJoining] = useState(false)
 
   const targetName = name ?? t('lobbies.leaveAndJoin.genericLobbyName', 'the new lobby')

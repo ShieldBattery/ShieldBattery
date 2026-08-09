@@ -4,10 +4,9 @@ import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { DialogType } from '../dialogs/dialog-type'
 import { TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
-import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { useAppDispatch } from '../redux-hooks'
 import { BodyLarge } from '../styles/typography'
-import { leaveCurrentLobbyVariant, LeaveCurrentLobbyVariant } from './leave-current-lobby'
-import { isInLobby } from './lobby-reducer'
+import { LeaveCurrentLobbyVariant, useLeaveCurrentLobbyPrompt } from './leave-current-lobby'
 
 export interface LobbyLeaveAndCreateProps extends CommonDialogProps {
   /** Performs the create the form's submit was holding for confirmation. */
@@ -24,13 +23,7 @@ export interface LobbyLeaveAndCreateProps extends CommonDialogProps {
 export function LobbyLeaveAndCreateDialog({ onCancel, onConfirm }: LobbyLeaveAndCreateProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
-  const selfId = useAppSelector(s => s.auth.self!.user.id)
-  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
-  const currentLobbyInfo = useAppSelector(s => s.lobby.info)
-  const currentLobbyName = currentLobbyInfo.name
-  const variant = inCurrentLobby
-    ? leaveCurrentLobbyVariant(currentLobbyInfo, selfId)
-    : LeaveCurrentLobbyVariant.Member
+  const { variant, currentLobbyName } = useLeaveCurrentLobbyPrompt()
 
   const onConfirmClick = () => {
     dispatch(closeDialog(DialogType.LobbyLeaveAndCreate))
