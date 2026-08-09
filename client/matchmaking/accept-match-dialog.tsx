@@ -8,6 +8,7 @@ import { TypedIpcRenderer } from '../../common/ipc'
 import {
   MATCHMAKING_ACCEPT_MATCH_TIME_MS,
   MatchmakingServiceErrorCode,
+  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { range } from '../../common/range'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
@@ -20,7 +21,7 @@ import { FilledButton, TextButton } from '../material/button'
 import { Dialog } from '../material/dialog'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
-import { BodyMedium } from '../styles/typography'
+import { BodyMedium, labelMedium } from '../styles/typography'
 import { acceptMatch } from './action-creators'
 import {
   clearMatchmakingState,
@@ -36,6 +37,14 @@ const ENTER_NUMPAD = 'NumpadEnter'
 
 const StyledDialog = styled(Dialog)`
   width: 400px;
+`
+
+const ModeLabel = styled.div`
+  ${labelMedium};
+  margin-top: -12px;
+  margin-bottom: 16px;
+
+  color: var(--theme-on-surface-variant);
 `
 
 const CenteredContainer = styled.div`
@@ -119,6 +128,9 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
       title={t('matchmaking.acceptMatch.matchFound', 'Match found')}
       onCancel={onCancel}
       showCloseButton={false}>
+      {foundMatch ? (
+        <ModeLabel>{matchmakingTypeToLabel(foundMatch.matchmakingType, t)}</ModeLabel>
+      ) : undefined}
       {contents}
     </StyledDialog>
   )

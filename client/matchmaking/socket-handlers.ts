@@ -21,6 +21,7 @@ import { closeAcceptMatchDialog, getCurrentMapPool, openAcceptMatchDialog } from
 import {
   addDraftChatMessage,
   completeDraft,
+  draftMatchmakingTypeAtom,
   draftStateAtom,
   resetDraftState,
   updateCurrentPickerAtom,
@@ -32,6 +33,7 @@ import {
   clearMatchmakingState,
   currentSearchInfoAtom,
   foundMatchAtom,
+  launchingMatchmakingTypeAtom,
   matchLaunchingAtom,
 } from './matchmaking-atoms'
 
@@ -83,6 +85,7 @@ const eventToAction: EventToActionMap = {
 
     resetDraftState(jotaiStore)
     jotaiStore.set(draftStateAtom, event.draftState)
+    jotaiStore.set(draftMatchmakingTypeAtom, matchmakingType)
 
     ipcRenderer.send('userAttentionRequired')
   },
@@ -180,6 +183,7 @@ const eventToAction: EventToActionMap = {
 
     jotaiStore.set(foundMatchAtom, undefined)
     jotaiStore.set(matchLaunchingAtom, true)
+    jotaiStore.set(launchingMatchmakingTypeAtom, matchmakingType)
     dispatch(openDialog({ type: DialogType.LaunchingGame }))
   },
 
@@ -187,6 +191,7 @@ const eventToAction: EventToActionMap = {
     logger.debug(`Match loading canceled`)
     resetDraftState(jotaiStore)
     jotaiStore.set(matchLaunchingAtom, false)
+    jotaiStore.set(launchingMatchmakingTypeAtom, undefined)
     dispatch(closeDialog(DialogType.LaunchingGame))
 
     externalShowSnackbar(

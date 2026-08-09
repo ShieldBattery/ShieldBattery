@@ -48,11 +48,20 @@ export const foundMatchAtom = atom<FoundMatch | undefined>(undefined)
 
 export const matchLaunchingAtom = atom(false)
 
+/**
+ * The matchmaking type of the match currently launching, set alongside `matchLaunchingAtom`.
+ * `foundMatchAtom` is cleared before the launching-game dialog opens, so this carries the type
+ * forward for that dialog to display. Stays `undefined` for non-matchmaking (lobby) game
+ * launches, which use the same launching-game dialog.
+ */
+export const launchingMatchmakingTypeAtom = atom<MatchmakingType | undefined>(undefined)
+
 export function clearMatchmakingState(storeOrSetter: JotaiStore | Setter) {
   const setter = 'set' in storeOrSetter ? storeOrSetter.set.bind(storeOrSetter) : storeOrSetter
   setter(currentSearchInfoAtom, undefined)
   setter(foundMatchAtom, undefined)
   setter(matchLaunchingAtom, false)
+  setter(launchingMatchmakingTypeAtom, undefined)
 }
 
 export const hasAcceptedAtom = atom(

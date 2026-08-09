@@ -12,6 +12,7 @@ import {
   DRAFT_PICK_TIME_MS,
   DraftPlayer,
   getAnonymizedName,
+  matchmakingTypeToLabel,
 } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { SbUserId } from '../../common/users/sb-user-id'
@@ -34,6 +35,7 @@ import { useSnackbarController } from '../snackbars/snackbar-overlay'
 import { ContainerLevel, containerStyles, getRaceColor } from '../styles/colors'
 import {
   headlineLarge,
+  labelMedium,
   labelSmall,
   singleLine,
   titleLarge,
@@ -43,7 +45,12 @@ import {
 import { ConnectedUsername } from '../users/connected-username'
 import { areUserEntriesEqual, useUserEntriesSelector } from '../users/user-entries'
 import { changeDraftRace, lockInDraftRace, sendDraftChatMessage } from './action-creators'
-import { draftChatMessagesAtom, draftPickTimeStartAtom, draftStateAtom } from './draft-atoms'
+import {
+  draftChatMessagesAtom,
+  draftMatchmakingTypeAtom,
+  draftPickTimeStartAtom,
+  draftStateAtom,
+} from './draft-atoms'
 
 const DRAFT_PICK_TIME_SECS = DRAFT_PICK_TIME_MS / 1000
 
@@ -470,11 +477,22 @@ const StyledMapThumbnail = styled(ReduxMapThumbnail)`
   min-height: 0;
 `
 
+const ModeLabel = styled.div`
+  ${labelMedium};
+  color: var(--theme-on-surface-variant);
+  text-align: center;
+`
+
 function DraftInfo({ draftState }: { draftState: ClientDraftState }) {
+  const { t } = useTranslation()
   const mapName = useAppSelector(s => s.maps.byId.get(draftState.mapId)?.name ?? '')
+  const matchmakingType = useAtomValue(draftMatchmakingTypeAtom)
 
   return (
     <InfoColumn>
+      {matchmakingType ? (
+        <ModeLabel>{matchmakingTypeToLabel(matchmakingType, t)}</ModeLabel>
+      ) : undefined}
       <MapInfo>
         <StyledMapThumbnail mapId={draftState.mapId} size={384} hasFavoriteAction={false} />
         <TitleLarge>{mapName}</TitleLarge>

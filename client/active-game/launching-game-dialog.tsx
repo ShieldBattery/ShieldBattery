@@ -1,14 +1,25 @@
 import { useAtomValue } from 'jotai'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { gameLoadingStatusAtom } from '../games/game-atoms'
+import { launchingMatchmakingTypeAtom } from '../matchmaking/matchmaking-atoms'
 import { Dialog } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
-import { bodyLarge } from '../styles/typography'
+import { bodyLarge, labelMedium } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
+`
+
+const ModeLabel = styled.div`
+  ${labelMedium};
+  margin-top: -12px;
+  margin-bottom: 16px;
+
+  color: var(--theme-on-surface-variant);
+  text-align: center;
 `
 
 const StatusText = styled.div`
@@ -21,6 +32,7 @@ const StatusText = styled.div`
 export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
   const { t } = useTranslation()
   const loadingStatus = useAtomValue(gameLoadingStatusAtom)
+  const matchmakingType = useAtomValue(launchingMatchmakingTypeAtom)
 
   let statusLine: string | undefined
   if (loadingStatus?.status === 'provisioningGameServer') {
@@ -34,6 +46,9 @@ export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
       onCancel={onCancel}
       title={t('game.launchingGameDialog.title', 'Launching game…')}
       showCloseButton={false}>
+      {matchmakingType ? (
+        <ModeLabel>{matchmakingTypeToLabel(matchmakingType, t)}</ModeLabel>
+      ) : undefined}
       <LoadingDotsArea />
       {statusLine ? <StatusText>{statusLine}</StatusText> : null}
     </StyledDialog>

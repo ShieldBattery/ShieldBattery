@@ -1,7 +1,7 @@
 import { nothing } from 'immer'
 import { atom, Setter } from 'jotai'
 import { atomWithImmer } from 'jotai-immer'
-import { ClientDraftState, DraftChatMessage } from '../../common/matchmaking'
+import { ClientDraftState, DraftChatMessage, MatchmakingType } from '../../common/matchmaking'
 import { RaceChar } from '../../common/races'
 import { JotaiStore } from '../jotai-store'
 import { updateOnConnect } from '../network/network-atoms'
@@ -9,6 +9,8 @@ import { updateOnConnect } from '../network/network-atoms'
 export const draftStateAtom = atomWithImmer<ClientDraftState | undefined>(undefined)
 export const draftPickTimeStartAtom = atom<number | undefined>(undefined)
 export const draftChatMessagesAtom = atomWithImmer<DraftChatMessage[]>([])
+/** The matchmaking type of the current draft, set alongside `draftStateAtom`. */
+export const draftMatchmakingTypeAtom = atom<MatchmakingType | undefined>(undefined)
 
 export const isInDraftAtom = atom(get => !!get(draftStateAtom))
 
@@ -22,6 +24,7 @@ export function resetDraftState(storeOrSetter: JotaiStore | Setter) {
   setter(draftStateAtom, nothing as any)
   setter(draftPickTimeStartAtom, undefined)
   setter(draftChatMessagesAtom, [])
+  setter(draftMatchmakingTypeAtom, undefined)
 }
 
 export function completeDraft(store: JotaiStore) {
