@@ -83,7 +83,7 @@
     "@google-cloud/vision": "^5.3.7",
     "@grpc/grpc-js": "^1.14.4",
     "@koa/router": "^15.7.0",
-    "@shieldbattery/broodrep": "^0.4.1",
+    "@shieldbattery/broodrep": "^0.5.0",
     "bcrypt": "^6.0.0",
     "bw-chk": "^1.4.1",
     "core-js": "^3.49.0",

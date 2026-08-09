@@ -35,8 +35,8 @@ importers:
         specifier: ^15.7.0
         version: 15.7.0(koa@3.2.1)(supports-color@8.1.1)
       '@shieldbattery/broodrep':
-        specifier: ^0.4.1
-        version: 0.4.1
+        specifier: ^0.5.0
+        version: 0.5.0
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
@@ -3106,8 +3106,8 @@ packages:
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
-  '@shieldbattery/broodrep@0.4.1':
-    resolution: {integrity: sha512-5fKGKJmjD8JKVPC1M7tHPMTowfsuqer+Xs9c1ir28N9Va1v8bUn0WIEpTU29i2v0N4EJBhECe297ASeOj1oWOA==}
+  '@shieldbattery/broodrep@0.5.0':
+    resolution: {integrity: sha512-OOuVGkMUud87TbrdtBodJF/6HJu4ZdUTjLHggrHrgoRu3UnvN+pe4/USnVPBUu6nGw5CvsO+qX9YC8kCtPXH2g==}
     engines: {node: '>= 22.12.0'}
 
   '@sindresorhus/is@4.6.0':
@@ -11704,7 +11704,7 @@ snapshots:
       domhandler: 5.0.3
       selderee: 0.11.0
 
-  '@shieldbattery/broodrep@0.4.1': {}
+  '@shieldbattery/broodrep@0.5.0': {}
 
   '@sindresorhus/is@4.6.0': {}
 

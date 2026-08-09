@@ -10,7 +10,7 @@
   "author": "Travis Collins <travis@tec27.com> (http://tec27.com)",
   "dependencies": {
     "@bufbuild/protobuf": "^2.12.1",
-    "@shieldbattery/broodrep": "^0.4.1",
+    "@shieldbattery/broodrep": "^0.5.0",
     "@shieldbattery/stimpack": "^1.1.1",
     "@shieldbattery/windows-registry": "^1.0.0",
     "archiver": "^8.0.0",
