@@ -38,4 +38,6 @@ publish:
   provider: spaces
   name: shieldbattery-staging
   region: nyc3
-  path: /app/
+  # No leading/trailing slashes: electron-builder >= 26.15 joins this verbatim, so "/app/"
+  # produces keys like "/app//latest.yml" (invisible to the updater, which reads app/latest.yml).
+  path: app
