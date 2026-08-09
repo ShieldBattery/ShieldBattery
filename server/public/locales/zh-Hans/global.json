@@ -640,6 +640,14 @@
         "address": "地址",
         "at": "时间",
         "event": "事件",
+        "flightRecordings": {
+          "download": "下载记录",
+          "empty": "会话 {{session}} 没有已存储的记录",
+          "list": "列出已存储的记录",
+          "listError": "无法列出记录（{{status}}）",
+          "listErrorGeneric": "无法列出记录",
+          "title": "飞行记录"
+        },
         "home": "分配",
         "rehome": "重新分配",
         "relay": "中继",
@@ -2014,6 +2022,11 @@
   },
   "users": {
     "admin": {
+      "avatar": {
+        "description": "永久删除此用户的头像。此操作无法撤销。",
+        "none": "此用户未设置头像。",
+        "title": "头像"
+      },
       "ipAddresses": {
         "title": "IP地址"
       },
@@ -2077,8 +2090,7 @@
         "avatarRemoveError": "移除头像时出错",
         "removeAvatarAction": "移除头像",
         "removeAvatarBody": "这将永久删除 {{user}} 的头像。此操作无法撤销。",
-        "removeAvatarTitle": "移除头像？",
-        "removeAvatarTooltip": "移除头像（管理员）"
+        "removeAvatarTitle": "移除头像？"
       },
       "copyLink": "复制个人资料链接",
       "latestGames": "最近游戏",

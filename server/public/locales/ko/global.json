@@ -640,6 +640,14 @@
         "address": "주소",
         "at": "시각",
         "event": "이벤트",
+        "flightRecordings": {
+          "download": "기록 다운로드",
+          "empty": "세션 {{session}}에 저장된 기록이 없습니다",
+          "list": "저장된 기록 보기",
+          "listError": "기록을 불러오지 못했습니다 ({{status}})",
+          "listErrorGeneric": "기록을 불러오지 못했습니다",
+          "title": "비행 기록"
+        },
         "home": "배정",
         "rehome": "재배정",
         "relay": "릴레이",
@@ -2014,6 +2022,11 @@
   },
   "users": {
     "admin": {
+      "avatar": {
+        "description": "이 사용자의 아바타를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+        "none": "이 사용자는 아바타를 설정하지 않았습니다.",
+        "title": "아바타"
+      },
       "ipAddresses": {
         "title": "IP 주소"
       },
@@ -2077,8 +2090,7 @@
         "avatarRemoveError": "아바타를 제거하는 중 문제가 발생했습니다",
         "removeAvatarAction": "아바타 제거",
         "removeAvatarBody": "{{user}}님의 아바타를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
-        "removeAvatarTitle": "아바타를 제거하시겠습니까?",
-        "removeAvatarTooltip": "아바타 제거 (관리자)"
+        "removeAvatarTitle": "아바타를 제거하시겠습니까?"
       },
       "copyLink": "프로필 링크 복사",
       "latestGames": "최근 게임",

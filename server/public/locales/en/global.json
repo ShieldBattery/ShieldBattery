@@ -643,6 +643,14 @@
         "address": "Address",
         "at": "At",
         "event": "Event",
+        "flightRecordings": {
+          "download": "Download recording",
+          "empty": "No stored recordings for session {{session}}",
+          "list": "List stored recordings",
+          "listError": "Failed to list recordings ({{status}})",
+          "listErrorGeneric": "Failed to list recordings",
+          "title": "Flight recordings"
+        },
         "home": "Home",
         "rehome": "Rehome",
         "relay": "Relay",
@@ -2033,6 +2041,11 @@
   },
   "users": {
     "admin": {
+      "avatar": {
+        "description": "Permanently remove this user's avatar. This can't be undone.",
+        "none": "This user does not have an avatar set.",
+        "title": "Avatar"
+      },
       "ipAddresses": {
         "title": "IP addresses"
       },
@@ -2096,8 +2109,7 @@
         "avatarRemoveError": "There was a problem removing the avatar",
         "removeAvatarAction": "Remove avatar",
         "removeAvatarBody": "This will permanently delete {{user}}'s avatar. This can't be undone.",
-        "removeAvatarTitle": "Remove avatar?",
-        "removeAvatarTooltip": "Remove avatar (admin)"
+        "removeAvatarTitle": "Remove avatar?"
       },
       "copyLink": "Copy link to profile",
       "latestGames": "Latest games",

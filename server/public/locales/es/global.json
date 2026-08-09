@@ -646,6 +646,14 @@
         "address": "Dirección",
         "at": "Fecha",
         "event": "Evento",
+        "flightRecordings": {
+          "download": "Descargar grabación",
+          "empty": "No hay grabaciones almacenadas para la sesión {{session}}",
+          "list": "Listar grabaciones",
+          "listError": "No se pudieron listar las grabaciones ({{status}})",
+          "listErrorGeneric": "No se pudieron listar las grabaciones",
+          "title": "Grabaciones de vuelo"
+        },
         "home": "Asignación",
         "rehome": "Reasignación",
         "relay": "Relay",
@@ -2052,6 +2060,11 @@
   },
   "users": {
     "admin": {
+      "avatar": {
+        "description": "Elimina permanentemente el avatar de este usuario. No se puede deshacer.",
+        "none": "Este usuario no tiene un avatar configurado.",
+        "title": "Avatar"
+      },
       "ipAddresses": {
         "title": "Direcciones IP"
       },
@@ -2115,8 +2128,7 @@
         "avatarRemoveError": "Algo salió mal al eliminar el avatar",
         "removeAvatarAction": "Eliminar avatar",
         "removeAvatarBody": "Esto eliminará permanentemente el avatar de {{user}}. No se puede deshacer.",
-        "removeAvatarTitle": "¿Eliminar avatar?",
-        "removeAvatarTooltip": "Eliminar avatar (admin)"
+        "removeAvatarTitle": "¿Eliminar avatar?"
       },
       "copyLink": "Copiar enlace al perfil",
       "latestGames": "Últimos juegos",
