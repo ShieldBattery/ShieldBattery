@@ -21,7 +21,7 @@ import { graphql } from '../gql'
 import TwitchIcon from '../icons/brands/twitch.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { RaceIcon } from '../lobbies/race-icon'
-import { IconButton } from '../material/button'
+import { FilledButton, IconButton } from '../material/button'
 import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
@@ -34,7 +34,6 @@ import {
   bodyLarge,
   bodySmall,
   headlineLarge,
-  labelLarge,
   labelMedium,
   labelSmall,
   singleLine,
@@ -575,20 +574,6 @@ const BannerViewers = styled.div`
   font-variant-numeric: tabular-nums;
 `
 
-const WatchButton = styled.div`
-  ${labelLarge};
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-
-  border-radius: 6px;
-  background-color: var(--theme-live);
-  color: #fff;
-  white-space: nowrap;
-`
-
 export function ProfileLiveBanner({
   twitchLogin,
   title,
@@ -631,10 +616,11 @@ export function ProfileLiveBanner({
             <BannerViewers>
               {t('twitch.liveStreams.viewers', '{{count}} watching', { count: viewerCount })}
             </BannerViewers>
-            <WatchButton>
-              <MaterialIcon icon='play_arrow' size={18} />
-              {t('twitch.live.watch', 'Watch stream')}
-            </WatchButton>
+            <FilledButton
+              styledAs='div'
+              label={t('twitch.live.watch', 'Watch stream')}
+              iconStart={<MaterialIcon icon='play_arrow' size={20} />}
+            />
           </BannerFoot>
         </BannerBody>
       </LiveBannerRoot>

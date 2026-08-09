@@ -2,7 +2,6 @@ import { Suspense, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { useQuery } from 'urql'
-import { Link } from 'wouter'
 import { openDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { LiveGameEntry, LiveGames_FeedFragment } from '../games/live-game-entry'
@@ -12,7 +11,8 @@ import KofiIcon from '../icons/brands/kofi-color.svg?react'
 import PatreonIcon from '../icons/brands/patreon.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { LeagueHomeFeed } from '../leagues/league-home-feed'
-import { TextButton } from '../material/button'
+import { OutlinedButton, TextButton } from '../material/button'
+import { LinkButton } from '../material/link-button'
 import { elevationPlus1 } from '../material/shadows'
 import { Tooltip } from '../material/tooltip'
 import { NewsFeed } from '../news/news-feed'
@@ -20,7 +20,7 @@ import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch } from '../redux-hooks'
 import { CenteredContentContainer } from '../styles/centered-container'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { bodyMedium, singleLine, titleSmall } from '../styles/typography'
+import { singleLine, titleSmall } from '../styles/typography'
 import { LIVE_STREAMS_POLL_INTERVAL_MS, useQueryPolling } from '../twitch/live-state'
 import {
   FeaturedLiveStreamEntry,
@@ -312,26 +312,9 @@ const LiveStreamsRoot = styled.div`
   overflow: hidden;
 `
 
-const SeeAllLink = styled(Link)`
-  ${bodyMedium};
-  display: block;
-  padding: 10px 12px;
-
-  font-weight: 600;
+const SeeAllContainer = styled.div`
+  padding-block: 8px 4px;
   text-align: center;
-  text-decoration: none;
-
-  &,
-  &:link,
-  &:visited {
-    color: var(--theme-amber);
-  }
-
-  &:hover,
-  &:focus-visible {
-    background-color: var(--theme-container-high);
-    outline: none;
-  }
 `
 
 export function LiveStreamsFeed({
@@ -358,9 +341,15 @@ export function LiveStreamsFeed({
         {rest.slice(0, 4).map(stream => (
           <LiveStreamEntry key={stream.twitchLogin} query={stream} />
         ))}
-        <SeeAllLink href='/live'>
-          {t('twitch.liveStreams.seeAll', 'See all live streams')}
-        </SeeAllLink>
+        <SeeAllContainer>
+          <LinkButton href='/live'>
+            <OutlinedButton
+              styledAs='div'
+              label={t('twitch.liveStreams.seeAll', 'See all live streams')}
+              tabIndex={0}
+            />
+          </LinkButton>
+        </SeeAllContainer>
       </LiveStreamsRoot>
     </HomeSection>
   )

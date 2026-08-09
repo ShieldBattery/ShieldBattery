@@ -48,8 +48,8 @@ function useLiveStream(query: FragmentType<typeof LiveStreams_FeedEntryFragment>
 }
 
 /**
- * The ShieldBattery identity leads every entry: the SB username (in amber). The Twitch handle is
- * only worth showing when it differs from the SB name.
+ * The ShieldBattery identity leads every entry: the SB username. The Twitch handle is only worth
+ * showing when it differs from the SB name.
  */
 function getIdentity(stream: LiveStreamFragment) {
   const sbName = stream.user?.name ?? stream.twitchDisplayName
@@ -66,7 +66,7 @@ function streamUrl(login: string) {
 
 const Name = styled.span`
   ${singleLine};
-  color: var(--theme-amber);
+  color: var(--theme-on-surface);
 `
 
 const Handle = styled.span`
