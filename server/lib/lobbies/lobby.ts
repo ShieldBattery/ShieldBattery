@@ -192,11 +192,12 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
 
 /**
  * Serializes a lobby for the people previewing it specifically: its summary plus who is sitting in
- * which seat.
+ * which seat. Callers that have already serialized the lobby's summary can pass it in to avoid
+ * walking every slot a second time.
  */
-export function toPreviewJson(lobby: Lobby): LobbyPreviewJson {
+export function toPreviewJson(lobby: Lobby, summary = toSummaryJson(lobby)): LobbyPreviewJson {
   return {
-    ...toSummaryJson(lobby),
+    ...summary,
     teams: lobby.teams.map(toSummaryTeamJson),
   }
 }

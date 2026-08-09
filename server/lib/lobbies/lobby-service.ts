@@ -286,15 +286,8 @@ export class LobbyService {
       visibility: lobbyVisibility,
     })
 
-    if (leaveCurrentLobby && this.lobbyClients.has(client)) {
-      // Every failure above has already been checked, so the client is only removed from its
-      // current lobby once the new lobby is known to be creatable. This also frees the activity
-      // registry entry that `registerActiveClient` below needs, the same way an explicit leave
-      // does (host-migration/close-when-empty semantics apply as usual).
-      const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
-      if (currentLobby) {
-        this._removeClientFromLobby(currentLobby, client)
-      }
+    if (leaveCurrentLobby) {
+      this._leaveCurrentLobby(client)
     }
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
@@ -417,15 +410,8 @@ export class LobbyService {
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
 
-    if (leaveCurrentLobby && this.lobbyClients.has(client)) {
-      // Every failure above has already been checked, so the client is only removed from its
-      // current lobby once the target join is known to succeed. This also frees the activity
-      // registry entry that `registerActiveClient` below needs, the same way an explicit leave
-      // does (host-migration/close-when-empty semantics apply as usual).
-      const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
-      if (currentLobby) {
-        this._removeClientFromLobby(currentLobby, client)
-      }
+    if (leaveCurrentLobby) {
+      this._leaveCurrentLobby(client)
     }
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
@@ -975,6 +961,25 @@ export class LobbyService {
     this._removeClientFromLobby(lobby, client)
   }
 
+  /**
+   * Removes `client` from whatever lobby it's currently seated in, if any. For flows that trade
+   * the current lobby for another (joining elsewhere, creating a new one), call this only after
+   * every failure check on the target has passed, so a failed request never strands the client
+   * lobby-less. This also frees the activity registry entry that `registerActiveClient` needs,
+   * the same way an explicit leave does (host-migration/close-when-empty semantics apply as
+   * usual).
+   */
+  _leaveCurrentLobby(client: ClientSocketsGroup): void {
+    if (!this.lobbyClients.has(client)) {
+      return
+    }
+
+    const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
+    if (currentLobby) {
+      this._removeClientFromLobby(currentLobby, client)
+    }
+  }
+
   _removeClientFromLobby(
     lobby: Lobby,
     client: ClientSocketsGroup,
@@ -1333,10 +1338,10 @@ export class LobbyService {
   }
 
   /** Publishes a lobby's current seat-by-seat layout to whoever is previewing it. */
-  _publishPreview(lobby: Lobby) {
+  _publishPreview(lobby: Lobby, summary?: LobbySummaryJson) {
     this.publisher.publish(getLobbyPreviewPath(lobby.id), {
       action: 'preview',
-      payload: Lobbies.toPreviewJson(lobby),
+      payload: Lobbies.toPreviewJson(lobby, summary),
     })
   }
 
@@ -1469,15 +1474,14 @@ export class LobbyService {
     // Previewers are looking at this lobby specifically and want every seat as it moves. Their
     // channel is empty whenever nobody has the lobby selected, so publishing unconditionally costs
     // nothing in the common case.
-    this._publishPreview(newLobby)
+    const newSummary = Lobbies.toSummaryJson(newLobby)
+    this._publishPreview(newLobby, newSummary)
 
-    // The list, on the other hand, reaches every browser on the server, and its rows only show the
-    // summary's scalars. A race pick or a swap between two seats of the same team leaves all of
-    // them identical, so republishing would wake every subscriber to redraw nothing.
-    if (
-      JSON.stringify(Lobbies.toSummaryJson(oldLobby)) !==
-      JSON.stringify(Lobbies.toSummaryJson(newLobby))
-    ) {
+    // The list, on the other hand, reaches every browser on the server, and its rows only show
+    // the summary's scalars. A race pick leaves all of them identical, so republishing would wake
+    // every subscriber to redraw nothing. (A seat swap does republish: it reorders the summary's
+    // occupantIds, whose order is the seating order the friend stacks display.)
+    if (JSON.stringify(Lobbies.toSummaryJson(oldLobby)) !== JSON.stringify(newSummary)) {
       this._publishListChange('update', newLobby)
     }
   }
