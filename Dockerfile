@@ -52,7 +52,7 @@ ENV NODE_ENV=production
 # We need python to execute some python scripts (e.g. `s3cmd`). The `s3cmd` package pulls in its own
 # Python dependencies (including python-dateutil).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  bash logrotate jq python3 s3cmd \
+  bash ca-certificates logrotate jq python3 s3cmd \
   && rm -rf /var/lib/apt/lists/*
 
 # Set up log rotation
