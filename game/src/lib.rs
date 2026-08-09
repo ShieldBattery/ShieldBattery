@@ -221,6 +221,11 @@ pub extern "C" fn OnInject() {
         })
         .level(log::LevelFilter::Debug)
         .level_for("tokio_reactor", log::LevelFilter::Warn) // Too spammy otherwise
+        // QUIC transport internals (per-connection driver ticks etc.) flood the log at debug;
+        // keep only warnings and above.
+        .level_for("quinn", log::LevelFilter::Warn)
+        .level_for("quinn_proto", log::LevelFilter::Warn)
+        .level_for("quinn_udp", log::LevelFilter::Warn)
         .chain(log_file())
         .apply();
 
