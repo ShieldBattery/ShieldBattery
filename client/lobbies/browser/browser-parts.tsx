@@ -1,26 +1,10 @@
-import { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { RaceChar } from '../../../common/races'
+import { RaceChar, raceCharToLabel } from '../../../common/races'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { Tooltip } from '../../material/tooltip'
 import { labelSmall, singleLine } from '../../styles/typography'
 import { RaceIcon } from '../race-icon'
-
-function raceName(race: RaceChar, t: TFunction): string {
-  switch (race) {
-    case 'z':
-      return t('game.race.zerg', 'Zerg')
-    case 'p':
-      return t('game.race.protoss', 'Protoss')
-    case 't':
-      return t('game.race.terran', 'Terran')
-    case 'r':
-      return t('game.race.random', 'Random')
-    default:
-      return race satisfies never
-  }
-}
 
 const RaceMarkIcon = styled(RaceIcon)`
   width: 24px;
@@ -33,7 +17,7 @@ const RaceMarkIcon = styled(RaceIcon)`
 /** A player's race, at the size the browser's rows and rail read it at. */
 export function RaceMark({ race, className }: { race: RaceChar; className?: string }) {
   const { t } = useTranslation()
-  return <RaceMarkIcon race={race} ariaLabel={raceName(race, t)} className={className} />
+  return <RaceMarkIcon race={race} ariaLabel={raceCharToLabel(race, t)} className={className} />
 }
 
 /** A compact pill describing one piece of the lobby's setup. */
