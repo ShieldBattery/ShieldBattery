@@ -1,48 +1,79 @@
-import tokenthrottle, { Throttle } from 'tokenthrottle'
-import { RedisTable, RedisTableOptions } from 'tokenthrottle-redis'
 import { container } from 'tsyringe'
 import { Redis } from '../redis/redis'
 
-export class PromiseBasedThrottle {
-  readonly _throttle: Throttle
+/**
+ * Lua implementation of a token-bucket rate limit check, run entirely inside Redis so that
+ * checking and updating the bucket is a single atomic operation (concurrent requests can never
+ * consume more than `burst` tokens between them) and costs one round trip.
+ *
+ * Bucket state is a hash of `tokens` (possibly fractional) and `time` (last update, unix ms).
+ * Tokens refill continuously at `rate` per `window` up to a maximum of `burst`.
+ *
+ * KEYS[1]: bucket key
+ * ARGV[1]: rate (tokens refilled per window)
+ * ARGV[2]: burst (maximum bucket capacity)
+ * ARGV[3]: window (milliseconds)
+ * ARGV[4]: current time (unix milliseconds)
+ * ARGV[5]: key expiry (seconds)
+ *
+ * Returns `{limited, waitMs}` where `limited` is 1 if the request should be rejected, and
+ * `waitMs` is how long until a token will be available (0 when not limited).
+ *
+ * NOTE: server-rs is expected to mirror this script exactly if/when it gains rate limiting, so
+ * that both servers can share bucket state and semantics. If you change the script or the key
+ * layout, change it there too.
+ */
+export const TOKEN_BUCKET_LUA = `
+  local rate = tonumber(ARGV[1])
+  local burst = tonumber(ARGV[2])
+  local window = tonumber(ARGV[3])
+  local now = tonumber(ARGV[4])
 
-  constructor(throttle: Throttle) {
-    this._throttle = throttle
-  }
+  local bucket = redis.call('HMGET', KEYS[1], 'tokens', 'time')
+  local tokens = tonumber(bucket[1])
+  local time = tonumber(bucket[2])
+  if tokens == nil or time == nil then
+    tokens = burst
+    time = now
+  end
+  -- Guard against clock adjustments moving now before the stored time
+  if now < time then
+    time = now
+  end
+  tokens = math.min(burst, tokens + (now - time) * (rate / window))
 
-  // Returns a promise that resolves to a boolean value saying whether or not the client
-  // identified by `id` is currently rate-limited. Rejects on backing store errors.
-  rateLimit(id: string) {
-    return new Promise<boolean>((resolve, reject) => {
-      this._throttle.rateLimit(id, (err, limited) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(limited)
-        }
-      })
-    })
-  }
+  local limited = 0
+  local waitMs = 0
+  if tokens >= 1 then
+    tokens = tokens - 1
+  else
+    limited = 1
+    waitMs = math.ceil((1 - tokens) * (window / rate))
+  end
+
+  redis.call('HSET', KEYS[1], 'tokens', tokens, 'time', now)
+  redis.call('EXPIRE', KEYS[1], ARGV[5])
+  return {limited, waitMs}
+`
+
+interface ThrottleRedis extends Redis {
+  /** Custom command registered via `defineCommand`, running `TOKEN_BUCKET_LUA`. */
+  sbThrottle(
+    key: string,
+    rate: number,
+    burst: number,
+    windowMs: number,
+    nowMs: number,
+    expirySecs: number,
+  ): Promise<[limited: number, waitMs: number]>
 }
 
-// A slight modification of tokenthrottle-redis's table class to deal with the fact that ioredis
-// returns an object instance when a key doesn't exist (instead of returning a falsey value)
-class IoredisTable extends RedisTable {
-  constructor(redisClient: Redis, options: RedisTableOptions) {
-    super(redisClient, options)
+function getThrottleRedis(): ThrottleRedis {
+  const redis = container.resolve(Redis) as ThrottleRedis
+  if (typeof redis.sbThrottle !== 'function') {
+    redis.defineCommand('sbThrottle', { numberOfKeys: 1, lua: TOKEN_BUCKET_LUA })
   }
-
-  override get(key: string, cb: (err: Error | null | undefined, obj?: unknown) => void) {
-    super.get(key, (err, result) => {
-      if (err) {
-        cb(err)
-      } else if (result && (result as any).window) {
-        cb(null, result)
-      } else {
-        cb(null, null)
-      }
-    })
-  }
+  return redis
 }
 
 export interface CreateThrottleOptions {
@@ -59,6 +90,40 @@ export interface CreateThrottleOptions {
   expiry?: number
 }
 
+/** A Redis-backed token-bucket rate limiter for a single logical operation. */
+export class TokenBucketThrottle {
+  constructor(
+    private readonly keyPrefix: string,
+    private readonly opts: Required<CreateThrottleOptions>,
+  ) {}
+
+  /**
+   * Returns whether the client identified by `id` is currently rate-limited, consuming a token
+   * from its bucket if not. Rejects on backing store errors.
+   */
+  async rateLimit(id: string): Promise<boolean> {
+    const { limited } = await this.rateLimitWithWait(id)
+    return limited
+  }
+
+  /**
+   * Like `rateLimit`, but also returns how many milliseconds until a token will be available
+   * (0 when not limited), e.g. for populating a Retry-After header.
+   */
+  async rateLimitWithWait(id: string): Promise<{ limited: boolean; waitMs: number }> {
+    const { rate, burst, window, expiry } = this.opts
+    const [limited, waitMs] = await getThrottleRedis().sbThrottle(
+      `${this.keyPrefix}~${id}`,
+      rate,
+      burst,
+      window,
+      Date.now(),
+      expiry,
+    )
+    return { limited: limited === 1, waitMs }
+  }
+}
+
 /**
  * Creates a new throttle object using the specified options and our usual redis client. The `name`
  * is used in the redis key.
@@ -71,17 +136,10 @@ export interface CreateThrottleOptions {
  *    (default: 10 * (`burst` / `rate`) `window`s)
  */
 export default function createThrottle(name: string, opts: CreateThrottleOptions) {
-  const table = new IoredisTable(container.resolve(Redis), {
-    prefix: 'sbthrottle:' + name,
+  return new TokenBucketThrottle('sbthrottle:' + name, {
+    ...opts,
     expiry:
-      opts.expiry ||
-      Math.round(((opts.window || 1000) * 10 * ((opts.burst || opts.rate) / opts.rate)) / 1000),
+      opts.expiry ??
+      Math.round((opts.window * 10 * ((opts.burst || opts.rate) / opts.rate)) / 1000),
   })
-
-  return new PromiseBasedThrottle(
-    tokenthrottle({
-      ...opts,
-      tokensTable: table,
-    }),
-  )
 }
