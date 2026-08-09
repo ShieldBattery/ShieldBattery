@@ -66,6 +66,9 @@ pub struct DatabaseSettings {
     pub host: String,
     pub port: String,
     pub database_name: String,
+    /// Maximum number of connections this process keeps in its Postgres pool. Sized against the
+    /// server's `max_connections` shared with the Node app server and maintenance tasks.
+    pub pool_max: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -258,6 +261,19 @@ pub fn get_configuration() -> eyre::Result<Settings> {
             host: std::env::var("SB_DB_HOST").wrap_err("SB_DB_HOST is not set")?,
             port: std::env::var("SB_DB_PORT").wrap_err("SB_DB_PORT is not set")?,
             database_name: std::env::var("SB_DB").wrap_err("SB_DB is not set")?,
+            pool_max: match std::env::var("SB_DB_POOL_MAX") {
+                Ok(value) => value
+                    .parse()
+                    .wrap_err("SB_DB_POOL_MAX must be a positive integer")
+                    .and_then(|n: u32| {
+                        if n > 0 {
+                            Ok(n)
+                        } else {
+                            Err(eyre!("SB_DB_POOL_MAX must be a positive integer"))
+                        }
+                    })?,
+                Err(_) => 20,
+            },
         },
         redis: RedisSettings {
             host: std::env::var("SB_REDIS_HOST").wrap_err("SB_REDIS_HOST is not set")?,

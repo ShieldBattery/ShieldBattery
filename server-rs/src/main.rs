@@ -56,6 +56,7 @@ async fn main() -> eyre::Result<()> {
 
     let connection_string = settings.database.connection_string();
     let db_pool = PgPoolOptions::new()
+        .max_connections(settings.database.pool_max)
         .acquire_timeout(Duration::from_secs(3))
         .connect(connection_string.expose_secret())
         .await

@@ -29,6 +29,7 @@ services:
       - VIRTUAL_PORT=5555
       - LETSENCRYPT_HOST=${SB_VIRTUAL_HOST}
       - DATABASE_URL=postgres://${SB_DB_USER:-shieldbattery}:${SB_DB_PASSWORD}@db/${SB_DB_NAME:-shieldbattery}
+      - SB_DB_POOL_MAX
       - SB_HTTP_PORT=5555
       - SB_HTTPS_REVERSE_PROXY=true
       - SB_CANONICAL_HOST
@@ -94,6 +95,7 @@ services:
       - SB_DB_USER=${SB_DB_USER:-shieldbattery}
       - SB_DB_PASSWORD=${SB_DB_PASSWORD}
       - SB_DB=${SB_DB:-shieldbattery}
+      - SB_DB_POOL_MAX
       - 'SB_GQL_HOST=[::]'
       - SB_GQL_PORT=5556
       - SB_HTTPS_REVERSE_PROXY=true
