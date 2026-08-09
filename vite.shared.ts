@@ -120,10 +120,21 @@ export async function sharedPlugins(): Promise<NonNullable<UserConfig['plugins']
       // one, which keeps a dependency's SVG an image (turning one into JSX would break its
       // importer) and leaves `*.svg` free to mean a URL, as `vite/client` types it.
       //
-      // No `svgoConfig`: this chain is `@svgr/core` plus `@svgr/plugin-jsx`, with no SVGO, so
-      // nothing rewrites the markup and attributes like `viewBox` survive untouched. Installing
-      // `@svgr/plugin-svgo` would change that — SVGO's default preset strips `viewBox`, so it
-      // would need `preset-default` with a `removeViewBox: false` override.
+      // SVGO runs ahead of the JSX transform for one reason: its `prefixIds` plugin namespaces
+      // every id/class per source file. Inline SVGs share the document, and `url(#...)` references
+      // (masks, clip paths, gradients) resolve document-wide to the first matching id, so two
+      // inlined SVGs that happen to reuse an id like "a" silently corrupt each other whenever they
+      // appear on the same page. `preset-default` needs the `removeViewBox: false` override or
+      // icons lose the viewBox that makes them scalable.
+      svgrOptions: {
+        plugins: ['@svgr/plugin-svgo', '@svgr/plugin-jsx'],
+        svgoConfig: {
+          plugins: [
+            { name: 'preset-default', params: { overrides: { removeViewBox: false } } },
+            'prefixIds',
+          ],
+        },
+      },
     }),
     jotai(),
     graphqlOptimizer(ROOT),

@@ -161,6 +161,7 @@
     "@redux-devtools/inspector-monitor": "^7.0.0",
     "@rolldown/plugin-babel": "0.2.3",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@svgr/plugin-svgo": "8.1.0",
     "@swc-node/register": "^1.12.1",
     "@swc/core": "^1.15.43",
     "@testing-library/dom": "^10.4.1",
