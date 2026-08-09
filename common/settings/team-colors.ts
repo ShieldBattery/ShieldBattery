@@ -41,6 +41,18 @@ export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#3C3C3C', name: 'Black' },
 ]
 
+// Every pool below is priority-ordered, and a game only draws as many colors as it has players:
+// the first four slots are what nearly every game actually shows, while the tail only appears in a
+// full lobby.
+//
+// Two minimap colors are effectively reserved and constrain that ordering. A participant's own
+// units always draw as #00E32B green there -- the engine never consults their assigned color for
+// their own dots, in any Shift+Tab mode -- and resources always draw as #00FFFF cyan. A pool color
+// near either one therefore reads as "my units" or "minerals" sitting on someone else's base.
+// Nothing goes near the cyan at all; greens are pushed to slot 5 or later, where the usable color
+// range is spent and some ambiguity has to be accepted anyway. (Observers and replay viewers see
+// true player colors for everyone, so this only binds for people actually playing.)
+
 /**
  * The "cool" 7-color pool backing the CoolVsWarm/WarmVsCool team-color presets (as the enemies
  * pool, or reversed with its head color as `self`, as the allies pool). Ordered to keep the
@@ -50,21 +62,29 @@ export const SC_COLORS: ReadonlyArray<{ hex: string; name: string }> = [
  */
 export const COOL: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#2F7FE3', name: 'Azure' },
-  { hex: '#5AC576', name: 'Emerald' },
-  { hex: '#92C1FD', name: 'Sky' },
   { hex: '#BE8CE1', name: 'Violet' },
-  { hex: '#B3ECB9', name: 'Mint' },
-  { hex: '#60812B', name: 'Moss' },
+  { hex: '#92C1FD', name: 'Sky' },
   { hex: '#228A8D', name: 'Deep teal' },
+  { hex: '#B3ECB9', name: 'Mint' },
+  { hex: '#5AC576', name: 'Emerald' },
+  { hex: '#60812B', name: 'Moss' },
 ]
 
-/** The "warm" counterpart to {@link COOL}; see there for details, including on `name`. */
+/**
+ * The "warm" counterpart to {@link COOL}; see there for details, including on `name`.
+ *
+ * Magenta sits below the head slots despite being one of the pool's strongest colors to normal
+ * vision: protanopia and deuteranopia both desaturate it into the same blue-grey they turn
+ * {@link COOL}'s violet and deep teal into, and a color that collapses onto the *opposing* pool
+ * costs far more than one that collapses onto its own -- mistaking an enemy for an ally is a
+ * worse failure than mixing up two allies.
+ */
 export const WARM: ReadonlyArray<{ hex: string; name: string }> = [
   { hex: '#DE3C37', name: 'Scarlet' },
   { hex: '#EDC23E', name: 'Gold' },
-  { hex: '#D553AC', name: 'Magenta' },
   { hex: '#F48815', name: 'Orange' },
   { hex: '#F99FB7', name: 'Rose' },
+  { hex: '#D553AC', name: 'Magenta' },
   { hex: '#A24B36', name: 'Brick' },
   { hex: '#FEC2A4', name: 'Peach' },
 ]
@@ -116,51 +136,56 @@ export const FFA_COLOR_PRESETS: ReadonlyDeep<
   [FfaColorPreset.Jewel]: [
     '#D23855', // Ruby
     '#396ED6', // Sapphire
-    '#3BB360', // Emerald
     '#F3B01D', // Amber
     '#B675DB', // Amethyst
+    '#3BB360', // Emerald
     '#F28058', // Coral
     '#BEDC6F', // Peridot
     '#F4ACC7', // Rose quartz
   ],
+  // The greens PICO-8 itself would contribute are unusable here: its #00E436 is within ΔEok 0.01
+  // of the minimap's own self-unit green. The maroon and tan take their place, and give the set
+  // the dark and neutral ends it otherwise lacks entirely.
   [FfaColorPreset.Arcade]: [
     '#E32762', // Razzmatazz
     '#46A6EF', // Sky blue
-    '#6CBD2E', // Lime
     '#FACB39', // Sunglow
-    '#ED68AE', // Hot pink
     '#615CDC', // Blurple
+    '#ED68AE', // Hot pink
     '#FE9C4C', // Tangerine
-    '#84D48A', // Seafoam
+    '#7E2553', // Maroon
+    '#FFCCAA', // Tan
   ],
   // Resurrect 64 by Kerrie Lake; see FFA_COLOR_PRESET_ATTRIBUTION below.
   [FfaColorPreset.Resurrect]: [
-    '#D5E04B',
-    '#4D65B4',
     '#EA4F36',
+    '#4D65B4',
     '#EAADED',
+    '#F79617',
+    '#D5E04B',
     '#0EAF9B',
     '#A24B6F',
-    '#F79617',
     '#A884F3',
   ],
-  // Pear36 by PineTreePizza; see FFA_COLOR_PRESET_ATTRIBUTION below.
+  // Pear36 by PineTreePizza; see FFA_COLOR_PRESET_ATTRIBUTION below. Pear36's greens all sit too
+  // near the minimap's self-unit green, and the palette's light end runs heavily to pinks, so this
+  // reaches into its violet and teal ranges to spread the pool out.
   [FfaColorPreset.Pear]: [
-    '#FFE478',
-    '#B0305C',
-    '#4DA6FF',
-    '#3CA370',
-    '#FF6B97',
-    '#FFB5B5',
-    '#8FDE5D',
-    '#BA6156',
+    '#FFE478', // Butter
+    '#473B78', // Grape
+    '#4DA6FF', // Sky
+    '#FF6B97', // Blush
+    '#FFB5B5', // Petal
+    '#3D6E70', // Teal
+    '#4B5BAB', // Indigo
+    '#F2A65E', // Apricot
   ],
   [FfaColorPreset.Neon]: [
     '#E935CF', // Fuchsia
-    '#7ADB00', // Laser lime
     '#2D70F4', // Electric blue
     '#FE8C2C', // Neon orange
     '#F9E03F', // Acid yellow
+    '#1600AC', // Indigo
     '#7B2BCF', // Hyper purple
     '#FE5C8E', // Hot pink
     '#23D891', // Spring green
