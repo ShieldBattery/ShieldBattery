@@ -1925,6 +1925,7 @@ async fn eventsub_callback(
                 }
                 Err(e) => {
                     error!("Failed to parse EventSub challenge: {e:?}");
+                    record_eventsub_event("invalid_body", "webhook_callback_verification");
                     (StatusCode::BAD_REQUEST, "Invalid challenge").into_response()
                 }
             }
@@ -1963,6 +1964,7 @@ async fn eventsub_callback(
             warn!(
                 "Twitch EventSub subscription was revoked; kicking reconciliation to recreate it"
             );
+            record_eventsub_event("revocation", "revocation");
             client.reconcile_kick.notify_one();
             StatusCode::NO_CONTENT.into_response()
         }

@@ -4,6 +4,20 @@ use color_eyre::eyre::WrapErr;
 use deadpool_redis::redis::AsyncCommands;
 use deadpool_redis::{Config, Connection, Pool, Runtime};
 
+const PUBLISH_FAILURES: &str = "redis_publish_failures_total";
+
+/// Registers metric descriptions (the HELP/TYPE text on `/metrics`). Safe to call once at startup;
+/// recording a metric without describing it still works, this just produces nicer output.
+pub fn describe_metrics() {
+    use ::metrics::Unit;
+
+    ::metrics::describe_counter!(
+        PUBLISH_FAILURES,
+        Unit::Count,
+        "Failed attempts to publish a message to Redis, per channel"
+    );
+}
+
 #[derive(Clone)]
 pub struct RedisPool(Pool);
 
@@ -43,6 +57,7 @@ impl RedisPool {
             .wrap_err("Failed to publish message")
             .map_err(|e| {
                 tracing::error!("Failed to publish message to '{channel:?}': {e:?}");
+                ::metrics::counter!(PUBLISH_FAILURES, "channel" => channel).increment(1);
                 e
             })?;
 

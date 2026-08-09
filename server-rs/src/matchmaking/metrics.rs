@@ -29,7 +29,6 @@ const MATCH_WAIT_SECONDS: &str = "matchmaker_match_wait_seconds";
 const MATCHES_FORMED: &str = "matchmaker_matches_formed_total";
 const PLAYERS_QUEUED: &str = "matchmaker_players_queued_total";
 const PLAYERS_REQUEUED: &str = "matchmaker_players_requeued_total";
-const PUBLISH_FAILURES: &str = "matchmaker_publish_failures_total";
 
 /// Registers metric descriptions (the HELP/TYPE text on `/metrics`). Safe to call once at startup;
 /// recording a metric without describing it still works, this just produces nicer output.
@@ -127,11 +126,6 @@ pub fn describe_metrics() {
         Unit::Count,
         "Players re-queued after a failed match, per mode"
     );
-    ::metrics::describe_counter!(
-        PUBLISH_FAILURES,
-        Unit::Count,
-        "Failed attempts to publish a formed match to Redis"
-    );
 }
 
 /// Samples the per-mode queue gauges captured after population roll-forward and before the queue is
@@ -216,8 +210,4 @@ pub fn record_player_queued(mode: MatchmakingType) {
 
 pub fn record_player_requeued(mode: MatchmakingType) {
     ::metrics::counter!(PLAYERS_REQUEUED, "mode" => mode.as_str()).increment(1);
-}
-
-pub fn record_publish_failure() {
-    ::metrics::counter!(PUBLISH_FAILURES).increment(1);
 }

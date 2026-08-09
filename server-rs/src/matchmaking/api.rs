@@ -331,7 +331,6 @@ async fn publish_match_or_exit(redis_pool: &RedisPool, event: PublishedMatchmaki
         match redis_pool.publish(event.clone()).await {
             Ok(()) => return,
             Err(e) => {
-                metrics::record_publish_failure();
                 tracing::error!(
                     "Failed to publish match event to Redis \
                      (attempt {attempt}/{MAX_PUBLISH_ATTEMPTS}): {e:?}"
