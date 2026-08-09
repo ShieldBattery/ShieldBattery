@@ -5,7 +5,28 @@
   "schemaVersion": 30,
   "style": "dark",
   "tags": ["matchmaking"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": { "selected": false, "text": "production", "value": "production" },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "definition": "label_values(up{job=~\"app_server|server_rs\"}, environment)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": true,
+        "name": "environment",
+        "options": [],
+        "query": "label_values(up{job=~\"app_server|server_rs\"}, environment)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "time": { "from": "now-6h", "to": "now" },
   "timezone": "utc",
   "title": "Matchmaking health",
@@ -21,7 +42,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_queue_size", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_queue_size{environment=~\"$environment\"}", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -34,7 +55,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_population_estimate", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_population_estimate{environment=~\"$environment\"}", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -47,7 +68,7 @@
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_effective_min_quality", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_effective_min_quality{environment=~\"$environment\"}", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -60,7 +81,7 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(matchmaker_matches_formed_total[5m])", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(matchmaker_matches_formed_total{environment=~\"$environment\"}[5m])", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -73,8 +94,8 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(shieldbattery_matchmaker_match_launched_total[5m]))", "legendFormat": "launched" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (phase) (rate(shieldbattery_matchmaker_match_failed_total[5m]))", "legendFormat": "failed: {{phase}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(shieldbattery_matchmaker_match_launched_total{environment=~\"$environment\"}[5m]))", "legendFormat": "launched" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (phase) (rate(shieldbattery_matchmaker_match_failed_total{environment=~\"$environment\"}[5m]))", "legendFormat": "failed: {{phase}}" }
       ]
     },
     {
@@ -87,7 +108,7 @@
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_match_quality{quantile=\"0.5\"}", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_match_quality{quantile=\"0.5\",environment=~\"$environment\"}", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -100,7 +121,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "min": 0, "max": 0.5, "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_match_winprob_imbalance{quantile=\"0.5\"}", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_match_winprob_imbalance{quantile=\"0.5\",environment=~\"$environment\"}", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -113,7 +134,7 @@
       "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_match_latency_ms{quantile=\"0.5\"}", "legendFormat": "{{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_match_latency_ms{quantile=\"0.5\",environment=~\"$environment\"}", "legendFormat": "{{mode}}" }
       ]
     },
     {
@@ -126,8 +147,8 @@
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_search_tick_duration_seconds{quantile=\"0.5\"}", "legendFormat": "p50" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_search_tick_duration_seconds{quantile=\"0.99\"}", "legendFormat": "p99" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_search_tick_duration_seconds{quantile=\"0.5\",environment=~\"$environment\"}", "legendFormat": "p50" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "matchmaker_search_tick_duration_seconds{quantile=\"0.99\",environment=~\"$environment\"}", "legendFormat": "p99" }
       ]
     },
     {
@@ -140,8 +161,8 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(matchmaker_publish_failures_total[5m])", "legendFormat": "publish failures" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (mode) (rate(matchmaker_players_requeued_total[5m]))", "legendFormat": "requeue: {{mode}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(matchmaker_publish_failures_total{environment=~\"$environment\"}[5m])", "legendFormat": "publish failures" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (mode) (rate(matchmaker_players_requeued_total{environment=~\"$environment\"}[5m]))", "legendFormat": "requeue: {{mode}}" }
       ]
     }
   ]

@@ -5,7 +5,28 @@
   "schemaVersion": 30,
   "style": "dark",
   "tags": ["rally-point"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": { "selected": false, "text": "production", "value": "production" },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "definition": "label_values(up{job=\"rp2_coordinator\"}, environment)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Environment",
+        "multi": true,
+        "name": "environment",
+        "options": [],
+        "query": "label_values(up{job=\"rp2_coordinator\"}, environment)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "time": { "from": "now-6h", "to": "now" },
   "timezone": "utc",
   "title": "Rally-point health",
@@ -21,7 +42,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "stacking": { "mode": "normal", "group": "A" } } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region,state) (rp2_relays)", "legendFormat": "{{region}} / {{state}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region,state) (rp2_relays{environment=~\"$environment\"})", "legendFormat": "{{region}} / {{state}}" }
       ]
     },
     {
@@ -34,9 +55,9 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_launches_total[5m]))", "legendFormat": "launch: {{region}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_enrolls_total[5m]))", "legendFormat": "enroll: {{region}}" },
-        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_drains_total[5m]))", "legendFormat": "drain: {{region}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_launches_total{environment=~\"$environment\"}[5m]))", "legendFormat": "launch: {{region}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_enrolls_total{environment=~\"$environment\"}[5m]))", "legendFormat": "enroll: {{region}}" },
+        { "refId": "C", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_drains_total{environment=~\"$environment\"}[5m]))", "legendFormat": "drain: {{region}}" }
       ]
     },
     {
@@ -49,8 +70,8 @@
       "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.5, sum by (le) (rate(rp2_relay_cold_start_seconds_bucket[5m])))", "legendFormat": "p50" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.9, sum by (le) (rate(rp2_relay_cold_start_seconds_bucket[5m])))", "legendFormat": "p90" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.5, sum by (le) (rate(rp2_relay_cold_start_seconds_bucket{environment=~\"$environment\"}[5m])))", "legendFormat": "p50" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "histogram_quantile(0.9, sum by (le) (rate(rp2_relay_cold_start_seconds_bucket{environment=~\"$environment\"}[5m])))", "legendFormat": "p90" }
       ]
     },
     {
@@ -63,8 +84,8 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (reason) (rate(rp2_relay_reaped_total[5m]))", "legendFormat": "reaped: {{reason}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_launch_failures_total[5m]))", "legendFormat": "launch failure: {{region}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (reason) (rate(rp2_relay_reaped_total{environment=~\"$environment\"}[5m]))", "legendFormat": "reaped: {{reason}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (region) (rate(rp2_relay_launch_failures_total{environment=~\"$environment\"}[5m]))", "legendFormat": "launch failure: {{region}}" }
       ]
     },
     {
@@ -77,7 +98,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_sessions_active", "legendFormat": "{{tenant}} / {{state}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_sessions_active{environment=~\"$environment\"}", "legendFormat": "{{tenant}} / {{state}}" }
       ]
     },
     {
@@ -90,8 +111,8 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (rate(rp2_sessions_created_total[5m]))", "legendFormat": "created: {{tenant}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (rate(rp2_session_holds_total[5m]))", "legendFormat": "hold: {{tenant}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (rate(rp2_sessions_created_total{environment=~\"$environment\"}[5m]))", "legendFormat": "created: {{tenant}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (rate(rp2_session_holds_total{environment=~\"$environment\"}[5m]))", "legendFormat": "hold: {{tenant}}" }
       ]
     },
     {
@@ -104,7 +125,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (increase(rp2_desyncs_total[1h]))", "legendFormat": "{{tenant}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (increase(rp2_desyncs_total{environment=~\"$environment\"}[1h]))", "legendFormat": "{{tenant}}" }
       ]
     },
     {
@@ -117,7 +138,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_warm_target", "legendFormat": "{{region}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_warm_target{environment=~\"$environment\"}", "legendFormat": "{{region}}" }
       ]
     },
     {
@@ -130,7 +151,7 @@
       "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_webhook_notices_pending", "legendFormat": "{{tenant}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_webhook_notices_pending{environment=~\"$environment\"}", "legendFormat": "{{tenant}}" }
       ]
     },
     {
@@ -150,7 +171,7 @@
         "justifyMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_webhook_notices_dropped_total", "legendFormat": "dropped" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_webhook_notices_dropped_total{environment=~\"$environment\"}", "legendFormat": "dropped" }
       ]
     },
     {
@@ -163,8 +184,8 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (result) (rate(rp2_webhook_deliveries_total[5m]))", "legendFormat": "delivery: {{result}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (rate(rp2_webhook_attempt_failures_total[5m]))", "legendFormat": "attempt failure: {{tenant}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (result) (rate(rp2_webhook_deliveries_total{environment=~\"$environment\"}[5m]))", "legendFormat": "delivery: {{result}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (tenant) (rate(rp2_webhook_attempt_failures_total{environment=~\"$environment\"}[5m]))", "legendFormat": "attempt failure: {{tenant}}" }
       ]
     },
     {
@@ -177,8 +198,8 @@
       "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (result) (rate(rp2_flight_recordings_total[5m]))", "legendFormat": "{{result}}" },
-        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(rp2_flight_recordings_pinned_total[5m])", "legendFormat": "pinned" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum by (result) (rate(rp2_flight_recordings_total{environment=~\"$environment\"}[5m]))", "legendFormat": "{{result}}" },
+        { "refId": "B", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "increase(rp2_flight_recordings_pinned_total{environment=~\"$environment\"}[5m])", "legendFormat": "pinned" }
       ]
     },
     {
@@ -191,7 +212,7 @@
       "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "fillOpacity": 0 } }, "overrides": [] },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_backbone_rtt_ms", "legendFormat": "{{origin}} → {{target}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_backbone_rtt_ms{environment=~\"$environment\"}", "legendFormat": "{{origin}} → {{target}}" }
       ]
     },
     {
@@ -211,7 +232,7 @@
         "justifyMode": "auto"
       },
       "targets": [
-        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_beacon_backoff", "legendFormat": "{{region}}" }
+        { "refId": "A", "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rp2_beacon_backoff{environment=~\"$environment\"}", "legendFormat": "{{region}}" }
       ]
     }
   ]
