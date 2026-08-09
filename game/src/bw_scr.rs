@@ -3694,12 +3694,18 @@ impl BwScr {
         }
     }
 
-    /// The game player id whose identity a command runs under, given the sender's `players[]` index
-    /// (from [`unique_player_for_storm`](Self::unique_player_for_storm)). In a team game a normal
-    /// player's commands run under that team's main player; an observer has no team (its
-    /// `players[].team` is 0, which would underflow `team_game_main_player`), so it acts under its
-    /// own identity. Otherwise the game player id is the slot's own id, which for an observer is
-    /// the out-of-band 0x80-ranged one — see [`game_player_id_for_slot`].
+    /// The value to write to `command_user` for a command injected under the sender's `players[]`
+    /// index (from [`unique_player_for_storm`](Self::unique_player_for_storm)). In a team game a
+    /// normal player's commands run under that team's main player; otherwise it is the sender's own
+    /// `players[]` index.
+    ///
+    /// For an observer this stays the raw `players[]` index (12..15), NOT the out-of-band game
+    /// player id (0x80..0x83): the [`ProcessGameCommands`] hook classifies any `command_user >= 128`
+    /// as an observer turn and strips all but a few command ids from it (chat among those removed),
+    /// so writing the 0x80-ranged id here would drop the very command being injected. Attribution
+    /// still uses the 0x80-ranged id where it belongs — the chat *record's* sender byte, which the
+    /// native renderer reads — via [`game_player_id_for_slot`] in
+    /// [`inject_chat_message`](Self::inject_chat_message).
     unsafe fn command_game_player(&self, unique_player: u8) -> u8 {
         unsafe {
             if game_thread::is_team_game() && !BwPlayerId(unique_player).is_observer() {
@@ -3708,7 +3714,7 @@ impl BwScr {
                 let team = (*players.add(unique_player as usize)).team;
                 (*self.game()).team_game_main_player[team as usize - 1]
             } else {
-                game_player_id_for_slot(unique_player)
+                unique_player
             }
         }
     }
