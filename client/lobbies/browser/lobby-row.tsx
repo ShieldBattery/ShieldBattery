@@ -272,7 +272,13 @@ export function LobbyRow({
       aria-pressed={selected}
       tabIndex={selected ? 0 : -1}
       onClick={onSelect}
-      onDoubleClick={onJoin}
+      onDoubleClick={() => {
+        // Gated the same way as Enter below: a full lobby's row shouldn't fire a join request
+        // that's already known to fail.
+        if (canJoin || isOwn) {
+          onJoin()
+        }
+      }}
       onKeyDown={e => {
         // The keyboard twin of double-click. preventDefault stops the browser's synthetic
         // click, which would only re-select.
