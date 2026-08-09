@@ -74,6 +74,12 @@ const LoadableUserProfileStats = React.lazy(async () => ({
   default: (await import('./user-profile-stats')).UserProfileStats,
 }))
 
+// Not for its own size -- the matrix is a plain table -- but so that it doesn't get bundled in
+// with whatever the eagerly-loaded tabs pull in.
+const LoadableUserProfileMatchups = React.lazy(async () => ({
+  default: (await import('./user-profile-matchups')).UserProfileMatchups,
+}))
+
 const LoadingError = styled.div`
   ${bodyLarge};
   width: 100%;
@@ -363,6 +369,14 @@ export function UserProfilePage({
       )
       break
 
+    case UserProfileSubPage.Matchups:
+      content = (
+        <React.Suspense fallback={<LoadingDotsArea />}>
+          <LoadableUserProfileMatchups userId={user.id} seasons={seasons} />
+        </React.Suspense>
+      )
+      break
+
     case UserProfileSubPage.Seasons:
       content = <UserProfileSeasons user={user} />
       break
@@ -437,6 +451,10 @@ export function UserProfilePage({
             text={t('users.profile.tabs.summary', 'Summary')}
           />
           <TabItem value={UserProfileSubPage.Stats} text={t('users.profile.tabs.stats', 'Stats')} />
+          <TabItem
+            value={UserProfileSubPage.Matchups}
+            text={t('users.profile.tabs.matchups', 'Matchups')}
+          />
           <TabItem
             value={UserProfileSubPage.MatchHistory}
             text={t('users.profile.tabs.matchHistory', 'Match history')}

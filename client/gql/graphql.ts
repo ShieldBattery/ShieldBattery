@@ -970,17 +970,6 @@ export type AdminUpdateUserPermissionsMutation = {
   }
 }
 
-export type UserProfileOverlayLiveQueryVariables = Exact<{
-  userId: Types.SbUserId
-}>
-
-export type UserProfileOverlayLiveQuery = {
-  user: {
-    id: Types.SbUserId
-    liveStream: { twitchLogin: string; title: string; viewerCount: number } | null
-  } | null
-}
-
 export type UserRankedModesQueryVariables = Exact<{
   userId: Types.SbUserId
 }>
@@ -994,6 +983,64 @@ export type UserRankedModesQuery = {
     rating: number | null
     delta: number | null
   }>
+}
+
+export type UserMatchupStatsQueryVariables = Exact<{
+  userId: Types.SbUserId
+  matchmakingType: Types.MatchmakingType
+}>
+
+export type UserMatchupStatsQuery = {
+  userMatchupStats: {
+    matchmakingType: Types.MatchmakingType
+    ratingBandSize: number
+    minRatingBand: number
+    maxRatingBand: number
+    buckets: Array<{
+      seasonId: number
+      mapId: Types.SbMapId
+      races: Array<Types.AssignedRaceChar>
+      opponentRaces: Array<Types.AssignedRaceChar>
+      ratingBand: number
+      games: number
+      wins: number
+    }>
+    maps: Array<{ id: Types.SbMapId; name: string; mapFile: { image256Url: string } | null }>
+  }
+}
+
+export type GlobalMatchupStatsQueryVariables = Exact<{
+  matchmakingType: Types.MatchmakingType
+}>
+
+export type GlobalMatchupStatsQuery = {
+  globalMatchupStats: {
+    matchmakingType: Types.MatchmakingType
+    ratingBandSize: number
+    minRatingBand: number
+    maxRatingBand: number
+    buckets: Array<{
+      seasonId: number
+      mapId: Types.SbMapId
+      races: Array<Types.AssignedRaceChar>
+      opponentRaces: Array<Types.AssignedRaceChar>
+      ratingBand: number
+      games: number
+      wins: number
+    }>
+    maps: Array<{ id: Types.SbMapId; name: string; mapFile: { image256Url: string } | null }>
+  }
+}
+
+export type UserProfileOverlayLiveQueryVariables = Exact<{
+  userId: Types.SbUserId
+}>
+
+export type UserProfileOverlayLiveQuery = {
+  user: {
+    id: Types.SbUserId
+    liveStream: { twitchLogin: string; title: string; viewerCount: number } | null
+  } | null
 }
 
 export type UserRatingHistoryQueryVariables = Exact<{
@@ -5236,6 +5283,230 @@ export const AdminUpdateUserPermissionsDocument = {
   AdminUpdateUserPermissionsMutation,
   AdminUpdateUserPermissionsMutationVariables
 >
+export const UserRankedModesDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserRankedModes' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userRankedModes' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'totalGames' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'losses' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'rating' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'delta' } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserRankedModesQuery, UserRankedModesQueryVariables>
+export const UserMatchupStatsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'UserMatchupStats' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
+          },
+        },
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakingType' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'userMatchupStats' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'userId' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
+              },
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'matchmakingType' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ratingBandSize' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'minRatingBand' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxRatingBand' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'buckets' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'mapId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'races' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'opponentRaces' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'ratingBand' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'games' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'maps' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'mapFile' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<UserMatchupStatsQuery, UserMatchupStatsQueryVariables>
+export const GlobalMatchupStatsDocument = {
+  kind: 'Document',
+  definitions: [
+    {
+      kind: 'OperationDefinition',
+      operation: 'query',
+      name: { kind: 'Name', value: 'GlobalMatchupStats' },
+      variableDefinitions: [
+        {
+          kind: 'VariableDefinition',
+          variable: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'MatchmakingType' } },
+          },
+        },
+      ],
+      selectionSet: {
+        kind: 'SelectionSet',
+        selections: [
+          {
+            kind: 'Field',
+            name: { kind: 'Name', value: 'globalMatchupStats' },
+            arguments: [
+              {
+                kind: 'Argument',
+                name: { kind: 'Name', value: 'matchmakingType' },
+                value: { kind: 'Variable', name: { kind: 'Name', value: 'matchmakingType' } },
+              },
+            ],
+            selectionSet: {
+              kind: 'SelectionSet',
+              selections: [
+                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'ratingBandSize' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'minRatingBand' } },
+                { kind: 'Field', name: { kind: 'Name', value: 'maxRatingBand' } },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'buckets' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'seasonId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'mapId' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'races' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'opponentRaces' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'ratingBand' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'games' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
+                    ],
+                  },
+                },
+                {
+                  kind: 'Field',
+                  name: { kind: 'Name', value: 'maps' },
+                  selectionSet: {
+                    kind: 'SelectionSet',
+                    selections: [
+                      { kind: 'Field', name: { kind: 'Name', value: 'id' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'name' } },
+                      {
+                        kind: 'Field',
+                        name: { kind: 'Name', value: 'mapFile' },
+                        selectionSet: {
+                          kind: 'SelectionSet',
+                          selections: [
+                            { kind: 'Field', name: { kind: 'Name', value: 'image256Url' } },
+                          ],
+                        },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+} as unknown as DocumentNode<GlobalMatchupStatsQuery, GlobalMatchupStatsQueryVariables>
 export const UserProfileOverlayLiveDocument = {
   kind: 'Document',
   definitions: [
@@ -5290,53 +5561,6 @@ export const UserProfileOverlayLiveDocument = {
     },
   ],
 } as unknown as DocumentNode<UserProfileOverlayLiveQuery, UserProfileOverlayLiveQueryVariables>
-export const UserRankedModesDocument = {
-  kind: 'Document',
-  definitions: [
-    {
-      kind: 'OperationDefinition',
-      operation: 'query',
-      name: { kind: 'Name', value: 'UserRankedModes' },
-      variableDefinitions: [
-        {
-          kind: 'VariableDefinition',
-          variable: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'SbUserId' } },
-          },
-        },
-      ],
-      selectionSet: {
-        kind: 'SelectionSet',
-        selections: [
-          {
-            kind: 'Field',
-            name: { kind: 'Name', value: 'userRankedModes' },
-            arguments: [
-              {
-                kind: 'Argument',
-                name: { kind: 'Name', value: 'userId' },
-                value: { kind: 'Variable', name: { kind: 'Name', value: 'userId' } },
-              },
-            ],
-            selectionSet: {
-              kind: 'SelectionSet',
-              selections: [
-                { kind: 'Field', name: { kind: 'Name', value: 'matchmakingType' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'totalGames' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'wins' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'losses' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'rating' } },
-                { kind: 'Field', name: { kind: 'Name', value: 'delta' } },
-              ],
-            },
-          },
-        ],
-      },
-    },
-  ],
-} as unknown as DocumentNode<UserRankedModesQuery, UserRankedModesQueryVariables>
 export const UserRatingHistoryDocument = {
   kind: 'Document',
   definitions: [
