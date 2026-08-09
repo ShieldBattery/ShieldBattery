@@ -74,7 +74,7 @@ describe('page-metadata/page-metadata', () => {
     )
   })
 
-  test('returns the metadata a matching resolver produces', async () => {
+  test('returns the metadata a matching resolver produces, with site attribution appended to the title', async () => {
     const metadata: PageMetadata = {
       url: 'https://shieldbattery.net/news/abc123',
       type: 'article',
@@ -82,6 +82,21 @@ describe('page-metadata/page-metadata', () => {
       description: 'A description',
       image: 'https://cdn.example.com/image.jpg',
       publishedTime: '2026-03-14T23:09:10.776Z',
+    }
+    newsPostPageMetadataMock.mockResolvedValueOnce(metadata)
+
+    const result = await resolvePageMetadata('/news/abc123', CONTEXT)
+
+    expect(result).toEqual({ ...metadata, title: 'A post · ShieldBattery' })
+  })
+
+  test('leaves a title that already ends with the site name unattributed', async () => {
+    const metadata: PageMetadata = {
+      url: 'https://shieldbattery.net/news/abc123',
+      type: 'article',
+      title: 'ShieldBattery 9.2 Release Notes ShieldBattery',
+      description: 'A description',
+      image: 'https://cdn.example.com/image.jpg',
     }
     newsPostPageMetadataMock.mockResolvedValueOnce(metadata)
 
@@ -190,7 +205,7 @@ describe('page-metadata/page-metadata', () => {
     expect(result).toEqual({
       url: 'https://shieldbattery.net/ladder',
       type: 'website',
-      title: 'ShieldBattery Ladder',
+      title: 'ShieldBattery Ladder · ShieldBattery',
       description:
         'See the best StarCraft: Brood War players on the ShieldBattery ladder rankings.',
       image: 'https://shieldbattery.net/images/logo-and-text-1200x630.png',

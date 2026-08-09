@@ -45,7 +45,9 @@ test('news post permalinks serve Open Graph tags for the post', async ({ request
   const response = await request.get(`/news/${encodePrettyId(NEWEST_POST_ID)}`)
   const html = await response.text()
 
-  expect(extractMetaContent(html, 'property', 'og:title')).toBe(NEWEST_POST_TITLE)
+  expect(extractMetaContent(html, 'property', 'og:title')).toBe(
+    `${NEWEST_POST_TITLE} · ShieldBattery`,
+  )
   expect(extractMetaContent(html, 'property', 'og:type')).toBe('article')
   expect(extractMetaContent(html, 'property', 'og:description')).toBeTruthy()
 })

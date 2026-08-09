@@ -81,12 +81,32 @@ const PARSED_ROUTES = ROUTES.map(({ pattern, resolver }) => ({
   resolver,
 }))
 
+const SITE_NAME = 'ShieldBattery'
+const TITLE_ATTRIBUTION_SEPARATOR = ' · '
+
+/**
+ * Appends the site name to a title for link-preview attribution (Discord, X, etc. show the
+ * `og:title` alone, with no other indication of which site it came from). Left unchanged when the
+ * title already ends with the site name, which covers both the site-wide default title (exactly
+ * `"ShieldBattery"`) and any resolver that already worked the name into the end of its title.
+ */
+function attributeTitle(metadata: PageMetadata): PageMetadata {
+  if (metadata.title.endsWith(SITE_NAME)) {
+    return metadata
+  }
+  return { ...metadata, title: `${metadata.title}${TITLE_ATTRIBUTION_SEPARATOR}${SITE_NAME}` }
+}
+
 /**
  * Resolves the Open Graph/Twitter Card metadata to render for `pathname`.
  *
  * Routes are tried in registration order. The first resolver to return metadata wins; a resolver
  * that returns `undefined` (or throws) falls through to the next route. If no route produces
  * metadata, the default site-wide metadata is returned.
+ *
+ * The returned title always carries site attribution (see {@link attributeTitle}) — this is the
+ * single place that applies to every route, so individual resolvers don't each need to remember
+ * to add it.
  */
 export async function resolvePageMetadata(
   pathname: string,
@@ -106,12 +126,12 @@ export async function resolvePageMetadata(
     try {
       const metadata = await resolver(params, context)
       if (metadata) {
-        return metadata
+        return attributeTitle(metadata)
       }
     } catch (err) {
       logger.warn({ err }, 'page metadata resolver threw, falling back to default page metadata')
     }
   }
 
-  return defaultPageMetadata(context)
+  return attributeTitle(defaultPageMetadata(context))
 }
