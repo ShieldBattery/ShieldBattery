@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
+import { labelSmall } from '../styles/typography'
 import { LiveUsersContext } from '../twitch/live-state'
 import { getBatchUserInfo } from '../users/action-creators'
 import PlaceholderIcon from './avatar-placeholder.svg?react'
@@ -12,33 +13,60 @@ import { randomColorForString } from './colors'
  * A ring drawn around an avatar to indicate the user is currently live-streaming. Uses `outline`
  * (which follows the avatar's border-radius and whose offset gap shows the real surface behind it)
  * so the ring reads consistently on any background without needing to know the surface color.
+ * Paired with a small "LIVE" tag docked at the bottom of the ring (see `LiveTag`). The avatar's
+ * corners are deliberately left clear so corner dots stay available for other status indicators
+ * (e.g. presence).
  */
 const liveRing = css`
-  outline: 2px solid var(--theme-live);
-  outline-offset: 2px;
+  outline: 3px solid var(--theme-live);
+  outline-offset: 1px;
 `
 
-export const ImageAvatar = styled.img<{ $glowing?: boolean; $live?: boolean }>`
-  width: 40px;
-  height: 40px;
-  display: inline-block;
-  border-radius: 50%;
-  ${props => (props.$glowing ? `box-shadow: 0 0 8px var(--theme-amber)` : '')};
-  ${props => (props.$live ? liveRing : '')};
-`
-
-export const IconContainer = styled.div<{ $live?: boolean }>`
+const AvatarRoot = styled.div<{ $live?: boolean }>`
   position: relative;
   width: 40px;
   height: 40px;
   flex-shrink: 0;
-  ${props =>
-    props.$live
-      ? css`
-          border-radius: 50%;
-          ${liveRing};
-        `
-      : ''};
+  border-radius: 50%;
+  ${props => (props.$live ? liveRing : '')};
+`
+
+const AvatarImage = styled.img<{ $glowing?: boolean }>`
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  ${props => (props.$glowing ? `box-shadow: 0 0 8px var(--theme-amber)` : '')};
+`
+
+/**
+ * The "LIVE" tag for a live-ringed avatar, centered on the bottom of the ring. Shares the ring's
+ * color, so the two read as one shape (the tag interrupting the ring) rather than a chip floating
+ * over it.
+ */
+const LiveTag = styled.div`
+  ${labelSmall};
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 4px;
+
+  background-color: var(--theme-live);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  line-height: 12px;
+  text-transform: uppercase;
+`
+
+export const IconContainer = styled.div`
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
 `
 
 export const IconAvatar = styled(PlaceholderIcon)<{ $glowing?: boolean; $color?: string }>`
@@ -57,39 +85,44 @@ export interface AvatarProps {
   color?: string
   glowing?: boolean
   className?: string
-  /** Whether to draw a "live" ring around the avatar (currently: the user is streaming on Twitch). */
+  /**
+   * Whether to draw the "live" treatment (ring + "LIVE" tag) around the avatar (currently: the
+   * user is streaming on Twitch).
+   */
   live?: boolean
-  /** Native tooltip text shown while `live`, explaining what the ring means. */
+  /** Native tooltip text shown while `live`, explaining what the treatment means. */
   liveTitle?: string
 }
 
 export function Avatar({ image, user, color, glowing, className, live, liveTitle }: AvatarProps) {
+  const { t } = useTranslation()
+
+  let contents
   if (image) {
-    return (
-      <ImageAvatar
-        className={className}
-        src={image}
-        $glowing={glowing}
-        $live={live}
-        title={live ? liveTitle : undefined}
-      />
+    contents = <AvatarImage src={image} $glowing={glowing} />
+  } else {
+    let avatarColor
+    if (color) {
+      avatarColor = color
+    } else if (user) {
+      avatarColor = randomColorForString(user)
+    } else {
+      avatarColor = 'var(--theme-on-surface-variant)'
+    }
+
+    contents = (
+      <>
+        {glowing ? <IconAvatar $color={avatarColor} $glowing={true} /> : null}
+        <IconAvatar $color={avatarColor} />
+      </>
     )
   }
 
-  let avatarColor
-  if (color) {
-    avatarColor = color
-  } else if (user) {
-    avatarColor = randomColorForString(user)
-  } else {
-    avatarColor = 'var(--theme-on-surface-variant)'
-  }
-
   return (
-    <IconContainer className={className} $live={live} title={live ? liveTitle : undefined}>
-      {glowing ? <IconAvatar $color={avatarColor} $glowing={true} /> : null}
-      <IconAvatar $color={avatarColor} />
-    </IconContainer>
+    <AvatarRoot className={className} $live={live} title={live ? liveTitle : undefined}>
+      {contents}
+      {live ? <LiveTag aria-hidden={true}>{t('twitch.live.badge', 'Live')}</LiveTag> : null}
+    </AvatarRoot>
   )
 }
 

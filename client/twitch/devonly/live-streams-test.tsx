@@ -4,7 +4,6 @@ import { LiveStreamsFeed } from '../../home/home'
 import { titleLarge, titleSmall } from '../../styles/typography'
 import { ProfileLiveBanner } from '../../users/user-profile'
 import {
-  LiveCornerDot,
   LiveDot,
   LiveLabel,
   LivePill,
@@ -158,12 +157,9 @@ export function LiveStreamsTest() {
         <FriendRow user='SnOw' isLive={false} />
       </FriendsArea>
 
-      <SectionTitle>Lobby slot (live) — smaller corner dot</SectionTitle>
+      <SectionTitle>Small avatar (live) — ring + tag at lobby-slot size</SectionTitle>
       <LobbySlotRow>
-        <LobbyAvatarContainer>
-          <LobbySlotAvatar user='Bisu' />
-          <LiveCornerDot $size={8} $ringColor='var(--theme-surface)' />
-        </LobbyAvatarContainer>
+        <LobbySlotAvatar user='Bisu' live={true} liveTitle='Live on Twitch' />
         <span>Bisu</span>
       </LobbySlotRow>
 
@@ -187,14 +183,8 @@ const LobbySlotRow = styled.div`
   ${titleSmall};
   display: flex;
   align-items: center;
-  height: 40px;
-`
-
-const LobbyAvatarContainer = styled.div`
-  position: relative;
-  width: 24px;
-  height: 24px;
-  margin-right: 16px;
+  gap: 16px;
+  height: 48px;
 `
 
 const LobbySlotAvatar = styled(Avatar)`
@@ -220,17 +210,10 @@ const FriendRowRoot = styled.div`
   align-items: center;
 `
 
-const FriendAvatarContainer = styled.div`
-  position: relative;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  margin: 2px 16px 2px 0;
-`
-
 const FriendAvatar = styled(Avatar)`
   width: 32px;
   height: 32px;
+  margin: 2px 16px 2px 0;
 `
 
 const FriendRowName = styled.div`
@@ -241,10 +224,7 @@ const FriendRowName = styled.div`
 function FriendRow({ user, isLive }: { user: string; isLive: boolean }) {
   return (
     <FriendRowRoot>
-      <FriendAvatarContainer>
-        <FriendAvatar user={user} />
-        {isLive ? <LiveCornerDot $ringColor='var(--theme-container-lowest)' /> : null}
-      </FriendAvatarContainer>
+      <FriendAvatar user={user} live={isLive} liveTitle='Live on Twitch' />
       <FriendRowName>{user}</FriendRowName>
       {isLive ? <LiveLabel /> : null}
     </FriendRowRoot>

@@ -70,23 +70,6 @@ const LivePillRoot = styled.div`
   white-space: nowrap;
 `
 
-/**
- * A small "live" dot for the corner of an avatar in dense lists. Place it inside a
- * `position: relative` avatar container. `$ringColor` should match the surface behind the avatar so
- * the dot reads as separated from it.
- */
-export const LiveCornerDot = styled.span<{ $ringColor?: string; $size?: number }>`
-  position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: ${props => props.$size ?? 11}px;
-  height: ${props => props.$size ?? 11}px;
-
-  border-radius: 50%;
-  background-color: var(--theme-live);
-  border: 2px solid ${props => props.$ringColor ?? 'var(--theme-container-low)'};
-`
-
 const LiveLabelRoot = styled.div`
   ${labelMedium};
   display: inline-flex;
