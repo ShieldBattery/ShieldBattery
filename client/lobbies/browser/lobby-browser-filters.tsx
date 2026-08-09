@@ -9,7 +9,6 @@ import { FilterChip } from '../../material/filter-chip'
 import { SelectableMenuItem } from '../../material/menu/selectable-item'
 import { useUserLocalStorageValue } from '../../react/state-hooks'
 import { SearchInput } from '../../search/search-input'
-import { FlexSpacer } from '../../styles/flex-spacer'
 import { ALL_LOBBY_BROWSER_SORTS, LobbyBrowserSort } from './summary-utils'
 
 /** The filter choices the browser remembers between visits. */
@@ -115,6 +114,11 @@ export function useLobbyBrowserFilterState(): LobbyBrowserFilterState {
 }
 
 const BarRoot = styled.div`
+  /* This bar sits in a height-constrained column, whose flex would otherwise squeeze it back to
+     min-height when it wraps to a second line — leaving the wrapped chips painted over the list
+     below instead of pushing it down. */
+  flex-shrink: 0;
+
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -124,7 +128,17 @@ const BarRoot = styled.div`
 
 const BarSearchInput = styled(SearchInput)`
   width: 280px;
-  flex-shrink: 0;
+  /* First to give when the bar tightens, down to still-usable, so the chips keep their row. */
+  flex-shrink: 1;
+  min-width: 168px;
+`
+
+/**
+ * Right-aligned via margin rather than a spacer item so that when the bar does wrap, the chip
+ * carries its alignment onto the new line instead of sitting flush against the list's left edge.
+ */
+const SortChip = styled(FilterChip)`
+  margin-left: auto;
 `
 
 /**
@@ -202,9 +216,7 @@ export function LobbyBrowserFilters({
         />
       ) : null}
 
-      <FlexSpacer />
-
-      <FilterChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
+      <SortChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
         {ALL_LOBBY_BROWSER_SORTS.map(option => (
           <SelectableMenuItem
             key={option}
@@ -213,7 +225,7 @@ export function LobbyBrowserFilters({
             onClick={() => setSort(option)}
           />
         ))}
-      </FilterChip>
+      </SortChip>
     </BarRoot>
   )
 }
