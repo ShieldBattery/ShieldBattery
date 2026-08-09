@@ -82,6 +82,11 @@ const port = process.env.SB_HTTP_PORT
 container.register<Koa>(Koa, { useValue: app })
 
 app.proxy = process.env.SB_HTTPS_REVERSE_PROXY === 'true'
+// Our nginx proxy *appends* the address it sees to any client-supplied X-Forwarded-For, so only
+// the final entry is trustworthy. Without this cap Koa uses the leftmost entry, letting clients
+// pick their own `ctx.ip` (and thereby dodge every IP-keyed rate limit) by sending the header
+// themselves.
+app.maxIpsCount = 1
 
 interface PossibleHttpError extends Error {
   status?: number
