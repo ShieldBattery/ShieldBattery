@@ -18,7 +18,7 @@ services:
       - /var/lib:/var/lib
 
   grafana:
-    image: grafana/grafana-oss:8.3.3
+    image: grafana/grafana-oss:13.0.2
     restart: unless-stopped
     network_mode: service:tailscale
     volumes:
@@ -27,13 +27,17 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     environment:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
+      # NOTE(grafana-anon-role): Grafana logs that non-Viewer anonymous roles are deprecated
+      # ("only viewer role is supported"). The Admin role still applies as of 13.x, but if a
+      # future major enforces Viewer, this box has no other login path — the login form is
+      # disabled above — so admin/edit access will need a real auth setup at that point.
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_USERS_ALLOW_SIGN_UP=false
 
   prometheus:
-    image: prom/prometheus:v2.32.1
+    image: prom/prometheus:v3.13.1
     restart: unless-stopped
     network_mode: service:tailscale
     volumes:
@@ -42,13 +46,6 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    environment:
-      - PROMETHEUS_USERNAME=prometheus
-      - PROMETHEUS_PASSWORD=prometheus
-      - PROMETHEUS_ADMIN_USERNAME=admin
-      - PROMETHEUS_ADMIN_PASSWORD=admin
 
   node_exporter:
     image: prom/node-exporter:latest

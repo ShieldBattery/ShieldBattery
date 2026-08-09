@@ -43,6 +43,9 @@ scrape_configs:
           host: sb-prod
 
   - job_name: 'server_rs'
+    # server-rs serves /metrics as bare text/plain (no version param), which Prometheus otherwise
+    # rejects as an unrecognized Content-Type.
+    fallback_scrape_protocol: 'PrometheusText0.0.4'
     static_configs:
       - targets: ['sb-staging:8001']
         labels:
@@ -58,6 +61,8 @@ scrape_configs:
   # production box, listed ahead of its standup, so it reads as a down target
   # until that box exists.
   - job_name: 'rp2_coordinator'
+    # Same bare text/plain Content-Type situation as the server_rs job.
+    fallback_scrape_protocol: 'PrometheusText0.0.4'
     static_configs:
       - targets: ['staging-rp2-coordinator:14911']
         labels:
