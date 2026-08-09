@@ -1,4 +1,5 @@
 import pg, { QueryConfigValues } from 'pg'
+import { Counter } from 'prom-client'
 import { isTestRun } from '../../../common/is-test-run'
 import log from '../logging/logger'
 import { monotonicNow } from '../time/monotonic-now'
@@ -9,6 +10,26 @@ import handlePgError from './pg-error-handler'
  * as a warning.
  */
 const SLOW_QUERY_TIME_MS = 1000
+
+const dbQueryErrorsTotalMetric = new Counter({
+  name: 'shieldbattery_db_query_errors_total',
+  labelNames: ['error_class'],
+  help: 'Total number of DB queries that threw an error, labeled by the 2-character Postgres SQLSTATE error class (or "unknown" for non-Postgres errors)',
+})
+
+/**
+ * Returns the 2-character Postgres SQLSTATE error class (e.g. "23" for
+ * integrity-constraint-violation) for `error`, or "unknown" if it isn't a Postgres error with a
+ * usable `code`. Kept low-cardinality intentionally: never label metrics with the full 5-char
+ * code or the error message.
+ */
+function getPgErrorClass(error: unknown): string {
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? (error as { code: unknown }).code
+      : undefined
+  return typeof code === 'string' && code.length === 5 ? code.substring(0, 2) : 'unknown'
+}
 
 // Our DATETIME columns are all in UTC, so we mark the strings postgres returns this way so the
 // parsed dates are correct
@@ -112,6 +133,7 @@ export class DbClient {
     try {
       return await this.wrappedClient.query(queryTextOrConfig, values)
     } catch (error) {
+      dbQueryErrorsTotalMetric.labels(getPgErrorClass(error)).inc()
       throw handlePgError(queryText, error)
     } finally {
       const totalTime = monotonicNow() - startTime
