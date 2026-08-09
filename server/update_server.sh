@@ -32,6 +32,10 @@ if [[ ! -z "$ACCESS_KEY" ]] && [[ ! -z "$SECRET_KEY" ]] && [[ ! -z "$HOST_BASE" 
     --secret_key="$SECRET_KEY"
     --host="$HOST_BASE"
     --host-bucket="$HOST_BUCKET"
+    # Guess Content-Type from the file extension only. With libmagic present (Debian's s3cmd
+    # pulls it in), s3cmd content-sniffs instead, which types .js chunks as text/plain — and
+    # browsers refuse module scripts served with a non-JavaScript MIME type.
+    --no-mime-magic
   )
 
   # Restarts usually don't change the on-disk assets, so we store a hash of the last-synced
