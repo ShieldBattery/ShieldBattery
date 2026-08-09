@@ -16,8 +16,8 @@ importers:
         specifier: ^2.12.1
         version: 2.12.1
       '@shieldbattery/broodrep':
-        specifier: ^0.4.1
-        version: 0.4.1
+        specifier: ^0.5.0
+        version: 0.5.0
       '@shieldbattery/stimpack':
         specifier: ^1.1.1
         version: 1.1.1
@@ -57,8 +57,8 @@ packages:
   '@bufbuild/protobuf@2.12.1':
     resolution: {integrity: sha512-BvAMfS6LrgZiryOAZ4pBYucu4wG/Ei/9o9DZ9akbREnMLbPJiom2i8b9C8IsKErQoiKqVhrerzt3kOT/RrzLHg==}
 
-  '@shieldbattery/broodrep@0.4.1':
-    resolution: {integrity: sha512-5fKGKJmjD8JKVPC1M7tHPMTowfsuqer+Xs9c1ir28N9Va1v8bUn0WIEpTU29i2v0N4EJBhECe297ASeOj1oWOA==}
+  '@shieldbattery/broodrep@0.5.0':
+    resolution: {integrity: sha512-OOuVGkMUud87TbrdtBodJF/6HJu4ZdUTjLHggrHrgoRu3UnvN+pe4/USnVPBUu6nGw5CvsO+qX9YC8kCtPXH2g==}
     engines: {node: '>= 22.12.0'}
 
   '@shieldbattery/stimpack@1.1.1':
@@ -359,7 +359,7 @@ snapshots:
 
   '@bufbuild/protobuf@2.12.1': {}
 
-  '@shieldbattery/broodrep@0.4.1': {}
+  '@shieldbattery/broodrep@0.5.0': {}
 
   '@shieldbattery/stimpack@1.1.1': {}
 
