@@ -34,14 +34,11 @@ export function TeamSplitPicker({
   const isTopVsBottom = gameType === GameType.TopVsBottom
   const options: number[] = []
   if (isTopVsBottom) {
-    const maxTop = Math.floor(slots / 2)
-    if (value > maxTop) {
-      // A mirrored split (e.g. 6v2 on 8 slots) falls outside the balanced range covered by the
-      // chips below, so it needs its own chip to stay representable.
-      options.push(value)
-    }
-    // Most balanced split first, the lopsided ones after
-    options.push(...Array.from(range(1, maxTop + 1)).reverse())
+    // Both orientations of each split are offered (1v3 and 3v1 are distinct — the value is the
+    // top team's seat count, so they produce different slot layouts). The most balanced split
+    // leads since it's the most common pick; the rest follow ordered by top team size.
+    const balanced = Math.floor(slots / 2)
+    options.push(balanced, ...Array.from(range(1, slots)).filter(o => o !== balanced))
   } else {
     const maxTeams = Math.min(4, slots)
     options.push(...range(2, maxTeams + 1))
