@@ -18,6 +18,10 @@ const RowRoot = styled.button<{ $selected: boolean }>`
   min-height: 80px;
   padding: 8px 16px 8px 8px;
 
+  /* The fixed-width columns below shed themselves at narrow widths (via container queries
+     against this row) rather than crushing the flexible name/map column to nothing. */
+  container-type: inline-size;
+
   display: flex;
   align-items: center;
   gap: 16px;
@@ -79,17 +83,26 @@ const PrimaryColumn = styled.div`
 `
 
 /**
- * Fixed width, so the host's name starts at the same x-position in every row: scanning down the
+ * Uniform width, so the host's name starts at the same x-position in every row: scanning down the
  * list for a host means scanning a straight column, not re-finding it after however much map and
- * game-type text happened to precede it.
+ * game-type text happened to precede it. The width comes from the row's size (identical for every
+ * row) rather than flex-shrink (which would divide space by each row's own text lengths and bend
+ * the column): as the row narrows, this column is the first to give, sliding from 160px down to a
+ * floor that still fits a typical name, before the trailing slots start shedding.
  */
 const HostColumn = styled.div`
-  width: 160px;
+  width: clamp(104px, calc(100cqw - 584px), 160px);
   flex-shrink: 0;
 
   display: flex;
   flex-direction: column;
   gap: 2px;
+
+  /* The last column standing before the name itself would become unreadable — below this the
+     rail is the place to learn who's hosting. */
+  @container (max-width: 460px) {
+    display: none;
+  }
 `
 
 const Name = styled.div`
@@ -146,6 +159,10 @@ const FriendsSlot = styled.div`
 
   display: flex;
   justify-content: flex-end;
+
+  @container (max-width: 530px) {
+    display: none;
+  }
 `
 
 const Occupancy = styled.div`
@@ -176,6 +193,12 @@ const StatusSlot = styled.div`
 
   display: flex;
   justify-content: flex-end;
+
+  /* Once the host column has given all it can, this slot is the next to go: a Full badge
+     restates what the occupancy count already shows, so it's the cheapest 124px on the row. */
+  @container (max-width: 670px) {
+    display: none;
+  }
 `
 
 /** Whatever the row has to say about the lobby's state right now, if anything. */
