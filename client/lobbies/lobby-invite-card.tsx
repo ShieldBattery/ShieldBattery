@@ -41,8 +41,9 @@ export function lobbyIdFromMessageLink(href: string): SbLobbyId | undefined {
   return isShieldBatteryUrl(url) ? lobbyIdFromPath(url.pathname) : undefined
 }
 
-// All card states share one fixed width (and height, see below) so no state transition ever
-// changes the card's footprint.
+// All card states share one fixed width, and no state is ever taller than the loading placeholder,
+// so a state transition can only keep or shrink the card's footprint (shrinking is safe for the
+// message list's autoscroll; only growth breaks it).
 const CARD_WIDTH = 440
 const CARD_PADDING = 8
 const CARD_BORDER_WIDTH = 1
@@ -60,23 +61,19 @@ const INFO_STACK_HEIGHT = LOBBY_NAME_LINE_HEIGHT + SECONDARY_LINE_HEIGHT * 2 + I
 
 // The loaded card's height is determined by whichever of its two columns is taller -- the
 // thumbnail (forced to a square aspect ratio below, regardless of the actual map's dimensions) or
-// the 3-row info stack -- plus the card's own padding and border. Fixed here so every other state
-// (loading, not-found) can reserve the same height and the card never resizes after it first
-// mounts.
+// the 3-row info stack -- plus the card's own padding and border. Fixed here so the loading state
+// can reserve the same height and a loaded card never grows past its placeholder.
 const CARD_HEIGHT =
   Math.max(THUMBNAIL_SIZE, INFO_STACK_HEIGHT) + CARD_PADDING * 2 + CARD_BORDER_WIDTH * 2
 
-const cardBase = css`
+const cardShell = css`
   width: ${CARD_WIDTH}px;
   max-width: 100%;
-  height: ${CARD_HEIGHT}px;
   margin-top: 4px;
   /* The card renders as a block child of the message container, whose hanging-indent trick
    * (72px padding pushed back out with a negative text-indent) is meant for message text only. */
   text-indent: 0;
 
-  background-color: var(--theme-container-low);
-  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
   border-radius: 8px;
 
   /* The chat area sets user-select: text on every descendant so message text copies cleanly; the
@@ -88,6 +85,14 @@ const cardBase = css`
   }
 `
 
+const cardBase = css`
+  ${cardShell};
+  height: ${CARD_HEIGHT}px;
+
+  background-color: var(--theme-container-low);
+  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
+`
+
 const CardRoot = styled.div`
   ${cardBase};
   padding: ${CARD_PADDING}px;
@@ -97,16 +102,18 @@ const CardRoot = styled.div`
   gap: 12px;
 `
 
+// The same surface treatment as a live card, but collapsed to a single quiet line since there's
+// nothing else to show. Shorter than the loading placeholder it replaces, which only ever shrinks
+// the message.
 const GoneCard = styled.div`
-  ${cardBase};
+  ${cardShell};
   ${bodySmall};
   ${singleLine};
   padding: 8px 12px;
 
-  display: flex;
-  align-items: center;
-
   color: var(--theme-on-surface-variant);
+  background-color: var(--theme-container-low);
+  border: ${CARD_BORDER_WIDTH}px solid var(--theme-outline-variant);
 `
 
 // A purely visual placeholder shown while the summary is loading, sized to match `CardRoot` (the
