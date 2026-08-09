@@ -187,9 +187,10 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
 
   const visible = summaries
     .filter(summary => {
-      // Full gathering lobbies hide by default; the Full chip on the row reveals them once the
-      // viewer opts in via the filter.
-      if (!showFull && summary.playerSlots.open === 0) {
+      // Lobbies with no way in — no player seat, no observer seat — hide by default; the Show
+      // full filter reveals them. An open observer seat alone keeps a lobby listed: it's still
+      // joinable, just not as a player.
+      if (!showFull && summary.playerSlots.open === 0 && summary.observerSlots.open === 0) {
         return false
       }
       if (gameType !== undefined && summary.gameType !== gameType) {

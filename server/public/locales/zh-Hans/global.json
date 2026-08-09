@@ -906,6 +906,7 @@
       "observers": "观战者",
       "observersCount": "观战者 · {{taken}}/{{total}}",
       "observerSlotsOpen_other": "剩余{{count}}个",
+      "obsOpen": "可观战",
       "oneFriendInside": "有一位好友在此房间中",
       "railPlaceholder": "选择一个房间以查看详情",
       "returnToLobby": "返回房间",

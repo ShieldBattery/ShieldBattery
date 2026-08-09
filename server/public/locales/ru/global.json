@@ -921,6 +921,7 @@
       "observerSlotsOpen_few": "{{count}} свободных места",
       "observerSlotsOpen_many": "{{count}} свободных мест",
       "observerSlotsOpen_other": "{{count}} свободного места",
+      "obsOpen": "Есть места зрителей",
       "oneFriendInside": "В этом лобби есть Ваш друг",
       "railPlaceholder": "Выберите лобби для предпросмотра",
       "returnToLobby": "Вернуться в лобби",

@@ -216,11 +216,15 @@ const StatusSlot = styled.div`
 function StatusBadge({ summary }: { summary: LobbySummary }) {
   const { t } = useTranslation()
 
-  // Player seats, not overall joinability: a lobby whose player seats are gone reads as Full even
-  // when an open observer seat keeps it in the default (joinable) view — the badge explains why
-  // its count reads 8/8, and the rail explains what joining now means.
+  // Player seats, not overall joinability: the badge explains why a lobby's count reads 8/8.
+  // When an open observer seat is what's keeping the lobby in the default (joinable) view, say
+  // that instead — it covers both why the count is maxed and why the lobby is still listed.
   if (summary.playerSlots.open === 0) {
-    return <LobbyChip>{t('lobbies.browser.full', 'Full')}</LobbyChip>
+    return summary.observerSlots.open > 0 ? (
+      <LobbyChip>{t('lobbies.browser.obsOpen', 'Obs open')}</LobbyChip>
+    ) : (
+      <LobbyChip>{t('lobbies.browser.full', 'Full')}</LobbyChip>
+    )
   }
 
   return null

@@ -916,6 +916,7 @@
       "observerSlotsOpen_one": "{{count}} libre",
       "observerSlotsOpen_many": "{{count}} libres",
       "observerSlotsOpen_other": "{{count}} libres",
+      "obsOpen": "Obs. libres",
       "oneFriendInside": "Un amigo está en este lobby",
       "railPlaceholder": "Selecciona un lobby para verlo en detalle",
       "returnToLobby": "Volver al lobby",

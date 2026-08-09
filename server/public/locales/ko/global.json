@@ -906,6 +906,7 @@
       "observers": "관전자",
       "observersCount": "관전자 · {{taken}}/{{total}}",
       "observerSlotsOpen_other": "{{count}}자리 비어 있음",
+      "obsOpen": "관전 가능",
       "oneFriendInside": "친구가 이 로비에 있습니다",
       "railPlaceholder": "미리 볼 로비를 선택하세요",
       "returnToLobby": "로비로 돌아가기",

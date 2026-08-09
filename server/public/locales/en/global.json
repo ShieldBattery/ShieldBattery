@@ -919,6 +919,7 @@
       "observersCount": "Observers · {{taken}}/{{total}}",
       "observerSlotsOpen_one": "{{count}} open",
       "observerSlotsOpen_other": "{{count}} open",
+      "obsOpen": "Obs open",
       "oneFriendInside": "A friend is in this lobby",
       "railPlaceholder": "Select a lobby to preview it",
       "returnToLobby": "Return to lobby",
