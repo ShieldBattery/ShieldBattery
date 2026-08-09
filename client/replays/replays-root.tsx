@@ -1,6 +1,6 @@
 import { lazy } from 'react'
 import { useTrackPageView } from '../analytics/analytics'
-import { OnlyInApp } from '../download/only-in-app'
+import { OnlyInAppPage } from '../download/only-in-app'
 
 const LoadableReplayLibrary = lazy(async () => ({
   default: (await import('./replay-library')).ReplayLibrary,
@@ -8,5 +8,5 @@ const LoadableReplayLibrary = lazy(async () => ({
 
 export function ReplaysRoot() {
   useTrackPageView('/replays')
-  return IS_ELECTRON ? <LoadableReplayLibrary /> : <OnlyInApp />
+  return IS_ELECTRON ? <LoadableReplayLibrary /> : <OnlyInAppPage />
 }

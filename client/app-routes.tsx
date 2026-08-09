@@ -5,7 +5,7 @@ import { ForgotPassword } from './auth/forgot-password'
 import { Login } from './auth/login'
 import { RecoverUsername } from './auth/recover-username'
 import { ResetPassword } from './auth/reset-password'
-import { OnlyInApp } from './download/only-in-app'
+import { OnlyInAppPage } from './download/only-in-app'
 import { Home } from './home/home'
 import { MainLayoutLoadingDotsArea } from './main-layout'
 import { AnimatedSwitch } from './navigation/animated-switch'
@@ -93,7 +93,7 @@ export function AppRoutes({
       <Route path='/recover-username' component={RecoverUsername} />
       <Route path='/login' component={Login} />
       <Route path='/reset-password' component={ResetPassword} />
-      <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInApp} />
+      <Route path='/signup' component={IS_ELECTRON ? Signup : OnlyInAppPage} />
       <Route
         path='/signup-i-know-im-not-in-the-app-but-i-really-want-to-anyway'
         component={Signup}

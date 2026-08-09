@@ -415,10 +415,19 @@
     "blurb": "Download the ShieldBattery client to:",
     "download": "Download",
     "downloadClient": "Download client",
-    "onlyInApp": "This feature is only available in the app.",
+    "keepBrowsing": "Keep browsing the web version",
+    "onlyInAppBlurb": "This feature runs inside the ShieldBattery client, along with a few things the browser can't do.",
+    "onlyInAppNetcodeDescription": "Lower latency and fewer stalls, even on spotty connections.",
+    "onlyInAppNetcodeTitle": "Improved netcode",
+    "onlyInAppRankedDescription": "1v1 and team queues with seasonal MMR and placements.",
+    "onlyInAppRankedTitle": "Ranked matchmaking",
+    "onlyInAppReplaysDescription": "Open any replay straight into StarCraft in seconds.",
+    "onlyInAppReplaysTitle": "Fast replay launching",
+    "onlyInAppTitle": "Take it into the app",
     "playGames": "Play games",
     "supportProjectText": "Want to support the project?",
-    "watchReplays": "Watch replays"
+    "watchReplays": "Watch replays",
+    "windowsOnly": "The app runs on Windows PCs."
   },
   "clientUpdate": {
     "errorBoundary": {
