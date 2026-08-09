@@ -71,7 +71,7 @@ pub use rehome::RehomeContext;
 pub use session::{
     LobbySessionSeed, StormMemberSeed, begin_local_only, clear_lobby_session_seed,
     establish_session, establish_sessionless, set_lobby_session_seed, submit_result_report,
-    with_lobby_session_seed, with_turn_state,
+    wait_for_driver_shutdown, with_lobby_session_seed, with_turn_state,
 };
 
 use self::net_stats::NetStats;
@@ -524,6 +524,14 @@ pub struct TurnState {
     /// remote humans. A human-only game left alone is one whose winner is about to report a result,
     /// which must not race the session closing.
     has_computers: bool,
+    /// Whether this client can ever produce an end-of-game result report — `false` when the server
+    /// issued it no result code (an observer; the result report authenticates with that code, so
+    /// none can be built without it). Gates [`expect_result_report`](Self::expect_result_report):
+    /// latching the result-expected flag with no report to follow makes the driver hold the leave
+    /// intent for its full safety timeout, a window in which the game process can exit and strand
+    /// the intent unsent — the relay then sees only a dead link and the surviving players stall on
+    /// the drop path instead of getting the prompt "player left".
+    result_report_possible: bool,
     /// Slots the `forceUnsyncedLeave` debug command has queued for a forced synced leave on the game thread.
     /// Drained by the IN hook before it checks readiness (see `bw_scr::apply_forced_unsynced_leaves`), which
     /// writes each slot's `pending_leave_reason` and drops it from `required`. Debug-only trigger for
@@ -616,6 +624,7 @@ impl TurnState {
             lobby_dispatch: std::array::from_fn(|_| None),
             local_only: false,
             has_computers,
+            result_report_possible: true,
             #[cfg(debug_assertions)]
             forced_unsynced_leaves: Vec::new(),
             #[cfg(debug_assertions)]
@@ -663,9 +672,9 @@ impl TurnState {
     /// Records the rally-point2 slot ↔ BW storm id mapping learned during lobby join.
     ///
     /// rp2 slots are session-bounded to `0..bw::MAX_STORM_PLAYERS` — players and observers share
-    /// that range, observers occupying the upper slots — so an out-of-range slot can't occur short
-    /// of a protocol bug; assert in debug so one would surface loudly rather than as a mapping that
-    /// silently never resolves.
+    /// that range, assigned sequentially (observers take the slots right after the players, not a
+    /// reserved upper band) — so an out-of-range slot can't occur short of a protocol bug; assert
+    /// in debug so one would surface loudly rather than as a mapping that silently never resolves.
     pub fn map_slot(&mut self, slot: SlotId, storm_id: StormPlayerId) {
         debug_assert!(
             (slot.0 as usize) < bw::MAX_STORM_PLAYERS,
@@ -1602,8 +1611,24 @@ impl TurnState {
     /// end-of-game result report has been sent — guaranteeing the result frame precedes the leave
     /// intent on the wire. Set from the game thread before any leave intent can be signalled. A
     /// plain relaxed store, so it's cheap and idempotent.
+    ///
+    /// A no-op for a client that can never produce a result report (see
+    /// [`result_report_possible`](Self::result_report_possible)): holding the intent for a report
+    /// that cannot exist only delays the announcement into the process-exit window.
     pub fn expect_result_report(&self) {
-        self.channels.result_expected.store(true, Ordering::Relaxed);
+        if self.result_report_possible {
+            self.channels.result_expected.store(true, Ordering::Relaxed);
+        } else {
+            debug!("netcode v2: no result code issued; leave intent will not wait on a result");
+        }
+    }
+
+    /// Records whether this client can ever produce an end-of-game result report (`false` when the
+    /// server issued it no result code — an observer). Set once at session establish; see the field
+    /// doc on [`result_report_possible`](Self::result_report_possible) for why the leave intent
+    /// must not wait on a report that cannot exist.
+    pub fn set_result_report_possible(&mut self, possible: bool) {
+        self.result_report_possible = possible;
     }
 
     /// Hands the serialized end-of-game result report to the driver, which sends it up the relay's
@@ -2803,6 +2828,18 @@ mod tests {
         // Idempotent: a repeat call leaves it set.
         state.expect_result_report();
         assert!(result_expected.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn expect_result_report_is_a_no_op_when_no_report_is_possible() {
+        let (mut state, _result_rx, result_expected) = turn_state_with_result();
+        state.set_result_report_possible(false);
+
+        state.expect_result_report();
+        assert!(
+            !result_expected.load(Ordering::Relaxed),
+            "a client with no result code must not make the driver hold its leave intent"
+        );
     }
 
     #[test]

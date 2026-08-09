@@ -794,7 +794,14 @@ impl GameState {
 
             // The turn transport announces this client's clean departure to the relay on its own
             // (`TurnState::send_leave_intent`, driven from the game thread as the game loop returns),
-            // so surviving players get a prompt synced leave rather than a drop-timeout.
+            // so surviving players get a prompt synced leave rather than a drop-timeout. But
+            // `/game/finished` leads to the app tearing this process down, and an announcement
+            // still sitting in the driver dies with the process — the relay then only ever sees a
+            // dead link and the survivors stall on the drop path. So wait (bounded) for the driver
+            // to finish first: it ends exactly when the relay closes the link after processing the
+            // leave. A no-op without a relay driver (solo/replay), and the timeout keeps a dead
+            // relay from wedging shutdown.
+            netcode_v2::wait_for_driver_shutdown(Duration::from_secs(3)).await;
 
             app_socket::send_message(&ws_send, "/game/finished", ())
                 .await

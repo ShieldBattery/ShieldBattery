@@ -60,6 +60,12 @@ pub struct NetcodeV2Session {
     /// one (e.g. so a result report only counts as delivered when there is a real relay driver).
     link: SessionLink,
     turn_state: TurnState,
+    /// Flips to `true` when the [`LinkDriver`] task ends — which, on a clean leave, happens exactly
+    /// when the relay closes the link after processing our `LeaveIntent`. Awaited (bounded) by
+    /// [`wait_for_driver_shutdown`] before the process is allowed to exit, so the announcement is
+    /// actually on the wire and processed rather than stranded in a dying process. `None` for a
+    /// sessionless game (no driver, nothing to flush).
+    driver_done: Option<watch::Receiver<bool>>,
 }
 
 /// What keeps a session's turn transport standing.
@@ -139,6 +145,7 @@ pub async fn establish_session(
     // provider at escalation time, so the provider no longer needs seeding here. The winning
     // address's family seeds the provider's replacement-relay pick: it's the family this client's
     // connectivity demonstrably reaches.
+    let has_result_code = rehome_context.result_code.is_some();
     let rehome = rehome::build_provider(&rehome_context, relay_addr.is_ipv6());
 
     let (driver, mut channels) = LinkDriver::new(link);
@@ -162,11 +169,15 @@ pub async fn establish_session(
     // convention on `channels.connectivity` in `mod.rs`); it only ends — dropping the channels,
     // which the hooks read as end-of-session — on a clean shutdown, a terminal relay refusal, or a
     // non-link failure reconnecting can't fix.
+    let (driver_done_tx, driver_done_rx) = watch::channel(false);
     tokio::spawn(async move {
         match driver.run_reconnecting(reconnect).await {
             Ok(()) => debug!("netcode v2 link closed cleanly"),
             Err(e) => error!("netcode v2 link failed: {e}"),
         }
+        // Either way the driver is done with the link; the shutdown path only needs to know
+        // nothing more will be written, not whether the close was clean.
+        let _ = driver_done_tx.send(true);
     });
 
     let roster = setup
@@ -215,13 +226,42 @@ pub async fn establish_session(
             })
             .collect(),
     );
+    // A client with no server-issued result code (an observer) can never build a result report, so
+    // the driver must not hold its leave intent waiting for one — see `expect_result_report`.
+    turn_state.set_result_report_possible(has_result_code);
     if let Some(mut guard) = SESSION.lock() {
         *guard = Some(NetcodeV2Session {
             link: SessionLink::Relay(endpoint),
             turn_state,
+            driver_done: Some(driver_done_rx),
         });
     }
     Ok(session_start)
+}
+
+/// Waits (bounded by `timeout`) for the relay driver task to end. On a clean leave the driver ends
+/// exactly when the relay closes the link after processing our `LeaveIntent` — so awaiting this
+/// before process teardown guarantees the announcement was actually delivered, not stranded in a
+/// dying process (which would leave the surviving players stalled on the drop path instead of
+/// getting the prompt "player left"). Returns immediately when there is no session or no driver
+/// (sessionless/replay), and the timeout bounds a driver stuck re-dialing a dead relay.
+pub async fn wait_for_driver_shutdown(timeout: Duration) {
+    // Clone the receiver out under the lock, await outside it: holding the session lock across the
+    // await would block the game thread's hooks for up to the whole timeout.
+    let rx = SESSION
+        .lock()
+        .and_then(|guard| guard.as_ref().and_then(|s| s.driver_done.clone()));
+    let Some(mut rx) = rx else {
+        return;
+    };
+    // An `Err` from `wait_for` means the sender dropped, which only happens when the driver task
+    // ended — the same fact a `true` reports.
+    match tokio::time::timeout(timeout, rx.wait_for(|&done| done)).await {
+        Ok(_) => debug!("netcode v2: relay driver shut down; leave announcement delivered"),
+        Err(_) => warn!(
+            "netcode v2: relay driver still running after {timeout:?}; proceeding with shutdown"
+        ),
+    }
 }
 
 /// Stands up a sessionless [`TurnState`] for a solo game (one human, the rest AI) and stores it for
@@ -297,6 +337,7 @@ pub fn establish_sessionless(local_user_id: SbUserId, has_computers: bool) {
         *guard = Some(NetcodeV2Session {
             link: SessionLink::Sessionless(parked),
             turn_state,
+            driver_done: None,
         });
     }
 }

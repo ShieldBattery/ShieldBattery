@@ -305,10 +305,11 @@ pub fn send_game_results() {
         // Latch the result-expected flag on the live v2 session synchronously, before any leave
         // intent can be signalled — this runs ahead of both the loop-end intent and the one
         // `begin_local_only` fires. The driver then holds a pending leave intent until the result
-        // report has been sent, so the result frame precedes the leave intent on the wire. If no
-        // result code is ultimately decided, the async side submits nothing and the driver releases
-        // the held intent at its own safety timeout — bounded and harmless, and in practice a v2
-        // game always has a result code. No-op without a live v2 session.
+        // report has been sent, so the result frame precedes the leave intent on the wire. For a
+        // client the server issued no result code (an observer), the turn state skips the latch
+        // entirely (see `expect_result_report`), since no report will ever follow and the hold
+        // would only delay the leave announcement into the process-exit window. No-op without a
+        // live v2 session.
         crate::netcode_v2::with_turn_state(|s| s.expect_result_report());
         let results = unsafe { game_results() };
         send_game_msg_to_async(GameThreadMessage::Results(results));
