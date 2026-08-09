@@ -26,6 +26,12 @@ export const InputBase = styled.div<{
   -ms-flex-preferred-size: inherit;
   user-select: inherit;
 
+  &::placeholder {
+    color: rgb(from var(--theme-on-surface-variant) r g b / 0.6);
+    /* Firefox otherwise stacks its own default placeholder opacity on top of the color */
+    opacity: 1;
+  }
+
   &:focus {
     outline: none;
   }
