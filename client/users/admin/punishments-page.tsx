@@ -12,6 +12,8 @@ import {
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { BanHistoryEntryJson, UserRestrictionHistoryJson } from '../../../common/users/user-network'
 import { useSelfUser } from '../../auth/auth-utils'
+import { openDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { useForm, useFormCallbacks } from '../../forms/form-hook'
 import { FilledButton } from '../../material/button'
 import { DateTimeTextField } from '../../material/datetime-text-field'
@@ -124,9 +126,43 @@ export function AdminPunishmentsPage({ user }: AdminPunishmentsPageProps) {
 
   return (
     <>
+      <AdminAvatarSection user={user} />
       <BanHistory user={user} selfUser={selfUser} />
       <RestrictionHistory user={user} selfUser={selfUser} />
     </>
+  )
+}
+
+function AdminAvatarSection({ user }: { user: SbUser }) {
+  const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+
+  const onRemoveAvatarClick = () => {
+    dispatch(openDialog({ type: DialogType.RemoveUserAvatar, initData: { userId: user.id } }))
+  }
+
+  return (
+    <AdminSection data-testid='avatar-section'>
+      <TitleLarge>{t('users.admin.avatar.title', 'Avatar')}</TitleLarge>
+      {user.avatarUrl ? (
+        <>
+          <BodyMedium>
+            {t(
+              'users.admin.avatar.description',
+              "Permanently remove this user's avatar. This can't be undone.",
+            )}
+          </BodyMedium>
+          <FilledButton
+            label={t('users.profile.admin.removeAvatarAction', 'Remove avatar')}
+            onClick={onRemoveAvatarClick}
+          />
+        </>
+      ) : (
+        <BodyMedium>
+          {t('users.admin.avatar.none', 'This user does not have an avatar set.')}
+        </BodyMedium>
+      )}
+    </AdminSection>
   )
 }
 
