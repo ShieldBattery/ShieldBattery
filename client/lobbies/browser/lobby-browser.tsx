@@ -1,6 +1,6 @@
 import { useAtomValue } from 'jotai'
 import * as React from 'react'
-import { useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { getErrorStack } from '../../../common/errors'
@@ -11,6 +11,7 @@ import { useTrackPageView } from '../../analytics/analytics'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
 import { MaterialIcon } from '../../icons/material/material-icon'
+import { useKeyListener } from '../../keyboard/key-listener'
 import logger from '../../logging/logger'
 import { isMatchmakingAtom } from '../../matchmaking/matchmaking-atoms'
 import { FilledButton, TextButton } from '../../material/button'
@@ -235,75 +236,67 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     setJoinError(undefined)
   }
 
-  // Drives the list from the keyboard anywhere on the page — text fields and layered UI excepted
-  // — moving the selection and focus together so Enter and the rail always follow the highlight.
-  const onListKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    if (
-      event.defaultPrevented ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey
-    ) {
-      return
-    }
-    if (
-      event.key !== 'ArrowDown' &&
-      event.key !== 'ArrowUp' &&
-      event.key !== 'Home' &&
-      event.key !== 'End'
-    ) {
-      return
-    }
-    const target = event.target instanceof Element ? event.target : null
-    if (
-      target?.closest(
-        'input, textarea, select, [contenteditable], [role="dialog"], [role="menu"], [role="listbox"]',
+  // Drives the list from the keyboard anywhere on the page, moving the selection and focus
+  // together so Enter and the rail always follow the highlight. Layered UI (dialogs, filter
+  // menus) takes keys exclusively via its own KeyListenerBoundary, but text fields on this page
+  // share our boundary, so their keystrokes still have to be left alone explicitly.
+  useKeyListener({
+    onKeyDown: (event: KeyboardEvent) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+        return false
+      }
+      if (
+        event.key !== 'ArrowDown' &&
+        event.key !== 'ArrowUp' &&
+        event.key !== 'Home' &&
+        event.key !== 'End'
+      ) {
+        return false
+      }
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return false
+      }
+      if (!visible.length) {
+        return false
+      }
+
+      const fromIndex = Math.max(
+        0,
+        visible.findIndex(summary => summary.id === selectedId),
       )
-    ) {
-      return
-    }
-    if (!visible.length) {
-      return
-    }
+      let nextIndex: number
+      switch (event.key) {
+        case 'ArrowDown':
+          nextIndex = Math.min(visible.length - 1, fromIndex + 1)
+          break
+        case 'ArrowUp':
+          nextIndex = Math.max(0, fromIndex - 1)
+          break
+        case 'Home':
+          nextIndex = 0
+          break
+        case 'End':
+          nextIndex = visible.length - 1
+          break
+        default:
+          return false
+      }
 
-    event.preventDefault()
-
-    const fromIndex = Math.max(
-      0,
-      visible.findIndex(summary => summary.id === selectedId),
-    )
-    let nextIndex: number
-    switch (event.key) {
-      case 'ArrowDown':
-        nextIndex = Math.min(visible.length - 1, fromIndex + 1)
-        break
-      case 'ArrowUp':
-        nextIndex = Math.max(0, fromIndex - 1)
-        break
-      case 'Home':
-        nextIndex = 0
-        break
-      case 'End':
-        nextIndex = visible.length - 1
-        break
-      default:
-        return
-    }
-
-    const next = visible[nextIndex]
-    selectLobby(next.id)
-    const el = rowRefs.current.get(next.id)
-    el?.focus()
-    el?.scrollIntoView({ block: 'nearest' })
+      const next = visible[nextIndex]
+      selectLobby(next.id)
+      const el = rowRefs.current.get(next.id)
+      el?.focus()
+      el?.scrollIntoView({ block: 'nearest' })
+      return true
+    },
   })
-
-  useEffect(() => {
-    document.addEventListener('keydown', onListKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onListKeyDown)
-    }
-  }, [])
 
   const joinFrom = (summary: LobbySummary, asObserver: boolean) => {
     setJoinError(undefined)
