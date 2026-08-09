@@ -94,10 +94,14 @@ interface PossibleNodeError extends Error {
 app.on('error', (err: PossibleHttpError & PossibleNodeError, ctx?: RouterContext) => {
   if (err.status && err.status < 500) return // likely an HTTP error (expected and fine)
 
-  if (err.code && (err.code === 'ECONNRESET' || err.code === 'EPIPE')) {
-    // These tend to happen when serving large files (e.g. videos) that get canceled by leaving the
-    // page. They aren't severe or even really fixable (AFAIK), but still may be useful to log in
-    // case they start happening for things we don't expect
+  if (
+    err.code &&
+    (err.code === 'ECONNRESET' || err.code === 'EPIPE' || err.code === 'ERR_STREAM_PREMATURE_CLOSE')
+  ) {
+    // These all mean the client disconnected while we were still sending a response (the stream
+    // variant occurs when the body is piped through stream.pipeline). They aren't severe or even
+    // really fixable (AFAIK), but still may be useful to log in case they start happening for
+    // things we don't expect
     log.warn({ err, req: ctx?.req }, 'server error (non-severe)')
   } else {
     log.error({ err, req: ctx?.req, cause: (err as any)?.cause }, 'server error')
