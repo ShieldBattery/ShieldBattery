@@ -45,6 +45,10 @@ const EXPECTED_ERROR_MAPPING: Record<
   [LobbyServiceErrorCode.NotObserverSlot]: { status: 400 },
   [LobbyServiceErrorCode.NotOwnSlot]: { status: 403 },
   [LobbyServiceErrorCode.NotSlotController]: { status: 403 },
+  [LobbyServiceErrorCode.ObserversFull]: {
+    status: 409,
+    bodyCode: LobbyJoinErrorCode.ObserversFull,
+  },
   [LobbyServiceErrorCode.TargetNoActiveClient]: { status: 409 },
   [LobbyServiceErrorCode.UserOffline]: { status: 400 },
 }

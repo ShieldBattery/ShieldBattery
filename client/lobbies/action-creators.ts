@@ -26,6 +26,7 @@ import logger from '../logging/logger'
 import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
+import siteSocket from '../network/site-socket'
 import { ActivateLobby, DeactivateLobby } from './actions'
 import { isInLobby } from './lobby-reducer'
 
@@ -62,6 +63,11 @@ export interface CreateLobbyParams {
   useLegacyLimits?: boolean
   allowObservers?: boolean
   visibility?: LobbyVisibility
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before hosting this one. Without it, being in any gameplay activity fails the create.
+   */
+  leaveCurrentLobby?: boolean
 }
 
 export function createLobby(
@@ -73,6 +79,7 @@ export function createLobby(
     useLegacyLimits,
     allowObservers,
     visibility,
+    leaveCurrentLobby,
   }: CreateLobbyParams,
   spec: RequestHandlingSpec<CreateLobbyResponse>,
 ): ThunkAction {
@@ -90,6 +97,7 @@ export function createLobby(
         useLegacyLimits,
         allowObservers,
         visibility,
+        leaveCurrentLobby,
         ...network,
       }),
       signal: spec.signal,
@@ -97,13 +105,35 @@ export function createLobby(
   })
 }
 
-export function joinLobby(id: SbLobbyId, spec: RequestHandlingSpec<void>): ThunkAction {
+export interface JoinLobbyParams {
+  /**
+   * When set, the joiner wants an observer seat specifically: they take an open observer slot or
+   * the join fails, rather than being seated as a player or benched.
+   */
+  asObserver?: boolean
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before being seated in this one. Without it, being in any gameplay activity fails the join.
+   */
+  leaveCurrentLobby?: boolean
+}
+
+export function joinLobby(
+  id: SbLobbyId,
+  { asObserver, leaveCurrentLobby }: JoinLobbyParams = {},
+  spec: RequestHandlingSpec<void>,
+): ThunkAction {
   return abortableThunk(spec, async () => {
     const network = await resolveNetworkParams()
 
     await fetchJson<void>(apiUrl`lobbies/${id}/join`, {
       method: 'POST',
-      body: encodeBodyAsParams<JoinLobbyRequest>({ clientId, ...network }),
+      body: encodeBodyAsParams<JoinLobbyRequest>({
+        clientId,
+        asObserver,
+        leaveCurrentLobby,
+        ...network,
+      }),
       signal: spec.signal,
     })
   })
@@ -256,6 +286,34 @@ export function updateLobbyPreferences(
         method: 'post',
         body: JSON.stringify(preferences),
       }),
+    })
+  }
+}
+
+/**
+ * Opens a preview of `lobbyId`, which carries its seat-by-seat layout as it changes. A socket holds
+ * at most one preview, so this replaces whichever lobby was being previewed before — no separate
+ * unsubscribe is needed to move between lobbies.
+ */
+export function subscribeToLobbyPreview(lobbyId: SbLobbyId): ThunkAction {
+  return dispatch => {
+    dispatch({ type: '@lobbies/previewSelect', payload: { lobbyId } })
+
+    siteSocket.invoke('/lobbies/preview-subscribe', { lobbyId }).catch(err => {
+      // A lobby can close between being picked and this request landing. The list's own delete is
+      // what moves the selection off a lobby that's gone, so there's nothing to recover here.
+      logger.warning(`Failed to subscribe to lobby preview: ${getErrorStack(err)}`)
+    })
+  }
+}
+
+/** Closes the lobby preview, if one is open. */
+export function unsubscribeFromLobbyPreview(): ThunkAction {
+  return dispatch => {
+    dispatch({ type: '@lobbies/previewSelect', payload: { lobbyId: undefined } })
+
+    siteSocket.invoke('/lobbies/preview-unsubscribe').catch(err => {
+      logger.warning(`Failed to unsubscribe from lobby preview: ${getErrorStack(err)}`)
     })
   }
 }

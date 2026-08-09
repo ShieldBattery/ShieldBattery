@@ -16,6 +16,7 @@ import { SlotJson } from './slot'
 export enum LobbyJoinErrorCode {
   NoLongerOpen = 'noLongerOpen',
   Full = 'full',
+  ObserversFull = 'observersFull',
   Banned = 'banned',
   AlreadyStarted = 'alreadyStarted',
   AlreadyInActivity = 'alreadyInActivity',
@@ -51,6 +52,12 @@ export interface CreateLobbyRequest extends LobbyClientRequest, LobbyNetworkPara
   allowObservers?: boolean
   useLegacyLimits?: boolean
   visibility?: LobbyVisibility
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before hosting this one. Without it, being in any gameplay activity (including another lobby)
+   * fails the create.
+   */
+  leaveCurrentLobby?: boolean
 }
 
 /** The response to a successful lobby creation, carrying the new lobby's id. */
@@ -59,7 +66,19 @@ export interface CreateLobbyResponse {
 }
 
 /** The body of a request to join an existing lobby. */
-export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {}
+export interface JoinLobbyRequest extends LobbyClientRequest, LobbyNetworkParams {
+  /**
+   * When set, the joiner wants an observer seat specifically: they take an open observer slot or
+   * the join fails, rather than being seated as a player or benched.
+   */
+  asObserver?: boolean
+  /**
+   * When set, a client currently in a different lobby is removed from it in the same operation
+   * before being seated in this one. Without it, being in any gameplay activity (including another
+   * lobby) fails the join.
+   */
+  leaveCurrentLobby?: boolean
+}
 
 /** The body of a request to send a chat message to a lobby. */
 export interface SendLobbyChatRequest extends LobbyClientRequest {
@@ -99,6 +118,50 @@ export type LobbyEvent =
   | LobbyChatEvent
   | LobbyStatusEvent
 
+/**
+ * A slot as shown to a lobby's previewers: its occupancy and just enough about the occupant to
+ * render a preview row. Deliberately narrower than `SlotJson` — anyone holding a lobby's id can
+ * watch its preview, so per-member details like chosen regions stay off it. Controlled open/closed
+ * slots (team melee/FFA) read as plain open/closed here; UMS computers read as computers.
+ */
+export type LobbySummarySlotJson =
+  | { type: 'open' }
+  | { type: 'closed' }
+  | { type: 'human'; userId: SbUserId; race: RaceChar }
+  | { type: 'computer'; race: RaceChar }
+  | { type: 'observer'; userId: SbUserId }
+
+/** A team of a lobby's slot layout, as shown to a lobby's previewers. */
+export interface LobbySummaryTeamJson {
+  name: string
+  isObserver: boolean
+  slots: ReadonlyArray<LobbySummarySlotJson>
+}
+
+/**
+ * The tally of a lobby's player seats: the ones people actually play from, humans and computers
+ * alike, counted against every player slot the layout has (open and closed included). Observer
+ * seats are counted separately — they're a different kind of spot, and folding them in would make
+ * a 4-player map read as an 8-player one.
+ */
+export interface LobbyPlayerSlotCounts {
+  taken: number
+  total: number
+  open: number
+}
+
+/** The tally of a lobby's observer seats: how many are filled, and how many anyone could take. */
+export interface LobbyObserverSlotCounts {
+  taken: number
+  open: number
+}
+
+/**
+ * A lobby as the public list channel carries it: everything a browser row shows plus what its
+ * filters and sorts need, and nothing that changes when someone merely picks a race or swaps seats.
+ * The list reaches every subscribed client on every change, so the seat-by-seat layout lives on the
+ * per-lobby preview channel ({@link LobbyPreviewJson}) instead.
+ */
 export interface LobbySummaryJson {
   id: SbLobbyId
   name: string
@@ -106,7 +169,27 @@ export interface LobbySummaryJson {
   gameType: GameType
   gameSubType: number
   host: { id: SbUserId }
-  openSlotCount: number
+  useLegacyLimits: boolean
+  playerSlots: LobbyPlayerSlotCounts
+  observerSlots: LobbyObserverSlotCounts
+  /**
+   * Whether the lobby has an observer team at all. Not derivable from `observerSlots`: a team whose
+   * seats are all closed tallies 0 taken and 0 open, and still means the lobby allows observers.
+   */
+  hasObserverTeam: boolean
+  /** Every seated person, players and observers alike, in the order they sit. */
+  occupantIds: ReadonlyArray<SbUserId>
+  /** When the lobby was created (Unix millis). */
+  createdAt: number
+}
+
+/**
+ * A single lobby as its previewers see it: its summary plus the seat-by-seat layout, so a browser
+ * can show who is sitting where before joining. Published only on that lobby's preview channel,
+ * which a client subscribes to one lobby at a time.
+ */
+export type LobbyPreviewJson = LobbySummaryJson & {
+  teams: ReadonlyArray<LobbySummaryTeamJson>
 }
 
 /**
@@ -128,7 +211,14 @@ export interface LobbySummaryMapJson extends MapImageInfo {
  * shows.
  */
 export interface LobbySummaryResponse {
-  summary: Omit<LobbySummaryJson, 'map'> & { map: LobbySummaryMapJson }
+  /**
+   * Only what the landing page renders: who is inside (`occupantIds`) and how the lobby's observer
+   * seats are arranged stay off an endpoint that answers anyone holding the link.
+   */
+  summary: Omit<
+    LobbySummaryJson,
+    'map' | 'createdAt' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds'
+  > & { map: LobbySummaryMapJson }
   host: SbUser
 }
 

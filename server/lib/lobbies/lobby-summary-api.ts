@@ -45,7 +45,8 @@ export class LobbySummaryApi {
         gameType: summary.gameType,
         gameSubType: summary.gameSubType,
         host: { id: summary.host.id },
-        openSlotCount: summary.openSlotCount,
+        playerSlots: { ...summary.playerSlots },
+        useLegacyLimits: summary.useLegacyLimits,
         map: {
           id: map.id,
           name: map.name,

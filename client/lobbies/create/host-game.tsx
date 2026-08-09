@@ -11,7 +11,8 @@ import { UpdateLobbyPreferencesRequest } from '../../../common/lobbies/lobby-net
 import { SbMapId } from '../../../common/maps'
 import { useTrackPageView } from '../../analytics/analytics'
 import { useSelfUser } from '../../auth/auth-utils'
-import { openSimpleDialog } from '../../dialogs/action-creators'
+import { openDialog, openSimpleDialog } from '../../dialogs/action-creators'
+import { DialogType } from '../../dialogs/dialog-type'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { BrowseLocalMaps } from '../../maps/browse-local-maps'
 import { BrowseServerMaps } from '../../maps/browse-server-maps'
@@ -26,6 +27,7 @@ import {
   getLobbyPreferences,
   updateLobbyPreferences,
 } from '../action-creators'
+import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
 import {
   GameSetupForm,
@@ -215,6 +217,11 @@ function HostGameContent({
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
   const selfUser = useSelfUser()
+
+  // Gates the leave-and-create confirmation dialog on submit: the server can only ever seat a
+  // client in one lobby at a time, so creating a new one while already in another means leaving
+  // it, which is worth confirming before it happens.
+  const inCurrentLobby = useAppSelector(s => isInLobby(s.lobby))
 
   const prefsName = useAppSelector(s => s.lobbyPreferences.name)
   const prefsGameType = useAppSelector(s => s.lobbyPreferences.gameType)
@@ -502,7 +509,7 @@ function HostGameContent({
             onSubmit={model => {
               const finalName = name.trim() ? name.trim() : placeholderName
 
-              doCreateLobby({
+              const params: CreateLobbyParams = {
                 name: finalName,
                 map: model.mapId!,
                 gameType: model.gameType,
@@ -510,7 +517,22 @@ function HostGameContent({
                 useLegacyLimits: model.useLegacyLimits,
                 allowObservers: model.allowObservers,
                 visibility,
-              })
+                leaveCurrentLobby: inCurrentLobby,
+              }
+
+              // Trading the current lobby for a new one is worth confirming before it happens;
+              // the dialog performs no request of its own, so `doCreateLobby` runs unchanged once
+              // it's confirmed.
+              if (inCurrentLobby) {
+                dispatch(
+                  openDialog({
+                    type: DialogType.LobbyLeaveAndCreate,
+                    initData: { onConfirm: () => doCreateLobby(params) },
+                  }),
+                )
+              } else {
+                doCreateLobby(params)
+              }
 
               debouncedSaveRef.current?.cancel()
 

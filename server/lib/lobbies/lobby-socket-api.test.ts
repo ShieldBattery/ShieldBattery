@@ -84,8 +84,8 @@ describe('lobbies/lobby-socket-api', () => {
 
   let lister: InspectableNydusClient
 
-  function apiData(client: InspectableNydusClient) {
-    return IMap<string, any>({ client })
+  function apiData(client: InspectableNydusClient, body?: Record<string, unknown>) {
+    return IMap<string, any>({ client, body })
   }
 
   /** Creates a lobby hosted by `user`, whose single connected client is `clientId`. */
@@ -169,6 +169,91 @@ describe('lobbies/lobby-socket-api', () => {
   test('unsubscribing without a subscription is a conflict', async () => {
     await expect(lobbyListApi.unsubscribe(apiData(lister), NOOP_NEXT)).rejects.toMatchObject({
       status: 409,
+    })
+  })
+
+  describe('preview subscriptions', () => {
+    /** The paths the socket was subscribed to, in order, ignoring the list channel itself. */
+    function previewSubscribePaths(): string[] {
+      return fakeNydus.subscribeClient.mock.calls
+        .map(([, path]) => path)
+        .filter(path => path.endsWith('/preview'))
+    }
+
+    test("a preview subscription answers with the lobby's slot layout", async () => {
+      const { id } = await createLobby(HOST_USER, 'HOST_CLIENT', 'Listed lobby', 'listed')
+
+      await lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: id }), NOOP_NEXT)
+
+      const subscribeCall = fakeNydus.subscribeClient.mock.calls.find(
+        ([, path]) => path === `/lobbies/${id}/preview`,
+      )
+      const initialData = subscribeCall![2] as { action: string; payload: any }
+      expect(initialData.action).toBe('preview')
+      expect(initialData.payload.id).toBe(id)
+      expect(initialData.payload.teams[0].slots[0]).toMatchObject({ userId: HOST_USER.id })
+    })
+
+    test('an unlisted lobby previews the same as a listed one', async () => {
+      // Holding the id is the capability to look at a lobby, exactly as it is for the
+      // unauthenticated summary endpoint.
+      const { id } = await createLobby(HOST_USER, 'HOST_CLIENT', 'Unlisted lobby', 'unlisted')
+
+      await lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: id }), NOOP_NEXT)
+
+      expect(previewSubscribePaths()).toEqual([`/lobbies/${id}/preview`])
+    })
+
+    test('previewing a lobby that does not exist is a not-found', async () => {
+      await expect(
+        lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: 'no-such-lobby' }), NOOP_NEXT),
+      ).rejects.toMatchObject({ status: 404 })
+      expect(previewSubscribePaths()).toEqual([])
+    })
+
+    test('previewing a second lobby drops the first', async () => {
+      const first = await createLobby(HOST_USER, 'HOST_CLIENT', 'First lobby', 'listed')
+      const second = await createLobby(OTHER_HOST_USER, 'OTHER_HOST_CLIENT', 'Second', 'listed')
+
+      await lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: first.id }), NOOP_NEXT)
+      await lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: second.id }), NOOP_NEXT)
+
+      expect(fakeNydus.unsubscribeClient).toHaveBeenCalledWith(
+        lister,
+        `/lobbies/${first.id}/preview`,
+      )
+      expect(previewSubscribePaths()).toEqual([
+        `/lobbies/${first.id}/preview`,
+        `/lobbies/${second.id}/preview`,
+      ])
+    })
+
+    test('unsubscribing drops the preview, and doing it twice is a conflict', async () => {
+      const { id } = await createLobby(HOST_USER, 'HOST_CLIENT', 'Listed lobby', 'listed')
+      await lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: id }), NOOP_NEXT)
+
+      await lobbyListApi.previewUnsubscribe(apiData(lister), NOOP_NEXT)
+
+      expect(fakeNydus.unsubscribeClient).toHaveBeenCalledWith(lister, `/lobbies/${id}/preview`)
+      await expect(
+        lobbyListApi.previewUnsubscribe(apiData(lister), NOOP_NEXT),
+      ).rejects.toMatchObject({ status: 409 })
+    })
+
+    test('unsubscribing without a preview is a conflict', async () => {
+      await expect(
+        lobbyListApi.previewUnsubscribe(apiData(lister), NOOP_NEXT),
+      ).rejects.toMatchObject({ status: 409 })
+    })
+
+    test('a closing socket drops the preview it held', async () => {
+      const { id } = await createLobby(HOST_USER, 'HOST_CLIENT', 'Listed lobby', 'listed')
+      await lobbyListApi.previewSubscribe(apiData(lister, { lobbyId: id }), NOOP_NEXT)
+
+      lister.disconnect()
+
+      expect(fakeNydus.unsubscribeClient).toHaveBeenCalledWith(lister, `/lobbies/${id}/preview`)
+      expect(lobbyListApi.previewSockets.has(lister.id)).toBe(false)
     })
   })
 })

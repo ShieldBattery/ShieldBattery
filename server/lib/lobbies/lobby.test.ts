@@ -30,6 +30,7 @@ import {
   removeObserver,
   removePlayer,
   setRace,
+  toPreviewJson,
   toSummaryJson,
 } from './lobby'
 
@@ -96,11 +97,67 @@ const evaluateMeleeLobby = (lobby: Lobby, teamSize: number, slotCount = 4) => {
   expect(team.slots[3].type).toBe('open')
 }
 
-const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
+/** An independent (not implementation-reused) mirror of how a slot reads in a summary. */
+const expectedSummarySlot = (slot: Slot): unknown => {
+  switch (slot.type) {
+    case 'human':
+      return { type: 'human', userId: slot.userId, race: slot.race }
+    case 'observer':
+      return { type: 'observer', userId: slot.userId }
+    case 'computer':
+    case 'umsComputer':
+      return { type: 'computer', race: slot.race }
+    case 'open':
+    case 'controlledOpen':
+      return { type: 'open' }
+    case 'closed':
+    case 'controlledClosed':
+      return { type: 'closed' }
+    default:
+      throw new Error('unexpected slot type: ' + slot.type)
+  }
+}
+
+/** Tallies the seats of `lobby` independently of the code under test. */
+const expectedSlotCounts = (lobby: Lobby) => {
+  const playerSlots = { taken: 0, total: 0, open: 0 }
+  const observerSlots = { taken: 0, open: 0 }
+  const occupantIds: SbUserId[] = []
+
+  for (const team of lobby.teams) {
+    for (const slot of team.slots) {
+      const summarySlot = expectedSummarySlot(slot) as { type: string; userId?: SbUserId }
+
+      if (summarySlot.userId !== undefined && !occupantIds.includes(summarySlot.userId)) {
+        occupantIds.push(summarySlot.userId)
+      }
+
+      if (team.isObserver) {
+        if (summarySlot.type === 'observer') observerSlots.taken += 1
+        else if (summarySlot.type === 'open') observerSlots.open += 1
+      } else {
+        playerSlots.total += 1
+        if (summarySlot.type === 'human' || summarySlot.type === 'computer') playerSlots.taken += 1
+        else if (summarySlot.type === 'open') playerSlots.open += 1
+      }
+    }
+  }
+
+  return {
+    playerSlots,
+    observerSlots,
+    hasObserverTeam: lobby.teams.some(team => team.isObserver),
+    occupantIds,
+  }
+}
+
+const evaluateSummarizedJson = (lobby: Lobby, openPlayerSlotCount: number) => {
   const json = JSON.stringify(toSummaryJson(lobby))
   const parsed = JSON.parse(json)
 
   const hostId = lobby.host.userId
+  const counts = expectedSlotCounts(lobby)
+  expect(counts.playerSlots.open).toBe(openPlayerSlotCount)
   expect(parsed).toEqual({
     id: lobby.id,
     name: '5v3 Comp Stomp Pros Only',
@@ -110,7 +167,22 @@ const evaluateSummarizedJson = (lobby: Lobby, openSlotCount: number) => {
     gameType: 'melee',
     gameSubType: 0,
     host: { id: hostId },
-    openSlotCount,
+    useLegacyLimits: lobby.useLegacyLimits,
+    ...counts,
+    createdAt: lobby.createdAt,
+  })
+}
+
+const evaluatePreviewJson = (lobby: Lobby) => {
+  const parsed = JSON.parse(JSON.stringify(toPreviewJson(lobby)))
+
+  expect(parsed).toEqual({
+    ...JSON.parse(JSON.stringify(toSummaryJson(lobby))),
+    teams: lobby.teams.map(team => ({
+      name: team.name,
+      isObserver: team.isObserver,
+      slots: team.slots.map(expectedSummarySlot),
+    })),
   })
 }
 
@@ -133,7 +205,15 @@ describe('Lobbies - melee', () => {
   test('should support summarized JSON serialization', () => {
     evaluateSummarizedJson(BOXER_LOBBY, 3)
     evaluateSummarizedJson(BOXER_LOBBY_WITH_OBSERVERS, 5)
-    evaluateSummarizedJson(openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0), 6)
+    // Opening an observer seat leaves the player seats alone -- an observer spot isn't one you can
+    // play from, so it never counts toward how full the lobby reads.
+    evaluateSummarizedJson(openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0), 5)
+  })
+
+  test('should support preview JSON serialization', () => {
+    evaluatePreviewJson(BOXER_LOBBY)
+    evaluatePreviewJson(BOXER_LOBBY_WITH_OBSERVERS)
+    evaluatePreviewJson(openSlot(BOXER_LOBBY_WITH_OBSERVERS, 1, 0))
   })
 
   test('stores the host region on the host slot for session-create placement', () => {
@@ -1709,5 +1789,120 @@ describe('Lobbies - observers', () => {
     const observers = lobby.teams[4]
     expect(observers.slots).toHaveLength(MAX_OBSERVERS)
     expect(observers.hiddenSlots).toHaveLength(0)
+  })
+})
+
+describe('Lobbies - toSummaryJson', () => {
+  test('counts player seats without folding in the observer team', () => {
+    const lobby = makeObserver(BOXER_LOBBY_WITH_OBSERVERS, 0, 0)
+
+    const json = toSummaryJson(lobby)
+
+    // The host moved from a player seat to an observer one, so the player seats lose an occupant
+    // and gain nothing: an observer team of its own size must not inflate the lobby's capacity.
+    expect(json.playerSlots).toEqual({ taken: 0, total: 6, open: 6 })
+    expect(json.observerSlots).toEqual({ taken: 1, open: 0 })
+    expect(json.hasObserverTeam).toBe(true)
+  })
+
+  test('reports an observer team whose seats are all closed', () => {
+    // Nothing about the counts distinguishes this from a lobby with no observer team at all, which
+    // is why the flag is on the wire in its own right.
+    const json = toSummaryJson(BOXER_LOBBY_WITH_OBSERVERS)
+
+    expect(json.observerSlots).toEqual({ taken: 0, open: 0 })
+    expect(json.hasObserverTeam).toBe(true)
+    expect(toSummaryJson(BOXER_LOBBY).hasObserverTeam).toBe(false)
+  })
+
+  test('lists every seated person once, players and observers alike, in seating order', () => {
+    const other = createHuman(makeSbUserId(28), 'z')
+    const [t1, s1] = findAvailableSlot(BOXER_LOBBY_WITH_OBSERVERS)
+    let lobby = addPlayer(BOXER_LOBBY_WITH_OBSERVERS, t1!, s1!, other)
+    lobby = makeObserver(lobby, 0, 0)
+
+    expect(toSummaryJson(lobby).occupantIds).toEqual([other.userId, HOST_USER_ID])
+  })
+
+  test('leaves computers out of the occupant list', () => {
+    const computer = createComputer('p')
+    const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
+    const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
+
+    const json = toSummaryJson(lobby)
+
+    expect(json.occupantIds).toEqual([HOST_USER_ID])
+    expect(json.playerSlots).toEqual({ taken: 2, total: 4, open: 2 })
+  })
+
+  test('carries the lobby creation time', () => {
+    expect(toSummaryJson(BOXER_LOBBY).createdAt).toBe(BOXER_LOBBY.createdAt)
+  })
+
+  test('leaves the slot layout to the preview', () => {
+    expect(toSummaryJson(BOXER_LOBBY)).not.toHaveProperty('teams')
+  })
+})
+
+describe('Lobbies - toPreviewJson', () => {
+  test('maps humans, computers, and open slots for a melee lobby', () => {
+    const computer = createComputer('p')
+    const [t1, s1] = findAvailableSlot(BOXER_LOBBY)
+    const lobby = addPlayer(BOXER_LOBBY, t1!, s1!, computer)
+
+    const json = toPreviewJson(lobby)
+
+    expect(json.teams).toEqual([
+      {
+        name: '',
+        isObserver: false,
+        slots: [
+          { type: 'human', userId: HOST_USER_ID, race: 'r' },
+          { type: 'computer', race: 'p' },
+          { type: 'open' },
+          { type: 'open' },
+        ],
+      },
+    ])
+  })
+
+  test('reads controlled open/closed slots (team melee) as plain open/closed', () => {
+    let lobby = TEAM_MELEE_2
+    // Team 1 has the host in slot 0 and three controlledOpen slots the team-melee fill created.
+    expect(lobby.teams[0].slots[1].type).toBe('controlledOpen')
+    lobby = closeSlot(lobby, 0, 1)
+    expect(lobby.teams[0].slots[1].type).toBe('controlledClosed')
+
+    const json = toPreviewJson(lobby)
+
+    expect(json.teams[0].slots[0]).toEqual({ type: 'human', userId: HOST_USER_ID, race: 'r' })
+    expect(json.teams[0].slots[1]).toEqual({ type: 'closed' })
+    expect(json.teams[0].slots[2]).toEqual({ type: 'open' })
+    expect(json.teams[0].slots[3]).toEqual({ type: 'open' })
+    // A controlled open seat is one someone can still sit down in, so the counts read it as open
+    // just as the layout does: 2 controlled opens plus team 2's 4 plain ones, host aside.
+    expect(json.playerSlots).toEqual({ taken: 1, total: 8, open: 6 })
+  })
+
+  test('reads UMS computers as computers', () => {
+    const json = toPreviewJson(UMS_LOBBY_1)
+
+    // team2 and team3 of UMS_LOBBY_1 are single-slot umsComputer teams.
+    expect(json.teams[1].slots[0]).toEqual({ type: 'computer', race: 'z' })
+    expect(json.teams[2].slots[0]).toEqual({ type: 'computer', race: 'z' })
+  })
+
+  test('maps the observer team with isObserver and seated observers', () => {
+    const lobby = makeObserver(BOXER_LOBBY_WITH_OBSERVERS, 0, 0)
+
+    const json = toPreviewJson(lobby)
+
+    const obsTeam = json.teams[1]
+    expect(obsTeam.isObserver).toBe(true)
+    expect(obsTeam.slots[0]).toEqual({ type: 'observer', userId: HOST_USER_ID })
+  })
+
+  test('carries everything the summary does', () => {
+    expect(toPreviewJson(BOXER_LOBBY)).toMatchObject(toSummaryJson(BOXER_LOBBY))
   })
 })

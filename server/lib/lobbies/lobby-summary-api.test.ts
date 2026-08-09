@@ -65,7 +65,12 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameType: GameType.Melee,
   gameSubType: 0,
   host: { id: HOST_ID },
-  openSlotCount: 3,
+  useLegacyLimits: false,
+  playerSlots: { taken: 1, total: 4, open: 3 },
+  observerSlots: { taken: 1, open: 2 },
+  hasObserverTeam: true,
+  occupantIds: [HOST_ID, makeSbUserId(9)],
+  createdAt: 1234567890,
 }
 
 /** A fake `RouterContext` satisfying `getSummary`'s param validation. */
@@ -90,11 +95,22 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
     const response = await api.getSummary(makeSummaryCtx())
 
     // A field added to LobbySummaryJson later (e.g. a player list) must never silently join this
-    // unauthenticated response.
+    // unauthenticated response -- nor may the ones it already carries but this endpoint withholds
+    // (`occupantIds`, `observerSlots`, `hasObserverTeam`).
     expect(Object.keys(response.summary).sort()).toEqual(
-      ['gameSubType', 'gameType', 'host', 'id', 'map', 'name', 'openSlotCount'].sort(),
+      [
+        'gameSubType',
+        'gameType',
+        'host',
+        'id',
+        'map',
+        'name',
+        'playerSlots',
+        'useLegacyLimits',
+      ].sort(),
     )
     expect(Object.keys(response.summary.host)).toEqual(['id'])
+    expect(response.summary.playerSlots).toEqual(BASE_SUMMARY.playerSlots)
 
     // The presigned `mapUrl`, and the uploader/hash/visibility details, must never re-enter this
     // unauthenticated response unnoticed -- if a field is added to MapInfoJson later, this list

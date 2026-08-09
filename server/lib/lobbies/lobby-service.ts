@@ -19,7 +19,11 @@ import {
   LobbyState,
   LobbyVisibility,
 } from '../../../common/lobbies'
-import { LobbySlotCreateEvent, LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyPreviewJson,
+  LobbySlotCreateEvent,
+  LobbySummaryJson,
+} from '../../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import * as Slots from '../../../common/lobbies/slot'
 import { Slot, SlotType } from '../../../common/lobbies/slot'
@@ -56,10 +60,10 @@ import { setLobbySummaryGetter } from './lobby-summaries'
  * whatever their callers understand (status codes, client-facing error codes), so the messages
  * carried alongside them are the only human-readable part.
  *
- * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `Banned`, `JoinAlreadyStarted`,
- * `JoinAlreadyInActivity`): joining is the one operation whose failures the client renders
- * individually, so its outcomes are distinguished from the otherwise-identical failures of the
- * host-only operations.
+ * A few codes are specific to joining (`NoLobby`, `LobbyFull`, `ObserversFull`, `Banned`,
+ * `JoinAlreadyStarted`, `JoinAlreadyInActivity`): joining is the one operation whose failures the
+ * client renders individually, so its outcomes are distinguished from the otherwise-identical
+ * failures of the host-only operations.
  */
 export enum LobbyServiceErrorCode {
   AlreadyInActivity = 'AlreadyInActivity',
@@ -87,6 +91,7 @@ export enum LobbyServiceErrorCode {
   NotObserverSlot = 'NotObserverSlot',
   NotOwnSlot = 'NotOwnSlot',
   NotSlotController = 'NotSlotController',
+  ObserversFull = 'ObserversFull',
   TargetNoActiveClient = 'TargetNoActiveClient',
   UserOffline = 'UserOffline',
 }
@@ -104,6 +109,15 @@ export function getLobbyPath(lobbyId: SbLobbyId): string {
   return LOBBY_LIST_PATH + urlPath`/${lobbyId}`
 }
 
+/**
+ * The channel carrying a single lobby's seat-by-seat layout, for browsers previewing it. The
+ * segment after the lobby id is a user id on the sibling channels, and user ids are numeric, so the
+ * literal `preview` can never name one of those.
+ */
+export function getLobbyPreviewPath(lobbyId: SbLobbyId): string {
+  return LOBBY_LIST_PATH + urlPath`/${lobbyId}/preview`
+}
+
 /** The channel a single user in a lobby is subscribed to, across all of their clients. */
 export function getLobbyUserPath(lobbyId: SbLobbyId, userId: SbUserId): string {
   return LOBBY_LIST_PATH + urlPath`/${lobbyId}/${userId}`
@@ -115,11 +129,12 @@ export function getLobbyClientPath(lobbyId: SbLobbyId, userId: SbUserId, clientI
 }
 
 /**
- * The events published on the lobby channels: changes to the public lobby list, the open-lobby
- * count, and the per-lobby/per-user/per-client channels.
+ * The events published on the lobby channels: changes to the public lobby list, a single lobby's
+ * preview, the open-lobby count, and the per-lobby/per-user/per-client channels.
  */
 type LobbyPublishEvent =
   | { action: 'add' | 'delete' | 'update'; payload: SbLobbyId | LobbySummaryJson }
+  | { action: 'preview'; payload: LobbyPreviewJson }
   | { count: number }
   | { type: string; [key: string]: any }
 
@@ -208,6 +223,7 @@ export class LobbyService {
     region,
     rttMs,
     clientPubkey,
+    leaveCurrentLobby,
     user,
     client,
   }: {
@@ -221,6 +237,12 @@ export class LobbyService {
     region?: GameServerRegionId
     rttMs?: number
     clientPubkey?: string
+    /**
+     * When set, a client currently in a different lobby is removed from it as part of this create
+     * rather than the create failing outright. Applied only after every failure check has passed,
+     * so a failed create never strands the client lobby-less.
+     */
+    leaveCurrentLobby?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<{ id: SbLobbyId }> {
@@ -263,6 +285,11 @@ export class LobbyService {
       useLegacyLimits,
       visibility: lobbyVisibility,
     })
+
+    if (leaveCurrentLobby) {
+      this._leaveCurrentLobby(client)
+    }
+
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(
         LobbyServiceErrorCode.AlreadyInActivity,
@@ -288,6 +315,8 @@ export class LobbyService {
     region,
     rttMs,
     clientPubkey,
+    asObserver,
+    leaveCurrentLobby,
     user,
     client,
   }: {
@@ -295,6 +324,14 @@ export class LobbyService {
     region?: GameServerRegionId
     rttMs?: number
     clientPubkey?: string
+    /** Whether the joiner wants an observer seat specifically; see the handling below. */
+    asObserver?: boolean
+    /**
+     * When set, a client currently in a different lobby is removed from it as part of this join
+     * rather than the join failing outright. Applied only after every failure check on the target
+     * lobby has passed, so a failed join never strands the client lobby-less.
+     */
+    leaveCurrentLobby?: boolean
     user: UserSocketsGroup
     client: ClientSocketsGroup
   }): Promise<void> {
@@ -304,6 +341,14 @@ export class LobbyService {
       throw new LobbyServiceError(LobbyServiceErrorCode.NoLobby, 'no lobby found with that id')
     }
     const lobby = this.lobbies.get(id)!
+
+    if (this.lobbyClients.get(client) === id) {
+      // Already seated in the target lobby: joining it again is what a member clicking join on
+      // their own lobby (e.g. during a countdown) looks like, so it resolves as a no-op success
+      // rather than reaching the checks below.
+      return
+    }
+
     try {
       this.ensureLobbyNotTransient(lobby)
     } catch (err) {
@@ -321,28 +366,53 @@ export class LobbyService {
       )
     }
 
-    const [teamIndex, slotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
-    if (teamIndex === undefined || slotIndex === undefined) {
-      throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
-    }
-
-    let player
-    const [, observerTeam] = getObserverTeam(lobby)
-    if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+    let teamIndex: number | undefined
+    let slotIndex: number | undefined
+    let player: Slot
+    if (asObserver) {
+      // An explicit observer request takes an open observer slot or fails outright: unlike an
+      // ordinary join, it must never fall back to a player slot, since that isn't what was asked
+      // for.
+      const [obsTeamIndex, obsTeam] = getObserverTeam(lobby)
+      const obsSlotIndex = obsTeam?.slots.findIndex(s => s.type === SlotType.Open) ?? -1
+      if (obsTeamIndex === undefined || obsSlotIndex === -1) {
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.ObserversFull,
+          'no observer slots are open',
+        )
+      }
+      teamIndex = obsTeamIndex
+      slotIndex = obsSlotIndex
       player = Slots.createObserver(client.userId)
     } else {
-      player = isUms(lobby.gameType)
-        ? Slots.createHuman(
-            client.userId,
-            availableSlot.race,
-            availableSlot.hasForcedRace,
-            availableSlot.playerId,
-          )
-        : Slots.createHuman(client.userId)
+      const [availTeamIndex, availSlotIndex, availableSlot] = Lobbies.findAvailableSlot(lobby)
+      if (availTeamIndex === undefined || availSlotIndex === undefined) {
+        throw new LobbyServiceError(LobbyServiceErrorCode.LobbyFull, 'lobby is full')
+      }
+      teamIndex = availTeamIndex
+      slotIndex = availSlotIndex
+
+      const [, observerTeam] = getObserverTeam(lobby)
+      if (observerTeam && observerTeam.slots.find(s => s.id === availableSlot.id)) {
+        player = Slots.createObserver(client.userId)
+      } else {
+        player = isUms(lobby.gameType)
+          ? Slots.createHuman(
+              client.userId,
+              availableSlot.race,
+              availableSlot.hasForcedRace,
+              availableSlot.playerId,
+            )
+          : Slots.createHuman(client.userId)
+      }
     }
     player = { ...player, region: joinRegion }
 
     let updated = Lobbies.addPlayer(lobby, teamIndex, slotIndex, player)
+
+    if (leaveCurrentLobby) {
+      this._leaveCurrentLobby(client)
+    }
 
     if (!this.activityRegistry.registerActiveClient(user.userId, client)) {
       throw new LobbyServiceError(
@@ -891,6 +961,25 @@ export class LobbyService {
     this._removeClientFromLobby(lobby, client)
   }
 
+  /**
+   * Removes `client` from whatever lobby it's currently seated in, if any. For flows that trade
+   * the current lobby for another (joining elsewhere, creating a new one), call this only after
+   * every failure check on the target has passed, so a failed request never strands the client
+   * lobby-less. This also frees the activity registry entry that `registerActiveClient` needs,
+   * the same way an explicit leave does (host-migration/close-when-empty semantics apply as
+   * usual).
+   */
+  _leaveCurrentLobby(client: ClientSocketsGroup): void {
+    if (!this.lobbyClients.has(client)) {
+      return
+    }
+
+    const currentLobby = this.lobbies.get(this.lobbyClients.get(client)!)
+    if (currentLobby) {
+      this._removeClientFromLobby(currentLobby, client)
+    }
+  }
+
   _removeClientFromLobby(
     lobby: Lobby,
     client: ClientSocketsGroup,
@@ -1226,11 +1315,15 @@ export class LobbyService {
   }
 
   /**
-   * Publishes a change to the public lobby list, and refreshes the open-lobby count for everyone.
+   * Publishes a change to the public lobby list.
    *
    * A lobby's id is the capability that lets someone join it, so nothing about an unlisted lobby
    * (not even the bare id in a `delete`) may reach the public list channel. Every list publish must
    * go through here so that filtering can't be forgotten at a callsite.
+   *
+   * Only a lobby entering or leaving the list can change the open-lobby count, so only those
+   * refresh it. That count channel reaches every connected client on the server, whether or not
+   * they're anywhere near the lobby browser.
    */
   _publishListChange(action: 'add' | 'delete' | 'update', lobby: Lobby) {
     if (lobby.visibility === 'listed') {
@@ -1239,7 +1332,30 @@ export class LobbyService {
         payload: action === 'delete' ? lobby.id : Lobbies.toSummaryJson(lobby),
       })
     }
-    this._publishLobbiesCount()
+    if (action !== 'update') {
+      this._publishLobbiesCount()
+    }
+  }
+
+  /** Publishes a lobby's current seat-by-seat layout to whoever is previewing it. */
+  _publishPreview(lobby: Lobby, summary?: LobbySummaryJson) {
+    this.publisher.publish(getLobbyPreviewPath(lobby.id), {
+      action: 'preview',
+      payload: Lobbies.toPreviewJson(lobby, summary),
+    })
+  }
+
+  /**
+   * Returns the full preview of a lobby by id, or undefined if no such lobby exists. A
+   * counting-down or loading lobby can't be joined, so it's reported as gone rather than as a
+   * live roster with join buttons behind it, matching the unauthenticated summary endpoint.
+   */
+  getPreview(lobbyId: SbLobbyId): LobbyPreviewJson | undefined {
+    const lobby = this.lobbies.get(lobbyId)
+    if (!lobby || this.lobbyCountdowns.has(lobbyId) || this.loadingLobbies.has(lobbyId)) {
+      return undefined
+    }
+    return Lobbies.toPreviewJson(lobby)
   }
 
   _publishTo(lobby: Lobby, data?: any) {
@@ -1362,6 +1478,18 @@ export class LobbyService {
       })
     }
 
-    this._publishListChange('update', newLobby)
+    // Previewers are looking at this lobby specifically and want every seat as it moves. Their
+    // channel is empty whenever nobody has the lobby selected, so publishing unconditionally costs
+    // nothing in the common case.
+    const newSummary = Lobbies.toSummaryJson(newLobby)
+    this._publishPreview(newLobby, newSummary)
+
+    // The list, on the other hand, reaches every browser on the server, and its rows only show
+    // the summary's scalars. A race pick leaves all of them identical, so republishing would wake
+    // every subscriber to redraw nothing. (A seat swap does republish: it reorders the summary's
+    // occupantIds, whose order is the seating order the friend stacks display.)
+    if (JSON.stringify(Lobbies.toSummaryJson(oldLobby)) !== JSON.stringify(newSummary)) {
+      this._publishListChange('update', newLobby)
+    }
   }
 }

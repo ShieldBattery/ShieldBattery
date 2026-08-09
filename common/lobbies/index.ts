@@ -41,6 +41,8 @@ export interface Lobby {
   readonly host: Slot
   readonly useLegacyLimits: boolean
   readonly visibility: LobbyVisibility
+  /** When the lobby was created (Unix millis). */
+  readonly createdAt: number
 }
 
 export function isUms(gameType: GameType): gameType is GameType.UseMapSettings {
@@ -208,19 +210,23 @@ export function teamTakenSlotCount(team: Team): number {
 }
 
 /**
- * Returns the number of "open" slots for a particular lobby, ie. available for someone to join in.
+ * Returns the number of "open" slots for a particular lobby, ie. available for someone to join in
+ * as a player. This function excludes the observer team, so it matches the player-seat counts
+ * lobby summaries report.
  *
  * Open slot types for now are: `open`, `controlledOpen`
  */
 export function openSlotCount(lobby: Lobby): number {
-  return lobby.teams.reduce(
-    (openSlots, team) =>
-      openSlots +
-      team.slots.filter(
-        slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
-      ).length,
-    0,
-  )
+  return lobby.teams
+    .filter(team => !team.isObserver)
+    .reduce(
+      (openSlots, team) =>
+        openSlots +
+        team.slots.filter(
+          slot => slot.type === SlotType.Open || slot.type === SlotType.ControlledOpen,
+        ).length,
+      0,
+    )
 }
 
 /**

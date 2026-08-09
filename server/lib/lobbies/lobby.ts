@@ -1,5 +1,6 @@
 import { produce } from 'immer'
 import { randomUUID } from 'node:crypto'
+import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import { GameType, isTeamType } from '../../../common/games/game-type'
 import {
@@ -14,12 +15,16 @@ import {
   humanSlotCount,
   isSlotUnoccupied,
   isUms,
-  openSlotCount,
   slotCount,
   takenSlotCount,
   teamTakenSlotCount,
 } from '../../../common/lobbies'
-import { LobbySummaryJson } from '../../../common/lobbies/lobby-network'
+import {
+  LobbyPreviewJson,
+  LobbySummaryJson,
+  LobbySummarySlotJson,
+  LobbySummaryTeamJson,
+} from '../../../common/lobbies/lobby-network'
 import { makeSbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import {
   Slot,
@@ -83,8 +88,93 @@ export function getSlotsPerTeam(
 }
 
 /**
- * Serializes a lobby to a summary-form in JSON, suitable for e.g. displaying a list of all the open
- * lobbies.
+ * Maps a slot to how lobby browsers see it: just enough about the occupant to render a preview row.
+ * Controlled open/closed slots (team melee/FFA) read as plain open/closed, and UMS computers read as
+ * computers, matching `LobbySummarySlotJson`'s narrower shape.
+ */
+function toSummarySlotJson(slot: Slot): LobbySummarySlotJson {
+  switch (slot.type) {
+    case SlotType.Human:
+      return { type: 'human', userId: slot.userId!, race: slot.race }
+    case SlotType.Observer:
+      return { type: 'observer', userId: slot.userId! }
+    case SlotType.Computer:
+    case SlotType.UmsComputer:
+      return { type: 'computer', race: slot.race }
+    case SlotType.Open:
+    case SlotType.ControlledOpen:
+      return { type: 'open' }
+    case SlotType.Closed:
+    case SlotType.ControlledClosed:
+      return { type: 'closed' }
+    default:
+      return assertUnreachable(slot.type)
+  }
+}
+
+/** Maps a team to how lobby browsers see it. */
+function toSummaryTeamJson(team: Team): LobbySummaryTeamJson {
+  return {
+    name: team.name,
+    isObserver: team.isObserver,
+    slots: team.slots.map(toSummarySlotJson),
+  }
+}
+
+/**
+ * Tallies a lobby's seats the way browsers count them. Every slot is read through
+ * `toSummarySlotJson` so the counts can't drift from the layout the preview channel carries (e.g.
+ * a team-melee `controlledOpen` counts as an open seat, exactly as it renders).
+ */
+function toSummarySlotCounts(
+  lobby: Lobby,
+): Pick<LobbySummaryJson, 'playerSlots' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds'> {
+  const playerSlots = { taken: 0, total: 0, open: 0 }
+  const observerSlots = { taken: 0, open: 0 }
+  let hasObserverTeam = false
+  const occupantIds: SbUserId[] = []
+  const seenOccupants = new Set<SbUserId>()
+
+  for (const team of lobby.teams) {
+    hasObserverTeam ||= team.isObserver
+
+    for (const slot of team.slots) {
+      const summarySlot = toSummarySlotJson(slot)
+
+      if (summarySlot.type === 'human' || summarySlot.type === 'observer') {
+        if (!seenOccupants.has(summarySlot.userId)) {
+          seenOccupants.add(summarySlot.userId)
+          occupantIds.push(summarySlot.userId)
+        }
+      }
+
+      if (team.isObserver) {
+        if (summarySlot.type === 'observer') {
+          observerSlots.taken += 1
+        } else if (summarySlot.type === 'open') {
+          observerSlots.open += 1
+        }
+      } else {
+        playerSlots.total += 1
+        if (summarySlot.type === 'human' || summarySlot.type === 'computer') {
+          playerSlots.taken += 1
+        } else if (summarySlot.type === 'open') {
+          playerSlots.open += 1
+        }
+      }
+    }
+  }
+
+  return { playerSlots, observerSlots, hasObserverTeam, occupantIds }
+}
+
+/**
+ * Serializes a lobby to the summary form the public lobby list carries: what a browser row shows,
+ * with the seat-by-seat layout left to {@link toPreviewJson}.
+ *
+ * Two calls on structurally equal lobbies produce identical JSON (the fields are written in a fixed
+ * order), so callers can compare serialized summaries to tell whether a change is one the list
+ * would show at all.
  */
 export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
   return {
@@ -94,7 +184,21 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     gameType: lobby.gameType,
     gameSubType: lobby.gameSubType,
     host: { id: lobby.host.userId! },
-    openSlotCount: openSlotCount(lobby),
+    useLegacyLimits: lobby.useLegacyLimits,
+    ...toSummarySlotCounts(lobby),
+    createdAt: lobby.createdAt,
+  }
+}
+
+/**
+ * Serializes a lobby for the people previewing it specifically: its summary plus who is sitting in
+ * which seat. Callers that have already serialized the lobby's summary can pass it in to avoid
+ * walking every slot a second time.
+ */
+export function toPreviewJson(lobby: Lobby, summary = toSummaryJson(lobby)): LobbyPreviewJson {
+  return {
+    ...summary,
+    teams: lobby.teams.map(toSummaryTeamJson),
   }
 }
 
@@ -278,6 +382,7 @@ export function createLobby({
     host,
     useLegacyLimits,
     visibility,
+    createdAt: Date.now(),
   }
   return addPlayer(lobby, hostTeamIndex, hostSlotIndex, host)
 }

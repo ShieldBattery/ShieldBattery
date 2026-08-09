@@ -45,7 +45,12 @@ const BASE_SUMMARY: LobbySummaryJson = {
   gameType: GameType.Melee,
   gameSubType: 0,
   host: { id: HOST_ID },
-  openSlotCount: 3,
+  useLegacyLimits: false,
+  playerSlots: { taken: 1, total: 4, open: 3 },
+  observerSlots: { taken: 0, open: 0 },
+  hasObserverTeam: false,
+  occupantIds: [HOST_ID],
+  createdAt: 1234567890,
 }
 
 describe('lobbies/lobby-page-meta', () => {
@@ -115,7 +120,10 @@ describe('lobbies/lobby-page-meta', () => {
     })
 
     test('singularizes the description when there is exactly one open slot', async () => {
-      summaryGetterMock.mockReturnValueOnce({ ...BASE_SUMMARY, openSlotCount: 1 })
+      summaryGetterMock.mockReturnValueOnce({
+        ...BASE_SUMMARY,
+        playerSlots: { taken: 3, total: 4, open: 1 },
+      })
       findUsersByIdMock.mockResolvedValueOnce([HOST])
 
       const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
