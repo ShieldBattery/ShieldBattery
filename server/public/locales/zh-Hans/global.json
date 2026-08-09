@@ -414,10 +414,19 @@
     "blurb": "将ShieldBattery客户端下载到：",
     "download": "下载",
     "downloadClient": "下载客户端",
-    "onlyInApp": "此功能仅在应用程序中可用。",
+    "keepBrowsing": "继续使用网页版",
+    "onlyInAppBlurb": "此功能在 ShieldBattery 客户端中运行，客户端还提供一些浏览器无法实现的功能。",
+    "onlyInAppNetcodeDescription": "延迟更低、卡顿更少，即使网络不稳定也一样。",
+    "onlyInAppNetcodeTitle": "改进的网络代码",
+    "onlyInAppRankedDescription": "1v1 和组队队列，带赛季 MMR 和定级赛。",
+    "onlyInAppRankedTitle": "排位匹配",
+    "onlyInAppReplaysDescription": "任何录像都能在几秒内直接在星际争霸中打开。",
+    "onlyInAppReplaysTitle": "快速启动录像",
+    "onlyInAppTitle": "在应用中继续",
     "playGames": "畅玩游戏",
     "supportProjectText": "愿意支持我们的项目吗？",
-    "watchReplays": "观看录像"
+    "watchReplays": "观看录像",
+    "windowsOnly": "应用可在 Windows 电脑上运行。"
   },
   "clientUpdate": {
     "errorBoundary": {
@@ -565,6 +574,15 @@
       "topVsBottom": "上对下",
       "unknown": "未知",
       "useMapSettings": "使用地图设置"
+    },
+    "gameTypeDescription": {
+      "freeForAll": "没有同盟，人人为战。",
+      "melee": "标准规则。在游戏内选择同盟，最后存活的势力获胜。",
+      "oneOnOne": "正面单挑，仅限两名玩家。",
+      "teamFreeForAll": "各队共享操控，队伍之间各自为战。",
+      "teamMelee": "队友共同操控同一个基地。",
+      "topVsBottom": "两支固定队伍对抗。",
+      "useMapSettings": "使用地图自带的单位、触发器和规则。"
     },
     "launchingGameDialog": {
       "startingGameServer": "正在启动游戏服务器…",
@@ -899,7 +917,6 @@
       "filterShowFull": "显示已满",
       "friendsInside_other": "{{count}}位好友在此房间中",
       "full": "已满",
-      "join": "加入",
       "joinAsObserver": "以观战者身份加入",
       "joinLobby": "加入房间",
       "legacyLimits": "旧版单位限制",
@@ -922,6 +939,7 @@
       "title": "房间"
     },
     "createLobby": {
+      "allowObserversWithMax": "允许观战者（最多{{maxObservers}}人）",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",
       "gameSubTypeHeader": "队伍",
@@ -929,8 +947,20 @@
       "gameSubTypeOptionTvB": "{{topSlots}}对{{bottomSlots}}",
       "gameTypeHeader": "游戏类型",
       "lobbyName": "房间名称",
+      "mapPlayerCount_other": "{{count}}名玩家",
       "mapRequired": "选择要玩的地图",
+      "optionsHeader": "选项",
+      "recentMapsHeader": "最近使用的地图",
       "selectMap": "选择地图",
+      "slotsHeader": "槽位",
+      "slotsPreviewOneOnOne": "单挑对决 · 2名玩家",
+      "slotsPreviewOpen_other": "{{mapName}}：{{count}}个空位",
+      "slotsPreviewTeams_other": "{{numTeams}}支队伍共享{{count}}个槽位",
+      "slotsPreviewTvb": "{{mapName}}：{{top}}对{{bottom}}",
+      "slotsPreviewUms_other": "{{count}}个槽位 · 布局由地图决定",
+      "slotsPreviewVs": "VS",
+      "teamSplitHeader": "队伍分配",
+      "teamSplitOption": "{{top}}v{{bottom}}",
       "title": "创建房间",
       "useLegacyLimits": "使用旧版单位数量限制",
       "visibility": "可见性",
@@ -945,6 +975,17 @@
       "banned": "您已被该房间封禁。",
       "kicked": "您已被踢出房间。"
     },
+    "hostGame": {
+      "changeMap": "更换地图",
+      "defaultLobbyName": "{{name}}的房间",
+      "defaultLobbyNameFallback": "我的房间",
+      "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "summaryObserversOff": "无观战者",
+      "summaryObserversOn": "允许观战",
+      "summarySlots_other": "{{count}}个槽位",
+      "visibilityListedDescription": "任何人都可以从房间列表加入。游戏和录像公开可见。",
+      "visibilityUnlistedDescription": "只有拥有链接的人才能加入。只有参与过游戏的人才能下载录像。"
+    },
     "joinLobby": {
       "action": "加入房间",
       "browseLobbies": "浏览房间",
@@ -953,6 +994,7 @@
       "errorFull": "该房间已满。",
       "errorGeneric": "加入房间时出了点问题。请重试。",
       "errorObserversFull": "该房间没有空余的观战位，请尝试以玩家身份加入。",
+      "joined": "已加入",
       "matchmakingActiveDialogText": "正在进行匹配时无法加入房间。",
       "matchmakingActiveDialogTitle": "加入房间已禁用",
       "openSlotCount_other": "有{{count}}个空位"
@@ -1060,7 +1102,8 @@
       "programFolder": "程序文件夹",
       "title": "本地地图",
       "uploadMapError": "上传地图时发生未知错误。请稍后再试。",
-      "uploadMapErrorTitle": "上传地图时出错"
+      "uploadMapErrorTitle": "上传地图时出错",
+      "uploadMapNoPlayerSlotsError": "此地图没有出生点，也没有可用的玩家位置，因此永远无法进行游戏。请为地图添加出生点后重试。"
     },
     "mapSelect": {
       "browseMaps": "浏览地图"
@@ -1688,9 +1731,14 @@
         "visualizeNetworkStalls": "可视化网络卡顿"
       },
       "input": {
+        "cursorHeader": "光标",
         "customCursorSizeLargest": "最大",
         "customCursorSizeSmallest": "最小",
         "customMouseSensitivity": "自定义鼠标灵敏度",
+        "grabPan": "自定义中键平移灵敏度",
+        "grabPanFaster": "更快",
+        "grabPanSlower": "更慢",
+        "grabPanTooltip": "调整用鼠标中键平移画面时镜头的移动速度。关闭时与旧版《星际争霸：重制版》行为一致。",
         "hardwareCursor": "硬件指针",
         "hardwareCursorTooltip": "推荐此设置以获得最佳性能和响应速度",
         "keyboardScrollSpeed": "按键滚屏速度",
@@ -1702,6 +1750,8 @@
         "mouseScaling": "使用鼠标缩放",
         "mouseScrollSpeed": "鼠标滚屏速度",
         "mouseSensitivity": "鼠标灵敏度",
+        "mouseSensitivityHeader": "鼠标灵敏度",
+        "scrollingHeader": "滚屏",
         "title": "输入",
         "useCustomCursorSize": "使用自定义光标大小"
       },
@@ -2045,6 +2095,18 @@
       "record": "战绩",
       "showAllRanks": "显示全部 {{total}} 个排名",
       "showFewerRanks": "收起",
+      "stats": {
+        "allTime": "所有赛季",
+        "downsampled_other": "为保持图表清晰，已精简显示{{count}}场游戏的数据。",
+        "loadError": "加载历史记录时出现问题。",
+        "noGamesInRange": "此时间段内没有游戏",
+        "noRankedGames": "该玩家还没有排位对局。",
+        "points": "积分",
+        "rating": "评分",
+        "ratingInPlacements": "定级赛期间不显示评分。",
+        "season": "赛季",
+        "seasonDelta": "较上赛季 {{amount}}"
+      },
       "tabs": {
         "admin": "管理",
         "matchHistory": "比赛历史",
@@ -2055,7 +2117,8 @@
       "totalGames": "总比赛数",
       "twitch": {
         "liveBadge": "直播中"
-      }
+      },
+      "viewAllRanks": "查看全部{{total}}项排名"
     },
     "profileOverlay": {
       "info": "信息",

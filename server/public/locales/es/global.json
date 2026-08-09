@@ -416,10 +416,19 @@
     "blurb": "Descargue el cliente ShieldBattery para:",
     "download": "Descargar",
     "downloadClient": "Descargar cliente",
-    "onlyInApp": "Esta función solo está disponible en la app.",
+    "keepBrowsing": "Seguir navegando en la versión web",
+    "onlyInAppBlurb": "Esta función se ejecuta dentro del cliente de ShieldBattery, junto con otras cosas que el navegador no puede hacer.",
+    "onlyInAppNetcodeDescription": "Menor latencia y menos pausas, incluso con conexiones inestables.",
+    "onlyInAppNetcodeTitle": "Netcode mejorado",
+    "onlyInAppRankedDescription": "Colas 1x1 y por equipos con MMR por temporada y partidas de posicionamiento.",
+    "onlyInAppRankedTitle": "Emparejamiento clasificatorio",
+    "onlyInAppReplaysDescription": "Abre cualquier replay directamente en StarCraft en segundos.",
+    "onlyInAppReplaysTitle": "Lanzamiento rápido de replays",
+    "onlyInAppTitle": "Llévalo a la aplicación",
     "playGames": "Jugar partidas",
     "supportProjectText": "¿Quieres apoyar el proyecto?",
-    "watchReplays": "Mira replays"
+    "watchReplays": "Mira replays",
+    "windowsOnly": "La aplicación funciona en PC con Windows."
   },
   "clientUpdate": {
     "errorBoundary": {
@@ -571,6 +580,15 @@
       "topVsBottom": "Arriba contra abajo",
       "unknown": "Desconocido",
       "useMapSettings": "Usar configuración del mapa"
+    },
+    "gameTypeDescription": {
+      "freeForAll": "Sin alianzas. Cada uno por su cuenta.",
+      "melee": "Reglas estándar. Elige las alianzas en la partida; gana la última fuerza en pie.",
+      "oneOnOne": "Un duelo directo. Exactamente dos jugadores.",
+      "teamFreeForAll": "Equipos con control compartido, cada equipo por su cuenta.",
+      "teamMelee": "Los compañeros comparten el control de una sola base.",
+      "topVsBottom": "Dos equipos fijos.",
+      "useMapSettings": "Las unidades, triggers y reglas propias del mapa."
     },
     "launchingGameDialog": {
       "startingGameServer": "Iniciando un servidor de juego…",
@@ -907,7 +925,6 @@
       "friendsInside_many": "{{count}} amigos están en este lobby",
       "friendsInside_other": "{{count}} amigos están en este lobby",
       "full": "Lleno",
-      "join": "Unirse",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
       "legacyLimits": "Límite legado",
@@ -936,6 +953,7 @@
       "title": "Lobbies"
     },
     "createLobby": {
+      "allowObserversWithMax": "Permitir observadores (hasta {{maxObservers}})",
       "errorDialogTitle": "Error al crear el lobby",
       "errorGeneric": "Algo salió mal al crear el lobby. Intenta de nuevo.",
       "gameSubTypeHeader": "Equipos",
@@ -943,8 +961,28 @@
       "gameSubTypeOptionTvB": "{{topSlots}} contra {{bottomSlots}}",
       "gameTypeHeader": "Tipo de juego",
       "lobbyName": "Nombre del lobby",
+      "mapPlayerCount_one": "{{count}} jugador",
+      "mapPlayerCount_many": "{{count}} jugadores",
+      "mapPlayerCount_other": "{{count}} jugadores",
       "mapRequired": "Selecciona un mapa para jugar",
+      "optionsHeader": "Opciones",
+      "recentMapsHeader": "Mapas recientes",
       "selectMap": "Seleccionar mapa",
+      "slotsHeader": "Espacios",
+      "slotsPreviewOneOnOne": "Cara a cara · 2 jugadores",
+      "slotsPreviewOpen_one": "{{count}} espacio libre en {{mapName}}",
+      "slotsPreviewOpen_many": "{{count}} espacios libres en {{mapName}}",
+      "slotsPreviewOpen_other": "{{count}} espacios libres en {{mapName}}",
+      "slotsPreviewTeams_one": "{{numTeams}} equipos compartiendo {{count}} espacio",
+      "slotsPreviewTeams_many": "{{numTeams}} equipos compartiendo {{count}} espacios",
+      "slotsPreviewTeams_other": "{{numTeams}} equipos compartiendo {{count}} espacios",
+      "slotsPreviewTvb": "{{top}} contra {{bottom}} en {{mapName}}",
+      "slotsPreviewUms_one": "{{count}} espacio · distribución definida por el mapa",
+      "slotsPreviewUms_many": "{{count}} espacios · distribución definida por el mapa",
+      "slotsPreviewUms_other": "{{count}} espacios · distribución definida por el mapa",
+      "slotsPreviewVs": "VS",
+      "teamSplitHeader": "División de equipos",
+      "teamSplitOption": "{{top}}x{{bottom}}",
       "title": "Crear lobby",
       "useLegacyLimits": "Usar límite de unidad heredado",
       "visibility": "Visibilidad",
@@ -959,6 +997,19 @@
       "banned": "Has sido expulsado del lobby.",
       "kicked": "Te han echado del lobby."
     },
+    "hostGame": {
+      "changeMap": "Cambiar mapa",
+      "defaultLobbyName": "Lobby de {{name}}",
+      "defaultLobbyNameFallback": "Mi lobby",
+      "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "summaryObserversOff": "Sin observadores",
+      "summaryObserversOn": "Con observadores",
+      "summarySlots_one": "{{count}} espacio",
+      "summarySlots_many": "{{count}} espacios",
+      "summarySlots_other": "{{count}} espacios",
+      "visibilityListedDescription": "Cualquiera puede unirse desde la lista de lobbies. Las partidas y los replays son públicos.",
+      "visibilityUnlistedDescription": "Solo puede unirse quien tenga el enlace. Solo quienes estuvieron en la partida pueden descargar el replay."
+    },
     "joinLobby": {
       "action": "Unirse al lobby",
       "browseLobbies": "Explorar lobbies",
@@ -967,6 +1018,7 @@
       "errorFull": "Este lobby está lleno.",
       "errorGeneric": "Algo salió mal al unirte al lobby. Intenta de nuevo.",
       "errorObserversFull": "Este lobby no tiene espacios de observador libres. Prueba a unirte como jugador.",
+      "joined": "Unido",
       "matchmakingActiveDialogText": "No puedes unirte a lobbies mientras una búsqueda de emparejamiento está activa.",
       "matchmakingActiveDialogTitle": "Unirse a lobbies deshabilitado",
       "openSlotCount_one": "{{count}} ranura abierta",
@@ -1078,7 +1130,8 @@
       "programFolder": "Carpeta del programa",
       "title": "Mapas locales",
       "uploadMapError": "Ocurrió un error al cargar el mapa.",
-      "uploadMapErrorTitle": "Error al subir el mapa"
+      "uploadMapErrorTitle": "Error al subir el mapa",
+      "uploadMapNoPlayerSlotsError": "Este mapa no tiene posiciones iniciales ni espacios de jugador utilizables, así que nunca podría jugarse. Añade posiciones iniciales al mapa e inténtalo de nuevo."
     },
     "mapSelect": {
       "browseMaps": "Explorar mapas"
@@ -1710,9 +1763,14 @@
         "visualizeNetworkStalls": "Visualizar los bloqueos de la red"
       },
       "input": {
+        "cursorHeader": "Cursor",
         "customCursorSizeLargest": "Más grande",
         "customCursorSizeSmallest": "Más pequeño",
-        "customMouseSensitivity": "Sensibilidad personalizada del mouse",
+        "customMouseSensitivity": "Sensibilidad personalizada del ratón",
+        "grabPan": "Sensibilidad personalizada de arrastre de cámara",
+        "grabPanFaster": "Más rápido",
+        "grabPanSlower": "Más lento",
+        "grabPanTooltip": "Ajusta la velocidad de la cámara al desplazarla con el botón central del ratón. Si está desactivado, mantiene el comportamiento clásico de StarCraft: Remastered.",
         "hardwareCursor": "Cursores de hardware",
         "hardwareCursorTooltip": "Recomendado para un mejor rendimiento y mayor capacidad de respuesta",
         "keyboardScrollSpeed": "Velocidad de desplazamiento del teclado",
@@ -1721,10 +1779,12 @@
         "legacySettingsDescription": "Estas configuraciones existen por motivos de compatibilidad con StarCraft: Remastered, pero no se aconseja activarlas ya que pueden causar problemas de rendimiento.",
         "legacySettingsHeader": "Configuración heredada",
         "lockCursor": "Bloquear el cursor en la ventana",
-        "mouseScaling": "Usar la escala del mouse",
+        "mouseScaling": "Usar el escalado del ratón",
         "mouseScrollSpeed": "Velocidad de desplazamiento del ratón",
         "mouseSensitivity": "Sensibilidad del ratón",
-        "title": "Aporte",
+        "mouseSensitivityHeader": "Sensibilidad del ratón",
+        "scrollingHeader": "Desplazamiento",
+        "title": "Entrada",
         "useCustomCursorSize": "Usar tamaño de cursor personalizado"
       },
       "sound": {
@@ -2073,6 +2133,20 @@
       "record": "Registro",
       "showAllRanks": "Mostrar los {{total}} rangos",
       "showFewerRanks": "Mostrar menos",
+      "stats": {
+        "allTime": "Todas las temporadas",
+        "downsampled_one": "Mostrando una vista reducida de {{count}} partida para que la gráfica sea legible.",
+        "downsampled_many": "Mostrando una vista reducida de {{count}} partidas para que la gráfica sea legible.",
+        "downsampled_other": "Mostrando una vista reducida de {{count}} partidas para que la gráfica sea legible.",
+        "loadError": "Hubo un problema al cargar este historial.",
+        "noGamesInRange": "No hay partidas en este periodo",
+        "noRankedGames": "Este jugador todavía no tiene partidas clasificatorias.",
+        "points": "Puntos",
+        "rating": "Clasificación",
+        "ratingInPlacements": "La clasificación se oculta durante las partidas de posicionamiento.",
+        "season": "Temporada",
+        "seasonDelta": "{{amount}} respecto a la temporada pasada"
+      },
       "tabs": {
         "admin": "Administración",
         "matchHistory": "Historial de partidos",
@@ -2083,7 +2157,8 @@
       "totalGames": "Juegos totales",
       "twitch": {
         "liveBadge": "En vivo"
-      }
+      },
+      "viewAllRanks": "Ver los {{total}} rangos"
     },
     "profileOverlay": {
       "info": "Información",

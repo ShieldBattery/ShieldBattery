@@ -417,10 +417,19 @@
     "blurb": "Скачайте клиент ShieldBattery, чтобы:",
     "download": "Скачать",
     "downloadClient": "Скачать клиент",
-    "onlyInApp": "Эта функция доступна только в приложении.",
+    "keepBrowsing": "Продолжить в веб-версии",
+    "onlyInAppBlurb": "Эта функция работает в клиенте ShieldBattery — вместе с другими возможностями, недоступными в браузере.",
+    "onlyInAppNetcodeDescription": "Ниже задержка и меньше подвисаний даже при нестабильном соединении.",
+    "onlyInAppNetcodeTitle": "Улучшенный неткод",
+    "onlyInAppRankedDescription": "Очереди 1v1 и командные — с сезонным MMR и калибровочными матчами.",
+    "onlyInAppRankedTitle": "Рейтинговый матчмейкинг",
+    "onlyInAppReplaysDescription": "Открывайте любой реплей прямо в StarCraft за считанные секунды.",
+    "onlyInAppReplaysTitle": "Быстрый запуск реплеев",
+    "onlyInAppTitle": "Продолжите в приложении",
     "playGames": "Играть в игры",
     "supportProjectText": "Хочешь поддержать проект?",
-    "watchReplays": "Смотреть повторы"
+    "watchReplays": "Смотреть повторы",
+    "windowsOnly": "Приложение работает на ПК с Windows."
   },
   "clientUpdate": {
     "errorBoundary": {
@@ -574,6 +583,15 @@
       "topVsBottom": "Верх против низа",
       "unknown": "Неизвестный",
       "useMapSettings": "Использовать настройки карты"
+    },
+    "gameTypeDescription": {
+      "freeForAll": "Без союзов. Каждый сам за себя.",
+      "melee": "Стандартные правила. Союзы выбираются в игре, побеждает последняя выжившая сторона.",
+      "oneOnOne": "Честная дуэль. Ровно два игрока.",
+      "teamFreeForAll": "Команды с общим управлением, каждая команда за себя.",
+      "teamMelee": "Союзники вместе управляют одной базой.",
+      "topVsBottom": "Две фиксированные команды.",
+      "useMapSettings": "Юниты, триггеры и правила самой карты."
     },
     "launchingGameDialog": {
       "startingGameServer": "Запуск игрового сервера…",
@@ -911,7 +929,6 @@
       "friendsInside_many": "{{count}} друзей в этом лобби",
       "friendsInside_other": "{{count}} друга в этом лобби",
       "full": "Заполнено",
-      "join": "Присоединиться",
       "joinAsObserver": "Присоединиться как зритель",
       "joinLobby": "Присоединиться к лобби",
       "legacyLimits": "Классический лимит",
@@ -943,6 +960,7 @@
       "title": "Лобби"
     },
     "createLobby": {
+      "allowObserversWithMax": "Разрешить зрителей (до {{maxObservers}})",
       "errorDialogTitle": "Ошибка при создании лобби",
       "errorGeneric": "Что-то пошло не так при создании лобби. Пожалуйста, попробуйте ещё раз.",
       "gameSubTypeHeader": "Команды",
@@ -950,8 +968,32 @@
       "gameSubTypeOptionTvB": "{{topSlots}} против {{bottomSlots}}",
       "gameTypeHeader": "Тип игры",
       "lobbyName": "Название лобби",
+      "mapPlayerCount_one": "{{count}} игрок",
+      "mapPlayerCount_few": "{{count}} игрока",
+      "mapPlayerCount_many": "{{count}} игроков",
+      "mapPlayerCount_other": "{{count}} игрока",
       "mapRequired": "Выберите карту для игры",
+      "optionsHeader": "Параметры",
+      "recentMapsHeader": "Недавние карты",
       "selectMap": "Выберите карту",
+      "slotsHeader": "Слоты",
+      "slotsPreviewOneOnOne": "Один на один · 2 игрока",
+      "slotsPreviewOpen_one": "{{count}} открытый слот на {{mapName}}",
+      "slotsPreviewOpen_few": "{{count}} открытых слота на {{mapName}}",
+      "slotsPreviewOpen_many": "{{count}} открытых слотов на {{mapName}}",
+      "slotsPreviewOpen_other": "{{count}} открытых слота на {{mapName}}",
+      "slotsPreviewTeams_one": "Команд: {{numTeams}} · слотов: {{count}}",
+      "slotsPreviewTeams_few": "Команд: {{numTeams}} · слотов: {{count}}",
+      "slotsPreviewTeams_many": "Команд: {{numTeams}} · слотов: {{count}}",
+      "slotsPreviewTeams_other": "Команд: {{numTeams}} · слотов: {{count}}",
+      "slotsPreviewTvb": "{{top}} против {{bottom}} на {{mapName}}",
+      "slotsPreviewUms_one": "{{count}} слот · расстановку задаёт карта",
+      "slotsPreviewUms_few": "{{count}} слота · расстановку задаёт карта",
+      "slotsPreviewUms_many": "{{count}} слотов · расстановку задаёт карта",
+      "slotsPreviewUms_other": "{{count}} слота · расстановку задаёт карта",
+      "slotsPreviewVs": "VS",
+      "teamSplitHeader": "Разделение на команды",
+      "teamSplitOption": "{{top}}v{{bottom}}",
       "title": "Создать лобби",
       "useLegacyLimits": "Использовать классический лимит юнитов",
       "visibility": "Видимость",
@@ -966,6 +1008,20 @@
       "banned": "Вы были заблокированы в лобби.",
       "kicked": "Вас кикнули из лобби."
     },
+    "hostGame": {
+      "changeMap": "Сменить карту",
+      "defaultLobbyName": "Лобби {{name}}",
+      "defaultLobbyNameFallback": "Моё лобби",
+      "defaultLobbyNameFromMap": "{{mapName}} {{gameType}}",
+      "summaryObserversOff": "Без зрителей",
+      "summaryObserversOn": "Со зрителями",
+      "summarySlots_one": "{{count}} слот",
+      "summarySlots_few": "{{count}} слота",
+      "summarySlots_many": "{{count}} слотов",
+      "summarySlots_other": "{{count}} слота",
+      "visibilityListedDescription": "Любой может присоединиться из списка лобби. Игры и реплеи общедоступны.",
+      "visibilityUnlistedDescription": "Присоединиться могут только те, у кого есть ссылка. Скачать реплей могут только участники игры."
+    },
     "joinLobby": {
       "action": "Присоединиться к лобби",
       "browseLobbies": "К списку лобби",
@@ -974,6 +1030,7 @@
       "errorFull": "Это лобби заполнено.",
       "errorGeneric": "Что-то пошло не так при присоединении к лобби. Пожалуйста, попробуйте ещё раз.",
       "errorObserversFull": "В этом лобби нет свободных мест для зрителей. Попробуйте присоединиться как игрок.",
+      "joined": "Вы в лобби",
       "matchmakingActiveDialogText": "Вы не можете присоединяться к лобби, пока активен поиск матчей.",
       "matchmakingActiveDialogTitle": "Присоединение к лобби отключено",
       "openSlotCount_one": "{{count}} слот открыт",
@@ -1087,7 +1144,8 @@
       "programFolder": "Папка программы",
       "title": "Локальные карты",
       "uploadMapError": "Произошла неизвестная ошибка при загрузке карты. Пожалуйста, попробуйте позже.",
-      "uploadMapErrorTitle": "Ошибка при загрузке карты"
+      "uploadMapErrorTitle": "Ошибка при загрузке карты",
+      "uploadMapNoPlayerSlotsError": "На этой карте нет стартовых позиций и пригодных слотов для игроков, поэтому сыграть на ней невозможно. Добавьте на карту стартовые позиции и попробуйте снова."
     },
     "mapSelect": {
       "browseMaps": "Просмотреть карты"
@@ -1721,9 +1779,14 @@
         "visualizeNetworkStalls": "Визуализировать сетевые задержки"
       },
       "input": {
+        "cursorHeader": "Курсор",
         "customCursorSizeLargest": "Максимальный",
         "customCursorSizeSmallest": "Минимальный",
         "customMouseSensitivity": "Пользовательская чувствительность мыши",
+        "grabPan": "Своя чувствительность перетаскивания камеры",
+        "grabPanFaster": "Быстрее",
+        "grabPanSlower": "Медленнее",
+        "grabPanTooltip": "Настраивает скорость движения камеры при перетаскивании средней кнопкой мыши. Если выключено, поведение совпадает с классическим StarCraft: Remastered.",
         "hardwareCursor": "Аппаратный курсор",
         "hardwareCursorTooltip": "Рекомендуется для лучшей производительности и отзывчивости управления",
         "keyboardScrollSpeed": "Скорость прокрутки клавиатуры",
@@ -1735,6 +1798,8 @@
         "mouseScaling": "Использовать масштабирование мыши",
         "mouseScrollSpeed": "Скорость прокрутки мыши",
         "mouseSensitivity": "Чувствительность мыши",
+        "mouseSensitivityHeader": "Чувствительность мыши",
+        "scrollingHeader": "Прокрутка",
         "title": "Ввод",
         "useCustomCursorSize": "Использовать пользовательский размер курсора"
       },
@@ -2087,6 +2152,21 @@
       "record": "Рекорд",
       "showAllRanks": "Показать все ранги ({{total}})",
       "showFewerRanks": "Свернуть",
+      "stats": {
+        "allTime": "Все сезоны",
+        "downsampled_one": "Чтобы график оставался читаемым, показан упрощённый вид {{count}} игры.",
+        "downsampled_few": "Чтобы график оставался читаемым, показан упрощённый вид {{count}} игр.",
+        "downsampled_many": "Чтобы график оставался читаемым, показан упрощённый вид {{count}} игр.",
+        "downsampled_other": "Чтобы график оставался читаемым, показан упрощённый вид {{count}} игры.",
+        "loadError": "Не удалось загрузить эту историю.",
+        "noGamesInRange": "Нет игр за этот период",
+        "noRankedGames": "У этого игрока пока нет рейтинговых игр.",
+        "points": "Очки",
+        "rating": "Рейтинг",
+        "ratingInPlacements": "Во время калибровочных матчей рейтинг скрыт.",
+        "season": "Сезон",
+        "seasonDelta": "{{amount}} к прошлому сезону"
+      },
       "tabs": {
         "admin": "Админ",
         "matchHistory": "История матчей",
@@ -2097,7 +2177,8 @@
       "totalGames": "Всего игр",
       "twitch": {
         "liveBadge": "В эфире"
-      }
+      },
+      "viewAllRanks": "Показать все ранги ({{total}})"
     },
     "profileOverlay": {
       "info": "Информация",
