@@ -91,7 +91,7 @@ const PrimaryColumn = styled.div`
  * floor that still fits a typical name, before the trailing slots start shedding.
  */
 const HostColumn = styled.div`
-  width: clamp(104px, calc(100cqw - 584px), 160px);
+  width: clamp(96px, calc(100cqw - 552px), 160px);
   flex-shrink: 0;
 
   display: flex;
@@ -100,7 +100,7 @@ const HostColumn = styled.div`
 
   /* The last column standing before the name itself would become unreadable — below this the
      rail is the place to learn who's hosting. */
-  @container (max-width: 460px) {
+  @container (max-width: 408px) {
     display: none;
   }
 `
@@ -160,15 +160,22 @@ const FriendsSlot = styled.div`
   display: flex;
   justify-content: flex-end;
 
-  @container (max-width: 530px) {
-    display: none;
+  /* Below this the fixed column costs more than it's worth: faces still show, sized to what's
+     actually there, and a slot with no faces stops taxing the name and host columns. */
+  @container (max-width: 616px) {
+    width: auto;
+
+    &:empty {
+      display: none;
+    }
   }
 `
 
 const Occupancy = styled.div`
   ${labelLarge};
 
-  min-width: 44px;
+  /* Player slots cap at 8, so this only ever holds a three-character N/8. */
+  min-width: 32px;
 
   display: flex;
   align-items: baseline;
@@ -194,10 +201,14 @@ const StatusSlot = styled.div`
   display: flex;
   justify-content: flex-end;
 
-  /* Once the host column has given all it can, this slot is the next to go: a Full badge
-     restates what the occupancy count already shows, so it's the cheapest 124px on the row. */
-  @container (max-width: 670px) {
-    display: none;
+  /* Below this the fixed column costs more than it's worth: a badge still shows, sized to its
+     text, and a badgeless slot stops taxing the name and host columns. */
+  @container (max-width: 616px) {
+    width: auto;
+
+    &:empty {
+      display: none;
+    }
   }
 `
 
