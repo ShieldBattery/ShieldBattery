@@ -148,17 +148,10 @@ rather than guessing or translating literally. This is where you beat generic MT
 
 Use web search/fetch to confirm the term locals actually use; prefer that over a literal translation.
 
-**Optional — see it in the UI.** Code context is usually enough, but when **string length or layout**
-is the concern (tight spaces like buttons, tabs, menu items, table headers, fixed-width labels), it's
-worth looking at the rendered UI. This is opt-in — reach for it when a translation risks overflowing,
-not for every string:
-
-- Quick visual: open the component's `devonly/` page at `/dev` (or the running web client) to see how
-  much room a string has — the English text is your baseline width to stay near. The `playwright-cli`
-  skill can drive the browser.
-- In context, in-language: after applying, launch the app (`dev-env` skill), switch language in
-  settings, and eyeball the screens for overflow/truncation (`verify-app` skill drives the real
-  client).
+**Optional — scout the space before translating.** When **string length** is clearly the concern
+(tight buttons, tabs, chips, table headers), peek at the rendered English first — the component's
+`devonly/` page at `/dev`, or the running web client — to know how much room you have. (The full
+rendered-UI pass happens after applying, in step 8.)
 
 Use all of this context to pick the right tone, length, and word sense.
 
@@ -241,6 +234,36 @@ don't match `en` (often leftover MT mistakes). Worth fixing those too while you'
 
 Then move to the next language and repeat from step 1.
 
+### 8. Look at the strings in the real UI
+
+After all languages are applied, **render the affected screens and look at them** — don't skip this.
+Structural validation (tokens, plurals) says nothing about fit or sense, and this pass reliably
+catches things nothing else does: overflow in tight spots, awkward CJK line breaks, spacing at
+digit/hanzi boundaries, convention mismatches against neighboring UI, and **wrong-sense pre-existing
+translations** sitting right next to your new strings (e.g. es rendered the Input settings page as
+"Aporte" — "input" in the *contribution* sense — visible instantly, invisible in the JSON).
+
+How to do it cheaply:
+
+- Figure out where each new key renders (you did this in step 3). Web-reachable screens: check in a
+  browser against `localhost:5555`. Electron-gated screens (create lobby, game settings, …): drive
+  the real app (`dev-env` + `verify-app` skills). Components with `devonly/` pages can be checked at
+  `/dev` with mock data when real data is awkward to set up.
+- **Switching language:** use the settings UI (app-bar gear → Language) like a real user — it
+  persists across navigation and exercises the language screen itself. Automation gotchas, learned
+  the hard way: at the default 1280-wide viewport the pinned social sidebar overlays the app-bar
+  icon buttons, so the gear click is intercepted — `resize 1920 1080` (or close the sidebar) first.
+  And don't pipe `click` output to `/dev/null`: Playwright *tells you* when something "intercepts
+  pointer events", and a swallowed error looks exactly like a broken app. For the web client
+  there's also a navigation-proof alternative: the initial language comes from
+  `navigator.languages` (`client/i18n/language-detector.ts`), so a browser launched with the
+  target locale comes up in that language with no UI steps.
+- Screenshot per language per screen and actually read them. Prioritize the languages that run long
+  (es/ru) and the tight layouts (chips, buttons, summary lines, select options); ko/zh mostly run
+  short. Exercise UI variants that swap strings (e.g. each game type's slots preview).
+- Fix what you find with `fix` (step 5.5) — including pre-existing neighbors, not just your new
+  strings.
+
 ## Keeping translations in sync when English changes
 
 `plan`/`apply` handle **missing** keys and `prune` handles **orphans**, but neither catches a key
@@ -286,8 +309,8 @@ of failing.)
 - Run everything from the repo root.
 - Commit suggestion: one commit per language (`"Translate es strings"`), or a normalize commit + a
   translations commit, so review stays manageable.
-- Optional final check: launch the app and switch language in settings to eyeball a few screens (see
-  the `verify-app` skill). Not required — translations don't affect types or tests.
+- The rendered-UI pass (step 8) is part of the workflow, not optional polish — translations don't
+  affect types or tests, so looking at the screens is the *only* verification they get.
 - If you're translating a large backlog and want speed, this workflow parallelizes cleanly across
   languages with the Workflow tool (one agent per language, or per batch of keys), but that's an
   explicit opt-in — only do it if the user asks for an orchestrated run.
