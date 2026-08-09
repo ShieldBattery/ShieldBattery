@@ -48,6 +48,10 @@ services:
       - SB_DATADOG_KEY
       - SB_DISABLE_CRAWLERS
       - SB_DISCORD_WEBHOOK_URL
+      - SB_RP2_COORDINATOR_URL
+      - SB_RP2_TENANT
+      - SB_RP2_CLIENT_KEY
+      - SB_RP2_RELAY_SERVER_NAME
       - GOOGLE_APPLICATION_CREDENTIALS=/google-credentials.json
       - 'SB_SERVER_RS_URL=http://server_rs:5556'
     networks:
@@ -109,6 +113,8 @@ services:
       - SB_TWITCH_CLIENT_ID
       - SB_TWITCH_CLIENT_SECRET
       - SB_TWITCH_EVENTSUB_SECRET
+      - SB_RP2_COORDINATOR_URL
+      - SB_REGION_BACKBONE_RTT_JSON
     networks:
       - frontend
       - backend
