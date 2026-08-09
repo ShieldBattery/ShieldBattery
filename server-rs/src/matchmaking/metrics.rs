@@ -1,6 +1,7 @@
 //! Prometheus metrics for the matchmaker, emitted through the `metrics` facade crate (referred to
 //! below as `::metrics` to disambiguate it from this module). The global Prometheus recorder is
-//! installed by `axum_prometheus`'s `PrometheusMetricLayer::pair()` (see `routes.rs`), so everything
+//! installed by `axum_prometheus`'s `PrometheusMetricLayerBuilder::build_pair()` (see `routes.rs`),
+//! so everything
 //! recorded here is rendered on the existing `/metrics` endpoint alongside the HTTP metrics — there
 //! is no separate registry to wire up. The distribution metrics render as Prometheus *summaries*
 //! (quantiles), because that recorder is built without custom histogram buckets.

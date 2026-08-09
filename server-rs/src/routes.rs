@@ -15,7 +15,7 @@ use axum::routing::get;
 use axum::{Router, middleware};
 use axum_client_ip::{ClientIp, ClientIpSource};
 use axum_extra::{TypedHeader, headers::UserAgent};
-use axum_prometheus::PrometheusMetricLayer;
+use axum_prometheus::{EndpointLabel, PrometheusMetricLayerBuilder};
 use color_eyre::eyre::{self, Context};
 use jsonwebtoken::DecodingKey;
 use reqwest::Method;
@@ -438,7 +438,16 @@ pub async fn create_app(
         HeaderName::from_static("sb-session-id"),
     ]);
 
-    let (prometheus_layer, metric_handle) = PrometheusMetricLayer::pair();
+    // Unmatched requests (mostly internet vulnerability scanners probing this public host) must
+    // not put their raw path in the `endpoint` label: every unique probe path would mint a new
+    // set of counter+histogram series, growing Prometheus cardinality without bound. Collapse
+    // them all into one label value; matched routes keep their route template.
+    let (prometheus_layer, metric_handle) = PrometheusMetricLayerBuilder::new()
+        .with_endpoint_label_type(EndpointLabel::MatchedPathWithFallbackFn(|_| {
+            String::from("<unmatched>")
+        }))
+        .with_default_metrics()
+        .build_pair();
     describe_database_pool_metrics();
 
     let metrics_db_pool = db_pool.clone();
