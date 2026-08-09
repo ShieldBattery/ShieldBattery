@@ -50,6 +50,11 @@ const shared: RolldownOptions = {
   platform: 'node',
   // Electron's own modules come from the runtime, not from the bundle.
   external: ['electron'],
+  // Dynamic imports in this code defer evaluation of modules whose top level needs a real
+  // Electron process (so they can still load under plain Node for unit tests) -- they aren't
+  // chunk-split requests, and splitting buys nothing for local CJS files. The "also statically
+  // imported" warning therefore doesn't indicate a problem in this bundle.
+  checks: { ineffectiveDynamicImport: false },
   transform: {
     // Legacy decorators and their metadata, which tsyringe resolves constructor dependencies from,
     // are picked up from tsconfig's `experimentalDecorators`/`emitDecoratorMetadata`. Setting them
