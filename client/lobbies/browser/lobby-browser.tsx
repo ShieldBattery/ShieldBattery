@@ -8,8 +8,6 @@ import { SbLobbyId } from '../../../common/lobbies/sb-lobby-id'
 import { SbUser } from '../../../common/users/sb-user'
 import { SbUserId } from '../../../common/users/sb-user-id'
 import { useTrackPageView } from '../../analytics/analytics'
-import { openDialog } from '../../dialogs/action-creators'
-import { DialogType } from '../../dialogs/dialog-type'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { useKeyListener } from '../../keyboard/key-listener'
 import logger from '../../logging/logger'
@@ -324,13 +322,7 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
             disabled={isMatchmaking}
             onClick={healthChecked(onNavigateToCreate)}
           />
-        ) : (
-          <FilledButton
-            label={t('clientDownload.download', 'Download')}
-            iconStart={<MaterialIcon icon='download' size={20} />}
-            onClick={() => dispatch(openDialog({ type: DialogType.Download }))}
-          />
-        )}
+        ) : null}
       </EmptyState>
     )
   } else if (visible.length === 0) {
