@@ -13,7 +13,7 @@
 -- otherwise keep NULL teams forever).
 --
 -- The team derivation deliberately mirrors getTeamsFromConfig() in common/games/matchups.ts, the
--- same way backfill-matchups.sql does -- the two columns describe the same division of the same
+-- same way 2026-08-09-backfill-matchups.sql does -- the two columns describe the same division of the same
 -- game, so they have to be computed the same way or a row's team and its game's matchup string
 -- will disagree.
 --
@@ -22,7 +22,7 @@
 --
 -- Usage (psql, and NOT wrapped in an explicit transaction, so the per-batch COMMITs can take
 -- effect):
---   \i tools/backfills/backfill-teams.sql      -- installs/updates the procedure
+--   \i tools/backfills/2026-08-09-backfill-teams.sql      -- installs/updates the procedure
 --   CALL backfill_teams(dry_run => true);      -- report how many rows *would* change, no writes
 --   CALL backfill_teams();                     -- run it for real (5000-game batches)
 --   CALL backfill_teams(batch_size => 20000);  -- larger batches

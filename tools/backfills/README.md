@@ -6,6 +6,9 @@ doing that inside a migration would hold locks for the whole run and block the d
 the migration does only the instant DDL, and the backfill here is run manually afterwards, in
 id-range batches with a `COMMIT` after each batch so normal traffic can interleave.
 
+Scripts are named `<YYYY-MM-DD>-<what-they-fill>.sql`, dated by when they were added, so the
+directory reads in the order the backfills entered the codebase.
+
 Each script installs a stored procedure and documents its own usage in its header comment, but the
 common lifecycle is:
 
@@ -27,7 +30,7 @@ into the container (same pattern as the dump-restore instructions in
 ```sh
 # 1. Install/update the procedure
 ssh $HOST 'docker exec -i shieldbattery-db-1 psql -U shieldbattery -d shieldbattery -v ON_ERROR_STOP=1' \
-  < tools/backfills/backfill-teams.sql
+  < tools/backfills/2026-08-09-backfill-teams.sql
 
 # 2. Dry run
 ssh $HOST 'docker exec -i shieldbattery-db-1 psql -U shieldbattery -d shieldbattery \
@@ -49,7 +52,7 @@ Notes:
 - `docker exec` + `psql` connects over the container-local socket, which the postgres image trusts
   — no password needed, and the `shieldbattery` role works directly.
 - From PowerShell there is no `<` redirect; use
-  `Get-Content -Raw tools\backfills\backfill-teams.sql | ssh $HOST '...'`.
+  `Get-Content -Raw tools\backfills\2026-08-09-backfill-teams.sql | ssh $HOST '...'`.
 - For long real runs, prefer running the `CALL` from a `tmux`/`screen` session on the host: if the
   connection drops mid-run, the in-flight batch rolls back but committed batches stay, and the
   scripts are safe to simply re-run.

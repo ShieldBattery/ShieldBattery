@@ -14,7 +14,7 @@
 --
 -- Usage (psql, and NOT wrapped in an explicit transaction, so the per-batch COMMITs can take
 -- effect):
---   \i tools/backfills/backfill-matchups.sql     -- installs/updates the procedure
+--   \i tools/backfills/2026-08-09-backfill-matchups.sql     -- installs/updates the procedure
 --   CALL backfill_matchups(dry_run => true);      -- report how many rows *would* change, no writes
 --   CALL backfill_matchups();                     -- run it for real (5000-row batches)
 --   CALL backfill_matchups(batch_size => 20000);  -- larger batches
