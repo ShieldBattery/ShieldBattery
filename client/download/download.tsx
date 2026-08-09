@@ -1,19 +1,31 @@
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import GithubIcon from '../icons/brands/github.svg?react'
-import KofiIcon from '../icons/brands/kofi-lockup.svg?react'
-import PatreonIcon from '../icons/brands/patreon-lockup.svg?react'
+import KofiIcon from '../icons/brands/kofi-color.svg?react'
+import PatreonIcon from '../icons/brands/patreon.svg?react'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { FilledButton } from '../material/button'
-import { bodyLarge, titleLarge } from '../styles/typography'
+import { Tooltip } from '../material/tooltip'
+import { bodyLarge, titleLarge, titleSmall } from '../styles/typography'
 import { navigateToDownload } from './download-navigate'
+
+const Root = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+`
+
+const IntroSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`
 
 const Blurb = styled.div`
   ${titleLarge};
-  font-weight: 300;
 `
 
-const BlurbList = styled.ul`
+const FeatureList = styled.ul`
   ${titleLarge};
   margin: 0;
   padding: 0;
@@ -27,51 +39,9 @@ const BlurbList = styled.ul`
   }
 `
 
-const SupportText = styled.div`
-  ${bodyLarge};
-  margin-top: 32px;
-`
-
-const SupportLinks = styled.div`
+const DownloadSection = styled.div`
   display: flex;
-  align-items: flex-start;
-
-  margin-top: 8px;
-  /** Offset for the inner padding of the first item */
-  margin-left: -16px;
-
-  a,
-  a:link,
-  a:visited {
-    height: 48px;
-    display: flex;
-    align-items: center;
-    color: var(--theme-on-surface-variant);
-    padding-left: 16px;
-    padding-right: 16px;
-    overflow: hidden;
-
-    &:hover,
-    &:active {
-      color: var(--theme-on-surface);
-    }
-  }
-`
-const StyledGithubIcon = styled(GithubIcon)`
-  height: 40px;
-`
-
-const StyledKofiIcon = styled(KofiIcon)`
-  height: 40px;
-`
-
-const StyledPatreonIcon = styled(PatreonIcon)`
-  height: 24px;
-`
-
-const InstallerLinks = styled.div`
-  margin: 24px auto 0;
-  text-align: center;
+  justify-content: center;
 `
 
 const InstallerButtonLabel = styled.span`
@@ -81,18 +51,75 @@ const InstallerButtonLabel = styled.span`
   align-items: center;
 `
 
+const SupportRow = styled.div`
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-outline-variant);
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+`
+
+const SupportText = styled.div`
+  ${titleSmall};
+`
+
+const SupportLinks = styled.div`
+  display: flex;
+  align-items: center;
+  /** Balance the last link's inner padding against the row's right edge */
+  margin-right: -12px;
+
+  & a {
+    &,
+    &:link,
+    &:visited {
+      width: 56px;
+      height: 48px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      border-radius: 8px;
+      color: var(--theme-on-surface);
+    }
+
+    &:hover,
+    &:active {
+      background-color: rgb(from var(--theme-on-surface) r g b / 0.08);
+    }
+  }
+`
+
+const StyledGithubIcon = styled(GithubIcon)`
+  height: 32px;
+`
+
+const StyledKofiIcon = styled(KofiIcon)`
+  height: 32px;
+`
+
+const StyledPatreonIcon = styled(PatreonIcon)`
+  height: 32px;
+`
+
 export function Download() {
   const { t } = useTranslation()
 
   return (
-    <>
-      <Blurb>{t('clientDownload.blurb', 'Download the ShieldBattery client to:')}</Blurb>
-      <BlurbList>
-        <li>{t('clientDownload.playGames', 'Play games')}</li>
-        <li>{t('clientDownload.watchReplays', 'Watch replays')}</li>
-        <li>{t('clientDownload.andMore', 'And more!')}</li>
-      </BlurbList>
-      <InstallerLinks>
+    <Root>
+      <IntroSection>
+        <Blurb>{t('clientDownload.blurb', 'Download the ShieldBattery client to:')}</Blurb>
+        <FeatureList>
+          <li>{t('clientDownload.playGames', 'Play games')}</li>
+          <li>{t('clientDownload.watchReplays', 'Watch replays')}</li>
+          <li>{t('clientDownload.andMore', 'And more!')}</li>
+        </FeatureList>
+      </IntroSection>
+
+      <DownloadSection>
         <FilledButton
           onClick={navigateToDownload}
           iconStart={<MaterialIcon icon='download' />}
@@ -102,26 +129,31 @@ export function Download() {
             </InstallerButtonLabel>
           }
         />
-      </InstallerLinks>
-      <SupportText>
-        {t('clientDownload.supportProjectText', 'Want to support the project?')}
-      </SupportText>
-      <SupportLinks>
-        <a
-          href='https://github.com/sponsors/ShieldBattery'
-          target='_blank'
-          rel='noopener'
-          title='GitHub Sponsors'>
-          <StyledGithubIcon />
-        </a>
-        <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener' title='Ko-fi'>
-          <StyledKofiIcon />
-        </a>
-        <a href='https://patreon.com/tec27' target='_blank' rel='noopener' title='Patreon'>
-          <StyledPatreonIcon />
-        </a>
-      </SupportLinks>
-    </>
+      </DownloadSection>
+
+      <SupportRow>
+        <SupportText>
+          {t('clientDownload.supportProjectText', 'Want to support the project?')}
+        </SupportText>
+        <SupportLinks>
+          <Tooltip text={'GitHub Sponsors'} position='bottom' tabIndex={-1}>
+            <a href='https://github.com/sponsors/ShieldBattery' target='_blank' rel='noopener'>
+              <StyledGithubIcon />
+            </a>
+          </Tooltip>
+          <Tooltip text={'Patreon'} position='bottom' tabIndex={-1}>
+            <a href='https://patreon.com/tec27' target='_blank' rel='noopener'>
+              <StyledPatreonIcon />
+            </a>
+          </Tooltip>
+          <Tooltip text={'Ko-fi'} position='bottom' tabIndex={-1}>
+            <a href='https://ko-fi.com/tec27' target='_blank' rel='noopener'>
+              <StyledKofiIcon />
+            </a>
+          </Tooltip>
+        </SupportLinks>
+      </SupportRow>
+    </Root>
   )
 }
 
