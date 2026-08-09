@@ -1912,11 +1912,6 @@
           "empty": "您还没有屏蔽任何人。",
           "title": "已屏蔽的用户"
         },
-        "notifications": {
-          "description": "选择哪些社交动态会通知您。",
-          "friendLive": "有好友开始直播时通知我",
-          "title": "通知"
-        },
         "title": "社交"
       },
       "title": "用户"
@@ -1984,8 +1979,6 @@
     "live": {
       "avatarTooltip": "正在 Twitch 上直播",
       "badge": "直播中",
-      "friendLiveNotification": "<0>{{user}}</0> 正在 Twitch 上直播。",
-      "friendLiveWatch": "观看",
       "uptimeHoursMinutes": "{{hours}}小时{{minutes}}分钟",
       "uptimeMinutes": "{{minutes}}分钟",
       "watch": "观看直播"

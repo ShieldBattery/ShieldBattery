@@ -53,7 +53,6 @@ import { openSettings } from './settings/action-creators'
 import { CAN_PIN_WIDTH, SocialSidebar } from './social/social-sidebar'
 import { SocialSidebarButton } from './social/social-sidebar-button'
 import { singleLine, sofiaSans, titleMedium, TitleTiny } from './styles/typography'
-import { FriendLiveNotifications } from './twitch/friend-live-notifications'
 import { LiveUsersContext, useLiveUserIds } from './twitch/live-state'
 import { navigateToUserProfile } from './users/action-creators'
 import { SelfProfileOverlay } from './users/self-profile-overlay'
@@ -886,8 +885,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const [sidebarPinned, setSidebarPinned] = useUserLocalStorageValue('socialSidebarPinned', true)
 
   // App-wide live-user set, provided to every avatar (etc.) so they can badge "live" state without
-  // each running its own query.
-  const liveUsers = useLiveUserIds()
+  // each running its own query. This is the one always-mounted consumer, so it drives the poll
+  // that keeps the shared result fresh.
+  const liveUsers = useLiveUserIds({ poll: true })
 
   return (
     <LiveUsersContext.Provider value={liveUsers}>
@@ -904,7 +904,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         ) : (
           <div></div>
         )}
-        {isLoggedIn ? <FriendLiveNotifications /> : null}
         <NotificationPopups />
       </Root>
     </LiveUsersContext.Provider>

@@ -1966,11 +1966,6 @@
           "empty": "Вы никого не заблокировали.",
           "title": "Заблокированные пользователи"
         },
-        "notifications": {
-          "description": "Выберите, о каких социальных событиях получать уведомления.",
-          "friendLive": "Уведомлять, когда друг выходит в эфир",
-          "title": "Уведомления"
-        },
         "title": "Социальное"
       },
       "title": "Пользователь"
@@ -2038,8 +2033,6 @@
     "live": {
       "avatarTooltip": "В эфире на Twitch",
       "badge": "В эфире",
-      "friendLiveNotification": "<0>{{user}}</0> сейчас в эфире на Twitch.",
-      "friendLiveWatch": "Смотреть",
       "uptimeHoursMinutes": "{{hours}} ч {{minutes}} мин",
       "uptimeMinutes": "{{minutes}} мин",
       "watch": "Смотреть стрим"

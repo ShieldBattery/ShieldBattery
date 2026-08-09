@@ -11,9 +11,9 @@ export const LiveUserIdsQuery = graphql(/* GraphQL */ `
 
 /**
  * How often the app-wide live-user set is refreshed. urql won't re-run a stably-mounted query on
- * its own, so `FriendLiveNotifications` re-executes the shared `LiveUserIds` operation on this
- * interval; because urql shares that operation across consumers, every `useLiveUserIds()` badge
- * picks up the refreshed result too.
+ * its own, so the always-mounted `LiveUsersContext` provider re-executes the shared `LiveUserIds`
+ * operation on this interval (via `useLiveUserIds({ poll: true })`); because urql shares that
+ * operation across consumers, every `useLiveUserIds()` badge picks up the refreshed result too.
  */
 export const LIVE_USER_IDS_POLL_INTERVAL_MS = 30 * 1000
 
@@ -31,17 +31,19 @@ export const LiveUsersContext = createContext<ReadonlySet<SbUserId>>(new Set())
  * app-wide query (batched server-side) so any user list can badge "live" state without a per-user
  * lookup. Per-stream details are fetched lazily via `SbUser.liveStream` where a surface needs them.
  *
- * This is a passive reader: the periodic refresh is driven once by `FriendLiveNotifications` (see
- * {@link LIVE_USER_IDS_POLL_INTERVAL_MS}); the `ttl` here only upgrades a fresh mount to refetch if
- * the shared result is already stale.
+ * Exactly one always-mounted caller (the `LiveUsersContext` provider) should pass `poll: true` to
+ * drive the periodic refresh (see {@link LIVE_USER_IDS_POLL_INTERVAL_MS}); everywhere else this is
+ * a passive reader whose `ttl` only upgrades a fresh mount to refetch if the shared result is
+ * already stale.
  */
-export function useLiveUserIds(): ReadonlySet<SbUserId> {
-  const [{ data }] = useQuery({
+export function useLiveUserIds({ poll = false }: { poll?: boolean } = {}): ReadonlySet<SbUserId> {
+  const [{ data }, reexecuteQuery] = useQuery({
     query: LiveUserIdsQuery,
     // Never suspend: this feeds ubiquitous, always-mounted consumers (every avatar, via the context
     // provider), where suspending on a first fetch would blank large parts of the app.
     context: { ttl: LIVE_USER_IDS_POLL_INTERVAL_MS, suspense: false },
   })
+  useQueryPolling(reexecuteQuery, LIVE_USER_IDS_POLL_INTERVAL_MS, poll)
   return useMemo(() => new Set(data?.liveStreamUserIds ?? []), [data?.liveStreamUserIds])
 }
 
@@ -57,14 +59,22 @@ export const LIVE_STREAMS_POLL_INTERVAL_MS = 60 * 1000
  * Re-executes an urql query on an interval while the caller is mounted. urql never re-runs a
  * stably-mounted query on its own (`context.ttl` only upgrades the request policy if the
  * operation happens to execute again), so surfaces that must stay fresh drive their own
- * re-execution with this.
+ * re-execution with this. Pass `enabled: false` to turn the polling off without violating the
+ * rules of hooks.
  */
-export function useQueryPolling(reexecuteQuery: UseQueryExecute, intervalMs: number) {
+export function useQueryPolling(
+  reexecuteQuery: UseQueryExecute,
+  intervalMs: number,
+  enabled = true,
+) {
   useEffect(() => {
+    if (!enabled) {
+      return undefined
+    }
     const interval = setInterval(
       () => reexecuteQuery({ requestPolicy: 'cache-and-network' }),
       intervalMs,
     )
     return () => clearInterval(interval)
-  }, [reexecuteQuery, intervalMs])
+  }, [reexecuteQuery, intervalMs, enabled])
 }

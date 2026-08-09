@@ -1948,11 +1948,6 @@
           "empty": "No has bloqueado a nadie.",
           "title": "Usuarios bloqueados"
         },
-        "notifications": {
-          "description": "Elige qué actividad social te notifica.",
-          "friendLive": "Avisarme cuando un amigo empiece a transmitir",
-          "title": "Notificaciones"
-        },
         "title": "Social"
       },
       "title": "Usuario"
@@ -2020,8 +2015,6 @@
     "live": {
       "avatarTooltip": "En vivo en Twitch",
       "badge": "En vivo",
-      "friendLiveNotification": "<0>{{user}}</0> está en vivo en Twitch.",
-      "friendLiveWatch": "Ver",
       "uptimeHoursMinutes": "{{hours}} h {{minutes}} min",
       "uptimeMinutes": "{{minutes}} min",
       "watch": "Ver stream"
