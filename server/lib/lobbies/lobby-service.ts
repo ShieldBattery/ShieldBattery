@@ -1345,10 +1345,17 @@ export class LobbyService {
     })
   }
 
-  /** Returns the full preview of a lobby by id, or undefined if no such lobby exists. */
+  /**
+   * Returns the full preview of a lobby by id, or undefined if no such lobby exists. A
+   * counting-down or loading lobby can't be joined, so it's reported as gone rather than as a
+   * live roster with join buttons behind it, matching the unauthenticated summary endpoint.
+   */
   getPreview(lobbyId: SbLobbyId): LobbyPreviewJson | undefined {
     const lobby = this.lobbies.get(lobbyId)
-    return lobby ? Lobbies.toPreviewJson(lobby) : undefined
+    if (!lobby || this.lobbyCountdowns.has(lobbyId) || this.loadingLobbies.has(lobbyId)) {
+      return undefined
+    }
+    return Lobbies.toPreviewJson(lobby)
   }
 
   _publishTo(lobby: Lobby, data?: any) {
