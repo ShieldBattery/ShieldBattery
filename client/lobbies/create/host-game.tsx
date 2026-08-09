@@ -107,7 +107,17 @@ const Title = styled.div`
 
 const FooterBar = styled.div<{ $hidden: boolean }>`
   flex-shrink: 0;
-  border-top: 1px solid var(--theme-outline-variant);
+  /* Slightly wider than the 960px form column (24px beyond it on each side, matching the page's
+     24px padding rhythm) so the bar frames the column without stretching across the whole
+     container. */
+  width: 100%;
+  max-width: 1008px;
+  margin: 0 auto;
+  /* The bar doesn't reach the window edges, so it's framed as a contained surface: bordered and
+     slightly rounded on the exposed sides, square along the bottom edge it sits flush against. */
+  border: 1px solid var(--theme-outline-variant);
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
   background-color: var(--theme-container-low);
 
   display: ${props => (props.$hidden ? 'none' : 'block')};
