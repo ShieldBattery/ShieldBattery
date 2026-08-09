@@ -386,6 +386,8 @@ pub async fn create_app(
         ));
     }
 
+    crate::graphql::errors::describe_metrics();
+
     let schema = build_schema()
         .extension(Tracing)
         .extension(ErrorLoggerExtension)

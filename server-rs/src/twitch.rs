@@ -1582,7 +1582,33 @@ impl TwitchMutation {
 // EventSub webhook
 // ---------------------------------------------------------------------------------------------
 
+const EVENTSUB_EVENTS_TOTAL: &str = "twitch_eventsub_events_total";
+
+/// Registers metric descriptions (the HELP/TYPE text on `/metrics`). Safe to call once at startup;
+/// recording a metric without describing it still works, this just produces nicer output.
+fn describe_eventsub_metrics() {
+    use ::metrics::Unit;
+
+    ::metrics::describe_counter!(
+        EVENTSUB_EVENTS_TOTAL,
+        Unit::Count,
+        "Twitch EventSub webhook requests handled, per outcome and message type. The webhook is \
+         externally triggered by Twitch and otherwise only surfaces through logs, so this is the \
+         only signal for its request volume and failure modes."
+    );
+}
+
+fn record_eventsub_event(outcome: &'static str, message_type: &str) {
+    ::metrics::counter!(
+        EVENTSUB_EVENTS_TOTAL,
+        "outcome" => outcome,
+        "message_type" => message_type.to_string()
+    )
+    .increment(1);
+}
+
 pub fn create_twitch_api() -> Router<AppState> {
+    describe_eventsub_metrics();
     Router::new().route("/eventsub", post(eventsub_callback))
 }
 
@@ -1845,11 +1871,16 @@ async fn eventsub_callback(
         return (StatusCode::NOT_FOUND, "Not Found").into_response();
     };
 
+    // Read once up front so the header/signature/timestamp failure branches below can label the
+    // metric with it even though they return before the type-dispatch match further down.
+    let message_type = header_str(&headers, "twitch-eventsub-message-type").unwrap_or("unknown");
+
     let (Some(message_id), Some(timestamp), Some(signature)) = (
         header_str(&headers, "twitch-eventsub-message-id"),
         header_str(&headers, "twitch-eventsub-message-timestamp"),
         header_str(&headers, "twitch-eventsub-message-signature"),
     ) else {
+        record_eventsub_event("invalid_headers", message_type);
         return (StatusCode::BAD_REQUEST, "Missing EventSub headers").into_response();
     };
 
@@ -1861,6 +1892,7 @@ async fn eventsub_callback(
         signature,
     ) {
         warn!("Twitch EventSub signature verification failed");
+        record_eventsub_event("bad_signature", message_type);
         return (StatusCode::FORBIDDEN, "Invalid signature").into_response();
     }
 
@@ -1869,21 +1901,28 @@ async fn eventsub_callback(
         Ok(ts) => {
             if (Utc::now() - ts.with_timezone(&Utc)).num_seconds().abs() > WEBHOOK_MAX_AGE_SECONDS {
                 warn!("Rejecting stale Twitch EventSub message");
+                record_eventsub_event("stale", message_type);
                 return (StatusCode::FORBIDDEN, "Stale message").into_response();
             }
         }
-        Err(_) => return (StatusCode::BAD_REQUEST, "Invalid timestamp").into_response(),
+        Err(_) => {
+            record_eventsub_event("invalid_headers", message_type);
+            return (StatusCode::BAD_REQUEST, "Invalid timestamp").into_response();
+        }
     }
 
-    match header_str(&headers, "twitch-eventsub-message-type").unwrap_or_default() {
+    match message_type {
         "webhook_callback_verification" => {
             match serde_json::from_slice::<WebhookChallenge>(&body) {
-                Ok(challenge) => (
-                    StatusCode::OK,
-                    [(header::CONTENT_TYPE, "text/plain")],
-                    challenge.challenge,
-                )
-                    .into_response(),
+                Ok(challenge) => {
+                    record_eventsub_event("ok", "webhook_callback_verification");
+                    (
+                        StatusCode::OK,
+                        [(header::CONTENT_TYPE, "text/plain")],
+                        challenge.challenge,
+                    )
+                        .into_response()
+                }
                 Err(e) => {
                     error!("Failed to parse EventSub challenge: {e:?}");
                     (StatusCode::BAD_REQUEST, "Invalid challenge").into_response()
@@ -1892,7 +1931,10 @@ async fn eventsub_callback(
         }
         "notification" => {
             match already_processed(&redis, message_id).await {
-                Ok(true) => return StatusCode::NO_CONTENT.into_response(),
+                Ok(true) => {
+                    record_eventsub_event("duplicate", "notification");
+                    return StatusCode::NO_CONTENT.into_response();
+                }
                 Ok(false) => {}
                 Err(e) => error!("EventSub dedupe check failed: {e:?}"),
             }
@@ -1911,8 +1953,10 @@ async fn eventsub_callback(
             tokio::spawn(async move {
                 if let Err(e) = handle_notification(&client, &db, &redis, &body).await {
                     error!("Failed to handle Twitch EventSub notification: {e:?}");
+                    record_eventsub_event("processing_failed", "notification");
                 }
             });
+            record_eventsub_event("ok", "notification");
             StatusCode::NO_CONTENT.into_response()
         }
         "revocation" => {
@@ -1924,6 +1968,7 @@ async fn eventsub_callback(
         }
         other => {
             warn!("Unknown Twitch EventSub message type: {other}");
+            record_eventsub_event("unknown_type", other);
             StatusCode::NO_CONTENT.into_response()
         }
     }

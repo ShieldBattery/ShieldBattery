@@ -1,7 +1,7 @@
 use std::{fmt::Write as _, sync::Arc};
 
 use async_graphql::{
-    Error, ErrorExtensions, PathSegment, Response,
+    Error, ErrorExtensions, PathSegment, Response, Value,
     extensions::{Extension, ExtensionContext, ExtensionFactory, NextExecute},
 };
 use color_eyre::eyre::eyre;
@@ -16,6 +16,20 @@ pub fn graphql_error(code: &'static str, message: impl Into<String>) -> Error {
         e.set("code", code);
         e.set("message", message);
     })
+}
+
+const GRAPHQL_ERRORS_TOTAL: &str = "graphql_errors_total";
+
+/// Registers metric descriptions (the HELP/TYPE text on `/metrics`). Safe to call once at startup;
+/// recording a metric without describing it still works, this just produces nicer output.
+pub fn describe_metrics() {
+    use ::metrics::Unit;
+
+    ::metrics::describe_counter!(
+        GRAPHQL_ERRORS_TOTAL,
+        Unit::Count,
+        "GraphQL errors returned in a response, per error code and operation"
+    );
 }
 
 // async-graphql doesn't log errors as error level by default, so we add a custom extension to do so
@@ -34,7 +48,26 @@ impl Extension for ErrorLoggerExtension {
         let resp = next.run(ctx, operation_name).await;
 
         if resp.is_err() {
+            // GraphQL responses come back as HTTP 200 even when they carry errors, so the
+            // axum-level HTTP metrics never see these -- record them here instead.
+            let operation = operation_name.unwrap_or("unknown");
             for err in &resp.errors {
+                let code = err
+                    .extensions
+                    .as_ref()
+                    .and_then(|extensions| extensions.get("code"))
+                    .and_then(|value| match value {
+                        Value::String(code) => Some(code.as_str()),
+                        _ => None,
+                    })
+                    .unwrap_or("unknown");
+                ::metrics::counter!(
+                    GRAPHQL_ERRORS_TOTAL,
+                    "code" => code.to_string(),
+                    "operation" => operation.to_string()
+                )
+                .increment(1);
+
                 let source = match &err.source {
                     Some(source) => {
                         if let Some(report) = source.downcast_ref::<color_eyre::Report>() {
