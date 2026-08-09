@@ -52,7 +52,7 @@ export function gameTypeToDescription(gameType: GameType, t: TFunction): string 
     case GameType.OneVsOne:
       return t('game.gameTypeDescription.oneOnOne', 'A straight duel. Exactly two players.')
     case GameType.TopVsBottom:
-      return t('game.gameTypeDescription.topVsBottom', 'Fixed teams. Pick how the slots split up.')
+      return t('game.gameTypeDescription.topVsBottom', 'Two fixed teams.')
     case GameType.TeamMelee:
       return t('game.gameTypeDescription.teamMelee', 'Teammates share control of a single base.')
     case GameType.TeamFreeForAll:

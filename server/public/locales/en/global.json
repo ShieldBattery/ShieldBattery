@@ -575,7 +575,7 @@
       "oneOnOne": "A straight duel. Exactly two players.",
       "teamFreeForAll": "Shared-control teams, every team for itself.",
       "teamMelee": "Teammates share control of a single base.",
-      "topVsBottom": "Fixed teams. Pick how the slots split up.",
+      "topVsBottom": "Two fixed teams.",
       "useMapSettings": "The map's own units, triggers, and rules."
     },
     "launchingGameDialog": {
@@ -950,7 +950,7 @@
       "summarySlots_one": "{{count}} slots",
       "summarySlots_other": "{{count}} slots",
       "visibilityListedDescription": "Anyone can join from the lobby list. Games and replays are public.",
-      "visibilityUnlistedDescription": "Only people with the link can join. Games and replays are unlisted."
+      "visibilityUnlistedDescription": "Only people with the link can join. Only people that were in the game can download the replay."
     },
     "joinLobby": {
       "action": "Join lobby",

@@ -40,7 +40,7 @@ export function VisibilityPicker({ value, onChange, disabled }: VisibilityPicker
         )
       : t(
           'lobbies.hostGame.visibilityUnlistedDescription',
-          'Only people with the link can join. Games and replays are unlisted.',
+          'Only people with the link can join. Only people that were in the game can download the replay.',
         )
 
   return (
