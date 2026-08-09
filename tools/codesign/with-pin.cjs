@@ -11,7 +11,23 @@
 'use strict'
 
 const { spawn } = require('child_process')
+const fs = require('fs')
 const readline = require('readline')
+
+// pnpm's shell emulator pipes the script's stderr and forwards it line-by-line, so a
+// prompt without a trailing newline never shows up at all. Prefer the real console
+// device when stderr is a pipe, and always end the prompt line with a newline.
+function promptStream() {
+  if (process.stderr.isTTY) {
+    return process.stderr
+  }
+  try {
+    const device = process.platform === 'win32' ? '\\\\.\\CONOUT$' : '/dev/tty'
+    return fs.createWriteStream(device)
+  } catch {
+    return process.stderr
+  }
+}
 
 function promptPin() {
   if (process.env.SB_CSC_PIN) {
@@ -26,17 +42,18 @@ function promptPin() {
     )
   }
   return new Promise(resolve => {
+    const out = promptStream()
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stderr,
+      output: out,
       terminal: true,
     })
-    process.stderr.write('YubiKey PIN (used to sign all files in this build): ')
+    out.write('\nYubiKey PIN (used to sign all files in this build) — typing is hidden, press Enter to submit:\n')
     // Suppress echo so the PIN never appears on screen.
     rl._writeToOutput = () => {}
     rl.question('', pin => {
       rl.close()
-      process.stderr.write('\n')
+      out.write('PIN received.\n')
       resolve(pin.trim())
     })
   })
