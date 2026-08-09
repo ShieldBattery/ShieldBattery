@@ -1,4 +1,4 @@
-import { Lobby, takenSlotCount } from '../../common/lobbies'
+import { humanSlotCount, Lobby } from '../../common/lobbies'
 import { SbUserId } from '../../common/users/sb-user-id'
 
 /**
@@ -13,9 +13,10 @@ export enum LeaveCurrentLobbyVariant {
 }
 
 /**
- * Determines which variant applies. Mirrors `Lobbies.removePlayer`'s host-migration behavior: a
- * host with company hands the role off to another occupant on the way out, while a host with no
- * one else in the lobby takes it down with them.
+ * Determines which variant applies. Mirrors `Lobbies.removePlayer`'s host-migration behavior: the
+ * lobby closes only when no humans (players or observers) remain after the host leaves, so
+ * computers and closed slots don't count as company, while an observer does — they'd inherit the
+ * host role.
  */
 export function leaveCurrentLobbyVariant(
   currentLobby: Lobby,
@@ -25,7 +26,7 @@ export function leaveCurrentLobbyVariant(
     return LeaveCurrentLobbyVariant.Member
   }
 
-  return takenSlotCount(currentLobby) <= 1
+  return humanSlotCount(currentLobby) <= 1
     ? LeaveCurrentLobbyVariant.HostAlone
     : LeaveCurrentLobbyVariant.HostWithOthers
 }
