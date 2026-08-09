@@ -132,3 +132,98 @@ describe('games/game-api/GameApi#netcodeV2Rehome', () => {
     expect(returned).toEqual(decision)
   })
 })
+
+/** A fake `RouterContext` for the flight-recordings endpoints, keyed to game-1. */
+function makeFlightCtx(relayId?: number): RouterContext {
+  return {
+    params:
+      relayId !== undefined ? { gameId: 'game-1', relayId: String(relayId) } : { gameId: 'game-1' },
+  } as any
+}
+
+/** Builds a `GameApi` with only the dependencies the flight-recordings endpoints touch mocked. */
+function makeFlightApi({ isEnabled = true }: { isEnabled?: boolean } = {}) {
+  const netcodeV2Service = {
+    isEnabled: vi.fn().mockReturnValue(isEnabled),
+    listFlightBlobs: vi.fn(),
+    fetchFlightBlob: vi.fn(),
+  }
+  const api = new GameApi({} as any, {} as any, {} as any, {} as any, netcodeV2Service as any)
+  return { api, netcodeV2Service }
+}
+
+describe('games/game-api/GameApi#listFlightRecordings', () => {
+  test('rejects when netcode v2 is not enabled', async () => {
+    const { api, netcodeV2Service } = makeFlightApi({ isEnabled: false })
+
+    const err = await api.listFlightRecordings(makeFlightCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+    expect(netcodeV2Service.listFlightBlobs).not.toHaveBeenCalled()
+  })
+
+  test('rejects when the game has no netcode v2 session on record', async () => {
+    const { api, netcodeV2Service } = makeFlightApi()
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(null)
+
+    const err = await api.listFlightRecordings(makeFlightCtx()).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+    expect(netcodeV2Service.listFlightBlobs).not.toHaveBeenCalled()
+  })
+
+  test('lists blobs for the session id stored on the game record', async () => {
+    const { api, netcodeV2Service } = makeFlightApi()
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(42)
+    netcodeV2Service.listFlightBlobs.mockResolvedValue([{ relayId: 7 }])
+
+    const returned = await api.listFlightRecordings(makeFlightCtx())
+
+    // The stored session id (never anything client-supplied) is what's listed.
+    expect(netcodeV2Service.listFlightBlobs).toHaveBeenCalledWith(42)
+    expect(returned).toEqual({ blobs: [{ relayId: 7 }] })
+  })
+})
+
+describe('games/game-api/GameApi#getFlightRecording', () => {
+  test('rejects when netcode v2 is not enabled', async () => {
+    const { api, netcodeV2Service } = makeFlightApi({ isEnabled: false })
+
+    const err = await api.getFlightRecording(makeFlightCtx(7)).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+    expect(netcodeV2Service.fetchFlightBlob).not.toHaveBeenCalled()
+  })
+
+  test('rejects when the game has no netcode v2 session on record', async () => {
+    const { api, netcodeV2Service } = makeFlightApi()
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(null)
+
+    const err = await api.getFlightRecording(makeFlightCtx(7)).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+    expect(netcodeV2Service.fetchFlightBlob).not.toHaveBeenCalled()
+  })
+
+  test('returns 404 when the coordinator has no blob for that relay', async () => {
+    const { api, netcodeV2Service } = makeFlightApi()
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(42)
+    netcodeV2Service.fetchFlightBlob.mockResolvedValue(undefined)
+
+    const err = await api.getFlightRecording(makeFlightCtx(7)).catch(e => e)
+
+    expect(err).toHaveProperty('status', 404)
+  })
+
+  test('fetches the blob for the stored session id and the requested relay', async () => {
+    const { api, netcodeV2Service } = makeFlightApi()
+    vi.mocked(getNetcodeV2Session).mockResolvedValue(42)
+    const recording = { events: ['connect'] }
+    netcodeV2Service.fetchFlightBlob.mockResolvedValue(recording)
+
+    const returned = await api.getFlightRecording(makeFlightCtx(7))
+
+    expect(netcodeV2Service.fetchFlightBlob).toHaveBeenCalledWith(42, 7)
+    expect(returned).toEqual(recording)
+  })
+})

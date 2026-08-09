@@ -19,6 +19,10 @@ import {
   getGameTypeLabel,
 } from '../../common/games/games'
 import {
+  NetcodeV2FlightBlobInfo,
+  NetcodeV2FlightBlobsResponse,
+} from '../../common/games/netcode-v2'
+import {
   GameClientResult,
   ReconciledPlayerResult,
   ReconciledResult,
@@ -27,6 +31,7 @@ import {
 import { TypedIpcRenderer } from '../../common/ipc'
 import { getTeamNames } from '../../common/maps'
 import { PublicMatchmakingRatingChangeJson } from '../../common/matchmaking'
+import { apiUrl } from '../../common/urls'
 import { SbUserId } from '../../common/users/sb-user-id'
 import { useSelfPermissions, useSelfUser } from '../auth/auth-utils'
 import { Avatar } from '../avatars/avatar'
@@ -51,6 +56,8 @@ import { TabItem, Tabs } from '../material/tabs'
 import { Tooltip, TooltipContent, TooltipPosition } from '../material/tooltip'
 import { CopyLinkButton } from '../navigation/copy-link-button'
 import { replace } from '../navigation/routing'
+import { fetchJson } from '../network/fetch'
+import { isFetchError } from '../network/fetch-errors'
 import { LoadingDotsArea } from '../progress/dots'
 import { useAppDispatch, useAppSelector } from '../redux-hooks'
 import { saveReplayToLibrary, watchReplayFromUrl } from '../replays/action-creators'
@@ -759,7 +766,9 @@ function SummaryPage({
         {map ? <StyledMapThumbnail mapId={map.id} size={MAP_SIZE} showInfoLayer /> : null}
       </MapContainer>
 
-      {hasDebugPermission && debugInfo ? <DebugInfoDisplay debugInfo={debugInfo} /> : null}
+      {hasDebugPermission && debugInfo ? (
+        <DebugInfoDisplay gameId={gameId} debugInfo={debugInfo} />
+      ) : null}
     </SummaryRoot>
   )
 }
@@ -1142,7 +1151,13 @@ const NotSubmittedIcon = styledWithAttrs(MaterialIcon, { icon: 'close' })`
   color: var(--theme-negative);
 `
 
-function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfoJson> }) {
+function DebugInfoDisplay({
+  gameId,
+  debugInfo,
+}: {
+  gameId: string
+  debugInfo: ReadonlyDeep<GameDebugInfoJson>
+}) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
 
@@ -1358,10 +1373,142 @@ function DebugInfoDisplay({ debugInfo }: { debugInfo: ReadonlyDeep<GameDebugInfo
                   </tbody>
                 </DebugTable>
               </DebugTableContainer>
+              <FlightRecordingsSection gameId={gameId} session={debugInfo.netcodeV2.session} />
             </div>
           )}
         </DebugCollapsibleContent>
       </DebugCard>
     </DebugInfoSection>
+  )
+}
+
+type FlightBlobListState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'loaded'; blobs: NetcodeV2FlightBlobInfo[] }
+  | { status: 'error'; message: string }
+
+/**
+ * Lets an admin list and download a game's stored rally-point2 flight-recorder blobs (one per
+ * relay that shipped one) through the server, which holds the tenant signing key — the UI
+ * counterpart to running `deployment/coordinator/tools/fetch-flight.mjs` with the key copied off
+ * the box.
+ */
+function FlightRecordingsSection({ gameId, session }: { gameId: string; session: number }) {
+  const { t } = useTranslation()
+  const [listState, setListState] = useState<FlightBlobListState>({ status: 'idle' })
+  const [downloadingRelayId, setDownloadingRelayId] = useState<number>()
+
+  const onListBlobs = () => {
+    setListState({ status: 'loading' })
+    fetchJson<NetcodeV2FlightBlobsResponse>(apiUrl`games/${gameId}/flight-recordings`)
+      .then(response => {
+        setListState({ status: 'loaded', blobs: response.blobs })
+      })
+      .catch((err: unknown) => {
+        logger.error(`Error listing flight recordings for game ${gameId}: ${getErrorStack(err)}`)
+        setListState({
+          status: 'error',
+          message: isFetchError(err)
+            ? t(
+                'gameDetails.debugInfo.network.flightRecordings.listError',
+                'Failed to list recordings ({{status}})',
+                { status: err.status },
+              )
+            : t(
+                'gameDetails.debugInfo.network.flightRecordings.listErrorGeneric',
+                'Failed to list recordings',
+              ),
+        })
+      })
+  }
+
+  const onDownloadBlob = (relayId: number) => {
+    setDownloadingRelayId(relayId)
+    fetchJson<unknown>(apiUrl`games/${gameId}/flight-recordings/${relayId}`)
+      .then(recording => {
+        const blobUrl = URL.createObjectURL(
+          new Blob([JSON.stringify(recording, null, 2)], { type: 'application/json' }),
+        )
+        try {
+          const a = document.createElement('a')
+          a.href = blobUrl
+          a.download = `flight-${gameId}-relay-${relayId}.json`
+          a.click()
+        } finally {
+          URL.revokeObjectURL(blobUrl)
+        }
+      })
+      .catch((err: unknown) => {
+        logger.error(
+          `Error downloading flight recording for game ${gameId} relay ${relayId}: ` +
+            getErrorStack(err),
+        )
+      })
+      .finally(() => {
+        setDownloadingRelayId(undefined)
+      })
+  }
+
+  return (
+    <div>
+      <DebugSubsectionTitle>
+        {t('gameDetails.debugInfo.network.flightRecordings.title', 'Flight recordings')}
+      </DebugSubsectionTitle>
+      <div style={{ marginBottom: '8px' }}>
+        <OutlinedButton
+          label={t('gameDetails.debugInfo.network.flightRecordings.list', 'List stored recordings')}
+          onClick={onListBlobs}
+          disabled={listState.status === 'loading'}
+        />
+      </div>
+      {listState.status === 'error' && <NetworkSessionLine>{listState.message}</NetworkSessionLine>}
+      {listState.status === 'loaded' && listState.blobs.length === 0 && (
+        <NetworkSessionLine>
+          {t(
+            'gameDetails.debugInfo.network.flightRecordings.empty',
+            'No stored recordings for session {{session}}',
+            { session },
+          )}
+        </NetworkSessionLine>
+      )}
+      {listState.status === 'loaded' && listState.blobs.length > 0 && (
+        <DebugTableContainer>
+          <DebugTable>
+            <thead>
+              <tr>
+                <th>{t('gameDetails.debugInfo.network.relay', 'Relay')}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {listState.blobs.map(({ relayId }) => (
+                <tr key={relayId}>
+                  <td>{relayId}</td>
+                  <td>
+                    <Tooltip
+                      text={t(
+                        'gameDetails.debugInfo.network.flightRecordings.download',
+                        'Download recording',
+                      )}
+                      position='top'>
+                      <IconButton
+                        icon={<MaterialIcon icon='download' />}
+                        title={t(
+                          'gameDetails.debugInfo.network.flightRecordings.download',
+                          'Download recording',
+                        )}
+                        disabled={downloadingRelayId === relayId}
+                        onClick={() => onDownloadBlob(relayId)}
+                      />
+                    </Tooltip>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DebugTable>
+        </DebugTableContainer>
+      )}
+    </div>
   )
 }

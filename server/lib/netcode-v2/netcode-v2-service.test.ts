@@ -1,4 +1,4 @@
-import got from 'got'
+import got, { HTTPError } from 'got'
 import { createPublicKey, sign } from 'node:crypto'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 import { makeGameServerRegionId } from '../../../common/game-server-regions'
@@ -15,7 +15,10 @@ import {
   relayEndpointToInfo,
 } from './netcode-v2-service'
 
-vi.mock('got', () => ({
+// `HTTPError` is kept as the real class (spread from the original module) rather than mocked away,
+// since `fetchFlightBlob` branches on `err instanceof HTTPError` to detect a coordinator 404.
+vi.mock('got', async importOriginal => ({
+  ...(await importOriginal<typeof import('got')>()),
   default: {
     post: vi.fn(),
   },
@@ -60,6 +63,17 @@ function configureNetcodeV2() {
   vi.stubEnv('SB_RP2_COORDINATOR_URL', 'http://coordinator.example')
   vi.stubEnv('SB_RP2_TENANT', 'sb-dev')
   vi.stubEnv('SB_RP2_CLIENT_KEY', TEST_CLIENT_SEED_HEX)
+}
+
+/**
+ * Builds a real `HTTPError` instance (so `instanceof HTTPError` checks pass) carrying just the
+ * `response.statusCode` `fetchFlightBlob` reads, without constructing got's full internal request/
+ * response machinery.
+ */
+function fakeHttpError(statusCode: number): HTTPError {
+  const err = Object.create(HTTPError.prototype) as HTTPError
+  Object.assign(err, { response: { statusCode } })
+  return err
 }
 
 /**
@@ -1126,5 +1140,114 @@ describe('netcode-v2/NetcodeV2Service#warmRegions', () => {
     service.warmRegions([R1])
 
     expect(got.post).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('netcode-v2/NetcodeV2Service#listFlightBlobs', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  test('throws when netcode v2 is not configured', async () => {
+    const service = makeService()
+
+    await expect(service.listFlightBlobs(42)).rejects.toThrow('netcode v2 is not configured')
+    expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test('posts the tenant + session (as a signed body) and returns the relay ids', async () => {
+    configureNetcodeV2()
+    // eslint-disable-next-line camelcase
+    const json = vi.fn().mockResolvedValue({ blobs: [{ relay_id: 7 }, { relay_id: 9 }] })
+    asMockedFunction(got.post).mockReturnValue({ json } as any)
+    const service = makeService()
+
+    const result = await service.listFlightBlobs(42)
+
+    expect(got.post).toHaveBeenCalledWith(
+      'http://coordinator.example/flight/blobs',
+      expect.objectContaining({
+        body: JSON.stringify({ tenant: 'sb-dev', session: 42 }),
+        headers: expect.objectContaining({
+          'content-type': 'application/json',
+          'x-rp2-timestamp': expect.stringMatching(/^\d+$/),
+          'x-rp2-signature': expect.stringMatching(/^[0-9a-f]{128}$/),
+        }),
+      }),
+    )
+    expect(result).toEqual([{ relayId: 7 }, { relayId: 9 }])
+  })
+
+  test('propagates a request failure', async () => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockImplementation(() => {
+      throw new Error('coordinator down')
+    })
+    const service = makeService()
+
+    await expect(service.listFlightBlobs(42)).rejects.toThrow(
+      'coordinator flight blob listing failed',
+    )
+  })
+})
+
+describe('netcode-v2/NetcodeV2Service#fetchFlightBlob', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.clearAllMocks()
+  })
+
+  test('throws when netcode v2 is not configured', async () => {
+    const service = makeService()
+
+    await expect(service.fetchFlightBlob(42, 7)).rejects.toThrow('netcode v2 is not configured')
+    expect(got.post).not.toHaveBeenCalled()
+  })
+
+  test('posts the tenant + session + relay_id (as a signed body) and returns the parsed recording', async () => {
+    configureNetcodeV2()
+    const recording = { events: ['connect', 'leave'] }
+    asMockedFunction(got.post).mockResolvedValue({
+      statusCode: 200,
+      body: JSON.stringify(recording),
+    } as any)
+    const service = makeService()
+
+    const result = await service.fetchFlightBlob(42, 7)
+
+    expect(got.post).toHaveBeenCalledWith(
+      'http://coordinator.example/flight/blob',
+      expect.objectContaining({
+        // eslint-disable-next-line camelcase
+        body: JSON.stringify({ tenant: 'sb-dev', session: 42, relay_id: 7 }),
+        headers: expect.objectContaining({
+          'content-type': 'application/json',
+          'x-rp2-timestamp': expect.stringMatching(/^\d+$/),
+          'x-rp2-signature': expect.stringMatching(/^[0-9a-f]{128}$/),
+        }),
+      }),
+    )
+    expect(result).toEqual(recording)
+  })
+
+  test('returns undefined when the coordinator has no blob for that relay (a 404)', async () => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockRejectedValue(fakeHttpError(404))
+    const service = makeService()
+
+    const result = await service.fetchFlightBlob(42, 7)
+
+    expect(result).toBeUndefined()
+  })
+
+  test('propagates a non-404 request failure', async () => {
+    configureNetcodeV2()
+    asMockedFunction(got.post).mockRejectedValue(fakeHttpError(500))
+    const service = makeService()
+
+    await expect(service.fetchFlightBlob(42, 7)).rejects.toThrow(
+      'coordinator flight blob fetch failed',
+    )
   })
 })

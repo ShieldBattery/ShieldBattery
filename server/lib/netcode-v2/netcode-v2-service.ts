@@ -1,4 +1,4 @@
-import got from 'got'
+import got, { HTTPError } from 'got'
 import { createPrivateKey, KeyObject, sign, X509Certificate } from 'node:crypto'
 import { isIP } from 'node:net'
 import { singleton } from 'tsyringe'
@@ -6,6 +6,7 @@ import { raceAbort } from '../../../common/async/abort-signals'
 import { timeoutPromise } from '../../../common/async/timeout-promise'
 import { GameServerRegionId } from '../../../common/game-server-regions'
 import {
+  NetcodeV2FlightBlobInfo,
   NetcodeV2RehomeResponse,
   NetcodeV2RelayEvent,
   NetcodeV2RelayInfo,
@@ -238,6 +239,15 @@ interface CoordinatorRehomeResponse {
   decision: 'stay' | 'unavailable' | 'newTarget'
   /** Present only for a `newTarget` decision: the replacement relay to dial. */
   relay?: CoordinatorRelayEndpoint
+}
+
+/**
+ * The wire shape of the coordinator's `POST /flight/blobs` listing response — one entry per relay
+ * that shipped a flight-recorder blob for the session. The coordinator may attach further per-blob
+ * metadata; only `relay_id` is consumed here, since it's all `fetchFlightBlob` needs to name one.
+ */
+interface CoordinatorFlightBlobsResponse {
+  blobs: Array<{ relay_id: number }>
 }
 
 /**
@@ -821,6 +831,76 @@ export class NetcodeV2Service {
       default:
         // An unrecognized decision is treated as "can't move right now" rather than trusted.
         return { decision: 'unavailable' }
+    }
+  }
+
+  /**
+   * Lists the flight-recorder blobs the coordinator has stored for a session, for the admin flight
+   * recording fetch tool (`GET /games/:gameId/flight-recordings`). Throws `NetcodeV2ServiceError`
+   * if netcode v2 isn't configured or the coordinator request fails.
+   */
+  async listFlightBlobs(session: number): Promise<NetcodeV2FlightBlobInfo[]> {
+    const config = this.config
+    if (!config) {
+      throw new NetcodeV2ServiceError('netcode v2 is not configured')
+    }
+
+    const url = `${config.coordinatorUrl}/flight/blobs`
+    const bodyStr = JSON.stringify({ tenant: config.tenant, session })
+    let response: CoordinatorFlightBlobsResponse
+    try {
+      response = await got
+        .post(url, {
+          body: bodyStr,
+          headers: {
+            'content-type': 'application/json',
+            ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+          },
+          timeout: { request: 10000 },
+        })
+        .json<CoordinatorFlightBlobsResponse>()
+    } catch (err) {
+      throw new NetcodeV2ServiceError('coordinator flight blob listing failed', { cause: err })
+    }
+
+    return response.blobs.map(b => ({ relayId: b.relay_id }))
+  }
+
+  /**
+   * Fetches one relay's flight-recorder blob for a session, for the admin flight-recording fetch
+   * tool (`GET /games/:gameId/flight-recordings/:relayId`) — the server-side replacement for
+   * running `deployment/coordinator/tools/fetch-flight.mjs` with the tenant key copied off the box.
+   * Returns `undefined` when the coordinator has no such blob (a `404`): normal for a relay that
+   * never shipped one, or one whose retention lifecycle already expired it. Throws
+   * `NetcodeV2ServiceError` for anything else, including netcode v2 being unconfigured.
+   */
+  async fetchFlightBlob(session: number, relayId: number): Promise<unknown> {
+    const config = this.config
+    if (!config) {
+      throw new NetcodeV2ServiceError('netcode v2 is not configured')
+    }
+
+    const url = `${config.coordinatorUrl}/flight/blob`
+    // eslint-disable-next-line camelcase
+    const bodyStr = JSON.stringify({ tenant: config.tenant, session, relay_id: relayId })
+    try {
+      const response = await got.post(url, {
+        body: bodyStr,
+        headers: {
+          'content-type': 'application/json',
+          ...signCoordinatorRequest('POST', coordinatorRequestPath(url), bodyStr),
+        },
+        timeout: { request: 10000 },
+      })
+      // The coordinator already decompresses a stored blob on read, so this is plain JSON text;
+      // parsed (rather than forwarded verbatim) so the route handler can return it the same way
+      // every other endpoint returns its body, letting the framework serialize it.
+      return JSON.parse(response.body)
+    } catch (err) {
+      if (err instanceof HTTPError && err.response.statusCode === 404) {
+        return undefined
+      }
+      throw new NetcodeV2ServiceError('coordinator flight blob fetch failed', { cause: err })
     }
   }
 }

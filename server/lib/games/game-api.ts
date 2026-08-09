@@ -19,7 +19,11 @@ import {
   toGameDebugInfoJson,
   toGameRecordJson,
 } from '../../../common/games/games'
-import { NetcodeV2RehomeRequest, NetcodeV2RehomeResponse } from '../../../common/games/netcode-v2'
+import {
+  NetcodeV2FlightBlobsResponse,
+  NetcodeV2RehomeRequest,
+  NetcodeV2RehomeResponse,
+} from '../../../common/games/netcode-v2'
 import {
   GameResultErrorCode,
   isRawStoredGameResults,
@@ -96,6 +100,11 @@ const gamesListThrottle = createThrottle('gamesList', {
 
 const GAME_ID_PARAM = Joi.object<{ gameId: string }>({
   gameId: Joi.string().required(),
+})
+
+const GAME_ID_AND_RELAY_ID_PARAM = Joi.object<{ gameId: string; relayId: number }>({
+  gameId: Joi.string().required(),
+  relayId: Joi.number().integer().min(0).required(),
 })
 
 @singleton()
@@ -526,6 +535,56 @@ export class GameApi {
     // The route framework uses the handler's return value as the response body (see http-api.ts) —
     // assigning ctx.body here would be overwritten with undefined.
     return await this.netcodeV2Service.rehomeSession(gameId, session, deadRelayId)
+  }
+
+  // Lets staff pull a game's stored flight-recorder blobs through the app server (which holds the
+  // tenant signing key) instead of running `deployment/coordinator/tools/fetch-flight.mjs` with the
+  // key copied off the box. The session id is looked up from the game record server-side rather
+  // than trusting a client-supplied one, so this can only ever fetch the calling game's own data.
+  @httpGet('/:gameId/flight-recordings')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('debug'))
+  async listFlightRecordings(ctx: RouterContext): Promise<NetcodeV2FlightBlobsResponse> {
+    const {
+      params: { gameId },
+    } = validateRequest(ctx, { params: GAME_ID_PARAM })
+
+    if (!this.netcodeV2Service.isEnabled()) {
+      throw new httpErrors.NotFound('netcode v2 is not configured')
+    }
+
+    const session = await getNetcodeV2Session(gameId)
+    if (session === null) {
+      throw new httpErrors.NotFound('game has no netcode v2 session')
+    }
+
+    const blobs = await this.netcodeV2Service.listFlightBlobs(session)
+    return { blobs }
+  }
+
+  // See `listFlightRecordings` above for why this proxies through the server rather than handing
+  // out the tenant key.
+  @httpGet('/:gameId/flight-recordings/:relayId')
+  @httpBefore(ensureLoggedIn, checkAllPermissions('debug'))
+  async getFlightRecording(ctx: RouterContext): Promise<unknown> {
+    const {
+      params: { gameId, relayId },
+    } = validateRequest(ctx, { params: GAME_ID_AND_RELAY_ID_PARAM })
+
+    if (!this.netcodeV2Service.isEnabled()) {
+      throw new httpErrors.NotFound('netcode v2 is not configured')
+    }
+
+    const session = await getNetcodeV2Session(gameId)
+    if (session === null) {
+      throw new httpErrors.NotFound('game has no netcode v2 session')
+    }
+
+    const blob = await this.netcodeV2Service.fetchFlightBlob(session, relayId)
+    if (blob === undefined) {
+      throw new httpErrors.NotFound('no flight recording for that relay')
+    }
+
+    return blob
   }
 
   // NOTE(tec27): This doesn't require being logged in because the game client sends these requests,

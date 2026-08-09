@@ -106,6 +106,21 @@ export type NetcodeV2RehomeResponse =
   | { decision: 'newTarget'; relay: NetcodeV2RelayInfo }
 
 /**
+ * One relay's stored flight-recorder blob, as listed by the coordinator's `POST /flight/blobs`.
+ * The admin flight-recording tool uses `relayId` to name the blob for a follow-up fetch; it's the
+ * only field the coordinator's listing guarantees, and cross-references with the `relayId`s in a
+ * game's `netcode_v2_relays` history to identify which relay(s) served the session.
+ */
+export interface NetcodeV2FlightBlobInfo {
+  relayId: number
+}
+
+/** Response body for `GET /games/:gameId/flight-recordings`. */
+export interface NetcodeV2FlightBlobsResponse {
+  blobs: NetcodeV2FlightBlobInfo[]
+}
+
+/**
  * One relay-serving-history event appended to `games.netcode_v2_relays`: either the relay(s) that
  * served a session from creation, or a later rehome that moved the group to a replacement.
  * Discriminated by `kind`; new variants can be added without a version bump since each row carries
