@@ -149,19 +149,6 @@ function updateRecentMaps(selectedId: SbMapId, recentMaps: ReadonlyArray<SbMapId
   return [selectedId, ...recentMaps.filter(m => m !== selectedId).slice(0, NUM_RECENT_MAPS - 1)]
 }
 
-/**
- * Returns `recentMaps` with `mapId` guaranteed to be a member, appending it (and evicting the
- * least-recent entry if already at the cap) when it isn't already there. The preferences endpoint
- * rejects a save whose `selectedMap` isn't among its own `recentMaps`, which a map picked through
- * the map browser wouldn't be until a lobby is actually created with it -- the autosave still
- * needs a valid pair before that happens, so it appends rather than leaving the map unsaved.
- */
-function ensureMapIncluded(recentMaps: ReadonlyArray<SbMapId>, mapId: SbMapId): SbMapId[] {
-  return recentMaps.includes(mapId)
-    ? [...recentMaps]
-    : [...recentMaps.slice(0, NUM_RECENT_MAPS - 1), mapId]
-}
-
 enum MapBrowseState {
   None,
   Server,
@@ -246,6 +233,11 @@ function HostGameContent({
   const [isCreating, setIsCreating] = useState(false)
   const [name, setName] = useState(initial.name)
   const [visibility, setVisibility] = useState<LobbyVisibility>(initial.visibility)
+  // The recent-maps list shown next to the form. Maps picked through the map browser are promoted
+  // into it immediately (not just once a lobby is created), so the previously selected map stays
+  // one click away after changing maps. This also keeps the invariant the preferences endpoint
+  // demands: any selected map is always among the saved recent maps.
+  const [recentMaps, setRecentMaps] = useState(initial.recentMaps)
   // Mirrors whatever `GameSetupForm` currently holds, so a name/visibility edit's autosave (which
   // doesn't go through the form at all) still saves the setup fields alongside them.
   const [setup, setSetup] = useState<ReadonlyDeep<GameSetupModel>>({
@@ -276,9 +268,7 @@ function HostGameContent({
     savePreferences({
       name,
       selectedMap: setup.mapId,
-      recentMaps: setup.mapId
-        ? ensureMapIncluded(initial.recentMaps, setup.mapId)
-        : initial.recentMaps,
+      recentMaps,
       gameType: setup.gameType,
       gameSubType: setup.gameSubType,
       useLegacyLimits: setup.useLegacyLimits,
@@ -306,6 +296,7 @@ function HostGameContent({
   const [browseState, setBrowseState] = useState(MapBrowseState.None)
 
   const pick = (mapId: SbMapId) => {
+    setRecentMaps(maps => updateRecentMaps(mapId, maps))
     formRef.current?.setMap(mapId)
     setBrowseState(MapBrowseState.None)
   }
@@ -457,7 +448,7 @@ function HostGameContent({
             ref={formRef}
             disabled={isCreating}
             model={setupModel}
-            recentMaps={initial.recentMaps}
+            recentMaps={recentMaps}
             nameSection={
               <TextField
                 value={name}
@@ -519,7 +510,7 @@ function HostGameContent({
                 // materializing the auto-generated name into the field.
                 name,
                 selectedMap: model.mapId,
-                recentMaps: updateRecentMaps(model.mapId!, initial.recentMaps),
+                recentMaps: updateRecentMaps(model.mapId!, recentMaps),
                 gameType: model.gameType,
                 gameSubType: model.gameSubType,
                 useLegacyLimits: model.useLegacyLimits,
