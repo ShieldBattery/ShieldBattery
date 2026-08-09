@@ -1,4 +1,4 @@
-import { useEffect, useImperativeHandle } from 'react'
+import { useImperativeHandle } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
@@ -19,7 +19,7 @@ import { buttonReset } from '../../material/button-reset'
 import { CheckBox } from '../../material/check-box'
 import { FilterChip } from '../../material/filter-chip'
 import { InputError } from '../../material/input-error'
-import { useAppSelector } from '../../redux-hooks'
+import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { bodyLarge, bodySmall, labelLarge, singleLine } from '../../styles/typography'
 import { SlotsPreview } from './slots-preview'
 import { TeamSplitPicker } from './team-split-picker'
@@ -251,6 +251,43 @@ const mapIdValidator: Validator<SbMapId | undefined, GameSetupModel> = (
   return undefined
 }
 
+/**
+ * Returns `subType` adjusted to be valid for a team-based `gameType` on a map with `slots` player
+ * slots. The lower bound matters when the sub-type has never been set for a team type (its value
+ * is 0, below every team type's options); with no prior split to preserve, the most balanced one
+ * is the natural starting point.
+ *
+ * For top-vs-bottom, `prevSlots` is the slot count the sub-type was valid for before the change
+ * being applied: a sub-type that was the balanced split for it carries over as "balanced" rather
+ * than as a literal seat count (4v4 on 8 slots becomes 2v2 on 4 slots), while a deliberately
+ * lopsided split preserves its top team size, clamped to the new map.
+ */
+function adjustedGameSubType({
+  gameType,
+  subType,
+  prevSlots,
+  slots,
+}: {
+  gameType: GameType
+  subType: number
+  prevSlots?: number
+  slots: number
+}): number {
+  if (gameType === GameType.TopVsBottom) {
+    const balanced = Math.floor(slots / 2)
+    if (subType < 1) {
+      return balanced
+    }
+    if (prevSlots !== undefined && subType === Math.floor(prevSlots / 2)) {
+      return balanced
+    }
+    return Math.min(subType, slots - 1)
+  } else {
+    const maxTeams = Math.min(4, slots)
+    return Math.min(maxTeams, Math.max(2, subType))
+  }
+}
+
 function RecentMapEntry({
   mapId,
   selected,
@@ -320,54 +357,95 @@ export function GameSetupForm({
   ref,
 }: GameSetupFormProps) {
   const { t } = useTranslation()
+  const dispatch = useAppDispatch()
+  // The model prop is only read at mount, so this only affects the initial form seeding: a saved
+  // sub-type may be unset (0) or stale relative to the saved map, and is normalized against that
+  // map before the form ever holds it. Afterwards the map/game-type change handlers below keep the
+  // sub-type valid, adjusting it in the same event that changes what it must be valid for.
+  const initialMapInfo = useAppSelector(s =>
+    model.mapId ? s.maps.byId.get(model.mapId) : undefined,
+  )
   const { bindCheckable, bindCustom, getInputValue, setInputValue, form, submit } =
-    useForm<GameSetupModel>(model, {
-      mapId: mapIdValidator,
-    })
+    useForm<GameSetupModel>(
+      initialMapInfo && isTeamType(model.gameType)
+        ? {
+            ...model,
+            gameSubType: adjustedGameSubType({
+              gameType: model.gameType,
+              subType: model.gameSubType,
+              slots: initialMapInfo.mapData.slots,
+            }),
+          }
+        : model,
+      {
+        mapId: mapIdValidator,
+      },
+    )
 
   useFormCallbacks(form, {
     onValidatedChange,
     onSubmit,
   })
 
-  useImperativeHandle(ref, () => ({
-    submit,
-    setMap: (mapId: SbMapId) => setInputValue('mapId', mapId),
-  }))
-
   const mapId = getInputValue('mapId')
   const mapIdError = bindCustom('mapId').errorText
   const gameType = getInputValue('gameType')
   const selectedMapInfo = useAppSelector(s => (mapId ? s.maps.byId.get(mapId) : undefined))
 
-  useEffect(() => {
-    if (!selectedMapInfo || !isTeamType(gameType)) {
-      return
+  const changeMap = (newMapId: SbMapId) => {
+    if (isTeamType(gameType)) {
+      // Every path that delivers a pickable map (recent maps, the server browser, local uploads)
+      // has already put its info in the store, so the new slot count is available in the same
+      // event that changes the map and the sub-type never exists in an invalid state. The thunk
+      // runs synchronously; it exists just to read the new map's info from the store.
+      dispatch((_dispatch, getState) => {
+        const newMapInfo = getState().maps.byId.get(newMapId)
+        if (newMapInfo) {
+          const subType = getInputValue('gameSubType')
+          const adjusted = adjustedGameSubType({
+            gameType,
+            subType,
+            prevSlots: selectedMapInfo?.mapData.slots,
+            slots: newMapInfo.mapData.slots,
+          })
+          if (adjusted !== subType) {
+            setInputValue('gameSubType', adjusted)
+          }
+        }
+      })
     }
+    setInputValue('mapId', newMapId)
+  }
 
-    const subType = getInputValue('gameSubType')
-    const {
-      mapData: { slots },
-    } = selectedMapInfo
-
-    // Ensure that the game sub-type is always valid for the selected map. The lower bound matters
-    // when the form's starting game type has no sub-type at all (its value is 0), which every team
-    // type's options start above; with no prior split to preserve, the most balanced one is the
-    // natural starting point.
-    if (gameType === GameType.TopVsBottom) {
-      const maxTopSlots = slots - 1
-      if (subType > maxTopSlots) {
-        setInputValue('gameSubType', maxTopSlots)
-      } else if (subType < 1) {
-        setInputValue('gameSubType', Math.floor(slots / 2))
-      }
-    } else {
-      const maxTeams = Math.min(4, slots)
-      if (subType < 2 || subType > maxTeams) {
-        setInputValue('gameSubType', Math.min(maxTeams, Math.max(2, subType)))
+  const changeGameType = (newGameType: GameType) => {
+    if (isTeamType(newGameType) && selectedMapInfo) {
+      const subType = getInputValue('gameSubType')
+      const {
+        mapData: { slots },
+      } = selectedMapInfo
+      // Sub-types only share meaning within a kind: a seat count for top vs bottom, a team count
+      // for team melee/FFA. A sub-type carried across kinds (or in from a non-team type) has no
+      // meaning to preserve, so it's treated as never set and takes the new type's default.
+      const sameSubTypeKind =
+        isTeamType(gameType) &&
+        (gameType === GameType.TopVsBottom) === (newGameType === GameType.TopVsBottom)
+      const adjusted = adjustedGameSubType({
+        gameType: newGameType,
+        subType: sameSubTypeKind ? subType : 0,
+        prevSlots: slots,
+        slots,
+      })
+      if (adjusted !== subType) {
+        setInputValue('gameSubType', adjusted)
       }
     }
-  }, [gameType, selectedMapInfo, getInputValue, setInputValue])
+    setInputValue('gameType', newGameType)
+  }
+
+  useImperativeHandle(ref, () => ({
+    submit,
+    setMap: changeMap,
+  }))
 
   const mapMetaParts = selectedMapInfo
     ? [
@@ -398,7 +476,7 @@ export function GameSetupForm({
                   selected={type === gameType}
                   checkmark={false}
                   disabled={disabled}
-                  onClick={() => setInputValue('gameType', type)}
+                  onClick={() => changeGameType(type)}
                 />
               ))}
             </GameTypeRow>
@@ -506,7 +584,7 @@ export function GameSetupForm({
                     mapId={id}
                     selected={id === mapId}
                     disabled={disabled}
-                    onClick={() => setInputValue('mapId', id)}
+                    onClick={() => changeMap(id)}
                   />
                 ))}
               </RecentMapsGrid>
