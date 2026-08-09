@@ -51,6 +51,12 @@ static SBAT_REPLAY_DATA: OnceLock<replay::SbatReplayData> = OnceLock::new();
 /// Once this is set it is expected to be valid for the entire game.
 /// Could also be easily extended to have storm ids if mapping between them is needed.
 static PLAYER_ID_MAPPING: OnceLock<Vec<PlayerIdMapping>> = OnceLock::new();
+/// The `(storm id, display name)` pairs whose `net_player_info` entries were written directly
+/// during setup (every human and observer), staged so the game thread can re-apply the writes
+/// after lobby init completes — native `init_game_network` (run on lobby-screen entry) zeroes the
+/// whole table, and an observer's entry is never repopulated by the native lobby command flow.
+/// See [`crate::bw_scr::BwScr::v2_reapply_net_players`].
+static NET_PLAYER_REGISTRATIONS: OnceLock<Vec<(u8, String)>> = OnceLock::new();
 
 pub struct PlayerIdMapping {
     /// None at least for observers
@@ -202,6 +208,14 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 
                 debug!("LobbyInitCompleter finished, proceeding to game loop");
 
+                // Lobby init is fully done, so nothing can run native init_game_network's
+                // whole-table net_player_info wipe anymore — re-apply the setup-time direct
+                // registrations so every human's and observer's entry is populated for game time
+                // (the leave/drop text message resolves the departing player's name from it).
+                bw.v2_reapply_net_players(
+                    NET_PLAYER_REGISTRATIONS.get().map(|x| &**x).unwrap_or(&[]),
+                );
+
                 send_game_msg_to_async(GameThreadMessage::GameStarting);
 
                 debug!("Game seed: {:#x}", bw.rng_seed());
@@ -246,6 +260,14 @@ unsafe fn handle_game_request(request: GameThreadRequestType) {
 pub fn set_player_id_mapping(mapping: Vec<PlayerIdMapping>) {
     if PLAYER_ID_MAPPING.set(mapping).is_err() {
         warn!("Player id mapping set twice");
+    }
+}
+
+/// Stages the `(storm id, name)` pairs registered into `net_player_info` during setup, for the
+/// game thread's post-lobby-init re-apply (see [`NET_PLAYER_REGISTRATIONS`]).
+pub fn set_net_player_registrations(registrations: Vec<(u8, String)>) {
+    if NET_PLAYER_REGISTRATIONS.set(registrations).is_err() {
+        warn!("Net player registrations set twice");
     }
 }
 

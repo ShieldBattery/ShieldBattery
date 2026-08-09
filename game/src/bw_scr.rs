@@ -3287,6 +3287,27 @@ impl BwScr {
         }
     }
 
+    /// Re-applies the direct `net_player_info` writes for every staged human and observer. Entering
+    /// BW's lobby screen runs native `init_game_network`, which zeroes the entire table — including
+    /// entries written during setup. Slots that produce native lobby commands get repopulated by
+    /// `init_net_player` as their commands flow, but an observer never participates in the native
+    /// lobby command protocol, so its entry stays cleared — and the in-game leave/drop text message
+    /// resolves the departing name from this table, rendering it blank. Call once lobby init has
+    /// fully completed (no lobby machinery can run the wipe again after that). Idempotent:
+    /// rewriting an already-populated entry stores the same bytes.
+    pub unsafe fn v2_reapply_net_players(&self, registrations: &[(u8, String)]) {
+        unsafe {
+            let players = self.storm_players.resolve();
+            for &(storm_id, ref name) in registrations {
+                let entry = players.add(storm_id as usize);
+                if (*entry).state == 0 {
+                    debug!("net_player[{storm_id}] was cleared during lobby init; re-registering");
+                }
+                self.v2_register_net_player(storm_id, name);
+            }
+        }
+    }
+
     /// Copies BW's game template for `game_type` into `game_data.game_template`. On the host, native
     /// game creation does this from a registry BW loads from data files; the roster-driven peer join
     /// builds its session locally and never receives the host's game-info blob, so its template block

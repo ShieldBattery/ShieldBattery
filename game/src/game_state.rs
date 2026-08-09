@@ -472,6 +472,7 @@ impl GameState {
                     // direct write is what gives every participant a populated entry (name + in-use
                     // state). Observers are net players too — their storm ids are rp2 slots < 12,
                     // in range of the net-player table — so they register the same way.
+                    let mut net_player_registrations = Vec::new();
                     for slot in info.slots.iter().filter(|s| s.is_human() || s.is_observer()) {
                         if let Some(uid) = slot.user_id
                             && let Some(&storm) = storm_id_map.get(&uid)
@@ -483,8 +484,13 @@ impl GameState {
                                 .map(|u| u.name.as_str())
                                 .unwrap_or("");
                             bw.v2_register_net_player(storm, name);
+                            net_player_registrations.push((storm, name.to_string()));
                         }
                     }
+                    // Native lobby machinery between here and game start can wipe these entries
+                    // (init_game_network zeroes the whole table); stage them so the game thread
+                    // re-applies the writes once lobby init completes.
+                    game_thread::set_net_player_registrations(net_player_registrations);
                     // Slot layout with the real storm ids from the roster (SB owns the arrangement,
                     // the roster owns the ids).
                     setup_slots(
@@ -707,8 +713,14 @@ impl GameState {
                         GameInitError::NetcodeV2SessionInit("game type template lookup failed".into())
                     })?;
                     // Fill net_player_info for the single human directly (native init_net_player only
-                    // populates a provider-resolved name, which this path bypasses).
+                    // populates a provider-resolved name, which this path bypasses). Staged too, so
+                    // the game thread's post-lobby-init re-apply restores it if native lobby
+                    // machinery wipes the table in between.
                     bw.v2_register_net_player(0, &local_user.name);
+                    game_thread::set_net_player_registrations(vec![(
+                        0,
+                        local_user.name.clone(),
+                    )]);
                     setup_slots(
                         &info.slots,
                         &info.users,
