@@ -912,7 +912,6 @@
       "friendsInside_one": "{{count}} friend is in this lobby",
       "friendsInside_other": "{{count}} friends are in this lobby",
       "full": "Full",
-      "hostedBy": "hosted by <1></1>",
       "joinAsObserver": "Join as observer",
       "joinLobby": "Join lobby",
       "legacyLimits": "Legacy limits",

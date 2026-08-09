@@ -911,7 +911,6 @@
       "friendsInside_many": "{{count}} друзей в этом лобби",
       "friendsInside_other": "{{count}} друга в этом лобби",
       "full": "Заполнено",
-      "hostedBy": "хост: <1></1>",
       "join": "Присоединиться",
       "joinAsObserver": "Присоединиться как зритель",
       "joinLobby": "Присоединиться к лобби",

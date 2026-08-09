@@ -907,7 +907,6 @@
       "friendsInside_many": "{{count}} amigos están en este lobby",
       "friendsInside_other": "{{count}} amigos están en este lobby",
       "full": "Lleno",
-      "hostedBy": "anfitrión: <1></1>",
       "join": "Unirse",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",

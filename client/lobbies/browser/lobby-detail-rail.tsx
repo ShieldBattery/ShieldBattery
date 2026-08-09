@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next'
 import { m } from 'motion/react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import styled, { css } from 'styled-components'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import { GameType, gameTypeToLabel, isTeamType } from '../../../common/games/game-type'
@@ -12,7 +12,7 @@ import { AvatarStack } from '../../avatars/avatar-stack'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { openMapPreviewDialog } from '../../maps/action-creators'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
-import { FilledButton, TextButton } from '../../material/button'
+import { FilledButton, OutlinedButton } from '../../material/button'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import {
   bodyMedium,
@@ -164,6 +164,9 @@ const OccupiedRow = styled(m.div)`
 
 const OpenRow = styled.div`
   ${slotRow};
+  /* The border sits inside the box, so back the padding off by its width to keep this row's
+     icon column on the same x as the borderless rows'. */
+  padding: 1px 7px;
 
   border: 1px dashed var(--theme-outline);
   color: var(--theme-on-surface-variant);
@@ -267,7 +270,7 @@ const FullWidthFilledButton = styled(FilledButton)`
   width: 100%;
 `
 
-const FullWidthTextButton = styled(TextButton)`
+const FullWidthOutlinedButton = styled(OutlinedButton)`
   width: 100%;
 `
 
@@ -315,7 +318,9 @@ function SlotRow({
       return (
         <OpenRow>
           <RowIcon>
-            <MaterialIcon icon='circle' size={16} />
+            {/* An empty ring with the avatars' exact footprint, so the seat column reads as one
+                line of circles whether seats are filled or waiting. */}
+            <MaterialIcon icon='radio_button_unchecked' size={24} />
           </RowIcon>
           <RowName>{t('lobbies.browser.slotOpen', 'Open')}</RowName>
         </OpenRow>
@@ -428,10 +433,9 @@ export function LobbyDetailRail({
         <Header>
           <LobbyName title={summary.name}>{summary.name}</LobbyName>
           <HostLine>
+            <HostCrown tabIndex={-1} />
             <HostNames>
-              <Trans t={t} i18nKey='lobbies.browser.hostedBy'>
-                hosted by <ConnectedUsername userId={summary.host.id} />
-              </Trans>
+              <ConnectedUsername userId={summary.host.id} />
             </HostNames>
           </HostLine>
         </Header>
@@ -564,7 +568,7 @@ export function LobbyDetailRail({
               testName='join-lobby-button'
             />
             {summary.observerSlots.open > 0 ? (
-              <FullWidthTextButton
+              <FullWidthOutlinedButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
                 iconStart={<MaterialIcon icon='visibility' size={20} />}
                 onClick={() => onJoin(true)}
