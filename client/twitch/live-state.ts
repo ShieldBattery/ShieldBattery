@@ -1,6 +1,7 @@
-import { createContext, useEffect, useMemo } from 'react'
+import { createContext, useEffect, useMemo, useRef } from 'react'
 import { useQuery, UseQueryExecute } from 'urql'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { useIsDocumentVisible } from '../dom/document-visibility'
 import { graphql } from '../gql'
 
 export const LiveUserIdsQuery = graphql(/* GraphQL */ `
@@ -15,7 +16,7 @@ export const LiveUserIdsQuery = graphql(/* GraphQL */ `
  * operation on this interval (via `useLiveUserIds({ poll: true })`); because urql shares that
  * operation across consumers, every `useLiveUserIds()` badge picks up the refreshed result too.
  */
-export const LIVE_USER_IDS_POLL_INTERVAL_MS = 30 * 1000
+export const LIVE_USER_IDS_POLL_INTERVAL_MS = 2 * 60 * 1000
 
 /**
  * Context carrying the app-wide set of currently-live users, so shared components (notably
@@ -49,11 +50,11 @@ export function useLiveUserIds({ poll = false }: { poll?: boolean } = {}): Reado
 
 /**
  * How often detail-level live-stream surfaces (the home/live-streams feeds and the profile
- * banner) are refreshed while mounted. Less frequent than the id-set poll: stream details
- * (titles, viewer counts) change slowly, and Twitch itself only updates viewer counts about
- * once a minute.
+ * banner) are refreshed while mounted. Stream details (titles, viewer counts) change slowly, and
+ * Twitch itself only updates viewer counts about once a minute, so there's little to gain from
+ * polling faster than this.
  */
-export const LIVE_STREAMS_POLL_INTERVAL_MS = 60 * 1000
+export const LIVE_STREAMS_POLL_INTERVAL_MS = 2 * 60 * 1000
 
 /**
  * Re-executes an urql query on an interval while the caller is mounted. urql never re-runs a
@@ -61,20 +62,36 @@ export const LIVE_STREAMS_POLL_INTERVAL_MS = 60 * 1000
  * operation happens to execute again), so surfaces that must stay fresh drive their own
  * re-execution with this. Pass `enabled: false` to turn the polling off without violating the
  * rules of hooks.
+ *
+ * Polling pauses while the document is hidden (minimized or fully occluded, e.g. by the game) --
+ * nobody can see the results, so the requests would be pure waste. If the document was hidden for
+ * longer than `intervalMs`, becoming visible again refreshes immediately to catch up.
  */
 export function useQueryPolling(
   reexecuteQuery: UseQueryExecute,
   intervalMs: number,
   enabled = true,
 ) {
+  const isVisible = useIsDocumentVisible()
+  const lastRunRef = useRef<number | undefined>(undefined)
+
   useEffect(() => {
-    if (!enabled) {
+    // Treat mount time as the last execution: the query fetches on mount anyway, so the first
+    // interval tick (or a later return from hidden) is measured against that.
+    lastRunRef.current ??= performance.now()
+    if (!enabled || !isVisible) {
       return undefined
     }
-    const interval = setInterval(
-      () => reexecuteQuery({ requestPolicy: 'cache-and-network' }),
-      intervalMs,
-    )
+
+    const run = () => {
+      lastRunRef.current = performance.now()
+      reexecuteQuery({ requestPolicy: 'cache-and-network' })
+    }
+
+    if (performance.now() - lastRunRef.current >= intervalMs) {
+      run()
+    }
+    const interval = setInterval(run, intervalMs)
     return () => clearInterval(interval)
-  }, [reexecuteQuery, intervalMs, enabled])
+  }, [reexecuteQuery, intervalMs, enabled, isVisible])
 }
