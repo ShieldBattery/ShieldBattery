@@ -2,6 +2,7 @@ import { Server as HttpServer, IncomingMessage, ServerResponse } from 'http'
 import Koa from 'koa'
 import { nanoid } from 'nanoid'
 import { NydusServer, NydusServerOptions } from 'nydus'
+import { Counter, Gauge } from 'prom-client'
 import { container, inject, instanceCachingFactory, singleton } from 'tsyringe'
 import registerLobbySocketApi from './lib/lobbies/lobby-socket-api'
 import log from './lib/logging/logger'
@@ -53,7 +54,25 @@ class AuthorizingNydusServer extends NydusServer {
 
 @singleton()
 export class WebsocketServer {
-  private connectedUsers = 0
+  private websocketConnectionsTotalMetric = new Counter({
+    name: 'shieldbattery_websocket_connections_total',
+    labelNames: ['result'],
+    help: 'Total number of websocket connection authorization attempts, by result',
+  })
+  private connectedUsersMetric = new Gauge({
+    name: 'shieldbattery_connected_users',
+    help: 'Current number of distinct users with at least one live websocket connection',
+    collect: () => {
+      this.connectedUsersMetric.set(this.userSockets.users.size)
+    },
+  })
+  private connectedClientsMetric = new Gauge({
+    name: 'shieldbattery_connected_clients',
+    help: 'Current number of distinct websocket clients (e.g. browser tabs or app instances)',
+    collect: () => {
+      this.connectedClientsMetric.set(this.clientSockets.clients.size)
+    },
+  })
 
   constructor(
     private koa: Koa,
@@ -100,6 +119,7 @@ export class WebsocketServer {
       if (!ctx.session || !ctx.state.jwtData) {
         // User is not logged in
         logger.info({ req }, 'user tried to connect to websocket without valid session')
+        this.websocketConnectionsTotalMetric.labels('rejected').inc()
         cb(null, false)
         return
       }
@@ -114,9 +134,11 @@ export class WebsocketServer {
         clientType: isElectronClient(ctx) ? 'electron' : 'web',
       }
       this.sessionLookup.set(req, handshakeData)
+      this.websocketConnectionsTotalMetric.labels('accepted').inc()
       cb(null, true)
     } catch (err) {
       logger.error({ req, err }, 'websocket error')
+      this.websocketConnectionsTotalMetric.labels('rejected').inc()
       cb(null, false)
     }
   }

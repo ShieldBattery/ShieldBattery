@@ -1,5 +1,6 @@
 import { RouterContext } from '@koa/router'
 import Joi from 'joi'
+import { Counter } from 'prom-client'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../../common/assert-unreachable'
 import {
@@ -62,6 +63,12 @@ export const convertSessionErrors = makeErrorConverterMiddleware(err => {
 @httpApi('/sessions')
 @httpBeforeAll(convertUserApiErrors, convertSessionErrors)
 export class SessionApi {
+  private loginAttemptsTotalMetric = new Counter({
+    name: 'shieldbattery_login_attempts_total',
+    labelNames: ['outcome'],
+    help: 'Total number of login attempts, by outcome',
+  })
+
   constructor(
     private userIdentifierManager: UserIdentifierManager,
     private userService: UserService,
@@ -134,6 +141,7 @@ export class SessionApi {
     let user = await attemptLogin(username, password)
 
     if (!user) {
+      this.loginAttemptsTotalMetric.labels('invalid_credentials').inc()
       throw new UserApiError(UserErrorCode.InvalidCredentials, 'Incorrect username or password')
     }
 
@@ -144,6 +152,7 @@ export class SessionApi {
     if (await isUserBanned(user.id)) {
       const banHistory = await retrieveBanHistory(user.id, 1)
       const banEntry = banHistory.length ? banHistory[0] : undefined
+      this.loginAttemptsTotalMetric.labels('banned').inc()
       throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned', {
         data: {
           reason: banEntry?.reason,
@@ -155,6 +164,7 @@ export class SessionApi {
       // any banned user that attempts to logs in will be permanently banned.
       const banHistory = await retrieveBanHistory(user.id, 1)
       const banEntry = banHistory.length ? banHistory[0] : undefined
+      this.loginAttemptsTotalMetric.labels('banned').inc()
       throw new UserApiError(UserErrorCode.AccountBanned, 'This account has been banned', {
         data: {
           reason: banEntry?.reason,
@@ -164,6 +174,7 @@ export class SessionApi {
     }
 
     await ctx.beginSession(user.id, !!remember)
+    this.loginAttemptsTotalMetric.labels('success').inc()
     user = ctx.session!.user
     await maybeMigrateSignupIp(user.id, ctx.ip)
 

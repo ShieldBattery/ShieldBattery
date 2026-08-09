@@ -258,9 +258,8 @@ export class GameLoader {
   })
   private gameLoadFailuresTotalMetric = new Counter({
     name: 'shieldbattery_game_loader_failures_total',
-    // TODO(tec27): Add failure types?
-    labelNames: ['game_source'],
-    help: 'Total number of game load requests that failed',
+    labelNames: ['game_source', 'reason'],
+    help: 'Total number of game load requests that failed, by reason',
   })
   private gameLoadSuccessesTotalMetric = new Counter({
     name: 'shieldbattery_game_loader_successes_total',
@@ -377,8 +376,9 @@ export class GameLoader {
       .onSuccess(() => {
         this.gameLoadSuccessesTotalMetric.labels(gameConfig.gameSource).inc()
       })
-      .onFailure(() => {
-        this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource).inc()
+      .onFailure(err => {
+        const reason = isGameLoaderError(err) ? err.code : 'unknown'
+        this.gameLoadFailuresTotalMetric.labels(gameConfig.gameSource, reason).inc()
       })
 
     return Result.fromAsync(() => gameLoaded)
