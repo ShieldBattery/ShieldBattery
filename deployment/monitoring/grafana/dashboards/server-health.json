@@ -1,5 +1,7 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "graphTooltip": 1,
   "links": [
@@ -18,13 +20,23 @@
   "refresh": "30s",
   "schemaVersion": 30,
   "style": "dark",
-  "tags": ["server", "health"],
+  "tags": [
+    "server",
+    "health"
+  ],
   "templating": {
     "list": [
       {
         "allValue": ".*",
-        "current": { "selected": false, "text": "production", "value": "production" },
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "current": {
+          "selected": false,
+          "text": "production",
+          "value": "production"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "definition": "label_values(up{job=~\"app_server|server_rs\"}, environment)",
         "hide": 0,
         "includeAll": true,
@@ -41,8 +53,15 @@
       },
       {
         "allValue": ".*",
-        "current": { "selected": true, "text": "All", "value": "$__all" },
-        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "definition": "label_values(up{job=~\"app_server|server_rs\",environment=~\"$environment\"}, host)",
         "hide": 0,
         "includeAll": true,
@@ -59,14 +78,22 @@
       }
     ]
   },
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "timezone": "utc",
   "title": "Server health",
   "uid": "server-health",
   "panels": [
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "panels": [],
       "title": "Availability & traffic",
@@ -77,16 +104,32 @@
       "type": "stat",
       "title": "Targets up",
       "description": "Prometheus reachability for the TypeScript server, server-rs, and their shared host exporter.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "mappings": [
             {
               "options": {
-                "0": { "color": "red", "index": 0, "text": "DOWN" },
-                "1": { "color": "green", "index": 1, "text": "UP" }
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "UP"
+                }
               },
               "type": "value"
             }
@@ -94,15 +137,27 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "green", "value": 1 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "auto",
         "textMode": "auto",
         "colorMode": "background",
@@ -112,7 +167,10 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "up{job=~\"app_server|server_rs|node\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{job}} / {{host}}"
         }
@@ -123,17 +181,39 @@
       "type": "stat",
       "title": "TypeScript process uptime",
       "description": "Time since the TypeScript server process started. A reset indicates a restart.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
         "orientation": "auto",
         "textMode": "auto",
         "colorMode": "value",
@@ -143,7 +223,10 @@
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "time() - process_start_time_seconds{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}}"
         }
@@ -154,26 +237,52 @@
       "type": "timeseries",
       "title": "HTTP requests per second",
       "description": "Five-minute request rate for both application processes.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
       "fieldConfig": {
-        "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } },
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (job, host) (rate(http_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m]))",
           "legendFormat": "TypeScript / {{host}}"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (job, host) (rate(axum_http_requests_total{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m]))",
           "legendFormat": "server-rs / {{host}}"
         }
@@ -184,39 +293,73 @@
       "type": "timeseries",
       "title": "HTTP 5xx percentage",
       "description": "Server-error requests divided by all requests over five minutes. A missing 5xx series is rendered as zero.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(100 * sum by (host) (rate(http_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\",code=~\"5..\"}[5m])) / clamp_min(sum by (host) (rate(http_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])), 1e-9)) or on (host) (0 * sum by (host) (rate(http_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "TypeScript / {{host}}"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(100 * sum by (host) (rate(axum_http_requests_total{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\",status=~\"5..\"}[5m])) / clamp_min(sum by (host) (rate(axum_http_requests_total{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m])), 1e-9)) or on (host) (0 * sum by (host) (rate(axum_http_requests_total{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "server-rs / {{host}}"
         }
@@ -227,50 +370,91 @@
       "type": "timeseries",
       "title": "Overall HTTP latency",
       "description": "Request-latency percentiles across all routes, calculated from each service's Prometheus histogram.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 7 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 7
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.5, sum by (le, host) (rate(http_server_requests_seconds_bucket{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / TypeScript p50"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le, host) (rate(http_server_requests_seconds_bucket{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / TypeScript p95"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.99, sum by (le, host) (rate(http_server_requests_seconds_bucket{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / TypeScript p99"
         },
         {
           "refId": "D",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.5, sum by (le, host) (rate(axum_http_requests_duration_seconds_bucket{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / server-rs p50"
         },
         {
           "refId": "E",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le, host) (rate(axum_http_requests_duration_seconds_bucket{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / server-rs p95"
         },
         {
           "refId": "F",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.99, sum by (le, host) (rate(axum_http_requests_duration_seconds_bucket{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / server-rs p99"
         }
@@ -281,20 +465,46 @@
       "type": "timeseries",
       "title": "server-rs p95 latency by route",
       "description": "Slow-route view using Axum's matched route templates, which avoid raw-ID label cardinality.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 7 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 7
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le, host, endpoint) (rate(axum_http_requests_duration_seconds_bucket{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / {{endpoint}}"
         }
@@ -305,24 +515,47 @@
       "type": "timeseries",
       "title": "server-rs in-flight requests",
       "description": "Currently executing server-rs requests by matched route template.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 7 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 7
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
-          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (host, endpoint) (axum_http_requests_pending{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"})",
           "legendFormat": "{{host}} / {{endpoint}}"
         }
@@ -330,7 +563,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
       "id": 9,
       "panels": [],
       "title": "TypeScript process & host resources",
@@ -341,26 +579,53 @@
       "type": "timeseries",
       "title": "TypeScript runtime pauses",
       "description": "Node event-loop delay p99 and garbage-collection duration p99.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
       "fieldConfig": {
-        "defaults": { "unit": "ms", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "1000 * nodejs_eventloop_lag_p99_seconds{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}} / event loop p99"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "1000 * histogram_quantile(0.99, sum by (le, host) (rate(nodejs_gc_duration_seconds_bucket{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])))",
           "legendFormat": "{{host}} / GC p99"
         }
@@ -371,24 +636,44 @@
       "type": "timeseries",
       "title": "TypeScript process CPU",
       "description": "CPU time consumed by the TypeScript server. One fully used CPU core is 100%.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
-          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "100 * rate(process_cpu_seconds_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[5m])",
           "legendFormat": "{{host}}"
         }
@@ -399,36 +684,62 @@
       "type": "timeseries",
       "title": "TypeScript process memory",
       "description": "Resident memory and V8 heap usage for the TypeScript server process.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
           "min": 0,
-          "custom": { "drawStyle": "line", "fillOpacity": 5 }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "process_resident_memory_bytes{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}} / RSS"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "nodejs_heap_size_used_bytes{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}} / heap used"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "nodejs_heap_size_total_bytes{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}} / heap allocated"
         }
@@ -439,35 +750,69 @@
       "type": "timeseries",
       "title": "Host CPU utilization",
       "description": "Host-wide CPU utilization from node_exporter; this includes every container and process on the selected host.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 70 },
-              { "color": "orange", "value": 85 },
-              { "color": "red", "value": 95 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "100 * (1 - avg by (host) (rate(node_cpu_seconds_total{job=\"node\",environment=~\"$environment\",host=~\"$host\",mode=\"idle\"}[5m])))",
           "legendFormat": "{{host}}"
         }
@@ -478,35 +823,69 @@
       "type": "timeseries",
       "title": "Host memory utilization",
       "description": "Host-wide memory pressure from node_exporter, based on MemAvailable rather than only free pages.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 75 },
-              { "color": "orange", "value": 85 },
-              { "color": "red", "value": 95 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "100 * (1 - node_memory_MemAvailable_bytes{job=\"node\",environment=~\"$environment\",host=~\"$host\"} / node_memory_MemTotal_bytes{job=\"node\",environment=~\"$environment\",host=~\"$host\"})",
           "legendFormat": "{{host}}"
         }
@@ -517,35 +896,69 @@
       "type": "timeseries",
       "title": "Host root filesystem utilization",
       "description": "Used percentage of the selected host's root filesystem.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 70 },
-              { "color": "orange", "value": 85 },
-              { "color": "red", "value": 95 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "100 * (1 - node_filesystem_avail_bytes{job=\"node\",environment=~\"$environment\",host=~\"$host\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{job=\"node\",environment=~\"$environment\",host=~\"$host\",mountpoint=\"/\",fstype!~\"tmpfs|overlay\"})",
           "legendFormat": "{{host}} / {{device}}"
         }
@@ -553,7 +966,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
       "id": 16,
       "panels": [],
       "title": "Database & telemetry delivery",
@@ -564,35 +982,69 @@
       "type": "timeseries",
       "title": "PostgreSQL pool utilization",
       "description": "Checked-out connections divided by each process's configured pool maximum.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 33 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 70 },
-              { "color": "orange", "value": 85 },
-              { "color": "red", "value": 95 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "100 * database_pool_connections{job=~\"app_server|server_rs\",environment=~\"$environment\",host=~\"$host\",state=\"in_use\"} / on (job, instance, environment, host) clamp_min(database_pool_max_connections{job=~\"app_server|server_rs\",environment=~\"$environment\",host=~\"$host\"}, 1)",
           "legendFormat": "{{job}} / {{host}}"
         }
@@ -603,30 +1055,56 @@
       "type": "timeseries",
       "title": "PostgreSQL pool connections",
       "description": "Idle and checked-out connections for both processes, with each configured maximum overlaid.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 33 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
-          "custom": { "drawStyle": "line", "fillOpacity": 5 }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 5
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "database_pool_connections{job=~\"app_server|server_rs\",environment=~\"$environment\",host=~\"$host\",state=~\"idle|in_use\"}",
           "legendFormat": "{{job}} / {{host}} / {{state}}"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "database_pool_max_connections{job=~\"app_server|server_rs\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{job}} / {{host}} / max"
         }
@@ -637,32 +1115,60 @@
       "type": "timeseries",
       "title": "TypeScript DB acquisition waiters",
       "description": "Requests currently blocked waiting for a node-postgres connection. Any sustained non-zero value indicates contention.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 33 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "database_pool_waiting_requests{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}}"
         }
@@ -673,35 +1179,69 @@
       "type": "timeseries",
       "title": "Datadog log queue",
       "description": "Logs buffered inside server-rs for Datadog delivery. The queue is capped at 10,000 entries.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 41 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 41
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "min": 0,
           "max": 10000,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1000 },
-              { "color": "orange", "value": 5000 },
-              { "color": "red", "value": 9000 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "orange",
+                "value": 5000
+              },
+              {
+                "color": "red",
+                "value": 9000
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "datadog_log_queue_size{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}",
           "legendFormat": "{{host}}"
         }
@@ -712,30 +1252,53 @@
       "type": "timeseries",
       "title": "Datadog delivery problems",
       "description": "Per-second dropped logs and failed Datadog batches by reason. Empty series mean no event with that reason has been recorded.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 41 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 41
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
           "min": 0,
-          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (host, reason) (rate(datadog_logs_dropped_total{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m]))",
           "legendFormat": "{{host}} / dropped / {{reason}}"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (host, reason) (rate(datadog_log_send_failures_total{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\"}[5m]))",
           "legendFormat": "{{host}} / send failure / {{reason}}"
         }
@@ -746,26 +1309,53 @@
       "type": "timeseries",
       "title": "Datadog send duration",
       "description": "Rolling server-rs summary percentiles for Datadog batch delivery.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 41 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 41
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "datadog_log_send_duration_seconds{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\",quantile=\"0.5\"}",
           "legendFormat": "{{host}} / p50"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "datadog_log_send_duration_seconds{job=\"server_rs\",environment=~\"$environment\",host=~\"$host\",quantile=\"0.99\"}",
           "legendFormat": "{{host}} / p99"
         }
@@ -773,7 +1363,12 @@
     },
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
       "id": 23,
       "panels": [],
       "title": "TypeScript background work & game loading",
@@ -784,20 +1379,47 @@
       "type": "timeseries",
       "title": "Scheduled job runtime p95",
       "description": "One-hour p95 runtime for successfully completed TypeScript scheduled jobs. Failed jobs currently log errors but do not emit this histogram.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 50 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 50
+      },
       "fieldConfig": {
-        "defaults": { "unit": "s", "min": 0, "custom": { "drawStyle": "line", "fillOpacity": 0 } },
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          }
+        },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["lastNotNull"] },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le, host, jobId) (rate(shieldbattery_job_runtime_seconds_bucket{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[1h])))",
           "legendFormat": "{{host}} / {{jobId}}"
         }
@@ -808,36 +1430,62 @@
       "type": "timeseries",
       "title": "Game-load outcomes per second",
       "description": "TypeScript game-loader request, success, and failure rates by game source over fifteen minutes.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 50 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 50
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
           "min": 0,
-          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (host, game_source) (rate(shieldbattery_game_loader_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m]))",
           "legendFormat": "{{host}} / {{game_source}} / requested"
         },
         {
           "refId": "B",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (host, game_source) (rate(shieldbattery_game_loader_successes_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m]))",
           "legendFormat": "{{host}} / {{game_source}} / succeeded"
         },
         {
           "refId": "C",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (host, game_source) (rate(shieldbattery_game_loader_failures_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m]))",
           "legendFormat": "{{host}} / {{game_source}} / failed"
         }
@@ -848,35 +1496,127 @@
       "type": "timeseries",
       "title": "Game-load failure percentage",
       "description": "Failed game loads divided by all game-load requests over fifteen minutes, grouped by lobby or matchmaking source.",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 50 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 50
+      },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
-          "color": { "mode": "thresholds" },
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "red", "value": 15 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
             ]
           }
         },
         "overrides": []
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom" },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "(100 * sum by (host, game_source) (rate(shieldbattery_game_loader_failures_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m])) / clamp_min(sum by (host, game_source) (rate(shieldbattery_game_loader_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m])), 1e-9)) or on (host, game_source) (0 * sum by (host, game_source) (rate(shieldbattery_game_loader_requests_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m])))",
           "legendFormat": "{{host}} / {{game_source}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 27,
+      "panels": [],
+      "title": "Database errors",
+      "type": "row"
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "DB query errors per second by SQLSTATE class",
+      "description": "TypeScript server database query failures, grouped by the 2-char SQLSTATE class (23=integrity constraint, 40=rollback/deadlock, 08=connection, …). Pool state is elsewhere on this dashboard; this is query failures.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (host, error_class) (rate(shieldbattery_db_query_errors_total{job=\"app_server\",environment=~\"$environment\",host=~\"$host\"}[15m]))",
+          "legendFormat": "{{host}} / {{error_class}}"
         }
       ]
     }
