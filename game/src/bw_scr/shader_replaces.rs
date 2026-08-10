@@ -1,5 +1,8 @@
 //! SC:R shader replacing code. Debug builds are compiled to support hot reloading
 //! of shaders, release builds always just serve precompiled binary data.
+//!
+//! See docs/scr-prism-shaders.md for the full table of SC:R's pixel shader ids and
+//! the constraints on replacing them (entry counts, shader models, G-buffer contract).
 
 use super::scr;
 

@@ -358,7 +358,8 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
             texture_ids: [0; 7],
             // Indexed quad
             draw_mode: 1,
-            // colored_frag
+            // ShaderType_VertexColored (textured + per-vertex color),
+            // see docs/scr-prism-shaders.md
             shader_id: 4,
             vertex_buffer_offset_bytes: vertex_alloc.byte_offset,
             index_buffer_offset_bytes: index_alloc.byte_offset,
@@ -371,7 +372,7 @@ unsafe fn draw_egui_mesh_main<I: IndexSize>(
             shader_constants: [0.0f32; 0x14],
         };
         (*draw_command).texture_ids[0] = texture as usize;
-        // Set multiplyColor
+        // Set solidColor (cb0[0], a global RGBA multiply) to white
         (*draw_command).shader_constants[0x0] = 1.0;
         (*draw_command).shader_constants[0x1] = 1.0;
         (*draw_command).shader_constants[0x2] = 1.0;
