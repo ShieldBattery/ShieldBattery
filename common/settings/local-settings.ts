@@ -63,11 +63,11 @@ export const ALL_MINIMAP_COLOR_MODES: Readonly<MinimapColorMode[]> = [
 export function getMinimapColorModeLabel(mode: MinimapColorMode, t: TFunction): string {
   switch (mode) {
     case MinimapColorMode.Standard:
-      return t('settings.game.gameplay.teamColors.mode.standard', 'Standard')
+      return t('settings.game.gameplay.teamColors.mode.standard', 'Use map defaults')
     case MinimapColorMode.PresetOnMinimapOnly:
-      return t('settings.game.gameplay.teamColors.mode.presetOnMinimap', 'Use preset on minimap')
+      return t('settings.game.gameplay.teamColors.mode.presetOnMinimap', 'Override minimap colors')
     case MinimapColorMode.Preset:
-      return t('settings.game.gameplay.teamColors.mode.presetEverywhere', 'Use preset everywhere')
+      return t('settings.game.gameplay.teamColors.mode.presetEverywhere', 'Override all colors')
     default:
       return assertUnreachable(mode)
   }
@@ -94,7 +94,6 @@ export const ALL_TEAM_COLOR_PRESETS: Readonly<TeamColorPreset[]> = Object.values
  * color values live in `common/settings/team-colors.ts`.
  */
 export enum FfaColorPreset {
-  Classic = 'classic',
   Jewel = 'jewel',
   Arcade = 'arcade',
   Resurrect = 'resurrect',

@@ -1612,7 +1612,6 @@
         "ffaColorPreset": {
           "arcade": "街机",
           "attributionPrefix": "调色板：",
-          "classic": "经典",
           "colorblindSafe": "色盲友好",
           "custom": "自定义",
           "jewel": "宝石",
@@ -1688,11 +1687,11 @@
           "header": "玩家颜色",
           "label": "模式",
           "mode": {
-            "presetEverywhere": "全部使用预设",
+            "presetEverywhere": "替换所有颜色",
             "presetEverywhereDesc": "您的配色方案应用于单位和小地图。",
-            "presetOnMinimap": "在小地图上使用预设",
+            "presetOnMinimap": "替换小地图颜色",
             "presetOnMinimapDesc": "盟友和敌人颜色仅应用于小地图。",
-            "standard": "标准",
+            "standard": "使用地图默认设置",
             "standardDesc": "星际争霸的普通颜色。下面的设置不会生效。"
           },
           "offNote": "已关闭。所有游戏均使用个人颜色。",

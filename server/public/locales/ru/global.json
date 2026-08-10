@@ -1663,7 +1663,6 @@
         "ffaColorPreset": {
           "arcade": "Аркада",
           "attributionPrefix": "Палитра: ",
-          "classic": "Классика",
           "colorblindSafe": "Для дальтоников",
           "custom": "Свой",
           "jewel": "Самоцветы",
@@ -1739,11 +1738,11 @@
           "header": "Цвета игроков",
           "label": "Режим",
           "mode": {
-            "presetEverywhere": "Использовать пресет везде",
+            "presetEverywhere": "Заменить все цвета",
             "presetEverywhereDesc": "Ваша цветовая схема на юнитах и миникарте.",
-            "presetOnMinimap": "Использовать пресет на миникарте",
+            "presetOnMinimap": "Заменить цвета миникарты",
             "presetOnMinimapDesc": "Цвета союзников и врагов только на миникарте.",
-            "standard": "Стандартный",
+            "standard": "Использовать настройки карты по умолчанию",
             "standardDesc": "Обычные цвета StarCraft. Настройки ниже не действуют."
           },
           "offNote": "Выключено. Во всех играх используются индивидуальные цвета.",

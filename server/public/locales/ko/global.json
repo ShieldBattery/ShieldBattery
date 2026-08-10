@@ -1612,7 +1612,6 @@
         "ffaColorPreset": {
           "arcade": "아케이드",
           "attributionPrefix": "팔레트: ",
-          "classic": "클래식",
           "colorblindSafe": "색약 친화",
           "custom": "커스텀",
           "jewel": "보석",
@@ -1688,11 +1687,11 @@
           "header": "플레이어 색상",
           "label": "모드",
           "mode": {
-            "presetEverywhere": "모든 곳에 프리셋 사용",
+            "presetEverywhere": "모든 색상 대체",
             "presetEverywhereDesc": "유닛과 미니맵에 내 색상 구성을 적용합니다.",
-            "presetOnMinimap": "미니맵에 프리셋 사용",
+            "presetOnMinimap": "미니맵 색상 대체",
             "presetOnMinimapDesc": "미니맵에서만 아군·적군 색상을 적용합니다.",
-            "standard": "표준",
+            "standard": "맵 기본 설정 사용",
             "standardDesc": "스타크래프트 기본 색상입니다. 아래 설정은 적용되지 않습니다."
           },
           "offNote": "꺼짐. 모든 게임에서 개인 색상이 사용됩니다.",

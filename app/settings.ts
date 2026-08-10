@@ -12,12 +12,19 @@ import {
   ScrSettings,
   StartingFog,
 } from '../common/settings/local-settings'
-import { cloneCustomTeamColors } from '../common/settings/team-colors'
+import { cloneCustomTeamColors, DEFAULT_FFA_COLORS } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 20
+const VERSION = 21
 const SCR_VERSION = 5
+
+/**
+ * The `ffaColorPreset` value of the removed `Classic` preset. Settings files written before version
+ * 21 can still hold it, so the migrations below name it explicitly rather than going through
+ * {@link FfaColorPreset}, which no longer has a member for it.
+ */
+const REMOVED_CLASSIC_FFA_PRESET = 'classic'
 
 async function findStarcraftPath() {
   let starcraftPath = await findInstallPath()
@@ -323,9 +330,10 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
 
     if (!settings.version || settings.version < 17) {
       log.verbose('Found settings version 16, migrating to version 17')
-      // The Pastel FFA preset was removed; anyone who had it selected falls back to Classic.
+      // The Pastel FFA preset was removed; anyone who had it selected falls back to Classic (itself
+      // removed later -- the version 21 migration below carries these users on to Custom).
       if ((settings.ffaColorPreset as string | undefined) === 'pastel') {
-        newSettings.ffaColorPreset = FfaColorPreset.Classic
+        newSettings.ffaColorPreset = REMOVED_CLASSIC_FFA_PRESET as FfaColorPreset
       }
     }
 
@@ -352,6 +360,21 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       // rather than carried over, so every install starts on the 64-bit path.
       delete (newSettings as any).launch64Bit
       newSettings.launch32Bit = DEFAULT_LOCAL_SETTINGS.launch32Bit
+    }
+
+    if (!settings.version || settings.version < 21) {
+      log.verbose('Found settings version 20, migrating to version 21')
+      // The Classic FFA preset was removed. Move anyone who had it selected onto Custom seeded with
+      // Classic's colors, so the colors they actually play with don't change. This overwrites their
+      // stored `customFfaColors`, but that pool wasn't in use while Classic was selected, and
+      // silently recoloring their games would be the worse trade.
+      //
+      // Reads `newSettings` rather than `settings` so it also catches the Pastel -> Classic hop the
+      // version 17 migration above may have just made.
+      if ((newSettings.ffaColorPreset as string | undefined) === REMOVED_CLASSIC_FFA_PRESET) {
+        newSettings.ffaColorPreset = FfaColorPreset.Custom
+        newSettings.customFfaColors = [...DEFAULT_FFA_COLORS]
+      }
     }
 
     newSettings.version = VERSION

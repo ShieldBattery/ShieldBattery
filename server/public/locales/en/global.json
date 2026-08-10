@@ -1629,7 +1629,6 @@
         "ffaColorPreset": {
           "arcade": "Arcade",
           "attributionPrefix": "Palette: ",
-          "classic": "Classic",
           "colorblindSafe": "Colorblind-safe",
           "custom": "Custom",
           "jewel": "Jewel",
@@ -1705,11 +1704,11 @@
           "header": "Player colors",
           "label": "Mode",
           "mode": {
-            "presetEverywhere": "Use preset everywhere",
+            "presetEverywhere": "Override all colors",
             "presetEverywhereDesc": "Your color scheme on units and the minimap.",
-            "presetOnMinimap": "Use preset on minimap",
+            "presetOnMinimap": "Override minimap colors",
             "presetOnMinimapDesc": "Ally and enemy colors on the minimap only.",
-            "standard": "Standard",
+            "standard": "Use map defaults",
             "standardDesc": "StarCraft's normal colors. The settings below have no effect."
           },
           "offNote": "Off. Individual colors are used in every game.",
