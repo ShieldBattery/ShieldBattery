@@ -1,7 +1,12 @@
 import * as React from 'react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
-import { GameSource } from '../../../common/games/configuration'
+import {
+  GameSource,
+  MatchmakingExtra,
+  MatchmakingGameConfig,
+} from '../../../common/games/configuration'
 import { GameType } from '../../../common/games/game-type'
 import { GameRecordJson } from '../../../common/games/games'
 import { makeMatchupString } from '../../../common/games/matchups'
@@ -12,10 +17,12 @@ import {
 } from '../../../common/leagues/leagues'
 import { makeSbMapId } from '../../../common/maps'
 import {
+  ALL_MATCHMAKING_TYPES,
   makeSeasonId,
   MatchmakingResult,
   MatchmakingSeasonJson,
   MatchmakingType,
+  matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
   PublicMatchmakingRatingChangeJson,
 } from '../../../common/matchmaking'
@@ -26,6 +33,8 @@ import { FilledButton } from '../../material/button'
 import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
 import { NumberTextField } from '../../material/number-text-field'
+import { SelectOption } from '../../material/select/option'
+import { Select } from '../../material/select/select'
 import { useStableCallback } from '../../react/state-hooks'
 import { useAppDispatch } from '../../redux-hooks'
 import { BodyMedium } from '../../styles/typography'
@@ -34,24 +43,26 @@ const GAME_ID = 'asdf-1234'
 const PLAYER_ID = makeSbUserId(1)
 const OPPONENT_ID = makeSbUserId(2)
 
+const GAME_CONFIG: MatchmakingGameConfig = {
+  gameSource: GameSource.Matchmaking,
+  gameSourceExtra: {
+    type: MatchmakingType.Match1v1,
+  },
+  gameType: GameType.OneVsOne,
+  gameSubType: 0,
+  teams: [
+    [
+      { id: PLAYER_ID, race: 'p', isComputer: false },
+      { id: OPPONENT_ID, race: 'z', isComputer: false },
+    ],
+  ],
+}
+
 const GAME: GameRecordJson = {
   id: GAME_ID,
   startTime: Number(new Date()),
   mapId: makeSbMapId('asdf-1234'),
-  config: {
-    gameSource: GameSource.Matchmaking,
-    gameSourceExtra: {
-      type: MatchmakingType.Match1v1,
-    },
-    gameType: GameType.OneVsOne,
-    gameSubType: 0,
-    teams: [
-      [
-        { id: PLAYER_ID, race: 'p', isComputer: false },
-        { id: OPPONENT_ID, race: 'z', isComputer: false },
-      ],
-    ],
-  },
+  config: GAME_CONFIG,
   disputable: false,
   disputeRequested: false,
   disputeReviewed: false,
@@ -115,9 +126,17 @@ const ControlsCard = styled(Card)`
   margin: 16px;
 `
 
+function makeGameSourceExtra(type: MatchmakingType): MatchmakingExtra {
+  return type === MatchmakingType.Match2v2
+    ? { type, parties: [[PLAYER_ID], [OPPONENT_ID]] }
+    : { type }
+}
+
 export function PostMatchDialogTest() {
+  const { t } = useTranslation()
   const dispatch = useAppDispatch()
 
+  const [matchmakingType, setMatchmakingType] = useState(MatchmakingType.Match1v1)
   const [outcome, setOutcome] = useState<MatchmakingResult>('win')
   const [startingRating, setStartingRating] = useState(1500)
   const [ratingChange, setRatingChange] = useState(75)
@@ -139,7 +158,7 @@ export function PostMatchDialogTest() {
 
     return {
       userId: PLAYER_ID,
-      matchmakingType: MatchmakingType.Match1v1,
+      matchmakingType,
       gameId: GAME_ID,
       changeDate: GAME.startTime + GAME.gameLength!,
       outcome,
@@ -152,6 +171,7 @@ export function PostMatchDialogTest() {
       lifetimeGames,
     }
   }, [
+    matchmakingType,
     outcome,
     ratingChange,
     startingRating,
@@ -213,7 +233,13 @@ export function PostMatchDialogTest() {
       openDialog({
         type: DialogType.PostMatch,
         initData: {
-          game: GAME,
+          game: {
+            ...GAME,
+            config: {
+              ...GAME_CONFIG,
+              gameSourceExtra: makeGameSourceExtra(matchmakingType),
+            },
+          },
           mmrChange,
           leagueChanges,
           leagues: LEAGUES,
@@ -231,6 +257,15 @@ export function PostMatchDialogTest() {
           Input a desired MMR change to show a dialog for. Point/rating change values will
           automatically change their sign for win/loss, so always input positive amounts.
         </BodyMedium>
+        <Select
+          value={matchmakingType}
+          label='Matchmaking type'
+          allowErrors={false}
+          onChange={(value: MatchmakingType) => setMatchmakingType(value)}>
+          {ALL_MATCHMAKING_TYPES.map(type => (
+            <SelectOption key={type} value={type} text={matchmakingTypeToLabel(type, t)} />
+          ))}
+        </Select>
         <CheckBox
           name='outcome'
           label='Win?'
