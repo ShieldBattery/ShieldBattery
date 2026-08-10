@@ -1109,6 +1109,7 @@ interface QueueBarProps {
   isSearching: boolean
   isMatched: boolean
   elapsedSecs: number
+  isSubmitting: boolean
   disabled: boolean
   onFindMatch: () => void
   onCancel: () => void
@@ -1119,6 +1120,7 @@ export function QueueBar({
   isSearching,
   isMatched,
   elapsedSecs,
+  isSubmitting,
   disabled,
   onFindMatch,
   onCancel,
@@ -1141,7 +1143,7 @@ export function QueueBar({
         <SearchingTimer>{isMatched ? '…' : `${mm}:${ss}`}</SearchingTimer>
       </>
     )
-  } else if (disabled) {
+  } else if (selectedChips.length === 0) {
     summaryContent = (
       <QueueEmptyHint>
         <MaterialIcon icon='info' size={18} />
@@ -1155,7 +1157,9 @@ export function QueueBar({
     summaryContent = (
       <>
         <QueueSummaryHead>
-          {t('matchmaking.findMatch.readyToQueue', 'Ready to queue')}
+          {isSubmitting
+            ? t('matchmaking.findMatch.joiningQueue', 'Joining the queue…')
+            : t('matchmaking.findMatch.readyToQueue', 'Ready to queue')}
         </QueueSummaryHead>
         <QueueChips>
           {selectedChips.map(({ type, label, race }) => (
@@ -1470,7 +1474,7 @@ export function FindMatch() {
             <PageSubtitle>
               {t(
                 'matchmaking.findMatch.subtitle',
-                'Choose one or more matchmaking types — we\u2019ll queue for them all at once.',
+                'Choose one or more matchmaking types and we\u2019ll queue for them all at once.',
               )}
             </PageSubtitle>
           </div>
@@ -1537,6 +1541,7 @@ export function FindMatch() {
           isSearching={isSearching}
           isMatched={isMatched}
           elapsedSecs={elapsedSecs}
+          isSubmitting={isSubmitting}
           disabled={findMatchDisabled}
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}

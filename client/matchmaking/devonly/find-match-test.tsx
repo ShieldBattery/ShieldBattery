@@ -479,7 +479,7 @@ export function FindMatchListTest() {
             <PageSubtitle>
               {t(
                 'matchmaking.findMatch.subtitle',
-                'Choose one or more matchmaking types — we\u2019ll queue for them all at once.',
+                'Choose one or more matchmaking types and we\u2019ll queue for them all at once.',
               )}
             </PageSubtitle>
           </div>
@@ -546,6 +546,7 @@ export function FindMatchListTest() {
           isSearching={isSearching}
           isMatched={isMatched}
           elapsedSecs={elapsed}
+          isSubmitting={false}
           disabled={selectedIds.size === 0 || inLobby}
           onFindMatch={handleFindMatch}
           onCancel={handleCancel}
