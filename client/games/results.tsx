@@ -94,7 +94,7 @@ const TabArea = styled.div`
 
 const ButtonBar = styled.div`
   width: 100%;
-  margin: 0 0 8px;
+  margin: 0 0 16px;
   padding: 0 24px;
 
   display: flex;
