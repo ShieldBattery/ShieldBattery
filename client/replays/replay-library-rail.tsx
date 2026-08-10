@@ -19,7 +19,7 @@ import { LibraryView } from './replay-library-helpers'
 // The width at which the rail collapses to an icon-only strip, keyed to the ancestor
 // `replay-library-body` container's inline-size (set up in replay-library.tsx). This mirrors the
 // container query below via a ResizeObserver on the rail's own rendered width, rather than
-// duplicating the container breakpoint: 72px (collapsed) and 240px (expanded) sit well on either
+// duplicating the container breakpoint: 40px (collapsed) and 240px (expanded) sit well on either
 // side of the 100px threshold.
 const RAIL_COLLAPSE_BREAKPOINTS: Array<[minWidth: number, collapsed: boolean]> = [
   [0, true],
@@ -41,7 +41,12 @@ const RailRoot = styled.div`
   transition: width 125ms ease-out;
 
   @container replay-library-body (width < 1100px) {
-    width: 72px;
+    /* Exactly the icon buttons' width: any extra would be dead space that still triggers the
+       items' tooltips, since each Tooltip's hover area spans the rail's full width. */
+    width: 40px;
+    /* A classic 16px scrollbar would crowd the icon strip; hide it here (wheel scrolling still
+       works) and let the expanded rail keep the normal one. */
+    scrollbar-width: none;
   }
 `
 
