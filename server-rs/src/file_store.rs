@@ -263,9 +263,11 @@ async fn create_aws_config(settings: SpacesFileStoreSettings) -> eyre::Result<aw
     let sdk_config = aws_config::load_defaults(BehaviorVersion::v2026_01_12()).await;
     let mut s3_config = aws_sdk_s3::config::Builder::from(&sdk_config);
 
-    if let Some(region) = settings.region {
-        s3_config.set_region(Some(Region::new(region)));
-    }
+    // The S3 SDK refuses to build/sign requests without a region, even for providers like DO
+    // Spaces where the endpoint alone determines routing, so fall back to a placeholder when the
+    // config doesn't specify one (matching the Node server's behavior).
+    let region = settings.region.unwrap_or_else(|| "us-east-1".to_string());
+    s3_config.set_region(Some(Region::new(region)));
     let credentials = Credentials::new(
         settings.access_key_id,
         settings.secret_access_key.expose_secret(),
