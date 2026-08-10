@@ -231,6 +231,8 @@ export function LobbyLoadingCanceledMessage({
 /** A short, human-readable label for a single changed lobby setting, used in a joined list. */
 function changedSettingLabel(setting: LobbyChangedSetting, t: TFunction): string {
   switch (setting) {
+    case 'name':
+      return t('lobbies.messageLayout.settingsChangeName', 'lobby name')
     case 'map':
       return t('lobbies.messageLayout.settingsChangeMap', 'map')
     case 'gameType':
