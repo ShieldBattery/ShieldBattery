@@ -1,6 +1,6 @@
 import { ReportedGameStatus } from '../../common/games/game-status'
 
-export type ActiveGameActions = ActiveGameLaunch | ActiveGameStatus | ActiveGameReplaySaved
+export type ActiveGameActions = ActiveGameLaunch | ActiveGameStatus
 
 export type ActiveGameLaunch =
   | {
@@ -19,13 +19,4 @@ export type ActiveGameStatus = {
   type: '@active-game/status'
   error?: false
   payload: ReportedGameStatus
-}
-
-export type ActiveGameReplaySaved = {
-  type: '@active-game/replaySaved'
-  error?: false
-  payload: {
-    gameId: string
-    path: string
-  }
 }

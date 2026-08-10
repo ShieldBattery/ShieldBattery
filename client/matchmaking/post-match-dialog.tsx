@@ -35,6 +35,7 @@ import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-mana
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { PostMatchDialogPayload } from '../dialogs/dialog-type'
 import { searchAgainFromGame } from '../games/action-creators'
+import { recentReplayPathsAtom } from '../games/game-atoms'
 import { MaterialIcon } from '../icons/material/material-icon'
 import SearchAgainIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg?react'
 import { LeagueBadge } from '../leagues/league-badge'
@@ -162,11 +163,11 @@ export function PostMatchDialog({
   mmrChange,
   leagueChanges,
   leagues,
-  replayPath,
   season,
 }: PostMatchDialogProps) {
   const { t } = useTranslation()
   const dispatch = useAppDispatch()
+  const replayPath = useAtomValue(recentReplayPathsAtom).get(game.id)
   const onSearchAgain = useStableCallback(() => {
     dispatch(searchAgainFromGame(game.config))
     onCancel()

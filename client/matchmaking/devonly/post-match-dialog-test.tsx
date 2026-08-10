@@ -29,6 +29,8 @@ import {
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { openDialog } from '../../dialogs/action-creators'
 import { DialogType } from '../../dialogs/dialog-type'
+import { addRecentReplayPathAtom, recentReplayPathsAtom } from '../../games/game-atoms'
+import { jotaiStore } from '../../jotai-store'
 import { FilledButton } from '../../material/button'
 import { Card } from '../../material/card'
 import { CheckBox } from '../../material/check-box'
@@ -243,11 +245,22 @@ export function PostMatchDialogTest() {
           mmrChange,
           leagueChanges,
           leagues: LEAGUES,
-          replayPath: undefined,
           season: SEASON,
         },
       }),
     )
+
+    // Simulate the replay file being saved a bit after the results arrive, so the "Watch replay"
+    // button starts out disabled and becomes enabled while the dialog is open
+    jotaiStore.set(recentReplayPathsAtom, draft => {
+      draft.delete(GAME_ID)
+    })
+    setTimeout(() => {
+      jotaiStore.set(addRecentReplayPathAtom, {
+        gameId: GAME_ID,
+        path: 'C:\\fake\\path\\to\\replay.rep',
+      })
+    }, 3000)
   })
 
   return (

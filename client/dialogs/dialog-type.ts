@@ -229,7 +229,6 @@ export type PostMatchDialogPayload = BaseDialogPayload<
     leagueChanges: ClientLeagueUserChangeJson[]
     leagues: LeagueJson[]
     season: MatchmakingSeasonJson
-    replayPath?: string
   }
 >
 type PrivacyPolicyDialogPayload = BaseDialogPayload<typeof DialogType.PrivacyPolicy>

@@ -301,7 +301,6 @@ export default function registerModule({ siteSocket }: { siteSocket: NydusClient
                 mmrChange: event.mmrChange,
                 leagueChanges: event.leagueChanges,
                 leagues: event.leagues,
-                replayPath: lastGame.replayPath,
                 season: event.season,
               },
             }),
