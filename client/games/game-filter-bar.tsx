@@ -32,18 +32,40 @@ import { SelectableMenuItem } from '../material/menu/selectable-item'
 import { Popover, usePopoverController, useRefAnchorPosition } from '../material/popover'
 import { TextField } from '../material/text-field'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { FlexSpacer } from '../styles/flex-spacer'
 import { labelLarge, labelMedium } from '../styles/typography'
 import { resolveDateRangeMs } from './day-header'
 import { MatchupFilter } from './matchup-filter'
 
 const FilterBarContainer = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  /* Reversed line stacking so that when the bar can't fit on one line, the trailing view
+     controls break upward into a row of their own instead of dangling below the filters. */
+  flex-wrap: wrap-reverse;
   align-items: center;
   gap: 16px;
   width: 100%;
   min-height: 56px;
+`
+
+/**
+ * Kept in the layout (just invisible) when there's nothing to clear: it's the tallest item in the
+ * bar, so mounting it on demand would make its row grow and shift the neighboring chips.
+ */
+const ClearButton = styled(TextButton)<{ $visible: boolean }>`
+  visibility: ${props => (props.$visible ? 'visible' : 'hidden')};
+`
+
+/**
+ * Groups the view controls (spoiler-free, sort) so they wrap as a unit and stay right-aligned
+ * even when pushed onto their own line, rather than orphaning left-aligned one chip at a time.
+ */
+const ViewControls = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-left: auto;
 `
 
 const FiltersLabel = styled.div`
@@ -362,47 +384,46 @@ export function GameFilterBar({
         onClick={e => (opened ? closePopover() : openPopover(e))}
       />
 
-      {hasActiveFilters && (
-        <TextButton
-          label={t('common.actions.clear', 'Clear')}
-          iconStart={<MaterialIcon icon='close' />}
-          onClick={() => {
-            setRanked?.(false)
-            setCustom?.(false)
-            setSource?.(GameSourceFilter.All)
-            setDuration(GameDurationFilter.All)
-            setMapName('')
-            setPlayerName('')
-            setFormat(undefined)
-            setMatchup(undefined)
-            setGameType?.(undefined)
-            setStartDate?.('')
-            setEndDate?.('')
-          }}
-        />
-      )}
+      <ClearButton
+        $visible={hasActiveFilters}
+        label={t('common.actions.clear', 'Clear')}
+        iconStart={<MaterialIcon icon='close' />}
+        onClick={() => {
+          setRanked?.(false)
+          setCustom?.(false)
+          setSource?.(GameSourceFilter.All)
+          setDuration(GameDurationFilter.All)
+          setMapName('')
+          setPlayerName('')
+          setFormat(undefined)
+          setMatchup(undefined)
+          setGameType?.(undefined)
+          setStartDate?.('')
+          setEndDate?.('')
+        }}
+      />
 
-      <FlexSpacer />
-
-      {setSpoilerFree && (
-        <FilterChip
-          label={t('game.filters.spoilerFree', 'Spoiler-free')}
-          icon={<MaterialIcon icon='visibility_off' size={18} />}
-          selected={spoilerFree}
-          onClick={() => setSpoilerFree(!spoilerFree)}
-        />
-      )}
-
-      <FilterChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
-        {SORT_OPTIONS.map(s => (
-          <SelectableMenuItem
-            key={s}
-            text={getSortLabel(s, t)}
-            selected={sort === s}
-            onClick={() => setSort(s)}
+      <ViewControls>
+        {setSpoilerFree && (
+          <FilterChip
+            label={t('game.filters.spoilerFree', 'Spoiler-free')}
+            icon={<MaterialIcon icon='visibility_off' size={18} />}
+            selected={spoilerFree}
+            onClick={() => setSpoilerFree(!spoilerFree)}
           />
-        ))}
-      </FilterChip>
+        )}
+
+        <FilterChip label={getSortLabel(sort, t)} icon={<MaterialIcon icon='sort' size={18} />}>
+          {SORT_OPTIONS.map(s => (
+            <SelectableMenuItem
+              key={s}
+              text={getSortLabel(s, t)}
+              selected={sort === s}
+              onClick={() => setSort(s)}
+            />
+          ))}
+        </FilterChip>
+      </ViewControls>
 
       <Popover
         open={opened}
