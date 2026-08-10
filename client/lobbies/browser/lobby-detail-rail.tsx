@@ -27,6 +27,7 @@ import { ConnectedUsername } from '../../users/connected-username'
 import { isInLobby } from '../lobby-reducer'
 import { navigateToLobby } from '../lobby-url'
 import { HostCrown, LobbyChip, RaceMark, SectionLabel } from './browser-parts'
+import { InGameChip } from './in-game-chip'
 import { LobbyPreviewTeams, LobbySummary } from './summary-utils'
 
 const RailRoot = styled.div`
@@ -425,6 +426,7 @@ export function LobbyDetailRail({
   }
 
   const isOwnLobby = inCurrentLobby && currentLobbyId === summary.id
+  const isInGame = summary.lifecycle === 'inGame'
 
   const map = summary.map
   const playerTeams = teams?.filter(team => !team.isObserver)
@@ -440,11 +442,12 @@ export function LobbyDetailRail({
   // then an open observer seat, then the bench — which is capped, so a full bench means the join
   // is refused outright.
   const playerSeatsFull = summary.playerSlots.open === 0
-  const joinLandsOnObserverSeat = playerSeatsFull && summary.observerSlots.open > 0
-  const joinLandsOnBench =
-    playerSeatsFull && summary.observerSlots.open === 0 && summary.benchCount < MAX_BENCH
-  const joinRefused =
-    playerSeatsFull && summary.observerSlots.open === 0 && summary.benchCount >= MAX_BENCH
+  const joinLandsOnObserverSeat = !isInGame && playerSeatsFull && summary.observerSlots.open > 0
+  // While a game runs, the seats are its roster and every join waits on the bench, whatever kind
+  // of seat was asked for.
+  const joinWouldBench = isInGame || (playerSeatsFull && summary.observerSlots.open === 0)
+  const joinLandsOnBench = joinWouldBench && summary.benchCount < MAX_BENCH
+  const joinRefused = joinWouldBench && summary.benchCount >= MAX_BENCH
 
   return (
     <RailRoot className={className}>
@@ -474,6 +477,7 @@ export function LobbyDetailRail({
         </MapSection>
 
         <ChipRow>
+          {isInGame ? <InGameChip elapsedMs={summary.elapsedMs} /> : null}
           <LobbyChip>{gameTypeToLabel(summary.gameType, t)}</LobbyChip>
           {subTypeLabel ? <LobbyChip>{subTypeLabel}</LobbyChip> : null}
           {summary.hasObserverTeam ? (
@@ -604,13 +608,19 @@ export function LobbyDetailRail({
               </BenchCaption>
             ) : null}
             {joinLandsOnBench ? (
-              // Joining stays possible with every seat taken — it lands on the bench — so the
-              // caption spells out what the click means instead of the button refusing it.
+              // Joining stays possible with every seat taken or a game running — it lands on the
+              // bench — so the caption spells out what the click means instead of the button
+              // refusing it.
               <BenchCaption>
-                {t(
-                  'lobbies.browser.benchCaptionFull',
-                  "Lobby is full — you'll wait on the bench for a seat",
-                )}
+                {isInGame
+                  ? t(
+                      'lobbies.browser.benchCaptionInGame',
+                      "The game is running — you'll wait on the bench for the next one",
+                    )
+                  : t(
+                      'lobbies.browser.benchCaptionFull',
+                      "Lobby is full — you'll wait on the bench for a seat",
+                    )}
               </BenchCaption>
             ) : null}
             {joinRefused ? (
@@ -621,7 +631,7 @@ export function LobbyDetailRail({
                 )}
               </BenchCaption>
             ) : null}
-            {summary.observerSlots.open > 0 ? (
+            {!isInGame && summary.observerSlots.open > 0 ? (
               <FullWidthOutlinedButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}
                 iconStart={<MaterialIcon icon='visibility' size={20} />}

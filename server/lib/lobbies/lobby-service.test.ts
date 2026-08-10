@@ -1000,11 +1000,10 @@ describe('lobbies/lobby-service', () => {
       })
 
       // The first lobby's start must not have released their registration in the new activity.
-      // Joining their own lobby is a no-op success, so the probe is a third lobby: with a live
-      // registration elsewhere, that join has to be rejected.
+      // Joining their own lobby is a no-op success, so the probe aims at the first lobby: with a
+      // live registration elsewhere, that join has to be rejected.
       expect(lobbyService.lobbies.has(otherId)).toBe(true)
-      const { id: probeId } = await createLobby(lister, 'Probe lobby', 'listed')
-      await expect(joinLobby(otherHost, probeId)).rejects.toMatchObject({
+      await expect(joinLobby(otherHost, id)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.JoinAlreadyInActivity,
       })
     })

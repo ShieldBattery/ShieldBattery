@@ -916,6 +916,7 @@
     "browser": {
       "benchCaptionBenchFull": "房间和替补席都已满",
       "benchCaptionFull": "房间已满，您将在替补席等待空位",
+      "benchCaptionInGame": "游戏正在进行，您将在替补席等待下一局",
       "benchCaptionObserverFallback": "玩家位已满，加入后您将进入观战位",
       "benchWaiting_other": "{{count}}人正在等待空位",
       "createDisabledWhileMatchmaking": "正在进行匹配时无法创建房间。",
@@ -928,6 +929,7 @@
       "filterShowFull": "显示已满",
       "friendsInside_other": "{{count}}位好友在此房间中",
       "full": "已满",
+      "inGame": "游戏中",
       "joinAsObserver": "以观战者身份加入",
       "joinLobby": "加入房间",
       "legacyLimits": "旧版单位限制",
@@ -1036,6 +1038,7 @@
       "copiedInviteLink": "已复制！",
       "copyInviteLink": "复制邀请链接",
       "gameType": "游戏类型",
+      "inGame": "游戏中",
       "leaveLobby": "离开房间",
       "startGame": "开始游戏",
       "unitLimit": "单位数量限制",

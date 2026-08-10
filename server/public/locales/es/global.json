@@ -922,6 +922,7 @@
     "browser": {
       "benchCaptionBenchFull": "El lobby y su banquillo están llenos",
       "benchCaptionFull": "El lobby está lleno: esperarás en el banquillo hasta que se libere un sitio",
+      "benchCaptionInGame": "La partida está en curso: esperarás en el banquillo hasta la siguiente",
       "benchCaptionObserverFallback": "Los espacios de jugador están llenos: al unirte entrarás como observador",
       "benchWaiting_one": "{{count}} esperando un sitio",
       "benchWaiting_many": "{{count}} esperando un sitio",
@@ -938,6 +939,7 @@
       "friendsInside_many": "{{count}} amigos están en este lobby",
       "friendsInside_other": "{{count}} amigos están en este lobby",
       "full": "Lleno",
+      "inGame": "En partida",
       "joinAsObserver": "Unirse como observador",
       "joinLobby": "Unirse al lobby",
       "legacyLimits": "Límite legado",
@@ -1064,6 +1066,7 @@
       "copiedInviteLink": "¡Copiado!",
       "copyInviteLink": "Copiar enlace de invitación",
       "gameType": "Tipo de juego",
+      "inGame": "En partida",
       "leaveLobby": "Salir del lobby",
       "startGame": "Empezar juego",
       "unitLimit": "Límite de unidad",

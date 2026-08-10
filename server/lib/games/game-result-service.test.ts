@@ -21,8 +21,8 @@ import {
 } from '../models/games-users'
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { FakeClock } from '../time/testing/fake-clock'
-import { GameLifecycleEvents } from './game-lifecycle-events'
 import { incrementUserStatsCount } from '../users/user-stats-model'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import {
   findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
@@ -675,6 +675,7 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
       { getSeasonForDate: vi.fn().mockResolvedValue([{ id: 1 }, undefined]) } as any,
       clock,
       {} as any,
+      new GameLifecycleEvents(),
     )
   })
 

@@ -916,6 +916,7 @@
     "browser": {
       "benchCaptionBenchFull": "로비와 벤치가 모두 가득 찼습니다",
       "benchCaptionFull": "로비가 가득 찼습니다. 자리가 날 때까지 벤치에서 대기하게 됩니다",
+      "benchCaptionInGame": "게임이 진행 중입니다. 다음 게임까지 벤치에서 대기하게 됩니다",
       "benchCaptionObserverFallback": "플레이어 자리가 가득 찼습니다. 참여하면 관전자로 들어가게 됩니다",
       "benchWaiting_other": "{{count}}명 자리 대기 중",
       "createDisabledWhileMatchmaking": "매치메이킹이 진행 중일 때는 로비를 만들 수 없습니다.",
@@ -928,6 +929,7 @@
       "filterShowFull": "가득 찬 로비 표시",
       "friendsInside_other": "친구 {{count}}명이 이 로비에 있습니다",
       "full": "가득 참",
+      "inGame": "게임 중",
       "joinAsObserver": "관전자로 참여",
       "joinLobby": "로비 참여",
       "legacyLimits": "옛 유닛 제한",
@@ -1036,6 +1038,7 @@
       "copiedInviteLink": "복사되었습니다!",
       "copyInviteLink": "초대 링크 복사",
       "gameType": "게임 방식",
+      "inGame": "게임 중",
       "leaveLobby": "로비 나가기",
       "startGame": "게임 시작",
       "unitLimit": "유닛 제한",
