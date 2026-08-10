@@ -623,7 +623,6 @@
     "buttonReport": "신고",
     "buttonSaveReplay": "리플레이 저장",
     "buttonSaveReplayLoading": "저장 중…",
-    "buttonSearchAgain": "다시 검색",
     "buttonWatchReplay": "리플레이 보기",
     "buttonWatchReplayLoading": "로딩 중…",
     "debugInfo": {
@@ -1207,7 +1206,8 @@
       "matchFound": "상대를 찾았습니다",
       "readyUp": "준비 완료",
       "removedFromQueue": "제시간에 준비 완료하지 않아 대기열에서 제외되었습니다.",
-      "returningToQueue": "일부 플레이어가 제시간에 준비하지 않거나 로딩에 실패했습니다. 매치메이킹 대기열로 돌아갑니다…"
+      "returningToQueue": "일부 플레이어가 제시간에 준비하지 않거나 로딩에 실패했습니다. 매치메이킹 대기열로 돌아갑니다…",
+      "waitingForPlayers_other": "나머지 플레이어 {{count}}명을 기다리는 중…"
     },
     "activity": {
       "title": "매치메이킹"

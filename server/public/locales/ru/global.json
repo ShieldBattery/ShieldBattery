@@ -632,7 +632,6 @@
     "buttonReport": "Пожаловаться",
     "buttonSaveReplay": "Сохранить реплей",
     "buttonSaveReplayLoading": "Сохранение…",
-    "buttonSearchAgain": "Искать снова",
     "buttonWatchReplay": "Смотреть реплей",
     "buttonWatchReplayLoading": "Загрузка…",
     "debugInfo": {
@@ -1249,7 +1248,11 @@
       "matchFound": "Матч найден",
       "readyUp": "Готов",
       "removedFromQueue": "Вы не подтвердили готовность вовремя и были удалены из очереди.",
-      "returningToQueue": "Некоторые игроки не подтвердили готовность вовремя или не загрузились. Возвращаемся в очередь матчмейкинга…"
+      "returningToQueue": "Некоторые игроки не подтвердили готовность вовремя или не загрузились. Возвращаемся в очередь матчмейкинга…",
+      "waitingForPlayers_one": "Ожидаем ещё {{count}} игрока…",
+      "waitingForPlayers_few": "Ожидаем ещё {{count}} игроков…",
+      "waitingForPlayers_many": "Ожидаем ещё {{count}} игроков…",
+      "waitingForPlayers_other": "Ожидаем ещё {{count}} игрока…"
     },
     "activity": {
       "title": "Матчмейкинг"

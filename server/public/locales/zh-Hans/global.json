@@ -623,7 +623,6 @@
     "buttonReport": "举报",
     "buttonSaveReplay": "保存录像",
     "buttonSaveReplayLoading": "保存中…",
-    "buttonSearchAgain": "再次搜索",
     "buttonWatchReplay": "观看录像",
     "buttonWatchReplayLoading": "加载中…",
     "debugInfo": {
@@ -1207,7 +1206,8 @@
       "matchFound": "已找到对手",
       "readyUp": "我准备好了",
       "removedFromQueue": "您没有及时点击“我准备好了”，因此已被移除匹配队列。",
-      "returningToQueue": "部分玩家没有及时准备好或加载失败。正在返回匹配队列……"
+      "returningToQueue": "部分玩家没有及时准备好或加载失败。正在返回匹配队列……",
+      "waitingForPlayers_other": "正在等待剩余 {{count}} 名玩家……"
     },
     "activity": {
       "title": "匹配"

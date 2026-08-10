@@ -629,7 +629,6 @@
     "buttonReport": "Reportar",
     "buttonSaveReplay": "Guardar replay",
     "buttonSaveReplayLoading": "Guardando…",
-    "buttonSearchAgain": "Busca de nuevo",
     "buttonWatchReplay": "Ver replay",
     "buttonWatchReplayLoading": "Cargando…",
     "debugInfo": {
@@ -1235,7 +1234,10 @@
       "matchFound": "Partido encontrado",
       "readyUp": "Listo",
       "removedFromQueue": "No te preparaste a tiempo y te quitaron de la cola.",
-      "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…"
+      "returningToQueue": "Algunos jugadores no se prepararon a tiempo o no pudieron cargar. Volviendo a la cola de emparejamiento…",
+      "waitingForPlayers_one": "Esperando a {{count}} jugador más…",
+      "waitingForPlayers_many": "Esperando a {{count}} jugadores más…",
+      "waitingForPlayers_other": "Esperando a {{count}} jugadores más…"
     },
     "activity": {
       "title": "Emparejamiento"
