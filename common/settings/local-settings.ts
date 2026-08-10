@@ -219,9 +219,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    */
   gameServerRegion?: GameServerRegionId
 
-  visualizeNetworkStalls?: boolean
-  disableHd?: boolean
-  launch64Bit?: boolean
+  /**
+   * Whether to launch the 32-bit game client instead of the (default) 64-bit one. Discouraged;
+   * exists as an escape hatch for systems where the 64-bit client doesn't work.
+   */
+  launch32Bit: boolean
 
   /**
    * Absolute paths of the folders indexed by the replay library. `undefined` means the user has
@@ -231,6 +233,11 @@ export interface LocalSettings extends ShieldBatteryAppSettings {
    * is added again.
    */
   replayLibraryFolders?: ReadonlyArray<string>
+
+  // Dev-only settings. These are stripped from non-dev clients when read, so they can only ever
+  // be turned on by running a dev client.
+  visualizeNetworkStalls?: boolean
+  disableHd?: boolean
 }
 
 export interface ScrSettings {

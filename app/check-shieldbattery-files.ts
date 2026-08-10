@@ -7,6 +7,8 @@ import logger from './logger'
 const FILES_TO_CHECK: [ShieldBatteryFile, string][] = [
   [ShieldBatteryFile.Init, path.join('game', 'dist', 'sb_init.dll')],
   [ShieldBatteryFile.Main, path.join('game', 'dist', 'shieldbattery.dll')],
+  [ShieldBatteryFile.Init64, path.join('game', 'dist', 'sb_init_64.dll')],
+  [ShieldBatteryFile.Main64, path.join('game', 'dist', 'shieldbattery_64.dll')],
 ]
 
 export function checkShieldBatteryFiles(): Promise<ShieldBatteryFileResult[]> {

@@ -788,7 +788,7 @@ async function doLaunch(
   scrSettings: ScrSettingsManager,
 ) {
   const settings = await localSettings.get()
-  const injectPath = settings.launch64Bit ? injectPath64 : injectPath32
+  const injectPath = settings.launch32Bit ? injectPath32 : injectPath64
   try {
     await fsPromises.access(injectPath)
   } catch (err) {
@@ -808,9 +808,9 @@ async function doLaunch(
   await scrSettings.writeGameSettingsFile()
 
   const userDataPath = app.getPath('userData')
-  let appPath = settings.launch64Bit
-    ? path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
-    : path.join(starcraftPath, 'x86', 'StarCraft.exe')
+  let appPath = settings.launch32Bit
+    ? path.join(starcraftPath, 'x86', 'StarCraft.exe')
+    : path.join(starcraftPath, 'x86_64', 'StarCraft.exe')
   try {
     // Attempt to resolve the real path, just to ensure our capitalization matches Windows' for the
     // compat settings registry key

@@ -74,7 +74,7 @@ const AdvancedOverline = styled(LabelMedium)`
 
 interface StarcraftSettingsModel {
   starcraftPath: string
-  launch64Bit?: boolean
+  launch32Bit?: boolean
   disableHd?: boolean
 }
 
@@ -90,7 +90,7 @@ export function StarcraftSettings() {
     useForm<StarcraftSettingsModel>(
       {
         starcraftPath: localSettings.starcraftPath,
-        launch64Bit: localSettings.launch64Bit,
+        launch32Bit: localSettings.launch32Bit,
         disableHd: localSettings.disableHd,
       },
       {},
@@ -102,7 +102,7 @@ export function StarcraftSettings() {
         mergeLocalSettings(
           {
             starcraftPath: model.starcraftPath,
-            launch64Bit: model.launch64Bit || false,
+            launch32Bit: model.launch32Bit || false,
             disableHd: model.disableHd || false,
           },
           {
@@ -224,6 +224,16 @@ export function StarcraftSettings() {
             label={t('settings.game.starcraft.browseManually', 'Browse manually')}
             onClick={onBrowseClick}
           />
+
+          <CheckBox
+            {...bindCheckable('launch32Bit')}
+            label={t(
+              'settings.game.starcraft.launch32Bit',
+              'Launch the 32-bit game client (not recommended)',
+            )}
+            inputProps={{ tabIndex: 0 }}
+          />
+
           {DEV_INDICATOR ? (
             <SectionContainer>
               <SectionOverline>
@@ -235,11 +245,6 @@ export function StarcraftSettings() {
                   'settings.game.starcraft.disableHd',
                   "Don't load HD graphics (Crashes if switching to HD in game)",
                 )}
-                inputProps={{ tabIndex: 0 }}
-              />
-              <CheckBox
-                {...bindCheckable('launch64Bit')}
-                label={t('settings.game.starcraft.launch64Bit', 'Launch 64-bit executable')}
                 inputProps={{ tabIndex: 0 }}
               />
             </SectionContainer>

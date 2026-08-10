@@ -16,7 +16,7 @@ import { cloneCustomTeamColors } from '../common/settings/team-colors'
 import { findInstallPath } from './find-install-path'
 import log from './logger'
 
-const VERSION = 19
+const VERSION = 20
 const SCR_VERSION = 5
 
 async function findStarcraftPath() {
@@ -209,7 +209,6 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
     if (!DEV_INDICATOR) {
       delete settings.visualizeNetworkStalls
       delete settings.disableHd
-      delete settings.launch64Bit
     }
     return settings
   }
@@ -345,6 +344,14 @@ export class LocalSettingsManager extends SettingsManager<LocalSettings> {
       log.verbose('Found settings version 18, migrating to version 19')
       newSettings.grabPanSensitivityOn = DEFAULT_LOCAL_SETTINGS.grabPanSensitivityOn
       newSettings.grabPanSensitivity = DEFAULT_LOCAL_SETTINGS.grabPanSensitivity
+    }
+
+    if (!settings.version || settings.version < 20) {
+      log.verbose('Found settings version 19, migrating to version 20')
+      // The 64-bit client is the default now. The old dev-only 64-bit opt-in flag is dropped
+      // rather than carried over, so every install starts on the 64-bit path.
+      delete (newSettings as any).launch64Bit
+      newSettings.launch32Bit = DEFAULT_LOCAL_SETTINGS.launch32Bit
     }
 
     newSettings.version = VERSION

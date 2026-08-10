@@ -53,6 +53,8 @@ export function ShieldBatteryHealthDialog({ onCancel, close }: CommonDialogProps
 
   const initDescription = files.init ? null : <li>sb_init.dll</li>
   const mainDescription = files.main ? null : <li>shieldbattery.dll</li>
+  const init64Description = files.init64 ? null : <li>sb_init_64.dll</li>
+  const main64Description = files.main64 ? null : <li>shieldbattery_64.dll</li>
 
   return (
     <Dialog
@@ -76,6 +78,8 @@ export function ShieldBatteryHealthDialog({ onCancel, close }: CommonDialogProps
         <FileList>
           {initDescription}
           {mainDescription}
+          {init64Description}
+          {main64Description}
         </FileList>
 
         <Text>

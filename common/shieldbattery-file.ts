@@ -6,6 +6,10 @@ export enum ShieldBatteryFile {
   Init,
   /** game/dist/shieldbattery.dll */
   Main,
+  /** game/dist/sb_init_64.dll */
+  Init64,
+  /** game/dist/shieldbattery_64.dll */
+  Main64,
 }
 
 export type ShieldBatteryFileResult = [file: ShieldBatteryFile, canAccess: boolean]

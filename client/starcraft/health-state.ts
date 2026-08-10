@@ -8,11 +8,15 @@ export const starcraftHealthy = atom(get => get(starcraftPathValid) && get(starc
 export interface ShieldBatteryFileStatus {
   init: boolean
   main: boolean
+  init64: boolean
+  main64: boolean
 }
 
 export const shieldBatteryFilesState = atom<ShieldBatteryFileStatus>({
   init: false,
   main: false,
+  init64: false,
+  main64: false,
 })
 
 export const shieldBatteryHealthy = atom(get => {

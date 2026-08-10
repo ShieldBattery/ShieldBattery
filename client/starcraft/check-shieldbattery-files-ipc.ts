@@ -14,6 +14,8 @@ export function checkShieldBatteryFiles() {
       jotaiStore.set(shieldBatteryFilesState, {
         init: filesMap.get(ShieldBatteryFile.Init) ?? false,
         main: filesMap.get(ShieldBatteryFile.Main) ?? false,
+        init64: filesMap.get(ShieldBatteryFile.Init64) ?? false,
+        main64: filesMap.get(ShieldBatteryFile.Main64) ?? false,
       })
     })
     .catch(swallowNonBuiltins)
