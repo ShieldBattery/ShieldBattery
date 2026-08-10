@@ -14,7 +14,8 @@ import {
 } from '../../../common/lobbies/slot'
 import { MapInfo } from '../../../common/maps'
 import { RaceChar } from '../../../common/races'
-import { SbUser } from '../../../common/users/sb-user'
+import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
+import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
 import { openDialog } from '../../dialogs/action-creators'
@@ -79,6 +80,40 @@ const VIEWER_IDS: Record<ViewpointId, SbUserId> = {
   member: PACHI,
   benched: BLUESKY,
 }
+
+/** Builds the seeded self-user JSON for a mock viewer, matching the shape a real session carries. */
+function makeSelfUser(user: SbUser): SelfUserJson {
+  return {
+    id: user.id,
+    name: user.name,
+    created: 0,
+    loginName: user.name,
+    email: `${user.name}@example.com`,
+    emailVerified: true,
+    acceptedPrivacyVersion: 0,
+    acceptedTermsVersion: 0,
+    acceptedUsePolicyVersion: 0,
+    nameChangeTokens: 0,
+  }
+}
+
+/**
+ * The action that installs `userId` as the page-local store's logged-in self user. `PureMessageList`
+ * (and anything else keyed off `useSelfUser()`) renders nothing without one, so the room dev page
+ * needs its self user kept in step with whichever mock viewer is currently selected.
+ */
+function loadSelfSessionAction(userId: SbUserId): ReduxAction {
+  return {
+    type: '@auth/loadCurrentSession',
+    payload: {
+      user: makeSelfUser(MOCK_USERS.find(u => u.id === userId)!),
+      permissions: { ...DEFAULT_PERMISSIONS },
+      jwt: '',
+    },
+  }
+}
+
+const SEED_ACTIONS: ReadonlyArray<ReduxAction> = [loadSelfSessionAction(VIEWER_IDS.host)]
 
 function makeTeam(name: string, teamId: number, slots: Slot[], isObserver = false): Team {
   return { name, teamId, isObserver, slots, hiddenSlots: [] }
@@ -322,7 +357,7 @@ const testStore = createStore()
 
 export function LobbyRoomTest() {
   return (
-    <IsolatedReduxProvider>
+    <IsolatedReduxProvider seedActions={SEED_ACTIONS}>
       <Provider store={testStore}>
         <LobbyRoomTestInner />
       </Provider>
@@ -337,6 +372,12 @@ function LobbyRoomTestInner() {
   const [viewpoint, setViewpoint] = useState<ViewpointId>('host')
 
   const viewerId = VIEWER_IDS[viewpoint]
+
+  // Keeps the page-local store's self user matching whichever mock viewer is selected; the initial
+  // render already has the host installed via IsolatedReduxProvider's seedActions.
+  useEffect(() => {
+    dispatch(loadSelfSessionAction(viewerId))
+  }, [dispatch, viewerId])
 
   // The page-local store starts out empty, so seed on mount and reseed when the scenario changes.
   const lastSeededScenario = useRef<ScenarioId | undefined>(undefined)
