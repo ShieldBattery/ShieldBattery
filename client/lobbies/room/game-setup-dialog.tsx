@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
+import { LOBBY_NAME_MAXLENGTH } from '../../../common/constants'
 import { hasObservers } from '../../../common/lobbies'
 import { UpdateLobbySettingsRequest } from '../../../common/lobbies/lobby-network'
 import { SbMapId } from '../../../common/maps'
@@ -11,6 +12,7 @@ import { BrowseLocalMaps } from '../../maps/browse-local-maps'
 import { BrowseServerMaps } from '../../maps/browse-server-maps'
 import { TextButton } from '../../material/button'
 import { Dialog } from '../../material/dialog'
+import { TextField } from '../../material/text-field'
 import { useAppDispatch, useAppSelector } from '../../redux-hooks'
 import { updateLobbySettings } from '../action-creators'
 import { GameSetupForm, GameSetupFormHandle, GameSetupModel } from '../create/game-setup-form'
@@ -63,6 +65,8 @@ export function GameSetupDialog({ onCancel, close }: CommonDialogProps) {
     allowObservers: hasObservers(lobby),
     mapId: lobby.map!.id,
   }))
+  const [initialName] = useState(lobby.name)
+  const [name, setName] = useState(initialName)
 
   const formRef = useRef<GameSetupFormHandle>(null)
   const [browseState, setBrowseState] = useState(MapBrowseState.None)
@@ -122,9 +126,29 @@ export function GameSetupDialog({ onCancel, close }: CommonDialogProps) {
         <GameSetupForm
           ref={formRef}
           model={initialModel}
+          nameSection={
+            <TextField
+              value={name}
+              onChange={event => setName(event.target.value)}
+              floatingLabel={true}
+              label={t('lobbies.createLobby.lobbyName', 'Lobby name')}
+              testName='lobby-settings-name-input'
+              inputProps={{
+                maxLength: LOBBY_NAME_MAXLENGTH,
+                autoCapitalize: 'off',
+                autoComplete: 'off',
+                autoCorrect: 'off',
+                spellCheck: false,
+              }}
+            />
+          }
           onChangeMap={() => setBrowseState(MapBrowseState.Server)}
           onSubmit={model => {
             const settings: Partial<Omit<UpdateLobbySettingsRequest, 'clientId'>> = {}
+            const trimmedName = name.trim()
+            if (trimmedName && trimmedName !== initialName) {
+              settings.name = trimmedName
+            }
             if (model.mapId !== initialModel.mapId) {
               settings.map = model.mapId
             }

@@ -1098,6 +1098,7 @@
       "settingsChangeGameSubType": "teams",
       "settingsChangeGameType": "game type",
       "settingsChangeMap": "map",
+      "settingsChangeName": "lobby name",
       "settingsChangeObservers": "observers",
       "settingsChangeUnitLimit": "unit limit"
     },

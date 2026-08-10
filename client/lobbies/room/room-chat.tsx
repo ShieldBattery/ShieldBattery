@@ -261,6 +261,7 @@ function ArrivalCard({ userId }: { userId: SbUserId }) {
 }
 
 const SETTING_LABELS: Record<string, string> = {
+  name: 'lobby name',
   map: 'map',
   gameType: 'game type',
   gameSubType: 'teams',
@@ -280,12 +281,16 @@ function SettingsNoticeCard({
   changedSettings: ReadonlyArray<string>
 }) {
   const settings = changedSettings.map(setting => SETTING_LABELS[setting] ?? setting).join(', ')
+  // A rename touches nothing about the game being set up, so it never resets readiness; any other
+  // setting can, so its notice calls that out.
+  const resetsReady = changedSettings.some(setting => setting !== 'name')
 
   return (
     <NoticeCard>
       <MaterialIcon icon='tune' size={20} />
       <div>
-        <Username userId={changedBy} /> changed the {settings} · ready reset
+        <Username userId={changedBy} /> changed the {settings}
+        {resetsReady ? ' · ready reset' : ''}
       </div>
     </NoticeCard>
   )

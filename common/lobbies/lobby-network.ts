@@ -376,6 +376,7 @@ export interface LobbyStatusEvent {
  */
 export interface UpdateLobbySettingsRequest {
   clientId: string
+  name?: string
   map?: SbMapId
   gameType?: GameType
   gameSubType?: number
@@ -385,7 +386,7 @@ export interface UpdateLobbySettingsRequest {
 
 /** A lobby setting whose value changed, as reported in a `LobbySettingsChangeEvent`. */
 export type LobbyChangedSetting =
-  'map' | 'gameType' | 'gameSubType' | 'useLegacyLimits' | 'allowObservers'
+  'name' | 'map' | 'gameType' | 'gameSubType' | 'useLegacyLimits' | 'allowObservers'
 
 /**
  * Published to a lobby when the host changes its settings. Slot reconciliation can restructure the

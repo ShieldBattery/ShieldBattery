@@ -1059,7 +1059,8 @@
       "joinLobby": "<0><0></0></0>已加入房间",
       "kickPlayer": "<0><0></0></0>已被踢出房间",
       "leaveLobby": "<0><0></0></0>已离开房间",
-      "selfJoin": "您已加入<1>{{lobby}}</1>。主机是<4><0></0></4>。"
+      "selfJoin": "您已加入<1>{{lobby}}</1>。主机是<4><0></0></4>。",
+      "settingsChangeName": "房间名称"
     },
     "slots": {
       "addComputer": "添加电脑玩家",

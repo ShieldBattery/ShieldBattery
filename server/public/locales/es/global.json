@@ -1087,7 +1087,8 @@
       "joinLobby": "<0><0></0></0> se ha unido al lobby",
       "kickPlayer": "<0><0></0></0> ha sido expulsado del lobby",
       "leaveLobby": "<0><0></0></0> ha salido del lobby",
-      "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>."
+      "selfJoin": "Te has unido a <1>{{lobby}}</1>. El anfitrión es <4><0></0></4>.",
+      "settingsChangeName": "nombre del lobby"
     },
     "slots": {
       "addComputer": "Agregar computadora",

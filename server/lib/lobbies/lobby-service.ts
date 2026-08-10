@@ -746,11 +746,13 @@ export class LobbyService {
    *
    * Settings that aren't named are left as they are. Since reconciliation can rearrange the whole
    * lobby, the occupants receive the result as a complete lobby rather than as a set of changes,
-   * alongside the list of settings the host actually changed.
+   * alongside the list of settings the host actually changed. Renaming the lobby is the one setting
+   * that never reconciles slots: it applies as a plain field update, leaving every seat untouched.
    */
   async updateSettings({
     client,
     lobbyId,
+    name,
     map,
     gameType,
     gameSubType,
@@ -759,6 +761,7 @@ export class LobbyService {
   }: {
     client: ClientSocketsGroup
     lobbyId?: SbLobbyId
+    name?: string
     map?: SbMapId
     gameType?: GameType
     gameSubType?: number
@@ -786,6 +789,7 @@ export class LobbyService {
     this.ensureIsLobbyHost(current, currentPlayer)
     this.ensureLobbyNotTransient(current)
 
+    const nextName = name ?? current.name
     const mapInfo = fetchedMap ?? current.map!
     const nextGameType = gameType ?? current.gameType
     // Only team game types are configured by a sub-type, so carrying one over from a type that had
@@ -818,6 +822,7 @@ export class LobbyService {
     checkSubTypeValidity(nextGameType, nextGameSubType, mapInfo.mapData.slots)
 
     const changedSettings: LobbyChangedSetting[] = []
+    if (nextName !== current.name) changedSettings.push('name')
     if (mapInfo.id !== current.map!.id) changedSettings.push('map')
     if (nextGameType !== current.gameType) changedSettings.push('gameType')
     if (nextGameSubType !== current.gameSubType) changedSettings.push('gameSubType')
@@ -829,24 +834,33 @@ export class LobbyService {
       return
     }
 
-    let updated
-    try {
-      updated = Lobbies.applySettingsChange(current, {
-        map: mapInfo,
-        gameType: nextGameType,
-        gameSubType: nextGameSubType,
-        numSlots,
-        allowObservers: nextAllowObservers,
-        useLegacyLimits: nextUseLegacyLimits,
-      })
-    } catch (err) {
-      throw new LobbyServiceError(
-        LobbyServiceErrorCode.InvalidSlotOperation,
-        (err as any).message,
-        { cause: err },
-      )
+    // The name carries no slot layout of its own, so a rename alone must leave every seat exactly
+    // as it was -- reconciliation only runs when some other setting is also changing.
+    const needsReconciliation = changedSettings.some(setting => setting !== 'name')
+
+    let updated: Lobby = current
+    if (needsReconciliation) {
+      try {
+        updated = Lobbies.applySettingsChange(current, {
+          map: mapInfo,
+          gameType: nextGameType,
+          gameSubType: nextGameSubType,
+          numSlots,
+          allowObservers: nextAllowObservers,
+          useLegacyLimits: nextUseLegacyLimits,
+        })
+      } catch (err) {
+        throw new LobbyServiceError(
+          LobbyServiceErrorCode.InvalidSlotOperation,
+          (err as any).message,
+          { cause: err },
+        )
+      }
+      updated = this._seatBenchOverflow(updated)
     }
-    updated = this._seatBenchOverflow(updated)
+    if (nextName !== current.name) {
+      updated = { ...updated, name: nextName }
+    }
 
     this.lobbies.set(updated.id, updated)
     this._publishTo(updated, {
@@ -855,7 +869,9 @@ export class LobbyService {
       lobby: updated,
     })
     this._publishListChange('update', updated)
-    this._warmLobbyRegions(updated)
+    if (needsReconciliation) {
+      this._warmLobbyRegions(updated)
+    }
   }
 
   /**

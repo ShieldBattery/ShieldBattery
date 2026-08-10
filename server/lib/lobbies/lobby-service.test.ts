@@ -1332,6 +1332,77 @@ describe('lobbies/lobby-service', () => {
       expect(lobbyPublishes(id)).toEqual([])
       expect(listPublishes()).toEqual([])
     })
+
+    test('only the host can rename the lobby', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+
+      await expect(
+        lobbyService.updateSettings({ client: joiner.client, lobbyId: id, name: 'Renamed lobby' }),
+      ).rejects.toMatchObject({ code: LobbyServiceErrorCode.NotHost })
+    })
+
+    test('renaming alone publishes the new name without touching any seat', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      await joinLobby(joiner, id)
+      const before = lobbyService.lobbies.get(id)!
+      const slotIds = before.teams.flatMap(team => team.slots.map(slot => slot.id))
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, name: 'Renamed lobby' })
+
+      const after = lobbyService.lobbies.get(id)!
+      expect(after.name).toBe('Renamed lobby')
+      // A rename carries no slot layout, so reconciliation must never run for one: the teams stay
+      // the exact same slots, in the exact same order, with the exact same ids.
+      expect(after.teams.flatMap(team => team.slots.map(slot => slot.id))).toEqual(slotIds)
+      expect(after.teams).toEqual(before.teams)
+      expect(after.bench).toEqual(before.bench)
+      expect(lobbyPublishes(id)).toEqual([
+        {
+          type: 'settingsChange',
+          changedSettings: ['name'],
+          lobby: after,
+        },
+      ])
+      // The list shows the lobby's name, so it has to be told about the change too
+      expect(listPublishes()).toEqual([
+        { action: 'update', payload: expect.objectContaining({ name: 'Renamed lobby' }) },
+      ])
+    })
+
+    test('a rename combined with another setting reports both as changed', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({
+        client: host.client,
+        lobbyId: id,
+        name: 'Renamed lobby',
+        useLegacyLimits: true,
+      })
+
+      const lobby = lobbyService.lobbies.get(id)!
+      expect(lobby.name).toBe('Renamed lobby')
+      expect(lobby.useLegacyLimits).toBe(true)
+      expect(lobbyPublishes(id)).toEqual([
+        {
+          type: 'settingsChange',
+          changedSettings: ['name', 'useLegacyLimits'],
+          lobby,
+        },
+      ])
+    })
+
+    test('naming the current name verbatim changes nothing', async () => {
+      const { id } = await createLobby(host, 'Listed lobby', 'listed')
+      fakeNydus.publish.mockClear()
+
+      await lobbyService.updateSettings({ client: host.client, lobbyId: id, name: 'Listed lobby' })
+
+      expect(lobbyPublishes(id)).toEqual([])
+      expect(listPublishes()).toEqual([])
+    })
   })
 
   describe('moveSlot', () => {
