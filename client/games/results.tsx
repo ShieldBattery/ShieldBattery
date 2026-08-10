@@ -1,5 +1,4 @@
 import type { TFunction } from 'i18next'
-import { useAtomValue } from 'jotai'
 import { Transition } from 'motion/react'
 import * as m from 'motion/react-m'
 import * as React from 'react'
@@ -9,7 +8,7 @@ import styled from 'styled-components'
 import { ReadonlyDeep } from 'type-fest'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { getErrorStack } from '../../common/errors'
-import { GameConfigPlayer, GameSource } from '../../common/games/configuration'
+import { GameConfigPlayer } from '../../common/games/configuration'
 import { isTeamType } from '../../common/games/game-type'
 import {
   GameDebugInfoJson,
@@ -41,13 +40,11 @@ import { openDialog, openSimpleDialog } from '../dialogs/action-creators'
 import { DialogType } from '../dialogs/dialog-type'
 import { longTimestamp, longTimestampWithSeconds } from '../i18n/date-formats'
 import { MaterialIcon } from '../icons/material/material-icon'
-import FindMatchIcon from '../icons/shieldbattery/ic_satellite_dish_black_36px.svg?react'
 import { RaceIcon } from '../lobbies/race-icon'
 import logger from '../logging/logger'
 import { batchGetMapInfo } from '../maps/action-creators'
 import { ReduxMapThumbnail } from '../maps/map-thumbnail'
-import { isMatchmakingAtom } from '../matchmaking/matchmaking-atoms'
-import { FilledButton, IconButton, OutlinedButton, useButtonState } from '../material/button'
+import { IconButton, OutlinedButton, useButtonState } from '../material/button'
 import { buttonReset } from '../material/button-reset'
 import { Card } from '../material/card'
 import { Ripple } from '../material/ripple'
@@ -79,7 +76,6 @@ import { navigateToUserProfile } from '../users/action-creators'
 import { ConnectedUsername } from '../users/connected-username'
 import {
   navigateToGameResults,
-  searchAgainFromGame,
   subscribeToGame,
   unsubscribeFromGame,
   viewGame,
@@ -162,11 +158,6 @@ const LiveFinalIndicator = styled.div<{ $isLive: boolean }>`
   color: ${props => (props.$isLive ? 'var(--color-amber90)' : 'var(--theme-on-surface)')};
 `
 
-const StyledFindMatchIcon = styled(FindMatchIcon)`
-  height: 24px;
-  width: auto;
-`
-
 const gameDateFormat = new Intl.DateTimeFormat(navigator.language, {
   year: 'numeric',
   month: 'short',
@@ -203,7 +194,6 @@ export function ConnectedGameResultsPage({
   const [isLoading, setIsLoading] = useState(!game)
   const cancelLoadRef = useRef(new AbortController())
   const cancelSaveRef = useRef(new AbortController())
-  const canSearchMatchmaking = !useAtomValue(isMatchmakingAtom)
   const [isDownloadingReplay, setIsDownloadingReplay] = useState(false)
   const [isSavingReplay, setIsSavingReplay] = useState(false)
   const [isReplaySaved, setIsReplaySaved] = useState(false)
@@ -334,15 +324,6 @@ export function ConnectedGameResultsPage({
     return t('gameDetails.headlineDefault', 'Results')
   }, [game, t, selfUser])
 
-  const config = game?.config
-  const onSearchAgain = useCallback(() => {
-    if (!config || config.gameSource !== GameSource.Matchmaking) {
-      return
-    }
-
-    dispatch(searchAgainFromGame(config))
-  }, [config, dispatch])
-
   const onWatchReplay = () => {
     if (!replayInfo || !IS_ELECTRON) return
 
@@ -427,8 +408,6 @@ export function ConnectedGameResultsPage({
       content = assertUnreachable(subPage)
   }
 
-  const showSearchAgain = isPostGame && config?.gameSource === GameSource.Matchmaking
-  const disableSearchAgain = !canSearchMatchmaking
   const isLive = !game?.results
 
   const selfIsParticipant =
@@ -487,14 +466,6 @@ export function ConnectedGameResultsPage({
         </LiveFinalIndicator>
       </HeaderArea>
       <ButtonBar>
-        {showSearchAgain ? (
-          <FilledButton
-            label={t('gameDetails.buttonSearchAgain', 'Search again')}
-            iconStart={<StyledFindMatchIcon />}
-            disabled={disableSearchAgain}
-            onClick={onSearchAgain}
-          />
-        ) : null}
         {replayInfo && IS_ELECTRON ? (
           <OutlinedButton
             label={

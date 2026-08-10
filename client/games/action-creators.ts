@@ -1,20 +1,12 @@
-import { Immutable } from 'immer'
-import { ReadonlyDeep } from 'type-fest'
-import { GameConfig, GameSource } from '../../common/games/configuration'
 import { GetGameResponse, GetGamesQueryParams, GetGamesResponse } from '../../common/games/games'
-import { MatchmakingPreferences } from '../../common/matchmaking'
 import { apiUrl, urlPath } from '../../common/urls'
 import { ThunkAction } from '../dispatch-registry'
-import i18n from '../i18n/i18next'
 import logger from '../logging/logger'
-import { findMatch } from '../matchmaking/action-creators'
 import { push } from '../navigation/routing'
 import { RequestHandlingSpec, abortableThunk } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { fetchJson } from '../network/fetch'
 import { RequestCoalescer } from '../network/request-coalescer'
-import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
-import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { buildGameListSearchParams } from './game-filter-url'
 import { ResultsSubPage } from './results-sub-page'
 import { toRouteGameId } from './route-game-id'
@@ -97,47 +89,6 @@ export function unsubscribeFromGame(gameId: string): ThunkAction {
         // user to know about
         logger.error(`Error unsubscribing from game ${gameId}: ${(err as any)?.stack ?? err}`)
       },
-    )
-  }
-}
-
-export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): ThunkAction {
-  return (dispatch, getState) => {
-    if (gameConfig.gameSource !== GameSource.Matchmaking) {
-      return
-    }
-
-    const matchmakingType = gameConfig.gameSourceExtra.type
-
-    const {
-      matchmakingPreferences: { byType },
-    } = getState()
-    const prefs = byType.get(matchmakingType)?.preferences
-
-    if (!prefs) {
-      // The preferences subscription seeds defaults for every type on connect, so this only happens
-      // if we haven't received that event yet.
-      externalShowSnackbar(
-        i18n.t(
-          'matchmaking.findMatch.errors.searchAgainError',
-          'There was a problem searching for a match',
-        ),
-        DURATION_LONG,
-      )
-      return
-    }
-
-    // TS can't infer the mutable element type through the Immutable store union, so we cast
-    const typedPrefs = prefs as Immutable<MatchmakingPreferences>
-
-    dispatch(
-      findMatch([typedPrefs], {
-        onSuccess: () => {},
-        onError: () => {
-          // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
-          // creator
-        },
-      }),
     )
   }
 }

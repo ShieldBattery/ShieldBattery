@@ -1,8 +1,11 @@
 import { Immutable } from 'immer'
+import { ReadonlyDeep } from 'type-fest'
 import swallowNonBuiltins from '../../common/async/swallow-non-builtins'
 import { getErrorStack } from '../../common/errors'
+import { GameConfig, GameSource } from '../../common/games/configuration'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
+  ALL_MATCHMAKING_TYPES,
   DraftChatMessageRequest,
   DraftLockPickRequest,
   DraftProvisionalPickRequest,
@@ -29,8 +32,10 @@ import { abortableThunk, RequestHandlingSpec } from '../network/abortable-thunk'
 import { clientId } from '../network/client-id'
 import { encodeBodyAsParams, fetchJson } from '../network/fetch'
 import { isFetchError } from '../network/fetch-errors'
+import { externalShowSnackbar } from '../snackbars/snackbar-controller-registry'
+import { DURATION_LONG } from '../snackbars/snackbar-durations'
 import { draftStateAtom, updateLockedPickAtom, updateProvisionalPickAtom } from './draft-atoms'
-import { clearMatchmakingState, hasAcceptedAtom } from './matchmaking-atoms'
+import { clearMatchmakingState, findMatchSelectionAtom, hasAcceptedAtom } from './matchmaking-atoms'
 
 const ipcRenderer = new TypedIpcRenderer()
 
@@ -131,6 +136,70 @@ export function findMatch(
 
     await findPromise
   })
+}
+
+/**
+ * Queues for matchmaking after a completed game, searching the same set of modes as the user's
+ * most recent search rather than just the mode that game happened to match into.
+ */
+export function searchAgainFromGame(gameConfig: ReadonlyDeep<GameConfig>): ThunkAction {
+  return (dispatch, getState) => {
+    if (gameConfig.gameSource !== GameSource.Matchmaking) {
+      return
+    }
+
+    const {
+      auth,
+      matchmakingPreferences: { byType },
+      matchmakingStatus,
+    } = getState()
+
+    // The same derivation the find-match screen uses for its mode checkboxes: the modes toggled
+    // this session if that selection belongs to this user, otherwise the server-persisted
+    // selection from the most recent search. Disabled modes are dropped because the server
+    // rejects the entire request if any requested mode is disabled.
+    const sessionSelection = jotaiStore.get(findMatchSelectionAtom)
+    const selectedTypes: Iterable<MatchmakingType> =
+      sessionSelection && sessionSelection.userId === auth.self?.user.id
+        ? sessionSelection.types
+        : ALL_MATCHMAKING_TYPES.filter(type => byType.get(type)?.selected)
+
+    let types = Array.from(selectedTypes).filter(
+      type => matchmakingStatus.byType.get(type)?.enabled,
+    )
+    if (!types.length) {
+      types = [gameConfig.gameSourceExtra.type]
+    }
+
+    const allPrefs: Immutable<MatchmakingPreferences>[] = []
+    for (const type of types) {
+      const prefs = byType.get(type)?.preferences
+      if (!prefs) {
+        // The preferences subscription seeds defaults for every type on connect, so this only
+        // happens if we haven't received that event yet.
+        externalShowSnackbar(
+          i18n.t(
+            'matchmaking.findMatch.errors.searchAgainError',
+            'There was a problem searching for a match',
+          ),
+          DURATION_LONG,
+        )
+        return
+      }
+      // TS can't infer the mutable element type through the Immutable store union, so we cast
+      allPrefs.push(prefs as Immutable<MatchmakingPreferences>)
+    }
+
+    dispatch(
+      findMatch(allPrefs, {
+        onSuccess: () => {},
+        onError: () => {
+          // NOTE(tec27): This promise actually can't fail, the error is handled inside the action
+          // creator
+        },
+      }),
+    )
+  }
 }
 
 export function cancelFindMatch(spec: RequestHandlingSpec<void>): ThunkAction {
