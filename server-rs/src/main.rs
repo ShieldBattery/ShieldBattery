@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -19,7 +20,15 @@ use tower_http::normalize_path::NormalizePathLayer;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    color_eyre::install()?;
+    // Only style eyre reports when a human is watching: our logs go to stdout, and when that's a
+    // pipe (e.g. shipped to datadog) ANSI escapes would end up as garbage in the log index.
+    if std::io::stdout().is_terminal() {
+        color_eyre::install()?;
+    } else {
+        color_eyre::config::HookBuilder::new()
+            .theme(color_eyre::config::Theme::new())
+            .install()?;
+    }
 
     if let Err(e) = dotenvy::dotenv() {
         match e {
