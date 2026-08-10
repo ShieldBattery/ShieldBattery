@@ -50,13 +50,27 @@ export enum SlotAction {
 const RailRoot = styled.div`
   width: 360px;
   flex-shrink: 0;
+  min-height: 0;
+
+  display: flex;
+  flex-direction: column;
+
+  border-left: 1px solid var(--theme-outline-variant);
+`
+
+/**
+ * Everything above the start controls, scrolling on its own so they stay put while a long slot
+ * list doesn't.
+ */
+const RailScroll = styled.div`
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 12px;
 
   display: flex;
   flex-direction: column;
   gap: 8px;
 
-  border-left: 1px solid var(--theme-outline-variant);
   overflow-y: auto;
 `
 
@@ -204,12 +218,14 @@ const SlotMenuButton = styled(IconButton)`
 `
 
 const RailFoot = styled.div`
-  margin-top: auto;
-  padding-top: 12px;
+  flex-shrink: 0;
+  padding: 12px;
 
   display: flex;
   flex-direction: column;
   gap: 8px;
+
+  border-top: 1px solid var(--theme-outline-variant);
 `
 
 const ReadyProgress = styled.div`
@@ -543,56 +559,58 @@ export function RoomRail({
 
   return (
     <RailRoot>
-      {playerTeams.map(([teamIndex, team]) => (
-        <Section key={team.teamId}>
-          <SectionHeading>
-            Team {teamIndex + 1}
-            {team.name ? ` · ${team.name}` : ''}
-          </SectionHeading>
-          {team.slots.map(slot => (
-            <SlotRow
-              {...slotRowProps}
-              key={slot.id}
-              slot={slot}
-              isObserverTeam={false}
-              isReady={!!slot.userId && readyUsers.has(slot.userId)}
-            />
-          ))}
-        </Section>
-      ))}
+      <RailScroll>
+        {playerTeams.map(([teamIndex, team]) => (
+          <Section key={team.teamId}>
+            <SectionHeading>
+              Team {teamIndex + 1}
+              {team.name ? ` · ${team.name}` : ''}
+            </SectionHeading>
+            {team.slots.map(slot => (
+              <SlotRow
+                {...slotRowProps}
+                key={slot.id}
+                slot={slot}
+                isObserverTeam={false}
+                isReady={!!slot.userId && readyUsers.has(slot.userId)}
+              />
+            ))}
+          </Section>
+        ))}
 
-      {observerTeam ? (
-        <Section>
-          <SectionHeading>
-            Observers · {observerCount}/{observerTeam.slots.length}
-          </SectionHeading>
-          {observerTeam.slots.map(slot => (
-            <SlotRow
-              {...slotRowProps}
-              key={slot.id}
-              slot={slot}
-              isObserverTeam={true}
-              isReady={!!slot.userId && readyUsers.has(slot.userId)}
-            />
-          ))}
-        </Section>
-      ) : null}
+        {observerTeam ? (
+          <Section>
+            <SectionHeading>
+              Observers · {observerCount}/{observerTeam.slots.length}
+            </SectionHeading>
+            {observerTeam.slots.map(slot => (
+              <SlotRow
+                {...slotRowProps}
+                key={slot.id}
+                slot={slot}
+                isObserverTeam={true}
+                isReady={!!slot.userId && readyUsers.has(slot.userId)}
+              />
+            ))}
+          </Section>
+        ) : null}
 
-      {lobby.bench.length ? (
-        <Section>
-          <BenchHeading>
-            <span>Bench · {lobby.bench.length}</span>
-            <Tooltip text='Joined while seats were full — the first in line takes the next opening'>
-              <BenchInfoIcon>
-                <MaterialIcon icon='info' size={14} />
-              </BenchInfoIcon>
-            </Tooltip>
-          </BenchHeading>
-          {lobby.bench.map(benched => (
-            <BenchRow key={benched.userId} userId={benched.userId} />
-          ))}
-        </Section>
-      ) : null}
+        {lobby.bench.length ? (
+          <Section>
+            <BenchHeading>
+              <span>Bench · {lobby.bench.length}</span>
+              <Tooltip text='Joined while seats were full — the first in line takes the next opening'>
+                <BenchInfoIcon>
+                  <MaterialIcon icon='info' size={14} />
+                </BenchInfoIcon>
+              </Tooltip>
+            </BenchHeading>
+            {lobby.bench.map(benched => (
+              <BenchRow key={benched.userId} userId={benched.userId} />
+            ))}
+          </Section>
+        ) : null}
+      </RailScroll>
 
       <RailFoot>
         <StartControls
