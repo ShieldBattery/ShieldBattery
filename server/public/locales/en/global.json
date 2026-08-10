@@ -1107,6 +1107,7 @@
     "browser": {
       "benchCaptionBenchFull": "The lobby and its bench are both full",
       "benchCaptionFull": "Lobby is full, so you'll wait on the bench for a seat",
+      "benchCaptionInGame": "The game is running, so you'll wait on the bench for the next one",
       "benchCaptionObserverFallback": "Player slots are full, so joining will seat you as an observer",
       "benchWaiting_one": "{{count}} waiting for a seat",
       "benchWaiting_other": "{{count}} waiting for a seat",
@@ -1122,6 +1123,7 @@
       "friendsInside_one": "{{count}} friend is in this lobby",
       "friendsInside_other": "{{count}} friends are in this lobby",
       "full": "Full",
+      "inGame": "In game",
       "joinAsObserver": "Join as observer",
       "joinLobby": "Join lobby",
       "legacyLimits": "Legacy limits",

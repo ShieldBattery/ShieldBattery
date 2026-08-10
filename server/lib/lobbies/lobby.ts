@@ -178,10 +178,14 @@ function toSummarySlotCounts(
  * Two calls on structurally equal lobbies produce identical JSON (the fields are written in a fixed
  * order), so callers can compare serialized summaries to tell whether a change is one the list
  * would show at all.
+ *
+ * `elapsedMs` is only carried into the result when `lifecycle` is `inGame`, since it describes a
+ * running game's duration.
  */
 export function toSummaryJson(
   lobby: Lobby,
   lifecycle: LobbyLifecycle = 'gathering',
+  elapsedMs?: number,
 ): LobbySummaryJson {
   return {
     id: lobby.id,
@@ -194,6 +198,7 @@ export function toSummaryJson(
     ...toSummarySlotCounts(lobby),
     benchCount: lobby.bench.length,
     lifecycle,
+    ...(lifecycle === 'inGame' && elapsedMs !== undefined ? { elapsedMs } : {}),
     createdAt: lobby.createdAt,
   }
 }

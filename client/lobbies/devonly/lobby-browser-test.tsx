@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { GameType } from '../../../common/games/game-type'
 import {
+  LobbyLifecycle,
   LobbyPreviewJson,
   LobbySummaryJson,
   LobbySummarySlotJson,
@@ -117,6 +118,10 @@ interface SummarySpec {
   useLegacyLimits?: boolean
   /** How many members wait on the bench for a seat. */
   benchCount?: number
+  /** Where the lobby is in its life; defaults to `gathering`. */
+  lifecycle?: LobbyLifecycle
+  /** How long the lobby's game has been running, when `lifecycle` is `inGame`. */
+  elapsedMs?: number
   /** Minutes ago the lobby was created. */
   ageMinutes: number
 }
@@ -163,6 +168,10 @@ function makePreview(spec: SummarySpec): LobbyPreviewJson {
     useLegacyLimits: spec.useLegacyLimits ?? false,
     ...slotCounts(spec.teams),
     benchCount: spec.benchCount ?? 0,
+    lifecycle: spec.lifecycle ?? 'gathering',
+    ...(spec.lifecycle === 'inGame' && spec.elapsedMs !== undefined
+      ? { elapsedMs: spec.elapsedMs }
+      : {}),
     createdAt: Date.now() - spec.ageMinutes * MINUTE,
     teams: spec.teams,
   }
@@ -202,6 +211,9 @@ function busyEveningLobbies(): LobbyPreviewJson[] {
       map: FightingSpirit,
       gameType: GameType.UseMapSettings,
       host: MERCY,
+      lifecycle: 'inGame',
+      elapsedMs: 38 * MINUTE,
+      benchCount: 1,
       ageMinutes: 45,
       teams: [
         team('Players', [

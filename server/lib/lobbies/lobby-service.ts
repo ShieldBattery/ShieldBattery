@@ -295,7 +295,7 @@ export class LobbyService {
       if (lifecycle === 'countingDown' || lifecycle === 'loading') {
         return undefined
       }
-      return Lobbies.toSummaryJson(lobby, lifecycle)
+      return this._toSummaryJson(lobby)
     })
     setLobbyJoinCodeGetter(id => this.lobbyJoinCodes.get(id))
     setLobbyIdByJoinCodeGetter(code => this.joinCodeToLobby.get(code))
@@ -373,9 +373,21 @@ export class LobbyService {
     return 'gathering'
   }
 
-  /** Serializes a lobby to its list/status summary, with its current lifecycle attached. */
+  /**
+   * How long a lobby's game has been running, for a summary's `elapsedMs`. `undefined` when the
+   * lobby has no game in progress.
+   */
+  private _elapsedMsOf(lobbyId: SbLobbyId): number | undefined {
+    const runState = this.runStates.get(lobbyId)
+    return runState ? Date.now() - runState.startedAt : undefined
+  }
+
+  /**
+   * Serializes a lobby to its list/status summary, with its current lifecycle attached and a
+   * freshly computed `elapsedMs` when it's `inGame`.
+   */
   private _toSummaryJson(lobby: Lobby): LobbySummaryJson {
-    return Lobbies.toSummaryJson(lobby, this._lifecycleOf(lobby.id))
+    return Lobbies.toSummaryJson(lobby, this._lifecycleOf(lobby.id), this._elapsedMsOf(lobby.id))
   }
 
   /** Serializes a lobby's running game for the wire, or `undefined` if it has none. */
@@ -385,7 +397,7 @@ export class LobbyService {
       ? {
           gameId: runState.gameId,
           inGameUsers: [...runState.inGameUsers],
-          elapsedMs: Date.now() - runState.startedAt,
+          elapsedMs: this._elapsedMsOf(lobbyId)!,
         }
       : undefined
   }
@@ -396,7 +408,7 @@ export class LobbyService {
       .filter(l => l.visibility === 'listed')
       .map(l => [l, this._lifecycleOf(l.id)] as const)
       .filter(([, lifecycle]) => lifecycle !== 'countingDown' && lifecycle !== 'loading')
-      .map(([lobby, lifecycle]) => Lobbies.toSummaryJson(lobby, lifecycle))
+      .map(([lobby]) => this._toSummaryJson(lobby))
   }
 
   async createLobby({
@@ -765,7 +777,7 @@ export class LobbyService {
     user.subscribe(getLobbyUserPath(lobbyId, user.userId), () => {
       return {
         type: 'status',
-        lobby: Lobbies.toSummaryJson(this.lobbies.get(lobbyId)!, this._lifecycleOf(lobbyId)),
+        lobby: this._toSummaryJson(this.lobbies.get(lobbyId)!),
       }
     })
     client.subscribe(getLobbyClientPath(lobbyId, client.userId, client.clientId))
@@ -2061,10 +2073,7 @@ export class LobbyService {
     if (lobby.visibility === 'listed') {
       this.publisher.publish(LOBBY_LIST_PATH, {
         action,
-        payload:
-          action === 'delete'
-            ? lobby.id
-            : Lobbies.toSummaryJson(lobby, this._lifecycleOf(lobby.id)),
+        payload: action === 'delete' ? lobby.id : this._toSummaryJson(lobby),
       })
     }
     if (action !== 'update') {
@@ -2247,14 +2256,19 @@ export class LobbyService {
     // Previewers are looking at this lobby specifically and want every seat as it moves. Their
     // channel is empty whenever nobody has the lobby selected, so publishing unconditionally costs
     // nothing in the common case.
-    const newSummary = this._toSummaryJson(newLobby)
+    const lifecycle = this._lifecycleOf(newLobby.id)
+    const elapsedMs = this._elapsedMsOf(newLobby.id)
+    const newSummary = Lobbies.toSummaryJson(newLobby, lifecycle, elapsedMs)
     this._publishPreview(newLobby, newSummary)
 
     // The list, on the other hand, reaches every browser on the server, and its rows only show
     // the summary's scalars. A race pick leaves all of them identical, so republishing would wake
     // every subscriber to redraw nothing. (A seat swap does republish: it reorders the summary's
     // occupantIds, whose order is the seating order the friend stacks display.)
-    if (JSON.stringify(this._toSummaryJson(oldLobby)) !== JSON.stringify(newSummary)) {
+    if (
+      JSON.stringify(Lobbies.toSummaryJson(oldLobby, lifecycle, elapsedMs)) !==
+      JSON.stringify(newSummary)
+    ) {
       this._publishListChange('update', newLobby)
     }
   }

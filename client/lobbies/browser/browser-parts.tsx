@@ -61,3 +61,16 @@ export function HostCrown({ tabIndex }: { tabIndex?: number }) {
     </Tooltip>
   )
 }
+
+/** Formats a game's length as `M:SS`, growing to `H:MM:SS` once it runs past an hour. */
+export function formatGameDuration(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000))
+  const seconds = totalSeconds % 60
+  const minutes = Math.floor(totalSeconds / 60) % 60
+  const hours = Math.floor(totalSeconds / 3600)
+
+  const paddedSeconds = String(seconds).padStart(2, '0')
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${paddedSeconds}`
+    : `${minutes}:${paddedSeconds}`
+}

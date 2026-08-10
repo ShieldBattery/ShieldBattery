@@ -216,6 +216,11 @@ export interface LobbySummaryJson {
   benchCount: number
   /** Where the lobby is in its life; a lobby with a game running stays listed and joinable. */
   lifecycle: LobbyLifecycle
+  /**
+   * How long the lobby's game had been running when this was serialized; only present when
+   * `lifecycle` is `inGame`. Clients anchor a local timer on receipt to show a ticking readout.
+   */
+  elapsedMs?: number
   /** When the lobby was created (Unix millis). */
   createdAt: number
 }
@@ -254,7 +259,13 @@ export interface LobbySummaryResponse {
    */
   summary: Omit<
     LobbySummaryJson,
-    'map' | 'createdAt' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds' | 'benchCount'
+    | 'map'
+    | 'createdAt'
+    | 'observerSlots'
+    | 'hasObserverTeam'
+    | 'occupantIds'
+    | 'benchCount'
+    | 'elapsedMs'
   > & { map: LobbySummaryMapJson }
   host: SbUser
   /**
