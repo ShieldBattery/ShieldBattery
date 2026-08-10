@@ -28,6 +28,7 @@ function makeSummary(overrides: Partial<LobbySummaryJson> = {}): LobbySummaryJso
     gameSubType: 0,
     host: { id: TEC27 },
     useLegacyLimits: false,
+    benchCount: 0,
     playerSlots: { taken: 0, total: 0, open: 0 },
     observerSlots: { taken: 0, open: 0 },
     hasObserverTeam: false,

@@ -76,6 +76,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   playerSlots: { taken: 1, total: 4, open: 3 },
   observerSlots: { taken: 1, open: 2 },
   hasObserverTeam: true,
+  benchCount: 0,
   occupantIds: [HOST_ID, makeSbUserId(9)],
   createdAt: 1234567890,
 }
@@ -105,7 +106,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
 
     // A field added to LobbySummaryJson later (e.g. a player list) must never silently join this
     // unauthenticated response -- nor may the ones it already carries but this endpoint withholds
-    // (`occupantIds`, `observerSlots`, `hasObserverTeam`).
+    // (`occupantIds`, `observerSlots`, `hasObserverTeam`, `benchCount`).
     expect(Object.keys(response.summary).sort()).toEqual(
       [
         'gameSubType',

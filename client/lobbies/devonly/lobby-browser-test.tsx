@@ -115,6 +115,8 @@ interface SummarySpec {
   host: SbUserId
   teams: LobbySummaryTeamJson[]
   useLegacyLimits?: boolean
+  /** How many members wait on the bench for a seat. */
+  benchCount?: number
   /** Minutes ago the lobby was created. */
   ageMinutes: number
 }
@@ -160,6 +162,7 @@ function makePreview(spec: SummarySpec): LobbyPreviewJson {
     host: { id: spec.host },
     useLegacyLimits: spec.useLegacyLimits ?? false,
     ...slotCounts(spec.teams),
+    benchCount: spec.benchCount ?? 0,
     createdAt: Date.now() - spec.ageMinutes * MINUTE,
     teams: spec.teams,
   }
@@ -286,6 +289,7 @@ function allFullLobbies(): LobbyPreviewJson[] {
       map: FightingSpirit,
       gameType: GameType.Melee,
       host: TEC27,
+      benchCount: 2,
       ageMinutes: 14,
       teams: [team('', [human(TEC27, 't'), human(PACHI, 'z'), human(KOALA, 'p'), computer('r')])],
     }),
