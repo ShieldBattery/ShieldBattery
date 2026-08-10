@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import styled from 'styled-components'
 import { registerSecondsListener } from '../../matchmaking/elapsed-time'
-import { formatGameDuration, LobbyChip } from './browser-parts'
+import { formatGameDuration, RoomChip } from '../room/room-parts'
 
 function AnchoredElapsedTime({ elapsedMs }: { elapsedMs: number }) {
   const [anchoredAt] = useState(() => performance.now())
@@ -25,7 +25,7 @@ export function GameElapsedTime({ elapsedMs }: { elapsedMs: number }) {
   return <AnchoredElapsedTime key={elapsedMs} elapsedMs={elapsedMs} />
 }
 
-const ChipRoot = styled(LobbyChip)`
+const ChipRoot = styled(RoomChip)`
   flex-shrink: 0;
 
   border-color: rgb(from var(--theme-amber) r g b / 0.32);
