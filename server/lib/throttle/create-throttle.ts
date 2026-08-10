@@ -9,12 +9,16 @@ import { Redis } from '../redis/redis'
  * Bucket state is a hash of `tokens` (possibly fractional) and `time` (last update, unix ms).
  * Tokens refill continuously at `rate` per `window` up to a maximum of `burst`.
  *
+ * Time comes from Redis's own clock (`TIME`), not the caller's: with a caller-supplied clock, two
+ * processes whose clocks disagree by more than one token interval could ping-pong the stored
+ * timestamp and re-credit the skew interval on every alternation, refilling the bucket almost
+ * immediately. A single shared clock makes that impossible.
+ *
  * KEYS[1]: bucket key
  * ARGV[1]: rate (tokens refilled per window)
  * ARGV[2]: burst (maximum bucket capacity)
  * ARGV[3]: window (milliseconds)
- * ARGV[4]: current time (unix milliseconds)
- * ARGV[5]: key expiry (seconds)
+ * ARGV[4]: key expiry (seconds)
  *
  * Returns `{limited, waitMs}` where `limited` is 1 if the request should be rejected, and
  * `waitMs` is how long until a token will be available (0 when not limited).
@@ -27,7 +31,9 @@ export const TOKEN_BUCKET_LUA = `
   local rate = tonumber(ARGV[1])
   local burst = tonumber(ARGV[2])
   local window = tonumber(ARGV[3])
-  local now = tonumber(ARGV[4])
+
+  local t = redis.call('TIME')
+  local now = t[1] * 1000 + math.floor(t[2] / 1000)
 
   local bucket = redis.call('HMGET', KEYS[1], 'tokens', 'time')
   local tokens = tonumber(bucket[1])
@@ -36,7 +42,7 @@ export const TOKEN_BUCKET_LUA = `
     tokens = burst
     time = now
   end
-  -- Guard against clock adjustments moving now before the stored time
+  -- Guard against the Redis host's clock stepping backwards
   if now < time then
     time = now
   end
@@ -52,7 +58,7 @@ export const TOKEN_BUCKET_LUA = `
   end
 
   redis.call('HSET', KEYS[1], 'tokens', tokens, 'time', now)
-  redis.call('EXPIRE', KEYS[1], ARGV[5])
+  redis.call('EXPIRE', KEYS[1], ARGV[4])
   return {limited, waitMs}
 `
 
@@ -63,7 +69,6 @@ interface ThrottleRedis extends Redis {
     rate: number,
     burst: number,
     windowMs: number,
-    nowMs: number,
     expirySecs: number,
   ): Promise<[limited: number, waitMs: number]>
 }
@@ -117,7 +122,6 @@ export class TokenBucketThrottle {
       rate,
       burst,
       window,
-      Date.now(),
       expiry,
     )
     return { limited: limited === 1, waitMs }
