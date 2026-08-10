@@ -5,21 +5,16 @@ import { matchmakingTypeToLabel } from '../../common/matchmaking'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { gameLoadingStatusAtom } from '../games/game-atoms'
 import { launchingMatchmakingTypeAtom } from '../matchmaking/matchmaking-atoms'
-import { Dialog } from '../material/dialog'
+import { Dialog, Title } from '../material/dialog'
 import { LoadingDotsArea } from '../progress/dots'
-import { bodyLarge, labelMedium } from '../styles/typography'
+import { bodyLarge } from '../styles/typography'
 
 const StyledDialog = styled(Dialog)`
   max-width: 480px;
-`
 
-const ModeLabel = styled.div`
-  ${labelMedium};
-  margin-top: -12px;
-  margin-bottom: 16px;
-
-  color: var(--theme-on-surface-variant);
-  text-align: center;
+  & ${Title} {
+    text-align: center;
+  }
 `
 
 const StatusText = styled.div`
@@ -45,10 +40,8 @@ export function LaunchingGameDialog({ onCancel }: CommonDialogProps) {
     <StyledDialog
       onCancel={onCancel}
       title={t('game.launchingGameDialog.title', 'Launching game…')}
+      overline={matchmakingType ? matchmakingTypeToLabel(matchmakingType, t) : undefined}
       showCloseButton={false}>
-      {matchmakingType ? (
-        <ModeLabel>{matchmakingTypeToLabel(matchmakingType, t)}</ModeLabel>
-      ) : undefined}
       <LoadingDotsArea />
       {statusLine ? <StatusText>{statusLine}</StatusText> : null}
     </StyledDialog>

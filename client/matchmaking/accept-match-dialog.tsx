@@ -1,8 +1,8 @@
 import { useAtomValue, useStore } from 'jotai'
 import * as m from 'motion/react-m'
 import { useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import styled from 'styled-components'
+import { Trans, useTranslation } from 'react-i18next'
+import styled, { css, keyframes } from 'styled-components'
 import { getErrorStack } from '../../common/errors'
 import { TypedIpcRenderer } from '../../common/ipc'
 import {
@@ -13,15 +13,15 @@ import {
 import { range } from '../../common/range'
 import { audioManager, AvailableSound, FadeableSound } from '../audio/audio-manager'
 import { playRandomTickSound } from '../audio/tick-sounds'
-import { Avatar } from '../avatars/avatar'
 import { CommonDialogProps } from '../dialogs/common-dialog-props'
 import { useKeyListener } from '../keyboard/key-listener'
 import logger from '../logging/logger'
 import { FilledButton, TextButton } from '../material/button'
-import { Dialog } from '../material/dialog'
+import { decelerateEasing, standardEasing } from '../material/curve-constants'
+import { Dialog, Title } from '../material/dialog'
 import { isFetchError } from '../network/fetch-errors'
 import { useAppDispatch } from '../redux-hooks'
-import { BodyMedium, labelMedium } from '../styles/typography'
+import { BodyMedium, sofiaSansCondensed } from '../styles/typography'
 import { acceptMatch } from './action-creators'
 import {
   clearMatchmakingState,
@@ -35,52 +35,177 @@ const ipcRenderer = new TypedIpcRenderer()
 const ENTER = 'Enter'
 const ENTER_NUMPAD = 'NumpadEnter'
 
+/**
+ * How many cells the accept countdown strip is divided into. Chosen so each cell covers a whole
+ * number of seconds of the accept window (3s at the standard 30s), keeping the per-second melt
+ * notches evenly sized across every cell.
+ */
+const TIMER_CELL_COUNT = 10
+/** Seconds remaining at which the countdown switches to the "low time" error treatment. */
+const LOW_TIME_SECONDS = 5
+/**
+ * How often the countdown re-renders. The cells melt in per-second notches, but a fast tick keeps
+ * the notch (and the waiting-state drain bar) landing close to the true second boundary.
+ */
+const TIMER_TICK_MS = 100
+
 const StyledDialog = styled(Dialog)`
   width: 400px;
-`
 
-const ModeLabel = styled.div`
-  ${labelMedium};
-  margin-top: -12px;
-  margin-bottom: 16px;
-
-  color: var(--theme-on-surface-variant);
-`
-
-const CenteredContainer = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  margin: 32px 0;
-`
-
-const AcceptMatchButton = styled(FilledButton)`
-  width: 162px;
-`
-
-const StyledAvatar = styled(Avatar)`
-  &:not(:first-child) {
-    margin-left: 8px;
+  & ${Title} {
+    text-align: center;
   }
 `
 
-const TimerBarContainer = styled.div`
-  position: relative;
-  width: 100%;
-  height: 8px;
-  background-color: var(--theme-container-highest);
+const StateContent = styled(m.div)`
+  text-align: center;
 `
 
-const FilledTimerBar = styled(m.div)`
-  position: absolute;
-  top: 0;
-  left: 0;
+const AcceptMatchButton = styled(FilledButton)`
   width: 100%;
-  height: 8px;
-  background-color: var(--theme-amber);
-  transform-origin: 0% 50%;
+  height: 44px;
+  margin-top: 20px;
 `
+
+const lowPulse = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+`
+
+/*
+  The leading-cell flash and the numeral pop re-run every second. Swapping between two identical
+  keyframes each second restarts the animation without remounting the element (which would also
+  reset the in-flight drain transitions on the cell itself).
+*/
+/*
+  The flash heats the color up (hue toward orange) rather than brightening it — the amber is
+  already at full RGB saturation, so any real brightness lift just clips the channels toward
+  white and reads as pale instead of intense.
+*/
+const cellFlashA = keyframes`
+  from { filter: hue-rotate(-15deg) brightness(1.1) drop-shadow(0 0 8px rgb(from var(--theme-amber) r g b / 0.85)); }
+  to { filter: hue-rotate(0deg) brightness(1) drop-shadow(0 0 3px rgb(from var(--theme-amber) r g b / 0.35)); }
+`
+const cellFlashB = keyframes`
+  from { filter: hue-rotate(-15deg) brightness(1.1) drop-shadow(0 0 8px rgb(from var(--theme-amber) r g b / 0.85)); }
+  to { filter: hue-rotate(0deg) brightness(1) drop-shadow(0 0 3px rgb(from var(--theme-amber) r g b / 0.35)); }
+`
+const numeralPopA = keyframes`
+  0% { transform: scale(1.28); }
+  45% { transform: scale(0.96); }
+  70% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+`
+const numeralPopB = keyframes`
+  0% { transform: scale(1.28); }
+  45% { transform: scale(0.96); }
+  70% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+`
+
+const TimerCellRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 18px;
+`
+
+const CellFlash = styled.div<{ $flash?: 'a' | 'b' }>`
+  animation: ${props =>
+    props.$flash
+      ? css`
+          ${props.$flash === 'a' ? cellFlashA : cellFlashB} 0.85s ${decelerateEasing}
+        `
+      : 'none'};
+`
+
+const TimerCell = styled.div<{ $pulsing: boolean }>`
+  width: 10px;
+  height: 18px;
+  border-radius: 2px;
+
+  animation: ${props =>
+    props.$pulsing
+      ? css`
+          ${lowPulse} 0.9s ease-in-out infinite
+        `
+      : 'none'};
+  transition:
+    background-color 0.2s,
+    transform 0.12s linear,
+    opacity 0.12s linear;
+`
+
+const TimerText = styled.span<{ $low: boolean; $parity: boolean }>`
+  ${sofiaSansCondensed};
+  font-size: 20px;
+  line-height: 24px;
+
+  display: inline-block;
+  margin-left: 8px;
+  transform-origin: center;
+
+  color: ${props => (props.$low ? 'var(--theme-error)' : 'var(--color-grey-blue80)')};
+  font-variant-numeric: tabular-nums;
+  animation: ${props => css`
+    ${props.$parity ? numeralPopA : numeralPopB} 0.4s ${decelerateEasing}
+  `};
+`
+
+const PlayerCellRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+`
+
+const PlayerCell = styled.div<{ $ready: boolean }>`
+  width: 18px;
+  height: 30px;
+  border-radius: 3px;
+
+  background-color: ${props => (props.$ready ? 'var(--theme-amber)' : 'var(--color-blue40)')};
+  box-shadow: ${props =>
+    props.$ready ? '0 0 10px rgb(from var(--theme-amber) r g b / 0.6)' : 'none'};
+  transform: skewX(-14deg);
+  transition:
+    background-color 0.25s ${standardEasing},
+    box-shadow 0.25s ${standardEasing};
+`
+
+const PlayerCountText = styled.span`
+  ${sofiaSansCondensed};
+  font-size: 22px;
+  line-height: 26px;
+
+  margin-left: 10px;
+
+  color: var(--theme-on-surface-variant);
+  font-variant-numeric: tabular-nums;
+`
+
+const DrainBar = styled.div`
+  height: 4px;
+  margin-top: 20px;
+  border-radius: 2px;
+
+  background-color: var(--theme-container-highest);
+  contain: paint;
+`
+
+const DrainBarFill = styled.div`
+  height: 100%;
+  transform-origin: 0 50%;
+  transition:
+    transform 0.12s linear,
+    background-color 0.3s;
+`
+
+const fadeUpInitial = { opacity: 0, y: 8 }
+const fadeUpAnimate = { opacity: 1, y: 0 }
+const fadeUpTransition = { duration: 0.3, ease: [0, 0, 0, 1] as [number, number, number, number] }
 
 export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
   const { t } = useTranslation()
@@ -108,13 +233,19 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
   let contents: React.ReactNode | undefined
   if (currentSearchInfo && !foundMatch) {
     contents = (
-      <p>
-        {t(
-          'matchmaking.acceptMatch.returningToQueue',
-          "Some players didn't ready up in time or failed to load. Returning to the matchmaking " +
-            'queue…',
-        )}
-      </p>
+      <StateContent
+        key='timeout'
+        initial={fadeUpInitial}
+        animate={fadeUpAnimate}
+        transition={fadeUpTransition}>
+        <BodyMedium>
+          {t(
+            'matchmaking.acceptMatch.returningToQueue',
+            "Some players didn't ready up in time or failed to load. Returning to the matchmaking " +
+              'queue…',
+          )}
+        </BodyMedium>
+      </StateContent>
     )
   } else if (!foundMatch) {
     // In this case, the dialog is about to close anyway
@@ -126,11 +257,9 @@ export function AcceptMatchDialog({ onCancel, close }: CommonDialogProps) {
   return (
     <StyledDialog
       title={t('matchmaking.acceptMatch.matchFound', 'Match found')}
+      overline={foundMatch ? matchmakingTypeToLabel(foundMatch.matchmakingType, t) : undefined}
       onCancel={onCancel}
       showCloseButton={false}>
-      {foundMatch ? (
-        <ModeLabel>{matchmakingTypeToLabel(foundMatch.matchmakingType, t)}</ModeLabel>
-      ) : undefined}
       {contents}
     </StyledDialog>
   )
@@ -145,29 +274,25 @@ function AcceptingStateView({ close }: { close: () => void }) {
 
   const acceptTimeTotal = foundMatch?.acceptTimeTotalMillis ?? MATCHMAKING_ACCEPT_MATCH_TIME_MS
   const acceptStart = foundMatch?.acceptStart ?? window.performance.now()
-  const [secondsLeft, setSecondsLeft] = useState(() => {
-    const elapsed = (window.performance.now() - acceptStart) / 1000
-    return Math.max(Math.ceil(acceptTimeTotal / 1000 - elapsed), 0)
-  })
+
+  const [now, setNow] = useState(() => window.performance.now())
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(window.performance.now())
+    }, TIMER_TICK_MS)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const remainingMillis = Math.max(0, acceptTimeTotal - (now - acceptStart))
+  const secondsLeft = Math.ceil(remainingMillis / 1000)
+  const remainingFrac = acceptTimeTotal > 0 ? remainingMillis / acceptTimeTotal : 0
+  const lowTime = secondsLeft <= LOW_TIME_SECONDS
+  const parity = secondsLeft % 2 === 1
 
   const acceptButtonRef = useRef<HTMLButtonElement>(null)
   const retries = useRef(0)
   const [acceptInProgress, setAcceptInProgress] = useState(false)
-
-  useEffect(() => {
-    const update = () => {
-      const elapsed = (window.performance.now() - acceptStart) / 1000
-      setSecondsLeft(Math.max(Math.ceil(acceptTimeTotal / 1000 - elapsed), 0))
-    }
-
-    const interval = setInterval(() => {
-      update()
-    }, 1000)
-
-    update()
-
-    return () => clearInterval(interval)
-  }, [acceptStart, acceptTimeTotal])
 
   // A value that never goes below 4 because the countdown sound covers all 5 ticks below that
   const soundTimeLeft = Math.max(4, secondsLeft)
@@ -201,75 +326,142 @@ function AcceptingStateView({ close }: { close: () => void }) {
     },
   })
 
-  const acceptedAvatars = Array.from(range(0, foundMatch?.acceptedPlayers ?? 0), i => (
-    <StyledAvatar key={i} color={'var(--theme-amber)'} glowing={true} />
-  ))
-  const unacceptedAvatars = Array.from(
-    range(foundMatch?.acceptedPlayers ?? 0, foundMatch?.numPlayers ?? 0),
-    i => <StyledAvatar key={i} />,
-  )
+  const numPlayers = foundMatch?.numPlayers ?? 0
+  const acceptedPlayers = foundMatch?.acceptedPlayers ?? 0
 
-  return (
-    <div>
-      <BodyMedium>
-        {t('matchmaking.acceptMatch.body', 'All players must ready up for the match to start.')}
-      </BodyMedium>
-      <CenteredContainer>
-        {hasAccepted ? (
-          [...acceptedAvatars, ...unacceptedAvatars]
-        ) : (
-          <AcceptMatchButton
-            ref={acceptButtonRef}
-            label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
-            onClick={event => {
-              logger.debug(`Accept match button clicked, programmatic: ${!event.isTrusted}`)
-              setAcceptInProgress(true)
-              dispatch(
-                acceptMatch({
-                  signal: AbortSignal.timeout(3000),
-                  callbackOnAbort: true,
-                  onSuccess: () => {
-                    logger.debug(`Accepted match successfully`)
-                    setAcceptInProgress(false)
-                  },
-                  onError: err => {
-                    if (
-                      isFetchError(err) &&
-                      err.code === MatchmakingServiceErrorCode.NoActiveMatch
-                    ) {
-                      logger.error('Accepting match failed, no active match: ' + getErrorStack(err))
-                      clearMatchmakingState(store)
-                      close()
-                    } else {
-                      logger.error(`Accepting match failed: ${getErrorStack(err)}`)
-                      setAcceptInProgress(false)
-                      setTimeout(() => {
-                        if (retries.current < 10) {
-                          retries.current++
-                          // Retry the accept after we let the button un-disable, since the user
-                          // almost certainly wants to and may not have much time to react to an
-                          // error
-                          logger.debug(`Retrying accept match...`)
-                          acceptButtonRef.current?.click()
-                        }
-                      }, 400)
-                    }
-                  },
-                }),
-              )
+  if (!hasAccepted) {
+    // Quantized to whole seconds so the leading cell melts in discrete notches that land exactly
+    // on the ticks (and thus stay in sync with the flash and the tick sounds), rather than
+    // draining smoothly between them.
+    const cellValue = ((secondsLeft * 1000) / acceptTimeTotal) * TIMER_CELL_COUNT
+    const leadIndex = Math.ceil(cellValue) - 1
+    // The flash accompanies a cell that just lost a notch but survived. On ticks where a cell
+    // dies instead, its collapse animation is the only accent — flashing the next cell at the
+    // same moment would have two cells animating at once.
+    const prevCellValue = (((secondsLeft + 1) * 1000) / acceptTimeTotal) * TIMER_CELL_COUNT
+    const flashIndex =
+      Math.ceil(prevCellValue) - 1 === leadIndex && prevCellValue <= TIMER_CELL_COUNT
+        ? leadIndex
+        : -1
+    const timerCells = Array.from(range(0, TIMER_CELL_COUNT), i => {
+      const fill = Math.max(0, Math.min(1, cellValue - i))
+      const lit = fill > 0
+
+      let backgroundColor = 'var(--theme-container-highest)'
+      if (lit) {
+        backgroundColor = lowTime ? 'var(--theme-error)' : 'var(--theme-amber)'
+      }
+      let flash: 'a' | 'b' | undefined
+      if (lit && i === flashIndex) {
+        flash = parity ? 'a' : 'b'
+      }
+
+      return (
+        <CellFlash key={i} $flash={flash}>
+          <TimerCell
+            $pulsing={lit && lowTime}
+            style={{
+              backgroundColor,
+              boxShadow:
+                lit && !lowTime
+                  ? `0 0 6px rgb(from var(--theme-amber) r g b / ${(0.4 * fill).toFixed(2)})`
+                  : 'none',
+              opacity: lit ? 0.3 + 0.7 * fill : 1,
+              transform: `skewX(-14deg) scaleY(${lit ? (0.45 + 0.55 * fill).toFixed(2) : 1})`,
             }}
-            disabled={acceptInProgress}
           />
-        )}
-      </CenteredContainer>
-      <TimerBarContainer>
-        <FilledTimerBar
-          animate={{ scaleX: (secondsLeft / acceptTimeTotal) * 1000 }}
-          transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+        </CellFlash>
+      )
+    })
+
+    return (
+      <StateContent
+        key='accept'
+        initial={fadeUpInitial}
+        animate={fadeUpAnimate}
+        transition={fadeUpTransition}>
+        <BodyMedium>
+          {t('matchmaking.acceptMatch.body', 'All players must ready up for the match to start.')}
+        </BodyMedium>
+        <AcceptMatchButton
+          ref={acceptButtonRef}
+          label={t('matchmaking.acceptMatch.readyUp', 'Ready up')}
+          onClick={event => {
+            logger.debug(`Accept match button clicked, programmatic: ${!event.isTrusted}`)
+            setAcceptInProgress(true)
+            dispatch(
+              acceptMatch({
+                signal: AbortSignal.timeout(3000),
+                callbackOnAbort: true,
+                onSuccess: () => {
+                  logger.debug(`Accepted match successfully`)
+                  setAcceptInProgress(false)
+                },
+                onError: err => {
+                  if (isFetchError(err) && err.code === MatchmakingServiceErrorCode.NoActiveMatch) {
+                    logger.error('Accepting match failed, no active match: ' + getErrorStack(err))
+                    clearMatchmakingState(store)
+                    close()
+                  } else {
+                    logger.error(`Accepting match failed: ${getErrorStack(err)}`)
+                    setAcceptInProgress(false)
+                    setTimeout(() => {
+                      if (retries.current < 10) {
+                        retries.current++
+                        // Retry the accept after we let the button un-disable, since the user
+                        // almost certainly wants to and may not have much time to react to an
+                        // error
+                        logger.debug(`Retrying accept match...`)
+                        acceptButtonRef.current?.click()
+                      }
+                    }, 400)
+                  }
+                },
+              }),
+            )
+          }}
+          disabled={acceptInProgress}
         />
-      </TimerBarContainer>
-    </div>
-  )
+        <TimerCellRow>
+          {timerCells}
+          <TimerText $low={lowTime} $parity={parity}>
+            {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+          </TimerText>
+        </TimerCellRow>
+      </StateContent>
+    )
+  } else {
+    const waitingCount = Math.max(0, numPlayers - acceptedPlayers)
+    return (
+      <StateContent
+        key='waiting'
+        initial={fadeUpInitial}
+        animate={fadeUpAnimate}
+        transition={fadeUpTransition}>
+        <BodyMedium>
+          <Trans t={t} i18nKey='matchmaking.acceptMatch.waitingForPlayers' count={waitingCount}>
+            Waiting for {{ count: waitingCount }} more players…
+          </Trans>
+        </BodyMedium>
+        <PlayerCellRow>
+          {Array.from(range(0, numPlayers), i => (
+            <PlayerCell key={i} $ready={i < acceptedPlayers} />
+          ))}
+          <PlayerCountText>
+            {acceptedPlayers}/{numPlayers}
+          </PlayerCountText>
+        </PlayerCellRow>
+        <DrainBar>
+          <DrainBarFill
+            style={{
+              transform: `scaleX(${remainingFrac.toFixed(3)})`,
+              backgroundColor: lowTime ? 'var(--theme-error)' : 'var(--theme-amber)',
+            }}
+          />
+        </DrainBar>
+      </StateContent>
+    )
+  }
 }
 
 export function FailedToAcceptMatchDialog({ onCancel }: CommonDialogProps) {

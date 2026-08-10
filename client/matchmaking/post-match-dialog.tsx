@@ -26,6 +26,7 @@ import {
   matchmakingDivisionToLabel,
   MatchmakingDivisionWithBounds,
   MatchmakingSeasonJson,
+  matchmakingTypeToLabel,
   NUM_PLACEMENT_MATCHES,
   POINTS_FOR_RATING_TARGET_FACTOR,
   PublicMatchmakingRatingChangeJson,
@@ -48,6 +49,16 @@ import { startReplay } from '../replays/action-creators'
 import { headlineMedium, labelMedium, singleLine, titleLarge } from '../styles/typography'
 import { isMatchmakingAtom } from './matchmaking-atoms'
 import { DivisionIcon } from './rank-icon'
+
+const ModeTag = styled.span`
+  ${labelMedium};
+  display: inline-block;
+  margin-left: 10px;
+
+  color: var(--theme-amber);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+`
 
 const StyledDialog = styled(Dialog)<{ $hasLeagues?: boolean }>`
   max-width: ${props => (props.$hasLeagues ? '632px' : '432px')};
@@ -190,7 +201,12 @@ export function PostMatchDialog({
   return (
     <StyledDialog
       showCloseButton={true}
-      title={t('matchmaking.postMatchDialog.title', 'Match results')}
+      title={
+        <>
+          {t('matchmaking.postMatchDialog.title', 'Match results')}
+          <ModeTag>{matchmakingTypeToLabel(mmrChange.matchmakingType, t)}</ModeTag>
+        </>
+      }
       onCancel={onCancel}
       $hasLeagues={leagueValues.length > 0}>
       <RatedUserContent mmrChange={mmrChange} leagueValues={leagueValues} season={season} />

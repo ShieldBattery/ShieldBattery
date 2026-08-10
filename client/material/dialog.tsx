@@ -9,7 +9,7 @@ import { useIsDocumentVisible } from '../dom/document-visibility'
 import { MaterialIcon } from '../icons/material/material-icon'
 import { useKeyListener } from '../keyboard/key-listener'
 import { ContainerLevel, containerStyles } from '../styles/colors'
-import { titleLarge } from '../styles/typography'
+import { labelMedium, titleLarge } from '../styles/typography'
 import { IconButton } from './button'
 import { useScrollIndicatorState } from './scroll-indicator'
 import { elevationPlus3 } from './shadows'
@@ -105,10 +105,19 @@ const TitleBar = styled.div<{ $fullBleed?: boolean; $showDivider?: boolean }>`
   }
 `
 
-const Title = styled.div`
+export const Title = styled.div`
   ${titleLarge};
   flex-grow: 1;
   padding: 24px 24px 20px;
+`
+
+const Overline = styled.div`
+  ${labelMedium};
+  margin-bottom: 4px;
+
+  color: var(--theme-amber);
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
 `
 
 const CloseButton = styled(IconButton)`
@@ -190,10 +199,16 @@ export interface DialogProps {
    * content must handle scrolling itself.
    */
   fullBleed?: boolean
+  /**
+   * Optional short line shown directly above the title as an amber uppercase eyebrow (e.g. the
+   * matchmaking mode for a match dialog). Rendered in the title bar rather than the body, so it
+   * stays visible and unclipped regardless of body scrolling.
+   */
+  overline?: string
   showCloseButton?: boolean
   style?: React.CSSProperties
   tabs?: React.ReactNode
-  title: string
+  title: React.ReactNode
   titleAction?: React.ReactNode
   onCancel?: () => void
   alwaysHasTopDivider?: boolean
@@ -205,6 +220,7 @@ export function Dialog({
   children,
   className,
   fullBleed = false,
+  overline,
   showCloseButton = false,
   style,
   tabs,
@@ -259,7 +275,10 @@ export function Dialog({
         transition={dialogTransition}
         $isTopDialog={dialogContext.isTopDialog}>
         <TitleBar $fullBleed={fullBleed} $showDivider={!isAtTop && !tabs}>
-          <Title>{title}</Title>
+          <Title>
+            {overline ? <Overline>{overline}</Overline> : null}
+            {title}
+          </Title>
           {titleAction}
           {closeButton}
         </TitleBar>

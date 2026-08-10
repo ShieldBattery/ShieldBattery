@@ -1221,7 +1221,9 @@
       "matchFound": "Match found",
       "readyUp": "Ready up",
       "removedFromQueue": "You didn't ready up in time and have been removed from the queue.",
-      "returningToQueue": "Some players didn't ready up in time or failed to load. Returning to the matchmaking queue…"
+      "returningToQueue": "Some players didn't ready up in time or failed to load. Returning to the matchmaking queue…",
+      "waitingForPlayers_one": "Waiting for {{count}} more players…",
+      "waitingForPlayers_other": "Waiting for {{count}} more players…"
     },
     "activity": {
       "title": "Matchmaking"
