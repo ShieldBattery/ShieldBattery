@@ -911,7 +911,7 @@ function GameReportDetails({
                 {game ? (
                   <OutlinedButton
                     label='View game'
-                    iconStart={<MaterialIcon icon='sports_esports' />}
+                    iconStart={<MaterialIcon icon='strategy' />}
                     onClick={() => push(getGameResultsUrl(game.id))}
                   />
                 ) : null}
