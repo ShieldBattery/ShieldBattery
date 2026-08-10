@@ -188,6 +188,7 @@ export function toSummaryJson(lobby: Lobby): LobbySummaryJson {
     host: { id: lobby.host.userId! },
     useLegacyLimits: lobby.useLegacyLimits,
     ...toSummarySlotCounts(lobby),
+    benchCount: lobby.bench.length,
     createdAt: lobby.createdAt,
   }
 }

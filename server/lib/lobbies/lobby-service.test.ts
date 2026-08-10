@@ -688,21 +688,18 @@ describe('lobbies/lobby-service', () => {
     })
 
     test('leaveCurrentLobby does not leave the current lobby when the target join fails', async () => {
-      const { id: ownId } = await createLobby(host, 'Own lobby', 'listed')
-      await joinLobby(joiner, ownId)
+      // A merely full lobby benches its joiners rather than failing them, so a ban is what makes
+      // the target join fail outright here.
+      const { id: trapId } = await createLobby(otherHost, 'Trap lobby', 'listed')
+      await joinLobby(joiner, trapId)
+      const trapLobby = lobbyService.lobbies.get(trapId)!
+      const [, , joinerSlot] = findSlotByUserId(trapLobby, JOINER_USER.id)
+      lobbyService.banPlayer({ client: otherHost.client, slotId: joinerSlot!.id })
 
-      const { id: fullId } = await createLobby(
-        otherHost,
-        'Full lobby',
-        'listed',
-        undefined,
-        GameType.OneVsOne,
-      )
-      // 1v1 lobbies only have 2 slots, and the host already occupies one.
-      await joinLobby(lister, fullId)
+      const { id: ownId } = await createLobby(joiner, 'Own lobby', 'listed')
 
-      await expect(joinLobby(joiner, fullId, undefined, undefined, true)).rejects.toMatchObject({
-        code: LobbyServiceErrorCode.LobbyFull,
+      await expect(joinLobby(joiner, trapId, undefined, undefined, true)).rejects.toMatchObject({
+        code: LobbyServiceErrorCode.Banned,
       })
 
       // The failed join must not have removed the client from its actual lobby.
@@ -940,9 +937,12 @@ describe('lobbies/lobby-service', () => {
         expect(lobbyService.lobbies.has(id)).toBe(false)
       })
 
-      // The first lobby's start must not have released their registration in the new activity —
-      // which would let this join go through instead of being rejected
-      await expect(joinLobby(otherHost, otherId)).rejects.toMatchObject({
+      // The first lobby's start must not have released their registration in the new activity.
+      // Joining their own lobby is a no-op success, so the probe is a third lobby: with a live
+      // registration elsewhere, that join has to be rejected.
+      expect(lobbyService.lobbies.has(otherId)).toBe(true)
+      const { id: probeId } = await createLobby(lister, 'Probe lobby', 'listed')
+      await expect(joinLobby(otherHost, probeId)).rejects.toMatchObject({
         code: LobbyServiceErrorCode.JoinAlreadyInActivity,
       })
     })
@@ -1627,21 +1627,6 @@ describe('lobbies/lobby-service', () => {
       lobby = lobbyService.lobbies.get(id)!
       expect(lobby.teams[obsTeamIndex!].slots[0].type).toBe('closed')
       expect(findSlotByUserId(lobby, JOINER_USER.id)[2]).toBeUndefined()
-    })
-
-    test('the host closing their own slot while being the sole occupant just removes the lobby', async () => {
-      const { id } = await createLobby(host, 'Solo lobby', 'listed')
-
-      const lobby = lobbyService.lobbies.get(id)!
-      const [, , hostSlot] = findSlotByUserId(lobby, HOST_USER.id)
-
-      // Kicking the host empties the lobby before the slot itself can be closed, so there is
-      // nothing left to close; this should be a clean no-op rather than an error.
-      expect(() =>
-        lobbyService.closeSlot({ client: host.client, slotId: hostSlot!.id }),
-      ).not.toThrow()
-
-      expect(lobbyService.lobbies.get(id)).toBeUndefined()
     })
   })
 

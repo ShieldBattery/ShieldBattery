@@ -917,6 +917,9 @@
       "title": "Lobbies ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionFull": "Lobby is full — you'll wait on the bench for a seat",
+      "benchWaiting_one": "{{count}} waiting for a seat",
+      "benchWaiting_other": "{{count}} waiting for a seat",
       "createDisabledWhileMatchmaking": "You cannot create a lobby while a matchmaking search is active.",
       "emptyAllFull": "Every lobby is full right now",
       "emptyNoLobbies": "No one's hosting right now",
@@ -953,6 +956,8 @@
       "title": "Lobbies"
     },
     "createLobby": {
+      "advancedSettings": "Advanced settings",
+      "allowObservers": "Allow observers",
       "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",

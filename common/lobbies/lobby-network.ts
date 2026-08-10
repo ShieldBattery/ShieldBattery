@@ -182,6 +182,8 @@ export interface LobbySummaryJson {
   hasObserverTeam: boolean
   /** Every seated person, players and observers alike, in the order they sit. */
   occupantIds: ReadonlyArray<SbUserId>
+  /** How many members are waiting on the bench for a seat. */
+  benchCount: number
   /** When the lobby was created (Unix millis). */
   createdAt: number
 }
@@ -215,12 +217,12 @@ export interface LobbySummaryMapJson extends MapImageInfo {
  */
 export interface LobbySummaryResponse {
   /**
-   * Only what the landing page renders: who is inside (`occupantIds`) and how the lobby's observer
-   * seats are arranged stay off an endpoint that answers anyone holding the link.
+   * Only what the landing page renders: who is inside (`occupantIds`, `benchCount`) and how the
+   * lobby's observer seats are arranged stay off an endpoint that answers anyone holding the link.
    */
   summary: Omit<
     LobbySummaryJson,
-    'map' | 'createdAt' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds'
+    'map' | 'createdAt' | 'observerSlots' | 'hasObserverTeam' | 'occupantIds' | 'benchCount'
   > & { map: LobbySummaryMapJson }
   host: SbUser
 }

@@ -914,6 +914,8 @@
       "title": "房间 ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionFull": "房间已满，您将在替补席等待空位",
+      "benchWaiting_other": "{{count}}人正在等待空位",
       "createDisabledWhileMatchmaking": "正在进行匹配时无法创建房间。",
       "emptyAllFull": "目前所有房间都已满",
       "emptyNoLobbies": "目前没有人创建房间",
@@ -946,6 +948,8 @@
       "title": "房间"
     },
     "createLobby": {
+      "advancedSettings": "高级设置",
+      "allowObservers": "允许观战者",
       "allowObserversWithMax": "允许观战者（最多{{maxObservers}}人）",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",

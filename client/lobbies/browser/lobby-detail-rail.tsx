@@ -18,6 +18,7 @@ import {
   bodyMedium,
   bodySmall,
   labelMedium,
+  labelSmall,
   singleLine,
   titleMedium,
 } from '../../styles/typography'
@@ -264,6 +265,13 @@ const RailFoot = styled.div`
 const JoinError = styled.div`
   ${bodyMedium};
   color: var(--theme-error);
+`
+
+const BenchCaption = styled.div`
+  ${labelSmall};
+
+  color: var(--theme-on-surface-variant);
+  text-align: center;
 `
 
 const FullWidthFilledButton = styled(FilledButton)`
@@ -529,6 +537,17 @@ export function LobbyDetailRail({
               ) : null}
             </Section>
           ) : null}
+
+          {summary.benchCount > 0 ? (
+            <Section>
+              <QuietLine>
+                {t('lobbies.browser.benchWaiting', {
+                  defaultValue: '{{count}} waiting for a seat',
+                  count: summary.benchCount,
+                })}
+              </QuietLine>
+            </Section>
+          ) : null}
         </Slots>
 
         {friendIds.length ? (
@@ -562,11 +581,18 @@ export function LobbyDetailRail({
             <FullWidthFilledButton
               label={t('lobbies.browser.joinLobby', 'Join lobby')}
               onClick={() => onJoin(false)}
-              // A lobby with no open player seats has nothing to join as a player; observing,
-              // when available, keeps its own entry below.
-              disabled={summary.playerSlots.open === 0}
               testName='join-lobby-button'
             />
+            {summary.playerSlots.open === 0 ? (
+              // Joining stays possible with every seat taken — it lands on the bench — so the
+              // caption spells out what the click means instead of the button refusing it.
+              <BenchCaption>
+                {t(
+                  'lobbies.browser.benchCaptionFull',
+                  "Lobby is full — you'll wait on the bench for a seat",
+                )}
+              </BenchCaption>
+            ) : null}
             {summary.observerSlots.open > 0 ? (
               <FullWidthOutlinedButton
                 label={t('lobbies.browser.joinAsObserver', 'Join as observer')}

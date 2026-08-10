@@ -154,6 +154,7 @@ const expectedSlotCounts = (lobby: Lobby) => {
     observerSlots,
     hasObserverTeam: lobby.teams.some(team => team.isObserver),
     occupantIds,
+    benchCount: lobby.bench.length,
   }
 }
 
@@ -1843,6 +1844,13 @@ describe('Lobbies - toSummaryJson', () => {
 
   test('carries the lobby creation time', () => {
     expect(toSummaryJson(BOXER_LOBBY).createdAt).toBe(BOXER_LOBBY.createdAt)
+  })
+
+  test('counts the members waiting on the bench', () => {
+    const lobby = addToBench(BOXER_LOBBY, { userId: makeSbUserId(1), race: 'z', joinedAt: 1000 })
+
+    expect(toSummaryJson(BOXER_LOBBY).benchCount).toBe(0)
+    expect(toSummaryJson(lobby).benchCount).toBe(1)
   })
 
   test('leaves the slot layout to the preview', () => {
