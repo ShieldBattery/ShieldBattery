@@ -156,9 +156,9 @@ const HostCrownRoot = styled.span`
 `
 
 /** Marks the row of the lobby's host. */
-export function HostCrown() {
+export function HostCrown({ tabIndex }: { tabIndex?: number }) {
   return (
-    <Tooltip text='Host'>
+    <Tooltip text='Host' tabIndex={tabIndex}>
       <HostCrownRoot>
         <MaterialIcon icon='crown' size={20} filled />
       </HostCrownRoot>
