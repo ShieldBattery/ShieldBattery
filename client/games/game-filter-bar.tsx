@@ -296,7 +296,7 @@ export function GameFilterBar({
       {showSourceFilter && (
         <FilterChip
           label={getSourceLabel(source, t)}
-          icon={<MaterialIcon icon='sports_esports' filled={false} size={18} />}>
+          icon={<MaterialIcon icon='strategy' filled={false} size={18} />}>
           {SOURCE_OPTIONS.map(s => (
             <SelectableMenuItem
               key={s}
