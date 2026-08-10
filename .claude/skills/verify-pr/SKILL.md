@@ -79,8 +79,8 @@ pnpm run gen-graphql     # after changing the GraphQL schema (regenerates client
 
 **Game DLL** (`game/`):
 ```bash
-game\build.bat           # debug 32-bit (default; what the app injects in dev)
-game\build.bat x86_64    # debug 64-bit
+game\build.bat           # debug 64-bit (default; what the app injects in dev)
+game\build.bat x86       # debug 32-bit
 cd game && cargo clippy --all-targets --workspace -- -D warnings
 cd game && cargo test
 ```
@@ -106,9 +106,10 @@ skill's lobby flow; the DLL-rebuild and finish/outcome steps below apply to both
   **verify-app**).
 - **Rebuild the game DLL first**: `cmd /c "game\build.bat debug"` (from PowerShell; the bare
   `cmd /c game\build.bat` from Git Bash opens cmd interactively and does nothing). A stale
-  `game/dist/shieldbattery.dll` **crashes StarCraft at game-start with `0xc0000005`** (Forge graphics
+  injected DLL **crashes StarCraft at game-start with `0xc0000005`** (Forge graphics
   init) even when only a trivial source line changed — always build a current DLL. The running app
-  injects `game/dist/shieldbattery.dll` at launch, so no app restart needed after a rebuild.
+  injects `game/dist/shieldbattery_64.dll` at launch (`shieldbattery.dll` if the `launch32Bit`
+  setting is on — then build with `game\build.bat x86`), so no app restart needed after a rebuild.
 
 **Drive a match**:
 1. Arm a ready-up auto-clicker on **each** client *before* queuing — the "Ready up" window is short

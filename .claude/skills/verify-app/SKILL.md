@@ -26,9 +26,10 @@ prove a component *looks* right, nothing more. To verify that something *works*,
      snapshot/eval output this skill parses. And `playwright-cli` isn't a project dep, so pnpm has
      nothing to resolve for it anyway. Bare `playwright-cli` is the clean choice.
 4. **If you changed `game/` Rust code and will launch a game to verify it, rebuild with
-   `game\build.bat` first** — a bare `cargo build` leaves `game/dist/shieldbattery.dll` (the DLL the
-   app injects) stale, so the launched game silently runs the *old* code. If a game-launch result
-   contradicts your change, suspect a stale `dist/` DLL. (See AGENTS.md → Game DLL.)
+   `game\build.bat` first** — a bare `cargo build` leaves `game/dist/shieldbattery_64.dll` (the DLL
+   the app injects by default) stale, so the launched game silently runs the *old* code. If a
+   game-launch result contradicts your change, suspect a stale `dist/` DLL. (See AGENTS.md → Game
+   DLL.)
 
 ## Launch the app with a debugging port
 

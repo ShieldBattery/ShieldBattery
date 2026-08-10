@@ -63,8 +63,8 @@ pnpm run migrate:run           # Run migrations
 pnpm run sqlx-prepare          # Update SQLx query metadata for Rust
 
 # Rust game DLL
-game\build.bat                 # Debug 32-bit
-game\build.bat x86_64          # Debug 64-bit
+game\build.bat                 # Debug 64-bit
+game\build.bat x86             # Debug 32-bit
 ```
 
 ## File Naming Conventions
@@ -260,7 +260,7 @@ Two code paths:
 - **Async** (Tokio): `async_thread` entry, networking/server communication
 - **Sync** (BW hooks): `patch_game` entry, executes in StarCraft's code
 
-Build: 32-bit default, 64-bit via `game\build.bat x86_64`
+Build: 64-bit default, 32-bit via `game\build.bat x86`
 
 **Game code must work on both architectures (i686 and x86_64).** Both are shipped/built targets, so
 a change is not done until it builds and behaves on both. Watch for arch-specific assumptions:
@@ -272,7 +272,8 @@ be hardcoded, it needs a verified value for _each_ arch, not one guessed from th
 `cfg!(target_arch = "x86_64")` bail-out to dodge the work — verify the 64-bit values instead.
 
 **Always rebuild via `game\build.bat`, never a bare `cargo build`.** The app injects
-`game/dist/shieldbattery.dll` (see `app/game/active-game-manager.ts`), and only `build.bat` copies
+`game/dist/shieldbattery_64.dll` (or `shieldbattery.dll` with the `launch32Bit` setting; see
+`app/game/active-game-manager.ts`), and only `build.bat` copies
 the freshly compiled DLL from `target/` into `dist/`. A bare `cargo build` updates `target/` but
 leaves `dist/` stale, so a launched game silently runs the _old_ DLL — a change appears to have no
 effect (or to "fail" in a way that doesn't match the source). If a game-launch test contradicts

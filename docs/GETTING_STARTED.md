@@ -37,13 +37,13 @@ The code that runs within the BW process (the `game/` directory) and the `server
 server are written in [Rust](https://rust-lang.org). The simplest way to get things built is to
 use the [rustup toolchain installer](https://rustup.rs).
 
-The game DLL ships for both 32-bit and 64-bit Windows. The 32-bit build (the default) needs the
-32-bit standard library: run `rustup target add i686-pc-windows-msvc`.
+The game DLL ships for both 32-bit and 64-bit Windows. The 32-bit build needs the 32-bit
+standard library: run `rustup target add i686-pc-windows-msvc`.
 
 To build the DLL, run `build.bat` in the [`game` directory](../game), which will also copy the
 resulting DLL and other necessary support files to `game/dist`, where the JavaScript code expects
-them to be. The build defaults to the quicker 32-bit debug build; `build.bat release` builds the
-optimized version, and `build.bat x86_64` targets 64-bit.
+them to be. The build defaults to a 64-bit debug build (the version the app launches by default);
+`build.bat release` builds the optimized version, and `build.bat x86` targets 32-bit.
 
 You can update the Rust toolchain by running `rustup update`. We generally try to stay up to date
 with the current stable version (and some CI runs may fail if your local version is older than this,

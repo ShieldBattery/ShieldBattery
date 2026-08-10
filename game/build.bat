@@ -1,4 +1,6 @@
-@rem Main ways to call this are "build.bat debug" and "build.bat release"
+@rem Main ways to call this are "build.bat debug" and "build.bat release".
+@rem Builds the 64-bit DLL (what the app injects by default) unless "x86" is
+@rem passed to build the 32-bit one instead.
 @echo off
 
 SETLOCAL
@@ -7,14 +9,15 @@ set scriptroot=%~dp0
 
 @rem Arguments
 set cargoflags=
-set target=
-set is64=0
+set target=--target x86_64-pc-windows-msvc
+set is64=1
 
 :next-arg
 if "%1"=="" goto args-done
 if /i "%1"=="debug"         set cargoflags=&goto arg-ok
 if /i "%1"=="release"       set cargoflags=--release&goto arg-ok
 if /i "%1"=="x86_64"        set target=--target x86_64-pc-windows-msvc&set is64=1&goto arg-ok
+if /i "%1"=="x86"           set target=--target i686-pc-windows-msvc&set is64=0&goto arg-ok
 
 echo Warning: ignoring invalid command line option `%1`.
 
