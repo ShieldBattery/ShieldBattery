@@ -119,20 +119,27 @@ export const TEAM_COLOR_PRESETS: ReadonlyDeep<
   },
 }
 
+/**
+ * Brood War's stock 8 player colors, in slot order -- the first 8 entries of {@link SC_COLORS}.
+ * This was the `Classic` FFA preset until that preset was removed; it lives on as the pool
+ * `customFfaColors` is seeded with, so a fresh install still starts on the familiar colors (now
+ * editable, since `Custom` is the default preset).
+ */
+export const DEFAULT_FFA_COLORS: ReadonlyArray<string> = [
+  '#F40404',
+  '#0C48CC',
+  '#2CB494',
+  '#88409C',
+  '#F88C14',
+  '#703014',
+  '#CCE0D0',
+  '#FCFC38',
+]
+
 /** The built-in FFA-axis color presets (every {@link FfaColorPreset} except `Custom`). */
 export const FFA_COLOR_PRESETS: ReadonlyDeep<
   Record<Exclude<FfaColorPreset, FfaColorPreset.Custom>, string[]>
 > = {
-  [FfaColorPreset.Classic]: [
-    '#F40404',
-    '#0C48CC',
-    '#2CB494',
-    '#88409C',
-    '#F88C14',
-    '#703014',
-    '#CCE0D0',
-    '#FCFC38',
-  ],
   [FfaColorPreset.Jewel]: [
     '#D23855', // Ruby
     '#396ED6', // Sapphire
@@ -461,8 +468,6 @@ export function getTeamColorPresetLabel(preset: TeamColorPreset, t: TFunction): 
 
 export function getFfaColorPresetLabel(preset: FfaColorPreset, t: TFunction): string {
   switch (preset) {
-    case FfaColorPreset.Classic:
-      return t('settings.game.gameplay.ffaColorPreset.classic', 'Classic')
     case FfaColorPreset.Jewel:
       return t('settings.game.gameplay.ffaColorPreset.jewel', 'Jewel')
     case FfaColorPreset.Arcade:

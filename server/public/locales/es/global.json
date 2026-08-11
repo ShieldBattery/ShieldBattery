@@ -1646,7 +1646,6 @@
         "ffaColorPreset": {
           "arcade": "Arcade",
           "attributionPrefix": "Paleta: ",
-          "classic": "Clásico",
           "colorblindSafe": "Apto para daltónicos",
           "custom": "Personalizado",
           "jewel": "Joya",
@@ -1722,11 +1721,11 @@
           "header": "Colores de los jugadores",
           "label": "Modo",
           "mode": {
-            "presetEverywhere": "Usar preajuste en todas partes",
+            "presetEverywhere": "Reemplazar todos los colores",
             "presetEverywhereDesc": "Tu esquema de colores en las unidades y el minimapa.",
-            "presetOnMinimap": "Usar preajuste en el minimapa",
+            "presetOnMinimap": "Reemplazar colores del minimapa",
             "presetOnMinimapDesc": "Colores de aliados y enemigos solo en el minimapa.",
-            "standard": "Estándar",
+            "standard": "Usar configuración predeterminada del mapa",
             "standardDesc": "Los colores normales de StarCraft. Los ajustes de abajo no tienen efecto."
           },
           "offNote": "Desactivado. Se usan los colores individuales en todas las partidas.",

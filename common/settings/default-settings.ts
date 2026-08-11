@@ -10,7 +10,7 @@ import {
   TeamColorPreset,
   TeamColorUsage,
 } from './local-settings'
-import { cloneCustomTeamColors, FFA_COLOR_PRESETS, TEAM_COLOR_PRESETS } from './team-colors'
+import { cloneCustomTeamColors, DEFAULT_FFA_COLORS, TEAM_COLOR_PRESETS } from './team-colors'
 
 export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   Omit<LocalSettings, keyof ShieldBatteryAppSettings>
@@ -28,13 +28,13 @@ export const DEFAULT_LOCAL_SETTINGS: ReadonlyDeep<
   minimapColorMode: MinimapColorMode.Standard,
   minimapTerrainHidden: false,
   teamColorPreset: TeamColorPreset.CoolVsWarm,
-  ffaColorPreset: FfaColorPreset.Classic,
+  ffaColorPreset: FfaColorPreset.Custom,
   teamColorUsage: TeamColorUsage.Always,
   shuffleColors: false,
   // Copied (rather than referencing the preset table directly) so this default can never be
   // aliased/mutated through the preset it was seeded from.
   customTeamColors: cloneCustomTeamColors(TEAM_COLOR_PRESETS[TeamColorPreset.LegacyDiplomacy]),
-  customFfaColors: [...FFA_COLOR_PRESETS[FfaColorPreset.Classic]],
+  customFfaColors: [...DEFAULT_FFA_COLORS],
   teamSelfColor: undefined,
   ffaSelfColor: undefined,
   legacyCursorSizing: false,
