@@ -255,11 +255,7 @@ const CollapsedNote = styled.div`
   color: var(--theme-on-surface-variant);
 `
 
-const RelativeCard = styled(Card)`
-  position: relative;
-`
-
-const TeamSchemeCard = styled(RelativeCard)`
+const TeamSchemeCard = styled(Card)`
   margin-bottom: 16px;
 `
 
@@ -314,10 +310,13 @@ const Preview = styled(TeamColorPreview)`
   flex-shrink: 0;
 `
 
-const CopyButtonContainer = styled.div`
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
+// In flow rather than absolutely positioned in the card's corner: the right column's preview roster
+// reaches the card's bottom edge whenever it's the taller of the two columns, and an overlaid
+// button would sit on top of it.
+const CopyButtonRow = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
 `
 
 const CopyButtonAnchor = styled.div`
@@ -395,7 +394,7 @@ function CopyFromPresetButton<T extends string>({
   const [open, openPopover, closePopover] = usePopoverController({ refreshAnchorPos })
 
   return (
-    <CopyButtonContainer>
+    <CopyButtonRow>
       <CopyButtonAnchor ref={anchorRef}>
         <OutlinedButton
           label={t('settings.game.gameplay.teamColors.copyFromPreset', 'Copy from preset')}
@@ -429,7 +428,7 @@ function CopyFromPresetButton<T extends string>({
           </CopyMenuCaption>
         </CopyMenuList>
       </Popover>
-    </CopyButtonContainer>
+    </CopyButtonRow>
   )
 }
 
@@ -907,7 +906,7 @@ export function TeamColorSettings({
           </TeamSchemeCard>
         )}
 
-        <RelativeCard>
+        <Card>
           <SchemeContentRow>
             <SchemeColumn>
               <CardTitle>
@@ -1024,7 +1023,7 @@ export function TeamColorSettings({
           {isFfaCustom ? (
             <CopyFromPresetButton presets={ffaPresetCopyOptions} onSelect={handleCopyFfaPreset} />
           ) : null}
-        </RelativeCard>
+        </Card>
       </BelowMode>
     </>
   )
