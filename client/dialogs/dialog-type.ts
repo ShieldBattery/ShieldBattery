@@ -35,7 +35,6 @@ export enum DialogType {
   JoinCode = 'joinCode',
   LaunchingGame = 'launchingGame',
   LeagueExplainer = 'leagueExplainer',
-  LobbyGameSetup = 'lobbyGameSetup',
   LobbyLeaveAndCreate = 'lobbyLeaveAndCreate',
   LobbyLeaveAndJoin = 'lobbyLeaveAndJoin',
   LobbySettings = 'lobbySettings',
@@ -227,7 +226,6 @@ type GameDefaultsFirstRunDialogPayload = BaseDialogPayload<typeof DialogType.Gam
 type JoinCodeDialogPayload = BaseDialogPayload<typeof DialogType.JoinCode>
 type LaunchingGameDialogPayload = BaseDialogPayload<typeof DialogType.LaunchingGame>
 type LeagueExplainerDialogPayload = BaseDialogPayload<typeof DialogType.LeagueExplainer>
-type LobbyGameSetupDialogPayload = BaseDialogPayload<typeof DialogType.LobbyGameSetup>
 type LobbyLeaveAndCreateDialogPayload = BaseDialogPayload<
   typeof DialogType.LobbyLeaveAndCreate,
   {
@@ -410,7 +408,6 @@ export type DialogPayload =
   | JoinCodeDialogPayload
   | LaunchingGameDialogPayload
   | LeagueExplainerDialogPayload
-  | LobbyGameSetupDialogPayload
   | LobbyLeaveAndCreateDialogPayload
   | LobbyLeaveAndJoinDialogPayload
   | LobbySettingsDialogPayload

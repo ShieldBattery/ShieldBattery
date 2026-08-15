@@ -18,8 +18,6 @@ import { DEFAULT_PERMISSIONS } from '../../../common/users/permissions'
 import { SbUser, SelfUserJson } from '../../../common/users/sb-user'
 import { makeSbUserId, SbUserId } from '../../../common/users/sb-user-id'
 import { ReduxAction } from '../../action-types'
-import { openDialog } from '../../dialogs/action-creators'
-import { DialogType } from '../../dialogs/dialog-type'
 import { DispatchFunction } from '../../dispatch-registry'
 import { JotaiStore } from '../../jotai-store'
 import { BigGameHunters, loadMapsForTesting } from '../../maps/devonly/maps-for-testing'
@@ -445,7 +443,6 @@ function LobbyRoomTestInner() {
             onStartGame={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
             onForceStart={() => dispatch({ type: '@lobbies/updateCountdownStart', payload: 5 })}
             onCancelCountdown={() => dispatch({ type: '@lobbies/updateCountdownCanceled' })}
-            onOpenGameSetup={() => dispatch(openDialog({ type: DialogType.LobbyGameSetup }))}
             onSlotAction={(action, slotId) => console.log('onSlotAction', action, slotId)}
             onArrangeTeams={arrangement => console.log('onArrangeTeams', arrangement)}
             onWatchReplay={gameId => console.log('onWatchReplay', gameId)}
