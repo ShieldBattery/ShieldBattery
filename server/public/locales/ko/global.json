@@ -952,8 +952,6 @@
       "title": "로비"
     },
     "createLobby": {
-      "advancedSettings": "고급 설정",
-      "allowObservers": "관전자 허용",
       "allowObserversWithMax": "관전자 허용 (최대 {{maxObservers}}명)",
       "errorDialogTitle": "로비 생성 오류",
       "errorGeneric": "로비를 만드는 중 문제가 발생했습니다. 다시 시도해 주세요.",
@@ -989,6 +987,9 @@
     "events": {
       "banned": "이 로비에서 차단되었습니다.",
       "kicked": "로비에서 강퇴당했습니다."
+    },
+    "gameSetup": {
+      "title": "게임 설정"
     },
     "hostGame": {
       "changeMap": "맵 변경",
@@ -1035,46 +1036,112 @@
       "memberBody": "{{target}}에 참여하면 {{current}}에서 나가게 됩니다."
     },
     "lobby": {
-      "copiedInviteLink": "복사되었습니다!",
-      "copyInviteLink": "초대 링크 복사",
-      "gameType": "게임 방식",
-      "inGame": "게임 중",
-      "leaveLobby": "로비 나가기",
-      "startGame": "게임 시작",
-      "unitLimit": "유닛 제한",
-      "unitLimitExtended": "확장",
-      "unitLimitLegacy": "오리지널",
-      "visibility": "공개 범위",
-      "visibilityListed": "공개",
-      "visibilityUnlisted": "일부 공개"
+      "inGame": "게임 중"
+    },
+    "lobbySettings": {
+      "errorDialogTitle": "설정 업데이트 오류",
+      "errorGeneric": "로비 설정을 업데이트할 수 없습니다. 현재 멤버가 새 구성에 맞지 않을 수 있습니다."
     },
     "messageLayout": {
-      "banPlayer": "<0><0></0></0>이(가) 로비에서 금지되었습니다",
-      "countdownCanceled": "게임 카운트다운이 취소되었습니다",
-      "countdownStarted": "게임 카운트다운이 시작되었습니다",
-      "gameInitializationCanceled": "게임 초기화가 취소되었습니다",
-      "gameInitializationCanceledMultiple": "다음 플레이어들이 정상적으로 로드되지 않아 게임 초기화가 취소되었습니다:<1></1>",
-      "gameInitializationCanceledSingle": "<2><0></0></2>이(가) 정상적으로 로드되지 않아 게임 초기화가 취소되었습니다.",
-      "hostChange": "<0><0></0></0>이(가) 이제 호스트입니다",
-      "joinLobby": "<0><0></0></0>님이 로비에 참여했습니다",
-      "kickPlayer": "<0><0></0></0>님이 로비에서 추방되었습니다",
-      "leaveLobby": "<0><0></0></0>님이 로비를 나갔습니다",
-      "selfJoin": "<1>{{lobby}}</1>에 참가하셨습니다. 호스트는 <4><0></0></4>입니다.",
-      "settingsChangeName": "로비 이름"
+      "gameStarted": "게임이 시작되었습니다",
+      "settingsChangeGameSubType": "팀 구성",
+      "settingsChangeGameType": "게임 유형",
+      "settingsChangeMap": "맵",
+      "settingsChangeName": "로비 이름",
+      "settingsChangeObservers": "관전자",
+      "settingsChangeUnitLimit": "유닛 제한"
+    },
+    "moveSlot": {
+      "title": "자리 이동"
+    },
+    "room": {
+      "banner": {
+        "shuffle": "섞기",
+        "statMode": "모드",
+        "statPeople": "인원",
+        "statSize": "크기",
+        "statTileset": "타일셋",
+        "swapTeams": "팀 교체"
+      },
+      "chat": {
+        "countdownCanceled": "카운트다운이 취소되었습니다",
+        "countdownStarted": "게임이 곧 시작됩니다",
+        "isNowHost": "<0></0> 님이 호스트가 되었습니다",
+        "joinedLobby": "<0></0> 님이 로비에 참가했습니다",
+        "leftLobby": "<0></0> 님이 로비를 떠났습니다",
+        "loadFailedNoUsers": "게임을 시작할 수 없습니다",
+        "loadFailedPrefix": "게임을 시작할 수 없습니다 —",
+        "loadFailedSuffix": "님의 로딩에 실패했습니다",
+        "memberBack": "<0></0> 님이 로비로 돌아왔습니다",
+        "readyReset": "준비 초기화",
+        "seatedOn": "{{seat}}에 앉았습니다",
+        "selfJoinLobby": "<2>{{lobby}}</2>에 참가했습니다. 호스트는 <4></4> 님입니다.",
+        "settingsChanged": "<0></0> 님이 설정을 변경했습니다: {{settings}}",
+        "waitingForSeat": "<0></0> 님이 자리를 기다리고 있습니다",
+        "wasBanned": "<0></0> 님이 차단되었습니다",
+        "wasKicked": "<0></0> 님이 강퇴되었습니다",
+        "watching": "관전 중"
+      },
+      "header": {
+        "cancelReady": "준비 취소",
+        "copiedInviteLink": "복사됨!",
+        "copyInviteLink": "초대 링크 복사",
+        "leave": "나가기",
+        "readyUp": "준비 완료",
+        "visibilityPublic": "공개",
+        "visibilityUnlisted": "일부 공개"
+      },
+      "rail": {
+        "benchHeading": "벤치 · {{benchCount}}",
+        "benchTooltip": "자리가 다 찼을 때 참가한 사람들입니다 — 자리가 나면 맨 앞 사람부터 앉습니다",
+        "holdToStartCaption": "전원이 준비되면 활성화됩니다 · 길게 눌러 바로 시작",
+        "readyCount": "{{readyTotal}}명 중 {{readyCount}}명 준비",
+        "startGame": "게임 시작",
+        "startWhenReady": "준비되면 시작",
+        "waitingForHost": "호스트가 시작하기를 기다리는 중"
+      },
+      "readyMark": {
+        "notReady": "아직 준비되지 않았습니다",
+        "ready": "준비 완료"
+      },
+      "scoreboard": {
+        "player": "플레이어",
+        "wins": "승"
+      },
+      "series": {
+        "allGames": "전체 게임",
+        "earlierGames": "이전 게임",
+        "fullSummary": "전체 요약",
+        "gameNumber": "게임 {{number}}",
+        "gamesLabel": "게임",
+        "next": "다음",
+        "noRecordedWinner": "기록된 승자 없음",
+        "standings": "순위",
+        "starting": "시작 중",
+        "tileNoWinner": "승자 없음",
+        "tilePending": "대기 중",
+        "unknownMap": "알 수 없는 맵",
+        "victoryTeam": "팀 {{number}} 승리",
+        "waitingForResults": "결과 기다리는 중",
+        "watchReplay": "리플레이 보기"
+      },
+      "slotMenu": {
+        "ban": "차단",
+        "kick": "강퇴",
+        "makeObserver": "관전자로 전환",
+        "moveIntoPlayerSlot": "플레이어 자리로 이동",
+        "moveToAnotherSlot": "다른 자리로 이동",
+        "remove": "제거"
+      }
     },
     "slots": {
       "addComputer": "컴퓨터 추가",
       "banPlayer": "차단 {{user}}",
-      "banUnnamedPlayer": "로비에서 추방",
       "closeSlot": "슬롯 닫기",
       "kickPlayer": "강퇴 {{user}}",
-      "kickUnnamedPlayer": "플레이어 강퇴",
-      "makeObserver": "옵저버로 전환",
-      "makePlayer": "플레이어로 전환",
       "name": "닫힘",
       "open": "열림",
       "openSlot": "슬롯 열기",
-      "removeComputer": "컴퓨터 제거",
       "slotActions": "슬롯 설정"
     },
     "state": {

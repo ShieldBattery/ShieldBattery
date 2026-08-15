@@ -952,8 +952,6 @@
       "title": "房间"
     },
     "createLobby": {
-      "advancedSettings": "高级设置",
-      "allowObservers": "允许观战者",
       "allowObserversWithMax": "允许观战者（最多{{maxObservers}}人）",
       "errorDialogTitle": "创建房间出错",
       "errorGeneric": "创建房间时出了点问题。请重试。",
@@ -989,6 +987,9 @@
     "events": {
       "banned": "您已被该房间封禁。",
       "kicked": "您已被踢出房间。"
+    },
+    "gameSetup": {
+      "title": "游戏设置"
     },
     "hostGame": {
       "changeMap": "更换地图",
@@ -1035,46 +1036,112 @@
       "memberBody": "加入“{{target}}”后，您将离开“{{current}}”。"
     },
     "lobby": {
-      "copiedInviteLink": "已复制！",
-      "copyInviteLink": "复制邀请链接",
-      "gameType": "游戏类型",
-      "inGame": "游戏中",
-      "leaveLobby": "离开房间",
-      "startGame": "开始游戏",
-      "unitLimit": "单位数量限制",
-      "unitLimitExtended": "扩展",
-      "unitLimitLegacy": "原版",
-      "visibility": "可见性",
-      "visibilityListed": "公开",
-      "visibilityUnlisted": "不公开列出"
+      "inGame": "游戏中"
+    },
+    "lobbySettings": {
+      "errorDialogTitle": "更新设置出错",
+      "errorGeneric": "无法更新房间设置。当前成员可能不适合新的配置。"
     },
     "messageLayout": {
-      "banPlayer": "<0><0></0></0>已被房间封禁",
-      "countdownCanceled": "游戏倒计时已取消",
-      "countdownStarted": "游戏倒计时已经开始",
-      "gameInitializationCanceled": "游戏初始化已取消",
-      "gameInitializationCanceledMultiple": "以下玩家加载失败，游戏初始化已被取消：<1></1>",
-      "gameInitializationCanceledSingle": "由于 <2><0></0></2> 加载失败，游戏初始化已被取消。",
-      "hostChange": "<0><0></0></0>已成为主机",
-      "joinLobby": "<0><0></0></0>已加入房间",
-      "kickPlayer": "<0><0></0></0>已被踢出房间",
-      "leaveLobby": "<0><0></0></0>已离开房间",
-      "selfJoin": "您已加入<1>{{lobby}}</1>。主机是<4><0></0></4>。",
-      "settingsChangeName": "房间名称"
+      "gameStarted": "游戏已开始",
+      "settingsChangeGameSubType": "队伍分配",
+      "settingsChangeGameType": "游戏类型",
+      "settingsChangeMap": "地图",
+      "settingsChangeName": "房间名称",
+      "settingsChangeObservers": "观战者",
+      "settingsChangeUnitLimit": "单位限制"
+    },
+    "moveSlot": {
+      "title": "移动到…"
+    },
+    "room": {
+      "banner": {
+        "shuffle": "打乱",
+        "statMode": "模式",
+        "statPeople": "人数",
+        "statSize": "大小",
+        "statTileset": "地形类型",
+        "swapTeams": "交换队伍"
+      },
+      "chat": {
+        "countdownCanceled": "倒计时已取消",
+        "countdownStarted": "游戏即将开始",
+        "isNowHost": "<0></0> 现在是房主",
+        "joinedLobby": "<0></0> 加入了房间",
+        "leftLobby": "<0></0> 离开了房间",
+        "loadFailedNoUsers": "游戏无法开始",
+        "loadFailedPrefix": "游戏无法开始：",
+        "loadFailedSuffix": "加载失败",
+        "memberBack": "<0></0> 回到了房间",
+        "readyReset": "准备状态已重置",
+        "seatedOn": "入座 {{seat}}",
+        "selfJoinLobby": "您加入了 <2>{{lobby}}</2>。房主是 <4></4>。",
+        "settingsChanged": "<0></0> 更改了{{settings}}",
+        "waitingForSeat": "<0></0> 正在等待座位",
+        "wasBanned": "<0></0> 已被封禁",
+        "wasKicked": "<0></0> 已被踢出",
+        "watching": "观战中"
+      },
+      "header": {
+        "cancelReady": "取消准备",
+        "copiedInviteLink": "已复制！",
+        "copyInviteLink": "复制邀请链接",
+        "leave": "离开",
+        "readyUp": "准备",
+        "visibilityPublic": "公开",
+        "visibilityUnlisted": "不公开"
+      },
+      "rail": {
+        "benchHeading": "替补席 · {{benchCount}}",
+        "benchTooltip": "在座位满时加入——有空位时由排在最前的人入座",
+        "holdToStartCaption": "所有人准备后可用 · 长按立即开始",
+        "readyCount": "{{readyCount}}/{{readyTotal}} 已准备",
+        "startGame": "开始游戏",
+        "startWhenReady": "全员准备后开始",
+        "waitingForHost": "等待房主开始"
+      },
+      "readyMark": {
+        "notReady": "尚未准备",
+        "ready": "已准备"
+      },
+      "scoreboard": {
+        "player": "玩家",
+        "wins": "胜场"
+      },
+      "series": {
+        "allGames": "全部对局",
+        "earlierGames": "更早的对局",
+        "fullSummary": "完整总结",
+        "gameNumber": "第 {{number}} 局",
+        "gamesLabel": "对局",
+        "next": "下一局",
+        "noRecordedWinner": "未记录胜者",
+        "standings": "战绩",
+        "starting": "启动中",
+        "tileNoWinner": "无胜者",
+        "tilePending": "等待中",
+        "unknownMap": "未知地图",
+        "victoryTeam": "队伍 {{number}} 获胜",
+        "waitingForResults": "等待结果",
+        "watchReplay": "观看录像"
+      },
+      "slotMenu": {
+        "ban": "封禁",
+        "kick": "踢出",
+        "makeObserver": "设为观战者",
+        "moveIntoPlayerSlot": "移至玩家位",
+        "moveToAnotherSlot": "移至其他位置",
+        "remove": "移除"
+      }
     },
     "slots": {
       "addComputer": "添加电脑玩家",
       "banPlayer": "封禁 {{user}}",
-      "banUnnamedPlayer": "封禁玩家",
       "closeSlot": "关闭空位",
       "kickPlayer": "踢出 {{user}}",
-      "kickUnnamedPlayer": "踢出玩家",
-      "makeObserver": "设为观战者",
-      "makePlayer": "设为玩家",
       "name": "关闭",
       "open": "开放",
       "openSlot": "开放空位",
-      "removeComputer": "删除电脑玩家",
       "slotActions": "空位动作"
     },
     "state": {
@@ -1084,7 +1151,7 @@
     },
     "summary": {
       "gameTypeLabel": "游戏类型",
-      "hostLabel": "主机",
+      "hostLabel": "房主",
       "mapLabel": "地图",
       "noLongerOpen": "该房间已不再开放。",
       "openSlotCount_other": "剩余{{count}}个",

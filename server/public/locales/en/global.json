@@ -960,8 +960,6 @@
       "title": "Lobbies"
     },
     "createLobby": {
-      "advancedSettings": "Advanced settings",
-      "allowObservers": "Allow observers",
       "allowObserversWithMax": "Allow observers (up to {{maxObservers}})",
       "errorDialogTitle": "Error creating lobby",
       "errorGeneric": "Something went wrong while creating the lobby. Please try again.",
@@ -1052,49 +1050,14 @@
       "memberBody": "Joining {{target}} will remove you from {{current}}."
     },
     "lobby": {
-      "benchTeamName": "Waiting for a seat",
-      "copiedInviteLink": "Copied!",
-      "copyInviteLink": "Copy invite link",
-      "gameSubType": "Teams",
-      "gameType": "Game type",
-      "inGame": "In game",
-      "leaveLobby": "Leave lobby",
-      "observers": "Observers",
-      "observersAllowed": "Allowed",
-      "observersDisabled": "Disabled",
-      "settings": "Lobby settings",
-      "startGame": "Start game",
-      "status": "Status",
-      "unitLimit": "Unit limit",
-      "unitLimitExtended": "Extended",
-      "unitLimitLegacy": "Legacy",
-      "visibility": "Visibility",
-      "visibilityListed": "Public",
-      "visibilityUnlisted": "Unlisted"
+      "inGame": "In game"
     },
     "lobbySettings": {
       "errorDialogTitle": "Error updating settings",
-      "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration.",
-      "title": "Lobby settings"
+      "errorGeneric": "The lobby settings could not be updated. The current members may not fit the new configuration."
     },
     "messageLayout": {
-      "banPlayer": "<0><0></0></0> has been banned from the lobby",
-      "benchJoin": "<0><0></0></0> is waiting for a seat",
-      "countdownCanceled": "The game countdown has been canceled",
-      "countdownStarted": "The game countdown has begun",
-      "gameInitializationCanceled": "Game initialization has been canceled",
-      "gameInitializationCanceledMultiple": "Game initialization has been canceled because the following players failed to load:<1></1>",
-      "gameInitializationCanceledSingle": "Game initialization has been canceled because <2><0></0></2> failed to load.",
       "gameStarted": "The game has started",
-      "hostChange": "<0><0></0></0> is now the host",
-      "joinLobby": "<0><0></0></0> has joined the lobby",
-      "kickPlayer": "<0><0></0></0> has been kicked from the lobby",
-      "leaveLobby": "<0><0></0></0> has left the lobby",
-      "memberGameEnded": "<0><0></0></0> has returned to the lobby",
-      "regroupTitle": "Game finished",
-      "regroupViewResults": "View results",
-      "selfJoin": "You have joined <1>{{lobby}}</1>. The host is <4><0></0></4>.",
-      "settingsChange": "The host changed the lobby settings: {{settings}}",
       "settingsChangeGameSubType": "teams",
       "settingsChangeGameType": "game type",
       "settingsChangeMap": "map",
@@ -1105,20 +1068,94 @@
     "moveSlot": {
       "title": "Move to…"
     },
+    "room": {
+      "banner": {
+        "shuffle": "Shuffle",
+        "statMode": "Mode",
+        "statPeople": "People",
+        "statSize": "Size",
+        "statTileset": "Tileset",
+        "swapTeams": "Swap teams"
+      },
+      "chat": {
+        "countdownCanceled": "The countdown was canceled",
+        "countdownStarted": "The game is starting",
+        "isNowHost": "<0></0> is now the host",
+        "joinedLobby": "<0></0> joined the lobby",
+        "leftLobby": "<0></0> left the lobby",
+        "loadFailedNoUsers": "The game couldn't start",
+        "loadFailedPrefix": "The game couldn't start because",
+        "loadFailedSuffix": "failed to load",
+        "memberBack": "<0></0> is back in the lobby",
+        "readyReset": "ready reset",
+        "seatedOn": "seated on {{seat}}",
+        "selfJoinLobby": "You joined <2>{{lobby}}</2>. The host is <4></4>.",
+        "settingsChanged": "<0></0> changed the {{settings}}",
+        "waitingForSeat": "<0></0> is waiting for a seat",
+        "wasBanned": "<0></0> was banned",
+        "wasKicked": "<0></0> was kicked",
+        "watching": "watching"
+      },
+      "header": {
+        "cancelReady": "Cancel ready",
+        "copiedInviteLink": "Copied!",
+        "copyInviteLink": "Copy invite link",
+        "leave": "Leave",
+        "readyUp": "Ready up",
+        "visibilityPublic": "Public",
+        "visibilityUnlisted": "Unlisted"
+      },
+      "rail": {
+        "benchHeading": "Bench · {{benchCount}}",
+        "benchTooltip": "Joined while seats were full — the first in line takes the next opening",
+        "holdToStartCaption": "Enables when everyone's ready · hold to start now",
+        "readyCount": "{{readyCount}} of {{readyTotal}} ready",
+        "startGame": "Start game",
+        "startWhenReady": "Start when ready",
+        "waitingForHost": "Waiting for the host to start"
+      },
+      "readyMark": {
+        "notReady": "Not ready yet",
+        "ready": "Ready"
+      },
+      "scoreboard": {
+        "player": "Player",
+        "wins": "Wins"
+      },
+      "series": {
+        "allGames": "All games",
+        "earlierGames": "Earlier games",
+        "fullSummary": "Full summary",
+        "gameNumber": "Game {{number}}",
+        "gamesLabel": "Games",
+        "next": "Next",
+        "noRecordedWinner": "No recorded winner",
+        "standings": "Standings",
+        "starting": "Starting",
+        "tileNoWinner": "No winner",
+        "tilePending": "Pending",
+        "unknownMap": "unknown map",
+        "victoryTeam": "Victory Team {{number}}",
+        "waitingForResults": "Waiting for results",
+        "watchReplay": "Watch replay"
+      },
+      "slotMenu": {
+        "ban": "Ban",
+        "kick": "Kick",
+        "makeObserver": "Make an observer",
+        "moveIntoPlayerSlot": "Move into a player slot",
+        "moveToAnotherSlot": "Move to another slot",
+        "remove": "Remove"
+      }
+    },
     "slots": {
       "addComputer": "Add computer",
       "banPlayer": "Ban {{user}}",
-      "banUnnamedPlayer": "Ban player",
       "closeSlot": "Close slot",
       "kickPlayer": "Kick {{user}}",
-      "kickUnnamedPlayer": "Kick player",
-      "makeObserver": "Make observer",
-      "makePlayer": "Make player",
-      "moveToSlot": "Move to…",
       "name": "Closed",
       "open": "Open",
       "openSlot": "Open slot",
-      "removeComputer": "Remove computer",
       "slotActions": "Slot actions"
     },
     "state": {
