@@ -29,6 +29,7 @@ export const MOCK_LOBBY_SUMMARY: LobbySummaryResponse = {
     host: { id: MOCK_HOST.id },
     playerSlots: { taken: 1, total: 4, open: 3 },
     useLegacyLimits: false,
+    lifecycle: 'gathering',
   },
   host: MOCK_HOST,
 }

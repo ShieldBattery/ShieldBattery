@@ -51,6 +51,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   hasObserverTeam: false,
   benchCount: 0,
   occupantIds: [HOST_ID],
+  lifecycle: 'gathering',
   createdAt: 1234567890,
 }
 
@@ -131,6 +132,20 @@ describe('lobbies/lobby-page-meta', () => {
 
       expect(result?.description).toBe(
         'Melee lobby on Fighting Spirit — 1 open slot. Hosted by HostUser.',
+      )
+    })
+
+    test('describes an in-game lobby as in game rather than its open slot count', async () => {
+      summaryGetterMock.mockReturnValueOnce({
+        ...BASE_SUMMARY,
+        lifecycle: 'inGame',
+      })
+      findUsersByIdMock.mockResolvedValueOnce([HOST])
+
+      const result = await lobbyPageMetadata({ id: LOBBY_PRETTY_ID }, CONTEXT)
+
+      expect(result?.description).toBe(
+        'Melee lobby on Fighting Spirit — in game. Hosted by HostUser.',
       )
     })
 

@@ -9,6 +9,7 @@ import { asMockedFunction } from '../../../common/testing/mocks'
 import { SbUser } from '../../../common/users/sb-user'
 import { makeSbUserId } from '../../../common/users/sb-user-id'
 import { GameServerRegionsService } from '../game-server-regions/game-server-regions-service'
+import { GameLifecycleEvents } from '../games/game-lifecycle-events'
 import { GameLoader } from '../games/game-loader'
 import { GameplayActivityRegistry } from '../games/gameplay-activity-registry'
 import { getMapInfos } from '../maps/map-models'
@@ -115,6 +116,7 @@ describe('lobbies/lobby-socket-api', () => {
       { getRegions: async () => [] } as unknown as GameServerRegionsService,
       { warmRegions: () => {} } as unknown as NetcodeV2Service,
       userSockets,
+      new GameLifecycleEvents(),
     )
     // The API resolves its service from the container, so the instance under test has to be
     // registered before it's constructed.

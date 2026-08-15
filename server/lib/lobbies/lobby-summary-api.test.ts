@@ -71,6 +71,7 @@ const BASE_SUMMARY: LobbySummaryJson = {
   hasObserverTeam: true,
   benchCount: 0,
   occupantIds: [HOST_ID, makeSbUserId(9)],
+  lifecycle: 'gathering',
   createdAt: 1234567890,
 }
 
@@ -104,6 +105,7 @@ describe('lobbies/lobby-summary-api/LobbySummaryApi#getSummary', () => {
         'gameType',
         'host',
         'id',
+        'lifecycle',
         'map',
         'name',
         'playerSlots',

@@ -47,6 +47,7 @@ export class LobbySummaryApi {
         host: { id: summary.host.id },
         playerSlots: { ...summary.playerSlots },
         useLegacyLimits: summary.useLegacyLimits,
+        lifecycle: summary.lifecycle,
         map: {
           id: map.id,
           name: map.name,

@@ -2,6 +2,7 @@ import { castDraft, Draft, Immutable } from 'immer'
 import { nanoid } from 'nanoid'
 import { GameType } from '../../common/games/game-type'
 import { Lobby } from '../../common/lobbies'
+import { LobbyRunStateJson } from '../../common/lobbies/lobby-network'
 import { SbLobbyId } from '../../common/lobbies/sb-lobby-id'
 import { Slot, SlotType } from '../../common/lobbies/slot'
 import { ReduxAction } from '../action-types'
@@ -45,11 +46,22 @@ const EMPTY_LOBBY: Lobby = Object.freeze({
   createdAt: 0,
 })
 
+/**
+ * A lobby's running game and who's still in it (see `LobbyRunStateJson`), plus a client-only
+ * timestamp captured when this client first observed the run state -- used to show a rough
+ * elapsed-time readout without the server needing to report an exact start time.
+ */
+export interface LobbyRunState extends LobbyRunStateJson {
+  startedAt: number
+}
+
 export interface CurrentLobbyState {
   // TODO(tec27): `info` holds the server's JSON-serialized lobby directly, so e.g. `map` is a
   // `MapInfoJson` rather than a full `MapInfo`. We should probably move the map data out of this
   // struct generally.
   info: Lobby
+  /** The lobby's running game, while it's `inGame`; absent while it's gathering. */
+  runState?: LobbyRunState
   loadingState: LobbyLoadingState
   /** The lobby's chat log. */
   chat: SbMessage[]
@@ -59,6 +71,7 @@ export interface CurrentLobbyState {
 
 const DEFAULT_STATE: CurrentLobbyState = {
   info: EMPTY_LOBBY,
+  runState: undefined,
   loadingState: EMPTY_LOADING_STATE,
   chat: [],
   activated: false,
@@ -123,6 +136,20 @@ type LobbyHandlerMap = {
 type AnyLobbyHandler = (draft: LobbyDraft, action: any, originalState: any) => void
 
 /**
+ * Returns whether the lobby currently has a slot at the given position, which is the precondition
+ * every handler that updates a slot by index shares.
+ *
+ * It fails either because we aren't in a lobby at all (e.g. the event trailed our own removal in a
+ * diff, leaving the empty lobby with no teams behind), or because the position doesn't match the
+ * layout we hold (e.g. the event raced a settings change that rebuilt it). Such an event describes
+ * a lobby we aren't looking at, so it is dropped rather than applied to whatever happens to be at
+ * that index.
+ */
+function hasSlotAt(draft: LobbyDraft, teamIndex: number, slotIndex: number): boolean {
+  return !!draft.info.teams[teamIndex]?.slots[slotIndex]
+}
+
+/**
  * Wraps every handler in `handlers` so that `finalizeLobbyUpdate` runs after each one
  * automatically, instead of relying on every handler remembering to call it itself. Making the
  * bookkeeping structural this way means a future handler can't forget it -- forgetting it would
@@ -143,6 +170,13 @@ function withLobbyBookkeeping<T extends LobbyHandlerMap>(handlers: T): T {
 const lobbyHandlers = {
   '@lobbies/init'(draft, action) {
     draft.info = castDraft(action.payload.lobby)
+    // Present when joining a lobby that's already `inGame` (e.g. taking a bench seat mid-game).
+    draft.runState = action.payload.runState
+      ? {
+          ...action.payload.runState,
+          startedAt: performance.now() - action.payload.runState.elapsedMs,
+        }
+      : undefined
     draft.loadingState = EMPTY_LOADING_STATE
     pushChat(draft, {
       id: nanoid(),
@@ -154,12 +188,11 @@ const lobbyHandlers = {
   },
 
   '@lobbies/updateSlotCreate'(draft, action) {
-    if (!draft.info.name) {
-      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+    const { teamIndex, slotIndex, slot } = action.payload
+    if (!hasSlotAt(draft, teamIndex, slotIndex)) {
       return
     }
 
-    const { teamIndex, slotIndex, slot } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex] = slot
 
     if (slot.type === SlotType.Human) {
@@ -173,22 +206,20 @@ const lobbyHandlers = {
   },
 
   '@lobbies/updateRaceChange'(draft, action) {
-    if (!draft.info.name) {
-      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+    const { teamIndex, slotIndex, newRace } = action.payload
+    if (!hasSlotAt(draft, teamIndex, slotIndex)) {
       return
     }
 
-    const { teamIndex, slotIndex, newRace } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex].race = newRace
   },
 
   '@lobbies/updateSlotChange'(draft, action) {
-    if (!draft.info.name) {
-      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+    const { teamIndex, slotIndex, player } = action.payload
+    if (!hasSlotAt(draft, teamIndex, slotIndex)) {
       return
     }
 
-    const { teamIndex, slotIndex, player } = action.payload
     draft.info.teams[teamIndex].slots[slotIndex] = player
   },
 
@@ -254,16 +285,19 @@ const lobbyHandlers = {
 
   '@lobbies/updateLeaveSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
   '@lobbies/updateKickSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
   '@lobbies/updateBanSelf'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 
@@ -282,13 +316,60 @@ const lobbyHandlers = {
     })
   },
 
-  '@lobbies/updateGameStarted'(draft) {
-    draft.info = castDraft(EMPTY_LOBBY)
+  '@lobbies/updateGameStarted'(draft, action) {
+    if (!draft.info.name) {
+      // Not in a lobby (e.g. this event trailed our own removal in a diff) - nothing to update
+      return
+    }
+
+    // Unlike the other lifecycle transitions above, the lobby survives its own game: its info is
+    // left as-is, and `runState` tracks the game until it regroups.
+    draft.runState = {
+      ...action.payload.runState,
+      // Anchored against the carried elapsed time, so someone arriving mid-game reads it right.
+      startedAt: performance.now() - action.payload.runState.elapsedMs,
+    }
     draft.loadingState = EMPTY_LOADING_STATE
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyGameStarted,
+      time: Date.now(),
+    })
+  },
+
+  '@lobbies/updateMemberGameEnded'(draft, action) {
+    if (!draft.info.name || !draft.runState) {
+      return
+    }
+
+    draft.runState.inGameUsers = draft.runState.inGameUsers.filter(
+      id => id !== action.payload.userId,
+    )
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyMemberGameEnded,
+      time: Date.now(),
+      userId: action.payload.userId,
+    })
+  },
+
+  '@lobbies/updateRegroup'(draft, action) {
+    if (!draft.info.name) {
+      return
+    }
+
+    draft.runState = undefined
+    pushChat(draft, {
+      id: nanoid(),
+      type: LobbyMessageType.LobbyRegroup,
+      time: Date.now(),
+      gameId: action.payload.gameId,
+    })
   },
 
   '@network/connect'(draft) {
     draft.info = castDraft(EMPTY_LOBBY)
+    draft.runState = undefined
     draft.loadingState = EMPTY_LOADING_STATE
   },
 

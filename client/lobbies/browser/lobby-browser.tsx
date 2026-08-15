@@ -187,8 +187,14 @@ export function LobbyBrowser({ onNavigateToCreate }: LobbyBrowserProps) {
     .filter(summary => {
       // Lobbies with no way in — no player seat, no observer seat — hide by default; the Show
       // full filter reveals them. An open observer seat alone keeps a lobby listed: it's still
-      // joinable, just not as a player.
-      if (!showFull && summary.playerSlots.open === 0 && summary.observerSlots.open === 0) {
+      // joinable, just not as a player. A lobby with a game in progress always shows: it's
+      // joinable (onto the bench) even with every seat taken, and the server deliberately lists it.
+      if (
+        !showFull &&
+        summary.lifecycle !== 'inGame' &&
+        summary.playerSlots.open === 0 &&
+        summary.observerSlots.open === 0
+      ) {
         return false
       }
       if (gameType !== undefined && summary.gameType !== gameType) {

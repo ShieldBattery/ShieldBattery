@@ -169,6 +169,7 @@ export interface LobbyInviteDisplayData {
   gameType: GameType
   hostName: string
   openSlotCount: number
+  inGame: boolean
 }
 
 /**
@@ -193,10 +194,12 @@ function LobbyInviteCardBody({
   const dispatch = useAppDispatch()
 
   const hostAndGameType = `${display.hostName} · ${gameTypeToLabel(display.gameType, t)}`
-  const slotsText = t('lobbies.joinLobby.openSlotCount', {
-    defaultValue: '{{count}} slots open',
-    count: display.openSlotCount,
-  })
+  const statusText = display.inGame
+    ? t('lobbies.lobby.inGame', 'In game')
+    : t('lobbies.joinLobby.openSlotCount', {
+        defaultValue: '{{count}} slots open',
+        count: display.openSlotCount,
+      })
 
   return (
     <CardRoot>
@@ -211,7 +214,7 @@ function LobbyInviteCardBody({
       <InfoColumn>
         <LobbyName title={display.name}>{display.name}</LobbyName>
         <SecondaryLine title={hostAndGameType}>{hostAndGameType}</SecondaryLine>
-        <SecondaryLine title={slotsText}>{slotsText}</SecondaryLine>
+        <SecondaryLine title={statusText}>{statusText}</SecondaryLine>
       </InfoColumn>
       {joinButton.joined ? (
         <JoinButton
@@ -272,6 +275,7 @@ export function LobbyInviteCardContent({
         gameType: lobby.gameType,
         hostName: host.name,
         openSlotCount: lobby.playerSlots.open,
+        inGame: lobby.lifecycle === 'inGame',
       }}
       joinButton={{ joined: false, onClick: onJoinClick }}
     />
@@ -335,6 +339,7 @@ function JoinableLobbyInviteCard({ lobbyId }: { lobbyId: SbLobbyId }) {
 function OwnLobbyInviteCard() {
   const info = useAppSelector(s => s.lobby.info)
   const hostName = useAppSelector(s => s.users.byId.get(info.host.userId!)?.name) ?? ''
+  const inGame = useAppSelector(s => s.lobby.runState !== undefined)
 
   return (
     <LobbyInviteJoinedCard
@@ -344,6 +349,7 @@ function OwnLobbyInviteCard() {
         gameType: info.gameType,
         hostName,
         openSlotCount: countOpenLobbySlots(info),
+        inGame,
       }}
     />
   )

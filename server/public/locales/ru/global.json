@@ -925,6 +925,7 @@
     "browser": {
       "benchCaptionBenchFull": "И лобби, и скамейка заполнены",
       "benchCaptionFull": "Лобби заполнено — Вы будете ждать на скамейке, пока не освободится место",
+      "benchCaptionInGame": "Игра уже идёт — Вы подождёте на скамейке до следующей",
       "benchCaptionObserverFallback": "Все места игроков заняты — присоединившись, Вы займёте место зрителя",
       "benchWaiting_one": "{{count}} человек ждёт места",
       "benchWaiting_few": "{{count}} человека ждут места",
@@ -943,6 +944,7 @@
       "friendsInside_many": "{{count}} друзей в этом лобби",
       "friendsInside_other": "{{count}} друга в этом лобби",
       "full": "Заполнено",
+      "inGame": "В игре",
       "joinAsObserver": "Присоединиться как зритель",
       "joinLobby": "Присоединиться к лобби",
       "legacyLimits": "Классический лимит",
@@ -1078,6 +1080,7 @@
       "copiedInviteLink": "Скопировано!",
       "copyInviteLink": "Копировать ссылку-приглашение",
       "gameType": "Тип игры",
+      "inGame": "В игре",
       "leaveLobby": "Выйти из лобби",
       "startGame": "Начать игру",
       "unitLimit": "Лимит единиц",

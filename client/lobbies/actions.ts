@@ -7,9 +7,12 @@ import {
   LobbyInitEvent,
   LobbyKickEvent,
   LobbyLeaveEvent,
+  LobbyMemberGameEndedEvent,
   LobbyPreferencesResponse,
   LobbyPreviewJson,
   LobbyRaceChangeEvent,
+  LobbyRegroupEvent,
+  LobbyRunStateJson,
   LobbySettingsChangeEvent,
   LobbySlotChangeEvent,
   LobbySlotCreateEvent,
@@ -45,6 +48,8 @@ export type LobbyActions =
   | LobbyUpdateLeaveSelf
   | LobbyUpdateLoadingStart
   | LobbyUpdateLoadingCanceled
+  | LobbyUpdateMemberGameEnded
+  | LobbyUpdateRegroup
   | LobbyUpdateRaceChange
   | LobbyUpdateSettingsChange
   | LobbyUpdateSlotChange
@@ -170,9 +175,39 @@ export interface LobbyUpdateCountdownTick {
   payload: number
 }
 
-/** The game has been started and this lobby is now complete/closed. */
+/**
+ * The lobby's game has started. The lobby keeps its members and info, tracking the running game
+ * through its run state until it regroups.
+ */
 export interface LobbyUpdateGameStarted {
   type: '@lobbies/updateGameStarted'
+  payload: {
+    runState: LobbyRunStateJson
+    /**
+     * Whether we hold a slot in the game that started. Benched members get this event too, but no
+     * game launches locally for them, so only a participant's client has a game whose own
+     * lifecycle will eventually clear the active-game state again.
+     */
+    isParticipant: boolean
+  }
+}
+
+/**
+ * A member of a lobby we're in has finished their game and returned to the lobby. The lobby's game
+ * may still be running for its other members.
+ */
+export interface LobbyUpdateMemberGameEnded {
+  type: '@lobbies/updateMemberGameEnded'
+  payload: LobbyMemberGameEndedEvent
+}
+
+/**
+ * The lobby we're in has finished its game for every member and is gathering again, with its seats
+ * and races kept.
+ */
+export interface LobbyUpdateRegroup {
+  type: '@lobbies/updateRegroup'
+  payload: LobbyRegroupEvent
 }
 
 /** A lobby we're in now has a new host player. */

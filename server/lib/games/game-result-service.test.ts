@@ -22,6 +22,7 @@ import {
 import { checkSessionsAlive, loadConfigFromEnv } from '../netcode-v2/netcode-v2-service'
 import { FakeClock } from '../time/testing/fake-clock'
 import { incrementUserStatsCount } from '../users/user-stats-model'
+import { GameLifecycleEvents } from './game-lifecycle-events'
 import {
   findFullyReportedUnreconciledGames,
   findKnownCompleteUnreconciledGames,
@@ -299,6 +300,7 @@ describe('games/game-result-service/GameResultService#maybeScheduleKnownComplete
       {} as any,
       clock,
       {} as any,
+      new GameLifecycleEvents(),
     )
 
     // `maybeReconcileResults` and `publishReconciledGame` are exercised by their own tests
@@ -433,6 +435,7 @@ describe('games/game-result-service/GameResultService#forceReconcileGame', () =>
       {} as any,
       clock,
       {} as any,
+      new GameLifecycleEvents(),
     )
 
     maybeReconcileResults = vi.spyOn(service as any, 'maybeReconcileResults')
@@ -536,6 +539,7 @@ describe('games/game-result-service/GameResultService periodic sweep — netcode
       {} as any,
       clock,
       {} as any,
+      new GameLifecycleEvents(),
     )
 
     forceReconcileGame = vi.spyOn(service, 'forceReconcileGame').mockResolvedValue(undefined)
@@ -671,6 +675,7 @@ describe('games/game-result-service/GameResultService#maybeReconcileResults', ()
       { getSeasonForDate: vi.fn().mockResolvedValue([{ id: 1 }, undefined]) } as any,
       clock,
       {} as any,
+      new GameLifecycleEvents(),
     )
   })
 

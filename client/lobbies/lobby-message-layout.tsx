@@ -5,10 +5,13 @@ import styled from 'styled-components'
 import { assertUnreachable } from '../../common/assert-unreachable'
 import { LobbyChangedSetting } from '../../common/lobbies/lobby-network'
 import { SbUserId } from '../../common/users/sb-user-id'
+import { navigateToGameResults } from '../games/action-creators'
 import { TransInterpolation } from '../i18n/i18next'
+import { TextButton } from '../material/button'
 import { ChatContext } from '../messaging/chat-context'
 import { useMentionFilterClick } from '../messaging/mention-hooks'
 import { SystemImportant, SystemMessage } from '../messaging/message-layout'
+import { BodyMedium } from '../styles/typography'
 import { ConnectedUsername } from '../users/connected-username'
 
 export const JoinLobbyMessage = memo<{ time: number; userId: SbUserId }>(props => {
@@ -278,6 +281,77 @@ export const BenchJoinMessage = memo<{ time: number; userId: SbUserId }>(props =
           is waiting for a seat
         </Trans>
       </span>
+    </SystemMessage>
+  )
+})
+
+export const LobbyGameStartedMessage = memo<{ time: number }>(props => {
+  const { time } = props
+  const { t } = useTranslation()
+  return (
+    <SystemMessage time={time}>
+      <span>{t('lobbies.messageLayout.gameStarted', 'The game has started')}</span>
+    </SystemMessage>
+  )
+})
+
+export const LobbyMemberGameEndedMessage = memo<{ time: number; userId: SbUserId }>(props => {
+  const { time, userId } = props
+  const { t } = useTranslation()
+  const filterClick = useMentionFilterClick()
+  const { UserMenu } = useContext(ChatContext)
+  return (
+    <SystemMessage time={time}>
+      <span>
+        <Trans t={t} i18nKey='lobbies.messageLayout.memberGameEnded'>
+          <SystemImportant>
+            <ConnectedUsername userId={userId} filterClick={filterClick} UserMenu={UserMenu} />
+          </SystemImportant>{' '}
+          has returned to the lobby
+        </Trans>
+      </span>
+    </SystemMessage>
+  )
+})
+
+const RegroupCard = styled.div`
+  width: 100%;
+  max-width: 320px;
+  margin-top: 4px;
+  padding: 8px 12px;
+  /* The card renders as a block child of the message container, whose hanging-indent trick (see
+   * MessageContainer in message-layout.tsx) is meant for message text only. */
+  text-indent: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  background-color: var(--theme-container-low);
+  border: 1px solid var(--theme-outline-variant);
+  border-radius: 8px;
+`
+
+/**
+ * A small card announcing that a lobby's game has finished and everyone's back: the point of the
+ * card (rather than a plain line of text) is the "View results" action, since the lobby itself no
+ * longer shows the game once it's regrouped.
+ */
+export const LobbyRegroupMessage = memo<{ time: number; gameId: string }>(props => {
+  const { time, gameId } = props
+  const { t } = useTranslation()
+
+  return (
+    <SystemMessage time={time}>
+      <RegroupCard>
+        <BodyMedium>{t('lobbies.messageLayout.regroupTitle', 'Game finished')}</BodyMedium>
+        <TextButton
+          label={t('lobbies.messageLayout.regroupViewResults', 'View results')}
+          onClick={() => navigateToGameResults(gameId)}
+          testName='lobby-regroup-view-results-button'
+        />
+      </RegroupCard>
     </SystemMessage>
   )
 })
