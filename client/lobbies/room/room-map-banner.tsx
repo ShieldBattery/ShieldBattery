@@ -5,7 +5,6 @@ import styled, { css, keyframes } from 'styled-components'
 import { gameTypeToLabel } from '../../../common/games/game-type'
 import { tilesetToName } from '../../../common/maps'
 import { SbUserId } from '../../../common/users/sb-user-id'
-import { ConnectedAvatar } from '../../avatars/avatar'
 import { MaterialIcon } from '../../icons/material/material-icon'
 import { MapInfoImage } from '../../maps/map-image'
 import { ReduxMapThumbnail } from '../../maps/map-thumbnail'
@@ -24,7 +23,7 @@ import {
   titleMedium,
 } from '../../styles/typography'
 import { LobbyScoreboard } from './lobby-scoreboard'
-import { getWinsByUser, lobbySeriesAtom, LobbySeriesGame } from './room-atoms'
+import { lobbySeriesAtom, LobbySeriesGame } from './room-atoms'
 import { formatGameDuration, memberCount, SectionLabel, TeamArrangement } from './room-parts'
 
 const BannerRoot = styled.div`
@@ -172,23 +171,6 @@ const TimelineLabelRow = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-`
-
-const LeaderChip = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 6px;
-`
-
-const LeaderAvatar = styled(ConnectedAvatar)`
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-`
-
-const LeaderWins = styled.div`
-  ${labelMedium};
-  color: var(--theme-on-surface-variant);
 `
 
 const TimelineSpacer = styled.div`
@@ -625,23 +607,6 @@ export function RoomMapBanner({
     ['People', memberCount(lobby)],
   ]
 
-  // The current leader gets a chip in the timeline's label row, but only while the lead is
-  // unambiguous — a tie at the top names nobody.
-  const wins = getWinsByUser(series)
-  let leaderId: SbUserId | undefined
-  let leaderWins = 0
-  let leaderCount = 0
-  for (const [userId, count] of wins) {
-    if (count > leaderWins) {
-      leaderWins = count
-      leaderCount = 1
-      leaderId = userId
-    } else if (count === leaderWins) {
-      leaderCount += 1
-    }
-  }
-  const uniqueLeaderId = leaderCount === 1 && leaderWins > 0 ? leaderId : undefined
-
   const recentStartIndex = Math.max(0, series.length - 3)
   const recentGames = series
     .slice(recentStartIndex)
@@ -699,12 +664,6 @@ export function RoomMapBanner({
           <TimelineSection>
             <TimelineLabelRow>
               <SectionLabel>Games</SectionLabel>
-              {uniqueLeaderId !== undefined ? (
-                <LeaderChip>
-                  <LeaderAvatar userId={uniqueLeaderId} />
-                  <LeaderWins>{leaderWins === 1 ? '1 win' : `${leaderWins} wins`}</LeaderWins>
-                </LeaderChip>
-              ) : null}
               <TimelineSpacer />
               {series.length > 0 ? (
                 <AllGamesButton ref={allGamesAnchorRef} type='button' onClick={openAllGames}>
