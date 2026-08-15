@@ -920,7 +920,9 @@
       "title": "Lobbies ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionBenchFull": "El lobby y su banquillo están llenos",
       "benchCaptionFull": "El lobby está lleno: esperarás en el banquillo hasta que se libere un sitio",
+      "benchCaptionObserverFallback": "Los espacios de jugador están llenos: al unirte entrarás como observador",
       "benchWaiting_one": "{{count}} esperando un sitio",
       "benchWaiting_many": "{{count}} esperando un sitio",
       "benchWaiting_other": "{{count}} esperando un sitio",

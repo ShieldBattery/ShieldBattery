@@ -923,7 +923,9 @@
       "title": "Лобби ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionBenchFull": "И лобби, и скамейка заполнены",
       "benchCaptionFull": "Лобби заполнено — Вы будете ждать на скамейке, пока не освободится место",
+      "benchCaptionObserverFallback": "Все места игроков заняты — присоединившись, Вы займёте место зрителя",
       "benchWaiting_one": "{{count}} человек ждёт места",
       "benchWaiting_few": "{{count}} человека ждут места",
       "benchWaiting_many": "{{count}} человек ждут места",

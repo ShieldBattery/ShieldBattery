@@ -914,7 +914,9 @@
       "title": "로비 ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionBenchFull": "로비와 벤치가 모두 가득 찼습니다",
       "benchCaptionFull": "로비가 가득 찼습니다. 자리가 날 때까지 벤치에서 대기하게 됩니다",
+      "benchCaptionObserverFallback": "플레이어 자리가 가득 찼습니다. 참여하면 관전자로 들어가게 됩니다",
       "benchWaiting_other": "{{count}}명 자리 대기 중",
       "createDisabledWhileMatchmaking": "매치메이킹이 진행 중일 때는 로비를 만들 수 없습니다.",
       "emptyAllFull": "지금은 모든 로비가 가득 찼습니다",

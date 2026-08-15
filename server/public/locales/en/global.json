@@ -917,7 +917,9 @@
       "title": "Lobbies ({{lobbyCount}})"
     },
     "browser": {
+      "benchCaptionBenchFull": "The lobby and its bench are both full",
       "benchCaptionFull": "Lobby is full — you'll wait on the bench for a seat",
+      "benchCaptionObserverFallback": "Player slots are full — joining will seat you as an observer",
       "benchWaiting_one": "{{count}} waiting for a seat",
       "benchWaiting_other": "{{count}} waiting for a seat",
       "createDisabledWhileMatchmaking": "You cannot create a lobby while a matchmaking search is active.",
